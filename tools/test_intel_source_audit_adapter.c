@@ -1,11 +1,13 @@
 #include <srvros/x86_cache.h>
+#include <srvros/vmm.h>
+static bool intel_display_test_source_audit_alias(uint64_t,uint64_t,uint64_t,uint32_t,unsigned,struct vmm_alias_observation *);
 static bool intel_display_test_source_audit_clock(uint64_t *);
 static bool intel_display_test_source_audit_pci(unsigned,uint32_t *);
 static bool intel_display_test_source_audit_plane(unsigned,unsigned,uint32_t *);
 static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *);
 #define INTEL_ENGINES_FIXTURE_MAIN engines_adapter_main
 #include "test_intel_source_engines_adapter.c"
-static unsigned audit_clocks,audit_pci,audit_planes,audit_caches;
+static unsigned audit_clocks,audit_pci,audit_planes,audit_caches,audit_aliases;
 static bool intel_display_test_source_audit_clock(uint64_t *at) {
  ++audit_clocks;struct intel_source_audit_native *a=&source_audit_native;
  if(jf("audit-zero",audit_clocks)){*at=0;return true;}
@@ -20,6 +22,8 @@ static bool intel_display_test_source_audit_clock(uint64_t *at) {
  if(jf("audit-origin",audit_clocks))a->origin++;
  if(jf("audit-parent-origin",audit_clocks))a->parent_begin++;
  if(jf("audit-count",audit_clocks))a->pci_reads++;
+ if(jf("audit-range-count",audit_clocks))a->range_checks++;
+ if(jf("audit-alias-count",audit_clocks))a->alias_checks++;
  if(jf("audit-samples",audit_clocks))a->samples++;
  if(jf("audit-state",audit_clocks))a->state=2;
  if(jf("audit-registration",audit_clocks))a->registered=false;
@@ -60,6 +64,24 @@ static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *out
   out->mask[1]=(((1ull<<39)-1)&~4095ull)|0x800;
  }
  if(jf("audit-cache-pat",audit_caches))out->pat=(out->pat&~255ull)|7;
+ return true;
+}
+static bool intel_display_test_source_audit_alias(uint64_t root,uint64_t va,uint64_t physical,uint32_t pages,unsigned bits,struct vmm_alias_observation *out) {
+ assert(source_audit_live() && wake_irq && requester_command==3 && engines_actual==5);
+ assert(root==0x1000 && va==physical && pages==1356 && bits==39);
+ ++audit_aliases;
+ if(jf("audit-alias-fail",audit_aliases))return false;
+ *out=(struct vmm_alias_observation){.pages=pages,.leaves=pages,.writable=1,.no_execute=1,.leaf_sizes=1};
+ if(jf("audit-alias-user",audit_aliases))out->user=1;
+ if(jf("audit-alias-readonly",audit_aliases))out->writable=0;
+ if(jf("audit-alias-pages",audit_aliases))out->pages--;
+ if(jf("audit-alias-empty",audit_aliases))out->leaves=0;
+ if(jf("audit-alias-overflow",audit_aliases))out->leaves=pages+1;
+ if(jf("audit-alias-size",audit_aliases))out->leaf_sizes=8;
+ if(jf("audit-alias-nx",audit_aliases))out->no_execute=2;
+ if(jf("audit-alias-cache",audit_aliases))out->pat_index=3;
+ if(jf("audit-alias-index",audit_aliases))out->pat_index=8;
+ if(jf("audit-alias-time",audit_aliases))ticks=source_audit_native.origin+100001;
  return true;
 }
 int main(int argc,char **argv) {

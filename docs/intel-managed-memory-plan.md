@@ -8,6 +8,13 @@ driver-takeover route and orders the next composition and software work.
 The inherited framebuffer remains the desktop backend. The current native
 provider still supplies zero hardware assurances to `scanout_handoff`.
 
+The next bounded implementation is the [source-audit version3 requested CPU
+mapping observation](intel-source-audit.md#actual-requested-cpu-mappings-receipt-version3).
+It reads actual full-buffer HHDM PAT/permission attributes instead of assuming
+PAT0, under the original held source/root/exclusion. This is pending qualification
+and native evidence. It neither enumerates every physical alias nor clears a
+hardware ownership obligation. No GPU range, PTE or submission grant is added.
+
 ## What is established
 
 The accepted source `f68ab030` completes an already-disabled, zero-geometry BCS

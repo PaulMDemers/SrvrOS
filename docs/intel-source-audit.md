@@ -44,6 +44,36 @@ Failure after the existing engine/requester stores retains the entire parent
 chain and private RAM. Do not cancel through uncertain ownership, restore by
 replaying an unknown store or grant memory because observations matched.
 
+## Actual requested CPU mappings (receipt version3)
+
+Version3 replaces the hypothetical PAT0 selection with a fresh walk of each
+complete pinned buffer's actual HHDM mapping in both original samples. The
+read-only VMM observer requires the same current untagged sole kernel root and
+masked interrupts at entry and exit. It follows the full ancestor path, compares
+every4KiB translation (sharing a large leaf or a PT only within this excluded
+call), checks the captured physical width and large-leaf reserved alignment bits,
+and requires uniform leaf PAT:PCD:PWT and combined ancestor/leaf RW/US/NX entry
+bits throughout the requested span. Nonleaf PWT/PCD select table accesses and do
+not select the data PAT entry; PAT is bit7 on4KiB leaves and bit12 on large leaves.
+A/D changes are not permission/cache changes. The buffers must be writable and
+supervisor-only; NX is reported as entry bits, without claiming EFER.NXE or
+executable authority. Failure publishes no partial VMM observation.
+
+Each original-bound actual index feeds the full MTRR/PAT range calculation.
+The pure final return gate also requires the original root, HHDM identity,
+complete page/leaf coverage, permissions, leaf-size set and repeated result.
+No new guard budget is granted: original clocks bracket the observation and
+all100/300/400/500ms limits stay unchanged. Range and alias counters must also
+survive the original clock callback unchanged.
+
+This checks only the requested CPU mappings. It does not census other aliases,
+prove TLB/cache coherence or rule out firmware/SMM changes. The compact receipt
+carries the observed uniform attributes and coverage, not every raw PTE; the
+receiver validates coverage, identity, repetition and the independently decoded
+full physical cache policy. Actual walker semantics are exercised by host tests.
+DMA, GPU cache/translation, firmware and display-reader ownership remain separate
+open requirements. Version3 native acceptance is pending.
+
 ## Admission and transport
 
 Only v35 removes one redundant full opening engine guard in the post-reset
@@ -60,7 +90,11 @@ partial counts, cache-read metadata and sample clocks. Version 2 adds two exact
 private-buffer range records per sample, making 528 bytes; each record carries
 physical base, complete padded page count, hypothetical PAT index, MTRR/PAT/
 effective type and the number of evaluated boundary points. Summary and data
-versions must agree. The earlier version-1 native evidence remains historical
+versions must agree. Version3 has a600-byte vector: the original root followed
+by two296-byte samples. Each48-byte range record adds the actual virtual base,
+leaf count and packed RW/US/NX/leaf-size bits to the32-byte policy record. The
+summary adds four alias checks. Earlier version1/2 observations retain their
+original classification and never gain actual-mapping acceptance. The earlier version-1 native evidence remains historical
 observation evidence, not full-buffer-policy acceptance. A separate canonical 528-byte
 reset receipt transports the unchanged twelve reset-control/ACK records,
 including each raw word, poll count and four timestamps. The v35 receiver

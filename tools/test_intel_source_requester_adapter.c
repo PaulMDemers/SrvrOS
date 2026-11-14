@@ -58,6 +58,16 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("audit-final-range-base",requester_final_clock))source_audit_native.range[1][0].physical+=4096;
   if(jf("audit-final-range-pages",requester_final_clock))source_audit_native.range[1][0].pages--;
   if(jf("audit-final-range-index",requester_final_clock))source_audit_native.range[1][0].index=1;
+  if(jf("audit-final-alias-count",requester_final_clock))source_audit_native.alias_checks--;
+  if(jf("audit-final-alias-root",requester_final_clock))source_audit_native.root+=4096;
+  if(jf("audit-final-alias-va",requester_final_clock))source_audit_native.range[1][0].virtual_base+=4096;
+  if(jf("audit-final-alias-pages",requester_final_clock))source_audit_native.range[1][0].alias.pages--;
+  if(jf("audit-final-alias-leaves",requester_final_clock))source_audit_native.range[1][0].alias.leaves--;
+  if(jf("audit-final-alias-index",requester_final_clock))source_audit_native.range[1][0].alias.pat_index=1;
+  if(jf("audit-final-alias-write",requester_final_clock))source_audit_native.range[1][0].alias.writable=0;
+  if(jf("audit-final-alias-user",requester_final_clock))source_audit_native.range[1][0].alias.user=1;
+  if(jf("audit-final-alias-nx",requester_final_clock))source_audit_native.range[1][0].alias.no_execute=0;
+  if(jf("audit-final-alias-size",requester_final_clock))source_audit_native.range[1][0].alias.leaf_sizes=0;
   if(jf("audit-final-range-type",requester_final_clock))source_audit_native.range[1][0].effective=0;
   if(jf("audit-final-range-checks",requester_final_clock))source_audit_native.range[1][0].checks++;
 #endif

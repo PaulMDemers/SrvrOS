@@ -278,8 +278,25 @@ bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
     return diagnostic_sole_root(expected,NULL,1,0);
 }
 
-bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages,
-    struct vmm_range_observation *d) {
+/* Data PAT comes from the leaf only. Nonleaf PWT/PCD select page-table
+ * accesses, while RW/US/NX entry restrictions combine over the whole path. */
+static bool alias_leaf(struct vmm_alias_observation *o,uint64_t leaf,unsigned level,bool rw,bool user,bool nx) {
+    unsigned pat=(unsigned)((leaf>>3)&3) | (unsigned)(((leaf>>(level==4?7:12))&1)<<2);
+    rw=rw && !!(leaf&VMM_PAGE_WRITABLE);user=user && !!(leaf&VMM_PAGE_USER);nx=nx || !!(leaf&VMM_PAGE_NO_EXECUTE);
+    if(o->leaves && (o->pat_index!=pat || o->writable!=rw || o->user!=user || o->no_execute!=nx))return false;
+    o->pat_index=pat;o->writable=rw;o->user=user;o->no_execute=nx;
+    ++o->leaves;o->leaf_sizes|=1u<<(4-level);return true;
+}
+static bool diagnostic_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages,
+    struct vmm_range_observation *d,struct vmm_alias_observation *alias,unsigned bits) {
+    struct vmm_alias_observation result={0};
+    uint64_t allowed=PAGE_MASK;
+    if(alias) {
+        if(bits<36 || bits>52)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,8);
+        allowed=((1ull<<bits)-1)&PAGE_MASK;
+        if(pa>allowed || (pages && pages<=4096 && (pages-1)*PAGE_SIZE>allowed-pa))
+            return range_refuse(d,0,VMM_RANGE_INPUT,0,0,9);
+    }
     if(d)*d=(struct vmm_range_observation){0};
     if(!pages || pages>4096)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,1);
     if(va&(PAGE_SIZE-1))return range_refuse(d,0,VMM_RANGE_INPUT,0,0,2);
@@ -296,22 +313,30 @@ bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,uint64_t va,ui
     while (pages) {
         const volatile uint64_t *table=kernel_pml4;
         uint64_t entry=table[pml4_index(va)];
+        bool rw=!!(entry&VMM_PAGE_WRITABLE),user=!!(entry&VMM_PAGE_USER),nx=!!(entry&VMM_PAGE_NO_EXECUTE);
+        if(alias && (entry&PAGE_MASK&~allowed))return range_refuse(d,2,VMM_RANGE_RESERVED,1,done,0);
         if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PML4_PRESENT,1,done,0);
         if(entry&PAGE_LARGE)return range_refuse(d,2,VMM_RANGE_PML4_LARGE,1,done,0);
         table=entry_table(entry);
         if(!table || !is_canonical((uint64_t)table))return range_refuse(d,2,VMM_RANGE_TABLE_POINTER,2,done,0);
         entry=table[pdpt_index(va)];
+        rw=rw && !!(entry&VMM_PAGE_WRITABLE);user=user && !!(entry&VMM_PAGE_USER);nx=nx || !!(entry&VMM_PAGE_NO_EXECUTE);
+        if(alias && (entry&PAGE_MASK&~allowed))return range_refuse(d,2,VMM_RANGE_RESERVED,2,done,0);
         if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PDPT_PRESENT,2,done,0);
-        uint64_t chunk,physical;
+        uint64_t chunk,physical;unsigned level=2;
         if(entry&PAGE_LARGE) {
+            if(alias && (entry&0x3fffe000ull))return range_refuse(d,2,VMM_RANGE_RESERVED,2,done,0);
             physical=(entry&PAGE_1G_MASK)+(va&0x3fffffff);
             chunk=(0x40000000-(va&0x3fffffff))/PAGE_SIZE;
         } else {
             table=entry_table(entry);
             if(!table || !is_canonical((uint64_t)table))return range_refuse(d,2,VMM_RANGE_TABLE_POINTER,3,done,0);
-            entry=table[pd_index(va)];
+            entry=table[pd_index(va)];level=3;
+            rw=rw && !!(entry&VMM_PAGE_WRITABLE);user=user && !!(entry&VMM_PAGE_USER);nx=nx || !!(entry&VMM_PAGE_NO_EXECUTE);
+            if(alias && (entry&PAGE_MASK&~allowed))return range_refuse(d,2,VMM_RANGE_RESERVED,3,done,0);
             if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PD_PRESENT,3,done,0);
             if(entry&PAGE_LARGE) {
+                if(alias && (entry&0x1fe000ull))return range_refuse(d,2,VMM_RANGE_RESERVED,3,done,0);
                 physical=(entry&PAGE_2M_MASK)+(va&0x1fffff);
                 chunk=(0x200000-(va&0x1fffff))/PAGE_SIZE;
             } else {
@@ -321,20 +346,33 @@ bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,uint64_t va,ui
                 if(chunk>pages)chunk=pages;
                 for(uint64_t i=0;i<chunk;i++) {
                     entry=table[pt_index(va)+i];
+                    if(alias && (entry&PAGE_MASK&~allowed))return range_refuse(d,2,VMM_RANGE_RESERVED,4,done+i,0);
                     if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PTE_PRESENT,4,done+i,0);
                     if((entry&PAGE_MASK)!=pa+i*PAGE_SIZE)return range_refuse(d,2,VMM_RANGE_PTE_ADDRESS,4,done+i,0);
+                    if(alias && !alias_leaf(&result,entry,4,rw,user,nx))return range_refuse(d,2,VMM_RANGE_ATTRIBUTES,4,done+i,0);
                 }
-                physical=pa;
+                physical=pa;level=4;
             }
         }
         if(physical!=pa)return range_refuse(d,2,VMM_RANGE_LARGE_ADDRESS,0,done,0);
         if(chunk>pages)chunk=pages;
+        if(alias && level!=4 && !alias_leaf(&result,entry,level,rw,user,nx))return range_refuse(d,2,VMM_RANGE_ATTRIBUTES,level,done,0);
         pages-=chunk;done+=chunk;
         if(pages){va+=chunk*PAGE_SIZE;pa+=chunk*PAGE_SIZE;}
     }
     if(!diagnostic_sole_root(root,d,3,done))return false;
     if(d)*d=(struct vmm_range_observation){.phase=4,.checked=done};
+    if(alias){result.pages=(uint32_t)done;*alias=result;}
     return true;
+}
+bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages,
+    struct vmm_range_observation *d) {
+    return diagnostic_range(root,va,pa,pages,d,NULL,0);
+}
+bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t pages,unsigned bits,
+    struct vmm_alias_observation *out,struct vmm_range_observation *d) {
+    if(!out)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,10);
+    return diagnostic_range(root,va,pa,pages,d,out,bits);
 }
 bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages) {
     return vmm_diagnostic_contiguous_kernel_range_observe(root,va,pa,pages,NULL);

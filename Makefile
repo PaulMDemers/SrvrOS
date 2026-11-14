@@ -6576,3 +6576,11 @@ build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_reque
 test-core: test-directory-dispatch
 test-directory-dispatch:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_directory_dispatch.py --output build/tests/directory-dispatch
+
+.PHONY: test-vmm-kernel-alias
+test-core: test-vmm-kernel-alias
+test-vmm-kernel-alias: build/tests/vmm-kernel-alias$(HOST_EXE)
+	$<
+build/tests/vmm-kernel-alias$(HOST_EXE): tools/test_vmm_kernel_alias.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

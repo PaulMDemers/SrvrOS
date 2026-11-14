@@ -25,7 +25,8 @@ enum vmm_range_reason {
     VMM_RANGE_PML4,VMM_RANGE_POINTER,VMM_RANGE_COUNT,VMM_RANGE_OCCUPANCY,
     VMM_RANGE_INPUT,VMM_RANGE_PML4_PRESENT,VMM_RANGE_PML4_LARGE,
     VMM_RANGE_TABLE_POINTER,VMM_RANGE_PDPT_PRESENT,VMM_RANGE_PD_PRESENT,
-    VMM_RANGE_PTE_PRESENT,VMM_RANGE_PTE_ADDRESS,VMM_RANGE_LARGE_ADDRESS
+    VMM_RANGE_PTE_PRESENT,VMM_RANGE_PTE_ADDRESS,VMM_RANGE_LARGE_ADDRESS,
+    VMM_RANGE_ATTRIBUTES,VMM_RANGE_RESERVED
 };
 /* Optional value-only witness from the original checks; no second probe.
  * phase0=input,1=entry root,2=walk,3=exit root,4=complete. level1..4 is
@@ -38,6 +39,21 @@ struct vmm_range_observation {
 bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,
     uint64_t virtual_base,uint64_t physical_base,uint64_t pages,
     struct vmm_range_observation *);
+/* Read-only observation of this requested alias only, not all physical aliases.
+ * Same sole-root/IRQ and 1..4096-page constraints. Read every leaf; require exact
+ * translation and uniform leaf PAT:PCD:PWT and combined RW/US/NX entry bits.
+ * physical_bits is the already captured CPU width (36..52). Check address and
+ * large-page reserved bits before following a table. NX reports entry bits,
+ * not EFER.NXE or executable authority. A/D and nonleaf PWT/PCD are not data
+ * cache selectors. No allocation, PTE/TLB/cache write or retained table pointer.
+ * Output is untouched on failure. leaf_sizes: 1=4KiB,2=2MiB,4=1GiB.
+ * Does not establish coherence, TLB state, ownership, SMP or alias completeness. */
+struct vmm_alias_observation {
+    uint32_t pages,leaves,pat_index,writable,user,no_execute,leaf_sizes;
+};
+bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t virtual_base,
+    uint64_t physical_base,uint32_t pages,unsigned physical_bits,
+    struct vmm_alias_observation *,struct vmm_range_observation *);
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */
