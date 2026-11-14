@@ -238,13 +238,14 @@ static void handoff_boundary(const char *fmt){
  else if(trial_case==22)wifi_fence5_second.bound=true;
  else if(trial_case==23)wifi_stream5.events_empty=false;
 }
-/* Independent 16-entry MAC status FIFO, fed by actual doorbell metadata.
+/* Independent finite MAC status FIFO (16-entry loss stress or80-entry capture), fed by actual doorbell metadata.
  * It is independent of AP DHCP replies and drops oldest entries on overflow. */
-static struct {uint32_t ext[16],fifo[16];unsigned head,count,dropped;bool ext_read,seeded[2];} data_status[2];
+static struct {uint32_t ext[DHCP_RADIO5_TX_LIMIT],fifo[DHCP_RADIO5_TX_LIMIT];unsigned head,count,dropped;bool ext_read,seeded[2];} data_status[2];
 static unsigned bound_at_doorbell;
 static void radio_queue(unsigned slot,unsigned pid,unsigned wcid,bool success){
- unsigned at=(data_status[slot].head+data_status[slot].count)%16;
- if(data_status[slot].count==16){data_status[slot].head=(data_status[slot].head+1)%16;data_status[slot].dropped++;}else data_status[slot].count++;
+ unsigned capacity=trial_case>=49?DHCP_RADIO5_TX_LIMIT:16u;
+ unsigned at=(data_status[slot].head+data_status[slot].count)%capacity;
+ if(data_status[slot].count==capacity){data_status[slot].head=(data_status[slot].head+1)%capacity;data_status[slot].dropped++;}else data_status[slot].count++;
  data_status[slot].ext[at]=(pid<<8)|2;
  data_status[slot].fifo[at]=0x20000081u|(wcid<<8)|(success?32u:0u);
 }
@@ -272,7 +273,10 @@ static bool data_status_read(struct xhci_device *d,bool write,uint32_t address,u
  if(!data_status[slot].seeded[phase]){
   data_status[slot].seeded[phase]=true;
   if(!phase && trial_case==41)radio_queue(slot,3,255,true);
+  if(phase && trial_case==50)radio_queue(slot,3+slot*3,255,true); /* late duplicate */
+  if(phase && trial_case==52)while(data_status[slot].count<DHCP_RADIO5_TX_LIMIT)radio_queue(slot,128,255,true);
  }
+ if(phase && trial_case==52)test_time+=500;
  if(address==0x1798){
   assert(!data_status[slot].ext_read);data_status[slot].ext_read=true;
   if(!phase && trial_case==47)return false;
@@ -280,28 +284,31 @@ static bool data_status_read(struct xhci_device *d,bool write,uint32_t address,u
     data_status[slot].count?data_status[slot].ext[data_status[slot].head]:0;
   if(phase && trial_case==45)d->removed=true;
   if(phase && trial_case==46)test_time+=DHCP_RADIO5_US;
+  if(phase && p->ext_reads==19 && trial_case==54)d->removed=true;
+  if(phase && p->ext_reads==19 && trial_case==55)test_time+=DHCP_RADIO5_US;
  }else{
   assert(address==0x1718 && data_status[slot].ext_read);data_status[slot].ext_read=false;
-  if(phase && trial_case==44)return false;
+  if(phase && (trial_case==44 || (trial_case==53 && p->fifo_reads==19)))return false;
   if((trial_case==42 && !phase) || (trial_case==43 && phase)){*value=0x2000ffa1;return true;}
-  if(data_status[slot].count){*value=data_status[slot].fifo[data_status[slot].head];data_status[slot].head=(data_status[slot].head+1)%16;data_status[slot].count--;}
-  else *value=0;
+  if(data_status[slot].count){*value=data_status[slot].fifo[data_status[slot].head];data_status[slot].head=(data_status[slot].head+1)%(trial_case>=49?DHCP_RADIO5_TX_LIMIT:16u);data_status[slot].count--;}
+  else *value=phase && trial_case==51?0x2000ffa1:0; /* no empty after all real tags */
  }
- assert(p->ext_reads<=17 && p->fifo_reads<=17);return true;
+ assert(p->ext_reads<=DHCP_RADIO5_READS && p->fifo_reads<=DHCP_RADIO5_READS);return true;
 }
 static void radio_native_failure(void){
  const struct http_network_probe *p=&wifi_http_reconnect5.probe[0];const struct dhcp_radio5 *r=&wifi_stream5_slots[0].data_radio;
- unsigned phase=trial_case==47?0:1,error=trial_case==45?2:trial_case==46?3:1;
+ unsigned phase=trial_case==47?0:1,error=(trial_case==45 || trial_case==54)?2:(trial_case==46 || trial_case==55)?3:1;
  assert(!wifi_http_reconnect5.connections && !wifi_http_reconnect5.probe[1].self && child_count==1);
  assert(r->phase[phase].attempted && !r->phase[phase].complete && r->phase[phase].error==error);
- assert(r->phase[phase].fifo_reads==0 && r->phase[phase].ext_reads==(trial_case==47?0u:1u));
+ assert(r->phase[phase].fifo_reads==(trial_case>=53?19u:0u) && r->phase[phase].ext_reads==(trial_case>=53?20u:trial_case==47?0u:1u));
  assert(wifi_stream5.failed && !wifi_stream5.retired && !wifi_stream5.connection_closed && wifi_stream5.commands==2 && !wifi_fence5_connection_switched);
- if(trial_case!=47)assert(p->result.quiescent && p->result.child_retired && p->result.worker_finished && !p->result.go);
+ if(trial_case>=53)assert(p->result.complete && !wifi_http_reconnect5.parent_complete && !wifi_http_reconnect5.complete && !wifi_stack5.detached);
+ if(trial_case!=47)assert(p->result.quiescent && p->result.child_retired && p->result.worker_finished && p->result.go==(trial_case>=53));
  else assert(!p->result.attempted && !r->count && !wifi_stream5.data_sends && !wifi_stack5_net.identity);
  puts("xhci-http-reconnect5: PASS radio read/control/ownership/clock refusal retains native context;no further FIFO read/Stop/reuse/second generation;acceptance=0");
 }
 int main(int argc,char **argv){
- trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<49);
+ trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<56);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
@@ -311,12 +318,12 @@ int main(int argc,char **argv){
  if((trial_case>=18 && trial_case<24) || (trial_case>=26 && trial_case<=31))test_console_printf_hook=handoff_boundary;
  if(trial_case==15)stream_test_before_connection=no_target_parent;
  if(trial_case==36)stream_test_outer_capture=slow_ready_parent;
- if(trial_case==37 || (trial_case>=44 && trial_case<=47))stream_test_outer_capture=handoff_rf_parent;
+ if(trial_case==37 || (trial_case>=44 && trial_case<=47) || trial_case>=53)stream_test_outer_capture=handoff_rf_parent;
  if(trial_case==16)stream_test_outer_capture=http5_test_RF_parent;
  if(trial_case==17)stream_test_outer_capture=legacy_rf_parent;
  if(trial_case==18 || trial_case==29 || trial_case==31)stream_test_outer_capture=handoff_rf_parent;
  if(trial_case==24 || trial_case==25 || trial_case==27 || trial_case==28 || trial_case==30 || (trial_case>=32 && trial_case<=35))stream_test_outer_capture=http5_test_RF_parent;
- if(trial_case>=38 && trial_case<=43)stream_test_outer_capture=http5_test_RF_parent;
+ if((trial_case>=38 && trial_case<=43) || (trial_case>=49 && trial_case<=52))stream_test_outer_capture=http5_test_RF_parent;
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
  http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=(trial_case==2 || trial_case==16 || trial_case==17)?53:trial_case==12?56:trial_case==13?58:trial_case==14?59:trial_case==24?61:trial_case==25?60:trial_case>=32 && trial_case<=35?62+trial_case-32:0;
@@ -327,7 +334,7 @@ int main(int argc,char **argv){
  if(batch_trace)puts("http-reconnect5-host: modeled_usb=1 modeled_scheduler=1 modeled_child=1 acceptance=0");
  if(setjmp(held_run)){
   struct http_network_probe *p=wifi_http5_active_probe;
-  if(trial_case>=44 && trial_case<=47){radio_native_failure();return 0;}
+  if((trial_case>=44 && trial_case<=47) || trial_case>=53){radio_native_failure();return 0;}
   assert(wifi_http5_held_state.requested && wifi_http5_held_state.prepared &&
    wifi_http5_held_state.capture_attempted && wifi_http5_held_state.callback_attempted);
   assert(!wifi_http5_requested && !wifi_http5_prepared && !wifi_http5_capture_attempted && !wifi_http5_callback_attempted);
@@ -359,7 +366,7 @@ int main(int argc,char **argv){
  assert(!xhci_wifi_capture_reconnect5_probe() && !xhci_wifi_http5_prepare() && !xhci_wifi_capture_stack5_probe());
  bool good=xhci_wifi_capture_http_reconnect5();
  bool complete=xhci_wifi_http_reconnect5_finish_capture(good);
- if(trial_case>=44 && trial_case<=47){radio_native_failure();return 0;}
+ if((trial_case>=44 && trial_case<=47) || trial_case>=53){radio_native_failure();return 0;}
  if(trial_case>=38 && trial_case<=43){
   const struct dhcp_radio5 *r=&wifi_stream5_slots[0].data_radio;
   assert(r->phase[0].complete && r->phase[1].complete && !r->binding_error && !r->overflow);
@@ -371,6 +378,20 @@ int main(int argc,char **argv){
   }
   assert(bound_at_doorbell==(trial_case==40?4u:r->count));
   puts("xhci-http-reconnect5: PASS actual tagged native DHCP/USB plus independent bounded MAC FIFO; MAC outcome never grants DHCP/HTTP success;RF3844;disjoint lifetime IDs;acceptance=0");return 0;
+ }
+ if(trial_case>=49 && trial_case<=52){
+  assert(good && complete && wifi_http_reconnect5.connections==2 && wifi_http_reconnect5.parent_complete && bound_at_doorbell==4);
+  for(unsigned g=0;g<2;g++){
+   const struct dhcp_radio5 *r=&wifi_stream5_slots[g].data_radio;const struct dhcp_radio5_phase *p=&r->phase[1];
+   assert(r->count==2 && !r->overflow && !r->binding_error && !data_status[g].dropped);
+   assert(r->phase[0].complete && r->phase[0].empty && p->complete && !p->error && p->fifo_reads>17 && p->fifo_reads<=DHCP_RADIO5_READS);
+   assert(p->empty==(trial_case!=51) && p->finished-p->started<DHCP_RADIO5_US);
+   if(trial_case==50)assert(((p->ext[p->fifo_reads-2]>>8)&255)==3+g*3 && p->fifo_reads-2>=17);
+   if(trial_case==51 || trial_case==52)assert(p->fifo_reads==DHCP_RADIO5_READS);
+   if(trial_case==52)assert(p->finished-p->started>=81000);
+   for(unsigned i=0;i<r->count;i++)assert(r->tx[i].completed && r->tx[i].pid==3+g*3+i);
+  }
+  puts("xhci-http-reconnect5: PASS production native25-transfer radio capture, late duplicate/no-empty/max81 budget; original HTTP/RF/retirement guards;acceptance=0");
  }
  if(trial_case==48)assert(bound_at_doorbell==4);
  if(trial_case>=32 && trial_case<=34){

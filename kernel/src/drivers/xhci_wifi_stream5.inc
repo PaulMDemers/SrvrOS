@@ -12,6 +12,7 @@ static bool wifi_http5_failed_connection_closed(void);
 static bool wifi_http5_data_radio_ready(void);
 #define WIFI_STREAM5_RX 252u
 #define WIFI_STREAM5_TX 80u
+_Static_assert(WIFI_STREAM5_TX==DHCP_RADIO5_TX_LIMIT,"radio allowance must track original publication bound");
 #define WIFI_STREAM5_FENCES 4u
 /* DATA is not a mt76_wpa5_tx member; the RX enum uses a different value. */
 #define WIFI_STREAM5_DATA_TX 5u
@@ -543,7 +544,7 @@ static __attribute__((unused)) void wifi_stream5_packet_emit(const struct wifi_s
 /* Scalar-only emission after the outer capture/guard; never live I/O. */
 static void wifi_stream5_data_radio_record_emit(const struct dhcp_radio5 *s,bool held){
  if(!s->enabled)return;
- console_printf("wifi-dhcp-radio5: version=1 epoch=%u slot=%u tags=%u overflow=%u binding_error=%u held=%u observation_only=1\n",s->epoch,(uint64_t)s->slot,(uint64_t)s->count,(uint64_t)s->overflow,(uint64_t)s->binding_error,(uint64_t)held);
+ console_printf("wifi-dhcp-radio5: version=2 epoch=%u slot=%u tags=%u overflow=%u binding_error=%u held=%u observation_only=1\n",s->epoch,(uint64_t)s->slot,(uint64_t)s->count,(uint64_t)s->overflow,(uint64_t)s->binding_error,(uint64_t)held);
  for(unsigned i=0;i<s->count && i<DHCP_RADIO5_TAGS;i++){
   const struct dhcp_radio5_tx *t=&s->tx[i];
   console_printf("wifi-dhcp-radio5-tx: i=%u pid=%u message=%u sequence=%u ticket=%u token=%u completed=%u finished_us=%u\n",(uint64_t)i,(uint64_t)t->pid,(uint64_t)t->message,(uint64_t)t->sequence,t->ticket,t->token,(uint64_t)t->completed,t->finished);

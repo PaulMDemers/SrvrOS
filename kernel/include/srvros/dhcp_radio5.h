@@ -3,7 +3,11 @@
 #include <srvros/packet_observation.h>
 /* Diagnostic metadata only. Never protocol admission or hardware retirement. */
 #define DHCP_RADIO5_TAGS 3u
-#define DHCP_RADIO5_READS 17u
+/* Version2 work allowance, not a hardware FIFO-depth guarantee. One slot per
+ * original owned TX publication plus an empty probe. Missing empty is still
+ * inconclusive; duplicate/foreign statuses need not obey a one-to-one model. */
+#define DHCP_RADIO5_TX_LIMIT 80u
+#define DHCP_RADIO5_READS (DHCP_RADIO5_TX_LIMIT+1u)
 #define DHCP_RADIO5_US 100000u
 struct dhcp_radio5_phase {
  uint32_t ext[DHCP_RADIO5_READS],fifo[DHCP_RADIO5_READS];

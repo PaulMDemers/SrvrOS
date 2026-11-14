@@ -28,7 +28,9 @@ def observe(text):
         row=canonical_decimal(owned[at],PREFIX+suffix,keys);at+=1;return row
     while at<len(owned):
         s=take('',SUMMARY);ordinal=len(epochs);j=s['slot'] if held else ordinal
-        need(j<2 and s['held']==held and (not held or ordinal==0) and s['version']==s['observation_only']==1 and s['epoch']==j+1 and s['slot']==j and s['tags']<=3 and s['overflow']<=80 and s['binding_error']<=332,'DHCP radio summary bounds')
+        need(j<2 and s['held']==held and (not held or ordinal==0) and s['version'] in (1,2) and s['observation_only']==1 and s['epoch']==j+1 and s['slot']==j and s['tags']<=3 and s['overflow']<=80 and s['binding_error']<=332,'DHCP radio summary bounds')
+        need(not epochs or s['version']==epochs[0]['summary']['version'],'mixed radio capture versions')
+        limit=17 if s['version']==1 else 81
         if not held:need(j<len(packets['epochs']) and j<len(encrypted['epochs']),'missing radio lifetime')
         p=packets['epochs'][j] if not held else dict(frames=[])
         e=encrypted['epochs'][j] if not held else dict(tx=[])
@@ -51,11 +53,11 @@ def observe(text):
         for phase in (0,1):
             q=take('-phase',PHASE)
             need(q['phase']==phase and q['attempted'] in (0,1) and q['complete'] in (0,1) and q['empty'] in (0,1) and q['error']<=3,'invalid radio phase')
-            need(0<=q['fifo_reads']<=q['ext_reads']<=17 and q['ext_reads']<=q['fifo_reads']+1,'invalid radio read ordering')
+            need(0<=q['fifo_reads']<=q['ext_reads']<=limit and q['ext_reads']<=q['fifo_reads']+1,'invalid radio read ordering')
             if not q['attempted']:need(all(q[k]==0 for k in PHASE.split() if k!='phase'),'unattempted radio phase has work')
             else:need(bool(q['complete']) != bool(q['error']),'incomplete radio phase has no refusal')
             if q['complete']:
-                need(q['error']==0 and 1<=q['ext_reads']==q['fifo_reads'] and (q['empty'] or q['fifo_reads']==17),'unbounded radio snapshot')
+                need(q['error']==0 and 1<=q['ext_reads']==q['fifo_reads'] and (q['empty'] or q['fifo_reads']==limit),'unbounded radio snapshot')
                 need(q['started_us']<=q['finished_us']<q['started_us']+100000,'radio snapshot exceeded original diagnostic budget')
             entries=[]
             for i in range(q['ext_reads']):
