@@ -4,6 +4,7 @@
 #include <string.h>
 #include <srvros/scheduler_abi.h>
 #include "render_timing.h"
+#include "control_timing.h"
 
 /* One current interval and one retained maximum: no allocation or unbounded
  * event history. Stages measure wall time, including scheduling and interrupts. */
@@ -17,6 +18,7 @@ struct loop_wait_record {
 struct loop_record {
     uint64_t start,end,gap,sequence,cycle,pid,phase,end_cycle,end_pid,end_phase;
     uint64_t stage_us[LOOP_STAGE_COUNT];
+    struct loop_control_record control;
     struct loop_wait_record wait;
     struct loop_render_record render;
     struct loop_capture_record capture;

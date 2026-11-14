@@ -109,7 +109,13 @@ static void perform(const struct desk_file_request *q,struct desk_file_response 
         if(mkdir(q->path,0755)) r->status=DESK_FILE_IO;
         else if(srv_sync()!=0) r->status=DESK_FILE_IO;
     } else if(q->operation==DESK_FILE_LIST) {
-        int fd=open(q->path,O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        /* OPEN_MODE resolves every component and publishes the directory fd
+         * under one filesystem admission. POSIX open would first run a
+         * separate PATH_CONTEXT lookup, then repeat it in OPEN_MODE; another
+         * screenshot/commit can interpose between those two gated calls. The
+         * protocol already owns an absolute, terminated path. Keep resolution,
+         * O_DIRECTORY and CLOEXEC checks in the existing kernel operation. */
+        int fd=srv_open_mode(q->path,SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC);
         if(fd<0)r->status=DESK_FILE_IO;
         else {
             struct desk_file_entry *entries=(struct desk_file_entry *)output;

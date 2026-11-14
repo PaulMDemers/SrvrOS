@@ -14416,3 +14416,265 @@ Fetched main is `6d107ae1`; PR19 `26e25ced`, PR301 `c75328eb` and PR379
 inside the retained control interval, especially report handoff and nonblocking
 child-wait admission, alongside the remaining screenshot write costs. The cause
 is not yet proved, and this review implements no speculative fix or new test run.
+
+## Active desktop control-phase attribution (2026-11-13)
+
+From fetched main `0e3e86ae`, trace the internally unattributed 411.886 ms control
+interval in the prior accepted native 419.979 ms worst loop. The previous run is
+fully reviewed and sealed, current `772f95d189e4dcfc` and recovery
+`c35475f62f154f1e` are protected, and no reboot is armed.
+
+Bounded scope: fixed current/worst-loop control records with disjoint report,
+audio-control and I/O-trial wall/scheduler intervals, inner snapshot/submission/
+nonblocking-child-wait/notice clocks and explicit execution/result fields; emit
+from the existing report worker and preserve exact sequence/clock joins through
+rotation and final logging. Add strict producer/parser/retention regressions and
+require the new companion in loaded and native stress assessment. No timing,
+queue, row, log, cadence, workload, ownership or integrity limit changes; no
+speculative optimization. The original 1800-second 1% workload, 500 ms loop,
+ten-second whole-app cycle and all media/retirement checks remain required.
+
+PR19 `04b7b381` changes only separate Wi-Fi trial setup in deskd, not this loop
+bracket. PR301 `0abd2338` has no competing edits in the loop sources; its large
+Makefile scope stays independent. PR379 `817f80bb` owns WebCore audit. Publish
+this scope before implementation; inspect actual heads again before merging,
+import no unmerged scope and contact no other task. Next checkpoint is reviewed
+bounded instrumentation and failure/sequence/row-budget regressions, then frozen
+matched builds, local tests, loaded/exact-stage rehearsals, guarded installation,
+self-merge and a saved/sealed one-shot automated native boot under the user's
+existing explicit authorization. Native attribution awaits matching new evidence.
+
+
+### Control-phase trace qualification and ready native trial (PR494)
+
+Frozen source `fb8247d5` adds a fixed same-worst-loop control companion,
+with reporting/snapshot/handoff, audio-child nonblocking wait/notice and I/O
+bookkeeping clocks, explicit execution/result fields and full disjoint scheduler
+vectors. Compact versioned records retain all fields within the original atomic
+row and 64 KiB log caps. Original loop stages, 500 ms/ten-second bounds, cadence,
+workload, ownership and integrity checks remain unchanged. See the
+[wire and validation contract](../desktop-control-timing.md).
+
+Actual C producer, immutable async handoff, shorter-loop retention, failed-BEGIN
+foreign-trace isolation, owned-END/abort failure and malformed/overflow/sequence/
+clock/NOHANG/parser regressions pass. Late-session four-row output fits under
+1 KiB and each full-width row fits the existing 1024-byte buffer. Matched
+ordinary/native/Q35 builds, symbol/isolation checks, affected fixture links and
+the fresh complete core/desktop/documentation suite pass. Existing explicitly
+reported optional exhaustive-I/O skip and baseline append-repair/allocation
+coverage gaps remain visible; no new power-loss acceptance is claimed.
+
+The loaded KVM guest passes 25 app cycles and 166 verified
+256 KiB disk bursts over 60 seconds at 1%, one exact screenshot, zero recorded
+underruns and 339.336 ms maximum loop. All original saved
+contracts pass independently, with 26 launcher launches/reaps,
+zero errors, both live sidecar endpoints and growth 116.
+The same-worst-loop control companion passes saved-only and final-log-only
+replay, alongside original final lifecycle/file-service receipts. Its control
+phases conserve the original interval. This VM does not attribute the previous
+native 411.886 ms stall or establish a native improvement. Ordinary syscall,
+network ABI, CLI/editing, UEFI USB input, display, USB-storage/screenshot guests
+and exact native-stage foreign-profile refusal pass. Profile-switch construction
+is unchanged and not claimed as newly exercised.
+
+Release `bfe6ca6ff45fe078` is installed for the unchanged fully automated
+1800-second 1% audio/disk/app/three-screenshot workload and original 60-second
+audio tail. The guest displays progress, saves results and returns automatically;
+no human input is needed. Matching native collection requires all original
+contracts plus full control attribution and final-log-only replay. Heavy metadata
+audit and optional power/ownership probes stay off. All 943
+prior USB paths/hashes are preserved except explicitly renewing 1% expiry;
+read-only fsck, allocation/headroom/write admission and installed/staged/
+independent recovery hashes pass. Ubuntu stays default; previously accepted
+`772f95d189e4dcfc` remains installed. Recovery `c35475f62f154f1e` and known-good
+stress payload `7acb756c0ac5f4bb` stay protected. Only obsolete
+`00460b3ddba044cf`'s unreferenced EFI duplicate was retired after full
+stage/payload/file-hash and firmware/GRUB reference verification. Its stage,
+independent payload and historical trial evidence remain retained.
+
+PR19/301/379 remain independent, no unmerged scope is imported and Actions stay
+disabled. Self-merge and sealed one-shot launch follow under existing explicit
+authorization. Physical attribution and acceptance await the matching return;
+a missing completion marker or timing companion is incomplete evidence.
+
+Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `3432e008`, PR19
+`95236e01`. Their actual loop/setup diffs remain independent.
+
+
+### Native control-phase trace accepted; prior stall not reproduced (2026-11-13)
+
+Return-review scope is documentation and independent evidence only, from fetched
+main `15eb67ad` (merged PR494). No runtime change, new build, installation or reboot
+is started. Open PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` remain
+separate; no unmerged scope is imported and no other task is contacted.
+
+Frozen source `fb8247d5`, release `bfe6ca6ff45fe078`, run `765fe64ceb414a4d`
+and matching session `session-0006602f3d3da2ff-00` pass the original fully
+automated 1800-second 1% audio/disk/app/three-screenshot workload and the new
+control-trace contract. Independent raw saved-log parsing verifies 1,306 complete
+app cycles, 3,904 verified 256 KiB disk bursts (1,023,410,176 bytes),
+345,780,224 PCM bytes, zero recorded underruns and worker status zero. All three
+exact 1366×768 BMPs pass readback/hash/header checks. Launcher 6 has 1,307 launches
+and final reaps, zero errors and terminal retirement; battery, cache, capture and
+file-service retirement and all original timing/ownership contracts pass.
+Audibility remains unassessed at 1%.
+
+All 53,765 loop samples are valid, with zero excursions over the unchanged
+500 ms bound. The worst loop is 127.140 ms, sequence 8,147, with 126.917 ms in
+waiting: the matching scheduler trace reports 98.378 ms blocked and 28.506 ms
+ready, including a 28.172 ms maximum individual ready interval. Its control
+phase is only 46 us: bookkeeping 4/report 10/audio 22/I/O 10 us. Report submission
+was not due; the original NOHANG child wait returned pending in 6 us. All three
+control scheduler vectors are valid with zero blocked/ready time. The compact
+same-sequence control and scheduler companions, plus both original live
+sidecar-equality endpoints (growth 3,205), replay independently from the final
+64 KiB log alone, preserving all required final completion receipts.
+
+The previous 411.886 ms control stall did not recur: even this run's global
+maximum loop is smaller. This accepts native instrumentation/retention and the
+original workload, not a causal cure or retrospective attribution. Different
+cold boots and interleavings cannot establish a tracing-induced improvement;
+records remain bounded worst observations rather than an exhaustive call history.
+
+Ready/close maxima are 1.085371/5.640914 s, within the unchanged ten-second
+whole-app limit. For the slowest close, the visual change took 30.066 ms but
+exit was not observed until 5.629837 s after the request. Actual final reap took
+0.895 ms after 2.684 ms queued. Close overlapped the third capture and exit was
+observed 19.973 ms after its retirement. This is a clock correlation, not proof
+of a shared owner or particular blocking syscall; the retained log has no
+per-call context for that child. Investigate the child-exit interval before
+blaming desktop rendering or final reaping.
+
+Capture lifetimes are 6.601244/11.954495/12.811269 s; WRITE is
+3.859606/8.356341/4.140561 s and temporary verification is
+0.502063/0.565303/1.057135 s. The current/longest-capture final cleanup snapshot
+is 67.912 ms with pending 0; this is not an exhaustive cleanup maximum. Shared
+append/commit waits and long storage completion/publication phases remain
+performance work, alongside the child-exit delay. All original limits and
+integrity checks remain unchanged.
+
+Fresh read-only file hashing, fsck and allocation traversal pass: all 943 prior
+paths and 942 non-sidecar hashes are unchanged; only expected `.srvros/meta`
+changed. Four logs, three BMPs and two workload receipts bring the volume to
+952 files/215 directories/5,146 clusters, with zero leaks, FAT/bitmap mismatches
+or errors. Installed/staged/independent payload and recovery hashes pass.
+Ubuntu stays default, the one-shot is consumed, the collector is disabled and
+USB is unmounted. Current stays this trial, recovery stays `c35475f62f154f1e`;
+no recovery promotion or reboot is armed. Matching raw and reviewed evidence is
+sealed outside build. Next should target the observed pre-exit child delay and
+remaining screenshot/storage waits; the historical control stall remains
+unexplained unless it recurs with the new trace.
+
+
+### Active Files exit/admission work (2026-11-13)
+
+From fetched main `44b414bf`, investigate Files cycle880/pid1167's5.640914-second
+close during the third screenshot. All matching prior evidence is reviewed and
+sealed, current `bfe6ca6ff45fe078` and recovery `c35475f62f154f1e` are protected,
+USB is unmounted, the previous one-shot is consumed and no reboot is armed.
+
+The checked source maps cycle880 to Files. Its file worker pid1168 has a matching
+4.199220-second `SYS_PATH_CONTEXT` wait during that close/capture. The directory
+worker currently calls POSIX `open`, which first resolves the pathname through
+one filesystem admission, then calls `SYS_OPEN_MODE`, whose production path
+repeats the same component/namespace resolution under a second admission before
+opening. The second gate permits another writer to interpose. Do not attribute
+all remaining close time to that single retained wait or change accepted-job
+retirement semantics.
+
+Bounded objective: remove this redundant directory-worker path/admission round
+using the existing atomic kernel open contract; preserve every traversed-
+component/directory/namespace/flags/mapping/cancellation check and all mutation,
+CRC/readback, FD, service, child and final-reap ownership. Audit the actual path
+and cover original errors/cancellation/EOF and competing-writer admission with
+regressions before claiming the implementation. Candidate files are
+`userspace/deskfs/deskfs.c`, its real-worker/contract tests and test wiring or
+loaded-stress proof if needed. No kernel/scheduler, filesystem mutation,
+shared ABI, log/row/cadence, power-policy or limit changes are planned. If the
+reproduction requires another subsystem, update this bounded scope before edits.
+
+PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` have no competing directory
+worker edit; their independent Makefile/subsystem scopes remain separate.
+Publish the objective, then reproduce/test the checked source change, freeze
+matched images, run relevant/full local and loaded/exact-stage checks, self-merge
+and prepare/seal a one-shot original1800-second1% automated audio/disk/app/three-
+screenshot stress run under the user's existing reboot authorization. Keep the
+original500ms loop/ten-second whole-app and every integrity/retirement criterion.
+Native latency improvement remains pending the matching next physical result.
+
+
+### Directory-open admission fix qualified; ready native trial (PR496)
+
+Frozen source `2eaea67b` changes only the LIST directory open in
+`deskfs`: it calls the existing `OPEN_MODE` contract directly with the immutable
+absolute path and the same READ/DIRECTORY/CLOEXEC flags. That production kernel
+operation checks all traversed components, namespace and directory type and
+publishes the fd under one admission. The previous libc path performed a
+separate gated `PATH_CONTEXT` check before repeating resolution in `OPEN_MODE`.
+Removing that extra round prevents an intervening commit between the two checks;
+it does not grant access to filesystem state while another transaction owns it.
+
+The earlier scope's association of worker 1168 with Files cycle 880 is a
+source-backed inference from the automated sequence and overlapping
+4.199220-second path wait,
+not a retained explicit parent/child join. Neither that interval nor this change
+attributes all 5.640914 seconds of the native close. Remaining true storage waits
+and native improvement must be assessed on the next matching run.
+
+The old real C worker fails the new direct-admission regression; the new worker
+passes exact flags, directory-open failure, missing/regular-file traversed-prefix
+refusal, full metadata/EOF boundaries and all prior guarded read/write/mutation,
+CRC/readback/corruption tests. Production process open tests also verify raw
+file/../missing-prefix refusal, relative cwd and CLOEXEC. Full service admission,
+private mapping/thread/retirement, accepted-job drain, EOF/reap and ownership
+regressions pass. There is no kernel/scheduler/shared ABI/libc/ports change;
+protocol, cancellation, accepted mutations and all limits are unchanged.
+
+Matched ordinary/native/Q35 builds, affected fixture links and source/object
+checks, including exact runtime-ELF binding inside the embedded filesystem,
+pass together with the fresh complete core/desktop/documentation suite.
+The existing optional exhaustive-I/O skip and baseline append-repair allocation
+gaps remain visible; no new power-loss repair acceptance is claimed. Ordinary
+syscall/network ABI, CLI/editing, UEFI USB input/display, USB-storage and ordinary
+screenshot guests pass, as does exact native-stage foreign-profile refusal.
+Profile-switch construction remains unchanged and was not newly exercised.
+
+The loaded KVM guest passes 24 app cycles and 171 verified
+256 KiB bursts over 60 seconds at 1%, one exact screenshot and zero recorded
+underruns. Ready/close are 1.160565/1.110121 s;
+maximum loop is 127.503 ms under unchanged 500 ms/ten-second limits.
+All original saved-only contracts pass independently. Launcher has
+25 launches/reaps and zero errors; live equality growth
+121 and same-worst-loop control/scheduler companions also
+pass using only the final 64 KiB log. This is contract qualification rather than
+an isolated native latency comparison.
+
+Release `d26b9b1b2a825384` is installed for the original automated 1800-second 1%
+audio/disk/app/three-screenshot workload, with its original 60-second audio tail.
+Progress and results are shown/saved in the guest, with automatic return and
+collection and no input required. Heavy metadata audit and optional ownership/
+power probes stay off. Preflight preserves all 952 prior USB
+paths/hashes except renewing the explicit 1% expiry, and verifies fresh read-only
+fsck/allocation/headroom/write admission and installed/staged/independent payload
+and recovery hashes. Ubuntu remains default; prior accepted `bfe6ca6ff45fe078`
+and `772f95d189e4dcfc`, plus known-good `7acb756c0ac5f4bb`, remain installed.
+Recovery stays `c35475f62f154f1e`. Only failed `188dda5f0fbb1a52`'s unreferenced
+EFI duplicate was retired after full stage/payload/file-hash, sealed failed-trial
+and firmware/GRUB reference verification. Its independent payload, full stage
+and failed evidence remain retained.
+
+The first loaded VM completed its workload but lacked three saved app-timing
+events and needed console fallback, so its saved-only evidence is incomplete.
+That raw attempt and its explicit assessment remain archived. A single repeat
+using identical source/images/flags/limits passed the full strict saved-only
+contract. No bounds, cadence or checks were changed; broader qualification was
+not repeated because all runtime bytes remained identical.
+
+PR19/301/379 remain independent and Actions remain disabled. Source tests prove
+the removed admission round; a matching native run is required before accepting
+latency improvement. Self-merge and a sealed one-shot reboot follow under the
+user's existing explicit authorization. No original time, row, log, queue,
+workload, integrity or complete-retirement criterion was relaxed.
+
+Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `d829acb0`, PR19
+`b3115e02`. No competing directory-worker/test edit is imported.

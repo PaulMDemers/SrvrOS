@@ -6516,3 +6516,9 @@ build/intel-source-engines/engines.o: kernel/diagnostics/intel_source_engines.c 
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
 build/tests/intel-source-engines-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c
+
+.PHONY: test-control-timing
+test-core test-desktop: test-control-timing
+test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) tools/test_control_timing.py
+build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h

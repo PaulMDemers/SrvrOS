@@ -1616,3 +1616,12 @@ and 99,793/100,000 us preparation. Enabled entry, pending branches, repeatabilit
 and GPU memory/tear-free remain open. This unit's user permits initiating needed
 automated reboots without another question at 1%; record the run first and collect
 its matching result before the next trial. This authorization is host-specific.
+
+### Desktop control-phase attribution
+
+For the explicit audio/disk/app stress profile, see
+[the control timing contract](desktop-control-timing.md). Qualification and native
+review require the same worst-loop companion with all three scheduler vectors
+in saved workspace logs. Compact records preserve the existing row and 64 KiB
+log caps; missing final workload or control evidence is incomplete, never repaired
+from interleaved serial output. All original limits and integrity checks apply.
