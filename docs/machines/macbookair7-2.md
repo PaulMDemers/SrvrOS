@@ -24,6 +24,21 @@ acceptance requires a new exact-source trial; old 207 us margin is not capacity.
 Current/recovery stay protected; standing automated reboot authorization at1%
 applies once a new candidate is properly qualified and recorded.
 
+After integrating main `94d0b9b8` as `afe104c4`, affected desktop/Files,
+process-output, control-timing and documentation checks pass. Host measurement
+finds 106 full engine guards (166 with 20 delayed polls). Removing only two
+no-I/O duplicate guards around each pre-store control reduces that to 86
+(146 with polls), retaining all 44 target reads / 10 stores, control snapshots,
+ACK prefixes and clock-sampling counts on both modeled routes. The mock charges
+4 us per guard, so timestamps become 80 us shorter; this is not native timing.
+The initially overstrict timestamp-equality comparison was corrected, with its
+failure retained. Every actual target access asserts a fresh full guard in the
+host fixture; each guard failure and final-clock boundary retains ownership.
+Three directed tests pass. Full frozen-source/fatal/object/VM qualification is
+still required. No core guard, final store guard/clock, first-ACK admission or
+batch bracket was removed. Native performance and new bytes remain unaccepted;
+no trial is armed at this checkpoint.
+
 ### Native v34 original-source five-engine readiness hold accepted
 
 Frozen runtime `4fd81b45` / release `90dfc6ca035e19f7`, session
