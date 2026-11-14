@@ -14835,3 +14835,55 @@ read-only media/recovery checks. No implementation, staging or reboot is
 authorized by this review checkpoint. The automatic collector reports missing
 positive directory admission; distinguish complete workload evidence from
 feature validation rather than accepting a zero-handled run.
+
+
+### Native workload passes; directory prelude remains gated (2026-11-14, PR499)
+
+Source `29f0dc24` / release `ba1a402c381b7a94`, run `c2199b02be244884`, matching
+session `session-00066035466f2a54-00` completes the original 1800-second 1%
+audio/disk/app/three-screenshot workload. Independent replay accepts 1360 app
+cycles, 3899 verified 256 KiB bursts, the exact binary disk receipt, zero
+recorded PCM underruns, all three exact BMPs entirely within playback, follow-up
+app cycles and clean exit. All 50231 loop samples are valid with
+zero excursions and 121.186 ms maximum under 500 ms. Ready/close maxima are
+7.024557/3.392970 s; original whole-app checks remain unchanged. All 1361 launches
+are reaped, with launcher retired/errors 0, final capture/cache workers clear,
+and battery attached/detached 1, heap/errors/denied 0 and controls PASS.
+
+The original workload passes, but the **directory fix validation fails**:
+final handled/entries are 0/0, policy refusals 3416, publication/descriptor
+refusals 0/0. The automatic failed assessment is preserved, not relabeled as a
+full feature pass. Native directory admission and causal latency improvement
+remain unaccepted. Capture lifetimes are 6.715420/26.573992/19.152908 s; WRITE
+is 3.661473/14.500053/15.659459 s. Different cold boots, media growth and
+interleavings do not isolate a speed change. Listening at 1% remains unassessed.
+
+The tested public `syscall_dispatch` still classifies all `SYS_DIRECTORY`
+operations as namespace calls. It marks the caller unsafe, waits, and acquires
+storage ownership before reaching the new READ_INFO handler. The existing
+atomic proof then correctly refuses a current-owned span. Thus even the prior
+positive host fixture called the handler directly and missed this outer gate;
+the zero VM counter was a real integration gap, not evidence of a working
+fast path. The native positive-use requirement correctly prevents acceptance.
+
+The next implementation must route only the validated READ_INFO attempt ahead
+of that outer ownership span. All refusals, shared/stale descriptors and other
+directory operations must regain the original complete owned fallback, with
+post-wait cancellation, mapping/FD revalidation and live cookie semantics.
+Add a public-dispatch regression that fails on the tested tree, plus positive
+loaded-VM use before repeating the original native trial. Do not simply remove
+DIRECTORY from namespace exclusion or weaken the existing atomic proof.
+
+Fresh read-only hashing/fsck/allocation checks preserve all 960 prior paths and
+959 non-sidecar hashes; only expected `.srvros/meta` changed. Four logs, three
+BMPs and two completed workload receipts bring the volume to 969 files,
+219 directories and 5360 allocated clusters, with zero leaks/mismatches/errors.
+Strict original control/scheduler companions and both completed live sidecar
+endpoints replay from the final 64 KiB log; all transfer/commit/launch/protocol
+companions also validate. Installed, staged and independent payload/recovery
+hashes agree. Ubuntu remains default, one-shot consumed, collector disabled,
+USB unmounted and no reboot armed. Current remains this diagnostic-failed trial;
+accepted `bfe6ca6ff45fe078`/`772f95d189e4dcfc`/`7acb756c0ac5f4bb` and recovery
+`c35475f62f154f1e` remain retained. No implementation or new boot was started
+in this return-review block. Raw matching evidence and the explicit failure
+classification are retained outside build.
