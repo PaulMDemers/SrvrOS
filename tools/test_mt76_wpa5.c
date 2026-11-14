@@ -86,6 +86,7 @@ static bool run(void){
 int main(void){
  setup();assert(run() && s.m1_matched && s.m2_sent && s.m3_mic && s.keys_installed && s.m4_sent && s.keys_activated && s.leave_sent && s.aid==34 && fake.sends==5 && fake.nonce_calls==1 && fake.polls==4);
  assert(s.handshake.phase==WPA2_HS_CLOSED && s.keys.phase==WPA2_CCMP_CLOSED && s.handshake.key_owner==(uintptr_t)&s.keys);
+ for(unsigned i=0;i<4;i++){const struct mt76_wpa5_response *r=&s.responses[i];assert(r->result==MT76_WPA5_RESPONSE_OK && r->polls==1 && r->present==1 && !r->ignored);if(i>=2)assert(r->kind==i-1 && r->reject==WPA2_HS_RX_ACCEPTED);}
  unsigned checks=fake.checks;struct mt76_wpa5 old=s;assert(!mt76_wpa5_run(&s,&peer,hs_pmk,&io) && !memcmp(&s,&old,sizeof s));
  for(unsigned i=1;i<=checks;i++){setup();fake.lose=i;assert(!run() && s.unsafe);}
  for(unsigned i=1;i<=5;i++)for(unsigned r=MT76_JOIN5_REFUSED;r<=MT76_JOIN5_UNCERTAIN;r++){
@@ -94,11 +95,11 @@ int main(void){
   else assert(!s.unsafe && (i==1 || i==5 || s.leave_sent));
  }
  for(unsigned i=1;i<=4;i++){setup();fake.fail_poll=i;assert(!run() && s.unsafe && !s.leave_sent);}
- for(unsigned i=1;i<=sizeof hs_m3;i++){setup();fake.mutate=i;assert(!run() && !s.m3_mic && !s.keys_installed && !s.keys_activated && s.leave_sent && !s.unsafe);}
+ for(unsigned i=1;i<=sizeof hs_m3;i++){setup();fake.mutate=i;assert(!run() && s.responses[3].result==MT76_WPA5_RESPONSE_REJECTED && s.responses[3].reject>=WPA2_HS_RX_ENVELOPE && !s.m3_mic && !s.keys_installed && !s.keys_activated && s.leave_sent && !s.unsafe);}
  for(unsigned phase=1;phase<=4;phase++){
-  setup();fake.empty_phase=phase;assert(!run() && !s.unsafe && s.leave_sent && !s.keys_installed && fake.polls<=20004);
+  setup();fake.empty_phase=phase;assert(!run() && !s.unsafe && s.leave_sent && !s.keys_installed && fake.polls<=20004);assert(s.responses[phase-1].result==MT76_WPA5_RESPONSE_TIMEOUT && !s.responses[phase-1].present);
  }
- setup();fake.empty=true;fake.frozen_clock=true;assert(!run() && !s.unsafe && s.leave_sent && fake.polls==20000);
+ setup();fake.empty=true;fake.frozen_clock=true;assert(!run() && !s.unsafe && s.leave_sent && fake.polls==20000);assert(s.responses[0].result==MT76_WPA5_RESPONSE_LIMIT);
  setup();fake.fail_send=3;fake.result=(enum mt76_join5_send)99;assert(!run() && s.unsafe && !s.leave_sent);
  setup();fake.nonce_fail=true;assert(!run() && !fake.sends && !s.handshake.generation);
  setup();fake.nonce_zero=true;assert(!run() && !fake.sends);

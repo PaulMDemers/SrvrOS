@@ -300,15 +300,15 @@ static void radio_native_failure(void){
  unsigned phase=trial_case==47?0:1,error=(trial_case==45 || trial_case==54)?2:(trial_case==46 || trial_case==55)?3:1;
  assert(!wifi_http_reconnect5.connections && !wifi_http_reconnect5.probe[1].self && child_count==1);
  assert(r->phase[phase].attempted && !r->phase[phase].complete && r->phase[phase].error==error);
- assert(r->phase[phase].fifo_reads==(trial_case>=53?19u:0u) && r->phase[phase].ext_reads==(trial_case>=53?20u:trial_case==47?0u:1u));
+ assert(r->phase[phase].fifo_reads==((trial_case>=53 && trial_case<=55)?19u:0u) && r->phase[phase].ext_reads==((trial_case>=53 && trial_case<=55)?20u:trial_case==47?0u:1u));
  assert(wifi_stream5.failed && !wifi_stream5.retired && !wifi_stream5.connection_closed && wifi_stream5.commands==2 && !wifi_fence5_connection_switched);
- if(trial_case>=53)assert(p->result.complete && !wifi_http_reconnect5.parent_complete && !wifi_http_reconnect5.complete && !wifi_stack5.detached);
- if(trial_case!=47)assert(p->result.quiescent && p->result.child_retired && p->result.worker_finished && p->result.go==(trial_case>=53));
+ if((trial_case>=53 && trial_case<=55))assert(p->result.complete && !wifi_http_reconnect5.parent_complete && !wifi_http_reconnect5.complete && !wifi_stack5.detached);
+ if(trial_case!=47)assert(p->result.quiescent && p->result.child_retired && p->result.worker_finished && p->result.go==((trial_case>=53 && trial_case<=55)));
  else assert(!p->result.attempted && !r->count && !wifi_stream5.data_sends && !wifi_stack5_net.identity);
  puts("xhci-http-reconnect5: PASS radio read/control/ownership/clock refusal retains native context;no further FIFO read/Stop/reuse/second generation;acceptance=0");
 }
 int main(int argc,char **argv){
- trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<56);
+ trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<60);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
@@ -318,23 +318,25 @@ int main(int argc,char **argv){
  if((trial_case>=18 && trial_case<24) || (trial_case>=26 && trial_case<=31))test_console_printf_hook=handoff_boundary;
  if(trial_case==15)stream_test_before_connection=no_target_parent;
  if(trial_case==36)stream_test_outer_capture=slow_ready_parent;
- if(trial_case==37 || (trial_case>=44 && trial_case<=47) || trial_case>=53)stream_test_outer_capture=handoff_rf_parent;
+ if(trial_case==37 || (trial_case>=44 && trial_case<=47) || (trial_case>=53 && trial_case<=55))stream_test_outer_capture=handoff_rf_parent;
  if(trial_case==16)stream_test_outer_capture=http5_test_RF_parent;
  if(trial_case==17)stream_test_outer_capture=legacy_rf_parent;
  if(trial_case==18 || trial_case==29 || trial_case==31)stream_test_outer_capture=handoff_rf_parent;
  if(trial_case==24 || trial_case==25 || trial_case==27 || trial_case==28 || trial_case==30 || (trial_case>=32 && trial_case<=35))stream_test_outer_capture=http5_test_RF_parent;
  if((trial_case>=38 && trial_case<=43) || (trial_case>=49 && trial_case<=52))stream_test_outer_capture=http5_test_RF_parent;
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
+ if(trial_case>=56)stream_test_outer_capture=trial_case==59?http5_test_RF_parent:handoff_rf_parent;
  http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=(trial_case==2 || trial_case==16 || trial_case==17)?53:trial_case==12?56:trial_case==13?58:trial_case==14?59:trial_case==24?61:trial_case==25?60:trial_case>=32 && trial_case<=35?62+trial_case-32:0;
  if(trial_case==38 || (trial_case>=41 && trial_case<=46))connection_dhcp_fault=62;
  if(trial_case==39)connection_dhcp_fault=65;
  if(trial_case>=6 && trial_case<12)reconnect_case_id=trial_case+13;
+ if(trial_case>=56)reconnect_case_id=25+trial_case-56;
  batch_trace=((argc==2 || argc==19) && !strcmp(argv[1],"--trace")) || (argc==3 && !strcmp(argv[1],"--trace-case"));
  if(batch_trace)puts("http-reconnect5-host: modeled_usb=1 modeled_scheduler=1 modeled_child=1 acceptance=0");
  if(setjmp(held_run)){
   struct http_network_probe *p=wifi_http5_active_probe;
-  if((trial_case>=44 && trial_case<=47) || trial_case>=53){radio_native_failure();return 0;}
+  if((trial_case>=44 && trial_case<=47) || (trial_case>=53 && trial_case<=55)){radio_native_failure();return 0;}
   assert(wifi_http5_held_state.requested && wifi_http5_held_state.prepared &&
    wifi_http5_held_state.capture_attempted && wifi_http5_held_state.callback_attempted);
   assert(!wifi_http5_requested && !wifi_http5_prepared && !wifi_http5_capture_attempted && !wifi_http5_callback_attempted);
@@ -366,7 +368,7 @@ int main(int argc,char **argv){
  assert(!xhci_wifi_capture_reconnect5_probe() && !xhci_wifi_http5_prepare() && !xhci_wifi_capture_stack5_probe());
  bool good=xhci_wifi_capture_http_reconnect5();
  bool complete=xhci_wifi_http_reconnect5_finish_capture(good);
- if((trial_case>=44 && trial_case<=47) || trial_case>=53){radio_native_failure();return 0;}
+ if((trial_case>=44 && trial_case<=47) || (trial_case>=53 && trial_case<=55)){radio_native_failure();return 0;}
  if(trial_case>=38 && trial_case<=43){
   const struct dhcp_radio5 *r=&wifi_stream5_slots[0].data_radio;
   assert(r->phase[0].complete && r->phase[1].complete && !r->binding_error && !r->overflow);
@@ -561,6 +563,29 @@ int main(int argc,char **argv){
   assert(!xhci_wifi_capture_http_reconnect5());
   assert(!wifi_http5_held_state.frozen && !net_prepare_connection_probe_worker());
   printf("xhci-http-reconnect5: PASS case%u actual native bootstrap failure, unused child/worker and protocol closure, consuming raw RX handoff, key erase/leave/exact Stop/DMA retirement/provider detach;original deadlines;no second generation;acceptance=0\n",trial_case);return 0;
+ }
+ if(trial_case>=56 && trial_case<=58){
+  const struct wifi_stream5_state *s=&wifi_stream5_slots[1];
+  const struct mt76_wpa5_response *r=&s->exchange.responses[3];
+  assert(!good && !complete && wifi_http_reconnect5.connections==1 && child_done==1);
+  assert(wifi_http_reconnect5.probe[0].result.complete && wifi_stream5_slots[0].connection_closed);
+  assert(wifi_http_reconnect5.probe[1].result.quiescent && !wifi_http_reconnect5.probe[1].result.attempted);
+  assert(wifi_http_reconnect5.probe[1].result.child_retired && wifi_http_reconnect5.probe[1].result.worker_finished);
+  assert(s->exchange.auth_matched && s->exchange.assoc_matched && s->exchange.m1_matched && s->exchange.m2_sent);
+  assert(!s->exchange.m3_mic && !s->exchange.keys_installed && !s->exchange.keys_activated && s->exchange.keys_erased);
+  assert(s->posts[0]==3 && s->completions[0]==3 && !s->data_active && !s->data_sends && !s->data_radio.enabled);
+  assert(!s->failed && !s->fault_event_valid && s->phase==9 && s->restored && s->stop_events[0] && s->stop_events[1]);
+  assert(!s->pending[0] && !s->pending[1] && !s->exchange.handshake.keys_may_live);
+  assert(!wifi_http_reconnect5.complete && !wifi_http_reconnect5.parent_complete && !wifi_http_reconnect5.provider_retired);
+  assert(!memcmp(&reconnect_old_stream,&wifi_stream5_slots[0],sizeof reconnect_old_stream));
+  if(trial_case==56){assert(r->result==MT76_WPA5_RESPONSE_TIMEOUT && !r->present && !r->kind && !r->reject && r->last-r->start>=1500000 && r->last-r->start<1505000);}
+  else{assert(r->result==MT76_WPA5_RESPONSE_REJECTED && r->present==1 && r->kind==(trial_case==57?1u:2u) && r->reject==(trial_case==57?WPA2_HS_RX_KEY_INFO:WPA2_HS_RX_MIC));}
+  puts("xhci-http-reconnect5: PASS second M3 timeout/duplicate M1/bad MIC distinguished;first actual HTTP complete;no second data/key activation;original exact Stop/unused child-worker cleanup;full protocol/RF completion refused;acceptance=0");return 0;
+ }
+ if(trial_case==59){
+  const struct mt76_wpa5_response *r=&wifi_stream5_slots[1].exchange.responses[3];
+  assert(good && complete && wifi_http_reconnect5.connections==2 && child_done==2);
+  assert(r->result==MT76_WPA5_RESPONSE_OK && r->present==1 && r->kind==2 && r->reject==WPA2_HS_RX_ACCEPTED && r->polls>1 && !reconnect_m3_noise && r->last-r->start<1500000);
  }
  if(trial_case>=6 && trial_case<12){
   const struct wifi_stream5_state *s=&wifi_stream5_slots[1];

@@ -34,30 +34,39 @@ static bool transmit(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct
 }
 static bool response(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct mt76_wpa5_io *io,enum mt76_wpa5_rx type,bool auth){
  uint64_t start=io->now(io->context),previous=start;
+ unsigned stage=type==MT76_WPA5_MANAGEMENT?(auth?0:1):(s->m1_matched?3:2);
+ struct mt76_wpa5_response *r=&s->responses[stage];r->start=r->last=start;
  unsigned limit=type==MT76_WPA5_EAPOL?1500000:MT76_JOIN5_REPLY_US;
  for(unsigned attempt=0;attempt<20000;attempt++){
-  if(!owned(s,io,false))return false;
-  size_t n=0;bool present=false;s->polls++;
-  if(!io->poll(io->context,type,s->reply,sizeof s->reply,&n,&present) || !owned(s,io,false)){s->unsafe=true;return false;}
-  if(n>sizeof s->reply || (!present && n)){s->unsafe=true;return false;}
+  if(!owned(s,io,false)){r->result=MT76_WPA5_RESPONSE_OWNER;return false;}
+  size_t n=0;bool present=false;s->polls++;r->polls++;
+  if(!io->poll(io->context,type,s->reply,sizeof s->reply,&n,&present)){r->result=MT76_WPA5_RESPONSE_POLL;s->unsafe=true;return false;}
+  if(!owned(s,io,false)){r->result=MT76_WPA5_RESPONSE_OWNER;s->unsafe=true;return false;}
+  if(n>sizeof s->reply || (!present && n)){r->result=MT76_WPA5_RESPONSE_SPAN;s->unsafe=true;return false;}
   uint64_t now=io->now(io->context);
-  if(now<previous || now-start>=limit)return false;
+  r->last=now;
+  if(now<previous){r->result=MT76_WPA5_RESPONSE_CLOCK;return false;}
+  if(now-start>=limit){r->result=MT76_WPA5_RESPONSE_TIMEOUT;return false;}
   previous=now;
   if(present){
+   r->present++;
    if(type==MT76_WPA5_EAPOL){
+    if(n>=7){unsigned info=(unsigned)s->reply[5]*256+s->reply[6];r->kind=info==0x008a?1:info==0x13ca?2:3;}else r->kind=3;
     bool ok=wpa2_hs_receive(&s->handshake,s->generation,p->peer.bssid,p->peer.station,s->reply,n);
+    r->reject=(unsigned)s->handshake.last_rx;r->result=ok?MT76_WPA5_RESPONSE_OK:MT76_WPA5_RESPONSE_REJECTED;
     scrub(s->reply,sizeof s->reply);return ok;
    }
-   if(n<24 || (s->reply[0]&0xfc)!=(auth?0xb0:0x10) || !equal(s->reply+4,p->peer.station,6) || !equal(s->reply+10,p->peer.bssid,6) || !equal(s->reply+16,p->peer.bssid,6))s->ignored++;
+   if(n<24 || (s->reply[0]&0xfc)!=(auth?0xb0:0x10) || !equal(s->reply+4,p->peer.station,6) || !equal(s->reply+10,p->peer.bssid,6) || !equal(s->reply+16,p->peer.bssid,6)){s->ignored++;r->ignored++;}
    else{
-    struct mt76_mgmt5_response r={0};enum mt76_mgmt5_status status=mt76_mgmt5_response(&p->peer,auth?MT76_MGMT5_AUTH:MT76_MGMT5_ASSOC,s->reply,n,&r);
-    s->status=r.status;if(!auth)s->aid=r.aid;scrub(s->reply,sizeof s->reply);return status==MT76_MGMT5_OK;
+    struct mt76_mgmt5_response reply={0};enum mt76_mgmt5_status status=mt76_mgmt5_response(&p->peer,auth?MT76_MGMT5_AUTH:MT76_MGMT5_ASSOC,s->reply,n,&reply);
+    s->status=reply.status;if(!auth)s->aid=reply.aid;scrub(s->reply,sizeof s->reply);
+    r->result=status==MT76_MGMT5_OK?MT76_WPA5_RESPONSE_OK:MT76_WPA5_RESPONSE_REJECTED;return status==MT76_MGMT5_OK;
    }
   }
   scrub(s->reply,sizeof s->reply);
-  if(!io->delay(io->context,100)){s->unsafe=true;return false;}
+  if(!io->delay(io->context,100)){r->result=MT76_WPA5_RESPONSE_DELAY;s->unsafe=true;return false;}
  }
- return false;
+ r->result=MT76_WPA5_RESPONSE_LIMIT;return false;
 }
 static bool run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],const struct mt76_wpa5_io *io,const struct mt76_wpa5_data *data){
  if(!s || !p || !pmk || !io || !io->owned || !io->nonce || !io->send || !io->poll || !io->delay || !io->now ||

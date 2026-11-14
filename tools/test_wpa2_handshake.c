@@ -49,6 +49,21 @@ int main(void){
  }
  for(unsigned size=0;size<sizeof hs_m1;size++){begin(&s);uint8_t *p=malloc(size?size:1);memcpy(p,hs_m1,size);assert(!receive(&s,p,size));erased(&s);free(p);}
  for(unsigned size=0;size<sizeof hs_m3;size++){m3phase(&s);uint8_t *p=malloc(size?size:1);memcpy(p,hs_m3,size);assert(!receive(&s,p,size));erased(&s);free(p);}
+ /* Categorical outcomes survive erasure without exposing message/key bytes.
+  * Stale/alias invariants above also cover the new observation field. */
+ m3phase(&s);assert(!receive(&s,hs_m1,sizeof hs_m1) && s.last_rx==WPA2_HS_RX_KEY_INFO);erased(&s);
+ m3phase(&s);uint8_t bad_mic[sizeof hs_m3];memcpy(bad_mic,hs_m3,sizeof bad_mic);bad_mic[81]^=1;
+ assert(!receive(&s,bad_mic,sizeof bad_mic) && s.last_rx==WPA2_HS_RX_MIC);erased(&s);
+ assert(wpa2_hs_retire(&s,9,true) && s.last_rx==WPA2_HS_RX_MIC);
+ for(unsigned category=0;category<4;category++){
+  m3phase(&s);uint8_t message[sizeof hs_m3];memcpy(message,hs_m3,sizeof message);
+  enum wpa2_hs_rx_result expected;
+  if(category==0){message[0]=message[0]==1?2:1;expected=WPA2_HS_RX_VERSION;}
+  else if(category==1){memset(message+9,0,8);expected=WPA2_HS_RX_REPLAY;}
+  else if(category==2){message[17]^=1;expected=WPA2_HS_RX_NONCE;}
+  else{message[49]^=1;expected=WPA2_HS_RX_RESERVED;}
+  assert(!receive(&s,message,sizeof message) && s.last_rx==expected && !s.install_handoffs && !s.keys_may_live);erased(&s);
+ }
  /* M3 integrity covers every bit,before any key export. */
  for(unsigned i=0;i<sizeof hs_m3;i++)for(unsigned bit=0;bit<8;bit++){
   m3phase(&s);uint8_t p[sizeof hs_m3];memcpy(p,hs_m3,sizeof p);p[i]^=1u<<bit;assert(!receive(&s,p,sizeof p));assert(!s.install_handoffs && !s.keys_may_live && s.phase==WPA2_HS_FAILED);erased(&s);

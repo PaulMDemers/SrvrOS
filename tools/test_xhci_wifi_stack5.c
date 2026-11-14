@@ -59,7 +59,7 @@ static struct {
 } ap;
 static bool http_reconnect_peer,http_reconnect_peer_no_fin;
 static uint8_t http_peer_request[4159];static unsigned http_peer_length;
-static unsigned reconnect_case_id,reconnect_hook_count,connection_dhcp_fault;
+static unsigned reconnect_case_id,reconnect_hook_count,connection_dhcp_fault,reconnect_m3_noise;
 static unsigned reconnect_noise(void){return reconnect_case_id==11?2u:reconnect_case_id==12?3u:(reconnect_case_id==10 || (reconnect_case_id>=16 && reconnect_case_id<=18))?1u:0u;}
 static bool reconnect_keys_seen[2];
 static uint8_t reconnect_first_tk[16];
@@ -98,6 +98,7 @@ static void stack_test_connection(unsigned generation){
  if(!generation && reconnect_case_id==4){sim.fault=36;sim.fault_at=9;}
  if(generation && reconnect_case_id==5)sim.fail_nonce=true;
  if(generation && reconnect_case_id==19)ap.case_id=24;
+ if(generation && reconnect_case_id>=25 && reconnect_case_id<=28){ap.case_id=66+reconnect_case_id-25;reconnect_m3_noise=8;}
  if(generation && reconnect_case_id>=20 && reconnect_case_id<=24){
   ap.case_id=24;memset(&radio_sim,0,sizeof radio_sim);radio_sim.mode=reconnect_case_id-19;
  }
@@ -285,7 +286,16 @@ static void stack_test_progress(void){
    sim.response=sim.rx_seen<25?6:0;
   bool negative=(ap.case_id==22 || ap.case_id==23) && sim.response==1 && !wifi_stream5.pending[0] && wifi_stream5.pending[1];
   unsigned page=wifi_stream5.lease[1].index;
+  bool m3=sim.response==4 && !wifi_stream5.pending[0] && wifi_stream5.pending[1];
+  bool m3_noise=m3 && ap.case_id==69 && reconnect_m3_noise;
+  if(m3 && ap.case_id==66)sim.response=0; /* no M3 reaches native RX */
+  if(m3 && ap.case_id==67)sim.response=3; /* duplicate valid M1, not M3 */
+  if(m3_noise){sim.response=6;reconnect_m3_noise--;}
+  if(ap.case_id==66 && wifi_stream5.exchange.m2_sent)test_time+=1000;
   stream_test_progress();
+  if(m3 && ap.case_id==68)wifi_stream5.buffer[1][page][36+32+81]^=1;
+  if(m3_noise)sim.response=4;
+
   if(negative)stream_le16(wifi_stream5.buffer[1][page]+36+(ap.case_id==22?28:24),ap.case_id==22?13:1);
   if((ap.case_id==21 || ap.case_id==24) && wifi_stream5.exchange.auth_sent && !wifi_stream5.exchange.auth_matched)test_time+=1000;
   return;

@@ -22,11 +22,22 @@ struct mt76_wpa5_io {
  * run proves model M3 MIC and local M4 submission,then erases software keys
  * and submits leave. It sends no encrypted/IP data and proves no AP ACK.
  * Native endpoint/MAC/RF/DMA ownership and retirement remain external. */
+/* Categorical post-run diagnostics only. Existing returned clock values are
+ * reused; no extra I/O, clock read, retry, EAPOL acceptance or cleanup authority. */
+enum mt76_wpa5_response_result {MT76_WPA5_RESPONSE_NONE,MT76_WPA5_RESPONSE_OK,
+ MT76_WPA5_RESPONSE_TIMEOUT,MT76_WPA5_RESPONSE_CLOCK,MT76_WPA5_RESPONSE_OWNER,
+ MT76_WPA5_RESPONSE_POLL,MT76_WPA5_RESPONSE_SPAN,MT76_WPA5_RESPONSE_DELAY,
+ MT76_WPA5_RESPONSE_LIMIT,MT76_WPA5_RESPONSE_REJECTED};
+struct mt76_wpa5_response {
+ unsigned result,polls,present,ignored,kind,reject;
+ uint64_t start,last;
+};
 struct mt76_wpa5 {
  bool attempted,complete,unsafe,auth_sent,auth_matched,assoc_sent,assoc_matched;
  bool m1_matched,m2_sent,m3_mic,keys_installed,m4_sent,keys_activated,keys_erased,leave_sent;
  uint64_t generation;unsigned sends,polls,ignored;uint16_t aid,status;
  struct wpa2_handshake handshake;struct wpa2_ccmp keys;
+ struct mt76_wpa5_response responses[4];
  uint8_t reply[4096],packet[184],eapol[121],snonce[32];
 };
 /* Caller retains PMK ownership and scrubs its own temporary copy. Inputs and

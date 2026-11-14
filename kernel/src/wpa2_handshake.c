@@ -52,21 +52,26 @@ static bool keydata(struct wpa2_handshake *s,size_t n){
 }
 bool wpa2_hs_receive(struct wpa2_handshake *s,uint64_t g,const uint8_t src[6],const uint8_t dst[6],const uint8_t *p,size_t n){
  if(!same(s,g) || (src && overlaps(s,sizeof *s,src,6)) || (dst && overlaps(s,sizeof *s,dst,6)) || (p && overlaps(s,sizeof *s,p,n)))return false;
- if(!src || !dst || !equal(src,s->peer.aa,6) || !equal(dst,s->peer.spa,6) || !envelope(p,n))return fail(s);
+ if(!src || !dst || !equal(src,s->peer.aa,6) || !equal(dst,s->peer.spa,6) || !envelope(p,n)){s->last_rx=WPA2_HS_RX_ENVELOPE;return fail(s);}
  if(s->phase==WPA2_HS_M1){
   static const uint8_t pmkid_type[]={221,20,0,15,172,4};
   if(be16(p+5)!=0x008a || be64(p+9)==UINT64_MAX || !zero(p+49,48) ||
-   (n!=99 && (n!=121 || !equal(p+99,pmkid_type,sizeof pmkid_type))))return fail(s);
-  if(!wpa2_ccmp_ptk(s->pmk,s->peer.aa,s->peer.spa,p+17,s->snonce,s->ptk))return fail(s);
+   (n!=99 && (n!=121 || !equal(p+99,pmkid_type,sizeof pmkid_type)))){s->last_rx=WPA2_HS_RX_M1_FIELDS;return fail(s);}
+  if(!wpa2_ccmp_ptk(s->pmk,s->peer.aa,s->peer.spa,p+17,s->snonce,s->ptk)){s->last_rx=WPA2_HS_RX_PTK;return fail(s);}
   for(unsigned i=0;i<32;i++)s->anonce[i]=p[17+i];
-  scrub(s->pmk,sizeof s->pmk);s->version=p[0];s->replay=be64(p+9);s->phase=WPA2_HS_M2_READY;return true;
+  scrub(s->pmk,sizeof s->pmk);s->version=p[0];s->replay=be64(p+9);s->phase=WPA2_HS_M2_READY;s->last_rx=WPA2_HS_RX_ACCEPTED;return true;
  }
- if(s->phase!=WPA2_HS_M3 || p[0]!=s->version || be16(p+5)!=0x13ca || be64(p+9)<=s->replay ||
- !equal(p+17,s->anonce,32) || !zero(p+49,16) || !zero(p+71,10) || !wpa2_eapol_mic_verify(s->ptk,p,n))return fail(s);
+ if(s->phase!=WPA2_HS_M3){s->last_rx=WPA2_HS_RX_PHASE;return fail(s);}
+ if(p[0]!=s->version){s->last_rx=WPA2_HS_RX_VERSION;return fail(s);}
+ if(be16(p+5)!=0x13ca){s->last_rx=WPA2_HS_RX_KEY_INFO;return fail(s);}
+ if(be64(p+9)<=s->replay){s->last_rx=WPA2_HS_RX_REPLAY;return fail(s);}
+ if(!equal(p+17,s->anonce,32)){s->last_rx=WPA2_HS_RX_NONCE;return fail(s);}
+ if(!zero(p+49,16) || !zero(p+71,10)){s->last_rx=WPA2_HS_RX_RESERVED;return fail(s);}
+ if(!wpa2_eapol_mic_verify(s->ptk,p,n)){s->last_rx=WPA2_HS_RX_MIC;return fail(s);}
  size_t plain=wpa2_key_unwrap(s->ptk+16,p+99,n-99,s->scratch,sizeof s->scratch);
- bool ok=plain && keydata(s,plain);scrub(s->scratch,sizeof s->scratch);if(!ok)return fail(s);
+ bool ok=plain && keydata(s,plain);scrub(s->scratch,sizeof s->scratch);if(!ok){s->last_rx=plain?WPA2_HS_RX_KEYDATA:WPA2_HS_RX_UNWRAP;return fail(s);}
  for(unsigned i=0;i<6;i++)s->group_rsc[i]=p[65+i];
- s->replay=be64(p+9);s->phase=WPA2_HS_KEYS_READY;return true;
+ s->replay=be64(p+9);s->phase=WPA2_HS_KEYS_READY;s->last_rx=WPA2_HS_RX_ACCEPTED;return true;
 }
 size_t wpa2_hs_emit(struct wpa2_handshake *s,uint64_t g,uint8_t *out,size_t cap){
  if(!same(s,g) || !out || !cap || cap>121 || overlaps(s,sizeof *s,out,cap))return 0;

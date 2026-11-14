@@ -18,7 +18,7 @@ class Peer(C.Structure):
 
 
 class State(C.Structure):
-    _fields_ = [('phase', C.c_int), ('generation', C.c_uint64), ('replay', C.c_uint64), ('key_owner', C.c_size_t),
+    _fields_ = [('phase', C.c_int), ('last_rx', C.c_int), ('generation', C.c_uint64), ('replay', C.c_uint64), ('key_owner', C.c_size_t),
                 ('peer', Peer), ('emissions', C.c_uint), ('install_handoffs', C.c_uint),
                 ('keys_may_live', C.c_bool), ('unsafe', C.c_bool), ('version', U8),
                 ('group_id', U8), ('group_rsc', B6), ('pmk', B32), ('snonce', B32),

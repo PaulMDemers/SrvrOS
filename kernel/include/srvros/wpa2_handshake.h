@@ -15,10 +15,16 @@ struct wpa2_hs_peer {uint8_t aa[6],spa[6],rsne[64];size_t rsne_size;};
 enum wpa2_hs_phase {WPA2_HS_EMPTY,WPA2_HS_M1,WPA2_HS_M2_READY,WPA2_HS_M2_PENDING,
  WPA2_HS_M3,WPA2_HS_KEYS_READY,WPA2_HS_INSTALL_PENDING,WPA2_HS_M4_READY,
  WPA2_HS_M4_PENDING,WPA2_HS_COMPLETE,WPA2_HS_FAILED,WPA2_HS_CLOSED};
+/* Last current-lifetime RX result only; no packet, nonce, replay or key bytes.
+ * Observation has no admission/retirement authority; stale/alias calls leave it. */
+enum wpa2_hs_rx_result {WPA2_HS_RX_NONE,WPA2_HS_RX_ACCEPTED,WPA2_HS_RX_ENVELOPE,
+ WPA2_HS_RX_M1_FIELDS,WPA2_HS_RX_PTK,WPA2_HS_RX_PHASE,WPA2_HS_RX_VERSION,
+ WPA2_HS_RX_KEY_INFO,WPA2_HS_RX_REPLAY,WPA2_HS_RX_NONCE,WPA2_HS_RX_RESERVED,
+ WPA2_HS_RX_MIC,WPA2_HS_RX_UNWRAP,WPA2_HS_RX_KEYDATA};
 enum wpa2_hs_result {WPA2_HS_CONFIRMED,WPA2_HS_REFUSED,WPA2_HS_UNCERTAIN};
 struct wpa2_hs_keys {uint8_t pairwise[16],group[16],group_rsc[6],group_id;uint64_t generation;};
 struct wpa2_handshake {
- enum wpa2_hs_phase phase;uint64_t generation,replay;uintptr_t key_owner;
+ enum wpa2_hs_phase phase;enum wpa2_hs_rx_result last_rx;uint64_t generation,replay;uintptr_t key_owner;
  struct wpa2_hs_peer peer;unsigned emissions,install_handoffs;
  bool keys_may_live,unsafe;uint8_t version,group_id,group_rsc[6];
  uint8_t pmk[32],snonce[32],anonce[32],ptk[48],gtk[16],scratch[1016];

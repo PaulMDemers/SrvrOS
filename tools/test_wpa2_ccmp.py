@@ -12,7 +12,7 @@ U8 = C.c_ubyte
 class Peer(C.Structure):
     _fields_ = [('aa', U8*6), ('spa', U8*6), ('rsne', U8*64), ('rsne_size', C.c_size_t)]
 class HS(C.Structure):
-    _fields_ = [('phase', C.c_int), ('generation', C.c_uint64), ('replay', C.c_uint64), ('key_owner', C.c_size_t), ('peer', Peer), ('emissions', C.c_uint), ('install_handoffs', C.c_uint), ('keys_may_live', C.c_bool), ('unsafe', C.c_bool), ('version', U8), ('group_id', U8), ('group_rsc', U8*6), ('pmk', U8*32), ('snonce', U8*32), ('anonce', U8*32), ('ptk', U8*48), ('gtk', U8*16), ('scratch', U8*1016)]
+    _fields_ = [('phase', C.c_int), ('last_rx', C.c_int), ('generation', C.c_uint64), ('replay', C.c_uint64), ('key_owner', C.c_size_t), ('peer', Peer), ('emissions', C.c_uint), ('install_handoffs', C.c_uint), ('keys_may_live', C.c_bool), ('unsafe', C.c_bool), ('version', U8), ('group_id', U8), ('group_rsc', U8*6), ('pmk', U8*32), ('snonce', U8*32), ('anonce', U8*32), ('ptk', U8*48), ('gtk', U8*16), ('scratch', U8*1016)]
 class Keys(C.Structure):
     _fields_ = [('pairwise', U8*16), ('group', U8*16), ('group_rsc', U8*6), ('group_id', U8), ('generation', C.c_uint64)]
 class CCMP(C.Structure):
