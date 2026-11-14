@@ -161,6 +161,10 @@ static const struct vfs_node fixture_dirs[]={
 uint64_t vfs_count(void) { namespace_reads++;return sizeof(fixture_dirs)/sizeof(fixture_dirs[0]); }
 const struct vfs_node *vfs_node_at(uint64_t i) { namespace_reads++;return i<sizeof(fixture_dirs)/sizeof(fixture_dirs[0])?&fixture_dirs[i]:NULL; }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 const struct vfs_node *vfs_lookup(const char *path) {
     namespace_reads++;
     if(checking_namespace) {

@@ -301,7 +301,9 @@ static void report_commit_wait(uint64_t at,const struct commit_wait_snapshot *s)
 static void sync_checkpoint(bool final) {
     struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;
     sidecar_checkpoint();
+    struct process_directory_admission d;process_directory_admission_snapshot(&d);
     uint64_t at=timer_monotonic_us();
+    console_printf("directory-admission: version=1 snapshot_us=%u handled=%u entries=%u policy_refused=%u publication_refused=%u descriptor_refused=%u final=%u\n",at,d.handled,d.entries,d.policy_refused,d.publication_refused,d.descriptor_refused,(uint64_t)final);
     console_printf("sync-snapshot: version=1 snapshot_us=%u enabled=%u active=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.active,s.invalid,s.dropped,(uint64_t)final);
     for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
         const struct sync_timing_record *r=&s.records[i];if(!r->pid)continue;

@@ -9,6 +9,31 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* CPU0 publication exclusion is separate from disk ownership. A writer can
+ * yield inside a metadata/retire callback; the depth stays set until rollback
+ * or publication finishes. Snapshot callers hold IF0 through proof and copy.
+ * Writers also hold IF0 outside explicit backend service windows, preventing
+ * a paused half-published node table from appearing quiescent. */
+static uint64_t view_writers;
+uint64_t vfs_view_write_begin(void) {
+    uint64_t flags=0;
+#ifndef SRVROS_EXFAT_HOST_TEST
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+#endif
+    if(view_writers==UINT64_MAX)__builtin_trap();
+    view_writers++;return flags;
+}
+void vfs_view_write_end(uint64_t flags) {
+    if(!view_writers)__builtin_trap();
+    view_writers--;
+#ifndef SRVROS_EXFAT_HOST_TEST
+    if(flags&(1ull<<9))__asm__ volatile ("sti" : : : "memory");
+#else
+    (void)flags;
+#endif
+}
+bool vfs_view_snapshot_ready(void) { return !view_writers; }
+
 /* Node addresses remain stable while capacity grows. Retain allocated blocks
  * until vfs_init: callers may still inspect an unregistered node's used flag. */
 #define VFS_MAX_NODES 32768
@@ -22,7 +47,7 @@ static uint32_t live_slots[VFS_MAX_NODES];
 static struct vfs_node *node_slot(uint64_t i) {
     return &node_blocks[i / VFS_NODE_BLOCK][i % VFS_NODE_BLOCK];
 }
-bool vfs_reserve_nodes(uint64_t additional) {
+static bool vfs_reserve_nodes_impl(uint64_t additional) {
     if(additional > VFS_MAX_NODES-node_count) return false;
     while(node_capacity-node_count < additional) {
         struct vfs_node *block=kcalloc(VFS_NODE_BLOCK,sizeof(*block));
@@ -181,7 +206,7 @@ bool vfs_register_directory(const char *path) {
     return vfs_register_directory_with_metadata(path, NULL);
 }
 
-bool vfs_register_directory_with_metadata(const char *path, const struct vfs_metadata *metadata) {
+static bool vfs_register_directory_with_metadata_impl(const char *path, const struct vfs_metadata *metadata) {
     if (path == NULL) {
         return false;
     }
@@ -226,7 +251,7 @@ bool vfs_register_file_with_release(const char *path,
     return vfs_register_file_with_metadata(path, size, private_data, read_all, release_data, NULL);
 }
 
-bool vfs_register_file_with_metadata(const char *path,
+static bool vfs_register_file_with_metadata_impl(const char *path,
     uint64_t size,
     const void *private_data,
     vfs_read_all_fn read_all,
@@ -308,7 +333,7 @@ static bool boot_parents(const char *path) {
     return !existing || existing->type==VFS_NODE_FILE;
 }
 
-void vfs_init(void) {
+static void vfs_init_impl(void) {
     if (retire_callback) retire_callback("/", true);
     retire_callback = NULL;
     node_count = 0;
@@ -350,7 +375,7 @@ const struct vfs_node *vfs_lookup(const char *path) {
     return mutable_lookup(path);
 }
 
-void vfs_note_read(const struct vfs_node *node) {
+static void vfs_note_read_impl(const struct vfs_node *node) {
     if(node && node->used)((struct vfs_node *)node)->metadata.atime=metadata_time();
 }
 
@@ -381,7 +406,7 @@ static bool notify_metadata_changed(const struct vfs_node *node) {
         metadata_changed_callback(node->path, &node->metadata);
 }
 
-bool vfs_update_file_size(const char *path, uint64_t size) {
+static bool vfs_update_file_size_impl(const char *path, uint64_t size) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {
         return false;
@@ -410,7 +435,7 @@ bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *siz
     return true;
 }
 
-bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
+static bool vfs_set_metadata_impl(const char *path, const struct vfs_metadata *metadata) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL || metadata == NULL) {
         return false;
@@ -419,7 +444,7 @@ bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
     return true;
 }
 
-bool vfs_chmod(const char *path, uint64_t mode) {
+static bool vfs_chmod_impl(const char *path, uint64_t mode) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {
         return false;
@@ -441,7 +466,7 @@ void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mt
     if(mtime!=SRV_TIME_OMIT) metadata->mtime=mtime==SRV_TIME_NOW?now:mtime;
     metadata->ctime=now;
 }
-bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
+static bool vfs_utime_impl(const char *path, uint64_t atime, uint64_t mtime) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {
         return false;
@@ -454,7 +479,7 @@ bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
     return false;
 }
 
-bool vfs_replace_file_path(const char *old_path, const char *new_path,
+static bool vfs_replace_file_path_impl(const char *old_path, const char *new_path,
     char *storage, uint64_t capacity) {
     if(!old_path || !new_path || !storage || !capacity) return false;
     struct vfs_node *source=mutable_lookup(old_path), *target=mutable_lookup(new_path);
@@ -469,7 +494,7 @@ bool vfs_replace_file_path(const char *old_path, const char *new_path,
     return true;
 }
 
-bool vfs_unregister_path(const char *path) {
+static bool vfs_unregister_path_impl(const char *path) {
     if (path == NULL) {
         return false;
     }
@@ -484,7 +509,7 @@ bool vfs_unregister_path(const char *path) {
     return false;
 }
 
-uint64_t vfs_unregister_prefix(const char *prefix) {
+static uint64_t vfs_unregister_prefix_impl(const char *prefix) {
     if (!prefix) return 0;
     /* Notify only if something will actually retire. */
     if (retire_callback) {
@@ -502,4 +527,76 @@ uint64_t vfs_unregister_prefix(const char *prefix) {
     }
     node_count=kept;
     return old-kept;
+}
+
+bool vfs_reserve_nodes(uint64_t additional) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_reserve_nodes_impl(additional);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_register_directory_with_metadata(const char *path, const struct vfs_metadata *metadata) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_register_directory_with_metadata_impl(path,metadata);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_register_file_with_metadata(const char *path, uint64_t size, const void *private_data, vfs_read_all_fn read_all, vfs_release_data_fn release_data, const struct vfs_metadata *metadata) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_register_file_with_metadata_impl(path,size,private_data,read_all,release_data,metadata);
+    vfs_view_write_end(flags);return result;
+}
+
+void vfs_init(void) {
+    uint64_t flags=vfs_view_write_begin();
+    vfs_init_impl();
+    vfs_view_write_end(flags);
+}
+
+void vfs_note_read(const struct vfs_node *node) {
+    uint64_t flags=vfs_view_write_begin();
+    vfs_note_read_impl(node);
+    vfs_view_write_end(flags);
+}
+
+bool vfs_update_file_size(const char *path, uint64_t size) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_update_file_size_impl(path,size);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_set_metadata_impl(path,metadata);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_chmod(const char *path, uint64_t mode) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_chmod_impl(path,mode);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_utime_impl(path,atime,mtime);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_replace_file_path(const char *old_path, const char *new_path, char *storage, uint64_t capacity) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_replace_file_path_impl(old_path,new_path,storage,capacity);
+    vfs_view_write_end(flags);return result;
+}
+
+bool vfs_unregister_path(const char *path) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_unregister_path_impl(path);
+    vfs_view_write_end(flags);return result;
+}
+
+uint64_t vfs_unregister_prefix(const char *prefix) {
+    uint64_t flags=vfs_view_write_begin();
+    uint64_t result=vfs_unregister_prefix_impl(prefix);
+    vfs_view_write_end(flags);return result;
 }

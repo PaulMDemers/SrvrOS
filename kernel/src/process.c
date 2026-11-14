@@ -5132,6 +5132,44 @@ static int64_t directory_next(struct process_read_file *read,struct srv_dirent_i
     if(metadata)(void)process_open_file_size(selected->path,&out->size);
     return 1;
 }
+static struct process_directory_admission directory_admission;
+static void directory_count(uint64_t *counter,uint64_t amount) {
+    *counter=amount>UINT64_MAX-*counter?UINT64_MAX:*counter+amount;
+}
+void process_directory_admission_snapshot(struct process_directory_admission *out) {
+    uint64_t irq=process_irq_save();
+    if(out)*out=directory_admission;
+    process_irq_restore(irq);
+}
+/* Metadata enumeration has no backend callbacks. Only an unshared cursor in
+ * an eligible foreign process may bypass admission. VFS writer exclusion spans
+ * callbacks/rollback; no stale directory cache or borrowed storage owner is
+ * used. Keep IF0 across the caller's mapping check, this proof, cursor advance
+ * and user copy. Live open-content sizes retain their ordinary semantics. */
+bool process_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result) {
+    uint64_t irq=process_irq_save();
+    if(!result || !out || !capacity || capacity%sizeof(struct srv_dirent_info) ||
+       capacity>SRV_DIRECTORY_BATCH_MAX*sizeof(struct srv_dirent_info))goto refused;
+    struct process *p=process_current();
+    if(!scheduler_io_process_atomic(p)) {directory_count(&directory_admission.policy_refused,1);goto refused;}
+    if(!vfs_view_snapshot_ready()) {directory_count(&directory_admission.publication_refused,1);goto refused;}
+    struct process_file *file=process_file_at(p,fd);
+    struct process_read_file *read=file && file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
+    if(!read || !read->directory || read->refs!=1 || !read->content || !read->content->refs ||
+       read->content->unlinked || read->content->failed || read->content->writeback.active ||
+       !read->node || !read->node->used || read->node->type!=VFS_NODE_DIRECTORY ||
+       read->content->node!=read->node || !process_path_equal(read->node->path,read->content->path) ||
+       vfs_namespace_system_lookup(read->path)!=read->node) {
+        directory_count(&directory_admission.descriptor_refused,1);goto refused;
+    }
+    *result=process_directory(SRV_DIRECTORY_READ_INFO,fd,out,capacity);
+    directory_count(&directory_admission.handled,1);
+    if(*result>0)directory_count(&directory_admission.entries,(uint64_t)*result);
+    process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
+}
+
 int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
     struct process_file *file=process_file_at(process_current(),fd);
     if(!file) return SRV_ERR_BADF;
