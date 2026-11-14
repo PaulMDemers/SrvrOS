@@ -2,6 +2,54 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Native actual requested CPU mapping observation accepted
+
+Frozen runtime `4b4b4d5d` / release `4751b92fb87ad132`, session
+`session-000660383acfe9a4-00`, collector `aa5bd77b` accept **one original
+kind 2 already-disabled receipt-version3 lifetime**. Both complete 1,356-page
+private allocations are walked in each of two fresh original CPU contexts.
+All four requested HHDM observations use actual PAT index0 and uniform
+MTRR/PAT/effective WB. Each span covers four 2 MiB leaves and is writable and
+supervisor-only. Raw combined NX entry bits are clear; no NX/executable authority
+is inferred. The allocations are partial large-leaf spans: adjacent pages are
+not donated. This is requested-alias observation, not exhaustive aliases or
+CPU/GPU coherence and ownership acceptance.
+
+Two nine-DWORD PCI/AF profiles, 54 reader words and two 37-read cache contexts also
+match under the original all-five readiness hold. The final pure gate still binds
+the original root, coverage and repeated attributes before PCI restoration.
+Audit 1,323us, engine 2,532us and requester 3,177us;
+all 10 readiness stores/admissions/ACKs and 44 native target reads complete, with
+zero engine/AF polls. Entry performs no BCS store; reset epoch advances0→1.
+
+Preparation 99,693/100,000us leaves only 307 us.
+Final guard 7us, borrow return 3,401us,
+GT 266,780/300,000us, HDA 303,535/400,000us and outer
+358,381/500,000us pass unchanged limits. This is one bounded pass;
+repeatability and attribution of timing changes remain unproved. Further held
+work must preserve the limits and measure/reduce overhead before consuming more
+of that margin.
+
+All original source/RAM/root/HDA/CPU holds and 14 GPU/one HDA diagnostic aliases
+retire. Four full padded patterns, exactly-once 2,712-page release and DMA57→57
+pass. All 1,515 prior files preserve except expected metadata; three exact logs
+produce1,518 files/162 sessions. Raw/checkpoint/recipe/full native chain, offline
+fsck/allocation/writable/headroom/boot digest, installed/banked payloads, Ubuntu
+default and consumed one-shot pass. USB is unmounted; no run or one-shot remains
+outstanding. Raw and complete physical banks survive outside build under
+`air-buffer-alias-20261114`, including `physical-session-000660383acfe9a4-00`.
+Current4751, prior679a/f1a9, recovery9aa8 and GUI/joint/HDA remain installed;
+older payloads and raw evidence remain banked. Only unreferenced83fd's EFI
+duplicate was retired against exact payload/native manifests before this run.
+
+Enabled-entry receipt3, delayed pending/ACK branches and repeatability remain
+unaccepted. All 255 DMA/prefetch/cache/translation/firmware/display-reader/backing
+obligations, zero positive assurances/managed GPU pages and native tear-free
+remain open. Next bind exhaustive CPU aliases/coherence and actual hardware
+completion/reader witnesses, with measured timing headroom, before GPU memory,
+PTE or submission authority. Main4016 is already integrated; PR19/379 remain
+independent and Actions disabled. Checkpoint: `build/air-buffer-alias-20261114`.
+
 ### Qualified actual requested CPU mapping trial
 
 Frozen source `4b4b4d5d` / release `4751b92fb87ad132` is locally qualified for
@@ -29,7 +77,7 @@ current679a, priorf1a9, recovery9aa8 and GUI/joint/HDA remain installed. Histori
 raw evidence remains banked. Seven older byte-identical build-stage duplicates
 reclaimed1,066,314,885bytes against complete independent banks and external ledger.
 
-Version3 native evidence remains pending. Actual requested-alias observations
+The matching kind2 native evidence is recorded above; other routes remain pending. Actual requested-alias observations
 will not establish exhaustive aliases, coherence, DMA/cache/translation/firmware/
 display-reader ownership or tear-free acceptance. Needed automated1% trial is
 authorized, no input required: fresh pre-trial media/recovery check, exact install,

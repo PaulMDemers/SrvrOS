@@ -386,9 +386,21 @@ pending-drain branch and repeatability remain unaccepted. This closes the
 requester-control lifetime prerequisite, not the actual interval/completion
 requirements in step5. All255 obligations and zero positive assurances remain.
 
-Next integrate deferred main, then specify and implement those real live
-witnesses before any GPU PTE writer. A completed requester hold, clear AF status
-or a saved reset receipt must never be promoted to internal graphics/display
-DMA, prefetch, cache or translation retirement. No unchanged refusal retry or
-new hardware test is armed. Ordinary desktop still uses the inherited
-framebuffer; native tear-free remains pending.
+Main4016 is now integrated. Subsequent v34 all-five readiness holds and v35
+original-source PCI/cache/reader observations are qualified as recorded in the
+[unit history](machines/macbookair7-2.md). Latest source `4b4b4d5d` /
+release `4751b92fb87ad132` accepts one kind 2 version3 requested-CPU-alias lifetime:
+four full 1,356-page observations use actual PAT0/WB, writable/supervisor bits and
+four 2 MiB leaves per span. Raw NX bits are clear. Diagnostic mappings/holds/RAM
+retire cleanly and all prior files/recovery preserve. This neither donates whole
+large leaves nor proves other aliases, coherence or any hardware completion bit.
+
+Next bind exhaustive aliases/coherence and the actual step5 DMA/prefetch/cache/
+translation/firmware/display-reader witnesses before a GPU PTE writer. The latest
+preparation is 99,693/100,000us, leaving only 307 us
+in one run; measure/reduce overhead before adding excluded work. No deadline is
+extended, no full guard skipped, and no repeatability or timing cause is claimed.
+A completed requester/readiness hold, clear AF status or saved reset receipt
+must never be promoted to internal graphics/display DMA or cache retirement.
+No new trial is armed. Ordinary desktop still uses the inherited framebuffer;
+all 255 obligations, zero managed GPU pages and native tear-free remain pending.

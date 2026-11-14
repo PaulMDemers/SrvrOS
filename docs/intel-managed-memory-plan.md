@@ -8,12 +8,22 @@ driver-takeover route and orders the next composition and software work.
 The inherited framebuffer remains the desktop backend. The current native
 provider still supplies zero hardware assurances to `scanout_handoff`.
 
-The next bounded implementation is the [source-audit version3 requested CPU
-mapping observation](intel-source-audit.md#actual-requested-cpu-mappings-receipt-version3).
-It reads actual full-buffer HHDM PAT/permission attributes instead of assuming
-PAT0, under the original held source/root/exclusion. This is pending qualification
-and native evidence. It neither enumerates every physical alias nor clears a
-hardware ownership obligation. No GPU range, PTE or submission grant is added.
+The [source-audit version3 requested CPU mapping observation](intel-source-audit.md#native-version3-requested-alias-observation-accepted)
+is now accepted on Air7,2 source `4b4b4d5d` / release `4751b92fb87ad132`,
+one original kind 2 lifetime. Actual PAT0/WB and writable/supervisor entry bits
+match in both full-buffer samples. Each allocation spans four 2 MiB leaves; raw
+NX bits are clear. Neither neighboring large-leaf pages nor an executable/NX
+policy is imported. All 255 hardware ownership obligations stay open.
+
+The next work must bind exhaustive CPU aliases and coherence, actual outstanding
+DMA/prefetch completion, GPU cache/translation state and every affected firmware/
+display reader to the original source and proposed private interval. Observed
+AF-clear/reader/cache endpoints are prerequisites, not retirement witnesses.
+Preparation is 99,693/100,000us with only 307 us
+margin in one run. Measure and remove redundant overhead before adding held work;
+keep all existing deadlines and complete guards. No GPU range, PTE or submission
+grant is added by the accepted observation. The ordinary desktop still uses the
+inherited framebuffer.
 
 ## What is established
 

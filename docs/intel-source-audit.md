@@ -72,7 +72,7 @@ carries the observed uniform attributes and coverage, not every raw PTE; the
 receiver validates coverage, identity, repetition and the independently decoded
 full physical cache policy. Actual walker semantics are exercised by host tests.
 DMA, GPU cache/translation, firmware and display-reader ownership remain separate
-open requirements. Frozen source`4b4b4d5d` / release`4751b92fb87ad132` passes affected host/VMM/11-adapter,40-image, five-method fatal adapter SAN plus actual VMM SAN,15 compiled weakness,16 historical, log-budget and exact-stage EFI/MBR qualification. Native version3 acceptance remains pending.
+open requirements. Frozen source`4b4b4d5d` / release`4751b92fb87ad132` passes affected host/VMM/11-adapter,40-image, five-method fatal adapter SAN plus actual VMM SAN,15 compiled weakness,16 historical, log-budget and exact-stage EFI/MBR qualification. The matching kind2 native version3 observation is now recorded below; other routes remain pending.
 
 ## Admission and transport
 
@@ -230,3 +230,23 @@ firmware/display-reader retirement and exclusive GPU interval transfer remain
 open. All255 obligations and zero assurances/managed GPU pages remain; native
 tear-free is pending. Enabled version2, delayed branches and repeatability need
 separate real evidence.
+
+## Native version3 requested-alias observation accepted
+
+Air7,2 source `4b4b4d5d` / release `4751b92fb87ad132`, session
+`session-000660383acfe9a4-00`, accepts one original kind 2 already-disabled lifetime.
+Both full 1,356-page HHDM spans are checked twice using actual PAT0, uniform WB,
+writable/supervisor attributes and four 2 MiB leaves per span. NX entry bits are
+clear. Coverage describes only the allocated span, without donating neighboring
+pages in those large leaves. The independent receiver verifies original buffer
+identities, root/virtual and repeated attribute metadata, leaf coverage and every
+physical page's cache policy; the compact receipt does not include every raw PTE.
+
+Audit 1,323us and preparation 99,693/100,000us pass unchanged
+limits, leaving only 307 us. Full enclosing diagnostic
+retirement, exact2,712-page release/DMA57→57, three raw logs,1,515-file preservation,
+offline allocation/writable/fsck and boot/recovery integrity pass. Durable evidence
+and full timings are in the [unit result](machines/macbookair7-2.md#native-actual-requested-cpu-mapping-observation-accepted).
+This accepts one bounded observation; repeatability and other routes are pending.
+Actual alias completeness/coherence, DMA/cache/translation/reader ownership,
+GPU memory/PTE/submission and tear-free remain open with all 255 obligations.
