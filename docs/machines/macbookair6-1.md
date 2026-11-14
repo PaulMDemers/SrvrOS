@@ -14678,3 +14678,75 @@ workload, integrity or complete-retirement criterion was relaxed.
 
 Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `d829acb0`, PR19
 `b3115e02`. No competing directory-worker/test edit is imported.
+
+
+### Native Files retry failed the original whole-app limit (2026-11-13)
+
+Return-review scope is matching evidence, fresh read-only integrity checks and
+documentation only, from fetched main `94d0b9b8` (PR496). No new implementation,
+build, stage, installation or reboot is started. PR19 `cbf807de`, PR301
+`364ccafa` and PR379 `817f80bb` remain separate; no unmerged scope is imported.
+
+Source `2eaea67b`, release `d26b9b1b2a825384`, run `f1d95b33c0c04b61` and
+matching session `session-000660312e2a743a-00` **fail** the original ten-second
+whole-app bound. After 880 completed cycles, Files cycle 880/pid 1167 reaches
+10.008178 s since launch while still in close phase, with its child record
+present, pending opens 0 and errors 0. The saved process snapshot is still
+background, parent 6. This is a real workload failure. The automatic collector's
+missing-workload-receipt assertion is a later consequence, not the root cause:
+there is no `result.txt` or `disk.receipt`; `payload.tmp` remains preserved as
+an incomplete-run artifact. No completed-burst count, full 1800-second audio/disk
+coverage or native latency acceptance may be inferred.
+
+All 36,853 observed loop samples are valid, with zero excursions and 121.565 ms
+maximum under the unchanged 500 ms bound. Completed-cycle ready/close maxima are
+3.746490/1.761259 s; the latter excludes the failed cycle and must not be reported
+as a successful close improvement. The same-worst-loop control/scheduler proof
+is valid and also replays from the final 64 KiB log. PCM snapshots report zero
+recorded underruns until abort; this is not full-duration audio acceptance.
+
+The matching log now explicitly records the Files request: role files/op 3/id 1
+submitted to worker 1168. That worker has two retained `SYS_DIRECTORY` waits,
+4.866285 s and 7.789883 s, both entered with initial owner 8. Under this exact
+worker source, LIST invokes READ_INFO; the removed preliminary PATH_CONTEXT
+round does not account for these remaining waits. Initial owner/sequence is a
+wait-entry correlation anchor: ownership may change while queued, so these are
+not physical USB completion times or proof of one uninterrupted transaction.
+
+Files receives Close at 1209.901341 s and acknowledges at 1209.926131 s. Its
+window-dispose call takes 0.642 ms and canvas unmap 0.378 ms. Document unmap begins
+at 1222.891111 s, 12.964980 s after Close acknowledgement, then takes 0.217 ms;
+file-service quiescence takes 0.029 ms and final pool retirement 0.048 ms. The
+service retains its accepted job, reports zero failed retirements and pending 0,
+and keeps process-owned storage pinned. This points to the outstanding directory
+request before model retirement, rather than expensive GUI/memory cleanup.
+Main returns at 1222.901540 s; parent exit is observed later during failure
+teardown. No saved per-call context attributes that later kernel-exit interval.
+
+Three BMPs eventually complete by teardown, taking 6.655296/18.332576/37.752318 s;
+WRITE is 3.697035/7.730296/28.468280 s. At the deadline, only two were saved and
+the third was busy, so the original live-workload capture requirement still
+fails. Final capture pending/busy/retiring state clears; battery runtime retires
+with attached/detached 1, heap/errors/denied 0. Battery controls correctly propagate
+the failed desktop result while reporting revoked/retired yes. Later cleanup
+and eventual BMP success do not convert the failed workload into a pass.
+
+Fresh read-only full-file hashing, fsck, exact BMP checks and allocation traversal
+pass: all 952 prior paths and 951 non-sidecar hashes remain identical; only expected
+`.srvros/meta` changed. Four logs, three BMPs and the temporary payload bring the
+volume to 960 files/219 directories/5,253 clusters, with zero leaks, FAT/bitmap
+mismatches or errors. Installed/staged/independent payload and recovery checks
+pass. Ubuntu remains default; the one-shot is consumed, collector disabled and
+USB unmounted. Current remains failed trial `d26b9b1b2a825384`, with accepted
+`bfe6ca6ff45fe078`/`772f95d189e4dcfc`/`7acb756c0ac5f4bb` and recovery
+`c35475f62f154f1e` retained; no recovery promotion or reboot is armed.
+Matching raw failure and reviewed evidence are sealed outside build.
+
+The checked single-admission directory open remains host/VM-qualified, but it
+has **not solved or physically accepted** native app-exit latency. No causal
+regression or speed improvement is established across different cold boots,
+media growth and interleavings. The next bounded target is remaining directory-
+metadata admission during shared storage commits, retaining accepted-job drain,
+complete worker/reap ownership and all original limits/integrity checks. Include
+any post-main-return exit delay in that audit rather than hiding it in Close
+accounting or raising the ten-second bound.
