@@ -34,7 +34,11 @@ static struct intel_source_audit_native {
  uint64_t origin,parent_begin,begin,last,end,clock_at,clock_prev;
  uint64_t sample_begin[2],sample_end[2],cache_begin[2],cache_end[2];
  struct x86_cache_snapshot cache_context[2];
- unsigned samples,pci_reads,plane_reads,cache_checks,pci_count[2],plane_count[2][3],cache_reads[2];
+ struct intel_source_audit_range {
+  uint64_t physical;
+  uint32_t pages,index,mtrr,pat,effective,checks;
+ } range[2][2];
+ unsigned samples,pci_reads,plane_reads,cache_checks,range_checks,pci_count[2],plane_count[2][3],cache_reads[2];
  bool cache_ok[2],registered,complete;
 } source_audit_native;
 static bool source_audit_returned(void);

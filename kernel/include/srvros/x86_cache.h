@@ -28,6 +28,13 @@ bool x86_cache_equal(const struct x86_cache_snapshot *,const struct x86_cache_sn
  * remains untouched on refusal, including undefined variable-MTRR overlaps. */
 bool x86_cache_page(const struct x86_cache_snapshot *,uint64_t physical,unsigned pat_index,
                     unsigned *mtrr_type,unsigned *pat_type,unsigned *effective_type);
+/* Pure hypothetical uniform policy over 1..4096 complete pages. Checks every
+ * enabled variable-MTRR boundary, including interior holes; never assumes the
+ * endpoints describe the interior. Outputs are untouched on refusal. This is
+ * neither an actual-alias walk nor a coherence, mapping or GPU ownership grant. */
+bool x86_cache_range(const struct x86_cache_snapshot *,uint64_t physical,uint32_t pages,
+                    unsigned pat_index,unsigned *mtrr_type,unsigned *pat_type,
+                    unsigned *effective_type,unsigned *checks);
 void intel_cache_probe_boot(void);
 bool intel_cache_probe_report(void);
 /* Fresh recheck against completed native observation; not mapping authority. */

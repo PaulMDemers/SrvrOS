@@ -409,3 +409,9 @@ pinned. Next actual transfer still needs documented outstanding posted/prefetch
 completion, GPU cache/translation ordering and every affected firmware/display
 reader's exclusion or retirement. No new PTE, submission or display writer is
 introduced by the audit.
+
+
+The next source-bound cache prerequisite checks both full pinned private-buffer
+ranges against fresh original CPU cache contexts; see [audit version 2](intel-source-audit.md#full-private-buffer-cpu-cache-policy-prerequisite).
+Uniform hypothetical WB policy closes no actual CPU-alias/DMA/GPU-cache/reader
+retirement obligation. Hardware interval transfer remains refused.

@@ -55,8 +55,13 @@ adds no target or authority and does not extend a deadline.
 
 All audit storage, including cache-snapshot scratch, is touched before the
 excluded native census. Reporting occurs after the bounded operation. The
-canonical 400-byte audit vector carries two exact PCI/plane vectors, partial
-counts, cache-read metadata and sample clocks. A separate canonical 528-byte
+original version-1 400-byte audit vector carries two exact PCI/plane vectors,
+partial counts, cache-read metadata and sample clocks. Version 2 adds two exact
+private-buffer range records per sample, making 528 bytes; each record carries
+physical base, complete padded page count, hypothetical PAT index, MTRR/PAT/
+effective type and the number of evaluated boundary points. Summary and data
+versions must agree. The earlier version-1 native evidence remains historical
+observation evidence, not full-buffer-policy acceptance. A separate canonical 528-byte
 reset receipt transports the unchanged twelve reset-control/ACK records,
 including each raw word, poll count and four timestamps. The v35 receiver
 reconstructs those records in a checked internal view for existing validators;
@@ -128,3 +133,34 @@ Enabled entry on v35, delayed pending/ACK branches and repeatability remain
 unaccepted. Equality observations add no DMA/prefetch/cache/translation/firmware/
 display-reader retirement assurance or managed-memory authority; all255 obligations
 and zero assurances/managed GPU pages remain. Native tear-free is still pending.
+
+## Full private-buffer CPU cache-policy prerequisite
+
+After integrating main `00ab2d90`, the version-2 audit additionally checks both
+complete 1,356-page pinned buffers against each fresh CPU cache snapshot. The
+pure `x86_cache_range` decoder validates the starting page and every enabled
+variable-MTRR start/end within the allocation. These are the only policy-change
+boundaries above 1 MiB; equal first/last pages alone are insufficient. Its
+conservative result requires uniform MTRR, PAT and effective types throughout,
+with at most 33 evaluated points and no output change on refusal. Source-bound
+native admission requires WB/WB/WB at hypothetical PAT index 0. Exact physical
+bases and padded lengths stay bound to the original RAM holds; matching range
+results remain required before PCI restoration. Four successful range queries
+are necessary for claimed version-2 completion. Original deadlines stay fixed.
+
+The architectural rules remain those of Intel SDM Volume 3A, sections 12.11–12.12
+and table 12-7 ([Intel combined manual](https://cdrdv2-public.intel.com/671200/325462-sdm-vol-1-2abcd-3abcd.pdf)).
+C tests compare the bounded decoder against an independent exhaustive per-page
+oracle, including an interior UC hole with matching WB endpoints, overlap,
+alignment, disabled MTRRs and physical-width/overflow boundaries. The native
+receiver independently decodes every page against the complete original cache
+receipt and checks exact range identities and boundary counts. Incomplete
+receipts retain partial observations without conferring successful range policy.
+
+This is hypothetical CPU cache-policy eligibility. It does not inspect actual
+alias PAT bits or prove alias completeness, CPU/GPU coherent visibility, cache
+flush/translation completion, outstanding DMA/prefetch retirement, firmware
+exclusion, display-reader retirement or GPU interval ownership. No new hardware
+access target, cache instruction, PTE, submission or display writer is added;
+all 255 obligations and zero assurances/managed GPU pages remain. Version-2
+native acceptance is pending its own exact-source trial.

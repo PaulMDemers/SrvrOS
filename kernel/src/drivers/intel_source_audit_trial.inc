@@ -7,7 +7,7 @@ static bool source_audit_live(void) {
  const struct intel_source_engines *r=&source_engines_native.result;
  return a->object==a && a->parent==r && a->provider==&nonzero_native && a->state==1 && a->registered && !a->complete && !a->reason &&
   a->epoch==r->epoch && a->kind==r->kind && a->mode==r->post_mode && a->origin==r->origin && a->parent_begin==r->parent_begin &&
-  a->samples<3 && a->pci_reads<=18 && a->plane_reads<=54 && a->cache_checks<=2 &&
+  a->samples<3 && a->pci_reads<=18 && a->plane_reads<=54 && a->cache_checks<=2 && a->range_checks<=4 &&
   r->state==ISE_HELD && r->child_entered && !r->child_complete && r->samples==2 && r->writes==5 && r->acks==5 &&
   source_engines_native.issued==5 && intel_source_engines_live(r);
 }
@@ -86,10 +86,22 @@ static bool source_audit_run(void) {
      current->reads!=6+2*current->count+current->fixed_count || current->begin_us<a->sample_begin[n] ||
      current->end_us<=current->begin_us || current->end_us>a->last)return source_audit_fail(32);
   a->cache_ok[n]=true;++a->cache_checks;
+  for(unsigned b=0;b<2;b++) {
+   if(!source_audit_tick() || !intel_source_buffers_live(&buffers_native.binding))return source_audit_fail(64);
+   struct intel_source_audit_range *q=&a->range[n][b];
+   q->physical=buffers_native.binding.physical[b];
+   q->pages=buffers_native.memory[b].layout.pages;q->index=0;
+   if(q->physical!=buffers_native.memory[b].physical || q->pages!=1356 ||
+      !x86_cache_range(current,q->physical,q->pages,q->index,&q->mtrr,&q->pat,&q->effective,&q->checks) ||
+      q->mtrr!=6 || q->pat!=6 || q->effective!=6)return source_audit_fail(64);
+   ++a->range_checks;
+   if(!source_audit_tick())return false;
+  }
+  if(!source_audit_guard())return false;
   a->sample_end[n]=a->last;++a->samples;
  }
  (void)offsets;
- if(!source_audit_guard() || a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->last<=a->begin)return source_audit_fail(1);
+ if(!source_audit_guard() || a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 || a->last<=a->begin)return source_audit_fail(1);
  a->end=a->last;a->state=2;a->registered=false;a->complete=true;return true;
 }
 /* Pure original-result gate used after the parent's final restore clock. */
@@ -98,7 +110,7 @@ static bool source_audit_returned(void) {
  const struct intel_source_engines *r=&source_engines_native.result;
  if(a->object!=a || a->parent!=r || a->provider!=&nonzero_native || a->state!=2 || !a->complete || a->registered || a->reason || a->clock_at || a->clock_prev ||
     a->epoch!=r->epoch || a->kind!=r->kind || a->mode!=r->post_mode || a->origin!=r->origin || a->parent_begin!=r->parent_begin ||
-    a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 ||
+    a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 ||
     r->object!=r || !r->complete || !r->child_complete || r->registered || r->state!=ISE_CLOSED ||
     !a->begin || a->begin<r->child_begin || a->end!=a->last || a->end<=a->begin || a->end>r->child_end)return false;
  uint64_t previous=a->begin;
@@ -110,6 +122,13 @@ static bool source_audit_returned(void) {
    if(a->plane_count[n][p]!=9)return false;
    for(unsigned i=0;i<9;i++)if(a->planes[n][p][i]!=nonzero_native.r.readers.planes[p][i])return false;
   }
+  for(unsigned b=0;b<2;b++) {
+   const struct intel_source_audit_range *q=&a->range[n][b],*first=&a->range[0][b];
+   if(q->physical!=buffers_native.binding.physical[b] || q->physical!=buffers_native.memory[b].physical ||
+      q->pages!=1356 || q->pages!=buffers_native.memory[b].layout.pages || q->index ||
+      q->mtrr!=6 || q->pat!=6 || q->effective!=6 || !q->checks || q->checks>1+2*a->cache_context[n].count ||
+      q->checks!=first->checks)return false;
+  }
   previous=a->sample_end[n];
  }
  for(unsigned n=0;n<2;n++)if(a->cache_context[n].status!=CACHE_OBSERVED || a->cache_context[n].reads!=a->cache_reads[n] ||
@@ -119,19 +138,24 @@ static bool source_audit_returned(void) {
 static void source_audit_u32(uint8_t *out,unsigned *k,uint32_t v){for(unsigned i=0;i<4;i++)out[(*k)++]=(uint8_t)(v>>(8*i));}
 static void source_audit_u64(uint8_t *out,unsigned *k,uint64_t v){for(unsigned i=0;i<8;i++)out[(*k)++]=(uint8_t)(v>>(8*i));}
 static void source_audit_report(void) {
- const struct intel_source_audit_native *a=&source_audit_native;static uint8_t raw[400];static char encoded[537];unsigned k=0;
+ const struct intel_source_audit_native *a=&source_audit_native;static uint8_t raw[528];static char encoded[705];unsigned k=0;
  for(unsigned n=0;n<2;n++) {
   for(unsigned i=0;i<9;i++)source_audit_u32(raw,&k,a->pci[n][i]);
   for(unsigned p=0;p<3;p++)for(unsigned i=0;i<9;i++)source_audit_u32(raw,&k,a->planes[n][p][i]);
   source_audit_u64(raw,&k,a->sample_begin[n]);source_audit_u64(raw,&k,a->sample_end[n]);
   source_audit_u64(raw,&k,a->cache_begin[n]);source_audit_u64(raw,&k,a->cache_end[n]);source_audit_u32(raw,&k,a->cache_reads[n]);
   source_audit_u32(raw,&k,a->pci_count[n]);for(unsigned p=0;p<3;p++)source_audit_u32(raw,&k,a->plane_count[n][p]);source_audit_u32(raw,&k,a->cache_ok[n]);
+  for(unsigned b=0;b<2;b++) {
+   const struct intel_source_audit_range *q=&a->range[n][b];source_audit_u64(raw,&k,q->physical);
+   source_audit_u32(raw,&k,q->pages);source_audit_u32(raw,&k,q->index);source_audit_u32(raw,&k,q->mtrr);
+   source_audit_u32(raw,&k,q->pat);source_audit_u32(raw,&k,q->effective);source_audit_u32(raw,&k,q->checks);
+  }
  }
  entry_requester_base64(raw,k,encoded);
- console_printf("intel-source-audit-data: v=1 b=%s\n",encoded);
- console_printf("intel-source-audit-summary: v=1 state=%u reason=%u epoch=%u kind=%u mode=%u origin=%u parent=%u begin=%u last=%u end=%u clock=%u previous=%u samples=%u pci_reads=%u plane_reads=%u cache_checks=%u registered=%u complete=%u obligations=255 assurances=0 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
+ console_printf("intel-source-audit-data: v=2 b=%s\n",encoded);
+ console_printf("intel-source-audit-summary: v=2 state=%u reason=%u epoch=%u kind=%u mode=%u origin=%u parent=%u begin=%u last=%u end=%u clock=%u previous=%u samples=%u pci_reads=%u plane_reads=%u cache_checks=%u range_checks=%u registered=%u complete=%u obligations=255 assurances=0 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
  (uint64_t)a->state,(uint64_t)a->reason,(uint64_t)a->epoch,(uint64_t)a->kind,(uint64_t)a->mode,a->origin,a->parent_begin,a->begin,a->last,a->end,a->clock_at,a->clock_prev,
- (uint64_t)a->samples,(uint64_t)a->pci_reads,(uint64_t)a->plane_reads,(uint64_t)a->cache_checks,(uint64_t)a->registered,(uint64_t)a->complete);
+ (uint64_t)a->samples,(uint64_t)a->pci_reads,(uint64_t)a->plane_reads,(uint64_t)a->cache_checks,(uint64_t)a->range_checks,(uint64_t)a->registered,(uint64_t)a->complete);
 }
 static void source_audit_reset_report(const struct nonzero_adapter *p) {
  const struct intel_nonzero_reset *r=&p->r;static uint8_t raw[528];static char encoded[705];unsigned k=0;

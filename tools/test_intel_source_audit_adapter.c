@@ -55,12 +55,17 @@ static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *out
  if(jf("audit-cache-time",audit_caches))out->end_us=source_audit_native.origin+100001;
  if(jf("audit-cache-before",audit_caches))out->begin_us=1;
  if(jf("audit-cache-zero",audit_caches))out->reads=0;
+ if(jf("audit-cache-hole",audit_caches)) {
+  out->base[1]=buffers_native.binding.physical[0]+4096;
+  out->mask[1]=(((1ull<<39)-1)&~4095ull)|0x800;
+ }
+ if(jf("audit-cache-pat",audit_caches))out->pat=(out->pat&~255ull)|7;
  return true;
 }
 int main(int argc,char **argv) {
  int code=engines_adapter_main(argc,argv);
  struct intel_source_audit_native *a=&source_audit_native;
  printf("source-audit-fixture: state=%u complete=%u registered=%u clocks=%u pci=%u planes=%u caches=%u actual=%u command=%u\n",a->state,a->complete,a->registered,audit_clocks,audit_pci,audit_planes,audit_caches,engines_actual,requester_command);
- if(a->complete && source_requester_native.result.complete)assert(a->samples==2 && a->pci_reads==18 && a->plane_reads==54 && a->cache_checks==2 && !a->registered);
+ if(a->complete && source_requester_native.result.complete)assert(a->samples==2 && a->pci_reads==18 && a->plane_reads==54 && a->cache_checks==2 && a->range_checks==4 && !a->registered);
  return code;
 }

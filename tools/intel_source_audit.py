@@ -8,8 +8,8 @@ FIELDS='v state reason epoch kind mode origin parent begin last end clock previo
 def audit_recipe(cmd):
  if not isinstance(cmd,str) or cmd.split().count(TOKEN)!=1 or PREVIOUS in cmd.split():raise ValueError('source audit exact recipe')
  return engines_recipe(cmd.replace(TOKEN,PREVIOUS))
-def _raw(line,prefix,size):
- if not line.startswith(prefix+' v=1 b='):raise ValueError('source audit data schema')
+def _raw(line,prefix,size,version=1):
+ if not line.startswith(prefix+f' v={version} b='):raise ValueError('source audit data schema')
  encoded=line.split('b=',1)[1]
  try:raw=base64.b64decode(encoded,validate=True)
  except ValueError as e:raise ValueError('source audit encoding') from e
@@ -34,13 +34,26 @@ def audit_view(text):
 def audit_capture(text):
  lines=[l for l in text.splitlines() if l.startswith('intel-source-audit-')]
  if len(lines)!=3 or not lines[0].startswith('intel-source-audit-reset:') or not lines[1].startswith('intel-source-audit-data:') or not lines[2].startswith('intel-source-audit-summary:'):raise ValueError('source audit receipt coverage/order')
- raw=_raw(lines[1],'intel-source-audit-data:',400);s=_fields(lines[2],'intel-source-audit-summary:',FIELDS)
- if s['v']!=1 or s['state']>3 or s['reason']&~63 or any(s[k]>1 for k in ('registered','complete')) or s['samples']>2 or s['pci_reads']>18 or s['plane_reads']>54 or s['cache_checks']>2:raise ValueError('source audit schema/range')
+ version=2 if lines[2].startswith('intel-source-audit-summary: v=2 ') else 1
+ fields=FIELDS if version==1 else FIELDS[:FIELDS.index('registered')]+['range_checks']+FIELDS[FIELDS.index('registered'):]
+ stride=200 if version==1 else 264
+ raw=_raw(lines[1],'intel-source-audit-data:',2*stride,version);s=_fields(lines[2],'intel-source-audit-summary:',fields,versions=(version,))
+ if s['v']!=version or s['state']>3 or s['reason']&~(63 if version==1 else 127) or any(s[k]>1 for k in ('registered','complete')) or s['samples']>2 or s['pci_reads']>18 or s['plane_reads']>54 or s['cache_checks']>2:raise ValueError('source audit schema/range')
  if s['obligations']!=255 or any(s[k] for k in ('assurances','managed_pages','pte_writes','hardware_ownership')):raise ValueError('source audit unexpected authority')
  samples=[]
  for n in range(2):
-  v=struct.unpack_from('<36I4Q6I',raw,200*n)
+  v=struct.unpack_from('<36I4Q6I',raw,stride*n)
   samples.append(dict(pci=list(v[:9]),planes=[list(v[9+9*p:18+9*p]) for p in range(3)],begin=v[36],end=v[37],cache_begin=v[38],cache_end=v[39],cache_reads=v[40],pci_count=v[41],plane_counts=list(v[42:45]),cache_ok=v[45]))
+ if version==2:
+  if s['range_checks']>4:raise ValueError('source audit range count')
+  for n,p in enumerate(samples):
+   p['ranges']=[]
+   for b in range(2):
+    v=struct.unpack_from('<Q6I',raw,stride*n+200+32*b)
+    q=dict(zip(('physical','pages','index','mtrr','pat','effective','checks'),v));p['ranges'].append(q)
+    if q['checks']>33 or q['pages']>4096 or q['index']>7:raise ValueError('source audit range bounds')
+    if s['complete'] and (q['physical']<0x100000 or q['physical']&4095 or q['physical']>0x100000000-5554176 or q['pages']!=1356 or q['index'] or (q['mtrr'],q['pat'],q['effective'])!=(6,6,6) or not q['checks']):raise ValueError('source audit false uniform buffer policy')
+  if s['complete'] and (s['range_checks']!=4 or samples[0]['ranges']!=samples[1]['ranges']):raise ValueError('source audit changed range policy')
  for p in samples:
   if p['cache_reads']>49:raise ValueError('source audit cache read count')
   if p['pci_count']>9 or any(c>9 for c in p['plane_counts']) or p['cache_ok']>1:raise ValueError('source audit partial counts')
@@ -69,6 +82,11 @@ def audit_result(text):
   pci=e['requester']['phases'][1]['words'][:8]+[0]
   for q in r['samples']:
    if q['pci']!=pci or q['pci'][1]&65535!=3 or q['pci'][8] or [w for row in q['planes'] for w in row]!=old:raise ValueError('source audit requester/reader preservation')
+  if s['v']==2:
+   buffers=e['requester']['transfer']['buffers']['buffers']
+   for sample in r['samples']:
+    for q,b in zip(sample['ranges'],buffers):
+     if (q['physical'],q['pages'])!=(b['physical'],b['pages']):raise ValueError('source audit original buffer binding')
  e['requester']['transfer']['buffers']['source']['reset']['wake']['summary']['v']=35
  return dict(r,engines=e,complete=complete,native_complete=False,managed_pages=0,hardware_ownership=False,physical_tearfree=False)
 def native_audit_result(text):
@@ -78,6 +96,19 @@ def native_audit_result(text):
   from intel_cache import native_cache_result
   cache=native_cache_result(shared_view(text));reads=cache['rows']['sample'][1]['reads']
   if any(p['cache_reads']!=reads for p in r['samples']):raise ValueError('source audit original complete cache context')
+  if r['summary']['v']==2:
+   from intel_cache import _snapshot,_page
+   c=cache['rows']['sample'][1]
+   regions=_snapshot(c,[x for x in cache['rows']['variable'] if x['sample']==1],[x for x in cache['rows']['fixed'] if x['sample']==1])
+   for sample in r['samples']:
+    for q in sample['ranges']:
+     lo=q['physical'];hi=lo+4096*q['pages']
+     # Independent exhaustive oracle: every physical page, not only endpoints
+     # or a replay of the producer's boundary-selection algorithm.
+     for physical in range(lo,hi,4096):
+      if _page(c,regions,physical,q['index'])!=(q['mtrr'],q['pat'],q['effective']):raise ValueError('source audit native range policy')
+     checks=1+sum(lo<x<hi for a,b,_ in regions for x in (a,b)) if c['def']&0x800 else 1
+     if q['checks']!=checks:raise ValueError('source audit native range boundary coverage')
   r['native_complete']=True
  return r
 def verify_audit_checkpoint(pre,text,native=False):

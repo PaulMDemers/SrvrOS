@@ -54,6 +54,12 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("audit-final-plane",requester_final_clock))source_audit_native.planes[1][0][1]^=4096;
   if(jf("audit-final-cache",requester_final_clock))source_audit_native.cache_ok[1]=false;
   if(jf("audit-final-cache-raw",requester_final_clock))source_audit_native.cache_context[1].reads--;
+  if(jf("audit-final-range-count",requester_final_clock))source_audit_native.range_checks--;
+  if(jf("audit-final-range-base",requester_final_clock))source_audit_native.range[1][0].physical+=4096;
+  if(jf("audit-final-range-pages",requester_final_clock))source_audit_native.range[1][0].pages--;
+  if(jf("audit-final-range-index",requester_final_clock))source_audit_native.range[1][0].index=1;
+  if(jf("audit-final-range-type",requester_final_clock))source_audit_native.range[1][0].effective=0;
+  if(jf("audit-final-range-checks",requester_final_clock))source_audit_native.range[1][0].checks++;
 #endif
   if(jf("requester-final-admit",requester_final_clock))r->words[requester_final_clock==1?0:2][1]^=4;
   requester_final_clock=0;

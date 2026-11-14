@@ -34,7 +34,7 @@ class Audit(unittest.TestCase):
   for off in ('','entry-off-'):
    for mode in ('report','nz-default','nz-poll','engines-poll','requester-pending'):
     text=run(off+mode);r=audit_result(text);self.assertTrue(r['complete']);self.assertFalse(r['native_complete']);self.assertEqual((r['summary']['pci_reads'],r['summary']['plane_reads'],r['summary']['cache_checks']),(18,54,2))
-    self.assertEqual(r['samples'][0]['pci'],r['samples'][1]['pci']);self.assertEqual(r['samples'][0]['planes'],r['samples'][1]['planes']);self.assertEqual(r['summary']['obligations'],255)
+    self.assertEqual(r['samples'][0]['pci'],r['samples'][1]['pci']);self.assertEqual(r['samples'][0]['planes'],r['samples'][1]['planes']);self.assertEqual(r['summary']['obligations'],255);self.assertEqual(r['summary']['range_checks'],4);self.assertEqual([q['pages'] for q in r['samples'][0]['ranges']],[1356,1356])
     self.assertFalse(any(r['summary'][k] for k in ('assurances','managed_pages','pte_writes','hardware_ownership','registered')))
     with self.assertRaises(ValueError):engines_result(text)
     with self.assertRaises(ValueError):native_audit_result(text)
@@ -53,12 +53,12 @@ class Audit(unittest.TestCase):
        text=run(f'{off}audit-{target}-{mode}:{n}');self.retained(text);self.assertLessEqual(fixture(text)['pci' if target=='pci' else 'planes'],n)
  def test_each_complete_context_failure_and_clock_metadata_retains(self):
   for off in ('','entry-off-'):
-   for mode in ('fail','time','before','zero'):
+   for mode in ('fail','time','before','zero','hole','pat'):
     for n in (1,2):
      with self.subTest(off=off,mode=mode,n=n):self.retained(run(f'{off}audit-cache-{mode}:{n}'))
  def test_final_parent_restore_requires_original_completed_audit(self):
   for off in ('','entry-off-'):
-   for mode in ('complete','parent','registered','count','pci','plane','cache','cache-raw'):
+   for mode in ('complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks'):
     with self.subTest(off=off,mode=mode):
      text=run(f'{off}audit-final-{mode}:2');f=fixture(text);self.assertEqual((f['actual'],f['command']),(10,3));self.assertIn('retained=1 success=0',text)
      row=next(l for l in text.splitlines() if l.startswith('source-requester-fixture:'));self.assertIn('actual=1',row);self.assertIn('complete=0',row)
@@ -78,7 +78,7 @@ class Audit(unittest.TestCase):
    line=next(l for l in text.splitlines() if l.startswith('intel-source-audit-summary:'))
    for key,value in re.findall(r' (\w+)=(\d+)',line):
     with self.subTest(key=key),self.assertRaises(ValueError):audit_result(text.replace(line,line.replace(f' {key}={value}',f' {key}={int(value)+200000}',1),1))
-   for key in ('v','state','epoch','kind','mode','origin','parent','begin','last','end','samples','pci_reads','plane_reads','cache_checks','complete'):
+   for key in ('v','state','epoch','kind','mode','origin','parent','begin','last','end','samples','pci_reads','plane_reads','cache_checks','range_checks','complete'):
     with self.subTest(required_nonzero=key),self.assertRaises(ValueError):audit_result(text.replace(line,re.sub(rf' {key}=\d+',f' {key}=0',line),1))
    for prefix in ('intel-source-audit-data:','intel-source-audit-summary:','intel-source-audit-reset:'):
     row=next(l for l in text.splitlines() if l.startswith(prefix))
@@ -88,7 +88,7 @@ class Audit(unittest.TestCase):
     with self.assertRaises(ValueError):audit_result(bad)
  def test_raw_vector_metadata_and_compact_reset_mutations(self):
   for text in self.texts:
-   for prefix,size,offsets in (('intel-source-audit-data:',400,(0,4,32,36,140,144,152,160,168,176,180,184,196,200,399)),('intel-source-audit-reset:',528,(0,4,8,12,20,28,36,440,527))):
+   for prefix,size,offsets in (('intel-source-audit-data:',528,(0,4,32,36,140,144,152,160,168,176,180,184,196,200,208,212,216,220,224,228,232,240,244,248,252,256,260,264,527)),('intel-source-audit-reset:',528,(0,4,8,12,20,28,36,440,527))):
     line=next(l for l in text.splitlines() if l.startswith(prefix));raw=base64.b64decode(line.split('b=',1)[1]);self.assertEqual(len(raw),size)
     for offset in offsets:
      data=bytearray(raw)
@@ -107,7 +107,7 @@ class Audit(unittest.TestCase):
     for name,data in [('boot.log',pre),('session-a.log',pre),('exit.log',final)]:(logs/name).write_text(data)
     saved,report=collect(root,'37d8c5d0',root/'collected');row,=report['sessions'];self.assertTrue(row['intel_source_audit']['native_complete']);self.assertIsNone(row['intel_source_engines']);self.assertEqual(row['intel_gt_wake']['summary']['v'],35)
     self.assertEqual((saved/logs.name/'exit.log').read_text(),final);self.assertFalse(any('Invalid' in a or 'incomplete' in a for a in row['attention']))
-    (logs/'exit.log').write_text(final.replace('cache_checks=2 registered=0 complete=1','cache_checks=1 registered=0 complete=1'))
+    (logs/'exit.log').write_text(final.replace('cache_checks=2 range_checks=4','cache_checks=1 range_checks=4'))
     _,report=collect(root,'37d8c5d0',root/'rejected');row,=report['sessions'];self.assertFalse((row['intel_source_audit'] or {}).get('native_complete'));self.assertTrue(row['attention'])
  def test_cache_context_actual_fresh_read_comparison(self):
   subprocess.run(['build/tests/intel-cache-probe','context'],check=True,capture_output=True)
