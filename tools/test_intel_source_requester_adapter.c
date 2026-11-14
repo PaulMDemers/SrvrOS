@@ -45,6 +45,16 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("requester-final-engine-borrow",requester_final_clock))r->child_borrows++;
   if(jf("requester-final-engine-pointer",requester_final_clock))r->registered_child=&source_engines_native.result;
 #endif
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+  if(jf("audit-final-complete",requester_final_clock))source_audit_native.complete=false;
+  if(jf("audit-final-parent",requester_final_clock))source_audit_native.parent=0;
+  if(jf("audit-final-registered",requester_final_clock))source_audit_native.registered=true;
+  if(jf("audit-final-count",requester_final_clock))source_audit_native.pci_reads--;
+  if(jf("audit-final-pci",requester_final_clock))source_audit_native.pci[1][1]^=4;
+  if(jf("audit-final-plane",requester_final_clock))source_audit_native.planes[1][0][1]^=4096;
+  if(jf("audit-final-cache",requester_final_clock))source_audit_native.cache_ok[1]=false;
+  if(jf("audit-final-cache-raw",requester_final_clock))source_audit_native.cache_context[1].reads--;
+#endif
   if(jf("requester-final-admit",requester_final_clock))r->words[requester_final_clock==1?0:2][1]^=4;
   requester_final_clock=0;
  }

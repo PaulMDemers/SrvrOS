@@ -397,3 +397,15 @@ actual display-reader ownership remain open. Command readback and AF clear do
 not prove internal graphics accesses have retired. Integrate deferred main,
 then establish the actual reviewed live witnesses before the first GPU PTE
 transaction; no unchanged refusal retry is needed.
+
+## Live held-child audit boundary
+
+After native v34 readiness qualification, the separate
+[v35 requester/cache/display-reader audit](intel-source-audit.md) binds fresh
+PCI/AF, CPU cache-context and all three primary/cursor/sprite vectors inside the
+original held child. This closes a same-lifetime observation gap; it cannot clear
+any completion bit or complete milestone 1. Inherited display backing remains
+pinned. Next actual transfer still needs documented outstanding posted/prefetch
+completion, GPU cache/translation ordering and every affected firmware/display
+reader's exclusion or retirement. No new PTE, submission or display writer is
+introduced by the audit.

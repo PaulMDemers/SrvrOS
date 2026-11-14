@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_SOURCE_ENGINES
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#define intel_wake_firmware_request intel_source_audit_firmware_request
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
 #define intel_wake_firmware_request intel_source_engines_firmware_request
 #elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
 #define intel_wake_firmware_request intel_source_requester_firmware_request
@@ -958,7 +960,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_RING_TRANSITION
     static char ring_recipe[1400];
-#ifdef SRVROS_INTEL_SOURCE_ENGINES
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=source-audit-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=source-engines-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=source-requester-v1",completion_recipe);

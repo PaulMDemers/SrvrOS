@@ -1061,3 +1061,15 @@ open. Next local scope is binding those ownership witnesses to the original
 borrow before GPU interval authority. Do not import this model's resources or
 acceptance into siblings. Standing automated reboot authorization at1% persists;
 Actions remain disabled; no other task contacted.
+
+
+Air7,2 active v35 scope after sealed optimized83fd native collection: original
+held-child PCI/AF profiles, CPU cache equality and three-plane primary/cursor/
+sprite preservation observations. Dedicated source-audit image/recipe/collector;
+older profiles and original deadlines unchanged. Audit storage is first-touched
+before excluded entry, and only a duplicate post-census opening guard is removed;
+actual sample guards remain. Compact reset transport preserves every original
+raw ACK/control/poll/timestamp field. No memory or completion authority changes.
+Native v35 pending until exact source evidence; main94d0b9b8 still current, no
+other task contacted. Local checkpoint `build/air-held-readers-20261113`; standing
+volume1% automated test authorization includes reboot once qualified.

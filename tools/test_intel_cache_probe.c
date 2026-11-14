@@ -53,6 +53,13 @@ int main(int argc,char **argv) {
     intel_cache_probe_boot();intel_cache_probe_boot();
     assert(!intel_cache_probe_uc_page(0xc0811000));
     bool ok=intel_cache_probe_report();assert(ok==(scenario==0));
+    if(argc>1 && !strcmp(argv[1],"context")) {
+        struct x86_cache_snapshot current={0};
+        assert(!intel_cache_probe_context(NULL) && reads==20);
+        assert(intel_cache_probe_context(&current) && reads==30 && current.status==CACHE_OBSERVED && current.reads==10);
+        scenario=3;assert(!intel_cache_probe_context(&current) && reads==40);
+        puts("cache-context: PASS fresh full equality/refusal; no ownership grant");return 0;
+    }
     assert(reads==(scenario==2?0:20));
     if(argc>1 && !strcmp(argv[1],"fresh-uc")) {
         assert(!intel_cache_probe_uc_page(0xc0812000) && reads==20);

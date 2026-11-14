@@ -99,7 +99,10 @@ static bool intel_display_test_source_engines_child(struct intel_source_engines 
  if(strstr(engine_mode,"engines-child-backing"))gt_bad_pci=true;
  return true;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_ENGINES_FIXTURE_MAIN
+#define INTEL_ENGINES_FIXTURE_MAIN main
+#endif
+int INTEL_ENGINES_FIXTURE_MAIN(int argc,char **argv) {
  engines_stall=argc==2 && strstr(argv[1],"engines-stall");
  int code=requester_adapter_main(argc,argv);struct intel_source_engines *r=&source_engines_native.result;
  printf("source-engines-fixture: state=%u reason=%u complete=%u registered=%u returns=%u writes=%u issued=%u actual=%u reads=%u admissions=%u guards=%u clocks=%u stores=%u samples=%u polls=%u child=%u child_done=%u epoch=%u kind=%u begin=%llu end=%llu command=%u\n",

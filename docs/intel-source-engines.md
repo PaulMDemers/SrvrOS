@@ -171,3 +171,7 @@ outside build; see the [unit result](machines/macbookair7-2.md#latest-native-opt
 Optimized kind 2, delayed ACK/AF pending and repeatability remain unaccepted.
 Internal DMA/prefetch/cache/translation/display-reader ownership, all 255
 obligations and actual managed GPU memory/native tear-free remain open.
+
+The next distinct [source-bound requester/cache/reader audit](intel-source-audit.md)
+observes those states inside the live held child. It does not promote matching
+readouts into outstanding DMA/cache/reader retirement or interval authority.

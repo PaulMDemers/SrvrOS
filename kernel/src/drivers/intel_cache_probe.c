@@ -145,3 +145,9 @@ bool intel_cache_probe_reset_uc_page(uint64_t physical,uint32_t offset) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
+
+/* The caller owns exclusion and deadlines; this is an observation, not a lease. */
+bool intel_cache_probe_context(struct x86_cache_snapshot *out) {
+ if(!out || !report_ok)return false;
+ return x86_cache_snapshot(out,&io) && x86_cache_equal(&sample[1],out);
+}

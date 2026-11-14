@@ -6522,3 +6522,52 @@ test-core test-desktop: test-control-timing
 test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_control_timing.py
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h
+
+INTEL_SOURCE_AUDIT_FLAGS := $(INTEL_SOURCE_ENGINES_FLAGS) -DSRVROS_INTEL_SOURCE_AUDIT
+build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_audit_adapter.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/intel-source-audit/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/srvros.elf: build/intel-source-audit/engines.o build/intel-source-audit/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-source-audit/transfer.o build/intel-source-audit/buffers.o build/intel-joint/page.o build/intel-source-audit/main.o build/intel-source-audit/probe.o build/intel-source-audit/requests.o build/intel-source-audit/reset.o build/intel-source-audit/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+build/intel-source-audit/requester.o: kernel/diagnostics/intel_source_requester.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+
+build/intel-source-audit/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+
+build/tests/boot-source-audit$(HOST_EXE): tools/test_boot_source_audit.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+.PHONY: test-intel-source-audit
+test-core: test-intel-source-audit
+test-intel-source-audit: build/tests/intel-source-audit-adapter$(HOST_EXE) build/tests/boot-source-audit$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_source_audit.py
+	build/tests/boot-source-audit$(HOST_EXE)
+
+build/intel-source-audit/engines.o: kernel/diagnostics/intel_source_engines.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c

@@ -156,7 +156,15 @@ static bool nonzero_post_sample(void *ctx,uint32_t words[5][8],uint32_t context[
  bool ok=completion_snapshot(p->a,words,context);nonzero_exit(p);return ok;
 }
 static bool nonzero_post(void *ctx,struct intel_completion_result *out) {
- struct nonzero_adapter *p=ctx;if(out!=&p->r.post || !nonzero_enter(p))return false;
+ struct nonzero_adapter *p=ctx;if(out!=&p->r.post ||
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+  /* observe -> sample still performs fresh engine_guard before any census I/O.
+   * This opening full guard has no intervening target access and is redundant. */
+  !nonzero_guard(p)
+#else
+  !nonzero_enter(p)
+#endif
+ )return false;
  return intel_completion_observe(out,p->g,(struct intel_completion_io){p,nonzero_guard,nonzero_post_group,nonzero_post_context,nonzero_now,nonzero_post_sample});
 }
 static bool nonzero_readers(void *ctx,struct intel_ring_readers *out,unsigned *count) {
@@ -293,8 +301,12 @@ static void nonzero_report(void) {
  for(unsigned n=0;n<5;n++)nonzero_words("control",n,r->control[n],r->control_count[n]);
  for(unsigned n=0;n<2;n++)nonzero_words("bcs",n,r->bcs[n],r->bcs_count[n]>8?8:r->bcs_count[n]);
  nonzero_words("domain",0,r->domain,4);
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+ source_audit_reset_report(p);
+#else
  for(unsigned n=0;n<10;n++)console_printf("intel-nonzero-ack: v=1 n=%u ack=%u final=%u polls=%u begin=%u end=%u store=%u previous=%u\n",(uint64_t)n,(uint64_t)r->ack[n],(uint64_t)r->final[n],(uint64_t)r->polls[n],r->control_begin[n],r->control_end[n],p->store_at[n],p->store_previous[n]);
  for(unsigned n=0;n<2;n++)console_printf("intel-nonzero-pulse: v=1 n=%u ack=%u final=%u polls=%u begin=%u end=%u store=%u previous=%u\n",(uint64_t)n,(uint64_t)r->reset_ack[n],(uint64_t)r->reset_final[n],(uint64_t)r->reset_polls[n],r->pulse_begin[n],r->pulse_end[n],p->store_at[n+10],p->store_previous[n+10]);
+#endif
  for(unsigned n=0;n<2;n++) {
   uint32_t words[46];unsigned groups=r->post.groups>n*5?r->post.groups-n*5:0;if(groups>5)groups=5;
   unsigned count=groups*8+(r->post.contexts>n?6:0);

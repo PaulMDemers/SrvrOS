@@ -103,6 +103,9 @@ static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32
  if(!source_engines_load(p,e,out)){source_engines_native.uncertain=true;return GT_WRITE_UNCERTAIN;}
  return GT_WRITE_DONE;
 }
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#include "intel_source_audit_trial.inc"
+#endif
 static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
  struct nonzero_adapter *p=ctx;
  if(r!=&source_engines_native.result || r->state!=ISE_HELD || !source_engines_guard(p) ||
@@ -111,6 +114,9 @@ static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
  if(intel_source_requester_child_returned(&source_requester_native.result) ||
     intel_source_transfer_check(&source_transfer_native) || intel_source_transfer_close(&source_transfer_native) ||
     scanout_memory_hold_end(&buffers_native.hold[0]) || scanout_memory_hold_end(&buffers_native.hold[1]))return false;
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+ if(!source_audit_run())return false;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_source_engines_child(r);
 #else
@@ -125,6 +131,9 @@ static bool source_engines_run(struct nonzero_adapter *p) {
  return ok;
 }
 static void source_engines_report(void) {
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+ source_audit_report();
+#endif
  const struct intel_source_engines *r=&source_engines_native.result;
  static uint8_t raw[624];static char data[833];unsigned k=0,j=0;
  for(unsigned n=0;n<4;n++) {

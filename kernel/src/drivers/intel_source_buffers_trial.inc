@@ -26,6 +26,19 @@ static struct {
  bool uncertain;
 } source_engines_native;
 #endif
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+static struct intel_source_audit_native {
+ const void *object,*provider;
+ const struct intel_source_engines *parent;
+ uint32_t epoch,kind,mode,state,reason,pci[2][9],planes[2][3][9];
+ uint64_t origin,parent_begin,begin,last,end,clock_at,clock_prev;
+ uint64_t sample_begin[2],sample_end[2],cache_begin[2],cache_end[2];
+ struct x86_cache_snapshot cache_context[2];
+ unsigned samples,pci_reads,plane_reads,cache_checks,pci_count[2],plane_count[2][3],cache_reads[2];
+ bool cache_ok[2],registered,complete;
+} source_audit_native;
+static bool source_audit_returned(void);
+#endif
 static struct {
  struct scanout_memory memory[2];
  struct scanout_memory_pool pool;
@@ -93,6 +106,10 @@ static bool buffers_prepare(void) {
 #ifdef SRVROS_INTEL_SOURCE_ENGINES
  volatile unsigned char *engine_storage=(volatile unsigned char *)&source_engines_native;
  for(unsigned i=0;i<sizeof(source_engines_native);i++)engine_storage[i]=0;
+#endif
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+ volatile unsigned char *audit_storage=(volatile unsigned char *)&source_audit_native;
+ for(unsigned i=0;i<sizeof(source_audit_native);i++)audit_storage[i]=0;
 #endif
  buffers_native.dma_before=pmm_tagged_frames(PMM_FRAME_DMA);buffers_native.begin=timer_monotonic_us();
  struct scanout_profile p={0};struct scanout_memory_layout l={0};
