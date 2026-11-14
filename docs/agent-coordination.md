@@ -1138,3 +1138,11 @@ raw/physical banks durable, USB unmounted, no run/one-shot outstanding. See the
 No actual alias/coherence/DMA/GPU cache/reader/firmware grant:255obligations and
 zero assurances/managed GPU pages remain. Main4016 public-dispatch integration
 is next; acceptance remains exact-source and actual-route specific.
+
+
+After native version2 collection/publication, Air7,2 integrates main4016abf0
+asf8398741, preserving both appended build targets and independent unit rows.
+Affected public-dispatch/syscall/user-copy/admission, host, matched default
+kernel/USB build and docs pass. GPU/cache/receiver source is unchanged from
+frozen2f5d0ee3; installed679a and native acceptance stay exact-source. This is
+local integration validation only; no new stage, trial or one-shot is armed.

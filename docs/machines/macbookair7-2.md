@@ -2,6 +2,20 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Post-native main integration
+
+After sealing the version2 native result below, main `4016abf0` (PR499/500)
+is integrated as `f8398741`. Both append-only build targets and the own Air7/
+fresh Air6 index rows were retained through merge conflicts; C merged without
+conflict. Affected public directory-dispatch, syscall I/O/user-copy and experimental
+admission tests, host checks, default kernel/USB-image rebuild and docs pass.
+GPU/cache source and its receiver are byte-identical to frozen runtime2f5d0ee3.
+This is affected host integration validation, not a second full-core gate or
+native acceptance of the merged tree. Installed release679a remains frozen2f;
+its raw/physical/publication banks and recovery remain unchanged. No new stage,
+trial or one-shot is armed. Actual CPU-alias and hardware ownership witnesses
+remain next. Checkpoint: `build/air-buffer-cache-20261114/integration.json`.
+
 ### Native full-buffer CPU cache-policy observation accepted
 
 Frozen runtime `2f5d0ee3` / release `679a03e543968655`, session
