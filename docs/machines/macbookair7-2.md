@@ -2,6 +2,28 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Active integration and engine-admission timing work
+
+The local Air7,2 agent is integrating main `94d0b9b8` (Air6,1 desktop control
+tracing and redundant Files directory-open fix) after complete native v34
+collection. The repeated return message had the same Ubuntu boot; there is no
+additional uncollected run. Preserve this unit's exact `4fd81b45` acceptance
+and the Air6,1 agent's separate evidence. PR19 MT7610 and PR379 WebCore are
+independent; no task messaging or subagents are requested.
+
+Next bounded scope: measure repeated native engine-adapter guard work and
+remove redundancy while retaining complete source/root/map/requester admission
+before each target access, the final original clock/pure store checks, original
+registrations and full opening/closing hardware validation. Keep all
+100/300/400/500 ms origins and10 ms/256-poll caps unchanged. No PTE, GPU-memory
+or DMA/cache/reader authority is added. Only the new engine adapter and its
+host fixtures/qualification are intended to change; old recipes remain strict.
+Main's desktop/Files changes need their own affected local regressions.
+The local checkpoint is `build/air-engine-admission-20261113`. Native timing
+acceptance requires a new exact-source trial; old 207 us margin is not capacity.
+Current/recovery stay protected; standing automated reboot authorization at1%
+applies once a new candidate is properly qualified and recorded.
+
 ### Native v34 original-source five-engine readiness hold accepted
 
 Frozen runtime `4fd81b45` / release `90dfc6ca035e19f7`, session
