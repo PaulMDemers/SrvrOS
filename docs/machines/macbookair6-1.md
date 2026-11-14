@@ -14900,3 +14900,60 @@ before repeating the original 1800-second native 1% workload under the user's
 existing self-merge/reboot authorization. Matching prior evidence is reviewed
 and sealed; no uncollected run remains. PR19 `b4759eda`, PR301 `308d7454` and
 PR379 `817f80bb` remain independent; recheck actual shared-file hunks at merge.
+
+
+### Public directory prelude qualified with positive VM use (2026-11-14, PR500)
+
+Final fetched main remains `62eca9ce`; PR19 `bce79673` and PR301 `2f5d0ee3`
+were rechecked for actual shared-file overlap, with no competing public
+directory routing change. PR379 remains `817f80bb`. No unmerged scope is imported.
+
+Frozen source `1ca5c2bd` routes only the validated READ_INFO attempt
+before public namespace ownership. A declined attempt regains the complete
+original owned span; cancellation, fresh user mapping/FD lookup and live shared
+cookie semantics remain in the owned handler. READ, PATH, CHDIR and other
+namespace calls retain original ownership. The batch-sized prelude is out of
+line so its frame is released before the owned fallback on the 16 KiB entry
+stack. VFS publication/descriptor proofs, scheduler, storage backend, userspace,
+ABI, profile policy, 16-entry batch and all timing/integrity limits are unchanged.
+
+A new regression compiles the actual production directory helpers and public
+dispatcher text together. The old tested wrapper compiles, then fails the exact
+pre-ownership assertion; the corrected wrapper passes, also under ASan/UBSan.
+Cases cover retained foreign ownership on success, full owned fallback, FD
+replacement, mapping invalidation, post-wait cancellation, failed acquisition,
+invalid bounds/fds and unchanged other directory/namespace calls. Existing raw
+experimental admission/refusal and guarded user-copy/process/scheduler/VFS
+fixtures pass. No production test hook or synthetic native success is added.
+
+The loaded KVM run now proves positive public-path use from its saved final log:
+35 handled calls, 503 entries and 10 policy refusals,
+with publication/descriptor refusals 0/0. It completes
+23 app cycles and 176 verified 256 KiB bursts over 60 seconds
+at 1%, one exact screenshot and zero recorded underruns. Ready/close maxima are
+0.897674/1.299554 s and worst loop
+139.382 ms. Strict saved-only app/service/control, owner and
+both live sidecar proofs pass. Positive VM use is now a preparation prerequisite;
+the prior zero-handled native result stays failed feature evidence.
+
+Matched ordinary/native/Q35 builds, affected fixture links, kernel/payload
+binding, fresh full core/desktop/docs and boot suites, six ordinary VMs, USB
+transport/capture and exact native-stage foreign-profile refusal all pass.
+Existing optional exhaustive-I/O skip and baseline append-repair allocation
+gaps remain visible; no new power-loss repair or native speed claim is made.
+
+Release `ed12574bea281328`, run `ec1ebf7c48ec4bfb` is installed and verified, unarmed
+at this checkpoint. All 969 preboot files are retained except
+the renewed 1% expiry preference. Fresh fsck/allocation/headroom checks pass.
+Only the unreferenced failed `d26b9b1b2a825384` EFI duplicate was
+retired after full stage, independent payload, sealed failure and firmware/GRUB
+reference verification. Its evidence remains intact. Current/recovery and
+installed accepted bfe/772/7ac plus the prior ba trial remain verified; Ubuntu
+is default and recovery `c35475f62f154f1e` is unchanged.
+
+Next is the original automated 1800-second 1% audio/disk/app/three-screenshot
+trial, with unchanged 500 ms loop and ten-second whole-app bounds, all CRC,
+readback, flush/fsync/rename, file/allocation and worker/reap/battery retirement
+checks. Heavy audit remains off; no input is needed. Native acceptance requires
+positive directory counts and all original matching results after return. No
+new physical acceptance or recovery promotion is claimed before that review.
