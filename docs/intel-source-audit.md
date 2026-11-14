@@ -72,7 +72,7 @@ carries the observed uniform attributes and coverage, not every raw PTE; the
 receiver validates coverage, identity, repetition and the independently decoded
 full physical cache policy. Actual walker semantics are exercised by host tests.
 DMA, GPU cache/translation, firmware and display-reader ownership remain separate
-open requirements. Version3 native acceptance is pending.
+open requirements. Frozen source`4b4b4d5d` / release`4751b92fb87ad132` passes affected host/VMM/11-adapter,40-image, five-method fatal adapter SAN plus actual VMM SAN,15 compiled weakness,16 historical, log-budget and exact-stage EFI/MBR qualification. Native version3 acceptance remains pending.
 
 ## Admission and transport
 

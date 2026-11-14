@@ -2,6 +2,42 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Qualified actual requested CPU mapping trial
+
+Frozen source `4b4b4d5d` / release `4751b92fb87ad132` is locally qualified for
+receipt-version3 actual requested CPU mapping observations. Four original-bound
+full-span walks replace assumed PAT0 with actual leaf PAT indices and combined
+RW/US/NX entry attributes, under the same sole root and original held deadlines.
+The final pure return gate binds coverage, root, virtual/physical identities and
+repeated attributes before PCI restore. No PTE/cache writer or ownership grant
+is added; all255 obligations and zero managed GPU pages remain.
+
+All11 actual adapter methods, affected VMM/process-copy tests, default/USB rebuild,
+40 diagnostic images and docs pass. New VMM/legacy-range observers and five
+changed adapter/receiver methods pass fatal ASan/UBSan. Fifteen compiled weakness
+controls,16 historical native classifications,119 staging/rollback cases, seven
+2KiB frames and exact-stage EFI/MBR refusal/persistence/unmount/return plus missing
+workspace halt pass. Saved-tail projection is 65,199/65,536bytes
+including existing reserve/header. This is affected validation against the prior
+2f full-core baseline; the complete unrelated core/SAN matrix is not re-claimed.
+
+Payload and qualification are independently banked outside build. Offline media
+preserves all1,515 files/161sessions and the boot digest; fsck/allocation/writable/
+headroom, Ubuntu default and unarmed recovery pass. Only unreferenced83fd's EFI
+duplicate was retired after complete accepted-native and payload-bank equality;
+current679a, priorf1a9, recovery9aa8 and GUI/joint/HDA remain installed. Historical
+raw evidence remains banked. Seven older byte-identical build-stage duplicates
+reclaimed1,066,314,885bytes against complete independent banks and external ledger.
+
+Version3 native evidence remains pending. Actual requested-alias observations
+will not establish exhaustive aliases, coherence, DMA/cache/translation/firmware/
+display-reader ownership or tear-free acceptance. Needed automated1% trial is
+authorized, no input required: fresh pre-trial media/recovery check, exact install,
+one-shot arm, save/unmount/automatic safe return; uncertainty retains ownership
+and halts visibly. Collect its unique matching session before another trial.
+Main4016 is integrated; PR19/379 independent, Actions disabled, no parallel agents.
+Checkpoint: `build/air-buffer-alias-20261114`.
+
 ### Active actual CPU mapping observation
 
 Bounded objective: replace the version2 hypothetical PAT index with the actual
