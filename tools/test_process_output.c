@@ -52,6 +52,14 @@ const struct vfs_node *vfs_node_at(uint64_t i) {
     assert(path_fixture);return i<7?&path_nodes[i]:NULL;
 }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+static bool directory_atomic,view_blocked;
+static struct process *current_subject;
+bool vfs_view_snapshot_ready(void) {return !view_depth && !view_blocked;}
+bool scheduler_io_process_atomic(void *p) { assert(p==current_subject && !(process_test_rflags()&(1ull<<9)));return directory_atomic;}
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
 static struct process_pipe *legacy_retirement_watch;
@@ -784,7 +792,32 @@ static void path_context_regression(void) {
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/test/dir"));
     long fd=process_file_alloc(&subject,&path_nodes[2],NULL,0);assert(fd==3);
     assert(process_has_open_vfs_prefix("/test/dir"));
+    /* Foreign-commit admission advances the real live cookie, never a cache.
+     * A rejected publication/scheduler/descriptor proof changes no output. */
+    for(unsigned i=0;i<7;i++)path_nodes[i].used=true;
+    struct srv_dirent_info admitted[2];memset(admitted,0xa5,sizeof(admitted));
+    unsigned char unchanged[sizeof(admitted)];memcpy(unchanged,admitted,sizeof(admitted));
+    int64_t result=99;directory_atomic=true;view_blocked=true;
+    assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==99);
+    assert(!memcmp(admitted,unchanged,sizeof(admitted)) && read_file_at(subject.files[fd].handle)->offset==0);
+    view_blocked=false;directory_atomic=false;
+    assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted),&result));
+    directory_atomic=true;
+    assert(process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==2);
+    assert(!strcmp(admitted[0].entry.name,".") && !strcmp(admitted[1].entry.name,".."));
+    path_nodes[3].size=123;path_nodes[3].metadata.mtime=789;
+    struct process_file_content *snapshot_live=content_acquire(&path_nodes[3],path_nodes[3].path,NULL,456);assert(snapshot_live);
+    assert(process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==2);
+    assert(!strcmp(admitted[0].entry.name,"a") && admitted[0].size==456 && admitted[0].modified==789);
+    assert(!content_release(snapshot_live));path_nodes[3].size=path_nodes[3].metadata.mtime=0;
+    assert(process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==0);
+    assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted)-1,&result));
+    assert(!process_directory_try_read_info(99,admitted,sizeof(admitted),&result));
+    assert(process_file_seek(&subject,fd,0,0)==0);
     long alias=process_file_dup(&subject,fd);assert(alias==4);
+    result=99;assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==99);
+    assert(read_file_at(subject.files[fd].handle)->offset==0);directory_atomic=false;
+
     struct srv_dirent entry;
     assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==1 && !strcmp(entry.name,".") && entry.inode==3);
     assert(process_directory(SRV_DIRECTORY_READ,alias,&entry,sizeof(entry))==1 && !strcmp(entry.name,"..") && entry.inode==2);

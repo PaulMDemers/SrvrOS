@@ -72,6 +72,13 @@ void scheduler_io_wait(void) {assert(0);}
 uint64_t latency_clock(void) {assert(0);return 0;}
 void latency_gate(uint64_t at,uint64_t call) {(void)at;(void)call;assert(0);}
 bool process_should_exit_current(void) {assert(0);return false;}
+bool process_directory_try_read_info(uint64_t fd,void *out,uint64_t cap,int64_t *result) {
+    assert(!irq_enabled && fd==3 && cap==sizeof(struct srv_dirent_info));
+    *(struct srv_dirent_info *)out=(struct srv_dirent_info){.size=123};*result=1;return true;
+}
+int64_t process_directory(uint64_t op,uint64_t fd,void *out,uint64_t cap) {
+    (void)op;(void)fd;(void)out;(void)cap;assert(0);return -1;
+}
 static void reset(void) {
     assert(!mprotect(region,8192,PROT_READ|PROT_WRITE));
     memset(region,'x',8192); victim=region+4096; pending=false; arm=false; irq_enabled=true;
@@ -79,6 +86,11 @@ static void reset(void) {
 int main(void) {
     region=mmap(NULL,8192,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
     assert(region!=MAP_FAILED);
+    reset();arm=true;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,region,sizeof(struct srv_dirent_info))==1);
+    assert(((struct srv_dirent_info *)region)->size==123 && irq_enabled);
+    reset();victim=region;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,region,sizeof(struct srv_dirent_info))==SRV_ERR_FAULT);
     reset();
     struct srv_net_status_info *status=(void *)region;
     status->abi_version=SRV_NET_ABI_VERSION;status->struct_size=sizeof(*status);
