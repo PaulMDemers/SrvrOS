@@ -2,6 +2,27 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Active actual CPU mapping observation
+
+Bounded objective: replace the version2 hypothetical PAT index with the actual
+index of each complete pinned buffer's CPU HHDM mapping. Touch the VMM read-only
+range observer, v35 source-audit adapter/receipt/collector, their actual-core
+host tests and current guides. Main4016 is integrated; PR19/379 remain independent.
+No parallel agents or shared harnesses. Checkpoint:
+`build/air-buffer-alias-20261114`.
+
+Require the original sole kernel root and IRQ exclusion, exact translation,
+uniform leaf PAT selection and effective ancestor/leaf RW/US/NX attributes over
+the complete span, with fresh walks in both original held samples. Bind the
+observations to original pinned identities and CPU cache contexts, including
+the pure final return gate. Do not change deadlines, readiness/reset writers,
+register/profile gates, PAT/MTRRs or PTEs. This is actual requested-alias
+observation, not an exhaustive alias census, TLB/coherence proof, DMA retirement,
+GPU address-space transfer or tear-free acceptance. All255 hardware obligations
+and zero managed GPU pages remain. Native acceptance is pending. Needed automated
+physical trial is authorized at1%; no input required, preserve recovery and
+persist/unmount/return on safe outcomes, retain uncertainty visibly.
+
 ### Post-native main integration
 
 After sealing the version2 native result below, main `4016abf0` (PR499/500)
