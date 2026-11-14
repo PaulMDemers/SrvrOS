@@ -15,6 +15,9 @@ static const char *srv_make_path(const char *path, char *buffer, size_t capacity
     return buffer;
 }
 
+/* Host fixtures supply strong raw-call models and execute the actual SDK
+ * wrappers below. Ordinary SDK builds retain these assembly entry points. */
+#ifndef SRVROS_SYS_HOST_TEST
 long srv_syscall0(long number) {
     __asm__ volatile ("int $0x80" : "+a"(number) : : "memory");
     return number;
@@ -72,6 +75,8 @@ long srv_syscall6(long number, long arg0, long arg1, long arg2, long arg3, long 
         : "memory");
     return number;
 }
+
+#endif
 
 size_t srv_strlen(const char *text) {
     size_t length = 0;
@@ -516,6 +521,16 @@ long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags) {
     return srv_syscall3(SYS_NET_CONNECT, remote_ip, remote_port, flags);
 }
 
+long srv_net_connect_try(uint32_t remote_ip, uint16_t remote_port) {
+    if (srv_socket_try_io(-1, SRV_SOCKET_TCP_SEND_TRY, 0, 0, 0) !=
+        SRV_SOCKET_TCP_TRY_ABI_VERSION) return SRV_ERR_NOTSUP;
+    return srv_net_connect(remote_ip, remote_port, SRV_FD_NONBLOCK | SRV_NET_CONNECT_CACHE_ONLY);
+}
+
+long srv_net_respond_try(int fd, const void *buffer, size_t length) {
+    return srv_socket_try_io(fd, SRV_SOCKET_TCP_SEND_TRY, (void *)buffer, length, 0);
+}
+
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out) {
     return srv_syscall4(SYS_NET_ACCEPT, listener_fd, (long)buffer, (long)capacity, (long)length_out);
 }
@@ -669,6 +684,14 @@ long srv_path_context(uint64_t operation,const char *path,char *out,size_t capac
 
 long srv_directory(uint64_t operation,int fd,void *out,size_t capacity) {
     return srv_syscall4(SYS_DIRECTORY,(long)operation,fd,(long)out,(long)capacity);
+}
+
+long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *info) {
+    if(info){info->version=SRV_WIFI_VERSION;info->size=sizeof *info;}
+    return srv_syscall3(SYS_WIFI,SRV_WIFI_SNAPSHOT,(long)owner,(long)info);
+}
+long srv_wifi_select(const struct srv_wifi_select *request) {
+    return srv_syscall3(SYS_WIFI,SRV_WIFI_SELECT,0,(long)request);
 }
 
 long srv_file_stream(const struct srv_file_stream_request *request) {

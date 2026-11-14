@@ -174,6 +174,36 @@ quarantine. `make test-exfat-append` still cuts every reachable write/flush/tear
 boundary and checks committed payload preservation and existing torn-publication
 limitations. Fewer commands do not by themselves establish native latency gains.
 
+
+## Persisted identity restoration
+
+exFAT registers provisional VFS nodes before loading its path-keyed metadata
+sidecar. Restoring records one at a time can turn a valid saved ID into a false
+collision with a different provisional node in that same mount. The mount-only
+`vfs_restore_metadata` batch validates registered targets,unique nonzero desired
+IDs,types and links before changing anything. It swaps provisional IDs inside
+that unpublished subtree,then installs exact saved fields without allocation or
+callbacks during commit. IDs belonging to another live subtree refuse;they are
+not remapped or aliased. Callers retain filesystem/namespace exclusion and an
+immutable batch. Ordinary single-node import semantics remain unchanged.
+
+An existing sidecar that fails parsing,allocation or identity restoration leaves
+ordinary media read-only and preserves its bytes. Fresh media without a sidecar
+and already quarantined dirty media retain their separate policies. Positive
+desktop fixtures use valid distinct persisted IDs;duplicate or wrong-mount
+sidecars are explicit refusal fixtures. Source/host tests alone do not establish
+native metadata preservation;compare a sealed raw baseline after physical runs.
+
+
+Host inspection must use the same virtual mountpoint as persisted path-keyed
+metadata. `check_exfat_allocation.py --mountpoint /work` selects this explicitly
+for the RAM workspace; the generic fixture driver defaults to `/vol`. The option
+is restricted to read-only allocation, writable-admission, headroom and extent
+queries. Invalid/misplaced options and oversized derived paths refuse before
+opening media. It does not remap metadata or change import/identity/quarantine
+rules; all read checks assert zero writes and flushes. A writable-admission
+refusal under a foreign prefix is expected, not permission to replace the sidecar.
+
 An existing metadata sidecar can retain its extent only after full current
 serialization exactly matches uncached media bytes. The bounded16KiB comparison
 checks length, ValidDataLength, every byte and FAT termination for linked extents; it does
@@ -194,6 +224,15 @@ not physical bytes saved. Strict collection requires complete non-overflowing
 counters, no refused proofs/flush errors, and positive equality exercise. The
 Air6,1 trial additionally requires counter growth inside live PCM playback.
 Legacy cost output and other profiles' retention models/limits stay unchanged.
+
+
+Stream fault fixtures target the actual16KiB allocation after a verified media
+write when testing dirty-state allocation failure. Exact sidecar equality can
+skip COW allocations, so a fixed global allocation ordinal may never fire.
+The fixture asserts one hit, its exact size and post-write position, retaining
+all original retry/sync/close/read-only checks. Wrong size, future write threshold
+and unarmed controls must refuse to pass. This corrects test admission without
+changing kernel allocation failure, durability or quarantine policy.
 
 ## Retaining live sidecar-equality evidence
 

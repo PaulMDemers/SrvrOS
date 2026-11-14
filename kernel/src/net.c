@@ -1,4 +1,5 @@
 #include <srvros/dns_wire.h>
+#include <srvros/dhcp_identity5.h>
 #include <srvros/console.h>
 #include <srvros/net_device.h>
 #include <srvros/heap.h>
@@ -197,11 +198,71 @@ static bool dhcp_configured;
 static bool dhcp_in_progress;
 static bool dhcp_have_offer;
 static bool dhcp_request_sent;
+static bool dhcp_retry_active;
+/* Explicit one-shot probe keeps console out of the live USB/key window. */
+static bool net_probe_quiet;
+static uint32_t dhcp_retry_source_ip,dhcp_retry_relay_ip;
+/* CPU0 diagnostic call context only. No worker/ordinary clients run in this
+ * explicit quiet first-init profile. Scoped polls never yield or replace a
+ * nested context;IRQ-nested publication uses the same frozen owner. */
+static struct net_bounded_probe *bounded_poll_owner,*icmp_bounded_owner;
+/* Diagnostic-only alias during the synchronous DHCP call, including sends
+ * outside an RX poll. Never consulted by protocol/worker/provider admission. */
+static struct net_bounded_probe *dhcp_identity_owner;
+static struct net_dhcp_observation *bounded_dhcp_observation(void) {
+    struct net_bounded_probe *p=bounded_poll_owner;
+    return p && p->identity==(uintptr_t)p && p->busy && !p->closed &&
+        p->dhcp_observation.started && !p->dhcp_observation.finished ? &p->dhcp_observation : NULL;
+}
+static bool dhcp_rx_refused(enum net_dhcp_reject reason) {
+    struct net_dhcp_observation *o=bounded_dhcp_observation();
+    if(o){
+        if(!o->rejected)o->first_reject=reason;
+        o->rejected++;o->last_reject=reason;o->reject_mask|=1ull<<reason;
+    }
+    return false;
+}
+static bool bounded_probe_check(struct net_bounded_probe *);
+static bool bounded_probe_fail(struct net_bounded_probe *);
 static uint32_t dhcp_xid = 0x73727672u;
 static uint32_t local_ip;
 static const uint8_t *local_mac;
 static bool initialized;
 static bool worker_started;
+/* Explicit one-shot probe worker: thread/stack are prepared before a live key.
+ * Its private parked thread and identity tombstone are retained until reboot.
+ * No scheduler allocation, thread kill, VFS or process teardown runs at handoff. */
+static struct probe_worker_state {
+    struct scheduler_wait_queue parked_queue;
+    const struct net_bounded_probe_io *source;
+    struct net_bounded_probe_io io,guard;
+    const uint8_t *station;
+    uint8_t mac[6];
+    uint64_t supervisor,thread,epoch,start_us,start_tick,last_us,last_tick,deadline_us,polls,turns;
+    bool attempted,prepared,parked,active,ever_active,handoff_started,busy,poll_busy,checking,stop_requested,finished,failed;
+    uintptr_t connection_scope;
+    bool connection_mode,disconnected;
+} probe_worker_slots[2];
+static struct probe_worker_state *probe_worker_selected=&probe_worker_slots[0];
+#define probe_worker (*probe_worker_selected)
+/* Adapter-scoped admission, not a borrowed connection callback. Only stable
+ * registry context/send identity and copied MAC survive a completed scope.
+ * A failed scope permanently closes this explicit reconnect experiment. */
+static struct {
+    struct net_device_ops provider;
+    uint8_t mac[6];
+    const uint8_t *station;
+    uint64_t epoch;
+    uintptr_t scope_identity; /* Scalar comparison only; never dereferenced. */
+    bool started,active,disconnecting,failed;
+} bounded_connection;
+static bool probe_worker_table_empty(void);
+static bool probe_worker_guard(void);
+static uint64_t probe_worker_device_poll(uint64_t budget,bool verbose);
+static bool probe_worker_packet_allowed(void) {
+    return !probe_worker.handoff_started || probe_worker_guard();
+}
+
 static uint16_t ip_ident;
 static uint64_t rx_frames;
 static uint64_t tx_frames;
@@ -396,7 +457,14 @@ static uint16_t udp_checksum(uint32_t src_ip, uint32_t dst_ip, const uint8_t *ud
 }
 
 static bool send_ethernet(uint8_t *frame, uint16_t length) {
-    if (net_device_send(frame, length)) {
+    if (!probe_worker_packet_allowed()) return false;
+    struct net_bounded_probe *scope=bounded_poll_owner;
+    if (scope && !bounded_probe_check(scope)) return false;
+    bool sent=net_device_send(frame,length);
+    if (scope && (bounded_poll_owner!=scope || !sent || !bounded_probe_check(scope)))
+        return bounded_probe_fail(scope);
+    if (probe_worker.handoff_started && !probe_worker_guard()) return false;
+    if (sent) {
         tx_frames++;
         return true;
     }
@@ -486,6 +554,7 @@ static bool arp_cache_lookup(uint32_t ip, uint8_t *mac_out) {
     return false;
 }
 
+static void dhcp_identity5_record(const uint8_t *,uint16_t,bool);
 static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     const uint8_t *src_ip_bytes,
     uint32_t dst_ip,
@@ -517,6 +586,7 @@ static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     write_be16(ip + 10, checksum_bytes(ip, 20, 0));
 
     copy_bytes(ip + 20, payload, payload_length);
+    dhcp_identity5_record(frame,ETH_HEADER_SIZE+total_length,true);
     return send_ethernet(frame, ETH_HEADER_SIZE + total_length);
 }
 
@@ -562,12 +632,7 @@ static void net_wait_tick(void) {
 
 static bool resolve_route_mac(uint32_t remote_ip, uint8_t *mac_out);
 
-static bool send_icmp_echo_request(uint32_t remote_ip, uint16_t sequence) {
-    uint8_t remote_mac[6];
-    if (!resolve_route_mac(remote_ip, remote_mac)) {
-        return false;
-    }
-
+static bool send_icmp_echo_with_mac(uint32_t remote_ip,uint16_t sequence,const uint8_t remote_mac[6]) {
     uint8_t packet[40];
     clear_bytes(packet, sizeof(packet));
     packet[0] = 8;
@@ -578,6 +643,12 @@ static bool send_icmp_echo_request(uint32_t remote_ip, uint16_t sequence) {
     copy_bytes(packet + 8, (const uint8_t *)payload, sizeof(payload) - 1);
     write_be16(packet + 2, checksum_bytes(packet, sizeof(packet), 0));
     return send_ipv4_packet(remote_mac, remote_ip, IP_PROTO_ICMP, packet, sizeof(packet));
+}
+
+static bool send_icmp_echo_request(uint32_t remote_ip, uint16_t sequence) {
+    uint8_t remote_mac[6];
+    if (!resolve_route_mac(remote_ip, remote_mac)) return false;
+    return send_icmp_echo_with_mac(remote_ip,sequence,remote_mac);
 }
 
 static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
@@ -602,7 +673,7 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
         if (arp_cache_lookup(ip, mac_out)) {
             return true;
         }
-        (void)net_device_poll(32, false);
+        (void)probe_worker_device_poll(32, false);
         net_wait_tick();
     }
     return false;
@@ -749,14 +820,128 @@ static bool send_dhcp_message(uint8_t message_type, const uint8_t *requested_ip,
         sizeof(packet));
 }
 
-static void handle_dhcp_packet(const uint8_t *payload, uint16_t length) {
-    if (!dhcp_in_progress || length < 240 || read_be32(payload + 4) != dhcp_xid) {
-        return;
+/* The existing bounded owner scopes this observation. It adds no guard/clock
+ * callbacks, retains no packet and cannot change send or receive admission. */
+static void dhcp_identity5_record(const uint8_t *frame,uint16_t length,bool tx){
+    struct net_bounded_probe *p=tx?dhcp_identity_owner:bounded_poll_owner;
+    if(!p || p->identity!=(uintptr_t)p || !p->busy || p->closed ||
+       !p->dhcp_observation.started || p->dhcp_observation.finished)return;
+    struct net_dhcp_identity5 *t=&p->dhcp_identity;
+    struct dhcp_identity5 r=dhcp_identity5_observe(frame,length,local_mac,dhcp_xid,
+        read_be32(dhcp_offered_ip_bytes),read_be32(dhcp_server_ip_bytes));
+    if(r.role!=4 && r.role!=5)return;
+    if(tx){
+        if(r.role!=4)return;
+        t->tx_discover+=r.message==1;t->tx_request+=r.message==3;
+        if(r.message==3)t->tx_request_mask=r.mask;
+        t->tx_invalid+=r.mask!=DHCP_IDENTITY5_ALL;
+    }else if(r.role==4){
+        t->rx_client++;t->rx_client_mask=r.mask;
+        bool self=r.mask==DHCP_IDENTITY5_ALL && (r.message==1 || r.message==3);
+        t->rx_self_discover+=self && r.message==1;t->rx_self_request+=self && r.message==3;
+        t->rx_client_mismatch+=!self;
+    }else{
+        t->rx_offer+=r.message==2;t->rx_ack+=r.message==5;
+        t->rx_server_other+=r.message!=2 && r.message!=5;t->rx_server_mask=r.mask;
+    }
+    if(!tx)t->rx_malformed+=!r.message || !(r.mask&1);
+}
+
+static bool dhcp_retry_unicast(uint32_t ip) {
+    return ip && ip!=UINT32_MAX && (ip>>24)!=0 && (ip>>24)!=127 && (ip>>28)<14;
+}
+
+/* Explicit probe admission is stricter than the historical ordinary parser.
+ * Parse the complete bounded message before any address/Offer/Request mutation.
+ * The secured transport authenticates the AP;this remains DHCP source binding,
+ * not cryptographic authentication of a remote DHCP server or relay. */
+static bool dhcp_retry_packet(const uint8_t *p,uint16_t length,uint32_t source,unsigned *type) {
+    struct net_dhcp_observation *o=bounded_dhcp_observation();
+    if(o){o->last_message=0;o->last_options=0;}
+    if (length<241 || p[0]!=2 || p[1]!=1 || p[2]!=6 || read_be32(p+236)!=0x63825363u)
+        return dhcp_rx_refused(NET_DHCP_RX_BOOTP);
+    if (read_be32(p+4)!=dhcp_xid) return dhcp_rx_refused(NET_DHCP_RX_XID);
+    if (!dhcp_retry_unicast(source)) return dhcp_rx_refused(NET_DHCP_RX_SOURCE);
+    for (unsigned i=0;i<6;i++) if (p[28+i]!=local_mac[i]) return dhcp_rx_refused(NET_DHCP_RX_CLIENT);
+    uint32_t address=read_be32(p+16),server=0,mask=0,router=0,dns=0;
+    unsigned seen=0,message=0;bool end=false;
+    for (uint64_t at=240;at<length;) {
+        unsigned code=p[at++];
+        if (!code) continue;
+        if (code==255) {
+            end=true;
+            while (at<length) if (p[at++]) return dhcp_rx_refused(NET_DHCP_RX_OPTION_END);
+            break;
+        }
+        if (at==length) return dhcp_rx_refused(NET_DHCP_RX_OPTION_BOUNDS);
+        unsigned size=p[at++];
+        if (size>length-at) return dhcp_rx_refused(NET_DHCP_RX_OPTION_BOUNDS);
+        unsigned bit=code==53?1:code==54?2:code==1?4:code==3?8:code==6?16:code==51?32:0;
+        if ((seen&bit) || code==52) return dhcp_rx_refused(NET_DHCP_RX_OPTION_DUPLICATE);
+        seen|=bit;if(o)o->last_options=seen;
+        if (code==53) {
+            if (size!=1) return dhcp_rx_refused(NET_DHCP_RX_OPTION_SHAPE);
+            message=p[at];
+            if(o){o->last_message=message;o->offers+=message==DHCP_OFFER;o->acks+=message==DHCP_ACK;o->naks+=message==6;}
+        }
+        if (code==54 || code==1 || code==51) {
+            if (size!=4) return dhcp_rx_refused(NET_DHCP_RX_OPTION_SHAPE);
+            uint32_t value=read_be32(p+at);
+            if (code==54) server=value;
+            else if (code==1) mask=value;
+            else if (!value) return dhcp_rx_refused(NET_DHCP_RX_OPTION_SHAPE);
+        }
+        if (code==3 || code==6) {
+            if (!size || size%4) return dhcp_rx_refused(NET_DHCP_RX_OPTION_SHAPE);
+            for (unsigned i=0;i<size;i+=4) if (!dhcp_retry_unicast(read_be32(p+at+i))) return dhcp_rx_refused(NET_DHCP_RX_OPTION_SHAPE);
+            if (code==3) router=read_be32(p+at);else dns=read_be32(p+at);
+        }
+        at+=size;
+    }
+    if (!end || (seen&3)!=3) return dhcp_rx_refused(NET_DHCP_RX_OPTION_END);
+    if (!dhcp_retry_unicast(address) || !dhcp_retry_unicast(server) ||
+        address==server || (read_be32(p+24) && !dhcp_retry_unicast(read_be32(p+24)))) return dhcp_rx_refused(NET_DHCP_RX_ADDRESS);
+    if (seen&4) {
+        uint32_t inverse=~mask,host=address&inverse;
+        if (!mask || !inverse || (inverse&(inverse+1)) || !host || host==inverse) return dhcp_rx_refused(NET_DHCP_RX_ADDRESS);
+        if ((seen&8) && (router==address || (router&mask)!=(address&mask))) return dhcp_rx_refused(NET_DHCP_RX_ADDRESS);
+    }
+    if (message==DHCP_OFFER) {
+        if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) return dhcp_rx_refused(NET_DHCP_RX_OFFER_STATE);
+    } else if (message==DHCP_ACK) {
+        uint32_t inverse=~mask,host=address&inverse;
+        if (!dhcp_have_offer || !dhcp_request_sent || dhcp_configured) return dhcp_rx_refused(NET_DHCP_RX_ACK_STATE);
+        if (address!=read_be32(dhcp_offered_ip_bytes) || server!=read_be32(dhcp_server_ip_bytes) ||
+            source!=dhcp_retry_source_ip || read_be32(p+24)!=dhcp_retry_relay_ip) return dhcp_rx_refused(NET_DHCP_RX_ACK_BINDING);
+        if (seen!=63 || !mask || !inverse || (inverse&(inverse+1)) || !host || host==inverse ||
+            !router || !dns || router==address || (router&mask)!=(address&mask)) return dhcp_rx_refused(NET_DHCP_RX_ACK_CONFIG);
+    } else return dhcp_rx_refused(NET_DHCP_RX_MESSAGE);
+    *type=message;
+    return true;
+}
+
+static void handle_dhcp_packet(const uint8_t *payload, uint16_t length,uint32_t source_ip) {
+    if (!dhcp_in_progress || length < 240) {
+        (void)dhcp_rx_refused(NET_DHCP_RX_BOOTP);return;
+    }
+    if (read_be32(payload + 4) != dhcp_xid) {
+        (void)dhcp_rx_refused(NET_DHCP_RX_XID);return;
     }
     if (payload[0] != 2 || payload[1] != 1 || payload[2] != 6 ||
         payload[236] != 0x63 || payload[237] != 0x82 ||
         payload[238] != 0x53 || payload[239] != 0x63) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_BOOTP);return;
+    }
+    if (dhcp_retry_active) {
+        if (bounded_poll_owner && !bounded_probe_check(bounded_poll_owner)) {
+            (void)dhcp_rx_refused(NET_DHCP_RX_OWNER);return;
+        }
+        unsigned type=0;
+        if (!dhcp_retry_packet(payload,length,source_ip,&type)) return;
+        if (type==DHCP_OFFER) {
+            dhcp_retry_source_ip=source_ip;
+            dhcp_retry_relay_ip=read_be32(payload+24);
+        }
     }
 
     uint8_t message_type = 0;
@@ -792,7 +977,10 @@ static void handle_dhcp_packet(const uint8_t *payload, uint16_t length) {
         copy_bytes(dhcp_offered_ip_bytes, payload + 16, 4);
         copy_bytes(dhcp_server_ip_bytes, server_id, 4);
         dhcp_have_offer = true;
+        struct net_dhcp_observation *o=bounded_dhcp_observation();
+        if(o){o->accepted_offer++;o->requests++;}
         dhcp_request_sent = send_dhcp_message(DHCP_REQUEST, dhcp_offered_ip_bytes, dhcp_server_ip_bytes);
+        if(o)o->request_queued+=dhcp_request_sent;
     } else if (message_type == DHCP_ACK) {
         set_local_ip_bytes(payload + 16);
         copy_bytes(dhcp_server_ip_bytes, server_id, 4);
@@ -800,7 +988,9 @@ static void handle_dhcp_packet(const uint8_t *payload, uint16_t length) {
         copy_bytes(dhcp_dns_ip_bytes, dns, 4);
         dhcp_configured = true;
         dhcp_in_progress = false;
-        console_printf("net: dhcp ipv4=%u.%u.%u.%u\n",
+        struct net_dhcp_observation *o=bounded_dhcp_observation();
+        if(o)o->accepted_ack++;
+        if (!net_probe_quiet) console_printf("net: dhcp ipv4=%u.%u.%u.%u\n",
             local_ip_bytes[0],
             local_ip_bytes[1],
             local_ip_bytes[2],
@@ -855,6 +1045,13 @@ static void handle_icmp(const uint8_t *frame,
             src_ip == icmp_ping_ip &&
             read_be16(icmp + 4) == ICMP_PING_ID &&
             read_be16(icmp + 6) == icmp_ping_sequence) {
+            if (icmp_bounded_owner) {
+                if (icmp_bounded_owner!=bounded_poll_owner || ip_payload_length!=40 ||
+                    !bounded_probe_check(icmp_bounded_owner)) return;
+                static const char text[]="srvros ping";
+                for (unsigned i=0;i<32;i++)
+                    if (icmp[8+i]!=(i<sizeof(text)-1?(uint8_t)text[i]:0)) return;
+            }
             icmp_ping_reply = true;
             icmp_ping_waiting = false;
         }
@@ -961,8 +1158,10 @@ static void udp_deliver(uint16_t dst_port,
 }
 
 static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip_payload_length) {
+    struct net_dhcp_observation *o=bounded_dhcp_observation();
+    if(o)o->udp++;
     if (ip_payload_length < 8) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_UDP_LENGTH);return;
     }
 
     const uint8_t *udp = ip + ip_header_length;
@@ -970,16 +1169,20 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
     uint16_t dst_port = read_be16(udp + 2);
     uint16_t udp_length = read_be16(udp + 4);
     if (udp_length < 8 || udp_length > ip_payload_length) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_UDP_LENGTH);return;
     }
     uint16_t checksum = read_be16(udp + 6);
     if (checksum != 0 && udp_checksum(read_be32(ip + 12), read_be32(ip + 16), udp, udp_length) != 0) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_UDP_CHECKSUM);return;
     }
     udp_packets++;
 
     if (src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT) {
-        handle_dhcp_packet(udp + 8, udp_length - 8);
+        if(o)o->dhcp++;
+        if (dhcp_retry_active && (udp_length!=ip_payload_length || !ip[8])) {
+            (void)dhcp_rx_refused(udp_length!=ip_payload_length?NET_DHCP_RX_UDP_LENGTH:NET_DHCP_RX_UDP_TTL);return;
+        }
+        handle_dhcp_packet(udp + 8, udp_length - 8,read_be32(ip+12));
     } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT &&
         dns_query_active && read_be32(ip + 12) == dns_server_ip) {
         handle_dns_packet(udp + 8, udp_length - 8);
@@ -2274,8 +2477,10 @@ static void handle_tcp(const uint8_t *frame,
 }
 
 static void handle_ipv4(const uint8_t *frame, uint16_t length) {
+    struct net_dhcp_observation *o=bounded_dhcp_observation();
+    if(o)o->ipv4++;
     if (length < ETH_HEADER_SIZE + 20) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_IP_HEADER);return;
     }
 
     const uint8_t *ip = frame + ETH_HEADER_SIZE;
@@ -2287,18 +2492,20 @@ static void handle_ipv4(const uint8_t *frame, uint16_t length) {
     if (version != 4 ||
         header_length < 20 ||
         total_length < header_length ||
-        length < ETH_HEADER_SIZE + total_length ||
-        (dst_ip != local_ip && dst_ip != 0xffffffffu)) {
-        return;
+        length < ETH_HEADER_SIZE + total_length) {
+        (void)dhcp_rx_refused(NET_DHCP_RX_IP_HEADER);return;
+    }
+    if (dst_ip != local_ip && dst_ip != 0xffffffffu) {
+        (void)dhcp_rx_refused(NET_DHCP_RX_IP_DESTINATION);return;
     }
     if (checksum_bytes(ip, header_length, 0) != 0) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_IP_CHECKSUM);return;
     }
     /* No IP reassembly exists in this profile. Never interpret a fragment as
      * an independent transport packet. DF alone is valid; reserved/MF/offset
      * bits must be clear before TCP, UDP or ICMP sees the payload. */
     if ((read_be16(ip + 6) & 0xbfffu) != 0) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_IP_FRAGMENT);return;
     }
 
     ipv4_packets++;
@@ -2315,8 +2522,14 @@ static void handle_ipv4(const uint8_t *frame, uint16_t length) {
 }
 
 void net_handle_ethernet_frame(const uint8_t *frame, uint16_t length) {
+    struct net_dhcp_observation *o=bounded_dhcp_observation();
+    if(o)o->frames++;
+    if (!probe_worker_packet_allowed()) {
+        (void)dhcp_rx_refused(NET_DHCP_RX_OWNER);return;
+    }
+    dhcp_identity5_record(frame,length,false);
     if (!initialized || frame == 0 || length < ETH_HEADER_SIZE || !is_for_local_mac(frame)) {
-        return;
+        (void)dhcp_rx_refused(NET_DHCP_RX_ETHERNET);return;
     }
 
     rx_frames++;
@@ -2339,12 +2552,7 @@ void net_notify_rx_deferred(void *arg) {
     net_notify_rx();
 }
 
-void net_timer_tick(void) {
-    if (!initialized || !worker_started) {
-        return;
-    }
-
-    uint64_t now = timer_ticks();
+static void net_tcp_maintain(uint64_t now) {
     tcp_retransmit_due(now);
     tcp_zero_window_probe_due(now);
     tcp_idle_cleanup_due(now);
@@ -2359,13 +2567,23 @@ void net_timer_tick(void) {
         }
     }
 
-    if (now - rx_last_recovery_tick < NET_RX_RECOVERY_TICKS) {
+}
+
+void net_timer_tick(void) {
+    /* Explicit prepared mode never publishes/reenters TCP from timer IRQ.
+     * Wake the sole service turn instead; ordinary IRQ behavior stays intact. */
+    if (probe_worker.attempted) {
+        if (probe_worker.active) {
+            rx_signal_generation++;
+            scheduler_wake_all(&rx_wait_queue);
+        }
         return;
     }
-
-    rx_last_recovery_tick = now;
-    rx_recovery_wakeups++;
-    rx_signal_generation++;
+    if (!initialized || !worker_started) return;
+    uint64_t now=timer_ticks();
+    net_tcp_maintain(now);
+    if (now-rx_last_recovery_tick<NET_RX_RECOVERY_TICKS) return;
+    rx_last_recovery_tick=now;rx_recovery_wakeups++;rx_signal_generation++;
     scheduler_wake_all(&rx_wait_queue);
 }
 
@@ -2376,7 +2594,7 @@ static void net_worker(void *arg) {
 
     for (;;) {
         uint64_t generation=rx_signal_generation;
-        uint64_t received = net_device_poll(32, false);
+        uint64_t received = probe_worker_device_poll(32, false);
         rx_worker_polls++;
         if (received != 0) {
             rx_worker_packets += received;
@@ -2396,27 +2614,38 @@ static void net_worker(void *arg) {
     }
 }
 
-void net_init(void) {
+static void net_init_mode(bool quiet) {
+    net_probe_quiet=quiet;
     set_local_ip_bytes(local_ip_bytes);
     net_device_select();
     local_mac = net_device_mac();
 
     if (local_mac == 0) {
-        console_write("net: no supported network device, stack idle\n");
+        if (!quiet) console_write("net: no supported network device, stack idle\n");
+        net_probe_quiet=false;
         initialized = false;
         return;
     }
 
     initialized = true;
-    console_printf("net: provider=%s\n",net_device_name());
-    console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
+    if (!quiet) console_printf("net: provider=%s\n",net_device_name());
+    if (!quiet) console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
         local_ip_bytes[0],
         local_ip_bytes[1],
         local_ip_bytes[2],
         local_ip_bytes[3]);
 }
 
+void net_init(void) { net_init_mode(false); }
+
+bool net_init_bounded_probe(void) {
+    if (initialized || worker_started || dhcp_in_progress || dhcp_retry_active || net_probe_quiet) return false;
+    net_init_mode(true);
+    return initialized;
+}
+
 bool net_start_worker(void) {
+    if (probe_worker.attempted) return false;
     if (!initialized) {
         return false;
     }
@@ -2432,6 +2661,9 @@ bool net_start_worker(void) {
 }
 
 int64_t net_dhcp_request(void) {
+    if (dhcp_retry_active) {
+        return SRV_ERR_AGAIN;
+    }
     if (!initialized || local_mac == 0) {
         return -1;
     }
@@ -2459,7 +2691,7 @@ int64_t net_dhcp_request(void) {
         if (dhcp_configured) {
             return (int64_t)local_ip;
         }
-        (void)net_device_poll(32, false);
+        (void)probe_worker_device_poll(32, false);
         if (dhcp_have_offer && !dhcp_request_sent) {
             (void)send_dhcp_message(DHCP_REQUEST, dhcp_offered_ip_bytes, dhcp_server_ip_bytes);
         }
@@ -2468,6 +2700,102 @@ int64_t net_dhcp_request(void) {
 
     dhcp_in_progress = false;
     return -1;
+}
+
+/* The registry send result is only copied/queued admission. The explicit
+ * transport guard,not that bool,resulting packet count or elapsed time,owns
+ * the proof that a new Discover may follow the first ciphertext. */
+struct dhcp_retry_wait {
+    const struct net_dhcp_retry_guard *borrowed;
+    struct net_dhcp_retry_guard guard;
+    const uint8_t *station;
+    uint8_t mac[6];
+    uint32_t xid;
+    uint64_t start_tick,start_us,last_tick,last_us;
+};
+
+static bool dhcp_retry_guard_same(const struct dhcp_retry_wait *wait) {
+    return wait->borrowed->context==wait->guard.context &&
+        wait->borrowed->current==wait->guard.current &&
+        wait->borrowed->retry_ready==wait->guard.retry_ready;
+}
+
+static bool dhcp_retry_current(struct dhcp_retry_wait *wait) {
+    if (!dhcp_retry_guard_same(wait) || !wait->guard.current(wait->guard.context) ||
+        !dhcp_retry_guard_same(wait)) return false;
+    struct net_device_link link={0};
+    if (!net_device_link(&link) || !link.up || !dhcp_retry_guard_same(wait) ||
+        !initialized || !dhcp_retry_active || dhcp_xid!=wait->xid ||
+        local_mac!=wait->station || net_device_mac()!=wait->station) return false;
+    for (unsigned i=0;i<6;i++) if (wait->station[i]!=wait->mac[i]) return false;
+    /* Link inspection may quarantine or replace an owner. Recheck the exact
+     * secured epoch after it,then sample clocks after the final callback. */
+    if (process_should_exit_current() || !dhcp_retry_guard_same(wait) ||
+        !wait->guard.current(wait->guard.context) || !dhcp_retry_guard_same(wait)) return false;
+    uint64_t tick=timer_ticks(),us=timer_monotonic_us();
+    if (tick<wait->last_tick || us<wait->last_us ||
+        tick-wait->start_tick>=DHCP_TIMEOUT_TICKS || us-wait->start_us>=2000000u)
+        return false;
+    wait->last_tick=tick;wait->last_us=us;
+    return true;
+}
+
+int64_t net_dhcp_request_discover_retry(const struct net_dhcp_retry_guard *guard) {
+    if (!initialized || !local_mac || !guard || !guard->current || !guard->retry_ready)
+        return -1;
+    if (dhcp_retry_active || dhcp_in_progress) return SRV_ERR_AGAIN;
+    struct dhcp_retry_wait wait={.borrowed=guard,.guard=*guard,.station=local_mac};
+    for (unsigned i=0;i<6;i++) wait.mac[i]=local_mac[i];
+    wait.start_tick=wait.last_tick=timer_ticks();
+    wait.start_us=wait.last_us=timer_monotonic_us();
+    dhcp_retry_active=true;
+    dhcp_xid+=0x1021u;
+    if (!dhcp_xid) dhcp_xid=0x73727672u;
+    wait.xid=dhcp_xid;
+    dhcp_configured=false;dhcp_in_progress=true;
+    dhcp_have_offer=false;dhcp_request_sent=false;
+    dhcp_retry_source_ip=dhcp_retry_relay_ip=0;
+    clear_bytes(dhcp_offered_ip_bytes,sizeof dhcp_offered_ip_bytes);
+    clear_bytes(dhcp_server_ip_bytes,sizeof dhcp_server_ip_bytes);
+    clear_bytes(dhcp_router_ip_bytes,sizeof dhcp_router_ip_bytes);
+    clear_bytes(dhcp_dns_ip_bytes,sizeof dhcp_dns_ip_bytes);
+    int64_t result=-1;
+    bool retried=false;
+    if (!dhcp_retry_current(&wait) || !send_dhcp_message(DHCP_DISCOVER,0,0) ||
+        !dhcp_retry_current(&wait)) goto done;
+    for (unsigned polls=0;polls<20000u;polls++) {
+        if (!dhcp_retry_current(&wait)) goto done;
+        if (dhcp_configured) {
+            if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;
+            goto done;
+        }
+        (void)probe_worker_device_poll(32,false);
+        if (!dhcp_retry_current(&wait)) goto done;
+        if (dhcp_configured) {
+            if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;
+            goto done;
+        }
+        /* The existing packet handler publishes an Offer and attempts its
+         * Request once. Failed/uncertain queued Request is never retried here. */
+        if (dhcp_have_offer && !dhcp_request_sent) goto done;
+        if (!retried && !dhcp_have_offer && !dhcp_request_sent &&
+            wait.last_tick-wait.start_tick>=DHCP_TIMEOUT_TICKS/2 &&
+            wait.last_us-wait.start_us>=1000000u) {
+            if (!dhcp_retry_guard_same(&wait) ||
+                !wait.guard.retry_ready(wait.guard.context) ||
+                !dhcp_retry_current(&wait)) goto done;
+            /* Recheck after callbacks without granting another transaction. */
+            if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) continue;
+            retried=true;
+            if (!send_dhcp_message(DHCP_DISCOVER,0,0) || !dhcp_retry_current(&wait)) goto done;
+        }
+        net_wait_tick();
+    }
+done:
+    dhcp_in_progress=false;
+    if (result<0) dhcp_configured=false;
+    dhcp_retry_active=false;
+    return result;
 }
 
 static uint32_t configured_dns_server(void) {
@@ -2527,7 +2855,7 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
             if (dns_response_done || timer_ticks() - start >= DNS_TIMEOUT_TICKS) {
                 break;
             }
-            (void)net_device_poll(32, false);
+            (void)probe_worker_device_poll(32, false);
             net_wait_tick();
         }
         dns_waiting = false;
@@ -2536,6 +2864,729 @@ done:
     dns_waiting = false;
     dns_query_active = false;
     return result;
+}
+
+static bool bounded_probe_fail(struct net_bounded_probe *p) {
+    if (p && p->identity==(uintptr_t)p && !p->closed) {p->failed=true;p->protocol_failed=false;}
+    return false;
+}
+static void bounded_probe_protocol_fail(struct net_bounded_probe *p) {
+    if(p && p->identity==(uintptr_t)p && !p->closed && !p->failed){p->protocol_failed=true;p->failed=true;}
+}
+
+static void bounded_probe_scrub(void *data,size_t size) {
+    volatile uint8_t *p=data;
+    while (size--) *p++=0;
+}
+
+static bool bounded_io_same(const struct net_bounded_probe_io *a,const struct net_bounded_probe_io *b) {
+    return a->context==b->context && a->current==b->current && a->retry_ready==b->retry_ready;
+}
+
+static bool bounded_probe_table(struct net_bounded_probe *p) {
+    return p->source && p->io.current && p->io.retry_ready && p->epoch &&
+        p->epoch==p->epoch_guard && p->deadline_us==p->deadline_guard &&
+        bounded_io_same(&p->io,&p->io_guard) && bounded_io_same(&p->io,p->source);
+}
+
+static bool bounded_probe_check(struct net_bounded_probe *p) {
+    if (!p || p->identity!=(uintptr_t)p || p->closed) return false;
+    if (p->failed || p->checking || !p->busy ||
+        ((p->connection_scope || bounded_connection.started) &&
+         (!p->connection_scope || !bounded_connection.started || !bounded_connection.active ||
+          bounded_connection.failed || bounded_connection.scope_identity!=(uintptr_t)p ||
+          p->epoch!=bounded_connection.epoch))) return bounded_probe_fail(p);
+    p->checking=true;
+    struct net_device_link link={0};
+    if (!bounded_probe_table(p) || !p->io.current(p->io.context,p->epoch) ||
+        !bounded_probe_table(p) || !net_device_link(&link) || !link.up ||
+        !bounded_probe_table(p) || !initialized || !net_probe_quiet || worker_started ||
+        !p->station || local_mac!=p->station || net_device_mac()!=p->station) goto failed;
+    for (unsigned i=0;i<6;i++) if (p->station[i]!=p->mac[i]) goto failed;
+    if (process_should_exit_current() || !bounded_probe_table(p) ||
+        !p->io.current(p->io.context,p->epoch) || !bounded_probe_table(p) || p->failed) goto failed;
+    /* No external callback follows these samples before the result. */
+    uint64_t tick=timer_ticks(),us=timer_monotonic_us();
+    if (tick<p->last_tick || us<p->last_us || tick-p->start_tick>=1500 ||
+        us<p->start_us || us>=p->deadline_us || p->polls>=150000u) goto failed;
+    p->last_tick=tick;p->last_us=us;p->checking=false;
+    return true;
+failed:
+    p->checking=false;
+    return bounded_probe_fail(p);
+}
+
+static bool bounded_probe_enter(struct net_bounded_probe *p) {
+    if (!p || p->identity!=(uintptr_t)p || p->closed) return false;
+    if (p->busy) return bounded_probe_fail(p);
+    p->busy=true;
+    if (bounded_probe_check(p)) return true;
+    p->busy=false;
+    return false;
+}
+
+static void bounded_probe_relax(void) {
+#if defined(__x86_64__) || defined(__i386__)
+    __asm__ volatile("pause":::"memory");
+#else
+    __asm__ volatile("":::"memory");
+#endif
+}
+
+static bool bounded_probe_progress(struct net_bounded_probe *p,unsigned *local,unsigned limit) {
+    struct net_bounded_probe *previous=bounded_poll_owner;
+    if (previous) {
+        bounded_probe_fail(previous);
+        return bounded_probe_fail(p);
+    }
+    if (!bounded_probe_check(p) || (local && *local>=limit)) return bounded_probe_fail(p);
+    if (local) (*local)++;
+    p->polls++;
+    bounded_poll_owner=p;
+    (void)probe_worker_device_poll(32,false);
+    bool same=bounded_poll_owner==p;
+    bounded_poll_owner=previous;
+    if (!same || !bounded_probe_check(p)) return bounded_probe_fail(p);
+    bounded_probe_relax();
+    return true;
+}
+
+static bool bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    uint64_t epoch,uint64_t deadline_us,bool connection) {
+    if (probe_worker.handoff_started || !p || !io || !io->current || !io->retry_ready || !epoch) return false;
+    const uint8_t *bytes=(const uint8_t *)p;
+    for (size_t i=0;i<sizeof *p;i++) if (bytes[i]) return false;
+    p->identity=(uintptr_t)p;p->source=io;p->io=p->io_guard=*io;
+    p->connection_scope=connection;
+    p->epoch=p->epoch_guard=epoch;p->deadline_us=p->deadline_guard=deadline_us;
+    p->start_us=p->last_us=timer_monotonic_us();p->start_tick=p->last_tick=timer_ticks();
+    p->station=local_mac;
+    if (local_mac) copy_bytes(p->mac,local_mac,6);
+    if (!initialized || !net_probe_quiet || worker_started || dhcp_in_progress || dhcp_retry_active ||
+        dns_query_active || icmp_ping_waiting || bounded_poll_owner || icmp_bounded_owner ||
+        deadline_us<=p->start_us || deadline_us-p->start_us>15000000u) return bounded_probe_fail(p);
+    p->busy=true;bool ok=bounded_probe_check(p);p->busy=false;return ok;
+}
+
+bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    uint64_t epoch,uint64_t deadline_us) {
+    if (bounded_connection.started) return false;
+    return bounded_probe_init(p,io,epoch,deadline_us,false);
+}
+
+static uint64_t bounded_connection_lock(void) {
+#if defined(SRVROS_NET_DEVICE_HOST_TEST) || defined(SRVROS_NET_PREPARED_WORKER_HOST_TEST)
+    return 0;
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");return flags;
+#endif
+}
+static void bounded_connection_unlock(uint64_t flags) {
+#if defined(SRVROS_NET_DEVICE_HOST_TEST) || defined(SRVROS_NET_PREPARED_WORKER_HOST_TEST)
+    (void)flags;
+#else
+    if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+}
+static bool bounded_connection_adapter(void) {
+    if (!bounded_connection.started || !net_device_selected_is(&bounded_connection.provider) ||
+        local_mac!=bounded_connection.station || net_device_mac()!=bounded_connection.station) return false;
+    for (unsigned i=0;i<6;i++) if (local_mac[i]!=bounded_connection.mac[i]) return false;
+    return true;
+}
+bool net_bounded_probe_init_connection(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    const struct net_device_ops *provider,uint64_t epoch,uint64_t deadline_us) {
+    if (!p || !io || !io->context || !io->current || !io->retry_ready || !provider || !provider->send || !epoch) return false;
+    const uint8_t *bytes=(const uint8_t *)p;
+    for (size_t i=0;i<sizeof *p;i++) if (bytes[i]) return false;
+    uint64_t flags=bounded_connection_lock();bool good=false;
+    if (bounded_connection.failed || bounded_connection.active || bounded_connection.disconnecting ||
+        epoch<=bounded_connection.epoch ||
+        (probe_worker.attempted && !(probe_worker.connection_mode && net_probe_worker_prepared())) ||
+        worker_started || !probe_worker_table_empty()) goto done;
+    if (!bounded_connection.started) {
+        if (initialized || net_probe_quiet || !net_init_bounded_probe()) goto done;
+        if (!net_device_selected_is(provider)) goto done;
+        bounded_connection.provider=(struct net_device_ops){.context=provider->context,.send=provider->send};
+        bounded_connection.station=local_mac;
+        for(unsigned i=0;i<6;i++) bounded_connection.mac[i]=local_mac[i];
+        bounded_connection.started=true;
+    }
+    if (!initialized || !net_probe_quiet || provider->context!=bounded_connection.provider.context ||
+        provider->send!=bounded_connection.provider.send || !net_device_selected_is(provider) ||
+        !bounded_connection_adapter()) goto done;
+    for(unsigned i=0;i<6;i++) if(provider->mac[i]!=bounded_connection.mac[i]) goto done;
+    bounded_connection.active=true;bounded_connection.epoch=epoch;
+    bounded_connection.scope_identity=(uintptr_t)p;
+    /* Both scalar object identity and connection mode bind before the common
+     * initializer invokes the first owner callback. No copied scope acquires
+     * this authority by changing its own self pointer. */
+    good=bounded_probe_init(p,io,epoch,deadline_us,true);
+    if (!good || !bounded_connection_adapter() || !probe_worker_table_empty()) {
+        p->failed=true;bounded_connection.failed=true;good=false;
+    }
+ done:
+    bounded_connection_unlock(flags);return good;
+}
+
+bool net_bounded_probe_current(struct net_bounded_probe *p) {
+    if (!bounded_probe_enter(p)) return false;
+    p->busy=false;return true;
+}
+
+bool net_bounded_probe_poll(struct net_bounded_probe *p) {
+    if (!bounded_probe_enter(p)) return false;
+    bool ok=bounded_probe_progress(p,NULL,0);p->busy=false;return ok;
+}
+
+bool net_bounded_probe_finish(struct net_bounded_probe *p) {
+    if (!p || p->identity!=(uintptr_t)p || p->closed) return false;
+    if ((p->connection_scope || bounded_connection.started) &&
+        (!p->connection_scope || !bounded_connection.started ||
+         bounded_connection.scope_identity!=(uintptr_t)p || p->epoch!=bounded_connection.epoch)) return false;
+    if (p->busy) return bounded_probe_fail(p);
+    p->busy=true;
+    bool ok=!p->failed && bounded_probe_check(p);
+    p->closed=true;p->busy=p->checking=false;
+    bounded_probe_scrub(&p->io,sizeof p->io);bounded_probe_scrub(&p->io_guard,sizeof p->io_guard);
+    bounded_probe_scrub(p->mac,sizeof p->mac);p->source=NULL;p->station=NULL;
+    if (p->connection_scope && !bounded_connection.disconnecting &&
+        !(probe_worker.connection_mode && probe_worker.handoff_started &&
+          probe_worker.connection_scope==(uintptr_t)p)) bounded_connection.failed=true;
+    return ok;
+}
+
+static void bounded_connection_deconfigure(void) {
+    clear_bytes(local_ip_bytes,sizeof local_ip_bytes);local_ip=0;
+    clear_bytes(dhcp_server_ip_bytes,sizeof dhcp_server_ip_bytes);
+    clear_bytes(dhcp_router_ip_bytes,sizeof dhcp_router_ip_bytes);
+    clear_bytes(dhcp_dns_ip_bytes,sizeof dhcp_dns_ip_bytes);
+    clear_bytes(dhcp_offered_ip_bytes,sizeof dhcp_offered_ip_bytes);
+    dhcp_configured=dhcp_have_offer=dhcp_request_sent=false;
+    dhcp_retry_source_ip=dhcp_retry_relay_ip=0;
+    clear_bytes((uint8_t *)arp_cache,sizeof arp_cache);
+    dns_server_ip=dns_answer_ip=0;dns_answer_ready=dns_response_done=false;
+    clear_bytes((uint8_t *)dns_question_name,sizeof dns_question_name);
+    icmp_ping_reply=false;icmp_ping_ip=0;icmp_ping_sequence=0;icmp_ping_start_tick=0;
+    bounded_connection.active=false;bounded_connection.scope_identity=0;
+}
+
+bool net_bounded_probe_disconnect(struct net_bounded_probe *p) {
+    if (!p || p->identity!=(uintptr_t)p || p->closed || !p->connection_scope ||
+        !bounded_connection.started || bounded_connection.scope_identity!=(uintptr_t)p ||
+        p->epoch!=bounded_connection.epoch || p->epoch_guard!=bounded_connection.epoch) return false;
+    uint64_t flags=bounded_connection_lock();bool good=false;
+    if (!bounded_connection.started || !bounded_connection.active || bounded_connection.failed ||
+        bounded_connection.scope_identity!=(uintptr_t)p) goto done;
+    if (p->busy || p->checking || p->failed || bounded_connection.disconnecting ||
+        probe_worker.attempted || worker_started || !initialized || !net_probe_quiet ||
+        !probe_worker_table_empty() || !bounded_connection_adapter()) goto failed;
+    bounded_connection.disconnecting=true;
+    /* Finish is the final original current/link/MAC/clock check. No external
+     * callback follows its success before these CPU0-owned bytes are scrubbed. */
+    good=net_bounded_probe_finish(p);
+    bounded_connection.disconnecting=false;
+    if (!good || bounded_connection.failed || !bounded_connection_adapter() || !probe_worker_table_empty()) goto failed;
+    bounded_connection_deconfigure();
+    p->disconnected=true;good=true;goto done;
+ failed:
+    bounded_connection.failed=true;p->failed=true;good=false;
+ done:
+    bounded_connection_unlock(flags);return good;
+}
+
+/* CPU0 callers serialize under IRQ exclusion. This guards only the prepared
+ * probe; it does not claim SMP serialization or arbitrary callback reentrancy. */
+static uint64_t probe_worker_lock(void) {
+#ifdef SRVROS_NET_PREPARED_WORKER_HOST_TEST
+    return 0;
+#else
+    uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;
+#endif
+}
+static void probe_worker_unlock(uint64_t f) {
+#ifdef SRVROS_NET_PREPARED_WORKER_HOST_TEST
+    (void)f;
+#else
+    if(f&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+}
+static bool probe_worker_fail(void) {
+    probe_worker.failed=true;probe_worker.active=false;worker_started=false;
+    return false;
+}
+static bool probe_worker_table_empty(void) {
+    if (dhcp_in_progress || dhcp_retry_active || dns_query_active || dns_waiting ||
+        icmp_ping_waiting || bounded_poll_owner || icmp_bounded_owner) return false;
+    for(unsigned i=0;i<TCP_MAX_CONNECTIONS;i++) {
+        const struct tcp_connection *c=&tcp_connections[i];
+        /* Application close is not wire retirement: TIME_WAIT remains live. */
+        if(c->state!=TCP_STATE_EMPTY || c->refs || c->pending || c->rx_data || c->rx_length) return false;
+        for(unsigned j=0;j<TCP_TX_HISTORY;j++)if(c->tx_history[j].used)return false;
+    }
+    for(unsigned i=0;i<NET_LISTENERS;i++)if(listeners[i].used)return false;
+    for(unsigned i=0;i<NET_PENDING_REQUESTS;i++)if(pending_requests[i].used)return false;
+    for(unsigned i=0;i<UDP_MAX_SOCKETS;i++)if(udp_sockets[i].used)return false;
+    return true;
+}
+static bool probe_worker_same(void) {
+    return probe_worker.active && !probe_worker.failed && probe_worker.source && bounded_io_same(&probe_worker.io,&probe_worker.guard) &&
+        bounded_io_same(&probe_worker.io,probe_worker.source) &&
+        probe_worker.io.context && probe_worker.io.current && probe_worker.io.retry_ready && probe_worker.epoch;
+}
+static bool probe_worker_guard(void) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!probe_worker.active || probe_worker.failed || probe_worker.finished || probe_worker.checking ||
+       (probe_worker.connection_mode && (!bounded_connection.started || !bounded_connection.active ||
+        bounded_connection.failed || bounded_connection.scope_identity!=probe_worker.connection_scope ||
+        bounded_connection.epoch!=probe_worker.epoch))) goto failed;
+    probe_worker.checking=true;
+    struct net_device_link link={0};
+    if(!probe_worker_same() || !probe_worker.io.current(probe_worker.io.context,probe_worker.epoch) ||
+       !probe_worker_same() || !initialized || !net_probe_quiet || !worker_started ||
+       local_mac!=probe_worker.station || net_device_mac()!=probe_worker.station ||
+       !net_device_link(&link) || !link.up || !probe_worker_same())goto checked_failed;
+    for(unsigned i=0;i<6;i++)if(probe_worker.station[i]!=probe_worker.mac[i])goto checked_failed;
+    if(!probe_worker.io.current(probe_worker.io.context,probe_worker.epoch) || !probe_worker_same())goto checked_failed;
+    uint64_t tick=timer_ticks(),us=timer_monotonic_us();
+    if(!probe_worker.active || probe_worker.failed || !worker_started || tick<probe_worker.last_tick || us<probe_worker.last_us || tick-probe_worker.start_tick>=1500 ||
+       us<probe_worker.start_us || us>=probe_worker.deadline_us || probe_worker.polls>=150000u)goto checked_failed;
+    probe_worker.last_tick=tick;probe_worker.last_us=us;probe_worker.checking=false;ok=true;goto done;
+checked_failed:
+    probe_worker.checking=false;
+failed:
+    (void)probe_worker_fail();
+done:
+    probe_worker_unlock(f);return ok;
+}
+static uint64_t probe_worker_device_poll(uint64_t budget,bool verbose) {
+    if(!probe_worker.handoff_started)return net_device_poll(budget,verbose);
+    uint64_t f=probe_worker_lock();
+    if(probe_worker.poll_busy || !probe_worker_guard()) {
+        (void)probe_worker_fail();probe_worker_unlock(f);return 0;
+    }
+    probe_worker.poll_busy=true;probe_worker.polls++;
+    uint64_t count=net_device_poll(budget,verbose);
+    probe_worker.poll_busy=false;bool ok=probe_worker_guard();
+    probe_worker_unlock(f);return ok?count:0;
+}
+static bool probe_worker_runnable(void *arg) {
+    const struct probe_worker_state *w=arg;
+    return w==probe_worker_selected && w->active;
+}
+static bool probe_worker_rx_or_stopped(void *arg) {
+    return !probe_worker.active || rx_signal_generation!=*(uint64_t *)arg;
+}
+static bool probe_worker_turn(void) {
+    /* No wait/yield inside this turn; provider callbacks must be finite and
+     * nonblocking. Any uncertain/foreign/recursive ownership remains retained. */
+    uint64_t f=probe_worker_lock();
+    if(scheduler_current_thread_id()!=probe_worker.thread || probe_worker.busy || !probe_worker_guard()) {
+        probe_worker_unlock(f);return probe_worker_fail();
+    }
+    probe_worker.busy=true;probe_worker.parked=false;probe_worker.turns++;
+    uint64_t count=probe_worker_device_poll(32,false);rx_worker_polls++;
+    if(count)rx_worker_packets+=count;else rx_worker_empty_polls++;
+    bool ok=probe_worker_guard();
+    if(ok) {net_tcp_maintain(probe_worker.last_tick);ok=probe_worker_guard();}
+    probe_worker.busy=false;probe_worker_unlock(f);return ok;
+}
+static void prepared_net_worker(void *arg) {
+    struct probe_worker_state *w=arg;
+    if(w!=&probe_worker_slots[0] && w!=&probe_worker_slots[1])return;
+    uint64_t f=probe_worker_lock(),id=scheduler_current_thread_id();
+    if(!id || id==w->supervisor || (w->thread && id!=w->thread)) {
+        w->failed=true;w->active=false;probe_worker_unlock(f);return;
+    }
+    w->thread=id;probe_worker_unlock(f);
+    for(;;) {
+        f=probe_worker_lock();
+        if(!w->active) {
+            w->parked=true;w->busy=false;probe_worker_unlock(f);
+            /* The old continuation waits on its OWN permanent object. It can
+             * never borrow the next worker's queue or publication authority. */
+            if(!scheduler_wait(&w->parked_queue,probe_worker_runnable,w))scheduler_yield();
+            continue;
+        }
+        if(w!=probe_worker_selected){w->failed=true;w->active=false;probe_worker_unlock(f);continue;}
+        uint64_t generation=rx_signal_generation;probe_worker_unlock(f);
+        if(!probe_worker_turn())continue;
+        uint64_t now=timer_ticks(),deadline=now==UINT64_MAX?now:now+1;
+        if(!scheduler_wait_timeout(&rx_wait_queue,probe_worker_rx_or_stopped,&generation,deadline))scheduler_yield();
+    }
+}
+bool net_prepare_probe_worker(void) {
+    uint64_t f=probe_worker_lock(),id=scheduler_current_thread_id();bool ok=false;
+    if(!id || initialized || worker_started || net_probe_quiet || probe_worker.attempted ||
+       dhcp_in_progress || dhcp_retry_active)goto done;
+    probe_worker.attempted=true;probe_worker.supervisor=id;
+    probe_worker.prepared=scheduler_spawn("net-probe",prepared_net_worker,&probe_worker);
+    ok=probe_worker.prepared;
+    if(!ok)probe_worker.failed=true;
+done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_prepare_connection_probe_worker(void) {
+    uint64_t f=probe_worker_lock(),id=scheduler_current_thread_id();bool ok=false;
+    if(!id || worker_started || !probe_worker_table_empty())goto done;
+    if(!probe_worker.attempted){
+        if(probe_worker_selected!=&probe_worker_slots[0] || initialized || net_probe_quiet || bounded_connection.started)goto done;
+        probe_worker.connection_mode=true;
+    }else{
+        struct probe_worker_state *old=probe_worker_selected;
+        struct net_device_link link={0};
+        if(old!=&probe_worker_slots[0] || !old->connection_mode || old->supervisor!=id ||
+           !old->finished || !old->disconnected || old->failed || !old->parked || old->parked_queue.waiters!=1 ||
+           old->active || old->busy || old->poll_busy || old->checking || !old->stop_requested ||
+           old->source || old->station || old->io.context || old->guard.context ||
+           !bounded_connection.started || bounded_connection.active || bounded_connection.disconnecting ||
+           bounded_connection.failed || bounded_connection.scope_identity || !bounded_connection_adapter() ||
+           !net_device_link(&link) || link.up || probe_worker_slots[1].attempted)goto done;
+        probe_worker_selected=&probe_worker_slots[1];
+        probe_worker.connection_mode=true;
+    }
+    probe_worker.attempted=true;probe_worker.supervisor=id;
+    probe_worker.prepared=scheduler_spawn("net-probe",prepared_net_worker,&probe_worker);
+    ok=probe_worker.prepared;
+    if(!ok)probe_worker.failed=true;
+ done:
+    probe_worker_unlock(f);return ok;
+}
+
+bool net_probe_worker_prepared(void) {
+    uint64_t f=probe_worker_lock();bool ok=scheduler_current_thread_id()==probe_worker.supervisor &&
+        probe_worker.prepared && probe_worker.thread && probe_worker.parked &&
+        probe_worker.parked_queue.waiters==1 && !probe_worker.active && !probe_worker.ever_active && !probe_worker.handoff_started && !probe_worker.stop_requested && !probe_worker.finished && !probe_worker.failed;
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_handoff(struct net_bounded_probe *p) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!net_probe_worker_prepared() || !p || !p->identity || p->identity!=(uintptr_t)p || p->closed ||
+       p->busy || !probe_worker_table_empty() || !net_bounded_probe_current(p))goto done;
+    if(p->connection_scope){
+        if(!probe_worker.connection_mode || !bounded_connection.active || bounded_connection.failed ||
+           bounded_connection.scope_identity!=(uintptr_t)p || bounded_connection.epoch!=p->epoch)goto done;
+        probe_worker.connection_scope=(uintptr_t)p;
+    }else if(probe_worker.connection_mode)goto done;
+    probe_worker.source=p->source;probe_worker.io=p->io;probe_worker.guard=p->io_guard;
+    probe_worker.station=p->station;copy_bytes(probe_worker.mac,p->mac,6);
+    probe_worker.epoch=p->epoch;probe_worker.start_us=p->start_us;probe_worker.start_tick=p->start_tick;
+    probe_worker.last_us=p->last_us;probe_worker.last_tick=p->last_tick;
+    probe_worker.deadline_us=p->deadline_us;probe_worker.polls=p->polls;
+    /* Original bootstrap is terminal BEFORE the worker can run or IRQs enable
+     * its maintenance. Never reset the original deadline or aggregate polls. */
+    probe_worker.handoff_started=true;
+    if(!net_bounded_probe_finish(p)) {probe_worker_fail();goto done;}
+    probe_worker.ever_active=probe_worker.active=true;probe_worker.parked=false;worker_started=true;
+    ok=probe_worker_guard();
+    scheduler_wake_all(&probe_worker.parked_queue);
+done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_current(void) {
+    uint64_t f=probe_worker_lock();bool ok=scheduler_current_thread_id()==probe_worker.supervisor && probe_worker_guard();
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_empty(void) {
+    uint64_t f=probe_worker_lock();bool ok=scheduler_current_thread_id()==probe_worker.supervisor &&
+        !probe_worker.busy && probe_worker_guard() && probe_worker_table_empty();
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_stop(void) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.prepared || !probe_worker.thread ||
+       probe_worker.busy || probe_worker.poll_busy || probe_worker.checking || probe_worker.finished ||
+       (!probe_worker.handoff_started && (!probe_worker.parked || probe_worker.parked_queue.waiters!=1)))goto done;
+    probe_worker.handoff_started=true; /* Terminal cancellation also seals unused admission. */
+    probe_worker.stop_requested=true;probe_worker.active=false;worker_started=false;
+    scheduler_wake_all(&rx_wait_queue);ok=true;
+done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_snapshot(struct net_probe_worker_info *out) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!out || scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.attempted)goto done;
+    *out=(struct net_probe_worker_info){.prepared=probe_worker.prepared,.parked=probe_worker.parked,
+        .active=probe_worker.active,.handoff_started=probe_worker.handoff_started,.ever_active=probe_worker.ever_active,
+        .busy=probe_worker.busy,.poll_busy=probe_worker.poll_busy,.checking=probe_worker.checking,
+        .stop_requested=probe_worker.stop_requested,.finished=probe_worker.finished,.failed=probe_worker.failed,
+        .parked_waiters=probe_worker.parked_queue.waiters,.worker_identity=probe_worker.thread,
+        .supervisor_identity=probe_worker.supervisor,.start_us=probe_worker.start_us,.last_us=probe_worker.last_us,
+        .deadline_us=probe_worker.deadline_us,.start_tick=probe_worker.start_tick,.last_tick=probe_worker.last_tick,
+        .polls=probe_worker.polls,.turns=probe_worker.turns};
+    ok=true;
+ done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_finish(void) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.stop_requested || probe_worker.active ||
+       probe_worker.busy || probe_worker.poll_busy || !probe_worker.parked || probe_worker.parked_queue.waiters!=1 ||
+       probe_worker.checking || probe_worker.finished || !probe_worker_table_empty())goto done;
+    /* Private blocked thread's condition borrows only permanent static flags.
+     * No provider/process/key callback remains on its parked continuation. */
+    probe_worker.source=NULL;probe_worker.station=NULL;
+    bounded_probe_scrub(&probe_worker.io,sizeof probe_worker.io);bounded_probe_scrub(&probe_worker.guard,sizeof probe_worker.guard);
+    bounded_probe_scrub(probe_worker.mac,sizeof probe_worker.mac);probe_worker.finished=true;
+    ok=!probe_worker.failed;
+done:
+    probe_worker_unlock(f);return ok;
+}
+
+/* The HTTP supervisor calls this only after retiring its child and finishing
+ * the transferred worker, while its original external provider guard is still
+ * live. No worker/transport callbacks run during this CPU0 transaction. */
+bool net_probe_worker_disconnect(struct net_bounded_probe *p) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!p || p->identity!=(uintptr_t)p || !p->closed || p->failed || p->busy || p->checking ||
+       !p->connection_scope || p->disconnected || !p->epoch || p->epoch!=p->epoch_guard ||
+       scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.connection_mode ||
+       probe_worker.connection_scope!=(uintptr_t)p || probe_worker.epoch!=p->epoch ||
+       !probe_worker.finished || !probe_worker.stop_requested || !probe_worker.ever_active ||
+       probe_worker.failed || probe_worker.disconnected || !probe_worker.parked ||
+       probe_worker.parked_queue.waiters!=1 || probe_worker.active || probe_worker.busy ||
+       probe_worker.poll_busy || probe_worker.checking || probe_worker.source || probe_worker.station ||
+       worker_started || !initialized || !net_probe_quiet || !probe_worker_table_empty() ||
+       !bounded_connection.started || !bounded_connection.active || bounded_connection.failed ||
+       bounded_connection.disconnecting || bounded_connection.scope_identity!=(uintptr_t)p ||
+       bounded_connection.epoch!=p->epoch || !bounded_connection_adapter())goto done;
+    bounded_connection_deconfigure();
+    p->disconnected=probe_worker.disconnected=true;ok=true;
+ done:
+    probe_worker_unlock(f);return ok;
+}
+
+static bool bounded_abort_worker_ready(void) {
+    const struct net_bounded_probe_io empty={0};
+    return scheduler_current_thread_id()==probe_worker.supervisor && probe_worker.connection_mode &&
+        probe_worker.prepared && probe_worker.finished && probe_worker.stop_requested &&
+        !probe_worker.ever_active && !probe_worker.active && !probe_worker.busy && !probe_worker.poll_busy &&
+        !probe_worker.checking && !probe_worker.failed && !probe_worker.disconnected && !probe_worker.connection_scope &&
+        probe_worker.parked && probe_worker.parked_queue.waiters==1 && !probe_worker.source && !probe_worker.station &&
+        bounded_io_same(&probe_worker.io,&empty) && bounded_io_same(&probe_worker.guard,&empty) &&
+        !worker_started && initialized && net_probe_quiet;
+}
+static bool bounded_abort_binding(const struct net_bounded_probe *p,
+    const struct net_bounded_probe_io *original,const struct net_bounded_probe_io *guard,
+    uint64_t epoch,uint64_t deadline) {
+    /* Check address identity before dereferencing the mutable source. The
+     * caller supplies its independently retained original static IO address. */
+    return p->identity==(uintptr_t)p && p->source==original && p->busy && p->checking &&
+        p->failed && p->protocol_failed && !p->closed && !p->disconnected && p->connection_scope &&
+        p->epoch==epoch && p->epoch_guard==epoch && p->deadline_us==deadline && p->deadline_guard==deadline &&
+        bounded_io_same(&p->io,guard) && bounded_io_same(&p->io_guard,guard) && bounded_io_same(original,guard) &&
+        bounded_connection.started && bounded_connection.active && !bounded_connection.failed &&
+        !bounded_connection.disconnecting && bounded_connection.scope_identity==(uintptr_t)p && bounded_connection.epoch==epoch &&
+        bounded_abort_worker_ready();
+}
+bool net_probe_worker_abort_connection(struct net_bounded_probe *p,
+    const struct net_bounded_probe_io *original,uint64_t epoch,uint64_t deadline) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!p || p->identity!=(uintptr_t)p || !bounded_connection.started || !bounded_connection.active ||
+       bounded_connection.scope_identity!=(uintptr_t)p || bounded_connection.epoch!=epoch)goto done;
+    if(!p || !original || !epoch || p->identity!=(uintptr_t)p || p->source!=original ||
+       p->busy || p->checking || !p->failed || !p->protocol_failed || p->closed || p->disconnected ||
+       !p->connection_scope || p->epoch!=epoch || p->epoch_guard!=epoch ||
+       p->deadline_us!=deadline || p->deadline_guard!=deadline ||
+       scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.connection_mode ||
+       !probe_worker.prepared || !probe_worker.finished || !probe_worker.stop_requested ||
+       probe_worker.ever_active || probe_worker.active || probe_worker.busy || probe_worker.poll_busy ||
+       probe_worker.checking || probe_worker.failed || probe_worker.disconnected || probe_worker.connection_scope ||
+       !probe_worker.parked || probe_worker.parked_queue.waiters!=1 || probe_worker.source || probe_worker.station ||
+       worker_started || !initialized || !net_probe_quiet || !probe_worker_table_empty())goto done;
+    const struct net_bounded_probe_io guard=*original;
+    const uint64_t start_us=p->start_us,start_tick=p->start_tick,last_us=p->last_us,last_tick=p->last_tick,polls=p->polls;
+    if(!guard.context || !guard.current || !guard.retry_ready)goto done;
+    p->busy=p->checking=true;
+    struct net_device_link link={0};
+    if(!bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !guard.current(guard.context,epoch) || !bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !net_device_link(&link) || !link.up || !bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !bounded_connection_adapter() || !p->station || p->station!=local_mac || net_device_mac()!=p->station)goto failed;
+    for(unsigned i=0;i<6;i++)if(p->mac[i]!=p->station[i])goto failed;
+    if(!guard.current(guard.context,epoch) || !bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !bounded_connection_adapter() || !p->station || p->station!=local_mac || net_device_mac()!=p->station ||
+       !probe_worker_table_empty() || process_should_exit_current())goto failed;
+    for(unsigned i=0;i<6;i++)if(p->mac[i]!=p->station[i])goto failed;
+    if(p->start_us!=start_us || p->start_tick!=start_tick || p->last_us!=last_us || p->last_tick!=last_tick || p->polls!=polls)goto failed;
+    uint64_t us=timer_monotonic_us(),tick=timer_ticks();
+    if(us<p->last_us || us<p->start_us || us>=deadline || tick<p->last_tick || tick-p->start_tick>=1500 || p->polls>=150000u)goto failed;
+    p->last_us=us;p->last_tick=tick;
+    /* No callback follows the final guard/clock/table checks. Close only
+     * software references; failed history and all native DMA/keys remain. */
+    bounded_connection_deconfigure();bounded_connection.failed=true;
+    p->closed=p->disconnected=true;p->busy=p->checking=false;
+    bounded_probe_scrub(&p->io,sizeof p->io);bounded_probe_scrub(&p->io_guard,sizeof p->io_guard);
+    bounded_probe_scrub(p->mac,sizeof p->mac);p->source=NULL;p->station=NULL;
+    probe_worker.disconnected=true;ok=true;goto done;
+ failed:
+    p->busy=p->checking=false;bounded_connection.failed=true;bounded_probe_fail(p);
+ done:
+    /* A refused original live scope cannot regain cleanup permission by
+     * restoring the bad field later. Foreign/stale scopes cannot fuse it. */
+    if(!ok && p && p->identity==(uintptr_t)p && bounded_connection.active &&
+       bounded_connection.scope_identity==(uintptr_t)p){bounded_connection.failed=true;bounded_probe_fail(p);}
+    probe_worker_unlock(f);return ok;
+}
+
+static bool bounded_probe_alias(const struct net_bounded_probe *p,const void *out,size_t size) {
+    uintptr_t a=(uintptr_t)p,b=(uintptr_t)out;
+    return a<=b?b-a<sizeof *p:a-b<size;
+}
+
+static bool bounded_resolve_mac(struct net_bounded_probe *p,uint32_t ip,uint8_t mac[6],unsigned *polls,unsigned limit) {
+    uint8_t found[6]={0};bool ok=false;
+    if (!bounded_probe_check(p)) goto done;
+    if (arp_cache_lookup(ip,found)) {
+        if (!bounded_probe_check(p)) goto done;
+        copy_bytes(mac,found,6);ok=true;goto done;
+    }
+    uint64_t tick=p->last_tick,us=p->last_us;
+    if (!bounded_probe_check(p) || !send_arp_request(ip) || !bounded_probe_check(p)) goto failed;
+    for (unsigned i=0;i<10000u;i++) {
+        if (!bounded_probe_check(p)) goto done;
+        if (p->last_tick-tick>=100 || p->last_us-us>=1000000u) goto failed;
+        if (arp_cache_lookup(ip,found)) {
+            if (!bounded_probe_check(p)) goto done;
+            copy_bytes(mac,found,6);p->arp_resolutions++;ok=true;goto done;
+        }
+        if (!bounded_probe_progress(p,polls,limit)) goto done;
+    }
+failed:
+    bounded_probe_fail(p);
+done:
+    bounded_probe_scrub(found,sizeof found);return ok;
+}
+
+int64_t net_prepare_route_bounded(struct net_bounded_probe *p,uint32_t remote_ip) {
+    if(!bounded_probe_enter(p))return -1;
+    uint8_t mac[6]={0};unsigned polls=0;int64_t result=-1;
+    if(remote_ip && bounded_resolve_mac(p,route_next_hop(remote_ip),mac,&polls,10000u) && bounded_probe_check(p))result=0;
+    bounded_probe_scrub(mac,sizeof mac);if(result<0)bounded_probe_fail(p);p->busy=false;return result;
+}
+
+int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
+    if (!bounded_probe_enter(p)) return -1;
+    int64_t result=-1;bool started=false,retried=false;unsigned polls=0;
+    struct net_dhcp_observation *o=&p->dhcp_observation;
+    clear_bytes((uint8_t *)o,sizeof *o);o->version=1;o->end_reason=NET_DHCP_GUARD_FAILED;
+    clear_bytes((uint8_t *)&p->dhcp_identity,sizeof p->dhcp_identity);p->dhcp_identity.version=1;
+    uint64_t tick=p->last_tick,us=p->last_us;
+    if (dhcp_in_progress || dhcp_retry_active) {o->end_reason=NET_DHCP_BUSY;goto done;}
+    dhcp_retry_active=dhcp_in_progress=started=true;o->started=1;
+    dhcp_identity_owner=p;
+    dhcp_xid+=0x1021u;if (!dhcp_xid) dhcp_xid=0x73727672u;
+    uint32_t xid=dhcp_xid;
+    dhcp_configured=dhcp_have_offer=dhcp_request_sent=false;
+    dhcp_retry_source_ip=dhcp_retry_relay_ip=0;
+    clear_bytes(dhcp_offered_ip_bytes,4);clear_bytes(dhcp_server_ip_bytes,4);
+    clear_bytes(dhcp_router_ip_bytes,4);clear_bytes(dhcp_dns_ip_bytes,4);
+    if (!bounded_probe_check(p)) goto done;
+    o->discovers++;
+    bool queued=send_dhcp_message(DHCP_DISCOVER,0,0);o->discover_queued+=queued;
+    if (!queued) {o->end_reason=NET_DHCP_SEND_FAILED;goto done;}
+    if (!bounded_probe_check(p)) goto done;
+    for (unsigned i=0;i<20000u;i++) {
+        if (!bounded_probe_check(p) || dhcp_xid!=xid) goto done;
+        if (p->last_tick-tick>=200 || p->last_us-us>=2000000u) {o->end_reason=NET_DHCP_TIME_LIMIT;goto done;}
+        if (dhcp_configured) {if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;goto done;}
+        if (!bounded_probe_progress(p,&polls,20000u) || dhcp_xid!=xid) goto done;
+        if (p->last_tick-tick>=200 || p->last_us-us>=2000000u) {o->end_reason=NET_DHCP_TIME_LIMIT;goto done;}
+        if (dhcp_configured) {if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;goto done;}
+        if (dhcp_have_offer && !dhcp_request_sent) {o->end_reason=NET_DHCP_REQUEST_FAILED;goto done;}
+        if (!retried && !dhcp_have_offer && !dhcp_request_sent &&
+            p->last_tick-tick>=100 && p->last_us-us>=1000000u) {
+            if (!bounded_probe_table(p) || !p->io.retry_ready(p->io.context,p->epoch) || !bounded_probe_check(p)) {o->end_reason=NET_DHCP_RETRY_FAILED;goto done;}
+            if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) continue;
+            retried=true;o->discovers++;
+            queued=send_dhcp_message(DHCP_DISCOVER,0,0);o->discover_queued+=queued;
+            if (!queued) {o->end_reason=NET_DHCP_SEND_FAILED;goto done;}
+            if (!bounded_probe_check(p)) goto done;
+            p->dhcp_retries++;
+        }
+    }
+    o->end_reason=NET_DHCP_POLL_LIMIT;
+done:
+    if (started) {dhcp_identity_owner=NULL;dhcp_in_progress=dhcp_retry_active=false;if (result<0) dhcp_configured=false;}
+    if (result<0) bounded_probe_protocol_fail(p);
+    else if (!bounded_probe_check(p)) {result=-1;dhcp_configured=false;}
+    o->success=result>=0;o->finished=1;
+    if(o->success)o->end_reason=NET_DHCP_SUCCESS;
+    if(started){o->have_offer=dhcp_have_offer;o->request_sent=dhcp_request_sent;o->configured=dhcp_configured;}
+    o->polls=polls;o->elapsed_us=p->last_us-us;o->elapsed_ticks=p->last_tick-tick;
+    p->busy=false;return result;
+}
+
+int64_t net_dns_resolve_bounded(struct net_bounded_probe *p,const char *name,uint32_t *ip_out) {
+    if (!bounded_probe_enter(p)) return -1;
+    int64_t result=-1;bool started=false;unsigned polls=0;uint8_t mac[6]={0};
+    if (!name || !ip_out || bounded_probe_alias(p,ip_out,sizeof *ip_out) || dns_query_active) goto done;
+    size_t size=0;while (size<sizeof dns_question_name-1 && name[size]) size++;
+    if (!size || size==sizeof dns_question_name-1) goto done;
+    copy_bytes((uint8_t *)dns_question_name,(const uint8_t *)name,size+1);
+    dns_query_active=started=true;dns_server_ip=configured_dns_server();
+    if (!bounded_resolve_mac(p,route_next_hop(dns_server_ip),mac,&polls,40000u)) goto done;
+    for (unsigned attempt=0;attempt<DNS_RETRIES;attempt++) {
+        if (!bounded_probe_check(p)) goto done;
+        dns_query_id++;if (!dns_query_id) dns_query_id=0x7372;
+        dns_answer_ip=0;dns_answer_ready=dns_response_done=false;dns_waiting=true;
+        uint64_t tick=p->last_tick,us=p->last_us;
+        if (!bounded_probe_check(p) || !send_dns_query(dns_server_ip,mac,dns_question_name,dns_query_id) || !bounded_probe_check(p)) goto done;
+        p->dns_queries++;
+        bool expired=false;
+        for (unsigned i=0;i<10000u;i++) {
+            if (!bounded_probe_check(p)) goto done;
+            if (p->last_tick-tick>=100 || p->last_us-us>=1000000u) {expired=true;break;}
+            if (dns_answer_ready) {
+                uint32_t answer=dns_answer_ip;
+                if (!bounded_probe_check(p)) goto done;
+                *ip_out=answer;result=0;goto done;
+            }
+            if (dns_response_done) {expired=true;break;}
+            if (!bounded_probe_progress(p,&polls,40000u)) goto done;
+        }
+        dns_waiting=false;
+        if (!expired) goto done; /* Frozen-clock phase cap is terminal. */
+    }
+done:
+    if (started) {
+        dns_waiting=dns_query_active=dns_answer_ready=dns_response_done=false;
+        dns_server_ip=dns_answer_ip=0;bounded_probe_scrub(dns_question_name,sizeof dns_question_name);
+    }
+    bounded_probe_scrub(mac,sizeof mac);
+    if (result<0) bounded_probe_protocol_fail(p);
+    p->busy=false;return result;
+}
+
+int64_t net_ping_bounded(struct net_bounded_probe *p,uint32_t remote_ip,uint16_t sequence,uint64_t *elapsed_ticks_out) {
+    if (!bounded_probe_enter(p)) return -1;
+    int64_t result=-1;bool started=false;unsigned polls=0;uint8_t mac[6]={0};
+    if (!remote_ip || icmp_ping_waiting || icmp_bounded_owner ||
+        (elapsed_ticks_out && bounded_probe_alias(p,elapsed_ticks_out,sizeof *elapsed_ticks_out))) goto done;
+    icmp_bounded_owner=p;started=true;icmp_ping_waiting=icmp_ping_reply=false;
+    icmp_ping_ip=remote_ip;icmp_ping_sequence=sequence;
+    if (!bounded_resolve_mac(p,route_next_hop(remote_ip),mac,&polls,20000u)) goto done;
+    uint64_t tick=p->last_tick,us=p->last_us;
+    icmp_ping_start_tick=tick;icmp_ping_waiting=true;
+    if (!bounded_probe_check(p) || !send_icmp_echo_with_mac(remote_ip,sequence,mac) || !bounded_probe_check(p)) goto done;
+    p->pings_sent++;
+    for (unsigned i=0;i<10000u;i++) {
+        if (!bounded_probe_check(p) || p->last_tick-tick>=100 || p->last_us-us>=1000000u) goto done;
+        if (icmp_ping_reply) {
+            if (!bounded_probe_check(p)) goto done;
+            if (elapsed_ticks_out) *elapsed_ticks_out=p->last_tick-tick;
+            p->pings_matched++;result=0;goto done;
+        }
+        if (!bounded_probe_progress(p,&polls,20000u)) goto done;
+    }
+done:
+    if (started) {
+        icmp_bounded_owner=NULL;icmp_ping_waiting=icmp_ping_reply=false;
+        icmp_ping_ip=0;icmp_ping_sequence=0;icmp_ping_start_tick=0;
+    }
+    bounded_probe_scrub(mac,sizeof mac);
+    if (result<0) bounded_probe_protocol_fail(p);
+    p->busy=false;return result;
 }
 
 void net_print_status(void) {
@@ -2866,6 +3917,7 @@ int64_t net_arp_list(uint64_t index, struct srv_arp_info *info) {
 }
 
 int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out) {
+    if (icmp_bounded_owner) return SRV_ERR_AGAIN;
     if (!initialized || remote_ip == 0) {
         return -1;
     }
@@ -2890,7 +3942,7 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
             }
             return 0;
         }
-        (void)net_device_poll(32, false);
+        (void)probe_worker_device_poll(32, false);
         net_wait_tick();
     }
 
@@ -3102,7 +4154,7 @@ int64_t net_udp_recv_checked(uint64_t socket_id, uint64_t capacity, bool nonbloc
             return (int64_t)copied;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3240,6 +4292,23 @@ static bool connect_ready(void *arg) {
         connection->peer_closed;
 }
 
+int64_t net_connect_try(uint32_t remote_ip, uint16_t remote_port) {
+    if (!initialized || !local_mac || !local_ip || !remote_ip || !remote_port ||
+        !process_current() || process_should_exit_current()) return -1;
+
+    uint8_t remote_mac[6];
+    /* Do not even allocate a client port before cache-only route admission. */
+    if (!arp_cache_lookup(route_next_hop(remote_ip), remote_mac)) return SRV_ERR_AGAIN;
+    struct tcp_connection *connection = alloc_client_connection(remote_ip, remote_port, remote_mac);
+    if (!connection) return -1;
+    uint64_t id = connection->id;
+    if (!send_tcp_segment(connection, connection->local_port, TCP_SYN, NULL, 0)) {
+        close_connection(connection);
+        return -1;
+    }
+    return (int64_t)make_handle(NET_HANDLE_CONNECTION, id);
+}
+
 int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
     if (!initialized || remote_ip == 0 || remote_port == 0) {
         return -1;
@@ -3295,7 +4364,7 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
             return -SRV_NETERR_TIMEDOUT;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (!scheduler_wait_timeout(&connect_wait_queue, connect_ready, &wait, deadline)) {
             scheduler_yield();
         }
@@ -3366,7 +4435,7 @@ int64_t net_accept_checked(uint64_t listener_id, uint64_t capacity, bool nonbloc
             }
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3466,7 +4535,7 @@ int64_t net_read_checked(uint64_t connection_id, uint64_t length, bool nonblock,
             return -1;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3514,6 +4583,26 @@ static bool write_ready(void *arg) {
         }
     }
     return true;
+}
+
+int64_t net_respond_try_checked(uint64_t connection_id, const char *buffer, uint64_t length,
+    const struct net_transfer *transfer) {
+    if (!initialized || (!buffer && length) ||
+        handle_type(connection_id) != NET_HANDLE_CONNECTION ||
+        !find_referenced_connection_by_id(handle_value(connection_id))) return -1;
+    if (!length) return 0;
+    if (!transfer_current(transfer)) return SRV_ERR_BADF;
+    if (process_should_exit_current()) return -1;
+    /* The identity callback may have closed/replaced the referenced handle. */
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(connection_id));
+    if (!connection || !tcp_state_can_write(connection->state) ||
+        connection->local_write_closed || connection->reset) return -1;
+    uint16_t available = tcp_tx_available_payload(connection);
+    if (!available) return SRV_ERR_AGAIN;
+    uint16_t chunk = length > available ? available : (uint16_t)length;
+    if (!send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_PSH,
+        (const uint8_t *)buffer, chunk)) return -1;
+    return chunk;
 }
 
 int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock, const struct net_transfer *transfer) {
@@ -3564,7 +4653,7 @@ int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t
                     return sent == 0 ? -1 : (int64_t)sent;
                 }
                 sent += chunk;
-                net_device_poll(16, false);
+                probe_worker_device_poll(16, false);
                 scheduler_yield();
                 if (sent == length) {
                     return (int64_t)sent;
@@ -3579,7 +4668,7 @@ int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t
             return (int64_t)sent;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3601,7 +4690,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         return SRV_POLLNVAL;
     }
 
-    net_device_poll(32, false);
+    probe_worker_device_poll(32, false);
 
     if (handle_type(handle) == NET_HANDLE_LISTENER) {
         struct net_listener *listener = find_listener(handle);

@@ -1,4 +1,5 @@
 #include <srvros/syscall_numbers.h>
+#include "network_probe.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -551,6 +552,8 @@ static int system_main(void) {
 
 int main(int argc, char **argv) {
     char line[LINE_MAX];
+
+    if (argc > 1 && streq(argv[1], "--network-probe")) return argc==2?init_network_probe_main():2;
 
     if (argc > 1 && streq(argv[1], "--system")) {
         return system_main();

@@ -8,6 +8,22 @@
  * recorded result without replacing DMA rings or retrying partial setup. */
 bool e1000_init(void);
 bool e1000_available(void);
+/* Read-only bounded software/descriptor observation for explicit stack tests.
+ * Selected-provider identity and ring addresses are stable boot ownership only;
+ * all submitted TX DD/no active RX dispatch/no current RX DD is a sampled drain,
+ * never controller halt, DMA retirement, memory release or native Wi-Fi proof. */
+struct e1000_probe_info {
+    uint64_t rx_ring,tx_ring,rx_packets,tx_packets,interrupts,rx_interrupts;
+    uint64_t tx_pending,rx_ready,rx_dispatching,selected,irqs_enabled;
+    uint8_t mac[6];
+};
+bool e1000_probe_sample(struct e1000_probe_info *out);
+/* Explicit one-shot controlled-probe terminal software seal. Caller has retired
+ * process/TCP/worker borrowers. CPU0/IRQ serialized; refuses TX debt or active
+ * receive dispatch. Retires the actual registry provider and blocks direct
+ * legacy send/poll. Raw RX/rings/IRQs remain retained until controller shutdown;
+ * this is NOT DMA quiescence, NIC reset or a reusable ordinary-device API. */
+bool e1000_probe_retire_provider(void);
 struct e1000_link_info { bool up,full_duplex;uint16_t speed_mbps; };
 struct e1000_link_info e1000_decode_link_status(uint32_t status);
 bool e1000_link_info(struct e1000_link_info *info);

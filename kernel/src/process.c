@@ -373,13 +373,22 @@ static struct process_exit_record exit_records[PROCESS_EXIT_STATUS_CACHE];
 static bool process_slots_busy[PROCESS_MAX_PROCESSES];
 /* CPU0 process management: short IRQ-masked publication, preemptible loading
  * and destruction. Members include reservations and final resource release. */
+struct process_pipe_handoff_record {
+    const struct process_pipe_handoff *ticket;
+    uint64_t pid,image_generation,address_space,pipe,fd_generation;
+    bool owns_writer,published,closed;
+};
 struct process_lifetime {
     uint64_t token, members, peak;
     bool revoked, root_reserved, user, reservation;
     struct process *owner;
     uint64_t nonzero_exits, first_exit_status;
+    struct process_pipe_handoff_record handoff;
 };
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
+static void process_pipe_handoff_drop(struct process_lifetime *life);
+static bool process_pipe_handoff_install(struct process_lifetime *life,
+    struct process *child,struct process_pipe_handoff *ticket);
 static uint64_t next_lifetime = 1;
 static uint64_t next_image_generation;
 static uint64_t next_pid = 1;
@@ -1460,7 +1469,7 @@ bool process_lifetime_release(uint64_t token) {
     uint64_t flags=process_irq_save();
     struct process_lifetime *life=lifetime_find(token);
     bool ok=life && life->revoked && !life->members;
-    if (ok) *life=(struct process_lifetime){0};
+    if (ok) { process_pipe_handoff_drop(life); *life=(struct process_lifetime){0}; }
     process_irq_restore(flags);return ok;
 }
 
@@ -3312,7 +3321,7 @@ static bool process_configure_stdio_fds(struct process *child, struct process *p
     return true;
 }
 
-static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, const char *args, bool quiet, uint64_t lifetime) {
+static int64_t process_spawn_background_elf_args_quiet_pipe(const char *path, const char *args, bool quiet, uint64_t lifetime, struct process_pipe_handoff *ticket) {
     if (path == NULL || path[0] == '\0') {
         return -1;
     }
@@ -3323,14 +3332,18 @@ static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, co
     }
 
     if (!allocate_kernel_stack(process)) {
+        if(ticket) (void)process_pipe_handoff_finish(ticket);
         release_process(process);
         return -1;
     }
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
         !setup_process_arguments(process, path, args != NULL ? args : "") ||
-        process_prepare_image(process) < 0) {
+        process_prepare_image(process) < 0 ||
+        (ticket && !process_pipe_handoff_install(lifetime_find(lifetime),process,ticket))) {
+        if(ticket) (void)cleanup_process_files(process);
         cleanup_process_address_space(process);
+        if(ticket) (void)process_pipe_handoff_finish(ticket);
         release_process(process);
         return -1;
     }
@@ -3338,12 +3351,19 @@ static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, co
     uint64_t pid = process->pid;
     process->quiet = quiet;
     if (!scheduler_spawn("user", background_process_thread, process)) {
+        if(ticket) (void)cleanup_process_files(process);
         cleanup_process_address_space(process);
+        if(ticket) (void)process_pipe_handoff_finish(ticket);
         release_process(process);
         return -1;
     }
 
     return (int64_t)pid;
+}
+
+static int64_t process_spawn_background_elf_args_quiet_flag(const char *path,
+    const char *args,bool quiet,uint64_t lifetime) {
+    return process_spawn_background_elf_args_quiet_pipe(path,args,quiet,lifetime,NULL);
 }
 
 int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args) {
@@ -6152,6 +6172,138 @@ static void pipe_close(uint64_t handle, bool write_end) {
      * close completes; arbitrary file releases may sleep or reenter. */
     scheduler_wake_all(&pipe_wait_queue);
     process_file_poll_wake();
+}
+
+/* The lifetime table is the authoritative capability store. Its monotonically
+ * issued tokens are never reused; ticket self-address alone cannot authorize a
+ * copied/restored record after finish/release or pipe index reuse. */
+static struct process_lifetime *process_pipe_handoff_find(const struct process_pipe_handoff *t) {
+    if(!t || t->self!=(uintptr_t)t || !t->token) return NULL;
+    struct process_lifetime *life=lifetime_find(t->token);
+    return life && !life->user && life->handoff.ticket==t ? life : NULL;
+}
+static void process_pipe_handoff_drop(struct process_lifetime *life) {
+    if(life && life->handoff.owns_writer) {
+        pipe_close(life->handoff.pipe,true);
+        life->handoff.owns_writer=false;
+    }
+}
+static bool process_pipe_handoff_install(struct process_lifetime *life,
+    struct process *child,struct process_pipe_handoff *t) {
+    uint64_t irq=process_irq_save();bool ok=false;
+    if(!life || life->user || life->revoked || life->members!=1 || !child ||
+       !child->allocated || !child->active || child->killed || child->exiting ||
+       !child->image_generation || !child->address_space || life->handoff.ticket!=t ||
+       life->handoff.closed || life->handoff.owns_writer || child->lifetime!=life->token ||
+       child->files[3].used || child->files[4].used) goto out;
+    uint64_t fds[2];if(process_file_pipe(child,fds)<0) goto out;
+    /* Fresh quiet constructor has only STDIO0..2. No parent is fabricated. */
+    if(fds[0]!=3 || fds[1]!=4) {
+        (void)process_file_close(child,fds[0]);(void)process_file_close(child,fds[1]);goto out;
+    }
+    if(process_file_set_flags(child,3,SRV_FD_NONBLOCK)<0) {
+        (void)process_file_close(child,3);(void)process_file_close(child,4);goto out;
+    }
+    life->handoff=(struct process_pipe_handoff_record){.ticket=t,.pid=child->pid,
+        .image_generation=child->image_generation,.address_space=child->address_space,
+        .pipe=child->files[4].handle,.fd_generation=child->file_generations[3],.owns_writer=true};
+    /* Move, do not close/clone: the original writer ref now belongs to life. */
+    for(uint64_t i=0;i<sizeof(child->files[4]);i++)((uint8_t *)&child->files[4])[i]=0;
+    if(child->file_generations[4]!=UINT64_MAX)child->file_generations[4]++;
+    ok=true;
+out: process_irq_restore(irq);return ok;
+}
+int64_t process_lifetime_spawn_pipe(uint64_t token,const char *path,const char *args,
+    struct process_pipe_handoff *t) {
+    if(process_current() || !path || !path[0] || !t || t->self || t->token)return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=lifetime_find(token);
+    bool claim=life && !life->user && !life->revoked && !life->root_reserved &&
+        !life->members && !life->handoff.ticket;
+    if(claim) {t->self=(uintptr_t)t;t->token=token;life->handoff.ticket=t;}
+    process_irq_restore(irq);if(!claim)return SRV_ERR_INVAL;
+    int64_t pid=process_spawn_background_elf_args_quiet_pipe(path,args,true,token,t);
+    if(pid<0)(void)process_pipe_handoff_finish(t);
+    return pid;
+}
+static bool process_pipe_handoff_current_locked(struct process_lifetime *life) {
+    if(!life || life->user || life->members!=1 || !life->root_reserved ||
+       life->handoff.closed || life->handoff.published || !life->handoff.owns_writer)return false;
+    const struct process_pipe_handoff_record *r=&life->handoff;
+    struct process *p=NULL;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated && processes[i].pid==r->pid){p=&processes[i];break;}
+    if(!p || !p->active || p->killed || p->exiting || !p->startup_ready ||
+       p->lifetime!=life->token || p->image_generation!=r->image_generation ||
+       p->address_space!=r->address_space || p->file_generations[3]!=r->fd_generation ||
+       !p->files[3].used || p->files[3].type!=PROCESS_FILE_PIPE_READ ||
+       p->files[3].handle!=r->pipe || !process_file_nonblocking(p,3))return false;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)return false;
+    struct process_pipe *pipe=pipe_at(r->pipe);
+    if(!pipe || pipe->refs!=2 || pipe->read_refs!=1 || pipe->write_refs!=1 ||
+       pipe->size || pipe->read_pos || pipe->write_pos)return false;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(pipe->rights[i].used)return false;
+    return true;
+}
+bool process_pipe_handoff_current(const struct process_pipe_handoff *t) {
+    if(process_current())return false;
+    uint64_t irq=process_irq_save();bool ok=process_pipe_handoff_current_locked(process_pipe_handoff_find(t));
+    process_irq_restore(irq);return ok;
+}
+bool process_pipe_handoff_bound(const struct process_pipe_handoff *t,
+    struct process_pipe_identity *out) {
+    if(process_current() || !out)return false;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    bool ok=life && life->handoff.pid && life->handoff.image_generation;
+    if(ok)*out=(struct process_pipe_identity){.pid=life->handoff.pid,
+        .lifetime=life->token,.image_generation=life->handoff.image_generation};
+    process_irq_restore(irq);return ok;
+}
+bool process_pipe_handoff_identity(const struct process_pipe_handoff *t,
+    struct process_pipe_identity *out) {
+    if(process_current() || !out)return false;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    bool ok=process_pipe_handoff_current_locked(life);
+    if(ok)*out=(struct process_pipe_identity){.pid=life->handoff.pid,
+        .lifetime=life->token,.image_generation=life->handoff.image_generation};
+    process_irq_restore(irq);return ok;
+}
+int64_t process_pipe_handoff_publish(struct process_pipe_handoff *t,const uint8_t *bytes,uint64_t n) {
+    if(process_current())return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    int64_t result=SRV_ERR_BADF;
+    if(!life || life->handoff.closed)goto out;
+    if(!bytes || !n || n>PROCESS_PIPE_HANDOFF_MAX) {result=SRV_ERR_INVAL;goto fail;}
+    if(!life->revoked || !process_pipe_handoff_current_locked(life))goto fail;
+    struct process_pipe *pipe=pipe_at(life->handoff.pipe);
+    /* Empty, original ring is checked above. One bounded transaction; only
+     * ordinary pipe_close's fixed wakeups run, never arbitrary rights release. */
+    copy_bytes(pipe->buffer,bytes,n);pipe->size=n;pipe->write_pos=n;
+    life->handoff.published=true;life->handoff.closed=true;
+    process_pipe_handoff_drop(life);result=(int64_t)n;goto out;
+fail:
+    life->handoff.closed=true;process_pipe_handoff_drop(life);
+out: process_irq_restore(irq);return result;
+}
+bool process_pipe_handoff_retired(const struct process_pipe_handoff *t,uint64_t *status) {
+    if(process_current() || !status)return false;
+    uint64_t irq=process_irq_save();bool ok=false;
+    struct process_lifetime *life=process_pipe_handoff_find(t);struct process *p=NULL;
+    if(!life || !life->handoff.closed || life->handoff.owns_writer)goto out;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated &&
+        processes[i].pid==life->handoff.pid){p=&processes[i];break;}
+    if(!p || p->lifetime!=life->token || p->parent_pid || p->active || !p->detached ||
+       !p->reapable || p->image_generation || p->address_space || p->mapping_count || p->mappings ||
+       p->kernel_stack || p->kernel_stack_physical || p->kernel_stack_frames ||
+       process_slots_busy[p-processes] || !scheduler_io_process_retired(p))goto out;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(p->files[i].used)goto out;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)goto out;
+    *status=p->exit_status;ok=true;
+out:process_irq_restore(irq);return ok;
+}
+bool process_pipe_handoff_finish(struct process_pipe_handoff *t) {
+    if(process_current())return false;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    if(life) {life->handoff.closed=true;process_pipe_handoff_drop(life);}
+    process_irq_restore(irq);return life!=NULL;
 }
 
 static int64_t write_file_close(uint64_t handle) {

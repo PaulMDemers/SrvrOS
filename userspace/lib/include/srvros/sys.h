@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <srvros/device_abi.h>
+#include <srvros/wifi_abi.h>
+long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *);
+long srv_wifi_select(const struct srv_wifi_select *);
 #include <srvros/thermal_abi.h>
 #include <srvros/smc_abi.h>
 #include <srvros/scheduler_abi.h>
@@ -200,6 +203,19 @@ long srv_net_arp_list(uint64_t index, struct srv_arp_info *info);
 long srv_net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out);
 long srv_net_listen(uint16_t port);
 long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags);
+/* Matched kernel/SDK finite backend opt-ins, not end-to-end nonblocking calls:
+ * normal ISR/I/O admission still applies. connect_try negotiates TCP_TRY v1
+ * before CACHE_ONLY; old kernels return NOTSUP without a legacy connect.
+ * Returns a native FD in SYN_SENT (not a POSIX pseudo socket); route cache must
+ * already exist, and FD status flags are unchanged. Use net_error and explicit
+ * finite sends; ordinary read/write/connect APIs retain their wait semantics.
+ * respond_try copies at most TCP_TRY_COPY_MAX bytes and admits <=one segment,
+ * returning positive partial admission, AGAIN before output for no credit, or
+ * an error (no retry permission after transport refusal). Original transaction
+ * deadlines, real process/timer service and protocol/DMA retirement are caller
+ * responsibilities. Neither wrapper creates an isolated process/service scope. */
+long srv_net_connect_try(uint32_t remote_ip, uint16_t remote_port);
+long srv_net_respond_try(int fd, const void *buffer, size_t length);
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out);
 long srv_socket_try_io(int fd, uint64_t operation, void *buffer, size_t length, struct srv_socket_peer *peer);
 long srv_net_udp_open(void);

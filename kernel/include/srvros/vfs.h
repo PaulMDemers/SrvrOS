@@ -76,6 +76,19 @@ void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback);
 bool vfs_update_file_size(const char *path, uint64_t size);
 bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out);
 bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata);
+/* Restore metadata before publishing a newly mounted subtree. Caller holds
+ * filesystem/namespace exclusion (exFAT fs_enter masks IRQs) and retains
+ * immutable entries. Commit allocates nothing and invokes no callbacks.
+ * Desired IDs displace only same-subtree provisional IDs; any outside collision
+ * refuses atomically. Unlisted nodes retain every attribute except a displaced
+ * provisional inode. Existing live/borrowed mounts must not use this operation. */
+struct vfs_metadata_restore {
+    const struct vfs_node *node;
+    struct vfs_metadata metadata;
+};
+bool vfs_restore_metadata(const char *prefix,
+    const struct vfs_metadata_restore *entries, uint64_t count);
+
 bool vfs_chmod(const char *path, uint64_t mode);
 void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime);
 bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime);

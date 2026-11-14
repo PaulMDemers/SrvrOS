@@ -110,6 +110,7 @@ static bool interrupts_enabled;
 static bool rings_ready;
 static bool init_attempted,init_succeeded;
 static bool rx_poll_active;
+static bool probe_provider_closed;
 
 static uint32_t reg_read(uint32_t offset) {
     return mmio[offset / sizeof(uint32_t)];
@@ -273,7 +274,7 @@ static void configure_rxtx(void) {
 }
 
 static bool device_rx_wake_ready(void *context) {
-    (void)context;return rings_ready && interrupts_enabled;
+    (void)context;return !probe_provider_closed && rings_ready && interrupts_enabled;
 }
 static bool device_send(void *context,const uint8_t *frame,uint16_t length) { (void)context;return e1000_send_frame(frame,length); }
 static uint64_t device_poll(void *context,uint64_t budget,bool verbose) { (void)context;return e1000_poll(budget,verbose); }
@@ -341,6 +342,42 @@ bool e1000_init(void) {
         (uint64_t)E1000_TX_DESC_COUNT);
     init_succeeded=true;
     return true;
+}
+
+bool e1000_probe_sample(struct e1000_probe_info *out) {
+    if(!out || !init_succeeded || !e1000_available() || !rings_ready || !rx_desc || !tx_desc ||
+       rx_tail>=E1000_RX_DESC_COUNT || tx_tail>=E1000_TX_DESC_COUNT)return false;
+    const struct net_device_ops identity={.context=NULL,.send=device_send};
+    struct e1000_probe_info info={.rx_ring=(uint64_t)(uintptr_t)rx_desc,.tx_ring=(uint64_t)(uintptr_t)tx_desc,
+        .rx_packets=rx_packets,.tx_packets=tx_packets,.interrupts=interrupts,.rx_interrupts=rx_interrupts,
+        .rx_ready=(rx_desc[rx_tail].status&E1000_RX_DESC_STATUS_DD)!=0,
+        .rx_dispatching=__atomic_load_n(&rx_poll_active,__ATOMIC_ACQUIRE),
+        .selected=net_device_selected_is(&identity),.irqs_enabled=interrupts_enabled};
+    for(unsigned i=0;i<E1000_TX_DESC_COUNT;i++)if(!(tx_desc[i].status&E1000_TX_DESC_STATUS_DD))info.tx_pending++;
+    for(unsigned i=0;i<6;i++)info.mac[i]=mac[i];
+    *out=info;return true;
+}
+
+#ifdef SRVROS_E1000_PROBE_HOST_TEST
+extern uint64_t e1000_probe_test_irq_save(void);
+extern void e1000_probe_test_irq_restore(uint64_t);
+static uint64_t probe_lock(void){return e1000_probe_test_irq_save();}
+static void probe_unlock(uint64_t f){e1000_probe_test_irq_restore(f);}
+#else
+static uint64_t probe_lock(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
+static void probe_unlock(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+#endif
+bool e1000_probe_retire_provider(void) {
+    uint64_t f=probe_lock();bool ok=false;
+    struct e1000_probe_info sample={0};
+    if(probe_provider_closed || !e1000_probe_sample(&sample) || !sample.selected ||
+       sample.tx_pending || sample.rx_dispatching)goto done;
+    const struct net_device_ops identity={.context=NULL,.send=device_send};
+    /* Close even direct legacy paths before consuming registry admission.
+     * A registry refusal remains a sealed uncertainty; never reopen it. */
+    probe_provider_closed=true;
+    ok=net_device_retire(&identity);
+ done:probe_unlock(f);return ok;
 }
 
 bool e1000_available(void) {
@@ -472,6 +509,7 @@ static uint16_t read_be16(const uint8_t *data) {
 }
 
 uint64_t e1000_poll(uint64_t max_frames, bool verbose) {
+    if(probe_provider_closed)return 0;
     if (!e1000_available() || !rings_ready) {
         console_write("net: e1000 unavailable\n");
         return 0;
@@ -537,6 +575,7 @@ uint64_t e1000_poll(uint64_t max_frames, bool verbose) {
 }
 
 bool e1000_send_frame(const uint8_t *frame, uint16_t length) {
+    if(probe_provider_closed)return false;
     if (!e1000_available() || !rings_ready) {
         console_write("net: e1000 unavailable\n");
         return false;

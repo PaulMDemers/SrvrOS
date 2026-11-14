@@ -11,7 +11,12 @@ from pathlib import Path
 import hardware_test as host
 
 SESSION = re.compile(r"session-[0-9a-f]{16}-[0-9a-f]{2}")
-FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log")
+FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log", "wifi-scan.log", "wifi-ui-begin.log")
+# Default transport bound; the explicit held-radio capture below has its own bound.
+# This transport ceiling does not establish capture completeness or acceptance.
+MAX_LOG_BYTES = 1024 * 1024
+RADIO_LOG_BYTES = 2 * 1024 * 1024
+CAL5_LOG_BYTES = 4 * 1024 * 1024
 
 
 def session_releases(text):
@@ -614,7 +619,24 @@ def battery_preflight_result(text):
     return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
 
 
-def collect(mount, volume, output):
+def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=False, http5_capture=False, reconnect5_capture=False, http_reconnect5_capture=False):
+    # Only one caller-identified session/release may use the fixed larger bound.
+    # This transports evidence; it does not establish hardware acceptance.
+    if not isinstance(cal5_cleanup_capture,bool) or (cal5_cleanup_capture and radio_capture is None):
+        raise ValueError("Calibration cleanup capture requires explicit radio session/release")
+    if not isinstance(http5_capture,bool) or (http5_capture and (radio_capture is None or not cal5_cleanup_capture)):
+        raise ValueError("HTTP capture requires explicit radio identity and calibration4MiB profile")
+    if not isinstance(reconnect5_capture,bool) or (reconnect5_capture and
+            (radio_capture is None or not cal5_cleanup_capture or http5_capture)):
+        raise ValueError("Reconnect capture requires its own explicit radio identity and calibration4MiB profile without HTTP")
+    if not isinstance(http_reconnect5_capture,bool) or (http_reconnect5_capture and
+            (radio_capture is None or not cal5_cleanup_capture or http5_capture or reconnect5_capture)):
+        raise ValueError("HTTP reconnect capture requires its own explicit identity and calibration4MiB profile")
+    if radio_capture is not None:
+        if (not isinstance(radio_capture,tuple) or len(radio_capture)!=2 or
+                not all(isinstance(v,str) for v in radio_capture) or
+                not SESSION.fullmatch(radio_capture[0]) or not re.fullmatch(r"[0-9a-f]{16}",radio_capture[1])):
+            raise ValueError("Invalid explicit radio capture identity")
     workspace = mount / "srvros-work"
     marker = workspace / ".workspace"
     if workspace.is_symlink() or marker.is_symlink() or not marker.is_file():
@@ -628,6 +650,10 @@ def collect(mount, volume, output):
     sessions = sorted(p for p in logs.iterdir() if SESSION.fullmatch(p.name))
     if not sessions or len(sessions) > 4096:
         raise ValueError("No sessions found, or session count exceeds collection limit")
+    if http5_capture and sum(p.name==radio_capture[0] for p in sessions)!=1:
+        raise ValueError("Missing selected HTTP session")
+    if (reconnect5_capture or http_reconnect5_capture) and sum(p.name==radio_capture[0] for p in sessions)!=1:
+        raise ValueError("Missing selected reconnect session")
     # Validate and read everything before creating the local collection.
     snapshots = []
     total_bytes = 0
@@ -641,14 +667,38 @@ def collect(mount, volume, output):
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
             if not source.exists():
                 continue
-            if not source.is_file() or source.stat().st_size > 65536:
+            extended=radio_capture is not None and folder.name==radio_capture[0] and name in FILES
+            limit=(CAL5_LOG_BYTES if cal5_cleanup_capture else RADIO_LOG_BYTES) if extended else MAX_LOG_BYTES
+            if not source.is_file() or source.stat().st_size > limit:
                 raise ValueError(f"Invalid log: {folder.name}/{name}")
             total_bytes += source.stat().st_size
             if total_bytes > 64*1024*1024:
                 raise ValueError("Collection exceeds 64 MiB; archive older session folders first")
             payload[name] = source.read_bytes()
-            if len(payload[name]) > 65536:
+            if len(payload[name]) > limit:
                 raise ValueError("Log changed while reading")
+            if http5_capture and extended:
+                from wifi_http5_log import boot_identity as http5_identity
+                http5_identity(payload[name].decode("utf-8",errors="strict"),radio_capture[1],volume)
+            if reconnect5_capture and extended:
+                from wifi_reconnect5_log import boot_identity as reconnect5_identity
+                reconnect5_identity(payload[name].decode("utf-8",errors="strict"),radio_capture[1],volume)
+            if http_reconnect5_capture and extended:
+                from wifi_http_reconnect5_log import boot_identity as http_reconnect5_identity
+                http_reconnect5_identity(payload[name].decode("utf-8",errors="strict"),radio_capture[1],volume)
+            if len(payload[name])>MAX_LOG_BYTES:
+                text=payload[name].decode("utf-8",errors="strict")
+                required={"srvros.desktop-release="+radio_capture[1],"srvros.wifi-held-channel=1","srvros.capture=wifi-firmware","srvros.capture-failure=reboot"}
+                if cal5_cleanup_capture:
+                    required |= {"srvros.wifi-cal5-cleanup=1","srvros.wifi-cal5=1","srvros.wifi-stack5=1","srvros.wifi-stream5=1"}
+                records=(line[len(prefix):].split() for line in text.splitlines()
+                         for prefix in ("cmdline: ","laptop-capture: boot options=") if line.startswith(prefix))
+                if session_releases(text)!=[radio_capture[1]] or not any(required.issubset(tokens) for tokens in records):
+                    raise ValueError("Large radio log lacks matching boot identity/profile")
+        if http5_capture and folder.name==radio_capture[0] and not any(name in payload for name in FILES):
+            raise ValueError("Selected HTTP session has no boot/exit identity snapshot")
+        if (reconnect5_capture or http_reconnect5_capture) and folder.name==radio_capture[0] and not {"boot.log","exit.log"}<=set(payload):
+            raise ValueError("Selected reconnect session requires both boot and exit identity snapshots")
         snapshots.append((folder.name, payload))
     output.mkdir(parents=True, exist_ok=True)
     destination = Path(tempfile.mkdtemp(prefix="collection-", dir=output))

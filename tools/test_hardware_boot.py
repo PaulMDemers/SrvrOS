@@ -14,6 +14,723 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_early5_stage_and_profile(self):
+        import struct
+        import tarfile
+        import startup_journal as journal
+        version='ram-usb-wifi-fw-v144-laptop-probe-12345678-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        base=boot.limine_config('0123456789abcdef',version.replace('v144-','v121-'))
+        self.assertEqual(config,base.replace('srvros.storage=ram','srvros.storage=ram srvros.startup-journal=1').replace('srvros.wifi-cal5=1','srvros.wifi-cal5=1 srvros.wifi-early5=1'))
+        tokens=next(l.split(':',1)[1].split() for l in config.splitlines() if l.strip().startswith('cmdline:'))
+        args={t.split('=',1)[0][7:].replace('-','_'):True for t in tokens if t.startswith('srvros.wifi-')}
+        descriptor=journal.magic('SRVRSTARTDESC1')+struct.pack('<QQQQ',100000,2097152,1048576,10485760)+bytes(range(16))+bytes(64)
+        path=self.root/'early-journal';path.write_bytes(descriptor)
+        args.update(startup_journal=path,laptop_probe_volume='12345678',wifi_firmware_package=self.root/'package')
+        args['wifi_firmware_package'].mkdir()
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'fixture')
+        with tarfile.open(self.root/'build/initramfs.tar','w',format=tarfile.USTAR_FORMAT):pass
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']*3),patch('wifi_firmware_package.add_to_initramfs'),patch('wifi_firmware_package.verify_initramfs'):
+            payloads=[]
+            for number,arm in ((144,None),(145,'early'),(146,'late')):
+                staged_args=dict(args,wifi_early5_timing=arm)
+                release=boot.stage(**staged_args)
+                manifest=boot.verify(self.stage/release)
+                self.assertEqual(manifest['config_version'],version.replace('v144-','v'+str(number)+'-'))
+                self.assertEqual(journal.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
+                payloads.append({k:v for k,v in manifest['sha256'].items() if not k.endswith('limine.conf')})
+            self.assertEqual(payloads,[payloads[0]]*3)
+        for arm in ('unknown',False,1):
+            with self.subTest(arm=arm),self.assertRaises(ValueError):boot.stage(**dict(args,wifi_early5_timing=arm))
+        with self.assertRaises(ValueError):boot.stage(**dict(args,wifi_early5=False,wifi_early5_timing='late'))
+        for field in ('wifi_early5','wifi_cal5','startup_journal'):
+            changed=dict(args);changed[field]=False
+            if field=='wifi_early5':changed['startup_journal']=path
+            with self.subTest(missing=field),self.assertRaises(ValueError):boot.stage(**changed)
+        for field in ('wifi_discovery5','wifi_stack5','wifi_reconnect5','wifi_cal5_cleanup','hold_on_failure','wifi_desktop_trial'):
+            changed=dict(args);changed[field]=True
+            with self.subTest(extra=field),self.assertRaises(ValueError):boot.stage(**changed)
+        for bad in (version.replace('-auto-return',''),):
+            with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',bad)
+
+    def test_early5_absent_radio_receipt(self):
+        from hardware_boot_smoke import verify_early5_absent_radio
+        text='cmdline: srvros.wifi-early5=1 srvros.startup-journal=1\n'
+        bootrow='wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n'
+        verify_early5_absent_radio(text+bootrow)
+        for bad in (text, text+bootrow+bootrow, text+bootrow+'wifi-cal5-progress: attempted\n',
+                    text+bootrow+'wifi-early5-boundary: version=1 step=0 completed_before=0 completed_after=0\n'):
+            with self.subTest(bad=bad),self.assertRaises((ValueError,AssertionError)):
+                verify_early5_absent_radio(bad)
+
+    def test_rx_compare_absent_radio_requires_matching_logger(self):
+        from hardware_boot_smoke import verify_early5_absent_radio
+        for arm in ('early','late'):
+            text=('cmdline: srvros.wifi-early5=1 srvros.startup-journal=1 srvros.wifi-early5-timing='+arm+'\n'
+                  'wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n')
+            logger=f'wifi-rx-compare5-log: version=1 parked=1 periodic=0 before_mac={int(arm=="early")}\n'
+            verify_early5_absent_radio(text+logger)
+            for bad in (text,text+logger.replace('parked=1','parked=0'),text+logger+logger):
+                with self.assertRaises((ValueError,AssertionError)):verify_early5_absent_radio(bad)
+            refused=text+logger.replace('parked=1','parked=0')
+            verify_early5_absent_radio(refused,require_logger_parked=False)
+            for bad in (text,text+logger,refused+'wifi-rx-compare5-owner: version=1 before_mac=0 capacity=32 configured=1\n'):
+                with self.assertRaises((ValueError,AssertionError)):
+                    verify_early5_absent_radio(bad,require_logger_parked=False)
+
+    def test_power5_profile(self):
+        version='ram-usb-wifi-fw-v123-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v123-','v122-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-discovery5=1','srvros.wifi-discovery5=1 srvros.wifi-power5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+
+    def test_data5_profile(self):
+        version="ram-usb-wifi-fw-v131-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",version),boot.limine_config("0123456789abcdef",version.replace("v131-","v130-")).replace("srvros.wifi-wpa5=1","srvros.wifi-wpa5=1 srvros.wifi-data5=1"))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.replace("-auto-return",""))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_data5=True)
+    def test_data5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,True,True)
+
+    def test_stream5_profile(self):
+        version='ram-usb-wifi-fw-v135-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v135-','v128-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-eapol5=1','srvros.wifi-eapol5=1 srvros.wifi-stream5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.wifi-wpa5=1','srvros.wifi-data5=1','srvros.wifi-provider5=1','srvros.wifi-reuse5=1','srvros.wifi-nop5=1'):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_stream5=True)
+
+    def test_stream5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,stream=True)
+
+    def test_stream5_dhcp_profile(self):
+        version='ram-usb-wifi-fw-v136-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v136-','v135-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=1 srvros.wifi-stream5-dhcp=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_stream5_dhcp=True)
+
+    def test_stream5_dhcp_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,stream=True,dhcp=True)
+
+    def test_stack5_profile(self):
+        version='ram-usb-wifi-fw-v137-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v137-','v135-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=1 srvros.wifi-stack5=1'))
+        self.assertNotIn('srvros.wifi-stream5-dhcp=1',config)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_stack5=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_stack5=True,wifi_stream5=True,wifi_stream5_dhcp=True)
+
+    def test_reconnect5_profile(self):
+        version='ram-usb-wifi-fw-v140-laptop-probe-12345678-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v140-','v138-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-stack5=1','srvros.wifi-stack5=1 srvros.wifi-reconnect5=1'))
+        self.assertNotIn('srvros.wifi-http5=1',config)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        for args in ({'wifi_reconnect5':True},{'wifi_reconnect5':True,'wifi_stack5':True},
+                     {'wifi_reconnect5':True,'wifi_stack5':True,'wifi_cal5_cleanup':True,'wifi_http5':True},
+                     {'wifi_reconnect5':True,'wifi_stack5':True,'wifi_cal5_cleanup':True,'wifi_stream5_dhcp':True}):
+            with self.subTest(args=args),self.assertRaises(ValueError):boot.stage(**args)
+
+    def test_reconnect5_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True)
+
+    def test_reconnect5_journal_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='reconnect')
+
+    def test_startup_only_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='startup')
+
+    def test_reconnect5_cli_refusals(self):
+        for args in (['stage'],['install','--wifi-stack5','--wifi-cal5-cleanup'],
+                     ['stage','--wifi-stack5'],['stage','--wifi-stack5','--wifi-cal5-cleanup','--wifi-http5'],
+                     ['stage','--wifi-stack5','--wifi-cal5-cleanup','--wifi-stream5-dhcp']):
+            with patch('sys.argv',['hardware_boot.py',*args,'--wifi-reconnect5']),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):boot.main()
+
+    def test_reconnect5_absent_radio_receipt(self):
+        from hardware_boot_smoke import verify_reconnect5_absent_radio
+        bootrow='wifi-reconnect5-boot: net_init_deferred=1 worker_deferred=1\n'
+        row='wifi-reconnect5-final: version=1 complete=0 connections=0 parent_restored=0 provider_retired=0 retained_contexts=2 backend_retired=0\n'
+        cmd='cmdline: srvros.wifi-reconnect5=1\n'
+        log=cmd+bootrow+row
+        verify_reconnect5_absent_radio(log.encode())
+        for bad in (log.replace(row,''),log+row,log.replace('complete=0','complete=1'),
+                    log.replace('connections=0','connections=1'),log.replace('parent_restored=0','parent_restored=1'),
+                    log.replace('provider_retired=0','provider_retired=1'),log.replace('retained_contexts=2','retained_contexts=1'),
+                    log.replace('backend_retired=0','backend_retired=1'),log+'wifi-reconnect5-begin: version=1 generation=1 adapter_parent_held=1\n',
+                    log+'wifi-http5-prepare: prepared=1 retained=1\n',log+'wifi-stack5: complete=1\n',
+                    log+'wifi-stream5-plan: tx=0 rx=0\n',log+bootrow,cmd+row+bootrow):
+            with self.subTest(bad=bad),self.assertRaises(AssertionError):verify_reconnect5_absent_radio(bad)
+
+    def test_http_reconnect5_absent_radio_reservation_and_legacy_closure(self):
+        from hardware_boot_smoke import verify_http_reconnect5_absent_radio as verify
+        from wifi_http_reconnect5_log import BOOT
+        cmd='cmdline: srvros.wifi-reconnect5-http=1 srvros.startup-journal=1\n'
+        final='wifi-http-reconnect5-final: version=1 complete=0 connections=0 parent_restored=0 provider_retired=0 retained_contexts=2 backend_retired=0\n'
+        reserve='wifi-http-reservation5: version=1 reserved=1 retained=1\n'
+        prepare='wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1\n'
+        abort='wifi-http-reconnect5-abort: version=1 generation=1 attempted=0 quiescent=1 child_retired=1 worker_allocated=1 worker_finished=1 retained=1\n'
+        prefix=cmd+BOOT+'\n';current=prefix+reserve+final;legacy=prefix+prepare+abort+final
+        for log in (current,legacy):
+            verify(log.encode());verify(log,require_prepare=False)
+        verify(prefix+final,require_prepare=False)
+        for bad in (prefix+final,current+reserve,current.replace(reserve,''),
+                    prefix+final+reserve,cmd+reserve+BOOT+'\n'+final,
+                    current.replace('reserved=1','reserved=0'),current.replace('retained=1','retained=0'),
+                    current.replace('reservation5: version=1','reservation5: version=2'),
+                    current.replace('reservation5:','reservation5-unknown:'),
+                    current+prepare+abort,current+prepare.replace('version=1','version=2'),
+                    legacy.replace(abort,''),legacy.replace('worker_finished=1','worker_finished=0'),
+                    legacy+reserve,current.replace('connections=0','connections=1')):
+            with self.subTest(bad=bad),self.assertRaises(AssertionError):verify(bad)
+        for row in ('wifi-http5-workload:', 'wifi-stack5:', 'wifi-stream5-plan:',
+                    'wifi-reconnect5-begin:', 'wifi-dhcp-radio5:', 'wifi-packet5:', 'wifi-encrypted5:'):
+            with self.subTest(row=row),self.assertRaises(AssertionError):verify(current+row+'\n')
+        with self.assertRaises(AssertionError):verify(current,require_prepare=1)
+
+    def test_http5_profile(self):
+        version='ram-usb-wifi-fw-v139-laptop-probe-12345678-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v139-','v138-'))
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),base.replace('srvros.wifi-stack5=1','srvros.wifi-stack5=1 srvros.wifi-http5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for bad in (version.replace('-auto-return',''),):
+            with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',bad)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        for args in ({'wifi_http5':True},{'wifi_http5':True,'wifi_stack5':True}):
+            with self.assertRaises(ValueError):boot.stage(**args)
+    def test_http5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,http=True)
+    def test_http5_cli_refusals(self):
+        for args in (['stage'],['install','--wifi-stack5','--wifi-cal5-cleanup'],['stage','--wifi-stack5']):
+            with patch('sys.argv',['hardware_boot.py',*args,'--wifi-http5']),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):boot.main()
+
+    def test_cal5_cleanup_profile(self):
+        version='ram-usb-wifi-fw-v138-laptop-probe-12345678-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        base=boot.limine_config('0123456789abcdef',version.replace('v138-','v137-'))
+        self.assertEqual(config,base.replace('srvros.wifi-cal5=1','srvros.wifi-cal5=1 srvros.wifi-cal5-cleanup=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.stage(wifi_cal5_cleanup=True)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+
+    def test_cal5_cleanup_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True)
+
+    def test_cal5_cleanup_cli_refusals(self):
+        for options in (['stage'],['install','--wifi-stack5']):
+            with patch('sys.argv',['hardware_boot.py',*options,'--wifi-cal5-cleanup']),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit) as error:boot.main()
+            self.assertEqual(error.exception.code,2)
+
+    def test_http_reconnect5_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='reconnect',http_reconnect=True)
+
+    def test_prime5_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='reconnect',http_reconnect=True,prime=True)
+
+    def test_first_auth5_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='reconnect',http_reconnect=True,prime=True,survey=True,first_auth=True)
+
+    def test_first_auth5_refuses_incomplete_parent(self):
+        for args in ({},{'wifi_cal5_prime':True},{'wifi_reconnect5_http':True}):
+            with self.subTest(args=args),self.assertRaises(ValueError):boot.stage(wifi_first_auth5=True,**args)
+        for command in (['stage'],['install']):
+            with patch('sys.argv',['hardware_boot.py',*command,'--wifi-first-auth5']),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):boot.main()
+
+    def test_survey5_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='reconnect',http_reconnect=True,prime=True,survey=True)
+
+    def test_survey5_requires_primed_http_parent(self):
+        for args in ({},{'wifi_cal5_prime':True},{'wifi_reconnect5_http':True}):
+            with self.subTest(args=args),self.assertRaises(ValueError):boot.stage(wifi_survey5=True,**args)
+
+    def test_prime5_requires_http_parent(self):
+        for args in ({},{'wifi_reconnect5':True},{'wifi_early5':True}):
+            with self.subTest(args=args),self.assertRaises(ValueError):boot.stage(wifi_cal5_prime=True,**args)
+
+    def test_http_reconnect5_requires_complete_journaled_parent(self):
+        for args in ({},{'wifi_reconnect5':True},{'wifi_reconnect5':True,'wifi_reconnect5_journal':True}):
+            with self.subTest(args=args),self.assertRaises(ValueError):boot.stage(wifi_reconnect5_http=True,**args)
+
+    def test_stack5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,stream=True,stack=True)
+
+    def test_stack5_cli_refusals(self):
+        for options in (['stage'],['install','--wifi-stream5'],['stage','--wifi-stream5','--wifi-stream5-dhcp']):
+            stderr=io.StringIO()
+            with patch('sys.argv',['hardware_boot.py',*options,'--wifi-stack5']),contextlib.redirect_stderr(stderr),self.assertRaises(SystemExit) as error:boot.main()
+            self.assertEqual(error.exception.code,2)
+            self.assertIn('Production stack probe requires',stderr.getvalue())
+
+    def test_stream5_dhcp_cli_refusals(self):
+        for options in (['stage'],['install','--wifi-stream5'],['stage','--wifi-eapol5','--wifi-wpa5-pmk','unused']):
+            stderr=io.StringIO()
+            with patch('sys.argv',['hardware_boot.py',*options,'--wifi-stream5-dhcp']),contextlib.redirect_stderr(stderr),self.assertRaises(SystemExit) as error:boot.main()
+            self.assertEqual(error.exception.code,2)
+            self.assertIn('DHCP retry requires encrypted-stream stage',stderr.getvalue())
+
+    def test_stream5_cli_refusals(self):
+        for options in (['stage'],['install','--wifi-eapol5','--wifi-wpa5-pmk','unused'],['stage','--wifi-eapol5'],['stage','--wifi-eapol5','--wifi-wpa5-pmk','unused','--wifi-data5']):
+            stderr=io.StringIO()
+            with patch('sys.argv',['hardware_boot.py',*options,'--wifi-stream5']),contextlib.redirect_stderr(stderr),self.assertRaises(SystemExit) as error:
+                boot.main()
+            self.assertEqual(error.exception.code,2)
+            self.assertIn('Encrypted stream requires',stderr.getvalue())
+
+    def test_stream5_smoke_classification(self):
+        import ast
+        source=Path(boot.__file__).with_name('hardware_boot_smoke.py')
+        main=next(n for n in ast.parse(source.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='main')
+        names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5','wifi_stream5','wifi_stream5_dhcp','wifi_stack5','wifi_http5','wifi_reconnect5','wifi_http_reconnect5'}
+        nodes=[n for n in main.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.If) and isinstance(n.test,ast.Name) and n.test.id in ('wifi_nop5','wifi_stream5'))]
+        code=compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec')
+        for version in (128,130,134,135,136,137,138,139,140,142,143,147):
+            config=boot.limine_config('0123456789abcdef',f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return')
+            (self.root/'limine.conf').write_text(config)
+            env={'probe':True,'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'},'source':self.root}
+            exec(code,env)
+            self.assertTrue(env['wifi_capture'] and env['wifi_firmware'] and env['wifi_5ghz_prereq'])
+            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138,139,140,142,143,147))
+            self.assertEqual(env['wifi_stack5'],version in (137,138,139,140,142,143,147))
+            self.assertEqual(env['wifi_http5'],version==139)
+            self.assertEqual(env['wifi_reconnect5'],version in (140,142,143,147))
+            self.assertEqual(env['wifi_http_reconnect5'],version in (143,147))
+        for invalid in (config.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=1 srvros.wifi-wpa5=1'),config.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=10')):
+            (self.root/'limine.conf').write_text(invalid)
+            with self.assertRaises(AssertionError):exec(code,env)
+
+    def test_http5_smoke_tail_budget(self):
+        import ast
+        source=Path(boot.__file__).with_name('hardware_boot_smoke.py')
+        tree=ast.parse(source.read_text())
+        choices=[n.test.left for n in ast.walk(tree) if isinstance(n,ast.Assert) and isinstance(n.test,ast.Compare) and
+            isinstance(n.test.left,ast.IfExp) and any(isinstance(x,ast.Constant) and x.value==b'tail_limit=4194304' for x in ast.walk(n.test.left))]
+        self.assertEqual(len(choices),1)
+        code=compile(ast.Expression(choices[0]),str(source),'eval')
+        for version,limit in ((135,2097152),(136,2097152),(137,2097152),(138,4194304),(139,4194304),(140,4194304),(142,4194304)):
+            self.assertEqual(eval(code,{'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'}}),f'tail_limit={limit}'.encode())
+
+    def test_http5_smoke_absent_owner_retired(self):
+        from hardware_boot_smoke import verify_http5_absent_radio
+        from wifi_http5_log import WORKLOAD_KEYS, RX_HANDOFF_KEYS
+        from http_dhcp_log import PREFIX as DHCP_PREFIX, KEYS as DHCP_KEYS
+        prefix='wifi-http5-prepare: prepared=1 retained=1\n'
+        bridge='wifi-http5-bridge: version=1 prepared=1 capture_attempted=0 callback_attempted=0 quiescent=1 child_retired=1 worker_finished=1 retained=1\n'
+        fields=dict(version=2,complete=0,phase=2,reason=15,prepared=1,worker_allocated=1,attempted=0,
+            dhcp=0,retries=0,dns=0,route=0,handoff=0,go=0,child_status=137,child_observed=1,child_reaped=1,child_retired=1,
+            tcp_empty=0,provider_drained=0,receiver_closed=0,worker_finished=1,quiescent=1,refs_scrubbed=1,test_override=0,
+            request_bytes=4159,body_bytes=3072,body_eof=0,bootstrap_polls=0,worker_polls=0,worker_turns=0,supervisor_turns=0,elapsed_us=0,retained=0)
+        self.assertEqual(list(fields),WORKLOAD_KEYS.split())
+        row='wifi-http5-workload: '+' '.join(k+'='+str(v) for k,v in fields.items())+'\n'
+        empty_handoff='wifi-http5-rx-handoff: '+' '.join(k+'='+str(int(k in ('version','retained'))) for k in RX_HANDOFF_KEYS.split())+'\n'
+        diagnostic=DHCP_PREFIX+': '+' '.join(k+'=0' for k in DHCP_KEYS.split())+'\n'
+        log=prefix+bridge+diagnostic+row
+        verify_http5_absent_radio(log.encode())
+        verify_http5_absent_radio((prefix+bridge+empty_handoff+diagnostic+row).encode())
+        for bad in (log.replace(prefix,''),log+row,log.replace('child_retired=1','child_retired=0'),
+            log.replace('child_observed=1','child_observed=0'),log.replace('child_reaped=1','child_reaped=0'),
+            log.replace('child_status=137','child_status=0'),log.replace('receiver_closed=0','receiver_closed=1'),
+            log.replace('version=2','version=1'),log.replace(' receiver_closed=0',''),
+            log.replace('worker_finished=1','worker_finished=0'),log.replace('quiescent=1','quiescent=0'),
+            log.replace('go=0','go=1'),log.replace('body_eof=0','body_eof=1'),log.replace('refs_scrubbed=1','refs_scrubbed=0'),
+            log+'wifi-http5-held-state: version=1 site=2\n',log.replace('version=2','version=02'),
+            log.replace('version=2 complete=0','complete=0 version=2'),log.replace('retained=0','retained=0 extra=1')):
+            with self.subTest(bad=bad),self.assertRaises(AssertionError):verify_http5_absent_radio(bad)
+        for changed in (empty_handoff.replace('complete=0','complete=1'),
+            empty_handoff.replace('raw_pending=0','raw_pending=1'),empty_handoff.replace('provider_closing=0','provider_closing=1'),
+            empty_handoff.replace('endpoint_stop_proof=0','endpoint_stop_proof=1'),empty_handoff.replace('rx_ticket=0','rx_ticket=1'),
+            empty_handoff.replace('version=1','version=01'),empty_handoff+'wifi-http5-rx-handoff: duplicate=1\n'):
+            with self.subTest(handoff=changed),self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+diagnostic+row)
+
+        for key in DHCP_KEYS.split():
+            changed=diagnostic.replace(' '+key+'=0',' '+key+'=1')
+            with self.subTest(dhcp=key),self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+row)
+        for changed in ('',diagnostic+diagnostic,diagnostic.replace('version=0','version=00'),
+                diagnostic.rstrip()+' extra=0\n'):
+            with self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+row)
+        with self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+diagnostic+bridge+row)
+
+    def test_nop5_profile(self):
+        version='ram-usb-wifi-fw-v134-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v134-','v126-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-tx5-owner=1','srvros.wifi-tx5-owner=1 srvros.wifi-nop5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.wifi-join5=1','srvros.wifi-eapol5=1','srvros.wifi-wpa5=1','srvros.wifi-data5=1','srvros.wifi-provider5=1','srvros.wifi-reuse5=1'):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_nop5=True)
+
+    def test_nop5_stage_complete_parent(self):self._stage_power5_child(True,True,True,nop=True)
+
+    def test_nop5_cli_refusals(self):
+        for options in (['stage'],['install','--wifi-tx5-owner'],['stage','--wifi-tx5-owner','--wifi-join5'],['stage','--wifi-tx5-owner','--wifi-wpa5-pmk','unused']):
+            stderr=io.StringIO()
+            with patch('sys.argv',['hardware_boot.py',*options,'--wifi-nop5']),contextlib.redirect_stderr(stderr),self.assertRaises(SystemExit) as error:
+                boot.main()
+            self.assertEqual(error.exception.code,2)
+            self.assertIn('Controller NoOp fence requires',stderr.getvalue())
+
+    def test_nop5_smoke_classification(self):
+        import ast
+        source=Path(boot.__file__).with_name('hardware_boot_smoke.py')
+        module=ast.parse(source.read_text())
+        main=next(n for n in module.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+        names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5'}
+        nodes=[n for n in main.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.If) and isinstance(n.test,ast.Name) and n.test.id=='wifi_nop5')]
+        self.assertTrue(nodes)
+        code=compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec')
+        for version,nop in ((126,False),(133,False),(134,True)):
+            config=boot.limine_config('0123456789abcdef',f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return')
+            (self.root/'limine.conf').write_text(config)
+            env={'probe':True,'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'},'source':self.root}
+            exec(code,env)
+            self.assertTrue(env['wifi_capture'] and env['wifi_firmware'] and env['wifi_5ghz_prereq'])
+            self.assertEqual(env['wifi_nop5'],nop)
+        (self.root/'limine.conf').write_text(config+' srvros.wifi-wpa5=1')
+        with self.assertRaises(AssertionError):exec(code,env)
+
+    def test_reuse5_profile(self):
+        version='ram-usb-wifi-fw-v133-laptop-probe-0e535900-auto-return'
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),boot.limine_config('0123456789abcdef',version.replace('v133-','v132-')).replace('srvros.wifi-provider5=1','srvros.wifi-provider5=1 srvros.wifi-reuse5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.stage(wifi_reuse5=True)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+    def test_reuse5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,True,True,True,True)
+
+    def test_provider5_profile(self):
+        version='ram-usb-wifi-fw-v132-laptop-probe-0e535900-auto-return'
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),boot.limine_config('0123456789abcdef',version.replace('v132-','v131-')).replace('srvros.wifi-data5=1','srvros.wifi-data5=1 srvros.wifi-provider5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_provider5=True)
+    def test_provider5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,True,True,True)
+
+    def test_wpa5_profile(self):
+        version="ram-usb-wifi-fw-v130-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",version),boot.limine_config("0123456789abcdef",version.replace("v130-","v128-")).replace("srvros.wifi-eapol5=1","srvros.wifi-eapol5=1 srvros.wifi-wpa5=1"))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.replace("-auto-return",""))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_wpa5=True,wifi_eapol5=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_wpa5_pmk=self.root/'unused')
+    def test_wpa5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,True)
+
+    def test_eapol5_profile(self):
+        version="ram-usb-wifi-fw-v128-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",version),boot.limine_config("0123456789abcdef",version.replace("v128-","v127-")).replace("srvros.wifi-join5=1","srvros.wifi-join5=1 srvros.wifi-eapol5=1"))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.replace("-auto-return",""))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version,legacy_wifi_calibration=True)
+    def test_eapol5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True)
+
+    def test_join5_profile(self):
+        version='ram-usb-wifi-fw-v127-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v127-','v126-'))
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),base.replace('srvros.wifi-tx5-owner=1','srvros.wifi-tx5-owner=1 srvros.wifi-join5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+    def test_join5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True)
+
+    def test_tx5_owner_profile(self):
+        version='ram-usb-wifi-fw-v126-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v126-','v125-'))
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),base.replace('srvros.wifi-peer5=1','srvros.wifi-peer5=1 srvros.wifi-tx5-owner=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+    def test_tx5_owner_stage_complete_parent(self):self._stage_power5_child(True,True,True)
+
+    def test_peer5_profile(self):
+        version='ram-usb-wifi-fw-v125-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v125-','v124-'))
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),base.replace('srvros.wifi-handoff5=1','srvros.wifi-handoff5=1 srvros.wifi-peer5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+    def test_peer5_stage_complete_parent(self):self._stage_power5_child(True,True)
+
+    def test_handoff5_profile(self):
+        version='ram-usb-wifi-fw-v124-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v124-','v123-'))
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),base.replace('srvros.wifi-power5=1','srvros.wifi-power5=1 srvros.wifi-handoff5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+
+    def test_power5_stage_complete_parent(self):self._stage_power5_child(False)
+    def test_handoff5_stage_complete_parent(self):self._stage_power5_child(True)
+    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False,nop=False,stream=False,dhcp=False,stack=False,cleanup=False,http=False,reconnect=False,journal=None,http_reconnect=False,prime=False,survey=False,first_auth=False):
+        flags="mac_startup mcu_probe radio_reset write_probe pair_probe timing_probe mac_basics mac_format bbp_ready bbp_core bbp_front bbp_agc bbp_batch compact agc_more agc_next agc_tail rxc_start rxc_tail txbe_start bbp_table mac_route mac_policy mac_policy_validate mac_protect mac_contention mac_txsw mac_beacon mac_vht mac_buffer mac_fce_observe mac_fce_validate mac_ampdu bbp_after_mac bbp_switch dcoc skey wcid mac_tail mac_fixed efuse_map mac_address mac_address_validate mac_board ant_snapshot ant_init rf_probe rf_table rf_bank5 rf_bank6 rf_vga 5ghz_prereq 5ghz_band 5ghz_channel a20_cycle frontend pa5_cycle bbp5_cycle held_channel trim5_channel dac5 vco5 channel_vco5 cal5 discovery5 power5".split()
+        args={'wifi_'+k:True for k in flags}
+        if handoff:args['wifi_handoff5']=True
+        if peer:args['wifi_peer5']=True
+        if tx:args['wifi_tx5_owner']=True
+        if join:args['wifi_join5']=True
+        if eapol:args['wifi_eapol5']=True
+        if data:args['wifi_data5']=True
+        if provider:args['wifi_provider5']=True
+        if reuse:args['wifi_reuse5']=True
+        if nop:args['wifi_nop5']=True
+        if stream:args['wifi_stream5']=True
+        if dhcp:args['wifi_stream5_dhcp']=True
+        if stack:args['wifi_stack5']=True
+        if cleanup:args['wifi_cal5_cleanup']=True
+        if http:args['wifi_http5']=True
+        if reconnect:args['wifi_reconnect5']=True
+        if http_reconnect:args['wifi_reconnect5_http']=True
+        if prime:args['wifi_cal5_prime']=True
+        if survey:args['wifi_survey5']=True
+        if first_auth:args['wifi_first_auth5']=True
+        if journal:
+            import struct
+            import startup_journal as j
+            descriptor=j.magic('SRVRSTARTDESC1')+struct.pack('<QQQQ',100000,2097152,1048576,10485760)+bytes(range(16))+bytes(64)
+            args['startup_journal']=self.root/'journal-descriptor'
+            args['startup_journal'].write_bytes(descriptor)
+            args['wifi_reconnect5_journal']=journal=='reconnect'
+        if wpa or stream:
+            from wifi_wpa5_credentials import MAGIC
+            if wpa:args['wifi_wpa5']=True
+            args['wifi_wpa5_pmk']=self.root/'private-pmk'
+            args['wifi_wpa5_pmk'].write_bytes(MAGIC+b'\x07Demers5'+bytes(25)+bytes(32));args['wifi_wpa5_pmk'].chmod(0o600)
+        args.update(laptop_probe_volume='12345678',wifi_firmware_package=self.root/'package')
+        args['wifi_firmware_package'].mkdir()
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        if wpa or stream:
+            import tarfile
+            with tarfile.open(self.root/'build/initramfs.tar','w',format=tarfile.USTAR_FORMAT):pass
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']),patch('wifi_firmware_package.add_to_initramfs') as add,patch('wifi_firmware_package.verify_initramfs'):
+            release=boot.stage(**args)
+            add.assert_called_once()
+            manifest=boot.verify(self.stage/release)
+        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{149 if first_auth else 148 if survey else 147 if prime else 143 if http_reconnect else 142 if journal=='reconnect' else 141 if journal=='startup' else 140 if reconnect else 139 if http else 138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
+        self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
+        if survey:self.assertIn('srvros.wifi-survey5=1',(self.stage/release/'limine.conf').read_text())
+        if handoff:self.assertIn('srvros.wifi-handoff5=1',(self.stage/release/'limine.conf').read_text())
+        if peer:self.assertIn('srvros.wifi-peer5=1',(self.stage/release/'limine.conf').read_text())
+        if tx:self.assertIn('srvros.wifi-tx5-owner=1',(self.stage/release/'limine.conf').read_text())
+        if data:self.assertIn('srvros.wifi-data5=1',(self.stage/release/'limine.conf').read_text())
+        if nop:self.assertIn('srvros.wifi-nop5=1',(self.stage/release/'limine.conf').read_text())
+        if stream:self.assertIn('srvros.wifi-stream5=1',(self.stage/release/'limine.conf').read_text())
+        if reconnect:self.assertIn('srvros.wifi-reconnect5=1',(self.stage/release/'limine.conf').read_text())
+        if journal:
+            import startup_journal as j
+            self.assertEqual(j.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
+            config=(self.stage/release/'limine.conf').read_text()
+            self.assertEqual('srvros.startup-journal=1' in config,journal=='reconnect')
+            self.assertEqual('srvros.startup-diagnostic=1' in config,journal=='startup')
+        for missing in (('wifi_eapol5','wifi_wpa5_pmk') if stream else ())+(('wifi_tx5_owner',) if nop else ())+(('wifi_data5',) if provider else ())+(('wifi_wpa5',) if data else ())+(('wifi_join5',) if eapol else ())+(('wifi_tx5_owner',) if join else ())+ (('wifi_peer5',) if tx else ())+ (('wifi_handoff5',) if peer else ())+ (('wifi_power5',) if handoff else ())+('wifi_discovery5','wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
+            with self.subTest(missing=missing),self.assertRaises(ValueError):boot.stage(**dict(args,**{missing:False}))
+        for extra in ('hold_on_failure','wifi_desktop_trial','wifi_rf_g20','wifi_scan','haswell_firmware_capture'):
+            with self.subTest(extra=extra),self.assertRaises(ValueError):boot.stage(**dict(args,**{extra:True}))
+        if nop:
+            for extra in ('wifi_join5','wifi_eapol5','wifi_wpa5','wifi_data5','wifi_provider5','wifi_reuse5'):
+                with self.subTest(extra=extra),self.assertRaisesRegex(ValueError,'Controller NoOp fence'):
+                    boot.stage(**dict(args,**{extra:True}))
+            for pmk in (Path('unused'), ''):
+                with self.assertRaisesRegex(ValueError,'Controller NoOp fence'):
+                    boot.stage(**dict(args,wifi_wpa5_pmk=pmk))
+
+        if stream:
+            for extra in ('wifi_wpa5','wifi_data5','wifi_provider5','wifi_reuse5','wifi_nop5'):
+                with self.subTest(extra=extra),self.assertRaisesRegex(ValueError,'Encrypted stream'):
+                    boot.stage(**dict(args,**{extra:True}))
+
+    def test_discovery5_profile(self):
+        version='ram-usb-wifi-fw-v122-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v122-','v121-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-cal5=1','srvros.wifi-cal5=1 srvros.wifi-discovery5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+
+    def test_discovery5_stage_complete_parent(self):
+        flags="mac_startup mcu_probe radio_reset write_probe pair_probe timing_probe mac_basics mac_format bbp_ready bbp_core bbp_front bbp_agc bbp_batch compact agc_more agc_next agc_tail rxc_start rxc_tail txbe_start bbp_table mac_route mac_policy mac_policy_validate mac_protect mac_contention mac_txsw mac_beacon mac_vht mac_buffer mac_fce_observe mac_fce_validate mac_ampdu bbp_after_mac bbp_switch dcoc skey wcid mac_tail mac_fixed efuse_map mac_address mac_address_validate mac_board ant_snapshot ant_init rf_probe rf_table rf_bank5 rf_bank6 rf_vga 5ghz_prereq 5ghz_band 5ghz_channel a20_cycle frontend pa5_cycle bbp5_cycle held_channel trim5_channel dac5 vco5 channel_vco5 cal5 discovery5".split()
+        args={'wifi_'+k:True for k in flags}
+        args.update(laptop_probe_volume='12345678',wifi_firmware_package=self.root/'package')
+        args['wifi_firmware_package'].mkdir()
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']),patch('wifi_firmware_package.add_to_initramfs') as add,patch('wifi_firmware_package.verify_initramfs'):
+            release=boot.stage(**args)
+            add.assert_called_once()
+            manifest=boot.verify(self.stage/release)
+        self.assertEqual(manifest['config_version'],'ram-usb-wifi-fw-v122-laptop-probe-12345678-auto-return')
+        self.assertIn('srvros.wifi-discovery5=1',(self.stage/release/'limine.conf').read_text())
+        for missing in ('wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
+            with self.subTest(missing=missing),self.assertRaises(ValueError):boot.stage(**dict(args,**{missing:False}))
+        for extra in ('hold_on_failure','wifi_desktop_trial','wifi_rf_g20','wifi_scan'):
+            with self.subTest(extra=extra),self.assertRaises(ValueError):boot.stage(**dict(args,**{extra:True}))
+
+    def test_cal5_profile(self):
+        version='ram-usb-wifi-fw-v121-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v121-','v120-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-channel-vco5=1','srvros.wifi-channel-vco5=1 srvros.wifi-cal5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_channel_vco5=True,hold_on_failure=True),dict(haswell_backing_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_cal5=True,**options)
+
+    def test_channel_vco_profile(self):
+        version='ram-usb-wifi-fw-v120-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v120-','v119-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-vco5=1','srvros.wifi-vco5=1 srvros.wifi-channel-vco5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_vco5=True,hold_on_failure=True),dict(haswell_backing_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_channel_vco5=True,**options)
+
+    def test_common_vco_profile(self):
+        version='ram-usb-wifi-fw-v119-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v119-','v118-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-dac5=1','srvros.wifi-dac5=1 srvros.wifi-vco5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_dac5=True,hold_on_failure=True),dict(haswell_backing_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_vco5=True,**options)
+
+    def test_common_dac_profile(self):
+        version='ram-usb-wifi-fw-v118-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v118-','v117-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-trim5-channel=1','srvros.wifi-trim5-channel=1 srvros.wifi-dac5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_trim5_channel=True,hold_on_failure=True),dict(haswell_backing_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_dac5=True,**options)
+
+    def test_fresh_trim_channel_profile(self):
+        version='ram-usb-wifi-fw-v117-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v117-','v116-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-held-channel=1','srvros.wifi-held-channel=1 srvros.wifi-trim5-channel=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_held_channel=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_trim5_channel=True,**options)
+
+    def test_held_channel_profile(self):
+        version='ram-usb-wifi-fw-v116-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v116-','v115-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-bbp5-cycle=1','srvros.wifi-bbp5-cycle=1 srvros.wifi-held-channel=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for options in ({},dict(wifi_bbp5_cycle=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_held_channel=True,**options)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+
+    def test_bbp5_cycle_profile(self):
+        version='ram-usb-wifi-fw-v115-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v115-','v114-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-pa5-cycle=1','srvros.wifi-pa5-cycle=1 srvros.wifi-bbp5-cycle=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_pa5_cycle=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_bbp5_cycle=True,**options)
+
+    def test_pa5_cycle_profile(self):
+        version='ram-usb-wifi-fw-v114-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v114-','v113-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-frontend=1','srvros.wifi-frontend=1 srvros.wifi-pa5-cycle=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_frontend=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_pa5_cycle=True,**options)
+
+    def test_frontend_profile(self):
+        version='ram-usb-wifi-fw-v113-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v113-','v112-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-a20-cycle=1','srvros.wifi-a20-cycle=1 srvros.wifi-frontend=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_a20_cycle=True),dict(wifi_a20_cycle=True,wifi_5ghz_channel=True,wifi_5ghz_band=True,wifi_5ghz_prereq=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_frontend=True,**options)
+
+    def test_a20_cycle_profile(self):
+        version='ram-usb-wifi-fw-v112-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v112-','v110-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-5ghz-channel=1','srvros.wifi-5ghz-channel=1 srvros.wifi-a20-cycle=1'))
+        self.assertNotIn('srvros.wifi-a20-inventory=1',config)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_5ghz_channel=True),dict(wifi_5ghz_channel=True,wifi_5ghz_band=True,wifi_5ghz_prereq=True,hold_on_failure=True),dict(wifi_5ghz_channel=True,wifi_5ghz_band=True,wifi_5ghz_prereq=True,wifi_a20_inventory=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_a20_cycle=True,**options)
+
+    def test_a20_inventory_profile(self):
+        version='ram-usb-wifi-fw-v111-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v111-','v110-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-5ghz-channel=1','srvros.wifi-5ghz-channel=1 srvros.wifi-a20-inventory=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_5ghz_channel=True),dict(wifi_5ghz_channel=True,wifi_5ghz_band=True,wifi_5ghz_prereq=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_a20_inventory=True,**options)
+
+    def test_5ghz_channel_restore_profile(self):
+        version='ram-usb-wifi-fw-v110-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v110-','v109-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-5ghz-band=1','srvros.wifi-5ghz-band=1 srvros.wifi-5ghz-channel=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.wifi-band2g=1','srvros.wifi-rf-g20=1','srvros.wifi-rf-trim=1','srvros.wifi-scan=1'):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_5ghz_band=True),dict(wifi_5ghz_band=True,wifi_5ghz_prereq=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_5ghz_channel=True,**options)
+
+    def test_5ghz_band_restore_profile(self):
+        version='ram-usb-wifi-fw-v109-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v109-','v108-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-5ghz-prereq=1','srvros.wifi-5ghz-prereq=1 srvros.wifi-5ghz-band=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.wifi-band2g=1','srvros.wifi-rf-g20=1','srvros.wifi-rf-trim=1','srvros.wifi-scan=1'):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_5ghz_prereq=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_5ghz_band=True,**options)
+
+    def test_5ghz_prerequisite_profile(self):
+        version='ram-usb-wifi-fw-v108-laptop-probe-0e535900-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        base=boot.limine_config('0123456789abcdef',version.replace('v108-','v69-'))
+        self.assertEqual(config,base.replace('srvros.wifi-rf-vga=1','srvros.wifi-rf-vga=1 srvros.wifi-5ghz-prereq=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for forbidden in ('srvros.wifi-band2g=1','srvros.wifi-rf-g20=1','srvros.wifi-rf-trim=1','srvros.wifi-rf-cal=1','srvros.wifi-desktop-trial=1','srvros.wifi-scan=1'):
+            self.assertNotIn(forbidden,config)
+        for v in (version.removesuffix('-auto-return'),):
+            with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',v)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        for options in ({},dict(wifi_rf_vga=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),wifi_rf_g20=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_5ghz_prereq=True,**options)
+
     def test_storage_metadata_profile(self):
         version='ram-usb-v3-storage-only-laptop-probe-6ada85bb-auto-return'
         config=boot.limine_config('0123456789abcdef',version)
@@ -27,6 +744,7 @@ class InstallTests(unittest.TestCase):
         with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
             release=boot.stage(laptop_probe_volume='6ada85bb',storage_only_capture=True,storage_metadata_trace=True)
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
 
     def test_storage_command_attribution_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v2-storage-only-laptop-probe-6ada85bb-auto-return')
@@ -165,6 +883,408 @@ class InstallTests(unittest.TestCase):
         (directory / "manifest.json").write_text(json.dumps({"release": release, "sha256": hashes}))
         (self.stage / "latest").write_text(release)
         return release
+
+    def test_wifi_channel_observe_profile(self):
+        v="ram-usb-wifi-fw-v76-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v76-","v75-"))
+        self.assertEqual(config.replace(" srvros.wifi-channel-observe=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_observe=True)
+
+    def test_wifi_channel_state_profile(self):
+        v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v75-","v74-"))
+        self.assertEqual(config.replace(" srvros.wifi-channel-state=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_state=True)
+
+    def test_wifi_path_profile(self):
+        v="ram-usb-wifi-fw-v74-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v74-","v73-"))
+        self.assertEqual(config.replace(" srvros.wifi-path=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_path=True)
+
+    def test_wifi_scan_profile(self):
+        v="ram-usb-wifi-fw-v100-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-scan=1",""),boot.limine_config("0123456789abcdef",v.replace("v100-","v99-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_scan=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_scan=True,wifi_channel_receive=True,hold_on_failure=True)
+
+    def test_wifi_channel_receive_profile(self):
+        v="ram-usb-wifi-fw-v99-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-channel-receive=1",""),boot.limine_config("0123456789abcdef",v.replace("v99-","v98-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_receive=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_receive=True,wifi_channel_tune=True,hold_on_failure=True)
+
+    def test_wifi_channel_tune_profile(self):
+        v="ram-usb-wifi-fw-v98-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-channel-tune=1",""),boot.limine_config("0123456789abcdef",v.replace("v98-","v96-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_tune=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_tune=True,wifi_discovery=True,hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_tune=True,wifi_discovery=True,wifi_channel_preview=True)
+
+    def test_wifi_channel_preview_profile(self):
+        v="ram-usb-wifi-fw-v97-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-channel-preview=1",""),boot.limine_config("0123456789abcdef",v.replace("v97-","v96-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_preview=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_preview=True,wifi_discovery=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_preview=True,wifi_discovery=True,wifi_window_long=True,hold_on_failure=True)
+
+    def test_wifi_discovery_profile(self):
+        v="ram-usb-wifi-fw-v96-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-discovery=1",""),boot.limine_config("0123456789abcdef",v.replace("v96-","v95-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_discovery=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_discovery=True,wifi_window_long=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_discovery=True,wifi_window_long=True,wifi_window=True,wifi_poweron=True,hold_on_failure=True)
+
+    def test_wifi_window_long_profile(self):
+        v="ram-usb-wifi-fw-v95-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-window-long=1",""),boot.limine_config("0123456789abcdef",v.replace("v95-","v94-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_window_long=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_window_long=True,wifi_window=True)
+
+    def test_wifi_window_profile(self):
+        v="ram-usb-wifi-fw-v94-laptop-probe-01234567-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-window=1",""),boot.limine_config("0123456789abcdef",v.replace("v94-","v92-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_window=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_window=True,wifi_poweron=True,wifi_passive=True)
+
+    def test_wifi_passive_profile(self):
+        v="ram-usb-wifi-fw-v93-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-passive=1",""),boot.limine_config("0123456789abcdef",v.replace("v93-","v92-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_passive=True)
+
+    def test_wifi_poweron_profile(self):
+        v="ram-usb-wifi-fw-v92-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-poweron=1",""),boot.limine_config("0123456789abcdef",v.replace("v92-","v91-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_poweron=True)
+
+    def test_wifi_cal_probe_profile(self):
+        v="ram-usb-wifi-fw-v91-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-cal-probe=1",""),boot.limine_config("0123456789abcdef",v.replace("v91-","v90-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_cal_probe=True)
+
+    def test_wifi_mac_cycle_profile(self):
+        v="ram-usb-wifi-fw-v90-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-mac-cycle=1",""),boot.limine_config("0123456789abcdef",v.replace("v90-","v89-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_cycle=True)
+        import ast
+        tree=ast.parse(Path(__file__).with_name("hardware_boot_smoke.py").read_text())
+        node=next(n for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=="wifi_firmware" for t in n.targets))
+        code=compile(ast.Expression(node.value),"<actual smoke profile>","eval")
+        for version,expected in [(89,True),(90,True),(91,True),(92,True),(93,True),(94,True),(95,True),(96,True),(97,True),(98,True),(99,True),(100,True),(101,True),(102,True),(103,False)]:
+            self.assertEqual(eval(code,{"probe":True,"manifest":{"config_version":f"ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return"}}),expected)
+
+
+    def test_merged_mwait_recipes(self):
+        for kind,token in (("mwait","mwait-wakeup-test"),("mwait-c3","mwait-c3-test")):
+            version=f"ram-usb-v1-{kind}-laptop-probe-0e535900-auto-return"
+            config=boot.limine_config("0123456789abcdef",version)
+            self.assertIn("srvros.idle="+token,config)
+            self.assertIn("srvros.capture=cpu-load",config)
+            self.assertNotIn("srvros.wifi-",config)
+        for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
+            with self.assertRaises(ValueError):boot.stage(**options)
+
+    def test_captured_5ghz_adapter_refuses_2ghz_install(self):
+        good=self.payload('accepted');boot.install(good)
+        before={p:p.read_bytes() for p in [self.snippet,self.cfg,self.base/'state.json']}
+        for version in [82,93,106,107]:
+            v=f'ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return'
+            release=self.payload(f'offline-{version}',v)
+            path=self.stage/release/'manifest.json';manifest=json.loads(path.read_text());manifest['config_version']=v;path.write_text(json.dumps(manifest))
+            # The payload helper supplies placeholder tar bytes; firmware
+            # archive validation has its own suite. Keep real hash/config and
+            # band-policy validation, and forbid reaching host interaction.
+            with patch('wifi_firmware_package.verify_initramfs',return_value={}):
+                self.assertEqual(boot.verify(self.stage/release)['config_version'],v)
+                with patch.object(boot,'host_uuid',side_effect=AssertionError('Must refuse before host interaction')):
+                    with self.assertRaisesRegex(ValueError,'5GHz-only'):boot.install(release)
+            self.assertFalse((self.base/release).exists())
+            self.assertEqual({p:p.read_bytes() for p in before},before)
+
+    def test_wifi_channel_diagnosis_profile(self):
+        v="ram-usb-wifi-fw-v107-laptop-probe-0e535900-auto-return"
+        c=boot.limine_config("0123456789abcdef",v)
+        self.assertEqual(c.replace(" srvros.wifi-channel-diagnosis=1",""),boot.limine_config("0123456789abcdef",v.replace("v107-","v106-")))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v))
+        for opts in [{},{"wifi_desktop_empty":True,"hold_on_failure":True}]:
+            with self.assertRaises(ValueError):boot.stage(wifi_channel_diagnosis=True,**opts)
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v.removesuffix("-auto-return"))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v,legacy_wifi_calibration=True)
+
+    def test_wifi_desktop_empty_profile(self):
+        version="ram-usb-wifi-fw-v106-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",version)
+        self.assertEqual(config.replace(" srvros.wifi-desktop-empty=1",""),boot.limine_config("0123456789abcdef",version.replace("v106-","v105-")))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for opts in [{},{"wifi_desktop_input":True,"hold_on_failure":True}]:
+            with self.assertRaises(ValueError):boot.stage(wifi_desktop_empty=True,**opts)
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.replace("-auto-return",""))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version,legacy_wifi_calibration=True)
+
+    def test_wifi_desktop_input_profile(self):
+        version="ram-usb-wifi-fw-v105-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",version)
+        self.assertEqual(config.count("srvros.trackpad=gestures"),1)
+        self.assertEqual(config.replace(" srvros.trackpad=gestures",""),boot.limine_config("0123456789abcdef",version.replace("v105-","v104-")))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.removesuffix("-auto-return"))
+        for opts in ({},dict(wifi_log_isolation=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_desktop_input=True,**opts)
+
+    def test_wifi_log_isolation_profile(self):
+        version="ram-usb-wifi-fw-v104-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",version)
+        self.assertEqual(config.replace(" srvros.wifi-log-isolation=1",""),boot.limine_config("0123456789abcdef",version.replace("v104-","v103-")))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.removesuffix("-auto-return"))
+        for opts in ({},dict(wifi_desktop_trial=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_log_isolation=True,**opts)
+
+    def test_wifi_desktop_trial_profile(self):
+        parent="ram-usb-wifi-fw-v102-laptop-probe-0e535900-auto-return"
+        version="ram-usb-wifi-fw-v103-laptop-probe-0e535900-auto-return"
+        a=boot.limine_config("0123456789abcdef",version)
+        self.assertEqual(a.replace(" srvros.wifi-desktop-trial=1",""),boot.limine_config("0123456789abcdef",parent))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.removesuffix("-auto-return"))
+        for opts in ({},dict(wifi_scan_batch=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_desktop_trial=True,**opts)
+
+    def test_wifi_scan_batch_profile(self):
+        v="ram-usb-wifi-fw-v102-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-scan-batch=1",""),boot.limine_config("0123456789abcdef",v.replace("v102-","v101-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_scan_batch=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_scan_retry=True,wifi_scan_batch=True,hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v.removesuffix("-auto-return"))
+
+    def test_wifi_scan_retry_profile(self):
+        v="ram-usb-wifi-fw-v101-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-scan-retry=1",""),boot.limine_config("0123456789abcdef",v.replace("v101-","v100-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_scan_retry=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_scan=True,wifi_scan_retry=True,hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v.removesuffix("-auto-return"))
+
+    def test_wifi_rx_lifecycle_profile(self):
+        v="ram-usb-wifi-fw-v89-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-rx-lifecycle=1",""),boot.limine_config("0123456789abcdef",v.replace("v89-","v88-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_rx_lifecycle=True)
+
+    def test_wifi_agc_state_profile(self):
+        v="ram-usb-wifi-fw-v88-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-agc-state=1",""),boot.limine_config("0123456789abcdef",v.replace("v88-","v87-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_agc_state=True)
+
+    def test_wifi_post_vco_profile(self):
+        v="ram-usb-wifi-fw-v87-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-post-vco=1",""),boot.limine_config("0123456789abcdef",v.replace("v87-","v86-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_post_vco=True)
+
+    def test_wifi_channel_bbp_profile(self):
+        v="ram-usb-wifi-fw-v86-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-channel-bbp=1",""),boot.limine_config("0123456789abcdef",v.replace("v86-","v85-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_bbp=True)
+
+    def test_wifi_gain_profile(self):
+        v="ram-usb-wifi-fw-v85-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-gain=1",""),boot.limine_config("0123456789abcdef",v.replace("v85-","v84-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_gain=True)
+
+    def test_wifi_post_profile(self):
+        v="ram-usb-wifi-fw-v84-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-post=1",""),boot.limine_config("0123456789abcdef",v.replace("v84-","v83-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_post=True)
+
+    def test_wifi_synth1_profile(self):
+        v="ram-usb-wifi-fw-v83-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-synth1=1",""),boot.limine_config("0123456789abcdef",v.replace("v83-","v82-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_synth1=True)
+
+    def test_wifi_band2g_profile(self):
+        v="ram-usb-wifi-fw-v82-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-band2g=1",""),boot.limine_config("0123456789abcdef",v.replace("v82-","v81-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_band2g=True)
+
+    def test_wifi_channel_probe_profile(self):
+        v="ram-usb-wifi-fw-v81-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-channel-probe=1",""),boot.limine_config("0123456789abcdef",v.replace("v81-","v80-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_channel_probe=True)
+
+    def test_wifi_bbp20_profile(self):
+        v="ram-usb-wifi-fw-v80-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-bbp20=1",""),boot.limine_config("0123456789abcdef",v.replace("v80-","v79-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp20=True)
+
+    def test_wifi_bw_observe_profile(self):
+        v="ram-usb-wifi-fw-v79-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-bw-observe=1",""),boot.limine_config("0123456789abcdef",v.replace("v79-","v78-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_bw_observe=True)
+
+    def test_wifi_usb_cycle_profile(self):
+        v="ram-usb-wifi-fw-v78-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-usb-cycle=1",""),boot.limine_config("0123456789abcdef",v.replace("v78-","v77-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_usb_cycle=True)
+
+    def test_wifi_vco_ready_profile(self):
+        v="ram-usb-wifi-fw-v77-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertEqual(config.replace(" srvros.wifi-vco-ready=1",""),boot.limine_config("0123456789abcdef",v.replace("v77-","v76-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_vco_ready=True)
+
+    def test_wifi_rf_wait_profile(self):
+        v="ram-usb-wifi-fw-v73-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v73-","v72-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-wait=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_wait=True)
+
+    def test_wifi_rf_cal_profile(self):
+        v="ram-usb-wifi-fw-v72-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v72-","v71-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-cal=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_cal=True)
+
+    def test_wifi_rf_trim_profile(self):
+        v="ram-usb-wifi-fw-v71-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v71-","v70-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-trim=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_trim=True)
+
+    def test_wifi_rf_g20_profile(self):
+        v="ram-usb-wifi-fw-v70-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v70-","v69-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-g20=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_g20=True)
+
+    def test_wifi_rf_vga_profile(self):
+        v="ram-usb-wifi-fw-v69-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v69-","v68-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-vga=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_vga=True)
+
+    def test_wifi_rf_bank6_profile(self):
+        v="ram-usb-wifi-fw-v68-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v68-","v67-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-bank6=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_bank6=True)
+
+    def test_wifi_rf_bank5_profile(self):
+        v="ram-usb-wifi-fw-v67-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v67-","v66-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-bank5=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_bank5=True)
+
+    def test_wifi_rf_table_profile(self):
+        v="ram-usb-wifi-fw-v66-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v66-","v60-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-table=1",""),previous)
+        for token in ("central","six","csr","write","state"):
+            self.assertNotIn("srvros.wifi-rf-"+token+"=1",config)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_table=True)
+        for name in ("central","six","csr","write","state"):
+            with self.assertRaises(ValueError):boot.stage(wifi_rf_table=True,wifi_rf_probe=True,**{"wifi_rf_"+name:True})
+
+    def test_wifi_rf_state_profile(self):
+        v="ram-usb-wifi-fw-v65-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-state=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v65-","v64-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-state=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_state=True)
+
+    def test_wifi_rf_write_profile(self):
+        v="ram-usb-wifi-fw-v64-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-write=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v64-","v63-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-write=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_write=True)
+
+    def test_wifi_rf_csr_profile(self):
+        v="ram-usb-wifi-fw-v63-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-csr=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v63-","v62-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-csr=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_csr=True)
+
+    def test_wifi_rf_six_profile(self):
+        v="ram-usb-wifi-fw-v62-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-six=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v62-","v61-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-six=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_six=True)
+
+    def test_wifi_rf_central_profile(self):
+        v="ram-usb-wifi-fw-v61-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-central=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v61-","v60-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-central=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_central=True)
+
+    def test_wifi_rf_probe_profile(self):
+        v="ram-usb-wifi-fw-v60-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-rf-probe=1",config)
+        previous=boot.limine_config("0123456789abcdef",v.replace("v60-","v59-"))
+        self.assertEqual(config.replace(" srvros.wifi-rf-probe=1",""),previous)
+        with self.assertRaises(ValueError):boot.stage(wifi_rf_probe=True)
+
+    def test_wifi_ant_init_profile(self):
+        v="ram-usb-wifi-fw-v59-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-ant-init=1",config)
+        self.assertIn("srvros.wifi-ant-snapshot=1",config)
+        self.assertNotIn("srvros.wifi-ant-init=1",boot.limine_config("0123456789abcdef",v.replace("v59-","v58-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_ant_init=True)
+
+    def test_wifi_ant_snapshot_profile(self):
+        v="ram-usb-wifi-fw-v58-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",v)
+        self.assertIn("srvros.wifi-ant-snapshot=1",config)
+        self.assertIn("srvros.wifi-mac-board=1",config)
+        self.assertNotIn("srvros.wifi-ant-snapshot=1",boot.limine_config("0123456789abcdef",v.replace("v58-","v57-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_ant_snapshot=True)
+
+    def test_v43_collision_exact_legacy_variants(self):
+        version='ram-usb-v43-laptop-probe-37d8c5d0-auto-return'
+        release=self.payload('legacy',version);directory=self.stage/release
+        path=directory/'manifest.json';manifest=json.loads(path.read_text());manifest['config_version']=version
+        for legacy in (False,True):
+            config=boot.limine_config(release,version,legacy_wifi_calibration=legacy)
+            for name in ('limine.conf','loader/limine.conf'):
+                (directory/name).write_text(config);manifest['sha256'][name]=boot.digest(directory/name)
+            path.write_text(json.dumps(manifest));self.assertEqual(boot.verify(directory)['release'],release)
+        # Hash-consistent mixed copies and an unrecognized command remain invalid.
+        for config in (boot.limine_config(release,version),config+'unexpected\n'):
+            (directory/'loader/limine.conf').write_text(config)
+            manifest['sha256']['loader/limine.conf']=boot.digest(directory/'loader/limine.conf')
+            path.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):boot.verify(directory)
+
+    def test_v44_collision_exact_legacy_variants(self):
+        version='ram-usb-v44-laptop-probe-37d8c5d0-auto-return'
+        release=self.payload('legacy',version);directory=self.stage/release
+        path=directory/'manifest.json';manifest=json.loads(path.read_text());manifest['config_version']=version
+        for legacy in (False,True):
+            config=boot.limine_config(release,version,legacy_wifi_calibration=legacy)
+            for name in ('limine.conf','loader/limine.conf'):
+                (directory/name).write_text(config);manifest['sha256'][name]=boot.digest(directory/name)
+            path.write_text(json.dumps(manifest));self.assertEqual(boot.verify(directory)['release'],release)
+        # Hash-consistent mixed copies and an unrecognized command remain invalid.
+        for config in (boot.limine_config(release,version),config+'unexpected\n'):
+            (directory/'loader/limine.conf').write_text(config)
+            manifest['sha256']['loader/limine.conf']=boot.digest(directory/'loader/limine.conf')
+            path.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):boot.verify(directory)
 
     def test_install_checks_selected_release_identity(self):
         release = self.payload("requested")
@@ -761,6 +1881,625 @@ class InstallTests(unittest.TestCase):
             self.assertNotIn(forbidden,cfg)
         with self.assertRaises(ValueError): boot.stage(desktop_brightness=True)
         with self.assertRaises(ValueError): boot.stage(desktop_volume="37d8c5d0",desktop_brightness=True)
+
+    def test_wifi_firmware_profile(self):
+        version='ram-usb-wifi-fw-v1-laptop-probe-37d8c5d0-auto-return'
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=wifi-firmware',config)
+        self.assertIn('srvros.capture-failure=reboot',config)
+        self.assertNotIn('srvros.capture=battery',config)
+        with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root)
+        held=boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        self.assertIn('srvros.capture=wifi-firmware',held)
+        self.assertNotIn('srvros.capture-failure=reboot',held)
+        self.assertEqual(config,held.replace('srvros.usb-wifi=probe','srvros.usb-wifi=probe srvros.capture-failure=reboot'))
+        for other in ('wifi_capture','wifi_calibration','battery_app_files','battery_load'):
+            with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root,laptop_probe_volume='37d8c5d0',**{other:True})
+
+    def test_wifi_mac_startup_profile(self):
+        old="ram-usb-wifi-fw-v1-laptop-probe-37d8c5d0"
+        for suffix in ("", "-auto-return"):
+            v2=old.replace("v1","v2")+suffix
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v2))
+            original=boot.limine_config("0123456789abcdef",old+suffix)
+            trial=boot.limine_config("0123456789abcdef",v2)
+            self.assertNotIn("srvros.wifi-mac-startup=1",original)
+            self.assertEqual(trial,original.replace("srvros.usb-wifi=probe","srvros.usb-wifi=probe srvros.wifi-mac-startup=1"))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_startup=True,laptop_probe_volume="37d8c5d0")
+
+    def test_wifi_mcu_profile(self):
+        for suffix in ('', '-auto-return'):
+            v2='ram-usb-wifi-fw-v2-laptop-probe-37d8c5d0'+suffix
+            v3=v2.replace('v2','v3')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v3))
+            old=boot.limine_config('0123456789abcdef',v2)
+            new=boot.limine_config('0123456789abcdef',v3)
+            self.assertEqual(new,old.replace('srvros.wifi-mac-startup=1',
+                'srvros.wifi-mac-startup=1 srvros.wifi-mcu-probe=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mcu_probe=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_mcu_probe=True,wifi_firmware_package=self.root)
+
+    def test_wifi_radio_reset_profile(self):
+        for suffix in ('', '-auto-return'):
+            v3='ram-usb-wifi-fw-v3-laptop-probe-37d8c5d0'+suffix
+            v4=v3.replace('v3','v4')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v4))
+            old=boot.limine_config('0123456789abcdef',v3)
+            new=boot.limine_config('0123456789abcdef',v4)
+            self.assertEqual(new,old.replace('srvros.wifi-mcu-probe=1',
+                'srvros.wifi-mcu-probe=1 srvros.wifi-radio-reset=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_radio_reset=True)
+
+    def test_wifi_write_probe_profile(self):
+        for suffix in ('', '-auto-return'):
+            v4='ram-usb-wifi-fw-v4-laptop-probe-37d8c5d0'+suffix
+            v5=v4.replace('v4','v5')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v5))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v5),
+                boot.limine_config('0123456789abcdef',v4).replace(
+                    'srvros.wifi-radio-reset=1',
+                    'srvros.wifi-radio-reset=1 srvros.wifi-write-probe=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_write_probe=True)
+
+    def test_wifi_pair_probe_profile(self):
+        for suffix in ('', '-auto-return'):
+            v5='ram-usb-wifi-fw-v5-laptop-probe-37d8c5d0'+suffix
+            v6=v5.replace('v5','v6')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v6))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v6),
+                boot.limine_config('0123456789abcdef',v5).replace(
+                    'srvros.wifi-write-probe=1',
+                    'srvros.wifi-write-probe=1 srvros.wifi-pair-probe=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_pair_probe=True)
+
+    def test_wifi_timing_probe_profile(self):
+        for suffix in ('', '-auto-return'):
+            v6='ram-usb-wifi-fw-v6-laptop-probe-37d8c5d0'+suffix
+            v7=v6.replace('v6','v7')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v7))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v7),
+                boot.limine_config('0123456789abcdef',v6).replace(
+                    'srvros.wifi-pair-probe=1',
+                    'srvros.wifi-pair-probe=1 srvros.wifi-timing-probe=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_timing_probe=True)
+
+    def test_wifi_mac_basics_profile(self):
+        for suffix in ('', '-auto-return'):
+            v7='ram-usb-wifi-fw-v7-laptop-probe-37d8c5d0'+suffix
+            v8=v7.replace('v7','v8')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v8))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v8),
+                boot.limine_config('0123456789abcdef',v7).replace(
+                    'srvros.wifi-timing-probe=1',
+                    'srvros.wifi-timing-probe=1 srvros.wifi-mac-basics=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_basics=True)
+
+    def test_wifi_mac_format_profile(self):
+        for suffix in ('', '-auto-return'):
+            v8='ram-usb-wifi-fw-v8-laptop-probe-37d8c5d0'+suffix
+            v9=v8.replace('v8','v9')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v9))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v9),
+                boot.limine_config('0123456789abcdef',v8).replace(
+                    'srvros.wifi-mac-basics=1',
+                    'srvros.wifi-mac-basics=1 srvros.wifi-mac-format=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_format=True)
+
+    def test_wifi_bbp_ready_profile(self):
+        for suffix in ('', '-auto-return'):
+            v9='ram-usb-wifi-fw-v9-laptop-probe-37d8c5d0'+suffix
+            v10=v9.replace('v9','v10')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v10))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v10),
+                boot.limine_config('0123456789abcdef',v9).replace(
+                    'srvros.wifi-mac-format=1',
+                    'srvros.wifi-mac-format=1 srvros.wifi-bbp-ready=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_ready=True)
+
+    def test_wifi_bbp_core_profile(self):
+        for suffix in ('', '-auto-return'):
+            v10='ram-usb-wifi-fw-v10-laptop-probe-37d8c5d0'+suffix
+            v11=v10.replace('v10','v11')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v11))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v11),
+                boot.limine_config('0123456789abcdef',v10).replace(
+                    'srvros.wifi-bbp-ready=1',
+                    'srvros.wifi-bbp-ready=1 srvros.wifi-bbp-core=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_core=True)
+
+    def test_wifi_bbp_front_profile(self):
+        for suffix in ('', '-auto-return'):
+            v11='ram-usb-wifi-fw-v11-laptop-probe-37d8c5d0'+suffix
+            v12=v11.replace('v11','v12')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v12))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v12),
+                boot.limine_config('0123456789abcdef',v11).replace(
+                    'srvros.wifi-bbp-core=1',
+                    'srvros.wifi-bbp-core=1 srvros.wifi-bbp-front=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_front=True)
+
+    def test_wifi_bbp_agc_profile(self):
+        for suffix in ('', '-auto-return'):
+            v12='ram-usb-wifi-fw-v12-laptop-probe-37d8c5d0'+suffix
+            v13=v12.replace('v12','v13')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v13))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v13),
+                boot.limine_config('0123456789abcdef',v12).replace(
+                    'srvros.wifi-bbp-front=1',
+                    'srvros.wifi-bbp-front=1 srvros.wifi-bbp-agc=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_agc=True)
+
+    def test_wifi_bbp_batch_profile(self):
+        for suffix in ('', '-auto-return'):
+            v13='ram-usb-wifi-fw-v13-laptop-probe-37d8c5d0'+suffix
+            v14=v13.replace('v13','v14')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v14))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v14),
+                boot.limine_config('0123456789abcdef',v13).replace(
+                    'srvros.wifi-bbp-agc=1',
+                    'srvros.wifi-bbp-agc=1 srvros.wifi-bbp-batch=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_batch=True)
+
+    def test_wifi_compact_profile(self):
+        for suffix in ('', '-auto-return'):
+            v14='ram-usb-wifi-fw-v14-laptop-probe-37d8c5d0'+suffix
+            v15=v14.replace('v14','v15')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v15))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v15),
+                boot.limine_config('0123456789abcdef',v14).replace(
+                    'srvros.wifi-bbp-batch=1',
+                    'srvros.wifi-bbp-batch=1 srvros.wifi-compact=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_compact=True)
+
+    def test_wifi_agc_more_profile(self):
+        for suffix in ('', '-auto-return'):
+            v15='ram-usb-wifi-fw-v15-laptop-probe-37d8c5d0'+suffix
+            v16=v15.replace('v15','v16')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v16))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v16),
+                boot.limine_config('0123456789abcdef',v15).replace(
+                    'srvros.wifi-compact=1',
+                    'srvros.wifi-compact=1 srvros.wifi-agc-more=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_agc_more=True)
+
+    def test_wifi_agc_next_profile(self):
+        for suffix in ('', '-auto-return'):
+            v16='ram-usb-wifi-fw-v16-laptop-probe-37d8c5d0'+suffix
+            v17=v16.replace('v16','v17')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v17))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v17),
+                boot.limine_config('0123456789abcdef',v16).replace(
+                    'srvros.wifi-agc-more=1',
+                    'srvros.wifi-agc-more=1 srvros.wifi-agc-next=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_agc_next=True)
+
+    def test_wifi_agc_tail_profile(self):
+        for suffix in ('', '-auto-return'):
+            v17='ram-usb-wifi-fw-v17-laptop-probe-37d8c5d0'+suffix
+            v18=v17.replace('v17','v18')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v18))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v18),
+                boot.limine_config('0123456789abcdef',v17).replace(
+                    'srvros.wifi-agc-next=1',
+                    'srvros.wifi-agc-next=1 srvros.wifi-agc-tail=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_agc_tail=True)
+
+    def test_wifi_rxc_start_profile(self):
+        for suffix in ('', '-auto-return'):
+            v18='ram-usb-wifi-fw-v18-laptop-probe-37d8c5d0'+suffix
+            v19=v18.replace('v18','v19')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v19))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v19),
+                boot.limine_config('0123456789abcdef',v18).replace(
+                    'srvros.wifi-agc-tail=1',
+                    'srvros.wifi-agc-tail=1 srvros.wifi-rxc-start=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_rxc_start=True)
+
+    def test_wifi_rxc_tail_profile(self):
+        for suffix in ('', '-auto-return'):
+            v19='ram-usb-wifi-fw-v19-laptop-probe-37d8c5d0'+suffix
+            v20=v19.replace('v19','v20')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v20))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v20),
+                boot.limine_config('0123456789abcdef',v19).replace(
+                    'srvros.wifi-rxc-start=1',
+                    'srvros.wifi-rxc-start=1 srvros.wifi-rxc-tail=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_rxc_tail=True)
+
+    def test_wifi_txbe_start_profile(self):
+        for suffix in ('', '-auto-return'):
+            v20='ram-usb-wifi-fw-v20-laptop-probe-37d8c5d0'+suffix
+            v21=v20.replace('v20','v21')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v21))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v21),
+                boot.limine_config('0123456789abcdef',v20).replace(
+                    'srvros.wifi-rxc-tail=1',
+                    'srvros.wifi-rxc-tail=1 srvros.wifi-txbe-start=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_start=True)
+
+    def test_wifi_txbe_next_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v22=v21.replace('v21','v22')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v22))
+            self.assertEqual(boot.limine_config('0123456789abcdef',v22),
+                boot.limine_config('0123456789abcdef',v21).replace(
+                    'srvros.wifi-txbe-start=1',
+                    'srvros.wifi-txbe-start=1 srvros.wifi-txbe-next=1'))
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_next=True)
+
+    def test_wifi_txbe_observe_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v23=v21.replace('v21','v23')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v23))
+            cfg=boot.limine_config('0123456789abcdef',v23)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-txbe-observe=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_observe=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_observe=True,wifi_txbe_start=True,wifi_txbe_next=True)
+
+    def test_wifi_txbe_first_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v24=v21.replace('v21','v24')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v24))
+            cfg=boot.limine_config('0123456789abcdef',v24)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-txbe-first=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_first=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe'):
+            with self.assertRaises(ValueError):boot.stage(wifi_txbe_first=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_txbe_second_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v25=v21.replace('v21','v25')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v25))
+            cfg=boot.limine_config('0123456789abcdef',v25)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-txbe-second=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_second=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first'):
+            with self.assertRaises(ValueError):boot.stage(wifi_txbe_second=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_txbe_access_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v26=v21.replace('v21','v26')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v26))
+            cfg=boot.limine_config('0123456789abcdef',v26)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-txbe-access=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_access=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second'):
+            with self.assertRaises(ValueError):boot.stage(wifi_txbe_access=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_txbe_direct_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v27=v21.replace('v21','v27')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v27))
+            cfg=boot.limine_config('0123456789abcdef',v27)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-txbe-direct=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_txbe_direct=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access'):
+            with self.assertRaises(ValueError):boot.stage(wifi_txbe_direct=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_clock_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v28=v21.replace('v21','v28')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v28))
+            cfg=boot.limine_config('0123456789abcdef',v28)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-clock=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_clock=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct'):
+            with self.assertRaises(ValueError):boot.stage(wifi_clock=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_clock_direct_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v29=v21.replace('v21','v29')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v29))
+            cfg=boot.limine_config('0123456789abcdef',v29)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-clock-direct=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_clock_direct=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock'):
+            with self.assertRaises(ValueError):boot.stage(wifi_clock_direct=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_clock_pair_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v30=v21.replace('v21','v30')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v30))
+            cfg=boot.limine_config('0123456789abcdef',v30)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-clock-pair=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_clock_pair=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock','wifi_clock_direct'):
+            with self.assertRaises(ValueError):boot.stage(wifi_clock_pair=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_skey_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v50-laptop-probe-0e535900-auto-return')
+        for flag in ('skey','dcoc','bbp-switch','bbp-after-mac'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-skey=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v49-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_skey=True)
+
+    def test_wifi_wcid_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v51-laptop-probe-0e535900-auto-return')
+        for flag in ('wcid','skey','dcoc','bbp-switch','bbp-after-mac'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-wcid=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v50-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_wcid=True)
+
+    def test_wifi_mac_tail_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v52-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-tail','wcid','skey','dcoc','bbp-switch','bbp-after-mac'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-mac-tail=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v51-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_tail=True)
+
+    def test_wifi_mac_board_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v57-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-board','mac-address-validate','mac-address','efuse-map','mac-fixed','mac-tail','wcid','skey','dcoc'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-mac-board=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v56-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_board=True)
+
+    def test_wifi_mac_address_validate_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v56-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-address-validate','mac-address','efuse-map','mac-fixed','mac-tail','wcid','skey','dcoc'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-mac-address-validate=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v55-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_address_validate=True)
+
+    def test_wifi_mac_address_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v55-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-address','efuse-map','mac-fixed','mac-tail','wcid','skey','dcoc'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-mac-address=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v54-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_address=True)
+
+    def test_wifi_efuse_map_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v54-laptop-probe-0e535900-auto-return')
+        for flag in ('efuse-map','mac-fixed','mac-tail','wcid','skey','dcoc','bbp-switch','bbp-after-mac'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-efuse-map=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v53-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_efuse_map=True)
+
+    def test_wifi_mac_fixed_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v53-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-fixed','mac-tail','wcid','skey','dcoc','bbp-switch','bbp-after-mac'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-mac-fixed=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v52-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_fixed=True)
+
+    def test_wifi_dcoc_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v49-laptop-probe-0e535900-auto-return')
+        for flag in ('dcoc','bbp-switch','bbp-after-mac','mac-ampdu','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-dcoc=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v48-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_dcoc=True)
+
+    def test_wifi_bbp_switch_profile(self):
+        v='ram-usb-wifi-fw-v48-laptop-probe-0e535900-auto-return'
+        config=boot.limine_config('0123456789abcdef',v)
+        for flag in ('bbp-switch','bbp-after-mac','mac-ampdu','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',config)
+        self.assertNotIn('srvros.wifi-bbp-switch=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v47-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_switch=True)
+
+    def test_wifi_bbp_after_mac_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v47-laptop-probe-0e535900-auto-return')
+        for flag in ('bbp-after-mac','mac-ampdu','mac-fce-validate','mac-fce-observe','mac-buffer','mac-policy-validate','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_after_mac=True)
+        self.assertNotIn('srvros.wifi-bbp-after-mac=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v46-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_ampdu_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v46-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-ampdu','mac-fce-validate','mac-fce-observe','mac-buffer','mac-vht','mac-policy-validate'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_ampdu=True)
+        self.assertNotIn('srvros.wifi-mac-ampdu=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v45-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_fce_validate_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v45-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-fce-validate','mac-fce-observe','mac-buffer','mac-vht','mac-beacon','mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_fce_validate=True)
+        self.assertNotIn('srvros.wifi-mac-fce-validate=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v44-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_fce_observe_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v44-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-fce-observe','mac-buffer','mac-vht','mac-beacon','mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_fce_observe=True)
+        self.assertNotIn('srvros.wifi-mac-fce-observe=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v43-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_buffer_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v43-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-buffer','mac-vht','mac-beacon','mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_buffer=True)
+        self.assertNotIn('srvros.wifi-mac-buffer=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v42-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_vht_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v42-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-vht','mac-beacon','mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_vht=True)
+        self.assertNotIn('srvros.wifi-mac-vht=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v41-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_beacon_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v41-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-beacon','mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_beacon=True)
+        self.assertNotIn('srvros.wifi-mac-beacon=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v40-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_txsw_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v40-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-txsw','mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_txsw=True)
+        self.assertNotIn('srvros.wifi-mac-txsw=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v39-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_contention_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v39-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-contention','mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_contention=True)
+        self.assertNotIn('srvros.wifi-mac-contention=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v38-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_protect_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v38-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-protect','mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_protect=True)
+        self.assertNotIn('srvros.wifi-mac-protect=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v37-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_policy_validate_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v37-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-policy-validate','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-policy-observe','mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_policy_validate=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_policy_validate=True,wifi_mac_policy=True,wifi_mac_policy_observe=True)
+        self.assertNotIn('srvros.wifi-mac-policy-validate=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v36-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_policy_observe_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v36-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-policy-observe','mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_policy_observe=True)
+        self.assertNotIn('srvros.wifi-mac-policy-observe=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v35-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_policy_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v35-laptop-probe-0e535900-auto-return')
+        for flag in ('mac-policy','mac-route','bbp-table'):
+            self.assertIn('srvros.wifi-'+flag+'=1',cfg)
+        for flag in ('mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_policy=True)
+        self.assertNotIn('srvros.wifi-mac-policy=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v34-laptop-probe-0e535900-auto-return'))
+
+    def test_wifi_mac_route_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v34-laptop-probe-0e535900-auto-return')
+        self.assertIn('srvros.wifi-mac-route=1',cfg)
+        self.assertIn('srvros.wifi-bbp-table=1',cfg)
+        for flag in ('mac-raw','mac-snapshot','clock-pair'):
+            self.assertNotIn('srvros.wifi-'+flag+'=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_route=True)
+        for conflict in ('wifi_mac_raw','wifi_mac_snapshot'):
+            with self.assertRaises(ValueError):boot.stage(wifi_mac_route=True,wifi_bbp_table=True,**{conflict:True})
+
+    def test_wifi_mac_raw_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v33-laptop-probe-0e535900-auto-return')
+        self.assertIn('srvros.wifi-mac-raw=1',cfg)
+        self.assertIn('srvros.wifi-mac-snapshot=1',cfg)
+        self.assertNotIn('srvros.wifi-mac-raw=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v32-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_raw=True)
+
+    def test_wifi_mac_snapshot_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v32-laptop-probe-0e535900-auto-return')
+        self.assertIn('srvros.wifi-mac-snapshot=1',cfg)
+        self.assertIn('srvros.wifi-bbp-table=1',cfg)
+        self.assertNotIn('srvros.wifi-clock-pair=1',cfg)
+        self.assertNotIn('srvros.wifi-mac-snapshot=1',boot.limine_config('0123456789abcdef','ram-usb-wifi-fw-v31-laptop-probe-0e535900-auto-return'))
+        with self.assertRaises(ValueError):boot.stage(wifi_mac_snapshot=True)
+
+    def test_wifi_bbp_table_profile(self):
+        for suffix in ('', '-auto-return'):
+            v21='ram-usb-wifi-fw-v21-laptop-probe-37d8c5d0'+suffix
+            v31=v21.replace('v21','v31')
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v31))
+            cfg=boot.limine_config('0123456789abcdef',v31)
+            self.assertEqual(cfg,boot.limine_config('0123456789abcdef',v21).replace(
+                'srvros.wifi-txbe-start=1','srvros.wifi-txbe-start=1 srvros.wifi-bbp-table=1'))
+            self.assertNotIn('srvros.wifi-txbe-next=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-observe=1',cfg)
+            self.assertNotIn('srvros.wifi-txbe-first=1',cfg)
+        with self.assertRaises(ValueError):boot.stage(wifi_bbp_table=True)
+        for conflict in ('wifi_txbe_next','wifi_txbe_observe','wifi_txbe_first','wifi_txbe_second','wifi_txbe_access','wifi_txbe_direct','wifi_clock','wifi_clock_direct','wifi_clock_pair'):
+            with self.assertRaises(ValueError):boot.stage(wifi_bbp_table=True,wifi_txbe_start=True,**{conflict:True})
+
+    def test_wifi_calibration_profile(self):
+        version="ram-usb-wifi-cal-v1-laptop-probe-37d8c5d0-auto-return"
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config("0123456789abcdef",version)
+        for flag in ("srvros.capture=wifi-calibration","srvros.usb-wifi=probe","srvros.capture-failure=reboot"):
+            self.assertIn(flag,cfg)
+        for flag in ("srvros.aml","srvros.audio","srvros.laptop-services","srvros.usb-network"):
+            self.assertNotIn(flag,cfg)
+        self.assertNotIn("wifi-calibration",boot.limine_config("0123456789abcdef","ram-usb-v39-laptop-probe-37d8c5d0-auto-return"))
+        with self.assertRaises(ValueError): boot.stage(wifi_calibration=True)
+        with self.assertRaises(ValueError): boot.stage(wifi_calibration=True,hold_on_failure=True,laptop_probe_volume="37d8c5d0")
+        for other in ("wifi_capture","battery_text","battery_desktop","idle_capture","battery_controls","battery_query","battery_smbus","battery_smbus_files","battery_home","battery_home_session"):
+            with self.assertRaises(ValueError): boot.stage(wifi_calibration=True,laptop_probe_volume="37d8c5d0",**{other:True})
+
+    def test_wifi_capture_profile(self):
+        version="ram-usb-v39-laptop-probe-37d8c5d0-auto-return"
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config("0123456789abcdef",version)
+        for flag in ("srvros.capture=wifi", "srvros.usb-wifi=probe", "srvros.capture-failure=reboot"):
+            self.assertIn(flag,cfg)
+        for flag in ("srvros.aml", "srvros.audio", "srvros.laptop-services", "srvros.usb-network"):
+            self.assertNotIn(flag,cfg)
+        self.assertNotIn("srvros.usb-wifi",boot.limine_config("0123456789abcdef","ram-usb-v19-laptop-probe-37d8c5d0-auto-return"))
+        with self.assertRaises(ValueError): boot.stage(wifi_capture=True)
+        with self.assertRaises(ValueError): boot.stage(wifi_capture=True,hold_on_failure=True,laptop_probe_volume="37d8c5d0")
+        with self.assertRaises(ValueError): boot.stage(wifi_capture=True,idle_capture=True,laptop_probe_volume="37d8c5d0")
 
     def test_keyboard_capture_profile(self):
         version="ram-usb-v28-laptop-probe-37d8c5d0"

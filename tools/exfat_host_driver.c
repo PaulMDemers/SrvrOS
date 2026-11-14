@@ -108,13 +108,56 @@ static void equal(const char *path, const uint8_t *expected, uint64_t n) {
     assert(node && vfs_read_all(node,&data,&size));
     assert(size==n && (!n || !memcmp(data,expected,n))); vfs_release_data(node,data);
 }
+static bool inspection_mountpoint_valid(const char *path) {
+    if(!path || path[0]!='/' || !path[1])return false;
+    size_t start=1;
+    for(size_t i=1;i<SRV_PATH_MAX;i++) {
+        unsigned char c=(unsigned char)path[i];
+        if(c && (c<32 || c>126))return false;
+        if(c && c!='/')continue;
+        size_t length=i-start;
+        if(!length || (length==1 && path[start]=='.') ||
+           (length==2 && path[start]=='.' && path[start+1]=='.'))return false;
+        if(!c)return true;
+        start=i+1;
+    }
+    return false;
+}
+static int invalid_inspection_arguments(void) {
+    fputs("exfat-driver: invalid inspection arguments\n",stderr);
+    return 2;
+}
+static void inspection_io_report(bool explicit_mountpoint) {
+    assert(!writes && !flushes);
+    if(explicit_mountpoint)printf("inspection-io: writes=%u flushes=%u\n",writes,flushes);
+}
 int main(int argc, char **argv) {
-    assert(argc>=3);
+    if(argc<3)return invalid_inspection_arguments();
+    if(!strncmp(argv[1],"--",2) || !strncmp(argv[2],"--",2))return invalid_inspection_arguments();
     bool image_range=!strcmp(argv[2],"image-range");
     bool headroom_only=!strcmp(argv[2],"headroom-check");
     bool writable_only=!strcmp(argv[2],"writable-check");
     bool clean_only=!strcmp(argv[2],"clean-check");
-    bool check_only=clean_only||writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool inspection=writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool check_only=clean_only||inspection;
+    bool explicit_mountpoint=false;
+    const char *mountpoint="/vol";
+    char inspection_path[SRV_PATH_MAX];
+    if(inspection) {
+        if(argc!=3) {
+            if(argc!=5 || strcmp(argv[3],"--mountpoint"))return invalid_inspection_arguments();
+            mountpoint=argv[4];explicit_mountpoint=true;
+        }
+        if(!inspection_mountpoint_valid(mountpoint))return invalid_inspection_arguments();
+        if(image_range || headroom_only) {
+            const char *suffix=image_range?"/srvros-work/battery-fs.img":"/new-trial";
+            int length=snprintf(inspection_path,sizeof inspection_path,"%s%s",mountpoint,suffix);
+            if(length<0 || (size_t)length>=sizeof inspection_path)return invalid_inspection_arguments();
+        }
+    } else {
+        for(int i=3;i<argc;i++)if(!strncmp(argv[i],"--",2))return invalid_inspection_arguments();
+        if(clean_only && (argc!=4 || (strcmp(argv[3],"accept") && strcmp(argv[3],"refuse"))))return invalid_inspection_arguments();
+    }
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -147,29 +190,31 @@ int main(int argc, char **argv) {
         return mounted == !strcmp(argv[3],"accept") ? 0 : 1;
     }
     if(check_only) {
-        if(!exfat_mount_block_device("/vol",&d)) {
+        if(explicit_mountpoint)printf("inspection-mountpoint: %s\n",mountpoint);
+        if(!exfat_mount_block_device(mountpoint,&d)) {
             fputs("allocation-check: unsupported or invalid filesystem; NOT CHECKED\n",stderr);
+            if(explicit_mountpoint)inspection_io_report(true);
             close(fd);return 2;
         }
         struct exfat_check_result result={0};
-        bool ok=exfat_check("/vol",&result);
+        bool ok=exfat_check(mountpoint,&result);
         bool graph_ok=ok;
         if(writable_only) {
-            bool writable=exfat_is_writable("/vol");
+            bool writable=exfat_is_writable(mountpoint);
             printf("writable-check: %s zero_writes=yes\n",writable?"PASS":"REFUSED");
             ok=ok && writable;
         }
         if(ok&&image_range) {
             struct block_device *resolved=NULL;uint64_t offset=0;
-            ok=exfat_exclusive_range("/vol/srvros-work/battery-fs.img",16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
+            ok=exfat_exclusive_range(inspection_path,16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
             printf("image-range: %s offset=%llu bytes=16777216\n",ok?"PASS":"REFUSED",(unsigned long long)offset);
         }
         if(headroom_only) {
-            bool room=exfat_creation_capacity("/vol/new-trial",32,8);
+            bool room=exfat_creation_capacity(inspection_path,32,8);
             printf("headroom-check: %s reserve_files=32 reserve_directories=8 plus_metadata=yes\n",room?"PASS":"REFUSED");
             ok=ok && room;
         }
-        assert(!writes && !flushes);
+        inspection_io_report(explicit_mountpoint);
         printf("allocation-check: %s files=%llu clusters=%llu leaked=%llu fat_bitmap_mismatches=%llu errors=%llu\n",
             graph_ok ? "PASS" : "FAIL",(unsigned long long)result.files_checked,
             (unsigned long long)result.clusters_checked,(unsigned long long)result.leaked_clusters,

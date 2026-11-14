@@ -268,7 +268,60 @@ static void test_checked_publication(void) {
     assert(saved_count==LOG_RECORD_BATCH && serial_count==LOG_RECORD_BATCH && test_irqs);
     for(size_t i=0;i<saved_count;i++)assert(saved_log[i]=='x' && serial_log[i]=='x');
 }
+static void test_scaled_text(void) {
+    /* Native-panel geometry, deliberately odd margins and padded scanlines. */
+    const unsigned width=2887,height=1807,stride=2896;
+    size_t count=(size_t)stride*height;
+    uint32_t *pixels=malloc((count+2)*sizeof *pixels);assert(pixels);
+    struct limine_framebuffer large=frame;
+    large.address=pixels+1;large.width=width;large.height=height;large.pitch=stride*4;
+    for(unsigned scale=1;scale<=3;scale++){
+        for(size_t i=0;i<count+2;i++)pixels[i]=0x12345678;
+        serial_count=saved_count=0;queued=NULL;
+        console_init_scaled(&large,scale);
+        assert(framebuffer_console_ready && text_scale==scale);
+        assert(columns==width/(8*scale) && rows==height/(16*scale));
+        assert(columns*text_width()<=sizeof scanline/sizeof *scanline);
+        console_enable_deferred();console_write("Codes: site=7 phase=8 reason=4 child_status=0\n");drain();
+        for(unsigned y=0;y<16*scale;y++)for(unsigned x=0;x<8*scale;x++)
+            assert(pixels[1+(size_t)y*stride+x]==glyph_cache['C'-SRV_FONT_FIRST][y/scale][x/scale]);
+        for(uint64_t n=0;n<rows+2;n++)console_write("scroll\n");
+        drain();
+        assert(stats.scrolls>0 && !memcmp(cells[rows-2],"scroll",6));
+        console_write("\x1b[2J\x1b[2;3HQ\x1b[K");drain();assert(cells[1][2]=='Q');
+        assert(console_put_pixel(width-1,height-1,0xabcdef));
+        assert(pixels[1+(size_t)(height-1)*stride+width-1]==rgb_color(0xabcdef));
+        const char *preview=getenv("SRVROS_CONSOLE_PREVIEW"),*panel=getenv("SRVROS_CONSOLE_PANEL");
+        if(scale==3 && preview && panel){
+            FILE *input=fopen(panel,"rb");assert(input);char text[4096];
+            size_t n=fread(text,1,sizeof text-1,input);assert(n && !ferror(input) && feof(input));fclose(input);text[n]=0;
+            console_clear();console_write(text);drain();
+            FILE *image=fopen(preview,"wb");assert(image);fprintf(image,"P6\n%u %u\n255\n",width,height);
+            for(unsigned y=0;y<height;y++)for(unsigned x=0;x<width;x++){
+                uint32_t rgb=pixels[1+(size_t)y*stride+x];
+                unsigned char color_bytes[3]={(unsigned char)(rgb>>16),(unsigned char)(rgb>>8),(unsigned char)rgb};
+                assert(fwrite(color_bytes,1,3,image)==3);
+            }
+            assert(!fclose(image));
+        }
+        assert(pixels[0]==0x12345678 && pixels[count+1]==0x12345678);
+        for(unsigned y=0;y<height;y++)for(unsigned x=width;x<stride;x++)
+            assert(pixels[1+(size_t)y*stride+x]==0x12345678);
+    }
+    /* Very wide/tall framebuffers still use the original fixed text viewport. */
+    large.width=5003;large.height=160;large.pitch=5008*4;
+    pixels=realloc(pixels,((size_t)5008*160+2)*sizeof *pixels);assert(pixels);large.address=pixels+1;
+    console_init_scaled(&large,3);assert(columns==170 && rows==3 && columns*text_width()<=4096);
+    large.width=49;large.height=4507;large.pitch=56*4;
+    pixels=realloc(pixels,((size_t)56*4507+2)*sizeof *pixels);assert(pixels);large.address=pixels+1;
+    console_init_scaled(&large,3);assert(columns==2 && rows==85 && rows*text_height()<=4096);
+    large.width=width;large.height=height;console_init_scaled(&large,0);assert(!framebuffer_console_ready);
+    console_init_scaled(&large,4);assert(!framebuffer_console_ready);
+    console_init_scaled(&large,UINT64_MAX);assert(!framebuffer_console_ready);
+    free(pixels);setup(false);assert(text_scale==1);check_guards();
+}
 int main(void) {
+    setup(false);test_scaled_text();
     test_checked_publication();
     test_graphics_framebuffer_routing();
     test_saved_record_interleaving();

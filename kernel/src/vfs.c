@@ -419,6 +419,60 @@ bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
     return true;
 }
 
+/* Restore an immutable sidecar batch. Ordinary import_metadata cannot distinguish
+ * another same-mount provisional ID from a permanent outside identity. */
+bool vfs_restore_metadata(const char *prefix,
+    const struct vfs_metadata_restore *entries, uint64_t count) {
+    if (!prefix || prefix[0] != '/' || !prefix[1] ||
+        (count && !entries) || count > node_count) return false;
+    const struct vfs_node *root = vfs_lookup(prefix);
+    if (!root || root->type != VFS_NODE_DIRECTORY) return false;
+    uintptr_t begin = (uintptr_t)entries;
+    if (count > (UINTPTR_MAX - begin) / sizeof(*entries)) return false;
+    uintptr_t end = begin + count * sizeof(*entries);
+    for (uint64_t i = 0; i < node_count; i++) {
+        const struct vfs_node *n = vfs_node_at(i);
+        uintptr_t address = (uintptr_t)n;
+        if (count && begin < address + sizeof(*n) && address < end) return false;
+    }
+    for (uint64_t i = 0; i < count; i++) {
+        const struct vfs_node *target = entries[i].node;
+        bool found = false;
+        for (uint64_t j = 0; j < node_count; j++)
+            if (vfs_node_at(j) == target) { found = true; break; }
+        if (!found || !path_under_prefix(target->path, prefix) ||
+            !entries[i].metadata.inode || (entries[i].metadata.mode & ~0177777ull) ||
+            entries[i].metadata.nlink != (target->type == VFS_NODE_DIRECTORY ? 2u : 1u) ||
+            (entries[i].metadata.mode & VFS_MODE_IFMT) !=
+                (target->type == VFS_NODE_DIRECTORY ? VFS_MODE_IFDIR : VFS_MODE_IFREG))
+            return false;
+        for (uint64_t j = 0; j < i; j++)
+            if (entries[j].node == target ||
+                entries[j].metadata.inode == entries[i].metadata.inode) return false;
+        for (uint64_t j = 0; j < node_count; j++) {
+            const struct vfs_node *n = vfs_node_at(j);
+            if (n->metadata.inode == entries[i].metadata.inode &&
+                !path_under_prefix(n->path, prefix)) return false;
+        }
+    }
+    /* Validation established a permutation/displacement inside this unpublished
+     * subtree. No allocation, callback or fallible operation follows. */
+    for (uint64_t i = 0; i < count; i++) {
+        struct vfs_node *target = (struct vfs_node *)entries[i].node;
+        uint64_t wanted = entries[i].metadata.inode;
+        for (uint64_t j = 0; j < node_count; j++) {
+            struct vfs_node *n = node_slot(live_slots[j]);
+            if (n != target && n->metadata.inode == wanted) {
+                n->metadata.inode = target->metadata.inode;
+                break;
+            }
+        }
+        target->metadata = entries[i].metadata;
+        if (wanted >= next_inode) next_inode = wanted + 1;
+    }
+    return true;
+}
+
 bool vfs_chmod(const char *path, uint64_t mode) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {

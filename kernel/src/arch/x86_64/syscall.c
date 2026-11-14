@@ -7,6 +7,7 @@
 #include <srvros/exfat_stream.h>
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
+#include <srvros/wifi_service.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
 #include <srvros/battery_snapshot.h>
@@ -583,15 +584,17 @@ static int64_t network_receive(uint64_t fd, struct network_user_io *io,
     irq_restore(flags);
     return result;
 }
-static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
-    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port) {
+static int64_t network_send_mode(uint64_t fd, const void *buffer, uint64_t length,
+    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port, bool finite_tcp) {
     uint64_t flags = irq_save();
     struct network_user_io io = {0};
     int64_t result = SRV_ERR_BADF;
     uint8_t small[1536], *snapshot = small;
+    _Static_assert(sizeof(small) == SRV_SOCKET_TCP_TRY_COPY_MAX, "finite TCP snapshot bound");
     if (!network_init(&io, fd) || io.type != (udp ? PROCESS_FILE_NET_UDP : PROCESS_FILE_NET_CONNECTION)) goto done;
     if (udp && length > SRV_NET_UDP_PAYLOAD_MAX) { result = SRV_ERR_INVAL; goto done; }
     if (!udp && length > MAX_SYSCALL_COPY) length = MAX_SYSCALL_COPY;
+    if (finite_tcp && length > sizeof(small)) length = sizeof(small);
     if (!owned) {
         if (length > sizeof(small)) snapshot = kmalloc(length);
         if (!snapshot) { result = SRV_ERR_NOMEM; goto done; }
@@ -600,11 +603,18 @@ static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
     }
     const struct net_transfer transfer = {.context=&io, .current=network_current};
     result = udp ? net_udp_send_checked(io.handle, ip, port, buffer, length, nonblock, &transfer) :
+        finite_tcp ? net_respond_try_checked(io.handle, buffer, length, &transfer) :
         net_respond_checked(io.handle, buffer, length, nonblock, &transfer);
  done:
     if (snapshot != small) kfree(snapshot);
     irq_restore(flags);
     return result;
+}
+
+/* Ordinary write/respond, generic socket SEND and UDP retain their backends. */
+static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
+    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port) {
+    return network_send_mode(fd, buffer, length, nonblock, owned, udp, ip, port, false);
 }
 
 static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bool owned) {
@@ -3065,13 +3075,21 @@ static int64_t syscall_net_listen(uint16_t port) {
 }
 
 static int64_t syscall_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags) {
+    bool cache_only = (flags & SRV_NET_CONNECT_CACHE_ONLY) != 0;
+    if (cache_only && (!(flags & SRV_FD_NONBLOCK) ||
+        (flags & ~(SRV_NET_CONNECT_CACHE_ONLY | SRV_FD_NONBLOCK)))) return SRV_ERR_INVAL;
     struct process *process = process_current();
     if (process == NULL) {
         return -1;
     }
 
-    int64_t handle = net_connect(remote_ip, remote_port, (flags & SRV_FD_NONBLOCK) != 0);
+    /* Exclude CPU0 FD/table replacement through finite slot+FD publication.
+     * Ordinary connect keeps its existing ARP and waiting behavior. */
+    uint64_t irq = cache_only ? irq_save() : 0;
+    int64_t handle = cache_only ? net_connect_try(remote_ip, remote_port) :
+        net_connect(remote_ip, remote_port, (flags & SRV_FD_NONBLOCK) != 0);
     if (handle < 0) {
+        if (cache_only) irq_restore(irq);
         return handle;
     }
 
@@ -3079,6 +3097,7 @@ static int64_t syscall_net_connect(uint32_t remote_ip, uint16_t remote_port, uin
     if (fd < 0) {
         net_close((uint64_t)handle);
     }
+    if (cache_only) irq_restore(irq);
     return fd;
 }
 
@@ -3115,6 +3134,20 @@ static int64_t syscall_net_list(uint64_t index, struct srv_net_info *info) {
         return next;
     }
     return copy_net_struct_to_user(info, &copy, sizeof(copy)) ? next : -1;
+}
+
+/* Cache-only operations: never initiate scans, RF/USB transfers or a join. */
+static int64_t syscall_wifi(uint64_t op,uint64_t owner,void *user) {
+    if(op==SRV_WIFI_SELECT) {
+        struct srv_wifi_select request;
+        if(owner || !copy_from_user(&request,user,sizeof request))return SRV_WIFI_INVALID;
+        uint64_t flags=irq_save();int result=wifi_service_select(&request);irq_restore(flags);return result;
+    }
+    if(op!=SRV_WIFI_SNAPSHOT || !abi_user_struct_size(user,sizeof(struct srv_wifi_snapshot),SRV_WIFI_VERSION))return SRV_WIFI_INVALID;
+    struct srv_wifi_snapshot *copy=kmalloc(sizeof *copy);if(!copy)return SRV_WIFI_UNAVAILABLE;
+    uint64_t flags=irq_save();int result=wifi_service_snapshot(owner,copy);irq_restore(flags);
+    if(!copy_abi_struct_to_user(user,copy,sizeof *copy,SRV_WIFI_VERSION))result=SRV_WIFI_INVALID;
+    kfree(copy);return result;
 }
 
 static int64_t syscall_net_status_info(struct srv_net_status_info *info) {
@@ -3257,8 +3290,16 @@ static int64_t syscall_net_udp_recvfrom(uint64_t fd,
  * stays in force; this is not a GUI/I/O-owner bypass. */
 static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buffer,
     uint64_t length, struct srv_socket_peer *user_peer) {
-    if (operation < SRV_SOCKET_RECV || operation > SRV_SOCKET_UDP_SEND) return SRV_ERR_INVAL;
-    bool writing = operation == SRV_SOCKET_SEND || operation == SRV_SOCKET_UDP_SEND;
+    if (operation < SRV_SOCKET_RECV || operation > SRV_SOCKET_TCP_SEND_TRY) return SRV_ERR_INVAL;
+    bool finite_tcp = operation == SRV_SOCKET_TCP_SEND_TRY;
+    if (finite_tcp) {
+        /* Negotiate before CACHE_ONLY: old kernels ignored unknown flags. */
+        if (fd == UINT64_MAX) return !buffer && !length && !user_peer ?
+            SRV_SOCKET_TCP_TRY_ABI_VERSION : SRV_ERR_INVAL;
+        if (user_peer) return SRV_ERR_INVAL;
+        if (length > SRV_SOCKET_TCP_TRY_COPY_MAX) length = SRV_SOCKET_TCP_TRY_COPY_MAX;
+    }
+    bool writing = finite_tcp || operation == SRV_SOCKET_SEND || operation == SRV_SOCKET_UDP_SEND;
     if (!user_buffer_ok(buffer, length, !writing)) return SRV_ERR_FAULT;
     struct srv_socket_peer peer = {0};
     if (operation == SRV_SOCKET_UDP_SEND) {
@@ -3278,6 +3319,8 @@ static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buff
         return network_receive(fd, &io, length, true, false, false);
     }
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
+        if (finite_tcp)
+            return network_send_mode(fd, buffer, length, true, false, false, 0, 0, true);
         if (operation == SRV_SOCKET_SEND) return network_send(fd, buffer, length, true, false, false, 0, 0);
         struct srv_iovec iov = {.base=buffer, .length=length};
         struct network_user_io io = {.iov=&iov, .count=1};
@@ -3655,7 +3698,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
-    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE:
+    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE: case SYS_WIFI:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -4007,6 +4050,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
         return;
     case SYS_NET_LIST:
         frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);
+        return;
+    case SYS_WIFI:
+        frame->rax=(uint64_t)syscall_wifi(frame->rdi,frame->rsi,(void *)frame->rdx);
         return;
     case SYS_NET_STATUS_INFO:
         frame->rax = (uint64_t)syscall_net_status_info((struct srv_net_status_info *)frame->rdi);

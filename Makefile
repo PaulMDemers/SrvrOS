@@ -692,7 +692,7 @@ USER_WEBD_S := $(shell find userspace/webd -type f -name '*.S' 2>/dev/null | LC_
 USER_WEBD_OBJ := $(USER_WEBD_C:%.c=build/%.c.o) $(USER_WEBD_S:%.S=build/%.S.o)
 USER_WEBD_DEP := $(USER_WEBD_C:%.c=build/%.c.d) $(USER_WEBD_S:%.S=build/%.S.d)
 
-USER_HTTPGET_C := $(shell find userspace/httpget -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_HTTPGET_C := $(shell find userspace/httpget -type f -name '*.c' 2>/dev/null | LC_ALL=C sort) userspace/wifihttpprobe/http_exact.c
 USER_HTTPGET_S := $(shell find userspace/httpget -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_HTTPGET_OBJ := $(USER_HTTPGET_C:%.c=build/%.c.o) $(USER_HTTPGET_S:%.S=build/%.S.o)
 USER_HTTPGET_DEP := $(USER_HTTPGET_C:%.c=build/%.c.d) $(USER_HTTPGET_S:%.S=build/%.S.d)
@@ -1925,9 +1925,41 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_cal5.inc kernel/src/drivers/xhci_wifi_early5.inc kernel/src/drivers/xhci_wifi_power5.inc kernel/src/drivers/xhci_wifi_handoff5.inc kernel/src/drivers/xhci_wifi_channel_vco5.inc kernel/src/drivers/xhci_wifi_vco5.inc kernel/src/drivers/xhci_wifi_dac5.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/xhci_wifi_peer5.inc kernel/src/drivers/xhci_wifi_tx5.inc kernel/src/drivers/xhci_wifi_join5.inc kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+
+# Same actual xHCI translation unit with an explicit modeled RF-parent fixture.
+.PHONY: test-xhci-cal5-mcu
+test-xhci-cal5-mcu: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	$< --wifi-cal5-mcu
+.PHONY: test-xhci-early5 test-xhci-prime5
+.PHONY: test-wifi-survey5
+test-core: test-wifi-survey5
+test-wifi-survey5: build/tests/xhci-cal5-mcu-host$(HOST_EXE) build/tests/mt76-rx5-deadline-host$(HOST_EXE)
+	build/tests/xhci-cal5-mcu-host$(HOST_EXE) --wifi-survey5
+	build/tests/mt76-rx5-deadline-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -B -m unittest discover -s tools -p test_wifi_survey5_log.py
+build/tests/mt76-rx5-deadline-host$(HOST_EXE): tools/test_mt76_rx5_deadline.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+test-core: test-xhci-prime5
+test-xhci-prime5: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	$< --wifi-prime5
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_prime5_log.py
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-cal5-cleanup-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_prime5.inc
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-cal5-cleanup-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_survey5.inc kernel/src/drivers/xhci_wifi_survey5_owner.inc
+test-core: test-xhci-early5
+test-xhci-early5: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	$< --wifi-early5
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_early5_observation.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_early5_log.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_early5_transport.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_rx_compare5_log.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_prefix_tables.py
+build/tests/xhci-cal5-mcu-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_cal5_mcu.inc tools/test_xhci_wifi_early5.inc tools/test_xhci_wifi_survey5.inc tools/test_mt76_survey5_parent.c tools/test_mt76_channel_vco5.c tools/test_mt76_channel5.c kernel/src/drivers/xhci_wifi_early5.inc build/tests/xhci-host$(HOST_EXE)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_XHCI_CAL5_MCU_TEST -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/test_mt76_survey5_parent.c kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
@@ -2111,17 +2143,17 @@ test-desktop: test-gui-wait
 .PHONY: test-net-worker
 test-net-worker: build/tests/net-worker-host$(HOST_EXE)
 	$<
-build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-core: test-net-worker
 
 .PHONY: test-net-lifetime
 test-net-lifetime: build/tests/net-lifetime-host$(HOST_EXE)
 	@for mode in close pending inherited backlog abort deadline fin-failure simultaneous future-ack wrap-ack syn-ack stale-hold stale-io reuse stale-wait rst-window rst-connect receive-window receive-duplicate terminal-error terminal-eof timewait-pressure repeat-syn allocation-outbound allocation-inbound allocation-backlog partial-ack partial-fin partial-window overlap-wrap window-order window-overlap window-handshake persist-reopen persist-responsive persist-data persist-silent persist-close ipv4-fragments packet-bounds option-invalid option-valid mss-passive mss-active mss-default mss-syn-wire; do $< $$mode || exit $$?; done
-build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-core: test-net-lifetime
 
 .PHONY: test-syscall-cancel
@@ -2776,7 +2808,7 @@ test-desktop: test-preferences
 .PHONY: test-settings
 test-settings: build/tests/settings-host$(HOST_EXE)
 	$<
-build/tests/settings-host$(HOST_EXE): tools/test_settings.c userspace/apps/desktools/settings.c userspace/apps/desktools/app.h userspace/lib/src/desk_preferences.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/settings-host$(HOST_EXE): tools/test_settings.c userspace/apps/desktools/settings.c userspace/apps/desktools/app.h userspace/lib/src/desk_preferences.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_settings.c userspace/lib/src/desk_preferences.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-desktop: test-settings
@@ -2804,9 +2836,9 @@ test-widgets: test-table
 .PHONY: test-system
 test-system: build/tests/system-host$(HOST_EXE)
 	$<
-build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/apps/desktools/system.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/apps/desktools/system.c userspace/apps/desktools/app.h kernel/src/wifi_service.c kernel/src/drivers/mt76_selection.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_system.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I kernel/include -I userspace/widgets/include tools/test_system.c kernel/src/wifi_service.c kernel/src/drivers/mt76_selection.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-desktop: test-system
 
 .PHONY: test-prompt
@@ -3254,7 +3286,7 @@ test-core: test-workspace-log
 test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
 	build/tests/workspace-log-host$(HOST_EXE)
 	build/tests/bootlog-host$(HOST_EXE)
-build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h kernel/include/srvros/exfat.h shared/include/srvros/audio_stream_abi.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/bootlog.h kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h kernel/include/srvros/exfat.h shared/include/srvros/audio_stream_abi.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
@@ -3378,6 +3410,22 @@ test-net-device: build/tests/net-device-host$(HOST_EXE)
 build/tests/net-device-host$(HOST_EXE): tools/test_net_device.c kernel/src/net_device.c kernel/include/srvros/net_device.h shared/include/srvros/syscall_numbers.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+
+.PHONY: test-mt76-net5
+test-core: test-mt76-net5
+test-mt76-net5: build/tests/mt76-net5-host$(HOST_EXE)
+	$<
+build/tests/mt76-net5-host$(HOST_EXE): tools/test_mt76_net5.c kernel/src/drivers/mt76_net5.c kernel/include/srvros/mt76_net5.h kernel/src/net_device.c kernel/include/srvros/net_device.h kernel/include/srvros/net.h kernel/include/srvros/timer.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_net5.c -o $@
+
+.PHONY: test-mt76-net5-stack
+test-core: test-mt76-net5-stack
+test-mt76-net5-stack: build/tests/mt76-net5-stack-host$(HOST_EXE)
+	$<
+build/tests/mt76-net5-stack-host$(HOST_EXE): tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< tools/net_bounded_legacy_stubs.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c -Wl,--gc-sections -o $@
 
 .PHONY: test-usb-ecm
 test-core: test-usb-ecm
@@ -3696,6 +3744,15 @@ build/tests/lapic-snapshot-host$(HOST_EXE): tools/test_lapic_snapshot.c kernel/s
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
 
+.PHONY: test-mt76-probe
+test-core: test-mt76-probe
+test-mt76-probe: build/tests/mt76-probe-host$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_wifi_usb_inventory.py
+build/tests/mt76-probe-host$(HOST_EXE): tools/test_mt76_probe.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_probe.c kernel/src/drivers/mt76_probe.c -o $@
+
 .PHONY: test-irq-completion
 test-core: test-irq-completion
 test-irq-completion: build/tests/irq-completion-host$(HOST_EXE)
@@ -3717,6 +3774,39 @@ test-core: test-battery-desktop-records
 test-battery-desktop-records:
 	$(PYTHON) tools/test_battery_desktop_records.py
 
+.PHONY: test-wifi-firmware-audit
+test-core: test-wifi-firmware-audit
+test-wifi-firmware-audit:
+	$(PYTHON) tools/test_wifi_firmware_audit.py
+
+.PHONY: test-mt76-bringup
+test-core: test-mt76-bringup
+test-mt76-bringup: build/tests/mt76-bringup-host$(HOST_EXE)
+	$<
+build/tests/mt76-bringup-host$(HOST_EXE): tools/test_mt76_bringup.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bringup.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-mt76-upload test-wifi-calibration-audit
+test-core: test-mt76-upload test-wifi-calibration-audit
+test-wifi-calibration-audit:
+	$(PYTHON) tools/test_wifi_calibration_audit.py
+test-mt76-upload: build/tests/mt76-upload-host$(HOST_EXE)
+	$<
+build/tests/mt76-upload-host$(HOST_EXE): tools/test_mt76_upload.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_upload.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-mt76-prepare test-wifi-firmware-package
+test-core: test-mt76-prepare test-wifi-firmware-package
+test-wifi-firmware-package:
+	$(PYTHON) tools/test_wifi_firmware_package.py
+test-mt76-prepare: build/tests/mt76-prepare-host$(HOST_EXE)
+	$<
+build/tests/mt76-prepare-host$(HOST_EXE): tools/test_mt76_prepare.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_prepare.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@
+
 .PHONY: test-battery-view
 test-core: test-battery-view
 test-battery-view: build/tests/battery-view$(HOST_EXE)
@@ -3724,6 +3814,40 @@ test-battery-view: build/tests/battery-view$(HOST_EXE)
 build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c kernel/src/drivers/battery_cache.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c kernel/src/drivers/battery_cache.c userspace/widgets/src/battery.c -o $@
+
+.PHONY: test-mt76-firmware
+test-core: test-mt76-firmware
+test-mt76-firmware: build/tests/mt76-firmware-host$(HOST_EXE)
+	$<
+build/tests/mt76-firmware-host$(HOST_EXE): tools/test_mt76_firmware.c kernel/src/initramfs.c kernel/src/sha256.c kernel/src/drivers/mt76_firmware.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/sha256.h kernel/include/srvros/mt76_bringup.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/initramfs.c kernel/src/sha256.c kernel/src/drivers/mt76_firmware.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-mt76-mcu test-wifi-channel-policy
+test-core: test-mt76-mcu test-wifi-channel-policy
+test-wifi-channel-policy:
+	$(PYTHON) tools/test_wifi_channel_policy.py
+test-mt76-mcu: build/tests/mt76-mcu-host$(HOST_EXE)
+	$<
+build/tests/mt76-mcu-host$(HOST_EXE): tools/test_mt76_mcu.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_mcu.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-radio
+test-core: test-mt76-radio
+test-mt76-radio: build/tests/mt76-radio-host$(HOST_EXE)
+	$<
+build/tests/mt76-radio-host$(HOST_EXE): tools/test_mt76_radio.c kernel/src/drivers/mt76_radio.c kernel/include/srvros/mt76_radio.h kernel/include/srvros/mt76_bringup.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_radio.c kernel/src/drivers/mt76_radio.c -o $@
+
+.PHONY: test-mt76-mac
+test-core: test-mt76-mac
+test-mt76-mac: build/tests/mt76-mac-host$(HOST_EXE)
+	$<
+build/tests/mt76-mac-host$(HOST_EXE): tools/test_mt76_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_mac.c kernel/src/drivers/mt76_mcu.c -o $@
 
 .PHONY: test-battery-control
 test-core: test-battery-control
@@ -3788,6 +3912,62 @@ test-battery-event-accounting: build/tests/battery-event-accounting$(HOST_EXE)
 build/tests/battery-event-accounting$(HOST_EXE): tools/test_battery_event_accounting.c ports/srvros/uacpi/runtime/battery_event_accounting.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-mt76-format
+test-core: test-mt76-format
+test-mt76-format: build/tests/mt76-format-host$(HOST_EXE)
+	$<
+build/tests/mt76-format-host$(HOST_EXE): tools/test_mt76_format.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_format.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bbp
+test-core: test-mt76-bbp
+test-mt76-bbp: build/tests/mt76-bbp-host$(HOST_EXE)
+	$<
+build/tests/mt76-bbp-host$(HOST_EXE): tools/test_mt76_bbp.c kernel/src/drivers/mt76_radio.c kernel/include/srvros/mt76_radio.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bbp.c kernel/src/drivers/mt76_radio.c -o $@
+
+.PHONY: test-mt76-bbp-core
+test-core: test-mt76-bbp-core
+test-mt76-bbp-core: build/tests/mt76-bbp-core-host$(HOST_EXE)
+	$<
+build/tests/mt76-bbp-core-host$(HOST_EXE): tools/test_mt76_bbp_core.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bbp_core.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bbp-front
+test-core: test-mt76-bbp-front
+test-mt76-bbp-front: build/tests/mt76-bbp-front-host$(HOST_EXE)
+	$<
+build/tests/mt76-bbp-front-host$(HOST_EXE): tools/test_mt76_bbp_front.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bbp_front.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bbp-agc
+test-core: test-mt76-bbp-agc
+test-mt76-bbp-agc: build/tests/mt76-bbp-agc-host$(HOST_EXE)
+	$<
+build/tests/mt76-bbp-agc-host$(HOST_EXE): tools/test_mt76_bbp_agc.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bbp_agc.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bbp-batch
+test-core: test-mt76-bbp-batch
+test-mt76-bbp-batch: build/tests/mt76-bbp-batch-host$(HOST_EXE)
+	$<
+build/tests/mt76-bbp-batch-host$(HOST_EXE): tools/test_mt76_bbp_batch.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bbp_batch.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-compact
+test-core: test-mt76-compact
+test-mt76-compact: build/tests/mt76-compact-host$(HOST_EXE)
+	$<
+build/tests/mt76-compact-host$(HOST_EXE): tools/test_mt76_compact.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_compact.c kernel/src/drivers/mt76_mcu.c -o $@
 
 .PHONY: test-process-lifetime
 test-core: test-process-lifetime
@@ -3885,9 +4065,9 @@ test-storage-wait-result:
 test-core: test-tcp-accept
 test-tcp-accept: build/tests/tcp-accept-host$(HOST_EXE)
 	$<
-build/tests/tcp-accept-host$(HOST_EXE): tools/test_tcp_accept.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/tcp-accept-host$(HOST_EXE): tools/test_tcp_accept.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 
 .PHONY: test-e1000-rx
 test-core: test-e1000-rx
@@ -3896,6 +4076,242 @@ test-e1000-rx: build/tests/e1000-rx-host$(HOST_EXE)
 build/tests/e1000-rx-host$(HOST_EXE): tools/test_e1000_rx.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-rf-probe
+test-core: test-mt76-rf-probe
+test-mt76-rf-probe: build/tests/mt76-rf-probe-host$(HOST_EXE)
+	build/tests/mt76-rf-probe-host$(HOST_EXE)
+build/tests/mt76-rf-probe-host$(HOST_EXE): tools/test_mt76_rf_probe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-central
+test-core: test-mt76-rf-central
+test-mt76-rf-central: build/tests/mt76-rf-central-host$(HOST_EXE)
+	build/tests/mt76-rf-central-host$(HOST_EXE)
+build/tests/mt76-rf-central-host$(HOST_EXE): tools/test_mt76_rf_central.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-six
+test-core: test-mt76-rf-six
+test-mt76-rf-six: build/tests/mt76-rf-six-host$(HOST_EXE)
+	build/tests/mt76-rf-six-host$(HOST_EXE)
+build/tests/mt76-rf-six-host$(HOST_EXE): tools/test_mt76_rf_six.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-csr
+test-core: test-mt76-rf-csr
+test-mt76-rf-csr: build/tests/mt76-rf-csr-host$(HOST_EXE)
+	build/tests/mt76-rf-csr-host$(HOST_EXE)
+build/tests/mt76-rf-csr-host$(HOST_EXE): tools/test_mt76_rf_csr.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-write
+test-core: test-mt76-rf-write
+test-mt76-rf-write: build/tests/mt76-rf-write-host$(HOST_EXE)
+	build/tests/mt76-rf-write-host$(HOST_EXE)
+build/tests/mt76-rf-write-host$(HOST_EXE): tools/test_mt76_rf_write.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-state
+test-core: test-mt76-rf-state
+test-mt76-rf-state: build/tests/mt76-rf-state-host$(HOST_EXE)
+	build/tests/mt76-rf-state-host$(HOST_EXE)
+build/tests/mt76-rf-state-host$(HOST_EXE): tools/test_mt76_rf_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-table
+test-core: test-mt76-rf-table
+test-mt76-rf-table: build/tests/mt76-rf-table-host$(HOST_EXE)
+	build/tests/mt76-rf-table-host$(HOST_EXE)
+build/tests/mt76-rf-table-host$(HOST_EXE): tools/test_mt76_rf_table.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-bank5
+test-core: test-mt76-rf-bank5
+test-mt76-rf-bank5: build/tests/mt76-rf-bank5-host$(HOST_EXE)
+	build/tests/mt76-rf-bank5-host$(HOST_EXE)
+build/tests/mt76-rf-bank5-host$(HOST_EXE): tools/test_mt76_rf_bank5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-bank6
+test-core: test-mt76-rf-bank6
+test-mt76-rf-bank6: build/tests/mt76-rf-bank6-host$(HOST_EXE)
+	build/tests/mt76-rf-bank6-host$(HOST_EXE)
+build/tests/mt76-rf-bank6-host$(HOST_EXE): tools/test_mt76_rf_bank6.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-vga
+test-core: test-mt76-rf-vga
+test-mt76-rf-vga: build/tests/mt76-rf-vga-host$(HOST_EXE)
+	build/tests/mt76-rf-vga-host$(HOST_EXE)
+build/tests/mt76-rf-vga-host$(HOST_EXE): tools/test_mt76_rf_vga.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-g20
+test-core: test-mt76-rf-g20
+test-mt76-rf-g20: build/tests/mt76-rf-g20-host$(HOST_EXE)
+	build/tests/mt76-rf-g20-host$(HOST_EXE)
+build/tests/mt76-rf-g20-host$(HOST_EXE): tools/test_mt76_rf_g20.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-trim
+test-core: test-mt76-rf-trim
+test-mt76-rf-trim: build/tests/mt76-rf-trim-host$(HOST_EXE)
+	build/tests/mt76-rf-trim-host$(HOST_EXE)
+build/tests/mt76-rf-trim-host$(HOST_EXE): tools/test_mt76_rf_trim.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-cal
+test-core: test-mt76-rf-cal
+test-mt76-rf-cal: build/tests/mt76-rf-cal-host$(HOST_EXE)
+	build/tests/mt76-rf-cal-host$(HOST_EXE)
+build/tests/mt76-rf-cal-host$(HOST_EXE): tools/test_mt76_rf_cal.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-wait
+test-core: test-mt76-rf-wait
+test-mt76-rf-wait: build/tests/mt76-rf-wait-host$(HOST_EXE)
+	build/tests/mt76-rf-wait-host$(HOST_EXE)
+build/tests/mt76-rf-wait-host$(HOST_EXE): tools/test_mt76_rf_wait.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-path
+test-core: test-mt76-path
+test-mt76-path: build/tests/mt76-path-host$(HOST_EXE)
+	build/tests/mt76-path-host$(HOST_EXE)
+build/tests/mt76-path-host$(HOST_EXE): tools/test_mt76_path.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-channel-state
+test-core: test-mt76-channel-state
+test-mt76-channel-state: build/tests/mt76-channel-state-host$(HOST_EXE)
+	build/tests/mt76-channel-state-host$(HOST_EXE)
+build/tests/mt76-channel-state-host$(HOST_EXE): tools/test_mt76_channel_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-channel-observe
+test-core: test-mt76-channel-observe
+test-mt76-channel-observe: build/tests/mt76-channel-observe-host$(HOST_EXE)
+	build/tests/mt76-channel-observe-host$(HOST_EXE)
+build/tests/mt76-channel-observe-host$(HOST_EXE): tools/test_mt76_channel_observe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-usb-cycle
+test-core: test-mt76-usb-cycle
+test-mt76-usb-cycle: build/tests/mt76-usb-cycle-host$(HOST_EXE)
+	build/tests/mt76-usb-cycle-host$(HOST_EXE)
+build/tests/mt76-usb-cycle-host$(HOST_EXE): tools/test_mt76_usb_cycle.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bw-observe
+test-core: test-mt76-bw-observe
+test-mt76-bw-observe: build/tests/mt76-bw-observe-host$(HOST_EXE)
+	build/tests/mt76-bw-observe-host$(HOST_EXE)
+build/tests/mt76-bw-observe-host$(HOST_EXE): tools/test_mt76_bw_observe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-bbp20
+test-core: test-mt76-bbp20
+test-mt76-bbp20: build/tests/mt76-bbp20-host$(HOST_EXE)
+	build/tests/mt76-bbp20-host$(HOST_EXE)
+build/tests/mt76-bbp20-host$(HOST_EXE): tools/test_mt76_bbp20.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-channel-probe
+test-core: test-mt76-channel-probe
+test-mt76-channel-probe: build/tests/mt76-channel-probe-host$(HOST_EXE)
+	build/tests/mt76-channel-probe-host$(HOST_EXE)
+build/tests/mt76-channel-probe-host$(HOST_EXE): tools/test_mt76_channel_probe.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rf-band2g
+test-core: test-mt76-rf-band2g
+test-mt76-rf-band2g: build/tests/mt76-rf-band2g-host$(HOST_EXE)
+	build/tests/mt76-rf-band2g-host$(HOST_EXE)
+build/tests/mt76-rf-band2g-host$(HOST_EXE): tools/test_mt76_rf_band2g.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+
+.PHONY: test-mt76-band-mac
+test-core: test-mt76-band-mac
+test-mt76-band-mac: build/tests/mt76-band-mac-host$(HOST_EXE)
+	build/tests/mt76-band-mac-host$(HOST_EXE)
+build/tests/mt76-band-mac-host$(HOST_EXE): tools/test_mt76_band_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-synth1
+test-core: test-mt76-synth1
+test-mt76-synth1: build/tests/mt76-synth1-host$(HOST_EXE)
+	build/tests/mt76-synth1-host$(HOST_EXE)
+build/tests/mt76-synth1-host$(HOST_EXE): tools/test_mt76_synth1.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-post
+test-core: test-mt76-post
+test-mt76-post: build/tests/mt76-post-host$(HOST_EXE)
+	build/tests/mt76-post-host$(HOST_EXE)
+build/tests/mt76-post-host$(HOST_EXE): tools/test_mt76_post.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+
+.PHONY: test-mt76-post-mac
+test-core: test-mt76-post-mac
+test-mt76-post-mac: build/tests/mt76-post-mac-host$(HOST_EXE)
+	build/tests/mt76-post-mac-host$(HOST_EXE)
+build/tests/mt76-post-mac-host$(HOST_EXE): tools/test_mt76_post_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-gain-inventory
+test-core: test-mt76-gain-inventory
+test-mt76-gain-inventory: build/tests/mt76-gain-inventory-host$(HOST_EXE)
+	build/tests/mt76-gain-inventory-host$(HOST_EXE)
+build/tests/mt76-gain-inventory-host$(HOST_EXE): tools/test_mt76_gain_inventory.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+
+build/tests/mt76-channel-bbp-host$(HOST_EXE): tools/test_mt76_channel_bbp.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include tools/test_mt76_channel_bbp.c kernel/src/drivers/mt76_mcu.c -o $@
+.PHONY: test-mt76-channel-bbp
+test-mt76-channel-bbp: build/tests/mt76-channel-bbp-host$(HOST_EXE)
+	$<
+
+test-core: test-mt76-channel-bbp
+
+.PHONY: test-mt76-post-vco
+test-core: test-mt76-post-vco
+test-mt76-post-vco: build/tests/mt76-post-vco-host$(HOST_EXE)
+	build/tests/mt76-post-vco-host$(HOST_EXE)
+build/tests/mt76-post-vco-host$(HOST_EXE): tools/test_mt76_post_vco.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
 
 .PHONY: test-battery-startup-timing
 test-core: test-battery-startup-timing
@@ -4051,6 +4467,37 @@ test-core: test-event-adapters
 test-event-adapters:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py
 
+.PHONY: test-mt76-agc-state
+test-core: test-mt76-agc-state
+test-mt76-agc-state: build/tests/mt76-agc-state-host$(HOST_EXE)
+	build/tests/mt76-agc-state-host$(HOST_EXE)
+build/tests/mt76-agc-state-host$(HOST_EXE): tools/test_mt76_agc_state.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-rx5
+test-core: test-mt76-rx5
+test-mt76-rx5: build/tests/mt76-rx5-host$(HOST_EXE)
+	./build/tests/mt76-rx5-host$(HOST_EXE)
+build/tests/mt76-rx5-host$(HOST_EXE): tools/test_mt76_rx5.c tools/test_mt76_rx.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_rx.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-mt76-rx
+test-core: test-mt76-rx
+test-mt76-rx: build/tests/mt76-rx-host$(HOST_EXE)
+	$<
+build/tests/mt76-rx-host$(HOST_EXE): tools/test_mt76_rx.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_rx.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-mt76-calibration
+test-core: test-mt76-calibration
+test-mt76-calibration: build/tests/mt76-calibration-host$(HOST_EXE)
+	$<
+build/tests/mt76-calibration-host$(HOST_EXE): tools/test_mt76_calibration.c kernel/src/drivers/mt76_calibration.c kernel/include/srvros/mt76_calibration.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
 .PHONY: test-exfat-import
 test-core: test-exfat-import
 test-exfat-import:
@@ -4096,6 +4543,47 @@ build/tests/scheduler-trace-host$(HOST_EXE): tools/test_scheduler_trace.c kernel
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-scheduler-trace
 
+.PHONY: test-mt76-mac-cycle
+test-core: test-mt76-mac-cycle
+test-mt76-mac-cycle: build/tests/mt76-mac-cycle-host$(HOST_EXE)
+	$<
+build/tests/mt76-mac-cycle-host$(HOST_EXE): tools/test_mt76_mac_cycle.c kernel/src/drivers/mt76_mac_cycle.c kernel/include/srvros/mt76_mac_cycle.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mac_cycle.c -o $@
+
+.PHONY: test-mt76-calibration-probe
+test-core: test-mt76-calibration-probe
+test-mt76-calibration-probe: build/tests/mt76-calibration-probe-host$(HOST_EXE)
+	$<
+build/tests/mt76-calibration-probe-host$(HOST_EXE): tools/test_mt76_calibration_probe.c kernel/src/drivers/mt76_calibration.c kernel/include/srvros/mt76_calibration.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
+
+.PHONY: test-mt76-poweron5-calibration
+test-core: test-mt76-poweron5-calibration
+test-mt76-poweron5-calibration: build/tests/mt76-poweron5-calibration-host$(HOST_EXE)
+	./build/tests/mt76-poweron5-calibration-host$(HOST_EXE)
+build/tests/mt76-poweron5-calibration-host$(HOST_EXE): tools/test_mt76_poweron_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DMT76_TEST_HIGH -ffunction-sections -fdata-sections -I kernel/include $< kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-poweron-calibration
+test-core: test-mt76-poweron-calibration
+test-mt76-poweron-calibration: build/tests/mt76-poweron-calibration-host$(HOST_EXE)
+	./$<
+build/tests/mt76-poweron-calibration-host$(HOST_EXE): tools/test_mt76_poweron_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c kernel/include/srvros/mt76_poweron_calibration.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include $< kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-rx-window
+test-core: test-mt76-rx-window
+test-mt76-rx-window: build/tests/mt76-rx-window-host$(HOST_EXE)
+	$(HOST_RUN) $<
+
+build/tests/mt76-rx-window-host$(HOST_EXE): tools/test_mt76_rx_window.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_rx_window.h kernel/include/srvros/mt76_rx.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+
 .PHONY: test-operation-timing
 test-operation-timing:
 	$(PYTHON) tools/test_operation_timing.py
@@ -4105,6 +4593,15 @@ build/tests/capture-transport-host$(HOST_EXE): tools/test_capture_transport.c us
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-mt76-discovery
+test-core: test-mt76-discovery
+test-mt76-discovery: build/tests/mt76-discovery-host$(HOST_EXE)
+	$(HOST_RUN) $<
+
+build/tests/mt76-discovery-host$(HOST_EXE): tools/test_mt76_discovery.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c kernel/include/srvros/mt76_discovery.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+
 .PHONY: test-audio-io-volume
 test-audio-io-volume: build/tests/audio-io-volume-host$(HOST_EXE)
 	$<
@@ -4112,6 +4609,24 @@ build/tests/audio-io-volume-host$(HOST_EXE): tools/test_audio_io_volume.c usersp
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 test-core: test-audio-io-volume
+
+.PHONY: test-mt76-channel-plan
+test-core: test-mt76-channel-plan
+test-mt76-channel-plan: build/tests/mt76-channel-plan-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us-channel-plan.bin
+
+build/tests/mt76-channel-plan-host$(HOST_EXE): tools/test_mt76_channel_plan.c kernel/src/drivers/mt76_channel_plan.c kernel/include/srvros/mt76_channel_plan.h tools/fixtures/mt7610-us-channel-plan.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_plan.c -o $@
+
+.PHONY: test-mt76-channel-tune
+test-core: test-mt76-channel-tune
+test-mt76-channel-tune: build/tests/mt76-channel-tune-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us-channel-plan.bin
+
+build/tests/mt76-channel-tune-host$(HOST_EXE): tools/test_mt76_channel_tune.c kernel/src/drivers/mt76_channel_tune.c kernel/include/srvros/mt76_channel_tune.h kernel/src/drivers/mt76_channel_plan.c tools/fixtures/mt7610-us-channel-plan.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_channel_plan.c -o $@
 
 .PHONY: test-desktop-power
 test-core: test-desktop-power
@@ -4130,6 +4645,14 @@ build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/des
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -idirafter userspace/lib/include -I shared/include $< -o $@
 
+.PHONY: test-mt76-scan
+test-core: test-mt76-scan
+test-mt76-scan: build/tests/mt76-scan-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-scan-host$(HOST_EXE): tools/test_mt76_scan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c -o $@
+
 .PHONY: test-process-event
 test-core: test-process-event
 test-process-event: build/tests/process-event-host$(HOST_EXE)
@@ -4137,6 +4660,45 @@ test-process-event: build/tests/process-event-host$(HOST_EXE)
 build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-wifi-scan-log
+test-core: test-wifi-scan-log
+test-wifi-scan-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_scan_log.py
+
+.PHONY: test-mt76-scan-batch
+test-core: test-mt76-scan-batch
+test-mt76-scan-batch: build/tests/mt76-scan-batch-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-scan-batch-host$(HOST_EXE): tools/test_mt76_scan_batch.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_selection.c -o $@
+
+.PHONY: test-wifi-burst-log
+test-core: test-wifi-burst-log
+test-wifi-burst-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_burst_log.py
+
+.PHONY: test-mt76-selection
+test-core: test-mt76-selection
+test-mt76-selection: build/tests/mt76-selection-host$(HOST_EXE)
+	$<
+build/tests/mt76-selection-host$(HOST_EXE): tools/test_mt76_selection.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_selection.c -o $@
+
+.PHONY: test-wifi-service test-wifi-syscall
+test-core: test-wifi-service test-wifi-syscall
+test-wifi-service: build/tests/wifi-service-host$(HOST_EXE)
+	$<
+build/tests/wifi-service-host$(HOST_EXE): tools/test_wifi_service.c kernel/src/wifi_service.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< kernel/src/drivers/mt76_selection.c -o $@
+test-wifi-syscall: build/tests/wifi-syscall-host$(HOST_EXE)
+	$<
+build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I kernel/src/arch/x86_64 -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
@@ -4182,6 +4744,11 @@ build/tests/ap-probe-host$(HOST_EXE): tools/test_ap_probe.c kernel/include/srvro
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include $< -o $@
 test-core: test-ap-probe
 
+.PHONY: test-wifi-ui-log
+test-core: test-wifi-ui-log
+test-wifi-ui-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_ui_log.py
+
 build/ap-probe/scheduler.o: kernel/src/scheduler.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
@@ -4190,9 +4757,9 @@ build/ap-probe/scheduler.o: kernel/src/scheduler.c $(ZIG) $(LIMINE_PROTOCOL_DIR)
 .PHONY: test-net-datagram test-posix-datagram
 test-net-datagram: build/tests/net-datagram-host$(HOST_EXE)
 	@for mode in icmp-checksum icmp-code icmp-reply udp-wire udp-pressure udp-truncate udp-send-reuse udp-close-wait udp-inherited udp-bind udp-try-send; do $< $$mode || exit $$?; done
-build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-posix-datagram: build/tests/posix-datagram-host$(HOST_EXE)
 	@for mode in truncate zero address empty oom bind-cache; do $< $$mode || exit $$?; done
 build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
@@ -4226,9 +4793,9 @@ build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostic
 .PHONY: test-net-query test-posix-udp-owner
 test-net-query: build/tests/net-query-host$(HOST_EXE)
 	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout dns-last-poll dns-deadline-wake; do $< $$mode || exit $$?; done
-build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
 	@for mode in filter-from filter-msg filter-zero filter-recv unconnected reuse-filter reuse-restart reuse-flags close-only retry-control dontwait-control dup-reuse; do $< $$mode || exit $$?; done
 build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
@@ -4258,9 +4825,9 @@ build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c tools/lega
 DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first
 test-dns-response: build/tests/dns-kernel-host$(HOST_EXE) build/tests/dns-libc-host$(HOST_EXE)
 	@for binary in $^; do for mode in $(DNS_RESPONSE_MODES); do $$binary $$mode || exit $$?; done; done
-build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS)
+build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
@@ -4281,9 +4848,9 @@ build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-net-transfer: build/tests/net-transfer-host$(HOST_EXE)
 	$<
-build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 .PHONY: test-net-transfer
 test-core: test-dns-response test-socket-calls test-socket-try-io test-net-transfer
 
@@ -4416,10 +4983,38 @@ build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c -o $@
 
+.PHONY: test-wifi-channel-log
+test-core: test-wifi-channel-log
+test-wifi-channel-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_channel_log.py
+
+.PHONY: test-mt76-5ghz-plan
+test-core: test-mt76-5ghz-plan
+test-mt76-5ghz-plan: build/tests/mt76-5ghz-plan-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us5-channel161-frequency.bin
+build/tests/mt76-5ghz-plan-host$(HOST_EXE): tools/test_mt76_5ghz_plan.c kernel/src/drivers/mt76_channel_plan.c kernel/include/srvros/mt76_channel_plan.h tools/fixtures/mt7610-us5-channel161-frequency.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_plan.c -o $@
 .PHONY: test-cpu-receipt-tail
 test-core: test-cpu-receipt-tail
 test-cpu-receipt-tail:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_receipt_tail.py
+
+.PHONY: test-mt76-rf-band5g
+test-core: test-mt76-rf-band5g
+test-mt76-rf-band5g: build/tests/mt76-rf-band5g-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-band.bin
+build/tests/mt76-rf-band5g-host$(HOST_EXE): tools/test_mt76_rf_band5g.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-band.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-band5g-mac
+test-core: test-mt76-band5g-mac
+test-mt76-band5g-mac: build/tests/mt76-band5g-mac-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-mac.bin
+build/tests/mt76-band5g-mac-host$(HOST_EXE): tools/test_mt76_band5g_mac.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-mac.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
 
 .PHONY: test-audio-io-producer
 test-core: test-audio-io-producer
@@ -4434,10 +5029,96 @@ test-core: test-cpu-checkpoint-budget
 test-cpu-checkpoint-budget:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_checkpoint_budget.py
 
+.PHONY: test-mt76-rf-a20
+test-core: test-mt76-rf-a20
+test-mt76-rf-a20: build/tests/mt76-rf-a20-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-a20-hb.bin
+build/tests/mt76-rf-a20-host$(HOST_EXE): tools/test_mt76_rf_a20.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-a20-hb.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-5ghz-prereq
+test-core: test-mt76-5ghz-prereq
+test-mt76-5ghz-prereq: build/tests/mt76-5ghz-prereq-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-5ghz-prereq-host$(HOST_EXE): tools/test_mt76_5ghz_prereq.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-5ghz-prereq-log
+test-core: test-wifi-5ghz-prereq-log
+test-wifi-5ghz-prereq-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_prereq_log.py
+
+.PHONY: test-mt76-5ghz-band
+test-core: test-mt76-5ghz-band
+test-mt76-5ghz-band: build/tests/mt76-5ghz-band-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-5ghz-band-host$(HOST_EXE): tools/test_mt76_5ghz_band.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-5ghz-band-log
+test-core: test-wifi-5ghz-band-log
+test-wifi-5ghz-band-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_band_log.py
+
+.PHONY: test-mt76-synth5
+test-core: test-mt76-synth5
+test-mt76-synth5: build/tests/mt76-synth5-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us5-channel161-frequency.bin
+build/tests/mt76-synth5-host$(HOST_EXE): tools/test_mt76_synth5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-5ghz-channel-log
+test-core: test-wifi-5ghz-channel-log
+test-wifi-5ghz-channel-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_channel_log.py
+
+.PHONY: test-mt76-a20-inventory
+test-core: test-mt76-a20-inventory
+test-mt76-a20-inventory: build/tests/mt76-a20-inventory-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-a20-inventory-host$(HOST_EXE): tools/test_mt76_a20_inventory.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-a20-inventory-log
+test-core: test-wifi-a20-inventory-log
+test-wifi-a20-inventory-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_a20_inventory_log.py
+
 .PHONY: test-cpu-capture-format
 test-core: test-cpu-capture-format
 test-cpu-capture-format:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py
+
+.PHONY: test-mt76-a20-cycle
+test-core: test-mt76-a20-cycle
+test-mt76-a20-cycle: build/tests/mt76-a20-cycle-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-a20-hb.bin
+build/tests/mt76-a20-cycle-host$(HOST_EXE): tools/test_mt76_a20_cycle.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-a20-cycle-log
+test-core: test-wifi-a20-cycle-log
+test-wifi-a20-cycle-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_a20_cycle_log.py
+
+.PHONY: test-mt76-frontend
+test-core: test-mt76-frontend
+test-mt76-frontend: build/tests/mt76-frontend-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-frontend-targets.bin
+build/tests/mt76-frontend-host$(HOST_EXE): tools/test_mt76_frontend.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-frontend-log
+test-core: test-wifi-frontend-log
+test-wifi-frontend-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_frontend_log.py
 
 .PHONY: test-app-registry
 test-desktop: test-app-registry
@@ -4501,6 +5182,32 @@ build/tests/virtio-%-host$(HOST_EXE): tools/test_virtio_%.c kernel/src/drivers/v
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
 
+.PHONY: test-mt76-pa5
+test-core: test-mt76-pa5
+test-mt76-pa5: build/tests/mt76-pa5-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-pa-cycle.bin
+build/tests/mt76-pa5-host$(HOST_EXE): tools/test_mt76_pa5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-pa-cycle.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-pa5-log
+test-core: test-wifi-pa5-log
+test-wifi-pa5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_pa5_log.py
+
+.PHONY: test-mt76-bbp5
+test-core: test-mt76-bbp5
+test-mt76-bbp5: build/tests/mt76-bbp5-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-bbp-cycle.bin
+build/tests/mt76-bbp5-host$(HOST_EXE): tools/test_mt76_bbp5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-bbp-cycle.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-bbp5-log
+test-core: test-wifi-bbp5-log
+test-wifi-bbp5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_bbp5_log.py
+
 .PHONY: test-qmp-hid-input
 test-core: test-qmp-hid-input
 test-qmp-hid-input:
@@ -4528,6 +5235,28 @@ include ports/srvros/patch/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
+
+.PHONY: test-mt76-channel5
+test-core: test-mt76-channel5
+test-mt76-channel5: build/tests/mt76-channel5-host$(HOST_EXE)
+	$<
+build/tests/mt76-channel5-host$(HOST_EXE): tools/test_mt76_channel5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_channel5.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-held-log
+test-core: test-wifi-held-log
+test-wifi-held-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_held_log.py
+
+.PHONY: test-mt76-trim5
+test-core: test-mt76-trim5
+test-mt76-trim5: build/tests/mt76-trim5-host$(HOST_EXE)
+	$<
+build/tests/mt76-trim5-host$(HOST_EXE): tools/test_mt76_trim5.c tools/test_mt76_channel5.c kernel/src/drivers/mt76_trim5.c kernel/include/srvros/mt76_trim5.h kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_trim5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c -o $@
+
 build/userspace/lib/src/desk_font.c.o: userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h userspace/widgets/render/desk_font_2x.inc
 
 .PHONY: test-display-owner
@@ -4720,6 +5449,31 @@ test-core: test-dirty-salvage-scope
 test-dirty-salvage-scope:
 	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
 
+.PHONY: test-wifi-trim5-log
+test-core: test-wifi-trim5-log
+test-wifi-trim5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_trim5_log.py
+
+.PHONY: test-mt76-dac5 test-wifi-dac5-log
+test-core: test-mt76-dac5 test-wifi-dac5-log
+test-mt76-dac5: build/tests/mt76-dac5-host$(HOST_EXE)
+	$< tools/fixtures/mt7610-5ghz-dac-cycle.bin
+build/tests/mt76-dac5-host$(HOST_EXE): tools/test_mt76_dac5.c kernel/src/drivers/mt76_dac5.c kernel/include/srvros/mt76_dac5.h kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_dac5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mcu.c -o $@
+test-wifi-dac5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_dac5_log.py
+
+.PHONY: test-mt76-vco5 test-wifi-vco5-log
+test-core: test-mt76-vco5 test-wifi-vco5-log
+test-mt76-vco5: build/tests/mt76-vco5-host$(HOST_EXE)
+	$< tools/fixtures/mt7610-5ghz-vco-cycle.bin
+build/tests/mt76-vco5-host$(HOST_EXE): tools/test_mt76_vco5.c kernel/src/drivers/mt76_vco5.c kernel/include/srvros/mt76_vco5.h kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_mcu.c -o $@
+test-wifi-vco5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_vco5_log.py
+
 .PHONY: test-fpu-init-mask
 test-fpu-init-mask: build/tests/fpu-init-mask-host$(HOST_EXE)
 	$<
@@ -4798,6 +5552,34 @@ build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/s
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
 
+.PHONY: test-mt76-cal5-hook
+test-core: test-mt76-cal5-hook
+test-mt76-cal5-hook: build/tests/mt76-cal5-hook-host$(HOST_EXE)
+	./build/tests/mt76-cal5-hook-host$(HOST_EXE)
+build/tests/mt76-cal5-hook-host$(HOST_EXE): tools/test_mt76_cal5_hook.c tools/test_mt76_channel_vco5.c tools/test_mt76_channel5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -iquote tools $< kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-channel-vco5 test-mt76-cvco5 test-wifi-channel-vco5-log
+test-core: test-mt76-channel-vco5 test-mt76-cvco5 test-wifi-channel-vco5-log
+test-mt76-channel-vco5: build/tests/mt76-channel-vco5-host$(HOST_EXE)
+	$<
+build/tests/mt76-channel-vco5-host$(HOST_EXE): tools/test_mt76_channel_vco5.c tools/test_mt76_channel5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -iquote tools tools/test_mt76_channel_vco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c -o $@
+test-mt76-cvco5: build/tests/mt76-cvco5-host$(HOST_EXE)
+	$< tools/fixtures/mt7610-5ghz-channel-vco.bin
+build/tests/mt76-cvco5-host$(HOST_EXE): tools/test_mt76_cvco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_mcu.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_cvco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_mcu.c -o $@
+test-wifi-channel-vco5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_channel_vco5_log.py
+
+.PHONY: test-wifi-cal5-log
+test-core: test-wifi-cal5-log
+test-wifi-cal5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_cal5_log.py
+
 # Firmware-only capture lives only in the dedicated diagnostic ELF.
 build/ap-probe/haswell-firmware-core.o: kernel/diagnostics/haswell_firmware_core.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
@@ -4836,6 +5618,45 @@ build/userspace/test_xz_alloc_probe.elf: tools/test_xz_probe.c $(XZ_DIR)/allocat
 build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-rsn test-mt76-discovery5 test-wifi-discovery5-log
+test-core: test-mt76-rsn test-mt76-discovery5 test-wifi-discovery5-log
+test-wifi-discovery5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_discovery5_log.py
+test-mt76-rsn: build/tests/mt76-rsn-host$(HOST_EXE)
+	$<
+build/tests/mt76-rsn-host$(HOST_EXE): tools/test_mt76_rsn.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_rsn.c -o $@
+test-mt76-discovery5: build/tests/mt76-discovery5-host$(HOST_EXE)
+	$<
+build/tests/mt76-discovery5-host$(HOST_EXE): tools/test_mt76_discovery5.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-mt76-mgmt5
+test-core: test-mt76-mgmt5
+test-mt76-mgmt5: build/tests/mt76-mgmt5-host$(HOST_EXE)
+	$<
+build/tests/mt76-mgmt5-host$(HOST_EXE): tools/test_mt76_mgmt5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-wpa2-nonce
+test-core: test-wpa2-nonce
+test-wpa2-nonce: build/tests/wpa2-nonce-host$(HOST_EXE)
+	$<
+build/tests/wpa2-nonce-host$(HOST_EXE): tools/test_wpa2_nonce.c kernel/src/wpa2_nonce.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-mt76-power5
+test-core: test-mt76-power5
+test-mt76-power5: build/tests/mt76-power5-host$(HOST_EXE)
+	$<
+build/tests/mt76-power5-host$(HOST_EXE): tools/test_mt76_power5.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5.c -o $@
 
 .PHONY: test-profile-stream
 test-profile-stream: test-portable-profiles test-profile-chooser test-file-stream build/tests/profile-ui-host$(HOST_EXE)
@@ -4881,6 +5702,35 @@ build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(
 	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
 
+.PHONY: test-mt76-power5-capture
+test-core: test-mt76-power5-capture
+test-mt76-power5-capture: build/tests/mt76-power5-capture-host$(HOST_EXE)
+	$<
+build/tests/mt76-power5-capture-host$(HOST_EXE): tools/test_mt76_power5_capture.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c -o $@
+
+.PHONY: test-mt76-power5-cycle
+test-core: test-mt76-power5-cycle
+test-mt76-power5-cycle: build/tests/mt76-power5-cycle-host$(HOST_EXE)
+	$<
+build/tests/mt76-power5-cycle-host$(HOST_EXE): tools/test_mt76_power5_cycle.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c -o $@
+
+.PHONY: test-xhci-power5
+test-core: test-xhci-power5
+test-xhci-power5: build/tests/xhci-power5-host$(HOST_EXE)
+	$<
+build/tests/xhci-power5-host$(HOST_EXE): tools/test_xhci_wifi_power5.c kernel/src/drivers/xhci_wifi_power5.inc kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c -o $@
+
+.PHONY: test-wifi-power5-log
+test-core: test-wifi-power5-log
+test-wifi-power5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_power5_log.py
+
 # Injected only into disposable GNU Patch qualification images.
 build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
 	mkdir -p build/userspace/patch-probe
@@ -4908,6 +5758,27 @@ build/tests/hsw-cache-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c ker
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@
 
+.PHONY: test-mt76-handoff5
+test-core: test-mt76-handoff5
+test-mt76-handoff5: build/tests/mt76-handoff5-host$(HOST_EXE)
+	$<
+build/tests/mt76-handoff5-host$(HOST_EXE): tools/test_mt76_handoff5.c kernel/src/drivers/mt76_handoff5.c kernel/include/srvros/mt76_handoff5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_handoff5.c -o $@
+
+.PHONY: test-xhci-handoff5
+test-core: test-xhci-handoff5
+test-xhci-handoff5: build/tests/xhci-handoff5-host$(HOST_EXE)
+	$<
+build/tests/xhci-handoff5-host$(HOST_EXE): tools/test_xhci_wifi_handoff5.c kernel/src/drivers/xhci_wifi_handoff5.inc kernel/src/drivers/mt76_handoff5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_handoff5.c -o $@
+
+.PHONY: test-wifi-handoff5-log
+test-core: test-wifi-handoff5-log
+test-wifi-handoff5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_handoff5_log.py
+
 build/ap-probe/haswell-alias-core.o: kernel/diagnostics/haswell_alias_core.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -4934,6 +5805,27 @@ build/tests/hsw-alias-ecam$(HOST_EXE): tools/test_haswell_alias_ecam.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
 
+.PHONY: test-mt76-peer5
+test-core: test-mt76-peer5
+test-mt76-peer5: build/tests/mt76-peer5-host$(HOST_EXE)
+	$<
+build/tests/mt76-peer5-host$(HOST_EXE): tools/test_mt76_peer5.c tools/test_mt76_discovery5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-xhci-peer5
+test-core: test-xhci-peer5
+test-xhci-peer5: build/tests/xhci-peer5-host$(HOST_EXE)
+	$<
+build/tests/xhci-peer5-host$(HOST_EXE): tools/test_xhci_wifi_peer5.c kernel/src/drivers/xhci_wifi_peer5.inc kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-wifi-peer5-log
+test-core: test-wifi-peer5-log
+test-wifi-peer5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_peer5_log.py
+
 .PHONY: test-haswell-ecam-proposal
 test-haswell-alias-context: test-haswell-ecam-proposal
 test-haswell-ecam-proposal: test-haswell-alias-layout
@@ -4958,6 +5850,100 @@ build/tests/ecam-pci$(HOST_EXE): tools/test_ecam_pci.c tools/test_ecam_profile.c
 build/tests/ecam-boot-gate$(HOST_EXE): tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-join5
+test-core: test-mt76-join5
+test-mt76-join5: build/tests/mt76-join5-host$(HOST_EXE)
+	$<
+build/tests/mt76-join5-host$(HOST_EXE): tools/test_mt76_join5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-xhci-tx5
+test-core: test-xhci-tx5
+test-xhci-tx5: build/tests/xhci-tx5-host$(HOST_EXE)
+	$<
+build/tests/xhci-tx5-host$(HOST_EXE): tools/test_xhci_wifi_tx5.c kernel/src/drivers/xhci_wifi_tx5.inc $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-wifi-tx5-log
+test-core: test-wifi-tx5-log
+test-wifi-tx5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_tx5_log.py
+
+.PHONY: test-xhci-join5
+test-core: test-xhci-join5
+test-xhci-join5: build/tests/xhci-join5-host$(HOST_EXE)
+	$<
+build/tests/xhci-join5-host$(HOST_EXE): tools/test_xhci_wifi_join5.c kernel/src/drivers/xhci_wifi_join5.inc kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-wifi-join5-log
+test-core: test-wifi-join5-log
+test-wifi-join5-log: build/tests/xhci-join5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_join5_log.py
+
+.PHONY: test-wpa2-crypto
+test-core: test-wpa2-crypto
+test-wpa2-crypto: build/tests/wpa2-crypto-host$(HOST_EXE) build/tests/wpa2-crypto-shared.so
+	build/tests/wpa2-crypto-host$(HOST_EXE)
+	$(PYTHON) tools/test_wpa2_crypto.py build/tests/wpa2-crypto-shared.so
+build/tests/wpa2-crypto-host$(HOST_EXE): tools/test_wpa2_crypto.c kernel/src/wpa2_crypto.c kernel/include/srvros/wpa2_crypto.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+build/tests/wpa2-crypto-shared.so: kernel/src/wpa2_crypto.c kernel/include/srvros/wpa2_crypto.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< -o $@
+
+.PHONY: test-wpa2-handshake
+test-core: test-wpa2-handshake
+test-wpa2-handshake: build/tests/wpa2-keywrap-host$(HOST_EXE) build/tests/wpa2-handshake-host$(HOST_EXE)
+	build/tests/wpa2-keywrap-host$(HOST_EXE)
+	build/tests/wpa2-handshake-host$(HOST_EXE)
+build/tests/wpa2-keywrap-host$(HOST_EXE): tools/test_wpa2_keywrap.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/include/srvros/wpa2_keywrap.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_keywrap.c -o $@
+build/tests/wpa2-handshake-host$(HOST_EXE): tools/test_wpa2_handshake.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
+
+# Optional independent crypto oracle;requires host Python cryptography.
+.PHONY: test-wpa2-handshake-differential
+test-wpa2-handshake-differential: build/tests/wpa2-handshake-shared.so
+	$(PYTHON) tools/test_wpa2_handshake.py $<
+build/tests/wpa2-handshake-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-mt76-eapol5
+test-core: test-mt76-eapol5
+test-mt76-eapol5: build/tests/mt76-eapol5-host$(HOST_EXE)
+	$<
+build/tests/mt76-eapol5-host$(HOST_EXE): tools/test_mt76_eapol5.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c -o $@
+
+.PHONY: test-wifi-eapol5-log
+test-core: test-wifi-eapol5-log
+test-wifi-eapol5-log: build/tests/xhci-join5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_eapol5_log.py
+
+.PHONY: test-wpa2-ccmp
+test-core: test-wpa2-ccmp
+test-wpa2-ccmp: build/tests/wpa2-ccmp-host$(HOST_EXE)
+	$<
+build/tests/wpa2-ccmp-host$(HOST_EXE): tools/test_wpa2_ccmp.c tools/fixtures/wpa2-ccmp-synthetic.h tools/fixtures/wpa2-handshake-synthetic.h kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-wpa2-ccmp-differential
+test-wpa2-ccmp-differential: build/tests/wpa2-ccmp-shared.so
+	$(PYTHON) tools/test_wpa2_ccmp.py $<
+build/tests/wpa2-ccmp-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c -o $@
 
 .PHONY: test-air61-window
 test-core: test-air61-window
@@ -4984,6 +5970,132 @@ build/tests/air61-window-profile$(HOST_EXE): tools/test_air61_window_profile.c t
 build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_ecam_report.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-wpa5
+test-core: test-mt76-wpa5
+test-mt76-wpa5: build/tests/mt76-wpa5-host$(HOST_EXE)
+	$<
+WIFI_PROVIDER5_SOURCE := kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c kernel/src/drivers/mt76_fence5.c
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-wpa5-host$(HOST_EXE) build/tests/xhci-data5-host$(HOST_EXE) build/tests/xhci-provider5-host$(HOST_EXE): $(WIFI_PROVIDER5_SOURCE) kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc kernel/src/net_device.c
+WPA5_SOURCES := kernel/src/sha256.c kernel/src/drivers/mt76_wpa5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_data5.c kernel/src/drivers/mt76_ip5.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c
+build/tests/mt76-wpa5-host$(HOST_EXE): tools/test_mt76_wpa5.c tools/fixtures/wpa2-handshake-synthetic.h $(WPA5_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WPA5_SOURCES) -o $@
+
+.PHONY: test-xhci-wpa5
+test-core: test-xhci-wpa5
+test-xhci-wpa5: build/tests/xhci-wpa5-host$(HOST_EXE)
+	$<
+build/tests/xhci-wpa5-host$(HOST_EXE): tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_join5.inc $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
+build/tests/xhci-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_wpa5.inc
+
+.PHONY: test-wifi-wpa5-log
+test-core: test-wifi-wpa5-log
+test-wifi-wpa5-log: build/tests/xhci-wpa5-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_wpa5_log.py
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_wpa5_credentials.py
+build/tests/xhci-host$(HOST_EXE): $(WPA5_SOURCES) kernel/src/wpa2_nonce.c kernel/src/initramfs.c
+
+.PHONY: test-mt76-data5
+test-core: test-mt76-data5
+test-mt76-data5: build/tests/mt76-data5-host$(HOST_EXE)
+	$<
+build/tests/mt76-data5-host$(HOST_EXE): tools/test_mt76_data5.c tools/fixtures/wpa2-handshake-synthetic.h tools/fixtures/wpa2-ccmp-synthetic.h kernel/src/drivers/mt76_data5.c $(WPA5_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WPA5_SOURCES) -o $@
+
+.PHONY: test-mt76-data5-differential
+test-mt76-data5-differential: build/tests/mt76-data5-shared.so
+	$(PYTHON) tools/test_mt76_data5.py $<
+build/tests/mt76-data5-shared.so: tools/wpa2_handshake_probe.c kernel/src/drivers/mt76_data5.c $(WPA5_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include -I shared/include $< $(WPA5_SOURCES) -o $@
+
+.PHONY: test-mt76-ip5
+test-core: test-mt76-ip5
+test-mt76-ip5: build/tests/mt76-ip5-shared.so
+	$(PYTHON) tools/test_mt76_ip5.py $<
+build/tests/mt76-ip5-shared.so: tools/mt76_ip5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c kernel/include/srvros/sha256.h kernel/include/srvros/mt76_ip5.h shared/include/srvros/dns_wire.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include -I shared/include $< kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c -o $@
+
+.PHONY: test-xhci-data5
+test-core: test-xhci-data5
+test-xhci-data5: build/tests/xhci-data5-host$(HOST_EXE)
+	$<
+build/tests/xhci-data5-host$(HOST_EXE): tools/test_xhci_wifi_data5.c tools/test_xhci_wifi_wpa5.c tools/fixtures/mt76-data5-synthetic.h kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_join5.inc $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-wifi-data5-log
+test-core: test-wifi-data5-log
+test-wifi-data5-log: build/tests/xhci-data5-host$(HOST_EXE) build/tests/mt76-ip5-shared.so
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_data5_log.py
+	$(PYTHON) tools/mt76_data5_fixture.py build/tests/mt76-ip5-shared.so --check
+
+.PHONY: test-xhci-provider5 test-wifi-provider5-log
+test-core: test-xhci-provider5 test-wifi-provider5-log
+test-xhci-provider5: build/tests/xhci-provider5-host$(HOST_EXE)
+	$<
+build/tests/xhci-provider5-host$(HOST_EXE): tools/test_xhci_wifi_provider5.c tools/test_xhci_wifi_wpa5.c tools/fixtures/mt76-data5-synthetic.h kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_join5.inc $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
+test-wifi-provider5-log: build/tests/xhci-provider5-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_provider5_log.py
+
+.PHONY: test-mt76-dma5
+test-core: test-mt76-dma5
+test-mt76-dma5: build/tests/mt76-dma5-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-host$(HOST_EXE): tools/test_mt76_dma5.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_dma5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_dma5.c -o $@
+
+.PHONY: test-mt76-dma5-stack
+test-core: test-mt76-dma5-stack
+test-mt76-dma5-stack: build/tests/mt76-dma5-stack-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-stack-host$(HOST_EXE): tools/test_mt76_dma5_stack.c tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< tools/net_bounded_legacy_stubs.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-reuse5
+test-core: test-xhci-reuse5
+test-xhci-reuse5: build/tests/xhci-reuse5-host$(HOST_EXE)
+	$<
+build/tests/xhci-reuse5-host$(HOST_EXE): tools/test_xhci_wifi_reuse5.c tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-wifi-reuse5-log
+test-core: test-wifi-reuse5-log
+test-wifi-reuse5-log: build/tests/xhci-reuse5-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_reuse5_log.py
+
+.PHONY: test-wifi-completion-foundations test-xhci-rx5 test-mt76-dma5-native63 test-wifi-workspace-proof
+test-core: test-xhci-rx5 test-mt76-dma5-native63 test-wifi-workspace-proof
+test-wifi-completion-foundations: test-xhci-rx5 test-mt76-dma5-native63 test-wifi-workspace-proof
+
+test-mt76-dma5-native63: build/tests/mt76-dma5-native63-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-native63-host$(HOST_EXE): tools/test_mt76_dma5_native63.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_dma5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_dma5.c -o $@
+
+test-wifi-workspace-proof:
+	$(PYTHON) -B -m unittest discover -s tools -p test_wifi_workspace_proof.py
+
+# Rename only this provider object's sink;the legacy fixture keeps its refusal.
+build/tests/mt76-net5-rx5.o: kernel/src/drivers/mt76_net5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -Dnet_handle_ethernet_frame=rx5_deliver -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -c $< -o $@
+test-xhci-rx5: build/tests/xhci-rx5-host$(HOST_EXE)
+	$<
+build/tests/xhci-rx5-host$(HOST_EXE): tools/test_xhci_wifi_rx5.c tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc kernel/src/drivers/mt76_dma5.c $(WPA5_SOURCES) $(KERNEL_HEADERS) kernel/src/net_device.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c build/tests/mt76-net5-rx5.o
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_dma5.c $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c build/tests/mt76-net5-rx5.o -o $@
 
 .PHONY: test-air61-read-window air61-read-window-object
 test-core: test-air61-read-window
@@ -5098,6 +6210,50 @@ test-core: test-render-timing
 test-render-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_render_timing.py
 
+.PHONY: test-mt76-fence5
+test-core: test-mt76-fence5
+test-wifi-completion-foundations: test-mt76-fence5
+test-mt76-fence5: build/tests/mt76-fence5-host$(HOST_EXE)
+	$<
+build/tests/mt76-fence5-host$(HOST_EXE): tools/test_mt76_fence5.c kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_fence5.h kernel/include/srvros/mt76_dma5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c -o $@
+
+
+.PHONY: test-mt76-dma5-noop test-xhci-fence5
+test-core: test-mt76-dma5-noop test-xhci-fence5
+test-wifi-completion-foundations: test-mt76-dma5-noop test-xhci-fence5
+test-mt76-dma5-noop: build/tests/mt76-dma5-noop-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-noop-host$(HOST_EXE): tools/test_mt76_dma5_noop.c kernel/src/drivers/mt76_dma5.c kernel/src/drivers/mt76_fence5.c kernel/include/srvros/mt76_dma5.h kernel/include/srvros/mt76_fence5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_dma5.c kernel/src/drivers/mt76_fence5.c -o $@
+test-xhci-fence5: build/tests/xhci-fence5-host$(HOST_EXE)
+	$<
+build/tests/xhci-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc
+build/tests/xhci-fence5-host$(HOST_EXE): tools/test_xhci_wifi_fence5.c tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+
+
+.PHONY: test-xhci-nop5 test-wifi-nop5-log
+test-core: test-xhci-nop5 test-wifi-nop5-log
+test-wifi-completion-foundations: test-xhci-nop5
+test-xhci-nop5: build/tests/xhci-nop5-host$(HOST_EXE)
+	$<
+build/tests/xhci-nop5-host$(HOST_EXE): tools/test_xhci_wifi_nop5.c tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+test-wifi-nop5-log: build/tests/xhci-nop5-host$(HOST_EXE)
+	$< --trace > build/tests/xhci-nop5-trace.log
+	WIFI_NOP5_TRACE=build/tests/xhci-nop5-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_nop5_log.py
+
+.PHONY: test-wifi-main-dispatch
+test-core: test-wifi-main-dispatch
+test-wifi-completion-foundations: test-wifi-main-dispatch
+test-wifi-main-dispatch:
+	WIFI_DISPATCH_CC="$(HOST_CC)" $(PYTHON) -B -m unittest discover -s tools -p test_wifi_main_dispatch.py
+
 .PHONY: test-lifecycle-receipts
 test-desktop: test-lifecycle-receipts
 test-lifecycle-receipts: build/tests/desktop-session-host$(HOST_EXE)
@@ -5120,6 +6276,51 @@ test-core: test-capture-write-timing
 # The real process host fixture includes this private timing implementation.
 build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h
 
+.PHONY: test-vfs-metadata-restore test-exfat-metadata-restore
+test-core: test-vfs-metadata-restore test-exfat-metadata-restore
+test-wifi-completion-foundations: test-vfs-metadata-restore test-exfat-metadata-restore
+test-vfs-metadata-restore: build/tests/vfs-metadata-restore-host$(HOST_EXE)
+	$<
+build/tests/vfs-metadata-restore-host$(HOST_EXE): tools/test_vfs_metadata_restore.c kernel/src/vfs.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-exfat-metadata-restore: build/tests/exfat-metadata-restore-host$(HOST_EXE)
+	$<
+build/tests/exfat-metadata-restore-host$(HOST_EXE): tools/test_exfat_metadata_restore.c tools/test_exfat_import.c tools/test_vfs_namespace.inc kernel/src/vfs.c kernel/src/fs/exfat.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -idirafter userspace/lib/include -std=c11 -O1 -g -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/vfs.c kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+
+
+.PHONY: test-mt76-stream5-probe test-mt76-net5-ready
+test-core: test-mt76-stream5-probe test-mt76-net5-ready
+test-wifi-completion-foundations: test-mt76-stream5-probe test-mt76-net5-ready
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-fence5-host$(HOST_EXE) build/tests/xhci-nop5-host$(HOST_EXE): kernel/src/drivers/mt76_stream5_probe.c kernel/include/srvros/mt76_stream5_probe.h kernel/src/drivers/xhci_wifi_stream5.inc
+test-mt76-stream5-probe: build/tests/mt76-stream5-probe-host$(HOST_EXE)
+	$<
+build/tests/mt76-stream5-probe-host$(HOST_EXE): tools/test_mt76_stream5_probe.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c kernel/include/srvros/mt76_stream5_probe.h kernel/include/srvros/mt76_ip5.h shared/include/srvros/dns_wire.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c -o $@
+test-mt76-net5-ready: build/tests/mt76-net5-ready-host$(HOST_EXE)
+	$<
+build/tests/mt76-net5-ready-host$(HOST_EXE): tools/test_mt76_net5_ready.c tools/test_mt76_net5.c kernel/src/drivers/mt76_net5.c kernel/include/srvros/mt76_net5.h kernel/include/srvros/net_device.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_net5.c -o $@
+
+.PHONY: test-xhci-stream5
+test-core: test-xhci-stream5
+test-wifi-completion-foundations: test-xhci-stream5
+test-xhci-stream5: build/tests/xhci-stream5-host$(HOST_EXE)
+	$<
+build/tests/xhci-stream5-host$(HOST_EXE): tools/test_xhci_wifi_stream5.c tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+.PHONY: test-wifi-stream5-log
+test-core: test-wifi-stream5-log
+test-wifi-completion-foundations: test-wifi-stream5-log
+test-wifi-stream5-log: build/tests/xhci-stream5-host$(HOST_EXE)
+	$< --trace > build/tests/xhci-stream5-trace.log
+	WIFI_STREAM5_TRACE=build/tests/xhci-stream5-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stream5_log.py
+
 .PHONY: test-sync-timing
 test-sync-timing: build/tests/sync-timing-host$(HOST_EXE) build/tests/workspace-sync-content-wire$(HOST_EXE) build/tests/workspace-sync-gate-wire$(HOST_EXE)
 	build/tests/sync-timing-host$(HOST_EXE)
@@ -5139,6 +6340,79 @@ build/tests/workspace-sync-gate-wire$(HOST_EXE): tools/test_sync_timing.c tools/
 	$(HOST_CC) -DSRVROS_CAPTURE_GATE_SYNC_WIRE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_sync_timing.c tools/test_workspace_capture_write_wire.c -Wl,--gc-sections -o $@
 test-core: test-sync-timing
 
+.PHONY: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry
+test-core: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry
+test-wifi-completion-foundations: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry
+test-xhci-stream5-dhcp: build/tests/xhci-stream5-dhcp-host$(HOST_EXE)
+	$<
+test-wifi-stream5-dhcp-log: build/tests/xhci-stream5-dhcp-host$(HOST_EXE)
+	$< --trace > build/tests/xhci-stream5-dhcp-trace.log
+	WIFI_STREAM5_DHCP_TRACE=build/tests/xhci-stream5-dhcp-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stream5_dhcp_log.py
+test-mt76-ip5-retry: build/tests/mt76-ip5-retry-host$(HOST_EXE)
+	$<
+build/tests/xhci-stream5-dhcp-host$(HOST_EXE): tools/test_xhci_wifi_stream5_dhcp.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+build/tests/mt76-ip5-retry-host$(HOST_EXE): tools/test_mt76_ip5_retry.c tools/test_mt76_stream5_probe.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c kernel/include/srvros/mt76_stream5_probe.h kernel/include/srvros/mt76_ip5.h shared/include/srvros/dns_wire.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c -o $@
+
+.PHONY: test-net-dhcp-retry
+test-core: test-net-dhcp-retry
+test-wifi-completion-foundations: test-net-dhcp-retry
+test-net-dhcp-retry: build/tests/net-dhcp-retry-host$(HOST_EXE)
+	$<
+build/tests/net-dhcp-retry-host$(HOST_EXE): tools/test_net_dhcp_retry.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-net-probe-quiet
+test-core: test-net-probe-quiet
+test-wifi-completion-foundations: test-net-probe-quiet
+test-net-probe-quiet: build/tests/net-probe-quiet-host$(HOST_EXE)
+	$<
+build/tests/net-probe-quiet-host$(HOST_EXE): tools/test_net_probe_quiet.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
+
+# Optional independent AP oracle needs Python cryptography and OpenSSL headers.
+# It is intentionally separate from the portable default test-core dependencies.
+.PHONY: test-mt76-stack5-peer
+test-mt76-stack5-peer:
+	$(PYTHON) -B tools/test_mt76_stack5_peer.py
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-fence5-host$(HOST_EXE) build/tests/xhci-nop5-host$(HOST_EXE) build/tests/xhci-stream5-host$(HOST_EXE) build/tests/xhci-stream5-dhcp-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_stack5.inc
+
+HOST_OPENSSL_CFLAGS ?=
+HOST_OPENSSL_LIBS ?= -lcrypto
+.PHONY: test-xhci-stack5
+test-xhci-stack5: build/tests/xhci-stack5-host$(HOST_EXE)
+	$<
+build/tests/xhci-stack5-host$(HOST_EXE): tools/test_xhci_wifi_stack5.c tools/test_http_native_guard.c kernel/src/http_network_probe.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE) tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/xhci_wifi_stack5.inc kernel/src/drivers/mt76_stack5_probe.c kernel/include/srvros/mt76_stack5_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST $(HOST_OPENSSL_CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c kernel/src/drivers/mt76_stack5_probe.c kernel/src/net.c kernel/src/net_device.c tools/test_http_native_guard.c tools/fixtures/mt76-stack5-peer.c -Wl,--gc-sections $(HOST_OPENSSL_LIBS) -o $@
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-stream5-host$(HOST_EXE) build/tests/xhci-stream5-dhcp-host$(HOST_EXE): kernel/include/srvros/mt76_stack5_probe.h
+
+.PHONY: test-net-bounded-probe test-wifi-stack5-log
+test-core: test-net-bounded-probe
+test-wifi-completion-foundations: test-net-bounded-probe
+test-net-bounded-probe: build/tests/net-bounded-probe-host$(HOST_EXE)
+	$<
+.PHONY: test-net-bootstrap-abort
+test-core: test-net-bootstrap-abort
+test-net-bootstrap-abort: build/tests/net-bootstrap-abort-host$(HOST_EXE)
+	$<
+build/tests/net-bootstrap-abort-host$(HOST_EXE): tools/test_net_bootstrap_abort.c tools/test_net_bounded_probe.c tools/test_net_dhcp_retry.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+build/tests/net-bounded-probe-host$(HOST_EXE): tools/test_net_bounded_probe.c tools/test_net_dhcp_retry.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+WIFI_STACK5_TRACE_ARGS ?=
+test-wifi-stack5-log: build/tests/xhci-stack5-host$(HOST_EXE)
+	$< --trace $(WIFI_STACK5_TRACE_ARGS) > build/tests/xhci-stack5-trace.log
+	$< --trace-retry $(WIFI_STACK5_TRACE_ARGS) > build/tests/xhci-stack5-retry-trace.log
+	WIFI_STACK5_TRACE=build/tests/xhci-stack5-trace.log WIFI_STACK5_RETRY_TRACE=build/tests/xhci-stack5-retry-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stack5_log.py
+
 .PHONY: test-exfat-link-batch
 test-core: test-exfat-link-batch
 test-exfat-link-batch: build/tests/exfat-link-batch-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-unbatched-links-driver$(HOST_EXE)
@@ -5150,6 +6424,12 @@ build/tests/exfat-link-batch-host$(HOST_EXE): tools/test_exfat_link_batch.c kern
 build/tests/exfat-unbatched-links-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_LINK_BATCH_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-inspection
+test-core: test-exfat-inspection
+test-exfat-inspection: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) -B tools/test_exfat_inspection_mount.py --driver $< --output build/review/exfat-inspection
+	$(PYTHON) -B -m unittest discover -s tools -p test_exfat_allocation_check.py
 
 .PHONY: test-exfat-sidecar-equality
 test-core: test-exfat-sidecar-equality
@@ -5164,6 +6444,49 @@ build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE): tools/exfat_host_driver.c k
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_SIDECAR_EQUALITY_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
+.PHONY: test-net-tcp-try test-http-exact
+test-core: test-net-tcp-try test-http-exact
+test-wifi-completion-foundations: test-net-tcp-try test-http-exact
+test-net-tcp-try: build/tests/net-tcp-try-host$(HOST_EXE)
+	$<
+build/tests/net-tcp-try-host$(HOST_EXE): tools/test_net_tcp_try.c kernel/src/net.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-http-exact: build/tests/http-exact-host$(HOST_EXE)
+	$<
+build/tests/http-exact-host$(HOST_EXE): tools/test_http_exact.c userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< userspace/wifihttpprobe/http_exact.c -o $@
+
+.PHONY: test-net-tcp-frontend test-net-tcp-frontend-sdk
+test-core: test-net-tcp-frontend test-net-tcp-frontend-sdk
+test-wifi-completion-foundations: test-net-tcp-frontend test-net-tcp-frontend-sdk
+test-net-tcp-frontend: build/tests/net-tcp-frontend-host$(HOST_EXE)
+	$<
+build/tests/net-tcp-frontend-host$(HOST_EXE): tools/test_net_tcp_frontend.c tools/test_net_tcp_try.c kernel/src/net.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-net-tcp-frontend-sdk: build/tests/net-tcp-frontend-sdk-host$(HOST_EXE)
+	$<
+build/tests/net-tcp-frontend-sdk-host$(HOST_EXE): tools/test_net_tcp_frontend_sdk.c userspace/lib/src/sys.c userspace/lib/include/srvros/sys.h userspace/lib/include/srvros/cli.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include $< userspace/lib/src/sys.c -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-cal5-cleanup test-wifi-cal5-cleanup-log
+test-core: test-xhci-cal5-cleanup test-wifi-cal5-cleanup-log
+test-wifi-completion-foundations: test-xhci-cal5-cleanup test-wifi-cal5-cleanup-log
+test-xhci-cal5-cleanup: build/tests/xhci-cal5-cleanup-host$(HOST_EXE)
+	$<
+build/tests/xhci-cal5-cleanup-host$(HOST_EXE): tools/test_xhci_wifi_cal5_cleanup.c tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_cal5.inc kernel/src/drivers/xhci_wifi_early5.inc kernel/src/drivers/xhci_wifi_power5.inc kernel/src/drivers/xhci_wifi_handoff5.inc kernel/src/drivers/xhci_wifi_channel_vco5.inc kernel/src/drivers/xhci_wifi_vco5.inc kernel/src/drivers/xhci_wifi_dac5.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/xhci_wifi_peer5.inc kernel/src/drivers/xhci_wifi_tx5.inc kernel/src/drivers/xhci_wifi_join5.inc kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+test-wifi-cal5-cleanup-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_cal5_cleanup_log.py
+
+.PHONY: test-wifi-join5-cleanup-log
+test-core: test-wifi-join5-cleanup-log
+test-wifi-join5-cleanup-log: build/tests/xhci-join5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_join5_cleanup_log.py
 .PHONY: test-sync-content
 test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_sync_content_integration.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
@@ -5176,12 +6499,268 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) tools/test_capture_transfer_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
 
+.PHONY: test-http-child
+test-core: test-http-child
+test-wifi-completion-foundations: test-http-child
+.PHONY: test-http-network-probe test-e1000-probe-sample
+test-core: test-http-network-probe test-e1000-probe-sample
+test-wifi-completion-foundations: test-http-network-probe test-e1000-probe-sample
+test-http-network-probe: build/tests/http-network-probe-host$(HOST_EXE)
+	$<
+build/tests/http-network-probe-host$(HOST_EXE): tools/test_http_network_probe.c kernel/src/http_network_probe.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_HTTP_NETWORK_HOST_TEST -I kernel/include -I shared/include $< kernel/src/http_network_probe.c -Wl,--gc-sections -o $@
+test-e1000-probe-sample: build/tests/e1000-probe-sample-host$(HOST_EXE)
+	$<
+build/tests/e1000-probe-sample-host$(HOST_EXE): tools/test_e1000_probe_sample.c tools/test_e1000_link.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+.PHONY: test-net-prepared-worker
+test-core: test-net-prepared-worker
+test-wifi-completion-foundations: test-net-prepared-worker
+test-net-prepared-worker: build/tests/net-prepared-worker-host$(HOST_EXE)
+	$<
+build/tests/net-prepared-worker-host$(HOST_EXE): tools/test_net_prepared_worker.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+test-http-child: build/tests/process-pipe-handoff-host$(HOST_EXE) build/tests/http-child-owner-host$(HOST_EXE) build/tests/httpget-wifi-exact-host$(HOST_EXE) build/tests/init-network-probe-host$(HOST_EXE)
+	build/tests/process-pipe-handoff-host$(HOST_EXE)
+	build/tests/http-child-owner-host$(HOST_EXE)
+	build/tests/httpget-wifi-exact-host$(HOST_EXE)
+	build/tests/init-network-probe-host$(HOST_EXE)
+build/tests/process-pipe-handoff-host$(HOST_EXE): tools/test_process_pipe_handoff.c tools/test_process_pipe_handoff_support.inc kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I kernel/src -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+build/tests/http-child-owner-host$(HOST_EXE): tools/test_http_child_owner.c kernel/src/http_child.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/http_child.c -Wl,--gc-sections -o $@
+build/tests/httpget-wifi-exact-host$(HOST_EXE): tools/test_httpget_wifi_exact.c userspace/httpget/wifi_exact.c userspace/httpget/wifi_exact.h userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h userspace/lib/src/sys.c $(KERNEL_HEADERS) userspace/lib/include/srvros/sys.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include -Wl,--wrap=http_exact_build_request -Wl,--wrap=http_exact_init -Wl,--wrap=http_exact_feed $< userspace/httpget/wifi_exact.c userspace/wifihttpprobe/http_exact.c userspace/lib/src/sys.c -Wl,--gc-sections -o $@
+build/tests/init-network-probe-host$(HOST_EXE): tools/test_init_network_probe.c userspace/init/network_probe.c userspace/init/network_probe.h userspace/lib/src/sys.c $(KERNEL_HEADERS) userspace/lib/include/srvros/sys.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include $< userspace/init/network_probe.c userspace/lib/src/sys.c -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-http5-bridge
+test-core: test-xhci-http5-bridge
+test-xhci-http5-bridge: build/tests/xhci-http5-bridge-host$(HOST_EXE)
+	$<
+build/tests/xhci-http5-bridge-host$(HOST_EXE): tools/test_xhci_wifi_http5_bridge.c kernel/src/drivers/xhci_wifi_http5.inc $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+.PHONY: test-wifi-http5-log
+test-core: test-wifi-http5-log
+test-wifi-http5-log: build/tests/xhci-stack5-host$(HOST_EXE) build/tests/http-network-probe-host$(HOST_EXE) build/tests/xhci-http5-bridge-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_wifi_http5_log.py'
+
+.PHONY: test-http-network-dns-fixture
+test-core: test-http-network-dns-fixture
+test-http-network-dns-fixture: build/tests/http-network-vm-mode-host$(HOST_EXE)
+	$<
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_network_dns_fixture.py'
+build/tests/http-network-vm-mode-host$(HOST_EXE): tools/test_http_network_vm_mode.c kernel/src/http_network_vm.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-http5-rx-handoff
+test-core: test-xhci-http5-rx-handoff
+test-wifi-completion-foundations: test-xhci-http5-rx-handoff
+test-xhci-http5-rx-handoff: build/tests/xhci-http5-rx-handoff-host$(HOST_EXE)
+	$<
+build/tests/xhci-http5-rx-handoff-host$(HOST_EXE): tools/test_xhci_http5_rx_handoff.c kernel/src/drivers/xhci_wifi_http5_rx_handoff.inc kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@
+
+# These fixtures include the controller and its private HTTP owner transitively.
+# Keep incremental host builds matched when terminal ownership changes.
+build/tests/xhci-cal5-cleanup-host$(HOST_EXE) \
+ build/tests/xhci-data5-host$(HOST_EXE) \
+ build/tests/xhci-fence5-host$(HOST_EXE) \
+ build/tests/xhci-handoff5-host$(HOST_EXE) \
+ build/tests/xhci-host$(HOST_EXE) \
+ build/tests/xhci-http5-bridge-host$(HOST_EXE) \
+ build/tests/xhci-http5-rx-handoff-host$(HOST_EXE) \
+ build/tests/xhci-join5-host$(HOST_EXE) \
+ build/tests/xhci-nop5-host$(HOST_EXE) \
+ build/tests/xhci-peer5-host$(HOST_EXE) \
+ build/tests/xhci-power5-host$(HOST_EXE) \
+ build/tests/xhci-provider5-host$(HOST_EXE) \
+ build/tests/xhci-reuse5-host$(HOST_EXE) \
+ build/tests/xhci-rx5-host$(HOST_EXE) \
+ build/tests/xhci-stack5-host$(HOST_EXE) \
+ build/tests/xhci-stream5-dhcp-host$(HOST_EXE) \
+ build/tests/xhci-stream5-host$(HOST_EXE) \
+ build/tests/xhci-tx5-host$(HOST_EXE) \
+ build/tests/xhci-wpa5-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_http5_rx_handoff.inc kernel/src/drivers/xhci_wifi_http5.inc kernel/src/drivers/xhci_wifi_stack5.inc
+
+.PHONY: test-http-dhcp-log test-http-dhcp-native-log
+test-core: test-http-dhcp-log
+test-wifi-completion-foundations: test-http-dhcp-log
+test-http-dhcp-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_dhcp_log.py'
+# Optional native provider/CCMP fixture keeps OpenSSL out of portable foundations.
+test-http-dhcp-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
+	WIFI_DHCP_NATIVE_BINARY=build/tests/xhci-stack5-host$(HOST_EXE) PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_dhcp_log.py'
+
 .PHONY: test-capture-media-integration
 test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
 	$(PYTHON) tools/test_capture_media_integration.py
 test-core: test-capture-media-integration
 
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h
+
+
+# Two fresh native connection lifetimes share one registered adapter.
+.PHONY: test-xhci-reconnect5 test-mt76-stack5-peer-generations
+test-xhci-reconnect5: build/tests/xhci-stack5-host$(HOST_EXE) test-mt76-stack5-peer-generations
+	$< --reconnect-case 0
+	$< --reconnect-case 1
+	$< --reconnect-case 2
+	$< --reconnect-case 3
+	$< --reconnect-case 4
+	$< --reconnect-case 5
+	$< --reconnect-case 6
+	$< --reconnect-case 7
+	$< --reconnect-case 8
+	$< --reconnect-case 9
+	$< --reconnect-case 10
+	$< --reconnect-case 11
+	$< --reconnect-case 12
+	$< --reconnect-case 13
+	$< --reconnect-case 14
+	$< --reconnect-case 15
+	$< --reconnect-case 16
+	$< --reconnect-case 17
+	$< --reconnect-case 18
+test-mt76-stack5-peer-generations: build/tests/mt76-stack5-peer-generations-host$(HOST_EXE)
+	$<
+build/tests/mt76-stack5-peer-generations-host$(HOST_EXE): tools/test_mt76_stack5_peer_generations.c tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Itools/fixtures $< tools/fixtures/mt76-stack5-peer.c -lcrypto -o $@
+build/kernel/src/drivers/xhci.c.o build/tests/xhci-host$(HOST_EXE) build/tests/xhci-stack5-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_reconnect5.inc
+
+.PHONY: test-wifi-reconnect5-log test-wifi-reconnect5-native-log
+test-core: test-wifi-reconnect5-log
+test-wifi-completion-foundations: test-wifi-reconnect5-log
+test-wifi-reconnect5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_reconnect5_log.py
+# Explicit OpenSSL/native composition, kept out of portable foundation inputs.
+test-wifi-reconnect5-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
+	$< --trace-reconnect > build/tests/xhci-reconnect5-trace.log
+	WIFI_RECONNECT5_PARENT="$(WIFI_RECONNECT5_PARENT)" WIFI_RECONNECT5_BINARY=$< WIFI_RECONNECT5_TRACE=build/tests/xhci-reconnect5-trace.log PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_reconnect5_log.py
+
+.PHONY: test-wifi-mcu-bulk-observation
+.PHONY: test-mt76-linux-mcu-timing
+test-mt76-linux-mcu-timing:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_mt76_linux_mcu_timing.py
+
+test-core: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
+test-wifi-completion-foundations: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
+test-wifi-mcu-bulk-observation:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_bulk_observation.py
+
+.PHONY: test-wifi-mcu-failure-details
+.PHONY: test-wifi-mcu-loss-trace
+test-core: test-wifi-mcu-loss-trace
+test-wifi-completion-foundations: test-wifi-mcu-loss-trace
+test-wifi-mcu-loss-trace: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	WIFI_MCU_LOSS_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_loss_trace.py
+
+test-core: test-wifi-mcu-failure-details
+test-wifi-completion-foundations: test-wifi-mcu-failure-details
+test-wifi-mcu-failure-details: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	WIFI_MCU_DETAILS_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_failure_details.py
+
+.PHONY: test-startup-journal
+test-core: test-startup-journal
+test-startup-journal: build/tests/startup-journal-host$(HOST_EXE)
+	./build/tests/startup-journal-host$(HOST_EXE)
+	$(PYTHON) -B -m unittest discover -s tools -p 'test_startup_journal.py'
+build/tests/startup-journal-host$(HOST_EXE): tools/test_startup_journal.c kernel/src/startup_journal.c kernel/include/srvros/startup_journal.h kernel/src/sha256.c
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/sha256.c -o $@
+
+.PHONY: test-stack5-dhcp-receipts
+test-stack5-dhcp-receipts: build/tests/xhci-stack5-host$(HOST_EXE)
+	WIFI_DHCP_NATIVE_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_stack5_dhcp_log.py
+test-core: test-stack5-dhcp-receipts
+
+.PHONY: test-xhci-http-reconnect5
+test-core: test-xhci-http-reconnect5
+test-xhci-http-reconnect5: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	$<
+	$< --case 1
+	$< --case 2
+	$< --case 3
+	$< --case 4
+	$< --case 5
+	$< --case 6
+	$< --case 7
+	$< --case 8
+	$< --case 9
+	$< --case 10
+	$< --case 11
+	$< --case 12
+	$< --case 13
+	$< --case 14
+	$< --case 15
+	$< --case 16
+	$< --case 17
+	$< --case 18
+	$< --case 19
+	$< --case 20
+	$< --case 21
+	$< --case 22
+	$< --case 23
+	$< --case 24
+	$< --case 25
+	$< --case 26
+	$< --case 27
+	$< --case 28
+	$< --case 29
+	$< --case 30
+	$< --case 31
+	$< --case 32
+	$< --case 33
+	$< --case 34
+	$< --case 35
+	$< --case 36
+	$< --case 37
+	$< --case 38
+	$< --case 39
+	$< --case 40
+	$< --case 41
+	$< --case 42
+	$< --case 43
+	$< --case 44
+	$< --case 45
+	$< --case 46
+	$< --case 47
+	$< --case 48
+	$< --case 49
+	$< --case 50
+	$< --case 51
+	$< --case 52
+	$< --case 53
+	$< --case 54
+	$< --case 55
+build/tests/xhci-http-reconnect5-host$(HOST_EXE): tools/test_xhci_wifi_http_reconnect.c tools/test_mt76_http_rf_parent.c tools/test_mt76_survey5_parent.c tools/test_mt76_channel_vco5.c userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h tools/test_xhci_wifi_stack5.c tools/test_http_native_guard.c kernel/src/http_network_probe.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE) tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/xhci_wifi_stack5.inc kernel/src/drivers/mt76_stack5_probe.c kernel/include/srvros/mt76_stack5_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -DSRVROS_NET_PREPARED_WORKER_HOST_TEST $(HOST_OPENSSL_CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/test_mt76_http_rf_parent.c kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c kernel/src/drivers/mt76_stack5_probe.c kernel/src/net.c kernel/src/net_device.c tools/test_http_native_guard.c tools/fixtures/mt76-stack5-peer.c userspace/wifihttpprobe/http_exact.c -Wl,--gc-sections $(HOST_OPENSSL_LIBS) -o $@
+build/kernel/src/drivers/xhci.c.o build/tests/xhci-host$(HOST_EXE) build/tests/xhci-stack5-host$(HOST_EXE) build/tests/xhci-http-reconnect5-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_http_reconnect5.inc
+
+.PHONY: test-wifi-http-reconnect5-log
+test-core: test-wifi-http-reconnect5-log
+test-wifi-http-reconnect5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	$< --trace > build/tests/xhci-http-reconnect5-trace.log
+	WIFI_HTTP_RECONNECT5_TRACE=build/tests/xhci-http-reconnect5-trace.log WIFI_HTTP_RECONNECT5_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_http_reconnect5_log.py
+	WIFI_AUTH_RADIO5_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_auth_radio5_log.py
+
+.PHONY: test-http-reconnect-collection
+test-core: test-http-reconnect-collection
+test-http-reconnect-collection:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_http_reconnect_collection.py
 
 .PHONY: test-exfat-nofat
 test-core: test-exfat-nofat
@@ -5230,6 +6809,16 @@ build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-wifi-first-auth5-log
+test-core: test-wifi-first-auth5-log
+test-wifi-first-auth5-log: build/tests/xhci-join5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_first_auth5_log.py
+
+.PHONY: test-wifi-encrypted5-log
+test-core: test-wifi-encrypted5-log
+test-wifi-encrypted5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_encrypted5_log.py
+
 # Sidecar update comparison keeps the original full-scan build as a host control.
 build/tests/workspace-compare-directory-old$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
@@ -5244,6 +6833,11 @@ test-sidecar-cost: build/tests/workspace-compare-host$(HOST_EXE) build/tests/wor
 test-core: test-sidecar-directory-faults
 test-sidecar-directory-faults:
 	$(PYTHON) tools/test_exfat_metadata_tail.py --directory-only --output build/review/sidecar-directory-faults
+
+.PHONY: test-wifi-connection-handoff5-log
+test-core: test-wifi-connection-handoff5-log
+test-wifi-connection-handoff5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_connection_handoff5_log.py
 
 .PHONY: test-process-private-lifecycle
 test-core: test-process-private-lifecycle
@@ -5269,6 +6863,15 @@ build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c ke
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-packet-observation test-wifi-packet5-log
+test-core: test-packet-observation test-wifi-packet5-log
+test-packet-observation: build/tests/packet-observation-host$(HOST_EXE)
+	$<
+build/tests/packet-observation-host$(HOST_EXE): tools/test_packet_observation.c kernel/include/srvros/packet_observation.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-wifi-packet5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_packet5_log.py
 .PHONY: test-launch-gate-trace
 test-core: test-launch-gate-trace
 test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
@@ -5291,8 +6894,27 @@ build/tests/net-empty-snapshot-host$(HOST_EXE): tools/test_net_empty_snapshot.c 
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-dhcp-identity5 test-wifi-dhcp-identity5-log
+test-core: test-dhcp-identity5 test-wifi-dhcp-identity5-log
+test-dhcp-identity5: build/tests/dhcp-identity5-host$(HOST_EXE)
+	$<
+build/tests/dhcp-identity5-host$(HOST_EXE): tools/test_dhcp_identity5.c kernel/include/srvros/dhcp_identity5.h kernel/include/srvros/packet_observation.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-wifi-dhcp-identity5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_dhcp_identity5_log.py
 .PHONY: test-control-timing
 test-core test-desktop: test-control-timing
 test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_control_timing.py
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h
+
+.PHONY: test-dhcp-radio5 test-wifi-dhcp-radio5-log
+test-core: test-dhcp-radio5 test-wifi-dhcp-radio5-log
+test-dhcp-radio5: build/tests/dhcp-radio5-host$(HOST_EXE)
+	$<
+build/tests/dhcp-radio5-host$(HOST_EXE): tools/test_dhcp_radio5.c kernel/include/srvros/dhcp_radio5.h kernel/include/srvros/packet_observation.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-wifi-dhcp-radio5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_dhcp_radio5_log.py

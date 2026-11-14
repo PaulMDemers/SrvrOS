@@ -64,7 +64,7 @@ On x86_64 Ubuntu, install the host tools, then build from source:
 ```sh
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
-  build-essential git python3 python3-pil xorriso \
+  build-essential bison git python3 python3-pil xorriso \
   qemu-system-x86 qemu-system-gui ovmf acpica-tools
 git clone --recurse-submodules https://github.com/PaulMDemers/SrvrOS.git
 cd SrvrOS

@@ -55,6 +55,7 @@ run(12345,'read-clean')
 run(12345,'sync-fault')
 run(12345,'close-fault')
 run(65536,'alloc-dirty')
+run(65536,'alloc-publication')
 import re
 probe=run(65536,'probe')
 counts=re.search(r'append-writes=(\d+) append-flushes=(\d+)',probe)

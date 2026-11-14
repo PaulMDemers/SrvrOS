@@ -146,6 +146,45 @@ bool process_lifetime_drain(uint64_t token);
 bool process_lifetime_status(uint64_t token,struct process_lifetime_status *out);
 bool process_lifetime_release(uint64_t token);
 uint64_t process_lifetime_of(uint64_t pid);
+/* Kernel-only PRELIVE constructor and bounded one-shot byte handoff. No user
+ * syscall, process-context impersonation, DNS cache or network permission.
+ * Ticket must be zero once and remain at its original address until finish or
+ * lifetime release; private lifetime state, not ticket bytes, owns the writer.
+ * Before scheduling, spawn installs NONBLOCK readFD3 in the actual child and
+ * retains its sole writer reference in the lifetime. No writer is in the child.
+ * Wait for existing SYS_PROC_READY PRELIVE; revoke the lifetime to seal new
+ * child admissions, then publish. current() is side-effect-free prepublication
+ * recipient identity only, never a provider/TCP cleanup current callback.
+ * Publish accepts one stable nonoverlapping kernel buffer of 1..128 bytes,
+ * atomically commits all bytes and closes the writer for real EOF. No allocation,
+ * wait, yield, user copy, clock, VFS or arbitrary rights/file release occurs.
+ * A valid ticket's publish failure closes its writer and is terminal. On startup
+ * failure call finish then normal lifetime revoke/drain; finish never kills or
+ * reaps a process or retires TCP/DMA. Release also drops any remaining writer.
+ * Finish is idempotent while lifetime exists; stale/copied tickets cannot act.
+ */
+#define PROCESS_PIPE_HANDOFF_MAX 128u
+struct process_pipe_handoff { uintptr_t self; uint64_t token; };
+int64_t process_lifetime_spawn_pipe(uint64_t token,const char *path,const char *args,
+    struct process_pipe_handoff *ticket);
+bool process_pipe_handoff_current(const struct process_pipe_handoff *ticket);
+struct process_pipe_identity { uint64_t pid,lifetime,image_generation; };
+/* Original private recipient identity, even after pipe closure/process cleanup;
+ * no live/READY permission. Resolves authoritative lifetime record, never ticket
+ * bytes or mutable supervisor PID. */
+bool process_pipe_handoff_bound(const struct process_pipe_handoff *ticket,
+    struct process_pipe_identity *out);
+/* Same exact READY/recipient/FD predicate as current; no publication authority. */
+bool process_pipe_handoff_identity(const struct process_pipe_handoff *ticket,
+    struct process_pipe_identity *out);
+int64_t process_pipe_handoff_publish(struct process_pipe_handoff *ticket,
+    const uint8_t *bytes,uint64_t length);
+/* Nonmutating exact kernel recipient, fully cleaned and scheduler retired.
+ * No reap/release, TCP, provider, key or DMA retirement claim. */
+bool process_pipe_handoff_retired(const struct process_pipe_handoff *ticket,
+    uint64_t *status);
+bool process_pipe_handoff_finish(struct process_pipe_handoff *ticket);
+
 
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
 /* Kernel session supervisor: wait without reaping until this caller's target

@@ -7,16 +7,31 @@ static void *measured_malloc(size_t n) {
     return malloc(n);
 }
 #define malloc measured_malloc
+#define kmalloc fixture_legacy_kmalloc
 #define block_read stream_mock_read
 #define block_write stream_mock_write
 #define main exfat_host_legacy_main
 #include "exfat_host_driver.c"
 #undef main
 #undef malloc
+#undef kmalloc
 #undef block_read
 #undef block_write
 #include <srvros/exfat_stream.h>
 #include <srvros/syscall_numbers.h>
+/* Fault only the bounded sidecar proof allocation after this append has
+ * changed media. Equality can skip COW, so a global allocation ordinal no
+ * longer names a dirty failure boundary. Other modes delegate unchanged. */
+static bool stream_alloc_fault_armed;
+static unsigned stream_alloc_fault_hits,stream_alloc_fault_baseline,stream_alloc_fault_writes;
+static uint64_t stream_alloc_fault_size;
+void *kmalloc(uint64_t n) {
+    if(stream_alloc_fault_armed && !stream_alloc_fault_hits && n==16384 && writes>stream_alloc_fault_baseline) {
+        alloc_calls++;stream_alloc_fault_hits++;stream_alloc_fault_size=n;stream_alloc_fault_writes=writes;
+        return NULL;
+    }
+    return fixture_legacy_kmalloc(n);
+}
 static uint64_t max_read_transfer,max_write_transfer;
 static bool fail_after_mutation_write;
 bool block_read(struct block_device *d,uint64_t o,void *p,uint64_t n) {
@@ -137,7 +152,10 @@ int main(int argc,char **argv) {
         assert(pwrite(fd,saved,cluster,bitmap)==(ssize_t)cluster);free(saved);free(full);
         mode="ok";
     }
-    if(!strcmp(mode,"alloc-dirty"))fail_after_mutation_write=true;
+    if(!strcmp(mode,"alloc-dirty")) {
+        stream_alloc_fault_baseline=writes;stream_alloc_fault_armed=true;
+    }
+    if(!strcmp(mode,"alloc-publication"))fail_after_mutation_write=true;
     if(!strncmp(mode,"write-fault",11))fail_at=writes+strtoul(mode+11,NULL,10);
     if(!strncmp(mode,"flush-fault",11))fail_flush_at=flushes+strtoul(mode+11,NULL,10);
     if(!strcmp(mode,"alloc-clean")) {
@@ -151,6 +169,13 @@ int main(int argc,char **argv) {
         assert(exfat_stream_sync((uint64_t)h)<0);assert(exfat_stream_close((uint64_t)h)<0);
         assert(!exfat_stream_busy("/vol/stream.bin",false));
         assert(!exfat_is_writable("/vol"));
+        if(!strcmp(mode,"alloc-dirty")) {
+            assert(stream_alloc_fault_hits==1 && stream_alloc_fault_size==16384 &&
+                stream_alloc_fault_writes>stream_alloc_fault_baseline);
+            printf("allocation-fault: hits=%u bytes=%llu baseline_writes=%u observed_writes=%u\n",
+                stream_alloc_fault_hits,(unsigned long long)stream_alloc_fault_size,
+                stream_alloc_fault_baseline,stream_alloc_fault_writes);
+        }
         printf("fault=%s PASS\n",mode);free(buf);close(fd);return 0;
     }
     assert(exfat_stream_sync((uint64_t)h)==0);assert(exfat_stream_close((uint64_t)h)==0);

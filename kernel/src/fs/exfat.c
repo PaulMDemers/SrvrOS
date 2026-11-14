@@ -1885,18 +1885,14 @@ static bool exfat_metadata_changed(const char *path, const struct vfs_metadata *
 /* Validate and apply the same immutable read buffer. A malformed suffix must
  * not partially install permissions/identities, nor may one volume name nodes
  * belonging to another filesystem. */
-static bool parse_metadata_records(struct exfat_mount *mount, const uint8_t *data,
-    uint64_t size, uint64_t magic_length, bool apply) {
-    bool ok = true;
+static bool decode_metadata_records(struct exfat_mount *mount, const uint8_t *data,
+    uint64_t size, uint64_t magic_length, struct vfs_metadata_restore *entries,
+    uint64_t capacity, uint64_t *count) {
     uint64_t offset = magic_length;
-    while (ok && offset < size) {
-        while (offset < size && (data[offset] == '\n' || data[offset] == '\r')) {
-            offset++;
-        }
-        if (offset >= size) {
-            break;
-        }
-
+    *count = 0;
+    while (offset < size) {
+        while (offset < size && (data[offset] == '\n' || data[offset] == '\r')) offset++;
+        if (offset >= size) break;
         char node_path[EXFAT_MAX_PATH];
         uint64_t path_length = 0;
         while (offset < size && data[offset] != '\t' && path_length + 1 < sizeof(node_path)) {
@@ -1904,14 +1900,9 @@ static bool parse_metadata_records(struct exfat_mount *mount, const uint8_t *dat
             node_path[path_length++] = (char)data[offset++];
         }
         node_path[path_length] = '\0';
-        if (offset >= size || data[offset] != '\t') {
-            ok = false;
-            break;
-        }
-        offset++;
-        if (!path_under_mount(mount, node_path) ||
-            metadata_path_is_internal(mount, node_path)) return false;
-
+        if (offset >= size || data[offset++] != '\t' ||
+            !path_under_mount(mount, node_path) || metadata_path_is_internal(mount, node_path))
+            return false;
         struct vfs_metadata metadata;
         if (!parse_u64_field(data, size, &offset, &metadata.inode, false) ||
             !parse_u64_field(data, size, &offset, &metadata.mode, false) ||
@@ -1920,23 +1911,34 @@ static bool parse_metadata_records(struct exfat_mount *mount, const uint8_t *dat
             !parse_u64_field(data, size, &offset, &metadata.gid, false) ||
             !parse_u64_field(data, size, &offset, &metadata.atime, false) ||
             !parse_u64_field(data, size, &offset, &metadata.mtime, false) ||
-            !parse_u64_field(data, size, &offset, &metadata.ctime, true)) {
-            ok = false;
-            break;
-        }
-
-        if (!apply) {
-            continue;
-        }
+            !parse_u64_field(data, size, &offset, &metadata.ctime, true)) return false;
         const struct vfs_node *target = vfs_lookup(node_path);
-        if (target == NULL || metadata_path_is_internal(mount, node_path)) {
-            continue;
+        /* Preserve historical handling of stale records for names deleted by
+         * another OS. Only live records participate in the atomic restore. */
+        if (!target) continue;
+        if (entries) {
+            if (*count >= capacity) return false;
+            entries[*count] = (struct vfs_metadata_restore){target, metadata};
         }
-        uint64_t type = target->type == VFS_NODE_DIRECTORY ? VFS_MODE_IFDIR : VFS_MODE_IFREG;
-        metadata.mode = (metadata.mode & ~VFS_MODE_IFMT) | type;
-        (void)vfs_set_metadata(node_path, &metadata);
+        (*count)++;
     }
+    return true;
+}
 
+static bool parse_metadata_records(struct exfat_mount *mount, const uint8_t *data,
+    uint64_t size, uint64_t magic_length, bool apply) {
+    uint64_t count = 0, decoded = 0;
+    if (!decode_metadata_records(mount, data, size, magic_length, NULL, 0, &count)) return false;
+    if (!apply || !count) return true;
+    /* Newly imported identities must not change under a live file/stream
+     * client. The metadata file's own read buffer is a private copy. */
+    if (process_has_open_vfs_prefix(mount->mountpoint) || exfat_stream_busy(mount->mountpoint, true)) return false;
+    if (count > vfs_count() || count > UINT64_MAX / sizeof(struct vfs_metadata_restore)) return false;
+    struct vfs_metadata_restore *entries = kmalloc(count * sizeof(*entries));
+    if (!entries) return false;
+    bool ok = decode_metadata_records(mount, data, size, magic_length, entries, count, &decoded) &&
+        decoded == count && vfs_restore_metadata(mount->mountpoint, entries, count);
+    kfree(entries);
     return ok;
 }
 
@@ -2005,7 +2007,13 @@ static bool load_mount_metadata(struct exfat_mount *mount, bool clean) {
             (void)exfat_rename(temp_path, path);
         }
     } else {
-        (void)parse_metadata_file(mount, path, true);
+        if (vfs_lookup(path) && !parse_metadata_file(mount, path, true)) {
+            /* Never replace an existing sidecar with freshly imported defaults
+             * after a parse,allocation or identity-collision refusal. */
+            mount->volume.write_blocked = true;
+            metadata_syncing = false;
+            return false;
+        }
         /* A failed read is not proof of an invalid temporary file. Preserve
          * it for retry/offline inspection; the next explicit sync can replace
          * it after serializing the current namespace. */
