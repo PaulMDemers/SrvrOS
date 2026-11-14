@@ -2,6 +2,30 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Active census cost attribution and exact digest optimization
+
+Bounded objective: attribute full backing-census cost using sample timestamps
+already captured by each original guard, then reduce pure digest work without
+changing a target read, admission/equality/permission check, callback order or
+deadline. Each full guard reads both1,356-entry GGTT vectors high/low/high and
+computes an8-byte FNV word digest. Evaluate exact zero-upper-byte multiplication
+folding; retain the full-width fallback and independent byte-oracle tests.
+
+For v35 only, pre-touch a bounded value-only census record array before the
+outer clock. Report aggregate census envelopes and preparation-contained spans
+after exclusion ends, using existing begin/end timestamps only. No new timer
+callback or admission token, and no ownership assurance from cost observations.
+Keep the136-byte auxiliary receipt within the existing64KiB saved-tail budget;
+old receipt3 histories retain their previous scope without cost acceptance.
+
+Touch backing digest/core tests, v35 census accounting/report and strict optional
+receiver/tests, plus own current guides. Main4016 is integrated; PR19/379 remain
+independent. No parallel agents or shared harnesses; Actions disabled.
+Last5a/634 run is collected/banked with no one-shot. Standing authorization covers
+the next qualified automated trial at1%, no input; persist/unmount/return safely,
+retain uncertainty visibly. No GPU range/PTE/submission grant; all255 obligations
+stay open. Checkpoint: `build/air-census-cost-20261114`.
+
 ### Native specialized VMM enabled-entry lifetime accepted; timing headroom unresolved
 
 Frozen runtime `634ab653` / release `5a204843df11446b`, session
