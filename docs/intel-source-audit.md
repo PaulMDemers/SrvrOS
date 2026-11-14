@@ -91,7 +91,7 @@ prefetch completion, cache/translation ordering and every affected display/
 firmware reader before a managed interval or first GPU PTE/submission operation.
 Matching AF/plane/cache samples cannot satisfy those separate contracts.
 
-## Qualified source, native acceptance pending
+## Qualified source and native observations
 
 Frozen source `4387351b` / release `f1a9627dff866ee0` passes local qualification.
 The complete producer/core baseline is `f90fba95`; the receiver-only positive
@@ -102,11 +102,29 @@ historical raw classifications,119 staging cases, seven 2 KiB native frames and
 forty-four saved-tail projections pass. Maximum projected tail is 64,905/
 65,536 bytes including reserve/header. Exact-stage EFI/MBR no-store refusal,
 persistence, clean unmount/return and missing-workspace halt pass. Immutable
-payload and qualification evidence are banked outside build. Native v35 remains
-unaccepted until matching raw/checkpoint/full-chain and offline return evidence.
+payload and qualification evidence are banked outside build. The matching Air7,2 kind 2 native result below supplies raw/checkpoint/full-chain
+and offline return evidence for that one observation lifetime.
 See the [unit checkpoint](machines/macbookair7-2.md#qualified-held-requester-cache-and-reader-audit).
 
 The receiver requires positive parent/origin/start order for claimed completion.
 An earlier parser-only zero-start reproducer remains preserved as failed review
 evidence; the native C producer already prohibited that state. No deadline,
 register gate, target access or hardware grant changed in the receiver correction.
+
+## Air7,2 original kind 2 native observation accepted
+
+Source `4387351b` / release `f1a9627dff866ee0`, session
+`session-000660355cc7ac9d-00` accepts one original already-disabled entry observation
+lifetime: two PCI/AF profiles, all54 reader words and two37-read complete CPU0
+cache contexts, with the original completed audit checked before PCI restoration.
+Audit 1,247 us, engine 2,475 us and requester 3,137 us
+fit the original enclosing deadlines. Preparation is 99,552/100,000 us.
+The complete original diagnostic source/RAM/root/HDA/CPU chain, exactly-once
+2,712-page release, four padded patterns, DMA57→57 and offline workspace/recovery
+preservation pass;1,512files/160sessions remain. Raw and complete physical proof
+banks survive build cleanup. See the [unit result](machines/macbookair7-2.md#native-held-requester-cache-and-reader-audit-accepted).
+
+Enabled entry on v35, delayed pending/ACK branches and repeatability remain
+unaccepted. Equality observations add no DMA/prefetch/cache/translation/firmware/
+display-reader retirement assurance or managed-memory authority; all255 obligations
+and zero assurances/managed GPU pages remain. Native tear-free is still pending.

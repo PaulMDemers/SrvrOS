@@ -1094,3 +1094,17 @@ PR497/498), reviewed separately from the frozen runtime. It does not change GPU
 ownership or native acceptance. Defer integration until this exact-source trial
 and matching collection finish; do not silently relabel the qualified payload as
 current main. The runtime integrates `94d0b9b8`.
+
+
+Air7,2 v35 `4387351b` / `f1a9627dff866ee0` now accepts one original
+kind2 already-disabled held PCI/cache/three-plane observation lifetime; see the
+[unit result](machines/macbookair7-2.md#native-held-requester-cache-and-reader-audit-accepted).
+Two PCI profiles/54reader words/two37-read CPU contexts and the final pure audit
+return gate pass with complete enclosing diagnostic retirement and offline
+preservation. Preparation 99,552/100,000 us; no limits changed.
+All1,509prior files preserve except metadata;3logs→1,512files/160sessions.
+Raw/strict/physical evidence is durable, Ubuntu/recovery protected, USB unmounted,
+no run/one-shot outstanding. Enabled v35, pending branches and repeatability stay
+open. All255 actual DMA/cache/translation/firmware/display-reader obligations and
+zero assurances/managedGPU pages remain. Reviewed main00ab2d90 integration is next;
+no other task contacted or Actions enabled.

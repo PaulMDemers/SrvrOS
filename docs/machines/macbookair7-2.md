@@ -1,6 +1,54 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
+
+### Native held requester, cache and reader audit accepted
+
+Frozen runtime `4387351b` / release `f1a9627dff866ee0`, session
+`session-000660355cc7ac9d-00`, collector `749cb76f` accept **one original
+kind 2 already-disabled v35 observation lifetime**. Two full inhibited GPU PCI/AF
+profiles (18 reads), all 54 inherited primary/cursor/sprite words and two complete
+CPU0 cache contexts match under the original all-five readiness hold. Each cache
+sample reads 37 registers. The original completed audit remains required at
+final requester restoration; audit time is 1,247 us.
+
+All five readiness requests cancel in reverse order with exact original controls.
+Ten stores/fresh admissions/ACKs, 44 native engine reads and zero additional
+engine or AF polls pass. Engine scope is 2,475 us and requester scope
+3,137 us. Entry performs no BCS store; the actual reset advances
+epoch 0→1. Preparation is 99,552/100,000 us, margin
+448 us; final guard 7 us, borrow
+return 3,400 us. GT 266,464/300,000 us,
+HDA 303,192/400,000 us and outer 357,941/500,000 us remain within
+unchanged limits. This is one bounded pass, not repeatability or a causal speedup.
+
+The complete original source/RAM/root/HDA/CPU lifetime and diagnostic mappings
+retire cleanly: 14 GPU aliases plus one HDA alias, two 1,356-page private buffers,
+four complete padded patterns, exactly-once 2,712-page release and DMA count
+57→57. These retire diagnostic resources, not inherited GPU execution or display
+readers. All 1,509 prior files preserve except expected metadata; three exact
+new logs produce 1,512 files / 160 sessions. Untouched raw logs, strict native
+receipt/checkpoint/recipe chain and offline fsck/allocation/writable/headroom,
+boot digest, installed/banked payloads, Ubuntu default and consumed one-shot pass.
+USB is unmounted; no run or one-shot remains outstanding. Durable raw and complete
+physical proof banks are under `air-held-readers-20261113`, including
+`physical-session-000660355cc7ac9d-00`. Current is f1a9; recovery 9aa8, accepted 83fd/90df and
+GUI/joint/HDA payloads remain installed. Prior bank-only payloads remain durable.
+
+The return helper initially omitted the new `intel-source-audit-summary:` from
+its exact expected attention set. That tenth diagnostic reports complete=1,
+reason=0 and all 255 open obligations. The preserved review adds only that exact
+prefix; every raw/native/lifetime/media guard remains. No raw receipt was edited.
+
+This accepts held equality observations only. Enabled-entry v35, delayed AF/ACK
+branches and repeatability remain unaccepted. Matching snapshots do not establish
+outstanding DMA/prefetch completion, GPU cache/translation ordering, firmware
+ownership or display-reader retirement. All 255 obligations, zero assurances and
+zero managed GPU pages remain; native tear-free is pending. Next integrate reviewed
+main `00ab2d90` (Air6,1 directory metadata), rerun affected checks, then establish
+the remaining hardware ownership witnesses before any GPU range/PTE/submission
+grant. Standing needed automated reboot authorization at 1% remains in effect.
+Checkpoint: `build/air-held-readers-20261113`.
 
 ### Qualified held requester, cache and reader audit
 
@@ -34,8 +82,9 @@ retired after exact payload/accepted-native manifest verification; that payload,
 all raw evidence and older bank-only releases remain durable. Verified duplicate
 canonical stages were also pruned with an external cleanup ledger.
 
-The new candidate is uninstalled/unarmed at qualification and **native v35 is
-pending**. Previous b8/83fd enabled-entry acceptance below is source-specific.
+At qualification the candidate was uninstalled/unarmed and native acceptance
+was pending; the matching kind 2 result is recorded above. Previous b8/83fd
+enabled-entry acceptance below is source-specific.
 All 255 obligations and zero assurances/managed GPU pages remain. Standing
 needed automatic reboot authorization at1% applies after fresh on-disk run,
 recovery/media checks and installation; no human input is required. Collect its
