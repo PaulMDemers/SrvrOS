@@ -14826,3 +14826,12 @@ CRC, fsync/flush/rename, fresh allocation, file retention, worker/reap and batte
 retirement checks. Heavy audit stays off; no human input is required. The prior
 d26 failure remains failed; this source has no physical acceptance until its
 matching complete return is collected and independently reviewed.
+
+### Directory metadata return-review scope (2026-11-14)
+
+From fetched main `00ab2d90` (PR498), review only the matching `ba1a402c381b7a94`
+return, replay original workload/diagnostic contracts, and perform fresh
+read-only media/recovery checks. No implementation, staging or reboot is
+authorized by this review checkpoint. The automatic collector reports missing
+positive directory admission; distinguish complete workload evidence from
+feature validation rather than accepting a zero-handled run.
