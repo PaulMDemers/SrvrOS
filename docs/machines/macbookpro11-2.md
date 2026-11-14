@@ -7,6 +7,22 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### DHCP radio collector and cold-image scope (November 13)
+
+Qualify a fresh source-bound collector that writes DHCP radio and identity
+observations before protocol-only success checks, requires late preparation
+version2 for this candidate, and refuses missing/malformed/tampered companions.
+Reuse runtime qualification6b8b821b only after exact non-documentation input
+hash equality; qualify the fresh staged image, independent journal, real
+workspace clone, inspector and all eight protected recoveries before install.
+No RF, protocol, native runtime or timeout changes are in this scope. Main
+94d0b9b8's Files directory-admission changes are independent and deferred for
+this controlled comparison; integration baseline remains15eb67ad. PR301/379
+remain separate. The closed04b/792 run is immutable and collected once.
+Existing user authorization permits cold poweroff when qualification passes;
+show all instructions in the guest, save results and return automatically on
+safe completion. On return collect the fresh matching owner FIRST once.
+
 ### DHCP radio-status correlation audit scope (November 13)
 
 Add bounded per-DHCP TXWI diagnostic packet IDs, disjoint across the two
