@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82|1-capture-write-air61|1-capture-write-air72)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -40,6 +40,40 @@ def release_id(hashes, version=CONFIG_VERSION):
 
 
 def limine_config(release, version=CONFIG_VERSION):
+    if version.startswith("ram-usb-v1-intel-source-audit-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-source-audit-","ram-usb-v1-intel-source-engines-",1)).replace("srvros.intel-ring=source-engines-v1","srvros.intel-ring=source-audit-v1")
+    if version.startswith("ram-usb-v1-intel-source-engines-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-source-engines-","ram-usb-v1-intel-source-requester-",1)).replace("srvros.intel-ring=source-requester-v1","srvros.intel-ring=source-engines-v1")
+    if version.startswith("ram-usb-v1-intel-source-requester-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-source-requester-","ram-usb-v1-intel-startup-transfer-",1)).replace("srvros.intel-ring=startup-transfer-v1","srvros.intel-ring=source-requester-v1")
+    if version.startswith("ram-usb-v1-intel-startup-transfer-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-",1)).replace("srvros.intel-ring=startup-buffers-v1","srvros.intel-ring=startup-transfer-v1")
+    if version.startswith("ram-usb-v1-intel-startup-buffers-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-",1)).replace("srvros.intel-ring=startup-source-v1","srvros.intel-ring=startup-buffers-v1")
+    if version.startswith("ram-usb-v1-intel-startup-source-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-",1)).replace("srvros.intel-ring=nonzero-source-v1","srvros.intel-ring=startup-source-v1")
+    if version.startswith("ram-usb-v1-intel-nonzero-source-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-",1)).replace("srvros.intel-ring=nonzero-reset-v1","srvros.intel-ring=nonzero-source-v1")
+    if version.startswith("ram-usb-v1-intel-nonzero-reset-"):
+        return limine_config(release,version.replace("ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-ring-entry-",1)).replace("srvros.intel-ring=entry-v1","srvros.intel-ring=nonzero-reset-v1")
+    entry_requester=version.startswith("ram-usb-v1-intel-entry-requester-")
+    if entry_requester:version=version.replace("ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-",1)
+    ring_reset=version.startswith("ram-usb-v1-intel-ring-reset-")
+    if ring_reset:version=version.replace("ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-joint-",1)
+    ring_entry=version.startswith("ram-usb-v1-intel-ring-entry-")
+    if ring_entry:version=version.replace("ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-completion-",1)
+    ring_transition=version.startswith("ram-usb-v1-intel-ring-transition-")
+    if ring_transition:version=version.replace("ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-completion-",1)
+    entry_admit=version.startswith("ram-usb-v1-intel-joint-admit-")
+    if entry_admit:version=version.replace("ram-usb-v1-intel-joint-admit-","ram-usb-v1-intel-joint-",1)
+    gpu_hold=version.startswith("ram-usb-v1-intel-gpu-hold-")
+    if gpu_hold:version=version.replace("ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-",1)
+    joint=version.startswith("ram-usb-v1-intel-joint-")
+    if joint:version=version.replace("ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-",1)
+    rehold=version.startswith("ram-usb-v1-intel-rehold-")
+    if rehold:version=version.replace("ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-",1)
+    held_interval=version.startswith("ram-usb-v1-intel-held-interval-")
+    if held_interval:version=version.replace("ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-held-reset-",1)
     autotest = AUTOTEST_RE.fullmatch(version)
     workspace = WORKSPACE_RE.fullmatch(version)
     trackpad = TRACKPAD_RE.fullmatch(version)
@@ -49,9 +83,46 @@ def limine_config(release, version=CONFIG_VERSION):
         base="74" if version.startswith("ram-usb-v1-capture-write-air61-") else "80"
         return limine_config(release,f"ram-usb-v{base}-desktop-{desktop[1]}").replace(
             "srvros.desktop-audio-io=on","srvros.desktop-audio-io=on srvros.capture-write-timing=on")
+    if probe and version.startswith("ram-usb-v1-intel-memory-"):
+        fixture=version.startswith("ram-usb-v1-intel-memory-fixture-")
+        base=version.replace("intel-memory-fixture","intel-backing") if fixture else version.replace("intel-memory","intel-backing")
+        config=limine_config(release,base)
+        return config.replace("srvros.intel-backing=read-only", "srvros.intel-memory=fixture" if fixture else "srvros.intel-backing=read-only srvros.intel-memory=backing")
+    if probe and version.startswith("ram-usb-v1-intel-paired-shutdown-"):
+        prior=limine_config(release,version.replace("intel-paired-shutdown-","intel-shutdown-",1))
+        return prior.replace("srvros.intel-shutdown=qualify", "srvros.intel-shutdown=qualify srvros.intel-hda-bcs=joint-owner-v1")
     if probe:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                    f"srvros.desktop-release={release} srvros.laptop-services=probe-autoreboot")
+        if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")):
+            cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
+                       f"srvros.desktop-release={release} srvros.capture=intel-display")
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")) and not version.startswith(("ram-usb-v1-intel-lifetime-fixture-","ram-usb-v2-intel-lifetime-fixture-")):cmdline += " srvros.intel-backing=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")): cmdline += " srvros.intel-cache=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-")): cmdline += " srvros.intel-window=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-")):cmdline += " srvros.intel-handoff=qualify"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-")):cmdline += " srvros.intel-gt-preflight=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-")):cmdline += " srvros.intel-firmware=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-")):cmdline += " srvros.intel-wake=trial"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-")):cmdline += " srvros.intel-engines=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-")):cmdline += " srvros.intel-completion=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-")):cmdline += " srvros.intel-takeover=preflight"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-")):cmdline += " srvros.intel-held-requester=read-only"
+            if version.startswith("ram-usb-v1-intel-held-reset-"):cmdline += " srvros.intel-bcs-reset=held-blitter-only"
+            if version.startswith("ram-usb-v1-intel-requester-"):cmdline += " srvros.intel-requester=read-only"
+            if version.startswith(("ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-engine-prepare-")):cmdline += " srvros.intel-engines-prepare=request-cancel"
+            if version.startswith("ram-usb-v1-intel-shutdown-"):cmdline += " srvros.intel-shutdown=qualify"
+            if version.startswith(("ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-bcs-reset-")):cmdline += " srvros.intel-bcs-reset=blitter-only"
+            if version.startswith("ram-usb-v1-intel-bcs-shutdown-"):cmdline += " srvros.intel-shutdown=observe-disabled"
+            if version.startswith("ram-usb-v1-intel-reset-ready-"):cmdline += " srvros.intel-reset-ready=request-cancel"
+            if version.startswith("ram-usb-v1-intel-readers-"):cmdline += " srvros.intel-hda=lease-trial srvros.intel-hda-policy=cooperative-efi-v1 srvros.intel-readers=read-only"
+            if version.startswith("ram-usb-v1-intel-hda-lease-"):cmdline += " srvros.intel-hda=lease-trial srvros.intel-hda-policy=cooperative-efi-v1"
+            elif version.startswith("ram-usb-v1-intel-hda-owner-"):cmdline += " srvros.intel-hda=owner-trial srvros.intel-hda-policy=cooperative-efi-v1"
+            elif version.startswith("ram-usb-v1-intel-hda-"):cmdline += " srvros.intel-hda=read-only"
+            if version.startswith(("ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-blitter-")):cmdline += " srvros.intel-blitter=retire"
+            if version.startswith("ram-usb-v1-intel-dma-"):cmdline += " srvros.intel-dma=read-only"
+            if version.startswith(("ram-usb-v1-intel-lifetime-fixture-","ram-usb-v2-intel-lifetime-fixture-")):cmdline += " srvros.intel-lifetime=fixture"
+            elif version.startswith("ram-usb-v1-intel-lifetime-"):cmdline += " srvros.intel-lifetime=shadow"
         if version.startswith(("ram-usb-v23-","ram-usb-v25-","ram-usb-v26-")):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=idle "
@@ -187,6 +258,14 @@ def limine_config(release, version=CONFIG_VERSION):
         cmdline = "srvros.log=debug srvros.storage=ram"
         if version == "ram-usb-v3-inputdiag":
             cmdline += " srvros.inputdiag=1"
+    if held_interval:cmdline += " srvros.intel-interval=read-only"
+    if rehold:cmdline += " srvros.intel-rehold=request-cancel"
+    if joint:cmdline += " srvros.intel-joint=hda-claim"
+    if gpu_hold or entry_requester:cmdline += " srvros.intel-gpu-requester=hold"
+    if entry_admit:cmdline += " srvros.intel-admission=disabled-bcs-v1"
+    if ring_entry:cmdline += " srvros.intel-ring=entry-v1"
+    if ring_reset:cmdline += " srvros.intel-ring=reset-v1"
+    if ring_transition:cmdline += " srvros.intel-ring=handoff-v1"
     resolution="    resolution: 2880x1800\n" if desktop and version.startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-","ram-usb-v36-","ram-usb-v37-")) else ""
     return f"""timeout: 0
 serial: yes
@@ -241,13 +320,79 @@ def verify(directory, expected_release=None):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False, desktop_reopen_test=False, posix_capture=False, desktop_capacity_test=False, desktop_lifecycle_trial=False, desktop_audio_io_test=False, desktop_audio_io_attended=False, desktop_navigation_trial=False, desktop_power_test=False, mwait_wakeup_test=False, mwait_deep_test=False, ap_ownership_test=False, ap_coordinated_c3=False, ap_package_audit=False, ap_platform_audit=False, haswell_backing_capture=False, haswell_tilectl=False, haswell_linux_fences=False, haswell_firmware_capture=False, haswell_cache_context=False, haswell_alias_context=False,haswell_alias_preinit=False,haswell_ecam_boot=False,haswell_window=False,haswell_read_qualification=False,haswell_register_sample=False,audio_listen=False,desktop_capture_write_timing=False,storage_only_capture=False,storage_command_trace=False,storage_metadata_trace=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False, desktop_reopen_test=False, posix_capture=False, desktop_capacity_test=False, desktop_lifecycle_trial=False, desktop_audio_io_test=False, desktop_audio_io_attended=False, desktop_navigation_trial=False, desktop_power_test=False, mwait_wakeup_test=False, mwait_deep_test=False, ap_ownership_test=False, ap_coordinated_c3=False, ap_package_audit=False, ap_platform_audit=False, intel_display_capture=False, intel_backing_capture=False, intel_lifetime_capture=False, intel_lifetime_fixture=False, haswell_backing_capture=False, intel_dma_capture=False, haswell_tilectl=False, haswell_linux_fences=False,intel_cache_capture=False,haswell_firmware_capture=False,intel_window_capture=False,haswell_cache_context=False,intel_handoff_capture=False,intel_gt_preflight_capture=False,intel_gt_firmware_capture=False,intel_requester=False,intel_engine_prepare=False,intel_takeover_preflight=False,intel_bcs_shutdown_trial=False,intel_shutdown_trial=False,intel_bcs_reset_trial=False,intel_reset_ready_trial=False,intel_completion_audit=False,intel_reader_audit=False, intel_hda_lease_trial=False,intel_hda_owner_trial=False,intel_hda_capture=False,intel_blitter_trial=False,intel_engine_capture=False,intel_wake_trial=False,haswell_alias_context=False,haswell_alias_preinit=False,haswell_ecam_boot=False,haswell_window=False,haswell_read_qualification=False,haswell_register_sample=False,audio_listen=False,desktop_capture_write_timing=False,intel_held_requester=False,intel_held_reset=False,intel_memory_capture=False,intel_memory_fixture=False,intel_held_interval=False,intel_rehold=False,intel_joint=False,intel_gpu_hold=False,intel_hda_shutdown=False,intel_joint_admit=False,intel_ring_transition=False,intel_ring_entry=False,intel_ring_reset=False,storage_only_capture=False,intel_entry_requester=False,storage_command_trace=False,intel_nonzero_reset=False,intel_nonzero_source=False,storage_metadata_trace=False,intel_startup_source=False,intel_startup_buffers=False,intel_startup_transfer=False,intel_source_requester=False,intel_source_engines=False,intel_source_audit=False):
     if (storage_command_trace or storage_metadata_trace) and not storage_only_capture:
         raise ValueError("Command attribution requires the explicit storage-only control")
     if storage_only_capture:
         allowed={"storage_only_capture","storage_command_trace","storage_metadata_trace","laptop_probe_volume","repeat","desktop_scale"}
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Storage-only comparison requires its own automatic workspace profile")
+    if intel_source_audit:
+        if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_source_audit","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Source audit requires its separate automatic workspace profile")
+        intel_source_engines=True
+    if intel_source_engines:
+        if not intel_source_audit and (not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_source_engines","laptop_probe_volume","repeat","desktop_scale"})):
+            raise ValueError("Source engines require their separate automatic workspace profile")
+        intel_source_requester=True
+    if intel_source_requester:
+        if not intel_source_engines and (not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_source_requester","laptop_probe_volume","repeat","desktop_scale"})):
+            raise ValueError("Source requester requires its separate automatic workspace profile")
+        intel_startup_transfer=True
+    if intel_startup_transfer:
+        if not intel_source_requester and (not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_startup_transfer","laptop_probe_volume","repeat","desktop_scale"})):
+            raise ValueError("Startup transfer requires its separate automatic workspace profile")
+        intel_startup_buffers=True
+    if intel_startup_buffers:
+        if not intel_startup_transfer and any(v for k,v in locals().copy().items() if k not in {"intel_startup_buffers","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Startup buffers require their distinct automatic workspace profile")
+        intel_startup_source=True
+    if intel_startup_source:
+        if not intel_startup_buffers and any(v for k,v in locals().copy().items() if k not in {"intel_startup_source","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Startup source requires its own exclusive profile")
+        intel_nonzero_source=True
+    if intel_nonzero_source:
+        if not intel_startup_source and any(v for k,v in locals().copy().items() if k not in {"intel_nonzero_source","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Nonzero source requires its own exclusive profile")
+        intel_nonzero_reset=True
+    if intel_nonzero_reset:
+        if not intel_nonzero_source and any(v for k,v in locals().copy().items() if k not in {"intel_nonzero_reset","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Nonzero reset requires its own exclusive profile")
+        intel_ring_entry=True
+    if intel_entry_requester:
+        if any(v for k,v in locals().copy().items() if k not in {"intel_entry_requester","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Entry requester requires its own exclusive profile")
+        intel_ring_reset=True
+    if intel_ring_reset:
+        if not intel_entry_requester and any(v for k,v in locals().copy().items() if k not in {"intel_ring_reset","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Ring reset requires its own exclusive profile")
+        intel_joint=True
+    if intel_ring_entry:
+        if not intel_nonzero_reset and any(v for k,v in locals().copy().items() if k not in {"intel_ring_entry","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Ring entry requires its own exclusive profile")
+        intel_completion_audit=True
+    if intel_ring_transition:
+        if any(v for k,v in locals().copy().items() if k not in {"intel_ring_transition","laptop_probe_volume","repeat","desktop_scale"}):
+            raise ValueError("Ring transition requires its own exclusive profile")
+        intel_completion_audit=True
+    if intel_joint_admit:
+        if intel_joint or intel_gpu_hold or intel_hda_shutdown:raise ValueError("Joint admission requires its own exclusive profile")
+        intel_joint=True
+    if intel_gpu_hold:
+        intel_joint=True
+    if intel_hda_shutdown:
+        if intel_shutdown_trial:raise ValueError("HDA BCS shutdown requires its exclusive profile")
+        intel_shutdown_trial=True
+    if intel_joint:
+        if intel_rehold or intel_held_interval or intel_held_reset:raise ValueError("Joint HDA/GPU requires its own exclusive profile")
+        intel_rehold=True
+    if intel_held_interval and intel_held_reset:raise ValueError("Select one held interval or reset profile")
+    if intel_rehold:
+        if intel_held_interval or intel_held_reset:raise ValueError("Rehold requires its own exclusive profile")
+        intel_held_interval=True
+    if intel_held_interval:intel_held_reset=True
+    if sum((intel_memory_capture,intel_memory_fixture,intel_held_reset,intel_held_requester,intel_requester,intel_engine_prepare,intel_takeover_preflight,intel_bcs_shutdown_trial,intel_shutdown_trial,intel_bcs_reset_trial,intel_reset_ready_trial,intel_completion_audit,intel_reader_audit,intel_hda_lease_trial,intel_hda_owner_trial,intel_hda_capture,intel_blitter_trial,intel_engine_capture,intel_wake_trial,intel_gt_firmware_capture,intel_gt_preflight_capture,intel_handoff_capture,intel_window_capture,intel_cache_capture,intel_dma_capture,intel_display_capture,intel_backing_capture,intel_lifetime_capture,intel_lifetime_fixture))>1:raise ValueError("Select only one Intel observation profile")
+
     if desktop_capture_write_timing and not (desktop_audio_io_test and desktop_volume and desktop_battery and desktop_services):
         raise ValueError("Capture write timing requires the automatic combined desktop audio/disk profile")
     if audio_listen:
@@ -276,6 +421,10 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Linux-model fences require the explicit TILECTL Haswell profile")
     if haswell_tilectl and not haswell_backing_capture:
         raise ValueError("TILECTL requires the dedicated Haswell backing capture")
+    if intel_memory_capture or intel_memory_fixture or intel_held_reset or intel_held_requester or intel_requester or intel_engine_prepare or intel_takeover_preflight or intel_bcs_shutdown_trial or intel_shutdown_trial or intel_bcs_reset_trial or intel_reset_ready_trial or intel_completion_audit or intel_reader_audit or intel_hda_lease_trial or intel_hda_owner_trial or intel_hda_capture or intel_blitter_trial or intel_engine_capture or intel_wake_trial or intel_gt_firmware_capture or intel_gt_preflight_capture or intel_handoff_capture or intel_window_capture or intel_cache_capture or intel_dma_capture or intel_display_capture or intel_backing_capture or intel_lifetime_capture or intel_lifetime_fixture:
+        allowed={"intel_source_audit","intel_source_engines","intel_source_requester","intel_startup_transfer","intel_startup_buffers","intel_startup_source","intel_nonzero_source","intel_nonzero_reset","intel_entry_requester","intel_ring_reset","intel_ring_entry","intel_ring_transition","intel_joint_admit","intel_hda_shutdown","intel_gpu_hold","intel_joint","intel_rehold","intel_held_interval","intel_memory_capture","intel_memory_fixture","intel_held_reset","intel_held_requester","intel_requester","intel_engine_prepare","intel_takeover_preflight","intel_bcs_shutdown_trial","intel_shutdown_trial","intel_bcs_reset_trial","intel_reset_ready_trial","intel_completion_audit","intel_reader_audit","intel_hda_lease_trial","intel_hda_owner_trial","intel_hda_capture","intel_blitter_trial","intel_engine_capture","intel_wake_trial","intel_gt_firmware_capture","intel_gt_preflight_capture","intel_handoff_capture","intel_window_capture","intel_cache_capture","intel_dma_capture","intel_display_capture","intel_backing_capture","intel_lifetime_capture","intel_lifetime_fixture","laptop_probe_volume","repeat","desktop_scale"}
+        if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
+            raise ValueError("Intel display observation requires its own unattended workspace profile")
     if haswell_backing_capture:
         allowed={"haswell_linux_fences","haswell_tilectl","haswell_backing_capture","laptop_probe_volume","hold_on_failure","repeat","desktop_scale"}
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
@@ -396,6 +545,43 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
         version=f"ram-usb-v{69 if battery_air61 and battery_home_work else 68 if battery_air61 and battery_home_transitions else 67 if battery_air61 and battery_home_desktop else 66 if battery_air61 and battery_home_session else 65 if battery_air61 and battery_home else 64 if battery_air61 and battery_smbus_files else 63 if battery_air61 and battery_transitions else 62 if battery_air61 and battery_smbus else 61 if battery_air61 else 60 if battery_preflight else 52 if battery_home_transitions else 51 if battery_home_desktop else 49 if battery_home_session else 48 if battery_home else 47 if battery_smbus_files else 46 if battery_smbus else 45 if battery_query else 44 if battery_controls else 43 if battery_app_files else 42 if battery_load else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        if intel_display_capture: version=f"ram-usb-v1-intel-display-laptop-probe-{laptop_probe_volume}"
+        if intel_ring_transition:version=f"ram-usb-v1-intel-ring-transition-laptop-probe-{laptop_probe_volume}"
+        elif intel_joint_admit:version=f"ram-usb-v1-intel-joint-admit-laptop-probe-{laptop_probe_volume}"
+        elif intel_gpu_hold:version=f"ram-usb-v1-intel-gpu-hold-laptop-probe-{laptop_probe_volume}"
+        elif intel_joint:version=f"ram-usb-v1-intel-joint-laptop-probe-{laptop_probe_volume}"
+        elif intel_rehold:version=f"ram-usb-v1-intel-rehold-laptop-probe-{laptop_probe_volume}"
+        elif intel_held_interval:version=f"ram-usb-v1-intel-held-interval-laptop-probe-{laptop_probe_volume}"
+        elif intel_held_reset:version=f"ram-usb-v1-intel-held-reset-laptop-probe-{laptop_probe_volume}"
+        elif intel_held_requester:version=f"ram-usb-v1-intel-held-requester-laptop-probe-{laptop_probe_volume}"
+        elif intel_requester:version=f"ram-usb-v1-intel-requester-laptop-probe-{laptop_probe_volume}"
+        elif intel_engine_prepare:version=f"ram-usb-v1-intel-engine-prepare-laptop-probe-{laptop_probe_volume}"
+        elif intel_takeover_preflight:version=f"ram-usb-v1-intel-takeover-laptop-probe-{laptop_probe_volume}"
+        if intel_bcs_shutdown_trial:version=f"ram-usb-v1-intel-bcs-shutdown-laptop-probe-{laptop_probe_volume}"
+        if intel_hda_shutdown:version=f"ram-usb-v1-intel-paired-shutdown-laptop-probe-{laptop_probe_volume}"
+        elif intel_shutdown_trial:version=f"ram-usb-v1-intel-shutdown-laptop-probe-{laptop_probe_volume}"
+        if intel_bcs_reset_trial:version=f"ram-usb-v1-intel-bcs-reset-laptop-probe-{laptop_probe_volume}"
+        elif intel_reset_ready_trial:version=f"ram-usb-v1-intel-reset-ready-laptop-probe-{laptop_probe_volume}"
+        elif intel_completion_audit:version=f"ram-usb-v1-intel-completion-laptop-probe-{laptop_probe_volume}"
+        elif intel_reader_audit:version=f"ram-usb-v1-intel-readers-laptop-probe-{laptop_probe_volume}"
+        elif intel_hda_lease_trial:version=f"ram-usb-v1-intel-hda-lease-laptop-probe-{laptop_probe_volume}"
+        elif intel_hda_owner_trial:version=f"ram-usb-v1-intel-hda-owner-laptop-probe-{laptop_probe_volume}"
+        elif intel_hda_capture:version=f"ram-usb-v1-intel-hda-laptop-probe-{laptop_probe_volume}"
+        if intel_blitter_trial:version=f"ram-usb-v1-intel-blitter-laptop-probe-{laptop_probe_volume}"
+        elif intel_engine_capture:version=f"ram-usb-v1-intel-engines-laptop-probe-{laptop_probe_volume}"
+        elif intel_wake_trial:version=f"ram-usb-v1-intel-wake-laptop-probe-{laptop_probe_volume}"
+        if intel_gt_firmware_capture:version=f"ram-usb-v1-intel-gt-firmware-laptop-probe-{laptop_probe_volume}"
+        if intel_gt_preflight_capture:version=f"ram-usb-v1-intel-gt-preflight-laptop-probe-{laptop_probe_volume}"
+        if intel_handoff_capture:version=f"ram-usb-v1-intel-handoff-laptop-probe-{laptop_probe_volume}"
+        if intel_window_capture:version=f"ram-usb-v1-intel-window-laptop-probe-{laptop_probe_volume}"
+        if intel_cache_capture:version=f"ram-usb-v1-intel-cache-laptop-probe-{laptop_probe_volume}"
+        if intel_dma_capture:version=f"ram-usb-v1-intel-dma-laptop-probe-{laptop_probe_volume}"
+        if intel_backing_capture: version=f"ram-usb-v1-intel-backing-laptop-probe-{laptop_probe_volume}"
+        if intel_memory_capture:version=f"ram-usb-v1-intel-memory-laptop-probe-{laptop_probe_volume}"
+        if intel_memory_fixture:version=f"ram-usb-v1-intel-memory-fixture-laptop-probe-{laptop_probe_volume}"
+        if intel_lifetime_capture:version=f"ram-usb-v1-intel-lifetime-laptop-probe-{laptop_probe_volume}"
+        if intel_lifetime_fixture:version=f"ram-usb-v2-intel-lifetime-fixture-laptop-probe-{laptop_probe_volume}"
+        if intel_ring_transition:version=f"ram-usb-v1-intel-ring-transition-laptop-probe-{laptop_probe_volume}"
         if audio_listen: version=f"ram-usb-v1-audio-listen-laptop-probe-{laptop_probe_volume}"
         if ap_coordinated_c3: version=f"ram-usb-v1-ap-c3-laptop-probe-{laptop_probe_volume}"
         if ap_package_audit: version=f"ram-usb-v1-ap-package-laptop-probe-{laptop_probe_volume}"
@@ -408,12 +594,23 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if storage_only_capture: version=f"ram-usb-v{3 if storage_metadata_trace else 2 if storage_command_trace else 1}-storage-only-laptop-probe-{laptop_probe_volume}"
         if mwait_wakeup_test: version=f"ram-usb-v1-mwait-laptop-probe-{laptop_probe_volume}"
         if mwait_deep_test: version=f"ram-usb-v1-mwait-c3-laptop-probe-{laptop_probe_volume}"
+        if intel_ring_entry:version=f"ram-usb-v1-intel-ring-entry-laptop-probe-{laptop_probe_volume}"
+        if intel_ring_reset:version=f"ram-usb-v1-intel-ring-reset-laptop-probe-{laptop_probe_volume}"
+        if intel_source_audit:version=f"ram-usb-v1-intel-source-audit-laptop-probe-{laptop_probe_volume}"
+        elif intel_source_engines:version=f"ram-usb-v1-intel-source-engines-laptop-probe-{laptop_probe_volume}"
+        elif intel_source_requester:version=f"ram-usb-v1-intel-source-requester-laptop-probe-{laptop_probe_volume}"
+        elif intel_startup_transfer:version=f"ram-usb-v1-intel-startup-transfer-laptop-probe-{laptop_probe_volume}"
+        elif intel_startup_buffers:version=f"ram-usb-v1-intel-startup-buffers-laptop-probe-{laptop_probe_volume}"
+        elif intel_startup_source:version=f"ram-usb-v1-intel-startup-source-laptop-probe-{laptop_probe_volume}"
+        elif intel_nonzero_source:version=f"ram-usb-v1-intel-nonzero-source-laptop-probe-{laptop_probe_volume}"
+        elif intel_nonzero_reset:version=f"ram-usb-v1-intel-nonzero-reset-laptop-probe-{laptop_probe_volume}"
+        if intel_entry_requester:version=f"ram-usb-v1-intel-entry-requester-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
-        "srvros.elf": ROOT / ("build/air61-register-sample/srvros.elf" if haswell_register_sample else "build/air61-read-window/srvros.elf" if haswell_read_qualification else "build/ap-probe/srvros.elf" if (haswell_firmware_capture or haswell_backing_capture or ap_ownership_test or ap_coordinated_c3) else "build/acpi-air61-battery/srvros.elf" if battery_air61 else "build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions or battery_home_work) else "build/kernel/srvros.elf"),
+        "srvros.elf": ROOT / ("build/intel-source-audit/srvros.elf" if intel_source_audit else "build/intel-source-engines/srvros.elf" if intel_source_engines else "build/intel-source-requester/srvros.elf" if intel_source_requester else "build/intel-startup-transfer/srvros.elf" if intel_startup_transfer else "build/intel-startup-buffers/srvros.elf" if intel_startup_buffers else "build/intel-startup-source/srvros.elf" if intel_startup_source else "build/intel-nonzero-source/srvros.elf" if intel_nonzero_source else "build/intel-nonzero-reset/srvros.elf" if intel_nonzero_reset else "build/intel-entry-requester/srvros.elf" if intel_entry_requester else "build/intel-ring-reset/srvros.elf" if intel_ring_reset else "build/intel-ring-entry/srvros.elf" if intel_ring_entry else "build/intel-ring-transition/srvros.elf" if intel_ring_transition else "build/intel-joint-admit/srvros.elf" if intel_joint_admit else "build/intel-hda-shutdown/srvros.elf" if intel_hda_shutdown else "build/intel-memory/srvros.elf" if (intel_memory_capture or intel_memory_fixture) else "build/intel-gpu-hold/srvros.elf" if intel_gpu_hold else "build/intel-joint/srvros.elf" if intel_joint else "build/intel-rehold/srvros.elf" if intel_rehold else "build/intel-held-interval/srvros.elf" if intel_held_interval else "build/intel-held-reset/srvros.elf" if intel_held_reset else "build/intel-held-requester/srvros.elf" if intel_held_requester else "build/intel-requester/srvros.elf" if intel_requester else "build/intel-engine-prepare/srvros.elf" if intel_engine_prepare else "build/intel-takeover/srvros.elf" if intel_takeover_preflight else "build/intel-bcs-shutdown/srvros.elf" if intel_bcs_shutdown_trial else "build/intel-shutdown/srvros.elf" if intel_shutdown_trial else "build/air61-register-sample/srvros.elf" if haswell_register_sample else "build/air61-read-window/srvros.elf" if haswell_read_qualification else "build/intel-bcs-reset/srvros.elf" if intel_bcs_reset_trial else "build/intel-reset-ready/srvros.elf" if intel_reset_ready_trial else "build/intel-completion/srvros.elf" if intel_completion_audit else "build/intel-readers/srvros.elf" if intel_reader_audit else "build/intel-hda-lease/srvros.elf" if intel_hda_lease_trial else "build/intel-hda-owner/srvros.elf" if intel_hda_owner_trial else "build/intel-hda/srvros.elf" if intel_hda_capture else "build/intel-blitter/srvros.elf" if intel_blitter_trial else "build/intel-engines/srvros.elf" if intel_engine_capture else "build/intel-wake/srvros.elf" if intel_wake_trial else "build/ap-probe/srvros.elf" if (haswell_firmware_capture or haswell_backing_capture or ap_ownership_test or ap_coordinated_c3) else "build/acpi-air61-battery/srvros.elf" if battery_air61 else "build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions or battery_home_work) else "build/kernel/srvros.elf"),
         "initramfs.tar": ROOT / "build/initramfs.tar",
     }
     STAGE.mkdir(parents=True, exist_ok=True)
@@ -688,6 +885,53 @@ def main():
     capture.add_argument("--battery-transitions",action="store_true",help="guided AC unplug/replug diagnostic; persistent instructions and bounded waits")
     capture.add_argument("--battery-capture",action="store_true",help="explicit native battery diagnostic kernel; save and return only after clean teardown")
     capture.add_argument("--aml-capture",action="store_true",help="run the isolated snapshot-only AML diagnostic with workspace logging; return only after clean completion")
+    capture.add_argument("--intel-memory-capture",action="store_true",help="Air7,2 full padded private backing/ownership qualification; no GPU writer")
+    capture.add_argument("--intel-memory-fixture",action="store_true",help="actual backing ownership fixture; no native GPU authority")
+    capture.add_argument("--intel-lifetime-capture",action="store_true",help="exact Air7,2 shadow scanout ownership/lifetime trial; no GPU writes")
+    capture.add_argument("--intel-lifetime-fixture",action="store_true",help="synthetic shadow scanout guest fixture; not native acceptance")
+    capture.add_argument("--intel-engine-prepare",action="store_true",help="Five-engine prepare/hold/cancel; no reset or memory grant")
+    capture.add_argument("--intel-ring-transition",action="store_true",help="Original-owner enabled-ring transition and fresh epoch census; no reset")
+    capture.add_argument("--intel-source-audit",action="store_true",help="Original held PCI/cache/display-reader observation, distinct v35; no ownership grant")
+    capture.add_argument("--intel-source-engines",action="store_true",help="Original-source five-engine ready hold inside maintained requester, distinct v34; no memory grant")
+    capture.add_argument("--intel-source-requester",action="store_true",help="Original-source maintained PCI requester hold, distinct v33; no GPU memory grant")
+    capture.add_argument("--intel-startup-transfer",action="store_true",help="Original-source address-owner lifetime, distinct v32; native missing assurances refuse")
+    capture.add_argument("--intel-startup-buffers",action="store_true",help="Original-source binding of two private held buffers, distinct v31; no GPU PTE stores")
+    capture.add_argument("--intel-startup-source",action="store_true",help="Original enabled/nonzero or disabled/zero reset and read-only source, distinct v30")
+    capture.add_argument("--intel-nonzero-source",action="store_true",help="Original live nonzero reset then bounded read-only GGTT source binding")
+    capture.add_argument("--intel-nonzero-reset",action="store_true",help="Original enabled entry then maintained nonzero-geometry BCS8 reset/preservation")
+    capture.add_argument("--intel-entry-requester",action="store_true",help="Original state-aware entry/reset then bounded original-claim requester restoration")
+    capture.add_argument("--intel-ring-reset",action="store_true",help="Live state-aware entry then unchanged zero-geometry reset under original owner")
+    capture.add_argument("--intel-ring-entry",action="store_true",help="Original-owner state-aware ring transition and fresh epoch census; no reset")
+    capture.add_argument("--intel-joint-admit",action="store_true",help="Same-owner disabled BCS observation before unchanged reset admission")
+    capture.add_argument("--intel-hda-shutdown",action="store_true",help="Pre-init original HDA/BCS shutdown and preservation; no reset or memory grant")
+    capture.add_argument("--intel-gpu-hold",action="store_true",help="Original-claim GPU requester inhibit/drain/restore; no memory grant")
+    capture.add_argument("--intel-joint",action="store_true",help="Maintained HDA inhibition and original GPU claim under one owner; no PTE writer")
+    capture.add_argument("--intel-rehold",action="store_true",help="Post-reset BCS re-arm and original-borrow child, restoring the old state; no PTE writer")
+    capture.add_argument("--intel-held-interval",action="store_true",help="Original candidate GGTT entry under the post-reset preparation borrow; read-only, no GPU grant")
+    capture.add_argument("--intel-held-reset",action="store_true",help="BCS8 reset under maintained five-engine preparation; no memory grant")
+    capture.add_argument("--intel-held-requester",action="store_true",help="PCI AF capture during maintained five-engine preparation; no reset or memory grant")
+    capture.add_argument("--intel-requester",action="store_true",help="Read-only Air7,2 PCI AF requester capture; no BME/FLR/reset writes")
+    capture.add_argument("--intel-takeover-preflight",action="store_true",help="Read-only all-engine reset controls; no reset or memory grant")
+    capture.add_argument("--intel-bcs-shutdown-trial",action="store_true",help="Fresh already-disabled observation within BCS reset borrow; no enabled-ring writer")
+    capture.add_argument("--intel-bcs-reset-trial",action="store_true",help="Isolated BCS-only reset and preservation; no memory/cache grant")
+    capture.add_argument("--intel-reset-ready-trial",action="store_true",help="Isolated bounded BCS reset request/ready/cancel; no actual reset/drain/cache authority")
+    capture.add_argument("--intel-completion-audit",action="store_true",help="Isolated read-only engine/flip-wait/TLB and cache-ordering context audit; no flush/reset/invalidate permission")
+    capture.add_argument("--intel-reader-audit",action="store_true",help="Isolated pinned non-posted and display-reader audit")
+    capture.add_argument("--intel-hda-lease-trial",action="store_true",help="cooperative pinned HDA inhibit lease, read-only dependent check, guarded restore; no DMA drain/memory grant")
+    capture.add_argument("--intel-hda-owner-trial",action="store_true",help="cooperative EFI display-HDA command16 bus-master inhibit/restore; no DMA retirement or memory transfer")
+    capture.add_argument("--intel-hda-capture",action="store_true",help="isolated read-only display-HDA DMA census; no wake, MMIO/config writes or memory transfer")
+    capture.add_argument("--intel-shutdown-trial",action="store_true",help="separate guarded idle blitter shutdown and fresh engine/reader preservation; no reset")
+    capture.add_argument("--intel-blitter-trial",action="store_true",help="dedicated cooperative boot BCS handoff, idle-only single disable and read-only plane audit; no GPU memory transfer")
+    capture.add_argument("--intel-engine-capture",action="store_true",help="dedicated read-only engine census under bounded native wake; no engine control or range transfer")
+    capture.add_argument("--intel-wake-trial",action="store_true",help="dedicated CPU0 cooperative-UEFI bounded wake diagnostic; no engine control or GPU range transfer")
+    capture.add_argument("--intel-gt-firmware-capture",action="store_true",help="exact Air7,2 read-only firmware handoff census; no mailbox calls or native wake")
+    capture.add_argument("--intel-gt-preflight-capture",action="store_true",help="exact Air7,2 read-only GT request/ACK and ASLS/SWSCI preflight; no wake or engine access")
+    capture.add_argument("--intel-handoff-capture",action="store_true",help="Air7,2 boot CPU client exclusion and managed-range refusal qualification; no GPU writes")
+    capture.add_argument("--intel-window-capture",action="store_true",help="exact Air7,2 read-only aperture geometry and candidate GGTT entries")
+    capture.add_argument("--intel-cache-capture",action="store_true",help="read-only CPU PAT/MTRR cache prerequisite with inherited backing preservation")
+    capture.add_argument("--intel-dma-capture",action="store_true",help="exact Air7,2 read-only DMA-remapping state; no control writes")
+    capture.add_argument("--intel-backing-capture",action="store_true",help="exact Air7,2 bounded read-only fence/GGTT observation; save and return")
+    capture.add_argument("--intel-display-capture",action="store_true",help="exact Air7,2 inherited display observation; no GPU control writes; save and return")
     capture.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
     parser.add_argument("--desktop-battery",action="store_true",help="ordinary Home session with explicit battery monitoring; Ctrl+Alt+Esc exits")
     parser.add_argument("--desktop-services",action="store_true",help="add existing brightness, HDA, read-only sensors and ECM discovery to --desktop-battery")
@@ -698,6 +942,8 @@ def main():
     parser.add_argument("--storage-metadata-trace",action="store_true",help="audit all metadata fields; requires --storage-only-capture")
     parser.add_argument("--storage-command-trace",action="store_true",help="attribute existing filesystem commands; requires --storage-only-capture")
     args = parser.parse_args()
+    if (args.intel_ring_entry or args.intel_ring_transition or args.intel_joint_admit or args.intel_hda_shutdown or args.intel_gpu_hold or args.intel_joint or args.intel_rehold or args.intel_held_interval or args.intel_memory_capture or args.intel_memory_fixture or args.intel_held_reset or args.intel_held_requester or args.intel_requester or args.intel_shutdown_trial or args.intel_bcs_reset_trial or args.intel_reset_ready_trial or args.intel_completion_audit or args.intel_reader_audit or args.intel_hda_lease_trial or args.intel_hda_owner_trial or args.intel_hda_capture or args.intel_blitter_trial or args.intel_engine_capture or args.intel_wake_trial or args.intel_gt_firmware_capture or args.intel_gt_preflight_capture or args.intel_handoff_capture or args.intel_window_capture or args.intel_cache_capture or args.intel_dma_capture or args.intel_display_capture or args.intel_backing_capture or args.intel_lifetime_capture or args.intel_lifetime_fixture) and (args.action!="stage" or not args.laptop_probe_volume or args.hold_on_failure or args.battery_air61 or args.battery_preflight or args.storage_wait_capture or args.desktop_volume):
+        parser.error("Intel observation requires stage --laptop-probe-volume without other profiles or --hold-on-failure")
     if args.desktop_navigation_trial and (args.action != "stage" or not args.desktop_volume or not args.desktop_services or not args.desktop_battery):
         parser.error("--desktop-navigation-trial requires stage and combined battery/services desktop volume")
     if args.desktop_lifecycle_trial and (args.action != "stage" or not args.desktop_volume or not args.desktop_services or not args.desktop_battery):
@@ -738,6 +984,26 @@ def main():
         parser.error("--power-telemetry requires stage --desktop-idle-capture")
     if args.laptop_probe_volume and args.action != "stage":
         parser.error("--laptop-probe-volume applies only to stage")
+    if args.intel_source_audit and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-source-audit requires stage --laptop-probe-volume")
+    if args.intel_source_engines and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-source-engines requires stage --laptop-probe-volume")
+    if args.intel_source_requester and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-source-requester requires stage --laptop-probe-volume")
+    if args.intel_startup_transfer and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-startup-transfer requires stage --laptop-probe-volume")
+    if args.intel_startup_buffers and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-startup-buffers requires stage --laptop-probe-volume")
+    if args.intel_startup_source and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-startup-source requires stage --laptop-probe-volume")
+    if args.intel_nonzero_source and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-nonzero-source requires stage --laptop-probe-volume")
+    if args.intel_nonzero_reset and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-nonzero-reset requires stage --laptop-probe-volume")
+    if args.intel_entry_requester and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-entry-requester requires stage --laptop-probe-volume")
+    if args.intel_ring_reset and (args.action!="stage" or not args.laptop_probe_volume):
+        parser.error("--intel-ring-reset requires stage --laptop-probe-volume")
     if args.keep_previous and args.action != "install":
         parser.error("--keep-previous applies only to install")
     if args.release and args.action != "install":
@@ -758,7 +1024,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture,storage_only_capture=args.storage_only_capture,storage_command_trace=args.storage_command_trace,storage_metadata_trace=args.storage_metadata_trace,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial,desktop_power_test=args.desktop_power_test,mwait_wakeup_test=args.mwait_wakeup_test,mwait_deep_test=args.mwait_deep_test,ap_ownership_test=args.ap_ownership_test,ap_coordinated_c3=args.ap_coordinated_c3,ap_package_audit=args.ap_package_audit,ap_platform_audit=args.ap_platform_audit,haswell_backing_capture=args.haswell_backing_capture,haswell_tilectl=args.haswell_tilectl,haswell_linux_fences=args.haswell_linux_fences,haswell_firmware_capture=args.haswell_firmware_capture,haswell_cache_context=args.haswell_cache_context,haswell_alias_context=args.haswell_alias_context,haswell_alias_preinit=args.haswell_alias_preinit,haswell_ecam_boot=args.haswell_ecam_boot,haswell_window=args.haswell_window,haswell_read_qualification=args.haswell_read_qualification,haswell_register_sample=args.haswell_register_sample,audio_listen=args.audio_listen,desktop_capture_write_timing=args.capture_write_timing)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture,storage_only_capture=args.storage_only_capture,storage_command_trace=args.storage_command_trace,storage_metadata_trace=args.storage_metadata_trace,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial,desktop_power_test=args.desktop_power_test,mwait_wakeup_test=args.mwait_wakeup_test,mwait_deep_test=args.mwait_deep_test,ap_ownership_test=args.ap_ownership_test,ap_coordinated_c3=args.ap_coordinated_c3,ap_package_audit=args.ap_package_audit,ap_platform_audit=args.ap_platform_audit,intel_display_capture=args.intel_display_capture,intel_backing_capture=args.intel_backing_capture,intel_lifetime_capture=args.intel_lifetime_capture,intel_lifetime_fixture=args.intel_lifetime_fixture,haswell_backing_capture=args.haswell_backing_capture,intel_dma_capture=args.intel_dma_capture,intel_cache_capture=args.intel_cache_capture,intel_window_capture=args.intel_window_capture,haswell_firmware_capture=args.haswell_firmware_capture,haswell_tilectl=args.haswell_tilectl,haswell_linux_fences=args.haswell_linux_fences,haswell_cache_context=args.haswell_cache_context,intel_handoff_capture=args.intel_handoff_capture,intel_gt_preflight_capture=args.intel_gt_preflight_capture,intel_gt_firmware_capture=args.intel_gt_firmware_capture,intel_memory_capture=args.intel_memory_capture,intel_memory_fixture=args.intel_memory_fixture,intel_held_reset=args.intel_held_reset,intel_held_interval=args.intel_held_interval,intel_rehold=args.intel_rehold,intel_joint=args.intel_joint,intel_gpu_hold=args.intel_gpu_hold,intel_hda_shutdown=args.intel_hda_shutdown,intel_ring_entry=args.intel_ring_entry,intel_ring_reset=args.intel_ring_reset,intel_entry_requester=args.intel_entry_requester,intel_nonzero_reset=args.intel_nonzero_reset,intel_nonzero_source=args.intel_nonzero_source,intel_startup_source=args.intel_startup_source,intel_startup_buffers=args.intel_startup_buffers,intel_source_audit=args.intel_source_audit,intel_source_engines=args.intel_source_engines,intel_source_requester=args.intel_source_requester,intel_startup_transfer=args.intel_startup_transfer,intel_ring_transition=args.intel_ring_transition,intel_joint_admit=args.intel_joint_admit,intel_held_requester=args.intel_held_requester,intel_requester=args.intel_requester,intel_engine_prepare=args.intel_engine_prepare,intel_takeover_preflight=args.intel_takeover_preflight,intel_bcs_shutdown_trial=args.intel_bcs_shutdown_trial,intel_shutdown_trial=args.intel_shutdown_trial,intel_bcs_reset_trial=args.intel_bcs_reset_trial,intel_reset_ready_trial=args.intel_reset_ready_trial,intel_completion_audit=args.intel_completion_audit,intel_reader_audit=args.intel_reader_audit,intel_hda_lease_trial=args.intel_hda_lease_trial,intel_hda_owner_trial=args.intel_hda_owner_trial,intel_hda_capture=args.intel_hda_capture,intel_blitter_trial=args.intel_blitter_trial,intel_engine_capture=args.intel_engine_capture,intel_wake_trial=args.intel_wake_trial,haswell_alias_context=args.haswell_alias_context,haswell_alias_preinit=args.haswell_alias_preinit,haswell_ecam_boot=args.haswell_ecam_boot,haswell_window=args.haswell_window,haswell_read_qualification=args.haswell_read_qualification,haswell_register_sample=args.haswell_register_sample,audio_listen=args.audio_listen, desktop_capture_write_timing=args.capture_write_timing)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

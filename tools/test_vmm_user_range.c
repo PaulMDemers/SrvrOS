@@ -31,7 +31,11 @@ void pmm_free_frame(uint64_t frame) {
     assert(test_cr3==kernel_cr3 && retire_count<3);
     retired[retire_count++]=frame;
 }
-void *pmm_phys_to_virt(uint64_t address) { table_reads++; return (void *)(uintptr_t)address; }
+void *pmm_phys_to_virt(uint64_t address) { table_reads++;
+#ifdef SRVROS_VMM_RANGE_TEST
+    range_lookup_hook();
+#endif
+    return (void *)(uintptr_t)address; }
 
 static uint64_t *exec_tables[4];
 static void exec_check(uint64_t address,uint64_t root,bool expected)
@@ -190,4 +194,5 @@ int main(void) {
     vmm_destroy_address_space(0);vmm_destroy_address_space(kernel_cr3);
     assert(switches==1 && retire_count==3);
     free(pt); free(pd); free(pdpt); free(pml4);
+    return 0;
 }

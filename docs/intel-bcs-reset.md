@@ -1,0 +1,610 @@
+# Broadwell BCS-only reset protocol
+
+The [accepted request/ready/cancel handshake](intel-reset-readiness.md) has a
+separate BCS-only reset successor in `kernel/diagnostics/intel_bcs_reset.c`.
+The original isolated reset image uses its own firmware request and15-token
+recipe. The later dedicated shutdown/reset image uses the exact16-token
+same-borrow disabled-observation recipe described below. Ordinary startup and
+older observers cannot execute this reset. Air7,2 now
+[physically accepts the bounded disabled-entry reset/preservation path](machines/macbookair7-2.md#accepted-full-census-retry-reset-and-preservation-complete)
+on source`f68ab030`; outstanding memory/cache/translation ownership and native
+tear-free remain open.
+
+## Register and ordering evidence
+
+Intel's [Broadwell PRM Volume 2c](https://cdrdv2.intel.com/v1/dl/getcontent/690789),
+SHA256 `09b48addae09923e35dcbf0d07fcf8d578f060ac68d58c42bb9b66a76a7e0742`,
+printed pages 609–610, defines GDRST at `0x941c`. Bit 3 initiates only the blitter
+domain soft reset. Hardware clears that bit on completion; a software clear
+cannot cancel it. This is a non-posted register. The core only permits the value
+8; it neither combines domains nor imports the full-reset bit. Any non-BCS bit
+observed in GDRST refuses the operation. Initially set bit 3 also refuses it.
+
+Page 165 defines `BCS_RESET_CTRL` at `0x220d0`. The request and ready bits clear
+on engine reset. Consequently a successful reset must not be required to retain
+the pre-reset request/ready value 3. The final explicit masked request cancellation
+is still checked, with fresh clear low-half control and GDRST endpoints.
+Upper write-mask bits remain observations, not active request state.
+
+The pinned [Linux v6.12 reset implementation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_reset.c),
+`gen8_reset_engines` and `gen6_hw_domain_reset`, prepares the selected engine,
+issues the selected hardware domain twice, waits for each self-clear and then
+waits 50 microseconds before cancellation. Its comments explain that register
+state can remain volatile after acknowledgement. The core models these two
+bounded pulses and measures at least 50 microseconds of settling. It does not
+import retry-on-error, forced non-ready resets, all-engine resets or arbitrary
+register restoration. The second pulse is the fixed successful sequence, never
+a retry after a failed or ambiguous first pulse.
+
+Neither the register definition nor the upstream sequence establishes an
+outstanding system-memory write, prefetch or GPU-cache drain witness. A reset
+acknowledgement therefore changes no completion obligation. All eight remain
+open (255). CPU fences and the settling interval are not substitute witnesses.
+There is no translation invalidation, command submission, PTE update, framebuffer
+change, private backing transfer or native tear-free acceptance.
+
+## Lifetime and stale observations
+
+Entry needs the complete same-parent address-sealed 92-read census, unchanged
+engine epoch, no enabled/pending/saved-wait/TLB-pending masks, parser-idle mask 3,
+an awake pinned GT parent and no other live dependent. A copied result or stale
+parent/epoch refuses entry. Fresh BCS raw words must match the observed empty,
+disabled entry: 0/0/0/0/1/0/512/0. Reset and final post-state are deliberately
+narrower than the hardware's general capabilities.
+
+A registered one-use borrow pins the parent; blocked early close must issue no
+store. The sequence is: fresh BCS/control/domain, request and ready, two BCS-only
+reset/self-clear phases, measured settling, masked cancellation, unchanged BCS
+and clear control/domain, parent check and verified pin return. Read, store,
+guard and clock failures stop forward progress. There is no cleanup store after
+an uncertain result, no forced pin return and no controller-reset fallback.
+
+Immediately before the first possible GDRST store the owner engine epoch advances
+once, including a definitely-unissued callback. It is never rolled back, and
+overflow is refused before request. A new completion census records that epoch;
+one observed across an epoch change cannot complete. Readiness and subsequent
+reset entry reject older censuses. A reset cannot start with another live borrow.
+This prevents a pre-reset empty-ring observation from silently authorizing work
+after destructive engine state changes. The epoch is internal software state;
+it is not a hardware ownership grant or a new field in existing version 4/5
+receipts. A future native reset receipt must bind it explicitly.
+
+The limits stay 10 ms/256 polls per acknowledgement phase and 100 ms for the
+whole dependent, including verified borrow return, within the existing 300 ms GT
+owner and 500 ms outer lifetime. Settling is also capped by 10 ms/256 iterations.
+Late but verified clean return invalidates timing acceptance without inventing a
+hardware pin. Any possibly issued request followed by an unresolved reset,
+foreign state, lost guard, failed cancellation or changed post-state retains
+ownership and exclusion until platform reset.
+
+## Native admission contract
+
+Before enabling a physical reset, validate all of the following together:
+
+- A distinct image/request/exact recipe; ordinary/readiness images must remain
+  unable to issue GDRST. Bind this Air's identity, cooperative firmware submission
+  policy, fresh cache/resource/root guards and unchanged protected backing.
+- A separate reserved, exact `0x9000` MMIO page with independent effective-UC/NX
+  validation, prepared before wake. Existing mapping allowlists stay unchanged.
+  The actual native adapter must independently admit only `0x941c`/value 8 and
+  the exact BCS masked request/cancel stores.
+- Same-boot pre/post other-engine and display-reader preservation, explicit
+  reset-side-effect limits and protected inherited allocations. HDA/reader
+  evidence from earlier separate boots cannot substitute for joint ownership.
+- Raw reset/control/post-state/epoch receipts, unchanged time/count bounds, a
+  strict native collector, saved prerequisite checkpoint and sufficient saved
+  tail capacity. Actual compiled native MMIO/mapping negative controls are
+  required; host callbacks alone cannot validate those addresses.
+- Exact-stage VM no-store refusal and failed-persistence/retained-state tests,
+  verified installed recovery and USB media, automatic safe return and visible
+  halt on uncertainty. Volume 1%, no interactive input required.
+
+The separate milestone of outstanding-memory completion and maintained CPU/GPU
+cache/translation ownership remains necessary before changing GGTT/backing or
+page-flipping. Do not treat this host model as hardware readiness.
+
+## Historical host-only validation checkpoint
+
+Source `e14c7bd6` integrates main `a9c1f714`. Full local host/core/profile/docs/
+build checks pass, with the opt-in installed-root check explicitly omitted.
+The final fixture extension passes separately. Fatal ASan/UBSan runs 144 cases;
+12 compiled negative controls are detected. The core also compiles with kernel
+freestanding flags. Ordinary Q35/OVMF boot and xHCI typing pass against matching
+rebuilt artifacts; the kernel symbol table confirms this reset core is absent.
+Initial test-wrapper/foreign-domain-assertion and small-ESP nonpasses are retained
+with the final evidence. No timeout or production refusal was weakened.
+See the [unit checkpoint](machines/macbookair7-2.md#controlled-reset-host-checkpoint-native-entry-still-disabled)
+for retained evidence and the remaining native boundary.
+
+## Native adapter and preservation
+
+The native adapter prepares 13 NX/effective-UC aliases before any wake store.
+Slots 0–8 keep the exact completion-audit layout; slot 9 is the separate reserved
+`0x9000` page and slots 10–12 are the three read-only reader pages. Only slots
+0 (wake request), 7 (BCS) and 9 (GDRST) are writable. A new cache predicate admits
+only the exact GDRST page without expanding older allowlists. Only `0x941c`/8
+and `0x220d0`/the two masked request values can be stored by this adapter.
+
+The v6 wake receipt binds 13 retired aliases/cache checks and 184 pre/post
+engine reads. Earlier wake versions retain their exact counts. Both censuses
+contain 92 words, with post-state using a distinct `intel-bcs-post-` prefix;
+its read-only scope has no reset writer. Both full passes of every engine and
+context must match across reset, while the post census binds the advanced epoch.
+
+Two same-lifetime reader snapshots retain 54 raw DWORDs for primary/cursor/sprite
+controls, programmed surfaces and live addresses on all three pipes. Primary
+and cursor fields bind the original captured state; every field must remain
+unchanged. Two exact display-HDA config snapshots retain all ten package fields,
+including command, power and capabilities. These are preservation observations,
+not a maintained HDA DMA inhibit or exhaustive firmware/reader retirement.
+
+Raw BCS rows, four request/ready endpoints, four GDRST endpoints, epoch, counts,
+settling/core/owner/reader timing and preservation outcomes are saved under
+`intel-bcs-`. The strict collector derives coverage, values and comparisons;
+it binds the original display, both censuses, native firmware/cache receipts,
+preflight checkpoint and v6 owner. A successful core under a failed outer
+lifetime remains incomplete. Post-reset observations hold a second registered
+one-use borrow, exercise blocked parent close and return it only after full
+preservation. A late clean core return may still run preservation, without
+promoting its failed timing to acceptance. Any post-reset preservation failure keeps the
+parent wake/mappings/exclusion live until reset. The sticky automatic-return
+gate remains mandatory; the guest shows a warning before serialized entry.
+There is no rollback or forced close after an ambiguous store.
+
+Use `make test-intel-bcs-native build/intel-bcs-reset/srvros.elf`, stage with
+`--intel-bcs-reset-trial`, then follow the exact-stage VM/install/collection
+workflow. Native object/mapping negative controls, image isolation, saved-tail
+headroom, offline USB/recovery and durable backups must pass before declaring
+hardware readiness. No physical acceptance follows from the host adapter fixture.
+
+## Historical Air7,2 candidate readiness
+
+Source `1000647f`, release `6a3d6afb2f2824bd`, is installed and not armed.
+The [unit readiness record](machines/macbookair7-2.md#historical-native-bcs-resetpreservation-readiness)
+records full local checks,144 core/48 adapter fatal sanitizer cases,23 detected
+compiled controls,14-image isolation and exact-stage Q35 refusal/save/return and
+missing-workspace halt. Object/staged MMIO and reader bindings pass independently
+of host callbacks. The full-width log bound is65,397/65,536bytes including1,536
+allowance. Prior USB data/offline media, recovery/default and check-only reboot
+guards pass; volume1%, playback disabled, no input needed. Complete evidence is
+backed up outside build. Native reset/preservation acceptance remains pending;
+no memory/cache/backing authority or physical tear-free presentation is enabled.
+
+The first exact VM exposed a progress message using the structured `intel-bcs-`
+namespace. The progress label now uses `intel-bcs:`; an actual-message regression
+covers it, and unknown structured receipts still fail. The failed guest/payload
+are retained separately. The rebuilt exact source passes both VM outcomes.
+
+## First native return: prerequisite clock refusal
+
+Release `6a3d6afb2f2824bd` / source `1000647f` saved a complete diagnostic tail
+and returned automatically, but did not enter the reset core. The92-read
+pre-census found stable engine/context state in63,482us, then reported reason2
+from its final clock validation. BCS request/reset attempts and writes were0;
+all13 aliases retired, the GT owner closed and exclusion released. Strict
+collection marks the run incomplete. USB prior-file hashes, offline filesystem
+and recovery/default/consumed-one-shot checks pass.
+
+A host reproduction shows that the existing final `end_us <= last_us` predicate
+rejects two samples in the same microsecond despite earlier positive progress.
+The physical receipt lacks `last_us`, so this explains a reproducible boundary
+but does not prove the hardware's exact final clock ordering. Correct and test
+that boundary without allowing backward time, a fully frozen observation or a
+longer deadline before qualifying another candidate. The failed receipt must
+remain incomplete. No reset/preservation or memory retirement acceptance follows.
+See the [latest unit result](machines/macbookair7-2.md#latest-native-bcs-reset-trial-safe-prerequisite-refusal).
+
+## Final-clock correction candidate
+
+Source `5a73d72d` (main `f01a1ad4` integrated), release `ffd7200db10e1b02`,
+corrects the final completion-clock predicate: a tie with the preceding
+microsecond sample is valid only when the full observation has positive elapsed
+time. Backward time, a frozen whole observation and the100ms overrun remain
+refusals. No new hardware authority or receipt field follows from this fix.
+The earlier native reason2 result remains incomplete.
+
+Full local host/core/profile/docs/build checks pass, excluding the explicitly
+opt-in installed-root check.28 clock,144 reset-core and48 adapter fatal sanitizer
+cases and28 compiled controls pass, including restoration of the clock defect,
+missing progress/monotonicity/deadline and an overly strict100ms boundary.
+Fourteen-image isolation, actual native object/staged mappings/MMIO/reader
+bindings and the unchanged65,397-byte full-width log bound pass. The exact-stage
+MBR Q35/GRUB trial verifies no-store platform refusal, checkpoint/results,
+exact boot options, automatic safe return and missing-workspace halt.
+
+The [current unit readiness](machines/macbookair7-2.md#historical-final-completion-clock-readiness)
+records installed recovery, unchanged prior files, clean offline media, volume1%
+and check-only guards. The candidate is installed but unarmed. Physical BCS reset
+and preservation still need their own successful receipt; all completion, cache,
+translation, reader and backing obligations remain open.
+
+## First acknowledged native reset: retained parent
+
+Air7,2 release `ffd7200db10e1b02` / source `5a73d72d`, session
+`00065fbabbb7b966-00`, passes the pre-census and records both BCS-domain pulse
+acknowledgements, matching exact BCS endpoints, controls0/3/0/0, domain endpoints0
+and1,931us settling. The97,618us body then fails mandatory borrow return with
+`IBR_PARENT`/9 and parent `GT_ACCESS_CLOCK`/256. The last accepted owner sample
+was298,483us; the failed clock value is not recorded. Exhaustion of the unchanged
+300ms owner budget is an inference from that timing, not a directly logged cause.
+
+Wake, borrow,13 mappings and exclusion remain retained. No post-reset census or
+reader/config preservation runs; the sticky gate prevents automatic reboot.
+A final diagnostic report and preflight checkpoint were nevertheless saved.
+Strict collection marks the run incomplete. Prior files, offline filesystem,
+recovery/default and consumed-one-shot checks pass after Ubuntu resumes.
+The [latest unit result](machines/macbookair7-2.md#latest-bcs-reset-trial-acknowledged-reset-retained-parent)
+retains the photo, raw timings and next scope: reduce guard overhead and expose
+failed-clock detail without changing deadlines or allowing forced retirement.
+No complete native reset/preservation or memory-ownership acceptance follows.
+
+## Guarded requester grouping and clock failure evidence
+
+The next isolated BCS image uses the optional requester/ACK/thread snapshot in
+the [GT contract](intel-gt-access.md#optional-guarded-requester-snapshot), while
+older images keep their individual-register path. Every grouped check still
+performs full fresh admission before, inside and after the ordered RO loads.
+All raw backing/PTE/fence validations remain; no guard result is cached across
+operations. The source model measures8→3 complete audits per check, with exact
+raw endpoint equivalence. This is host cost evidence, not native timing acceptance.
+
+Wake v7 retains13 mappings and184 pre/post engine reads, and requires exactly
+one compact `intel-clock` row after the BCS report and before the wake summary.
+It binds the first failed sample, previous accepted time, phase and cause mask,
+using the existing BCS owner origin, plus the snapshot attempt count. Derived
+failure bits must agree with the GT clock reason; successful v7 collection needs
+positive snapshot coverage and no clock fault. Unknown/duplicate/missing fields
+remain errors. Earlier v6 reports retain their original interpretation; the
+ffd7 retained-parent trial remains incomplete.100/300/500ms bounds, core pin
+return, post-reset preservation and uncertainty retention remain mandatory.
+
+## Guarded snapshot candidate readiness
+
+Source `9ea439f6` / release `3ec42dd315377e65` is installed and unarmed. The
+[unit checkpoint](machines/macbookair7-2.md#guarded-requester-snapshot-candidate-ready-for-hardware)
+records full local checks,28 completion-clock/144 reset-core/53 adapter fatal
+sanitizer cases plus the GT snapshot fixture,31 detected compiled controls and
+14-image isolation. The source comparison preserves raw endpoints while measuring
+188 versus268 full audits; this does not accept native latency. Five actual
+native MMIO/mapping controls include the new exact requester snapshot addresses.
+The conservative65,507-byte log projection keeps the existing65,536 limit and
+1,536-byte allowance. Exact-stage MBR Q35 refusal/checkpoint/save/return and
+missing-workspace halt, current media/recovery and check-only guards pass.
+
+The new wake v7 clock receipt is mandatory only for this image version. Both
+prior native nonpasses remain incomplete. Hardware must still establish full
+pin return, fresh post-reset preservation and clean owner/mapping retirement
+under unchanged100/300/500ms limits. No human input is needed for that automated
+trial; safe outcomes save and return, uncertainty keeps the visible pre-entry
+warning and retained-state reboot gate. No trial is armed by preparation.
+
+## Guarded snapshot native return
+
+Air7,2 source `9ea439f6` / release `3ec42dd315377e65`, session
+`session-00065fbb6102d2c0-00`, saved a valid diagnostic refusal. The stable
+92-word pre-census took53,979us and observed BCS enabled (mask16, control61441).
+`IBR_INPUT`/1 rejected admission before a borrow, control store or reset pulse.
+The version7 clock row has why0 and7 grouped checks. All13 aliases retired,
+parent/exclusion released and zero state retained. Owner146,383us/outer224,902us
+are shorter-path measurements, not a successful reset latency comparison.
+No post-census or preservation occurred; reset acceptance remains pending.
+Media/recovery/default/consumed-one-shot checks pass with1,380 files/116 sessions.
+The next step must establish bounded same-lifetime inherited BCS disable/retirement
+admission; do not suppress the enabled bit, widen budgets or reuse another boot's
+retirement observation. The current trial is collected and no reboot is armed.
+
+The separate [guarded shutdown qualification](intel-shutdown.md) now tests the
+enabled-ring transition and fresh engine/reader preservation before any change
+to reset admission. It has no reset writer and cannot accept this reset protocol.
+
+## Fresh disabled observation within the reset borrow
+
+The separate `--intel-bcs-shutdown-trial` / `build/intel-bcs-shutdown/srvros.elf`
+image integrates the physically exercised **already-disabled** observation into
+reset admission. It has a distinct firmware request, wake version9 and an exact
+16-token recipe, adding `srvros.intel-shutdown=observe-disabled` to the reset
+recipe. Ordinary, original reset and standalone shutdown images retain their
+recipes. The enabled-ring disable writer remains outside this image; enabled or
+nonzero-geometry entry refuses before any reset request.
+
+`intel_bcs_reset_after_shutdown` creates its observation result internally while
+holding the same registered reset borrow and after blocked early parent close.
+The existing blitter observer receives a NULL writer. Its four fresh eight-word
+snapshots must all bind the current parent's unchanged engine epoch and complete
+92-word census, including exact zero geometry and parser/mode words. There is
+no externally supplied shutdown receipt to copy from another lifetime. The
+initial reset-side snapshot must still match, and all request/domain, two-pulse,
+settling, cancellation, pin-return and post-reset engine/reader/HDA preservation
+checks remain. The100ms dependent budget starts **before** observation; neither
+it nor the300ms owner/500ms outer budget is restarted or extended. Any lost parent
+or unresolved issued request retains ownership and prevents automatic return.
+
+`intel-bcs-shutdown-row` records all32 DWORDs; its summary records the owner
+origin, pre-reset epoch, timing, coverage and zero control attempts/stores.
+Version9 counts216 pre/post/observation words and retains13 independently
+qualified NX/effective-UC mappings. The only writable pages are the existing
+requester, BCS request/cancel and BCS-domain GDRST pages. No ring-control writer,
+new mapped page, HDA-MMIO, PTE/translation/cache writer or memory grant is added.
+
+The new image uses strict version2 positional decimal DWORD vectors for completion,
+reset, shutdown and preservation rows. Decoders validate exact field/order/width
+and normalize every value into the existing named keys; version1 historical rows
+keep their old meaning and cannot replace version2 in a version9 receipt. The
+saved-tail cap stays64KiB with its existing allowance. Native collection must bind
+the fresh observation, both censuses, raw reset endpoints, same-owner epochs,
+blocked close, returned pins, inherited readers, native prerequisites and saved
+checkpoint before accepting the combined trial. A VM refusal proves transport
+and safe return only. The previous standalone shutdown boot never authorizes
+this boot's reset, and no DMA/prefetch/cache/backing/tear-free acceptance follows.
+
+
+Source `c8942c8d` / release `d74b95ab9b2f5d5c` is installed unarmed for this
+combined trial. The [unit readiness record](machines/macbookair7-2.md#same-borrow-shutdownreset-candidate-ready-for-hardware)
+records full/follow-up local checks,84 fatal sanitizer cases,12 compiled controls,
+16-image isolation and exact-stage normal/missing-workspace VM outcomes. Saved
+full-width projection is65,414/65,536bytes without a cap/allowance increase.
+Media/recovery checks pass; no physical combined shutdown/reset acceptance exists.
+
+
+### First combined native return
+
+Release `d74b95ab9b2f5d5c` / source `c8942c8d`, session
+`session-00065fcc53cff57d-00`, completes the same-borrow four-snapshot disabled
+observation and acknowledges both fixed reset pulses, then reports `IBR_CLOCK`/2
+during settling. Settling entry is98,247us into the100ms dependent budget;
+the wrapper's post-failure endpoint is100,171us after core entry. The exact failed
+sample is unavailable, so deadline exhaustion remains a strong timing inference.
+The parent GT first-fault row is clear and cannot identify the inner-core cause.
+
+Cancellation, borrow return and post-reset preservation do not complete. All13
+aliases, wake, borrow and exclusion are retained; the normal automatic reboot is
+blocked. A final diagnostic and matching preflight are saved. Strict collection
+marks the run incomplete, with prior-file/offline media/recovery checks passing.
+The [unit result](machines/macbookair7-2.md#latest-same-borrow-reset-trial-clock-failure-during-settling)
+records the detailed timing and next scope: first-fault inner-clock evidence and
+measured audit reduction under unchanged limits, never forced retirement or a
+larger deadline. No reset/preservation or memory-ownership acceptance follows.
+
+## Guarded endpoint bundles and first inner clock fault
+
+The same isolated shutdown/reset image's successor uses wake version10. Its
+optional `snapshot` callback reads BCS8, reset control and GDRST in the original
+order with one fresh full provider admission; full core admission brackets the
+whole read. Initial and final endpoint batches therefore use3 full admissions
+instead of9, with identical raw fields, comparisons and store order. Old reset
+images keep NULL callbacks and the scalar path. No snapshot is cached or reused.
+
+Observation callbacks which perform no MMIO retain fresh pin/time checks. Their
+read callbacks still perform full pre/provider/post admission around each group;
+the intervening parent check remains. The compiled host scalar comparison records
+215→198 full audits, all46 raw rows identical, including request/domain, engine,
+reader and HDA values. The comparison binary is not a valid v10 native receipt
+and cannot establish native timing or acceptance.
+
+The core retains its first invalid sample, prior accepted sample and stage:
+guard1, strict pre-return endpoint2 or clean-return endpoint3. Cause bits are
+zero1, backward2, >100ms4 and strict endpoint nonprogress8. A separate mandatory
+`intel-bcs-clock` v1 row binds these to the reset summary's origin and counts
+endpoint-batch attempts. Later checks cannot overwrite the first fault. Guard
+clock ties remain permitted, while the existing strict endpoint predicate remains.
+A late verified clean return still fails timing without inventing a live pin.
+
+Strict v10 collection derives cause bits and requires two endpoint snapshots for
+core completion; v9 retains its uncaptured-clock meaning. The parent `intel-clock`
+row is independent. The100ms dependent,300ms owner,500ms outer, acknowledgement
+poll/phase and settling limits are unchanged. Full registered-pin checks,
+pre/post preservation, uncertainty retention and all memory-ownership refusals
+remain. The earlier d74 settling failure stays incomplete. No new register,
+writer, mapping or enabled-ring admission follows from this optimization.
+
+
+Source `76e45067` / release `3d376586292550c3` returned from the
+[guarded-bundle/inner-clock trial](machines/macbookair7-2.md#guarded-endpoint-trial-returned-enabled-inherited-ring-refused)
+with a clean prerequisite refusal: the92-word stable pre-census observes inherited
+BCS start `0x03eef000` / control `0x0000f001`, enabled mask16. No dependent borrow,
+shutdown observation, reset store or endpoint bundle runs. Both clock rows have
+no fault, which does not qualify unexercised inner timing. All13 mappings retire
+and the saved diagnostic returns automatically; complete reset/preservation stays
+unaccepted. No new trial is armed.
+Full local checks,91 fatal sanitizer cases,16 compiled controls,16-image isolation,
+actual native bundle/load/provider bindings and exact-stage normal/missing-workspace
+VM outcomes pass. The projected full-width tail is65,505/65,536bytes with the
+unchanged1,536 allowance. Media/recovery checks pass; native acceptance is pending.
+
+The unchanged candidate's retry, session `session-00065fcdfd61630b-00`, reaches
+both reset ACKs, settling and cancellation, with both endpoint bundles sampled.
+It records cause4/stage1 at20,441,408us, previous20,433,720us and origin20,335,796us:
+105,612us elapsed versus97,924us last accepted. This directly establishes inner
+deadline exhaustion in final endpoint/return admission; the row does not identify
+an individual callback. The independent parent clock has no fault. No verified
+borrow return or post-preservation runs; ownership remains retained and the guest
+halts. The full operation is incomplete. Further admission optimization must
+preserve the100ms core bound and all fresh checks; no reset/preservation or
+memory-ownership acceptance follows from the two ACKs and cancellation.
+
+## Guarded write and first-ack transactions
+
+The isolated shutdown/reset successor uses wake version11 and core-clock row
+version2, adding `t` for attempted transaction callbacks (maximum4). Completion
+requires exactly four transactions and two endpoint bundles; attempts bind to
+the request/cancel and two domain-attempt counters. Missing or inconsistent
+coverage refuses. Historical wake10/clock1 and older receipts keep their meaning.
+
+The optional transaction callback performs only the existing request/cancel store
+or fixed BCS-domain8 pulse followed by its first non-clearing acknowledgement
+read. Exact values, mapping slots and addresses remain gated. Full fresh core
+pre-admission, provider admission and core post-admission bracket each pair;
+registered pin/epoch checks still bracket callbacks. After a store the provider
+freshly samples request/ACK/thread before reading the acknowledgement. A foreign
+requester, changed mapping, failed read or uncertain store retains ownership;
+there is no callback retry or uncertain-to-unissued conversion. Later polls keep
+the scalar path and the first read consumes one of the existing256 poll slots.
+The transaction phase starts before the write callback, including its cost in
+the existing10ms phase budget.
+
+For this path only, remove the duplicate final read-only parent check and its
+outer full guards: the final endpoint retains fresh post-admission and no MMIO
+intervenes before the strict endpoint clock and verified return. Return itself
+still performs the full fresh parent check before releasing the registered pin.
+Its completion timestamp remains charged to the unchanged100ms core deadline.
+Older scalar images retain their previous final checks.
+
+The compiled scalar comparison measures198→183 full audits: six saved across
+request/cancel, four across domain pulses and five from the duplicate final check.
+All46 raw rows and normalized protocol outcomes match. The scalar comparator is
+not a valid wake11 receipt and establishes no native timing acceptance. The
+100/300/500ms bounds, settling and phase limits, epoch advance, preservation and
+retained-state gates remain unchanged. No enabled-ring, translation/cache writer,
+new hardware address, managed-memory or tear-free authority follows.
+
+Source `379a25e0` / release `58679ddd2e83e75b` returned with
+[a complete core but failed owner deadline](machines/macbookair7-2.md#guarded-transactions-return-core-complete-owner-deadline-exceeded).
+Full local checks,95 fatal sanitizer cases,23 compiled controls,16-image isolation,
+object/staged bindings and exact immutable MBR Q35 normal/missing-workspace outcomes
+pass. Saved-tail projection is65,509/65,536bytes with the unchanged1,536 allowance.
+USB/recovery/default/one-shot checks pass. Native timing/reset/preservation remains
+pending; host cost reduction does not accept the100ms physical operation.
+
+The native guarded-transaction session `session-00065fcf1e6a3666-00` records
+core completion/verified reset-borrow return in95,752us, with no inner fault,
+four transactions and two endpoint bundles. The fresh post-census completes92
+stable words and matches both pre-census samples;27 plane and ten HDA configuration
+words match across their two endpoints. The final parent check nevertheless
+records cause8 (total deadline) at306,161us against the unchanged300ms owner bound;
+the previous accepted sample is298,510us and the reader snapshot ends304,249us.
+The preservation pin, wake,13 aliases and exclusion stay retained. Whole completion
+remains false. These component observations do not accept full preservation,
+engine/reader/cache/DMA retirement, managed memory or tear-free presentation.
+Media/recovery checks pass; no new reboot is armed. Next optimize the remaining
+preservation/parent admissions without increasing either deadline.
+
+## Guarded full-census samples
+
+The isolated shutdown/reset successor uses wake12/clock3. Its optional completion
+sample callback reads the same five eight-word engine/TLB groups followed by the
+same six context DWORDs. Full fresh core pre-admission, independent provider
+admission and core post-admission bracket each46-word sample. Requesters are
+fresh between groups; each next target's current CR3/physical mapping is checked
+before its reads. Floating/reserved group values stop before the following group.
+Both samples, all raw stability/mask/epoch comparisons and full initial/final
+parent checks remain. The core also checks parent identity/state/pin/epoch both
+before and after its guard callback. Scalar callers explicitly keep NULL callbacks.
+
+Clock row3 adds `c`/`p` attempted sample counts (maximum2 each) for pre- and post-
+reset censuses. Declared census completion requires two matching callbacks; a
+post attempt requires a completed pre-census. Missing coverage never becomes a
+pass. Earlier wake11/clock2 and other historical receipts keep their meaning.
+The existing four transactions/two reset endpoints, all reader/HDA preservation
+and verified borrow/owner close/firmware/mapping retirement gates remain unchanged.
+
+The host comparison measures183→147 full audits: each census retains both parent
+checks and saves nine full audits per sample, eighteen per census. All46 raw
+observation rows and normalized protocol outcomes match. These are host costs,
+not native acceptance. No new page, MMIO target, write, enabled-ring admission or
+managed-memory grant is added. The100ms core,300ms owner,500ms outer and all phase,
+poll/settling and census limits remain unchanged. Complete preservation/teardown
+must still qualify on the physical machine.
+
+Source `f68ab030` / release `94bc48ed5551f552` is
+[qualified for the full-census trial](machines/macbookair7-2.md#full-census-candidate-qualification).
+Full local checks,120 fatal sanitizer cases,33 compiled controls,16-image isolation,
+actual object/immutable-stage bindings and exact MBR Q35 normal/missing-workspace
+paths pass. The conservative tail projects65,517/65,536bytes with unchanged1,536
+allowance. USB/recovery/default/one-shot checks pass. Native whole-owner timing,
+complete preservation/teardown and hardware memory ownership remain pending.
+
+The native full-census return, session`session-00065fd0a742033c-00`,
+[refuses safely on an enabled inherited BCS ring](machines/macbookair7-2.md#full-census-return-safe-enabled-ring-refusal).
+The two pre-census callbacks read92 stable words in19,319us; enabled mask16,
+BCS start`0x03eef000`/control`0xf001` prevent reset admission. Clock3 records
+c2/p0/n0/t0 with no clock fault. No reset/request/control store was attempted.
+The owner closes in111,737us and the outer lifetime in190,320us; all13 aliases
+retire and firmware/exclusion release. Saved checkpoint, strict decoding, prior
+files, offline media and recovery pass. This is pre-census/refusal coverage only:
+there is no post-census, core reset or complete preservation timing acceptance.
+No reboot is armed; a disabled-entry retry remains necessary at unchanged limits.
+
+## Accepted native full-census retry
+
+Source`f68ab030`, release`94bc48ed5551f552`, session
+`session-00065fd0e9d66e32-00` accepts the bounded same-borrow already-disabled
+observation, two fixed BCS-domain8 reset pulses, settling/cancellation, epoch0→1,
+verified reset and preservation borrow returns, and complete fresh engine/plane/
+HDA preservation. Core96,445/100,000us, owner267,977/300,000us and outer
+346,637/500,000us pass at unchanged limits. Pre/post92-word censuses complete in
+19,317/19,315us and match; both27-plane and ten-HDA-configuration endpoints match.
+Disabled observation reads32 words with zero ring-control stores. Wake12/clock3
+records c2/p2/n2/t4 and no inner or parent fault. All13 aliases retire and firmware/
+exclusion release. Strict native decoding, saved checkpoint, completed=yes,
+zero attention, prior-file/offline media/recovery/default/consumed-one-shot pass.
+
+This is one measured native completion with3,555us core headroom, not a worst-case
+guarantee. Earlier enabled-ring refusals and retained-state timing failures remain
+nonpasses. Enabled-ring shutdown, outstanding memory writes/prefetch/cache/reader
+retirement, GPU translation ownership, managed backing and tear-free presentation
+are not accepted; all255 obligations remain open. No reboot is armed.
+
+## Native provider-boundary integration
+
+The dedicated same-borrow disabled-observation/reset image now applies the
+[qualified preparation callback pattern](intel-engine-prepare.md#native-nested-census-acceptance-2026-11-09)
+to reset and its nested preservation census. Fresh core checks retain IRQ
+exclusion, original owner, display/observer claim, current root, absent scratch
+alias, all13 exact live mappings and fresh wake requesters. Every successful
+control/domain/group/snapshot/write provider owns a complete backing/endpoint
+entry and exit validation. Full-exit failure permanently poisons the adapter
+and native owner before the next core check, preserving completed write/load
+prefixes. No admission survives into a later callback.
+
+The exact request/cancel and domain8 writers additionally verify the live
+registered borrow/epoch and original100ms dependent clock after full admission,
+immediately before possible issue. Scalar fallback writers have the same clock
+and full boundaries. The nested census retains both46-word samples and fresh
+per-group mappings/requesters; its callbacks also provide full entry/exit checks.
+Both pre/post engine/context vectors,54 plane words, both10-field HDA snapshots,
+software epoch transition, registered preservation borrow and all teardown
+checks remain. Only this image additionally uses the already qualified <=64-entry
+IRQ-disabled raw GGTT reader and the same-call final endpoint binding; other
+reset/readiness images keep their prior admission path.
+
+The generic reset core, exact16-token recipe, version12 receipt and all
+100/150/300/500ms and10ms/256-poll limits stay unchanged. Prior native evidence
+does not accept these adapter changes. Requalify this source with exact-stage
+VM refusal/persistence, compiled address/permission/clock controls and a new
+matching native trial. All255 completion obligations remain open; no wider
+domain reset, PTE writer, managed range or native tear-free grant is added.
+
+The locally qualified integration candidate is source`4873e6bd`, release
+`6365de27e20576b6`. Full local checks (installed-root omitted),18-image isolation,
+307 fatal sanitizer cases covering three actual scalar branches,5 compiled
+semantic/clock controls,9 native object/staged controls and7 batching controls
+pass. The same-path comparison keeps46 raw rows/216 target observations identical
+and reduces full guards147→131; this is not a physical speed claim. Exact-stage
+MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and missing-workspace
+halt pass. The compiled16-token parser matches saved logs; unchanged full-width
+projection65,517/65,536 includes1,536 allowance. Installed recovery, prior USB
+files and independent evidence are retained. The matching native result below
+accepts only the bounded BCS path.
+
+## Native provider-boundary acceptance (2026-11-09)
+
+Air7,2 source`4873e6bd`/release`6365de27e20576b6`, session
+`session-00065fdd96e4b9d8-00`, completes in61,212/100,000us with38,788us margin.
+Owner207,311/300,000us, outer279,649/500,000us and reader113,898/150,000us
+pass. Two domain8 pulses acknowledge, settling measures50us and cancellation
+completes. Six poll observations include two additional polls;26 core reads,
+216 census/shutdown reads and135 full guards are recorded. All deadlines remain.
+
+Fresh same-borrow observation finds disabled zero geometry: four snapshots,
+32 words, zero disable attempts/stores. The enabled shutdown writer remains
+unexercised. Full92-word engine/context pre/post vectors,54 plane words and both
+10-field HDA snapshots preserve. Epoch0→1, both registered borrows returned,
+13 aliases retired, exclusion released and zero clock fault/uncertain/retained
+state verify. Strict native/checkpoint and collector checks pass with no attention.
+All1,422 prior files preserve;1,425 files/131 sessions and offline media/recovery/
+default/consumed one-shot checks pass. Independent evidence survives outside build.
+
+This is one bounded exact-source pass, not repeatability or a controlled speed
+comparison. It grants no broader reset, enabled shutdown, DMA/cache/translation/
+reader ownership, managed interval or native tear-free. All eight completion
+obligations (mask255) remain open; each successor needs fresh admission.

@@ -5,6 +5,7 @@ import subprocess
 from capture_transfer import capture_transfer
 from capture_history import capture_history
 
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--host', required=True)

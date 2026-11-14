@@ -354,6 +354,7 @@ USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type 
 KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort) $(wildcard kernel/src/process_private_*.inc kernel/src/launch_gate_trace.inc)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+KERNEL_C += kernel/diagnostics/package_audit_core.c
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 UACPI_KERNEL_SRC := $(wildcard ports/upstream/uacpi/source/*.c) ports/srvros/uacpi/kernel/probe.c \
     ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_worker.c \
@@ -1084,7 +1085,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # Early-boot paths and trap-state helpers/diagnostics must not use compiler
 # SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/display_access.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -2013,9 +2014,9 @@ distclean:
 test-console: build/tests/console-host$(HOST_EXE)
 	$<
 
-build/tests/console-host$(HOST_EXE): tools/test_console.c kernel/src/console.c shared/include/srvros/font5x7.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/console-host$(HOST_EXE): tools/test_console.c kernel/src/console.c shared/include/srvros/font5x7.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/src/display_access.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections kernel/src/display_access.c -o $@
 
 .PHONY: test-keyboard test-clock
 test-keyboard: build/tests/keyboard-host$(HOST_EXE)
@@ -3298,9 +3299,9 @@ test-desktop-host-tools:
 test-core: test-backlight
 test-backlight: build/tests/backlight-host$(HOST_EXE)
 	$<
-build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers/backlight.c kernel/include/srvros/backlight.h
+build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers/backlight.c kernel/include/srvros/backlight.h kernel/src/display_access.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c kernel/src/display_access.c -o $@
 
 .PHONY: test-hda
 test-core: test-hda
@@ -4142,7 +4143,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
 AP_PROBE_OBJ := build/ap-probe/window-gate.o build/ap-probe/window-report.o build/ap-probe/ecam-report.o build/ap-probe/ecam-pci.o build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
-AP_PROBE_BASE := $(filter-out build/kernel/src/arch/x86_64/pci.c.o build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
+AP_PROBE_BASE := $(filter-out build/kernel/src/arch/x86_64/pci.c.o build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o build/kernel/diagnostics/package_audit_core.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -4481,9 +4482,9 @@ build/tests/virtio-gpu-probe-host$(HOST_EXE): tools/test_virtio_gpu_probe.c kern
 test-core: test-display-present
 test-display-present: build/tests/display-present-host$(HOST_EXE)
 	$<
-build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready kernel/src/display_access.c
 	@mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/display_access.c -o $@
 
 .PHONY: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
 test-core: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
@@ -4538,6 +4539,27 @@ build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnost
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_display_owner.c kernel/diagnostics/display_owner_core.c -o $@
 
+.PHONY: test-intel-display-capture
+test-core: test-intel-display-capture
+test-intel-display-capture: build/tests/intel-display-capture$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-display-capture$(HOST_EXE)
+	build/tests/intel-display-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_display_capture.py
+build/tests/intel-display-capture$(HOST_EXE): tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c kernel/include/srvros/intel_display_capture.h
+	mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c -o $@
+build/tests/intel-display-probe$(HOST_EXE): kernel/src/drivers/intel_gt_wake.inc tools/test_intel_display_probe.c kernel/src/intel_boot_claim.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-intel-display-backing
+test-core: test-intel-display-backing
+test-intel-display-backing: build/tests/intel-display-backing$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-display-backing$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_display_backing.py
+build/tests/intel-display-backing$(HOST_EXE): tools/test_intel_display_backing.c kernel/src/drivers/intel_display_backing.c kernel/include/srvros/intel_display_backing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_backing.c kernel/src/drivers/intel_display_backing.c -o $@
 # The session fixture includes display transaction implementation directly.
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
 
@@ -4625,6 +4647,23 @@ build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/
 	@mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
+.PHONY: test-scanout-lifetime
+test-core: test-scanout-lifetime
+test-scanout-lifetime: build/tests/scanout-lifetime$(HOST_EXE)
+	$<
+build/tests/scanout-lifetime$(HOST_EXE): tools/test_scanout_lifetime.c kernel/src/scanout_lifetime.c kernel/include/srvros/scanout_lifetime.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_lifetime.c kernel/src/scanout_lifetime.c -o $@
+
+.PHONY: test-intel-scanout-trial
+test-core: test-intel-scanout-trial
+test-intel-scanout-trial: build/tests/intel-scanout-trial$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-scanout-trial$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_scanout_lifetime.py
+	$(PYTHON) -m unittest discover -s tools -p test_scanout_publish_model.py
+build/tests/intel-scanout-trial$(HOST_EXE): tools/test_intel_scanout_trial.c kernel/src/drivers/intel_scanout_trial.c kernel/diagnostics/scanout_publish_model.inc kernel/src/scanout_lifetime.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_scanout_trial.c kernel/src/scanout_lifetime.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
 -include $(USER_PROFILE_DEP)
 
 .PHONY: test-guest-profiles
@@ -4632,7 +4671,7 @@ test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
 	$(PYTHON) tools/test_guest_profile.py $< -v
 build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/lib/include/srvros/profile_limits.h userspace/profile/codec.h userspace/profile/stream.h userspace/profile/memory.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -D_POSIX_C_SOURCE=200809L -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
+	$(HOST_CC) -std=c11 -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
 
 .PHONY: test-haswell-backing
 test-core: test-haswell-backing
@@ -4663,7 +4702,7 @@ test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
 build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/lib/include/srvros/profile_limits.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c -o $@
+	$(HOST_CC) -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c -o $@
 
 .PHONY: test-e1000-init
 test-core: test-e1000-init
@@ -4707,6 +4746,14 @@ build/tests/salvage-cli-host$(HOST_EXE): tools/test_salvage_cli.c userspace/salv
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
 
+.PHONY: test-scanout-space
+test-core: test-scanout-space
+test-scanout-space: build/tests/scanout-space$(HOST_EXE)
+	$<
+build/tests/scanout-space$(HOST_EXE): tools/test_scanout_space.c kernel/src/scanout_space.c kernel/include/srvros/scanout_space.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_space.c kernel/src/scanout_space.c -o $@
+
 .PHONY: test-file-fsync
 test-core: test-file-fsync
 test-file-fsync: build/tests/file-fsync-host$(HOST_EXE)
@@ -4719,6 +4766,15 @@ build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/ar
 test-core: test-dirty-salvage-scope
 test-dirty-salvage-scope:
 	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
+
+.PHONY: test-intel-dma
+test-core: test-intel-dma
+test-intel-dma: build/tests/intel-dma$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-dma$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_dma_observe.py
+build/tests/intel-dma$(HOST_EXE): tools/test_intel_dma_observe.c kernel/src/drivers/intel_dma_observe.c kernel/include/srvros/intel_dma_observe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_dma_observe.c kernel/src/drivers/intel_dma_observe.c -o $@
 
 .PHONY: test-fpu-init-mask
 test-fpu-init-mask: build/tests/fpu-init-mask-host$(HOST_EXE)
@@ -4797,6 +4853,27 @@ build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/s
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c tools/test_less_probe.c -o build/userspace/less-probe/probe.o
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
+
+.PHONY: test-scanout-publish
+test-core: test-scanout-publish
+test-scanout-publish: build/tests/scanout-publish$(HOST_EXE)
+	$<
+build/tests/scanout-publish$(HOST_EXE): tools/test_scanout_publish.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/include/srvros/scanout_publish.h kernel/include/srvros/scanout_space.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_publish.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+
+.PHONY: test-x86-cache
+test-core: test-x86-cache
+test-x86-cache: build/tests/x86-cache$(HOST_EXE)
+build/tests/x86-cache$(HOST_EXE): tools/test_x86_cache.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_x86_cache.c kernel/src/x86_cache.c -o $@
+test-x86-cache: build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/x86-cache$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_cache.py
+build/tests/intel-cache-probe$(HOST_EXE): tools/test_intel_cache_probe.c kernel/src/drivers/intel_cache_probe.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_CACHE_PROBE_HOST_TEST -I kernel/include tools/test_intel_cache_probe.c kernel/src/drivers/intel_cache_probe.c kernel/src/x86_cache.c -o $@
 
 # Firmware-only capture lives only in the dedicated diagnostic ELF.
 build/ap-probe/haswell-firmware-core.o: kernel/diagnostics/haswell_firmware_core.c $(ZIG) $(KERNEL_HEADERS)
@@ -4881,6 +4958,14 @@ build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(
 	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
 
+.PHONY: test-intel-window
+test-core: test-intel-window
+test-intel-window: build/tests/intel-window$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE)
+	build/tests/intel-window$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ggtt_window.py
+build/tests/intel-window$(HOST_EXE): tools/test_intel_ggtt_window.c kernel/src/drivers/intel_ggtt_window.c kernel/include/srvros/intel_ggtt_window.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_ggtt_window.c kernel/src/drivers/intel_ggtt_window.c -o $@
 # Injected only into disposable GNU Patch qualification images.
 build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
 	mkdir -p build/userspace/patch-probe
@@ -4890,13 +4975,8 @@ build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) 
 build/ap-probe/haswell-cache-walk.o: kernel/diagnostics/haswell_cache_walk.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
-.PHONY: test-x86-cache test-haswell-cache-context
-test-core: test-x86-cache test-haswell-cache-context
-test-x86-cache: build/tests/x86-cache$(HOST_EXE)
-	$<
-build/tests/x86-cache$(HOST_EXE): tools/test_x86_cache.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
-	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/x86_cache.c -o $@
+.PHONY: test-haswell-cache-context
+test-core: test-haswell-cache-context
 test-haswell-cache-context: build/tests/hsw-cache-walk$(HOST_EXE) build/tests/hsw-cache-adapter$(HOST_EXE)
 	build/tests/hsw-cache-walk$(HOST_EXE)
 	build/tests/hsw-cache-adapter$(HOST_EXE) > build/tests/hsw-cache-refusal.log
@@ -4907,6 +4987,65 @@ build/tests/hsw-cache-walk$(HOST_EXE): tools/test_haswell_cache_walk.c kernel/di
 build/tests/hsw-cache-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@
+
+.PHONY: test-intel-boot-claim
+test-core: test-intel-boot-claim
+test-intel-boot-claim: build/tests/intel-boot-claim$(HOST_EXE)
+	$<
+build/tests/intel-boot-claim$(HOST_EXE): tools/test_intel_boot_claim.c kernel/src/intel_boot_claim.c kernel/src/drivers/intel_gfx.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-console-recovery
+test-core: test-console-recovery
+test-console-recovery: build/tests/console-recovery$(HOST_EXE)
+	$<
+build/tests/console-recovery$(HOST_EXE): tools/test_console_recovery.c userspace/guifail/guifail.c $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -ffreestanding -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-scanout-handoff
+test-core: test-scanout-handoff
+test-scanout-handoff: build/tests/scanout-handoff$(HOST_EXE) build/tests/scanout-handoff-lifetime$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_scanout_handoff_lifetime.py
+build/tests/scanout-handoff$(HOST_EXE): tools/test_scanout_handoff.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_handoff.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
+build/tests/scanout-handoff-lifetime$(HOST_EXE): tools/test_scanout_handoff_lifetime.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
+
+.PHONY: test-intel-handoff
+test-core: test-intel-handoff
+test-intel-handoff: build/tests/intel-handoff-probe$(HOST_EXE) test-scanout-handoff
+	$(PYTHON) -m unittest discover -s tools -p test_intel_handoff.py
+	$< 0
+	$< 1
+	$< 2
+	$< 3
+	$< 4
+	$< 5
+build/tests/intel-handoff-probe$(HOST_EXE): tools/test_intel_handoff_probe.c kernel/src/drivers/intel_handoff_probe.c kernel/src/display_access.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_handoff_probe.c kernel/src/drivers/intel_handoff_probe.c kernel/src/display_access.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c -o $@
+
+.PHONY: test-intel-gt-access
+test-core: test-intel-gt-access
+test-intel-gt-access: build/tests/intel-gt-access$(HOST_EXE)
+	$<
+build/tests/intel-gt-access$(HOST_EXE): tools/test_intel_gt_access.c kernel/src/drivers/intel_gt_access.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_gt_access.c kernel/src/drivers/intel_gt_access.c -o $@
+
+.PHONY: test-intel-gt-preflight
+test-core: test-intel-gt-preflight
+test-intel-gt-preflight: build/tests/intel-gt-preflight$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gt_preflight.py
+build/tests/intel-gt-preflight$(HOST_EXE): tools/test_intel_gt_preflight.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_gt_preflight.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c -o $@
 
 build/ap-probe/haswell-alias-core.o: kernel/diagnostics/haswell_alias_core.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
@@ -4924,6 +5063,15 @@ build/tests/hsw-alias-core$(HOST_EXE): tools/test_haswell_alias_core.c kernel/di
 build/tests/hsw-alias-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -DSRVROS_HAC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@
+
+.PHONY: test-intel-gt-firmware
+test-core: test-intel-gt-firmware
+test-intel-gt-firmware: build/tests/intel-gt-firmware$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gt_firmware.py
+build/tests/intel-gt-firmware$(HOST_EXE): tools/test_intel_gt_firmware.c kernel/src/drivers/intel_gt_firmware.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_firmware.c -o $@
 
 .PHONY: test-haswell-alias-layout
 test-haswell-alias-context: test-haswell-alias-layout
@@ -4959,6 +5107,61 @@ build/tests/ecam-boot-gate$(HOST_EXE): tools/test_ecam_boot_gate.c tools/test_ec
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
 
+# Write-capable GT code is linked only into this matched, opt-in CPU0 diagnostic.
+INTEL_WAKE_BASE := $(filter-out build/kernel/src/drivers/intel_display_probe.c.o build/kernel/src/limine_requests.c.o,$(KERNEL_OBJ))
+build/intel-wake/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -c $< -o $@
+build/intel-wake/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -c $< -o $@
+build/intel-wake/srvros.elf: build/intel-wake/probe.o build/intel-wake/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-wake/probe.o build/intel-wake/requests.o $(INTEL_WAKE_BASE) -o $@
+
+.PHONY: test-intel-gt-boot
+test-core: test-intel-gt-boot
+test-intel-gt-boot: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-wake-adapter$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gt_wake.py
+build/tests/intel-gt-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+build/tests/intel-wake-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/diagnostics/package_audit_core.c -o $@
+
+# Engine pages and reads are linked only into the explicit census ELF.
+build/intel-engines/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -c $< -o $@
+build/intel-engines/srvros.elf: build/intel-engines/probe.o build/intel-wake/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-engines/probe.o build/intel-wake/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-engine-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/diagnostics/package_audit_core.c -o $@
+
+
+.PHONY: test-intel-engines
+test-core: test-intel-engines
+test-intel-engines: build/tests/intel-engine-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_census.py
+
+build/intel-blitter/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_blitter_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -c $< -o $@
+build/intel-blitter/srvros.elf: build/intel-blitter/probe.o build/intel-wake/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-blitter/probe.o build/intel-wake/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-blitter-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_blitter_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-intel-blitter
+test-core: test-intel-blitter
+test-intel-blitter: build/tests/intel-blitter-adapter$(HOST_EXE) build/tests/intel-blitter-core$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_blitter.py
+build/tests/intel-blitter-core$(HOST_EXE): tools/test_intel_blitter.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_gt_access.c -o $@
 .PHONY: test-air61-window
 test-core: test-air61-window
 test-air61-window: build/tests/air61-window$(HOST_EXE)
@@ -4967,6 +5170,25 @@ build/tests/air61-window$(HOST_EXE): tools/test_air61_window.c kernel/src/memory
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
 
+# Independent read-only display-HDA image: no GT requester/engine writer linked.
+build/intel-hda/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OBSERVER -c $< -o $@
+build/intel-hda/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OBSERVER -c $< -o $@
+build/intel-hda/srvros.elf: build/intel-hda/probe.o build/intel-hda/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-hda/probe.o build/intel-hda/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-hda-core$(HOST_EXE): tools/test_intel_display_hda.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_display_hda.c -o $@
+build/tests/intel-hda-adapter$(HOST_EXE): tools/test_intel_hda_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_OBSERVER -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_display_hda.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-hda
+test-core: test-intel-hda
+test-intel-hda: build/tests/intel-hda-core$(HOST_EXE) build/tests/intel-hda-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_display_hda.py
 build/ap-probe/window-gate.o: kernel/diagnostics/air61_window_gate.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -4985,6 +5207,88 @@ build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
 
+# Separate cooperative display-HDA requester image. No GT/BCS writers or AML.
+build/intel-hda-owner/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OWNER -c $< -o $@
+build/intel-hda-owner/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OWNER -c $< -o $@
+build/intel-hda-owner/srvros.elf: build/intel-hda-owner/probe.o build/intel-hda-owner/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-hda-owner/probe.o build/intel-hda-owner/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-hda-owner-core$(HOST_EXE): tools/test_intel_hda_owner.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c -o $@
+build/tests/intel-hda-owner-adapter$(HOST_EXE): tools/test_intel_hda_owner_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_OWNER -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-hda-owner
+test-core: test-intel-hda-owner
+test-intel-hda-owner: build/tests/intel-hda-owner-core$(HOST_EXE) build/tests/intel-hda-owner-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_owner.py
+
+build/kernel/src/drivers/intel_display_probe.c.o build/intel-hda/probe.o build/intel-wake/probe.o build/intel-engines/probe.o build/intel-blitter/probe.o: kernel/src/drivers/intel_hda_owner_trial.inc kernel/src/drivers/intel_hda_observer.inc
+
+build/tests/intel-hda-lease-core$(HOST_EXE): tools/test_intel_hda_lease.c tools/test_intel_hda_owner.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c -o $@
+build/intel-hda-lease/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OWNER -DSRVROS_INTEL_HDA_LEASE -c $< -o $@
+build/intel-hda-lease/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_LEASE -c $< -o $@
+build/intel-hda-lease/srvros.elf: build/intel-hda-lease/probe.o build/intel-hda-lease/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-hda-lease/probe.o build/intel-hda-lease/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-hda-lease-adapter$(HOST_EXE): tools/test_intel_hda_owner_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_OWNER -DSRVROS_INTEL_HDA_LEASE -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-hda-lease
+test-core: test-intel-hda-lease
+test-intel-hda-lease: build/tests/intel-hda-lease-core$(HOST_EXE) build/tests/intel-hda-lease-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_lease.py
+
+build/intel-readers/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc kernel/src/drivers/intel_reader_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OWNER -DSRVROS_INTEL_HDA_LEASE -DSRVROS_INTEL_READER_TRIAL -c $< -o $@
+build/intel-readers/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_LEASE -DSRVROS_INTEL_READER_TRIAL -c $< -o $@
+build/intel-readers/srvros.elf: build/intel-readers/probe.o build/intel-readers/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-readers/probe.o build/intel-readers/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-readers-adapter$(HOST_EXE): tools/test_intel_hda_owner_adapter.c kernel/src/drivers/intel_reader_audit.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc kernel/src/drivers/intel_reader_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_OWNER -DSRVROS_INTEL_HDA_LEASE -DSRVROS_INTEL_READER_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_reader_audit.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-readers
+test-core: test-intel-readers
+test-intel-readers: build/tests/intel-readers-core$(HOST_EXE) build/tests/intel-readers-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_readers.py
+
+build/tests/intel-readers-core$(HOST_EXE): tools/test_intel_readers.c kernel/src/drivers/intel_reader_audit.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_reader_audit.c -o $@
+
+build/tests/intel-completion-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/intel-completion/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -c $< -o $@
+build/intel-completion/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_COMPLETION_TRIAL -c $< -o $@
+build/intel-completion/srvros.elf: build/intel-completion/probe.o build/intel-completion/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-completion/probe.o build/intel-completion/requests.o $(INTEL_WAKE_BASE) -o $@
+
+build/tests/intel-completion-core$(HOST_EXE): tools/test_intel_completion_audit.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
+.PHONY: test-intel-completion
+test-core: test-intel-completion
+test-intel-completion: build/tests/intel-completion-core$(HOST_EXE) build/tests/intel-completion-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_completion_audit.py
+
 .PHONY: test-air61-read-window air61-read-window-object
 test-core: test-air61-read-window
 test-air61-read-window: build/tests/air61-read-window$(HOST_EXE)
@@ -5002,6 +5306,26 @@ air61-read-window-object: build/air61-read-window/vmm.o
 build/air61-read-window/vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_window.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_WINDOW -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
+
+# Separate BDW BCS request/ready/cancel image; no GDRST/reset/TLB/cache writer.
+build/intel-reset-ready/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_RESET_READY_TRIAL -c $< -o $@
+build/intel-reset-ready/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_RESET_READY_TRIAL -c $< -o $@
+build/intel-reset-ready/srvros.elf: build/intel-reset-ready/probe.o build/intel-reset-ready/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-reset-ready/probe.o build/intel-reset-ready/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-reset-ready-core$(HOST_EXE): tools/test_intel_reset_ready.c kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
+build/tests/intel-reset-ready-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc kernel/src/drivers/intel_reset_ready.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_RESET_READY_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-reset-ready
+test-core: test-intel-reset-ready
+test-intel-reset-ready: build/tests/intel-reset-ready-core$(HOST_EXE) build/tests/intel-reset-ready-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_reset_ready.py
 
 AIR61_READ_BRIDGE_UNITS := kernel/diagnostics/air61_read_gate.c kernel/diagnostics/air61_read_report.c
 .PHONY: air61-read-qualification-objects
@@ -5049,6 +5373,36 @@ build/air61-read-window/native-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
 
+# Core host fixture; native diagnostic links its object separately from KERNEL_C.
+.PHONY: test-intel-bcs-reset
+BCS_RESET_CORE := kernel/diagnostics/intel_bcs_reset.c
+build/tests/intel-bcs-reset$(HOST_EXE): tools/test_intel_bcs_reset.c tools/test_intel_completion_audit.c $(BCS_RESET_CORE) kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(BCS_RESET_CORE) kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
+test-core: test-intel-bcs-reset
+test-intel-bcs-reset: build/tests/intel-bcs-reset$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_reset.py
+
+# Separate BCS-only reset image; no memory/cache/translation writer.
+build/intel-bcs-reset/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -c $< -o $@
+build/intel-bcs-reset/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_BCS_RESET_TRIAL -c $< -o $@
+build/intel-bcs-reset/srvros.elf: build/intel-bcs-reset/probe.o build/intel-bcs-reset/requests.o build/intel-bcs-reset/core.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-bcs-reset/probe.o build/intel-bcs-reset/requests.o build/intel-bcs-reset/core.o $(INTEL_WAKE_BASE) -o $@
+build/intel-bcs-reset/core.o: kernel/diagnostics/intel_bcs_reset.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/tests/intel-bcs-adapter$(HOST_EXE): tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/intel*.c) kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_reset_ready_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-bcs-native
+test-core: test-intel-bcs-native
+test-intel-bcs-native: build/tests/intel-bcs-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_native.py
+
 # Read-enabled isolation: no ordinary/AP/v7 target selects these objects.
 AIR61_SAMPLE_BOOT_OBJ := $(filter-out build/air61-read-window/gate0.o build/air61-read-window/gate1.o build/air61-read-window/native-vmm.o build/air61-read-window/bridge.o build/air61-read-window/report.o build/air61-read-window/envelope.o build/air61-read-window/main.o,$(AIR61_READ_BOOT_OBJ)) $(addprefix build/air61-register-sample/,vmm.o bridge.o report.o envelope.o main.o gate0.o gate1.o)
 .PHONY: air61-sample-kernel
@@ -5088,11 +5442,44 @@ build/tests/air61-sample-gate%.o: tools/test_air61_read_gate.c kernel/diagnostic
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=$* -c $< -o $@
 
+build/intel-shutdown/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_blitter_trial.inc kernel/src/drivers/intel_shutdown_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL -c $< -o $@
+build/intel-shutdown/srvros.elf: build/intel-shutdown/probe.o build/intel-shutdown/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-shutdown/probe.o build/intel-shutdown/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-shutdown-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_blitter_trial.inc kernel/src/drivers/intel_shutdown_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-intel-shutdown
+test-core: test-intel-shutdown
+test-intel-shutdown: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-shutdown-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_shutdown.py
+
+build/intel-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_SHUTDOWN_TRIAL -c $< -o $@
 .PHONY: test-haswell-vtd-capabilities
 test-core: test-haswell-vtd-capabilities
 test-haswell-vtd-capabilities:
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_capability_audit.py
 
+# Separate fresh already-disabled shutdown/reset image; old reset recipe is unchanged.
+build/intel-bcs-shutdown/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -c $< -o $@
+build/intel-bcs-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -c $< -o $@
+build/intel-bcs-shutdown/srvros.elf: build/intel-bcs-shutdown/probe.o build/intel-bcs-shutdown/requests.o build/intel-bcs-reset/core.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-bcs-shutdown/probe.o build/intel-bcs-shutdown/requests.o build/intel-bcs-reset/core.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-bcs-shutdown-adapter$(HOST_EXE): tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/intel*.c) kernel/diagnostics/intel_bcs_reset.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-bcs-shutdown
+test-core: test-intel-bcs-shutdown
+test-intel-bcs-shutdown: build/tests/intel-completion-core$(HOST_EXE) build/tests/intel-bcs-reset$(HOST_EXE) build/tests/intel-bcs-shutdown-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_shutdown.py
 .PHONY: test-render-timing
 test-core: test-render-timing
 test-render-timing: build/tests/desktop-session-host$(HOST_EXE)
@@ -5139,6 +5526,54 @@ build/tests/workspace-sync-gate-wire$(HOST_EXE): tools/test_sync_timing.c tools/
 	$(HOST_CC) -DSRVROS_CAPTURE_GATE_SYNC_WIRE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_sync_timing.c tools/test_workspace_capture_write_wire.c -Wl,--gc-sections -o $@
 test-core: test-sync-timing
 
+# Read-only all-engine reset-control prerequisites. Only the existing GT
+# requester alias is writable; no reset/engine/PTE writer is linked.
+build/intel-takeover/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -c $< -o $@
+build/intel-takeover/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -c $< -o $@
+build/intel-takeover/srvros.elf: build/intel-takeover/probe.o build/intel-takeover/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-takeover/probe.o build/intel-takeover/requests.o $(INTEL_WAKE_BASE) -o $@
+
+build/tests/intel-takeover-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-takeover-core$(HOST_EXE): tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+.PHONY: test-intel-takeover
+test-core: test-intel-takeover
+test-intel-takeover: build/tests/intel-takeover-core$(HOST_EXE) build/tests/intel-takeover-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_takeover.py
+
+build/tests/intel-engine-prepare-core$(HOST_EXE): tools/test_intel_engine_prepare.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+.PHONY: test-intel-engine-prepare
+test-core: test-intel-engine-prepare
+test-intel-engine-prepare: build/tests/intel-engine-prepare-core$(HOST_EXE) build/tests/intel-engine-prepare-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_prepare.py
+
+build/intel-engine-prepare/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+build/intel-engine-prepare/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+build/intel-engine-prepare/srvros.elf: build/intel-engine-prepare/probe.o build/intel-engine-prepare/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-engine-prepare/probe.o build/intel-engine-prepare/requests.o $(INTEL_WAKE_BASE) -o $@
+
+build/tests/intel-engine-prepare-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/diagnostics/package_audit_core.c -o $@
+
+# Host fixtures include these driver fragments directly; keep incremental
+# validation tied to the report/provider source actually being exercised.
+build/tests/intel-engine-prepare-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+build/tests/intel-takeover-adapter$(HOST_EXE): kernel/src/drivers/intel_takeover_trial.inc
 .PHONY: test-exfat-link-batch
 test-core: test-exfat-link-batch
 test-exfat-link-batch: build/tests/exfat-link-batch-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-unbatched-links-driver$(HOST_EXE)
@@ -5164,6 +5599,29 @@ build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE): tools/exfat_host_driver.c k
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_SIDECAR_EQUALITY_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
+# Read-only Air7,2 PCI AF requester prerequisites; no PCI command/FLR writer.
+build/tests/intel-requester-core$(HOST_EXE): tools/test_intel_requester.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/drivers/intel_pci_requester.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_pci_requester.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+build/intel-requester/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_requester_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_REQUESTER_AUDIT -c $< -o $@
+build/intel-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_REQUESTER_AUDIT -c $< -o $@
+build/intel-requester/srvros.elf: build/intel-requester/probe.o build/intel-requester/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-requester/probe.o build/intel-requester/requests.o $(INTEL_WAKE_BASE) -o $@
+
+build/tests/intel-requester-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/src/drivers/intel_pci_requester.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_REQUESTER_AUDIT -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/package_audit_core.c -o $@
+
+
+build/tests/intel-requester-adapter$(HOST_EXE): kernel/src/drivers/intel_requester_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+.PHONY: test-intel-requester
+test-core: test-intel-requester
+test-intel-requester: build/tests/intel-requester-core$(HOST_EXE) build/tests/intel-requester-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_requester.py
 .PHONY: test-sync-content
 test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_sync_content_integration.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
@@ -5176,12 +5634,373 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) tools/test_capture_transfer_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
 
+# Read-only composition under the original five-engine preparation borrow.
+build/tests/intel-engine-prepare-action$(HOST_EXE): tools/test_intel_engine_prepare_action.c tools/test_intel_engine_prepare.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+.PHONY: test-intel-engine-prepare-action
+test-core: test-intel-engine-prepare-action
+test-intel-engine-prepare-action: build/tests/intel-engine-prepare-action$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_prepare_action.py
+
+# PCI AF readout bound to the already-live preparation borrow; no native caller.
+build/tests/intel-pci-held$(HOST_EXE): tools/test_intel_pci_held.c tools/test_intel_engine_prepare.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+.PHONY: test-intel-pci-held
+test-core: test-intel-pci-held
+test-intel-pci-held: build/tests/intel-pci-held$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_pci_held.py
+
+# Isolated read-only PCI capture inside maintained engine preparation.
+build/intel-held-requester/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+build/intel-held-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+build/intel-held-requester/srvros.elf: build/intel-held-requester/probe.o build/intel-held-requester/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-held-requester/probe.o build/intel-held-requester/requests.o $(INTEL_WAKE_BASE) -o $@
+
+build/tests/intel-held-requester-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-held-requester-adapter$(HOST_EXE): kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+.PHONY: test-intel-held-requester
+test-core: test-intel-held-requester
+test-intel-held-requester: build/tests/intel-engine-prepare-adapter$(HOST_EXE) build/tests/intel-held-requester-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_requester.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_adapter.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_staging.py
+
+# Private backing qualification; no native GPU PTE or plane writer.
+build/intel-memory/trial.o: kernel/src/drivers/intel_memory_trial.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_MEMORY_TRIAL -c $< -o $@
+INTEL_MEMORY_BASE := $(filter-out build/kernel/src/drivers/intel_memory_trial.c.o,$(KERNEL_OBJ))
+build/intel-memory/srvros.elf: build/intel-memory/trial.o $(INTEL_MEMORY_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-memory/trial.o $(INTEL_MEMORY_BASE) -o $@
+
+build/tests/scanout-memory$(HOST_EXE): tools/test_scanout_memory.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+
+.PHONY: test-scanout-transfer
+test-core: test-scanout-transfer
+test-scanout-transfer: build/tests/scanout-transfer$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_scanout_transfer.py
+build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
+.PHONY: test-scanout-memory
+test-core: test-scanout-memory
+test-scanout-memory: build/tests/scanout-memory$(HOST_EXE)
+	$<
+build/tests/intel-memory-trial$(HOST_EXE): tools/test_intel_memory_trial.c kernel/src/drivers/intel_memory_trial.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+.PHONY: test-intel-memory
+test-core: test-intel-memory
+test-intel-memory: build/tests/intel-memory-trial$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_memory.py
+
+# Separate BCS8 writer while the original five-engine preparation stays live.
+.PHONY: test-intel-held-interval
+test-core: test-intel-held-interval
+test-intel-held-interval: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-held-interval$(HOST_EXE) build/tests/boot-held-interval$(HOST_EXE) build/tests/intel-held-interval-adapter$(HOST_EXE) build/tests/intel-held-reset-adapter$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_interval.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_interval_adapter.py
+	build/tests/boot-held-interval$(HOST_EXE)
+	build/tests/intel-held-interval-adapter$(HOST_EXE) --wake-engine-report
+build/tests/boot-held-interval$(HOST_EXE): tools/test_boot_held_interval.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+build/tests/intel-held-interval$(HOST_EXE): tools/test_intel_held_interval.c tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+
+INTEL_HELD_RESET_FLAGS := -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -DSRVROS_INTEL_PREPARE_RESET
+INTEL_HELD_RESET_BASE := $(filter-out build/kernel/src/drivers/intel_engine_prepare.c.o build/kernel/src/main.c.o,$(INTEL_WAKE_BASE))
+build/kernel/src/main.c.o build/ap-probe/main.o build/air61-read-window/main.o build/air61-register-sample/main.o: kernel/src/boot_system_init.inc
+build/intel-held-reset/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_RESET_FLAGS) -c $< -o $@
+build/intel-held-reset/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_RESET_FLAGS) -c $< -o $@
+build/intel-held-reset/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_RESET_FLAGS) -c $< -o $@
+build/intel-held-reset/prepare.o: kernel/src/drivers/intel_engine_prepare.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_PREPARE_RESET -c $< -o $@
+build/intel-held-reset/reset.o: kernel/diagnostics/intel_engine_held_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_PREPARE_RESET -c $< -o $@
+build/intel-held-reset/srvros.elf: build/intel-held-reset/main.o build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-held-reset/main.o build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) -o $@
+
+# Separate one-page RO GGTT source binding in the original post-reset hold.
+INTEL_HELD_INTERVAL_FLAGS := $(INTEL_HELD_RESET_FLAGS) -DSRVROS_INTEL_HELD_INTERVAL
+build/intel-held-interval/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_INTERVAL_FLAGS) -c $< -o $@
+build/intel-held-interval/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_INTERVAL_FLAGS) -c $< -o $@
+build/intel-held-interval/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_INTERVAL_FLAGS) -c $< -o $@
+build/intel-held-interval/interval.o: kernel/diagnostics/intel_held_interval.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-held-interval/srvros.elf: build/intel-held-interval/main.o build/intel-held-interval/probe.o build/intel-held-interval/requests.o build/intel-held-interval/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+
+build/tests/boot-system-init$(HOST_EXE): tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+build/tests/boot-held-reset-init$(HOST_EXE): tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_PREPARE_RESET -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-boot-system-init
+test-boot-system-init: build/tests/boot-system-init$(HOST_EXE) build/tests/boot-held-reset-init$(HOST_EXE)
+	build/tests/boot-system-init$(HOST_EXE)
+	build/tests/boot-held-reset-init$(HOST_EXE)
+test-intel-held-reset: test-boot-system-init
+build/tests/intel-engine-held-reset$(HOST_EXE): tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_PREPARE_RESET -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+build/tests/intel-held-reset-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-held-reset-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+build/tests/intel-held-interval-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-held-interval-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+build/tests/intel-held-interval-adapter$(HOST_EXE): kernel/src/drivers/intel_held_interval_trial.inc
+
+.PHONY: test-intel-held-reset
+test-core: test-intel-held-reset
+test-intel-held-reset: build/tests/intel-engine-held-reset$(HOST_EXE) build/tests/intel-held-reset-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	build/tests/intel-held-reset-adapter$(HOST_EXE) --range-endpoint
+	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_held_reset.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_adapter.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_staging.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_receipts.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_firmware.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_admission.py
+
+.PHONY: test-vmm-diagnostic-range
+test-core: test-vmm-diagnostic-range
+test-vmm-diagnostic-range: build/tests/vmm-diagnostic-range$(HOST_EXE)
+	$<
+build/tests/vmm-diagnostic-range$(HOST_EXE): tools/test_vmm_diagnostic_range.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 .PHONY: test-capture-media-integration
 test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
 	$(PYTHON) tools/test_capture_media_integration.py
 test-core: test-capture-media-integration
 
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h
+
+# Post-reset BCS re-arm and original-source child lifetime, isolated from old images.
+.PHONY: test-intel-engine-rehold
+test-core: test-intel-engine-rehold
+test-intel-engine-rehold: build/tests/intel-engine-rehold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_rehold.py
+build/tests/intel-engine-rehold$(HOST_EXE): tools/test_intel_engine_rehold.c tools/test_intel_held_interval.c tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c kernel/diagnostics/intel_engine_rehold.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+
+# Exact post-reset BCS re-arm image; older images never link its core.
+INTEL_REHOLD_FLAGS := $(INTEL_HELD_INTERVAL_FLAGS) -DSRVROS_INTEL_REHOLD
+build/intel-rehold/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_REHOLD_FLAGS) -c $< -o $@
+build/intel-rehold/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_engine_rehold_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_REHOLD_FLAGS) -c $< -o $@
+build/intel-rehold/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_REHOLD_FLAGS) -c $< -o $@
+build/intel-rehold/interval.o: kernel/diagnostics/intel_held_interval.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-rehold/rehold.o: kernel/diagnostics/intel_engine_rehold.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-rehold/srvros.elf: build/intel-rehold/rehold.o build/intel-rehold/main.o build/intel-rehold/probe.o build/intel-rehold/requests.o build/intel-rehold/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+
+build/tests/intel-rehold-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-rehold-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_rehold_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc
+
+build/tests/boot-rehold$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-rehold
+test-intel-rehold: test-intel-engine-rehold build/tests/intel-rehold-adapter$(HOST_EXE) build/tests/intel-held-interval-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/boot-rehold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_rehold_adapter.py
+	build/tests/boot-rehold$(HOST_EXE)
+test-core: test-intel-rehold
+
+# Read-only interval source lifetime; only the separate joint image links the claim.
+INTEL_INTERVAL_CLAIM_SOURCES := kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/scanout_transfer.c kernel/src/scanout_space.c
+INTEL_INTERVAL_CLAIM_FIXTURES := tools/test_intel_engine_rehold.c tools/test_intel_held_interval.c tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/display_access.c
+.PHONY: test-intel-bdw-ggtt
+test-core: test-intel-bdw-ggtt
+test-intel-bdw-ggtt: build/tests/intel-bdw-ggtt$(HOST_EXE)
+	build/tests/intel-bdw-ggtt$(HOST_EXE)
+build/tests/intel-bdw-ggtt$(HOST_EXE): tools/test_intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_ggtt.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/diagnostics/intel_bdw_ggtt.c -o $@
+.PHONY: test-intel-interval-claim
+test-core: test-intel-interval-claim
+test-intel-interval-claim: build/tests/intel-interval-claim$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_interval_claim.py
+build/tests/intel-interval-claim$(HOST_EXE): tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_SOURCES) $(INTEL_INTERVAL_CLAIM_FIXTURES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_INTERVAL_CLAIM_SOURCES) -o $@
+
+.PHONY: test-intel-hda-registry
+test-core: test-intel-hda-registry
+test-intel-hda-registry: build/tests/intel-hda-registry$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_registry.py
+build/tests/intel-hda-registry$(HOST_EXE): tools/test_intel_hda_registry.c tools/test_intel_hda_owner.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c -o $@
+
+INTEL_HDA_GPU_SOURCES := kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(INTEL_INTERVAL_CLAIM_SOURCES)
+.PHONY: test-intel-hda-gpu
+test-core: test-intel-hda-gpu
+test-intel-hda-gpu: build/tests/intel-hda-gpu$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_gpu.py
+build/tests/intel-hda-gpu$(HOST_EXE): tools/test_intel_hda_gpu.c tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_FIXTURES) $(INTEL_HDA_GPU_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_HDA_GPU_SOURCES) -o $@
+
+# Separate native HDA/GPU composition; no ordinary image enables it.
+INTEL_JOINT_FLAGS := $(INTEL_REHOLD_FLAGS) -DSRVROS_INTEL_JOINT
+build/intel-joint/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_FLAGS) -c $< -o $@
+build/intel-joint/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_joint_trial.inc kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_engine_rehold_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_FLAGS) -c $< -o $@
+build/intel-joint/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_FLAGS) -c $< -o $@
+build/intel-joint/interval.o: kernel/diagnostics/intel_held_interval.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-joint/rehold.o: kernel/diagnostics/intel_engine_rehold.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-joint/claim.o: kernel/diagnostics/intel_interval_claim.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-joint/joint.o: kernel/diagnostics/intel_hda_gpu.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-joint/page.o: kernel/diagnostics/intel_bdw_ggtt.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/intel-joint/srvros.elf: build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/main.o build/intel-joint/probe.o build/intel-joint/requests.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+
+build/tests/intel-joint-adapter$(HOST_EXE): tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/src/drivers/intel_joint_trial.inc kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c -o $@
+
+build/tests/boot-joint$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_JOINT -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+.PHONY: test-intel-joint
+test-core: test-intel-joint
+test-intel-joint: build/tests/intel-joint-adapter$(HOST_EXE) build/tests/boot-joint$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_joint.py
+	build/tests/boot-joint$(HOST_EXE)
+
+# One original-claim GPU requester hold, separate from address transfer.
+INTEL_GPU_HOLD_SOURCES := kernel/diagnostics/intel_gpu_requester_hold.c kernel/src/drivers/intel_pci_requester.c $(INTEL_INTERVAL_CLAIM_SOURCES)
+.PHONY: test-intel-gpu-hold
+test-core: test-intel-gpu-hold
+build/tests/intel-gpu-hold$(HOST_EXE): tools/test_intel_gpu_hold.c tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_FIXTURES) $(INTEL_GPU_HOLD_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_GPU_HOLD_SOURCES) -o $@
+test-intel-gpu-hold: build/tests/intel-gpu-hold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gpu_hold.py
+
+build/tests/intel-gpu-hold-adapter$(HOST_EXE): tools/test_intel_gpu_hold_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/src/drivers/intel_gpu_hold_trial.inc kernel/src/drivers/intel_joint_trial.inc kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_gpu_requester_hold.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_GPU_HOLD -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_gpu_requester_hold.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c -o $@
+
+
+INTEL_GPU_HOLD_FLAGS := $(INTEL_JOINT_FLAGS) -DSRVROS_INTEL_GPU_HOLD
+build/intel-gpu-hold/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GPU_HOLD_FLAGS) -c $< -o $@
+build/intel-gpu-hold/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gpu_hold_trial.inc $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GPU_HOLD_FLAGS) -c $< -o $@
+build/intel-gpu-hold/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GPU_HOLD_FLAGS) -c $< -o $@
+build/intel-gpu-hold/hold.o: kernel/diagnostics/intel_gpu_requester_hold.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-gpu-hold/srvros.elf: build/intel-gpu-hold/main.o build/intel-gpu-hold/probe.o build/intel-gpu-hold/requests.o build/intel-gpu-hold/hold.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+.PHONY: test-intel-gpu-hold-adapter
+test-core: test-intel-gpu-hold-adapter
+test-intel-gpu-hold-adapter: build/tests/intel-gpu-hold-adapter$(HOST_EXE) build/tests/boot-gpu-hold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gpu_hold_adapter.py
+	build/tests/boot-gpu-hold$(HOST_EXE)
+
+build/tests/boot-gpu-hold$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_GPU_HOLD -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+# Separate original-HDA-owner BCS shutdown, without interval/reset/requester writers.
+INTEL_HDA_SHUTDOWN_FLAGS := -DSRVROS_INTEL_HDA_SHUTDOWN -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL
+build/intel-hda-shutdown/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HDA_SHUTDOWN_FLAGS) -c $< -o $@
+build/intel-hda-shutdown/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HDA_SHUTDOWN_FLAGS) -c $< -o $@
+build/intel-hda-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HDA_SHUTDOWN_FLAGS) -c $< -o $@
+build/intel-hda-shutdown/srvros.elf: build/intel-hda-shutdown/main.o build/intel-hda-shutdown/probe.o build/intel-hda-shutdown/requests.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+INTEL_HDA_SHUTDOWN_HOST_SOURCES := kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c
+build/tests/intel-hda-shutdown-adapter$(HOST_EXE): tools/test_intel_hda_shutdown_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_HDA_SHUTDOWN_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_SHUTDOWN -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_HDA_SHUTDOWN_HOST_SOURCES) -o $@
+
+.PHONY: test-intel-hda-shutdown
+test-core: test-intel-hda-shutdown
+build/tests/boot-hda-shutdown$(HOST_EXE): tools/test_boot_hda_shutdown.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_HDA_SHUTDOWN -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+test-intel-hda-shutdown: build/tests/intel-hda-shutdown-adapter$(HOST_EXE) build/tests/boot-hda-shutdown$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_shutdown.py
+	build/tests/boot-hda-shutdown$(HOST_EXE)
 
 .PHONY: test-exfat-nofat
 test-core: test-exfat-nofat
@@ -5192,6 +6011,36 @@ test-exfat-nofat: build/tests/exfat-nofat-host$(HOST_EXE)
 build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+# Same original owner: zero-store BCS child before existing reset admission.
+INTEL_JOINT_ADMIT_FLAGS := $(INTEL_JOINT_FLAGS) -DSRVROS_INTEL_JOINT_ADMIT
+build/intel-joint-admit/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_ADMIT_FLAGS) -c $< -o $@
+build/intel-joint-admit/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_ADMIT_FLAGS) -c $< -o $@
+build/intel-joint-admit/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_ADMIT_FLAGS) -c $< -o $@
+build/intel-joint-admit/entry.o: kernel/diagnostics/intel_entry_admit.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-joint-admit/srvros.elf: build/intel-joint-admit/main.o build/intel-joint-admit/probe.o build/intel-joint-admit/requests.o build/intel-joint-admit/entry.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+INTEL_JOINT_ADMIT_HOST_SOURCES := kernel/diagnostics/intel_entry_admit.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c
+build/tests/intel-joint-admit-adapter$(HOST_EXE): tools/test_intel_joint_admit_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_JOINT_ADMIT_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_JOINT_ADMIT -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_JOINT_ADMIT_HOST_SOURCES) -o $@
+
+.PHONY: test-intel-joint-admit
+test-core: test-intel-joint-admit
+build/tests/boot-joint-admit$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(INTEL_JOINT_ADMIT_FLAGS) -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+test-intel-joint-admit: build/tests/intel-joint-admit-adapter$(HOST_EXE) build/tests/boot-joint-admit$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_admission.py
+	build/tests/boot-joint-admit$(HOST_EXE)
 
 .PHONY: test-exfat-stream-allocation
 test-core: test-exfat-stream-allocation
@@ -5208,6 +6057,90 @@ build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kern
 test-exfat-io-stack:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_io_stack.py
 
+# Original HDA owner, actual enabled BCS transition, fresh full census; no reset.
+INTEL_RING_TRANSITION_FLAGS := -DSRVROS_INTEL_RING_TRANSITION -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL
+build/intel-ring-transition/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_TRANSITION_FLAGS) -c $< -o $@
+build/intel-ring-transition/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_TRANSITION_FLAGS) -c $< -o $@
+build/intel-ring-transition/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_TRANSITION_FLAGS) -c $< -o $@
+build/intel-ring-transition/transition.o: kernel/diagnostics/intel_ring_transition.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-ring-transition/srvros.elf: build/intel-ring-transition/main.o build/intel-ring-transition/probe.o build/intel-ring-transition/requests.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+INTEL_RING_TRANSITION_HOST_SOURCES := $(INTEL_HDA_SHUTDOWN_HOST_SOURCES) kernel/src/drivers/intel_completion_audit.c kernel/diagnostics/intel_ring_transition.c
+build/tests/intel-ring-transition-adapter$(HOST_EXE): tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_TRANSITION_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) -o $@
+build/tests/boot-ring-transition$(HOST_EXE): tools/test_boot_ring_transition.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_TRANSITION_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-ring-transition
+test-core: test-intel-ring-transition
+test-intel-ring-transition: build/tests/intel-ring-transition-adapter$(HOST_EXE) build/tests/boot-ring-transition$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ring_transition.py
+	build/tests/boot-ring-transition$(HOST_EXE)
+
+# Distinct state-aware entry: branch-specific observation vs enabled writer.
+INTEL_RING_ENTRY_FLAGS := $(INTEL_RING_TRANSITION_FLAGS) -DSRVROS_INTEL_RING_ENTRY
+build/intel-ring-entry/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_ENTRY_FLAGS) -c $< -o $@
+build/intel-ring-entry/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_ENTRY_FLAGS) -c $< -o $@
+build/intel-ring-entry/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_ENTRY_FLAGS) -c $< -o $@
+build/intel-ring-entry/srvros.elf: build/intel-ring-entry/main.o build/intel-ring-entry/probe.o build/intel-ring-entry/requests.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-ring-entry-adapter$(HOST_EXE): tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_ENTRY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) -o $@
+build/tests/boot-ring-entry$(HOST_EXE): tools/test_boot_ring_entry.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_ENTRY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-ring-entry
+test-core: test-intel-ring-entry
+test-intel-ring-entry: build/tests/intel-ring-entry-adapter$(HOST_EXE) build/tests/boot-ring-entry$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ring_entry.py
+	build/tests/boot-ring-entry$(HOST_EXE)
+
+# State-aware entry then existing zero-geometry reset under the original owner.
+INTEL_RING_RESET_FLAGS := $(INTEL_JOINT_FLAGS) -DSRVROS_INTEL_RING_RESET
+build/intel-ring-reset/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_RESET_FLAGS) -c $< -o $@
+build/intel-ring-reset/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_RESET_FLAGS) -c $< -o $@
+build/intel-ring-reset/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_RESET_FLAGS) -c $< -o $@
+build/intel-ring-reset/handoff.o: kernel/diagnostics/intel_ring_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-ring-reset/srvros.elf: build/intel-ring-reset/main.o build/intel-ring-reset/probe.o build/intel-ring-reset/requests.o build/intel-ring-reset/handoff.o build/intel-ring-transition/transition.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+INTEL_RING_RESET_HOST_SOURCES := $(filter-out kernel/diagnostics/intel_entry_admit.c,$(INTEL_JOINT_ADMIT_HOST_SOURCES)) kernel/diagnostics/intel_ring_transition.c kernel/diagnostics/intel_ring_reset.c
+build/tests/intel-ring-reset-adapter$(HOST_EXE): tools/test_intel_ring_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_RESET_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_RESET_HOST_SOURCES) -o $@
+build/tests/boot-ring-reset$(HOST_EXE): tools/test_boot_ring_reset.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-ring-reset
+test-core: test-intel-ring-reset
+test-intel-ring-reset: build/tests/intel-ring-reset-adapter$(HOST_EXE) build/tests/boot-ring-reset$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ring_reset.py
+	build/tests/boot-ring-reset$(HOST_EXE)
+
 # Isolated real workspace/exFAT/VFS/BOT comparison on disposable regular media.
 .PHONY: test-storage-compare
 test-storage-compare: build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-legacy$(HOST_EXE) build/tests/storage-role-wire$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
@@ -5218,6 +6151,31 @@ build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-lega
 	$(HOST_CC) $(if $(findstring legacy,$@),-DSRVROS_EXFAT_LEGACY_ROLE_MODEL,) -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-core: test-storage-compare
 
+# Original entry/reset plus original-claim requester inhibition/restoration.
+INTEL_ENTRY_REQUESTER_FLAGS := $(INTEL_RING_RESET_FLAGS) -DSRVROS_INTEL_ENTRY_REQUESTER -DSRVROS_INTEL_GPU_HOLD
+build/intel-entry-requester/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_ENTRY_REQUESTER_FLAGS) -c $< -o $@
+build/intel-entry-requester/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_ENTRY_REQUESTER_FLAGS) -c $< -o $@
+build/intel-entry-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_ENTRY_REQUESTER_FLAGS) -c $< -o $@
+build/intel-entry-requester/srvros.elf: build/intel-entry-requester/main.o build/intel-entry-requester/probe.o build/intel-entry-requester/requests.o build/intel-ring-reset/handoff.o build/intel-ring-transition/transition.o build/intel-gpu-hold/hold.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-entry-requester-adapter$(HOST_EXE): tools/test_intel_entry_requester_adapter.c tools/test_intel_ring_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_RESET_HOST_SOURCES) kernel/diagnostics/intel_gpu_requester_hold.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_ENTRY_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_RESET_HOST_SOURCES) kernel/diagnostics/intel_gpu_requester_hold.c -o $@
+
+build/tests/boot-entry-requester$(HOST_EXE): tools/test_boot_entry_requester.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_ENTRY_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-entry-requester
+test-core: test-intel-entry-requester
+test-intel-entry-requester: build/tests/intel-entry-requester-adapter$(HOST_EXE) build/tests/boot-entry-requester$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_requester.py
+	build/tests/boot-entry-requester$(HOST_EXE)
 .PHONY: test-exfat-sidecar-remount
 test-core: test-exfat-sidecar-remount
 test-exfat-sidecar-remount: build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-order$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
@@ -5229,6 +6187,68 @@ build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-or
 build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/src/storage_compare.inc kernel/src/workspace.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+# Separate original nonzero-geometry reset lifetime; legacy gates unchanged.
+INTEL_NONZERO_RESET_FLAGS := $(INTEL_RING_ENTRY_FLAGS) -DSRVROS_INTEL_NONZERO_RESET
+build/intel-nonzero-reset/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_RESET_FLAGS) -c $< -o $@
+build/intel-nonzero-reset/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_RESET_FLAGS) -c $< -o $@
+build/intel-nonzero-reset/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_RESET_FLAGS) -c $< -o $@
+build/intel-nonzero-reset/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-nonzero-reset/srvros.elf: build/intel-nonzero-reset/main.o build/intel-nonzero-reset/probe.o build/intel-nonzero-reset/requests.o build/intel-nonzero-reset/reset.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-nonzero-reset-adapter$(HOST_EXE): tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c -o $@
+
+build/tests/boot-nonzero-reset$(HOST_EXE): tools/test_boot_nonzero_reset.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-nonzero-reset
+test-core: test-intel-nonzero-reset
+test-intel-nonzero-reset: build/tests/intel-nonzero-reset-adapter$(HOST_EXE) build/tests/boot-nonzero-reset$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_nonzero_reset.py
+	build/tests/boot-nonzero-reset$(HOST_EXE)
+
+# Separate original nonzero-geometry reset lifetime; legacy gates unchanged.
+INTEL_NONZERO_SOURCE_FLAGS := $(INTEL_NONZERO_RESET_FLAGS) -DSRVROS_INTEL_NONZERO_SOURCE
+build/intel-nonzero-source/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_SOURCE_FLAGS) -c $< -o $@
+build/intel-nonzero-source/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_SOURCE_FLAGS) -c $< -o $@
+build/intel-nonzero-source/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_SOURCE_FLAGS) -c $< -o $@
+build/intel-nonzero-source/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-nonzero-source/srvros.elf: build/intel-nonzero-source/main.o build/intel-nonzero-source/probe.o build/intel-nonzero-source/requests.o build/intel-nonzero-source/reset.o build/intel-nonzero-source/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-nonzero-source-adapter$(HOST_EXE): tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-nonzero-source$(HOST_EXE): tools/test_boot_nonzero_source.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-nonzero-source
+test-core: test-intel-nonzero-source
+test-intel-nonzero-source: build/tests/intel-nonzero-source-adapter$(HOST_EXE) build/tests/boot-nonzero-source$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_nonzero_source.py
+	build/tests/boot-nonzero-source$(HOST_EXE)
+
+build/intel-nonzero-source/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Sidecar update comparison keeps the original full-scan build as a host control.
 build/tests/workspace-compare-directory-old$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
@@ -5245,6 +6265,37 @@ test-core: test-sidecar-directory-faults
 test-sidecar-directory-faults:
 	$(PYTHON) tools/test_exfat_metadata_tail.py --directory-only --output build/review/sidecar-directory-faults
 
+# Own state-aware startup image; no legacy gate is compiled with this mode.
+INTEL_STARTUP_SOURCE_FLAGS := $(INTEL_NONZERO_SOURCE_FLAGS) -DSRVROS_INTEL_STARTUP_SOURCE
+build/intel-startup-source/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/srvros.elf: build/intel-startup-source/main.o build/intel-startup-source/probe.o build/intel-startup-source/requests.o build/intel-startup-source/reset.o build/intel-startup-source/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-startup-source-adapter$(HOST_EXE): tools/test_intel_startup_source_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-startup-source$(HOST_EXE): tools/test_boot_startup_source.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-startup-source
+test-core: test-intel-startup-source
+test-intel-startup-source: build/tests/intel-startup-source-adapter$(HOST_EXE) build/tests/boot-startup-source$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_source.py
+	build/tests/boot-startup-source$(HOST_EXE)
 .PHONY: test-process-private-lifecycle
 test-core: test-process-private-lifecycle
 test-process-private-lifecycle: build/tests/process-private-lifecycle-host$(HOST_EXE)
@@ -5269,10 +6320,92 @@ build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c ke
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-scanout-memory-hold
+test-core: test-scanout-memory-hold
+test-scanout-memory-hold: build/tests/scanout-memory-hold$(HOST_EXE)
+	$<
+build/tests/scanout-memory-hold$(HOST_EXE): tools/test_scanout_memory_hold.c tools/test_scanout_memory.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+
+INTEL_STARTUP_BUFFERS_FLAGS := $(INTEL_STARTUP_SOURCE_FLAGS) -DSRVROS_INTEL_STARTUP_BUFFERS
+INTEL_STARTUP_BUFFERS_HOST_EXTRA := kernel/diagnostics/intel_source_buffers.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
+build/intel-startup-buffers/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/srvros.elf: build/intel-startup-buffers/buffers.o build/intel-joint/page.o build/intel-startup-buffers/main.o build/intel-startup-buffers/probe.o build/intel-startup-buffers/requests.o build/intel-startup-buffers/reset.o build/intel-startup-buffers/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-startup-buffers-adapter$(HOST_EXE): tools/test_intel_startup_buffers_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_BUFFERS_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_BUFFERS_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_BUFFERS_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-startup-buffers$(HOST_EXE): tools/test_boot_startup_buffers.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_BUFFERS_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+build/intel-startup-buffers/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+.PHONY: test-intel-startup-buffers
+test-core: test-intel-startup-buffers
+test-intel-startup-buffers: build/tests/intel-startup-buffers-adapter$(HOST_EXE) build/tests/boot-startup-buffers$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_buffers.py
+	build/tests/boot-startup-buffers$(HOST_EXE)
 .PHONY: test-launch-gate-trace
 test-core: test-launch-gate-trace
 test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
 	SRVROS_LIMINE_INCLUDE="$(LIMINE_PROTOCOL_DIR)/include" CC="$(HOST_CC)" $(PYTHON) tools/test_launch_gate_trace.py
+
+INTEL_STARTUP_TRANSFER_FLAGS := $(INTEL_STARTUP_BUFFERS_FLAGS) -DSRVROS_INTEL_SOURCE_TRANSFER
+INTEL_STARTUP_TRANSFER_HOST_EXTRA := kernel/diagnostics/intel_source_transfer.c kernel/diagnostics/intel_source_buffers.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
+build/intel-startup-transfer/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/srvros.elf: build/intel-startup-transfer/transfer.o build/intel-startup-transfer/buffers.o build/intel-joint/page.o build/intel-startup-transfer/main.o build/intel-startup-transfer/probe.o build/intel-startup-transfer/requests.o build/intel-startup-transfer/reset.o build/intel-startup-transfer/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-startup-transfer-adapter$(HOST_EXE): tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_TRANSFER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-startup-transfer$(HOST_EXE): tools/test_boot_startup_transfer.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_TRANSFER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+build/intel-startup-transfer/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+.PHONY: test-intel-startup-transfer
+test-core: test-intel-startup-transfer
+test-intel-startup-transfer: build/tests/intel-startup-transfer-adapter$(HOST_EXE) build/tests/boot-startup-transfer$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_transfer.py
+	build/tests/boot-startup-transfer$(HOST_EXE)
 
 .PHONY: test-desk-launch-owner
 test-desk-launch-owner: build/tests/desk-launch-owner-host$(HOST_EXE)
@@ -5283,6 +6416,50 @@ build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c us
 test-core test-desktop: test-desk-launch-owner
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ) $(DESKCLIENT_OBJ): userspace/lib/include/srvros/desk_launch_owner.h
 
+INTEL_SOURCE_REQUESTER_FLAGS := $(INTEL_STARTUP_TRANSFER_FLAGS) -DSRVROS_INTEL_SOURCE_REQUESTER
+build/tests/intel-source-requester-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/intel-source-requester/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/srvros.elf: build/intel-source-requester/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-source-requester/transfer.o build/intel-source-requester/buffers.o build/intel-joint/page.o build/intel-source-requester/main.o build/intel-source-requester/probe.o build/intel-source-requester/requests.o build/intel-source-requester/reset.o build/intel-source-requester/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+build/intel-source-requester/requester.o: kernel/diagnostics/intel_source_requester.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+
+build/intel-source-requester/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+
+build/tests/boot-source-requester$(HOST_EXE): tools/test_boot_source_requester.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+.PHONY: test-intel-source-requester
+test-core: test-intel-source-requester
+test-intel-source-requester: build/tests/intel-source-requester-adapter$(HOST_EXE) build/tests/boot-source-requester$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_source_requester.py
+	build/tests/boot-source-requester$(HOST_EXE)
+
 .PHONY: test-net-empty-snapshot
 test-core: test-net-empty-snapshot
 test-net-empty-snapshot: build/tests/net-empty-snapshot-host$(HOST_EXE)
@@ -5291,13 +6468,119 @@ build/tests/net-empty-snapshot-host$(HOST_EXE): tools/test_net_empty_snapshot.c 
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
+INTEL_SOURCE_ENGINES_FLAGS := $(INTEL_SOURCE_REQUESTER_FLAGS) -DSRVROS_INTEL_SOURCE_ENGINES
+build/tests/intel-source-engines-adapter$(HOST_EXE): tools/test_intel_source_engines_adapter.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_ENGINES_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/intel-source-engines/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/intel-source-engines/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/intel-source-engines/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/intel-source-engines/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/intel-source-engines/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/intel-source-engines/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/intel-source-engines/srvros.elf: build/intel-source-engines/engines.o build/intel-source-engines/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-source-engines/transfer.o build/intel-source-engines/buffers.o build/intel-joint/page.o build/intel-source-engines/main.o build/intel-source-engines/probe.o build/intel-source-engines/requests.o build/intel-source-engines/reset.o build/intel-source-engines/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+build/intel-source-engines/requester.o: kernel/diagnostics/intel_source_requester.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+
+build/intel-source-engines/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+
+build/tests/boot-source-engines$(HOST_EXE): tools/test_boot_source_engines.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_ENGINES_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+.PHONY: test-intel-source-engines
+test-core: test-intel-source-engines
+test-intel-source-engines: build/tests/intel-source-engines-adapter$(HOST_EXE) build/tests/boot-source-engines$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_source_engines.py
+	build/tests/boot-source-engines$(HOST_EXE)
+
+build/intel-source-engines/engines.o: kernel/diagnostics/intel_source_engines.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_ENGINES_FLAGS) -c $< -o $@
+build/tests/intel-source-engines-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c
+
 .PHONY: test-control-timing
 test-core test-desktop: test-control-timing
 test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_control_timing.py
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h
 
+INTEL_SOURCE_AUDIT_FLAGS := $(INTEL_SOURCE_ENGINES_FLAGS) -DSRVROS_INTEL_SOURCE_AUDIT
+build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_audit_adapter.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/intel-source-audit/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/intel-source-audit/srvros.elf: build/intel-source-audit/engines.o build/intel-source-audit/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-source-audit/transfer.o build/intel-source-audit/buffers.o build/intel-joint/page.o build/intel-source-audit/main.o build/intel-source-audit/probe.o build/intel-source-audit/requests.o build/intel-source-audit/reset.o build/intel-source-audit/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+build/intel-source-audit/requester.o: kernel/diagnostics/intel_source_requester.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+
+build/intel-source-audit/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+
+build/tests/boot-source-audit$(HOST_EXE): tools/test_boot_source_audit.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+.PHONY: test-intel-source-audit
+test-core: test-intel-source-audit
+test-intel-source-audit: build/tests/intel-source-audit-adapter$(HOST_EXE) build/tests/boot-source-audit$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_source_audit.py
+	build/tests/boot-source-audit$(HOST_EXE)
+
+build/intel-source-audit/engines.o: kernel/diagnostics/intel_source_engines.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
+build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c
+
 .PHONY: test-directory-dispatch
 test-core: test-directory-dispatch
 test-directory-dispatch:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_directory_dispatch.py --output build/tests/directory-dispatch
+
+.PHONY: test-vmm-kernel-alias
+test-core: test-vmm-kernel-alias
+test-vmm-kernel-alias: build/tests/vmm-kernel-alias$(HOST_EXE)
+	$<
+build/tests/vmm-kernel-alias$(HOST_EXE): tools/test_vmm_kernel_alias.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

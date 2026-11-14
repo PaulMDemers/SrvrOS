@@ -100,3 +100,25 @@ bool x86_cache_page(const struct x86_cache_snapshot *s,uint64_t p,unsigned index
     e=(s->def_type&0x800)?table[m][pat]:0;if(e==255)return false;
     *mt=m;*pt=pat;*et=e;return true;
 }
+bool x86_cache_range(const struct x86_cache_snapshot *s,uint64_t p,uint32_t pages,unsigned index,
+                    unsigned *mt,unsigned *pt,unsigned *et,unsigned *checks) {
+    if(!s || !mt || !pt || !et || !checks || !pages || pages>4096 ||
+       s->cpu.physical_bits<36 || s->cpu.physical_bits>52)return false;
+    uint64_t bytes=(uint64_t)pages*4096,limit=1ull<<s->cpu.physical_bits;
+    if(p>limit || bytes>limit-p)return false;
+    unsigned m,t,e,n=1;
+    if(!x86_cache_page(s,p,index,&m,&t,&e))return false;
+    /* MTRRs are piecewise constant; all transitions occur at an enabled
+     * range's start/end. Fixed ranges are excluded by page()'s >=1MiB gate.
+     * Duplicate boundaries are harmless and explicitly counted, at most33. */
+    if(s->def_type&0x800)for(unsigned i=0;i<s->count;i++)if(s->mask[i]&0x800) {
+        uint64_t base,size;if(!variable(s,i,&base,&size))return false;
+        const uint64_t boundary[2]={base,base+size};
+        for(unsigned j=0;j<2;j++)if(boundary[j]>p && boundary[j]<p+bytes) {
+            unsigned a,b,c;
+            if(!x86_cache_page(s,boundary[j],index,&a,&b,&c) || a!=m || b!=t || c!=e)return false;
+            ++n;
+        }
+    }
+    *mt=m;*pt=t;*et=e;*checks=n;return true;
+}

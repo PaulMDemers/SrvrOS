@@ -28,6 +28,14 @@ if two unpublished changes overlap, Git cannot prevent duplicate work. Resolve
 the overlap before integrating. Do not overwrite another agent's ownership or
 claim another physical machine's validation.
 
+For the shared kernel scanout handoff, use the original zero-initialized object
+and preserve its provider/context through close. Do not copy an ownership object
+to snapshot it; copy only its snapshot data. Close first stops reservations and
+drains existing leases before provider validation, and failure keeps exclusion
+pinned. The [handoff lifetime contract](intel-handoff.md#software-handoff-lifetime)
+and actual-core regression cases cover these rules. They grant no native interval
+or hardware assurances; each device still needs its own ownership evidence.
+
 ## Ownership and overlapping changes
 
 The local device agent owns inventory, profile evidence, recovery, trials and
@@ -770,3 +778,371 @@ native62ed endurance acceptance belongs to its earlier exact source; the new
 logging/PCM/collector changes are host/VM-tested only. Other machines retain their
 own physical ledgers and device gates. PR19 Wi-Fi and PR252 resolver work remain
 independent. Actions stay disabled and no physical boot is armed by this handoff.
+
+
+## Air original-owner entry/reset handoff
+
+The separate v26 [entry/reset composition](intel-state-aware-reset.md) must use
+the original completed kind 2 entry and the address of its original fresh post
+census under the same static HDA/GT owner. Takeover has its own registered child;
+preparation requires the complete handoff and its original takeover. Recheck
+source/provider/epoch/return and all original takeover stamps through the final
+guard/time. Do not pass copied objects or decoded receipts as live authority.
+Late clock/source/return uncertainty pins the root even after child return.
+Kind 1 enabled/nonzero still refuses reset. All existing geometry/deadline gates
+remain. Old v22–v25 image/recipe/receipt contracts stay distinct. The new lossless
+post/reader vectors must expand into complete typed raw validators, including
+floating-reader rejection.
+
+Host/VM qualification is not physical acceptance. Air7,2 now accepts the exact
+v26 kind 2 original-owner entry/reset composition on source `9e67bce7`, with
+full preservation and clean retirement at unchanged limits. Its earlier dd91
+result remains entry-only. Neither receipt authorizes a later operation or
+managed GPU memory. Other machines retain their own profiles and evidence.
+
+Main `7c1a08a0` / PR476/477 is integrated after native collection, with both
+explicit profile dispatch paths retained and affected local checks passed.
+Installed physical acceptance remains on frozen source `9e67bce7`. No task
+messaging or automatic delegation is implied.
+
+## Air entry/reset/requester local qualification
+
+The separate [v27 composition](intel-entry-requester.md) retains the original
+kind 2 entry/post-census/provider and takeover stamps through its registered
+claim, existing GPU requester hold and exact restoration. Source `cef27b1c`
+passes local qualification; native acceptance remains pending. Do not promote
+the old v21 requester or accepted v26 reset receipt into this new lifetime.
+The canonical new wire format expands into the established strict validators;
+old image/recipe/collector contracts remain separate. All original deadlines
+and 255 outstanding obligations remain; no managed-memory assurance is added.
+
+Main `a419f045` / PR478 is an inspected independent storage-tracing update,
+deferred through exact-source native collection. Later integration must retain
+its explicit v1/v2 storage dispatch beside the new v27 GPU dispatch. Current
+Air7,2 recovery and evidence are unchanged; this notice schedules no task or boot.
+
+## Air v27 native refusal and main integration
+
+Source `cef27b1c` / release `127a222d11cc79fc` verifies its enabled-entry
+suboperation and clean retirement, then correctly refuses nonzero geometry
+before reset/requester. The full trial remains incomplete; retain `completed=NO`
+and its collector alerts. Standalone images and other devices gain no acceptance.
+A nonzero-geometry reset route needs a separate source/epoch/ownership contract;
+do not weaken kind 2 admission, clear geometry or reuse the saved receipt.
+
+Main `a419f045` is integrated after collection as `d582c510`, preserving both
+storage v1/v2 and v27 dispatch. Affected local checks pass; GPU implementation
+and decoder files are unchanged. The installed physical payload remains frozen
+`cef27b1c` and incomplete for requester acceptance. No new trial or task is scheduled.
+
+## Air nonzero-geometry reset protocol
+
+The separate [v28 protocol](intel-nonzero-reset.md) binds the original kind 1
+entry/post-census under the same HDA/GT owner. Its own registered child spans
+admission, maintained five-engine readiness, BCS8 reset, cancellation, full
+preservation and return. The legacy zero-geometry guard remains unchanged; do
+not construct an old takeover/preparation object from a nonzero receipt.
+Strict whole-vector postconditions and original deadlines apply. This block
+stops before re-arm/requester/memory transfer. The bounded native result below
+applies only to Air7,2; other profiles retain their own gates and evidence.
+
+Air7,2 frozen source `2efa8028` / release `562d35107d14e298` now accepts
+this distinct v28 protocol in session `session-000660180c506d6a-00`:
+94,051/100,000 us preparation, strict reset-default geometry, complete
+preservation and clean retirement. Exact checkpoint/native collector and offline
+return integrity pass; all four generic nested-capability attention rows remain
+in the evidence. Local 33-image/fatal-sanitizer/compiled-control/exact-stage
+qualification stays source-matched. Main `9a8d2377` integrated after collection
+as `c38ae968` has affected local checks only. No new boot is armed. Existing
+zero guards, deadlines, all 255 obligations and other units' acceptance remain
+unchanged. Re-arm/claim/requester/memory are separate original-live-owner work;
+never construct legacy objects from the saved new receipt.
+
+## Air live nonzero post-reset source
+
+Air7,2 owns the separate [v29 read-only source child](intel-nonzero-source.md),
+based on `019d28d2` / main `9a8d2377`. It binds the original live nonzero reset,
+actual epoch-2 post-census/readers and original candidate GGTT entry within the
+same preparation 100 ms/GT 300 ms origins. Shared scope is the optional observer
+and registration contract, isolated native image/recipe/collector and tests.
+Old reset/claim/requester gates stay unchanged; the child is not an ownership
+or memory token. Other machines keep their independent gates and evidence.
+This records development scope only; v29 native acceptance is pending and no
+new trial is armed. The accepted v28 payload/evidence remains frozen.
+
+The v29 source child is locally qualified on frozen `a9418c83` /
+release `451cd4d6a9f36faa`. Full 34-image/core, fatal sanitizer and 780-clock
+matrix, seven historical native replays, unchanged writer/guard/map isolation
+and exact-stage VM refusal/save/return pass. The matching native session
+`session-0006601c19f940ac-00` then safely refuses an already-disabled kind 2/epoch 0,
+zero-geometry entry before reset admission or source reads. This is incomplete,
+not native source/timing acceptance. Retirement, media and recovery verify;
+current v29, accepted v28 and recovery remain; no trial is armed. All original
+budgets and 255 obligations remain unchanged. No memory or sibling acceptance
+or task scheduling follows.
+
+Main `a45032e4` / PR482–484 integrates after matching collection as `161a5926`.
+The complete sidecar audit, reusable directory-slot reads and storage-only v3
+retain upstream implementations; both storage v1/v2/v3 and GPU dispatch survive.
+Affected storage/lease/workspace/USB/sync and v28/v29 tests, 109 profile tests,
+eight historical native replays, docs and ordinary/v29/native-battery builds
+pass locally. GPU implementations and strict reset/source decoders remain
+byte-identical to frozen `a9418c83`. No physical acceptance transfers to this
+merged runtime; the installed payload is unchanged. Next Air7,2 scope is explicit
+original-owner routes for both observed kind 1/nonzero and kind 2/zero startup
+states, preserving each original source, epoch, registration and deadline proof.
+No unchanged firmware-state retry or old-gate widening is planned. PR19 remains
+independent at `37ae8304`; no task was contacted or scheduled.
+
+## Air original state-aware startup source scope
+
+Air7,2 owns the separate [v30 reset/source image](intel-startup-source.md) from
+`b0142a34` / main `a45032e4`. Scope is an explicit new compiled entrypoint,
+route-bound original reset/source validation, exact firmware/recipe/pre-init,
+staging/strict collector and fault/legacy isolation tests. The actual original
+kind 1/nonzero or kind 2/zero entry supplies its source and epochs; every old API
+retains its old gate, even inside the new image. Registration, preservation and
+100/300/400/500 ms origins remain. No requester, memory, cache or flip grant is
+added. PR19 `e3f8d795` documents independent two-HTTP acceptance; no overlapping
+GPU implementation was observed. No other task was contacted or scheduled.
+The matching native result accepts one original already-disabled v30 route;
+the enabled route remains pending. Check the unit ledger and ignored checkpoint
+before another run; no trial is armed.
+
+V30 is locally qualified on `82dd3da8` / `327a401a69ca3855`: 35-image/core, fatal
+ASan/UBSan8-test two-route matrix, eight historical native classifications,
+object/receipt/alias/frame checks and exact EFI/MBR persistence/recovery pass.
+The matching `327a401a69ca3855` session now accepts one original kind 2/epoch 0
+entry → reset epoch 1 → registered source child lifetime, with preparation
+97,434/100,000 us and six original GGTT DWORDs in 3,456 us. Collector-only
+`c0dcda2e` fixes shared v30 census dispatch; both modeled native-chain/full-collector
+regressions pass, and unchanged native bytes verify with original errors retained.
+All preservation, borrows/aliases, offline media and recovery checks pass. Current
+is v30; enabled-route acceptance and managed memory/tear-free stay pending.
+No reboot is armed. Historical receipts never supply future live authority.
+Doc-only main `f61b40eb` integrates after qualification with no runtime
+diff; PR19 `9e0e5988` and Air6,1 `4629fced` remain independent. The unreferenced d260 EFI
+copy is retired after full durable/raw-evidence/reference verification, while
+its accepted backup and current/recovery/GUI/latest reset stay intact. Consult
+the unit's latest checkpoint before installing; do not reuse earlier helpers'
+assumption that every historical accepted image still has an EFI duplicate.
+
+
+## Air original-source private buffer integration
+
+Air7,2 owns the opt-in [v31 buffer-binding image](intel-startup-buffers.md), on
+integrated main `35f3702a` / PR486. Shared scope is the serialized private RAM
+hold/drain API, original source child registration, original memory token/object/
+owner binding and strict image/recipe/collector. Both full private allocations
+stay held until actual outer retirement; unknown source/return retains them.
+No positive firmware, cache, DMA, interval or presentation assurance is added.
+The native runtime `876b500e` passes the 36-image/core and fatal adapter/hold
+checks; host-only `7c3a7531` fixes profile registration with 111 staging tests and
+exactly unchanged runtime images. Exact `c154f8b4a6534d11` VM, media/recovery and
+capacity checks pass. Native v31 timing/ownership binding is still pending;
+current v30 remains installed and no new reboot is armed. Review the unit's
+actual checkpoint before installing; historical 451c and d260 are now bank-only.
+No other task was contacted or delegated, and Actions remain disabled.
+
+
+Air7,2 now accepts one native v31 original kind 2 source/private-buffer lifetime
+on runtime `876b500e`, release c154, session00066022f9ae48c3-00: preparation
+98,198/100,000 us, clean original source/root/alias return, four full padded
+patterns and exactly-once 2,712-page release with unchanged DMA total. Raw and
+proof/media/recovery evidence are banked; current c154, no one-shot armed. This
+adds no managed GPU interval/PTE/cache authority, enabled-route acceptance or
+native tear-free. Main e6ca1a94/PR488 is fetched but deferred until after this
+source-matched checkpoint. No other task was contacted or scheduled.
+
+Air7,2's next bounded scope is the separate [original-source transfer
+bridge](intel-startup-transfer.md), after integrating main e6ca1a94/PR488.
+Shared changes add an optional registered child to the v32 buffer owner and
+bind the generic transfer phases to the original source/RAM/CPU-exclusion and
+100/300 ms origins. Native missing authority still refuses; positive provider
+fixtures remain models. V31 acceptance and older APIs/recipes are separate.
+No actual native GPU interval or PTE writer is supplied by this bridge.
+
+
+Air7,2 source `f638ae7c` / release `8d0181c0ed0a4708` now accepts one native
+v32 original kind 2 [registered source-transfer lifetime](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted):
+known authority refusal/check/close in45 us, preparation97,996/100,000 us,
+complete source/buffer/root preservation and retirement, four padded patterns
+and exactly-once2,712-page release. All1,497 prior files preserve apart from
+expected metadata; three logs yield1,500files/156sessions. Raw/strict proof,
+offline media/recovery/default and consumed one-shot pass. Current8d01,
+acceptedc154/prior327a and recovery retained; USB unmounted, no reboot armed.
+Zero transfer provider/clock/arena/PTE activity does not imply zero enclosing
+wake/reset stores. Enabled route, repeatability and actual interval ownership
+remain open; all255 obligations/0assurances/0managed GPU pages. No native
+tear-free acceptance. Next integrate deferred main, then resolve hardware
+ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
+
+
+After collecting native v32, Air7,2 owns the separate [maintained original-source
+requester](intel-source-requester.md) on integrated mainbc326e39. The optional
+v33 child pins source/transfer/RAM/root through PCI7→3, inhibited child, fresh
+inhibited profile, PCI3→7, restored profile and full closing validation. All old
+images/APIs and deadlines stay strict. Frozen source `a7c84ce5` / release
+`6f8fea336425b123` now passes the 38-image full gate, ten fatal sanitizer/adapter
+tests, four compiled weakness controls, 115 staging checks, 11 historical raw
+replays, native store/map/frame/log isolation and exact-stage EFI/MBR VM recovery.
+Its matching native session `session-0006602d3e4e59ec-00` now accepts one
+original kind 1 enabled-entry requester lifetime: PCI7→3→3→7, 658 us requester,
+38 us inhibited child, full closing validation and original retirement,
+preparation98,884/100,000 us. Strict raw/checkpoint and full media/recovery
+proofs are independently banked. All1,500prior files preserve except metadata;
+three logs yield1,503files/157sessions. Currentv33, acceptedv32/priorv31/recovery/
+GUI/joint/HDA stay installed;327a/562d/451c/d260 are verified bank-only. USB is
+unmounted; no reboot armed. Disabledv33 route, pending-drain branch and
+repeatability remain unaccepted. All255 obligations/0assurances/0managedpages
+and actual interval/completion/tear-free remain open. Integrate deferred
+main0e3e86ae after this completed collection; no unchanged refusal retry is needed.
+PR19 MT7610 and PR379 WebCore remain independent; no cross-task messages or
+subagents were requested.
+
+
+Air7,2 integrated main `0e3e86ae` after complete v33 collection. Its separate
+[v34 original-source engine hold](intel-source-engines.md), frozen `4fd81b45` /
+release `90dfc6ca035e19f7`, is hardware-ready after full 39-image/core, fatal sanitizer,
+compiled fault controls, 12 historical raw replays, native object/log/frame and
+exact-stage VM/media/recovery checks. It maintains five readiness requests
+inside the actual inhibited requester and restores exact controls before parent
+return. Immutable phase starts/completed profiles and final-clock admissions
+remain mandatory; 100/300/400/500 ms origins and 10 ms/256-poll caps did not change.
+Two interrupted gates remain nonpasses; corrected-source qualification is separate.
+No memory/reset/submission/display or DMA/cache/reader completion grant follows.
+Payload/proofs are independently banked; candidate is uninstalled/unarmed and
+native acceptance remains a7c84ce5 for v33 only. PR19/379 remain independent;
+no cross-task messaging or delegation. See the unit record before physical work.
+
+
+Air7,2 subsequently accepted one original kind 2 native v34 engine-control
+lifetime on `4fd81b45` / `90dfc6ca035e19f7`, session `session-000660308088581c-00`:
+five held readiness requests through child, exact reverse cancellation,
+1,352 us scope/48 us child and complete requester/source/RAM/root retirement.
+Preparation 99,793/100,000 us leaves 207 us, not repeatability; limits unchanged.
+All prior 1,503 files preserve except metadata, three exact logs yield 1,506 files/
+158 sessions, and offline media/recovery/default/consumed one-shot pass. Raw
+and physical banks are sealed. Enabled v34 entry, pending branches, actual
+DMA/prefetch/cache/translation/display-reader and managed-memory grants remain
+open (all 255 obligations/0 assurances/0 managed pages). Do not import this unit's
+acceptance or resource policy into a sibling. Main observed `44b414bf` stays
+deferred until this source-specific collection is published; next integrate it
+and address measured admission overhead before further ownership witnesses.
+The user grants standing needed automated reboots at 1%, preserving recovery,
+progress/persistence and collect-before-next-run rules. No task was contacted.
+
+
+Air7,2 integrated main `94d0b9b8` and qualified optimized v34 source `b8b8a2d1` /
+release `83fd1d098a221916`. Only 20 duplicate full engine guards are removed per 10 stores;
+fresh complete admission for every target, core/final-clock/first-ACK and full
+batch brackets remain. The reduction from 106 to 86 guard calls is structural, not
+native speed acceptance; all original limits and 255 obligations remain.
+Full 39-image/core/fatal/fault/control/object/VM/media checks pass; current 90df
+and recovery retained, new payload/proof independently banked, uninstalled/
+unarmed. Only unreferenced, exact bank/native-proof-verified 8d EFI duplicate
+was retired; no accepted backup removed. Standing needed automated reboots at 1%
+apply after on-disk run preparation; collect matching results before another.
+No cross-task messages or subagents. Prior 4fd kind 2 result remains source-specific.
+
+
+Air7,2 collected optimized v34 runtime `b8b8a2d1` / `83fd1d098a221916`, session
+`session-00066032aa800378-00`, collector `364ccafa`: one original **kind 1 enabled**
+engine readiness lifetime passes. Entry epoch0→1/reset1→2, all-five held child,
+reverse exact restoration, full closing/root/reader/HDA/CPU retirement and all
+prior files/offline recovery checks pass. Preparation99,511/100,000us leaves489us;
+engine1,246us/child47us, requester1,903us. Deadlines unchanged, no controlled
+speedup/repeatability claim from the earlier different route. Three logs yield
+1,509files/159sessions; raw/physical banks sealed, USB unmounted, Ubuntu default,
+no armed/uncollected run. Main remains94d0b9b8 on fresh fetch. Only b8 enabled
+readiness is accepted; disabled b8, pending branches, internal DMA/prefetch/cache/
+translation/display-reader ownership and all managed GPU/tear-free grants remain
+open. Next local scope is binding those ownership witnesses to the original
+borrow before GPU interval authority. Do not import this model's resources or
+acceptance into siblings. Standing automated reboot authorization at1% persists;
+Actions remain disabled; no other task contacted.
+
+
+Air7,2 active v35 scope after sealed optimized83fd native collection: original
+held-child PCI/AF profiles, CPU cache equality and three-plane primary/cursor/
+sprite preservation observations. Dedicated source-audit image/recipe/collector;
+older profiles and original deadlines unchanged. Audit storage is first-touched
+before excluded entry, and only a duplicate post-census opening guard is removed;
+actual sample guards remain. Compact reset transport preserves every original
+raw ACK/control/poll/timestamp field. No memory or completion authority changes.
+Native v35 pending until exact source evidence; main94d0b9b8 still current, no
+other task contacted. Local checkpoint `build/air-held-readers-20261113`; standing
+volume1% automated test authorization includes reboot once qualified.
+
+
+Air7,2 qualified v35 `4387351b` / `f1a9627dff866ee0`: two original-held PCI/cache/three-
+plane observations and pure final audit-return gate; native PENDING. Full core/
+producer baseline f90fba95 is retained; receiver-only positive-origin/start and
+zero-mutation delta has unchanged C/Makefiles/userspace/shared plus four affected
+checks and40-image build check. FatalSAN9, compiled controls11, historical14,
+staging119, native objects/seven2KiB frames,44log projections and exact-stage
+VM refusal/save/unmount/return/missing halt pass. Independent banks/media/recovery
+verified, current83fd/prior90df/recovery9aa/GUI/joint/HDA retained; only fully
+bank/native-proof-verified unreferenced6f8 EFI duplicate retired. Old canonical
+stage duplicates removed only against exact durable banks/ledger. No ownership
+bit changes:255obligations/0assurances/0managedGPU pages. Needed automatic1%
+trial authorized, no input; collect unique match before another. Actions remain
+disabled; no other task contacted. Unit ledger owns actual native acceptance.
+
+Fresh pre-trial fetch found main `00ab2d90` (Air6,1 directory-metadata admission,
+PR497/498), reviewed separately from the frozen runtime. It does not change GPU
+ownership or native acceptance. Defer integration until this exact-source trial
+and matching collection finish; do not silently relabel the qualified payload as
+current main. The runtime integrates `94d0b9b8`.
+
+
+Air7,2 v35 `4387351b` / `f1a9627dff866ee0` now accepts one original
+kind2 already-disabled held PCI/cache/three-plane observation lifetime; see the
+[unit result](machines/macbookair7-2.md#native-held-requester-cache-and-reader-audit-accepted).
+Two PCI profiles/54reader words/two37-read CPU contexts and the final pure audit
+return gate pass with complete enclosing diagnostic retirement and offline
+preservation. Preparation 99,552/100,000 us; no limits changed.
+All1,509prior files preserve except metadata;3logs→1,512files/160sessions.
+Raw/strict/physical evidence is durable, Ubuntu/recovery protected, USB unmounted,
+no run/one-shot outstanding. Enabled v35, pending branches and repeatability stay
+open. All255 actual DMA/cache/translation/firmware/display-reader obligations and
+zero assurances/managedGPU pages remain. Reviewed main00ab2d90 integration is next;
+no other task contacted or Actions enabled.
+
+
+Air7,2 main00ab2d90 integrated; `2f5d0ee3` / `679a03e543968655` locally qualifies source-bound
+full-buffer CPU cache policy (v35 audit receipt2), native PENDING. Exact private
+physical/padded identities and all interior policy boundaries remain under the
+original held lifetime; no actual-alias, DMA/GPU cache/reader/firmware grant.
+Full core/40images, fatal9/hold/cache oracle,13controls,15legacy,119staging,
+objects/seven2KiB,48log cases and exact-stage VM pass. Currentf1a9/prior83fd/
+recovery9aa8/GUI/joint/HDA retained; only fully bank/native-proof-verified90df EFI
+duplicate retired.1,512files/160sessions intact. Needed automatic1% trial already
+authorized, no input; collect matching run first. Actions stay disabled.
+
+Fresh pre-trial fetch advanced main to `4016abf0` (PR499/500: Air6,1 evidence and
+public directory-syscall dispatch correction). Reviewed changes do not affect GPU,
+cache, reader or kernel VFS implementation. This pre-user-init diagnostic starts
+no user services or public directory calls. Keep exact qualified main00ab runtime
+through its matching trial/collection; integrate4016 and rerun affected dispatch
+checks afterward. No fresh-main or desktop acceptance is inferred here.
+
+
+Air7,2 version2 `2f5d0ee3` / `679a03e543968655` now accepts one
+original kind2 hypothetical full-buffer CPU cache-policy observation lifetime.
+All four1,356-page PAT0 queries are uniform WB; independent receiver checks every
+page against the complete original context. Preparation 99,117/100,000 us,
+full diagnostic retirement and offline preservation pass;1,515files/161sessions,
+raw/physical banks durable, USB unmounted, no run/one-shot outstanding. See the
+[unit result](machines/macbookair7-2.md#native-full-buffer-cpu-cache-policy-observation-accepted).
+No actual alias/coherence/DMA/GPU cache/reader/firmware grant:255obligations and
+zero assurances/managed GPU pages remain. Main4016 public-dispatch integration
+is next; acceptance remains exact-source and actual-route specific.
+
+
+After native version2 collection/publication, Air7,2 integrates main4016abf0
+asf8398741, preserving both appended build targets and independent unit rows.
+Affected public-dispatch/syscall/user-copy/admission, host, matched default
+kernel/USB build and docs pass. GPU/cache/receiver source is unchanged from
+frozen2f5d0ee3; installed679a and native acceptance stay exact-source. This is
+local integration validation only; no new stage, trial or one-shot is armed.

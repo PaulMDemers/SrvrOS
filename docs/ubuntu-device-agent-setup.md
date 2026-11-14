@@ -706,6 +706,18 @@ This does not enable normal startup or accept physical charging/gauge accuracy.
 Use the collector containing the `7f1438d` session-identity fix; earlier v49
 collection can mislabel the JSON session while leaving its saved logs intact.
 
+### Air7,2 inherited Intel display observation
+
+Use the separate [display capture guide](macbookair7-2-display-presentation.md#first-observation-implementation)
+for `stage --laptop-probe-volume VOLUME_SERIAL --intel-display-capture`.
+This unattended profile reads an exact hardware-gated register allowlist and
+skips normal Intel initialization; it performs no GPU control writes. Run the
+exact staged `hardware_boot_smoke.py --probe-check` and missing-workspace
+negative rehearsal before the normal install/recovery/one-shot sequence below.
+The report saves and returns automatically on a complete observation or handled
+identity/access refusal, while refusal remains failed evidence. Failed save or
+unmount halts. It needs no human input and does not exercise native page flips.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,
@@ -1126,6 +1138,41 @@ runtime ownership halts with the mount retained. Collect the strict
 contents (`AA`), prior-file hashes and offline allocation before another trial.
 Ordinary desktop startup and continuous battery admission remain disabled.
 
+### Air7,2 inherited display backing study
+
+After the first versioned display observation, the separate
+`--intel-backing-capture` profile adds a bounded read-only fence/GGTT study. Use
+it alone with `stage --laptop-probe-volume VOLUME_SERIAL`, then run the exact-stage
+`--probe-check` and `--probe-check --probe-missing-workspace` rehearsals. Follow
+the same durable recovery, one-shot boot, collection and offline integrity
+sequence. No tester input is required; handled refusal returns after successful
+save/unmount, while persistence failure halts. Inspect the collector's
+`intel_display_backing` result, not just automatic Ubuntu return. See the
+[display backing contract](macbookair7-2-display-presentation.md#bounded-backing-readout-implementation).
+This diagnostic grants no display or buffer ownership.
+
+### Air7,2 scanout lifetime trial
+
+The opt-in `--intel-lifetime-capture` stage exercises private PMM buffers and
+shadow publication after the accepted read-only backing prerequisites. No human
+input is needed. Follow exact-stage VM, durable payload/recovery, run-record and
+one-shot procedures above. Collect `intel_scanout_lifetime` plus full display/
+backing receipts, preserve prior USB files and run all offline integrity checks
+on return. Three injected faults deliberately retain six private buffers until
+reboot; their exact accounting is required, not an unexpected failure to ignore.
+The separate `--intel-lifetime-fixture` stage is synthetic QEMU evidence and
+cannot replace a native trial. Neither profile enables physical flips. See the
+[scanout buffer contract](scanout-buffer-lifetime.md).
+
+### Air7,2 DMA-state observation
+
+The isolated [read-only DMA capture](macbookair7-2-dma-observation.md) uses
+`--intel-dma-capture` with this unit's workspace serial. It saves two bounded
+VT-d status snapshots and automatically returns after clean save/unmount, with
+no tester input. It does not enable mappings or DMA/scanout authority. Run its
+exact-stage Q35 refusal/save/return and missing-workspace checks before native
+installation; collect the matching release plus all display/backing/DMA receipts.
+Other Mac profiles are not admitted by this capture.
 
 ### Air6,1 opt-in checked ECAM/census trial
 
@@ -1176,6 +1223,24 @@ ecam.log and exit.log with strict collection and offline USB integrity before
 acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
 No register read, write, DMA policy or sibling acceptance follows from v6.
 
+### Air7,2 isolated display-HDA requester trial
+
+The separate [cooperative HDA policy](intel-display-hda-ownership.md) stages with
+`--intel-hda-owner-trial`. It exercises only the exact Air7,2 display-audio PCI
+command16 bus-master inhibit/restore under an explicit firmware submission
+assumption. It is not ordinary audio setup or GPU memory ownership. Follow the
+same exact-stage VM/install/run/collection sequence; volume1%, no input or audio
+playback, automatic safe return, retained uncertainty halts. Keep the accepted
+read-only `--intel-hda-capture` image and its evidence separate. The
+[unit record](machines/macbookair7-2.md) owns current physical acceptance.
+
+Successful `intel-hda-owner-phase:` rows include `reason=0`; collection must use
+host classifier `619961ea` or later so these exact complete headers are not
+mistaken for failures by the generic `reason=` rule. Full native/checkpoint/raw
+controller proof remains mandatory; do not filter all reason lines or discard
+an original collection when correcting host classification. Preserve raw hashes
+and explicitly record offline reclassification separately from a hardware rerun.
+
 ### Air6,1 two-pass zero-target-load qualification
 
 This v7 profile is separate from the accepted v6 single-window trial. It uses
@@ -1215,6 +1280,39 @@ report and returns to Ubuntu. Uncertain ownership halts visibly before USB/user
 reuse; photograph it and restart Ubuntu. A halt, missing receipt, missing saved
 reference or missing whole-trial completion is a failure or incomplete evidence.
 No native acceptance is inferred from host/VM fixtures.
+
+### Air7,2 isolated BCS reset and preservation
+
+The separate [BCS-only reset contract](intel-bcs-reset.md) adds
+`--intel-bcs-reset-trial` and `build/intel-bcs-reset/srvros.elf`. This is an
+explicit diagnostic, with physical acceptance tracked in the
+[actual unit record](machines/macbookair7-2.md#guarded-requester-snapshot-candidate-ready-for-hardware).
+Do not infer sibling support or memory/cache/backing ownership from it.
+
+```sh
+make -j2 all test-intel-bcs-native build/intel-bcs-reset/srvros.elf
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" \
+  --intel-bcs-reset-trial
+python3 tools/hardware_boot_smoke.py --probe-check --workspace-table mbr
+python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace \
+  --workspace-table mbr
+```
+
+Use the actual volume/partition table and the full exact-stage, inventory,
+offline filesystem, recovery, durable backup and one-shot procedure above.
+Validate the compiled native MMIO/mapping bindings and saved-log bound; host
+callbacks alone do not check the native register pointers. This image alone
+links the reset core and a distinct firmware request/exact recipe. Older images
+and ordinary startup cannot enter it. GDRST stores select only the BCS domain;
+pre/post engines, display readers, HDA config and both software epochs must bind.
+No inherited allocation is freed and no translation/cache/scanout writer is added.
+
+Keep volume at1%, playback disabled. Instructions/progress are automatic and no
+typing is needed. Safe saved/unmounted outcomes return to Ubuntu. Uncertain
+stores, failed preservation or unsafe persistence halt visibly; photograph the
+screen and restart manually. Collect the exact new session with the strict
+BCS/preservation, wake/native-UC and preflight-checkpoint proofs before another
+run. A halt, missing receipt or refusal is incomplete evidence, never a pass.
 
 
 ### Explicit screenshot write-admission timing
@@ -1279,6 +1377,28 @@ it does not add a yield, grant eligibility or change transfer policy. Time
 outside callbacks/checkpoints remains unassigned, and software event timestamps
 must not be described as device completion or CPU time.
 
+### Air7,2 read-only cold-takeover preflight
+
+Use `--intel-takeover-preflight` with the actual local `--laptop-probe-volume`
+UUID. This dedicated image samples all five RESET_CTRL registers and GDRST
+after a fresh completion census. It adds no reset, PTE or managed-memory writer.
+Follow the [preflight contract](intel-takeover-preflight.md) and the same exact-stage
+VM, independent payload/evidence backup, recovery, run-record and one-shot
+workflow above. Keep volume at 1%. No human input is required: safe durable
+save/unmount outcomes return automatically; uncertain ownership or failed
+persistence halts visibly. Collect the matching release before preparing another
+run; a stable sampled quiescence bit alone is not hardware or GGTT ownership.
+
+### Air7,2 all-engine prepare/hold/cancel trial
+
+Use the separate `--intel-engine-prepare` profile with the local workspace UUID.
+The [engine-preparation contract](intel-engine-prepare.md) describes its exact
+five request/cancel controls, preserved readers and retained-uncertainty policy.
+Use the same exact-stage VM, durable backup, recovery, run-record and one-shot
+workflow. Keep volume at1%. The automated test needs no input and returns after
+safe durable save/unmount; uncertain ownership or failed persistence halts visibly.
+A passing trial does not grant managed GPU memory or native tear-free rendering.
+
 ### Isolated fixed-file storage control
 
 For the separate bounded filesystem/direct-extent comparison, use the ordinary
@@ -1307,6 +1427,195 @@ same exact-stage, recovery, preflight, one-shot and matching collection sequence
 The [comparison contract](storage-only-comparison.md) defines the fields, strict
 receipt bounds and private-directory END fallback. This does not change v1/v2
 recipes, ordinary metadata restoration, power policy or limits.
+
+### Original-owner entry/reset/requester diagnostic
+
+The separate [v27 composition](intel-entry-requester.md) uses
+`--intel-entry-requester --laptop-probe-volume <this-unit-UUID>` with the exact
+23-token recipe and its own image/pre-init marker. It is an unattended, silent
+diagnostic; retain volume at 1%. Follow the same immutable exact-stage VM,
+installation, one-shot and collection sequence above. New-image completion is
+`intel_entry_requester`; old standalone requester/reset results stay separate.
+Local qualification and native acceptance are independent. Safe saved/unmounted
+outcomes return to Ubuntu; retained ownership or unsafe persistence halts.
+No memory grant, GPU PTE or native tear-free acceptance follows from this test.
+
+### Separate original nonzero-geometry reset
+
+The [v28 protocol](intel-nonzero-reset.md) uses its own
+`--intel-nonzero-reset --laptop-probe-volume <this-unit-UUID>` image and exact
+15-token recipe. It accepts only the original completed kind1 entry/post-census
+under the same HDA/GT owner, maintains readiness through BCS8 reset and checks
+strict whole-vector preservation/reset-default postconditions before return.
+The old zero-geometry guard remains unchanged. It stops before requester/claim
+and memory transfer; all original deadlines remain. The distinct collector
+field is `intel_nonzero_reset`. Native acceptance requires this unit's matching
+complete evidence. Safe saved outcomes return automatically; retained uncertainty
+or unsafe persistence halts visibly. No human input is required for this trial.
+
+Air7,2 source `2efa8028` / release `562d35107d14e298` now has one accepted
+native v28 lifetime with strict reset-default geometry, preservation, clean
+retirement and offline return integrity. Preparation is 94,051/100,000 us.
+Four generic nested-capability attention rows are retained; acceptance uses the
+dedicated strict native result and full lifecycle, not an empty generic alert
+list. This does not accept re-arm/requester/managed backing or a sibling device.
+Main `9a8d2377` integrated after collection has affected local checks only;
+the installed physical payload and its acceptance remain frozen.
+
+### Original live nonzero post-reset source
+
+The separate [v29 source-binding image](intel-nonzero-source.md) uses
+`--intel-nonzero-source --laptop-probe-volume LOCAL_UUID`, an exact 15-token
+recipe and its own pre-init/collector. It adds six read-only original-candidate
+GGTT loads as a registered child before reset return, sharing the original
+preparation 100 ms and GT 300 ms origins. It adds no ownership/managed-memory
+permission. Use the same unattended, silent 1% exact-stage and recovery flow;
+collect `intel_nonzero_source` and full media/retirement evidence afterward.
+Safe saved results return automatically; uncertain state halts visibly.
+
+Air7,2 v29 frozen `a9418c83` / release `451cd4d6a9f36faa` is locally qualified,
+including exact staged EFI/MBR refusal/persistence/automatic return and
+missing-workspace halt. Its matching native session safely refuses an original
+kind 2/epoch 0 already-disabled zero-geometry source before reset admission or
+GGTT reads, with clean retirement and media/recovery checks. This is incomplete,
+not source-read/timing acceptance. Require both source-child completion and
+enclosing reset/retirement plus media integrity; never promote a partial child
+or VM receipt to native ownership. Installed v29, accepted v28 and recovery stay
+available; no reboot is armed. See the [strict result](intel-nonzero-source.md#native-result-already-disabled-source-safely-refused).
+
+### Original state-aware startup source
+
+The separate [v30 protocol](intel-startup-source.md) uses
+`--intel-startup-source --laptop-probe-volume LOCAL_UUID`, an exact 15-token
+recipe, own firmware/pre-init and collector `intel_startup_source`. It selects
+only the actual original enabled/nonzero or disabled/zero entry and binds its
+route/epochs through reset, preservation and six read-only GGTT DWORDs before
+return. Old v28/v29 and zero-geometry gates remain unchanged. Follow the same
+immutable exact-stage VM, independent banks, offline media/recovery, recorded
+one-shot and matching collection workflow. Keep volume 1%; no input is required.
+Safe durable save/unmount results return automatically; uncertainty halts visibly.
+Require both source and enclosing reset/retirement, strict route and checkpoint
+identity, and complete media evidence. Acceptance is independent for each route;
+VM completion or safe refusal accepts neither native route.
+
+Air7,2 frozen `82dd3da8` / `327a401a69ca3855` is locally hardware-ready after the
+35-image/core, fatal sanitizer/two-route, native object/receipt/replay and exact
+EFI/MBR VM gates plus host/media/recovery checks. Its matching native run now
+accepts one original already-disabled kind 2 reset/source lifetime: preparation
+97,434/100,000 us, six original GGTT DWORDs in 3,456 us, full preservation and
+clean retirement/media/recovery. Collector `c0dcda2e` fixes v30 shared census
+dispatch; exact unchanged logs and original errors are sealed. Current is v30;
+no reboot is armed. Enabled-route acceptance stays pending. See the
+[native result](intel-startup-source.md#native-result-original-already-disabled-route-accepted). This unit
+retired only the unreferenced d260 EFI duplicate after full durable/evidence and
+boot-reference equality checks; do not generalize that cleanup to another host.
+Current, recovery, known GUI and latest accepted reset remain installed.
+
+
+### Original-source private buffers
+
+The separate [v31 contract](intel-startup-buffers.md) stages with
+`--intel-startup-buffers --laptop-probe-volume LOCAL_UUID`. Its dedicated image,
+firmware request, exact 15-token `startup-buffers-v1` recipe, own pre-init and
+`intel_startup_buffers` collector bind two private full padded RAM holds to the
+actual original live source, then retain RAM through outer retirement. Old raw
+v28/v29/v30 receivers refuse it. The full collector saves raw bytes and validates
+the new envelope before its internal shared-schema parsing; it never exports
+v30 acceptance for a v31 run.
+
+Air7,2 release `c154f8b4a6534d11` is locally qualified and independently banked,
+not installed or armed. Runtime `876b500e` and host staging fix `7c3a7531` have
+separate recorded qualification sources, with every runtime image hash equal.
+Native v31 timing remains pending. Require complete source/reset/outer return,
+full buffer patterns and release accounting, preserved readers/HDA/aliases and
+media integrity; no partial child, safe refusal or VM result supplies acceptance.
+Keep volume 1%, guest progress and automatic saved/unmounted safe return. Retained
+uncertainty halts visibly; no interactive input is required. This still grants
+no GPU interval, PTE store or managed GPU page.
+
+On this reference host only, the unreferenced unaccepted v29 451c EFI duplicate
+was retired after byte-identical durable payload, sealed refusal evidence and
+boot-reference verification to provide candidate plus 32 MiB capacity. Current
+accepted 327a, recovery, GUI and other protected payloads remain installed;
+451c and the earlier d260 remain banked. Consult current state before using an
+older helper that assumes every historical diagnostic still has an EFI copy.
+
+
+Air7,2's subsequent [v31 native return](machines/macbookair7-2.md#native-v31-original-source-private-buffers-accepted)
+accepts one original already-disabled route on c154: full buffer holds through
+outer retirement, pattern verification and exactly-once release, within original
+limits. Current is now c154, accepted prior327a and recovery9aa8 remain installed;
+1,497 files/155 sessions and offline media/recovery verify. Raw evidence and proof
+are separately banked; no reboot is armed. Enabled route, managed GPU mapping and
+native tear-free remain pending. Use the existing checked internal schema view
+for supplementary shared decoders; never relabel raw v31 as a legacy receipt.
+
+The subsequent [v32 source-bound transfer profile](intel-startup-transfer.md)
+uses `--intel-startup-transfer --laptop-probe-volume LOCAL_UUID`, its own image,
+firmware request, exact 15-token recipe/pre-init and `intel_startup_transfer`
+collector. It tests provider-facing ownership lifetime inside the original
+source, with native transfer refused before provider/clock/arena activity.
+Positive model providers are not native authority. Do not install until the
+unit's matching host/image/VM/media/recovery checkpoint says hardware-ready.
+
+
+Air7,2 source `f638ae7c` / release `8d0181c0ed0a4708` now accepts one native
+v32 original kind 2 [registered source-transfer lifetime](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted):
+known authority refusal/check/close in45 us, preparation97,996/100,000 us,
+complete source/buffer/root preservation and retirement, four padded patterns
+and exactly-once2,712-page release. All1,497 prior files preserve apart from
+expected metadata; three logs yield1,500files/156sessions. Raw/strict proof,
+offline media/recovery/default and consumed one-shot pass. Current8d01,
+acceptedc154/prior327a and recovery retained; USB unmounted, no reboot armed.
+Zero transfer provider/clock/arena/PTE activity does not imply zero enclosing
+wake/reset stores. Enabled route, repeatability and actual interval ownership
+remain open; all255 obligations/0assurances/0managed GPU pages. No native
+tear-free acceptance. Next integrate deferred main, then resolve hardware
+ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
+
+
+The separate [v33 maintained source requester](intel-source-requester.md) uses
+`--intel-source-requester --laptop-probe-volume LOCAL_UUID`, its own image,
+firmware request, exact15-token recipe/pre-init and `intel_source_requester`
+receiver. Its inhibited child remains nested beneath the actual source and both
+RAM holds through verified Command restoration and the closing full hardware
+guard. It adds only the exact PCI Command-halfword operation; no GPU mapping or
+completion assurance follows. Old recipes/receivers stay distinct. Air7,2 frozen
+source `a7c84ce5` / release `6f8fea336425b123` passes its full local/VM/media/
+recovery gate and now accepts one native kind 1 enabled-entry control lifetime:
+PCI7→3→3→7, full closing guard/retirement and98,884/100,000 us preparation.
+Raw/strict/media/recovery proofs are banked;1,503files/157sessions verify.
+No reboot is armed. Disabledv33 entry, pending-drain behavior, repeatability
+and all actual memory/completion/tear-free grants remain unaccepted.
+Use the [unit checkpoint](machines/macbookair7-2.md#active-implementation-maintained-source-requester)
+and recheck local run/media/recovery state before install and one-shot boot;
+another unit must establish its own evidence. Eventual unattended trials show
+progress, persist results,
+retain volume1% and return on safe outcomes; unknown ownership halts visibly.
+
+
+For the separately gated [v34 original-source engine hold](intel-source-engines.md),
+use `--intel-source-engines --laptop-probe-volume LOCAL_UUID`. Its own ELF,
+firmware request, exact15-token recipe/pre-init and `intel_source_engines`
+receiver prevent older receipts from accepting the new lifetime. All five
+readiness requests remain held during its child, then reverse cancellation and
+requester restoration precede the full closing guard. All deadlines and native
+memory refusal remain. Air7,2 source `4fd81b45` / release `90dfc6ca035e19f7` is
+hardware-ready after 39-image/core/fatal-fault/object/log/exact-stage VM and media/
+recovery qualification. Its independently banked payload remains uninstalled
+and unarmed; use the exact unit checkpoint before install. Automated trials need
+no human input, show progress, save/unmount and return on safe outcomes at volume 1%;
+unknown ownership halts visibly. Native v34 remains unaccepted.
+
+
+Air7,2's matching v34 native return is now accepted for one original kind 2
+already-disabled engine readiness lifetime on `4fd81b45` / `90dfc6ca035e19f7`.
+The [unit result](machines/macbookair7-2.md#native-v34-original-source-five-engine-readiness-hold-accepted)
+records exact restoration, complete retirement, media/recovery preservation
+and 99,793/100,000 us preparation. Enabled entry, pending branches, repeatability
+and GPU memory/tear-free remain open. This unit's user permits initiating needed
+automated reboots without another question at 1%; record the run first and collect
+its matching result before the next trial. This authorization is host-specific.
 
 ### Desktop control-phase attribution
 

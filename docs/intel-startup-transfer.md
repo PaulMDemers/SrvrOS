@@ -1,0 +1,133 @@
+# Original-source GPU interval transfer owner
+
+The separate v32 `intel-startup-transfer` image connects the accepted original
+source/private-buffer lifetime to `scanout_transfer`. This closes a software
+lifetime gap: a provider-facing address owner could previously exist without
+keeping that original source registered. It does not establish native firmware,
+DMA, cache or reader ownership. Native evidence is `{assurances=0, obligations=255}`,
+so native transfer admission refuses before its provider, transfer clock, arena or
+GPU-visible address activity. No GPU PTE writer is added.
+
+## Original registration and deadlines
+
+`intel_source_transfer` is a one-use original object in static/heap storage.
+Providers must not mutate owned bridge/transfer storage or bypass its APIs.
+Inside the live buffer child it captures the actual source, provider, input,
+entry kind, reset epoch, post mode, original one-page entry, original two RAM
+objects/tokens/owner IDs/serials/full extents and enclosing root. Its CPU
+exclusion token must match the live source's GT owner and remain held. Its
+registration blocks buffer/source return. Both full 1,356-page RAM holds remain
+registered beneath that original root; closing or attempting an early return
+cannot free them.
+
+Guard and clock callbacks revalidate the original chain before and after each
+call. Every measured clock advances the transfer, buffer, source, reset and GT
+watermarks together. The preparation 100 ms and GT 300 ms origins are never
+restarted by generic transfer phase clocks, and the existing HDA 400 ms/outer
+500 ms limits stay fixed. Zero, regressed, expired or stalled clocks refuse.
+Busy guards reject callback re-entry. Copies, changed resource/provider/token
+identities, lost registration and uncertain owner return retain the original
+source/RAM/root through a terminal fault.
+
+## Admission, live checks and close
+
+The exact first candidate page lies outside the complete inherited protection
+fence. The input is an observed original, not an available address grant; neither
+its value nor an empty entry supplies ownership. Both full private RAM buffers
+remain pinned, but the address proposal covers one page only. Full-buffer GPU
+imports still require complete original vectors and hardware witnesses.
+
+A trusted future adapter must independently establish all five hardware
+assurances and close every completion obligation for that exact interval. The
+bridge calls the actual generic transfer owner; it does not echo stable entries
+back as positive hardware proof. Admission, live and terminal callbacks are
+bound to the same original source/epoch/vector and same parent budgets.
+
+Known missing-authority refusal is an explicit live state. It owns no imported
+range and performs no transfer-provider or transfer-clock callback, but keeps
+its source registration until final guarded close. A positive **model** provider
+can open a real software address lease, run maintained checks, stop reservation
+admission and drain children before terminal original-state validation. Pending
+leases keep both the transfer and original source registered; existing children
+may retire while closing. Unknown provider/clock/exclusion or retirement state
+is terminal, never an optimistic close or a new admission attempt.
+
+After clean transfer close/refusal, its registration returns to the original
+buffer child, then source, reset and outer owners retire. Full private patterns
+and exactly-once RAM release remain outside the hardware budget, after verified
+outer retirement. No saved result can authorize a later live operation.
+
+## Image and evidence isolation
+
+Build `build/intel-startup-transfer/srvros.elf`; stage with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume LOCAL_UUID --intel-startup-transfer`.
+The image has its own firmware request, wake version 32, exact 15-token
+`srvros.intel-ring=startup-transfer-v1` recipe and `startup-transfer-preinit`.
+Ordinary boot and the accepted v31 image keep their existing APIs and recipes.
+
+A distinct `intel-source-transfer` row records original bindings, clocks,
+registration/return, refused/opened state and provider/clock/arena activity.
+The strict `intel_startup_transfer` collector requires the entire original
+buffer/source/reset/outer proof, exact recipe/checkpoint and complete return.
+Its checked internal shared-schema view is never saved as raw native evidence
+or exported as v31/v30 acceptance; those result fields remain empty. Positive
+model-provider flags, missing/duplicate rows, spliced source/epochs and changed
+counts are rejected by the native receiver. All raw alerts remain available.
+
+## Qualification and native boundary
+
+Actual-core/adapter tests cover both startup routes, every new and original
+clock, source/hold/provider/registration changes, callback re-entry, each missing
+assurance and open obligation, positive modeled admission/close and pending
+child drain. A modeled provider is not native hardware acceptance. Host/VM and
+native qualification results are recorded separately in the unit ledger.
+
+The native diagnostic tests this registered provider-facing lifetime inside the
+real original source. It requires zero transfer-provider/transfer-clock/arena/
+PTE activity while native authority remains absent, then clean root and RAM
+retirement. Existing wake/reset stores remain part of the enclosing lifetime.
+It does not test a GPU mapping or tear-free desktop. Follow the
+[Ubuntu workflow](ubuntu-device-agent-setup.md): exact-stage VM, independent banks,
+local USB/recovery checks and durable one-shot run record. No input is required;
+keep volume 1%, show progress, save/unmount and return automatically on safe
+outcomes. Retained uncertainty halts visibly. Collect before a further candidate.
+
+## Native original kind 2 lifetime accepted
+
+Source `f638ae7c` / release `8d0181c0ed0a4708`, session
+`session-0006602a2ba4e885-00`, accepts one bounded registration, known missing-
+authority refusal, final guarded check/close and original return. The transfer
+child takes 45 us with no generic transfer-provider/transfer-clock/arena/address
+activity. Original bridge guards and their parent-clock checks still run; the
+zero counters describe callbacks into the generic address owner.
+Preparation is 97,996/100,000 us, GT return 264,788/300,000 us, HDA
+301,473/400,000 us and outer 356,215/500,000 us. Full preservation, original
+root/alias retirement, four full padded patterns and exactly-once 2,712-page
+release pass. Raw provenance, strict receiver/checkpoint, prior-file integrity,
+offline media and recovery also pass. See the
+[unit result](machines/macbookair7-2.md#native-v32-original-source-transfer-lifetime-accepted).
+
+The enabled route and repeatability remain unaccepted. Hardware assurances
+remain zero, all 255 obligations stay open and no GPU page is managed. The next
+boundary is a real exclusive interval and hardware completion witnesses, rather
+than another unchanged refusal trial. The inherited framebuffer remains active.
+
+## Prior local hardware-ready checkpoint
+
+Frozen `f638ae7c`, release `8d0181c0ed0a4708`, passes the full37-image/core/USB/
+host/docs gate, nine actual-adapter tests under fatal ASan/UBSan, separate fatal
+RAM-hold tests,113 staging tests, ten exact historical native classifications
+and image isolation. Native object/staged guards/maps/writer checks and five
+2KiB frames pass. Projected tail61,794/65,536 includes1,536 reserve plus1,024
+runtime-header margin. Exact EFI/MBR VM persistence/unmount/automatic safe return,
+compiled recipe/own pre-init and missing-workspace halt pass; zero target stores
+or private allocations occur on the foreign board.
+
+Local USB/file integrity, offline media, recovery/default/unarmed one-shot and
+EFI candidate plus32MiB margin pass. Only unreferenced accepted562d's duplicate
+EFI copy was retired after full bank/evidence/reference checks; its verified
+payload and native acceptance remain durable. Current accepted c154/prior327a,
+recovery/GUI/joint/HDA remain installed. Candidate/evidence banks survive
+`make distclean`; candidate is not installed or armed. Native v32 acceptance
+remains pending, with zero GPU address/ownership grant. See the
+[unit checkpoint](machines/macbookair7-2.md#hardware-ready-v32-original-source-transfer-owner).

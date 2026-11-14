@@ -20,6 +20,24 @@ from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_q
 
 HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 
+def shared_receipt(text):
+    if 'srvros.intel-ring=source-audit-v1' in text:
+        from intel_source_audit import shared_view
+        return shared_view(text)
+    if 'srvros.intel-ring=source-engines-v1' in text:
+        from intel_source_engines import shared_view
+        return shared_view(text)
+    if 'srvros.intel-ring=source-requester-v1' in text:
+        from intel_source_requester import shared_view
+        return shared_view(text)
+    if 'srvros.intel-ring=startup-transfer-v1' in text:
+        from intel_startup_transfer import shared_view
+        return shared_view(text)
+    if 'srvros.intel-ring=startup-buffers-v1' in text:
+        from intel_startup_buffers import buffers_view
+        return buffers_view(text)
+    return text
+
 def make_disk(path, loader, source, release, extra_files=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
@@ -175,6 +193,7 @@ def main():
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     audio_listen=bool(probe and manifest["config_version"].startswith("ram-usb-v1-audio-listen-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-source-audit-","ram-usb-v1-intel-source-engines-","ram-usb-v1-intel-source-requester-","ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-","ram-usb-v3-storage-only-")))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
@@ -237,7 +256,11 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
-        if hfw_capture or hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
+        # Explicit cache-only CPU observation in TCG; absent Intel GPU still
+        # refuses native address binding and aggregate display acceptance.
+        if manifest["config_version"].startswith(("ram-usb-v1-intel-source-audit-","ram-usb-v1-intel-source-engines-","ram-usb-v1-intel-source-requester-","ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
+            command += ["-cpu","Broadwell"]
+        if hfw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
@@ -321,14 +344,15 @@ def main():
                     return
                 if args.probe_check:
                     if args.probe_missing_workspace:
-                        text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if auto_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
-                        if auto_return:
+                        expect_return=auto_return and not intel_display_capture
+                        text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if expect_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
+                        if expect_return:
                             assert process.wait(timeout=30)==0
                         else:
                             time.sleep(2)
                             assert process.poll() is None and "laptop-capture: returning" not in text
                         assert "laptop-capture: saved=NO unmounted=NO" in text
-                        print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if auto_return else "halts without reboot"))
+                        print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if expect_return else "halts without reboot"))
                         return
                     if keyboard_capture:
                         wait_for(serial, lambda s: "keyboard-test: step=1 " in s, process, args.boot_wait)
@@ -354,7 +378,7 @@ def main():
                         assert "battery: REFUSED platform/resource ownership preflight" in text
                         assert battery_marker+": returned=yes clean=NO" in text
                         assert "laptop-capture: saved=yes unmounted=yes" in text
-                        assert "laptop-capture: completed=NO" in text
+                        assert ("laptop-capture: completed=yes" if ("srvros.intel-lifetime=fixture" in text or "srvros.intel-memory=fixture" in text) else "laptop-capture: completed=NO") in text
                         assert "battery-native: REFUSED check=pci-gpu" in text
                         assert "battery: phase=" not in text
                         if battery_home_work or battery_home_desktop or battery_home_transitions:
@@ -379,7 +403,12 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or intel_display_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if intel_display_capture:
+                        assert "intel-display-observe: boot result=identity-refused" in text
+                        assert "ordinary Intel initializer skipped; no capture PCI writes" in text
+                        assert "intel-gfx: intel-" not in text and "laptop-probe: read-only" not in text
+                        assert ("laptop-capture: completed=yes" if ("srvros.intel-lifetime=fixture" in text or "srvros.intel-memory=fixture" in text) else "laptop-capture: completed=NO") in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -406,7 +435,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
+                        if not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or intel_display_capture or hsw_capture or hfw_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -416,8 +445,8 @@ def main():
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
                     if hfw_capture:
                         from hardware_haswell_firmware import firmware_result
-                        exit_log=stored.read(folder+"/exit.log").decode()
-                        result=firmware_result(exit_log)
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
+                        result=firmware_result(shared_receipt(exit_log))
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'laptop-capture: completed=NO' in exit_log
                         if manifest['config_version'].startswith(HFW_PROFILES[1:]):
@@ -462,9 +491,9 @@ def main():
                         else:
                             assert 'hsw-firmware-progress: exact Air6,1' in exit_log
                     if hsw_capture:
-                        exit_log=stored.read(folder+"/exit.log").decode()
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
                         from hardware_haswell_backing import backing_result
-                        result=backing_result(exit_log)
+                        result=backing_result(shared_receipt(exit_log))
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
                         if manifest['config_version'].startswith('ram-usb-v3-hsw-'):assert result['source_version']==3
@@ -472,7 +501,7 @@ def main():
                         assert 'laptop-capture: completed=NO' in exit_log
                     if ap_capture:
                         from hardware_ap_owner import ap_owner_result
-                        exit_log=stored.read(folder+"/exit.log").decode()
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
                         result=ap_owner_result(exit_log)
                         if args.ap_cpus in (1,6):
                             assert result is None and "ap-owner: v=1 admitted=0 reason=identity-topology" in exit_log
@@ -481,7 +510,7 @@ def main():
                             assert ("state=3 fault=1" if args.ap_inject=="fault" else "rounds=0") in exit_log
                         else: assert result and result['mode']=='vm' and result['cpus']==args.ap_cpus
                     if battery_preflight:
-                        exit_log=stored.read(folder+"/exit.log").decode()
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
                         from hardware_desktop import battery_preflight_result
                         assert battery_preflight_result(exit_log) is None
                         assert "battery-preflight: complete" not in exit_log
@@ -502,7 +531,7 @@ def main():
                         assert prepared and len(stored.read(prepared[1].decode().removeprefix("/work/")))==4096
                         assert b"battery-usb-write: PASS" not in exit_log
                     if cpu_load_capture:
-                        exit_log=stored.read(folder+"/exit.log").decode()
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
                         assert "cpu-load: completed=NO reason=thermal-unavailable-or-stale" in exit_log
                         assert "cpu-load: completed=yes" not in exit_log and "cpu-load: phase=load" not in exit_log
                         assert "cpu-load-capture: returned=yes" in exit_log
@@ -553,8 +582,294 @@ def main():
                             contents=stored.read(folder+"/"+filename)
                             assert b"workspace-scheduler:" in contents
                             (logs/("laptop-capture-"+filename)).write_bytes(contents)
+                    if intel_display_capture:
+                        from intel_display_capture import capture_result
+                        proof=capture_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                        assert proof and proof['status']=='identity-refused' and not proof['observation_complete']
+                        assert not proof['scanout_ownership'] and not proof['rows']['observe'][0]['maps']
+                        (logs/'intel-display-result.json').write_text(json.dumps(proof,indent=2)+"\n")
+                        if 'srvros.intel-memory=' in text:
+                            from intel_memory import memory_result,verify_memory_checkpoint
+                            memory=memory_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            fixture='srvros.intel-memory=fixture' in text
+                            assert memory and memory['kind']==('fixture' if fixture else 'native')
+                            assert memory['complete']==fixture and not memory['hardware_ownership']
+                            pre=stored.read(folder+'/session-a.log').decode()
+                            assert verify_memory_checkpoint(pre,shared_receipt(stored.read(folder+'/exit.log').decode()))
+                            (logs/'intel-memory-preflight.log').write_text(pre)
+                            (logs/'intel-memory-result.json').write_text(json.dumps(memory,indent=2)+"\n")
+                        if 'srvros.intel-lifetime=' in text:
+                            from intel_scanout_lifetime import lifetime_result
+                            lifetime=lifetime_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            fixture='srvros.intel-lifetime=fixture' in text
+                            assert lifetime and lifetime['kind']==('fixture' if fixture else 'native')
+                            assert lifetime['complete']==fixture and lifetime['summary']['admitted']==int(fixture)
+                            assert not lifetime['hardware_ownership'] and not lifetime['physical_tearfree']
+                            (logs/'intel-lifetime-result.json').write_text(json.dumps(lifetime,indent=2)+"\n")
+                            if fixture and manifest["config_version"].startswith("ram-usb-v2-intel-lifetime-fixture-"):
+                                from scanout_publish_model import model_result
+                                publication=model_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert publication and publication['complete'] and not publication['dma_authority']
+                                (logs/'scanout-publish-model-result.json').write_text(json.dumps(publication,indent=2)+"\n")
+                        if 'srvros.intel-completion=read-only' in text:
+                            from intel_completion_audit import completion_result
+                            completion=completion_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert completion and not completion['observation_complete'] and not completion['rows'] and not completion['contexts']
+                            (logs/'intel-completion-result.json').write_text(json.dumps(completion,indent=2)+"\n")
+                        if 'srvros.intel-bcs-reset=blitter-only' in text:
+                            from intel_bcs_reset import bcs_result
+                            result=bcs_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert result and not result['complete'] and not result['summary']['attempts'] and not result['summary']['reset_attempts']
+                            (logs/'intel-bcs-reset-result.json').write_text(json.dumps(result,indent=2)+"\n")
+                        if 'srvros.intel-reset-ready=request-cancel' in text:
+                            from intel_reset_ready import reset_ready_result
+                            ready=reset_ready_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert ready and not ready['complete'] and not ready['rows'] and not ready['controls'] and not ready['summary']['attempts']
+                            (logs/'intel-reset-ready-result.json').write_text(json.dumps(ready,indent=2)+"\n")
+                        if 'srvros.intel-readers=read-only' in text:
+                            from intel_pinned_readers import reader_result
+                            readers=reader_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert readers and not readers['complete'] and not readers['summary']['maps'] and not readers['configs'] and not readers['planes']
+                            (logs/'intel-pinned-readers-result.json').write_text(json.dumps(readers,indent=2)+"\n")
+                        if 'srvros.intel-hda=lease-trial' in text:
+                            from intel_hda_lease import lease_result
+                            lease=lease_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert lease and not lease['complete'] and not lease['summary']['attempts'] and not lease['phases']
+                            assert all(lease['summary'][k] for k in ('compiled','policy','recipe','efi64','loader'))
+                            assert not lease['lifetime']['checks'] and not lease['lifetime']['pin']
+                            (logs/'intel-hda-lease-result.json').write_text(json.dumps(lease,indent=2)+"\n")
+                        if 'srvros.intel-hda=owner-trial' in text:
+                            from intel_hda_owner import owner_result
+                            owner=owner_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert owner and not owner['complete'] and not owner['summary']['attempts'] and not owner['phases']
+                            assert all(owner['summary'][k] for k in ('compiled','policy','recipe','efi64','loader'))
+                            (logs/'intel-hda-owner-result.json').write_text(json.dumps(owner,indent=2)+"\n")
+                        if 'srvros.intel-hda=read-only' in text:
+                            from intel_display_hda import hda_result
+                            hda=hda_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert hda and not hda['complete'] and not hda['summary']['maps'] and not hda['summary']['reads']
+                            assert hda['summary']['compiled'] and hda['summary']['recipe'] and hda['summary']['efi64'] and hda['summary']['loader']
+                            (logs/'intel-hda-result.json').write_text(json.dumps(hda,indent=2)+"\n")
+                        if 'srvros.intel-wake=trial' in text:
+                            from intel_gt_wake import native_wake_result,verify_wake_checkpoint
+                            wake=native_wake_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            if "srvros.intel-ring=source-audit-v1" in text:wake["summary"]["v"]=35
+                            elif "srvros.intel-ring=source-engines-v1" in text:wake["summary"]["v"]=34
+                            elif "srvros.intel-ring=source-requester-v1" in text:wake["summary"]["v"]=33
+                            elif "srvros.intel-ring=startup-transfer-v1" in text:wake["summary"]["v"]=32
+                            elif "srvros.intel-ring=startup-buffers-v1" in text:wake["summary"]["v"]=31
+                            if 'srvros.intel-bcs-reset=held-blitter-only' in text:
+                                from intel_engine_held_reset import held_reset_result
+                                reset=held_reset_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert reset and not reset['complete'] and not reset['summary']['attempts']
+                                (logs/'intel-held-reset-result.json').write_text(json.dumps(reset,indent=2)+"\n")
+                            if 'srvros.intel-ring=reset-v1' in text and 'srvros.intel-gpu-requester=hold' in text:
+                                from intel_entry_requester import requester_result,verify_requester_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                proof=requester_result(final)
+                                assert proof and not proof['complete'] and not proof['entry_reset']['entry']['summary']['borrowed'] and not proof['requester']['summary']['attempts']
+                                assert verify_requester_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-entry-requester-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            if 'srvros.intel-ring=reset-v1' in text and 'srvros.intel-gpu-requester=hold' not in text:
+                                from intel_ring_reset import reset_result,verify_reset_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                ring=reset_result(final)
+                                assert ring and not ring['complete'] and not ring['entry']['summary']['borrowed'] and not ring['entry']['summary']['store_calls'] and not ring['summary']['eligible']
+                                assert verify_reset_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-ring-reset-result.json').write_text(json.dumps(ring,indent=2)+'\n')
+                            if 'srvros.intel-ring=source-audit-v1' in text:
+                                from intel_source_audit import audit_result,verify_audit_checkpoint
+                                final=stored.read(folder+'/exit.log').decode()
+                                proof=audit_result(final)
+                                assert proof and not proof['complete'] and not proof['engines']['requester']['transfer']['buffers']['summary']['allocated']
+                                assert not proof['summary']['pci_reads'] and not proof['summary']['plane_reads'] and not proof['summary']['cache_checks']
+                                assert verify_audit_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-source-audit-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            elif 'srvros.intel-ring=source-engines-v1' in text:
+                                from intel_source_engines import engines_result,verify_engines_checkpoint
+                                final=stored.read(folder+'/exit.log').decode()
+                                proof=engines_result(final)
+                                assert proof and not proof['complete'] and not proof['requester']['transfer']['buffers']['summary']['allocated']
+                                assert not proof['summary']['attempts'] and not proof['summary']['native_reads']
+                                assert verify_engines_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-source-engines-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            elif 'srvros.intel-ring=source-requester-v1' in text:
+                                from intel_source_requester import requester_result,verify_requester_checkpoint
+                                final=stored.read(folder+'/exit.log').decode()
+                                proof=requester_result(final)
+                                assert proof and not proof['complete'] and not proof['transfer']['buffers']['summary']['allocated']
+                                assert not proof['summary']['attempts'] and not proof['summary']['native_reads']
+                                assert verify_requester_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-source-requester-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            elif 'srvros.intel-ring=startup-transfer-v1' in text:
+                                from intel_startup_transfer import transfer_result,verify_transfer_checkpoint
+                                final=stored.read(folder+'/exit.log').decode()
+                                proof=transfer_result(final)
+                                assert proof and not proof['complete'] and not proof['buffers']['summary']['allocated']
+                                assert verify_transfer_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-startup-transfer-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            elif 'srvros.intel-ring=startup-buffers-v1' in text:
+                                from intel_startup_buffers import buffers_result,verify_buffers_checkpoint
+                                final=stored.read(folder+'/exit.log').decode()
+                                proof=buffers_result(final)
+                                assert proof and not proof['complete'] and not proof['summary']['allocated']
+                                assert verify_buffers_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-startup-buffers-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            if 'srvros.intel-ring=startup-source-v1' in text:
+                                from intel_startup_source import startup_result,verify_startup_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                proof=startup_result(final)
+                                assert proof and not proof['complete'] and not proof['summary']['count']
+                                assert verify_startup_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-startup-source-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            if 'srvros.intel-ring=nonzero-source-v1' in text:
+                                from intel_nonzero_source import source_result,verify_source_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                proof=source_result(final)
+                                assert proof and not proof['complete'] and not proof['summary']['count']
+                                assert verify_source_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-nonzero-source-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            if 'srvros.intel-ring=nonzero-reset-v1' in text:
+                                from intel_nonzero_reset import nonzero_result,verify_nonzero_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                proof=nonzero_result(final)
+                                assert proof and not proof['complete'] and not proof['entry']['summary']['borrowed'] and not proof['summary']['eligible'] and not proof['summary']['controls'] and not proof['summary']['resets']
+                                assert verify_nonzero_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-nonzero-reset-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            if 'srvros.intel-ring=entry-v1' in text:
+                                from intel_ring_entry import entry_result,verify_entry_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                ring=entry_result(final)
+                                assert ring and not ring['complete'] and not ring['summary']['borrowed'] and not ring['summary']['store_calls']
+                                assert verify_entry_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-ring-entry-result.json').write_text(json.dumps(ring,indent=2)+'\n')
+                            if 'srvros.intel-ring=handoff-v1' in text:
+                                from intel_ring_transition import ring_result,verify_ring_checkpoint
+                                final=shared_receipt(stored.read(folder+'/exit.log').decode())
+                                ring=ring_result(final)
+                                assert ring and not ring['complete'] and not ring['summary']['borrowed'] and not ring['summary']['store_calls']
+                                assert verify_ring_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-ring-result.json').write_text(json.dumps(ring,indent=2)+'\n')
+                            if 'srvros.intel-gpu-requester=hold' in text and 'srvros.intel-ring=reset-v1' not in text:
+                                from intel_gpu_hold import gpu_hold_result
+                                gpu=gpu_hold_result(shared_receipt(stored.read(folder+'/exit.log').decode()))
+                                assert gpu and not gpu['complete'] and not gpu['summary']['attempts'] and not gpu['summary']['issued']
+                                (logs/'intel-gpu-hold-result.json').write_text(json.dumps(gpu,indent=2)+'\n')
+                            if 'srvros.intel-joint=hda-claim' in text:
+                                from intel_joint import joint_result
+                                joint=joint_result(shared_receipt(stored.read(folder+'/exit.log').decode()))
+                                assert joint and not joint['complete'] and not joint['summary']['hda_attempts'] and not joint['summary']['root_maps']
+                                (logs/'intel-joint-result.json').write_text(json.dumps(joint,indent=2)+'\n')
+                            if 'srvros.intel-rehold=request-cancel' in text:
+                                from intel_engine_rehold import rehold_result
+                                rehold=rehold_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert rehold and not rehold['complete'] and not rehold['summary']['attempts']
+                                (logs/'intel-rehold-result.json').write_text(json.dumps(rehold,indent=2)+"\n")
+                            if 'srvros.intel-interval=read-only' in text:
+                                from intel_held_interval import interval_result
+                                interval=interval_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert interval and not interval['complete'] and not interval['summary']['attempts']
+                                (logs/'intel-held-interval-result.json').write_text(json.dumps(interval,indent=2)+"\n")
+                            if 'srvros.intel-held-requester=read-only' in text:
+                                from intel_held_requester import held_result
+                                held=held_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert held and not held['complete'] and not held['summary']['attempts']
+                                (logs/'intel-held-requester-result.json').write_text(json.dumps(held,indent=2)+"\n")
+                            if 'srvros.intel-requester=read-only' in text:
+                                from intel_requester import requester_result
+                                req=requester_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert req and not req['complete'] and not req['summary']['attempts']
+                                (logs/'intel-requester-result.json').write_text(json.dumps(req,indent=2)+"\n")
+                            if 'srvros.intel-engines-prepare=request-cancel' in text:
+                                from intel_engine_prepare import prepare_result
+                                prep=prepare_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert prep and not prep['complete'] and not prep['summary']['attempts']
+                                (logs/'intel-prepare-result.json').write_text(json.dumps(prep,indent=2)+"\n")
+                            if 'srvros.intel-takeover=preflight' in text:
+                                from intel_takeover import takeover_result
+                                take=takeover_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert take and not take['observation_complete'] and not take['summary']['attempts']
+                                (logs/'intel-takeover-result.json').write_text(json.dumps(take,indent=2)+"\n")
+                            if 'srvros.intel-admission=disabled-bcs-v1' in text:
+                                from intel_entry_admission import entry_result,verify_entry_checkpoint
+                                final=shared_receipt(stored.read(folder+"/exit.log").decode())
+                                entry=entry_result(final)
+                                assert entry and not entry['complete'] and not entry['summary']['borrowed']
+                                verify_entry_checkpoint(stored.read(folder+"/session-a.log").decode(),final)
+                                (logs/'intel-entry-result.json').write_text(json.dumps(entry,indent=2)+"\n")
+                            if 'srvros.intel-hda-bcs=joint-owner-v1' in text:
+                                from intel_hda_shutdown import paired_result,verify_paired_checkpoint
+                                final=shared_receipt(stored.read(folder+"/exit.log").decode())
+                                paired=paired_result(final)
+                                assert paired and not paired['complete'] and not paired['blitter']['summary']['attempts']
+                                verify_paired_checkpoint(stored.read(folder+"/session-a.log").decode(),final)
+                                (logs/'intel-hda-bcs-result.json').write_text(json.dumps(paired,indent=2)+"\n")
+                            if 'srvros.intel-shutdown=qualify' in text and 'srvros.intel-hda-bcs=joint-owner-v1' not in text:
+                                from intel_shutdown import shutdown_result
+                                shutdown=shutdown_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert shutdown and not shutdown['complete'] and not shutdown['summary']['borrowed']
+                                (logs/'intel-shutdown-result.json').write_text(json.dumps(shutdown,indent=2)+"\n")
+                            if 'srvros.intel-blitter=retire' in text:
+                                from intel_blitter import blitter_result
+                                blitter=blitter_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert blitter and not blitter['complete'] and not blitter['summary']['attempts']
+                                (logs/'intel-blitter-result.json').write_text(json.dumps(blitter,indent=2)+"\n")
+                            if 'srvros.intel-engines=read-only' in text and 'srvros.intel-completion=read-only' not in text:
+                                from intel_engine_census import engine_result
+                                engines=engine_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                                assert engines and not engines['observation_complete'] and not engines['summary']['reads']
+                                (logs/'intel-engine-result.json').write_text(json.dumps(engines,indent=2)+"\n")
+                            pre=stored.read(folder+"/session-a.log").decode()
+                            assert 'intel-firmware-summary:' in pre
+                            verify_wake_checkpoint(pre,shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            (logs/'intel-wake-preflight.log').write_text(pre)
+                            assert wake and wake['summary']['compiled'] and not wake['native_wake_complete']
+                            assert not wake['summary']['maps'] and not wake['summary']['attempts']
+                            (logs/'intel-wake-result.json').write_text(json.dumps(wake,indent=2)+"\n")
+                        if 'srvros.intel-firmware=read-only' in text:
+                            from intel_gt_firmware import native_firmware_result
+                            fw=native_firmware_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert fw and not fw['native_observation_complete'] and not fw['summary']['maps']
+                            assert not fw['hardware_ownership'] and not fw['forcewake_permission']
+                            (logs/'intel-firmware-result.json').write_text(json.dumps(fw,indent=2)+"\n")
+                        if 'srvros.intel-gt-preflight=read-only' in text:
+                            from intel_gt_preflight import native_gt_result
+                            gt=native_gt_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert gt and not gt['native_observation_complete'] and not gt['summary']['maps']
+                            assert not gt['hardware_ownership'] and not gt['forcewake_permission']
+                            (logs/'intel-gt-result.json').write_text(json.dumps(gt,indent=2)+"\n")
+                        if 'srvros.intel-handoff=qualify' in text:
+                            from intel_handoff import native_handoff_result
+                            handoff=native_handoff_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert handoff and not handoff['qualification_complete'] and not handoff['summary']['acquired']
+                            assert not handoff['hardware_ownership'] and not handoff['managed_range']
+                            (logs/'intel-handoff-result.json').write_text(json.dumps(handoff,indent=2)+"\n")
+                        if 'srvros.intel-window=read-only' in text:
+                            from intel_ggtt_window import native_window_result
+                            window=native_window_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert window and not window['readout_complete'] and window['summary']['status']==0
+                            assert not window['summary']['window_maps'] and not window['summary']['retained'] and not window['hardware_ownership']
+                            (logs/'intel-window-result.json').write_text(json.dumps(window,indent=2)+"\n")
+                        if 'srvros.intel-cache=read-only' in text:
+                            from intel_cache import native_cache_result
+                            cache=native_cache_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert cache and cache['cpu_observation_complete'] and not cache['native_observation_complete']
+                            assert cache['summary']['native_pages']==0 and not cache['hardware_ownership']
+                            (logs/'intel-cache-result.json').write_text(json.dumps(cache,indent=2)+"\n")
+                        if 'srvros.intel-dma=read-only' in text:
+                            from intel_dma_observe import dma_result
+                            dma=dma_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert dma and not dma['observation_complete'] and dma['summary']['status']==0 and dma['summary']['maps']==0
+                            assert not dma['dma_authority'] and not dma['hardware_ownership']
+                            (logs/'intel-dma-result.json').write_text(json.dumps(dma,indent=2)+"\n")
+                        if 'srvros.intel-backing=read-only' in text:
+                            from intel_display_backing import backing_result
+                            backing=backing_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
+                            assert backing and backing['status']==2 and not backing['observation_complete']
+                            assert not backing['scanout_ownership'] and not backing['summary']['maps']
+                            (logs/'intel-backing-result.json').write_text(json.dumps(backing,indent=2)+"\n")
                     if audio_listen:
-                        exit_log=stored.read(folder+"/exit.log").decode()
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
                         proof=re.search(r"audio-listen: result=PASS plays=5 seconds=30 volume=25 bytes=5760000 underruns=0 elapsed_us=(\d+) stopped=yes quiet=yes",exit_log)
                         assert proof and 30000000<=int(proof[1])<35000000
                         assert len(re.findall(r"playwav: complete bytes=1152000 underruns=0",text))==5
@@ -563,13 +878,13 @@ def main():
                         (logs/'audio-listen-result.json').write_text(json.dumps(dict(status='PASS',elapsed_us=int(proof[1]),plays=5,volume=25,bytes=5760000,underruns=0,native_acceptance=False),indent=2)+'\n')
                     if posix_capture:
                         from posix_capture_result import capture_result
-                        proof=capture_result(stored.read(folder+"/exit.log").decode())
+                        proof=capture_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
                         assert proof is not None, 'Incomplete POSIX capture'
                         (logs/'posix-capture-result.json').write_text(json.dumps(proof,indent=2)+'\n')
                         assert 'srvros.aml' not in text and 'srvros.battery=on' not in text
                     if storage_only_capture:
                         from storage_only_result import capture_result,payload
-                        comparison=capture_result(stored.read(folder+"/exit.log").decode())
+                        comparison=capture_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
                         assert comparison is not None, 'Incomplete storage-only comparison'
                         if manifest['config_version'].startswith(('ram-usb-v2-storage-only-','ram-usb-v3-storage-only-')):
                             assert comparison['version']==(3 if manifest['config_version'].startswith('ram-usb-v3-storage-only-') else 2) and comparison['roles'] and 'srvros.storage-roles=on' in text
@@ -578,12 +893,12 @@ def main():
                         (logs/'storage-only-result.json').write_text(json.dumps(comparison,indent=2)+'\n')
                     if storage_wait_capture:
                         from storage_wait_result import capture_result,PAYLOAD
-                        comparison=capture_result(stored.read(folder+"/exit.log").decode())
+                        comparison=capture_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
                         assert comparison is not None, 'Incomplete storage wait comparison'
                         assert stored.read(comparison['path'].removeprefix('/work/'))==PAYLOAD
                         (logs/'storage-wait-result.json').write_text(json.dumps(comparison,indent=2)+'\n')
                     if desktop_idle_capture or posix_capture:
-                        exit_log=stored.read(folder+"/exit.log").decode()
+                        exit_log=shared_receipt(stored.read(folder+"/exit.log").decode())
                         assert desktop_idle_sample(exit_log) is not None
                         if power_telemetry:
                             from hardware_desktop import power_idle_sample,device_summaries
@@ -614,7 +929,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_only_capture":storage_only_capture,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"intel_display_capture":intel_display_capture,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_only_capture":storage_only_capture,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))

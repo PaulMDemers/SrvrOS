@@ -1,0 +1,1058 @@
+#if defined(SRVROS_INTEL_SOURCE_ENGINES) && !defined(SRVROS_INTEL_SOURCE_REQUESTER)
+#error "Source engine hold requires the original maintained requester"
+#endif
+#if defined(SRVROS_INTEL_SOURCE_REQUESTER) && !defined(SRVROS_INTEL_SOURCE_TRANSFER)
+#error "Source requester requires its original transfer parent"
+#endif
+#if defined(SRVROS_INTEL_SOURCE_TRANSFER) && !defined(SRVROS_INTEL_STARTUP_BUFFERS)
+#error "Source transfer requires its distinct buffer/source variant"
+#endif
+#if defined(SRVROS_INTEL_STARTUP_BUFFERS) && !defined(SRVROS_INTEL_STARTUP_SOURCE)
+#error "Buffers require their distinct source image"
+#endif
+#if defined(SRVROS_INTEL_STARTUP_SOURCE) && !defined(SRVROS_INTEL_NONZERO_SOURCE)
+#error "Startup source requires its own source/reset adapter"
+#endif
+#if defined(SRVROS_INTEL_NONZERO_SOURCE) && !defined(SRVROS_INTEL_NONZERO_RESET)
+#error "Nonzero source requires its original reset source"
+#endif
+#if defined(SRVROS_INTEL_NONZERO_RESET) && (!defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_GPU_HOLD))
+#error "Nonzero reset requires its separate original-entry image without legacy reset or claim"
+#endif
+#if defined(SRVROS_INTEL_ENTRY_REQUESTER) && (!defined(SRVROS_INTEL_RING_RESET) || !defined(SRVROS_INTEL_GPU_HOLD))
+#error "Entry requester requires its original entry/reset and requester hold"
+#endif
+#if defined(SRVROS_INTEL_RING_RESET) && (!defined(SRVROS_INTEL_WAKE_TRIAL) || !defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_COMPLETION_TRIAL) || !defined(SRVROS_INTEL_HELD_INTERVAL) || !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || !defined(SRVROS_INTEL_ENGINE_PREPARE) || !defined(SRVROS_INTEL_HELD_REQUESTER) || !defined(SRVROS_INTEL_JOINT) || !defined(SRVROS_INTEL_REHOLD) || !defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_JOINT_ADMIT) || (defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_HDA_LEASE_TRIAL) || defined(SRVROS_INTEL_HDA_OWNER_TRIAL) || defined(SRVROS_INTEL_READER_AUDIT))
+#error "Ring/reset composition requires its separate original-owner joint image"
+#endif
+#if defined(SRVROS_INTEL_RING_ENTRY) && !defined(SRVROS_INTEL_RING_TRANSITION)
+#error "State-aware entry requires the distinct ring transition image"
+#endif
+#if defined(SRVROS_INTEL_RING_TRANSITION) && (!defined(SRVROS_INTEL_WAKE_TRIAL) || !defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_HELD_RESET) || defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_REHOLD) || defined(SRVROS_INTEL_GPU_HOLD) || defined(SRVROS_INTEL_HDA_LEASE_TRIAL) || defined(SRVROS_INTEL_HDA_OWNER_TRIAL) || defined(SRVROS_INTEL_READER_AUDIT))
+#error "Ring transition is a separate original-owner full-census image without reset/claim"
+#endif
+#if defined(SRVROS_INTEL_JOINT_ADMIT) && (!defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_GPU_HOLD) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
+#error "Joint admission is a separate original-owner read-only child composition"
+#endif
+#if defined(SRVROS_INTEL_HDA_SHUTDOWN) && (!defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_COMPLETION_TRIAL))
+#error "HDA BCS shutdown is a distinct shutdown image without claim/reset"
+#endif
+#if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_JOINT)
+#error "GPU requester hold requires its distinct joint image"
+#endif
+#if defined(SRVROS_INTEL_HELD_INTERVAL) && !defined(SRVROS_INTEL_PREPARE_RESET)
+#error "Held interval requires the isolated held-reset composition"
+#endif
+#if defined(SRVROS_INTEL_PREPARE_RESET) && !defined(SRVROS_INTEL_HELD_REQUESTER)
+#error "Held BCS reset requires its separate maintained requester image"
+#endif
+#if defined(SRVROS_INTEL_HELD_REQUESTER) && (!defined(SRVROS_INTEL_ENGINE_PREPARE) || !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT))
+#error "Held requester requires its distinct maintained prepare image"
+#endif
+#if defined(SRVROS_INTEL_REQUESTER_AUDIT) && (!defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_ENGINE_PREPARE))
+#error "Requester audit requires its own read-only takeover image"
+#endif
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) && !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
+#error "Engine preparation requires its own preflight image"
+#endif
+#if defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) && (!defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL))
+#error "Takeover preflight requires its own read-only image"
+#endif
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+#error "Shutdown/reset needs the separate reset image"
+#endif
+#if defined(SRVROS_INTEL_SHUTDOWN_TRIAL) && (!defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_COMPLETION_TRIAL))
+#error "Shutdown qualification needs its own blitter image"
+#endif
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) && (!defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL))
+#error "BCS reset requires its own completion/wake image"
+#endif
+#if defined(SRVROS_INTEL_RESET_READY_TRIAL) && !defined(SRVROS_INTEL_COMPLETION_TRIAL)
+#error "Reset readiness requires its separate completion/wake image"
+#endif
+#if defined(SRVROS_INTEL_COMPLETION_TRIAL) && (!defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_WAKE_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL))
+#error "Completion audit requires its own read-only engine/wake image"
+#endif
+#include <srvros/intel_gt_boot.h>
+#ifdef SRVROS_INTEL_WAKE_TRIAL
+#if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
+#error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
+#endif
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+extern volatile struct limine_firmware_type_request intel_source_audit_firmware_request;
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
+extern volatile struct limine_firmware_type_request intel_source_engines_firmware_request;
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
+extern volatile struct limine_firmware_type_request intel_source_requester_firmware_request;
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
+extern volatile struct limine_firmware_type_request intel_startup_transfer_firmware_request;
+#elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
+extern volatile struct limine_firmware_type_request intel_startup_buffers_firmware_request;
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
+extern volatile struct limine_firmware_type_request intel_startup_source_firmware_request;
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
+extern volatile struct limine_firmware_type_request intel_nonzero_source_firmware_request;
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+extern volatile struct limine_firmware_type_request intel_nonzero_reset_firmware_request;
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
+extern volatile struct limine_firmware_type_request intel_entry_requester_firmware_request;
+#elif defined(SRVROS_INTEL_RING_RESET)
+extern volatile struct limine_firmware_type_request intel_ring_reset_firmware_request;
+#elif defined(SRVROS_INTEL_RING_ENTRY)
+extern volatile struct limine_firmware_type_request intel_ring_entry_firmware_request;
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
+extern volatile struct limine_firmware_type_request intel_ring_transition_firmware_request;
+#elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
+extern volatile struct limine_firmware_type_request intel_hda_shutdown_firmware_request;
+#elif defined(SRVROS_INTEL_GPU_HOLD)
+extern volatile struct limine_firmware_type_request intel_gpu_hold_firmware_request;
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+extern volatile struct limine_firmware_type_request intel_joint_admit_firmware_request;
+#elif defined(SRVROS_INTEL_JOINT)
+extern volatile struct limine_firmware_type_request intel_joint_firmware_request;
+#elif defined(SRVROS_INTEL_REHOLD)
+extern volatile struct limine_firmware_type_request intel_rehold_firmware_request;
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
+extern volatile struct limine_firmware_type_request intel_held_interval_firmware_request;
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
+extern volatile struct limine_firmware_type_request intel_held_reset_firmware_request;
+#elif defined(SRVROS_INTEL_HELD_REQUESTER)
+extern volatile struct limine_firmware_type_request intel_held_requester_firmware_request;
+#elif defined(SRVROS_INTEL_REQUESTER_AUDIT)
+extern volatile struct limine_firmware_type_request intel_requester_firmware_request;
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
+extern volatile struct limine_firmware_type_request intel_engine_prepare_firmware_request;
+#elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
+extern volatile struct limine_firmware_type_request intel_takeover_firmware_request;
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+extern volatile struct limine_firmware_type_request intel_bcs_shutdown_firmware_request;
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+extern volatile struct limine_firmware_type_request intel_shutdown_firmware_request;
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+extern volatile struct limine_firmware_type_request intel_bcs_reset_firmware_request;
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
+extern volatile struct limine_firmware_type_request intel_reset_ready_firmware_request;
+#elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
+extern volatile struct limine_firmware_type_request intel_completion_firmware_request;
+#else
+extern volatile struct limine_firmware_type_request intel_wake_firmware_request;
+#endif
+extern volatile struct limine_bootloader_info_request bootloader_info_request;
+extern volatile struct limine_executable_cmdline_request executable_cmdline_request;
+#define WAKE_VA (BACKING_VA+0x10000)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) && !defined(SRVROS_INTEL_ENGINE_TRIAL)
+#error "Blitter trial requires the engine census capability"
+#endif
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+#include <srvros/intel_engine_census.h>
+#ifdef SRVROS_INTEL_RING_TRANSITION
+#define WAKE_MAPS 14u
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#define WAKE_VERSION 35u
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
+#define WAKE_VERSION 34u
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
+#define WAKE_VERSION 33u
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
+#define WAKE_VERSION 32u
+#elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
+#define WAKE_VERSION 31u
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
+#define WAKE_VERSION 30u
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
+#define WAKE_VERSION 29u
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+#define WAKE_VERSION 28u
+#elif defined(SRVROS_INTEL_RING_ENTRY)
+#define WAKE_VERSION 25u
+#else
+#define WAKE_VERSION 24u
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000,INTEL_WINDOW_PAGE};
+#elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+#define WAKE_MAPS 14u
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#define WAKE_VERSION 27u
+#elif defined(SRVROS_INTEL_GPU_HOLD)
+#define WAKE_VERSION 21u
+#elif defined(SRVROS_INTEL_RING_RESET)
+#define WAKE_VERSION 26u
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+#define WAKE_VERSION 23u
+#elif defined(SRVROS_INTEL_JOINT)
+#define WAKE_VERSION 20u
+#elif defined(SRVROS_INTEL_REHOLD)
+#define WAKE_VERSION 19u
+#else
+#define WAKE_VERSION 18u
+#endif
+#else
+#define WAKE_MAPS 13u
+#ifdef SRVROS_INTEL_PREPARE_RESET
+#define WAKE_VERSION 17u
+#elif defined(SRVROS_INTEL_HELD_REQUESTER)
+#define WAKE_VERSION 16u
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
+#define WAKE_VERSION 14u
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+#define WAKE_VERSION 12u
+#else
+#define WAKE_VERSION 7u
+#endif
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ ,INTEL_WINDOW_PAGE
+#endif
+};
+#else
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#define WAKE_MAPS 10u
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#define WAKE_VERSION 15u
+#else
+#define WAKE_VERSION 13u
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000};
+#else
+#define WAKE_MAPS 9u
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#define WAKE_VERSION 5u
+#else
+#define WAKE_VERSION 4u
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000};
+#endif
+#endif
+#elif defined(SRVROS_INTEL_BLITTER_TRIAL)
+#define WAKE_MAPS 11u
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+#define WAKE_VERSION 22u
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+#define WAKE_VERSION 8u
+#else
+#define WAKE_VERSION 3u
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x70000,0x71000,0x72000};
+#else
+#define WAKE_MAPS 8u
+#define WAKE_VERSION 2u
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000};
+#endif
+#else
+#define WAKE_MAPS 3u
+#define WAKE_VERSION 1u
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000};
+#endif
+struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsigned maps,retired,guards,cache_checks;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ struct shutdown_trial *shutdown_trial;
+ struct intel_gt_access *shutdown_owner;
+ struct intel_blitter_result *shutdown_result;
+ const struct intel_engine_census *shutdown_initial;
+ uint64_t shutdown_begin,store_at,store_previous;
+ unsigned store_checks,store_fault;
+#endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ struct intel_gt_access *bcs_owner;
+ const struct intel_bcs_reset_result *bcs_active;
+ bool bcs_failed;
+#endif
+};
+#ifdef SRVROS_INTEL_HDA_PAIR
+static bool joint_fast(void);
+#endif
+static bool wake_text(const char *a,const char *b) {
+    if(!a)return false;
+    for(unsigned i=0;i<32;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;
+}
+static uint64_t wake_irq_save(void) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_irq_save();
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");return flags;
+#endif
+}
+static bool wake_irq_off(void) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_irq_off();
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0":"=r"(flags));return !(flags&(1ull<<9));
+#endif
+}
+static void wake_irq_restore(uint64_t flags) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_wake_irq_restore(flags);
+#else
+    if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+}
+static bool wake_guard(void *context) {
+    struct wake_adapter *a=context;struct intel_gt_endpoint e;
+    a->guards++;
+    if(a->uncertain || !wake_irq_off() ||
+#ifdef SRVROS_INTEL_HDA_PAIR
+       !joint_fast() ||
+#endif
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
+       !gt_guard_endpoint(&a->fw.gt,&e) ||
+#else
+       !gt_guard(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&e) ||
+#endif
+       e.asls!=a->fw.endpoint.asls || e.swsci!=a->fw.endpoint.swsci)return false;
+    for(unsigned i=0;i<WAKE_MAPS;i++)if(a->mapped[i]) {
+        uint64_t physical;if(!vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) || physical!=result.mmio_base+wake_pages[i])return false;
+    }
+    return true;
+}
+static bool wake_map(struct wake_adapter *a,unsigned i) {
+    uint64_t old,physical=result.mmio_base+wake_pages[i],va=WAKE_VA+4096*i;
+    if(!wake_guard(a) || a->mapped[i] || vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))return false;
+    a->cache_checks++;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if(!intel_display_test_wake_uc(physical,wake_pages[i]))return false;
+#else
+    if(!(
+#if defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_RING_TRANSITION)
+       i==13?intel_cache_probe_uc_page(physical):
+#endif
+       i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_RING_TRANSITION)
+       (i==9?intel_cache_probe_reset_uc_page(physical,wake_pages[i]):i>=10?intel_cache_probe_reader_uc_page(physical,wake_pages[i]):intel_cache_probe_completion_uc_page(physical,wake_pages[i]))
+#else
+       intel_cache_probe_completion_uc_page(physical,wake_pages[i])
+#endif
+#else
+       intel_cache_probe_reader_uc_page(physical,wake_pages[i])
+#endif
+       ))return false;
+#endif
+    if(!backing_range_reserved(physical,4096))return false;
+    uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(i?0:VMM_PAGE_WRITABLE);
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
+    if(i==7)flags|=VMM_PAGE_WRITABLE;
+#endif
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_NONZERO_RESET)
+    if(i>=3 && i<=7)flags|=VMM_PAGE_WRITABLE;
+#endif
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_NONZERO_RESET)
+    if(i==9)flags|=VMM_PAGE_WRITABLE;
+#endif
+    if(!vmm_map_page_in_space(a->fw.gt.a.common.cr3,va,physical,flags)) {
+        if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))a->uncertain=true;
+        return false;
+    }
+    a->mapped[i]=true;a->maps++;return true;
+}
+static bool wake_unmap(struct wake_adapter *a,unsigned i) {
+    if(!a->mapped[i])return true;
+    uint64_t physical,va=WAKE_VA+4096*i,cr3=a->fw.gt.a.common.cr3;
+    if(vmm_current_address_space()!=cr3 || !vmm_virt_to_phys_in_space(cr3,va,&physical) || physical!=result.mmio_base+wake_pages[i] ||
+       !vmm_unmap_page_in_space(cr3,va,&physical) || physical!=result.mmio_base+wake_pages[i]){a->uncertain=true;return false;}
+    a->mapped[i]=false;a->retired++;return true;
+}
+#ifdef SRVROS_INTEL_HDA_PAIR
+#include "intel_joint_trial.inc"
+#endif
+static bool wake_read(void *context,uint32_t reg,uint32_t *out) {
+    struct wake_adapter *a=context;unsigned i=reg==INTEL_GT_REQUEST?0:reg==INTEL_GT_ACK?1:reg==INTEL_GT_THREAD?2:3;
+    if(i==3 || !out || !a->mapped[i] || !wake_guard(a))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_read(reg,out);
+#else
+    *out=*(volatile const uint32_t *)(WAKE_VA+4096*i+(reg&4095));return true;
+#endif
+}
+static enum intel_gt_write wake_write(void *context,uint32_t reg,uint32_t value) {
+    struct wake_adapter *a=context;
+    if(reg!=INTEL_GT_REQUEST || (value!=0xffff0000u && value!=0x10001 && value!=0x10000) || !a->mapped[0] || !wake_guard(a))return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_HDA_PAIR
+    if(!now(a))return GT_WRITE_NONE;
+#endif
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_write(value);
+#else
+    __asm__ volatile("mfence":::"memory");
+    *(volatile uint32_t *)(WAKE_VA+(INTEL_GT_REQUEST&4095))=value;
+    __asm__ volatile("mfence":::"memory");return GT_WRITE_DONE;
+#endif
+}
+static void wake_pause(void *context){(void)context;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_wake_pause();
+#else
+    __asm__ volatile("pause":::"memory");
+#endif
+}
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+/* Fresh requester values inside an already fully guarded callback. This helper
+ * is not an admission token; standalone MMIO providers still use engine_guard. */
+static bool engine_requesters(void *context) {
+    struct wake_adapter *a=context;uint32_t request,ack,thread;
+    if(!wake_irq_off() || !a->mapped[0] || !a->mapped[1] || !a->mapped[2])return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if(!intel_display_test_wake_read(INTEL_GT_REQUEST,&request) ||
+       !intel_display_test_wake_read(INTEL_GT_ACK,&ack) ||
+       !intel_display_test_wake_read(INTEL_GT_THREAD,&thread))return false;
+#else
+    request=*(volatile const uint32_t *)(WAKE_VA+(INTEL_GT_REQUEST&4095));
+    ack=*(volatile const uint32_t *)(WAKE_VA+4096+(INTEL_GT_ACK&4095));
+    thread=*(volatile const uint32_t *)(WAKE_VA+8192+(INTEL_GT_THREAD&4095));
+#endif
+    return (request&0xffffu)==1 && ack==1 && !(thread&7);
+}
+static bool engine_guard(void *context) {
+    return wake_guard(context) && engine_requesters(context);
+}
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_RING_TRANSITION)
+/* Same three RO DWORDs as engine_guard, under a fresh full adapter guard.
+ * The joint owner uses this guard for entry and independently guards exit. */
+static bool wake_request_snapshot(void *context,uint32_t *request,uint32_t *ack,uint32_t *thread) {
+    struct wake_adapter *a=context;
+    if(!request || !ack || !thread || !a->mapped[0] || !a->mapped[1] || !a->mapped[2] || !wake_guard(a))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_snapshot(request,ack,thread);
+#else
+    *request=*(volatile const uint32_t *)(WAKE_VA+(INTEL_GT_REQUEST&4095));
+    *ack=*(volatile const uint32_t *)(WAKE_VA+4096+(INTEL_GT_ACK&4095));
+    *thread=*(volatile const uint32_t *)(WAKE_VA+8192+(INTEL_GT_THREAD&4095));return true;
+#endif
+}
+#endif
+#ifndef SRVROS_INTEL_COMPLETION_TRIAL
+static bool engine_group(void *context,unsigned engine,uint32_t out[INTEL_ENGINE_WORDS]) {
+    struct wake_adapter *a=context;
+    if(engine>=INTEL_ENGINE_COUNT || !a->mapped[engine+3] || !wake_guard(a))return false;
+    /* One exact RO/NX/UC page, six documented non-clearing DWORDs. The core
+     * brackets each group and both passes with the live owned wake lease. */
+    for(unsigned i=0;i<INTEL_ENGINE_WORDS;i++) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        if(!intel_display_test_engine_read(engine,i,&out[i]))return false;
+#else
+        out[i]=*(volatile const uint32_t *)(WAKE_VA+4096*(engine+3)+intel_engine_offsets[i]);
+#endif
+    }
+    return true;
+}
+static void engine_report_named(const struct intel_engine_census *r,bool retired,const char *prefix) {
+    for(unsigned n=0;n<r->samples;n++)for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++) {
+        const uint32_t *w=r->words[n][e];
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+        console_printf("%s-row: v=2 sample=%u engine=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u\n",
+            prefix,(uint64_t)n,(uint64_t)e,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#else
+        console_printf("%s-row: v=1 sample=%u engine=%u base=%x tail=%x head=%x start=%x ctl=%x execlo=%x exechi=%x\n",
+            prefix,(uint64_t)n,(uint64_t)e,(uint64_t)intel_engine_pages[e],(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#endif
+    }
+    console_printf("%s-summary: v=1 samples=%u reads=%u stable=%u enabled=%u pending=%u begin_us=%u end_us=%u observed=%u retired=%u engine_writes=0 reader_retirement=0 managed_pages=0 pte_writes=0\n",
+        prefix,(uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,r->begin_us,r->end_us,(uint64_t)r->complete,(uint64_t)retired);
+}
+#endif /* !completion: old group/receipt */
+#endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+#include <srvros/intel_bcs_reset.h>
+/* Fresh software/alias/requester admission for core bookkeeping. Hardware
+ * providers retain full backing/endpoint entry and exit validation. */
+static bool bcs_core_guard(void *ctx) {
+ struct wake_adapter *a=ctx;
+ if(a->bcs_failed || a->uncertain || !a->bcs_owner || a->bcs_owner->object!=a->bcs_owner ||
+    a->bcs_owner->state!=GT_ACCESS_AWAKE || !a->bcs_owner->pinned ||
+    !display_access_held(&a->bcs_owner->exclusion) || !wake_irq_off() ||
+    a->fw.gt.a.mapped || !display_access_held(&a->fw.gt.token) ||
+    !intel_boot_check(INTEL_BOOT_OBSERVER,a->fw.gt.a.common.gpu) ||
+    vmm_current_address_space()!=a->fw.gt.a.common.cr3)return false;
+ uint64_t physical;
+ if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,BACKING_VA,&physical))return false;
+ for(unsigned i=0;i<WAKE_MAPS;i++)if(!a->mapped[i] ||
+    !vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) ||
+    physical!=result.mmio_base+wake_pages[i])return false;
+ return engine_requesters(a);
+}
+static bool bcs_provider_enter(struct wake_adapter *a) {
+ return bcs_core_guard(a) && engine_guard(a);
+}
+static void bcs_provider_exit(struct wake_adapter *a) {
+ /* Preserve completed load/store prefixes; the next live core bracket reports
+  * failure. No cached admission and no rollback after an ambiguous result. */
+ if(!engine_guard(a)){a->bcs_failed=true;a->uncertain=true;}
+}
+static bool bcs_store_clock(struct wake_adapter *a) {
+ const struct intel_bcs_reset_result *r=a->bcs_active;
+ if(!r || r->object!=r || r->borrow.parent!=a->bcs_owner || !r->borrow.active ||
+    r->borrow.object!=&r->borrow || a->bcs_owner->dependents!=&r->borrow ||
+    a->bcs_owner->borrows!=1 || r->epoch_after!=a->bcs_owner->engine_epoch)return false;
+ uint64_t at=now(a);
+ return at && at>=r->last_us && at>=r->begin_us &&
+  at-r->begin_us<=INTEL_RESET_READY_TOTAL_US;
+}
+#endif
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#include "intel_completion_trial.inc"
+#if defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+#include "intel_reset_ready_trial.inc"
+#endif
+#endif
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#include "intel_takeover_trial.inc"
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#include "intel_requester_trial.inc"
+#endif
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#include "intel_engine_prepare_trial.inc"
+#endif
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#include "intel_bcs_trial.inc"
+#endif
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *,struct intel_blitter_result *);
+#endif
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#include "intel_blitter_trial.inc"
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#include "intel_shutdown_trial.inc"
+#endif
+#endif
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+#include "intel_entry_admit_trial.inc"
+#endif
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
+#include "intel_ring_transition_trial.inc"
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#include "intel_nonzero_reset_trial.inc"
+#endif
+#ifdef SRVROS_INTEL_RING_RESET
+#include "intel_ring_reset_trial.inc"
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+/* This is original-source continuity inside the already registered claim,
+ * never a replacement for that claim's live borrow/hardware/time guards. */
+static bool entry_requester_source(const struct engine_prepare_adapter *p) {
+ const struct intel_ring_reset *r=&ring_reset_native.result;
+ const struct intel_ring_transition *e=&ring_native.result;
+ const struct intel_takeover_result *t=r->takeover;
+ if(!p || !p->trial || !p->g || !p->a || r->object!=r || r->entry!=e ||
+    !r->complete || !r->bound || !r->eligible || r->uncertain || r->reason ||
+    r->checks!=10 || !r->begin || r->end<=r->begin || r->last!=r->end ||
+    r->end-r->begin>100000 || r->end<r->source_end || r->end-r->source_end>100000 || r->clock_at || r->clock_prev ||
+    r->parent!=p->g || r->provider!=&ring_reset_native || r->source!=&e->post ||
+    r->takeover!=p->trial->action.preflight || !t || t->object!=t || t->parent!=p->g ||
+    t->census!=&e->post || !t->complete || !t->quiescent || !t->returned || t->reason ||
+    t->begin_us!=r->take_begin || t->end_us!=r->take_end || t->last_us!=r->take_last ||
+    t->epoch!=r->epoch || e->object!=e || e->parent!=p->g || e->kind!=IRT_KIND_DISABLED ||
+    !e->complete || !e->returned || !e->post_bound || !e->readers_bound ||
+    e->borrow.object!=&e->borrow || e->borrow.parent!=p->g || e->borrow.active || e->borrow.next || e->reason || e->uncertain ||
+    e->store_calls || e->epoch_advanced || e->epoch_after || r->epoch ||
+    e->end!=r->entry_end || e->post.object!=&e->post || e->post.parent!=p->g ||
+    e->post.begin_us!=r->source_begin || e->post.end_us!=r->source_end || e->post.last_us!=r->source_last ||
+    p->trial->action.parent!=p->g || p->trial->action.epoch!=r->epoch ||
+    p->trial->reset.parent!=p->g || !p->trial->reset.epoch_advanced ||
+    p->trial->reset.epoch_before!=r->epoch || p->trial->reset.epoch_after!=p->g->engine_epoch ||
+    p->g->engine_epoch!=1 || p->a!=joint.wake || p->g!=joint.scope.gpu)return false;
+ return true;
+}
+#endif
+#endif
+#endif
+static bool wake_fw_quiet(const struct intel_fw_result *r) {
+    if(r->status!=IFW_OBSERVED || r->endpoint.swsci!=0x8000 || r->sample[0].words[5]!=0x02000000 || r->sample[0].words[6]!=31)return false;
+    for(unsigned n=0;n<2;n++)for(unsigned i=7;i<INTEL_FW_WORDS;i++)if(r->sample[n].words[i])return false;
+    return true;
+}
+#endif
+static bool wake_terminal_retained;
+bool intel_gt_wake_retained(void) {return wake_terminal_retained;}
+bool intel_gt_wake_probe_report(void) {
+    static bool once;if(once)return false;once=true;
+#ifdef SRVROS_INTEL_WAKE_TRIAL
+    struct intel_gt_boot_facts f={.compiled=true};
+    #ifdef SRVROS_INTEL_SOURCE_AUDIT
+    const struct limine_firmware_type_response *firmware=intel_source_audit_firmware_request.response;
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
+    const struct limine_firmware_type_response *firmware=intel_source_engines_firmware_request.response;
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
+    const struct limine_firmware_type_response *firmware=intel_source_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
+    const struct limine_firmware_type_response *firmware=intel_startup_transfer_firmware_request.response;
+#elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
+    const struct limine_firmware_type_response *firmware=intel_startup_buffers_firmware_request.response;
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
+    const struct limine_firmware_type_response *firmware=intel_startup_source_firmware_request.response;
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
+    const struct limine_firmware_type_response *firmware=intel_nonzero_source_firmware_request.response;
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+    const struct limine_firmware_type_response *firmware=intel_nonzero_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
+    const struct limine_firmware_type_response *firmware=intel_entry_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_RING_RESET)
+    const struct limine_firmware_type_response *firmware=intel_ring_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_RING_ENTRY)
+    const struct limine_firmware_type_response *firmware=intel_ring_entry_firmware_request.response;
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
+    const struct limine_firmware_type_response *firmware=intel_ring_transition_firmware_request.response;
+#elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
+    const struct limine_firmware_type_response *firmware=intel_hda_shutdown_firmware_request.response;
+#elif defined(SRVROS_INTEL_GPU_HOLD)
+    const struct limine_firmware_type_response *firmware=intel_gpu_hold_firmware_request.response;
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+    const struct limine_firmware_type_response *firmware=intel_joint_admit_firmware_request.response;
+#elif defined(SRVROS_INTEL_JOINT)
+    const struct limine_firmware_type_response *firmware=intel_joint_firmware_request.response;
+#elif defined(SRVROS_INTEL_REHOLD)
+    const struct limine_firmware_type_response *firmware=intel_rehold_firmware_request.response;
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
+    const struct limine_firmware_type_response *firmware=intel_held_interval_firmware_request.response;
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
+    const struct limine_firmware_type_response *firmware=intel_held_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_HELD_REQUESTER)
+    const struct limine_firmware_type_response *firmware=intel_held_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_REQUESTER_AUDIT)
+    const struct limine_firmware_type_response *firmware=intel_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
+    const struct limine_firmware_type_response *firmware=intel_engine_prepare_firmware_request.response;
+#elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
+    const struct limine_firmware_type_response *firmware=intel_takeover_firmware_request.response;
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+    const struct limine_firmware_type_response *firmware=intel_bcs_shutdown_firmware_request.response;
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+    const struct limine_firmware_type_response *firmware=intel_shutdown_firmware_request.response;
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+    const struct limine_firmware_type_response *firmware=intel_bcs_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
+    const struct limine_firmware_type_response *firmware=intel_reset_ready_firmware_request.response;
+#elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
+    const struct limine_firmware_type_response *firmware=intel_completion_firmware_request.response;
+#else
+    const struct limine_firmware_type_response *firmware=intel_wake_firmware_request.response;
+#endif
+    const struct limine_bootloader_info_response *loader=bootloader_info_request.response;
+    const struct limine_executable_cmdline_response *cmd=executable_cmdline_request.response;
+    f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
+    f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+    #ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_entry_requester_recipe(cmd->cmdline);
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_reset_recipe(cmd->cmdline);
+#endif
+    static struct engine_prepare_trial prepared;
+    static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_SOURCE_AUDIT)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_source_audit_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_source_engines_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_source_requester_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_startup_transfer_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_startup_buffers_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_startup_source_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_nonzero_source_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_nonzero_reset_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_RING_ENTRY)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_entry_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_transition_recipe(cmd->cmdline);
+    #elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
+    #ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_requester_recipe(cmd->cmdline);
+    struct intel_pci_requester_result requester={0};
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
+#ifdef SRVROS_INTEL_PREPARE_RESET
+#ifdef SRVROS_INTEL_GPU_HOLD
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_gpu_hold_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_joint_admit_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_JOINT)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_joint_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_REHOLD)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_rehold_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_held_interval_recipe(cmd->cmdline);
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_held_reset_recipe(cmd->cmdline);
+#endif
+#elif defined(SRVROS_INTEL_HELD_REQUESTER)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_held_requester_recipe(cmd->cmdline);
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_prepare_recipe(cmd->cmdline);
+#endif
+#ifdef SRVROS_INTEL_JOINT
+    static struct engine_prepare_trial prepared;
+#else
+    struct engine_prepare_trial prepared={0};
+#endif
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_takeover_recipe(cmd->cmdline);
+#endif
+#ifdef SRVROS_INTEL_JOINT
+    static struct intel_takeover_result takeover;
+#else
+    struct intel_takeover_result takeover={0};
+#endif
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+    #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_shutdown_recipe(cmd->cmdline);
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_reset_recipe(cmd->cmdline);
+#endif
+    struct bcs_trial trial={0};
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_reset_ready_recipe(cmd->cmdline);
+    struct intel_reset_ready_result reset_ready={0};
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_completion_recipe(cmd->cmdline);
+#endif
+#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_RING_TRANSITION)
+    static struct intel_completion_result completion;
+#else
+    struct intel_completion_result completion={0};
+#endif
+#elif defined(SRVROS_INTEL_BLITTER_TRIAL)
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_hda_shutdown_recipe(cmd->cmdline);
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_shutdown_recipe(cmd->cmdline);
+#endif
+    static struct shutdown_trial shutdown;
+    static struct intel_engine_census engines;
+    static struct intel_blitter_result blitter;
+    static struct reader_audit readers;
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_blitter_recipe(cmd->cmdline);
+    struct intel_engine_census engines={0};struct intel_blitter_result blitter={0};struct reader_audit readers={0};
+#endif
+#elif defined(SRVROS_INTEL_ENGINE_TRIAL)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_recipe(cmd->cmdline);
+    struct intel_engine_census engines={0};
+#else
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_recipe(cmd->cmdline);
+#endif
+    f.prerequisites=gt_saved_complete && fw_saved_complete;
+#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
+    /* Retained faults survive this reporting call until reset. Ownership and
+     * captured callback contexts must not point into an expired stack frame. */
+    static struct wake_adapter a;static struct intel_gt_access owner;
+    static struct scanout_handoff_snapshot snapshot;
+    static struct intel_fw_result fresh_fw;static struct intel_gt_preflight_result fresh_gt;
+#else
+    struct wake_adapter a={0};struct intel_gt_access owner={0};struct scanout_handoff_snapshot snapshot={0};
+    struct intel_fw_result fresh_fw={0};struct intel_gt_preflight_result fresh_gt={0};
+#endif
+    bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
+    uint32_t grants=0;uint64_t begin=0,end=0;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+    console_write("intel-state: original route/reset/source and maintained PCI requester control; no GPU memory or completion grant\n");
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
+    console_write("intel-state: original enabled/nonzero or disabled/zero entry, bounded reset/source; no memory or requester grant\n");
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+    console_write("intel-nonzero: original enabled entry, maintained readiness and BCS8 reset; inherited backing protected; no requester or memory grant\n");
+#elif defined(SRVROS_INTEL_RING_RESET)
+    console_write("intel-reset: live entry then zero-geometry reset under original HDA/GT owner; nonzero refuses; no PTE writes or memory transfer\n");
+#elif defined(SRVROS_INTEL_RING_ENTRY)
+    console_write("intel-ring-entry: original-owner live entry selection; enabled disable or zero-geometry observation; fresh census and preservation; no reset or memory transfer\n");
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
+    console_write("intel-ring: original-owner enabled submission handoff; one idle disable and fresh epoch census; no reset, geometry or memory transfer\n");
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
+    console_write("intel-wake: bounded maintained preparation/PCI/BCS8 reset/cancel; no PTE writes or GPU range transfer\n");
+#elif defined(SRVROS_INTEL_HELD_REQUESTER)
+    console_write("intel-wake: bounded maintained prepare/PCI capture/cancel; no reset, PTE writes or GPU range transfer\n");
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
+    console_write("intel-wake: bounded engine prepare/cancel; no reset, PTE writes or GPU range transfer\n");
+#elif defined(SRVROS_INTEL_BLITTER_TRIAL)
+    console_write("intel-blitter: cooperative boot BCS handoff; idle-only single disable; no Stop Ring/reset, GPU PTE write or memory transfer\n");
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+    console_write("intel-wake: bounded BCS-only reset; inherited backing protected; no memory or cache grant\n");
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
+    console_write("intel-wake: bounded BCS reset request/ready/cancel; no engine reset, cache flush, PTE writes or GPU range transfer\n");
+#else
+    console_write("intel-wake: bounded cooperative-UEFI wake lease; no engine control, PTE writes or GPU range transfer\n");
+#endif
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    console_write("intel-buffers: preparing two private full buffers; original-source binding follows; no input or GPU PTE writes\n");
+    bool buffers_ready=f.efi64 && f.loader && f.recipe && f.prerequisites && buffers_prepare();
+    f.prerequisites=f.prerequisites && buffers_ready;
+#endif
+    uint64_t flags=wake_irq_save();
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    admission_begin();
+#endif
+    f.serialized=wake_irq_off();
+    if(f.efi64 && f.loader && f.recipe && f.prerequisites && f.serialized && console_sync() &&
+       intel_window_handoff_snapshot(&snapshot) && trial_adapter(&a.fw.gt.a)) {
+        begin=timer_monotonic_us();
+        acquired=display_access_acquire(0x475457414bull,&a.fw.gt.token);
+        f.excluded=acquired && display_present_handoff_idle();
+        if(f.excluded)before=intel_window_handoff_revalidate(&snapshot);
+        f.profile=before;
+        if(before && fw_endpoint(&a.fw,&a.fw.endpoint)) {
+            (void)intel_fw_observe(&fresh_fw,&(struct intel_fw_io){&a.fw,fw_guard,fw_endpoint,fw_map,fw_read,fw_unmap,now});
+            if(!a.fw.uncertain)(void)intel_gt_preflight(&fresh_gt,&(struct intel_gt_preflight_io){&a.fw.gt,gt_guard,gt_endpoint,gt_map,gt_read,gt_unmap,now});
+            f.firmware_quiet=wake_fw_quiet(&fresh_fw);
+            f.requesters_quiet=fresh_gt.status==GTP_OBSERVED && !(fresh_gt.sample[0].requests&0xffffu) && !fresh_gt.sample[0].ack && !(fresh_gt.sample[1].requests&0xffffu) && !fresh_gt.sample[1].ack;
+            grants=intel_gt_boot_grants(&f);
+            bool mapped=grants!=0;
+            for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
+            if(mapped) {
+#ifdef SRVROS_INTEL_HDA_PAIR
+                mapped=joint_open(&a,&owner,&snapshot,begin,&f);
+                if(joint_terminal() && !mapped)a.uncertain=true;
+            }
+            if(mapped) {
+#endif
+                const struct intel_gt_io wake_io={&a,wake_guard,wake_read,wake_write,now,wake_pause,
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_RING_TRANSITION)
+                    wake_request_snapshot
+#else
+                    NULL
+#endif
+                };
+#ifdef SRVROS_INTEL_HDA_PAIR
+                opened=intel_gt_access_open_with_guarded_snapshot(&owner,&a.fw.gt.token,grants,wake_io);
+#else
+                opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,wake_io);
+#endif
+                if(opened)checked=intel_gt_access_check(&owner);
+                #ifdef SRVROS_INTEL_ENGINE_TRIAL
+                #ifdef SRVROS_INTEL_COMPLETION_TRIAL
+                if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
+                if(completion.complete)(void)ring_run(&a,&owner,&completion,grants==7 && f.recipe);
+#ifdef SRVROS_INTEL_NONZERO_RESET
+                if(ring_native.result.complete && !a.uncertain)nonzero_run(&a,&owner,grants==7 && f.recipe);
+#endif
+#endif
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#ifdef SRVROS_INTEL_RING_RESET
+                if(ring_native.result.complete && !a.uncertain)(void)ring_reset_run(&a,&owner,&takeover,grants==7 && f.recipe);
+#else
+                if(completion.complete
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+                   && entry_run(&a,&owner,&completion,grants==7 && f.recipe)
+#endif
+                  )(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
+#endif
+                if(takeover.borrow.active)a.uncertain=true;
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+                if(takeover.complete)(void)intel_pci_requester_observe(&requester,&owner,&takeover,(struct intel_pci_requester_io){&a,engine_guard,requester_sample,now});
+                if(requester.borrow.active || (requester.reason&IPR_PARENT))a.uncertain=true;
+#endif
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+                if(takeover.complete && takeover.quiescent
+#ifdef SRVROS_INTEL_RING_RESET
+                   && ring_reset_native.result.complete
+#endif
+                  )eprepare_run(&a,&owner,&takeover,&prepared,f.recipe);
+#endif
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+                if(completion.complete)bcs_run(&a,&owner,&completion,&trial,grants==7 && f.recipe);
+#endif
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+                if(completion.complete) {
+                    (void)intel_reset_ready(&reset_ready,&owner,&completion,grants==7 && f.recipe,
+                        (struct intel_reset_ready_io){&a,engine_guard,reset_ready_control,reset_ready_group,reset_ready_store,now,wake_pause});
+                    if(reset_ready.uncertain || reset_ready.borrow.active)a.uncertain=true;
+                }
+#endif
+#else
+                if(checked)(void)intel_engine_observe(&engines,&owner,(struct intel_engine_io){&a,engine_guard,engine_group,now});
+#endif
+#endif
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+                if(checked)shutdown_run(&a,&owner,&engines,&blitter,&readers,&shutdown,grants==7 && f.recipe);
+#else
+                bool entry_disabled=engines.enabled==0;
+                bool initial=engines.complete && engines.stable && (engines.enabled==16 || entry_disabled) && !engines.pending;
+                if(checked && initial && reader_pass(&a,&owner,&readers,0)) {
+                    /* Separate explicitly compiled/recipe-gated BCS submission
+                     * handoff policy; quiet fields alone are not authority. */
+                    if(entry_disabled)
+                        (void)intel_blitter_observe_disabled(&blitter,&owner,grants==7 && f.recipe,
+                            (struct intel_blitter_io){&a,engine_guard,blitter_group,0,now});
+                    else
+                        (void)intel_blitter_disable(&blitter,&owner,grants==7 && f.recipe,
+                            (struct intel_blitter_io){&a,engine_guard,blitter_group,blitter_store,now});
+                    if(blitter.uncertain)a.uncertain=true;
+                    if(!a.uncertain)(void)reader_pass(&a,&owner,&readers,1);
+                    reader_finish(&readers);
+                    if(blitter.writes && !readers.complete)a.uncertain=true;
+                }
+#endif
+#endif
+                if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
+            }
+        }
+        if(!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault) {
+            for(unsigned i=0;i<WAKE_MAPS;i++)if(!wake_unmap(&a,i))break;
+            if(!a.uncertain) {
+                struct intel_fw_result post={0};
+                if(fw_endpoint(&a.fw,&a.fw.endpoint) && intel_fw_observe(&post,&(struct intel_fw_io){&a.fw,fw_guard,fw_endpoint,fw_map,fw_read,fw_unmap,now}))fw_after=wake_fw_quiet(&post);
+                after=intel_window_handoff_revalidate(&snapshot) && (!owner.writes || fw_after);
+            }
+        }
+#if defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION)
+        joint_close(after && fw_after,false); /* No interval claim or memory-completion assertion. */
+#elif defined(SRVROS_INTEL_JOINT)
+        joint_close(after && fw_after,closed && prepared.action.complete && prepared.reset.complete &&
+         prepared.rehold.complete && prepared.claim.state==IIC_CLOSED);
+#endif
+        end=timer_monotonic_us();
+        bool clean=!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault && (!before || after);
+#ifdef SRVROS_INTEL_HDA_PAIR
+        clean=clean && !joint_terminal();
+#endif
+        if(acquired)released=display_access_release(&a.fw.gt.token,clean);
+    }
+    wake_irq_restore(flags);
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    admission_active=false;
+#endif
+    if(released)console_flush();
+    bool retained=owner.pinned || a.uncertain || a.fw.uncertain || trial_mapping_fault || (acquired && !released);
+#ifdef SRVROS_INTEL_HDA_PAIR
+    retained=retained || joint_terminal();
+#endif
+    wake_terminal_retained=retained;
+    bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
+#if defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION)
+    joint_report();complete=complete && joint.scope.state==IHG_CLOSED && !joint.scope.reason && !joint_terminal() && joint.scope.hda.complete;
+#elif defined(SRVROS_INTEL_JOINT)
+    joint_report();complete=complete && joint.scope.complete;
+#ifdef SRVROS_INTEL_GPU_HOLD
+    gpu_hold_report();complete=complete && gpu_hold_native.result.complete;
+#endif
+#endif
+    unsigned engine_reads=0;
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+    engine_reads=completion.reads;completion_report(&completion);
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
+    ring_report();engine_reads+=ring_native.result.bcs.reads+ring_native.result.post.reads;
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+    startup_source_report();
+#endif
+    nonzero_report();engine_reads+=nonzero_native.r.control_reads+nonzero_native.r.bcs_reads+nonzero_native.r.post.reads;
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+    engine_reads+=nonzero_native.source_reads;
+#endif
+    complete=complete && nonzero_native.r.complete;
+#endif
+    complete=complete && ring_native.result.complete;
+#ifdef SRVROS_INTEL_RING_RESET
+    ring_reset_report();complete=complete && ring_reset_native.result.complete;
+#endif
+#endif
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+    entry_report();engine_reads+=entry.result.bcs.reads;
+    complete=complete && entry.result.complete;
+#endif
+    complete=complete && completion.complete;
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    takeover_report(&takeover,
+#ifdef SRVROS_INTEL_RING_RESET
+     &ring_native.result.post
+#else
+     &completion
+#endif
+    );engine_reads+=takeover.reads;
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    requester_report(&requester);engine_reads+=requester.reads;
+    complete=complete && requester.complete;
+#endif
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    eprepare_report(&prepared);engine_reads+=prepared.action.reads+prepared.post.reads;
+    complete=complete && prepared.action.complete;
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    engine_reads+=prepared.reset.reads;
+    complete=complete && prepared.reset.complete;
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+    #ifdef SRVROS_INTEL_JOINT
+    engine_reads+=prepared.claim.opening.reads+prepared.claim.closing.reads;
+#else
+    engine_reads+=prepared.interval.reads;
+#endif
+#ifdef SRVROS_INTEL_REHOLD
+    engine_reads+=prepared.rehold.reads+prepared.live_reads;
+#endif
+#ifdef SRVROS_INTEL_JOINT
+    complete=complete && prepared.claim.state==IIC_CLOSED && !prepared.claim.pinned && !prepared.claim.reason &&
+     prepared.claim.opening.complete && prepared.claim.opening.bound && prepared.claim.closing.complete && prepared.claim.closing.bound
+#else
+    complete=complete && prepared.interval.complete && prepared.interval.bound
+#endif
+#ifdef SRVROS_INTEL_REHOLD
+                && prepared.rehold.complete
+#endif
+    ;
+#endif
+    admission_report();
+#endif
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+    engine_reads+=prepared.requester.reads;
+    complete=complete && prepared.requester.complete && prepared.action.action_completed &&
+     prepared.held_provider_enter && prepared.held_provider_exit;
+#endif
+#endif
+    complete=complete && takeover.complete;
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    bcs_report(&trial,&owner,&completion);engine_reads+=trial.post.reads;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    engine_reads+=trial.reset.shutdown.reads;
+#endif
+    complete=complete && trial.complete;
+#endif
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+    reset_ready_report(&reset_ready);
+    complete=complete && reset_ready.complete;
+#endif
+#else
+    engine_reads=engines.reads;
+    engine_report_named(&engines,!retained && a.maps==a.retired,"intel-engine");
+    complete=complete && engines.complete;
+#endif
+#endif
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    engine_reads+=blitter.reads;blitter_report(&blitter,&readers);
+    complete=complete && blitter.disabled && !blitter.uncertain && readers.complete;
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+    engine_reads+=shutdown.post.reads;shutdown_report(&shutdown,&owner,&readers,!retained && a.maps==a.retired,&a);
+    complete=complete && shutdown.complete;
+#endif
+#endif
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_RING_TRANSITION)
+    console_printf("intel-clock: v=1 why=%u at=%u prev=%u phase=%u n=%u\n",(uint64_t)owner.clock_cause,owner.clock_sample,owner.clock_previous,owner.clock_phase,(uint64_t)owner.snapshots);
+#endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+    engine_reads+=gpu_hold_native.result.reads+gpu_hold_native.admit_reads;
+#endif
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    bool buffers_clean=buffers_finish(!retained && (!acquired || released));
+    complete=complete && buffers_ready && buffers_native.binding.complete && buffers_native.grant_refused && buffers_clean;
+    wake_terminal_retained=retained || buffers_native.retained;
+    buffers_report(complete);
+#endif
+    console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
+        (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);
+#if defined(SRVROS_INTEL_DISPLAY_HOST_TEST) && defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+    /* The actual adapter fixture checks these after this frame is gone. */
+    extern void intel_display_test_shutdown_lifetime(struct intel_gt_access *,struct intel_gt_borrow *,void *);
+    intel_display_test_shutdown_lifetime(&owner,&shutdown.borrow,&a);
+#endif
+    return complete;
+#else
+    console_write("intel-wake-summary: v=1 compiled=0 contract=0 efi64=0 loader=0 recipe=0 serialized=0 prerequisites=0 profile=0 fw_quiet=0 req_quiet=0 initial_req=0 initial_ack=0 grants=0 acquired=0 before=0 opened=0 checked=0 closed=0 fw_after=0 after=0 released=0 maps=0 retired=0 cache_checks=0 guards=0 retained=0 state=0 reason=0 writes=0 attempts=0 requests=0 ack=0 thread=0 begin_us=0 end_us=0 complete=0 engine_reads=0 pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n");return false;
+#endif
+}

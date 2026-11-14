@@ -14,6 +14,288 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_source_audit_dedicated_stage_and_recipe(self):
+        version='ram-usb-v1-intel-source-audit-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-source-requester/srvros.elf','intel-source-audit/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_source_audit=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-source-audit/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_source_audit import audit_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(audit_recipe(cmd),dict(volume='37d8c5d0',release=release));self.assertEqual(len(cmd.split()),15)
+
+    def test_source_audit_refuses_mixed_profile_before_artifacts(self):
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_source_requester=True),dict(laptop_probe_volume='37d8c5d0',intel_startup_buffers=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',desktop_audio=True),dict(laptop_probe_volume='37d8c5d0',repeat=2),dict(laptop_probe_volume='37d8c5d0',desktop_scale=2)):
+            with self.assertRaises(ValueError):boot.stage(intel_source_audit=True,**options)
+
+    def test_source_engines_dedicated_stage_and_recipe(self):
+        version='ram-usb-v1-intel-source-engines-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-source-requester/srvros.elf','intel-source-engines/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_source_engines=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-source-engines/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_source_engines import engines_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(engines_recipe(cmd),dict(volume='37d8c5d0',release=release));self.assertEqual(len(cmd.split()),15)
+
+    def test_source_engines_refuses_mixed_profile_before_artifacts(self):
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_source_requester=True),dict(laptop_probe_volume='37d8c5d0',intel_startup_buffers=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',desktop_audio=True),dict(laptop_probe_volume='37d8c5d0',repeat=2),dict(laptop_probe_volume='37d8c5d0',desktop_scale=2)):
+            with self.assertRaises(ValueError):boot.stage(intel_source_engines=True,**options)
+
+    def test_source_requester_dedicated_stage_and_recipe(self):
+        version='ram-usb-v1-intel-source-requester-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-startup-source/srvros.elf','intel-source-requester/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_source_requester=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-source-requester/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_source_requester import requester_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(requester_recipe(cmd),dict(volume='37d8c5d0',release=release))
+        self.assertEqual(len(cmd.split()),15)
+
+    def test_source_requester_refuses_mixed_profile_before_artifacts(self):
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_startup_buffers=True),dict(laptop_probe_volume='37d8c5d0',intel_startup_source=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',desktop_audio=True),dict(laptop_probe_volume='37d8c5d0',repeat=2),dict(laptop_probe_volume='37d8c5d0',desktop_scale=2)):
+            with self.assertRaises(ValueError):boot.stage(intel_source_requester=True,**options)
+
+    def test_startup_transfer_dedicated_stage_and_recipe(self):
+        version='ram-usb-v1-intel-startup-transfer-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-startup-source/srvros.elf','intel-startup-transfer/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_startup_transfer=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-startup-transfer/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_startup_transfer import transfer_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(transfer_recipe(cmd),dict(volume='37d8c5d0',release=release))
+        self.assertEqual(len(cmd.split()),15)
+
+    def test_startup_transfer_refuses_mixed_profile_before_artifacts(self):
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_startup_buffers=True),dict(laptop_probe_volume='37d8c5d0',intel_startup_source=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',desktop_audio=True),dict(laptop_probe_volume='37d8c5d0',repeat=2),dict(laptop_probe_volume='37d8c5d0',desktop_scale=2)):
+            with self.assertRaises(ValueError):boot.stage(intel_startup_transfer=True,**options)
+
+    def test_startup_buffers_dedicated_stage_and_recipe(self):
+        version='ram-usb-v1-intel-startup-buffers-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-startup-source/srvros.elf','intel-startup-buffers/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_startup_buffers=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-startup-buffers/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_startup_buffers import buffers_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(buffers_recipe(cmd),dict(volume='37d8c5d0',release=release))
+        self.assertEqual(len(cmd.split()),15)
+
+    def test_completion_dedicated_image(self):
+        version='ram-usb-v1-intel-completion-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-completion/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_completion_audit=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-completion/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_pinned_reader_dedicated_image(self):
+        version='ram-usb-v1-intel-readers-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-readers/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_reader_audit=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-readers/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_wake_dedicated_image(self):
+        version='ram-usb-v1-intel-wake-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.intel-wake=trial','srvros.intel-firmware=read-only','srvros.intel-gt-preflight=read-only','srvros.intel-handoff=qualify','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_gt_firmware_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',aml_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_wake_trial=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-wake/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_wake_trial=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-wake/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_firmware_observation_profile(self):
+        version='ram-usb-v1-intel-gt-firmware-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-handoff=qualify','srvros.intel-gt-preflight=read-only','srvros.intel-firmware=read-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for token in ('srvros.audio=','srvros.aml=','srvros.battery=','srvros.intel-wake='):
+            self.assertNotIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_gt_preflight_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',haswell_alias_context=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_gt_firmware_capture=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_gt_firmware_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_display_observation_profile(self):
+        version='ram-usb-v1-intel-display-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.storage=ram','srvros.capture-failure=reboot','srvros.workspace-volume=37d8c5d0'):
+            self.assertIn(token,config)
+        for token in ('srvros.laptop-services','srvros.aml','srvros.audio','srvros.ap=','srvros.battery='):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.stage(intel_display_capture=True)
+        for options in (dict(hold_on_failure=True),dict(aml_capture=True),dict(cpu_load_capture=True),dict(battery_air61=True),dict(desktop_scale=2),dict(repeat=2),dict(posix_capture=True),dict(diagnostic=True),dict(storage_wait_capture=True)):
+            with self.subTest(options=options),self.assertRaises(ValueError):
+                boot.stage(intel_display_capture=True,laptop_probe_volume='37d8c5d0',**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_display_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'kernel/srvros.elf')
+
+    def test_intel_backing_observation_profile(self):
+        version='ram-usb-v1-intel-backing-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        with self.assertRaises(ValueError):boot.stage(intel_backing_capture=True)
+        for options in (dict(intel_display_capture=True),dict(hold_on_failure=True),dict(aml_capture=True),dict(desktop_scale=2),dict(repeat=2),dict(posix_capture=True),dict(diagnostic=True)):
+            with self.subTest(options=options),self.assertRaises(ValueError):
+                boot.stage(intel_backing_capture=True,laptop_probe_volume='37d8c5d0',**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_backing_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_dma_profile(self):
+        version='ram-usb-v1-intel-dma-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-dma=read-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        self.assertNotIn('srvros.intel-lifetime=',config)
+        for options in (dict(),dict(laptop_probe_volume='37d8c5d0',intel_lifetime_capture=True),dict(laptop_probe_volume='37d8c5d0',haswell_backing_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_dma_capture=True,**options)
+
+    def test_intel_window_observation_profile(self):
+        version='ram-usb-v1-intel-window-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_cache_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',haswell_firmware_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_window_capture=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_window_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_handoff_profile(self):
+        version='ram-usb-v1-intel-handoff-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-handoff=qualify','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_cache_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',haswell_firmware_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_handoff_capture=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_handoff_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_gt_preflight_profile(self):
+        version='ram-usb-v1-intel-gt-preflight-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-handoff=qualify','srvros.intel-gt-preflight=read-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_cache_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',haswell_firmware_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_gt_preflight_capture=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_gt_preflight_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_cache_observation_profile(self):
+        version='ram-usb-v1-intel-cache-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-cache=read-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for token in ('srvros.intel-dma=','srvros.intel-lifetime=','srvros.battery=','srvros.audio=','srvros.aml='):
+            self.assertNotIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',intel_dma_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_cache_capture=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_cache_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_intel_lifetime_profiles(self):
+        for flag,part,mode in [('intel_lifetime_capture','intel-lifetime','shadow'),('intel_lifetime_fixture','intel-lifetime-fixture','fixture')]:
+            version=f'ram-usb-v{2 if mode=="fixture" else 1}-{part}-laptop-probe-37d8c5d0-auto-return'
+            config=boot.limine_config('0123456789abcdef',version)
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+            for token in ('srvros.capture=intel-display',f'srvros.intel-lifetime={mode}','srvros.capture-failure=reboot'):
+                self.assertIn(token,config)
+            self.assertEqual('srvros.intel-backing=read-only' in config,mode=='shadow')
+            with self.assertRaises(ValueError):boot.stage(**{flag:True})
+            for options in (dict(intel_display_capture=True),dict(intel_backing_capture=True),dict(hold_on_failure=True),dict(desktop_scale=2),dict(aml_capture=True),dict(repeat=2),dict(diagnostic=True)):
+                with self.subTest(flag=flag,options=options),self.assertRaises(ValueError):
+                    boot.stage(**{flag:True},laptop_probe_volume='37d8c5d0',**options)
+            for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+                path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+            with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+                release=boot.stage(**{flag:True},laptop_probe_volume='37d8c5d0')
+            self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_legacy_lifetime_fixture_config(self):
+        old='ram-usb-v1-intel-lifetime-fixture-laptop-probe-37d8c5d0-auto-return'
+        new='ram-usb-v2-intel-lifetime-fixture-laptop-probe-37d8c5d0-auto-return'
+        self.assertEqual(boot.limine_config('0123456789abcdef',old),boot.limine_config('0123456789abcdef',new))
+        self.assertNotEqual(boot.release_id({},old),boot.release_id({},new))
+
+
+    def test_startup_source_dedicated_profile(self):
+        version='ram-usb-v1-intel-startup-source-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        from intel_startup_source import startup_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in config.splitlines() if 'cmdline:' in l)
+        self.assertEqual(startup_recipe(cmd),dict(release='0123456789abcdef',volume='37d8c5d0'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',intel_nonzero_source=True),dict(laptop_probe_volume='37d8c5d0',intel_nonzero_reset=True),dict(laptop_probe_volume='37d8c5d0',storage_metadata_trace=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_startup_source=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-nonzero-source/srvros.elf','intel-startup-source/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_startup_source=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-startup-source/srvros.elf')
+
+    def test_storage_metadata_gpu_profiles_are_exclusive(self):
+        for flag in ('intel_startup_source','intel_nonzero_source','intel_nonzero_reset','intel_ring_entry','intel_ring_reset',
+                     'intel_entry_requester','intel_joint','intel_gpu_hold','intel_display_capture'):
+            for storage in (False,True):
+                with self.subTest(flag=flag,storage=storage),self.assertRaises(ValueError):
+                    boot.stage(laptop_probe_volume='37d8c5d0',storage_only_capture=storage,
+                               storage_metadata_trace=True,**{flag:True})
+
     def test_storage_metadata_profile(self):
         version='ram-usb-v3-storage-only-laptop-probe-6ada85bb-auto-return'
         config=boot.limine_config('0123456789abcdef',version)

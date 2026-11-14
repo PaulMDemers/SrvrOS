@@ -1377,6 +1377,16 @@ static void user_scope_detach(struct process *owner) {
     struct process_lifetime *life=owner?lifetime_find(owner->owned_user_scope):NULL;
     if(life && life->user && life->owner==owner) {
         life->revoked=true;life->owner=NULL;
+        /* Explicit revoke permits graceful retirement. Losing the authority
+         * that could finish that protocol instead aborts the entire scope.
+         * Keep references/resources until each member's normal teardown/reap. */
+        for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+            struct process *member=&processes[i];
+            if(member->allocated && member->active && member->lifetime==life->token) {
+                member->killed=true;member->kill_signal=SRV_SIGNAL_KILL;
+                process_wake_for_signal(member);
+            }
+        }
         if(life->reservation) {life->reservation=false;life->members--;}
         if(!life->members) *life=(struct process_lifetime){0};
     }
@@ -1525,6 +1535,12 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     set_process_name(process,path);
     (void)copy_process_path(process->executable_path,sizeof(process->executable_path),path);
     flags=process_irq_save();
+    /* clear_process can yield after acquiring the lifetime reference. An
+     * owner may disappear there while this slot is still unpublished. */
+    life=lifetime_find(token);
+    if(life && life->user && life->revoked && !life->owner) {
+        process->killed=true;process->kill_signal=SRV_SIGNAL_KILL;
+    }
     process->allocated=true;process_slots_busy[slot]=false;
     process_irq_restore(flags);
     return process;

@@ -1,5 +1,13 @@
+#include <srvros/intel_display_hda.h>
+#include <srvros/intel_hda_owner.h>
 #include <srvros/sync_timing.h>
 #include <srvros/ap_probe.h>
+#include <srvros/intel_boot_claim.h>
+#include <srvros/intel_handoff.h>
+#include <srvros/intel_gt_preflight.h>
+#include <srvros/intel_gt_firmware.h>
+#include <srvros/intel_gt_boot.h>
+#include <srvros/intel_memory_trial.h>
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/haswell_cache_context.h>
@@ -17,6 +25,12 @@
 #include <srvros/battery_diagnostic.h>
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
+#include <srvros/intel_display_capture.h>
+#include <srvros/intel_dma_observe.h>
+#include <srvros/x86_cache.h>
+#include <srvros/intel_ggtt_window.h>
+#include <srvros/intel_display_backing.h>
+#include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
 #include <srvros/capture_write_timing.h>
 #include <srvros/audio_abi.h>
@@ -65,6 +79,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "boot_system_init.inc"
 
 extern volatile uint64_t limine_base_revision[];
 extern volatile struct limine_bootloader_info_request bootloader_info_request;
@@ -695,6 +711,19 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    bool intel_display_capture_requested=cmdline_has_token(cmdline,"srvros.capture=intel-display");
+    unsigned intel_client=intel_display_capture_requested?INTEL_BOOT_OBSERVER:
+        (cmdline_has_token(cmdline,"srvros.capture=haswell-backing") ||
+         cmdline_has_token(cmdline,"srvros.capture=haswell-firmware"))?INTEL_BOOT_BLOCKED:INTEL_BOOT_LEGACY;
+    if(!intel_boot_select(intel_client))console_write("intel-boot-claim: policy selection refused\n");
+    if(intel_display_capture_requested) {
+        struct limine_framebuffer_response *r=framebuffer_request.response;
+        intel_display_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
+        if(cmdline_has_token(cmdline,"srvros.intel-backing=read-only"))
+            intel_display_backing_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
+    }
+    if(intel_display_capture_requested && cmdline_has_token(cmdline,"srvros.intel-dma=read-only")) intel_dma_probe_boot();
+    if(intel_display_capture_requested && cmdline_has_token(cmdline,"srvros.intel-cache=read-only")) intel_cache_probe_boot();
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
         bool input=virtio_input_init();
@@ -743,7 +772,10 @@ void kmain(void) {
         pci_print_usb_controllers();
         xhci_print_status();
     }
-    if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") && !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware")) intel_gfx_init();
+    if(!intel_display_capture_requested && !cmdline_has_token(cmdline,"srvros.capture=haswell-backing") && !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware")) intel_gfx_init();
+    else if(intel_display_capture_requested) console_write("intel-display-observe: ordinary Intel initializer skipped; no capture PCI writes\n");
+    console_printf("intel-boot-claim: v=1 policy=%u client=%u immutable=1 hardware_ownership=0 managed_pages=0\n",
+        (uint64_t)intel_boot_policy(),(uint64_t)intel_boot_claimed_client());
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
@@ -872,19 +904,7 @@ void kmain(void) {
         }
     }
 #endif
-    bool init_ready = false;
-    int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
-    if (init_pid >= 0) {
-        (void)process_set_reaper((uint64_t)init_pid);
-        console_printf("init: started pid=%u\n", (uint64_t)init_pid);
-        uint64_t init_start = timer_monotonic_us();
-        bool ready = timer_running && process_wait_startup((uint64_t)init_pid, 300);
-        init_ready = ready;
-        console_printf("init: readiness=%s elapsed_us=%u\n", ready ? "ready" : (timer_running ? "timeout-or-exit" : "clock-unavailable"),
-            timer_monotonic_us() - init_start);
-    } else {
-        console_write("init: start failed\n");
-    }
+    bool init_ready = boot_system_init(cmdline, timer_running);
     keyboard_print_status();
     xhci_print_input_summary();
     if (!boot_verbose) {
@@ -958,11 +978,101 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_storage_only || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
+    if(automatic_audio_listen || intel_display_capture_requested || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_storage_only || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_audio_listen && !automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_storage_only && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
+        if(intel_display_capture_requested) {
+            sampled=intel_display_probe_report();
+            bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
+            if(cmdline_has_token(cmdline,"srvros.intel-memory=backing") || cmdline_has_token(cmdline,"srvros.intel-memory=fixture")) {
+                struct limine_framebuffer_response *r=framebuffer_request.response;
+                console_write("intel-memory: saving prerequisite checkpoint before private allocation\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-memory: preflight checkpoint saved\n");
+                else console_write("intel-memory: checkpoint failed; allocation refused\n");
+                bool memory_ok=checkpoint && intel_memory_trial(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL,cmdline);
+                /* Fixture identity refusal is expected; native keeps its full
+                 * actual display/backing observation prerequisites. */
+                sampled=cmdline_has_token(cmdline,"srvros.intel-memory=fixture")?memory_ok:(sampled && memory_ok);
+            }
+            bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
+            bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
+            if(cmdline_has_token(cmdline,"srvros.intel-window=read-only")){bool window_ok=intel_ggtt_window_probe_report();sampled=sampled && window_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-handoff=qualify")){bool handoff_ok=started && intel_handoff_probe_report();sampled=sampled && handoff_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-gt-preflight=read-only")){bool gt_ok=started && intel_gt_preflight_probe_report();sampled=sampled && gt_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
+                bool held_reset=cmdline_has_token(cmdline,"srvros.intel-bcs-reset=held-blitter-only");
+#if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)
+                if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
+#endif
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+                console_write("intel-source-audit: automatic held PCI/cache/display-reader audit; no input. Original deadlines, no memory grant. Saved safe outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
+                console_write("intel-engines-hold: automatic original-source five-engine ready hold inside inhibited requester; no input. Original deadlines; no GPU memory grant. Safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
+                console_write("intel-requester: automatic original-source PCI hold with inhibited child; no input. Same deadlines; no GPU mapping. Safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
+                console_write("intel-transfer: automatic original-source address-owner lifetime; no input. Missing hardware assurances refuse transfer. Same deadlines; safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
+                console_write("intel-source: automatic original live post-reset GGTT binding; no input. Same deadlines; no new stores or memory grant. Safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
+                console_write("intel-source: automatic original live post-reset GGTT binding; no input. Same deadlines; no new stores or memory grant. Safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
+                console_write("intel-source: automatic original live post-reset GGTT binding; no input. Same deadlines; no new stores or memory grant. Safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+                console_write("intel-nonzero: automatic original nonzero entry/reset/preservation; no input. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
+                console_write("intel-entry-requester: automatic same-owner entry/reset and Command7->3->7 restoration; no input. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
+#endif
+#ifndef SRVROS_INTEL_ENTRY_REQUESTER
+                if(cmdline_has_token(cmdline,"srvros.intel-ring=reset-v1"))console_write("intel-reset: automatic original-owner entry/reset; no input needed. Only zero geometry may reset. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
+#endif
+                if(cmdline_has_token(cmdline,"srvros.intel-ring=entry-v1"))console_write("intel-ring-entry: automatic state-aware original-owner entry; no input needed. Enabled shutdown and already-disabled observation are reported separately. Safe saved outcomes return; uncertainty halts. No reset or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-ring=handoff-v1"))console_write("intel-ring: automatic original-owner enabled-ring transition; no input needed. Safe saved outcomes return; retained uncertainty halts. No reset or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-admission=disabled-bcs-v1"))console_write("intel-compose: automatic original-owner disabled BCS observation, then existing reset admission. No input needed; safe saved outcomes return; retained uncertainty halts. No enabled shutdown or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-joint=hda-claim"))console_write("intel-joint: automatic HDA inhibit, original GPU claim and restoration. No input needed. Safe saved outcomes return to Ubuntu; retained uncertainty halts visibly.\n");
+                else if(cmdline_has_token(cmdline,"srvros.intel-rehold=request-cancel"))console_write("intel-rehold: automatic post-reset BCS re-arm, original-entry child, restore and preservation. No input needed, no PTE write or memory grant. Safe saved outcomes return to Ubuntu; retained uncertainty halts visibly.\n");
+                else if(cmdline_has_token(cmdline,"srvros.intel-interval=read-only"))console_write("intel-interval: automatic original GGTT entry capture inside held reset, then preservation. No input needed, no PTE writes or memory grant. Safe saved outcomes return to Ubuntu; uncertainty halts visibly.\n");
+                else if(held_reset)console_write("intel-held-reset: automatic five-engine hold, PCI capture, BCS8 reset and preservation; no input needed. Safe saved outcomes return to Ubuntu; uncertain state halts visibly.\n");
+                if(!held_reset && cmdline_has_token(cmdline,"srvros.intel-held-requester=read-only"))console_write("intel-held-requester: automatic PCI AF capture under maintained five-engine preparation; no input needed, no reset or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-requester=read-only"))console_write("intel-requester: automatic read-only PCI AF requester capture; no input needed, no BME/FLR/reset or memory grant.\n");
+                if(!held_reset && cmdline_has_token(cmdline,"srvros.intel-engines-prepare=request-cancel"))console_write("intel-prepare: automatic five-engine prepare, hold and cancellation; no input needed, no reset or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-takeover=preflight"))console_write("intel-takeover: automatic read-only reset-control prerequisites; no input needed, no reset or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-hda-bcs=joint-owner-v1"))console_write("intel-hda-bcs: automatic original-owner HDA inhibit, BCS shutdown and preservation, then HDA restore. No input needed. Safe saved outcomes return to Ubuntu; retained uncertainty halts visibly.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-shutdown=qualify"))console_write("intel-shutdown: automatic idle blitter shutdown and fresh engine/reader checks; no input needed, no reset or memory grant. Unsafe state requires manual restart.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-bcs-reset=blitter-only"))console_write("intel-bcs: automatic BCS-only reset with preservation; no input needed. Unsafe state halts here; photograph then restart manually.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-reset-ready=request-cancel"))console_write("intel-reset-ready: automatic bounded BCS request/ready/cancel; no input needed; no actual reset or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-completion=read-only"))console_write("intel-completion: automatic engine/flip-wait/cache prerequisites; no input required, no invalidation/reset or memory grant.\n");
+                console_write("intel-wake: saving preflight checkpoint; no input needed. If this screen stops, photograph it and restart manually.\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-wake: preflight checkpoint saved\n");
+                else console_write("intel-wake: checkpoint failed; wake refused\n");
+                bool wake_ok=checkpoint && intel_gt_wake_probe_report();sampled=sampled && wake_ok;
+            }
+            if(cmdline_has_token(cmdline,"srvros.intel-hda=read-only")) {
+                console_write("intel-hda: saving preflight checkpoint; automatic read-only census, no input needed. Photograph any halt.\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-hda: preflight checkpoint saved\n");
+                bool hda_ok=checkpoint && intel_display_hda_probe_report();sampled=sampled && hda_ok;
+            }
+            if(cmdline_has_token(cmdline,"srvros.intel-hda=owner-trial") || cmdline_has_token(cmdline,"srvros.intel-hda=lease-trial")) {
+                bool lease=cmdline_has_token(cmdline,"srvros.intel-hda=lease-trial");
+                if(cmdline_has_token(cmdline,"srvros.intel-readers=read-only"))console_write("intel-pinned: automatic TXP and three-pipe/stereo audit while HDA inhibited; no input required. Saving results before return.\n");
+                console_printf("%s: saving preflight; automatic requester inhibit/restore, no input needed. Uncertain state halts on this screen; photograph it.\n",lease?"intel-hda-lease":"intel-hda-owner");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_printf("%s: preflight checkpoint saved\n",lease?"intel-hda-lease":"intel-hda-owner");
+                bool hda_ok=checkpoint && intel_display_hda_owner_report();sampled=sampled && hda_ok;
+            }
+            bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
+            if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
+                struct limine_framebuffer_response *r=framebuffer_request.response;
+                bool lifetime=started && init_ready && timer_running && intel_scanout_lifetime_trial(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL,fixture);
+                sampled=fixture?lifetime:(sampled && lifetime);
+            }
+        }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -1089,7 +1199,11 @@ void kmain(void) {
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
-        if(return_on_failure || (saved && (sampled || automatic_load) && unmounted)) {
+        /* The new read-only observation may save a handled refusal and return,
+         * but never resets past a failed log save or workspace unmount. */
+        if(!intel_gt_wake_retained() && !intel_display_hda_owner_retained() && !intel_memory_retained() &&
+           (!intel_display_capture_requested || (saved && unmounted)) &&
+           (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
             console_sync();timer_delay_us(250000);
             if(return_on_failure)arch_reboot_unattended();

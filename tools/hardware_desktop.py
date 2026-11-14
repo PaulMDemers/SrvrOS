@@ -573,6 +573,199 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-gpu-hold-summary: v=2 '):
+        from intel_gpu_hold import gpu_hold_summary
+        try:
+            s=gpu_hold_summary(line)
+            return not s['complete'] or bool(s['reason'] or s['uncertain'])
+        except ValueError:return True
+    if line.startswith('intel-reset-entry-summary:'):
+        from intel_ring_transition import ring_summary
+        try:return not ring_summary(line.replace('intel-reset-entry-','intel-ring-',1),entry=True)['complete']
+        except ValueError:return True
+    if line.startswith('intel-reset-entry-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-reset-entry-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+    if line.startswith('intel-reset-admit:'):
+        from intel_ring_reset import admit_summary
+        try:return not admit_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-ring-entry-summary:'):
+        from intel_ring_entry import entry_summary
+        try:return not entry_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-ring-entry-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-ring-entry-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+
+    if line.startswith('intel-ring-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-ring-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+    if line.startswith('intel-ring-summary:'):
+        from intel_ring_transition import ring_summary
+        try:return not ring_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-memory-summary'):
+        from intel_memory import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-memory-case'):
+        from intel_memory import case,case_complete
+        try:return not case_complete(case(line))
+        except ValueError:return True
+    if line.startswith('intel-admission'):
+        from intel_admission import admission_result
+        try:
+            result = admission_result(line)
+            return result is None or result['summary']['code'] != 0
+        except ValueError:
+            return True
+    if line.startswith('intel-compose-entry-summary:'):
+        from intel_entry_admission import entry_summary
+        try:return not entry_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-joint-summary:'):
+        from intel_joint import fields,SUMMARY,authority
+        try:
+            s=fields(line,'intel-joint-summary',SUMMARY);authority(s)
+            return not s['complete'] or bool(s['reason'] or s['retained'] or s['pinned'])
+        except ValueError:return True
+    if line.startswith('intel-claim-summary:'):
+        from intel_joint import fields,CLAIM,authority
+        try:
+            s=fields(line,'intel-claim-summary',CLAIM);authority(s)
+            return not s['complete'] or bool(s['reason'] or s['pinned'])
+        except ValueError:return True
+    if line.startswith('intel-claim-final-summary:'):
+        from intel_held_interval import interval_summary
+        try:return not interval_summary(line.replace('intel-claim-final-','intel-held-interval-',1))['complete']
+        except ValueError:return True
+    if line.startswith('intel-rehold-summary:'):
+
+        from intel_engine_rehold import rehold_summary
+        try:return not rehold_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-held-interval-summary:'):
+        from intel_held_interval import interval_summary
+        try:return not interval_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-held-reset-summary:'):
+        from intel_engine_held_reset import reset_summary
+        try:return not reset_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-held-requester-summary:'):
+        from intel_held_requester import held_summary
+        try:return not held_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-prepare-action:'):
+        from intel_held_requester import action_summary
+        try:return not action_summary(line)['completed']
+        except ValueError:return True
+    if line.startswith('intel-prepare-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-prepare-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+    if line.startswith('intel-requester-summary:'):
+        from intel_requester import requester_summary
+        try:return not requester_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-prepare-summary:'):
+        from intel_engine_prepare import prepare_summary
+        try:return not prepare_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-takeover-summary:'):
+        from intel_takeover import takeover_summary
+        try:return not takeover_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-clock'):
+        from intel_gt_wake import clock_row
+        try:return bool(clock_row(line)['why'])
+        except ValueError:return True
+    if line.startswith('intel-bcs-clock:'):
+        from intel_bcs_reset import core_clock_row
+        try:return bool(core_clock_row(line,12 if line.split()[1]=='v=3' else 11 if line.split()[1]=='v=2' else 10)['why'])
+        except ValueError:return True
+    if line.startswith('intel-bcs-shutdown-summary:'):
+        from intel_engine_census import _fields
+        try:
+            s=_fields(line,'intel-bcs-shutdown-summary:','v samples reads attempts writes reason begin end disabled entry_disabled uncertain owner_begin epoch'.split())
+            return not(s['samples']==4 and s['reads']==32 and s['disabled']==s['entry_disabled']==1 and not any(s[k] for k in ('attempts','writes','reason','uncertain')) and 0<s['owner_begin']<s['begin']<s['end']<=s['begin']+100000 and s['epoch']<1<<32)
+        except ValueError:return True
+    if line.startswith('intel-bcs-summary:'):
+        from intel_bcs_reset import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-bcs-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-bcs-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+    if line.startswith('intel-reset-ready-summary:'):
+
+        from intel_reset_ready import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+
+    if line.startswith('intel-completion-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+
+    if line.startswith('intel-pinned-summary:'):
+        from intel_pinned_readers import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+
+    if line.startswith('intel-hda-lease-phase:'):
+        from intel_hda_lease import phase_needs_attention
+        return phase_needs_attention(line)
+    if line.startswith('intel-hda-lease-summary:'):
+        from intel_hda_lease import lease_summary
+        try:return not lease_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-hda-owner-phase:'):
+        from intel_hda_owner import phase_needs_attention
+        return phase_needs_attention(line)
+    if line.startswith('intel-hda-owner-summary:'):
+        from intel_hda_owner import owner_summary
+        try:return not owner_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-hda-summary:'):
+        from intel_display_hda import summary_result
+        try:
+            return not summary_result(line)['complete']
+        except ValueError:
+            return True
+    if line.startswith(('intel-hda-bcs-summary:','intel-ring-owner:','intel-ring-entry-owner:')):
+        from intel_joint import fields,SUMMARY,authority
+        try:
+            s=fields(line.replace(line.split(':',1)[0]+':','intel-joint-summary:',1),'intel-joint-summary',SUMMARY);authority(s)
+            return bool(s['state']!=4 or s['reason'] or s['pinned'] or s['retained'] or not s['hda_complete'] or s['complete'] or s['gpu_complete'] or s['attached'])
+        except ValueError:return True
+    if line.startswith('intel-shutdown-summary:'):
+        from intel_shutdown import FIELDS
+        from intel_engine_census import _fields
+        try:
+            s=_fields(line,'intel-shutdown-summary:',FIELDS)
+            return not s['complete'] or any(s[k]!=1 for k in ('borrowed','returned','blocked','stable')) or s['reset_writes']!=0 or s['managed_pages']!=0
+        except ValueError:return True
+    if line.startswith('intel-blitter-summary:'):
+        from intel_blitter import blitter_summary_complete
+        try:
+            return not blitter_summary_complete(line)
+        except ValueError:
+            return True
+    # Successful wake receipts carry reason=0. Decode the entire receipt;
+    # malformed, refused and retained leases must still attract attention.
+    if line.startswith('intel-wake-summary:'):
+        from intel_gt_wake import wake_result
+        try:
+            result = wake_result(line,summary_only=True)
+            return not result or not result['summary_complete']
+        except ValueError:
+            return True
     # App tracing emits accounting on normal admission/retirement. Match the
     # entire schema so refusal reasons or appended error details stay visible.
     if re.fullmatch(r"deskd: resources reason=(?:opened|retired) clients=\d+ children=\d+ clipboard_peers=\d+ window_capacity=\d+ cache_bytes=\d+ cache_budget=\d+ gui_queue_budget=\d+ gui_queue_depth=\d+ gui_surface_record_budget=\d+ gui_surface_pixel_budget=\d+", line):
@@ -660,6 +853,27 @@ def collect(mount, volume, output):
             (saved / filename).write_bytes(data)
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
+        raw_payload=payload
+        source_audit_profile=any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
+        source_engines_profile=any(b'srvros.intel-ring=source-engines-v1' in data for data in raw_payload.values())
+        source_requester_profile=any(b'srvros.intel-ring=source-requester-v1' in data for data in raw_payload.values())
+        startup_transfer_profile=any(b'srvros.intel-ring=startup-transfer-v1' in data for data in raw_payload.values())
+        startup_buffers_profile=any(b'srvros.intel-ring=startup-buffers-v1' in data for data in raw_payload.values())
+        buffers_decode_error=None
+        if source_audit_profile or source_engines_profile or source_requester_profile or startup_buffers_profile or startup_transfer_profile:
+            from intel_startup_buffers import buffers_view
+            from intel_startup_transfer import shared_view
+            from intel_source_requester import shared_view as requester_shared_view
+            from intel_source_engines import shared_view as engines_shared_view
+            from intel_source_audit import shared_view as audit_shared_view
+            decode=audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
+            try:
+                # Only the checked v31 dispatch may normalize shared wire schemas.
+                # Saved files above remain exact raw bytes; never publish a v30 result.
+                payload={name:decode(data.decode('utf-8',errors='replace')).encode() for name,data in raw_payload.items()}
+            except ValueError as error:
+                buffers_decode_error=str(error)
+                payload=raw_payload
         text = "\n".join(data.decode("utf-8", errors="replace") for data in payload.values())
         releases = session_releases(text)
         attention = sorted(set(line for line in text.splitlines() if needs_attention(line)))
@@ -790,6 +1004,157 @@ def collect(mount, volume, output):
         posix_proof=posix_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=posix(?:\s|$)',text) and posix_proof is None:
             attention.append('collection: POSIX capture missing, failed or incomplete')
+        from intel_display_capture import capture_result as intel_display_result
+        intel_display=None
+        if re.search(r'srvros\.capture=intel-display(?:\s|$)',text):
+            try:
+                intel_display=intel_display_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if (not intel_display or not intel_display['observation_complete']) and 'srvros.intel-lifetime=fixture' not in text and 'srvros.intel-memory=fixture' not in text:
+                    attention.append('collection: Intel display observation refused, failed or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid Intel display observation: '+str(error))
+        intel_backing=None
+        if 'srvros.intel-backing=read-only' in text:
+            from intel_display_backing import backing_result
+            try:
+                intel_backing=backing_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_backing or not intel_backing['observation_complete']:
+                    attention.append('collection: Intel backing observation refused, failed or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_wake=None
+        if 'srvros.intel-wake=trial' in text:
+            try:
+                from intel_gt_wake import native_wake_result,verify_wake_checkpoint
+                intel_wake=native_wake_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_wake or not intel_wake['native_wake_complete']:attention.append("Intel cooperative wake lease incomplete or refused")
+                else:
+                    pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
+                    verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
+            except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        intel_gpu_hold=None
+        if 'srvros.intel-gpu-requester=hold' in text and 'srvros.intel-ring=reset-v1' not in text:
+            try:
+                from intel_gpu_hold import native_gpu_hold_result,verify_gpu_hold_checkpoint
+                intel_gpu_hold=native_gpu_hold_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_gpu_hold or not intel_gpu_hold['native_complete']:attention.append('Intel GPU requester hold incomplete or refused')
+                else:verify_gpu_hold_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel GPU requester hold receipt: '+str(error))
+        intel_joint=None
+        if 'srvros.intel-joint=hda-claim' in text:
+            try:
+                from intel_joint import native_joint_result,verify_joint_checkpoint
+                j=native_joint_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'));intel_joint=j
+                if not j or not j['native_complete']:attention.append('Intel joint HDA/GPU lifetime incomplete or refused')
+                else:verify_joint_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel joint HDA/GPU receipt: '+str(error))
+        if 'srvros.intel-rehold=request-cancel' in text:
+            try:
+                from intel_engine_rehold import native_rehold_result,verify_rehold_checkpoint
+                held=native_rehold_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not held or not held['native_complete']:attention.append('Intel post-reset rehold incomplete or refused')
+                else:verify_rehold_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel post-reset rehold: '+str(error))
+        if 'srvros.intel-interval=read-only' in text:
+            try:
+                from intel_held_interval import native_held_interval_result,verify_interval_checkpoint
+                interval=native_held_interval_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not interval or not interval['native_complete']:attention.append('Intel held interval incomplete or refused')
+                else:verify_interval_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel held interval: '+str(error))
+        if 'srvros.intel-bcs-reset=held-blitter-only' in text:
+            try:
+                from intel_engine_held_reset import native_held_reset_result
+                reset=native_held_reset_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not reset or not reset['native_complete']:attention.append('Intel held BCS reset incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel held BCS reset: '+str(error))
+        elif 'srvros.intel-held-requester=read-only' in text:
+            try:
+                from intel_held_requester import native_held_result
+                held=native_held_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not held or not held['native_complete']:attention.append('Intel held requester capture incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel held requester capture: '+str(error))
+        if 'srvros.intel-requester=read-only' in text:
+            try:
+                from intel_requester import native_requester_result
+                req=native_requester_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not req or not req['native_complete']:attention.append("Intel PCI requester capture incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel PCI requester capture: "+str(error))
+        if 'srvros.intel-engines-prepare=request-cancel' in text:
+            try:
+                from intel_engine_prepare import native_prepare_result
+                prepared=native_prepare_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not prepared or not prepared['native_complete']:attention.append("Intel engine preparation incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel engine preparation: "+str(error))
+        if 'srvros.intel-takeover=preflight' in text:
+            try:
+                from intel_takeover import native_takeover_result
+                take=native_takeover_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not take or not take['native_observation_complete']:attention.append("Intel cold-takeover preflight incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel cold-takeover preflight: "+str(error))
+        intel_firmware=None
+        if 'srvros.intel-firmware=read-only' in text:
+            try:
+                from intel_gt_firmware import native_firmware_result
+                intel_firmware=native_firmware_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_firmware or not intel_firmware['native_observation_complete']:attention.append("Intel firmware census incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel firmware census receipt: "+str(error))
+        intel_gt=None
+        if 'srvros.intel-gt-preflight=read-only' in text:
+            try:
+                from intel_gt_preflight import native_gt_result
+                intel_gt=native_gt_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_gt or not intel_gt['native_observation_complete']:attention.append("Intel GT preflight incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel GT preflight receipt: "+str(error))
+        intel_handoff=None
+        if 'srvros.intel-handoff=qualify' in text:
+            try:
+                from intel_handoff import native_handoff_result
+                intel_handoff=native_handoff_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_handoff or not intel_handoff['native_qualification_complete']:attention.append("Intel handoff qualification incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel handoff receipt: "+str(error))
+        intel_window=None
+        if 'srvros.intel-window=read-only' in text:
+            try:
+                from intel_ggtt_window import native_window_result
+                intel_window=native_window_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_window or not intel_window['native_observation_complete']: attention.append("Intel GGTT window observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel GGTT window receipt: "+str(error))
+        intel_cache=None
+        if 'srvros.intel-cache=read-only' in text:
+            try:
+                from intel_cache import native_cache_result
+                intel_cache=native_cache_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_cache or not intel_cache['native_observation_complete']: attention.append("Intel cache observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel cache receipt: "+str(error))
+        intel_dma=None
+        if 'srvros.intel-dma=read-only' in text:
+            try:
+                from intel_dma_observe import dma_result
+                intel_dma=dma_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_dma or not intel_dma['observation_complete']: attention.append("Intel DMA observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel DMA receipt: "+str(error))
+        intel_memory=None
+        if 'srvros.intel-memory=' in text:
+            from intel_memory import memory_result,verify_memory_checkpoint
+            try:
+                intel_memory=memory_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                expected='fixture' if 'srvros.intel-memory=fixture' in text else 'native'
+                if not intel_memory or not intel_memory['complete'] or intel_memory['kind']!=expected:
+                    attention.append('collection: private backing ownership refused, failed, mismatched or incomplete')
+                verify_memory_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=expected=='native')
+            except ValueError as error:
+                attention.append('collection: invalid private backing ownership: '+str(error))
+        intel_lifetime=None
+        if 'srvros.intel-lifetime=' in text:
+            from intel_scanout_lifetime import lifetime_result
+            try:
+                intel_lifetime=lifetime_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                expected='fixture' if 'srvros.intel-lifetime=fixture' in text else 'native'
+                if not intel_lifetime or not intel_lifetime['complete'] or intel_lifetime['kind']!=expected:
+                    attention.append('collection: shadow scanout lifecycle refused, failed, mismatched or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid shadow scanout lifecycle: '+str(error))
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -811,13 +1176,228 @@ def collect(mount, volume, output):
                                    payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
             if not ecam_proof or not ecam_proof['source_completed']:
                 attention.append('collection: boot ECAM and alias dual-file proof missing, refused or incomplete')
+        intel_engines=None
+        if 'srvros.intel-engines=read-only' in text and 'srvros.intel-completion=read-only' not in text:
+            from intel_engine_census import engine_result
+            try:
+                intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        if 'srvros.intel-completion=read-only' in text:
+            from intel_completion_audit import native_completion_result
+            from intel_gt_wake import verify_wake_checkpoint
+            try:
+                completion=native_completion_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not completion or not completion['native_observation_complete'] or not verify_wake_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('Intel completion prerequisites audit incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel completion prerequisites audit: '+str(error))
+        if 'srvros.intel-bcs-reset=blitter-only' in text:
+            from intel_bcs_reset import native_bcs_result
+            from intel_gt_wake import verify_wake_checkpoint
+            try:
+                result=native_bcs_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not result or not result['native_complete'] or not verify_wake_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('BCS reset/preservation incomplete or refused')
+            except ValueError as error:attention.append('Invalid BCS reset/preservation: '+str(error))
+        if 'srvros.intel-reset-ready=request-cancel' in text:
+            from intel_reset_ready import native_reset_ready_result
+            from intel_gt_wake import verify_wake_checkpoint
+            try:
+                ready=native_reset_ready_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not ready or not ready['native_complete'] or not verify_wake_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('Intel reset readiness incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel reset readiness: '+str(error))
+        if 'srvros.intel-readers=read-only' in text:
+            from intel_pinned_readers import native_reader_result,verify_reader_checkpoint
+            try:
+                result=native_reader_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not result or not result['native_trial_complete'] or not verify_reader_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Pinned HDA/display reader trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid pinned HDA/display reader trial: '+str(error))
+        if 'srvros.intel-hda=lease-trial' in text:
+            from intel_hda_lease import native_lease_result,verify_lease_checkpoint
+            try:
+                lease=native_lease_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not lease or not lease['native_trial_complete'] or not verify_lease_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA maintained lease incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA maintained lease: '+str(error))
+        if 'srvros.intel-hda=owner-trial' in text:
+            from intel_hda_owner import native_owner_result,verify_owner_checkpoint
+            try:
+                hda_owner=native_owner_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not hda_owner or not hda_owner['native_trial_complete'] or not verify_owner_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA requester trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA requester trial: '+str(error))
+        if 'srvros.intel-hda=read-only' in text:
+            from intel_display_hda import native_hda_result,verify_hda_checkpoint
+            try:
+                hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_source_audit=None
+        if source_audit_profile:
+            from intel_source_audit import native_audit_result,verify_audit_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_source_audit=native_audit_result(final)
+                verify_audit_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_source_audit['native_complete']:attention.append('Intel held requester/cache/reader audit incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel held requester/cache/reader audit: '+str(error))
+        intel_source_engines=None
+        if source_engines_profile:
+            from intel_source_engines import native_engines_result,verify_engines_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_source_engines=native_engines_result(final)
+                verify_engines_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_source_engines['native_complete']:attention.append('Intel original-source engine hold incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-source engine hold: '+str(error))
+        intel_source_requester=None
+        if source_requester_profile:
+            from intel_source_requester import native_requester_result,verify_requester_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_source_requester=native_requester_result(final)
+                verify_requester_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_source_requester['native_complete']:attention.append('Intel maintained original-source requester incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel maintained original-source requester: '+str(error))
+        intel_startup_transfer=None
+        if startup_transfer_profile:
+            from intel_startup_transfer import native_transfer_result,verify_transfer_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_startup_transfer=native_transfer_result(final)
+                verify_transfer_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_startup_transfer['native_complete']:attention.append('Intel original-source transfer lifetime incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-source transfer lifetime: '+str(error))
+        intel_startup_buffers=None
+        if startup_buffers_profile:
+            from intel_startup_buffers import native_buffers_result,verify_buffers_checkpoint
+            try:
+                if buffers_decode_error:raise ValueError(buffers_decode_error)
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_startup_buffers=native_buffers_result(final)
+                verify_buffers_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_startup_buffers['native_complete']:attention.append('Intel original-source private buffers incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-source private buffers: '+str(error))
+        intel_startup_source=None
+        if not source_audit_profile and not source_engines_profile and not source_requester_profile and not startup_transfer_profile and not startup_buffers_profile and 'srvros.intel-ring=startup-source-v1' in text:
+            from intel_startup_source import native_startup_result,verify_startup_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_startup_source=native_startup_result(final)
+                verify_startup_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_startup_source or not intel_startup_source['native_complete']:attention.append('Intel original state-aware startup source incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original startup source: '+str(error))
+        intel_nonzero_source=None
+        if 'srvros.intel-ring=nonzero-source-v1' in text:
+            from intel_nonzero_source import native_source_result,verify_source_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_nonzero_source=native_source_result(final)
+                verify_source_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_nonzero_source or not intel_nonzero_source['native_complete']:attention.append('Intel original live post-reset source incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original post-reset source: '+str(error))
+        intel_nonzero_reset=None
+        if 'srvros.intel-ring=nonzero-reset-v1' in text:
+            from intel_nonzero_reset import native_nonzero_result,verify_nonzero_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_nonzero_reset=native_nonzero_result(final)
+                verify_nonzero_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_nonzero_reset or not intel_nonzero_reset['native_complete']:attention.append('Intel original nonzero geometry reset incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original nonzero reset: '+str(error))
+        intel_entry_requester=None
+        if 'srvros.intel-ring=reset-v1' in text and 'srvros.intel-gpu-requester=hold' in text:
+            from intel_entry_requester import native_requester_result,verify_requester_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_entry_requester=native_requester_result(final)
+                verify_requester_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_entry_requester or not intel_entry_requester['native_complete']:attention.append('Intel original-owner entry/reset/requester incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-owner entry/reset/requester: '+str(error))
+        intel_ring_reset=None
+        if 'srvros.intel-ring=reset-v1' in text and 'srvros.intel-gpu-requester=hold' not in text:
+            from intel_ring_reset import native_reset_result,verify_reset_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_ring_reset=native_reset_result(final)
+                verify_reset_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_ring_reset or not intel_ring_reset['native_complete']:attention.append('Intel original-owner entry/reset composition incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-owner entry/reset: '+str(error))
+        intel_ring_entry=None
+        if 'srvros.intel-ring=entry-v1' in text:
+            from intel_ring_entry import native_entry_result,verify_entry_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_ring_entry=native_entry_result(final)
+                verify_entry_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_ring_entry or not intel_ring_entry['native_complete']:attention.append('Intel state-aware original-owner ring entry incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel state-aware ring entry: '+str(error))
+        intel_ring_transition=None
+        if 'srvros.intel-ring=handoff-v1' in text:
+            from intel_ring_transition import native_ring_result,verify_ring_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_ring_transition=native_ring_result(final)
+                verify_ring_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_ring_transition or not intel_ring_transition['native_complete']:attention.append('Intel original-owner enabled-ring transition incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel enabled-ring transition: '+str(error))
+        intel_entry_admit=None
+        if 'srvros.intel-admission=disabled-bcs-v1' in text:
+            from intel_entry_admission import native_entry_result,verify_entry_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_entry_admit=native_entry_result(final)
+                verify_entry_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_entry_admit or not intel_entry_admit['native_complete']:attention.append('Intel original-owner disabled-entry/reset composition incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel entry/reset composition: '+str(error))
+        intel_hda_bcs=None
+        if 'srvros.intel-hda-bcs=joint-owner-v1' in text:
+            from intel_hda_shutdown import native_paired_result,verify_paired_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_hda_bcs=native_paired_result(final)
+                verify_paired_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_hda_bcs or not intel_hda_bcs['native_complete']:attention.append('Intel original-owner HDA/BCS shutdown incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-owner HDA/BCS shutdown: '+str(error))
+        intel_blitter=None
+        if 'srvros.intel-shutdown=qualify' in text and 'srvros.intel-hda-bcs=joint-owner-v1' not in text:
+            from intel_shutdown import native_shutdown_result
+            try:
+                shutdown=native_shutdown_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not shutdown or not shutdown['native_complete']:attention.append('Intel same-lifetime blitter shutdown incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel same-lifetime shutdown: '+str(error))
+        if 'srvros.intel-blitter=retire' in text:
+            from intel_blitter import blitter_result
+            try:
+                intel_blitter=blitter_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_blitter or not intel_blitter['complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel blitter/reader trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel blitter/reader trial: '+str(error))
         window_proof=None
         if 'srvros.vtd-window=air61-no-read' in text or 'window.log' in payload:
             from hardware_air61_window import window_result
             window_proof=window_result(payload.get('window.log',b'').decode('utf-8',errors='replace'),payload.get('ecam.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
+        if (source_audit_profile or source_engines_profile or source_requester_profile or startup_buffers_profile or startup_transfer_profile) and intel_wake:
+            intel_wake["summary"]["v"]=35 if source_audit_profile else 34 if source_engines_profile else 33 if source_requester_profile else 32 if startup_transfer_profile else 31
         records.append({
+            "intel_source_audit":intel_source_audit,
+            "intel_source_engines":intel_source_engines,
+            "intel_source_requester":intel_source_requester,
+            "intel_startup_transfer":intel_startup_transfer,
+            "intel_startup_buffers":intel_startup_buffers,
+            "intel_startup_source":intel_startup_source,
+            "intel_nonzero_source":intel_nonzero_source,
+            "intel_nonzero_reset":intel_nonzero_reset,
+            "intel_entry_requester":intel_entry_requester,
+            "intel_ring_reset":intel_ring_reset,
+            "intel_ring_entry":intel_ring_entry,
+            "intel_ring_transition":intel_ring_transition,
+            "intel_entry_admit":intel_entry_admit,
+            "intel_hda_bcs":intel_hda_bcs,
+            "intel_blitter":intel_blitter,
+            "intel_engines":intel_engines,
+            "intel_display_capture": intel_display,
+            "intel_display_backing": intel_backing,
+            "intel_scanout_lifetime": intel_lifetime,
+            "intel_memory": intel_memory,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,"intel_joint":intel_joint,"intel_gpu_hold":intel_gpu_hold,
             "air61_window": window_proof,
             "ecam_boot": ecam_proof,
             "posix_capture": posix_proof,
