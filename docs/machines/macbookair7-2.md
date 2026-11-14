@@ -2,6 +2,22 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Active full-buffer cache-policy qualification
+
+Main `00ab2d90` is integrated after collecting and sealing the v35 kind 2 audit.
+Next scope: a pure PAT/MTRR range decoder and source-bound observations over both
+complete pinned private buffers inside that original held child. Check every
+policy boundary, including interior holes, and bind exact physical bases, padded
+page counts, PAT index and decoded types to the original RAM holds and cache
+contexts. Version the expanded receipt; preserve old native classifications and
+all deadlines. This establishes hypothetical uniform CPU cache policy only,
+not actual alias permissions/completeness, DMA visibility, GPU cache/translation
+completion, firmware or display-reader retirement. No hardware writer or memory
+assurance is added. Qualify actual adapter faults, receiver/raw transport, native
+objects, saved tail and exact-stage VM before the next authorized 1% automated
+trial. Native remains pending. PR19/379 independent; no task messages/subagents.
+Checkpoint: `build/air-buffer-cache-20261114`.
+
 ### Native held requester, cache and reader audit accepted
 
 Frozen runtime `4387351b` / release `f1a9627dff866ee0`, session
