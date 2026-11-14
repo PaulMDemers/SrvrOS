@@ -14887,3 +14887,16 @@ accepted `bfe6ca6ff45fe078`/`772f95d189e4dcfc`/`7acb756c0ac5f4bb` and recovery
 `c35475f62f154f1e` remain retained. No implementation or new boot was started
 in this return-review block. Raw matching evidence and the explicit failure
 classification are retained outside build.
+
+### Directory public-dispatch correction scope (2026-11-14)
+
+From main `62eca9ce` (PR499), correct the original directory-admission objective:
+move only the validated READ_INFO attempt before public namespace ownership.
+Keep the complete owned fallback, cancellation and fresh mapping/FD/cookie
+checks. Scope is syscall routing and its actual public-dispatch/host-copy tests;
+no VFS proof, scheduler, storage backend, ABI, policy or limit changes. Require
+a baseline-failing public-dispatch regression and positive loaded-VM admission
+before repeating the original 1800-second native 1% workload under the user's
+existing self-merge/reboot authorization. Matching prior evidence is reviewed
+and sealed; no uncollected run remains. PR19 `b4759eda`, PR301 `308d7454` and
+PR379 `817f80bb` remain independent; recheck actual shared-file hunks at merge.
