@@ -78,6 +78,8 @@ class Audit(unittest.TestCase):
    line=next(l for l in text.splitlines() if l.startswith('intel-source-audit-summary:'))
    for key,value in re.findall(r' (\w+)=(\d+)',line):
     with self.subTest(key=key),self.assertRaises(ValueError):audit_result(text.replace(line,line.replace(f' {key}={value}',f' {key}={int(value)+200000}',1),1))
+   for key in ('v','state','epoch','kind','mode','origin','parent','begin','last','end','samples','pci_reads','plane_reads','cache_checks','complete'):
+    with self.subTest(required_nonzero=key),self.assertRaises(ValueError):audit_result(text.replace(line,re.sub(rf' {key}=\d+',f' {key}=0',line),1))
    for prefix in ('intel-source-audit-data:','intel-source-audit-summary:','intel-source-audit-reset:'):
     row=next(l for l in text.splitlines() if l.startswith(prefix))
     for bad in (text.replace(row+'\n',''),text.replace(row,row+'\n'+row)):
