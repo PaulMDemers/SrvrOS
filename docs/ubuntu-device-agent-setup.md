@@ -1912,3 +1912,17 @@ review require the same worst-loop companion with all three scheduler vectors
 in saved workspace logs. Compact records preserve the existing row and 64 KiB
 log caps; missing final workload or control evidence is incomplete, never repaired
 from interleaved serial output. All original limits and integrity checks apply.
+
+### Pro11,2 bounded DHCP/radio comparison return (November 13)
+
+Source `cbf807de` / release `a2b2ed09ff25187b` is collected once and independently
+accepted for one cold fixed161/20MHz two encrypted DHCP/DNS/actual-process
+HTTP+EOF lifetimes with software disconnect/reconnect and full restoration.
+The radio observer preserves all five DHCP tag bindings but credits no MAC
+outcome because both final snapshots reach their17-entry cap before empty.
+Do not recollect/reseal `build/bringup/wifi-dhcp-radio-hardware/run.json`. Its
+primary and separate review are immutable. Ubuntu is unarmed; protect the newly
+accepted current payload alongside the original eight recoveries. See the
+[current unit handoff](machines/macbookpro11-2.md#current-handoff) for acceptance
+limits and the next bounded scope. Reliability, persistent service, physical
+reattach, UI and2.4GHz remain separate.

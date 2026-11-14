@@ -1,11 +1,52 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-13. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed161/20MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-13. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Native radio diagnostic and two HTTP lifetimes accepted (November 13)
+
+Runtime `cbf807de` / release `a2b2ed09ff25187b`, session
+`session-0006603376492170-00`, is collected FIRST once and independently
+accepted for one cold fixed channel 161 at 20 MHz Demers5 lifetime with two fresh WPA2/CCMP
+connections, DHCP/DNS, actual-process HTTP and genuine EOF, software
+disconnect/reconnect within the same boot, and full key/native/provider/RF
+restoration. Each connection sends the exact 4,159-byte request and receives the
+exact 3,072-byte body plus EOF. Generation 1 sends two Discovers and one Request,
+accepting Offer/ACK in 1,159,042 µs; generation 2 sends one Discover and one Request,
+accepting Offer/ACK in 168,180 µs. Both children exit 0. Strict preparation-v2
+ordering survives the full RF parent; the old pre-GO child deadline does not
+recur. The earlier intermittent Offer/ACK-loss cause remains unresolved.
+
+All five diagnostic IDs (3/4/5 then 6/7) bind to original packet/USB receipts and
+appear once in their final bounded status prefixes, with no baseline collision,
+overflow or binding error. Both baselines terminate empty. Both final snapshots
+hit 17 valid entries without an empty terminator, so the strict observer credits
+neither MAC ACK nor failure; complete radio correlation remains inconclusive.
+This is not a protocol failure. No diagnostic limit or acceptance gate changed.
+
+All seven independent checkpoints, 489 prior files, checked metadata except the
+RTC-bounded workspace-marker atime, 72 other EFI files, clean filesystem and
+allocation checks, and all eight prior protected recoveries verify. The newly
+accepted current payload is also protected outside build, for nine total.
+Separate review validates the unchanged full source-frozen proof and eleven
+identity/EOF/key/provider/RF/radio/preparation refusal mutations. Primary bank
+`wifi-dhcp-radio-hardware-cbf807de` has 2,357 verified files, index
+`48b324583d9bf770d6cc10ee41a2d35d5cb2a51a1b82b729060cf8c2a990a29e`;
+separate `wifi-dhcp-radio-hardware-cbf807de-return-review` index is
+`07a251668ba005f404b52c1aed993e0da4002730d0e2e65a9212a5f3fbbe9d6d`.
+Both are immutable. Do not recollect/reseal this run. Ubuntu is unarmed.
+
+Next improve the bounded status snapshot's completeness without moving I/O
+into live callbacks or widening ownership gates, then qualify a fresh matched
+source/collector/image before hardware; an unchanged-profile repeat can assess
+reliability separately. Persistent service, physical USB reattach, desktop
+controls, unlimited reuse, 2.4 GHz and general reliability remain unaccepted.
+Protect this accepted current payload in addition to the original eight
+recoveries when preparing the next owner; use the checkpoint's updated list.
 
 ### DHCP radio collector and cold-image scope (November 13)
 

@@ -71,6 +71,28 @@ observer alongside DHCP identity and the existing full protocol/retirement
 proof, plus the preparation-v2 requirement and an exact matched staged image.
 Do not reuse or reseal the closed hardware evidence for a new source.
 
+## Native result, November 13
+
+Source `cbf807de`, release `a2b2ed09ff25187b`, completed one cold fixed channel 161 at 20 MHz
+Demers5 run with two fresh encrypted DHCP/DNS/actual-process HTTP+EOF lifetimes
+and full key/native/provider/RF restoration, independently reviewed. Both
+preparation-v2 boundaries passed. All 489 prior files and eight prior recoveries
+survived; this is bounded protocol acceptance, not general reliability.
+
+IDs 3/4/5 and 6/7 match the original five DHCP packet/USB receipts. Every ID appears
+once in its final snapshot prefix, without baseline collisions or binding
+errors. Both baselines terminate empty, but both final snapshots contain 17 valid
+entries and do not terminate empty. Accordingly the unchanged observer marks
+all five correlations inconclusive, crediting neither MAC ACK nor failure.
+The consuming reads themselves completed within their original budget. Do not
+reinterpret this bounded prefix as proof that no later duplicate exists or
+raise the limit simply to turn this result into a pass. Further completeness
+work needs a justified bound/boundary and native-path tests before hardware.
+
+The matching collector ran once; its sealed primary and separate independent
+review remain immutable. See the current [unit handoff](machines/macbookpro11-2.md#current-handoff)
+for source, session and acceptance limits.
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)

@@ -39,8 +39,8 @@ receipt or physical acceptance of this change.
 
 Source `27af43ef` passes all 38 native cases normally and under ASan/UBSan,
 49 actual httpget cases with modeled syscalls, strict preparation/legacy decoding,
-full synthetic RF composition and separate actual guest HTTP/DNS. Hardware
-acceptance and the separate Offer/ACK-loss cause remain unproved. A fresh
+full synthetic RF composition and separate actual guest HTTP/DNS. Physical acceptance of that source itself and the separate Offer/ACK-loss
+cause were unproved at that software checkpoint. A fresh
 source-specific collector must require version2 for this candidate using the
 preparation-order check; the generic parser's historical version1 support alone
 must not authorize an old preparation layout under a new image identity.
@@ -49,6 +49,16 @@ The pinned [Linux packet-ID definitions](https://raw.githubusercontent.com/torva
 identify128 as HAS_RATE, while NO_ACK is0. SrvrOS's data descriptor still
 requests an ACK;128 is not evidence that ACKs were disabled. [Linux's MAC status reader](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
 reads EXT before the consuming FIFO and reports success, ACK request, retry, WCID and packet ID separately from USB completion.
-Existing SrvrOS FIFO companions bracket AUTH, not DHCP data.
-Future data status correlation must distinguish late management/earlier receipts; an AP link ACK still cannot prove DHCP-server receipt.
-This fix introduces no new consuming reads or descriptor changes.
+At that preparation-only checkpoint FIFO companions bracketed AUTH, not DHCP.
+The later [DHCP radio diagnostic](wifi-dhcp-radio5.md) adds separate disjoint
+packet IDs and bounded snapshots; an AP link ACK still cannot prove server receipt.
+The preparation fix itself introduces no consuming reads or descriptor changes.
+
+Native descendant `cbf807de` / release `a2b2ed09ff25187b` now independently passes
+one cold channel-161/20-MHz two-HTTP run with both version-2 preparations at their
+key-free boundaries, both child statuses 0, DHCP/DNS/exact bodies+EOF and full
+retirement/restoration. The first DHCP cycle needs its existing Discover retry;
+no waits/retries change and intermittent Offer/ACK-loss reliability remains open.
+The absent-adapter exact-image verifier also now accepts reservation-only
+without child allocation, separately from historical closed version-1 owners;
+mixed or live-owner receipts remain refused.
