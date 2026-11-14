@@ -2,13 +2,59 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Active integration and engine-admission timing work
+### Latest native optimized engine readiness lifetime accepted
+
+Frozen runtime `b8b8a2d1` / release `83fd1d098a221916`, session
+`session-00066032aa800378-00`, collector `364ccafa` accept **one original kind 1
+enabled-entry v34 lifetime** after integrating main `94d0b9b8`. Entry performs
+one bounded BCS store and advances epoch 0→1; reset advances 1→2. The optimized
+five-engine child remains bound to that original source and epoch 2.
+
+All five readiness requests are held through the child, then cancelled in
+reverse order with exact original controls. Four six-DWORD profiles, 10 fenced
+stores/fresh admissions/ACKs, 44 native target reads and zero polls verify. Engine
+scope is 1,246 us, held child 47 us, individual store phases 45–65 us. Parent PCI
+7→3→3→7 takes 1,903 us including its 1,266 us child. Full closing hardware checks,
+source/RAM/reader/cache/HDA/CPU preservation and original registration return pass.
+
+Preparation takes 99,511/100,000 us, leaving **489 us**, not repeatability or spare
+capacity. Admission is 10,287 us, final guard 7 us, borrow return 3,388 us, GT
+270,903/300,000 us, HDA 307,459/400,000 us and outer 361,901/500,000 us. All limits
+are unchanged. The prior 4fd run exercised a different entry route; these timings
+do not establish a causal native speedup from removing 20 redundant full guards.
+Each actual target still receives fresh full validation and its original clock.
+
+Both 1,356-page private RAM buffers pass four complete padded patterns; 2,712
+pages release exactly once, DMA 57→57, 14 GPU aliases and the HDA root retire.
+Transfer deliberately refuses actual GPU interval authority. Nine lack-of-authority
+alerts remain in the untouched raw evidence. Exact recipe/pre-init/checkpoint,
+strict native receipt chain and offline fsck/allocation/writable/headroom pass.
+All 1,506 prior files preserve except expected metadata; three exact new logs
+produce 1,509 files / 159 sessions. Boot digest, installed/banked current/recovery,
+Ubuntu default and consumed one-shot verify; USB is unmounted.
+
+Raw and complete physical proof banks survive build cleanup under
+`air-engine-admission-20261113`, including
+`physical-session-00066032aa800378-00`. Current is 83fd; prior accepted 90df/6f8,
+recovery 9aa8, GUI/joint/HDA remain installed. Older 8d and previously retired EFI
+duplicates remain independently banked. No run or one-shot remains outstanding.
+
+This accepts the optimized enabled-entry readiness-control lifetime only. The
+already-disabled route on b8, delayed ACK/AF pending branches and repeatability
+remain unaccepted; earlier exact-source acceptance remains historical. Readiness
+and requester inhibition do not retire internal DMA/prefetch/cache/translation/
+display readers: all 255 obligations, zero positive assurances/managed GPU pages
+and native tear-free remain open. Next bind those ownership witnesses before any
+GPU range/PTE or submission grant. Needed automated trials remain authorized at
+1%; user input is unnecessary for this completed run.
+
+### Qualification preceding the optimized native trial
 
 Main `94d0b9b8` is integrated. The optimized v34 candidate is **locally qualified**
 on frozen source `b8b8a2d1` / release `83fd1d098a221916`, with an independent
 payload and complete evidence bank. Affected desktop/Files/process-output/
 control-tracing checks pass. The native `4fd81b45` result below remains specific
-to its exact source; the optimized bytes have no native acceptance yet.
+to its exact source; the optimized native result is recorded above.
 
 Only two duplicate full guards per store were removed: each had no intervening
 target access before another mandatory guard. Every actual target read and

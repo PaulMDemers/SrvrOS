@@ -140,11 +140,34 @@ between admissions. Host full guards fall 106→86 (delayed-poll 166→146); a t
 fixture rejects a missing fresh full check, including a compiled negative
 control of the final store guard. Clock calls and raw controls/target counts are stable;
 mock timestamps shorten 80 us because mocks charge 4 us per guard, not because any
-deadline changed. Native speedup is pending.
+deadline changed. Native causal speedup remains unproved.
 
 Full 39-image/core, 117  staging,13 fatal sanitizer tests, seven compiled controls,
 13 historical classifications, native object/log/frame and exact-stage VM/media/
-recovery checks pass. The candidate is banked, uninstalled/unarmed and eligible
-for its standing-authorized automated native trial at 1%. Current 4fd native
-kind 2 acceptance above is not transferred to this revision. All 255 obligations,
+recovery checks pass. The candidate was banked and uninstalled/unarmed at qualification. Its subsequent
+source-specific native result is below; earlier 4fd kind 2 acceptance is not
+transferred to this revision. All 255 obligations,
 zero assurances/managed pages and native tear-free remain unchanged.
+
+## Optimized native enabled-entry result
+
+Runtime `b8b8a2d1` / release `83fd1d098a221916`, session
+`session-00066032aa800378-00`, collector `364ccafa` accept one bounded original
+kind 1 enabled-entry v34 lifetime. Entry advances 0→1 with one store, reset 1→2,
+and all nested children retain the original source/epoch. All five requests stay
+held through the child, reverse cancellation restores exact controls, and both
+full brackets and parent retirement verify. Ten stores/admissions/ACKs, 44 reads,
+zero polls, 1,246 us engine scope/47 us child and 1,903 us requester scope pass.
+
+Preparation is 99,511/100,000 us (489 us margin); guard 7 us, borrow return
+3,388 us, GT 270,903/300,000 us, HDA 307,459/400,000 us and outer
+361,901/500,000 us. No deadline changed. Earlier 4fd used kind 2, so this is no
+controlled speed comparison or repeatability evidence. Strict raw/checkpoint/
+recipe/provenance and original preservation/retirement pass, as do exactly-once
+2,712-page RAM release, DMA 57→57, all prior 1,506 files except metadata, three
+new logs, offline media and recovery/default/one-shot checks. Evidence is sealed
+outside build; see the [unit result](machines/macbookair7-2.md#latest-native-optimized-engine-readiness-lifetime-accepted).
+
+Optimized kind 2, delayed ACK/AF pending and repeatability remain unaccepted.
+Internal DMA/prefetch/cache/translation/display-reader ownership, all 255
+obligations and actual managed GPU memory/native tear-free remain open.

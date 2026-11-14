@@ -1044,3 +1044,20 @@ unarmed. Only unreferenced, exact bank/native-proof-verified 8d EFI duplicate
 was retired; no accepted backup removed. Standing needed automated reboots at 1%
 apply after on-disk run preparation; collect matching results before another.
 No cross-task messages or subagents. Prior 4fd kind 2 result remains source-specific.
+
+
+Air7,2 collected optimized v34 runtime `b8b8a2d1` / `83fd1d098a221916`, session
+`session-00066032aa800378-00`, collector `364ccafa`: one original **kind 1 enabled**
+engine readiness lifetime passes. Entry epoch0→1/reset1→2, all-five held child,
+reverse exact restoration, full closing/root/reader/HDA/CPU retirement and all
+prior files/offline recovery checks pass. Preparation99,511/100,000us leaves489us;
+engine1,246us/child47us, requester1,903us. Deadlines unchanged, no controlled
+speedup/repeatability claim from the earlier different route. Three logs yield
+1,509files/159sessions; raw/physical banks sealed, USB unmounted, Ubuntu default,
+no armed/uncollected run. Main remains94d0b9b8 on fresh fetch. Only b8 enabled
+readiness is accepted; disabled b8, pending branches, internal DMA/prefetch/cache/
+translation/display-reader ownership and all managed GPU/tear-free grants remain
+open. Next local scope is binding those ownership witnesses to the original
+borrow before GPU interval authority. Do not import this model's resources or
+acceptance into siblings. Standing automated reboot authorization at1% persists;
+Actions remain disabled; no other task contacted.
