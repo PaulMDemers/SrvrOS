@@ -1,11 +1,57 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-13. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-14. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Radio completeness trial stopped at second WPA handshake (November 14)
+
+Source `b4759eda` / release `2f83523f6097b854`, session
+`session-000660358e9c8807-00`, is collected FIRST once and closed failed for the
+planned three-cold-boot reliability series. No successful full trial is counted;
+no identical repeat is armed. The first connection observes encrypted
+DHCP/DNS/actual-process HTTP+EOF and local key/native/provider closure. Its
+version2 baseline drains in five pairs; its final snapshot reaches empty in
+24 pairs and32,056µs, within the unchanged100ms budget. Diagnostic IDs3/4/5
+bind uniquely to native DHCP/USB receipts and report MAC acknowledgements.
+This does not prove server delivery or accept the whole run.
+
+Generation2 passes AUTH/association, accepts M1 and completes M2 USB submission,
+but never accepts M3. No keys activate, no DHCP runs and no second DHCP radio
+snapshot exists. The native ledger records zero pending transfers/faults after
+exact cleanup; local keys are erased, while full parent/provider restoration
+and whole-run completion remain refused. These logs do not distinguish absent
+M3 from a parser rejection or establish the radio delivery of M2. This is a
+new earlier handshake failure, not evidence of a DHCP ACK timeout.
+
+The unchanged strict frozen radio observer refuses the missing second epoch.
+Its empty completeness summary does not mean epoch1 raw evidence was lost:
+a separately documented diagnostic-only epoch1 projection verifies its original
+packet/USB bindings and empty-terminated statuses. This projection is never
+used for protocol or native acceptance, and no primary bytes are changed.
+
+All seven journal checkpoints,491 prior file bytes, strict metadata except the
+RTC-bounded marker atime,73 other EFI files, filesystem/allocation checks and
+all nine protected recoveries verify independently. The immutable1,650-file
+primary has index
+`3761e13384446014d42faac6a12571228553488dc6086f8a9f6f66b367365f8b`;
+its separate four-file return review has index
+`94b760c4fe927d11392340a8398ea42e947e79a89478b37490bede5ef75290c9`.
+Never recollect/reseal `wifi-dhcp-radio-complete-hardware/run.json`.
+Ubuntu is default/unarmed; installed candidate remains physically unaccepted.
+
+Next audit the second four-way handshake and add actual native-path coverage
+for missing/duplicate/rejected M3 and safe incomplete cleanup, then bounded
+non-secret receive/refusal evidence if the existing receipts cannot distinguish
+them. Keep crypto admission, ownership, deadlines and full-retirement guards.
+Source changes need matched qualification before another hardware run. Fetched
+main00ab2d90 adds independent Files/directory metadata admission and Air evidence;
+it is inspected/deferred for this closed run. Integration baseline remains
+15eb67ad; PR301/379 retain independent GPU/WebCore scopes.
+
 
 ### Complete radio snapshot and bounded reliability scope (November 13)
 

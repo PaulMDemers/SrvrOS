@@ -125,6 +125,24 @@ The matching collector ran once; its sealed primary and separate independent
 review remain immutable. See the current [unit handoff](machines/macbookpro11-2.md#current-handoff)
 for source, session and acceptance limits.
 
+## Version2 first physical result, November 14
+
+Source `b4759eda` / release `2f83523f6097b854` reaches empty after24 final
+EXT/FIFO pairs in32,056µs on the first connection, with three uniquely bound
+DHCP IDs reporting MAC acknowledgements. Its baseline ends empty after five
+pairs. This is the complete observation that the older17-entry cap could not
+provide; it remains a MAC report, not server-delivery or whole-run acceptance.
+
+The second connection fails during the four-way handshake after M2, before any
+DHCP publication or radio capture. The strict whole-run observer therefore
+refuses a missing radio epoch and the candidate-specific completeness result
+remains false. Raw first-epoch rows survive; separate diagnostic-only projection
+checks can inspect those rows without changing the primary, replacing the
+collector result or granting protocol acceptance. The three-cold-boot series
+stops at this failed first trial. See the unit handoff for immutable evidence,
+preservation checks and the next native handshake audit. No identical retry is
+scheduled and no handshake/radio/protocol timeout was widened.
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
