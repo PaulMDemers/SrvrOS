@@ -1126,3 +1126,15 @@ cache, reader or kernel VFS implementation. This pre-user-init diagnostic starts
 no user services or public directory calls. Keep exact qualified main00ab runtime
 through its matching trial/collection; integrate4016 and rerun affected dispatch
 checks afterward. No fresh-main or desktop acceptance is inferred here.
+
+
+Air7,2 version2 `2f5d0ee3` / `679a03e543968655` now accepts one
+original kind2 hypothetical full-buffer CPU cache-policy observation lifetime.
+All four1,356-page PAT0 queries are uniform WB; independent receiver checks every
+page against the complete original context. Preparation 99,117/100,000 us,
+full diagnostic retirement and offline preservation pass;1,515files/161sessions,
+raw/physical banks durable, USB unmounted, no run/one-shot outstanding. See the
+[unit result](machines/macbookair7-2.md#native-full-buffer-cpu-cache-policy-observation-accepted).
+No actual alias/coherence/DMA/GPU cache/reader/firmware grant:255obligations and
+zero assurances/managed GPU pages remain. Main4016 public-dispatch integration
+is next; acceptance remains exact-source and actual-route specific.

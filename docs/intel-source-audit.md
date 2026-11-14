@@ -162,10 +162,10 @@ alias PAT bits or prove alias completeness, CPU/GPU coherent visibility, cache
 flush/translation completion, outstanding DMA/prefetch retirement, firmware
 exclusion, display-reader retirement or GPU interval ownership. No new hardware
 access target, cache instruction, PTE, submission or display writer is added;
-all 255 obligations and zero assurances/managed GPU pages remain. Version-2
-native acceptance is pending its own exact-source trial.
+all 255 obligations and zero assurances/managed GPU pages remain. The matching version-2 kind2 native observation is now recorded below; other
+routes and actual hardware ownership remain unaccepted.
 
-## Version-2 local qualification, native pending
+## Version-2 local qualification and native observation
 
 Frozen `2f5d0ee3` / `679a03e543968655` integrates main00ab2d90 and passes full host/core/USB/
 docs with40 images; fatal actual-adapter9 plus separate hold/cache-oracle
@@ -173,6 +173,26 @@ sanitizers;13 compiled weakness controls,15 unchanged historical classifications
 119 staging cases, actual native objects/seven2KiB frames and48 saved-tail
 projections (65,088/65,536 bytes). Exact-stage EFI/MBR refusal/save/unmount/
 return and missing-workspace halt pass. Immutable payload and exact qualification
-proofs are independently banked. Native version2 remains pending; the earlier
-version1 kind2 pass is historical and cannot accept full-buffer CPU policy.
+proofs are independently banked. The matching version2 kind2 result below accepts one observation lifetime; the
+earlier version1 kind2 pass remains historical, without full-buffer acceptance.
 See the [unit checkpoint](machines/macbookair7-2.md#qualified-full-buffer-cache-policy-trial).
+
+## Native version-2 kind2 observation accepted
+
+Air7,2 source `2f5d0ee3` / release `679a03e543968655`, session
+`session-000660374d3a6447-00`, accepts one original already-disabled kind2 lifetime.
+Four original-bound complete1,356-page buffer queries match at hypothetical
+PAT0 with MTRR/PAT/effective WB; each has one evaluated boundary point. The strict
+native receiver independently decodes every page against the complete original
+CPU context. Audit 1,276 us and preparation 99,117/100,000 us
+meet unchanged limits; all enclosing diagnostic holds, mappings, RAM patterns,
+exact2,712-page release, DMA57→57 and offline file/recovery integrity pass.
+Source-specific raw/physical evidence is banked;1,515files/161sessions remain.
+See the [unit result](machines/macbookair7-2.md#native-full-buffer-cpu-cache-policy-observation-accepted).
+
+This accepts hypothetical CPU policy observations only. Actual alias attributes/
+completeness, ordered CPU/GPU visibility, DMA/prefetch, GPU cache/translation,
+firmware/display-reader retirement and exclusive GPU interval transfer remain
+open. All255 obligations and zero assurances/managed GPU pages remain; native
+tear-free is pending. Enabled version2, delayed branches and repeatability need
+separate real evidence.

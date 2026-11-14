@@ -2,6 +2,50 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Native full-buffer CPU cache-policy observation accepted
+
+Frozen runtime `2f5d0ee3` / release `679a03e543968655`, session
+`session-000660374d3a6447-00`, collector `93bf7d61` accept **one original
+kind 2 already-disabled audit-version2 lifetime**. Each of two fresh CPU contexts
+checks both complete 1,356-page private allocations: four original-bound queries
+observe uniform MTRR/PAT/effective WB at hypothetical PAT index0. Both allocations
+have one evaluated policy point per context, with no interior MTRR boundary.
+The independent receiver decodes every physical page against the complete original
+cache receipt and verifies all four identities/counts/results. This is CPU policy
+eligibility, not actual-alias, coherence or GPU ownership acceptance.
+
+Two full GPU PCI/AF profiles,54 reader words and two37-read CPU cache contexts
+also match under the original all-five readiness hold. The pure final audit-return
+gate precedes PCI restoration. Audit takes 1,276 us; engine scope
+2,522 us and requester scope 3,168 us. All10 readiness
+stores/admissions/ACKs and44 native target reads complete, with zero engine/AF
+polls. Entry performs no BCS store; actual reset advances epoch0→1.
+
+Preparation takes 99,117/100,000 us, leaving 883
+us. Final guard 7 us, borrow return 3,390 us,
+GT 265,509/300,000 us, HDA 302,078/400,000 us and outer
+356,612/500,000 us meet unchanged limits. This is one bounded pass;
+repeatability and a causal performance improvement are not established.
+
+All original diagnostic source/RAM/root/HDA/CPU holds and14 GPU/one HDA aliases
+retire. Four full padded patterns, exactly-once2,712-page release and DMA57→57
+pass. All1,512 prior files preserve except expected metadata; three exact logs
+produce1,515 files/161 sessions. Raw/checkpoint/recipe/native receipt and offline
+fsck/allocation/writable/headroom/boot-digest checks pass. Installed/banked current,
+prior and recovery payloads, Ubuntu default and consumed one-shot verify. USB is
+unmounted; no trial or one-shot remains outstanding. Durable raw and complete
+physical banks are under `air-buffer-cache-20261114`, including
+`physical-session-000660374d3a6447-00`. Current679a, acceptedf1a9/prior83fd, recovery9aa8 and
+GUI/joint/HDA remain installed; older payloads/raw evidence remain banked.
+
+Enabled-entry version2, delayed pending/ACK branches and repeatability remain
+unaccepted. All255 actual DMA/prefetch/cache/translation/firmware/display-reader/
+backing obligations, zero positive assurances/managed GPU pages and native
+tear-free remain open. Next integrate reviewed main4016abf0 and validate its
+public-dispatch correction, then bind actual CPU aliases and the remaining
+hardware ownership witnesses before any GPU range/PTE/submission grant.
+Checkpoint: `build/air-buffer-cache-20261114`.
+
 ### Qualified full-buffer cache-policy trial
 
 Main `00ab2d90` is integrated. Frozen source `2f5d0ee3` / release `679a03e543968655` is
@@ -32,8 +76,8 @@ complete payload/native-manifest verification; all old payload and raw evidence
 remain durable. Three older build-stage duplicates were removed only against
 complete independent bank equality and an external cleanup ledger.
 
-New candidate is uninstalled/unarmed at qualification; **native version2 remains
-pending**. Needed automated reboot at1% is authorized: fresh on-disk run/media/
+At qualification the candidate was uninstalled/unarmed and native version2 was
+pending; the matching kind2 result is now recorded above. Needed automated reboot at1% is authorized: fresh on-disk run/media/
 recovery check, install/arm, progress and saved safe return; uncertainty halts.
 No human input required. Collect its matching run before another. PR19/379
 independent, no subagents/task messages, Actions disabled. Checkpoint:
