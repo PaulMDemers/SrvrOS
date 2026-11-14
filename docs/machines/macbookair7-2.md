@@ -4,40 +4,51 @@ Updated: 2026-11-13. State: **active reference machine; partial device acceptanc
 
 ### Active integration and engine-admission timing work
 
-The local Air7,2 agent is integrating main `94d0b9b8` (Air6,1 desktop control
-tracing and redundant Files directory-open fix) after complete native v34
-collection. The repeated return message had the same Ubuntu boot; there is no
-additional uncollected run. Preserve this unit's exact `4fd81b45` acceptance
-and the Air6,1 agent's separate evidence. PR19 MT7610 and PR379 WebCore are
-independent; no task messaging or subagents are requested.
+Main `94d0b9b8` is integrated. The optimized v34 candidate is **locally qualified**
+on frozen source `b8b8a2d1` / release `83fd1d098a221916`, with an independent
+payload and complete evidence bank. Affected desktop/Files/process-output/
+control-tracing checks pass. The native `4fd81b45` result below remains specific
+to its exact source; the optimized bytes have no native acceptance yet.
 
-Next bounded scope: measure repeated native engine-adapter guard work and
-remove redundancy while retaining complete source/root/map/requester admission
-before each target access, the final original clock/pure store checks, original
-registrations and full opening/closing hardware validation. Keep all
-100/300/400/500 ms origins and10 ms/256-poll caps unchanged. No PTE, GPU-memory
-or DMA/cache/reader authority is added. Only the new engine adapter and its
-host fixtures/qualification are intended to change; old recipes remain strict.
-Main's desktop/Files changes need their own affected local regressions.
-The local checkpoint is `build/air-engine-admission-20261113`. Native timing
-acceptance requires a new exact-source trial; old 207 us margin is not capacity.
-Current/recovery stay protected; standing automated reboot authorization at1%
-applies once a new candidate is properly qualified and recorded.
+Only two duplicate full guards per store were removed: each had no intervening
+target access before another mandatory guard. Every actual target read and
+store still has fresh complete source/root/map/requester validation. Core
+guards, the store's final original clock/pure admission, independently admitted
+first ACK, registered source/RAM/CPU holds and both full hardware brackets stay.
+All 100/300/400/500 ms and 10 ms/256-poll limits are unchanged; no new GPU-memory
+or completion authority is added.
 
-After integrating main `94d0b9b8` as `afe104c4`, affected desktop/Files,
-process-output, control-timing and documentation checks pass. Host measurement
-finds 106 full engine guards (166 with 20 delayed polls). Removing only two
-no-I/O duplicate guards around each pre-store control reduces that to 86
-(146 with polls), retaining all 44 target reads / 10 stores, control snapshots,
-ACK prefixes and clock-sampling counts on both modeled routes. The mock charges
-4 us per guard, so timestamps become 80 us shorter; this is not native timing.
-The initially overstrict timestamp-equality comparison was corrected, with its
-failure retained. Every actual target access asserts a fresh full guard in the
-host fixture; each guard failure and final-clock boundary retains ownership.
-Three directed tests pass. Full frozen-source/fatal/object/VM qualification is
-still required. No core guard, final store guard/clock, first-ACK admission or
-batch bracket was removed. Native performance and new bytes remain unaccepted;
-no trial is armed at this checkpoint.
+Host guards fall 106→86 (166→146 with 20 delayed polls), with unchanged controls,
+ACK prefixes, target I/O and clock-call counts. The mock charges 4 us per guard, so its
+80 us reduction is synthetic. The initial timestamp-equality assumption was
+corrected and preserved as a failed comparison; it does not establish a native
+speedup. Each actual target fixture requires a new full guard since the previous
+target. Guard failures retain ownership. A compiled omission of the remaining
+pre-store guard is rejected before any mock store.
+
+Frozen-source qualification passes full 39-image host/core/USB/docs checks,
+117 staging/installer/rollback tests, 13 fatal ASan/UBSan adapter tests plus RAM
+hold sanitizer, seven compiled weakness controls, 13 historical raw native
+replays, actual-object/linked store/map/clock checks and seven 2 KiB frames.
+Forty saved-tail projections fit at 65,364/65,536 bytes including 1,536 reserve
+and 1,024 header/runtime margin. Exact-stage EFI/MBR VM refusal/persistence/
+unmount/automatic return and missing-workspace halt pass. Installed-root tests
+were explicitly omitted because installer core is unchanged and recovery is
+protected. Existing injected exFAT repair gaps remain baseline-known.
+
+Fresh host/offline media checks preserve all 1,506 files / 158 sessions, boot digest,
+Ubuntu default and no one-shot. Current accepted 90df, prior 6f8, recovery 9aa8,
+GUI/joint/HDA stay installed. Only an independently banked, native-accepted,
+unreferenced older 8d EFI duplicate was retired for capacity; its exact payload
+and physical proof remain durable. c154/327a/562d/451c/d260 also remain bank-only.
+The new candidate is uninstalled/unarmed at qualification; source-specific
+native timing and all managed GPU-memory/tear-free grants remain pending.
+
+Standing authorization permits the next required automated trial at 1% without
+another question: persist the run, show progress, save/unmount/return on safe
+outcomes and retain uncertain state visibly. Collect its matching evidence
+before another run. No subagents or task messages; PR19/379 are independent.
+Checkpoint: `build/air-engine-admission-20261113`.
 
 ### Native v34 original-source five-engine readiness hold accepted
 

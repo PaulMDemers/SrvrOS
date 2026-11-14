@@ -128,3 +128,23 @@ GPU-memory/completion/tear-free grant remain pending. All 255 obligations and
 zero assurances/managed pages remain. See the
 [unit result](machines/macbookair7-2.md#native-v34-original-source-five-engine-readiness-hold-accepted)
 for exact evidence and the next timing/ownership boundary.
+
+## Removing repeated admission work
+
+Candidate `b8b8a2d1` / release `83fd1d098a221916` removes two repeated full guards
+per store while preserving the fresh full check before the pre-store control
+read and the separate full check immediately before the store's final clock.
+The full core/first-ACK/opening/closing checks remain, as do every original
+identity, registration, clock and profile test. No target access is shared
+between admissions. Host full guards fall 106→86 (delayed-poll 166→146); a target
+fixture rejects a missing fresh full check, including a compiled negative
+control of the final store guard. Clock calls and raw controls/target counts are stable;
+mock timestamps shorten 80 us because mocks charge 4 us per guard, not because any
+deadline changed. Native speedup is pending.
+
+Full 39-image/core, 117  staging,13 fatal sanitizer tests, seven compiled controls,
+13 historical classifications, native object/log/frame and exact-stage VM/media/
+recovery checks pass. The candidate is banked, uninstalled/unarmed and eligible
+for its standing-authorized automated native trial at 1%. Current 4fd native
+kind 2 acceptance above is not transferred to this revision. All 255 obligations,
+zero assurances/managed pages and native tear-free remain unchanged.

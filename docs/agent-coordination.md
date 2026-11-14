@@ -1031,3 +1031,16 @@ deferred until this source-specific collection is published; next integrate it
 and address measured admission overhead before further ownership witnesses.
 The user grants standing needed automated reboots at 1%, preserving recovery,
 progress/persistence and collect-before-next-run rules. No task was contacted.
+
+
+Air7,2 integrated main `94d0b9b8` and qualified optimized v34 source `b8b8a2d1` /
+release `83fd1d098a221916`. Only 20 duplicate full engine guards are removed per 10 stores;
+fresh complete admission for every target, core/final-clock/first-ACK and full
+batch brackets remain. The reduction from 106 to 86 guard calls is structural, not
+native speed acceptance; all original limits and 255 obligations remain.
+Full 39-image/core/fatal/fault/control/object/VM/media checks pass; current 90df
+and recovery retained, new payload/proof independently banked, uninstalled/
+unarmed. Only unreferenced, exact bank/native-proof-verified 8d EFI duplicate
+was retired; no accepted backup removed. Standing needed automated reboots at 1%
+apply after on-disk run preparation; collect matching results before another.
+No cross-task messages or subagents. Prior 4fd kind 2 result remains source-specific.
