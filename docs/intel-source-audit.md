@@ -164,3 +164,15 @@ exclusion, display-reader retirement or GPU interval ownership. No new hardware
 access target, cache instruction, PTE, submission or display writer is added;
 all 255 obligations and zero assurances/managed GPU pages remain. Version-2
 native acceptance is pending its own exact-source trial.
+
+## Version-2 local qualification, native pending
+
+Frozen `2f5d0ee3` / `679a03e543968655` integrates main00ab2d90 and passes full host/core/USB/
+docs with40 images; fatal actual-adapter9 plus separate hold/cache-oracle
+sanitizers;13 compiled weakness controls,15 unchanged historical classifications,
+119 staging cases, actual native objects/seven2KiB frames and48 saved-tail
+projections (65,088/65,536 bytes). Exact-stage EFI/MBR refusal/save/unmount/
+return and missing-workspace halt pass. Immutable payload and exact qualification
+proofs are independently banked. Native version2 remains pending; the earlier
+version1 kind2 pass is historical and cannot accept full-buffer CPU policy.
+See the [unit checkpoint](machines/macbookair7-2.md#qualified-full-buffer-cache-policy-trial).

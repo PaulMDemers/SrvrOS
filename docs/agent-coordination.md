@@ -1108,3 +1108,21 @@ no run/one-shot outstanding. Enabled v35, pending branches and repeatability sta
 open. All255 actual DMA/cache/translation/firmware/display-reader obligations and
 zero assurances/managedGPU pages remain. Reviewed main00ab2d90 integration is next;
 no other task contacted or Actions enabled.
+
+
+Air7,2 main00ab2d90 integrated; `2f5d0ee3` / `679a03e543968655` locally qualifies source-bound
+full-buffer CPU cache policy (v35 audit receipt2), native PENDING. Exact private
+physical/padded identities and all interior policy boundaries remain under the
+original held lifetime; no actual-alias, DMA/GPU cache/reader/firmware grant.
+Full core/40images, fatal9/hold/cache oracle,13controls,15legacy,119staging,
+objects/seven2KiB,48log cases and exact-stage VM pass. Currentf1a9/prior83fd/
+recovery9aa8/GUI/joint/HDA retained; only fully bank/native-proof-verified90df EFI
+duplicate retired.1,512files/160sessions intact. Needed automatic1% trial already
+authorized, no input; collect matching run first. Actions stay disabled.
+
+Fresh pre-trial fetch advanced main to `4016abf0` (PR499/500: Air6,1 evidence and
+public directory-syscall dispatch correction). Reviewed changes do not affect GPU,
+cache, reader or kernel VFS implementation. This pre-user-init diagnostic starts
+no user services or public directory calls. Keep exact qualified main00ab runtime
+through its matching trial/collection; integrate4016 and rerun affected dispatch
+checks afterward. No fresh-main or desktop acceptance is inferred here.

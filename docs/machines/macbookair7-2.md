@@ -2,21 +2,50 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
-### Active full-buffer cache-policy qualification
+### Qualified full-buffer cache-policy trial
 
-Main `00ab2d90` is integrated after collecting and sealing the v35 kind 2 audit.
-Next scope: a pure PAT/MTRR range decoder and source-bound observations over both
-complete pinned private buffers inside that original held child. Check every
-policy boundary, including interior holes, and bind exact physical bases, padded
-page counts, PAT index and decoded types to the original RAM holds and cache
-contexts. Version the expanded receipt; preserve old native classifications and
-all deadlines. This establishes hypothetical uniform CPU cache policy only,
-not actual alias permissions/completeness, DMA visibility, GPU cache/translation
-completion, firmware or display-reader retirement. No hardware writer or memory
-assurance is added. Qualify actual adapter faults, receiver/raw transport, native
-objects, saved tail and exact-stage VM before the next authorized 1% automated
-trial. Native remains pending. PR19/379 independent; no task messages/subagents.
-Checkpoint: `build/air-buffer-cache-20261114`.
+Main `00ab2d90` is integrated. Frozen source `2f5d0ee3` / release `679a03e543968655` is
+locally qualified and independently banked for the audit-version2 full-buffer
+CPU cache-policy trial. Two complete padded 1,356-page private buffers are
+checked against each fresh original cache context, including every interior
+MTRR boundary. The final pure parent-return gate binds all four range results
+to original RAM identities. Summary/data versions agree; old version1 native
+results retain their earlier observation-only classification. No actual alias,
+DMA/GPU cache/translation, firmware or display-reader assurance is inferred.
+All 255 obligations, zero assurances/managed GPU pages and all deadlines remain.
+
+Full host/core/USB/docs plus40 images pass on the frozen source, including
+fresh-main process/VFS/syscall/workspace changes. Nine actual-adapter tests pass
+under fatal ASan/UBSan; separate buffer-hold and exhaustive per-page range-oracle
+sanitizers pass. Thirteen compiled weakness controls,15 historical native raw
+classifications,119 staging/installer/rollback cases, native object/store/map
+and seven2KiB frame checks pass. Forty-eight saved-tail cases fit at
+65,088/65,536 bytes including reserve/header. Exact-stage EFI/MBR VM safe
+refusal/persistence/unmount/return and missing-workspace halt pass. Installed-root
+tests remain explicitly omitted with unchanged installer core; known injected
+exFAT repair gaps remain documented. No VM result accepts native version2.
+
+Offline media preserves all1,512 files/160sessions, boot digest, Ubuntu default
+and unarmed recovery. Current f1a9, prior83fd, recovery9aa8 and GUI/joint/HDA
+payloads remain installed. Only unreferenced90df EFI duplicate was retired after
+complete payload/native-manifest verification; all old payload and raw evidence
+remain durable. Three older build-stage duplicates were removed only against
+complete independent bank equality and an external cleanup ledger.
+
+New candidate is uninstalled/unarmed at qualification; **native version2 remains
+pending**. Needed automated reboot at1% is authorized: fresh on-disk run/media/
+recovery check, install/arm, progress and saved safe return; uncertainty halts.
+No human input required. Collect its matching run before another. PR19/379
+independent, no subagents/task messages, Actions disabled. Checkpoint:
+`build/air-buffer-cache-20261114`.
+
+
+Fresh pre-trial fetch advanced main to `4016abf0` (PR499/500: Air6,1 evidence and
+public directory-syscall dispatch correction). Reviewed changes do not affect GPU,
+cache, reader or kernel VFS implementation. This pre-user-init diagnostic starts
+no user services or public directory calls. Keep exact qualified main00ab runtime
+through its matching trial/collection; integrate4016 and rerun affected dispatch
+checks afterward. No fresh-main or desktop acceptance is inferred here.
 
 ### Native held requester, cache and reader audit accepted
 
