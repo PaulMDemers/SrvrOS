@@ -90,3 +90,23 @@ The subsequent ownership work must still establish documented outstanding DMA/
 prefetch completion, cache/translation ordering and every affected display/
 firmware reader before a managed interval or first GPU PTE/submission operation.
 Matching AF/plane/cache samples cannot satisfy those separate contracts.
+
+## Qualified source, native acceptance pending
+
+Frozen source `4387351b` / release `f1a9627dff866ee0` passes local qualification.
+The complete producer/core baseline is `f90fba95`; the receiver-only positive
+origin/start correction and zero-field mutations then pass four affected tests
+with byte-identical C/Makefiles/userspace/shared sources and a 40-image build check.
+Nine fatal ASan/UBSan adapter tests, eleven compiled weakness controls, fourteen
+historical raw classifications,119 staging cases, seven 2 KiB native frames and
+forty-four saved-tail projections pass. Maximum projected tail is 64,905/
+65,536 bytes including reserve/header. Exact-stage EFI/MBR no-store refusal,
+persistence, clean unmount/return and missing-workspace halt pass. Immutable
+payload and qualification evidence are banked outside build. Native v35 remains
+unaccepted until matching raw/checkpoint/full-chain and offline return evidence.
+See the [unit checkpoint](machines/macbookair7-2.md#qualified-held-requester-cache-and-reader-audit).
+
+The receiver requires positive parent/origin/start order for claimed completion.
+An earlier parser-only zero-start reproducer remains preserved as failed review
+evidence; the native C producer already prohibited that state. No deadline,
+register gate, target access or hardware grant changed in the receiver correction.

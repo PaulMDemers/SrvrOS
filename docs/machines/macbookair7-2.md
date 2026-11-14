@@ -2,20 +2,53 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Active held requester, cache and reader audit
+### Qualified held requester, cache and reader audit
 
-Local scope after collected/sealed `83fd` is a distinct v35 source-bound audit
-inside the original maintained five-engine readiness child. It will capture two
-fresh GPU PCI/AF profiles and three-plane primary/cursor/sprite vectors, recheck
-the complete CPU PAT/MTRR context and bind them to the original registration,
-source epoch, root, mappings and unchanged deadlines. Compare inherited reader
-controls exactly; preserve HDA exclusion and inherited backing. No DMA/cache/
-translation/reader-retirement assurance or memory/PTE/submission grant follows
-from matching snapshots. Older profiles stay unchanged. Qualify fault retention,
-raw receiver, object/image/log budget and exact-stage VM before a needed native
-automated trial at1%; no user input required. Main `94d0b9b8` is still latest;
-PR19/379 remain independent; no other task or subagent contacted. Checkpoint:
+The separate [v35 audit](../intel-source-audit.md) is locally qualified on frozen
+source `4387351b` / release `f1a9627dff866ee0` and independently banked. It captures
+two original inhibited PCI/AF profiles, all 54 three-plane reader words and two
+complete CPU0 cache-context equality observations inside the original five-engine
+held child. The final parent restore clock is followed by a pure original-audit
+return gate. All inherited backing and original 100/300/400/500 ms and 10 ms/
+256-poll bounds remain; no DMA/cache/reader retirement or GPU-memory grant follows.
+
+The full core/producer regression passed on `f90fba95`; subsequent source changes
+are only the receiver's positive-origin/start bound and its zero-field mutation
+cases. All C, Makefiles, userspace and shared source bytes remain identical. Four
+affected receiver/recipe/native-collection tests and the 40-image build check qualify
+that delta explicitly. Nine actual-adapter tests pass under fatal ASan/UBSan,
+including both entry routes, reset-default and delayed engine/AF cases, every
+clock, each raw target fault/drift, cache failures and lost audit history at
+restore. Eleven compiled weakness controls, 14 historical native classifications,
+119 staging/installer/rollback cases, native object/store/map and seven 2 KiB
+frame checks pass. Forty-four saved-tail cases fit at 64,905/65,536 bytes,
+including reserve/header. Exact-stage EFI/MBR VM refusal/persistence/unmount/
+return and missing-workspace halt pass. No VM result accepts native observations.
+Installed-root tests remain explicitly omitted with installer core unchanged;
+known injected exFAT repair gaps are not universal repair acceptance.
+
+Offline media and all 1,509 files / 159 sessions, boot digest, Ubuntu default and
+unarmed recovery pass. Current accepted 83fd, prior 90df, recovery 9aa8 and GUI/
+joint/HDA payloads remain installed. Only the unreferenced 6f8 EFI duplicate was
+retired after exact payload/accepted-native manifest verification; that payload,
+all raw evidence and older bank-only releases remain durable. Verified duplicate
+canonical stages were also pruned with an external cleanup ledger.
+
+The new candidate is uninstalled/unarmed at qualification and **native v35 is
+pending**. Previous b8/83fd enabled-entry acceptance below is source-specific.
+All 255 obligations and zero assurances/managed GPU pages remain. Standing
+needed automatic reboot authorization at1% applies after fresh on-disk run,
+recovery/media checks and installation; no human input is required. Collect its
+matching session before another trial. Main94d0b9b8 is integrated; PR19/379 are
+independent, no other task contacted, Actions disabled. Checkpoint:
 `build/air-held-readers-20261113`.
+
+
+Fresh pre-trial fetch found main `00ab2d90` (Air6,1 directory-metadata admission,
+PR497/498), reviewed separately from the frozen runtime. It does not change GPU
+ownership or native acceptance. Defer integration until this exact-source trial
+and matching collection finish; do not silently relabel the qualified payload as
+current main. The runtime integrates `94d0b9b8`.
 
 ### Latest native optimized engine readiness lifetime accepted
 

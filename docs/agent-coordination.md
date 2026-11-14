@@ -1073,3 +1073,24 @@ raw ACK/control/poll/timestamp field. No memory or completion authority changes.
 Native v35 pending until exact source evidence; main94d0b9b8 still current, no
 other task contacted. Local checkpoint `build/air-held-readers-20261113`; standing
 volume1% automated test authorization includes reboot once qualified.
+
+
+Air7,2 qualified v35 `4387351b` / `f1a9627dff866ee0`: two original-held PCI/cache/three-
+plane observations and pure final audit-return gate; native PENDING. Full core/
+producer baseline f90fba95 is retained; receiver-only positive-origin/start and
+zero-mutation delta has unchanged C/Makefiles/userspace/shared plus four affected
+checks and40-image build check. FatalSAN9, compiled controls11, historical14,
+staging119, native objects/seven2KiB frames,44log projections and exact-stage
+VM refusal/save/unmount/return/missing halt pass. Independent banks/media/recovery
+verified, current83fd/prior90df/recovery9aa/GUI/joint/HDA retained; only fully
+bank/native-proof-verified unreferenced6f8 EFI duplicate retired. Old canonical
+stage duplicates removed only against exact durable banks/ledger. No ownership
+bit changes:255obligations/0assurances/0managedGPU pages. Needed automatic1%
+trial authorized, no input; collect unique match before another. Actions remain
+disabled; no other task contacted. Unit ledger owns actual native acceptance.
+
+Fresh pre-trial fetch found main `00ab2d90` (Air6,1 directory-metadata admission,
+PR497/498), reviewed separately from the frozen runtime. It does not change GPU
+ownership or native acceptance. Defer integration until this exact-source trial
+and matching collection finish; do not silently relabel the qualified payload as
+current main. The runtime integrates `94d0b9b8`.
