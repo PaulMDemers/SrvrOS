@@ -2,6 +2,29 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Active diagnostic range specialization
+
+Bounded objective: measure and remove optional-attribute dispatch overhead from
+repeated framebuffer translation checks, without removing a fresh read, root/
+IRQ exclusion, full admission guard or original deadline. The native4b object
+uses one generic out-of-line range walker for both translation-only and actual
+alias observations. Evaluate compile-time specialization of that same body;
+retain both APIs, all per-leaf checks and both root brackets. Host timing is
+comparative evidence, not native preparation acceptance.
+
+Touch VMM implementation and actual-core timing/semantic fixtures, current unit
+and range/audit guides; GPU recipes, targets, stores and receipt3 stay unchanged.
+Main4016 is integrated; PR19/379 scopes remain independent. One local harness,
+no subagents/task messages, Actions disabled. Checkpoint:
+`build/air-range-specialization-20261114`.
+
+Last native run4751/4b is collected, archived and published with no one-shot.
+Any qualified new source needs exact-stage VM and independent payload/evidence
+banks, fresh own-media/recovery checks and source-specific native acceptance.
+Standing authorization covers the needed automated trial at1%; no input needed,
+persist/unmount/return on safe outcomes and retain uncertainty visibly. No GPU
+memory/PTE/submission grant; all255 hardware obligations stay open.
+
 ### Native actual requested CPU mapping observation accepted
 
 Frozen runtime `4b4b4d5d` / release `4751b92fb87ad132`, session
