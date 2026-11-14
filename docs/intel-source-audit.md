@@ -326,3 +326,21 @@ modulo 2^64; arbitrary full-width words retain the original byte loop. This
 changes no target load, callback, comparison or deadline. Host timing is not
 native headroom acceptance. Hardware qualification must collect the original
 control timestamps and new census packet together before attributing gains.
+
+## Native census timing and span admission (one kind2 lifetime)
+
+Air7,2 runtime42b17c5f/release0ffffc98d1e656e9/session0006604158379f1e
+passes the original kind2 receipt3 chain plus the auxiliary cost accounting.
+All1,075 fresh span queries pass;202 full census sample pairs retain1,729,120
+DWORD reads/547,824 PTE observations in302,488us of envelopes. During preparation,
+56 pairs account for83,843us of93,392us, leaving6,608us under the unchanged100ms
+limit. Control brackets overlap these envelopes and must not be added to them;
+initial endpoint/final checks are outside sample timing. Single native pass,
+no isolated-cause or repeatability claim. The earlier same-route4b source took
+99,693us; the intervening634 source exercised kind1 instead.
+
+All original PCI/cache/reader observations,10 engine stores/ACKs, full diagnostic
+retirement, exact2,712-page release/DMA57→57, three logs and offline preservation
+pass. The [unit result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted)
+owns precise timing, source, route and evidence scope. All255 actual hardware
+ownership obligations remain open; no native tear-free or managed GPU grant.

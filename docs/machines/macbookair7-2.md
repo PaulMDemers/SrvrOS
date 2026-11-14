@@ -2,7 +2,57 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
-### Qualified v35 span admission and census cost trial
+### Native v35 span admission and census timing accepted
+
+Frozen runtime `42b17c5f` / release `0ffffc98d1e656e9`, session
+`session-0006604158379f1e-00`, collector `1312fccb` accept **one original
+kind2 disabled-entry receipt3 lifetime with complete census-cost accounting**.
+Reset0→1/source1, both original PCI/AF profiles,54 reader words and two complete
+37-read CPU cache contexts match. Four full1,356-page requested HHDM observations
+retain PAT0/uniform WB, writable/supervisor attributes, four2MiB leaves per span
+and raw NX bits clear. All10 readiness stores/admissions/ACKs and44 native target
+reads complete with zero engine/AF polls. All14 GPU diagnostic aliases plus the
+HDA alias retire; four padded patterns, exact2,712-private-page release and
+DMA57→57 pass. This adds no exhaustive alias, DMA/cache/reader ownership grant.
+
+Preparation is **93,392/100,000us**, leaving **6,608us**
+of margin with every original check and deadline retained. The earlier4b kind2
+receipt3 run took99,693us: this observation is6,301us shorter. The intervening634
+kind1 run took99,679us. These are single samples; repeatability, isolated FNV/span
+causation and the current source's enabled-entry route remain pending.
+
+The original-clock packet records202 full census sample pairs:1,729,120 DWORD
+reads/547,824 PTE observations,302,488us in enclosing sample envelopes, maximum
+1,501us; flags0 and no failed pairs. Within preparation,56 pairs retain479,360
+DWORD reads/151,872 PTE observations and83,843us of sample envelopes (83,810us
+inside the samples themselves), maximum1,500us. The1,075 fresh span queries all
+pass with first-failure code0. These include additional direct endpoint queries;
+query count and full census count are different scopes. No new clock callback.
+Initial endpoint and post-sample checks remain outside the sample envelopes.
+
+Disjoint existing brackets record31,971us in control phases,12,800us in reset
+pulses,9,637us post-census,1,682us source-read phase,55us settle,3,154us requester,
+7us final guard and3,171us borrow return;30,915us lies outside those selected
+brackets. The83,843us census envelopes overlap these brackets: do not add them
+or interpret the residual as hardware waiting. Census sample work is the dominant
+measured cost. GT249,095/300,000us, HDA283,160/400,000us and outer333,624/500,000us
+pass. Audit1,286us and engine2,509us retain their original limits.
+
+All1,521 prior files preserve except expected metadata; three exact logs yield
+1,524files/164sessions. Strict raw/native/checkpoint/recipe, full retirement,
+offline fsck/allocation/writable/headroom/boot digest, installed/banked payloads,
+Ubuntu default and consumed one-shot checks pass. USB is unmounted; no run or
+one-shot is outstanding. Raw and sealed physical evidence survive distclean at
+`~/.local/share/srvros/reviewed-evidence/air-census-cost-20261114/`.
+
+Next bound the remaining DMA/cache/translation/firmware/display-reader ownership
+work against this measured baseline. All255 obligations and zero assurances/
+managed GPU pages remain; the inherited-framebuffer desktop is still in use and
+native tear-free is pending. Further performance work must retain fresh checks,
+original deadlines and explicit scope rather than treating cost data as authority.
+Checkpoint: `build/air-census-cost-20261114`.
+
+### Host and VM qualification preceding the native census trial
 
 Frozen runtime `42b17c5f` / release `0ffffc98d1e656e9` enables the existing
 bounded span walker specifically for v35. Every framebuffer leaf and every fresh
@@ -57,7 +107,7 @@ Keep the76-byte auxiliary receipt within the existing64KiB saved-tail budget;
 old receipt3 histories retain their previous scope without cost acceptance.
 
 Inspection found the modern v35 build does not define the old PREPARE_RESET
-macro, so its framebuffer admission still uses the scalar per-page path. Enable
+macro, so its framebuffer admission had still used the scalar per-page path. Enabled
 the existing bounded span observer specifically for SOURCE_AUDIT: every leaf is
 still checked; ancestor sharing is confined to one uninterrupted IRQ-masked call,
 with fresh sole-root/registry checks at both ends. Startup retains the scalar

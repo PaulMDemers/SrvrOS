@@ -1146,3 +1146,16 @@ Affected public-dispatch/syscall/user-copy/admission, host, matched default
 kernel/USB build and docs pass. GPU/cache/receiver source is unchanged from
 frozen2f5d0ee3; installed679a and native acceptance stay exact-source. This is
 local integration validation only; no new stage, trial or one-shot is armed.
+
+
+Air7,2 source42b17c5f/release0ffffc98d1e656e9 accepts one original kind2 receipt3
+lifetime with v35 span admission and existing-clock census accounting. All1,075
+span queries pass; preparation93,392/100,000us leaves6,608us. The56 preparation
+sample envelopes account for83,843us and overlap control phases. Complete original
+retirement and offline preservation pass (1,524files/164sessions). Raw/physical
+banks are outside build; USB unmounted, no outstanding trial/one-shot. See the
+[unit result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted).
+Main4016 is already integrated; PR19/379 remain independent. Next bound the
+remaining DMA/cache/translation/firmware/display-reader ownership protocol work.
+All255 obligations remain; no cache/alias completeness, managed GPU or tear-free
+grant, no sibling acceptance and no isolated-cause/repeatability claim.

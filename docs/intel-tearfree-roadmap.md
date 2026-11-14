@@ -414,3 +414,14 @@ controlled comparison with the earlier4b kind2 run; no useful new native
 headroom or repeatability is claimed. Next isolate full-admission/control and
 census costs with bounded source-bound evidence before adding ownership work.
 All checks/deadlines and all 255 hardware obligations remain; no trial is armed.
+
+Air7,2 runtime42b17c5f now accepts one v35 kind2 span-admission/census timing
+lifetime:93,392/100,000us preparation,6,608us margin, complete original retirement
+and file/recovery preservation. The56 preparation census sample envelopes cover
+83,843us and overlap control brackets; repeated census work remains the dominant
+measured cost. Same-route4b was99,693us (one sample per source, no causation or
+repeatability claim). No checks/deadlines were removed or extended. See the
+[current unit result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted).
+Next use this baseline to bound outstanding DMA/cache/translation/firmware/reader
+protocol work. All255 actual ownership obligations and zero managed GPU pages
+remain; ordinary desktop still uses the inherited framebuffer. No trial armed.
