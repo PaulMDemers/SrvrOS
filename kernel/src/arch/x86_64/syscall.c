@@ -3683,26 +3683,31 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+/* Public dispatch calls this before acquiring namespace ownership. A refusal
+ * leaves the cookie/output untouched and must enter the full owned fallback. */
+/* Release this batch-sized frame before entering the owned fallback. */
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result)
+    __attribute__((noinline));
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result) {
+    struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
+    if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0])) {*result=SRV_ERR_INVAL;return true;}
+    uint64_t flags=irq_save();
+    if(!out || !user_buffer_ok(out,capacity,true)) {*result=SRV_ERR_FAULT;irq_restore(flags);return true;}
+    int64_t count;
+    if(!process_directory_try_read_info(fd,entries,capacity,&count)) {irq_restore(flags);return false;}
+    *result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+    irq_restore(flags);return true;
+}
 static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
     if(operation==SRV_DIRECTORY_READ_INFO) {
         struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
         if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0]))return SRV_ERR_INVAL;
+        /* Namespace dispatch owns the original span through this fallback.
+         * Cancellation and mappings/FDs may have changed while awaiting it. */
+        if(process_should_exit_current())return SRV_ERR_INTR;
         uint64_t flags=irq_save();
         if(!out || !user_buffer_ok(out,capacity,true)) {irq_restore(flags);return SRV_ERR_FAULT;}
-        int64_t count;
-        if(process_directory_try_read_info(fd,entries,capacity,&count)) {
-            int64_t result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
-            irq_restore(flags);return result;
-        }
-        irq_restore(flags);
-        uint64_t wait_at=scheduler_io_active()?latency_clock():0;
-        scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_DIRECTORY);
-        if(process_should_exit_current())return SRV_ERR_INTR;
-        /* The wait may change FD state or user mappings. Revalidate before
-         * advancing the original shared cursor, and copy under the same IF0. */
-        flags=irq_save();
-        if(!user_buffer_ok(out,capacity,true)) {irq_restore(flags);return SRV_ERR_FAULT;}
-        count=process_directory(operation,fd,entries,capacity);
+        int64_t count=process_directory(operation,fd,entries,capacity);
         int64_t result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
         irq_restore(flags);return result;
     }
@@ -4445,6 +4450,14 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
     }
 #endif
+    /* Only READ_INFO enters its callback-free proof before ownership. All
+     * refusals and other directory operations retain the complete span below. */
+    if(frame->rax==SYS_DIRECTORY && frame->rdi==SRV_DIRECTORY_READ_INFO) {
+        int64_t result;
+        if(syscall_directory_try_read_info(frame->rsi,(void *)frame->rdx,frame->rcx,&result)) {
+            frame->rax=(uint64_t)result;return;
+        }
+    }
     if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
     uint64_t flags=irq_save();
     scheduler_io_set_user_safe(false);scheduler_io_wait();

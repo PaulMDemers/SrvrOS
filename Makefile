@@ -6571,3 +6571,8 @@ build/intel-source-audit/engines.o: kernel/diagnostics/intel_source_engines.c $(
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_SOURCE_AUDIT_FLAGS) -c $< -o $@
 build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c
+
+.PHONY: test-directory-dispatch
+test-core: test-directory-dispatch
+test-directory-dispatch:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_directory_dispatch.py --output build/tests/directory-dispatch

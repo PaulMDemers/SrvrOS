@@ -87,10 +87,11 @@ int main(void) {
     region=mmap(NULL,8192,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
     assert(region!=MAP_FAILED);
     reset();arm=true;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,region,sizeof(struct srv_dirent_info))==1);
+    int64_t directory_result;
+    assert(syscall_directory_try_read_info(3,region,sizeof(struct srv_dirent_info),&directory_result) && directory_result==1);
     assert(((struct srv_dirent_info *)region)->size==123 && irq_enabled);
     reset();victim=region;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,region,sizeof(struct srv_dirent_info))==SRV_ERR_FAULT);
+    assert(syscall_directory_try_read_info(3,region,sizeof(struct srv_dirent_info),&directory_result) && directory_result==SRV_ERR_FAULT);
     reset();
     struct srv_net_status_info *status=(void *)region;
     status->abi_version=SRV_NET_ABI_VERSION;status->struct_size=sizeof(*status);

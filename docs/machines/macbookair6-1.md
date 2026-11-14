@@ -14826,3 +14826,134 @@ CRC, fsync/flush/rename, fresh allocation, file retention, worker/reap and batte
 retirement checks. Heavy audit stays off; no human input is required. The prior
 d26 failure remains failed; this source has no physical acceptance until its
 matching complete return is collected and independently reviewed.
+
+### Directory metadata return-review scope (2026-11-14)
+
+From fetched main `00ab2d90` (PR498), review only the matching `ba1a402c381b7a94`
+return, replay original workload/diagnostic contracts, and perform fresh
+read-only media/recovery checks. No implementation, staging or reboot is
+authorized by this review checkpoint. The automatic collector reports missing
+positive directory admission; distinguish complete workload evidence from
+feature validation rather than accepting a zero-handled run.
+
+
+### Native workload passes; directory prelude remains gated (2026-11-14, PR499)
+
+Source `29f0dc24` / release `ba1a402c381b7a94`, run `c2199b02be244884`, matching
+session `session-00066035466f2a54-00` completes the original 1800-second 1%
+audio/disk/app/three-screenshot workload. Independent replay accepts 1360 app
+cycles, 3899 verified 256 KiB bursts, the exact binary disk receipt, zero
+recorded PCM underruns, all three exact BMPs entirely within playback, follow-up
+app cycles and clean exit. All 50231 loop samples are valid with
+zero excursions and 121.186 ms maximum under 500 ms. Ready/close maxima are
+7.024557/3.392970 s; original whole-app checks remain unchanged. All 1361 launches
+are reaped, with launcher retired/errors 0, final capture/cache workers clear,
+and battery attached/detached 1, heap/errors/denied 0 and controls PASS.
+
+The original workload passes, but the **directory fix validation fails**:
+final handled/entries are 0/0, policy refusals 3416, publication/descriptor
+refusals 0/0. The automatic failed assessment is preserved, not relabeled as a
+full feature pass. Native directory admission and causal latency improvement
+remain unaccepted. Capture lifetimes are 6.715420/26.573992/19.152908 s; WRITE
+is 3.661473/14.500053/15.659459 s. Different cold boots, media growth and
+interleavings do not isolate a speed change. Listening at 1% remains unassessed.
+
+The tested public `syscall_dispatch` still classifies all `SYS_DIRECTORY`
+operations as namespace calls. It marks the caller unsafe, waits, and acquires
+storage ownership before reaching the new READ_INFO handler. The existing
+atomic proof then correctly refuses a current-owned span. Thus even the prior
+positive host fixture called the handler directly and missed this outer gate;
+the zero VM counter was a real integration gap, not evidence of a working
+fast path. The native positive-use requirement correctly prevents acceptance.
+
+The next implementation must route only the validated READ_INFO attempt ahead
+of that outer ownership span. All refusals, shared/stale descriptors and other
+directory operations must regain the original complete owned fallback, with
+post-wait cancellation, mapping/FD revalidation and live cookie semantics.
+Add a public-dispatch regression that fails on the tested tree, plus positive
+loaded-VM use before repeating the original native trial. Do not simply remove
+DIRECTORY from namespace exclusion or weaken the existing atomic proof.
+
+Fresh read-only hashing/fsck/allocation checks preserve all 960 prior paths and
+959 non-sidecar hashes; only expected `.srvros/meta` changed. Four logs, three
+BMPs and two completed workload receipts bring the volume to 969 files,
+5360 allocated clusters, with zero leaks/mismatches/errors.
+Strict original control/scheduler companions and both completed live sidecar
+endpoints replay from the final 64 KiB log; all transfer/commit/launch/protocol
+companions also validate. Installed, staged and independent payload/recovery
+hashes agree. Ubuntu remains default, one-shot consumed, collector disabled,
+USB unmounted and no reboot armed. Current remains this diagnostic-failed trial;
+accepted `bfe6ca6ff45fe078`/`772f95d189e4dcfc`/`7acb756c0ac5f4bb` and recovery
+`c35475f62f154f1e` remain retained. No implementation or new boot was started
+in this return-review block. Raw matching evidence and the explicit failure
+classification are retained outside build.
+
+### Directory public-dispatch correction scope (2026-11-14)
+
+From main `62eca9ce` (PR499), correct the original directory-admission objective:
+move only the validated READ_INFO attempt before public namespace ownership.
+Keep the complete owned fallback, cancellation and fresh mapping/FD/cookie
+checks. Scope is syscall routing and its actual public-dispatch/host-copy tests;
+no VFS proof, scheduler, storage backend, ABI, policy or limit changes. Require
+a baseline-failing public-dispatch regression and positive loaded-VM admission
+before repeating the original 1800-second native 1% workload under the user's
+existing self-merge/reboot authorization. Matching prior evidence is reviewed
+and sealed; no uncollected run remains. PR19 `b4759eda`, PR301 `308d7454` and
+PR379 `817f80bb` remain independent; recheck actual shared-file hunks at merge.
+
+
+### Public directory prelude qualified with positive VM use (2026-11-14, PR500)
+
+Final fetched main remains `62eca9ce`; PR19 `bce79673` and PR301 `2f5d0ee3`
+were rechecked for actual shared-file overlap, with no competing public
+directory routing change. PR379 remains `817f80bb`. No unmerged scope is imported.
+
+Frozen source `1ca5c2bd` routes only the validated READ_INFO attempt
+before public namespace ownership. A declined attempt regains the complete
+original owned span; cancellation, fresh user mapping/FD lookup and live shared
+cookie semantics remain in the owned handler. READ, PATH, CHDIR and other
+namespace calls retain original ownership. The batch-sized prelude is out of
+line so its frame is released before the owned fallback on the 16 KiB entry
+stack. VFS publication/descriptor proofs, scheduler, storage backend, userspace,
+ABI, profile policy, 16-entry batch and all timing/integrity limits are unchanged.
+
+A new regression compiles the actual production directory helpers and public
+dispatcher text together. The old tested wrapper compiles, then fails the exact
+pre-ownership assertion; the corrected wrapper passes, also under ASan/UBSan.
+Cases cover retained foreign ownership on success, full owned fallback, FD
+replacement, mapping invalidation, post-wait cancellation, failed acquisition,
+invalid bounds/fds and unchanged other directory/namespace calls. Existing raw
+experimental admission/refusal and guarded user-copy/process/scheduler/VFS
+fixtures pass. No production test hook or synthetic native success is added.
+
+The loaded KVM run now proves positive public-path use from its saved final log:
+35 handled calls, 503 entries and 10 policy refusals,
+with publication/descriptor refusals 0/0. It completes
+23 app cycles and 176 verified 256 KiB bursts over 60 seconds
+at 1%, one exact screenshot and zero recorded underruns. Ready/close maxima are
+0.897674/1.299554 s and worst loop
+139.382 ms. Strict saved-only app/service/control, owner and
+both live sidecar proofs pass. Positive VM use is now a preparation prerequisite;
+the prior zero-handled native result stays failed feature evidence.
+
+Matched ordinary/native/Q35 builds, affected fixture links, kernel/payload
+binding, fresh full core/desktop/docs and boot suites, six ordinary VMs, USB
+transport/capture and exact native-stage foreign-profile refusal all pass.
+Existing optional exhaustive-I/O skip and baseline append-repair allocation
+gaps remain visible; no new power-loss repair or native speed claim is made.
+
+Release `ed12574bea281328`, run `ec1ebf7c48ec4bfb` is installed and verified, unarmed
+at this checkpoint. All 969 preboot files are retained except
+the renewed 1% expiry preference. Fresh fsck/allocation/headroom checks pass.
+Only the unreferenced failed `d26b9b1b2a825384` EFI duplicate was
+retired after full stage, independent payload, sealed failure and firmware/GRUB
+reference verification. Its evidence remains intact. Current/recovery and
+installed accepted bfe/772/7ac plus the prior ba trial remain verified; Ubuntu
+is default and recovery `c35475f62f154f1e` is unchanged.
+
+Next is the original automated 1800-second 1% audio/disk/app/three-screenshot
+trial, with unchanged 500 ms loop and ten-second whole-app bounds, all CRC,
+readback, flush/fsync/rename, file/allocation and worker/reap/battery retirement
+checks. Heavy audit remains off; no input is needed. Native acceptance requires
+positive directory counts and all original matching results after return. No
+new physical acceptance or recovery promotion is claimed before that review.

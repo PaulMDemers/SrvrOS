@@ -337,18 +337,14 @@ int64_t process_directory(uint64_t op,uint64_t fd,void *out,uint64_t cap) {
     *(struct srv_dirent_info *)out=(struct srv_dirent_info){.size=88};directory_reads++;return 1;
 }
 static void directory_admission_regression(void) {
-    struct srv_dirent_info out={0};directory_fast=true;busy=true;user_safe=true;
+    struct srv_dirent_info out={0};int64_t result=99;
+    directory_fast=true;busy=true;user_safe=true;
     unsigned waits=close_waits;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==1 && out.size==77 && close_waits==waits && busy);
-    directory_fast=false;user_safe=true;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==1 && out.size==88 && directory_reads==1 && close_waits==waits+1);
-    busy=true;user_safe=true;kill_on_wait=true;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==SRV_ERR_INTR && directory_reads==1);
-    kill_on_wait=startup_killed=false;busy=true;user_safe=true;invalidate_on_wait=true;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==SRV_ERR_FAULT && directory_reads==1);
-    invalidate_on_wait=false;wait_pointer_ok=true;
+    assert(syscall_directory_try_read_info(3,&out,sizeof(out),&result) && result==1 && out.size==77 && close_waits==waits && busy);
+    directory_fast=false;out.size=123;result=99;
+    assert(!syscall_directory_try_read_info(3,&out,sizeof(out),&result) && result==99 && out.size==123 && close_waits==waits && busy);
     unsigned attempts=directory_attempts;
-    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out)-1)==SRV_ERR_INVAL && directory_attempts==attempts);
+    assert(syscall_directory_try_read_info(3,&out,sizeof(out)-1,&result) && result==SRV_ERR_INVAL && directory_attempts==attempts);
     busy=false;user_safe=false;
 }
 
