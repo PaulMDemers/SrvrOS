@@ -7,6 +7,32 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Complete radio snapshot and bounded reliability scope (November 13)
+
+Replace the unsupported16-entry FIFO-depth assumption with a versioned finite
+observation allowance tied to the existing80 owned native TX publications plus
+one empty probe. This is a work budget, not a hardware-depth or one-status-per-
+packet guarantee. Keep the100ms returned-call budget, original TX limit, all
+ownership checks, post-child/key/MAC closure boundary and empty-termination
+requirement. A cap, timeout, missing/duplicate/stale status or read/ownership
+fault must not earn MAC credit or authorize unsafe native reuse. Scope is the
+DHCP radio record/decoder and actual native C/HCD fixtures; no live callback I/O,
+RF setting, DHCP retry, crypto or native retirement policy changes.
+
+Test the real production doorbell/completion and cleanup path with more than17
+statuses, a late duplicate, all tags present but no empty terminator, maximum
+budget, and read/ownership/clock faults beyond entry17. Preserve version1 capped
+historical evidence without reclassification. Qualify a fresh source-specific
+version2 collector and exact image before the next hardware trial. Protect
+accepted cbf/a2b plus all eight prior recoveries; its primary/review stay closed.
+
+Plan a recorded series of three cold boots, each with the original two fresh
+connections and full DHCP/DNS/exact HTTP+EOF/retirement/preservation proofs;
+collect each once before another and stop the series on failure. This measures
+only that bounded profile, not persistent or general reliability. Main06dee36c
+adds independent Air6,1 evidence since94d0b9b8; the reviewed Files code remains
+deferred for this controlled comparison. PR301/379 own separate subsystems.
+
 ### Native radio diagnostic and two HTTP lifetimes accepted (November 13)
 
 Runtime `cbf807de` / release `a2b2ed09ff25187b`, session
