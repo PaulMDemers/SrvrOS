@@ -85,9 +85,11 @@ static bool intel_display_test_source_audit_alias(uint64_t root,uint64_t va,uint
  return true;
 }
 int main(int argc,char **argv) {
+ if(argc==2 && (!strcmp(argv[1],"--range-endpoint") || !strcmp(argv[1],"--admission-witness")))return original_display_fixture_main(argc,argv);
  int code=engines_adapter_main(argc,argv);
  struct intel_source_audit_native *a=&source_audit_native;
  printf("source-audit-fixture: state=%u complete=%u registered=%u clocks=%u pci=%u planes=%u caches=%u actual=%u command=%u\n",a->state,a->complete,a->registered,audit_clocks,audit_pci,audit_planes,audit_caches,engines_actual,requester_command);
+ if(a->complete && source_requester_native.result.complete){assert(range_calls && admission_capture.queries==range_calls && !admission_capture.code);assert(admission_cost_capture.count && !admission_cost_capture.flags);}
  if(a->complete && source_requester_native.result.complete)assert(a->samples==2 && a->pci_reads==18 && a->plane_reads==54 && a->cache_checks==2 && a->range_checks==4 && !a->registered);
  return code;
 }

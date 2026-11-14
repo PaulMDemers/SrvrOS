@@ -139,6 +139,25 @@ class Audit(unittest.TestCase):
    for offset in (0,240,248,252,288,296,300,536,544,548,584,592,596):
     data=bytearray(raw);data[offset:offset+4]=bytes([255])*4
     with self.subTest(alias_raw_offset=offset),self.assertRaises(ValueError):audit_result(text.replace(line,'intel-source-audit-data: v=3 b='+base64.b64encode(data).decode()))
+ def test_v35_span_activation_each_endpoint_and_refusal_without_fallback(self):
+  for arg in ('--range-endpoint','--admission-witness'):
+   p=subprocess.run([str(BIN),arg],text=True,capture_output=True);self.assertEqual(p.returncode,0,p.stderr)
+   self.assertIn('PASS' if arg=='--range-endpoint' else 'code=7',p.stdout)
+ def test_existing_clock_cost_bounds_mutations_and_historical_absence(self):
+  import struct
+  for text in self.texts:
+   result=audit_result(text);cost=result['admission_cost'];self.assertTrue(cost['observation_complete']);self.assertFalse(cost['ownership']);self.assertEqual(cost['new_clock_reads'],0)
+   self.assertEqual(cost['prepare']['count'],52)
+   row=next(l for l in text.splitlines() if l.startswith('intel-census-cost:'));raw=base64.b64decode(row.split('b=',1)[1]);self.assertEqual(len(raw),76)
+   self.assertIsNone(audit_result(text.replace(row+'\n',''))['admission_cost'])
+   _,native=native_chain(text);self.assertTrue(native_audit_result(native)['native_complete']);self.assertIsNotNone(native_audit_result(native)['admission_cost'])
+   _,old_native=native_chain(text.replace(row+'\n',''));self.assertTrue(native_audit_result(old_native)['native_complete']);self.assertIsNone(native_audit_result(old_native)['admission_cost'])
+   bad_rows=[row+'\n'+row,row.replace('v=1','v=2'),row+'=',row[:-1],row[:-4]]
+   for offset in (0,8,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72):
+    data=bytearray(raw);width=8 if offset in (0,8) else 4;data[offset:offset+width]=b'\xff'*width
+    bad_rows.append('intel-census-cost: v=1 b='+base64.b64encode(data).decode())
+   for bad in bad_rows:
+    with self.subTest(row=bad),self.assertRaises(ValueError):audit_result(text.replace(row,bad))
  def test_cache_context_actual_fresh_read_comparison(self):
   subprocess.run(['build/tests/intel-cache-probe','context'],check=True,capture_output=True)
 if __name__=='__main__':unittest.main()

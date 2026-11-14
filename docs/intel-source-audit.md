@@ -298,3 +298,31 @@ See the [unit result](machines/macbookair7-2.md#native-specialized-vmm-enabled-e
 Next isolate the costly original full-admission/control/census paths while
 retaining all checks and limits. All 255 hardware obligations, alias completeness/
 coherence, managed GPU memory and native tear-free remain open.
+
+### Census cost diagnostic (v35)
+
+The current image enables the existing bounded framebuffer span observer under
+`SRVROS_INTEL_SOURCE_AUDIT`. IRQ-enabled startup keeps scalar translation. During
+the excluded trial every endpoint freshly checks the full span, including every
+leaf and entry/exit sole-root guards; failure never falls back to scalar success.
+This does not enable the older `SRVROS_INTEL_PREPARE_RESET` image or its writers.
+
+`intel-census-cost: v=1 b=...` is an optional 76-byte little-endian auxiliary
+packet. The prefix is separate from the first-failure `intel-admission:` row.
+The header is preparation begin/end (`u64`, `u64`) and capture flags (`u32`).
+Two seven-`u32` groups describe all excluded full censuses and those entirely
+inside the original preparation interval: count, DWORD reads, PTE observations,
+failed calls, sample microseconds, enclosing microseconds and maximum envelope.
+The recorder retains at most 512 value-only rows and is pre-touched before the
+outer clock. It uses only the original two samples' timestamps and counts; no
+new clock callbacks, loads or ownership evidence. Full successful censuses each
+retain 8,560 DWORD reads and 2,712 PTE observations. Truncation, malformed timing,
+noncanonical packets, scope mismatches and impossible counts refuse complete
+cost accounting. Historical packets without this row keep their original scope.
+
+The backing digest still hashes each word as eight little-endian FNV bytes.
+For an upper half of zero, four zero-byte multiplications are folded exactly
+modulo 2^64; arbitrary full-width words retain the original byte loop. This
+changes no target load, callback, comparison or deadline. Host timing is not
+native headroom acceptance. Hardware qualification must collect the original
+control timestamps and new census packet together before attributing gains.

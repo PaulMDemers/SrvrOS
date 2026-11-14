@@ -1,8 +1,10 @@
 #include <stdlib.h>
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
+static unsigned range_calls,range_fail_at;
+#endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
 #include <srvros/intel_engine_held_reset.h>
 static unsigned held_reset_boundary,held_reset_reads,held_reset_attempts,held_reset_writes,held_reset_domain_reads,held_reset_clock_fault;
-static unsigned range_calls,range_fail_at;
 static void intel_display_test_held_reset_boundary(bool);
 static void intel_display_test_held_reset_admission(void);
 static bool intel_display_test_held_reset_snapshot_read(unsigned,uint32_t,uint32_t *);
@@ -606,7 +608,7 @@ static unsigned index_of(uint64_t v){
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_diagnostic_contiguous_kernel_range(uint64_t space,uint64_t va,uint64_t physical,uint64_t pages) {
  assert(space==0x1000 && wake_irq && !(va&4095) && !(physical&4095) && pages && pages<=4096);
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
  if(++range_calls==range_fail_at)return false;
 #endif
  if(current!=space)return false;
@@ -798,6 +800,8 @@ static void reset(void) {
     rehold_owner_origin=0;
 #endif
 #endif
+#endif
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
     range_calls=range_fail_at=0;
 #endif
     memset(&intel_boot_state,0,sizeof(intel_boot_state));
@@ -823,7 +827,7 @@ static void reset(void) {
         .memory_model=LIMINE_FRAMEBUFFER_RGB,.red_mask_size=8,.red_mask_shift=16,.green_mask_size=8,.green_mask_shift=8,.blue_mask_size=8};
 }
 int main(int argc,char **argv) {
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
     if(argc==2 && !strcmp(argv[1],"--admission-witness")) {
         reset();backing_mode=true;memory.entry_count=3;
         intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);

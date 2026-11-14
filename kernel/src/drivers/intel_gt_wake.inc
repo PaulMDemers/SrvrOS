@@ -783,7 +783,7 @@ bool intel_gt_wake_probe_report(void) {
     f.prerequisites=f.prerequisites && buffers_ready;
 #endif
     uint64_t flags=wake_irq_save();
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
     admission_begin();
 #endif
     f.serialized=wake_irq_off();
@@ -915,7 +915,7 @@ bool intel_gt_wake_probe_report(void) {
         if(acquired)released=display_access_release(&a.fw.gt.token,clean);
     }
     wake_irq_restore(flags);
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
     admission_active=false;
 #endif
     if(released)console_flush();

@@ -1,6 +1,17 @@
 #include <srvros/intel_display_backing.h>
 /* BDW PRM Memory Views pp7,15,44-45; Linux 028ef9c96e96 i915 fence/PTE
  * definitions. GGTT is read through BAR0+8MiB, never through stolen RAM. */
+/* Exact FNV-1a over one little-endian64-bit word. Four zero upper bytes
+ * mean four consecutive multiplications, so fold them modulo2^64. This is
+ * value-dependent arithmetic only: no PTE, address-width or flag assumption,
+ * cached digest, changed MMIO read or skipped raw/equality/layout check. */
+static inline uint64_t backing_hash_word(uint64_t hash,uint64_t value) {
+    const uint64_t prime=1099511628211ull;
+    for(unsigned b=0;b<4;b++){hash=(hash^(value&255))*prime;value>>=8;}
+    if(!value)return hash*(prime*prime*prime*prime);
+    for(unsigned b=0;b<4;b++){hash=(hash^(value&255))*prime;value>>=8;}
+    return hash;
+}
 static bool identity_equal(const struct intel_capture_identity *a,const struct intel_capture_identity *b) {
 #define EQ(k) if(a->k!=b->k)return false
     EQ(id);EQ(class_rev);EQ(subsystem);EQ(pch);EQ(command);EQ(pm);EQ(power_valid);EQ(firmware_match);EQ(mmio_safe);
@@ -134,7 +145,7 @@ bool intel_display_backing_batched(struct intel_backing_result *r,const struct i
             } else if(!pair(&a,s,offset,&v))goto done;
             if(n && v!=r->pte[i]){r->status=7;goto done;}
             if(!n)r->pte[i]=v;
-            for(unsigned b=0;b<8;b++)s->hash=(s->hash^((v>>(8*b))&255))*1099511628211ull;
+            s->hash=backing_hash_word(s->hash,v);
             uint64_t physical=v&0x0000007ffffff000ull;
             s->ptes++;s->present+=!!(v&1);
             s->stolen+=!!((v&1) && physical>=r->stolen_base && physical<r->stolen_end);

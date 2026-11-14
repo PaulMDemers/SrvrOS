@@ -6595,3 +6595,22 @@ bench-vmm-diagnostic-range: build/tests/bench-vmm-diagnostic-range$(HOST_EXE)
 build/tests/bench-vmm-diagnostic-range$(HOST_EXE): tools/bench_vmm_diagnostic_range.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-intel-backing-hash
+test-core: test-intel-backing-hash
+test-intel-backing-hash: build/tests/intel-backing-hash$(HOST_EXE)
+	$<
+build/tests/intel-backing-hash$(HOST_EXE): tools/test_intel_backing_hash.c kernel/src/drivers/intel_display_backing.c kernel/include/srvros/intel_display_backing.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-intel-admission-cost
+test-core: test-intel-admission-cost
+test-intel-admission-cost: build/tests/intel-admission-cost$(HOST_EXE)
+	$<
+build/tests/intel-admission-cost$(HOST_EXE): tools/test_intel_admission_cost.c kernel/src/drivers/intel_admission_cost.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=gnu11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+# The private census recorder participates only in the v35 diagnostic image.
+build/intel-source-audit/probe.o build/tests/intel-source-audit-adapter$(HOST_EXE): kernel/src/drivers/intel_admission_cost.inc

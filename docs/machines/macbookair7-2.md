@@ -5,7 +5,8 @@ Updated: 2026-11-14. State: **active reference machine; partial device acceptanc
 ### Active census cost attribution and exact digest optimization
 
 Bounded objective: attribute full backing-census cost using sample timestamps
-already captured by each original guard, then reduce pure digest work without
+already captured by each original guard, enable the existing span path for v35,
+and reduce pure digest work without
 changing a target read, admission/equality/permission check, callback order or
 deadline. Each full guard reads both1,356-entry GGTT vectors high/low/high and
 computes an8-byte FNV word digest. Evaluate exact zero-upper-byte multiplication
@@ -15,7 +16,7 @@ For v35 only, pre-touch a bounded value-only census record array before the
 outer clock. Report aggregate census envelopes and preparation-contained spans
 after exclusion ends, using existing begin/end timestamps only. No new timer
 callback or admission token, and no ownership assurance from cost observations.
-Keep the100-byte auxiliary receipt within the existing64KiB saved-tail budget;
+Keep the76-byte auxiliary receipt within the existing64KiB saved-tail budget;
 old receipt3 histories retain their previous scope without cost acceptance.
 
 Inspection found the modern v35 build does not define the old PREPARE_RESET

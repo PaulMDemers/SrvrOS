@@ -179,7 +179,7 @@ static struct intel_backing_result backing;
 static struct limine_framebuffer trial_framebuffer;
 static bool backing_attempted;
 struct backing_adapter {struct adapter common;struct limine_framebuffer *fb;uint64_t physical;uint32_t page;bool mapped;};
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
 static bool backing_pairs_irq_off(void);
 static struct {
     uint64_t queries,detail,pages;
@@ -187,8 +187,14 @@ static struct {
     struct vmm_range_observation query;
 } admission_capture;
 static bool admission_active;
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#include "intel_admission_cost.inc"
+#endif
 static void admission_begin(void) {
     admission_capture=(__typeof__(admission_capture)){0};admission_active=true;
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+    admission_cost_reset();
+#endif
 }
 static bool admission_fail(unsigned code,uint64_t detail) {
     if(admission_active && !admission_capture.code){admission_capture.code=code;admission_capture.detail=detail;}
@@ -234,7 +240,7 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
        physical>UINT64_MAX-bytes || (physical&4095)!=(va&4095))return ADMISSION_FAIL(4,0);
     uint64_t first=va&~4095ull,last=(va+bytes-1)&~4095ull;
     e->fb_pages=(last-first)/4096+1;
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
     if(backing_pairs_irq_off()) {
         struct vmm_range_observation d={0};
         if(admission_active)++admission_capture.queries;
@@ -490,6 +496,9 @@ bool intel_scanout_trial_revalidate(void) {
     bool ok=intel_display_backing_batched(&trial_after,&result,&io,backing_pairs_irq_off()?backing_pairs:NULL);
 #else
     bool ok=intel_display_backing(&trial_after,&result,&io);
+#endif
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+    admission_cost_record(&trial_after,ok);
 #endif
     if(trial_after.retained)trial_mapping_fault=true;
     if(!ok)return ADMISSION_FAIL(101,trial_after.status);

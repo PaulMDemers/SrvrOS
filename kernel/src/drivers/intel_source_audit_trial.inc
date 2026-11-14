@@ -176,6 +176,8 @@ static void source_audit_report(void) {
  console_printf("intel-source-audit-summary: v=3 state=%u reason=%u epoch=%u kind=%u mode=%u origin=%u parent=%u begin=%u last=%u end=%u clock=%u previous=%u samples=%u pci_reads=%u plane_reads=%u cache_checks=%u range_checks=%u alias_checks=%u registered=%u complete=%u obligations=255 assurances=0 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
  (uint64_t)a->state,(uint64_t)a->reason,(uint64_t)a->epoch,(uint64_t)a->kind,(uint64_t)a->mode,a->origin,a->parent_begin,a->begin,a->last,a->end,a->clock_at,a->clock_prev,
  (uint64_t)a->samples,(uint64_t)a->pci_reads,(uint64_t)a->plane_reads,(uint64_t)a->cache_checks,(uint64_t)a->range_checks,(uint64_t)a->alias_checks,(uint64_t)a->registered,(uint64_t)a->complete);
+ admission_report();
+ admission_cost_report(nonzero_native.r.begin,nonzero_native.r.end);
 }
 static void source_audit_reset_report(const struct nonzero_adapter *p) {
  const struct intel_nonzero_reset *r=&p->r;static uint8_t raw[528];static char encoded[705];unsigned k=0;
