@@ -132,8 +132,8 @@ fixed-CPU host rounds the translation-only path is37.4% faster by median
 with Clang and31.6% with GCC, with unchanged checked results and table
 conversions. The unchanged audit adapter is byte-identical and seven modes are
 rerun; prior exhaustive adapter/weakness evidence retains its original source.
-Native preparation improvement and source-specific receipt3 remain pending the
-separate automated1% trial. Limits and hardware ownership obligations stay fixed.
+The matching source-specific kind1 receipt3 lifetime is accepted below;
+useful additional native preparation headroom is not established. Limits and hardware ownership obligations stay fixed.
 
 ## Automated trial
 
@@ -276,3 +276,25 @@ and full timings are in the [unit result](machines/macbookair7-2.md#native-actua
 This accepts one bounded observation; repeatability and other routes are pending.
 Actual alias completeness/coherence, DMA/cache/translation/reader ownership,
 GPU memory/PTE/submission and tear-free remain open with all 255 obligations.
+
+## Native specialized VMM kind1 lifetime; timing headroom unresolved
+
+Air7,2 source `634ab653` / release `5a204843df11446b`, session
+`session-0006603eead69d66-00`, passes one original enabled-entry kind1 receipt3 lifetime:
+entry0→1, reset1→2/source2, four full requested-alias PAT0/WB observations,
+original held PCI/cache/reader vectors, complete diagnostic teardown and exact
+2,712-page release/DMA57→57. All 1,518 prior files and recovery preserve;
+three exact new logs give1,521 files/163 sessions with offline integrity passing.
+
+Preparation 99,679/100,000us leaves 321us.
+The previous4b source's kind2 run was99,693us. Different routes and one sample
+per source do not establish causation/repeatability or useful added headroom.
+The native lifetime/unchanged safeguards are accepted; a native whole-preparation
+performance improvement is not. Existing disjoint timestamp analysis identifies
+34,178us of control phases, 13,693 us of reset pulses, 10,279 us of post-census and 1,773 us
+of source-read phase, with 33,089 us outside selected
+brackets, without attributing these to GPU wait rather than admission/validation.
+See the [unit result](machines/macbookair7-2.md#native-specialized-vmm-enabled-entry-lifetime-accepted-timing-headroom-unresolved).
+Next isolate the costly original full-admission/control/census paths while
+retaining all checks and limits. All 255 hardware obligations, alias completeness/
+coherence, managed GPU memory and native tear-free remain open.

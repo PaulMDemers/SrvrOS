@@ -15,15 +15,24 @@ match in both full-buffer samples. Each allocation spans four 2 MiB leaves; raw
 NX bits are clear. Neither neighboring large-leaf pages nor an executable/NX
 policy is imported. All 255 hardware ownership obligations stay open.
 
-The next work must bind exhaustive CPU aliases and coherence, actual outstanding
-DMA/prefetch completion, GPU cache/translation state and every affected firmware/
-display reader to the original source and proposed private interval. Observed
-AF-clear/reader/cache endpoints are prerequisites, not retirement witnesses.
-Preparation is 99,693/100,000us with only 307 us
-margin in one run. Measure and remove redundant overhead before adding held work;
-keep all existing deadlines and complete guards. No GPU range, PTE or submission
-grant is added by the accepted observation. The ordinary desktop still uses the
-inherited framebuffer.
+The specialization follow-up source `634ab653` / release
+`5a204843df11446b` now accepts one enabled-entry kind1 receipt3 lifetime with
+entry0→1/reset1→2, the same requested-mapping observations and clean diagnostic/
+file/recovery retirement. Its preparation is 99,679/100,000us,
+leaving only 321us: useful new native headroom remains
+unproved despite the host walker speedup. Source4b's prior kind2 measurement is
+a different route, not a controlled performance comparison.
+
+Next isolate original full-admission/control and remaining census costs using
+bounded source-bound measurements. Existing timestamps account for 34,178 us in
+control phases, 13,693 us in reset pulses, 10,279 us in post-census and 1,773 us
+in the source-read phase, with 33,089 us outside selected disjoint
+brackets; these are validation/I/O lifetimes, not GPU-wait attribution. Preserve
+every fresh check and original deadline. Exhaustive aliases/coherence, actual
+outstanding DMA/prefetch, GPU cache/translation and every firmware/display reader
+must still bind to the original source before a private GPU interval, PTE or
+submission grant. Clear AF/readers/cache endpoints are observations, not retirement.
+All 255 hardware obligations stay open; ordinary desktop uses inherited framebuffer.
 
 ## What is established
 

@@ -2,6 +2,58 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Native specialized VMM enabled-entry lifetime accepted; timing headroom unresolved
+
+Frozen runtime `634ab653` / release `5a204843df11446b`, session
+`session-0006603eead69d66-00`, collector `bcd055e7` accept **one original
+kind 1 enabled-entry receipt3 lifetime**. Entry performs one bounded BCS store
+and advances epoch0→1; reset1→2 and source epoch2 remain original-bound. Both
+complete 1,356-page HHDM spans are checked twice at actual PAT0/WB, writable/
+supervisor, four 2 MiB leaves per span and raw NX bits clear. Two original PCI/AF
+profiles, 54 reader words and two 37-read cache contexts match. All 10 readiness
+stores/admissions/ACKs and 44 native target reads complete with zero engine/AF
+polls. Diagnostic retirement, four padded patterns, exact2,712-page release and
+DMA57→57 pass. This is requested-mapping observation, not exhaustive aliases,
+coherence, whole-large-leaf donation or hardware ownership.
+
+Preparation is **99,679/100,000 us**, leaving only
+**321 us**. Audit 1,335us, engine
+2,547us, requester 3,203us, final guard
+7us and borrow return 3,402us pass. GT
+272,012/300,000us, HDA 308,826/400,000us and outer
+363,643/500,000us meet unchanged limits. The earlier4b kind2 run was
+99,693us with307us margin. These are different routes and one sample per source:
+no causal whole-preparation speedup or repeatability is established. The host
+walker speedup and native code specialization remain demonstrated separately;
+**useful additional native preparation headroom is not established**.
+
+Existing timestamps, without a new guest timer, account for 34,178 us across ten
+original control phases, 13,693 us across two reset pulses, 10,279 us post-census, 1,773 us
+in the source-read phase,55us settling,3,203us
+requester scope,7us final guard and3,402us borrow return; 33,089 us remains outside
+those disjoint brackets. Pre/post-store phase time includes admission, I/O and
+validation: it is not attributed to hardware waiting. Next isolate full-admission/
+control and remaining census costs before adding held ownership work; keep every
+fresh check and all original deadlines. The local `timing-analysis.json` records
+both original timestamp sets and exact disjoint accounting.
+
+All 1,518 prior files preserve except expected metadata; three exact new logs
+produce1,521 files/163 sessions. Raw/checkpoint/recipe/full native chain, offline
+fsck/allocation/writable/headroom/boot digest, installed/banked payloads, Ubuntu
+default and consumed one-shot pass. USB is unmounted and no run/one-shot remains.
+Raw and physical banks survive outside build under
+`air-range-specialization-20261114`, including
+`physical-session-0006603eead69d66-00`; native objects/assembly are also banked separately.
+Current5a20, prior4751/679a, recovery9aa8 and GUI/joint/HDA remain installed;
+unreferencedf1a9's EFI duplicate alone was retired before the run, with exact
+payload and accepted raw evidence retained. Main4016 is integrated, PR19/379
+independent and Actions disabled.
+
+Specialized-source kind2, delayed requester/engine branches and repeatability
+remain pending. All 255 DMA/prefetch/cache/translation/firmware/display-reader/
+backing obligations, zero positive assurances/managed GPU pages and native
+tear-free remain open. Checkpoint: `build/air-range-specialization-20261114`.
+
 ### Qualified diagnostic range specialization timing trial
 
 Frozen source `634ab653` / release `5a204843df11446b` is locally qualified for
@@ -36,7 +88,8 @@ was retired against its accepted-native and complete payload manifests; current
 evidence remains banked. Three additional byte-identical historical build-stage
 duplicates reclaimed456,821,112bytes against complete independent banks/ledger.
 
-Candidate native preparation/mapping acceptance remains pending. Standing
+The matching kind1 native lifetime is recorded above; additional native timing
+headroom remains unresolved. Standing
 unattended reboot authorization at1% applies; no input required, persist/unmount/
 return on safe outcomes and retain uncertainty visibly. Collect the unique
 matching session against1,518files/162sessions before another trial. Main4016 is

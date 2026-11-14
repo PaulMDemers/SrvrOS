@@ -404,3 +404,13 @@ A completed requester/readiness hold, clear AF status or saved reset receipt
 must never be promoted to internal graphics/display DMA or cache retirement.
 No new trial is armed. Ordinary desktop still uses the inherited framebuffer;
 all 255 obligations, zero managed GPU pages and native tear-free remain pending.
+
+The specialized VMM follow-up source `634ab653` /
+release `5a204843df11446b` now passes one enabled-entry kind1 original lifetime,
+including entry0→1/reset1→2, receipt3 requested mappings and full diagnostic/
+media/recovery retirement. Preparation remains 99,679/100,000us,
+with only 321us margin. Different routes prevent a
+controlled comparison with the earlier4b kind2 run; no useful new native
+headroom or repeatability is claimed. Next isolate full-admission/control and
+census costs with bounded source-bound evidence before adding ownership work.
+All checks/deadlines and all 255 hardware obligations remain; no trial is armed.
