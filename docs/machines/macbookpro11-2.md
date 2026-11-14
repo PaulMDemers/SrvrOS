@@ -23,6 +23,14 @@ Existing user authorization permits cold poweroff when qualification passes;
 show all instructions in the guest, save results and return automatically on
 safe completion. On return collect the fresh matching owner FIRST once.
 
+The first exact-image present-workspace VM exposed a host-verifier mismatch:
+late preparation correctly emitted reservation-only with no child/worker when
+the adapter was absent, while the verifier required the legacy early worker.
+The verifier now accepts exactly reservation-only or the separately closed
+legacy owner, refusing mixed/duplicate/live owners. Runtime/kernel/packet code
+is unchanged. Qualify this host-tool delta, freeze a fresh matched source and
+rerun all image-dependent gates; preserve the initial failed VM as history.
+
 ### DHCP radio-status correlation audit scope (November 13)
 
 Add bounded per-DHCP TXWI diagnostic packet IDs, disjoint across the two

@@ -179,6 +179,32 @@ class InstallTests(unittest.TestCase):
                     log+'wifi-stream5-plan: tx=0 rx=0\n',log+bootrow,cmd+row+bootrow):
             with self.subTest(bad=bad),self.assertRaises(AssertionError):verify_reconnect5_absent_radio(bad)
 
+    def test_http_reconnect5_absent_radio_reservation_and_legacy_closure(self):
+        from hardware_boot_smoke import verify_http_reconnect5_absent_radio as verify
+        from wifi_http_reconnect5_log import BOOT
+        cmd='cmdline: srvros.wifi-reconnect5-http=1 srvros.startup-journal=1\n'
+        final='wifi-http-reconnect5-final: version=1 complete=0 connections=0 parent_restored=0 provider_retired=0 retained_contexts=2 backend_retired=0\n'
+        reserve='wifi-http-reservation5: version=1 reserved=1 retained=1\n'
+        prepare='wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1\n'
+        abort='wifi-http-reconnect5-abort: version=1 generation=1 attempted=0 quiescent=1 child_retired=1 worker_allocated=1 worker_finished=1 retained=1\n'
+        prefix=cmd+BOOT+'\n';current=prefix+reserve+final;legacy=prefix+prepare+abort+final
+        for log in (current,legacy):
+            verify(log.encode());verify(log,require_prepare=False)
+        verify(prefix+final,require_prepare=False)
+        for bad in (prefix+final,current+reserve,current.replace(reserve,''),
+                    prefix+final+reserve,cmd+reserve+BOOT+'\n'+final,
+                    current.replace('reserved=1','reserved=0'),current.replace('retained=1','retained=0'),
+                    current.replace('reservation5: version=1','reservation5: version=2'),
+                    current.replace('reservation5:','reservation5-unknown:'),
+                    current+prepare+abort,current+prepare.replace('version=1','version=2'),
+                    legacy.replace(abort,''),legacy.replace('worker_finished=1','worker_finished=0'),
+                    legacy+reserve,current.replace('connections=0','connections=1')):
+            with self.subTest(bad=bad),self.assertRaises(AssertionError):verify(bad)
+        for row in ('wifi-http5-workload:', 'wifi-stack5:', 'wifi-stream5-plan:',
+                    'wifi-reconnect5-begin:', 'wifi-dhcp-radio5:', 'wifi-packet5:', 'wifi-encrypted5:'):
+            with self.subTest(row=row),self.assertRaises(AssertionError):verify(current+row+'\n')
+        with self.assertRaises(AssertionError):verify(current,require_prepare=1)
+
     def test_http5_profile(self):
         version='ram-usb-wifi-fw-v139-laptop-probe-12345678-auto-return'
         base=boot.limine_config('0123456789abcdef',version.replace('v139-','v138-'))

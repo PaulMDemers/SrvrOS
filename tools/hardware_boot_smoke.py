@@ -90,16 +90,22 @@ def verify_reconnect5_absent_radio(log):
 
 
 def verify_http_reconnect5_absent_radio(log,*,require_prepare=True):
-    """Exact unused HTTP owner closure; never physical reconnect acceptance."""
-    from wifi_http_reconnect5_log import canonical_decimal,BOOT,FINAL_KEYS
+    """Unused reservation or legacy closed owner; never physical acceptance.
+
+    require_prepare retains its historical API name: late preparation requires
+    an early reservation here, and must allocate no child without an adapter.
+    """
+    from wifi_http_reconnect5_log import BOOT
+    assert type(require_prepare) is bool
     text=log.decode('utf-8') if isinstance(log,bytes) else log
-    lines=text.splitlines();rows=[s for s in lines if s.startswith('wifi-http-reconnect5')]
+    lines=text.splitlines();rows=[s for s in lines if s.startswith(('wifi-http-reconnect5','wifi-http-reservation5'))]
     final='wifi-http-reconnect5-final: version=1 complete=0 connections=0 parent_restored=0 provider_retired=0 retained_contexts=2 backend_retired=0'
     prepare='wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1'
     abort='wifi-http-reconnect5-abort: version=1 generation=1 attempted=0 quiescent=1 child_retired=1 worker_allocated=1 worker_finished=1 retained=1'
-    expected=[BOOT,prepare,abort,final] if prepare in rows else [BOOT,final]
-    assert rows==expected and (not require_prepare or prepare in rows),'unused HTTP reconnect owners not retired'
-    assert not any(s.startswith(('wifi-http5','wifi-stack5:','wifi-stack5-final:','wifi-stream5-plan:','wifi-reconnect5')) for s in lines),'absent HTTP reconnect entered live/foreign owner'
+    reserve='wifi-http-reservation5: version=1 reserved=1 retained=1'
+    expected=[BOOT,reserve,final] if reserve in rows else [BOOT,prepare,abort,final] if prepare in rows else [BOOT,final]
+    assert rows==expected and (not require_prepare or reserve in rows or prepare in rows),'unused HTTP reconnect reservation/owners invalid'
+    assert not any(s.startswith(('wifi-http5','wifi-stack5:','wifi-stack5-final:','wifi-stream5-plan:','wifi-reconnect5','wifi-dhcp-radio5','wifi-packet5','wifi-encrypted5')) for s in lines),'absent HTTP reconnect entered live/foreign owner'
     assert 'srvros.wifi-reconnect5-http=1' in text and 'srvros.startup-journal=1' in text and 'srvros.wifi-http5=1' not in text
 
 
