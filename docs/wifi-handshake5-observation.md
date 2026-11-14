@@ -2,7 +2,8 @@
 
 The native stream's `wifi-handshake5` version1 record reports existing response
 outcomes after the exclusive WPA owner returns. It adds no packet/key authority,
-I/O, clock read, retry, secret retention or change to cleanup. Historical logs
+device I/O in the live response path, extra clock read, retry, secret retention
+or change to cleanup. Historical logs
 without these rows remain historical evidence; no categories are inferred for
 them. In particular, the failed b475 second connection cannot retrospectively
 be labeled a timeout, duplicate M1 or MIC failure.

@@ -9,6 +9,28 @@ Dated sections retain the bring-up history.
 
 ### Second-handshake audit and bounded outcome records (November 14)
 
+Implementation `bce79673` passes all60 production native-path cases normally
+and under ASan/UBSan, including missing M3, duplicate M1, bad-MIC M3 and valid
+M3 after eight unrelated frames. Six strict observer test groups pass against
+both binaries. The matched kernel, exhaustive handshake/CCMP comparisons,
+legacy four-way and shared HTTP/DHCP/packet/radio/collector regressions pass.
+This is modeled USB/AP/scheduler/child coverage, not new hardware acceptance.
+Non-secret rejection categories distinguish phase/version/flags/replay/nonce/
+reserved/MIC/unwrap/key-data failures; all original checks and deadlines remain.
+See the [outcome contract](../wifi-handshake5-observation.md).
+
+The first final-radio completion to exit interval in closed b475 trial1 is
+256,896µs. Assuming monotonic time, a full1.5s second M3 timeout cannot fit;
+a fast protocol rejection is favored, but its subtype and physical cause are
+unproved. No speculative retry/crypto change follows. Prepare a fresh source-
+frozen collector that saves handshake observations before radio/protocol
+refusal, plus fresh image/VM/workspace/recovery qualification, then one diagnostic
+cold run under existing authorization. No old collector or journal is reusable.
+Reuse bce software results only with exact non-documentation input and binary
+hashes, labeled with their executed source; this documentation followup is not
+a fresh native run. The new source/image/physical identities remain separate.
+
+
 Current objective: distinguish response timeout, transport/ownership/clock
 refusal and EAPOL protocol rejection during the second four-way handshake.
 Add non-secret categorical outcomes to the existing one-shot WPA owner and
