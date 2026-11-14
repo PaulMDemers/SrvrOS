@@ -14750,3 +14750,19 @@ metadata admission during shared storage commits, retaining accepted-job drain,
 complete worker/reap ownership and all original limits/integrity checks. Include
 any post-main-return exit delay in that audit rather than hiding it in Close
 accounting or raising the ten-second bound.
+
+### Directory metadata admission scope (2026-11-13)
+
+From fetched main `06dee36c`, this unit owns a bounded, callback-free
+READ_INFO admission attempt during foreign storage commits. Planned files are
+process/syscall directory dispatch, VFS publication exclusion and focused host
+fixtures. Keep the live metadata/shared-cookie contract, 16-entry bound,
+original gated fallback, same-image exclusion, cancellation and worker drain.
+No device, power, storage durability or stress-limit changes are authorized.
+PR19 `9b9e28ce` touches network/pipe process dispatch and adds a separate VFS
+metadata restore API; PR301 `f90fba95` touches process lifetime revoke handling;
+PR379 `817f80bb` is documentation only. Inspected shared-file hunks do not
+implement directory admission. Keep this implementation independent, preserve
+their pending scope, and recheck integration before merge. The failed d26 trial
+remains failed; next checkpoint is host/loaded-VM qualification of a coherent
+metadata snapshot, followed by the original automated 1800-second 1% trial.
