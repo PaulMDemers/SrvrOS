@@ -33,6 +33,17 @@ class Engines(unittest.TestCase):
     b=p['requester']['transfer']['buffers']['summary'];self.assertEqual((b['allocated'],b['released']),(2712,2712));self.assertEqual(s['obligations'],255)
     self.assertFalse(any(s[k] for k in ('registered','busy','reason','uncertain','managed_pages','pte_writes','hardware_ownership','assurances')))
     with self.assertRaises(ValueError):native_engines_result(text)
+ def test_full_guard_cost_budget_and_every_guard_failure_retains(self):
+  # Measured adapter baseline:106 full guards,166 with20 delayed polls.
+  # Every target read/store also asserts a fresh full guard in the C fixture;
+  # the budget prevents reintroducing20 redundant no-I/O guard calls.
+  for off in ('','entry-off-'):
+   for mode,budget in (('report',86),('engines-poll',146)):
+    text=run(off+mode);f=fixture(text)
+    self.assertTrue(engines_result(text)['complete']);self.assertLessEqual(f['guards'],budget)
+    self.assertGreaterEqual(f['guards'],f['reads']+f['actual'])
+   for n in range(1,fixture(run(off+'report'))['guards']+1):
+    with self.subTest(off=off,n=n):self.retained(run(f'{off}engines-guard:{n}'))
  def test_every_clock_and_original_source_identity_fault_retains(self):
   modes=('engines-zero','engines-backward','engines-time','engines-owner-time','engines-source','engines-requester','engines-transfer','engines-provider','engines-epoch','engines-route','engines-mode','engines-root','engines-registration','engines-io','engines-busy','engines-borrow','engines-state','engines-count','engines-complete','engines-restored')
   for off,text in zip(('','entry-off-'),self.texts):

@@ -1,5 +1,6 @@
 #include <srvros/intel_source_engines.h>
 static bool intel_display_test_source_engines_clock(uint64_t *);
+static void intel_display_test_source_engines_guard(void);
 static void intel_display_test_source_engines_admission(void);
 static void intel_display_test_source_engines_store_admission(unsigned);
 static bool intel_display_test_source_engines_read(unsigned,uint32_t *);
@@ -10,6 +11,15 @@ static bool intel_display_test_source_engines_child(struct intel_source_engines 
 static uint32_t engines_control[5];
 static unsigned engines_reads,engines_admissions,engines_clocks,engines_stores,engines_actual,engines_final_clock;
 static bool engines_stall;
+static unsigned engines_guards,engines_last_target_guard;
+static void intel_display_test_source_engines_guard(void) {
+ ++engines_guards;
+ if(jf("engines-guard",engines_guards))source_engines_native.uncertain=true;
+}
+static void engines_target_guard(void) {
+ assert(engines_guards>engines_last_target_guard);
+ engines_last_target_guard=engines_guards;
+}
 static bool intel_display_test_source_engines_clock(uint64_t *at) {
  ++engines_clocks;struct intel_source_engines *r=&source_engines_native.result;
  if(engines_stall){*at=r->begin;return true;}
@@ -60,7 +70,7 @@ static void intel_display_test_source_engines_store_admission(unsigned n) {
  if(jf("engines-store-source",n+1))source_engines_native.result.epoch++;
 }
 static bool intel_display_test_source_engines_read(unsigned e,uint32_t *out) {
- ++engines_reads;assert(e<6 && requester_command==3);
+ engines_target_guard();++engines_reads;assert(e<6 && requester_command==3);
  if(jf("engines-read",engines_reads))return false;
  *out=e<5?engines_control[e]:0;
  struct intel_source_engines *r=&source_engines_native.result;
@@ -72,7 +82,7 @@ static bool intel_display_test_source_engines_read(unsigned e,uint32_t *out) {
  return true;
 }
 static enum intel_gt_write intel_display_test_source_engines_write(unsigned e,uint32_t v) {
- unsigned n=source_engines_native.issued;assert(n<10 && requester_command==3 && e==(n<5?n:9-n) && v==(n<5?0x10001u:0x10000u));
+ engines_target_guard();unsigned n=source_engines_native.issued;assert(n<10 && requester_command==3 && e==(n<5?n:9-n) && v==(n<5?0x10001u:0x10000u));
  if(jf("engines-none",n+1))return GT_WRITE_NONE;
  if(jf("engines-uncertain",n+1))return GT_WRITE_UNCERTAIN;
  if(jf("engines-uncertain-issued",n+1)){engines_actual++;engines_control[e]=n<5?3:0;return GT_WRITE_UNCERTAIN;}
@@ -92,8 +102,8 @@ static bool intel_display_test_source_engines_child(struct intel_source_engines 
 int main(int argc,char **argv) {
  engines_stall=argc==2 && strstr(argv[1],"engines-stall");
  int code=requester_adapter_main(argc,argv);struct intel_source_engines *r=&source_engines_native.result;
- printf("source-engines-fixture: state=%u reason=%u complete=%u registered=%u returns=%u writes=%u issued=%u actual=%u reads=%u admissions=%u clocks=%u stores=%u samples=%u polls=%u child=%u child_done=%u epoch=%u kind=%u begin=%llu end=%llu command=%u\n",
- r->state,r->reason,r->complete,r->registered,r->returns,r->writes,source_engines_native.issued,engines_actual,engines_reads,engines_admissions,engines_clocks,engines_stores,r->samples,r->polls,r->child_entered,r->child_complete,r->epoch,r->kind,(unsigned long long)r->begin,(unsigned long long)r->end,requester_command);
+ printf("source-engines-fixture: state=%u reason=%u complete=%u registered=%u returns=%u writes=%u issued=%u actual=%u reads=%u admissions=%u guards=%u clocks=%u stores=%u samples=%u polls=%u child=%u child_done=%u epoch=%u kind=%u begin=%llu end=%llu command=%u\n",
+ r->state,r->reason,r->complete,r->registered,r->returns,r->writes,source_engines_native.issued,engines_actual,engines_reads,engines_admissions,engines_guards,engines_clocks,engines_stores,r->samples,r->polls,r->child_entered,r->child_complete,r->epoch,r->kind,(unsigned long long)r->begin,(unsigned long long)r->end,requester_command);
  if(r->complete)assert(r->state==ISE_CLOSED && r->restored && !r->registered && r->samples==4 && r->writes==10 && r->acks==10 && r->borrows==r->returns && r->child_complete);
  if(r->complete) {
   struct intel_source_engines saved=*r;

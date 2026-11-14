@@ -1,6 +1,9 @@
 /* Dedicated v34 adapter. Existing full source-batch guards enclose all I/O;
  * each new load/store retains exact original source/root/requester admission. */
 static bool source_engines_guard(void *ctx) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_source_engines_guard();
+#endif
  struct nonzero_adapter *p=ctx;struct intel_source_engines *r=&source_engines_native.result;
  return p==&nonzero_native && !source_engines_native.uncertain && r->requester==&source_requester_native.result &&
   r->transfer==&source_transfer_native && r->source==&p->source && r->provider==p &&
@@ -64,11 +67,14 @@ static bool source_engines_control(void *ctx,unsigned e,uint32_t *out) {
 static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32_t value,uint32_t *out) {
  struct nonzero_adapter *p=ctx;struct intel_source_engines *r=&source_engines_native.result;
  unsigned n=source_engines_native.issued;
- if(!out || n>=10 || r->step!=n || r->writes!=n || !intel_source_engines_write_ready(r,e,value) || !source_engines_guard(p))return GT_WRITE_NONE;
+ if(!out || n>=10 || r->step!=n || r->writes!=n || !intel_source_engines_write_ready(r,e,value))return GT_WRITE_NONE;
+ /* The load below admits the original source/root/maps/requester and clock
+  * before touching the control. A second full guard with no intervening I/O
+  * adds no witness. The store retains its own full guard and final clock. */
  if(!source_engines_load(p,e,&source_engines_native.admission[n]))return GT_WRITE_NONE;
  ++source_engines_native.admit_reads;
  unsigned phase=n<5?0:2;
- if(source_engines_native.admission[n]!=r->words[phase][e] || !source_engines_guard(p))return GT_WRITE_NONE;
+ if(source_engines_native.admission[n]!=r->words[phase][e])return GT_WRITE_NONE;
  const uint64_t phase_origin=r->phase_begin[n];
  source_engines_native.store_previous[n]=r->last;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
