@@ -2,6 +2,21 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Active held requester, cache and reader audit
+
+Local scope after collected/sealed `83fd` is a distinct v35 source-bound audit
+inside the original maintained five-engine readiness child. It will capture two
+fresh GPU PCI/AF profiles and three-plane primary/cursor/sprite vectors, recheck
+the complete CPU PAT/MTRR context and bind them to the original registration,
+source epoch, root, mappings and unchanged deadlines. Compare inherited reader
+controls exactly; preserve HDA exclusion and inherited backing. No DMA/cache/
+translation/reader-retirement assurance or memory/PTE/submission grant follows
+from matching snapshots. Older profiles stay unchanged. Qualify fault retention,
+raw receiver, object/image/log budget and exact-stage VM before a needed native
+automated trial at1%; no user input required. Main `94d0b9b8` is still latest;
+PR19/379 remain independent; no other task or subagent contacted. Checkpoint:
+`build/air-held-readers-20261113`.
+
 ### Latest native optimized engine readiness lifetime accepted
 
 Frozen runtime `b8b8a2d1` / release `83fd1d098a221916`, session
