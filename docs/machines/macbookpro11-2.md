@@ -7,6 +7,23 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Second-handshake audit and bounded outcome records (November 14)
+
+Current objective: distinguish response timeout, transport/ownership/clock
+refusal and EAPOL protocol rejection during the second four-way handshake.
+Add non-secret categorical outcomes to the existing one-shot WPA owner and
+post-run native logs, without extra I/O/clocks, retry, acceptance or retirement
+policy changes. Native fixtures must cover absent M3, duplicate M1, bad-MIC M3
+and unrelated traffic before a valid M3 after a successful first HTTP lifetime.
+Keep malformed/missing outcome records diagnostic-only and strict. Test source,
+normal/sanitizer native path and saved decoding before any matched-image work.
+Closed b475 trial1 and its primary/review remain immutable; Ubuntu stays unarmed.
+Touched scope: WPA one-shot response bookkeeping, pure handshake refusal
+categories, native output, host fixtures and decoder/docs. Main00ab2d90 Files
+metadata work and PR301/379 remain independent; no integration or native
+acceptance is implied by this audit.
+
+
 ### Radio completeness trial stopped at second WPA handshake (November 14)
 
 Source `b4759eda` / release `2f83523f6097b854`, session
