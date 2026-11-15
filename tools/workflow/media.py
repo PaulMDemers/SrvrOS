@@ -17,6 +17,29 @@ def inventory():
                       'PATH,TYPE,TRAN,UUID,FSTYPE,MOUNTPOINTS'], text=True))
 
 
+def unmounted_partition(volume):
+    current = inventory()
+    checked = json.loads(json.dumps(current))
+    mounted = []
+    def visit(nodes):
+        for node in nodes:
+            if (node.get('uuid') or '').replace('-', '').lower() == volume:
+                if any(node.get('mountpoints') or []):
+                    mounted.append(node['path'])
+                node['mountpoints'] = []
+            visit(node.get('children', []))
+    visit(checked['blockdevices'])
+    # Validate uniqueness, USB transport, partition and exFAT BEFORE unmounting.
+    device = select_partition(checked, volume)
+    if mounted:
+        # A normal unmount refuses a busy filesystem. Never force/lazy unmount,
+        # kill users or repair it just to make unattended collection proceed.
+        subprocess.run(['umount', device], check=True, timeout=30)
+    if select_partition(inventory(), volume) != device:
+        raise ValueError('USB identity changed while unmounting')
+    return device
+
+
 def tree(path):
     result = {}
     for item in sorted(Path(path).rglob('*')):
@@ -56,19 +79,24 @@ def snapshot(config, destination, *, before=None):
     if destination.is_symlink():
         raise ValueError('Unsafe output directory')
     destination.mkdir(parents=True, exist_ok=True)
-    device = select_partition(inventory(), config['volume'])
+    device = unmounted_partition(config['volume'])
     with open(device, 'rb', buffering=0) as stream:
         if not stat.S_ISBLK(os.fstat(stream.fileno()).st_mode):
             raise ValueError('Not a block device')
         Reader(stream, config['volume'])
         stream.seek(0)
         boot = stream.read(24 * 512)
-    if len(boot) != 24*512 or int.from_bytes(boot[106:108], 'little') != 0:
+    if len(boot) != 24*512:
         raise ValueError('Invalid or dirty exFAT boot region')
+    issues = []
+    if int.from_bytes(boot[106:108], 'little') != 0:
+        issues.append('dirty exFAT boot region')
     import hashlib
     boot_sha = hashlib.sha256(boot).hexdigest()
     if before and boot_sha != before['boot_sha256']:
-        raise ValueError('Boot region changed')
+        issues.append('boot region changed')
+    if issues and not before:
+        raise ValueError('; '.join(issues))
     mount = destination / 'volume-ro'
     mount.mkdir(exist_ok=True)
     if mount.is_mount():
@@ -76,8 +104,10 @@ def snapshot(config, destination, *, before=None):
     subprocess.run(['mount', '-o', 'ro,nodev,nosuid,noexec', device, str(mount)], check=True)
     try:
         marker = mount / 'srvros-work/.workspace'
-        if marker.is_symlink() or marker.read_bytes() != f"SRVROS-WORKSPACE-V1 {config['volume']}\n".encode():
-            raise ValueError('Prepared workspace marker mismatch')
+        if marker.is_symlink() or not marker.is_file() or marker.read_bytes() != f"SRVROS-WORKSPACE-V1 {config['volume']}\n".encode():
+            if not before:
+                raise ValueError('Prepared workspace marker mismatch')
+            issues.append('prepared workspace marker mismatch')
         logs = mount / 'srvros-work/Logs'
         if logs.is_symlink() or not logs.is_dir():
             raise ValueError('Missing workspace Logs directory')
@@ -101,6 +131,8 @@ def snapshot(config, destination, *, before=None):
                     raise ValueError('Raw collection exceeds 64 MiB')
                 raw[name] = durable_copy(source, destination / ('raw-' + name))
             atomic(destination / 'raw.json', raw)
+            if issues:
+                raise ValueError('; '.join(issues) + '; raw evidence preserved')
         files = tree(mount)
         if before:
             changed = sorted(name for name, value in before['files'].items()

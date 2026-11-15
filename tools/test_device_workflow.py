@@ -309,8 +309,7 @@ class MediaTests(unittest.TestCase):
 
     def snapshot(self, before, parser):
         from workflow.media import snapshot
-        with patch('workflow.media.select_partition', return_value=str(self.device)), \
-                patch('workflow.media.inventory', return_value={}), \
+        with patch('workflow.media.unmounted_partition', return_value=str(self.device)), \
                 patch('workflow.media.Reader'), patch('workflow.media.stat.S_ISBLK', return_value=True), \
                 patch('workflow.media.subprocess.run') as run, patch('workflow.media.collect', side_effect=parser):
             try:
@@ -349,6 +348,16 @@ class MediaTests(unittest.TestCase):
         self.assertTrue((self.dest / ('raw-' + fresh.name) / 'exit.log').exists())
         self.assertEqual(self.calls[-1], ['umount', str(self.mount)])
 
+    def test_dirty_return_still_saves_raw_before_refusal(self):
+        before, fresh = self.prepared()
+        dirty = bytearray(self.device.read_bytes())
+        dirty[106] = 2
+        self.device.write_bytes(dirty)
+        with self.assertRaisesRegex(ValueError, 'raw evidence preserved'):
+            self.snapshot(before, lambda *args: self.fail('parser must not run'))
+        self.assertTrue((self.dest / ('raw-' + fresh.name) / 'exit.log').exists())
+        self.assertEqual(self.calls[-1], ['umount', str(self.mount)])
+
     def test_success_repeats_all_offline_checks(self):
         before, _ = self.prepared()
         result = self.snapshot(before, lambda *args: (self.dest / 'parsed', dict(sessions=[])))
@@ -381,6 +390,34 @@ class MediaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'archive differs'):
             archive_image(image)
         self.assertEqual(image.read_bytes(), b'changed')
+
+
+class AutomountTests(unittest.TestCase):
+    def inventory(self, mounted=True, duplicate=False):
+        node = dict(path='/dev/fixture1', type='part', fstype='exfat', uuid='AABB-CCDD',
+                    mountpoints=['/media/fixture'] if mounted else [])
+        return dict(blockdevices=[dict(path='/dev/fixture', type='disk', tran='usb',
+                    children=[node, dict(node, path='/dev/other1')] if duplicate else [node])])
+
+    def test_unique_matching_automount_is_normally_unmounted_and_rechecked(self):
+        from workflow.media import unmounted_partition
+        with patch('workflow.media.inventory', side_effect=[self.inventory(), self.inventory(False)]), \
+                patch('workflow.media.subprocess.run') as run:
+            self.assertEqual(unmounted_partition('aabbccdd'), '/dev/fixture1')
+        run.assert_called_once_with(['umount', '/dev/fixture1'], check=True, timeout=30)
+
+    def test_duplicate_uuid_or_busy_mount_is_never_forced(self):
+        from workflow.media import unmounted_partition
+        with patch('workflow.media.inventory', return_value=self.inventory(duplicate=True)), \
+                patch('workflow.media.subprocess.run') as run:
+            with self.assertRaises(ValueError):
+                unmounted_partition('aabbccdd')
+            run.assert_not_called()
+        with patch('workflow.media.inventory', return_value=self.inventory()), \
+                patch('workflow.media.subprocess.run', side_effect=subprocess.CalledProcessError(32, ['umount'])) as run:
+            with self.assertRaises(subprocess.CalledProcessError):
+                unmounted_partition('aabbccdd')
+        self.assertEqual(run.call_count, 1)
 
 
 if __name__ == '__main__':

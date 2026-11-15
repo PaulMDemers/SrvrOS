@@ -31,7 +31,7 @@ cache retention. See [device workflow](../device-workflow.md). No kernel checks,
 clock deadlines or native acceptance scope change in this block. Integration
 base is `4016abf0`; PR19 WiFi and PR379 WebCore remain independent.
 
-Local validation passes 33 workflow/cache/media/compiler/fork-server tests and
+Local validation passes 36 workflow/cache/media/compiler/fork-server tests and
 the 16-method actual audit matrix. The current adapter remains byte-identical
 after compiler refactoring. Exact-release QEMU save/return and missing-workspace
 refusal pass against the accepted payload, with `latest` unchanged. The sealed

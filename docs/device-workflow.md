@@ -32,10 +32,11 @@ python3 tools/device_workflow.py install-service
 
 Configuration is private `unit.json` in the durable store. Existing settings
 are never silently overwritten. Keep every installed recovery release in the
-verified payload bank. The collector requires a uniquely matching, unmounted
-USB exFAT partition and refuses automounted volumes; unmount it before collection
-or use `systemctl --user start srvros-return-collect` after unmounting. It does
-not forcibly unmount a volume Ubuntu applications may be using.
+verified payload bank. The collector requires a uniquely matching USB exFAT
+partition. It normally unmounts a matching Ubuntu automount and rechecks identity
+before offline access. A busy filesystem is refused: no force/lazy unmount or
+process killing. After closing host files, retry with
+`systemctl --user start srvros-return-collect`.
 
 ## One candidate, one hardware question
 
@@ -107,6 +108,8 @@ exact release/exit/checkpoint/native chain, repeats offline integrity checks and
 verifies consumed one-shot/recovery. A missing completion, extra new sessions,
 changed prior file or parser rejection is failed/incomplete evidence. Raw logs
 remain available. The prepared partition is always unmounted in cleanup.
+Dirty or changed boot metadata on return is refused after preserving readable
+raw logs; it never becomes a pass and the runner performs no repair.
 
 `COLLECTED_REVIEW_REQUIRED` is intentionally separate from native acceptance.
 Review every required original lifetime retirement assertion and the scope of
