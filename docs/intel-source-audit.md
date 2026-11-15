@@ -346,9 +346,16 @@ owns precise timing, source, route and evidence scope. All255 actual hardware
 ownership obligations remain open; no native tear-free or managed GPU grant.
 
 
-The next optional [whole-root CPU alias inventory](vmm-alias-inventory.md) walks
+The optional [whole-root CPU alias inventory](vmm-alias-inventory.md) walks
 all reachable leaf mappings for both original private spans in each held sample.
 It retains the requested-alias/cache checks and original deadlines, rejects
 unexpected aliases or incomplete bounds, and keeps all hardware obligations open.
-Its new auxiliary receipt and native lifetime require fresh qualification; the
-accepted42b receipt supplies no whole-root inventory acceptance.
+The new auxiliary receipt was independently qualified; the accepted42b receipt
+supplies no whole-root inventory acceptance. Runtimeb10517bd/release3c9c4bfc2b632cc4
+now accepts one original kind2 lifetime with two complete inventories, each110
+logical table paths/56,320slots/47,369present leaves and exact four-leaf coverage
+of each1,356-page span. Preparation94,806/100,000us leaves5,194us; full diagnostic
+retirement and offline preservation pass. See the
+[native unit result](machines/macbookair7-2.md#native-v35-whole-root-cpu-alias-inventory-accepted).
+The scope is one CPU root's present mappings, with no stale-TLB/SMP/GPU/IOMMU,
+DMA/cache/reader ownership or repeatability grant. All255 obligations remain.

@@ -60,6 +60,15 @@ fixed; the prior6,608us margin is one observation, not promised capacity.
 
 ## Acceptance
 
-Host/VM qualification and pending native acceptance are recorded in the
-[Air7,2 unit record](machines/macbookair7-2.md#qualified-whole-root-cpu-alias-inventory-trial).
-No physical whole-root inventory or new DMA/cache/reader acceptance is claimed.
+Air7,2 runtime `b10517bd` / release `3c9c4bfc2b632cc4`, session
+`session-00066045c8390b4c-00`, accepts one original kind2 held lifetime. Both scans
+visit110 logical table paths/56,320 slots/47,369 present leaves and find exactly
+four matching leaves covering each original1,356-page span, with no unexpected
+present alias. Preparation94,806/100,000us leaves5,194us; full original retirement,
+USB preservation and offline recovery checks pass. See the
+[unit result and qualification](machines/macbookair7-2.md#native-v35-whole-root-cpu-alias-inventory-accepted).
+
+This is one point-in-time sole-root page-table inventory, with no stale-TLB,
+SMP/other-root, GPU/IOMMU, DMA/cache/reader ownership or repeatability acceptance.
+All255 hardware obligations and zero managed GPU pages remain. Native tear-free
+rendering is pending.

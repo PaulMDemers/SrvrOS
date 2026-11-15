@@ -2,7 +2,55 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
-### Qualified whole-root CPU alias inventory trial
+### Native v35 whole-root CPU alias inventory accepted
+
+Frozen runtime `b10517bd` / release `3c9c4bfc2b632cc4`, session
+`session-00066045c8390b4c-00`, collector `d0d63c44` accept **one original
+kind2 disabled-entry whole-root CPU page-table inventory lifetime**. Each of two
+held samples visits 110 logical table paths, reads 56,320 slots and decodes
+47,369 present leaves. Each original private span has exactly four matching
+large leaves covering its own 1,356 pages, with no unexpected present mapping in
+the sole active root. Existing four requested-alias observations retain writable,
+supervisor, PAT0/uniform WB attributes and raw NX bits clear. Both inventories
+complete inside the original held engine/requester/source chain and are checked
+again by the pure final parent-return gate. Auxiliary count2/reason0 binds them
+to the original spans; historical receipts do not acquire this scope.
+
+Preparation is **94,806/100,000us**, leaving **5,194us**.
+The preceding42b kind2 sample was93,392us; this sample is1,414us longer with the
+new inventory. One sample per source establishes no isolated-cause or repeatability
+claim. Audit2,663us, engine3,899us, requester4,538us,
+final guard7us and borrow return3,171us pass.
+GT250,404/300,000us, HDA284,459/400,000us and outer
+334,934/500,000us retain every original check and deadline.
+
+The existing-clock cost packet retains202 census pairs,1,729,120 DWORD reads and
+547,824 GGTT PTE observations in302,395us of sample envelopes;56 preparation
+pairs retain479,360 reads/151,872 PTE observations in83,851us. Maximum1,501us,
+flags0/failed0; all1,075 fresh span queries pass. These counts describe the
+original census, separately from the new whole-root walker. Census envelopes
+overlap control brackets and cannot be added as exclusive hardware waiting.
+No new timer callback, PTE/cache/TLB writer or hardware assurance was introduced.
+
+Both PCI/cache/54-reader samples match. Original entry/reset0→1/source1,
+10 engine stores/admissions/ACKs,44 native reads with zero engine/AF polls,
+14 GPU diagnostic aliases plus HDA1 retirement, four padded patterns and exact
+2,712-page release/DMA57→57 pass. All1,524 prior files preserve except expected
+metadata; three exact logs yield1,527files/165sessions. Strict raw/native/checkpoint/
+recipe, offline fsck/allocation/writable/headroom/boot digest, installed/banked
+payloads, Ubuntu default and consumed one-shot checks pass. USB is unmounted;
+no run or one-shot is outstanding. Raw, physical and qualification evidence survive
+`make distclean` under `~/.local/share/srvros/reviewed-evidence/air-alias-inventory-20261114/`.
+
+This accepts point-in-time present mappings in one CPU root. Stale TLB entries,
+other/SMP roots, GPU/IOMMU aliases, outstanding DMA/prefetch, cache coherence,
+firmware and display-reader exclusion/retirement remain unproved. All255 hardware
+obligations, zero assurances/managed GPU pages and native tear-free pending stay
+unchanged. Next establish those ownership/completion witnesses before any GPU
+interval/PTE/submission authority. Enabled-entry acceptance for this source and
+repeatability remain pending. Checkpoint: `build/air-alias-inventory-20261114`.
+
+### Qualification preceding the whole-root inventory trial
 
 Frozen runtime `b10517bd` / release `3c9c4bfc2b632cc4` is locally qualified
 for two whole-root observations of both original private spans inside the real
@@ -28,16 +76,16 @@ plus missing-workspace halt. The shortened duplicate banner still announces
 automatic/no-input/saved-return/unsafe-halt behavior. Actions stay disabled.
 
 Prior42b/0ffff accepts one kind2 census lifetime at93,392/100,000us, with6,608us
-margin. That is not promised capacity for this new work. New whole-root native
-acceptance and the observed route remain pending. Candidate/qualification are
-banked outside build; preserve current0ffff/prior5a/recovery9aa8 and GUI/joint/HDA.
+margin. That is not promised capacity for this new work. At qualification, whole-root native
+acceptance and its observed route were pending. Candidate/qualification were
+banked outside build, with current0ffff/prior5a/recovery9aa8 and GUI/joint/HDA retained.
 Only the verified unreferenced EFI duplicate4751 is retired; its durable accepted
-payload/evidence remain. The authorized automated1% trial needs no human input.
-Collect its unique session against1,524files/164sessions first and require both
-whole-root samples, original full chain and offline preservation before promotion.
+payload/evidence remain. The authorized automated1% trial required no human input.
+Its matching session was collected against1,524files/164sessions and passed both
+whole-root samples, original full chain and offline preservation as recorded above.
 Checkpoint: `build/air-alias-inventory-20261114`.
 
-### Whole-root inventory implementation scope
+### Whole-root inventory implementation scope (completed)
 
 Bounded next step: implement an allocation-free, read-only walk of the sole
 active four-level kernel root for both private buffer spans together. Check

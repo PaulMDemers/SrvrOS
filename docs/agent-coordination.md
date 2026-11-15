@@ -1159,3 +1159,17 @@ Main4016 is already integrated; PR19/379 remain independent. Next bound the
 remaining DMA/cache/translation/firmware/display-reader ownership protocol work.
 All255 obligations remain; no cache/alias completeness, managed GPU or tear-free
 grant, no sibling acceptance and no isolated-cause/repeatability claim.
+
+Air7,2 runtimeb10517bd/release3c9c4bfc2b632cc4 now accepts one original kind2
+[v35 whole-root CPU alias inventory lifetime](machines/macbookair7-2.md#native-v35-whole-root-cpu-alias-inventory-accepted).
+Two scans each visit110 logical table paths/56,320slots/47,369present leaves;
+each1,356-page private span has only its expected present mappings. Preparation
+94,806/100,000us leaves5,194us; original diagnostic retirement and all1,524prior
+files except metadata preserve, with three exact logs and clean offline recovery
+(1,527files/165sessions). Banks survive distclean; USB unmounted, no run/one-shot
+outstanding. Fresh main4016 is integrated; PR19/379 remain independent. This is
+point-in-time sole-root page-table evidence, with no stale-TLB/SMP/GPU/IOMMU,
+DMA/cache/reader ownership or repeatability grant. Next establish remaining
+completion/exclusion witnesses before GPU interval/PTE/submission authority.
+All255 hardware obligations/zero managed GPU pages/native tear-free pending;
+no sibling acceptance and no checks or deadline extensions.

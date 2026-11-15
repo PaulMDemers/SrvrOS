@@ -445,7 +445,18 @@ reader's exclusion or retirement. No new PTE, submission or display writer is
 introduced by the audit.
 
 
-The next source-bound cache prerequisite checks both full pinned private-buffer
+The earlier source-bound cache prerequisite checks both full pinned private-buffer
 ranges against fresh original CPU cache contexts; see [audit version 2](intel-source-audit.md#full-private-buffer-cpu-cache-policy-prerequisite).
 Uniform hypothetical WB policy closes no actual CPU-alias/DMA/GPU-cache/reader
 retirement obligation. Hardware interval transfer remains refused.
+
+The subsequent [whole-root CPU inventory](vmm-alias-inventory.md#acceptance) now
+accepts one native Air7,2 original kind2 lifetime onb10517bd/3c9c4bfc2b632cc4.
+Two held samples check every reachable present leaf of the sole active root and
+find only each original private span's expected mappings. Preparation94,806us
+retains5,194us under the original100ms bound; original retirement/media/recovery
+pass. This resolves the present CPU page-table alias observation for that lifetime,
+without resolving stale TLB, other roots, GPU/IOMMU translation, DMA/prefetch,
+cache coherence or affected firmware/display readers. Establish those witnesses
+before importing an interval or allowing a GPU PTE transaction. All255 hardware
+completion obligations stay open; zero managed GPU pages/native tear-free pending.
