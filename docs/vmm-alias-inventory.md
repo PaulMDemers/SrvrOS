@@ -60,6 +60,6 @@ fixed; the prior6,608us margin is one observation, not promised capacity.
 
 ## Acceptance
 
-Implementation and host tests are under development in the
-[Air7,2 unit record](machines/macbookair7-2.md#active-whole-root-cpu-alias-inventory).
+Host/VM qualification and pending native acceptance are recorded in the
+[Air7,2 unit record](machines/macbookair7-2.md#qualified-whole-root-cpu-alias-inventory-trial).
 No physical whole-root inventory or new DMA/cache/reader acceptance is claimed.

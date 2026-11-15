@@ -2,7 +2,42 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
-### Active whole-root CPU alias inventory
+### Qualified whole-root CPU alias inventory trial
+
+Frozen runtime `b10517bd` / release `3c9c4bfc2b632cc4` is locally qualified
+for two whole-root observations of both original private spans inside the real
+all-five held child. The actual allocation-free VMM walker admits table reads
+only from captured HHDM RAM, checks CPU0 physical width/NX/1GiB and mode, visits
+all reachable present leaves, and refuses unexpected aliases, cycles, unsupported
+entries, missing coverage or bounded-work exhaustion. No converted pointer or
+partial result escapes. Terminal mode/IRQ/CR3 checks follow final conversion.
+
+Keep existing requested-alias/PAT/MTRR/readers/PCI/census/clock checks, original
+root/epoch/RAM/parent holds, every target load and all100/300/400/500ms limits.
+The pure final parent gate requires the original complete inventory. A separate
+60-byte auxiliary receipt binds both samples to original page/leaf coverage;
+historical receipts do not acquire whole-root acceptance. No cache/TLB/register
+writer, timer callback or hardware assurance is added; all255 obligations remain.
+
+Local qualification:15 actual adapter/receiver methods, nine selected fatal
+ASan/UBSan methods and three actual VMM paths;18 freshly compiled adapter controls
+plus two actual-walker weakening controls;19 historical raw replays,40 images,
+119 staging cases, native objects/2KiB frames, saved-tail projection
+65526/65,536 and exact-stage EFI/MBR refusal/save/unmount/return
+plus missing-workspace halt. The shortened duplicate banner still announces
+automatic/no-input/saved-return/unsafe-halt behavior. Actions stay disabled.
+
+Prior42b/0ffff accepts one kind2 census lifetime at93,392/100,000us, with6,608us
+margin. That is not promised capacity for this new work. New whole-root native
+acceptance and the observed route remain pending. Candidate/qualification are
+banked outside build; preserve current0ffff/prior5a/recovery9aa8 and GUI/joint/HDA.
+Only the verified unreferenced EFI duplicate4751 is retired; its durable accepted
+payload/evidence remain. The authorized automated1% trial needs no human input.
+Collect its unique session against1,524files/164sessions first and require both
+whole-root samples, original full chain and offline preservation before promotion.
+Checkpoint: `build/air-alias-inventory-20261114`.
+
+### Whole-root inventory implementation scope
 
 Bounded next step: implement an allocation-free, read-only walk of the sole
 active four-level kernel root for both private buffer spans together. Check
