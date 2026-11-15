@@ -84,6 +84,11 @@ prove its completion and CPU/GPU cache ordering, and only then transfer a precis
 backing/GGTT interval. PCI BME readback, CPU fences, arbitrary waits, parser idle,
 saved flip flags and initially clear TLB bits do not replace these obligations.
 
+The [bounded Broadwell TLB request/completion core](intel-bdw-tlb-protocol.md)
+now implements the downstream five-engine sequence and fault handling. It has
+no native provider/caller. Fresh pipeline/memory-retirement proofs remain
+mandatory; this observer and its old recipes still perform no TLB writes.
+
 ## Automated trial
 
 ```sh

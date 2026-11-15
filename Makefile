@@ -6563,6 +6563,13 @@ build/tests/boot-source-audit$(HOST_EXE): tools/test_boot_source_audit.c tools/t
 	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
 
 .PHONY: test-intel-source-audit
+.PHONY: test-intel-bdw-tlb
+test-core: test-intel-bdw-tlb
+build/tests/intel-bdw-tlb$(HOST_EXE): tools/test_intel_bdw_tlb.c kernel/diagnostics/intel_bdw_tlb.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include tools/test_intel_bdw_tlb.c kernel/diagnostics/intel_bdw_tlb.c -o $@
+test-intel-bdw-tlb: build/tests/intel-bdw-tlb$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_tlb
 .PHONY: test-device-workflow test-fixture-tools test-intel-source-audit-fast
 test-device-workflow:
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_device_workflow

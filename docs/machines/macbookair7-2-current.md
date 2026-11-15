@@ -50,16 +50,17 @@ Its prerequisites and batching rules are in the
 Do not schedule another observational boot until a bounded hardware question or
 an actual new ownership witness is ready.
 
-Active bounded block (base `4af96eb0`, integrated main `4016abf0`): implement the
-Broadwell per-engine translation request/completion protocol and its complete
-fault matrix. Scope is a pure driver core, host fixtures and protocol docs.
-Each operation must retain an original source/provider/root/epoch, exact range,
-live pipeline/memory-retirement prerequisite and the original 100/300/500 ms
-clocks. Initial clear bits never count as issued completion. Current native
-readiness/AF/cache observations cannot supply the prerequisite, so no native
-callback, new image, PTE store or positive assurance is enabled by this block.
-Next checkpoint is a fully tested protocol and an explicit native-provider gap.
-PR19 WiFi and PR379 WebCore do not overlap this scope.
+Completed bounded block (base `4af96eb0`, integrated main `4016abf0`): the
+[Broadwell TLB protocol](../intel-bdw-tlb-protocol.md) now enforces original
+source/provider/root/epoch/range and 100/300/400/500 ms clocks, fresh pipeline and
+memory-retirement proofs, exact requests/self-clears, and terminal retention.
+Host qualification covers 6,143 cases, fatal sanitizers, 19 compiled weakening
+controls and guest-image isolation. No native callback, new image, PTE store,
+positive assurance or physical acceptance is added. Current readiness/AF/cache
+observations do not supply the prerequisite. The next native step must first
+establish a documented quiescence/memory-retirement mechanism; an unchanged
+observation boot or a false prerequisite mask is not scheduled. PR19 WiFi and
+PR379 WebCore remain independent.
 
 Local `~/.local/share/srvros/device-workflow/current.md` owns active run/reboot
 state. The earlier accepted checkpoint is `build/air-cache-clean-20261114` with

@@ -43,6 +43,12 @@ Ubuntu. Accept the whole capability only after strict original-chain, media and
 recovery review. A retained unsafe outcome still halts; safe saved/unmounted
 outcomes return automatically. No new GPU action is enabled by this plan.
 
+The [Broadwell TLB protocol](intel-bdw-tlb-protocol.md) now implements and
+host-tests the downstream request/self-clear sequence, with fresh mandatory
+pipeline/memory proofs and original clocks. No native caller or image is added.
+The next native decision remains the actual quiescence mechanism and its
+memory-retirement guarantee; the current observations cannot supply it.
+
 ## Established boundary
 
 | Native evidence | Accepted scope | Still excluded |
