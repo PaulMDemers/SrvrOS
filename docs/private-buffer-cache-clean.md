@@ -62,5 +62,8 @@ they do not execute native instructions on fabricated physical addresses.
 Native object checks must verify the real operand and fence instructions and
 their isolation to v35 before exact-stage VM and physical qualification.
 
-Native acceptance is pending. The [Air unit record](machines/macbookair7-2.md#active-scope-private-buffer-cpu-cache-writeback)
-owns the precise tested source, qualification and later physical result.
+Source `2bde9498` / release `3807a53c3829ba9c` passes local core/adapter,
+fatal sanitizer, weakening-control, historical-replay, native opcode/image/frame/
+saved-tail and exact-stage VM qualification. Native acceptance is pending. The
+[Air unit record](machines/macbookair7-2.md#qualified-private-cpu-translation-and-writeback-trial)
+owns the exact coverage, retained fixture correction and later physical result.

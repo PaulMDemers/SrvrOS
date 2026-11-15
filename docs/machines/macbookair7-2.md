@@ -2,6 +2,53 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Qualified private CPU translation and writeback trial
+
+Frozen source `2bde9498` / release `3807a53c3829ba9c` is qualified locally
+for private CPU writeback before the original GPU lifetime. Both original holds
+remain closed to CPU borrows, mapping and release. Fresh requested mappings,
+whole-root alias inventory and WB policy precede maintenance; each exact tagged
+page gets a fresh mapping/WB check and local INVLPG before its 64 CLFLUSH lines.
+Two complete buffers require 2,712 page invalidations, 173,568 line operations
+and four main-path fences. Partial failure requires a cleanup fence; lost
+completion or closing CPU/root/hold/cache identity pins the original RAM.
+The held child and pure final return require the original complete record.
+
+The separate 72-byte version2 receipt binds CPU features, times and both exact
+spans/counts to the enclosing original audit. Missing historical packets grant
+no writeback scope; abandoned unqualified version1 is rejected. The CPU phase
+has its own 100 ms bound before GPU acquisition. All original fresh observations
+and 100/300/400/500 ms limits remain. Actual object/linked CLFLUSH, target INVLPG
+and MFENCE operands/order are checked; this is opcode inspection, not native
+execution acceptance. CPU maintenance supplies no GPU/IOMMU translation, cache,
+DMA/prefetch, firmware/display-reader, address-interval or tear-free grant.
+
+Qualification covers all 16 adapter/receiver methods: eleven unchanged completed
+methods retain their byte-identical runtime/test-body evidence; the corrected
+clock mutation and remaining four run freshly. The earlier single-bit previous-
+clock mutation became a legal timestamp after preparation shifted its parity;
+use an out-of-order full value, retaining the failed attempt and legal example.
+No production behavior changed in that fixture correction. Ten selected fatal
+ASan/UBSan methods plus three actual VMM paths and the actual CPU clean core
+pass. Twenty compiled adapter, four CPU-core and two VMM weakening controls,
+twenty historical native replays, forty images, 119 staging cases, default/USB
+build and affected VMM/copy checks pass. Native maps/writers and 2 KiB frames
+remain checked; saved-tail projection is 65,526/65,536 with existing reserves.
+Exact-stage EFI/MBR refusal/save/unmount/automatic return and missing-workspace
+halt pass; unsupported guests execute no new CPU maintenance. Actions stay off.
+
+The payload and 3,442-file qualification bank survive distclean. All 1,527 prior
+USB files/165 sessions and offline filesystem/allocation/writable/headroom,
+Ubuntu default, AC, boot digest and installed/banked recovery checks pass.
+Only unreferenced EFI duplicate5a was retired after exact accepted-bank/native
+proof checks; its durable payload/evidence remain. Current3c9, prior0ffff,
+recovery9aa8 and GUI/joint/HDA stay protected. Native CPU writeback acceptance
+is pending; all255 hardware obligations, zero assurances/managed GPU pages
+remain. The authorized automated1% trial needs no human input. Collect its
+matching session first and require full CPU maintenance plus the complete
+original diagnostic and offline preservation. Safe saved outcomes return;
+retained uncertainty halts visibly. Checkpoint: `build/air-cache-clean-20261114`.
+
 ### Active scope: private-buffer CPU cache writeback
 
 Implement a bounded CPU writeback prerequisite for the two original held private
