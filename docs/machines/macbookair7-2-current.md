@@ -66,3 +66,16 @@ Local `~/.local/share/srvros/device-workflow/current.md` owns active run/reboot
 state. The earlier accepted checkpoint is `build/air-cache-clean-20261114` with
 sealed accepted copies outside build. Local UUID, payload paths and raw USB
 contents belong in those local records, not this document.
+
+Active bounded block (base `a304d9af`, main `4016abf0`): implement and qualify
+the graphics-unit VT-d global read/write-drain protocol with translation and
+queued invalidation kept disabled. Touch only a new isolated protocol, host
+fixture, build target and its guide; the existing read-only observer and v35
+image remain unchanged. Reuse the accepted `d5ad0c54` capture (VER0x10,
+CAP0x01c0000c40660462, ECAP0x7e1ff0505e, GSTS/RTADDR0) rather than reboot
+for the same observation. Verify Intel register/disabled-state/drain semantics
+and the Broadwell graphics-remapping quirk before native integration. The next
+checkpoint is actual-core fault/sanitizer qualification and an explicit native
+adapter contract, not a GPU ownership grant or another observation trial.
+No native write or physical trial is armed by this block; all deadlines and
+255 obligations stay unchanged. PR19/379 remain independent.
