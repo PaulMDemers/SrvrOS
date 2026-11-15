@@ -91,3 +91,12 @@ it supplies no GPU pipeline/cache/prefetch or reader completion. Next implement
 the explicitly registered child, admitted writable UC alias, exact receipt and
 safe original retirement together before a volume1% physical trial. Current
 installed/recovery state and earlier native acceptance remain unchanged.
+
+Active integration block (base `e0ca5638`, main `4016abf0`): add a distinct
+v36 native VT-d drain child inside the complete v35 original held lifetime.
+Touch its adapter/host fixture, exact boot recipe/image, strict receipt and
+workflow profile. Preserve the complete CPU/source/requester/engine/HDA audit,
+original four budgets and ordinary/read-only images. Qualify retained failures,
+actual UC alias retirement and exact-stage refusal/save/return before a needed
+automated volume1% trial. No pipeline/cache/reader or GPU interval grant follows.
+PR19/379 remain independent; no other task contacted.
