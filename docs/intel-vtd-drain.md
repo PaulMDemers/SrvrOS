@@ -136,7 +136,7 @@ A later damaged record cannot authorize restoring BME, even if the nested
 operation had once completed. The old complete audit must also pass its own
 independent return gate.
 
-`intel-vtd-drain: v=1 b=...` carries a canonical1552-byte little-endian record:
+Historical `intel-vtd-drain: v=1 b=...` carries a canonical1552-byte little-endian record:
 50uint64 header words, two eight-word contexts and256 DWORD poll positions.
 The header includes original clocks/source, first failed clock, all counts,
 initial/final controls, map/retire/registration, actual alias/cache attributes
@@ -183,3 +183,33 @@ the exact captured table; hosts without it skip these unit-specific positive
 fixtures. Generic protocol and exact boot-gate tests remain available without
 firmware. Frozen-source full qualification and native acceptance are tracked
 in the local workflow run, not inferred from an initial model result.
+
+
+### Native deadline failure and bounded retry
+
+The first v36 native run (`b84dc1ef`, release `59f18ff1270fa5bd`) records one
+expected global DR/DW completion, then fails the last verification at the
+original preparation budget: last successful core clock99,915us, parent
+rejection100,001/100,000us.49/50 register reads complete. The complete lifetime
+is rejected; the alias and enclosing ownership remain retained. Offline files,
+allocation and recovery verify. This does not accept even a completed nested
+drain without its original full return.
+
+The retry validates pure original identity before the clock callback, then
+performs the full hardware census after that callback. It removes the duplicate
+pre-clock census, keeping every predicate and the fresh final alias barrier
+before register access. No deadline or polling bound changes. Phase envelopes
+and the actual rejected timestamp use existing clock samples, with **no added
+clock reads**; they describe inter-sample intervals, not exclusive function costs.
+The canonical version2 receipt appends16 uint64 words (1680bytes total): calls,
+full parent checks, failed timestamp, previous timestamp, failure stage (1parent
+admission,2parent deadline), first/last sample, largest gap/ending phase, and
+seven ending-phase interval totals. Failed zero/backward clocks preserve their
+last valid prefix. Historical version1 remains decodable; new frozen manifests
+require version2, so removing timing data cannot satisfy the new trial.
+
+The collector allows a completed local audit followed by a retained failed
+drain only inside that same faulted, registered, blocked, unreturned child.
+The older v35 rule stays strict. CPU preparation is validated locally without
+promoting full-chain completion. A well-formed negative run can be collected
+for rejection; incomplete chains cannot be accepted through a supplied proof.

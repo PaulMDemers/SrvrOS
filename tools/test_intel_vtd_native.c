@@ -11,6 +11,7 @@ static enum intel_gt_write intel_display_test_vtd_write(uint32_t,uint32_t);
 static bool intel_display_test_vtd_map(void);
 static bool intel_display_test_vtd_unmap(void);
 static void intel_display_test_vtd_return(void);
+static void intel_display_test_vtd_after(void);
 #define INTEL_AUDIT_FIXTURE_MAIN audit_fixture_main
 #include "test_intel_source_audit_adapter.c"
 static unsigned vd_boundaries,vd_reads,vd_writes,vd_polls,vd_maps,vd_unmaps,vd_caches,vd_aliases;
@@ -29,7 +30,7 @@ static void intel_display_test_vtd_prepare(void) {
 }
 static void intel_display_test_vtd_boundary(void) {
  ++vd_boundaries;
- bool fault=jf("vtd-parent",vd_boundaries) || jf("vtd-root",vd_boundaries) || jf("vtd-time",vd_boundaries) ||
+ bool fault=jf("vtd-parent",vd_boundaries) || jf("vtd-root",vd_boundaries) || jf("vtd-time",vd_boundaries) || jf("vtd-inherited-map",vd_boundaries) || jf("vtd-inherited-root",vd_boundaries) ||
   (vtd_native.maps && (jf("vtd-epoch",vd_boundaries) || jf("vtd-registration",vd_boundaries) || jf("vtd-source",vd_boundaries))) ||
   (vtd_native.mapped && jf("vtd-map-drift",vd_boundaries));
  if(fault && !vd_broken){vd_broken=true;vd_boundary_reads=vd_reads;vd_boundary_writes=vd_writes;}
@@ -38,6 +39,8 @@ static void intel_display_test_vtd_boundary(void) {
  if(jf("vtd-registration",vd_boundaries))vtd_native.registered_child=NULL;
  if(jf("vtd-root",vd_boundaries))vtd_native.root+=4096;
  if(jf("vtd-source",vd_boundaries))vtd_native.source.consumer=NULL;
+ if(jf("vtd-inherited-map",vd_boundaries))pa[INTEL_CAPTURE_PAGES+4]^=4096;
+ if(jf("vtd-inherited-root",vd_boundaries))current+=4096;
  if(jf("vtd-time",vd_boundaries))ticks=source_engines_native.result.origin+100001;
  if(jf("vtd-map-drift",vd_boundaries) && vtd_native.mapped)pa[INTEL_CAPTURE_PAGES+16]^=4096;
 }
@@ -81,6 +84,9 @@ static enum intel_gt_write intel_display_test_vtd_write(uint32_t off,uint32_t va
  ++vd_writes;if(jf("vtd-write-none",1))return GT_WRITE_NONE;
  if(jf("vtd-write-unknown",1))return GT_WRITE_UNCERTAIN;
  return GT_WRITE_DONE;
+}
+static void intel_display_test_vtd_after(void) {
+ if(jf("vtd-late-time",1))ticks=source_engines_native.result.origin+100001;
 }
 static void intel_display_test_vtd_return(void) {
  static unsigned calls;if(++calls!=1)return;

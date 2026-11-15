@@ -191,7 +191,7 @@ class Runner:
         inputs = code_inputs(self.repo)
         if trial_profile == 'intel-vtd-drain-v36':
             inputs.append(VTD_FIXTURE)
-        manifest = dict(schema=1, unit=config, profile=trial_profile, question=question,
+        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=2 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
                         expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                         branch=command(['git', 'branch', '--show-current'], self.repo),
                         submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),
@@ -251,6 +251,17 @@ class Runner:
             '_media', '--run', directory.name, '--returning' if returning else '--before'])
         return json.loads((dest / 'snapshot.json').read_text())
 
+    def grub_text(self, manifest):
+        # Ubuntu can protect this one recovery configuration with mode0600.
+        # Keep the agent/VM/PipeWire user context; use the approved helper only
+        # for the fixed read, then run every original recovery assertion.
+        path = Path('/boot/grub/grub.cfg')
+        try:
+            return path.read_text()
+        except PermissionError:
+            return subprocess.check_output([*manifest['unit']['privilege'],
+                'cat', '--', str(path)], cwd=self.repo, text=True, timeout=30)
+
     def guard(self, manifest, state, *, installed=False, armed=False):
         unit = manifest['unit']
         if Path('/sys/class/dmi/id/product_name').read_text().strip() != unit['model']:
@@ -269,7 +280,7 @@ class Runner:
         for release in set([boot['current'], unit['recovery'], *unit['protected_releases']]):
             if verify(base / release, release) != verify(Path(unit['payload_bank']) / release, release):
                 raise ValueError('Installed/banked payload mismatch: ' + release)
-        text = Path('/boot/grub/grub.cfg').read_text()
+        text = self.grub_text(manifest)
         check_ubuntu_default(Path('/etc/default/grub').read_text(), text)
         for role, release in (('current', boot['current']), ('previous', unit['recovery'])):
             if 'srvros-' + role not in text or ('/EFI/srvros/' + release + '/loader/BOOTX64.EFI').lower() not in text.lower():
@@ -446,15 +457,16 @@ class Runner:
             if not verify_checkpoint(pre, text, native=True):
                 raise ValueError('Native checkpoint mismatch')
             native = native_parser(text)
-            if not native['complete'] or not native['native_complete']:
-                raise ValueError('Native chain incomplete')
+            if manifest.get('wire_version') is not None and native.get('version') != manifest['wire_version']:
+                raise ValueError('Native receipt differs from frozen wire version')
+            native_complete = bool(native['complete'] and native['native_complete'])
             self.guard(manifest, state, installed=True, armed=False)
-            report = dict(status='COLLECTED_REVIEW_REQUIRED', source=manifest['source'], release=state['release'],
+            report = dict(status='COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                           raw_manifest=after['raw'][session], native=native, offline_integrity='PASS',
                           native_acceptance=False, physical_tearfree=False)
             atomic(directory / 'report.json', report)
-            self.finish(directory, state, 'COLLECTED', status='review full retirement and scope before acceptance', session=session)
+            self.finish(directory, state, 'COLLECTED', status='review full retirement and scope before acceptance' if native_complete else 'incomplete native chain; review retained failure', session=session)
         except BaseException as error:
             state.update(status='FAILED_OR_INCOMPLETE', error=str(error))
             self.save(directory, state)
@@ -468,6 +480,9 @@ class Runner:
         if reject:
             self.finish(directory, state, 'REJECTED', status='reviewed failure; raw evidence retained')
             return
+        report = json.loads((directory / 'report.json').read_text())
+        if not report.get('native_complete', report.get('native', {}).get('native_complete', False)):
+            raise ValueError('Incomplete native chain cannot be accepted')
         evidence = json.loads(Path(proof).read_text())
         if not evidence.get('native_acceptance') or evidence.get('return_integrity') != 'PASS':
             raise ValueError('A reviewed full native acceptance/integrity proof is required')

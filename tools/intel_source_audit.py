@@ -88,13 +88,17 @@ def audit_capture(text):
    previous=p['end']
  if s['state']==3 and (not s['reason'] or s['complete']):raise ValueError('source audit false fault')
  return dict(summary=s,samples=samples,root=root,scope_complete=bool(s['complete']),actual_aliases=bool(version==3 and s['complete']))
-def audit_result(text):
+def audit_result(text,*,held_child=False):
  view=audit_view(text);e=engines_result(view);r=audit_capture(text);s=r['summary'];p=e['summary']
  if s['begin'] and (tuple(s[k] for k in ('origin','parent','epoch','kind','mode'))!=tuple(p[k] for k in ('origin','parent','epoch','kind','mode')) or s['begin']<p['child_begin']):raise ValueError('source audit original binding')
  if e['complete'] and not r['scope_complete']:raise ValueError('source audit false enclosing completion')
- complete=bool(e['complete'] and r['scope_complete'])
+ complete=bool(e['complete'] and r['scope_complete']);retained=False
  if r['scope_complete']:
-  if s['end']>p['child_end']:raise ValueError('source audit child return order')
+  if s['end']>p['child_end']:
+   # v36 can finish this audit, then retain its following failed drain in
+   # the SAME enclosing child. Never relax v35 or a claimed return.
+   retained=held_child and not e['complete'] and p['state']==6 and p['reason'] and p['child'] and not p['child_done'] and not p['child_end'] and not p['end'] and p['registered'] and p['blocked'] and p['holds'] and p['uncertain'] and not p['restored'] and p['borrows']==1 and not p['returns'] and s['end']<=p['last']
+   if not retained:raise ValueError('source audit child return order')
   reset=e['requester']['transfer']['buffers']['source']['reset'];old=reset['vectors']['readers'][0][:27]
   pci=e['requester']['phases'][1]['words'][:8]+[0]
   for q in r['samples']:
@@ -109,12 +113,12 @@ def audit_result(text):
  reset=e['requester']['transfer']['buffers']['source']['reset'];t=reset['time'];w=reset['wake']['summary']
  cost=admission_cost(text,t['begin'],t['end'],w['end_us']-w['begin_us'],complete)
  from intel_alias_inventory import alias_inventory
- inventory=alias_inventory(text,r['samples'],complete)
+ inventory=alias_inventory(text,r['samples'],r['scope_complete'])
  from intel_private_clean import private_clean
- clean=private_clean(text,e['requester']['transfer']['buffers']['buffers'],w['begin_us'],s['begin'],complete,inventory)
+ clean=private_clean(text,e['requester']['transfer']['buffers']['buffers'],w['begin_us'],s['begin'],r['scope_complete'],inventory)
  return dict(r,engines=e,complete=complete,native_complete=False,admission_cost=cost,alias_inventory=inventory,unique_aliases=bool(complete and inventory and inventory['scope_complete']),private_clean=clean,cpu_writeback=bool(complete and clean and clean['scope_complete']),managed_pages=0,hardware_ownership=False,physical_tearfree=False)
-def native_audit_result(text):
- r=audit_result(text)
+def native_audit_result(text,*,held_child=False):
+ r=audit_result(text,held_child=held_child)
  if r['complete']:
   if not native_engines_result(audit_view(text))['native_complete']:raise ValueError('source audit native enclosing chain')
   from intel_cache import native_cache_result
@@ -137,7 +141,7 @@ def native_audit_result(text):
      if q['checks']!=checks:raise ValueError('source audit native range boundary coverage')
   r['native_complete']=True
  return r
-def verify_audit_checkpoint(pre,text,native=False):
+def verify_audit_checkpoint(pre,text,native=False,*,held_child=False):
  if any(l.startswith(('intel-source-audit-','intel-private-clean:')) for l in pre.splitlines()):raise ValueError('source audit late prerequisite')
- verify_engines_checkpoint(audit_view(pre),audit_view(text),native=native);audit_result(text);return True
+ verify_engines_checkpoint(audit_view(pre),audit_view(text),native=native);audit_result(text,held_child=held_child);return True
 def shared_view(text):return engines_shared_view(audit_view(text))

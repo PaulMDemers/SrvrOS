@@ -11,6 +11,7 @@ static struct {
  struct vmm_alias_observation alias;
  uint64_t begin,end,root;
  unsigned reason,maps,retired,cache_checks,alias_checks,resource,mtrr,pat,effective;
+ struct {uint64_t calls,parents,failed,previous,stage,first,last,max_gap,max_phase,phase[7];} cost;
  bool mapped,complete,retained;
 } vtd_native;
 static void vtd_prepare_storage(void) {
@@ -24,17 +25,24 @@ static bool vtd_fail(unsigned why) {
  vtd_native.reason|=why;vtd_native.retained=true;
  nonzero_native.failed=true;nonzero_native.a->uncertain=true;return false;
 }
-static bool vtd_parent(void) {
+static bool vtd_parent_identity(void) {
  const struct intel_source_engines *p=&source_engines_native.result;
  const struct intel_source_audit_native *a=&source_audit_native;
  return vtd_native.object==&vtd_native && vtd_native.parent==p && !vtd_native.reason && !vtd_native.retained &&
   p->state==ISE_HELD && p->child_entered && !p->child_complete && p->samples==2 &&
-  source_engines_native.issued==5 && source_engines_guard(&nonzero_native) &&
+  !nonzero_native.failed && nonzero_native.a && nonzero_native.a==joint.wake &&
+  p->requester==&source_requester_native.result && p->transfer==&source_transfer_native &&
+  p->source==&nonzero_native.source && p->provider==&nonzero_native &&
+  source_engines_native.issued==5 && intel_source_engines_live(p) &&
   a->object==a && a->parent==p && a->provider==&nonzero_native && a->state==2 && a->complete && !a->registered && !a->reason &&
   a->epoch==p->epoch && a->kind==p->kind && a->mode==p->post_mode && a->origin==p->origin && a->parent_begin==p->parent_begin &&
   a->root==vtd_native.root && a->samples==2 && a->pci_reads==18 && a->plane_reads==54 && a->cache_checks==2 &&
   a->range_checks==4 && a->alias_checks==4 && a->inventory_count==2 && !a->inventory_reason &&
   vtd_native.root==nonzero_native.a->fw.gt.a.common.cr3 && wake_irq_off();
+}
+static bool vtd_parent(void) {
+ ++vtd_native.cost.parents;
+ return vtd_parent_identity() && source_engines_guard(&nonzero_native);
 }
 static bool vtd_policy(void) {
  struct x86_cache_snapshot cache;
@@ -71,12 +79,28 @@ static bool vtd_registration(void) {
   b->prepare_begin==p->origin && b->gt_begin==p->parent_begin && b->hda_begin==joint.scope.hda.begin_us && b->outer_begin==joint.scope.outer_origin_us;
 }
 static uint64_t vtd_now(void *ctx) {
- if(ctx!=&vtd_native || !vtd_parent() || !vtd_registration())return 0;
+ /* The clock is not a VT-d access. Validate the original identity first,
+  * then do ONE complete hardware admission AFTER its callback. No register
+  * operation or externally callable provider is inserted before that census. */
+ if(ctx!=&vtd_native || !vtd_parent_identity() || !vtd_registration())return 0;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_vtd_boundary();
 #endif
  uint64_t at=source_engines_now(&nonzero_native);
- if(!vtd_parent() || !vtd_registration() || !intel_source_engines_deadline(&source_engines_native.result,at))return 0;
+ ++vtd_native.cost.calls;
+ if(at && (!vtd_native.cost.last || at>=vtd_native.cost.last)) {
+  if(!vtd_native.cost.first)vtd_native.cost.first=at;
+  if(vtd_native.cost.last) {
+   uint64_t delta=at-vtd_native.cost.last;unsigned phase=(unsigned)vtd_native.core.p.state;
+   if(phase>6)phase=6;
+   vtd_native.cost.phase[phase]+=delta;
+   if(delta>vtd_native.cost.max_gap){vtd_native.cost.max_gap=delta;vtd_native.cost.max_phase=phase;}
+  }
+ }
+ uint64_t previous=vtd_native.cost.last;vtd_native.cost.last=at;
+ unsigned failed=!vtd_parent() || !vtd_registration()?1:
+  !intel_source_engines_deadline(&source_engines_native.result,at)?2:0;
+ if(failed){vtd_native.cost.failed=at;vtd_native.cost.previous=previous;vtd_native.cost.stage=failed;return 0;}
  return at;
 }
 static bool vtd_guard(void *ctx,const struct intel_vtd_drain_source *s) {
@@ -135,7 +159,11 @@ static bool vtd_run(void) {
  vtd_native.mapped=false;++vtd_native.retired;
  if(vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical) || !vtd_parent() || !vtd_policy())return vtd_fail(32);
  vtd_native.end=vtd_now(&vtd_native);if(!vtd_native.end || vtd_native.end<vtd_native.core.end || vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical))return vtd_fail(64);
- vtd_native.registered_child=NULL;vtd_native.complete=true;return true;
+ vtd_native.registered_child=NULL;vtd_native.complete=true;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_vtd_after();
+#endif
+ return true;
 }
 static bool vtd_completed_record(void) {
  const struct intel_vtd_drain *r=&vtd_native.core;const struct intel_vtd_drain_source *s=&vtd_native.source;
@@ -190,12 +218,16 @@ static void vtd_report(void) {
   ((uint64_t)(r->source==&vtd_native.source && vtd_native.source.object==&vtd_native.source)<<4)|((uint64_t)(vtd_native.source.consumer==r)<<5),vtd_returned(),vtd_native.begin,vtd_native.end,VTD_NATIVE_VA,
   vtd_native.cache_checks,vtd_native.alias_checks,vtd_native.resource,b->hash,b->unit,b->sequence,
   a->pages,a->leaves,a->pat_index,a->writable,a->user,a->no_execute,a->leaf_sizes,vtd_native.mtrr,vtd_native.pat,vtd_native.effective};
- static uint8_t raw[1552];static char encoded[2073];unsigned k=0;
+ static uint8_t raw[1680];static char encoded[2241];unsigned k=0;
  _Static_assert(sizeof(words)==400,"VT-d wire header");
  for(unsigned i=0;i<50;i++)source_audit_u64(raw,&k,words[i]);
  for(unsigned i=0;i<2;i++)for(unsigned j=0;j<8;j++)source_audit_u64(raw,&k,r->p.context[i][j]);
  for(unsigned i=0;i<256;i++)source_audit_u32(raw,&k,r->p.observed[i]);
- entry_requester_base64(raw,k,encoded);console_printf("intel-vtd-drain: v=1 b=%s\n",encoded);
+ const uint64_t timing[]={vtd_native.cost.calls,vtd_native.cost.parents,vtd_native.cost.failed,vtd_native.cost.previous,vtd_native.cost.stage,
+  vtd_native.cost.first,vtd_native.cost.last,vtd_native.cost.max_gap,vtd_native.cost.max_phase};
+ for(unsigned i=0;i<9;i++)source_audit_u64(raw,&k,timing[i]);
+ for(unsigned i=0;i<7;i++)source_audit_u64(raw,&k,vtd_native.cost.phase[i]);
+ entry_requester_base64(raw,k,encoded);console_printf("intel-vtd-drain: v=2 b=%s\n",encoded);
  /* Independent exact topology bytes; an absent preflight reports zeros. */
  entry_requester_base64(dma_table_bytes,136,encoded);console_printf("intel-vtd-table: v=1 b=%s\n",encoded);
  console_printf("intel-vtd: state=%u reason=%u native=%u reads=%u polls=%u writes=%u maps=%u retired=%u retained=%u returned=%u\n",

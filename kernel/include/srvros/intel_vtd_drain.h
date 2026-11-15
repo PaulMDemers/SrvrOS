@@ -32,7 +32,8 @@ struct intel_vtd_drain_io {
  void *ctx;
  bool (*guard)(void *,const struct intel_vtd_drain_source *);
  /* Ordered UC DWORDs, strictly within the one admitted graphics-unit page.
-  * No native adapter is supplied. No GCMD, RTADDR, IVA, queue or fault writes. */
+  * Only the isolated v36 native adapter uses this writer.
+  * No GCMD, RTADDR, IVA, queue or fault writes. */
  bool (*read)(void *,uint32_t offset,uint32_t *);
  /* Only offset0x50c, value0x90030000: IVT, global, DR and DW. Writing this
   * high DWORD triggers the 64-bit register. Its low DWORD is reserved, never
@@ -73,6 +74,6 @@ struct intel_vtd_drain {
  * ORIGINAL 100/300/400/500ms budgets. No retry, clearing, mapping or release API.
  * Success describes AT=00 memory requests already processed by this remapper;
  * not GPU pipeline/prefetch/cache, ATS/peers, later requests, readers or a PTE
- * grant. No native image currently links this protocol. */
+ * grant. Only the dedicated v36 image links the native writer. */
 bool intel_vtd_drain_run(struct intel_vtd_drain *,struct intel_vtd_drain_source *,struct intel_vtd_drain_io);
 #endif

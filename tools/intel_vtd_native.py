@@ -14,6 +14,7 @@ resource hash unit sequence pages leaves index writable user nx sizes mtrr pat e
 CAP = 0x01c0000c40660462
 ECAP = 0x7e1ff0505e
 DMAR_HASH = 0x722775ad66626863
+COST_FIELDS = 'calls parents failed previous stage first last max_gap max_phase'.split()
 
 
 def drain_recipe(cmd):
@@ -49,13 +50,30 @@ def _table(raw):
 
 def drain_result(text, *, native=False):
     view = drain_view(text)
-    parent = (native_audit_result if native else audit_result)(view)
     lines = [l for l in text.splitlines() if l.startswith(('intel-vtd-drain:', 'intel-vtd-table:'))]
     if len(lines) != 2 or not lines[0].startswith('intel-vtd-drain:') or not lines[1].startswith('intel-vtd-table:'):
         raise ValueError('VT-d drain receipt coverage/order')
     if any(l.startswith('intel-vtd-') and not l.startswith(('intel-vtd-drain:', 'intel-vtd-table:')) for l in text.splitlines()):
         raise ValueError('VT-d drain unknown receipt')
-    raw = _raw(lines[0], 'intel-vtd-drain:', 1552)
+    version = 2 if lines[0].startswith('intel-vtd-drain: v=2 ') else 1
+    raw = _raw(lines[0], 'intel-vtd-drain:', 1680 if version == 2 else 1552, version)
+    timing = None
+    if version == 2:
+        values = struct.unpack_from('<16Q', raw, 1552)
+        timing = dict(zip(COST_FIELDS, values[:9]), phases=list(values[9:]))
+        if timing['max_phase'] > 6 or timing['stage'] > 2 or timing['parents'] > 100000 or timing['calls'] > 100000:
+            raise ValueError('VT-d native timing schema')
+        if not timing['calls']:
+            if any(values[:1]+values[2:]): raise ValueError('VT-d native empty timing')
+        else:
+            end = timing['previous'] if timing['stage'] and timing['last'] < timing['previous'] else timing['last']
+            if timing['first']:
+                if timing['first'] > end or sum(timing['phases']) != end-timing['first'] or timing['max_gap'] > sum(timing['phases']):
+                    raise ValueError('VT-d native timing envelope')
+            elif end or any(timing['phases']) or not timing['stage']:
+                raise ValueError('VT-d native missing first sample')
+        if timing['stage'] and timing['failed'] != timing['last']:
+            raise ValueError('VT-d native failed clock')
     d = dict(zip(FIELDS, struct.unpack_from('<50Q', raw)))
     contexts = [list(struct.unpack_from('<8Q', raw, 400 + n * 64)) for n in range(2)]
     polls = list(struct.unpack_from('<256I', raw, 528))
@@ -69,9 +87,11 @@ def drain_result(text, *, native=False):
         raise ValueError('VT-d drain boolean')
     if d['polls'] > 256 or d['attempts'] > 1 or d['writes'] > d['attempts'] or d['maps'] > 1 or d['retired'] > d['maps']:
         raise ValueError('VT-d drain counts')
+    held_child = bool(not d['returned'] and (d['core_complete'] or (d['retained'] and d['native_reason'])))
+    parent = (native_audit_result if native else audit_result)(view, held_child=held_child)
     if d['core_complete']:
         _table(table)
-        if d['core_flags'] != 57 or d['state'] != 5 or any(d[k] for k in ('reason', 'native_reason', 'clock', 'previous', 'clock_reason', 'uncertain', 'retained')):
+        if d['core_flags'] != 57 or d['state'] != 5 or any(d[k] for k in ('reason', 'clock', 'previous', 'clock_reason', 'uncertain')):
             raise ValueError('VT-d drain false core completion')
         if d['attempts'] != 1 or d['writes'] != 1 or not d['polls'] or d['reads'] != 43 + 7 * d['polls'] or d['guards'] != 45 + 8 * d['polls']:
             raise ValueError('VT-d drain complete accounting')
@@ -93,7 +113,7 @@ def drain_result(text, *, native=False):
         if (d['epoch'], d['kind'], d['mode'], d['prepare'], d['gt'], d['root']) != (
                 a['epoch'], a['kind'], a['mode'], a['origin'], a['parent'], parent['root']):
             raise ValueError('VT-d drain original source')
-        if not 0 < d['outer'] <= min(d['hda'], d['gt']) <= max(d['hda'], d['gt']) <= d['prepare'] <= d['native_begin'] <= d['begin'] < d['end'] == d['last'] <= d['native_end']:
+        if not 0 < d['outer'] <= min(d['hda'], d['gt']) <= max(d['hda'], d['gt']) <= d['prepare'] <= d['native_begin'] <= d['begin'] < d['end'] == d['last']:
             raise ValueError('VT-d drain original clocks/order')
         if any(d['end'] > d[name] + budget for name, budget in (('prepare', 100000), ('gt', 300000), ('hda', 400000), ('outer', 500000))):
             raise ValueError('VT-d drain original deadline')
@@ -111,8 +131,12 @@ def drain_result(text, *, native=False):
     complete = bool(parent['complete'] and d['returned'])
     if parent['complete'] and not complete:
         raise ValueError('VT-d drain false parent restoration')
+    if timing and d['returned'] and (timing['stage'] or timing['failed'] or timing['previous'] or not timing['parents'] or not timing['calls']):
+        raise ValueError('VT-d native completed timing failure')
     if d['returned']:
         e = parent['engines']['summary']
+        if d['native_reason'] or d['retained'] or d['native_end'] < d['end']:
+            raise ValueError('VT-d drain false native completion')
         if not d['core_complete'] or d['registered'] or d['maps'] != 1 or d['retired'] != 1 or d['resource'] not in (1, 2):
             raise ValueError('VT-d drain alias retirement')
         if d['virtual'] != 0xffffc001f5150000 or d['cache_checks'] != d['guards'] + d['reads'] + 4 or d['alias_checks'] != d['guards'] + 2*d['reads'] + 4:
@@ -121,7 +145,7 @@ def drain_result(text, *, native=False):
             raise ValueError('VT-d drain UC alias policy')
         if not e['child_begin'] <= parent['summary']['begin'] < parent['summary']['end'] <= d['native_begin'] < d['native_end'] <= e['child_end']:
             raise ValueError('VT-d drain enclosing child order')
-    return dict(summary=d, contexts=contexts, polls=polls, audit=parent, complete=complete,
+    return dict(version=version, timing=timing, summary=d, contexts=contexts, polls=polls, audit=parent, complete=complete,
                 native_complete=bool(native and complete and parent['native_complete']),
                 hardware_ownership=False, managed_pages=0, physical_tearfree=False,
                 scope='AT00 memory already processed by graphics remapper only')
@@ -130,8 +154,10 @@ def drain_result(text, *, native=False):
 def verify_drain_checkpoint(pre, text, *, native=False):
     if any(l.startswith(('intel-vtd-drain:', 'intel-vtd-table:')) for l in pre.splitlines()):
         raise ValueError('VT-d drain late prerequisite')
-    verify_audit_checkpoint(drain_view(pre), drain_view(text), native=native)
-    drain_result(text, native=native)
+    result = drain_result(text, native=native)
+    d = result['summary']
+    held_child = bool(not d['returned'] and (d['core_complete'] or (d['retained'] and d['native_reason'])))
+    verify_audit_checkpoint(drain_view(pre), drain_view(text), native=native, held_child=held_child)
     return True
 
 

@@ -132,3 +132,11 @@ v35 audit, last-clock alias barrier, original100/300/400/500ms budgets and all
 255 obligations. Test both original routes, retained faults and the exact
 native failure replay before another automated1% trial. PR19/379 remain
 independent; no other task contacted.
+
+
+The retry implements single post-clock full hardware admission, original pure
+identity checks and version2 sample-based timing, plus protected GRUB reading
+and explicit incomplete collection/rejection.33 focused host tests pass,
+including original routes, exact failed timestamps and both a failed drain
+and a later parent deadline after a completed drain. Full frozen qualification
+and exact-stage VM are next; no new physical or performance acceptance yet.

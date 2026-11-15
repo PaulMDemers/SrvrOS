@@ -44,8 +44,9 @@ def native_chain(text):
 
 
 def replace_raw(text, change):
-    prefix = 'intel-vtd-drain: v=1 b='
-    line = next(l for l in text.splitlines() if l.startswith(prefix))
+    prefix = 'intel-vtd-drain: v=2 b='
+    line = next(l for l in text.splitlines() if l.startswith('intel-vtd-drain:'))
+    prefix = line.split('b=',1)[0]+'b='
     raw = bytearray(base64.b64decode(line[len(prefix):]))
     change(raw)
     return text.replace(line, prefix + base64.b64encode(raw).decode(), 1)
@@ -85,6 +86,46 @@ class Native(unittest.TestCase):
         except ValueError: return
         self.assertFalse(r['complete'])
 
+    def test_timing_uses_original_samples_and_keeps_actual_failed_clock(self):
+        for off, text in zip(('', 'entry-off-'), self.texts):
+            result = drain_result(text)
+            cost = result['timing']
+            self.assertEqual(result['version'], 2)
+            self.assertGreater(cost['calls'], 0)
+            self.assertGreater(cost['parents'], cost['calls'])
+            self.assertEqual(sum(cost['phases']), cost['last']-cost['first'])
+            failed = drain_result(run(off+'vtd-time:2'))
+            self.assertFalse(failed['complete'])
+            self.assertEqual(failed['timing']['stage'], 2)
+            self.assertEqual(failed['timing']['failed'], failed['summary']['prepare']+100002)  # Fixture clock advances once after injection.
+            self.assertEqual(failed['timing']['failed'], failed['audit']['engines']['summary']['clock'])
+            self.assertEqual(failed['summary']['clock'], 0)  # Parent refuses; raw timestamp survives separately.
+            pre, final = native_chain(text)
+            for index, value in ((4, 3), (8, 7), (7, 2**63), (9, 2**63), (5, 0)):
+                with self.subTest(route=off, field=index):
+                    with self.assertRaises(ValueError):
+                        drain_result(replace_raw(final, lambda raw, i=index, v=value: struct.pack_into('<Q', raw, 1552+8*i, v)), native=True)
+
+    def test_retained_following_child_is_reported_without_accepting_return(self):
+        from intel_source_audit import audit_result
+        for off in ('', 'entry-off-'):
+            for mode in ('vtd-read:50', 'vtd-write-unknown:1', 'vtd-unmap:1', 'vtd-late-time:1'):
+                with self.subTest(route=off, mode=mode):
+                    text = run(off+mode)
+                    result = drain_result(text)
+                    self.assertFalse(result['complete'])
+                    self.assertFalse(result['native_complete'])
+                    self.assertFalse(result['hardware_ownership'])
+                    self.assertEqual(result['summary']['returned'], 0)
+                    self.assertEqual(result['summary']['retained'], int(mode!='vtd-late-time:1'))
+                    self.assertTrue(result['audit']['scope_complete'])
+                    self.assertEqual(result['audit']['engines']['summary']['child_end'], 0)
+                    # The older profile keeps its strict returned-child rule.
+                    with self.assertRaisesRegex(ValueError, 'child return order'):
+                        audit_result(drain_view(text))
+                    with self.assertRaises(ValueError):
+                        drain_result(replace_raw(text, lambda b: struct.pack_into('<Q', b, 30*8, 1)))
+
     def test_fatal_sanitizers_on_both_routes_and_retention(self):
         from fixture_compile import compile_fixture, recipe
         target = 'build/tests/intel-vtd-native'
@@ -110,6 +151,7 @@ class Native(unittest.TestCase):
         flattened = subprocess.check_output([compiler, *flags, '-E', '-P', 'tools/test_intel_vtd_native.c'],
                                           cwd=ROOT, text=True, timeout=120)
         mutations = {
+            'omit-hardware-census': ('return vtd_parent_identity() && source_engines_guard(&nonzero_native);', 'return vtd_parent_identity();', 'vtd-inherited-map:2'),
             'omit-operation': ('if(!vtd_run())return', 'if(0 && !vtd_run())return', 'report'),
             'write-low-dword': ('return intel_display_test_vtd_write(off,value);', 'return intel_display_test_vtd_write(0x508,value);', 'report'),
             'omit-write-drain': ('return intel_display_test_vtd_write(off,value);', 'return intel_display_test_vtd_write(off,value&~0x10000u);', 'report'),
@@ -191,7 +233,7 @@ class Native(unittest.TestCase):
 
     def test_every_original_boundary_and_final_record_gate(self):
         for off, text in zip(('', 'entry-off-'), self.texts):
-            for mode in ('vtd-epoch', 'vtd-parent', 'vtd-registration', 'vtd-root', 'vtd-source', 'vtd-time', 'vtd-map-drift'):
+            for mode in ('vtd-epoch', 'vtd-parent', 'vtd-registration', 'vtd-root', 'vtd-source', 'vtd-time', 'vtd-map-drift', 'vtd-inherited-map', 'vtd-inherited-root'):
                 for n in range(1, stats(text)['boundaries']+1):
                     if mode in ('vtd-epoch', 'vtd-registration', 'vtd-source') and n == 1: continue # not constructed yet
                     if mode == 'vtd-map-drift' and n in (1, stats(text)['boundaries']): continue # no alias

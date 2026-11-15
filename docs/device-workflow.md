@@ -125,6 +125,13 @@ python3 tools/device_workflow.py reject --run trial-name
 A proof must match the exact runtime source, release and session and affirm
 native acceptance and return integrity. This explicit agent review step is not
 a request for human input. A new run is blocked until the previous run is closed.
+A well-formed retained native failure is collected as incomplete for review and
+rejection; an acceptance proof cannot promote that incomplete chain. Malformed
+or missing evidence still fails collection after raw preservation.
+
+When Ubuntu protects `/boot/grub/grub.cfg`, the runner reads that exact file
+through the configured privilege helper and then performs every original
+recovery assertion. Builds, VMs and PipeWire remain in the normal user session.
 `import-legacy CHECKPOINT` verifies and replays a previously accepted v35 run's
 sealed raw/payload/physical proof and preserves its **original** attribution; it
 never upgrades old evidence to the current runtime.

@@ -267,6 +267,7 @@ class RunnerTests(unittest.TestCase):
     def test_acceptance_requires_matching_reviewed_native_proof(self):
         directory, _, state = self.runner.load('candidate')
         state.update(phase='COLLECTED', release='1234567890abcdef', session='session-fixture')
+        atomic(directory / 'report.json', dict(native_complete=True))
         self.runner.save(directory, state)
         proof = self.root / 'proof.json'
         good = dict(native_acceptance=True, return_integrity='PASS', status='PASS_SCOPED',
@@ -278,6 +279,60 @@ class RunnerTests(unittest.TestCase):
         atomic(proof, good)
         self.runner.close('candidate', proof)
         self.assertEqual(self.state()['phase'], 'ACCEPTED')
+
+    def test_protected_grub_read_uses_only_fixed_path_and_preserves_failures(self):
+        manifest = dict(unit=self.unit)
+        with patch('workflow.runner.Path.read_text', return_value='normal read'), \
+                patch('workflow.runner.subprocess.check_output') as helper:
+            self.assertEqual(self.runner.grub_text(manifest), 'normal read')
+            helper.assert_not_called()
+        with patch('workflow.runner.Path.read_text', side_effect=PermissionError), \
+                patch('workflow.runner.subprocess.check_output', return_value='protected config') as helper:
+            self.assertEqual(self.runner.grub_text(manifest), 'protected config')
+            helper.assert_called_once_with(['fixture-no-root', 'cat', '--', '/boot/grub/grub.cfg'],
+                cwd=self.repo.resolve(), text=True, timeout=30)
+        for error in (FileNotFoundError, OSError):
+            with patch('workflow.runner.Path.read_text', side_effect=error), \
+                    patch('workflow.runner.subprocess.check_output') as helper:
+                with self.assertRaises(error): self.runner.grub_text(manifest)
+                helper.assert_not_called()
+
+    def test_valid_retained_native_failure_is_collected_but_cannot_be_accepted(self):
+        directory, manifest, state = self.runner.load('candidate')
+        manifest['wire_version'] = 2
+        atomic(directory/'manifest.json', manifest)
+        state['manifest_sha256'] = sha(directory/'manifest.json')
+        state.update(phase='BOOT_REQUESTED', host_boot_id='old', release='1234567890abcdef', recipe='silent-test')
+        self.runner.save(directory, state)
+        returned = directory / 'returned'; returned.mkdir()
+        session = 'session-fixture'; raw = returned / ('raw-'+session); raw.mkdir()
+        names = ('boot.log', 'session-a.log', 'exit.log')
+        for name in names: (raw/name).write_text('laptop-capture: boot options=silent-test\n')
+        atomic(returned/'parsed.json', dict(report=dict(sessions=[dict(session=session,
+            releases=[state['release']], exit_snapshot_present=True)])))
+        before = directory/'before'; before.mkdir(); atomic(before/'snapshot.json', dict(files={}))
+        after = dict(new_sessions=[session], raw={session:dict.fromkeys(names)},
+            files=dict.fromkeys('srvros-work/Logs/'+session+'/'+name for name in names))
+        parser = lambda text: dict(version=2, complete=False, native_complete=False, retained=True)
+        with patch.object(self.runner, 'media', return_value=after), \
+                patch('workflow.runner.trial_parsers', return_value=(None, lambda t:dict(version=1), lambda *a, **k:True)):
+            with self.assertRaisesRegex(ValueError, 'frozen wire version'):
+                self.runner.collect('candidate')
+        self.assertEqual(self.state()['phase'], 'BOOT_REQUESTED')
+        with patch.object(self.runner, 'media', return_value=after), \
+                patch('workflow.runner.trial_parsers', return_value=(None, parser, lambda *a, **k: True)):
+            self.runner.collect('candidate')
+        self.assertEqual(self.state()['phase'], 'COLLECTED')
+        report = json.loads((directory/'report.json').read_text())
+        self.assertEqual(report['status'], 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED')
+        self.assertFalse(report['native_complete'])
+        proof = self.root/'proof.json'
+        atomic(proof, dict(native_acceptance=True, return_integrity='PASS', status='FORGED',
+            release=state['release'], runtime_source=state['source'], session=session))
+        with self.assertRaisesRegex(ValueError, 'Incomplete native chain'):
+            self.runner.close('candidate', proof)
+        self.runner.close('candidate', reject=True)
+        self.assertEqual(self.state()['phase'], 'REJECTED')
 
     def test_return_without_exit_never_becomes_a_pass(self):
         directory, _, state = self.runner.load('candidate')
