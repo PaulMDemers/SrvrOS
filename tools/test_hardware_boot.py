@@ -15,7 +15,7 @@ import hardware_boot as boot
 
 class InstallTests(unittest.TestCase):
     def test_ggtt_combined_dedicated_stage_and_legacy_recipe(self):
-        version='ram-usb-v1-intel-ggtt-invalidate-laptop-probe-37d8c5d0-auto-return'
+        version='ram-usb-v2-intel-ggtt-invalidate-laptop-probe-37d8c5d0-auto-return'
         for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-ggtt-native/srvros.elf','initramfs.tar'):
             path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
         with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):

@@ -111,6 +111,19 @@ def profile(repo, name='intel-source-audit-v35'):
                 inputs=extra_inputs+build['outputs'],outputs=[],timeout=1800)
             jobs['development'].insert(-1,dict(ggtt,name='ggtt-development',argv=[sys.executable,'-m','unittest','-v','test_intel_ggtt_native.Native.test_complete_original_routes_and_checkpoint']))
             jobs['qualification'].extend([ggtt,dict(name='ggtt-core',argv=['make','test-intel-ggtt-invalidate'],inputs=dependencies,outputs=[],timeout=300)])
+        # Cheap structural failures must stop before lengthy fault matrices.
+        # Full qualification still repeats them; no prior gate is removed.
+        structure=dict(native,name='image-structure',timeout=300,
+            argv=[sys.executable,'-m','unittest','-v',
+                  'test_intel_vtd_drain.Drain.test_native_image_is_explicit_and_old_images_stay_isolated',
+                  'test_intel_vtd_native.Recipe','test_hardware_boot'])
+        if name=='intel-ggtt-invalidate-v36':
+            structure['inputs']=extra_inputs+build['outputs']
+            structure['argv'].extend([
+                'test_intel_ggtt_invalidate.Invalidation.test_only_dedicated_combined_image_caller',
+                'test_intel_ggtt_native.Native.test_collector_preserves_raw_and_legacy_profile_isolation'])
+        jobs['development'].insert(1,structure)
+        jobs['qualification'].insert(1,structure)
     return jobs
 
 

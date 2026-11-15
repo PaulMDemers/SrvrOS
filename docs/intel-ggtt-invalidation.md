@@ -153,3 +153,10 @@ sanitizer lifetimes. Actual image/VM/frozen full qualification and matching
 physical timing remain the next gate. A saved safe outcome returns automatically
 at1% volume; uncertain live ownership halts visibly. No input is required, no
 parent deadline is extended and all255 GPU hardware obligations remain open.
+
+
+The host-only isolation follow-up uses stage configuration revision2 without
+changing kernel/receiver bodies or wire4. Its fast image/fixture/staging preflight
+runs before long qualification. The old ordinary/v35 exclusions remain and the
+combined native link plan is checked explicitly. Earlier failed/cancelled host
+runs and their payloads stay distinct; none establishes hardware acceptance.

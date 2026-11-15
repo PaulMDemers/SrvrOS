@@ -362,3 +362,22 @@ legacy graphics and excluding battery stages; a regression covers that routing.
 The corrected source will receive a fresh immutable run and all required gates,
 with no inherited pass from the cancelled run. No deadline or native ownership
 predicate changes; the guest banner clarifies verified return.
+
+
+Host qualification of4c85 stopped before install/arm/reboot: the legacy VT-d
+core isolation assertion did not list the newly declared combined host fixture.
+All15 legacy native-adapter methods and the first three core fault/sanitizer/
+mutation methods passed; the structural assertion is still a required failure,
+not a native pass. Preserve that run and correct only the explicit fixture
+allowlist, retaining ordinary/v35 exclusion and checking the combined link plan.
+Add fast structural preflight before the long suites. A version2 combined stage
+configuration will give the host-only qualification correction its own immutable
+release metadata; kernel/receiver bodies, wire4 and150/300/400/500ms stay unchanged.
+Fresh source qualification and exact-stage VMs remain required before the1% trial.
+
+
+The isolation/staging preflight passes126 tests and the updated runner/fixture
+regression passes39. The early structural job is now mandatory in development
+and qualification; all original long suites remain required. The corrected
+candidate will have a new immutable run and26 gates, with no receipt inherited
+from the failed source. Main4016 and independent PR19/379 are unchanged.

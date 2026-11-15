@@ -259,3 +259,13 @@ pure-core policy matrices, native object width/fence checks and image isolation.
 Measure actual combined hardware timing before accepting that same lifetime;
 there is no new GPU mapping, pipeline/cache/reader assurance or page-flip grant.
 See the [native operation contract](intel-ggtt-invalidation.md#combined-original-held-native-candidate).
+
+
+Combined stages now use configuration revision2, retaining the same15-token
+recipe, wire4 record, kernel operation and existing budgets. Revision1 remains
+readable; this creates independent immutable release metadata for the host-only
+qualification correction. Both graphics profiles run `image-structure` directly
+after fixture preparation in development and qualification, before the long
+fault suites. It checks the explicit image/fixture allowlists, legacy exclusion,
+staging and (for the combined profile) VM classification/collector dispatch.
+The full suites still repeat their structural checks; no gate is skipped.

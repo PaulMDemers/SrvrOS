@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-ggtt-invalidate|1-intel-vtd-drain|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-ggtt-invalidate|2-intel-ggtt-invalidate|1-intel-vtd-drain|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82|1-capture-write-air61|1-capture-write-air72)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -40,8 +40,9 @@ def release_id(hashes, version=CONFIG_VERSION):
 
 
 def limine_config(release, version=CONFIG_VERSION):
-    if version.startswith("ram-usb-v1-intel-ggtt-invalidate-"):
-        return limine_config(release,version.replace("ram-usb-v1-intel-ggtt-invalidate-","ram-usb-v1-intel-vtd-drain-",1))
+    for prefix in ("ram-usb-v1-intel-ggtt-invalidate-","ram-usb-v2-intel-ggtt-invalidate-"):
+        if version.startswith(prefix):
+            return limine_config(release,version.replace(prefix,"ram-usb-v1-intel-vtd-drain-",1))
     if version.startswith("ram-usb-v1-intel-vtd-drain-"):
         return limine_config(release,version.replace("ram-usb-v1-intel-vtd-drain-","ram-usb-v1-intel-source-audit-",1)).replace("srvros.intel-ring=source-audit-v1","srvros.intel-ring=vtd-drain-v1")
     if version.startswith("ram-usb-v1-intel-source-audit-"):
@@ -608,7 +609,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if mwait_deep_test: version=f"ram-usb-v1-mwait-c3-laptop-probe-{laptop_probe_volume}"
         if intel_ring_entry:version=f"ram-usb-v1-intel-ring-entry-laptop-probe-{laptop_probe_volume}"
         if intel_ring_reset:version=f"ram-usb-v1-intel-ring-reset-laptop-probe-{laptop_probe_volume}"
-        if intel_ggtt_invalidate:version=f"ram-usb-v1-intel-ggtt-invalidate-laptop-probe-{laptop_probe_volume}"
+        if intel_ggtt_invalidate:version=f"ram-usb-v2-intel-ggtt-invalidate-laptop-probe-{laptop_probe_volume}"
         elif intel_vtd_drain:version=f"ram-usb-v1-intel-vtd-drain-laptop-probe-{laptop_probe_volume}"
         elif intel_source_audit:version=f"ram-usb-v1-intel-source-audit-laptop-probe-{laptop_probe_volume}"
         elif intel_source_engines:version=f"ram-usb-v1-intel-source-engines-laptop-probe-{laptop_probe_volume}"

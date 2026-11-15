@@ -182,10 +182,16 @@ class Native(unittest.TestCase):
         from hardware_boot_smoke import intel_probe_profile
         for name in ('intel-ggtt-invalidate','intel-vtd-drain','intel-source-audit'):
             self.assertTrue(intel_probe_profile('ram-usb-v1-'+name+'-laptop-probe-37d8c5d0-auto-return'))
+        self.assertTrue(intel_probe_profile('ram-usb-v2-intel-ggtt-invalidate-laptop-probe-37d8c5d0-auto-return'))
         self.assertFalse(intel_probe_profile('ram-usb-v60-laptop-probe-37d8c5d0-auto-return'))
-        cmd=limine_config('0123456789abcdef','ram-usb-v1-intel-ggtt-invalidate-laptop-probe-37d8c5d0-auto-return')
+        cmd=limine_config('0123456789abcdef','ram-usb-v2-intel-ggtt-invalidate-laptop-probe-37d8c5d0-auto-return')
         self.assertIn('srvros.intel-ring=vtd-drain-v1',cmd)
         jobs=profile(ROOT,'intel-ggtt-invalidate-v36');self.assertIn('ggtt-native',[j['name'] for j in jobs['qualification']]);trial_parsers('intel-ggtt-invalidate-v36')
+        for level in ('development','qualification'):
+            names=[j['name'] for j in jobs[level]]
+            self.assertEqual(names[0],'fixtures')
+            self.assertEqual(names[1],'image-structure')
+            self.assertLess(names.index('image-structure'),names.index('vtd-native' if level=='qualification' else 'vtd-development'))
         pre,final=chain(self.texts[0])
         with tempfile.TemporaryDirectory(prefix='ggtt-collection-') as folder:
             root=Path(folder);logs=root/'srvros-work/Logs/session-0000000000000001-00';logs.mkdir(parents=True)
