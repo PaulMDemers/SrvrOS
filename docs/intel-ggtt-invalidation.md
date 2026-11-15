@@ -1,8 +1,9 @@
 # Broadwell System Agent GGTT invalidation
 
 `intel_ggtt_invalidate` implements an isolated, one-use ordered register sequence.
-It has no native adapter or guest-image caller yet. It neither changes a GGTT
-entry nor enables GPU mapping, submission or tear-free scanout.
+A separately selected combined native adapter is now implemented; native
+qualification and physical acceptance of that new image remain pending. It
+neither changes a GGTT entry nor enables GPU mapping, submission or tear-free scanout.
 
 ## Hardware scope
 
@@ -111,3 +112,44 @@ plan checks keep ordinary, v35 and v36 payloads free of this new caller. These
 are host/build results only. All255 hardware obligations, zero assurances/
 managed GPU pages and the [current native acceptance](machines/macbookair7-2-current.md)
 remain unchanged.
+
+
+## Combined original-held native candidate
+
+`--intel-ggtt-invalidate` selects `build/intel-ggtt-native/srvros.elf` and the
+workflow profile `intel-ggtt-invalidate-v36`. It preserves the original15-token
+pre-init VT-d recipe and wake36, but pins a distinct configuration/payload and
+**version4** receipt. The old `--intel-vtd-drain` image stays version3 and never
+links the new writer. Ordinary and older images keep their existing behavior.
+
+The new child runs after the original CPU/audit/remapper work, while that same
+source, requester and five-engine hold remain live. The remapper's exact alias
+must already be retired and its full completed record must still match. The new
+child independently registers and maps GPU MMIO+101000 at a dedicated4KiB VA,
+with supervisor/writable/NX and fresh independently derived UC policy. It never
+reuses the remapper's physical page or broadens another alias's access list.
+
+Each of the two loads and single DWORD1 store admits only101008, original I/O
+phase and counts, actual alias/policy/registration, then fresh full hardware
+validation after its own final clock. Actual native accesses use MFENCE around
+volatile32bit MMIO. Core guards retain full hardware admission as well. Success
+requires exact unmap/absence, fresh policy/clock checks, registration release and
+pure complete-record validation before the requester may restore Command7.
+Any uncertain operation/alias/parent/return keeps the original graph retained.
+
+A separate432byte canonical packet carries54 unsigned64bit values: original
+binding and clocks, all core and native progress/first failure, exact UC alias,
+map/retirement/registration state, callback counts and selected150000us policy.
+Version4 requires exactly this packet; old receipts cannot acquire its scope.
+The receiver independently binds its BAR to captured PCI identity and computes
+its cache policy from the original complete CPU context. Raw-first collection
+still preserves files before parsing. The complete original native chain, not
+just either child, is required for any reviewed bounded acceptance.
+
+Both modeled original routes complete. The new adapter's672 target/alias/cache/
+clock/final-record fault cases refuse acceptance; strict receipt/checkpoint
+mutations and eight compiled admission/return controls pass, as do12 fatal
+sanitizer lifetimes. Actual image/VM/frozen full qualification and matching
+physical timing remain the next gate. A saved safe outcome returns automatically
+at1% volume; uncertain live ownership halts visibly. No input is required, no
+parent deadline is extended and all255 GPU hardware obligations remain open.

@@ -1,7 +1,8 @@
 # Repeatable device trials
 
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
-opt-in v36 VT-d drain trials. Both profiles are silent and automatic;
+opt-in v36 VT-d drain and separately selected combined GGTT invalidation trials.
+These profiles are silent and automatic;
 it does not enable another model or turn a future GPU operation into an
 accepted provider. Other trial profiles still use their documented harnesses.
 
@@ -238,3 +239,23 @@ individual operation waits remain unchanged, as do GT300ms, HDA400ms and
 outer500ms. Include both the legacy and150ms core fault/boundary/sanitizer/
 weakening suites when qualifying the selected policy. See the
 [policy contract](intel-vtd-drain.md#explicit150ms-aggregate-policy-authorized2026-11-15).
+
+
+### Combined System Agent invalidation profile
+
+`new --profile intel-ggtt-invalidate-v36` selects the dedicated
+`--intel-ggtt-invalidate` payload and pins **wire version4**. It keeps the complete
+original CPU/audit/remapper hold, then adds the exact System Agent DWORD write/
+posting read and its independent432byte receipt. Legacy `intel-vtd-drain-v36`
+continues to pin version3; historical runs retain their immutable versions.
+No ordinary image gains the new writer. The source/epoch/root/alias/policy and
+complete enclosing retirement checks, original150/300/400/500ms budgets,
+raw-first collection and reviewed acceptance remain mandatory. The exact-stage
+VM proves refusal/persistence/return only, not native execution.
+
+Qualification includes the original native/core/audit/boot/workflow/replays plus
+the new adapter's both-route fault/record/sanitizer/compiled-control suite, both
+pure-core policy matrices, native object width/fence checks and image isolation.
+Measure actual combined hardware timing before accepting that same lifetime;
+there is no new GPU mapping, pipeline/cache/reader assurance or page-flip grant.
+See the [native operation contract](intel-ggtt-invalidation.md#combined-original-held-native-candidate).

@@ -6726,3 +6726,23 @@ build/tests/intel-ggtt-invalidate-policy$(HOST_EXE): tools/test_intel_ggtt_inval
 test-intel-ggtt-invalidate: build/tests/intel-ggtt-invalidate$(HOST_EXE) build/tests/intel-ggtt-invalidate-policy$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_ggtt_invalidate
 test-core: test-intel-ggtt-invalidate
+
+# Combined v36 original-held remapper + System Agent invalidation diagnostic.
+INTEL_GGTT_NATIVE_FLAGS := $(INTEL_VTD_DRAIN_FLAGS) -DSRVROS_INTEL_GGTT_NATIVE
+build/intel-ggtt-native/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GGTT_NATIVE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-ggtt-native/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GGTT_NATIVE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-ggtt-native/requests.o: kernel/src/limine_requests.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GGTT_NATIVE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-ggtt-native/invalidate.o: kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GGTT_NATIVE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-ggtt-native/srvros.elf: build/intel-ggtt-native/invalidate.o build/intel-vtd-drain/drain.o build/intel-vtd-drain/engines.o build/intel-vtd-drain/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-vtd-drain/transfer.o build/intel-vtd-drain/buffers.o build/intel-joint/page.o build/intel-ggtt-native/main.o build/intel-ggtt-native/probe.o build/intel-ggtt-native/requests.o build/intel-vtd-drain/reset.o build/intel-vtd-drain/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-ggtt-native$(HOST_EXE): tools/test_intel_ggtt_native.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c tools/test_intel_vtd_native.c kernel/diagnostics/intel_ggtt_invalidate.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GGTT_NATIVE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c -o $@

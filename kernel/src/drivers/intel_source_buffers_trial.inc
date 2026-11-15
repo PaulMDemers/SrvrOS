@@ -48,6 +48,10 @@ static bool source_audit_returned(void);
 #ifdef SRVROS_INTEL_VTD_DRAIN
 static void vtd_prepare_storage(void);
 static bool vtd_returned(void);
+#ifdef SRVROS_INTEL_GGTT_NATIVE
+static void ggtt_prepare_storage(void);
+static bool ggtt_returned(void);
+#endif
 #endif
 #endif
 static struct {
@@ -105,6 +109,9 @@ static bool buffers_pattern(unsigned n,bool initialize) {
 static bool buffers_prepare(void) {
 #ifdef SRVROS_INTEL_VTD_DRAIN
  vtd_prepare_storage();
+#ifdef SRVROS_INTEL_GGTT_NATIVE
+ ggtt_prepare_storage();
+#endif
 #endif
 #ifdef SRVROS_INTEL_SOURCE_TRANSFER
  /* Touch the entire owned static transfer storage before the excluded native

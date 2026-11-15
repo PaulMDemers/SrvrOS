@@ -107,6 +107,9 @@ static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32
 #include "intel_source_audit_trial.inc"
 #ifdef SRVROS_INTEL_VTD_DRAIN
 #include "intel_vtd_drain_trial.inc"
+#ifdef SRVROS_INTEL_GGTT_NATIVE
+#include "intel_ggtt_invalidate_trial.inc"
+#endif
 #endif
 #endif
 static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
@@ -121,6 +124,9 @@ static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
  if(!source_audit_run())return false;
 #ifdef SRVROS_INTEL_VTD_DRAIN
  if(!vtd_run())return false;
+#ifdef SRVROS_INTEL_GGTT_NATIVE
+ if(!ggtt_run())return false;
+#endif
 #endif
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -141,6 +147,9 @@ static void source_engines_report(void) {
  source_audit_report();
 #ifdef SRVROS_INTEL_VTD_DRAIN
  vtd_report();
+#ifdef SRVROS_INTEL_GGTT_NATIVE
+ ggtt_report();
+#endif
 #endif
 #endif
  const struct intel_source_engines *r=&source_engines_native.result;

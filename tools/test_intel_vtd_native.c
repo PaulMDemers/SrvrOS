@@ -128,7 +128,10 @@ static int vtd_case(int argc,char **argv) {
   vd_boundaries,vd_reads,vd_writes,vd_maps,vd_unmaps,vd_caches,vd_aliases,vtd_returned(),vtd_native.retained,vd_write_boundary);
  return code;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_VTD_FIXTURE_MAIN
+#define INTEL_VTD_FIXTURE_MAIN main
+#endif
+int INTEL_VTD_FIXTURE_MAIN(int argc,char **argv) {
 #ifndef _WIN32
  if(argc==2 && !strcmp(argv[1],"--fixture-server"))return fixture_server(vtd_case);
 #endif

@@ -316,3 +316,39 @@ and a posting read, and retains every uncertain outcome. Native adapter/resource
 alias/receipt integration is the next bounded task; no new image or reboot is
 armed and no hardware acceptance changes. Its combined GT envelope must be
 measured before a trial rather than assuming the150ms aggregate solves it.
+
+
+Active native integration (base `e5a4f51a`, main `4016abf0` freshly fetched):
+add a separately selected combined image/profile and version4 receipt, retaining
+the legacy v36 version3 image and historical acceptance. The new original-held
+child runs the existing remapper drain then the System Agent invalidation,
+with its own registered descriptor, exact101000 UC/NX mapping, final hardware
+admission, raw packet and complete return gate. Scope: isolated adapter/fixture,
+image/boot selection, strict collector/workflow and current guides. Qualify both
+routes, all boundary/resource/I/O/late-record faults and exact-stage VM before
+an automated1% native trial. Keep150/300/400/500ms and all hardware checks;
+unknown lifetime/retirement retains the full chain. PR19/379 independent; no
+subagents or other-task messages. No new source-specific native result yet.
+
+
+The combined implementation now completes both modeled original routes. Its
+672 new adapter fault cases, strict raw/checkpoint mutations, eight compiled
+weakening controls and12 fatal sanitizer lifetimes pass. A separately selected
+image/profile pins version4 and the432byte original-bound GGTT packet; legacy
+v36 version3 remains independent. Actual native image/frame/instruction checks,
+full frozen legacy/new qualification and exact-stage VM are next before the
+needed automated1% hardware trial. Native timing, enabled/disabled routes and
+completion of the added operation remain pending; no GPU assurance is inferred.
+Two obsolete staged copies and one unreferenced EFI duplicate were removed
+only after full independent payload-bank equality; current/recovery/protected
+payloads and all native/failed evidence remain banked.
+
+
+The actual combined and legacy images now build with2KiB frame checks. Native
+object disassembly verifies exact101008 address, DWORD width, two fences and
+final hardware admission after the last clock; old v36 has no GGTT load/store.
+All155 focused staging/workflow/collector/isolation regressions pass, including
+the new distinct configuration and unchanged legacy recipe. Full frozen host
+qualification and exact-stage VM are now the remaining preboot gates. The
+standing automated1% authorization applies only after those gates; no human
+input is required and collection precedes the next source change.

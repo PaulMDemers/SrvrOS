@@ -58,7 +58,8 @@ struct intel_ggtt_invalidate {
  uint32_t reason,clock_reason;
  bool busy,complete,retained;
 };
-/* Isolated host-qualified protocol, no native caller yet. One DWORD1 and one
+/* Isolated protocol; native use only in the separately selected combined image.
+ * One DWORD1 and one
  * subsequent posting read, no PTE or engine-TLB stores, no polling/retry.
  * Unknown store/order/identity/clock keeps the original graph and backing pinned.
  * Success is this System Agent translation invalidation sequence only, not

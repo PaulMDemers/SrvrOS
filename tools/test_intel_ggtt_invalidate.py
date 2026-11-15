@@ -84,17 +84,22 @@ class Invalidation(unittest.TestCase):
                     result = execute(binary)
                     self.assertNotEqual(result.returncode, 0, 'Undetected weakening: ' + name)
 
-    def test_no_native_or_ordinary_image_caller(self):
+    def test_only_dedicated_combined_image_caller(self):
         lines = [line for line in (ROOT / 'Makefile').read_text().splitlines() if CORE in line]
         self.assertTrue(lines)
-        self.assertTrue(all('build/tests/intel-ggtt-invalidate' in line or '$(HOST_CC)' in line for line in lines))
+        self.assertTrue(all('build/tests/intel-ggtt-invalidate' in line or 'build/intel-ggtt-native/invalidate.o:' in line or line.startswith('build/tests/intel-ggtt-native') or '$(HOST_CC)' in line for line in lines))
         for path in (ROOT / 'kernel/src').rglob('*'):
             if path.suffix in ('.c', '.inc'):
-                self.assertNotIn('intel_ggtt_invalidate', path.read_text(), str(path))
+                if path.name not in ('intel_ggtt_invalidate_trial.inc','intel_source_engines_trial.inc'):
+                    self.assertNotIn('intel_ggtt_invalidate', path.read_text(), str(path))
         plan = subprocess.check_output(['make', '-Bn', '--', 'build/kernel/srvros.elf',
             'build/intel-source-audit/srvros.elf', 'build/intel-vtd-drain/srvros.elf'],
             cwd=ROOT, text=True, timeout=120)
         self.assertNotIn(CORE, plan)
+        native=subprocess.check_output(['make','-Bn','--','build/intel-ggtt-native/srvros.elf'],cwd=ROOT,text=True,timeout=120)
+        self.assertIn(CORE,native)
+        included=(ROOT/'kernel/src/drivers/intel_source_engines_trial.inc').read_text()
+        self.assertIn('#ifdef SRVROS_INTEL_GGTT_NATIVE\n#include \"intel_ggtt_invalidate_trial.inc\"\n#endif',included)
 
 
 if __name__ == '__main__':
