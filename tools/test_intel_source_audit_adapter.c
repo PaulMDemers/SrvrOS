@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <srvros/x86_cache.h>
 #include <srvros/vmm.h>
 static bool intel_display_test_source_audit_alias(uint64_t,uint64_t,uint64_t,uint32_t,unsigned,struct vmm_alias_observation *);
@@ -169,7 +170,7 @@ static bool intel_display_test_source_audit_inventory(uint64_t root,const struct
  if(jf("audit-inventory-time",audit_inventories))ticks=source_audit_native.origin+100001;
  return true;
 }
-int main(int argc,char **argv) {
+static int audit_case_main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--inventory-ram")) {
   reset();assert(source_audit_ram_prepare() && source_audit_ram.count==1 && !source_audit_native.inventory_reason);
   struct limine_memmap_entry regions[3]={{.base=0x300000,.length=4096,.type=LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE},{.base=0x100000,.length=4096,.type=LIMINE_MEMMAP_USABLE},{.base=0x200000,.length=4096,.type=LIMINE_MEMMAP_FRAMEBUFFER}};
@@ -192,4 +193,11 @@ int main(int argc,char **argv) {
  if(a->complete && source_requester_native.result.complete){assert(range_calls && admission_capture.queries==range_calls && !admission_capture.code);assert(admission_cost_capture.count && !admission_cost_capture.flags);assert(audit_inventories==2 && a->inventory_count==2 && !a->inventory_reason);}
  if(a->complete && source_requester_native.result.complete)assert(a->samples==2 && a->pci_reads==18 && a->plane_reads==54 && a->cache_checks==2 && a->range_checks==4 && !a->registered);
  return code;
+}
+#include "fixture_server.h"
+int main(int argc,char **argv) {
+#ifndef _WIN32
+ if(argc==2 && !strcmp(argv[1],"--fixture-server"))return fixture_server(audit_case_main);
+#endif
+ return audit_case_main(argc,argv);
 }

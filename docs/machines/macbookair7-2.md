@@ -1,6 +1,18 @@
 # MacBookAir7,2 / A1466
 
+For the concise active checkpoint, use [current status](macbookair7-2-current.md).
+This journal preserves dated exact-source acceptance and historical anchors.
+
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
+
+Current work: consolidate the host trial workflow into a manifest-driven runner,
+content-checked validation cache, reusable fixture builds, automatic return
+collection and bounded artifact retention. Scope is `tools/`, host Make targets
+and device workflow documentation; no kernel ownership checks or deadlines change.
+Integration base `4016abf0`, device baseline `79eb9f0f`; PR19 (Pro11,2 WiFi)
+and PR379 (WebCore) remain separate. Existing release/session acceptance below
+is preserved. This tooling block uses host fixtures and exact-stage VM evidence;
+it does not require a new physical trial or grant GPU ownership.
 
 ### Native private CPU translation and writeback accepted
 

@@ -62,6 +62,11 @@ Use cross-task messaging only with direct user authorization; otherwise publish
 reviewable repository work and surface an unresolved ownership conflict locally.
 No background agent scheduler or automatic reboot permission is implied here.
 
+For supported trials, prefer the [manifest-driven workflow](device-workflow.md)
+over copying checkpoint scripts. Its pending run must be collected and reviewed
+before creating another. Keep current status concise and link dated evidence;
+do not duplicate a long acceptance paragraph across several current guides.
+
 ## Share mechanisms; isolate hardware evidence
 
 - Separate protocol/controller mechanics from model matching, report layouts,

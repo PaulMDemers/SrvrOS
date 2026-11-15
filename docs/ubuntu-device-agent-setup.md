@@ -18,6 +18,12 @@ That explicit attended profile opens all instructions in Help before testing.
 Read the [coordination guide](agent-coordination.md) for ownership, overlapping
 changes, PR integration and checkpoints across machines.
 
+The reference Air's v35 automated source-audit profile now has a
+[manifest-driven workflow](device-workflow.md) for validation, exact-stage VM,
+install/one-shot boot, collection-only Ubuntu startup resume and durable reports.
+Configure it with this unit's UUID/recovery and existing privilege helper. Other
+profiles still follow their dedicated guides. Host reuse never accepts hardware.
+
 ## 1. One checkout and agent per machine
 
 Use `main`, the shared integration baseline. The completed work from

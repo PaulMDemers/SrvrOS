@@ -141,6 +141,8 @@ def main():
     parser.add_argument("--ap-cpus",type=int,choices=(1,2,4,6),default=4)
     parser.add_argument("--ap-inject",choices=("missing","fault","c3-missing","c3-early","c3-fault"))
     parser.add_argument("--boot-wait", type=float, default=180)
+    parser.add_argument("--release", help="verify this exact staged release; do not read or change latest")
+    parser.add_argument("--output-dir", type=Path, help="empty directory for this VM's evidence (default build/review)")
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
     parser.add_argument("--desktop-no-headroom", action="store_true", help="Verify safe desktop refusal at the exFAT file-slot limit")
@@ -157,13 +159,17 @@ def main():
     parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
-    logs = boot.ROOT / "build/review"
+    logs = args.output_dir.resolve() if args.output_dir is not None else boot.ROOT / "build/review"
+    if args.output_dir is not None and logs.exists() and any(logs.iterdir()):
+        parser.error("--output-dir must be empty; preserve previous VM evidence")
     logs.mkdir(parents=True, exist_ok=True)
     (logs/"hardware-grub-result.json").unlink(missing_ok=True)
     (logs/"hardware-grub-pcm.json").unlink(missing_ok=True)
-    release = (boot.STAGE / "latest").read_text().strip()
+    release = args.release if args.release is not None else (boot.STAGE / "latest").read_text().strip()
+    if not boot.RELEASE_RE.fullmatch(release):
+        parser.error("Invalid staged release")
     source = boot.STAGE / release
-    manifest=boot.verify(source)
+    manifest=boot.verify(source, release)
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")

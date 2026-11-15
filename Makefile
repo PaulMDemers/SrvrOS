@@ -6524,6 +6524,7 @@ test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h
 
 INTEL_SOURCE_AUDIT_FLAGS := $(INTEL_SOURCE_ENGINES_FLAGS) -DSRVROS_INTEL_SOURCE_AUDIT
+build/tests/intel-source-audit-adapter$(HOST_EXE): tools/fixture_server.h
 build/tests/intel-source-audit-adapter$(HOST_EXE): tools/test_intel_source_audit_adapter.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
@@ -6562,6 +6563,15 @@ build/tests/boot-source-audit$(HOST_EXE): tools/test_boot_source_audit.c tools/t
 	$(HOST_CC) $(INTEL_SOURCE_AUDIT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
 
 .PHONY: test-intel-source-audit
+.PHONY: test-device-workflow test-fixture-tools test-intel-source-audit-fast
+test-device-workflow:
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_device_workflow
+test-fixture-tools:
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_fixture_tools
+test-intel-source-audit-fast:
+	$(PYTHON) tools/fixture_compile.py build/tests/intel-source-audit-adapter$(HOST_EXE) build/tests/boot-source-audit$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_source_audit
+	build/tests/boot-source-audit$(HOST_EXE)
 test-core: test-intel-source-audit
 test-intel-source-audit: build/tests/intel-source-audit-adapter$(HOST_EXE) build/tests/boot-source-audit$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -f -s tools -p test_intel_source_audit.py

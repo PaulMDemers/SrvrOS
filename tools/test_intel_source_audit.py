@@ -5,8 +5,8 @@ from intel_source_audit import audit_recipe,audit_capture,audit_result,native_au
 from intel_source_engines import engines_result
 BIN=Path(os.environ.get('INTEL_SOURCE_AUDIT_TEST_BINARY',Path(__file__).resolve().parents[1]/'build/tests/intel-source-audit-adapter'))
 def run(mode):
- def limit():resource.setrlimit(resource.RLIMIT_CORE,(0,0))
- p=subprocess.run([str(BIN),'--wake-engine-'+mode],text=True,capture_output=True,preexec_fn=limit)
+ from fixture_client import run as fixture_run
+ p=fixture_run(BIN,mode)
  if p.returncode:raise AssertionError((mode,p.returncode,p.stderr,p.stdout[-1600:]))
  return p.stdout
 

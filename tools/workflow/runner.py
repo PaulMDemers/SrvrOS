@@ -1,0 +1,462 @@
+"""Manifest-driven trial orchestration. Host caches never grant native acceptance."""
+import datetime
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+
+from hardware_boot import verify, RELEASE_RE
+from hardware_test import check_ubuntu_default
+from intel_source_audit import audit_recipe, native_audit_result, verify_audit_checkpoint
+from workflow.store import Cache, atomic, encoded, files, sha, fsync_dir
+
+PHASES = ('NEW', 'VALIDATED', 'STAGED', 'QUALIFIED', 'INSTALLED', 'ARMED', 'BOOT_REQUESTED', 'COLLECTED')
+TERMINAL = ('ACCEPTED', 'REJECTED', 'CANCELLED', 'IMPORTED')
+INPUTS = ['Makefile', 'tools/**/*.py', 'tools/**/*.c', 'tools/**/*.h',
+          'kernel/**/*.c', 'kernel/**/*.h', 'kernel/**/*.inc', 'shared/**/*.h',
+          'kernel/**/*.S', 'kernel/**/*.ld', 'build/limine-protocol/include/*.h']
+# Resolve the actual protocol location below; no reliance on a sibling host layout.
+
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def command(argv, cwd=None):
+    return subprocess.check_output(argv, cwd=cwd, text=True).strip()
+
+
+def boot_id():
+    return Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+
+
+def code_inputs(repo):
+    # Git tracked code plus initialized submodule contents are included. Local
+    # untracked code is refused by frozen(), and glob membership is hashed too.
+    import glob
+    return [pattern for pattern in INPUTS if glob.glob(str(Path(repo) / pattern), recursive=True)]
+
+
+def profile(repo):
+    dependencies = code_inputs(repo)
+    # All support fixtures are built once. Full qualification still runs every
+    # fault case; development runs only two useful methods and is never launchable.
+    build = dict(name='fixtures', argv=[sys.executable, 'tools/fixture_compile.py',
+                 '--under-workflow-lock', 'build/tests/intel-source-audit-adapter',
+                 'build/tests/boot-source-audit', 'build/tests/intel-cache-probe',
+                 'build/tests/intel-handoff-probe', 'build/tests/exfat-driver'], cache=False,
+                 inputs=dependencies, outputs=['build/tests/intel-source-audit-adapter',
+                 'build/tests/boot-source-audit', 'build/tests/intel-cache-probe',
+                 'build/tests/intel-handoff-probe', 'build/tests/exfat-driver'], timeout=1200)
+    test_dependencies = dependencies + build['outputs']
+    fast = dict(name='audit-development', argv=[sys.executable, '-m', 'unittest',
+                'test_intel_source_audit.Audit.test_two_original_routes_live_owner_and_exact_raw_vectors',
+                'test_intel_source_audit.Audit.test_final_parent_restore_requires_original_completed_audit'],
+                env={'PYTHONPATH': 'tools', 'SRVROS_FIXTURE_BATCH': '1'}, inputs=test_dependencies,
+                outputs=[], timeout=300)
+    full = dict(name='audit-full', argv=[sys.executable, '-m', 'unittest', '-v',
+                'test_intel_source_audit'], env={'PYTHONPATH': 'tools', 'SRVROS_FIXTURE_BATCH': '1'},
+                inputs=test_dependencies, outputs=[], timeout=1800)
+    boot = dict(name='boot-recipe', argv=['build/tests/boot-source-audit'],
+                inputs=test_dependencies, outputs=[], timeout=60)
+    return dict(development=[build, fast], qualification=[build, full, boot])
+
+
+def check_config(config, repo):
+    if config.get('schema') != 1 or Path(config['repo']).resolve() != Path(repo).resolve():
+        raise ValueError('Wrong unit configuration schema/checkout')
+    if not re.fullmatch(r'[A-Za-z0-9,._-]+', config['model']):
+        raise ValueError('Invalid model')
+    if not re.fullmatch(r'[0-9a-f]{8}', config['volume']):
+        raise ValueError('Expected the local compact exFAT UUID')
+    for release in [config['recovery'], *config['protected_releases']]:
+        if not RELEASE_RE.fullmatch(release):
+            raise ValueError('Invalid protected release')
+    if config['volume_percent'] != 1:
+        raise ValueError('Automated trials require the requested 1% volume')
+    if not isinstance(config['privilege'], list) or not config['privilege']:
+        raise ValueError('Explicit local privilege command required')
+
+
+class Runner:
+    def __init__(self, repo, store):
+        self.repo, self.store = Path(repo).resolve(), Path(store).resolve()
+        self.store.mkdir(parents=True, exist_ok=True)
+        self.cache = Cache(self.store / 'validation-cache')
+
+    def load(self, run):
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', run):
+            raise ValueError('Invalid run name')
+        directory = self.store / 'runs' / run
+        manifest = json.loads((directory / 'manifest.json').read_text())
+        state = json.loads((directory / 'state.json').read_text())
+        if sha(directory / 'manifest.json') != state['manifest_sha256']:
+            raise ValueError('Run manifest changed')
+        check_config(manifest['unit'], self.repo)
+        return directory, manifest, state
+
+    def save(self, directory, state):
+        state['updated_utc'] = now()
+        atomic(directory / 'state.json', state)
+        active = dict(run=directory.name, phase=state['phase'], intent=state.get('intent'),
+                      status=state.get('status'), updated_utc=state['updated_utc'])
+        atomic(self.store / 'active.json', active)
+        summary = (f"{directory.name}: {state['phase']} ({state.get('status', 'pending')})\n"
+                   f"Source: {state.get('source', 'unknown')}\n"
+                   f"Release: {state.get('release', 'not staged')}\n"
+                   f"Intent: {state.get('intent') or 'none'}\n"
+                   f"Evidence: {directory}\n"
+                   "Host/VM completion does not grant native acceptance.\n")
+        atomic(self.store / 'current.md', summary.encode())
+
+    def frozen(self, manifest):
+        if command(['git', 'rev-parse', 'HEAD'], self.repo) != manifest['source']:
+            raise ValueError('Checkout changed from frozen runtime source')
+        if command(['git', 'status', '--porcelain', '--untracked-files=normal'], self.repo):
+            raise ValueError('Freeze a clean checkout before staging or launch')
+        actual = files(self.repo, manifest['inputs'])
+        if actual != manifest['input_hashes']:
+            raise ValueError('Frozen source/dependency contents changed')
+        submodules = command(['git', 'submodule', 'status', '--recursive'], self.repo)
+        if submodules != manifest['submodules']:
+            raise ValueError('Submodule state changed')
+
+    def create(self, name, config, question, expected, *, jobs=None):
+        active = self.store / 'active.json'
+        if active.exists():
+            previous = json.loads(active.read_text())
+            if previous['phase'] not in TERMINAL:
+                raise ValueError('Finish or explicitly cancel outstanding run ' + previous['run'])
+        check_config(config, self.repo)
+        if not question.strip() or not expected.strip():
+            raise ValueError('A hardware question and expected result are required')
+        jobs = jobs or profile(self.repo)
+        for level in ('development', 'qualification'):
+            names = set()
+            if not jobs.get(level):
+                raise ValueError('Missing validation level: ' + level)
+            for job in jobs[level]:
+                if (not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', job['name']) or job['name'] in names
+                        or not 0 < job['timeout'] <= 3600):
+                    raise ValueError('Invalid/duplicate job name or timeout')
+                names.add(job['name'])
+                if not job['inputs']:
+                    raise ValueError('Every validation job needs explicit dependencies')
+        inputs = code_inputs(self.repo)
+        manifest = dict(schema=1, unit=config, profile='intel-source-audit-v35', question=question,
+                        expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
+                        branch=command(['git', 'branch', '--show-current'], self.repo),
+                        submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),
+                        inputs=inputs, input_hashes=files(self.repo, inputs),
+                        jobs=jobs, created_utc=now(),
+                        hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
+        self.frozen(manifest)
+        directory = self.store / 'runs' / name
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', name):
+            raise ValueError('Invalid run name')
+        directory.mkdir(parents=True, exist_ok=False)
+        atomic(directory / 'manifest.json', manifest)
+        self.save(directory, dict(phase='NEW', manifest_sha256=sha(directory / 'manifest.json'),
+                                source=manifest['source'], status='pending', events=[]))
+        return name
+
+    def begin(self, directory, state, action):
+        state['intent'] = action
+        state['events'].append(dict(action=action, at=now(), status='STARTED'))
+        self.save(directory, state)  # side-effect intent is durable before any operation
+
+    def finish(self, directory, state, phase, **values):
+        state.update(values, phase=phase, intent=None, status=values.get('status', 'pending'))
+        state['events'].append(dict(phase=phase, at=now(), status='COMPLETE'))
+        self.save(directory, state)
+
+    def jobs(self, directory, manifest, state, level):
+        receipts = state.setdefault('validation', {})
+        for job in manifest['jobs'][level]:
+            self.frozen(manifest)
+            # Qualification deliberately reruns the complete suite for the frozen
+            # candidate. A successful receipt in THIS run makes resume idempotent.
+            slot = level + '/' + job['name']
+            if slot in receipts:
+                saved = receipts[slot]
+                log = directory / 'logs' / (level + '-' + job['name'] + '.log')
+                if sha(log) != saved['log_sha256'] or (job['outputs'] and files(self.repo, job['outputs']) != saved['outputs']):
+                    raise ValueError('Completed validation output changed: ' + slot)
+                continue
+            result = self.cache.run(job, self.repo, directory / 'logs' / (level + '-' + job['name'] + '.log'),
+                                    fresh=level == 'qualification')
+            receipts[slot] = result
+            self.save(directory, state)
+
+    def privileged(self, manifest, argv, log=None):
+        kwargs = dict(cwd=self.repo, check=True, timeout=600)
+        if log:
+            with Path(log).open('wb') as stream:
+                subprocess.run([*manifest['unit']['privilege'], *map(str, argv)], stdout=stream,
+                               stderr=subprocess.STDOUT, **kwargs)
+        else:
+            subprocess.run([*manifest['unit']['privilege'], *map(str, argv)], **kwargs)
+
+    def media(self, directory, manifest, returning=False):
+        dest = directory / ('returned' if returning else 'before')
+        self.privileged(manifest, [sys.executable, 'tools/device_workflow.py', '--store', self.store,
+            '_media', '--run', directory.name, '--returning' if returning else '--before'])
+        return json.loads((dest / 'snapshot.json').read_text())
+
+    def guard(self, manifest, state, *, installed=False, armed=False):
+        unit = manifest['unit']
+        if Path('/sys/class/dmi/id/product_name').read_text().strip() != unit['model']:
+            raise ValueError('Local hardware model changed')
+        if Path('/sys/firmware/efi/fw_platform_size').read_text().strip() != '64':
+            raise ValueError('Requires EFI64 Ubuntu recovery')
+        if Path(unit['ac_path']).read_text().strip() != '1':
+            raise ValueError('Connect AC before an automated trial')
+        base = Path('/boot/efi/EFI/srvros')
+        boot = json.loads((base / 'state.json').read_text())
+        if boot['previous'] != unit['recovery']:
+            raise ValueError('Installed recovery changed')
+        expected = state.get('release') if installed else state.get('prior_current', boot['current'])
+        if boot['current'] != expected:
+            raise ValueError('Installed current release changed')
+        for release in set([boot['current'], unit['recovery'], *unit['protected_releases']]):
+            if verify(base / release, release) != verify(Path(unit['payload_bank']) / release, release):
+                raise ValueError('Installed/banked payload mismatch: ' + release)
+        text = Path('/boot/grub/grub.cfg').read_text()
+        check_ubuntu_default(Path('/etc/default/grub').read_text(), text)
+        for role, release in (('current', boot['current']), ('previous', unit['recovery'])):
+            if 'srvros-' + role not in text or ('/EFI/srvros/' + release + '/loader/BOOTX64.EFI').lower() not in text.lower():
+                raise ValueError('GRUB recovery/current target mismatch')
+        self.privileged(manifest, ['grub-script-check', '/boot/grub/grub.cfg'])
+        output = subprocess.check_output([*unit['privilege'], 'grub-editenv', '/boot/grub/grubenv', 'list'], text=True)
+        pending = [line for line in output.splitlines() if line.startswith('next_entry=') and line != 'next_entry=']
+        if pending != (['next_entry=srvros-current'] if armed else []):
+            raise ValueError('Unexpected GRUB one-shot state')
+        return boot
+
+    def stage(self, directory, manifest, state):
+        subprocess.run([sys.executable, 'tools/hardware_boot.py', 'stage', '--laptop-probe-volume',
+                        manifest['unit']['volume'], '--intel-source-audit'], cwd=self.repo, check=True)
+        release = (self.repo / 'build/hardware-boot/latest').read_text().strip()
+        self.adopt_stage(directory, manifest, state, release)
+
+    def candidate(self, state):
+        stage = Path(state['stage'])
+        if (sha(stage / 'manifest.json') != state['manifest_digest'] or
+                verify(stage, state['release']) != verify(Path(state['payload_bank']), state['release'])):
+            raise ValueError('Frozen staged/banked payload changed')
+
+    def quiet(self, state):
+        subprocess.run(['wpctl', 'set-volume', '@DEFAULT_AUDIO_SINK@', '1%'], check=True)
+        if command(['wpctl', 'get-volume', '@DEFAULT_AUDIO_SINK@']) != 'Volume: 0.01':
+            raise ValueError('Cannot verify 1% host volume')
+        # This profile is silent and its exact recipe forbids enabling HDA.
+        if 'srvros.audio=hda' in state['recipe'].split():
+            raise ValueError('This automated profile must be silent')
+
+    def adopt_stage(self, directory, manifest, state, release):
+        if not RELEASE_RE.fullmatch(release):
+            raise ValueError('Invalid exact release')
+        stage = self.repo / 'build/hardware-boot' / release
+        payload = verify(stage, release)
+        if payload['git_head'] != manifest['source'] or payload['git_dirty']:
+            raise ValueError('Staged payload is not the frozen source')
+        recipe = next(line.split('cmdline:', 1)[1].strip() for line in (stage / 'limine.conf').read_text().splitlines() if 'cmdline:' in line)
+        if audit_recipe(recipe) != dict(release=release, volume=manifest['unit']['volume']):
+            raise ValueError('Staged recipe does not match the exact run/USB')
+        bank = Path(manifest['unit']['payload_bank']) / release
+        if not bank.exists():
+            from workflow.media import durable_copy
+            bank.parent.mkdir(parents=True, exist_ok=True)
+            durable_copy(stage, bank)
+        if verify(bank, release) != payload:
+            raise ValueError('Payload bank mismatch')
+        state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
+                     payload_bank=str(bank))
+
+    def vm(self, directory, state):
+        for name, extra in (('save-return', []), ('missing-workspace', ['--probe-missing-workspace'])):
+            receipt = directory / ('vm-' + name + '.json')
+            if receipt.is_file():
+                saved = json.loads(receipt.read_text())
+                from workflow.media import tree
+                if (saved['release'] != state['release'] or sha(Path(saved['log'])) != saved['log_sha256']
+                        or tree(Path(saved['output'])) != saved['artifacts']):
+                    raise ValueError('Exact-stage VM receipt changed')
+                continue
+            attempt = len(list(directory.glob('vm-' + name + '-*')))
+            output = directory / ('vm-' + name + '-' + str(attempt))
+            log = directory / ('vm-' + name + '-' + str(attempt) + '.log')
+            with log.open('wb') as stream:
+                subprocess.run([sys.executable, 'tools/hardware_boot_smoke.py', '--release', state['release'],
+                    '--output-dir', str(output), '--probe-check', '--workspace-table', 'mbr', *extra], cwd=self.repo,
+                    stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=360)
+            from workflow.artifacts import archive_image
+            from workflow.media import tree
+            for image in output.glob('*.exfat'):
+                archive_image(image)
+            atomic(receipt, dict(release=state['release'], log=str(log), log_sha256=sha(log),
+                                output=str(output), artifacts=tree(output),
+                                manifest_sha256=state['manifest_digest'], native_acceptance=False))
+        atomic(directory / 'vm.json', dict(status='PASS', release=state['release'],
+               manifest_sha256=state['manifest_digest'], native_acceptance=False))
+
+    def advance(self, run, through='QUALIFIED'):
+        directory, manifest, state = self.load(run)
+        if through not in PHASES[1:7]:
+            raise ValueError('advance target must be VALIDATED through BOOT_REQUESTED')
+        if state['phase'] not in PHASES:
+            raise ValueError('Run is already closed')
+        if state.get('intent') and state['intent'] not in ('validate', 'qualify'):
+            raise ValueError('Interrupted side effect needs explicit reconcile: ' + state['intent'])
+        while PHASES.index(state['phase']) < PHASES.index(through):
+            self.frozen(manifest)
+            phase = state['phase']
+            if phase not in ('NEW', 'VALIDATED'):
+                self.candidate(state)
+            action = dict(NEW='validate', VALIDATED='stage', STAGED='qualify', QUALIFIED='install',
+                          INSTALLED='arm', ARMED='reboot')[phase]
+            self.begin(directory, state, action)
+            try:
+                if action == 'validate':
+                    self.jobs(directory, manifest, state, 'development')
+                    self.finish(directory, state, 'VALIDATED')
+                elif action == 'stage':
+                    self.stage(directory, manifest, state)
+                    self.finish(directory, state, 'STAGED')
+                elif action == 'qualify':
+                    self.jobs(directory, manifest, state, 'qualification')
+                    self.vm(directory, state)
+                    self.finish(directory, state, 'QUALIFIED')
+                elif action == 'install':
+                    boot = self.guard(manifest, state)
+                    state.update(host_boot_id=boot_id(), prior_current=boot['current'])
+                    self.save(directory, state)
+                    self.media(directory, manifest)
+                    self.privileged(manifest, [sys.executable, 'tools/hardware_boot.py', 'install',
+                                             '--release', state['release'], '--keep-previous'], directory / 'install.log')
+                    self.guard(manifest, state, installed=True)
+                    self.finish(directory, state, 'INSTALLED')
+                elif action == 'arm':
+                    self.guard(manifest, state, installed=True)
+                    self.privileged(manifest, ['grub-reboot', 'srvros-current'])
+                    self.guard(manifest, state, installed=True, armed=True)
+                    self.finish(directory, state, 'ARMED')
+                else:
+                    if boot_id() != state['host_boot_id']:
+                        raise ValueError('Host boot changed before reboot request')
+                    self.guard(manifest, state, installed=True, armed=True)
+                    self.media(directory, manifest)  # fresh offline checks and file/session baseline
+                    self.quiet(state)
+                    self.finish(directory, state, 'BOOT_REQUESTED', status='awaiting native return')
+                    os.sync()
+                    self.privileged(manifest, ['systemctl', 'reboot', '-i', '--no-block'])
+            except BaseException as error:
+                state.update(status='FAILED', error=str(error))
+                self.save(directory, state)
+                if action in ('arm', 'reboot'):
+                    self.privileged(manifest, ['grub-editenv', '/boot/grub/grubenv', 'unset', 'next_entry'])
+                    state.update(intent='reconcile', status='FAILED one-shot cleared')
+                    self.save(directory, state)
+                raise
+        return state
+
+    def collect(self, run):
+        directory, manifest, state = self.load(run)
+        if state['phase'] == 'COLLECTED':
+            return state
+        if state['phase'] != 'BOOT_REQUESTED' or boot_id() == state['host_boot_id']:
+            raise ValueError('No matching physical return to collect')
+        # Collection can survive docs-only commits, but code changes need an explicit
+        # reviewed migration. Startup must never execute a newly edited collector.
+        if files(self.repo, manifest['inputs']) != manifest['input_hashes']:
+            raise ValueError('Collector/source changed; archive raw evidence and review migration')
+        self.begin(directory, state, 'collect')
+        try:
+            after = self.media(directory, manifest, returning=True)
+            if len(after['new_sessions']) != 1:
+                raise ValueError('Expected one new session; raw evidence preserved')
+            session = after['new_sessions'][0]
+            parsed = json.loads((directory / 'returned/parsed.json').read_text())
+            row, = [row for row in parsed['report']['sessions'] if row['session'] == session]
+            if row['releases'] != [state['release']] or not row['exit_snapshot_present']:
+                raise ValueError('Missing matching release/exit marker; not a pass')
+            logs = directory / 'returned' / ('raw-' + session)
+            if set(after['raw'][session]) != {'boot.log', 'session-a.log', 'exit.log'}:
+                raise ValueError('Unexpected raw files for the frozen v35 profile')
+            before = json.loads((directory / 'before/snapshot.json').read_text())
+            added = set(after['files']) - set(before['files'])
+            if added != {f'srvros-work/Logs/{session}/{name}' for name in after['raw'][session]}:
+                raise ValueError('Unexpected new USB files outside matching session')
+            for name in after['raw'][session]:
+                options = [line for line in (logs / name).read_text().splitlines()
+                           if line.startswith('laptop-capture: boot options=')]
+                if options != ['laptop-capture: boot options=' + state['recipe']]:
+                    raise ValueError('Raw session recipe differs from the frozen stage')
+            text, pre = (logs / 'exit.log').read_text(), (logs / 'session-a.log').read_text()
+            if not verify_audit_checkpoint(pre, text, native=True):
+                raise ValueError('Native checkpoint mismatch')
+            native = native_audit_result(text)
+            if not native['complete'] or not native['native_complete']:
+                raise ValueError('Native chain incomplete')
+            self.guard(manifest, state, installed=True, armed=False)
+            report = dict(status='COLLECTED_REVIEW_REQUIRED', source=manifest['source'], release=state['release'],
+                          session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
+                          raw_manifest=after['raw'][session], native=native, offline_integrity='PASS',
+                          native_acceptance=False, physical_tearfree=False)
+            atomic(directory / 'report.json', report)
+            self.finish(directory, state, 'COLLECTED', status='review full retirement and scope before acceptance', session=session)
+        except BaseException as error:
+            state.update(status='FAILED_OR_INCOMPLETE', error=str(error))
+            self.save(directory, state)
+            raise
+        return state
+
+    def close(self, run, proof=None, reject=False):
+        directory, manifest, state = self.load(run)
+        if state['phase'] != 'COLLECTED':
+            raise ValueError('Only a collected run can be closed')
+        if reject:
+            self.finish(directory, state, 'REJECTED', status='reviewed failure; raw evidence retained')
+            return
+        evidence = json.loads(Path(proof).read_text())
+        if not evidence.get('native_acceptance') or evidence.get('return_integrity') != 'PASS':
+            raise ValueError('A reviewed full native acceptance/integrity proof is required')
+        if (evidence.get('release'), evidence.get('runtime_source', evidence.get('source')), evidence.get('session')) != (
+                state['release'], manifest['source'], state['session']):
+            raise ValueError('Acceptance proof is for another run')
+        atomic(directory / 'acceptance.json', evidence)
+        report = json.loads((directory / 'report.json').read_text()) if (directory / 'report.json').exists() else {}
+        report.update(acceptance_status=evidence['status'], native_acceptance=True,
+                      acceptance_sha256=sha(directory / 'acceptance.json'), scope=evidence.get('scope'))
+        atomic(directory / 'report.json', report)
+        self.finish(directory, state, 'ACCEPTED', status=evidence['status'], proof_sha256=sha(directory / 'acceptance.json'))
+
+    def reconcile(self, run, action, release=None):
+        directory, manifest, state = self.load(run)
+        self.frozen(manifest)
+        if action == 'stage' and state['phase'] == 'VALIDATED' and state.get('intent') == 'stage':
+            self.adopt_stage(directory, manifest, state, release)
+            self.finish(directory, state, 'STAGED')
+        elif action == 'disarm' and state['phase'] in ('QUALIFIED', 'INSTALLED', 'ARMED', 'BOOT_REQUESTED'):
+            if state.get('host_boot_id') and state['host_boot_id'] != boot_id():
+                raise ValueError('A reboot occurred; collect before cancelling')
+            self.privileged(manifest, ['grub-editenv', '/boot/grub/grubenv', 'unset', 'next_entry'])
+            try:
+                self.guard(manifest, state, installed=False, armed=False)
+                phase = 'QUALIFIED'  # exact prior installation survived; no candidate install occurred
+            except ValueError:
+                self.guard(manifest, state, installed=True, armed=False)
+                phase = 'INSTALLED'
+            self.finish(directory, state, phase, status='disarmed; verified installation may be resumed')
+        else:
+            raise ValueError('No safe automatic reconciliation for this state; inspect durable intent')
+
+    def cancel(self, run):
+        directory, manifest, state = self.load(run)
+        if state['phase'] not in ('NEW', 'VALIDATED', 'STAGED', 'QUALIFIED') or state.get('intent') in ('install', 'arm', 'reboot'):
+            raise ValueError('Installed/possibly booted runs must be reconciled/collected before cancellation')
+        self.finish(directory, state, 'CANCELLED', status='cancelled before installation; evidence retained')

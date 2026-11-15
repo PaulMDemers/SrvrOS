@@ -10,6 +10,39 @@ The [Air7,2 unit record](machines/macbookair7-2.md) owns physical acceptance;
 the [coordination guide](agent-coordination.md) governs shared implementation.
 It does not accept another Mac's firmware or graphics profile.
 
+## Capability-sized trial plan
+
+The next acceptance target is one complete **private one-page GPU mapping
+lifetime**, not another collection of successful register observations. The
+[current Air status](machines/macbookair7-2-current.md) separates CPU maintenance
+already accepted from the still-open device obligations. Use the
+[durable workflow](device-workflow.md) to freeze each candidate and collect it.
+
+| Required part | Evidence required before advancing the original owner |
+| --- | --- |
+| Ownership | Maintained firmware/requester/engine exclusion tied to the actual source, epoch and exact range; every unknown keeps the grant refused |
+| Completion | Actual outstanding DMA/posted-write/prefetch, GPU translation/cache and every remaining display/firmware reader have bounded completion witnesses; clear endpoints alone do not retire them |
+| One-page transfer | Original entry captured, private backing held, encoding/cache policy checked, admitted store and required hardware visibility/completion confirmed |
+| Publication | First private publication and any reader leases remain attached to the same owner; no reuse while any consumer remains |
+| Restoration | Stop publication, drain consumers, restore exact original entry with required completion, retire aliases/holds and verify inherited display and USB/recovery integrity |
+| Failure | Every partial store, missing ACK, stale identity, timeout and failed restoration retains the original exclusion/backing; no false success or free/retry |
+
+Implement and host-test the whole protocol before scheduling the mapping trial.
+Use pure-core tests, actual adapter fault points, mutation controls and fatal
+sanitizers. Batch compatible subphases in one boot only when each live prerequisite
+is established before the next action, with the **original deadlines unchanged**.
+Never turn separate boots into a live ownership token. Where a required hardware
+witness is still unknown, design and batch the discriminating read-only evidence
+first; do not repeatedly boot an unchanged positive observation.
+
+Freeze all required jobs and exact payload once, qualify it in QEMU, then run the
+single bounded native question. Buffer compact source-bound timing, route,
+failure and retirement data; persist after safe ownership return instead of
+printing inside the critical interval. Save raw data before classification on
+Ubuntu. Accept the whole capability only after strict original-chain, media and
+recovery review. A retained unsafe outcome still halts; safe saved/unmounted
+outcomes return automatically. No new GPU action is enabled by this plan.
+
 ## Established boundary
 
 | Native evidence | Accepted scope | Still excluded |
