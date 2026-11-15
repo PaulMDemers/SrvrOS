@@ -96,7 +96,7 @@ class Audit(unittest.TestCase):
      data=bytearray(raw)
      if prefix=='intel-source-audit-data:' and offset in (152,160,168,176):data[offset:offset+8]=bytes([255])*8
      elif prefix=='intel-source-audit-data:' and offset==184:data[offset:offset+4]=bytes([255])*4
-     elif prefix=='intel-source-audit-reset:' and offset in (12,20,28):data[offset:offset+8]=bytes([255])*8
+     elif prefix=='intel-source-audit-reset:' and offset in (12,20,28,36):data[offset:offset+8]=bytes([255])*8
      else:data[offset]^=1
      bad=line.split('b=',1)[0]+'b='+base64.b64encode(data).decode()
      with self.subTest(prefix=prefix,offset=offset),self.assertRaises(ValueError):audit_result(text.replace(line,bad))
