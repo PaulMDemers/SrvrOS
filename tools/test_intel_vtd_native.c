@@ -116,9 +116,11 @@ static void intel_display_test_vtd_return(void) {
  }
 }
 static int vtd_case(int argc,char **argv) {
+ /* entry-off dispatch lends engine_mode from its own stack frame. */
+ bool bad_table=argc==2 && strstr(argv[1],"vtd-reserved-table");
  int code=audit_case_main(argc,argv);
  if(vd_broken)assert(vd_reads==vd_boundary_reads && vd_writes==vd_boundary_writes && vd_maps==vd_boundary_maps && vd_unmaps==vd_boundary_unmaps && (!vd_boundary_registered || vtd_native.registered_child==&vtd_native.source));
- if(strstr(engine_mode,"vtd-reserved-table"))assert(vtd_native.retained && !vtd_native.complete && !vd_maps && !vd_writes);
+ if(bad_table)assert(vtd_native.retained && !vtd_native.complete && !vd_maps && !vd_writes);
  if(vtd_native.complete && source_requester_native.result.complete)assert(vtd_returned() && vd_maps==1 && vd_unmaps==1 && vd_writes==1 && !pa[INTEL_CAPTURE_PAGES+16]);
  printf("vtd-native-fixture: boundaries=%u reads=%u writes=%u maps=%u unmaps=%u caches=%u aliases=%u complete=%u retained=%u\n",
   vd_boundaries,vd_reads,vd_writes,vd_maps,vd_unmaps,vd_caches,vd_aliases,vtd_returned(),vtd_native.retained);

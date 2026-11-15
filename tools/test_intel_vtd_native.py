@@ -151,9 +151,9 @@ class Native(unittest.TestCase):
             with patch.dict(os.environ, SRVROS_FIXTURE_BATCH='0',
                     ASAN_OPTIONS=f'detect_leaks={leaks}:abort_on_error=1', UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'):
                 for off in ('', 'entry-off-'):
-                    for mode in ('report', 'vtd-poll', 'vtd-write-unknown:1', 'vtd-unmap:1', 'vtd-final:4'):
+                    for mode in ('report', 'vtd-poll', 'vtd-reserved', 'vtd-reserved-table', 'vtd-write-unknown:1', 'vtd-unmap:1', 'vtd-final:4'):
                         text = run(off+mode, binary)
-                        if mode in ('report', 'vtd-poll'): self.assertTrue(drain_result(text)['complete'])
+                        if mode in ('report', 'vtd-poll', 'vtd-reserved'): self.assertTrue(drain_result(text)['complete'])
                         else: self.retained(text)
 
     def test_compiled_adapter_weakening_controls(self):

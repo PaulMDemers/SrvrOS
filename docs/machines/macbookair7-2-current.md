@@ -173,3 +173,14 @@ are161 full parent attempts with the same107 cache/157 alias checks; no native
 speedup is claimed. Full frozen qualification will run the changed adapter
 matrix before the unchanged full audit (same mandatory jobs, reordered only
 for earlier failure reporting), then exact-stage VM before another1% trial.
+
+
+Frozen `d3055f81` is not installed: full qualification caught a stack-use-after-
+return in the host fixture's post-dispatch test-name check on the entry-off
+route. The other adapter methods, including all15 weakening controls, passed;
+there is no new physical result. The fixture now captures that boolean from
+stable argv before dispatch, and fatal ASan/UBSan passes14 success/failure
+resource/route lifetimes. Native adapter bytes are unchanged by this fix.
+The cancelled, uninstalled candidate and original attribution are archived
+locally. Requalification will run the sanitizer case first, then every original
+gate and exact-stage VM. No clock limit, guard predicate or recovery changes.
