@@ -1173,3 +1173,17 @@ DMA/cache/reader ownership or repeatability grant. Next establish remaining
 completion/exclusion witnesses before GPU interval/PTE/submission authority.
 All255 hardware obligations/zero managed GPU pages/native tear-free pending;
 no sibling acceptance and no checks or deadline extensions.
+
+Air7,2 runtime2bde9498/release3807a53c3829ba9c now accepts one original kind2
+[private CPU translation/writeback lifetime](machines/macbookair7-2.md#native-private-cpu-translation-and-writeback-accepted):
+2,712 local target invalidations,173,568 line operations and fourfences complete
+in12,205/100,000us before GPU acquisition. The original held observations and
+full retirement pass, with GPU preparation94,782/100,000us (5,218us margin),
+exact2,712page release/DMA57→57 and offline file/recovery preservation
+(1,530files/166sessions). Banks survive distclean; USB unmounted and no trial
+or one-shot outstanding. Main4016 remains integrated, PR19/379 independent.
+This accepts the targeted CPU operation for that lifetime only; all255 actual
+GPU/DMA/prefetch/cache/translation/firmware/display-reader obligations and zero
+assurances/managed GPU pages remain. Next establish device-side completion and
+reader exclusion/retirement before GPU interval/PTE/submission authority.
+Enabled route for this source, repeatability and native tear-free remain pending.

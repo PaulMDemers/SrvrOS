@@ -64,6 +64,11 @@ their isolation to v35 before exact-stage VM and physical qualification.
 
 Source `2bde9498` / release `3807a53c3829ba9c` passes local core/adapter,
 fatal sanitizer, weakening-control, historical-replay, native opcode/image/frame/
-saved-tail and exact-stage VM qualification. Native acceptance is pending. The
-[Air unit record](machines/macbookair7-2.md#qualified-private-cpu-translation-and-writeback-trial)
-owns the exact coverage, retained fixture correction and later physical result.
+saved-tail and exact-stage VM qualification. One native Air7,2 original kind2 lifetime is accepted in session
+`session-000660477eac84c4-00`: 2,712 target invalidations, 173,568 line operations
+and four fences in12,205/100,000 us, followed by complete original diagnostic
+and offline preservation. GPU preparation94,782/100,000 us retains5,218 us.
+The [unit result](machines/macbookair7-2.md#native-private-cpu-translation-and-writeback-accepted)
+owns the exact route, scope, qualification and retained fixture correction.
+Enabled entry for this source, repeatability and GPU/DMA/cache/reader ownership
+remain pending. No managed GPU page or native tear-free grant follows.

@@ -2,7 +2,53 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
-### Qualified private CPU translation and writeback trial
+### Native private CPU translation and writeback accepted
+
+Frozen runtime `2bde9498` / release `3807a53c3829ba9c`, session
+`session-000660477eac84c4-00`, collector `e1a12d21` accept **one original
+kind2 disabled-entry CPU maintenance lifetime**. The two original 1,356-page
+private holds stay closed to CPU borrows and mapping. Each tagged current-root
+page gets its requested translation/WB validation and local INVLPG before its
+64 CLFLUSH operations. All 2,712 invalidations, 173,568 cache-line operations
+and four main-path fences complete in **12,205/100,000 us**. CPU signature,
+64-byte line feature, closing context/root/holds and original complete record
+at held-child/final-return boundaries match. This accepts the targeted CPU
+operation, with no permanent invalid-cache-residency or GPU completion claim.
+
+Both fresh whole-root samples visit 110 logical table paths, 56,320 slots and
+47,371 present leaves, finding four expected leaf intersections and exact
+1,356-page coverage per span. All four requested mappings retain supervisor,
+writable, PAT0/WB attributes and raw NX bits clear. Both PCI/cache/54-reader
+samples match the original held source. Entry/reset0→1/source1, all ten engine
+stores/admissions/ACKs and 44 native target reads complete with zero engine/AF
+polls. Audit2,685 us, engine3,911 us, requester4,555 us, closing guard7 us and
+borrow return3,168 us pass. GPU preparation is **94,782/100,000 us**, leaving
+**5,218 us**; GT250,328/300,000 us, HDA284,355/400,000 us and outer334,789/500,000 us
+pass. CPU maintenance occurs before these GPU clocks. All original checks and
+deadlines remain. Prior b105 preparation was94,806 us; the24 us difference is
+one sample per source, with no performance-causation or repeatability claim.
+
+All fourteen GPU diagnostic aliases and HDA1 retire. Four padded patterns,
+exact 2,712-page release and DMA57→57 pass. All 1,527 prior USB files preserve
+except expected metadata; three exact logs yield1,530 files/166 sessions.
+Strict raw/checkpoint/recipe/native-chain and offline fsck/allocation/writable/
+headroom/boot digest, installed/banked recovery, Ubuntu default and consumed
+one-shot checks pass. USB is unmounted; no run or one-shot remains outstanding.
+Raw, physical and qualification banks survive distclean under
+`~/.local/share/srvros/reviewed-evidence/air-cache-clean-20261114/`.
+
+The existing cost packet remains complete with zero failure/overflow flags;
+its census sample envelopes overlap control brackets and are distinct from the
+new CPU maintenance interval. No retrospective writeback scope is granted to
+older evidence. This source's enabled-entry route, failure/pending hardware
+branches and repeatability remain unaccepted. Other roots/SMP, GPU/IOMMU
+translation and cache completion, outstanding DMA/prefetch and firmware/display-
+reader exclusion/retirement remain open. All255 hardware obligations, zero
+assurances/managed GPU pages and native tear-free pending stay unchanged.
+Next establish those device-side witnesses before a GPU interval, PTE or
+submission grant. Checkpoint: `build/air-cache-clean-20261114`.
+
+### Qualification preceding the private CPU maintenance trial
 
 Frozen source `2bde9498` / release `3807a53c3829ba9c` is qualified locally
 for private CPU writeback before the original GPU lifetime. Both original holds
@@ -42,12 +88,11 @@ USB files/165 sessions and offline filesystem/allocation/writable/headroom,
 Ubuntu default, AC, boot digest and installed/banked recovery checks pass.
 Only unreferenced EFI duplicate5a was retired after exact accepted-bank/native
 proof checks; its durable payload/evidence remain. Current3c9, prior0ffff,
-recovery9aa8 and GUI/joint/HDA stay protected. Native CPU writeback acceptance
-is pending; all255 hardware obligations, zero assurances/managed GPU pages
-remain. The authorized automated1% trial needs no human input. Collect its
-matching session first and require full CPU maintenance plus the complete
-original diagnostic and offline preservation. Safe saved outcomes return;
-retained uncertainty halts visibly. Checkpoint: `build/air-cache-clean-20261114`.
+recovery9aa8 and GUI/joint/HDA stay protected. At qualification, native CPU writeback acceptance
+was pending with all255 hardware obligations open. The automated1% trial needed
+no human input; its matching session now passes full CPU maintenance, original
+diagnostic retirement and offline preservation as recorded above. Safe saved
+outcomes return; retained uncertainty halts visibly. Checkpoint: `build/air-cache-clean-20261114`.
 
 ### Active scope: private-buffer CPU cache writeback
 
