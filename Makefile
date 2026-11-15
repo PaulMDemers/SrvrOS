@@ -6714,3 +6714,15 @@ build/intel-vtd-drain/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG)
 build/tests/intel-vtd-drain-policy$(HOST_EXE): tools/test_intel_vtd_drain.c kernel/diagnostics/intel_vtd_drain.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/diagnostics/intel_vtd_drain.c -o $@
+
+# Isolated System Agent GGTT invalidation protocol; no native image caller.
+.PHONY: test-intel-ggtt-invalidate
+build/tests/intel-ggtt-invalidate$(HOST_EXE): tools/test_intel_ggtt_invalidate.c kernel/diagnostics/intel_ggtt_invalidate.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_ggtt_invalidate.c -o $@
+build/tests/intel-ggtt-invalidate-policy$(HOST_EXE): tools/test_intel_ggtt_invalidate.c kernel/diagnostics/intel_ggtt_invalidate.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_ggtt_invalidate.c -o $@
+test-intel-ggtt-invalidate: build/tests/intel-ggtt-invalidate$(HOST_EXE) build/tests/intel-ggtt-invalidate-policy$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_ggtt_invalidate
+test-core: test-intel-ggtt-invalidate

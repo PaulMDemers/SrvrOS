@@ -1205,3 +1205,12 @@ that used legacy100ms despite a valid strict version3 chain; raw evidence and
 native result remain unchanged. All255 actual GPU obligations/zero assurances/
 managed pages/native tear-free pending stay. Main4016 remains integrated;
 PR19/379 are independent and no other task is contacted or subagent spawned.
+
+
+Air7,2's next isolated component is the [System Agent GGTT invalidation core](intel-ggtt-invalidation.md),
+with2,496 actual-core policy cases, both fatal sanitizer matrices,16 compiled
+weakening controls, actual-Zig frame and image-isolation checks. It has no native
+caller and no new physical acceptance. Native original-child/resource/UC-alias/
+receipt/retirement integration and a measured GT envelope are next; no extra
+100ms observation or prerequisite mask is substituted. Main4016 is unchanged;
+PR19/379 remain independent, no trial is armed and no other task is contacted.

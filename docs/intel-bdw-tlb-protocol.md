@@ -99,10 +99,16 @@ acknowledgement alone cannot fill in the missing guarantee.
 
 The [disabled-state VT-d drain protocol](intel-vtd-drain.md) now implements one
 documented root-complex memory-drain mechanism against this unit's captured
-capabilities. It is host-qualified only and deliberately narrower than this
+capabilities and now has one source-specific bounded native kind2 lifetime.
+It remains deliberately narrower than this
 TLB prerequisite: AT=00 memory requests already processed by the remapper do
 not cover remaining GPU pipeline/cache/prefetch work or display readers. It
 must not be wired in as a positive flushed-pipeline/memory-retirement mask.
+
+The separate [System Agent GGTT invalidation protocol](intel-ggtt-invalidation.md)
+now implements the ordered101008 write/posting-read path in host fixtures only.
+That different translation domain does not satisfy the engine pipeline prerequisite.
+No native caller or source-bound completion proof is imported from either core.
 
 Then embed the operation inside that **same original** live owner, qualify
 native alias permissions and ordered accesses, and compose request completion

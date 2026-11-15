@@ -292,3 +292,27 @@ Exact native raw replay removes the two false projection warnings while leaving
 the native result unchanged. The prior102,775/100,000us failed receipt remains
 strictly refused. Original frozen reports and acceptance proof are retained;
 corrected collection is supplementary. No kernel/image change or new trial.
+
+
+Active bounded block (base `00fc2b2e`, freshly fetched main `4016abf0`):
+implement the documented System Agent GGTT invalidation sequence at MMIO101008,
+separate from per-engine TLB requests and their unmet pipeline prerequisite.
+Scope: new isolated protocol/header, actual-core fault/sanitizer/weakening tests,
+host Make target and reference/adapter contract. First validate one exact ordered
+DWORD1 plus posting read under the original source/provider/root/epoch and
+selected preparation/300/400/500ms clocks; an initial zero is never completion.
+Register is write-only and reads zero, so no self-clear poll or invented ACK is
+allowed. This block adds no native mapping/PTE store, current image caller,
+positive assurance or trial until actual resource/registration/cache/order and
+safe retirement integration is qualified. PR19/379 remain independent; no task
+messages or subagents. Last accepted e271 lifetime and protected payloads remain.
+
+
+That isolated [System Agent protocol](../intel-ggtt-invalidation.md) now passes
+1,248 actual-core cases under each100/150ms policy, both fatal sanitizer matrices,
+16 compiled weakening controls and actual-Zig2KiB frame/image-isolation checks.
+It registers its original consumer before callbacks, requires known issuance
+and a posting read, and retains every uncertain outcome. Native adapter/resource/
+alias/receipt integration is the next bounded task; no new image or reboot is
+armed and no hardware acceptance changes. Its combined GT envelope must be
+measured before a trial rather than assuming the150ms aggregate solves it.

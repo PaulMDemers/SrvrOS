@@ -5,12 +5,14 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-15. State: **active reference machine; partial device acceptance**.
 
-Current work: publish the bounded native VT-d drain/retirement result and correct
-the host collector's shared wake/completion policy projections. Runtime and
-physical acceptance remain tied to the frozen source below; host reporting
-changes require replay, not a new kernel trial. Integration base `4016abf0`;
-PR19 (Pro11,2 WiFi) and PR379 (WebCore) remain separate. All actual GPU ownership
-obligations remain open; this does not enable native tear-free rendering.
+Current work: the bounded native VT-d drain/retirement result is published.
+The separate System Agent GGTT invalidation protocol now passes both policy
+matrices, fatal sanitizers and16 compiled weakening controls; its native
+resource/alias/receipt adapter remains the next block. See the
+[protocol contract](../intel-ggtt-invalidation.md). No new native caller/image or
+physical trial is introduced by this host-only component. Integration base
+`4016abf0`; PR19 (Pro11,2 WiFi) and PR379 (WebCore) remain independent. All actual
+GPU ownership obligations remain open; inherited-framebuffer rendering stays.
 
 ### Native disabled-state VT-d drain and diagnostic return accepted
 

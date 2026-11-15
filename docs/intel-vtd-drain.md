@@ -3,7 +3,8 @@
 The isolated `intel_vtd_drain` core implements one global read/write-drain
 operation for the reference Air's graphics remapping unit. The distinct opt-in
 **v36 native adapter** joins it to the complete original v35 held lifetime.
-Native qualification/physical acceptance is pending. The inherited-framebuffer
+One bounded kind2 native lifetime is now accepted; see the
+[first native result](#first-bounded-native-drain-acceptance). The inherited-framebuffer
 desktop, old read-only DMA observer and v35 receipts remain independent, with
 all255 GPU hardware obligations still open.
 
