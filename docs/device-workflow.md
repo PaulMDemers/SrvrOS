@@ -228,3 +228,13 @@ Qualification cannot accept physical completion. After local/VM qualification,
 use the existing install/arm/reboot sequence under the user's authorization, at
 volume1%. An unsafe retained failure halts visibly; a missing saved completion
 stays failed or incomplete when Ubuntu collection resumes.
+
+
+New VT-d runs created after the authorized2026-11-15 policy review pin wire
+version3 and its explicit150ms aggregate preparation/return budget. Historical
+version1/2 runs keep100ms, including their failed outcomes; an older receipt
+cannot be promoted by changing the current policy. Admission/source age and
+individual operation waits remain unchanged, as do GT300ms, HDA400ms and
+outer500ms. Include both the legacy and150ms core fault/boundary/sanitizer/
+weakening suites when qualifying the selected policy. See the
+[policy contract](intel-vtd-drain.md#explicit150ms-aggregate-policy-authorized2026-11-15).

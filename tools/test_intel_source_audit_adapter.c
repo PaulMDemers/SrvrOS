@@ -83,7 +83,7 @@ static bool intel_display_test_source_audit_clock(uint64_t *at) {
  ++audit_clocks;struct intel_source_audit_native *a=&source_audit_native;
  if(jf("audit-zero",audit_clocks)){*at=0;return true;}
  if(jf("audit-backward",audit_clocks)){*at=1;return true;}
- if(jf("audit-time",audit_clocks))ticks=a->origin+100001;
+ if(jf("audit-time",audit_clocks))ticks=a->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("audit-parent-time",audit_clocks))ticks=a->parent_begin+300001;
  if(jf("audit-source",audit_clocks))a->parent=0;
  if(jf("audit-provider",audit_clocks))a->provider=0;
@@ -127,7 +127,7 @@ static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *out
  .pat=0x0007040600070406ull,.cap=0x402,.def_type=0x806,.base={0xb0000001,0},.mask={0x7ff0000800ull,0},
  .status=CACHE_OBSERVED,.reads=10,.count=2,.fixed_count=0,.begin_us=begin,.end_us=ticks};
  if(jf("audit-cache-fail",audit_caches))return false;
- if(jf("audit-cache-time",audit_caches))out->end_us=source_audit_native.origin+100001;
+ if(jf("audit-cache-time",audit_caches))out->end_us=source_audit_native.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("audit-cache-before",audit_caches))out->begin_us=1;
  if(jf("audit-cache-zero",audit_caches))out->reads=0;
  if(jf("audit-cache-hole",audit_caches)) {
@@ -152,7 +152,7 @@ static bool intel_display_test_source_audit_alias(uint64_t root,uint64_t va,uint
  if(jf("audit-alias-nx",audit_aliases))out->no_execute=2;
  if(jf("audit-alias-cache",audit_aliases))out->pat_index=3;
  if(jf("audit-alias-index",audit_aliases))out->pat_index=8;
- if(jf("audit-alias-time",audit_aliases))ticks=source_audit_native.origin+100001;
+ if(jf("audit-alias-time",audit_aliases))ticks=source_audit_native.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  return true;
 }
 static unsigned audit_inventories;
@@ -167,7 +167,7 @@ static bool intel_display_test_source_audit_inventory(uint64_t root,const struct
  if(jf("audit-inventory-leaves",audit_inventories))out->leaves=4609;
  if(jf("audit-inventory-matches",audit_inventories))out->matches[1]--;
  if(jf("audit-inventory-pages",audit_inventories))out->pages[1]--;
- if(jf("audit-inventory-time",audit_inventories))ticks=source_audit_native.origin+100001;
+ if(jf("audit-inventory-time",audit_inventories))ticks=source_audit_native.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  return true;
 }
 static int audit_case_main(int argc,char **argv) {

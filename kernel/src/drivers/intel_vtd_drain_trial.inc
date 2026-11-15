@@ -223,7 +223,7 @@ static bool vtd_completed_record(void) {
  return vtd_native.cache_checks==v->guards+v->reads+4 && vtd_native.alias_checks==v->guards+2*v->reads+4 &&
   vtd_native.alias.pages==1 && vtd_native.alias.leaves==1 && vtd_native.alias.pat_index==2 && vtd_native.alias.writable==1 &&
   !vtd_native.alias.user && vtd_native.alias.no_execute==1 && vtd_native.alias.leaf_sizes==1 && !vtd_native.effective &&
-  r->end>=b->prepare_begin && r->end-b->prepare_begin<=100000 && r->end-b->gt_begin<=300000 && r->end-b->hda_begin<=400000 && r->end-b->outer_begin<=500000;
+  r->end>=b->prepare_begin && r->end-b->prepare_begin<=INTEL_DIAGNOSTIC_PREPARE_US && r->end-b->gt_begin<=300000 && r->end-b->hda_begin<=400000 && r->end-b->outer_begin<=500000;
 }
 static bool vtd_returned(void) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -249,7 +249,7 @@ static void vtd_report(void) {
   ((uint64_t)(r->source==&vtd_native.source && vtd_native.source.object==&vtd_native.source)<<4)|((uint64_t)(vtd_native.source.consumer==r)<<5),vtd_returned(),vtd_native.begin,vtd_native.end,VTD_NATIVE_VA,
   vtd_native.cache_checks,vtd_native.alias_checks,vtd_native.resource,b->hash,b->unit,b->sequence,
   a->pages,a->leaves,a->pat_index,a->writable,a->user,a->no_execute,a->leaf_sizes,vtd_native.mtrr,vtd_native.pat,vtd_native.effective};
- static uint8_t raw[1680];static char encoded[2241];unsigned k=0;
+ static uint8_t raw[1688];static char encoded[2253];unsigned k=0;
  _Static_assert(sizeof(words)==400,"VT-d wire header");
  for(unsigned i=0;i<50;i++)source_audit_u64(raw,&k,words[i]);
  for(unsigned i=0;i<2;i++)for(unsigned j=0;j<8;j++)source_audit_u64(raw,&k,r->p.context[i][j]);
@@ -258,7 +258,8 @@ static void vtd_report(void) {
   vtd_native.cost.first,vtd_native.cost.last,vtd_native.cost.max_gap,vtd_native.cost.max_phase};
  for(unsigned i=0;i<9;i++)source_audit_u64(raw,&k,timing[i]);
  for(unsigned i=0;i<7;i++)source_audit_u64(raw,&k,vtd_native.cost.phase[i]);
- entry_requester_base64(raw,k,encoded);console_printf("intel-vtd-drain: v=2 b=%s\n",encoded);
+ source_audit_u64(raw,&k,INTEL_DIAGNOSTIC_PREPARE_US);
+ entry_requester_base64(raw,k,encoded);console_printf("intel-vtd-drain: v=3 b=%s\n",encoded);
  /* Independent exact topology bytes; an absent preflight reports zeros. */
  entry_requester_base64(dma_table_bytes,136,encoded);console_printf("intel-vtd-table: v=1 b=%s\n",encoded);
  console_printf("intel-vtd: state=%u reason=%u native=%u reads=%u polls=%u writes=%u maps=%u retired=%u retained=%u returned=%u\n",

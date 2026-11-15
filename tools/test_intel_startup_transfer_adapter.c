@@ -48,7 +48,7 @@ static bool intel_display_test_buffer_clock(uint64_t *at) {
  struct intel_source_buffers *b=&buffers_native.binding;
  if(jf("buffer-zero",buffer_clocks)){*at=0;return true;}
  if(jf("buffer-backward",buffer_clocks)){*at=1;return true;}
- if(jf("buffer-time",buffer_clocks))ticks=b->origin+100001;
+ if(jf("buffer-time",buffer_clocks))ticks=b->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("buffer-parent-time",buffer_clocks))ticks=b->parent_begin+300001;
  if(jf("buffer-epoch",buffer_clocks))b->epoch++;
  if(jf("buffer-provider",buffer_clocks))b->io.ctx=0;
@@ -111,7 +111,7 @@ static bool intel_display_test_transfer_clock(uint64_t *at) {
  if(transfer_stall){*at=t->begin;return true;}
  if(jf("transfer-zero",transfer_clocks)){*at=0;return true;}
  if(jf("transfer-backward",transfer_clocks)){*at=1;return true;}
- if(jf("transfer-time",transfer_clocks))ticks=t->origin+100001;
+ if(jf("transfer-time",transfer_clocks))ticks=t->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("transfer-parent-time",transfer_clocks))ticks=t->parent_begin+300001;
  if(jf("transfer-source",transfer_clocks))t->source=0;
  if(jf("transfer-provider",transfer_clocks))t->provider=0;

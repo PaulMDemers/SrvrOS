@@ -55,7 +55,7 @@ static bool clock_at(struct intel_nonzero_source *s,struct intel_nonzero_source_
  uint64_t at=io.now(io.ctx);
  if(s->provider!=io.ctx || !intel_nonzero_source_live(s))return fail(s,INS_PARENT);
  if(!at || at<s->last || at<s->reset->last || at<s->parent->last ||
-    at<s->origin || at-s->origin>100000 || at<s->parent_begin || at-s->parent_begin>300000) {
+    at<s->origin || at-s->origin>INTEL_DIAGNOSTIC_PREPARE_US || at<s->parent_begin || at-s->parent_begin>300000) {
   if(!(s->reason&INS_CLOCK)){s->clock_at=at;s->clock_prev=s->last;}
   return fail(s,INS_CLOCK);
  }

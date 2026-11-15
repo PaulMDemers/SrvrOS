@@ -1,5 +1,6 @@
 #ifndef SRVROS_INTEL_NONZERO_RESET_H
 #define SRVROS_INTEL_NONZERO_RESET_H
+#include <srvros/intel_diagnostic_timing.h>
 #include <srvros/intel_ring_transition.h>
 #include <srvros/intel_engine_prepare.h>
 #include <srvros/intel_bcs_reset.h>

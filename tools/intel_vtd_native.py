@@ -1,6 +1,7 @@
 """v36 original-lifetime disabled-state VT-d drain. No GPU ownership grant."""
 import re
 import struct
+from intel_timing_policy import preparation_policy, prepare_us
 
 from intel_source_audit import (audit_recipe, audit_result, native_audit_result,
                                verify_audit_checkpoint, shared_view, _raw)
@@ -49,16 +50,29 @@ def _table(raw):
 
 
 def drain_result(text, *, native=False):
+    # Bind the explicit policy before invoking any adapted enclosing receiver.
+    lines=[l for l in text.splitlines() if l.startswith('intel-vtd-drain:')]
+    if len(lines)!=1:raise ValueError('VT-d drain receipt coverage')
+    budget=100000
+    if lines[0].startswith('intel-vtd-drain: v=3 '):
+        raw=_raw(lines[0],'intel-vtd-drain:',1688,3)
+        budget=struct.unpack_from('<Q',raw,1680)[0]
+        if budget!=150000:raise ValueError('VT-d version3 preparation policy')
+    with preparation_policy(budget):
+        return _drain_result(text,native=native)
+
+
+def _drain_result(text, *, native=False):
     view = drain_view(text)
     lines = [l for l in text.splitlines() if l.startswith(('intel-vtd-drain:', 'intel-vtd-table:'))]
     if len(lines) != 2 or not lines[0].startswith('intel-vtd-drain:') or not lines[1].startswith('intel-vtd-table:'):
         raise ValueError('VT-d drain receipt coverage/order')
     if any(l.startswith('intel-vtd-') and not l.startswith(('intel-vtd-drain:', 'intel-vtd-table:')) for l in text.splitlines()):
         raise ValueError('VT-d drain unknown receipt')
-    version = 2 if lines[0].startswith('intel-vtd-drain: v=2 ') else 1
-    raw = _raw(lines[0], 'intel-vtd-drain:', 1680 if version == 2 else 1552, version)
+    version = 3 if lines[0].startswith('intel-vtd-drain: v=3 ') else 2 if lines[0].startswith('intel-vtd-drain: v=2 ') else 1
+    raw = _raw(lines[0], 'intel-vtd-drain:', 1688 if version == 3 else 1680 if version == 2 else 1552, version)
     timing = None
-    if version == 2:
+    if version >= 2:
         values = struct.unpack_from('<16Q', raw, 1552)
         timing = dict(zip(COST_FIELDS, values[:9]), phases=list(values[9:]))
         if timing['max_phase'] > 6 or timing['stage'] > 2 or timing['parents'] > 100000 or timing['calls'] > 100000:
@@ -115,7 +129,7 @@ def drain_result(text, *, native=False):
             raise ValueError('VT-d drain original source')
         if not 0 < d['outer'] <= min(d['hda'], d['gt']) <= max(d['hda'], d['gt']) <= d['prepare'] <= d['native_begin'] <= d['begin'] < d['end'] == d['last']:
             raise ValueError('VT-d drain original clocks/order')
-        if any(d['end'] > d[name] + budget for name, budget in (('prepare', 100000), ('gt', 300000), ('hda', 400000), ('outer', 500000))):
+        if any(d['end'] > d[name] + budget for name, budget in (('prepare', prepare_us()), ('gt', 300000), ('hda', 400000), ('outer', 500000))):
             raise ValueError('VT-d drain original deadline')
         # Independent already strict full original joint receipt, not values
         # merely repeated by the new writer record.
@@ -145,7 +159,7 @@ def drain_result(text, *, native=False):
             raise ValueError('VT-d drain UC alias policy')
         if not e['child_begin'] <= parent['summary']['begin'] < parent['summary']['end'] <= d['native_begin'] < d['native_end'] <= e['child_end']:
             raise ValueError('VT-d drain enclosing child order')
-    return dict(version=version, timing=timing, summary=d, contexts=contexts, polls=polls, audit=parent, complete=complete,
+    return dict(version=version, prepare_budget_us=prepare_us(), timing=timing, summary=d, contexts=contexts, polls=polls, audit=parent, complete=complete,
                 native_complete=bool(native and complete and parent['native_complete']),
                 hardware_ownership=False, managed_pages=0, physical_tearfree=False,
                 scope='AT00 memory already processed by graphics remapper only')
@@ -157,7 +171,8 @@ def verify_drain_checkpoint(pre, text, *, native=False):
     result = drain_result(text, native=native)
     d = result['summary']
     held_child = bool(not d['returned'] and (d['core_complete'] or (d['retained'] and d['native_reason'])))
-    verify_audit_checkpoint(drain_view(pre), drain_view(text), native=native, held_child=held_child)
+    with preparation_policy(result['prepare_budget_us']):
+        verify_audit_checkpoint(drain_view(pre), drain_view(text), native=native, held_child=held_child)
     return True
 
 

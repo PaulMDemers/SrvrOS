@@ -22,7 +22,7 @@ static bool intel_display_test_nonzero_clock(uint64_t *out) {
  if(jf("nz-clock-parent",nz_clocks))nonzero_native.r.parent=NULL;
  if(jf("nz-zero",nz_clocks)){*out=0;return true;}
  if(jf("nz-backward",nz_clocks)){*out=1;return true;}
- if(jf("nz-time",nz_clocks))ticks+=100001;
+ if(jf("nz-time",nz_clocks))ticks+=INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("nz-parent-time",nz_clocks))nonzero_native.g->begin=ticks-300000;
  if(nz_fault_clock){*out=nz_fault_clock==1?0:1;nz_fault_clock=0;return true;}
  if(jf("nz-return",1) && nonzero_native.r.returned && !nonzero_native.r.end){*out=0;return true;}
@@ -31,7 +31,7 @@ static bool intel_display_test_nonzero_clock(uint64_t *out) {
 static bool intel_display_test_nonzero_read(unsigned reg,uint32_t *out) {
  ++nz_reads;assert(wake_irq && hda_command==2 && nonzero_native.r.borrow.active);
  if(jf("nz-read",nz_reads))return false;
- if(jf("nz-read-time",nz_reads))ticks+=100001;
+ if(jf("nz-read-time",nz_reads))ticks+=INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(reg==0x941c){*out=nz_domain;if(nz_domain && !strcmp(engine_mode,"nz-poll")){nz_domain=0;++nz_polls;}}
  else if((reg&0xfff)==0xd0) {
   unsigned e=reg==0x20d0?0:reg==0x120d0?1:reg==0x1a0d0?2:reg==0x1c0d0?3:4;
@@ -58,7 +58,7 @@ static void intel_display_test_nonzero_admission(bool reset,unsigned e) {
  struct intel_nonzero_reset *r=&nonzero_native.r;
  if(jf("nz-store-zero",nz_admissions))nz_fault_clock=1;
  if(jf("nz-store-backward",nz_admissions))nz_fault_clock=2;
- if(jf("nz-store-time",nz_admissions))ticks=r->begin+100001;
+ if(jf("nz-store-time",nz_admissions))ticks=r->begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("nz-phase-time",nz_admissions))ticks=(reset?r->pulse_begin[e]:r->control_begin[r->controls-1])+10001;
  if(jf("nz-parent-stamp",nz_admissions))r->parent->begin++;
  if(jf("nz-epoch",nz_admissions))r->parent->engine_epoch++;

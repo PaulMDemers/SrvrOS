@@ -25,7 +25,7 @@ static bool intel_display_test_source_engines_clock(uint64_t *at) {
  if(engines_stall){*at=r->begin;return true;}
  if(jf("engines-zero",engines_clocks)){*at=0;return true;}
  if(jf("engines-backward",engines_clocks)){*at=1;return true;}
- if(jf("engines-time",engines_clocks))ticks=r->origin+100001;
+ if(jf("engines-time",engines_clocks))ticks=r->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("engines-owner-time",engines_clocks))ticks=r->parent_begin+300001;
  if(jf("engines-source",engines_clocks))r->source=0;
  if(jf("engines-requester",engines_clocks))r->requester=0;
@@ -65,7 +65,7 @@ static void intel_display_test_source_engines_admission(void) {
 }
 static void intel_display_test_source_engines_store_admission(unsigned n) {
  ++engines_stores;engines_final_clock=n+1;
- if(jf("engines-store-time",n+1))ticks=source_engines_native.result.origin+100001;
+ if(jf("engines-store-time",n+1))ticks=source_engines_native.result.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("engines-phase-time",n+1))ticks=source_engines_native.result.phase_begin[n]+10001;
  if(jf("engines-store-source",n+1))source_engines_native.result.epoch++;
 }

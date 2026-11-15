@@ -32,6 +32,7 @@ static void intel_display_test_vtd_prepare(void) {
 }
 static void intel_display_test_vtd_boundary(void) {
  ++vd_boundaries;
+ if(vd_boundaries==1 && strstr(engine_mode,"vtd-policy-window"))ticks=source_engines_native.result.origin+110000;
  bool fault=jf("vtd-parent",vd_boundaries) || jf("vtd-root",vd_boundaries) || jf("vtd-time",vd_boundaries) || jf("vtd-inherited-map",vd_boundaries) || jf("vtd-inherited-root",vd_boundaries) || jf("vtd-hda-pci",vd_boundaries) || jf("vtd-hda-alias",vd_boundaries) || jf("vtd-hda-borrow",vd_boundaries) ||
   (vtd_native.maps && (jf("vtd-epoch",vd_boundaries) || jf("vtd-registration",vd_boundaries) || jf("vtd-source",vd_boundaries))) ||
   (vtd_native.mapped && jf("vtd-map-drift",vd_boundaries));
@@ -48,7 +49,7 @@ static void intel_display_test_vtd_boundary(void) {
  if(jf("vtd-hda-alias",vd_boundaries))pa[index_of(HDA_VA)]^=4096;
  if(jf("vtd-hda-borrow",vd_boundaries))joint.scope.borrow.dependent_returns++;
  if(record)vd_boundary_registered=vtd_native.registered_child!=NULL;
- if(jf("vtd-time",vd_boundaries))ticks=source_engines_native.result.origin+100001;
+ if(jf("vtd-time",vd_boundaries))ticks=source_engines_native.result.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("vtd-map-drift",vd_boundaries) && vtd_native.mapped)pa[INTEL_CAPTURE_PAGES+16]^=4096;
 }
 static bool intel_display_test_vtd_map(void) {++vd_maps;return !jf("vtd-map",vd_maps);}
@@ -94,7 +95,7 @@ static enum intel_gt_write intel_display_test_vtd_write(uint32_t off,uint32_t va
  return GT_WRITE_DONE;
 }
 static void intel_display_test_vtd_after(void) {
- if(jf("vtd-late-time",1))ticks=source_engines_native.result.origin+100001;
+ if(jf("vtd-late-time",1))ticks=source_engines_native.result.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
 }
 static void intel_display_test_vtd_return(void) {
  static unsigned calls;if(++calls!=1)return;

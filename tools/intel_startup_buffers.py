@@ -1,4 +1,5 @@
 """v31 original-source private buffers. No address transfer or GPU writer."""
+from intel_timing_policy import prepare_us
 import re
 from intel_engine_census import _fields
 from intel_startup_source import startup_recipe,startup_result,native_startup_result,verify_startup_checkpoint
@@ -38,7 +39,7 @@ def buffers_result(text):
   if not source['complete'] or not all(b[k] for k in ('blocked','returned','complete','entered','observed','grant_refused')) or any(b[k] for k in ('registered','reason','clock_at','clock_prev','callbacks','retained')):raise ValueError('buffers false completion')
   if (b['epoch'],b['kind'],b['post_mode'],b['expected'],b['origin'],b['parent_begin'])!=(s['epoch'],route['original'],s['post_mode'],s['expected'],s['origin'],s['parent_begin']):raise ValueError('buffers original source binding')
   if b['borrows']!=b['returns'] or b['borrows']!=1 or b['prepared']!=2 or b['patterns']!=4 or b['words']!=5554176 or b['allocated']!=b['released'] or b['allocated']!=2712 or b['dma_before']!=b['dma_after']:raise ValueError('buffers backing lifecycle')
-  if not s['read_end']<=b['begin']<b['end']==b['last']<=s['return_begin']<=s['end']<=s['origin']+100000:raise ValueError('buffers original deadline/order')
+  if not s['read_end']<=b['begin']<b['end']==b['last']<=s['return_begin']<=s['end']<=s['origin']+prepare_us():raise ValueError('buffers original deadline/order')
   if b['end']>s['parent_begin']+300000:raise ValueError('buffers original GT deadline')
   for r in rows:
    if not r['physical'] or r['physical']&4095 or r['physical']>0x100000000-5554176 or r['epoch']!=r['n']+1 or r['owner']!=0x42554646455253 or r['serial']!=2 or r['bytes']!=5554176 or r['pages']!=1356 or r['state']!=5 or any(r[k] for k in ('error','active','fault')) or r['release_attempts']!=r['releases'] or r['releases']!=1:raise ValueError('buffers exact private RAM retirement')

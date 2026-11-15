@@ -34,7 +34,7 @@ bool intel_source_requester_live(const struct intel_source_requester *r) {
 bool intel_source_requester_time(const struct intel_source_requester *r,uint64_t at) {
  return intel_source_requester_live(r) && at && at>=r->last && at>=r->source->last &&
   at>=r->source->reset->last && at>=r->source->parent->last &&
-  at>=r->origin && at-r->origin<=100000 && at>=r->parent_begin && at-r->parent_begin<=300000;
+  at>=r->origin && at-r->origin<=INTEL_DIAGNOSTIC_PREPARE_US && at>=r->parent_begin && at-r->parent_begin<=300000;
 }
 bool intel_source_requester_deadline(struct intel_source_requester *r,uint64_t at) {
  if(!r || r->object!=r || r->reason)return false;

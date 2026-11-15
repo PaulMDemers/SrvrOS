@@ -86,7 +86,7 @@ static bool clock_at(struct nz_call *p,uint64_t at) {
  if(!identity(p))return fail(r,INZ_SOURCE);
  const struct intel_gt_access *g=p->parent;
  uint64_t origin=r->begin?r->begin:r->admit_begin;
- if(!at || !origin || at<r->last || at<origin || at-origin>100000 ||
+ if(!at || !origin || at<r->last || at<origin || at-origin>(r->begin?INTEL_DIAGNOSTIC_PREPARE_US:INTEL_NONZERO_ADMIT_US) ||
     at<g->last || at<g->begin || at-g->begin>GT_ACCESS_TOTAL_US ||
     (!r->begin && (at<=r->source_end || at-r->source_end>100000))) {
   if(!(r->reason&INZ_CLOCK)){r->clock_at=at;r->clock_prev=r->last;}
@@ -244,7 +244,7 @@ static bool run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
  for(unsigned i=0;i<6;i++)if(r->admission[0][i]!=r->admission[1][i]){fail(r,INZ_STATE);goto done;}
  if(!guard(&p))goto done;
  r->admit_end=r->last;
- /* Preparation starts once here, after complete admission. Its100ms includes
+ /* Preparation starts once here, after complete admission. Its aggregate budget includes
   * every readiness/reset/cancel/preservation operation and the final return. */
  uint64_t prepared_at=io.now(io.ctx);
  if(!clock_at(&p,prepared_at) || !identity(&p) || !source(r)){fail(r,INZ_SOURCE);goto done;}

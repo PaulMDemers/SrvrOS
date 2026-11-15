@@ -75,7 +75,7 @@ static bool nonzero_store_admit(struct nonzero_adapter *p,bool reset,unsigned e,
  unsigned n=reset?10+e:r->controls-1;uint64_t previous=r->last;
  uint64_t at=nonzero_now(p);p->store_at[n]=at;p->store_previous[n]=previous;
  uint64_t phase=reset?r->pulse_begin[e]:r->control_begin[n];
- if(!at || at<previous || at<r->begin || at-r->begin>100000 || at<phase || at-phase>10000 ||
+ if(!at || at<previous || at<r->begin || at-r->begin>INTEL_DIAGNOSTIC_PREPARE_US || at<phase || at-phase>10000 ||
     at<p->g->last || at<p->g->begin || at-p->g->begin>300000) {
   if(!(r->reason&INZ_CLOCK)){r->clock_at=at;r->clock_prev=previous;}r->reason|=INZ_CLOCK;return false;
  }
@@ -214,7 +214,7 @@ static bool nonzero_source_sample(void *ctx,uint32_t out[2][3],unsigned *count) 
   if(!nonzero_source_guard(p) || !completion_mapping(p->a,13))return false;
   uint64_t previous=s->last,at=nonzero_now(p);p->source_at[i]=at;p->source_previous[i]=previous;
   /* Final same-origin clock, then direct immutable source loads only. */
-  if(!at || at<previous || at<p->r.last || at<p->g->last || at<s->origin || at-s->origin>100000 ||
+  if(!at || at<previous || at<p->r.last || at<p->g->last || at<s->origin || at-s->origin>INTEL_DIAGNOSTIC_PREPARE_US ||
      at<s->parent_begin || at-s->parent_begin>300000) {
    if(!(s->reason&INS_CLOCK)){s->clock_at=at;s->clock_prev=previous;}s->reason|=INS_CLOCK;return false;
   }

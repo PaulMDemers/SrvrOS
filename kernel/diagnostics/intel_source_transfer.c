@@ -56,7 +56,7 @@ static bool tick(struct intel_source_transfer *t) {
     t->io.revalidate!=io.revalidate || !t->busy || t->state!=state || !intel_source_transfer_live(t))return fail(t,IST_SOURCE);
  struct intel_nonzero_source *s=t->source;
  if(!at || at<t->last || at<s->last || at<s->reset->last || at<s->parent->last ||
-    at<t->origin || at-t->origin>100000 || at<t->parent_begin || at-t->parent_begin>300000) {
+    at<t->origin || at-t->origin>INTEL_DIAGNOSTIC_PREPARE_US || at<t->parent_begin || at-t->parent_begin>300000) {
   t->clock_at=at;t->clock_prev=t->last;return fail(t,IST_CLOCK);
  }
  t->last=t->buffers->last=s->last=s->reset->last=s->parent->last=at;return true;

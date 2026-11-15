@@ -1,4 +1,5 @@
 """v35: source-bound live PCI/cache/display-reader observations, no authority."""
+from intel_timing_policy import prepare_us
 import base64,re,struct
 from intel_engine_census import _fields
 from intel_source_engines import engines_recipe,engines_result,native_engines_result,verify_engines_checkpoint,shared_view as engines_shared_view
@@ -80,7 +81,7 @@ def audit_capture(text):
   if not s['reason']&2 or not s['previous']:raise ValueError('source audit unexplained clock')
  if s['complete']:
   if s['state']!=2 or s['registered'] or any(s[k] for k in ('reason','clock','previous')) or (s['samples'],s['pci_reads'],s['plane_reads'],s['cache_checks'])!=(2,18,54,2):raise ValueError('source audit false completion')
-  if not 0<s['parent']<s['origin']<=s['begin']<s['end']==s['last']<=s['origin']+100000 or s['end']>s['parent']+300000:raise ValueError('source audit original deadline')
+  if not 0<s['parent']<s['origin']<=s['begin']<s['end']==s['last']<=s['origin']+prepare_us() or s['end']>s['parent']+300000:raise ValueError('source audit original deadline')
   previous=s['begin']
   for p in samples:
    if p['pci_count']!=9 or p['plane_counts']!=[9]*3 or not p['cache_ok'] or not p['cache_reads']:raise ValueError('source audit incomplete sample')

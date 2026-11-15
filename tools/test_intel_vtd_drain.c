@@ -114,7 +114,7 @@ static uint64_t now(void *ctx) {
  if(model.clocks==model.at) {
   if(model.fault==CLOCK_ZERO)return 0;
   if(model.fault==CLOCK_BACK)return 1;
-  if(model.fault==CLOCK_EXPIRE)return source.binding.prepare_begin+100001;
+  if(model.fault==CLOCK_EXPIRE)return source.binding.prepare_begin+INTEL_VTD_DRAIN_PREPARE_US+1;
  }
  return model.fixed?model.fixed:++model.time;
 }
@@ -202,7 +202,7 @@ int main(void) {
  for(unsigned n=0;n<4;n++)for(unsigned over=0;over<2;over++) {
   setup();model.fixed=501000;struct intel_vtd_drain_binding *b=&source.binding;
   b->outer_begin=1;b->hda_begin=150000;b->gt_begin=250000;b->prepare_begin=450000;
-  if(n==0)b->prepare_begin=model.fixed-100000-over;
+  if(n==0)b->prepare_begin=model.fixed-INTEL_VTD_DRAIN_PREPARE_US-over;
   if(n==1)b->gt_begin=model.fixed-300000-over;
   if(n==2)b->hda_begin=model.fixed-400000-over;
   if(n==3)b->outer_begin=model.fixed-500000-over;

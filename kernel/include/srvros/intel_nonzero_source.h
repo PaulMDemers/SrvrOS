@@ -32,7 +32,7 @@ struct intel_nonzero_source_io {
  bool (*sample)(void *,uint32_t [2][3],unsigned *);
  uint64_t (*now)(void *);
 };
-/* One-use original child, static/heap through faults. Shares preparation100ms
+/* One-use original child, static/heap through faults. Shares the selected preparation budget
  * and GT300ms origins; no new budget or transfer/re-arm/requester authority. */
 bool intel_nonzero_source_run(struct intel_nonzero_source *,struct intel_nonzero_reset *,
  const struct scanout_handoff_snapshot *,struct intel_nonzero_source_io);

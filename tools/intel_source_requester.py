@@ -1,4 +1,5 @@
 """v33 original-source maintained PCI control; no memory/completion grant."""
+from intel_timing_policy import prepare_us
 import base64,re,struct
 from intel_engine_census import _fields
 from intel_gpu_hold import _prefix
@@ -53,7 +54,7 @@ def requester_capture(text):
  if s['complete']:
   if s['state']!=5 or s['phase']!=3 or s['reason'] or s['uncertain'] or s['busy'] or s['registered'] or s['clock_at'] or s['clock_prev'] or not all(s[k] for k in ('parent_blocked','holds_blocked','child_entered','child_complete','restored')):raise ValueError('source requester false completion')
   if any(s[k]!=1 for k in ('borrows','returns','transfer_borrows','transfer_returns')) or s['attempts']!=s['writes'] or s['writes']!=2 or s['samples']!=4 or s['admit_reads']!=2:raise ValueError('source requester incomplete phases')
-  if s['end']!=s['last'] or not s['begin']<s['end']<=s['origin']+100000 or s['end']>s['parent_begin']+300000:raise ValueError('source requester original deadline')
+  if s['end']!=s['last'] or not s['begin']<s['end']<=s['origin']+prepare_us() or s['end']>s['parent_begin']+300000:raise ValueError('source requester original deadline')
   for n,p in enumerate(phases):
    w=p['words']
    if p['count']!=9 or not _prefix(w) or (w[1]&65535)!=(3 if n in (1,2) else 7):raise ValueError('source requester phase command')

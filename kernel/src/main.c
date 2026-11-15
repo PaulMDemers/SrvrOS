@@ -1009,7 +1009,7 @@ void kmain(void) {
                 if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
 #endif
 #ifdef SRVROS_INTEL_VTD_DRAIN
-                console_write("intel-vtd: automatic full audit and one disabled-state memory drain; no input. Safe saved outcomes return; uncertainty halts.\n");
+                console_write("intel-vtd: automatic full audit and one disabled-state memory drain; preparation/return budget=150ms. No input. Safe saved outcomes return; uncertainty halts.\n");
 #elif defined(SRVROS_INTEL_SOURCE_AUDIT)
                 console_write("intel-source-audit: automatic; no input; saved return; unsafe halt.\n");
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)

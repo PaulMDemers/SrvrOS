@@ -1,4 +1,5 @@
 """v32 original-source address-owner bridge. No native address authority."""
+from intel_timing_policy import prepare_us
 import re
 from intel_engine_census import _fields
 from intel_startup_buffers import buffers_recipe,buffers_view,buffers_result,native_buffers_result,verify_buffers_checkpoint
@@ -31,7 +32,7 @@ def transfer_result(text):
   if s['state']!=5 or s['reason'] or s['registered'] or s['clock_at'] or s['clock_prev'] or s['borrows']!=s['returns'] or s['borrows']!=1 or s['obligations']!=255 or not all(s[k] for k in ('source_blocked','holds_blocked','refused','checked','closed')):raise ValueError('transfer false completion')
   if tuple(s[k] for k in ('epoch','kind','post_mode','expected','origin','parent_begin'))!=tuple(p[k] for k in ('epoch','kind','post_mode','expected','origin','parent_begin')):raise ValueError('transfer original source/epoch')
   if s['first']!=8704 or (s['physical0'],s['physical1'])!=tuple(x['physical'] for x in rows):raise ValueError('transfer original backing')
-  if not p['begin']<=s['begin']<s['end']==s['last']<=p['end']<=source['return_begin'] or s['end']>p['origin']+100000 or s['end']>p['parent_begin']+300000:raise ValueError('transfer original order/deadlines')
+  if not p['begin']<=s['begin']<s['end']==s['last']<=p['end']<=source['return_begin'] or s['end']>p['origin']+prepare_us() or s['end']>p['parent_begin']+300000:raise ValueError('transfer original order/deadlines')
  b['source']['reset']['wake']['summary']['v']=32
  return dict(complete=complete,native_complete=False,summary=s,buffers=b,hardware_ownership=False,managed_pages=0,physical_tearfree=False)
 def native_transfer_result(text):

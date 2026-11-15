@@ -1,4 +1,5 @@
 """v29 original live nonzero post-reset source, no memory/claim authority."""
+from intel_timing_policy import prepare_us
 import re
 from intel_engine_census import _fields
 FIELDS='v origin parent_begin post_begin post_end post_last begin end last read_begin read_end return_begin clock_at clock_prev expected epoch post_mode count native_reads borrows returns entered observed registered blocked stable returned reason complete obligations assurances managed_pages pte_writes hardware_ownership'.split()
@@ -42,7 +43,7 @@ def source_result(text,*,startup=False):
   t=reset['time'];p=reset['post']['summary'];a=reset['summary']
   if not all(s[k] for k in ('entered','observed','blocked','stable','returned')) or s['registered'] or s['reason'] or s['clock_at'] or s['clock_prev'] or s['count']!=6 or s['borrows']!=s['returns'] or s['borrows']!=1:raise ValueError('source false completion')
   if s['origin']!=t['begin'] or s['parent_begin']!=t['parent_begin'] or s['epoch']!=a['epoch_after'] or s['post_mode']!=a['post_mode'] or (s['post_begin'],s['post_end'])!=(p['begin_us'],p['end_us']) or not s['post_begin']<=s['post_last']<=s['post_end']:raise ValueError('source original post/origin')
-  if not 0<s['origin']<s['post_begin']<s['post_end']<=s['begin']<=s['read_begin']<s['read_end']<=s['return_begin']<=s['end']==s['last']<=t['guard_begin']<=t['guard_end']<=t['return_begin']<=t['end']<=s['origin']+100000:raise ValueError('source preparation ordering/deadline')
+  if not 0<s['origin']<s['post_begin']<s['post_end']<=s['begin']<=s['read_begin']<s['read_end']<=s['return_begin']<=s['end']==s['last']<=t['guard_begin']<=t['guard_end']<=t['return_begin']<=t['end']<=s['origin']+prepare_us():raise ValueError('source preparation ordering/deadline')
   if not 0<s['parent_begin']<s['origin'] or t['end']>s['parent_begin']+300000:raise ValueError('source original GT deadline')
   from intel_ggtt_window import window_result
   b=window_result(text)

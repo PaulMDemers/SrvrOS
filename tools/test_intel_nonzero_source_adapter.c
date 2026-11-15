@@ -16,7 +16,7 @@ static bool intel_display_test_nonzero_source_clock(uint64_t *at) {
 #endif
  if(jf("source-zero",source_clocks)){*at=0;return true;}
  if(jf("source-backward",source_clocks)){*at=1;return true;}
- if(jf("source-time",source_clocks))ticks=s->origin+100001;
+ if(jf("source-time",source_clocks))ticks=s->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("source-parent-time",source_clocks))ticks=s->parent_begin+300001;
  if(jf("source-clock-parent",source_clocks))s->parent=NULL;
  if(jf("source-clock-post",source_clocks))nonzero_native.r.post.words[0][0][0]^=1;
@@ -49,7 +49,7 @@ static bool intel_display_test_nonzero_source_read(unsigned off,uint32_t *out) {
  if(jf("source-read",n+1))return false;
  *out=(uint32_t)(s->expected>>(n%3==1?0:32));
  if(jf("source-drift",n+1))*out^=1;
- if(jf("source-read-time",n+1))ticks=s->origin+100001;
+ if(jf("source-read-time",n+1))ticks=s->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  return true;
 }
 #ifndef INTEL_SOURCE_FIXTURE_MAIN

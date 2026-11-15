@@ -240,3 +240,26 @@ actual rejected clock and original100/300/400/500ms limits. Do not repeat the
 same hardware trial before a qualified reporting/timing change or an actual
 overhead reduction is ready. No new one-shot is armed. All255 GPU obligations
 and earlier accepted CPU-only scope remain unchanged.
+
+
+Authorized timing-policy review (2026-11-15, base `09c74dcf`, main `4016abf0`):
+the user permits a reasonable relaxation of the software aggregate budget.
+New VT-d diagnostic receipts will explicitly select150ms for preparation and
+verified return, with original monotonic origins, all hardware/ownership checks,
+10ms/256-poll operation bounds and300/400/500ms enclosing bounds retained.
+Legacy/ordinary images and historical receipts retain100ms. Scope: private
+VT-d image build policy, the bound diagnostic cores/adapters and scoped strict
+receiver policy/version, fault/boundary tests and current guides. No sibling
+hardware gate, standard timeout or capability acceptance changes. Qualify the
+150ms endpoint/+1us refusal and explicit receipt policy before an automatic1%
+trial; no new trial until the full frozen host/image/VM gates pass. PR19/379
+remain independent, and no subagents or other-machine tasks are contacted.
+
+
+The selected150ms core now passes20,154 cases, fatal ASan/UBSan and23 compiled
+weakening controls, including exact-limit/+1us checks on all four budgets.
+The native adapter's early16 sanitizer lifetimes and build-isolation checks
+pass. A synthetic110ms original lifetime passes the explicit version3 policy
+and complete native-receiver/checkpoint checks; the same timing is rejected
+when downgraded to a historical receipt. Policy tampering and exception leakage
+refuse, with the default100ms restored. New physical acceptance remains pending.

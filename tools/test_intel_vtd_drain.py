@@ -10,7 +10,9 @@ import unittest
 from fixture_compile import recipe
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET = 'build/tests/intel-vtd-drain'
+TARGET = os.environ.get('INTEL_VTD_CORE_TARGET','build/tests/intel-vtd-drain')
+if TARGET not in ('build/tests/intel-vtd-drain','build/tests/intel-vtd-drain-policy'):
+    raise ValueError('Unknown VT-d core fixture policy')
 CORE = 'kernel/diagnostics/intel_vtd_drain.c'
 
 

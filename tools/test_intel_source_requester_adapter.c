@@ -17,7 +17,7 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
  if(requester_stall){*at=r->begin;return true;}
  if(jf("requester-zero",requester_clocks)){*at=0;return true;}
  if(jf("requester-backward",requester_clocks)){*at=1;return true;}
- if(jf("requester-time",requester_clocks))ticks=r->origin+100001;
+ if(jf("requester-time",requester_clocks))ticks=r->origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("requester-parent-time",requester_clocks))ticks=r->parent_begin+300001;
  if(jf("requester-source",requester_clocks))r->source=0;
  if(jf("requester-transfer",requester_clocks))r->transfer=0;
@@ -105,7 +105,7 @@ static void intel_display_test_source_requester_admission(void) {
 static void intel_display_test_source_requester_store_admission(unsigned n) {
  ++requester_store_admissions;
  requester_final_clock=n+1;
- if(jf("requester-store-time",n+1))ticks=source_requester_native.result.origin+100001;
+ if(jf("requester-store-time",n+1))ticks=source_requester_native.result.origin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  if(jf("requester-store-source",n+1))source_requester_native.result.epoch++;
 }
 static bool intel_display_test_source_requester_read(unsigned offset,uint32_t *out) {

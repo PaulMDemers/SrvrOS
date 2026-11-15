@@ -50,7 +50,7 @@ static bool tick(struct intel_source_buffers *b) {
  if(b->io.ctx!=io.ctx || b->io.now!=io.now || b->io.guard!=io.guard || !intel_source_buffers_live(b))return fail(b,ISB_SOURCE);
  struct intel_nonzero_source *s=b->source;
  if(!at || at<b->last || at<s->last || at<s->reset->last || at<s->parent->last || at<b->origin ||
-    at-b->origin>100000 || at<b->parent_begin || at-b->parent_begin>300000) {
+    at-b->origin>INTEL_DIAGNOSTIC_PREPARE_US || at<b->parent_begin || at-b->parent_begin>300000) {
   b->clock_at=at;b->clock_prev=b->last;return fail(b,ISB_CLOCK);
  }
  b->last=s->last=s->reset->last=s->parent->last=at;return true;

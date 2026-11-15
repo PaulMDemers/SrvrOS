@@ -1,4 +1,5 @@
 """Value-only census envelopes from existing clocks; never ownership evidence."""
+from intel_timing_policy import prepare_us
 import base64,struct
 FIELDS=('count','reads','ptes','sample_us','envelope_us','max_us','failed')
 def admission_cost(text,begin,end,outer_us,complete):
@@ -22,7 +23,7 @@ def admission_cost(text,begin,end,outer_us,complete):
   if not s['count'] and any(s.values()):raise ValueError('admission cost empty suffix')
  if any(prepare[k]>total[k] for k in FIELDS):raise ValueError('admission cost subset')
  if complete:
-  if flags or not 0<b<e<=b+100000 or prepare['envelope_us']>e-b or total['envelope_us']>outer_us:raise ValueError('admission cost incomplete/overlapping envelopes')
+  if flags or not 0<b<e<=b+prepare_us() or prepare['envelope_us']>e-b or total['envelope_us']>outer_us:raise ValueError('admission cost incomplete/overlapping envelopes')
   for s in (total,prepare):
    if not s['count'] or s['failed'] or s['reads']!=8560*s['count'] or s['ptes']!=2712*s['count'] or not s['max_us'] or not s['sample_us']:raise ValueError('admission cost full census accounting')
  return dict(v=1,begin=b,end=e,flags=flags,total=total,prepare=prepare,observation_complete=bool(complete),new_clock_reads=0,ownership=False)

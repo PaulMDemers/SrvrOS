@@ -275,3 +275,31 @@ review retain that failure without granting full completion. All prior files,
 offline integrity and recovery verify. Neither route nor GPU ownership is
 accepted by these partial returns. A subsequent reporting change must cover
 this later-parent failure and preserve strict positive full-chain requirements.
+
+
+### Explicit150ms aggregate policy (authorized2026-11-15)
+
+The preparation-and-return100ms limit is a software diagnostic policy, not a
+documented hardware expiry at that exact duration. The user authorized a modest
+relaxation after the102.775ms final-return failure. Only the new VT-d image
+selects150ms through `intel_diagnostic_timing.h`; ordinary images and the v35
+audit retain100ms. All six nested source/reset/buffer/transfer/requester/engine
+cores are separately compiled with that policy, rather than linking their
+legacy100ms objects. The original start time is never reset.
+
+Admission and source age remain100ms. Individual10ms hardware waits and poll
+caps, GT300ms, HDA400ms, outer500ms, CPU maintenance100ms and all ownership,
+cache, alias, preservation and complete-return checks stay in place. The
+smallest applicable remaining parent budget still wins;150ms is no promise
+that a150ms child can fit an already older parent. No new hardware assurance
+or timeout recovery/retry behavior follows.
+
+Version3 appends one uint64 policy value of150000 to the version2 raw record
+(1688bytes total). The receiver requires exactly that value; it scopes nested
+validation to150ms only for this explicitly admitted format. New workflow
+manifests require version3. Historical versions1/2 retain100ms and cannot be
+reinterpreted under the newer policy. Scope is restored on success and error,
+with no process-global budget mutation or raw-evidence rewriting. Earlier
+failed runs stay failed; they require a new physical trial to establish any
+completion under this changed policy.100ms can remain a performance target
+without being the correctness threshold for the extended diagnostic.

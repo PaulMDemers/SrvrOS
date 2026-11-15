@@ -71,6 +71,18 @@ class Recipe(unittest.TestCase):
         self.assertIn('vtd-native', [j['name'] for j in jobs['qualification']])
 
 
+    def test_native_policy_children_are_linked_separately(self):
+        plan=subprocess.check_output(['make','-B','-n','build/intel-vtd-drain/srvros.elf'],cwd=ROOT,text=True,timeout=120)
+        link=next(l for l in plan.splitlines() if '-o build/intel-vtd-drain/srvros.elf' in l)
+        for child in ('reset','source','buffers','transfer','requester','engines'):
+            name='build/intel-vtd-drain/'+child+'.o'
+            self.assertIn(name,link)
+            self.assertNotIn('build/intel-source-audit/'+child+'.o',link)
+            compile_line=next(l for l in plan.splitlines() if ' -c ' in l and l.endswith(' -o '+name))
+            self.assertIn('-DSRVROS_INTEL_VTD_DRAIN',compile_line)
+        self.assertNotIn('-DSRVROS_INTEL_VTD_DRAIN',subprocess.check_output(['make','-n','-B','build/intel-source-audit/reset.o'],cwd=ROOT,text=True,timeout=120))
+
+
 @unittest.skipUnless(DMAR.is_file(), 'Air7,2 captured local DMAR fixture required; not shipped in Git')
 class Native(unittest.TestCase):
     @classmethod
@@ -90,7 +102,8 @@ class Native(unittest.TestCase):
         for off, text in zip(('', 'entry-off-'), self.texts):
             result = drain_result(text)
             cost = result['timing']
-            self.assertEqual(result['version'], 2)
+            self.assertEqual(result['version'], 3)
+            self.assertEqual(result['prepare_budget_us'], 150000)
             self.assertGreater(cost['calls'], 0)
             self.assertGreater(cost['parents'], 0)
             self.assertLess(cost['parents'], cost['calls'])
@@ -98,7 +111,7 @@ class Native(unittest.TestCase):
             failed = drain_result(run(off+'vtd-time:2'))
             self.assertFalse(failed['complete'])
             self.assertEqual(failed['timing']['stage'], 2)
-            self.assertEqual(failed['timing']['failed'], failed['summary']['prepare']+100002)  # Fixture clock advances once after injection.
+            self.assertEqual(failed['timing']['failed'], failed['summary']['prepare']+150002)  # Fixture clock advances once after injection.
             self.assertEqual(failed['timing']['failed'], failed['audit']['engines']['summary']['clock'])
             self.assertEqual(failed['summary']['clock'], 0)  # Parent refuses; raw timestamp survives separately.
             pre, final = native_chain(text)
@@ -106,6 +119,39 @@ class Native(unittest.TestCase):
                 with self.subTest(route=off, field=index):
                     with self.assertRaises(ValueError):
                         drain_result(replace_raw(final, lambda raw, i=index, v=value: struct.pack_into('<Q', raw, 1552+8*i, v)), native=True)
+
+    def test_explicit_policy_and_historical_receipt_isolation(self):
+        from intel_timing_policy import prepare_us
+        for off in ('', 'entry-off-'):
+            text=run(off+'vtd-policy-window')
+            result=drain_result(text)
+            self.assertTrue(result['complete'])
+            self.assertGreater(result['summary']['native_begin']-result['summary']['prepare'],100000)
+            self.assertLess(result['summary']['native_end']-result['summary']['prepare'],150000)
+            self.assertEqual(prepare_us(),100000)
+            from intel_timing_policy import preparation_policy
+            with preparation_policy(150000):
+                pre,final=native_chain(text)
+            self.assertTrue(drain_result(final,native=True)['native_complete'])
+            self.assertTrue(verify_drain_checkpoint(pre,final,native=True))
+            self.assertEqual(prepare_us(),100000)
+            line=next(l for l in text.splitlines() if l.startswith('intel-vtd-drain:'))
+            raw=base64.b64decode(line.split('b=',1)[1])
+            for bad in (0,100000,150001,200000):
+                with self.assertRaises(ValueError):
+                    drain_result(replace_raw(text,lambda b,v=bad:struct.pack_into('<Q',b,1680,v)))
+                self.assertEqual(prepare_us(),100000)
+            old='intel-vtd-drain: v=2 b='+base64.b64encode(raw[:1680]).decode()
+            with self.assertRaises(ValueError):drain_result(text.replace(line,old))
+            self.assertEqual(prepare_us(),100000)
+        # Ordinary historical-size receipts still use100ms, never the new policy.
+        text=self.texts[0];line=next(l for l in text.splitlines() if l.startswith('intel-vtd-drain:'))
+        raw=base64.b64decode(line.split('b=',1)[1])
+        for version,size in ((1,1552),(2,1680)):
+            old=f'intel-vtd-drain: v={version} b='+base64.b64encode(raw[:size]).decode()
+            result=drain_result(text.replace(line,old))
+            self.assertTrue(result['complete'])
+            self.assertEqual(result['prepare_budget_us'],100000)
 
     def test_resource_paths_and_last_clock_endpoint_lifetime_boundaries(self):
         for off in ('', 'entry-off-'):
@@ -151,9 +197,9 @@ class Native(unittest.TestCase):
             with patch.dict(os.environ, SRVROS_FIXTURE_BATCH='0',
                     ASAN_OPTIONS=f'detect_leaks={leaks}:abort_on_error=1', UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'):
                 for off in ('', 'entry-off-'):
-                    for mode in ('report', 'vtd-poll', 'vtd-reserved', 'vtd-reserved-table', 'vtd-write-unknown:1', 'vtd-unmap:1', 'vtd-final:4'):
+                    for mode in ('report', 'vtd-poll', 'vtd-policy-window', 'vtd-reserved', 'vtd-reserved-table', 'vtd-write-unknown:1', 'vtd-unmap:1', 'vtd-final:4'):
                         text = run(off+mode, binary)
-                        if mode in ('report', 'vtd-poll', 'vtd-reserved'): self.assertTrue(drain_result(text)['complete'])
+                        if mode in ('report', 'vtd-poll', 'vtd-policy-window', 'vtd-reserved'): self.assertTrue(drain_result(text)['complete'])
                         else: self.retained(text)
 
     def test_compiled_adapter_weakening_controls(self):

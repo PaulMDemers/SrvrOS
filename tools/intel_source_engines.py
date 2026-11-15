@@ -1,4 +1,5 @@
 """v34 maintained readiness control under the actual inhibited source owner."""
+from intel_timing_policy import prepare_us
 import base64,re,struct
 from intel_engine_census import _fields
 from intel_source_requester import requester_recipe,requester_result,native_requester_result,verify_requester_checkpoint,shared_view as requester_shared_view
@@ -49,7 +50,7 @@ def engines_capture(text):
  if s['complete']:
   if s['state']!=5 or s['phase']!=3 or s['step']!=9 or s['index']!=0 or any(s[k] for k in ('reason','uncertain','busy','registered','clock','previous')) or not all(s[k] for k in ('blocked','holds','child','child_done','restored')):raise ValueError('source engines false completion')
   if any(s[k]!=1 for k in ('borrows','returns','parent_borrows','parent_returns')) or any(s[k]!=10 for k in ('attempts','writes','acks','admits','issued')) or s['samples']!=4:raise ValueError('source engines missing control phases')
-  if s['end']!=s['last'] or not s['begin']<s['end']<=s['origin']+100000 or s['end']>s['parent']+300000:raise ValueError('source engines original deadline')
+  if s['end']!=s['last'] or not s['begin']<s['end']<=s['origin']+prepare_us() or s['end']>s['parent']+300000:raise ValueError('source engines original deadline')
   for n,p in enumerate(samples):
    if p['count']!=6 or p['words'][5] or any(v==0xffffffff or v&0xfffc or v&3!=(3 if n in (1,2) else 0) for v in p['words'][:5]):raise ValueError('source engines control profile')
    if n and any((a&~3)!=(b&~3) for a,b in zip(p['words'],samples[0]['words'])):raise ValueError('source engines control drift')

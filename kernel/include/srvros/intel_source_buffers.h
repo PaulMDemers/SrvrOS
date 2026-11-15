@@ -26,7 +26,7 @@ struct intel_source_buffers {
 };
 /* Private full-buffer storage is prepared before source entry. This callback
  * performs only pure identity/codec checks and same-origin clocks; enclosing
- * source guards bracket it. The original preparation100ms/GT300ms stay fixed. */
+ * source guards bracket it. The selected preparation budget and GT300ms remain bound. */
 bool intel_source_buffers_run(struct intel_source_buffers *,struct intel_nonzero_source *,
  struct scanout_memory_hold *,struct scanout_memory_hold *,struct intel_source_buffers_io);
 bool intel_source_buffers_live(const struct intel_source_buffers *);

@@ -109,7 +109,7 @@ static bool buffers_prepare(void) {
 #ifdef SRVROS_INTEL_SOURCE_TRANSFER
  /* Touch the entire owned static transfer storage before the excluded native
   * lifetime/census. First-touch CPU A/D updates and cold zeroing are not work
-  * to introduce inside the original 100ms preparation interval. */
+  * to introduce inside the original preparation interval. */
  volatile unsigned char *storage=(volatile unsigned char *)&source_transfer_native;
  for(unsigned i=0;i<sizeof(source_transfer_native);i++)storage[i]=0;
 #endif

@@ -1,5 +1,6 @@
 #ifndef SRVROS_INTEL_VTD_DRAIN_H
 #define SRVROS_INTEL_VTD_DRAIN_H
+#include <srvros/intel_diagnostic_timing.h>
 #include <srvros/intel_gt_access.h>
 
 #define INTEL_VTD_DRAIN_CAP 0x01c0000c40660462ull
@@ -8,7 +9,7 @@
 #define INTEL_VTD_DRAIN_UNIT 0xfed90000ull
 #define INTEL_VTD_DRAIN_REQUEST 0x90030000u
 #define INTEL_VTD_DRAIN_POLLS 256u
-#define INTEL_VTD_DRAIN_PREPARE_US 100000ull
+#define INTEL_VTD_DRAIN_PREPARE_US INTEL_DIAGNOSTIC_PREPARE_US
 #define INTEL_VTD_DRAIN_GT_US 300000ull
 #define INTEL_VTD_DRAIN_HDA_US 400000ull
 #define INTEL_VTD_DRAIN_OUTER_US 500000ull
@@ -71,7 +72,8 @@ struct intel_vtd_drain {
 /* Exact captured Air7,2 graphics DRHD/8086:1626 only. Requires TES/QIES and all
  * GSTS clear, root0, idle context command and no fault. One global DR/DW request,
  * at most256 fresh IVT polls, IAIG=global, final unchanged policy. Preserve the
- * ORIGINAL 100/300/400/500ms budgets. No retry, clearing, mapping or release API.
+ * original origins, selected preparation and300/400/500ms owner budgets.
+ * No retry, clearing, mapping or release API.
  * Success describes AT=00 memory requests already processed by this remapper;
  * not GPU pipeline/prefetch/cache, ATS/peers, later requests, readers or a PTE
  * grant. Only the dedicated v36 image links the native writer. */
