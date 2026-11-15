@@ -2,6 +2,26 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Active scope: private-buffer CPU cache writeback
+
+Implement a bounded CPU writeback prerequisite for the two original held private
+allocations before their source lifetime starts. Require fresh sole-root, full
+alias inventory, requested mappings and uniform WB policy before each permitted
+CLFLUSH address; gate actual CPU feature/line size and model. Keep original holds
+closed to CPU borrows, fence each complete buffer, retain partial/failure evidence
+and bind the completed result to the original child/final-return checks. No target
+buffer store, GPU cache/TLB/reader control or address transfer follows. CPU cache
+lines may refill speculatively; this does not assert continued invalid residency.
+
+Touch only the v35 adapter, isolated CPU clean core/actual tests, auxiliary decoder
+and current guides/unit record. Maintenance has a separate bounded preparation
+window before the existing GPU clocks; every original100/300/400/500ms deadline
+and fresh check remains. All255 hardware ownership obligations and zero managed
+GPU pages stay. Main4016 is current; PR19/379 remain independent. Previous3c9
+run is fully collected/banked. No trial is armed. Qualify actual instructions,
+refusals, tail/persistence/recovery before the authorized automated1% trial.
+Checkpoint: `build/air-cache-clean-20261114`.
+
 ### Native v35 whole-root CPU alias inventory accepted
 
 Frozen runtime `b10517bd` / release `3c9c4bfc2b632cc4`, session
