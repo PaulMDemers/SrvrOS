@@ -883,6 +883,29 @@ def collect(mount, volume, output):
             attention.append("collection: missing exit snapshot; session incomplete")
         if len(releases) > 1:
             attention.append("collection: conflicting boot release identities")
+        intel_vtd_drain=None
+        intel_source_audit=None
+        if vtd_profile:
+            from intel_vtd_native import drain_result,verify_drain_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                vtd_proof=drain_result(final,native=True)
+                verify_drain_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                intel_vtd_drain=vtd_proof
+                intel_source_audit=intel_vtd_drain['audit']
+                if not intel_vtd_drain['native_complete']:attention.append('Intel disabled-state VT-d drain incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel disabled-state VT-d drain: '+str(error))
+        def read_shared(reader, *args, **kwargs):
+            # Only the strict raw policy/checkpoint receiver above can select
+            # a VT-d policy. A profile token alone grants no relaxed projection.
+            if not vtd_profile:
+                return reader(*args, **kwargs)
+            if intel_vtd_drain is None:
+                raise ValueError('VT-d raw receipt/checkpoint policy not validated')
+            from intel_timing_policy import preparation_policy
+            with preparation_policy(intel_vtd_drain['prepare_budget_us']):
+                return reader(*args, **kwargs)
+
         write_proof=battery_usb_write_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if write_proof:
             try:
@@ -1028,11 +1051,11 @@ def collect(mount, volume, output):
         if 'srvros.intel-wake=trial' in text:
             try:
                 from intel_gt_wake import native_wake_result,verify_wake_checkpoint
-                intel_wake=native_wake_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                intel_wake=read_shared(native_wake_result,payload.get("exit.log",b"").decode("utf-8",errors="replace"))
                 if not intel_wake or not intel_wake['native_wake_complete']:attention.append("Intel cooperative wake lease incomplete or refused")
                 else:
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
-                    verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
+                    read_shared(verify_wake_checkpoint,pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
         intel_gpu_hold=None
         if 'srvros.intel-gpu-requester=hold' in text and 'srvros.intel-ring=reset-v1' not in text:
@@ -1189,8 +1212,8 @@ def collect(mount, volume, output):
             from intel_completion_audit import native_completion_result
             from intel_gt_wake import verify_wake_checkpoint
             try:
-                completion=native_completion_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
-                if not completion or not completion['native_observation_complete'] or not verify_wake_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('Intel completion prerequisites audit incomplete or refused')
+                completion=read_shared(native_completion_result,payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not completion or not completion['native_observation_complete'] or not read_shared(verify_wake_checkpoint,payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('Intel completion prerequisites audit incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel completion prerequisites audit: '+str(error))
         if 'srvros.intel-bcs-reset=blitter-only' in text:
             from intel_bcs_reset import native_bcs_result
@@ -1230,18 +1253,6 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
-        intel_vtd_drain=None
-        intel_source_audit=None
-        if vtd_profile:
-            from intel_vtd_native import drain_result,verify_drain_checkpoint
-            try:
-                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
-                vtd_proof=drain_result(final,native=True)
-                verify_drain_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
-                intel_vtd_drain=vtd_proof
-                intel_source_audit=intel_vtd_drain['audit']
-                if not intel_vtd_drain['native_complete']:attention.append('Intel disabled-state VT-d drain incomplete or refused')
-            except ValueError as error:attention.append('Invalid Intel disabled-state VT-d drain: '+str(error))
         if source_audit_profile and not vtd_profile:
             from intel_source_audit import native_audit_result,verify_audit_checkpoint
             try:

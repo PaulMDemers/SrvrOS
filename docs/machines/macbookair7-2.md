@@ -3,16 +3,53 @@
 For the concise active checkpoint, use [current status](macbookair7-2-current.md).
 This journal preserves dated exact-source acceptance and historical anchors.
 
-Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-15. State: **active reference machine; partial device acceptance**.
 
-Current work: consolidate the host trial workflow into a manifest-driven runner,
-content-checked validation cache, reusable fixture builds, automatic return
-collection and bounded artifact retention. Scope is `tools/`, host Make targets
-and device workflow documentation; no kernel ownership checks or deadlines change.
-Integration base `4016abf0`, device baseline `79eb9f0f`; PR19 (Pro11,2 WiFi)
-and PR379 (WebCore) remain separate. Existing release/session acceptance below
-is preserved. This tooling block uses host fixtures and exact-stage VM evidence;
-it does not require a new physical trial or grant GPU ownership.
+Current work: publish the bounded native VT-d drain/retirement result and correct
+the host collector's shared wake/completion policy projections. Runtime and
+physical acceptance remain tied to the frozen source below; host reporting
+changes require replay, not a new kernel trial. Integration base `4016abf0`;
+PR19 (Pro11,2 WiFi) and PR379 (WebCore) remain separate. All actual GPU ownership
+obligations remain open; this does not enable native tear-free rendering.
+
+### Native disabled-state VT-d drain and diagnostic return accepted
+
+2026-11-15, runtime `e271fd2c` / release `03ea83a4578614d5`, session
+`session-0006605639ae4307-00`. Frozen source/collector match and all19 local host
+receipts plus both exact-release VM fixtures pass. This native sample selects
+**kind2/epoch1/mode1**, the already-disabled route. One exact graphics-remapper
+command returns global read/write-drain completion in one poll, with50 reads,
+53 guards,107 cache/157 alias checks and110 full-parent attempts across211 clocks.
+Native child plus UC-alias retirement takes8,009us. Its exact one-page UC/NX
+mapping retires, registration clears and nothing is retained by that child.
+
+Original preparation and verified final return take **102,810/150,000us**,
+leaving47,190us under the newly authorized, explicit version3 software policy.
+The final closing guard is7us and GT-borrow return is3,168us. No origin is reset;
+admission/source age100ms, individual10ms/256-poll bounds and300/400/500ms parent
+limits remain. Complete original engines/requester/source/reset return, all14
+GPU diagnostic aliases and HDA mapping, four patterns,2,712page release and
+DMA57→57 verify. CPU maintenance repeats2,712 invalidations,173,568 lines and
+four fences in12,443us before the GPU lifetime. The different entry route from
+the preceding enabled sample prevents a controlled speed comparison.
+
+All1,545 prior files preserve except expected metadata; three exact new logs
+yield1,548files/172sessions. Raw hashes, original checkpoint/recipe, unchanged
+boot digest, clean offline fsck/allocation/writable/headroom, installed/banked
+current and recovery, Ubuntu default and consumed one-shot verify. The run is
+reviewed ACCEPTED only for **AT00 memory already processed by this graphics
+remapper** and complete original diagnostic retirement. Raw/proof/qualification
+banks survive distclean under the local reviewed-evidence store. USB is
+unmounted; no outstanding trial is armed. Prior100ms failures remain rejected.
+
+The frozen general collector emits two legacy100ms wake/completion projection
+warnings. Its distinct version3 native result/checkpoint passes; independent
+replay of those same shared readers under that fully validated150ms policy also
+passes. The original report and the discrepancy remain preserved. The following
+host-only block fixes that projection without reclassifying historical evidence.
+No enabled-route/repeatability, GPU pipeline/prefetch/cache/translation/firmware/
+display-reader, interval, PTE, submission or page-flip acceptance follows.
+All255 GPU obligations/zero assurances/zero managed GPU pages remain open.
 
 ### Native private CPU translation and writeback accepted
 

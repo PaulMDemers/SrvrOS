@@ -8,16 +8,23 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Latest graphics acceptance is **one original kind2 private CPU maintenance and
-original diagnostic lifetime**: runtime `2bde9498`, release `3807a53c3829ba9c`,
-session `session-000660477eac84c4-00`, original collector `e1a12d21`.
-Two 1,356-page buffers complete 2,712 local invalidations, 173,568 cache-line
-operations and four fences in **12,205/100,000 us**. Requested mappings and two
-whole-root alias inventories agree. Original engine/requester/source/RAM/HDA/
-root/CPU retirement and offline file/recovery integrity pass. GPU preparation
-is **94,782/100,000 us**, leaving **5,218 us**; one sample supplies no causal
-performance or repeatability claim. All 1,527 prior files preserve except expected
-metadata; three logs yield 1,530 files / 166 sessions.
+Latest graphics acceptance adds **one original kind2 disabled-state graphics
+remapper drain and complete diagnostic retirement**: runtime `e271fd2c`, release
+`03ea83a4578614d5`, session `session-0006605639ae4307-00`. The explicit version3
+policy allows150ms for preparation and verified return; the original interval
+is **102,810/150,000us**, leaving47,190us. Native drain/alias lifetime is8,009us:
+one command, one completion poll,50 reads and53 guards, with the exact UC alias
+retired. Original engine/requester/source/reset/HDA/root/private-memory cleanup
+and offline integrity pass. All1,545 prior files preserve except expected
+metadata; three exact logs yield1,548files/172sessions. Raw/proof/qualification
+banks survive distclean; USB is unmounted, Ubuntu/recovery verify and no trial
+or one-shot remains outstanding. This source's enabled route and repeatability
+remain unaccepted. Earlier100ms failures retain their original rejected status.
+
+The earlier private CPU maintenance acceptance remains source-specific:
+`2bde9498` / `3807a53c3829ba9c`,12,205/100,000us for2,712 invalidations,
+173,568 line operations and four fences. The new run also passes those exact
+counts in12,443us. Neither sample is a sustained performance claim.
 
 All **255 GPU hardware obligations remain open**, with zero assurances or managed
 GPU pages. CPU writeback/translation evidence is not GPU/IOMMU coherence,
@@ -263,3 +270,25 @@ pass. A synthetic110ms original lifetime passes the explicit version3 policy
 and complete native-receiver/checkpoint checks; the same timing is rejected
 when downgraded to a historical receipt. Policy tampering and exception leakage
 refuse, with the default100ms restored. New physical acceptance remains pending.
+
+
+Post-return host block (base `e271fd2c`, main `4016abf0`): correct the general
+USB collector's wake/completion projections for the explicitly validated VT-d
+policy. The frozen collector's strict version3 result and checkpoint pass, but
+two legacy shared projections emit100ms deadline warnings. Preserve the original
+report; require the full raw VT-d result and original checkpoint before selecting
+its policy for shared readers. Historical versions and unrelated sessions keep
+100ms, invalid/tampered/spliced receipts grant no projection, and context must
+reset after errors. Scope: host collector/receiver fixtures and evidence guides;
+no kernel/image/hardware change or reboot needed. Acceptance remains one bounded
+kind2 AT00 remapper drain; all255 GPU obligations/zero assurances stay open.
+PR19/379 remain independent; no subagents or other task contacted.
+
+
+That host-only reporting correction now passes33 focused regressions, including
+both150ms routes, a following100ms historical session, missing/duplicated/tampered/
+downgraded receipts, spliced checkpoints and shared-reader exception cleanup.
+Exact native raw replay removes the two false projection warnings while leaving
+the native result unchanged. The prior102,775/100,000us failed receipt remains
+strictly refused. Original frozen reports and acceptance proof are retained;
+corrected collection is supplementary. No kernel/image change or new trial.

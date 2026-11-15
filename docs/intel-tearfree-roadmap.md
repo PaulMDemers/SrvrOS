@@ -500,3 +500,18 @@ prefetch or reader witness. Native integration must join its admitted command
 alias, registered original source child, raw/strict receipt and clean retirement
 in one bounded opt-in trial. No observation-only reboot or ownership-bit change
 is scheduled from this host result.
+
+
+Air7,2 now accepts one bounded original kind2 graphics-remapper drain and complete
+diagnostic retirement on `e271fd2c` / `03ea83a4578614d5`; see the
+[unit evidence](machines/macbookair7-2.md#native-disabled-state-vt-d-drain-and-diagnostic-return-accepted)
+and [protocol scope](intel-vtd-drain.md#first-bounded-native-drain-acceptance).
+The user-authorized version3 policy allows150ms aggregate preparation/verified
+return, measured102,810us; original individual hardware and parent bounds remain.
+This removes the observed software100ms aggregate refusal for one new sample;
+older failures remain rejected. The operation drains only AT00 memory already
+processed by this graphics remapper. It does not establish that all GPU work
+has reached it, invalidate GPU translations/caches, exclude firmware/display
+readers or permit a private GPU interval. Those remain the next ownership
+protocol work before managed-memory publication. All255 obligations, zero
+assurances/managed GPU pages and inherited-framebuffer desktop remain unchanged.

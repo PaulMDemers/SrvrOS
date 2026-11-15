@@ -303,3 +303,30 @@ with no process-global budget mutation or raw-evidence rewriting. Earlier
 failed runs stay failed; they require a new physical trial to establish any
 completion under this changed policy.100ms can remain a performance target
 without being the correctness threshold for the extended diagnostic.
+
+
+### First bounded native drain acceptance
+
+Air7,2 source `e271fd2c` / release `03ea83a4578614d5`, session
+`session-0006605639ae4307-00`, accepts one original kind2/epoch1/mode1 lifetime.
+One exact command returns the expected global read/write-drain response in one
+poll, with50 reads/53 guards. Native child and exact UC-alias retirement take
+8,009us; complete preparation/verified return is102,810/150,000us. All original
+engines/requester/source/reset/HDA/root and private allocation cleanup passes,
+with offline file/allocation/recovery preservation. See the
+[unit record](machines/macbookair7-2.md#native-disabled-state-vt-d-drain-and-diagnostic-return-accepted)
+for precise counts, scope and retained earlier failures.
+
+This accepts only the bounded AT00 memory already processed by this graphics
+remapper. It does not close any of the255 full GPU ownership obligations or
+supply pipeline/prefetch/cache/translation/firmware/display-reader completion,
+managed pages, PTE publication, submission or page-flip authority. This source's
+enabled route and repeatability remain pending. Ordinary images/historical
+receipts still use100ms; individual hardware/parent limits remain unchanged.
+
+The general collector must first validate the original raw VT-d receipt and its
+checkpoint before projecting shared wake/completion fields under that receipt's
+policy. It must not infer150ms from a command-line token. Each reader's policy
+scope resets on success/error and the next historical session retains100ms.
+The frozen original report's two false legacy-policy warnings stay archived;
+corrected host replay preserves all raw bytes and the exact native result.

@@ -1192,3 +1192,16 @@ GPU/DMA/prefetch/cache/translation/firmware/display-reader obligations and zero
 assurances/managed GPU pages remain. Next establish device-side completion and
 reader exclusion/retirement before GPU interval/PTE/submission authority.
 Enabled route for this source, repeatability and native tear-free remain pending.
+
+
+Air7,2 runtime `e271fd2c` / release `03ea83a4578614d5` now accepts one bounded
+[kind2 disabled-state remapper drain and full diagnostic retirement](machines/macbookair7-2.md#native-disabled-state-vt-d-drain-and-diagnostic-return-accepted).
+Explicit version3 software aggregate policy150ms measures102,810us; individual
+hardware/parent limits stay unchanged, historical100ms failures stay rejected.
+All1,545 prior files preserve except expected metadata; three logs yield1,548
+files/172sessions, with full offline/recovery/consumed-one-shot checks and durable
+banks. No run is armed. Host-only follow-up fixes two general collector projections
+that used legacy100ms despite a valid strict version3 chain; raw evidence and
+native result remain unchanged. All255 actual GPU obligations/zero assurances/
+managed pages/native tear-free pending stay. Main4016 remains integrated;
+PR19/379 are independent and no other task is contacted or subagent spawned.

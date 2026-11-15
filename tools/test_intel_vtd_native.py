@@ -264,6 +264,66 @@ class Native(unittest.TestCase):
             row, = report['sessions']; self.assertTrue(row['attention'])
             self.assertIsNone(row['intel_vtd_drain'])
 
+    def test_collector_policy_bound_shared_projections(self):
+        from hardware_desktop import collect
+        from intel_timing_policy import prepare_us
+        with tempfile.TemporaryDirectory(prefix='vtd-collector-policy-') as folder:
+            root=Path(folder); home=root/'srvros-work'; logs=home/'Logs'
+            logs.mkdir(parents=True); (home/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            first=logs/'session-0000000000000001-00';first.mkdir()
+            second=logs/'session-0000000000000002-00';second.mkdir()
+            def write(path, pre, final):
+                for name,text in (('boot.log',pre),('session-a.log',pre),('exit.log',final)):
+                    (path/name).write_text(text)
+            # A historical receipt in the next session must keep its own policy.
+            pre,final=native_chain(self.texts[0])
+            line=next(l for l in final.splitlines() if l.startswith('intel-vtd-drain:'))
+            raw=base64.b64decode(line.split('b=',1)[1])
+            old='intel-vtd-drain: v=2 b='+base64.b64encode(raw[:1680]).decode()
+            write(second,pre,final.replace(line,old))
+            for off in ('','entry-off-'):
+                pre,final=native_chain(run(off+'vtd-policy-window'))
+                write(first,pre,final)
+                saved,report=collect(root,'37d8c5d0',root/'accepted')
+                current,historical=report['sessions']
+                for row in (current,historical):
+                    self.assertTrue(row['intel_vtd_drain']['native_complete'])
+                    self.assertTrue(row['intel_gt_wake']['native_wake_complete'])
+                    self.assertFalse(any(x.startswith('Invalid Intel ') for x in row['attention']),row['attention'])
+                self.assertEqual(current['intel_vtd_drain']['prepare_budget_us'],150000)
+                self.assertEqual(historical['intel_vtd_drain']['prepare_budget_us'],100000)
+                self.assertEqual((saved/first.name/'exit.log').read_bytes(),(first/'exit.log').read_bytes())
+                self.assertEqual(prepare_us(),100000)
+            # A downstream shared-reader exception must not leak150ms into
+            # the next historical session or out of collect().
+            from intel_gt_wake import native_wake_result
+            def fail_shared(text):
+                if prepare_us()==150000:
+                    raise ValueError('injected shared-reader failure')
+                return native_wake_result(text)
+            with patch('intel_gt_wake.native_wake_result',side_effect=fail_shared):
+                _,report=collect(root,'37d8c5d0',root/'shared-failure')
+            current,historical=report['sessions']
+            self.assertIsNone(current['intel_gt_wake'])
+            self.assertTrue(historical['intel_gt_wake']['native_wake_complete'])
+            self.assertEqual(prepare_us(),100000)
+            line=next(l for l in final.splitlines() if l.startswith('intel-vtd-drain:'))
+            raw=base64.b64decode(line.split('b=',1)[1])
+            downgraded='intel-vtd-drain: v=2 b='+base64.b64encode(raw[:1680]).decode()
+            bad_policy=replace_raw(final,lambda b:struct.pack_into('<Q',b,1680,150001))
+            for bad_pre,bad_final in ((pre,final.replace(line,'')),(pre,final+'\n'+line),
+                    (pre,bad_policy),(pre,final.replace(line,downgraded)),
+                    (pre.replace('vtd-drain-v1','source-audit-v1'),final)):
+                write(first,bad_pre,bad_final)
+                _,report=collect(root,'37d8c5d0',root/'refused')
+                current,historical=report['sessions']
+                self.assertIsNone(current['intel_vtd_drain'])
+                self.assertIsNone(current['intel_gt_wake'])
+                self.assertTrue(any(x.startswith('Invalid Intel disabled-state VT-d drain:') for x in current['attention']))
+                self.assertTrue(historical['intel_vtd_drain']['native_complete'])
+                self.assertEqual(historical['intel_vtd_drain']['prepare_budget_us'],100000)
+                self.assertEqual(prepare_us(),100000)
+
     def test_original_routes_and_pending_operation(self):
         for off in ('', 'entry-off-'):
             for mode in ('report', 'vtd-poll'):
