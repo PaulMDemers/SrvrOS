@@ -24,12 +24,24 @@ GPU pages. CPU writeback/translation evidence is not GPU/IOMMU coherence,
 outstanding DMA/prefetch completion, firmware/display-reader retirement or a
 mapping/flip grant. Enabled-route and failure-branch acceptance remain separate.
 
-Current bounded work is **host workflow consolidation**: durable manifests and
+Completed host block: **workflow consolidation** with durable manifests and
 state, dependency-checked host reuse, reusable fixture objects and isolated batched
 fault runs, exact-stage VM evidence, collection-only Ubuntu startup resume, and
 cache retention. See [device workflow](../device-workflow.md). No kernel checks,
 clock deadlines or native acceptance scope change in this block. Integration
 base is `4016abf0`; PR19 WiFi and PR379 WebCore remain independent.
+
+Local validation passes 33 workflow/cache/media/compiler/fork-server tests and
+the 16-method actual audit matrix. The current adapter remains byte-identical
+after compiler refactoring. Exact-release QEMU save/return and missing-workspace
+refusal pass against the accepted payload, with `latest` unchanged. The sealed
+native run replays successfully in the durable store; clean-checkout runner
+validation/resume/cancellation and the collection-only Ubuntu user service pass.
+One five-fixture cold/warm pair is **21.9/3.2 seconds end to end**, with all 44
+objects reused; a representative adapter mutation rebuilds one unit and reuses
+29. The successful 128 MiB VM image round-trips through a 594 KiB gzip archive.
+These are host workflow results, not new native GPU acceptance or sustained
+performance measurements.
 
 The next graphics milestone is a **complete one-page private GPU mapping lifetime**,
 with original ownership, completion, publication and restoration proved together.

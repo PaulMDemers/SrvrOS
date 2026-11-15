@@ -6,7 +6,7 @@ import sys
 import tempfile
 import unittest
 
-from fixture_compile import compile_fixture
+from fixture_compile import compile_fixture, recipes
 from fixture_client import Server, close_all
 from workflow.store import sha
 
@@ -60,6 +60,13 @@ class CompilerTests(unittest.TestCase):
         makefile = self.root / 'Makefile'
         makefile.write_text(makefile.read_text().replace('-O2', '-O1'))
         self.assertEqual(self.build()['compiled'], 2)
+
+    def test_batch_recipe_preserves_each_targets_flags(self):
+        with (self.root / 'Makefile').open('a') as stream:
+            stream.write('other: main.c other.c a.h\n\tcc -std=c11 -O1 -Wall -Werror main.c other.c -o other\n')
+        declarations = recipes(['fixture', 'other'], self.root)
+        self.assertIn('-O2', declarations['fixture'][1])
+        self.assertIn('-O1', declarations['other'][1])
 
 
 class ForkServerTests(unittest.TestCase):

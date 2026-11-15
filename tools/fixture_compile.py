@@ -22,21 +22,28 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CACHE = Path.home() / '.cache/srvros/fixture-objects'
 
 
-def recipe(target, root=ROOT, env=None):
-    result = subprocess.check_output(['make', '-Bn', '--', target], cwd=root, text=True, env=env)
-    matches = []
+def recipes(targets, root=ROOT, env=None):
+    result = subprocess.check_output(['make', '-Bn', '--', *targets], cwd=root, text=True, env=env)
+    matches = {target: [] for target in targets}
     for line in result.splitlines():
         words = shlex.split(line)
-        if '-std=c11' in words and len(words) > 3 and words[-2:] == ['-o', target]:
-            matches.append(words)
-    if len(matches) != 1:
-        raise ValueError('Expected one C fixture recipe for ' + target)
-    words = matches[0]
-    sources = [word for word in words[1:-2] if word.endswith('.c')]
-    flags = [word for word in words[1:-2] if not word.endswith('.c')]
-    if not sources or any(word in flags for word in ('-c', '-o', '&&', ';', '|', '>', '<')):
-        raise ValueError('Unsupported compile/link recipe')
-    return words[0], flags, sources
+        if '-std=c11' in words and len(words) > 3 and words[-2] == '-o' and words[-1] in matches:
+            matches[words[-1]].append(words)
+    declarations = {}
+    for target, commands in matches.items():
+        if len(commands) != 1:
+            raise ValueError('Expected one C fixture recipe for ' + target)
+        words = commands[0]
+        sources = [word for word in words[1:-2] if word.endswith('.c')]
+        flags = [word for word in words[1:-2] if not word.endswith('.c')]
+        if not sources or any(word in flags for word in ('-c', '-o', '&&', ';', '|', '>', '<')):
+            raise ValueError('Unsupported compile/link recipe')
+        declarations[target] = (words[0], flags, sources)
+    return declarations
+
+
+def recipe(target, root=ROOT, env=None):
+    return recipes([target], root, env)[target]
 
 
 def dependencies(compiler, flags, source, root, env):
@@ -45,10 +52,10 @@ def dependencies(compiler, flags, source, root, env):
     return {str((Path(root) / name).resolve()): sha(Path(root) / name) for name in names}
 
 
-def compile_fixture(target, *, cache=DEFAULT_CACHE, replacements=(), root=ROOT, output=None):
+def compile_fixture(target, *, cache=DEFAULT_CACHE, replacements=(), root=ROOT, output=None, declaration=None):
     root, cache = Path(root).resolve(), Path(cache).resolve()
     env = process_environment()
-    compiler, flags, sources = recipe(target, root, env)
+    compiler, flags, sources = declaration or recipe(target, root, env)
     replace = dict(item.split('=', 1) for item in replacements)
     if set(replace) - set(sources):
         raise ValueError('Replacement does not name a recipe translation unit')
@@ -119,8 +126,9 @@ def main():
         if len(args.target) > 1 and (args.output or args.source):
             raise ValueError('Output/source overrides require one target')
         with contextlib.nullcontext() if args.under_workflow_lock else lock(ROOT / 'build/device-workflow.lock'):
+            declarations = recipes(args.target, ROOT, process_environment())
             results = [compile_fixture(target, cache=args.cache, replacements=args.source,
-                                       output=args.output) for target in args.target]
+                                       output=args.output, declaration=declarations[target]) for target in args.target]
             print(json.dumps(results[0] if len(results) == 1 else results, indent=2))
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f'fixture-compile: {error}\n')

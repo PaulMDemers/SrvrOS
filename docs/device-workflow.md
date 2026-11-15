@@ -146,7 +146,7 @@ the actual fixture executable bytes, so a new compiler result cannot reuse an ol
 parser/test pass.
 
 The reusable compiler obtains flags and translation units from the canonical
-Make recipe. It fingerprints cc and its selected cc1/assembler/linker helpers,
+Make recipe, discovering a requested batch in one Make invocation. It fingerprints cc and its selected cc1/assembler/linker helpers,
 flags, environment, and compiler-discovered **system and project** headers.
 Only changed units rebuild; each mutation can reuse the unchanged support units:
 
