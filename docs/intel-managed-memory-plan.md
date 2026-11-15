@@ -461,7 +461,7 @@ cache coherence or affected firmware/display readers. Establish those witnesses
 before importing an interval or allowing a GPU PTE transaction. All255 hardware
 completion obligations stay open; zero managed GPU pages/native tear-free pending.
 
-The subsequent [private-buffer CPU writeback](private-buffer-cache-clean.md) before
+The [private-buffer CPU writeback](private-buffer-cache-clean.md) phase runs before
 the original GPU lifetime. This is an actual bounded CPU maintenance operation
 on the already held WB allocations, with exact line coverage, fences and closing
 identity checks. It does not clear GPU cache, DMA, prefetch, translation or reader
