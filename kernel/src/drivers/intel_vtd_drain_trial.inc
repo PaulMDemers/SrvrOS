@@ -44,9 +44,35 @@ static bool vtd_parent(void) {
  ++vtd_native.cost.parents;
  return vtd_parent_identity() && source_engines_guard(&nonzero_native);
 }
+/* Clocks advance software state only. Keep the complete original software,
+ * CPU-root, alias and HDA borrow graph; do not issue controller/PCI samples.
+ * Every guard and the final MMIO/map/unmap/return admissions still take the
+ * original full vtd_parent()/source_engines_guard hardware path. */
+static bool vtd_clock_identity(void) {
+ struct nonzero_adapter *p=&nonzero_native;uint64_t physical;
+ const struct intel_source_requester *r=&source_requester_native.result;
+ if(!vtd_parent_identity() || source_engines_native.uncertain || source_requester_native.uncertain ||
+  source_requester_native.issued!=1 || !p->source_batch_entered || p->source_batch_checked ||
+  p->source_reads!=6 || p->source.count!=6 || !p->source.stable ||
+  r->transfer!=&source_transfer_native || r->buffers!=&buffers_native.binding ||
+  r->source!=&p->source || r->provider!=p || r->input!=&p->source_input ||
+  !intel_source_requester_live(r) || !buffers_guard(p) ||
+  p->g!=joint.scope.gpu || !p->g || p->r.provider!=p || p->r.entry!=&ring_native.result ||
+  p->r.source!=&ring_native.result.post || p->r.parent!=p->g || p->g->io.context!=p->a ||
+  !intel_nonzero_reset_live(&p->r) || p->a->uncertain || p->a->fw.gt.a.mapped ||
+  joint.scope.state!=IHG_ACTIVE || joint.scope.busy || joint.scope.hda.busy ||
+  !intel_hda_gpu_live(&joint.scope) || !joint_owner_guard(&joint) ||
+  !display_access_held(&p->a->fw.gt.token) || !intel_boot_check(INTEL_BOOT_OBSERVER,p->a->fw.gt.a.common.gpu) ||
+  vmm_current_address_space()!=vtd_native.root || vmm_virt_to_phys_in_space(vtd_native.root,BACKING_VA,&physical))return false;
+ for(unsigned i=0;i<WAKE_MAPS;i++)if(!completion_mapping(p->a,i))return false;
+ return true;
+}
 static bool vtd_policy(void) {
  struct x86_cache_snapshot cache;
- if(!dma_table_current() || !dma_resource())return false;
+ /* A declared-gap result already performed the complete fresh DMAR check
+  * inside dma_resource(). Reserved-region admission still needs that check.
+  * No external provider or persistent "validated" token is reused here. */
+ if(!dma_resource() || (!dma_resource_declared && !dma_table_current()))return false;
  vtd_native.resource=dma_resource_source;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  bool ok=intel_display_test_vtd_cache(&cache);
@@ -79,10 +105,8 @@ static bool vtd_registration(void) {
   b->prepare_begin==p->origin && b->gt_begin==p->parent_begin && b->hda_begin==joint.scope.hda.begin_us && b->outer_begin==joint.scope.outer_origin_us;
 }
 static uint64_t vtd_now(void *ctx) {
- /* The clock is not a VT-d access. Validate the original identity first,
-  * then do ONE complete hardware admission AFTER its callback. No register
-  * operation or externally callable provider is inserted before that census. */
- if(ctx!=&vtd_native || !vtd_parent_identity() || !vtd_registration())return 0;
+ /* No hardware operation is authorized by a clock callback. */
+ if(ctx!=&vtd_native || !vtd_clock_identity() || !vtd_registration())return 0;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_vtd_boundary();
 #endif
@@ -98,7 +122,7 @@ static uint64_t vtd_now(void *ctx) {
   }
  }
  uint64_t previous=vtd_native.cost.last;vtd_native.cost.last=at;
- unsigned failed=!vtd_parent() || !vtd_registration()?1:
+ unsigned failed=!vtd_clock_identity() || !vtd_registration()?1:
   !intel_source_engines_deadline(&source_engines_native.result,at)?2:0;
  if(failed){vtd_native.cost.failed=at;vtd_native.cost.previous=previous;vtd_native.cost.stage=failed;return 0;}
  return at;
@@ -142,7 +166,7 @@ static bool vtd_run(void) {
  vtd_native.object=&vtd_native;vtd_native.parent=p;vtd_native.root=nonzero_native.a->fw.gt.a.common.cr3;
  if(!vtd_parent())return vtd_fail(1);
  vtd_native.begin=vtd_now(&vtd_native);
- if(!vtd_native.begin || !vtd_policy() || vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical))return vtd_fail(2);
+ if(!vtd_native.begin || !vtd_policy() || !vtd_parent() || vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical))return vtd_fail(2);
  if(!vmm_map_page_in_space(vtd_native.root,VTD_NATIVE_VA,INTEL_VTD_DRAIN_UNIT,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE)) {
   if(vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical))vtd_native.mapped=true;
   return vtd_fail(4);
@@ -154,11 +178,11 @@ static bool vtd_run(void) {
   .prepare_begin=p->origin,.gt_begin=p->parent_begin,.hda_begin=joint.scope.hda.begin_us,.outer_begin=joint.scope.outer_origin_us,.vendor=0x8086,.device=0x1626};
  vtd_native.registered_child=s;
  if(!intel_vtd_drain_run(&vtd_native.core,s,(struct intel_vtd_drain_io){&vtd_native,vtd_guard,vtd_load,vtd_store,vtd_now,vtd_pause}))return vtd_fail(8);
- if(!vtd_guard(&vtd_native,s) || !vtd_now(&vtd_native) || !vtd_alias() || !vtd_registration() ||
+ if(!vtd_guard(&vtd_native,s) || !vtd_now(&vtd_native) || !vtd_alias() || !vtd_registration() || !vtd_parent() ||
   !vmm_unmap_page_in_space(vtd_native.root,VTD_NATIVE_VA,&physical) || physical!=INTEL_VTD_DRAIN_UNIT)return vtd_fail(16);
  vtd_native.mapped=false;++vtd_native.retired;
  if(vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical) || !vtd_parent() || !vtd_policy())return vtd_fail(32);
- vtd_native.end=vtd_now(&vtd_native);if(!vtd_native.end || vtd_native.end<vtd_native.core.end || vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical))return vtd_fail(64);
+ vtd_native.end=vtd_now(&vtd_native);if(!vtd_native.end || vtd_native.end<vtd_native.core.end || vmm_virt_to_phys_in_space(vtd_native.root,VTD_NATIVE_VA,&physical) || !vtd_parent())return vtd_fail(64);
  vtd_native.registered_child=NULL;vtd_native.complete=true;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_vtd_after();

@@ -92,7 +92,8 @@ class Native(unittest.TestCase):
             cost = result['timing']
             self.assertEqual(result['version'], 2)
             self.assertGreater(cost['calls'], 0)
-            self.assertGreater(cost['parents'], cost['calls'])
+            self.assertGreater(cost['parents'], 0)
+            self.assertLess(cost['parents'], cost['calls'])
             self.assertEqual(sum(cost['phases']), cost['last']-cost['first'])
             failed = drain_result(run(off+'vtd-time:2'))
             self.assertFalse(failed['complete'])
@@ -105,6 +106,17 @@ class Native(unittest.TestCase):
                 with self.subTest(route=off, field=index):
                     with self.assertRaises(ValueError):
                         drain_result(replace_raw(final, lambda raw, i=index, v=value: struct.pack_into('<Q', raw, 1552+8*i, v)), native=True)
+
+    def test_resource_paths_and_last_clock_endpoint_lifetime_boundaries(self):
+        for off in ('', 'entry-off-'):
+            reserved = drain_result(run(off+'vtd-reserved'))
+            self.assertTrue(reserved['complete'])
+            self.assertEqual(reserved['summary']['resource'], 1)
+            self.retained(run(off+'vtd-reserved-table'))
+            for mode in ('vtd-hda-pci', 'vtd-hda-alias', 'vtd-hda-borrow'):
+                for boundary in (1, 210, 211):
+                    with self.subTest(route=off, mode=mode, boundary=boundary):
+                        self.retained(run(f'{off}{mode}:{boundary}'))
 
     def test_retained_following_child_is_reported_without_accepting_return(self):
         from intel_source_audit import audit_result
@@ -151,7 +163,11 @@ class Native(unittest.TestCase):
         flattened = subprocess.check_output([compiler, *flags, '-E', '-P', 'tools/test_intel_vtd_native.c'],
                                           cwd=ROOT, text=True, timeout=120)
         mutations = {
-            'omit-hardware-census': ('return vtd_parent_identity() && source_engines_guard(&nonzero_native);', 'return vtd_parent_identity();', 'vtd-inherited-map:2'),
+            'omit-hardware-census': ('return vtd_parent_identity() && source_engines_guard(&nonzero_native);', 'return vtd_parent_identity();', 'vtd-hda-pci:2'),
+            'omit-map-hardware-admission': ('!vtd_policy() || !vtd_parent() ||', '!vtd_policy() ||', 'vtd-hda-pci:1'),
+            'omit-unmap-hardware-admission': ('!vtd_registration() || !vtd_parent() ||', '!vtd_registration() ||', 'vtd-hda-pci:210'),
+            'omit-deregister-hardware-admission': (' || !vtd_parent())return vtd_fail(64)', ')return vtd_fail(64)', 'vtd-hda-pci:211'),
+            'omit-reserved-table-check': ('(!dma_resource_declared && !dma_table_current())', '0', 'vtd-reserved-table'),
             'omit-operation': ('if(!vtd_run())return', 'if(0 && !vtd_run())return', 'report'),
             'write-low-dword': ('return intel_display_test_vtd_write(off,value);', 'return intel_display_test_vtd_write(0x508,value);', 'report'),
             'omit-write-drain': ('return intel_display_test_vtd_write(off,value);', 'return intel_display_test_vtd_write(off,value&~0x10000u);', 'report'),
@@ -233,7 +249,7 @@ class Native(unittest.TestCase):
 
     def test_every_original_boundary_and_final_record_gate(self):
         for off, text in zip(('', 'entry-off-'), self.texts):
-            for mode in ('vtd-epoch', 'vtd-parent', 'vtd-registration', 'vtd-root', 'vtd-source', 'vtd-time', 'vtd-map-drift', 'vtd-inherited-map', 'vtd-inherited-root'):
+            for mode in ('vtd-epoch', 'vtd-parent', 'vtd-registration', 'vtd-root', 'vtd-source', 'vtd-time', 'vtd-map-drift', 'vtd-inherited-map', 'vtd-inherited-root', 'vtd-hda-pci', 'vtd-hda-alias', 'vtd-hda-borrow'):
                 for n in range(1, stats(text)['boundaries']+1):
                     if mode in ('vtd-epoch', 'vtd-registration', 'vtd-source') and n == 1: continue # not constructed yet
                     if mode == 'vtd-map-drift' and n in (1, stats(text)['boundaries']): continue # no alias

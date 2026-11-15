@@ -1140,7 +1140,7 @@ good=good || !strcmp(engine_mode,"requester-pending");
 good=good || !strcmp(engine_mode,"engines-poll");
 #endif
 #ifdef SRVROS_INTEL_VTD_DRAIN
-good=good || !strcmp(engine_mode,"vtd-poll");
+good=good || !strcmp(engine_mode,"vtd-poll") || !strcmp(engine_mode,"vtd-reserved");
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS

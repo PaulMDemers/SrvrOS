@@ -213,3 +213,33 @@ drain only inside that same faulted, registered, blocked, unreturned child.
 The older v35 rule stays strict. CPU preparation is validated locally without
 promoting full-chain completion. A well-formed negative run can be collected
 for rejection; incomplete chains cannot be accepted through a supplied proof.
+
+
+### Later return evidence and clock-only admission
+
+Retry `8e26448a` / release `442502e3c2fc8288` records two matching original
+kind2 runs. Both complete the drain (9,697/9,723us), retire its UC alias and
+restore engines and requester by99,558/99,724us from preparation. The next
+required full hardware validation takes1,596/1,592us; the enclosing transfer
+then rejects101,154/101,316us. Both complete chains remain **incomplete**.
+All prior files, offline allocation and installed recovery verify. Both raw
+sessions are retained; unexpected multiplicity does not select a passing run.
+
+The next adapter keeps clock callbacks to original software/CPU-root/alias/HDA
+borrow identity and original time propagation. They authorize no hardware access.
+All guard callbacks retain full original hardware admission. Register loads and
+the single store still have a full hardware check after the final clock/alias
+checks; CPU alias map/unmap and final child deregistration gain the same fresh
+hardware boundary. The closing full census and all100/300/400/500ms limits stay
+unchanged. A changed HDA endpoint, HDA alias or HDA borrow at a clock boundary
+must prevent later register I/O, alias mutation and deregistration. Compiled
+controls remove those individual closing checks to verify the barriers.
+
+Declared-gap resource admission already validates every exact DMAR byte, so
+that admission is used once per policy check. Reserved-region admission still
+performs its explicit full topology validation; a reserved-region bad-table
+case must stop before any map/write. Ordinary/read-only resource policy is
+unchanged. Both model routes retain107 fresh cache and157 alias checks, while
+full parent attempts fall from369 to161 in the immediate-completion model.
+This is a call-count result, **not** a native speedup or ownership acceptance.
+Version2 timing and all original protocol/return predicates remain mandatory.

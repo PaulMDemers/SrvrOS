@@ -15,25 +15,28 @@ static void intel_display_test_vtd_after(void);
 #define INTEL_AUDIT_FIXTURE_MAIN audit_fixture_main
 #include "test_intel_source_audit_adapter.c"
 static unsigned vd_boundaries,vd_reads,vd_writes,vd_polls,vd_maps,vd_unmaps,vd_caches,vd_aliases;
-static bool vd_broken;static unsigned vd_boundary_reads,vd_boundary_writes;
+static bool vd_broken,vd_boundary_registered;static unsigned vd_boundary_reads,vd_boundary_writes,vd_boundary_maps,vd_boundary_unmaps;
 static void intel_display_test_vtd_prepare(void) {
  const char *path=getenv("SRVROS_VTD_DMAR");assert(path);
  FILE *f=fopen(path,"rb");assert(f && fread(extra_bytes,1,136,f)==136 && fgetc(f)==EOF);assert(!fclose(f));
  extra_table=true;extra_dmar=(struct acpi_table_info){.physical_address=(uint64_t)(uintptr_t)extra_bytes,.length=136};
  memcpy(extra_dmar.signature,"DMAR",4);
- static struct limine_memmap_entry lo,hi;static struct limine_memmap_entry *map[10];
+ static struct limine_memmap_entry lo,hi,reserved;static struct limine_memmap_entry *map[10];
  assert(memory.entry_count<8);unsigned n=(unsigned)memory.entry_count;for(unsigned i=0;i<n;i++)map[i]=memory.entries[i];
  lo=(struct limine_memmap_entry){0xfed1c000,0x4000,LIMINE_MEMMAP_RESERVED};hi=(struct limine_memmap_entry){0xffd70000,0x30000,LIMINE_MEMMAP_RESERVED};
- map[n++]=&lo;map[n++]=&hi;memory.entries=map;memory.entry_count=n;
- if(jf("vtd-table",1))extra_bytes[9]^=1;
+ map[n++]=&lo;map[n++]=&hi;
+ if(strstr(engine_mode,"vtd-reserved")){reserved=(struct limine_memmap_entry){0xfed90000,4096,LIMINE_MEMMAP_RESERVED};map[n++]=&reserved;}
+ memory.entries=map;memory.entry_count=n;
+ if(jf("vtd-table",1) || strstr(engine_mode,"vtd-reserved-table"))extra_bytes[9]^=1;
  if(jf("vtd-resource",1))lo.base++;
 }
 static void intel_display_test_vtd_boundary(void) {
  ++vd_boundaries;
- bool fault=jf("vtd-parent",vd_boundaries) || jf("vtd-root",vd_boundaries) || jf("vtd-time",vd_boundaries) || jf("vtd-inherited-map",vd_boundaries) || jf("vtd-inherited-root",vd_boundaries) ||
+ bool fault=jf("vtd-parent",vd_boundaries) || jf("vtd-root",vd_boundaries) || jf("vtd-time",vd_boundaries) || jf("vtd-inherited-map",vd_boundaries) || jf("vtd-inherited-root",vd_boundaries) || jf("vtd-hda-pci",vd_boundaries) || jf("vtd-hda-alias",vd_boundaries) || jf("vtd-hda-borrow",vd_boundaries) ||
   (vtd_native.maps && (jf("vtd-epoch",vd_boundaries) || jf("vtd-registration",vd_boundaries) || jf("vtd-source",vd_boundaries))) ||
   (vtd_native.mapped && jf("vtd-map-drift",vd_boundaries));
- if(fault && !vd_broken){vd_broken=true;vd_boundary_reads=vd_reads;vd_boundary_writes=vd_writes;}
+ bool record=fault && !vd_broken;
+ if(record){vd_broken=true;vd_boundary_reads=vd_reads;vd_boundary_writes=vd_writes;vd_boundary_maps=vd_maps;vd_boundary_unmaps=vd_unmaps;}
  if(jf("vtd-epoch",vd_boundaries))vtd_native.source.binding.epoch++;
  if(jf("vtd-parent",vd_boundaries))vtd_native.parent=NULL;
  if(jf("vtd-registration",vd_boundaries))vtd_native.registered_child=NULL;
@@ -41,6 +44,10 @@ static void intel_display_test_vtd_boundary(void) {
  if(jf("vtd-source",vd_boundaries))vtd_native.source.consumer=NULL;
  if(jf("vtd-inherited-map",vd_boundaries))pa[INTEL_CAPTURE_PAGES+4]^=4096;
  if(jf("vtd-inherited-root",vd_boundaries))current+=4096;
+ if(jf("vtd-hda-pci",vd_boundaries))hda_command=6;
+ if(jf("vtd-hda-alias",vd_boundaries))pa[index_of(HDA_VA)]^=4096;
+ if(jf("vtd-hda-borrow",vd_boundaries))joint.scope.borrow.dependent_returns++;
+ if(record)vd_boundary_registered=vtd_native.registered_child!=NULL;
  if(jf("vtd-time",vd_boundaries))ticks=source_engines_native.result.origin+100001;
  if(jf("vtd-map-drift",vd_boundaries) && vtd_native.mapped)pa[INTEL_CAPTURE_PAGES+16]^=4096;
 }
@@ -110,7 +117,8 @@ static void intel_display_test_vtd_return(void) {
 }
 static int vtd_case(int argc,char **argv) {
  int code=audit_case_main(argc,argv);
- if(vd_broken)assert(vd_reads==vd_boundary_reads && vd_writes==vd_boundary_writes);
+ if(vd_broken)assert(vd_reads==vd_boundary_reads && vd_writes==vd_boundary_writes && vd_maps==vd_boundary_maps && vd_unmaps==vd_boundary_unmaps && (!vd_boundary_registered || vtd_native.registered_child==&vtd_native.source));
+ if(strstr(engine_mode,"vtd-reserved-table"))assert(vtd_native.retained && !vtd_native.complete && !vd_maps && !vd_writes);
  if(vtd_native.complete && source_requester_native.result.complete)assert(vtd_returned() && vd_maps==1 && vd_unmaps==1 && vd_writes==1 && !pa[INTEL_CAPTURE_PAGES+16]);
  printf("vtd-native-fixture: boundaries=%u reads=%u writes=%u maps=%u unmaps=%u caches=%u aliases=%u complete=%u retained=%u\n",
   vd_boundaries,vd_reads,vd_writes,vd_maps,vd_unmaps,vd_caches,vd_aliases,vtd_returned(),vtd_native.retained);

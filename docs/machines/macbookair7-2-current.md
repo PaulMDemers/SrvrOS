@@ -162,3 +162,14 @@ has already performed it. Touch only the v36 adapter/tests and current guide;
 ordinary/v35 behavior, cache/alias guard frequency and all255 obligations remain
 unchanged. Qualify every callback boundary and returned record before a1% trial.
 PR19/379 remain independent; no other task contacted.
+
+
+The consolidated adapter now checks original CPU/alias/HDA borrow identity on
+clock callbacks, retains full guards and adds fresh final hardware admission
+before alias map/unmap/deregistration. The declared-gap table check is performed
+once; the reserved-resource branch still requires the complete fresh table.
+Focused resource and native receiver checks pass on both routes. Model counts
+are161 full parent attempts with the same107 cache/157 alias checks; no native
+speedup is claimed. Full frozen qualification will run the changed adapter
+matrix before the unchanged full audit (same mandatory jobs, reordered only
+for earlier failure reporting), then exact-stage VM before another1% trial.
