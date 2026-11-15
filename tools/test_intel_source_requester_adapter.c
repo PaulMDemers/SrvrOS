@@ -68,6 +68,14 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("audit-final-alias-user",requester_final_clock))source_audit_native.range[1][0].alias.user=1;
   if(jf("audit-final-alias-nx",requester_final_clock))source_audit_native.range[1][0].alias.no_execute=0;
   if(jf("audit-final-alias-size",requester_final_clock))source_audit_native.range[1][0].alias.leaf_sizes=0;
+  if(jf("audit-final-clean-ready",requester_final_clock))source_clean_ready=false;
+  if(jf("audit-final-clean-retired",requester_final_clock))source_clean_retired=false;
+  if(jf("audit-final-clean-lines",requester_final_clock))source_clean.lines[0]--;
+  if(jf("audit-final-clean-physical",requester_final_clock))source_clean.span[1].physical+=4096;
+  if(jf("audit-final-clean-pages",requester_final_clock))source_clean.span[0].pages--;
+  if(jf("audit-final-clean-fence",requester_final_clock))source_clean.fences--;
+  if(jf("audit-final-clean-time",requester_final_clock))source_clean.end=source_audit_native.begin+1;
+  if(jf("audit-final-clean-root",requester_final_clock))source_clean_root+=4096;
   if(jf("audit-final-inventory-count",requester_final_clock))source_audit_native.inventory_count--;
   if(jf("audit-final-inventory-reason",requester_final_clock))source_audit_native.inventory_reason=1;
   if(jf("audit-final-inventory-tables",requester_final_clock))source_audit_native.inventory[1].tables--;

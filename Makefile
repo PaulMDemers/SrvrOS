@@ -6622,3 +6622,11 @@ test-vmm-alias-inventory: build/tests/vmm-alias-inventory$(HOST_EXE)
 build/tests/vmm-alias-inventory$(HOST_EXE): tools/test_vmm_alias_inventory.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c kernel/src/memory/vmm_alias_inventory.inc $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-x86-private-clean
+build/tests/x86-private-clean$(HOST_EXE): tools/test_x86_private_clean.c kernel/src/drivers/x86_private_clean.inc
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-x86-private-clean: build/tests/x86-private-clean$(HOST_EXE)
+	./build/tests/x86-private-clean$(HOST_EXE)
+test-core: test-x86-private-clean

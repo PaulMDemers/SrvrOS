@@ -16,6 +16,8 @@ def fixture(text):
 def native_chain(text):
  from test_intel_source_engines import native_chain as previous
  pre,final=previous(audit_view(text))
+ # This fixture models the additional CLFSH capability on the same Intel CPU.
+ pre=pre.replace('features=0x0000000000011000','features=0x0000000000091000');final=final.replace('features=0x0000000000011000','features=0x0000000000091000')
  # Earlier fixture builders supply native preflight, never replace raw v35 reset bytes.
  reset_line=next(l for l in text.splitlines() if l.startswith('intel-source-audit-reset:'))
  final=re.sub(r'(?m)^intel-nonzero-ack:.*\n',lambda m: reset_line+'\n' if ' n=0 ' in m[0] else '',final)
@@ -58,7 +60,7 @@ class Audit(unittest.TestCase):
      with self.subTest(off=off,mode=mode,n=n):self.retained(run(f'{off}audit-cache-{mode}:{n}'))
  def test_final_parent_restore_requires_original_completed_audit(self):
   for off in ('','entry-off-'):
-   for mode in ('complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks','alias-count','alias-root','alias-va','alias-pages','alias-leaves','alias-index','alias-write','alias-user','alias-nx','alias-size','inventory-count','inventory-reason','inventory-tables','inventory-entries','inventory-leaves','inventory-matches','inventory-pages'):
+   for mode in ('clean-ready','clean-retired','clean-lines','clean-physical','clean-pages','clean-fence','clean-time','clean-root','complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks','alias-count','alias-root','alias-va','alias-pages','alias-leaves','alias-index','alias-write','alias-user','alias-nx','alias-size','inventory-count','inventory-reason','inventory-tables','inventory-entries','inventory-leaves','inventory-matches','inventory-pages'):
     with self.subTest(off=off,mode=mode):
      text=run(f'{off}audit-final-{mode}:2');f=fixture(text);self.assertEqual((f['actual'],f['command']),(10,3));self.assertIn('retained=1 success=0',text)
      row=next(l for l in text.splitlines() if l.startswith('source-requester-fixture:'));self.assertIn('actual=1',row);self.assertIn('complete=0',row)
@@ -128,7 +130,7 @@ class Audit(unittest.TestCase):
     s=summary.replace('v=3',f'v={version}').replace(' alias_checks=4','')
     if version==1:s=s.replace(' range_checks=4','')
     old_text=text.replace(line,row).replace(summary,s)
-    old_text=re.sub(r'(?m)^intel-alias-census:.*\n','',old_text)
+    old_text=re.sub(r'(?m)^intel-(?:alias-census|private-clean):.*\n','',old_text)
     self.assertTrue(audit_result(old_text)['complete']);self.assertFalse(audit_result(old_text)['actual_aliases'])
    # All four actual PAT indices may be4 (WB in the captured PAT). No fixed0.
    data=bytearray(raw)
@@ -167,7 +169,7 @@ class Audit(unittest.TestCase):
    r=audit_result(text);self.assertTrue(r['unique_aliases']);self.assertEqual(r['alias_inventory']['count'],2)
    self.assertFalse(r['alias_inventory']['coherence']);self.assertFalse(r['alias_inventory']['ownership'])
    row=next(l for l in text.splitlines() if l.startswith('intel-alias-census:'));raw=base64.b64decode(row.split('b=',1)[1]);self.assertEqual(len(raw),60)
-   old=text.replace(row+'\n','');self.assertTrue(audit_result(old)['complete']);self.assertFalse(audit_result(old)['unique_aliases'])
+   old=re.sub(r'(?m)^intel-private-clean:.*\n','',text.replace(row+'\n',''));self.assertTrue(audit_result(old)['complete']);self.assertFalse(audit_result(old)['unique_aliases'])
    _,native=native_chain(text);self.assertTrue(native_audit_result(native)['unique_aliases'])
    _,native=native_chain(old);self.assertFalse(native_audit_result(native)['unique_aliases'])
    for mode in ('fail','tables','entries','leaves','matches','pages','time'):
@@ -180,4 +182,26 @@ class Audit(unittest.TestCase):
     with self.subTest(line=line),self.assertRaises(ValueError):audit_result(text.replace(row,line))
  def test_cache_context_actual_fresh_read_comparison(self):
   subprocess.run(['build/tests/intel-cache-probe','context'],check=True,capture_output=True)
+
+ def test_private_cpu_writeback_and_historical_absence(self):
+  import struct
+  for off,text in zip(('','entry-off-'),self.texts):
+   r=audit_result(text);self.assertTrue(r['cpu_writeback']);self.assertTrue(r['private_clean']['scope_complete']);self.assertFalse(r['private_clean']['ownership'])
+   self.assertEqual([q['lines'] for q in r['private_clean']['spans']],[1356*64]*2);self.assertEqual(r['private_clean']['fences'],4)
+   row=next(l for l in text.splitlines() if l.startswith('intel-private-clean:'));raw=base64.b64decode(row.split('b=',1)[1]);self.assertEqual(len(raw),64)
+   old=audit_result(text.replace(row+'\n',''));self.assertTrue(old['complete']);self.assertFalse(old['cpu_writeback']);self.assertIsNone(old['private_clean'])
+   for bad in (row+'\n'+row,row.replace('v=1','v=2'),row+'=',row[:-1]):
+    with self.assertRaises(ValueError):audit_result(text.replace(row,bad))
+   for offset,width in ((0,1),(1,1),(2,1),(3,1),(4,8),(12,8),(20,4),(24,4),(28,4),(32,8),(40,4),(44,4),(48,8),(56,4),(60,4)):
+    data=bytearray(raw);data[offset:offset+width]=b'\xff'*width
+    if offset==28:struct.pack_into('<I',data,28,r['private_clean']['edx']&~(1<<19))
+    with self.subTest(offset=offset),self.assertRaises(ValueError):audit_result(text.replace(row,'intel-private-clean: v=1 b='+base64.b64encode(data).decode()))
+   for mode,n in [('clean-feature',1),('clean-cpu',1),('clean-line-size',1),('clean-feature',2),('clean-cache',1),('clean-cache',2),('clean-cache-drift',2),('clean-alias',1),('clean-alias-readonly',1),('clean-alias-pat',1),('clean-cache-hole',1),('clean-inventory',1),('clean-fence',1),('clean-fence',2),('clean-fence',3),('clean-fence',4),('clean-line',1),('clean-line',1356*64),('clean-line',2712*64),('clean-zero',2),('clean-backward',2),('clean-time',10),('clean-result',10),('clean-hold',10),('clean-unknown',1)]:
+    t=run(f'{off}{mode}:{n}')
+    if mode=='clean-unknown':self.assertIn('retained=1',next(l for l in t.splitlines() if l.startswith('intel-source-buffers:')))
+    self.assertIn('actual=0',next(l for l in t.splitlines() if l.startswith('source-engines-fixture:')))
+    try:result=audit_result(t)
+    except ValueError:continue
+    self.assertFalse(result['complete']);self.assertFalse(result['cpu_writeback'])
+
 if __name__=='__main__':unittest.main()

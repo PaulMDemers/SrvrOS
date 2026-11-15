@@ -751,7 +751,11 @@ bool intel_gt_wake_probe_report(void) {
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
 #ifdef SRVROS_INTEL_SOURCE_REQUESTER
+    #ifdef SRVROS_INTEL_SOURCE_AUDIT
+    console_write("intel-state: held source audit; no GPU grant\n");
+#else
     console_write("intel-state: original route/reset/source and maintained PCI requester control; no GPU memory or completion grant\n");
+#endif
 #elif defined(SRVROS_INTEL_STARTUP_SOURCE)
     console_write("intel-state: original enabled/nonzero or disabled/zero entry, bounded reset/source; no memory or requester grant\n");
 #elif defined(SRVROS_INTEL_NONZERO_RESET)
@@ -778,11 +782,15 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-wake: bounded cooperative-UEFI wake lease; no engine control, PTE writes or GPU range transfer\n");
 #endif
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    #ifdef SRVROS_INTEL_SOURCE_AUDIT
+    console_write("intel-buffers: private RAM/cache preparation; no input\n");
+#else
     console_write("intel-buffers: preparing two private full buffers; original-source binding follows; no input or GPU PTE writes\n");
+#endif
     bool buffers_ready=f.efi64 && f.loader && f.recipe && f.prerequisites && buffers_prepare();
     f.prerequisites=f.prerequisites && buffers_ready;
 #ifdef SRVROS_INTEL_SOURCE_AUDIT
-    f.prerequisites=f.prerequisites && source_audit_ram_prepare();
+    f.prerequisites=f.prerequisites && source_audit_ram_prepare() && source_clean_prepare();
 #endif
 #endif
     uint64_t flags=wake_irq_save();
@@ -1042,7 +1050,11 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads+=gpu_hold_native.result.reads+gpu_hold_native.admit_reads;
 #endif
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS
-    bool buffers_clean=buffers_finish(!retained && (!acquired || released));
+    bool buffers_clean=buffers_finish(!retained && (!acquired || released)
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+     && source_clean_retired
+#endif
+    );
     complete=complete && buffers_ready && buffers_native.binding.complete && buffers_native.grant_refused && buffers_clean;
     wake_terminal_retained=retained || buffers_native.retained;
     buffers_report(complete);

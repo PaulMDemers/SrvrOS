@@ -1,4 +1,11 @@
 /* v35 only: observations inside the original all-five held child. No grant. */
+#include "x86_private_clean.inc"
+static struct private_clean_result source_clean;
+static uint64_t source_clean_root;
+static struct x86_cache_snapshot source_clean_context;
+static bool source_clean_ready;
+static bool source_clean_retired=true;
+static bool source_clean_bound(bool);
 static struct {struct vmm_alias_ram ranges[VMM_ALIAS_RAM_LIMIT];unsigned count;bool ready;} source_audit_ram;
 static bool source_audit_ram_prepare(void) {
  source_audit_ram=(__typeof__(source_audit_ram)){0};source_audit_native.inventory_reason=VMM_ALIAS_RAM;
@@ -24,7 +31,7 @@ static bool source_audit_live(void) {
  const struct intel_source_engines *r=&source_engines_native.result;
  return a->object==a && a->parent==r && a->provider==&nonzero_native && a->state==1 && a->registered && !a->complete && !a->reason &&
   a->epoch==r->epoch && a->kind==r->kind && a->mode==r->post_mode && a->origin==r->origin && a->parent_begin==r->parent_begin &&
-  source_audit_ram.ready && source_audit_ram.count && source_audit_ram.count<=VMM_ALIAS_RAM_LIMIT && a->inventory_count<=2 && !a->inventory_reason &&
+  source_clean_bound(false) && source_audit_ram.ready && source_audit_ram.count && source_audit_ram.count<=VMM_ALIAS_RAM_LIMIT && a->inventory_count<=2 && !a->inventory_reason &&
   a->samples<3 && a->pci_reads<=18 && a->plane_reads<=54 && a->cache_checks<=2 && a->range_checks<=4 && a->alias_checks<=4 && a->root==nonzero_native.a->fw.gt.a.common.cr3 &&
   r->state==ISE_HELD && r->child_entered && !r->child_complete && r->samples==2 && r->writes==5 && r->acks==5 &&
   source_engines_native.issued==5 && intel_source_engines_live(r);
@@ -151,7 +158,7 @@ static bool source_audit_run(void) {
 static bool source_audit_returned(void) {
  const struct intel_source_audit_native *a=&source_audit_native;
  const struct intel_source_engines *r=&source_engines_native.result;
- if(a->object!=a || a->parent!=r || a->provider!=&nonzero_native || a->state!=2 || !a->complete || a->registered || a->reason || a->clock_at || a->clock_prev ||
+ if(!source_clean_bound(true) || a->object!=a || a->parent!=r || a->provider!=&nonzero_native || a->state!=2 || !a->complete || a->registered || a->reason || a->clock_at || a->clock_prev ||
     a->epoch!=r->epoch || a->kind!=r->kind || a->mode!=r->post_mode || a->origin!=r->origin || a->parent_begin!=r->parent_begin ||
     a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 || a->alias_checks!=4 || a->inventory_count!=2 || a->inventory_reason ||
     r->object!=r || !r->complete || !r->child_complete || r->registered || r->state!=ISE_CLOSED ||
@@ -189,6 +196,7 @@ static bool source_audit_returned(void) {
 }
 static void source_audit_u32(uint8_t *out,unsigned *k,uint32_t v){for(unsigned i=0;i<4;i++)out[(*k)++]=(uint8_t)(v>>(8*i));}
 static void source_audit_u64(uint8_t *out,unsigned *k,uint64_t v){for(unsigned i=0;i<8;i++)out[(*k)++]=(uint8_t)(v>>(8*i));}
+static void source_clean_report(void);
 static void source_audit_report(void) {
  const struct intel_source_audit_native *a=&source_audit_native;static uint8_t raw[600];static char encoded[801];unsigned k=0;
  source_audit_u64(raw,&k,a->root);
@@ -213,6 +221,7 @@ static void source_audit_report(void) {
  (uint64_t)a->samples,(uint64_t)a->pci_reads,(uint64_t)a->plane_reads,(uint64_t)a->cache_checks,(uint64_t)a->range_checks,(uint64_t)a->alias_checks,(uint64_t)a->registered,(uint64_t)a->complete);
  admission_report();
  admission_cost_report(nonzero_native.r.begin,nonzero_native.r.end);
+ source_clean_report();
  static uint8_t inv[60];static char inv64[81];unsigned pos=4;
  inv[0]=(uint8_t)a->inventory_count;inv[1]=(uint8_t)a->inventory_reason;inv[2]=inv[3]=0;
  for(unsigned n=0;n<2;n++){
@@ -231,4 +240,123 @@ static void source_audit_reset_report(const struct nonzero_adapter *p) {
   source_audit_u64(raw,&k,p->store_at[n]);source_audit_u64(raw,&k,p->store_previous[n]);
  }
  entry_requester_base64(raw,k,encoded);console_printf("intel-source-audit-reset: v=1 b=%s\n",encoded);
+}
+
+/* Private held RAM only. This occurs before the original outer wake clocks. */
+static bool source_clean_hold(void *ctx) {
+ if(ctx!=&source_clean || !wake_irq_off() || vmm_current_address_space()!=source_clean_root || !source_clean_root || buffers_native.prepared!=2)return false;
+ for(unsigned i=0;i<2;i++) {
+  const struct scanout_memory_hold *h=&buffers_native.hold[i];const struct scanout_memory *m=&buffers_native.memory[i];
+  if(!scanout_memory_hold_live(h) || h->lifetime!=&buffers_native || h->memory.object!=m || h->dependent || h->registered ||
+     h->physical!=m->physical || h->layout.pages!=1356 || m->layout.pages!=1356 || m->cpu_serial || m->state!=MEM_RAM ||
+     m->owner!=0x42554646455253ull || m->space || m->range.object || m->publication.object)return false;
+ }
+ return true;
+}
+static uint64_t source_clean_now(void *ctx) {
+ (void)ctx;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_private_clean_now();
+#else
+ return timer_monotonic_us();
+#endif
+}
+static bool source_clean_line(void *ctx,uint64_t va) {
+ if(ctx!=&source_clean)return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_private_clean_line(va);
+#else
+ __asm__ volatile("clflush (%0)"::"r"(va):"memory");return true;
+#endif
+}
+static bool source_clean_fence(void *ctx) {
+ if(ctx!=&source_clean)return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_private_clean_fence();
+#else
+ __asm__ volatile("mfence":::"memory");return true;
+#endif
+}
+static void source_clean_cpu(uint32_t *signature,uint32_t *ebx,uint32_t *edx) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_private_clean_cpu(signature,ebx,edx);
+#else
+ uint32_t a,b,c,d;__asm__ volatile("cpuid":"=a"(a),"=b"(b),"=c"(c),"=d"(d):"a"(1),"c"(0):"memory");*signature=a;*ebx=b;*edx=d;
+#endif
+}
+static bool source_clean_cache(struct x86_cache_snapshot *c) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_private_clean_cache(c);
+#else
+ return intel_cache_probe_context(c);
+#endif
+}
+static bool source_clean_admit(struct private_clean_span span[2]) {
+ if(!source_clean_hold(&source_clean) || !source_clean_cache(&source_clean_context) || source_clean_context.cpu.signature!=0x306d4)return false;
+ struct vmm_alias_span aliases[2];
+ for(unsigned i=0;i<2;i++) {
+  uint64_t pa=buffers_native.memory[i].physical,va=(uint64_t)pmm_phys_to_virt(pa);uint32_t pages=buffers_native.memory[i].layout.pages;
+  struct vmm_alias_observation a={0};unsigned mtrr,pat,effective,checks;
+  if(!buffers_validate(&buffers_native,pa,pages))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  bool ok=intel_display_test_private_clean_alias(source_clean_root,va,pa,pages,source_clean_context.cpu.physical_bits,&a);
+#else
+  bool ok=vmm_diagnostic_kernel_alias(source_clean_root,va,pa,pages,source_clean_context.cpu.physical_bits,&a,NULL);
+#endif
+  if(!ok || a.pages!=pages || !a.leaves || !a.leaf_sizes || a.writable!=1 || a.user || a.pat_index>7 ||
+     !x86_cache_range(&source_clean_context,pa,pages,a.pat_index,&mtrr,&pat,&effective,&checks) || mtrr!=6 || pat!=6 || effective!=6)return false;
+  aliases[i]=(struct vmm_alias_span){va,pa,pages};span[i]=(struct private_clean_span){va,pa,pages};
+ }
+ struct vmm_alias_inventory v={0};struct vmm_alias_detail d={0};
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ bool unique=intel_display_test_private_clean_inventory(source_clean_root,aliases,source_clean_context.cpu.physical_bits,source_audit_ram.ranges,source_audit_ram.count,&v,&d);
+#else
+ bool unique=vmm_diagnostic_unique_kernel_aliases(source_clean_root,aliases,2,source_clean_context.cpu.physical_bits,source_audit_ram.ranges,source_audit_ram.count,&v,&d);
+#endif
+ return unique && v.pages[0]==1356 && v.pages[1]==1356 && source_clean_hold(&source_clean);
+}
+static bool source_clean_prepare(void) {
+ if(source_clean.object)return false;
+ uint64_t flags=wake_irq_save();source_clean_root=vmm_current_address_space();
+ uint64_t begin=source_clean_now(&source_clean);struct private_clean_span span[2];uint32_t signature,ebx,edx;
+ source_clean_cpu(&signature,&ebx,&edx);
+ bool ok=source_audit_ram.ready && source_clean_admit(span) && source_clean_context.cpu.features==edx && private_clean_run(&source_clean,span,signature,ebx,edx,begin,
+  (struct private_clean_io){&source_clean,source_clean_hold,source_clean_line,source_clean_fence,source_clean_now});
+ uint32_t a,b,d;source_clean_cpu(&a,&b,&d);
+ static struct x86_cache_snapshot closing;
+ /* Closing context is checked even after a partial failure. Completion alone
+  * cannot release private holds after their source/cache identity was lost. */
+ bool known=source_clean_cache(&closing) && x86_cache_equal(&source_clean_context,&closing) &&
+  a==signature && b==ebx && d==edx && source_clean_hold(&source_clean);
+ uint64_t end=source_clean_now(&source_clean);
+ bool held=source_clean_hold(&source_clean);
+ source_clean_retired=!source_clean.attempted || (source_clean.drained && known && held);
+ ok=ok && known && held && source_clean.object==&source_clean && source_clean.context==&source_clean &&
+  source_clean.complete && !source_clean.busy && !source_clean.reason && source_clean.drained &&
+  source_clean.completed==2 && source_clean.fences==4 && source_clean.begin==begin && source_clean.end==source_clean.last &&
+  source_clean.signature==signature && source_clean.ebx==ebx && source_clean.edx==edx &&
+  end>=source_clean.last && end>=begin && end-begin<=100000;
+ for(unsigned i=0;ok && i<2;i++)ok=source_clean.span[i].physical==span[i].physical && source_clean.span[i].virtual_base==span[i].virtual_base &&
+  source_clean.span[i].pages==span[i].pages && source_clean.lines[i]==span[i].pages*64;
+ if(ok)source_clean.end=source_clean.last=end;
+ source_clean_ready=ok;wake_irq_restore(flags);return ok;
+}
+static bool source_clean_bound(bool returned) {
+ const struct private_clean_result *c=&source_clean;
+ if(!source_clean_ready || !source_clean_retired || !c->drained || !c->attempted || c->object!=c || c->context!=c || !c->complete || c->busy || c->reason || c->completed!=2 || c->fences!=4 ||
+    !c->begin || c->end!=c->last || c->end<=c->begin || c->end-c->begin>100000 || c->signature!=0x306d4 || !(c->edx&(1u<<19)) || ((c->ebx>>8)&255)!=8 ||
+    c->edx!=source_clean_context.cpu.features || source_clean_root!=source_audit_native.root || c->end>=source_audit_native.parent_begin)return false;
+ for(unsigned i=0;i<2;i++) {
+  const struct private_clean_span *s=&c->span[i];
+  if(s->physical!=buffers_native.memory[i].physical || s->physical!=buffers_native.binding.physical[i] || s->pages!=1356 || s->pages!=buffers_native.memory[i].layout.pages ||
+     s->virtual_base!=(uint64_t)pmm_phys_to_virt(s->physical) || c->lines[i]!=s->pages*64)return false;
+ }
+ return !returned || c->end<source_audit_native.begin;
+}
+static void source_clean_report(void) {
+ static uint8_t raw[64];static char encoded[89];unsigned k=4;const struct private_clean_result *c=&source_clean;
+ raw[0]=(uint8_t)c->completed;raw[1]=(uint8_t)(c->reason?c->reason:source_clean_ready?0:6);raw[2]=(uint8_t)c->fences;raw[3]=64;
+ source_audit_u64(raw,&k,c->begin);source_audit_u64(raw,&k,c->end);source_audit_u32(raw,&k,c->signature);source_audit_u32(raw,&k,c->ebx);source_audit_u32(raw,&k,c->edx);
+ for(unsigned i=0;i<2;i++){source_audit_u64(raw,&k,c->span[i].physical);source_audit_u32(raw,&k,c->span[i].pages);source_audit_u32(raw,&k,c->lines[i]);}
+ entry_requester_base64(raw,64,encoded);console_printf("intel-private-clean: v=1 b=%s\n",encoded);
 }

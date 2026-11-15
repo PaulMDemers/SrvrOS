@@ -110,7 +110,9 @@ def audit_result(text):
  cost=admission_cost(text,t['begin'],t['end'],w['end_us']-w['begin_us'],complete)
  from intel_alias_inventory import alias_inventory
  inventory=alias_inventory(text,r['samples'],complete)
- return dict(r,engines=e,complete=complete,native_complete=False,admission_cost=cost,alias_inventory=inventory,unique_aliases=bool(complete and inventory and inventory['scope_complete']),managed_pages=0,hardware_ownership=False,physical_tearfree=False)
+ from intel_private_clean import private_clean
+ clean=private_clean(text,e['requester']['transfer']['buffers']['buffers'],w['begin_us'],s['begin'],complete,inventory)
+ return dict(r,engines=e,complete=complete,native_complete=False,admission_cost=cost,alias_inventory=inventory,unique_aliases=bool(complete and inventory and inventory['scope_complete']),private_clean=clean,cpu_writeback=bool(complete and clean and clean['scope_complete']),managed_pages=0,hardware_ownership=False,physical_tearfree=False)
 def native_audit_result(text):
  r=audit_result(text)
  if r['complete']:
@@ -121,6 +123,7 @@ def native_audit_result(text):
   if r['summary']['v']>=2:
    from intel_cache import _snapshot,_page
    c=cache['rows']['sample'][1]
+   if r['private_clean'] and (r['private_clean']['signature'],r['private_clean']['edx'])!=(c['signature'],c['features']):raise ValueError('private clean original native CPU features')
    if r['summary']['v']==3 and r['root']>=1<<c['bits']:raise ValueError('source audit native root width')
    regions=_snapshot(c,[x for x in cache['rows']['variable'] if x['sample']==1],[x for x in cache['rows']['fixed'] if x['sample']==1])
    for sample in r['samples']:
@@ -135,6 +138,6 @@ def native_audit_result(text):
   r['native_complete']=True
  return r
 def verify_audit_checkpoint(pre,text,native=False):
- if any(l.startswith('intel-source-audit-') for l in pre.splitlines()):raise ValueError('source audit late prerequisite')
+ if any(l.startswith(('intel-source-audit-','intel-private-clean:')) for l in pre.splitlines()):raise ValueError('source audit late prerequisite')
  verify_engines_checkpoint(audit_view(pre),audit_view(text),native=native);audit_result(text);return True
 def shared_view(text):return engines_shared_view(audit_view(text))

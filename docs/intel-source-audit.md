@@ -359,3 +359,15 @@ retirement and offline preservation pass. See the
 [native unit result](machines/macbookair7-2.md#native-v35-whole-root-cpu-alias-inventory-accepted).
 The scope is one CPU root's present mappings, with no stale-TLB/SMP/GPU/IOMMU,
 DMA/cache/reader ownership or repeatability grant. All255 obligations remain.
+
+## Private CPU writeback preparation (native pending)
+
+The next v35 addition performs [bounded private-buffer CPU writeback](private-buffer-cache-clean.md)
+before the original GPU clocks. It requires the original holds, fresh WB policy,
+requested mappings and exhaustive present-alias inventory, and admits only the
+exact CPUID-supported line operation. MFENCE/CLFLUSH/MFENCE covers all padding;
+partial failure gets a non-addressed cleanup fence and retains RAM if completion
+or closing identity is lost. The held child and final return require the same
+original completed record. A separate optional receipt leaves historical scope
+unchanged. Original observations and deadlines remain; all255 actual GPU/DMA/
+cache/reader obligations stay open. No native cache-writeback acceptance yet.

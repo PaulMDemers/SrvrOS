@@ -6,8 +6,66 @@ static bool intel_display_test_source_audit_pci(unsigned,uint32_t *);
 static bool intel_display_test_source_audit_plane(unsigned,unsigned,uint32_t *);
 static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *);
 static bool intel_display_test_source_audit_inventory(uint64_t,const struct vmm_alias_span *,unsigned,const struct vmm_alias_ram *,unsigned,struct vmm_alias_inventory *,struct vmm_alias_detail *);
+static uint64_t intel_display_test_private_clean_now(void);
+static bool intel_display_test_private_clean_line(uint64_t);
+static bool intel_display_test_private_clean_fence(void);
+static void intel_display_test_private_clean_cpu(uint32_t *,uint32_t *,uint32_t *);
+static bool intel_display_test_private_clean_cache(struct x86_cache_snapshot *);
+static bool intel_display_test_private_clean_alias(uint64_t,uint64_t,uint64_t,uint32_t,unsigned,struct vmm_alias_observation *);
+static bool intel_display_test_private_clean_inventory(uint64_t,const struct vmm_alias_span *,unsigned,const struct vmm_alias_ram *,unsigned,struct vmm_alias_inventory *,struct vmm_alias_detail *);
 #define INTEL_ENGINES_FIXTURE_MAIN engines_adapter_main
 #include "test_intel_source_engines_adapter.c"
+static unsigned clean_clocks,clean_lines,clean_fences,clean_cpus,clean_contexts;
+static uint64_t intel_display_test_private_clean_now(void) {
+ ++clean_clocks;
+ if(jf("clean-zero",clean_clocks))return 0;
+ if(jf("clean-backward",clean_clocks))return 1;
+ if(jf("clean-time",clean_clocks))ticks+=100001;
+ if(jf("clean-hold",clean_clocks))buffers_native.hold[0].lifetime=0;
+ if(jf("clean-result",clean_clocks))source_clean.span[0].pages--;
+ return ++ticks;
+}
+static bool intel_display_test_private_clean_line(uint64_t va) {
+ assert(wake_irq && source_clean_hold(&source_clean));
+ if(!clean_lines){struct scanout_memory_cpu borrow;assert(!scanout_memory_cpu_begin(&buffers_native.memory[0],&buffers_native.token[0],&borrow));assert(!scanout_memory_hold_end(&buffers_native.hold[0]));}
+ unsigned b=clean_lines/(1356*64),n=clean_lines%(1356*64);assert(b<2 && va==buffers_native.memory[b].physical+n*64ull);
+ ++clean_lines;return !jf("clean-line",clean_lines);
+}
+static bool intel_display_test_private_clean_fence(void) {
+ assert(wake_irq);++clean_fences;
+ if(jf("clean-fence",clean_fences) || (clean_fences>=2 && jf("clean-unknown",1)))return false;
+ if(!source_clean.reason)assert(clean_lines==((clean_fences==1)?0:(clean_fences<4)?1356*64:2712*64));
+ return true;
+}
+static void intel_display_test_private_clean_cpu(uint32_t *a,uint32_t *b,uint32_t *d) {
+ ++clean_cpus;*a=0x306d4;*b=8u<<8;*d=0x91000;
+ if(jf("clean-feature",clean_cpus))*d=0;
+ if(jf("clean-cpu",clean_cpus))*a^=1;
+ if(jf("clean-line-size",clean_cpus))*b=16u<<8;
+}
+static bool intel_display_test_private_clean_cache(struct x86_cache_snapshot *out) {
+ ++clean_contexts;
+ *out=(struct x86_cache_snapshot){.cpu={{0x756e6547,0x49656e69,0x6c65746e},0x306d4,0x91000,39,0x80050033},
+ .pat=0x0007040600070406ull,.cap=0x402,.def_type=0x806,.base={0xb0000001,0},.mask={0x7ff0000800ull,0},
+ .status=CACHE_OBSERVED,.reads=10,.count=2,.begin_us=ticks,.end_us=ticks+1};ticks++;
+ if(jf("clean-cache",clean_contexts))return false;
+ if(jf("clean-cache-drift",clean_contexts))out->pat^=1;
+ if(jf("clean-cache-hole",clean_contexts)){out->base[1]=buffers_native.memory[0].physical+4096;out->mask[1]=(((1ull<<39)-1)&~4095ull)|0x800;}
+ return true;
+}
+static bool intel_display_test_private_clean_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t pages,unsigned bits,struct vmm_alias_observation *out) {
+ assert(root==0x1000 && va==pa && pages==1356 && bits==39 && source_clean_hold(&source_clean));
+ *out=(struct vmm_alias_observation){.pages=pages,.leaves=4,.writable=1,.leaf_sizes=2};
+ if(jf("clean-alias",1))out->user=1;
+ if(jf("clean-alias-readonly",1))out->writable=0;
+ if(jf("clean-alias-pat",1))out->pat_index=3;
+ return true;
+}
+static bool intel_display_test_private_clean_inventory(uint64_t root,const struct vmm_alias_span *s,unsigned bits,const struct vmm_alias_ram *ram,unsigned nr,struct vmm_alias_inventory *out,struct vmm_alias_detail *d) {
+ (void)d;assert(root==0x1000 && bits==39 && nr && ram && source_clean_hold(&source_clean));
+ for(unsigned i=0;i<2;i++)assert(s[i].physical==buffers_native.memory[i].physical && s[i].pages==1356);
+ *out=(struct vmm_alias_inventory){.tables=9,.entries=4608,.leaves=3072,.matches={4,4},.pages={1356,1356}};return !jf("clean-inventory",1);
+}
 static unsigned audit_clocks,audit_pci,audit_planes,audit_caches,audit_aliases;
 static bool intel_display_test_source_audit_clock(uint64_t *at) {
  ++audit_clocks;struct intel_source_audit_native *a=&source_audit_native;
@@ -53,7 +111,7 @@ static bool intel_display_test_source_audit_plane(unsigned p,unsigned i,uint32_t
 static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *out) {
  assert(source_audit_live() && requester_command==3 && engines_actual==5);
  ++audit_caches;uint64_t begin=ticks;ticks+=2;
- *out=(struct x86_cache_snapshot){.cpu={{0x756e6547,0x49656e69,0x6c65746e},0x306d4,0x11000,39,0x80050033},
+ *out=(struct x86_cache_snapshot){.cpu={{0x756e6547,0x49656e69,0x6c65746e},0x306d4,0x91000,39,0x80050033},
  .pat=0x0007040600070406ull,.cap=0x402,.def_type=0x806,.base={0xb0000001,0},.mask={0x7ff0000800ull,0},
  .status=CACHE_OBSERVED,.reads=10,.count=2,.fixed_count=0,.begin_us=begin,.end_us=ticks};
  if(jf("audit-cache-fail",audit_caches))return false;

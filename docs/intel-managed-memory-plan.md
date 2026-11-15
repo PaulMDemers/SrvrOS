@@ -38,8 +38,8 @@ The latest42b/0ffff trial now records93,392/100,000us preparation with6,608us
 margin, one original kind2 lifetime. The56 census sample envelopes account for
 83,843us and overlap control brackets. Checks/deadlines and all255 hardware
 obligations remain. See the [current measured result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted).
-The next bounded step is the [whole-root CPU alias inventory](vmm-alias-inventory.md),
-which does not establish GPU/IOMMU aliases, stale TLB coverage, cache coherence,
+The subsequent [whole-root CPU alias inventory](vmm-alias-inventory.md) is now accepted for one original kind2 lifetime; it
+does not establish GPU/IOMMU aliases, stale TLB coverage, cache coherence,
 DMA completion or a native interval grant. Existing requested-alias checks remain.
 
 ## What is established
@@ -460,3 +460,10 @@ without resolving stale TLB, other roots, GPU/IOMMU translation, DMA/prefetch,
 cache coherence or affected firmware/display readers. Establish those witnesses
 before importing an interval or allowing a GPU PTE transaction. All255 hardware
 completion obligations stay open; zero managed GPU pages/native tear-free pending.
+
+Next qualify [private-buffer CPU writeback](private-buffer-cache-clean.md) before
+the original GPU lifetime. This is an actual bounded CPU maintenance operation
+on the already held WB allocations, with exact line coverage, fences and closing
+identity checks. It does not clear GPU cache, DMA, prefetch, translation or reader
+obligations. No GPU interval or PTE/submission writer is enabled. The source-bound
+receipt and native lifetime require new local/VM/physical qualification.
