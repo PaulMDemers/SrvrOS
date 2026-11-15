@@ -140,3 +140,25 @@ and explicit incomplete collection/rejection.33 focused host tests pass,
 including original routes, exact failed timestamps and both a failed drain
 and a later parent deadline after a completed drain. Full frozen qualification
 and exact-stage VM are next; no new physical or performance acceptance yet.
+
+
+Native retry `8e26448a` / `442502e3c2fc8288` supplies two matching kind2
+sessions, both **incomplete**. Each completes the drain, retires its UC alias
+and restores engines/requester. Drain lifetimes are9,697/9,723us; requester
+return occurs99,558/99,724us from original prepare. The required closing full
+hardware validation consumes a further1,596/1,592us; transfer clocks then reject
+101,154/101,316us against100,000us. No global retirement or native acceptance.
+All1,533 prior files preserve except expected metadata; six logs yield1,539
+files. Both sessions, offline integrity and recovery are banked; unexpected
+multiplicity is retained explicitly and neither session is selected as a pass.
+
+Next bounded scope (base `8e26448a`, main `4016abf0`): retain that closing
+hardware census and all original deadlines. Make clock callbacks validate pure
+original identity/registration/time, while every guard callback still performs
+full hardware admission. Preserve full last-clock checks before register I/O,
+and explicitly add them before CPU alias map/unmap and child deregistration.
+Avoid a second DMAR-table validation when fresh declared-gap resource admission
+has already performed it. Touch only the v36 adapter/tests and current guide;
+ordinary/v35 behavior, cache/alias guard frequency and all255 obligations remain
+unchanged. Qualify every callback boundary and returned record before a1% trial.
+PR19/379 remain independent; no other task contacted.
