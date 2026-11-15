@@ -109,3 +109,26 @@ collection. A last-clock mapping barrier additionally refuses every later
 register access; it preserves all original checks and limits. Native objects
 use the actual Zig flags and2KiB frame limit. Frozen-source qualification/image/VM and physical acceptance
 remain pending; no new hardware result or GPU assurance is claimed.
+
+
+Native v36 source `b84dc1ef` / release `59f18ff1270fa5bd` is **incomplete**.
+The matching original kind2 lifetime issues one disabled-state graphics VT-d
+command and records the expected `0x12030000` completion, but the final
+verification stops at the original preparation clock's **100,001/100,000 us**.
+The last successful core clock is99,915us;49/50 required reads complete.
+The UC alias, requester/engine/HDA/root and private backing remain retained;
+there is no retirement, ownership or tear-free acceptance. All1,530 prior
+files preserve except expected metadata; three logs yield1,533 files. Raw
+first collection, offline filesystem/allocation and installed recovery pass.
+A v35 child-return assumption rejects the subsequent retained drain failure;
+the immutable run is reviewed/rejected, with original bytes banked separately.
+
+Next bounded block (base `b84dc1ef`, main `4016abf0`): fix retained-failure
+reporting and the protected GRUB text read in the host workflow; capture the
+actual rejected native clock and original phase envelopes; move full native
+clock admission after the clock callback to avoid duplicate hardware census
+without removing any check before a register access. Preserve the complete
+v35 audit, last-clock alias barrier, original100/300/400/500ms budgets and all
+255 obligations. Test both original routes, retained faults and the exact
+native failure replay before another automated1% trial. PR19/379 remain
+independent; no other task contacted.
