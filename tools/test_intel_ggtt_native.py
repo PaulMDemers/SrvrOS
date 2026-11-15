@@ -179,6 +179,10 @@ class Native(unittest.TestCase):
         from intel_timing_policy import prepare_us
         for extra in ({'intel_vtd_drain':True},{'desktop_audio':True},{'hold_on_failure':True}):
             with self.assertRaises(ValueError):stage(intel_ggtt_invalidate=True,laptop_probe_volume='37d8c5d0',**extra)
+        from hardware_boot_smoke import intel_probe_profile
+        for name in ('intel-ggtt-invalidate','intel-vtd-drain','intel-source-audit'):
+            self.assertTrue(intel_probe_profile('ram-usb-v1-'+name+'-laptop-probe-37d8c5d0-auto-return'))
+        self.assertFalse(intel_probe_profile('ram-usb-v60-laptop-probe-37d8c5d0-auto-return'))
         cmd=limine_config('0123456789abcdef','ram-usb-v1-intel-ggtt-invalidate-laptop-probe-37d8c5d0-auto-return')
         self.assertIn('srvros.intel-ring=vtd-drain-v1',cmd)
         jobs=profile(ROOT,'intel-ggtt-invalidate-v36');self.assertIn('ggtt-native',[j['name'] for j in jobs['qualification']]);trial_parsers('intel-ggtt-invalidate-v36')

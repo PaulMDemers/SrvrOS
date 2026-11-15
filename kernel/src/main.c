@@ -1010,7 +1010,7 @@ void kmain(void) {
 #endif
 #ifdef SRVROS_INTEL_VTD_DRAIN
 #ifdef SRVROS_INTEL_GGTT_NATIVE
-                console_write("intel-ggtt: automatic original-held remapper drain and System Agent invalidation; no PTE stores. Budget150/300/400/500ms. No input. Safe saved outcomes return; uncertainty halts.\n");
+                console_write("intel-ggtt: automatic original-held remapper drain and System Agent invalidation/verified return; no PTE stores. Budget150/300/400/500ms. No input. Safe saved outcomes return; uncertainty halts.\n");
 #else
                 console_write("intel-vtd: automatic full audit and one disabled-state memory drain; preparation/return budget=150ms. No input. Safe saved outcomes return; uncertainty halts.\n");
 #endif

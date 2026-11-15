@@ -352,3 +352,13 @@ the new distinct configuration and unchanged legacy recipe. Full frozen host
 qualification and exact-stage VM are now the remaining preboot gates. The
 standing automated1% authorization applies only after those gates; no human
 input is required and collection precedes the next source change.
+
+
+The first845 frozen run was cancelled during host qualification, before install,
+arm or reboot: the VM harness's version classifier omitted the new profile.
+Partial receipts and payload remain preserved, with no hardware acceptance.
+The classifier now explicitly recognizes the combined stage while preserving
+legacy graphics and excluding battery stages; a regression covers that routing.
+The corrected source will receive a fresh immutable run and all required gates,
+with no inherited pass from the cancelled run. No deadline or native ownership
+predicate changes; the guest banner clarifies verified return.
