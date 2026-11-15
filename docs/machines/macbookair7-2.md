@@ -7,7 +7,8 @@ Updated: 2026-11-14. State: **active reference machine; partial device acceptanc
 Implement a bounded CPU writeback prerequisite for the two original held private
 allocations before their source lifetime starts. Require fresh sole-root, full
 alias inventory, requested mappings and uniform WB policy before each permitted
-CLFLUSH address; gate actual CPU feature/line size and model. Keep original holds
+CLFLUSH address; revalidate and locally invalidate each target page first,
+then gate actual CPU feature/line size and model. Keep original holds
 closed to CPU borrows, fence each complete buffer, retain partial/failure evidence
 and bind the completed result to the original child/final-return checks. No target
 buffer store, GPU cache/TLB/reader control or address transfer follows. CPU cache

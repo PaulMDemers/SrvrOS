@@ -60,7 +60,7 @@ class Audit(unittest.TestCase):
      with self.subTest(off=off,mode=mode,n=n):self.retained(run(f'{off}audit-cache-{mode}:{n}'))
  def test_final_parent_restore_requires_original_completed_audit(self):
   for off in ('','entry-off-'):
-   for mode in ('clean-ready','clean-retired','clean-lines','clean-physical','clean-pages','clean-fence','clean-time','clean-root','complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks','alias-count','alias-root','alias-va','alias-pages','alias-leaves','alias-index','alias-write','alias-user','alias-nx','alias-size','inventory-count','inventory-reason','inventory-tables','inventory-entries','inventory-leaves','inventory-matches','inventory-pages'):
+   for mode in ('clean-invalidations','clean-ready','clean-retired','clean-lines','clean-physical','clean-pages','clean-fence','clean-time','clean-root','complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks','alias-count','alias-root','alias-va','alias-pages','alias-leaves','alias-index','alias-write','alias-user','alias-nx','alias-size','inventory-count','inventory-reason','inventory-tables','inventory-entries','inventory-leaves','inventory-matches','inventory-pages'):
     with self.subTest(off=off,mode=mode):
      text=run(f'{off}audit-final-{mode}:2');f=fixture(text);self.assertEqual((f['actual'],f['command']),(10,3));self.assertIn('retained=1 success=0',text)
      row=next(l for l in text.splitlines() if l.startswith('source-requester-fixture:'));self.assertIn('actual=1',row);self.assertIn('complete=0',row)
@@ -187,21 +187,24 @@ class Audit(unittest.TestCase):
   import struct
   for off,text in zip(('','entry-off-'),self.texts):
    r=audit_result(text);self.assertTrue(r['cpu_writeback']);self.assertTrue(r['private_clean']['scope_complete']);self.assertFalse(r['private_clean']['ownership'])
-   self.assertEqual([q['lines'] for q in r['private_clean']['spans']],[1356*64]*2);self.assertEqual(r['private_clean']['fences'],4)
-   row=next(l for l in text.splitlines() if l.startswith('intel-private-clean:'));raw=base64.b64decode(row.split('b=',1)[1]);self.assertEqual(len(raw),64)
+   self.assertEqual([q['lines'] for q in r['private_clean']['spans']],[1356*64]*2);self.assertEqual(r['private_clean']['fences'],4);self.assertEqual(r['private_clean']['invalidations'],[1356,1356]);self.assertTrue(r['private_clean']['cpu_translation_refreshed'])
+   row=next(l for l in text.splitlines() if l.startswith('intel-private-clean:'));raw=base64.b64decode(row.split('b=',1)[1]);self.assertEqual(len(raw),72)
    old=audit_result(text.replace(row+'\n',''));self.assertTrue(old['complete']);self.assertFalse(old['cpu_writeback']);self.assertIsNone(old['private_clean'])
-   for bad in (row+'\n'+row,row.replace('v=1','v=2'),row+'=',row[:-1]):
+   for bad in (row+'\n'+row,row.replace('v=2','v=3'),row+'=',row[:-1]):
     with self.assertRaises(ValueError):audit_result(text.replace(row,bad))
-   for offset,width in ((0,1),(1,1),(2,1),(3,1),(4,8),(12,8),(20,4),(24,4),(28,4),(32,8),(40,4),(44,4),(48,8),(56,4),(60,4)):
+   for offset,width in ((0,1),(1,1),(2,1),(3,1),(4,8),(12,8),(20,4),(24,4),(28,4),(32,8),(40,4),(44,4),(48,8),(56,4),(60,4),(64,4),(68,4)):
     data=bytearray(raw);data[offset:offset+width]=b'\xff'*width
     if offset==28:struct.pack_into('<I',data,28,r['private_clean']['edx']&~(1<<19))
-    with self.subTest(offset=offset),self.assertRaises(ValueError):audit_result(text.replace(row,'intel-private-clean: v=1 b='+base64.b64encode(data).decode()))
-   for mode,n in [('clean-feature',1),('clean-cpu',1),('clean-line-size',1),('clean-feature',2),('clean-cache',1),('clean-cache',2),('clean-cache-drift',2),('clean-alias',1),('clean-alias-readonly',1),('clean-alias-pat',1),('clean-cache-hole',1),('clean-inventory',1),('clean-fence',1),('clean-fence',2),('clean-fence',3),('clean-fence',4),('clean-line',1),('clean-line',1356*64),('clean-line',2712*64),('clean-zero',2),('clean-backward',2),('clean-time',10),('clean-result',10),('clean-hold',10),('clean-unknown',1)]:
+    with self.subTest(offset=offset),self.assertRaises(ValueError):audit_result(text.replace(row,'intel-private-clean: v=2 b='+base64.b64encode(data).decode()))
+   for mode,n in [('clean-feature',1),('clean-cpu',1),('clean-line-size',1),('clean-feature',2),('clean-cache',1),('clean-cache',2),('clean-cache-drift',2),('clean-alias',1),('clean-alias-readonly',1),('clean-alias-pat',1),('clean-cache-hole',1),('clean-inventory',1),('clean-fence',1),('clean-fence',2),('clean-fence',3),('clean-fence',4),('clean-line',1),('clean-line',1356*64),('clean-line',2712*64),('clean-zero',2),('clean-backward',2),('clean-time',10),('clean-result',10),('clean-hold',10),('clean-unknown',1),('clean-page',1),('clean-page',1356),('clean-page',2712),('clean-page-readonly',1),('clean-page-pat',1)]:
     t=run(f'{off}{mode}:{n}')
     if mode=='clean-unknown':self.assertIn('retained=1',next(l for l in t.splitlines() if l.startswith('intel-source-buffers:')))
     self.assertIn('actual=0',next(l for l in t.splitlines() if l.startswith('source-engines-fixture:')))
     try:result=audit_result(t)
     except ValueError:continue
     self.assertFalse(result['complete']);self.assertFalse(result['cpu_writeback'])
+   from intel_private_clean import private_clean
+   failed=private_clean(run(off+'clean-time:10'),[],0,0,False,None)
+   self.assertEqual(failed['reason'],3);self.assertGreater(failed['end']-failed['begin'],100000);self.assertFalse(failed['cpu_writeback'])
 
 if __name__=='__main__':unittest.main()

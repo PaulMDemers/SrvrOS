@@ -68,6 +68,7 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("audit-final-alias-user",requester_final_clock))source_audit_native.range[1][0].alias.user=1;
   if(jf("audit-final-alias-nx",requester_final_clock))source_audit_native.range[1][0].alias.no_execute=0;
   if(jf("audit-final-alias-size",requester_final_clock))source_audit_native.range[1][0].alias.leaf_sizes=0;
+  if(jf("audit-final-clean-invalidations",requester_final_clock))source_clean.invalidations[1]--;
   if(jf("audit-final-clean-ready",requester_final_clock))source_clean_ready=false;
   if(jf("audit-final-clean-retired",requester_final_clock))source_clean_retired=false;
   if(jf("audit-final-clean-lines",requester_final_clock))source_clean.lines[0]--;

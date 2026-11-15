@@ -13,9 +13,10 @@ static void intel_display_test_private_clean_cpu(uint32_t *,uint32_t *,uint32_t 
 static bool intel_display_test_private_clean_cache(struct x86_cache_snapshot *);
 static bool intel_display_test_private_clean_alias(uint64_t,uint64_t,uint64_t,uint32_t,unsigned,struct vmm_alias_observation *);
 static bool intel_display_test_private_clean_inventory(uint64_t,const struct vmm_alias_span *,unsigned,const struct vmm_alias_ram *,unsigned,struct vmm_alias_inventory *,struct vmm_alias_detail *);
+static bool intel_display_test_private_clean_page(uint64_t,uint64_t,uint64_t,unsigned,struct vmm_alias_observation *);
 #define INTEL_ENGINES_FIXTURE_MAIN engines_adapter_main
 #include "test_intel_source_engines_adapter.c"
-static unsigned clean_clocks,clean_lines,clean_fences,clean_cpus,clean_contexts;
+static unsigned clean_clocks,clean_lines,clean_fences,clean_cpus,clean_contexts,clean_pages;
 static uint64_t intel_display_test_private_clean_now(void) {
  ++clean_clocks;
  if(jf("clean-zero",clean_clocks))return 0;
@@ -29,6 +30,7 @@ static bool intel_display_test_private_clean_line(uint64_t va) {
  assert(wake_irq && source_clean_hold(&source_clean));
  if(!clean_lines){struct scanout_memory_cpu borrow;assert(!scanout_memory_cpu_begin(&buffers_native.memory[0],&buffers_native.token[0],&borrow));assert(!scanout_memory_hold_end(&buffers_native.hold[0]));}
  unsigned b=clean_lines/(1356*64),n=clean_lines%(1356*64);assert(b<2 && va==buffers_native.memory[b].physical+n*64ull);
+ assert(clean_pages==clean_lines/64+1);
  ++clean_lines;return !jf("clean-line",clean_lines);
 }
 static bool intel_display_test_private_clean_fence(void) {
@@ -65,6 +67,15 @@ static bool intel_display_test_private_clean_inventory(uint64_t root,const struc
  (void)d;assert(root==0x1000 && bits==39 && nr && ram && source_clean_hold(&source_clean));
  for(unsigned i=0;i<2;i++)assert(s[i].physical==buffers_native.memory[i].physical && s[i].pages==1356);
  *out=(struct vmm_alias_inventory){.tables=9,.entries=4608,.leaves=3072,.matches={4,4},.pages={1356,1356}};return !jf("clean-inventory",1);
+}
+static bool intel_display_test_private_clean_page(uint64_t root,uint64_t va,uint64_t pa,unsigned bits,struct vmm_alias_observation *a) {
+ assert(wake_irq && root==source_clean_root && va==pa && bits==39 && source_clean_hold(&source_clean));
+ ++clean_pages;assert(clean_lines==(clean_pages-1)*64);
+ *a=(struct vmm_alias_observation){.pages=1,.leaves=1,.writable=1,.leaf_sizes=1};
+ if(jf("clean-page",clean_pages))return false;
+ if(jf("clean-page-readonly",clean_pages))a->writable=0;
+ if(jf("clean-page-pat",clean_pages))a->pat_index=3;
+ return true;
 }
 static unsigned audit_clocks,audit_pci,audit_planes,audit_caches,audit_aliases;
 static bool intel_display_test_source_audit_clock(uint64_t *at) {

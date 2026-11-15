@@ -1,4 +1,4 @@
-/* v35 only: observations inside the original all-five held child. No grant. */
+/* v35 held observations and isolated private CPU preparation. No GPU grant. */
 #include "x86_private_clean.inc"
 static struct private_clean_result source_clean;
 static uint64_t source_clean_root;
@@ -269,6 +269,32 @@ static bool source_clean_line(void *ctx,uint64_t va) {
  __asm__ volatile("clflush (%0)"::"r"(va):"memory");return true;
 #endif
 }
+/* CPU0 current-root target refresh, not a GPU/IOMMU invalidation. Revalidate
+ * the exact owned page before issuing the non-addressed-cache operation. */
+static bool source_clean_page(void *ctx,uint64_t va) {
+ if(!source_clean_hold(ctx) || (va&4095))return false;
+ for(unsigned i=0;i<2;i++) {
+  const struct private_clean_span *s=&source_clean.span[i];
+  if(va<s->virtual_base || va-s->virtual_base>=(uint64_t)s->pages*4096)continue;
+  uint64_t pa=s->physical+va-s->virtual_base;struct vmm_alias_observation a={0};
+  if(!pmm_frame_has_tag(pa,PMM_FRAME_DMA))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  bool ok=intel_display_test_private_clean_page(source_clean_root,va,pa,source_clean_context.cpu.physical_bits,&a);
+#else
+  bool ok=vmm_diagnostic_kernel_alias(source_clean_root,va,pa,1,source_clean_context.cpu.physical_bits,&a,NULL);
+#endif
+  if(!ok || a.pages!=1 || a.leaves!=1 || a.writable!=1 || a.user || a.pat_index>7)return false;
+  /* Full-span admission requires WB; re-evaluate the fresh actual index rather
+   * than assuming the native PAT's default index. */
+  unsigned mtrr,pat,effective;
+  if(!x86_cache_page(&source_clean_context,pa,a.pat_index,&mtrr,&pat,&effective) || mtrr!=6 || pat!=6 || effective!=6)return false;
+#ifndef SRVROS_INTEL_DISPLAY_HOST_TEST
+  __asm__ volatile("invlpg (%0)"::"r"(va):"memory");
+#endif
+  return source_clean_hold(ctx);
+ }
+ return false;
+}
 static bool source_clean_fence(void *ctx) {
  if(ctx!=&source_clean)return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -321,7 +347,7 @@ static bool source_clean_prepare(void) {
  uint64_t begin=source_clean_now(&source_clean);struct private_clean_span span[2];uint32_t signature,ebx,edx;
  source_clean_cpu(&signature,&ebx,&edx);
  bool ok=source_audit_ram.ready && source_clean_admit(span) && source_clean_context.cpu.features==edx && private_clean_run(&source_clean,span,signature,ebx,edx,begin,
-  (struct private_clean_io){&source_clean,source_clean_hold,source_clean_line,source_clean_fence,source_clean_now});
+  (struct private_clean_io){&source_clean,source_clean_hold,source_clean_line,source_clean_fence,source_clean_page,source_clean_now});
  uint32_t a,b,d;source_clean_cpu(&a,&b,&d);
  static struct x86_cache_snapshot closing;
  /* Closing context is checked even after a partial failure. Completion alone
@@ -331,13 +357,15 @@ static bool source_clean_prepare(void) {
  uint64_t end=source_clean_now(&source_clean);
  bool held=source_clean_hold(&source_clean);
  source_clean_retired=!source_clean.attempted || (source_clean.drained && known && held);
+ bool clock_ok=end>=source_clean.last && end>=begin && end-begin<=100000;
+ if(!clock_ok && !source_clean.reason){source_clean.reason=3;source_clean.end=end;}
  ok=ok && known && held && source_clean.object==&source_clean && source_clean.context==&source_clean &&
   source_clean.complete && !source_clean.busy && !source_clean.reason && source_clean.drained &&
   source_clean.completed==2 && source_clean.fences==4 && source_clean.begin==begin && source_clean.end==source_clean.last &&
   source_clean.signature==signature && source_clean.ebx==ebx && source_clean.edx==edx &&
-  end>=source_clean.last && end>=begin && end-begin<=100000;
+  clock_ok;
  for(unsigned i=0;ok && i<2;i++)ok=source_clean.span[i].physical==span[i].physical && source_clean.span[i].virtual_base==span[i].virtual_base &&
-  source_clean.span[i].pages==span[i].pages && source_clean.lines[i]==span[i].pages*64;
+  source_clean.span[i].pages==span[i].pages && source_clean.lines[i]==span[i].pages*64 && source_clean.invalidations[i]==span[i].pages;
  if(ok)source_clean.end=source_clean.last=end;
  source_clean_ready=ok;wake_irq_restore(flags);return ok;
 }
@@ -349,14 +377,15 @@ static bool source_clean_bound(bool returned) {
  for(unsigned i=0;i<2;i++) {
   const struct private_clean_span *s=&c->span[i];
   if(s->physical!=buffers_native.memory[i].physical || s->physical!=buffers_native.binding.physical[i] || s->pages!=1356 || s->pages!=buffers_native.memory[i].layout.pages ||
-     s->virtual_base!=(uint64_t)pmm_phys_to_virt(s->physical) || c->lines[i]!=s->pages*64)return false;
+     s->virtual_base!=(uint64_t)pmm_phys_to_virt(s->physical) || c->lines[i]!=s->pages*64 || c->invalidations[i]!=s->pages)return false;
  }
  return !returned || c->end<source_audit_native.begin;
 }
 static void source_clean_report(void) {
- static uint8_t raw[64];static char encoded[89];unsigned k=4;const struct private_clean_result *c=&source_clean;
+ static uint8_t raw[72];static char encoded[97];unsigned k=4;const struct private_clean_result *c=&source_clean;
  raw[0]=(uint8_t)c->completed;raw[1]=(uint8_t)(c->reason?c->reason:source_clean_ready?0:6);raw[2]=(uint8_t)c->fences;raw[3]=64;
  source_audit_u64(raw,&k,c->begin);source_audit_u64(raw,&k,c->end);source_audit_u32(raw,&k,c->signature);source_audit_u32(raw,&k,c->ebx);source_audit_u32(raw,&k,c->edx);
  for(unsigned i=0;i<2;i++){source_audit_u64(raw,&k,c->span[i].physical);source_audit_u32(raw,&k,c->span[i].pages);source_audit_u32(raw,&k,c->lines[i]);}
- entry_requester_base64(raw,64,encoded);console_printf("intel-private-clean: v=1 b=%s\n",encoded);
+ for(unsigned i=0;i<2;i++)source_audit_u32(raw,&k,c->invalidations[i]);
+ entry_requester_base64(raw,72,encoded);console_printf("intel-private-clean: v=2 b=%s\n",encoded);
 }
