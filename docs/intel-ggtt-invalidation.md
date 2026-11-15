@@ -155,8 +155,11 @@ at1% volume; uncertain live ownership halts visibly. No input is required, no
 parent deadline is extended and all255 GPU hardware obligations remain open.
 
 
-The host-only isolation follow-up uses stage configuration revision2 without
-changing kernel/receiver bodies or wire4. Its fast image/fixture/staging preflight
-runs before long qualification. The old ordinary/v35 exclusions remain and the
-combined native link plan is checked explicitly. Earlier failed/cancelled host
-runs and their payloads stay distinct; none establishes hardware acceptance.
+The host-only follow-up uses stage configuration revision3 without changing
+kernel/receiver bodies or wire4; revisions1/2 remain readable. Fast image/fixture/
+staging checks include both VM profile classification and explicit Broadwell TCG
+CPU selection. Exact-stage save/return and missing-workspace VMs now precede long
+qualification, with receipt hashes verified again afterward. All long host gates,
+ordinary/v35 exclusions and combined native link checks remain required. Earlier
+failed/cancelled host runs and their payloads stay distinct; none establishes
+hardware acceptance.

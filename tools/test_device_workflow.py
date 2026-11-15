@@ -178,6 +178,22 @@ class RunnerTests(unittest.TestCase):
     def state(self):
         return self.runner.load('candidate')[2]
 
+    def test_cli_exposes_combined_profile_without_starting_a_trial(self):
+        import device_workflow
+        (self.repo / 'build').mkdir()
+        atomic(self.runner.store / 'unit.json', self.unit)
+        argv = ['device_workflow.py', 'new', 'combined', '--profile',
+                'intel-ggtt-invalidate-v36', '--question', 'Complete original hold?',
+                '--expected', 'Exact retirement']
+        with patch.object(device_workflow, 'ROOT', self.repo), \
+                patch.object(device_workflow, 'Runner', return_value=self.runner), \
+                patch.object(self.runner, 'create', return_value='combined') as create, \
+                patch.object(sys, 'argv', argv):
+            device_workflow.main()
+        create.assert_called_once_with('combined', self.unit, 'Complete original hold?',
+                'Exact retirement', jobs=None, trial_profile='intel-ggtt-invalidate-v36')
+        self.assertEqual(self.runner.effects, [])
+
     def test_complete_prepare_is_resumable_and_does_not_reboot(self):
         self.runner.advance('candidate')
         self.assertEqual(self.state()['phase'], 'QUALIFIED')
@@ -206,15 +222,34 @@ class RunnerTests(unittest.TestCase):
             self.runner.advance('candidate')
         self.assertEqual(self.runner.effects.count('stage'), 1)
 
-    def test_vm_interruption_resumes_validation_without_repeating_passed_commands(self):
+    def test_vm_preflight_failure_stops_before_long_validation(self):
         self.runner.fail = 'vm'
         with self.assertRaises(RuntimeError):
             self.runner.advance('candidate')
-        receipt = self.state()['validation']['qualification/check']
+        receipt = self.state()['validation']['development/check']
+        self.assertNotIn('qualification/check',self.state()['validation'])
+        self.assertEqual(self.state()['phase'],'STAGED')
         self.runner.fail = None
         self.runner.advance('candidate')
-        self.assertEqual(self.state()['validation']['qualification/check'], receipt)
+        self.assertEqual(self.state()['validation']['development/check'],receipt)
+        self.assertIn('qualification/check',self.state()['validation'])
         self.assertEqual(self.state()['phase'], 'QUALIFIED')
+
+    def test_final_vm_failure_resumes_without_repeating_passed_commands(self):
+        original=self.runner.vm
+        calls=0
+        def fail_second(directory,state):
+            nonlocal calls
+            calls+=1
+            if calls==2:raise RuntimeError('VM receipt changed after host suites')
+            original(directory,state)
+        with patch.object(self.runner,'vm',side_effect=fail_second):
+            with self.assertRaisesRegex(RuntimeError,'VM receipt changed'):
+                self.runner.advance('candidate')
+            receipt=self.state()['validation']['qualification/check']
+            self.runner.advance('candidate')
+        self.assertEqual(self.state()['validation']['qualification/check'],receipt)
+        self.assertEqual(self.state()['phase'],'QUALIFIED')
 
     def test_pending_run_blocks_new_run_and_cancel_is_explicit(self):
         with self.assertRaisesRegex(ValueError, 'outstanding'):

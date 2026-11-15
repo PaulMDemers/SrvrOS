@@ -409,6 +409,9 @@ class Runner:
                     self.stage(directory, manifest, state)
                     self.finish(directory, state, 'STAGED')
                 elif action == 'qualify':
+                    # Fail exact-stage VM/setup errors before long host matrices;
+                    # verify the same receipts again before qualification ends.
+                    self.vm(directory, state)
                     self.jobs(directory, manifest, state, 'qualification')
                     self.vm(directory, state)
                     self.finish(directory, state, 'QUALIFIED')

@@ -55,8 +55,11 @@ python3 tools/device_workflow.py advance --run trial-name
 ```
 
 `advance` stops at **QUALIFIED** by default. It runs a short development gate,
-stages once, qualifies the full frozen candidate, then boots the **exact release**
-in disposable QEMU save/return and missing-workspace fixtures. The VM harness
+stages once, boots the **exact release** in disposable QEMU save/return and
+missing-workspace fixtures, then qualifies the full frozen candidate. Both VM
+receipt trees are verified again before qualification completes. Harness errors
+therefore fail before the long host matrices; every host gate remains required.
+The VM harness
 accepts `--release` and an empty `--output-dir`; it no longer needs temporary
 edits to `build/hardware-boot/latest`. VM evidence never accepts native ownership.
 Qualification is full for this diagnostic's host matrix and recipe; new kernel
@@ -261,11 +264,13 @@ there is no new GPU mapping, pipeline/cache/reader assurance or page-flip grant.
 See the [native operation contract](intel-ggtt-invalidation.md#combined-original-held-native-candidate).
 
 
-Combined stages now use configuration revision2, retaining the same15-token
-recipe, wire4 record, kernel operation and existing budgets. Revision1 remains
-readable; this creates independent immutable release metadata for the host-only
-qualification correction. Both graphics profiles run `image-structure` directly
+Combined stages now use configuration revision3, retaining the same15-token
+recipe, wire4 record, kernel operation and existing budgets. Revisions1/2 remain
+readable; this creates independent immutable release metadata for host-only
+qualification corrections. Both graphics profiles run `image-structure` directly
 after fixture preparation in development and qualification, before the long
 fault suites. It checks the explicit image/fixture allowlists, legacy exclusion,
-staging and (for the combined profile) VM classification/collector dispatch.
+staging and (for the combined profile) VM classification, the explicit Broadwell
+TCG CPU fixture and collector dispatch. Battery/ordinary VMs retain their own
+CPU selection. The CLI also exposes the combined profile directly.
 The full suites still repeat their structural checks; no gate is skipped.

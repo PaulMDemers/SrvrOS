@@ -381,3 +381,17 @@ regression passes39. The early structural job is now mandatory in development
 and qualification; all original long suites remain required. The corrected
 candidate will have a new immutable run and26 gates, with no receipt inherited
 from the failed source. Main4016 and independent PR19/379 are unchanged.
+
+The bf1 host run was intentionally cancelled before install/arm/reboot after a
+second VM dispatch omission was found: the combined profile also needs the
+existing Broadwell TCG CPU fixture. Both classification and CPU selection now
+cover stage revisions1/2/3; ordinary/battery selection remains unchanged. Revision3
+provides fresh immutable metadata for this host-only correction; kernel/receiver
+bodies and all hardware budgets remain unchanged. Exact-stage save/return passed
+against the frozen bf1 payload with the corrected harness. Expanded preflight
+passes165 tests; neither result is physical acceptance. The fresh run will require
+both exact-stage VM paths before the long suites and verify their receipts again
+afterward, retaining all26 host gates. The CLI now exposes the combined profile.
+Cancelled payloads are losslessly archived only after per-file size/hash roundtrip
+checks; current/recovery/protected banks remain intact. Active checkpoint and
+archive receipts stay in the local durable workflow/evidence store.
