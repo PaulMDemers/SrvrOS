@@ -212,3 +212,31 @@ controls specifically reject a changed HDA endpoint at the final load/store
 clock when that final hardware admission is removed. Both routes preserve
 107 cache/157 alias checks with110 full-parent attempts. Full frozen host/image
 and exact-stage VM qualification, then matching native evidence, remain pending.
+
+
+Provider retry `31c80788` / `6f8ef5f6897139de`, session
+`session-00066055695cd144-00`, selects the enabled entry (kind1/epoch2/mode2).
+All17 frozen host qualification receipts and both exact-stage VMs pass. Native
+drain/UC-alias retirement completes in8,047us; engines, requester, transfer,
+buffers and source subsequently return locally. The original reset's final
+GT-borrow return then consumes3,171us, reaching102,775/100,000us. The enclosing
+reset/root/HDA/private-memory lifetime remains incomplete and retained. This
+is neither enabled-route acceptance nor evidence of native tear-free ownership.
+
+The strict collector rejects `source enclosing completion`: a completed local
+source is followed by an incomplete reset. Raw-first preservation and independent
+original reset decoding confirm the deadline failure; the run is manually
+reviewed/rejected without changing the collector or promoting nested completion.
+All1,542 prior files preserve except expected metadata; three new logs yield
+1,545 files. Offline integrity, consumed one-shot and recovery verify. Original
+raw data, parser refusal, negative review and installed payload remain banked.
+The local Ubuntu notification now covers return-collector failures as well as
+preboot continuation failures; the Desktop status file records the result.
+
+Next bounded work: qualify reporting of a completed child followed by a later
+failed parent without relaxing successful full-chain requirements, and isolate
+the final return's two full-census costs. Preserve both hardware witnesses, the
+actual rejected clock and original100/300/400/500ms limits. Do not repeat the
+same hardware trial before a qualified reporting/timing change or an actual
+overhead reduction is ready. No new one-shot is armed. All255 GPU obligations
+and earlier accepted CPU-only scope remain unchanged.

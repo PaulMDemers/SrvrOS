@@ -262,3 +262,16 @@ controls must kill removal of the final load and store admissions when an HDA
 endpoint changes at their clock boundaries. Closing census, alias map/unmap,
 deregistration, complete-record requirements and all four deadlines stay intact.
 The changed call count is host evidence only; native timing remains pending.
+
+
+The `31c80788` native retry selects kind1/epoch2/mode2, unlike the earlier
+kind2 samples, so its8,047us drain observation is not a controlled performance
+comparison. Its child, engines, requester and pure transfer return, but the
+final GT borrow return's two required full hardware censuses consume3,171us.
+The original reset fails102,775/100,000us and retains the enclosing lifetime.
+The existing collector rejects the completed-source/incomplete-reset combination;
+raw-first preservation, independent original reset decoding and manual negative
+review retain that failure without granting full completion. All prior files,
+offline integrity and recovery verify. Neither route nor GPU ownership is
+accepted by these partial returns. A subsequent reporting change must cover
+this later-parent failure and preserve strict positive full-chain requirements.
