@@ -531,3 +531,13 @@ The next boundary remains actual outstanding DMA/prefetch, GPU pipeline/cache/
 per-engine translation and every firmware/display-reader completion, tied to
 the original owner before private mapping/publication. This bounded new witness
 closes no whole-device assurance bit and creates no managed GPU page.
+
+The next command layer now has a host-qualified
+[private BCS packet/completion protocol](intel-bdw-bcs-flush.md). It requires an
+already-owned stopped ring/context, fresh private completion page, admitted
+mapping/cache policy and original source/clock. Its known publication/submission
+and nonce completion are separate, bounded steps; unknown state retains backing.
+It cannot bootstrap those prerequisites, execute through an inherited ring or
+prove other engines/firmware/display readers retired. No native caller/image or
+new hardware acceptance follows. Next establish the genuine private command
+resource owner and its initialization/retirement before native submission.

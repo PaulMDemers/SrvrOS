@@ -6727,6 +6727,18 @@ test-intel-ggtt-invalidate: build/tests/intel-ggtt-invalidate$(HOST_EXE) build/t
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_ggtt_invalidate
 test-core: test-intel-ggtt-invalidate
 
+# Pure owned BCS flush/completion protocol. No native provider or image caller.
+.PHONY: test-intel-bdw-bcs-flush
+build/tests/intel-bdw-bcs-flush$(HOST_EXE): tools/test_intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE): tools/test_intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+test-intel-bdw-bcs-flush: build/tests/intel-bdw-bcs-flush$(HOST_EXE) build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_flush
+test-core: test-intel-bdw-bcs-flush
+
 # Combined v36 original-held remapper + System Agent invalidation diagnostic.
 INTEL_GGTT_NATIVE_FLAGS := $(INTEL_VTD_DRAIN_FLAGS) -DSRVROS_INTEL_GGTT_NATIVE
 build/intel-ggtt-native/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)

@@ -8,6 +8,19 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
+isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)
+binds private ring/context/completion mappings, a fresh nonce and original owner/
+source/clock. Unknown publication/submission/completion retains backing. Exact
+packet and QWord destination workaround follow pinned Intel/Linux references.
+Both100/150ms actual-core matrices pass2,326 cases each, fatal sanitizers and24
+compiled weakening controls; native compiler2KiB frame and image exclusion pass.
+Existing per-engine TLB and System Agent protocol suites also pass. This supplies
+no native ring, writer, image, GPU assurance or trial: native execution must
+first independently own those resources and their initialization/retirement.
+Existing remapper/GGTT acceptance and all original hardware gates remain.
+PR19/379 are independent; no other task or subagent is contacted.
+
 Latest graphics acceptance is **one original kind2 combined remapper drain and
 System Agent GGTT invalidation lifetime**: runtime `fe3919ec`, release
 `451221606bdf74f7`, session `session-0006605896ca2c5f-00`. All26 frozen host gates

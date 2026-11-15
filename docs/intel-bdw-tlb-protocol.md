@@ -106,9 +106,12 @@ not cover remaining GPU pipeline/cache/prefetch work or display readers. It
 must not be wired in as a positive flushed-pipeline/memory-retirement mask.
 
 The separate [System Agent GGTT invalidation protocol](intel-ggtt-invalidation.md)
-now implements the ordered101008 write/posting-read path in host fixtures only.
+now accepts one bounded original kind2 native101008 write/posting-read lifetime.
 That different translation domain does not satisfy the engine pipeline prerequisite.
-No native caller or source-bound completion proof is imported from either core.
+The [private BCS command/completion layer](intel-bdw-bcs-flush.md) is host-qualified,
+but has no native provider and requires already-owned ring/context/completion
+mappings. Neither an earlier receipt nor a positive fixture supplies this
+protocol's live prerequisite.
 
 Then embed the operation inside that **same original** live owner, qualify
 native alias permissions and ordered accesses, and compose request completion
