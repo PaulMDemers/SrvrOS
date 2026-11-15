@@ -184,3 +184,31 @@ resource/route lifetimes. Native adapter bytes are unchanged by this fix.
 The cancelled, uninstalled candidate and original attribution are archived
 locally. Requalification will run the sanitizer case first, then every original
 gate and exact-stage VM. No clock limit, guard predicate or recovery changes.
+
+
+Native consolidated retry `ef48998b` / `9679a4a7b8948d8c` remains incomplete.
+One matching session completes the drain and UC-alias retirement in8,479us,
+engines by98,216us and requester by98,558us from original prepare. The retained
+closing full census takes1,597us; transfer rejects100,155/100,000us. All1,539
+prior files preserve except expected metadata; three logs yield1,542 files.
+Strict raw/checkpoint collection, offline integrity and recovery pass; original
+backing/source/root/HDA retention still prevents global acceptance.
+
+Next bounded scope (base `ef48998b`, main `4016abf0`): consolidate the duplicate
+full hardware admission inside each v36 register provider. Keep every core guard
+unchanged, all cache/alias/registration checks, and the fresh full hardware guard
+after the provider's final clock immediately before each register access. The
+provider's earlier check verifies the original software/root/alias/borrow graph;
+it supplies no hardware authority. Map/unmap/deregistration and the closing full
+census remain unchanged. Scope: v36 adapter/fixture/guide only. Qualify both
+routes, clock-boundary faults and explicit final-I/O weakening controls before
+another automated1% trial. No limit, native ownership or sibling change; PR19/379
+remain separate and no other task is contacted.
+
+
+The provider-consolidation implementation passes its targeted17 compiled
+weakening controls and14 fatal ASan/UBSan route/resource lifetimes. The new
+controls specifically reject a changed HDA endpoint at the final load/store
+clock when that final hardware admission is removed. Both routes preserve
+107 cache/157 alias checks with110 full-parent attempts. Full frozen host/image
+and exact-stage VM qualification, then matching native evidence, remain pending.

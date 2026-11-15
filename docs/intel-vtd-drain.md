@@ -243,3 +243,22 @@ unchanged. Both model routes retain107 fresh cache and157 alias checks, while
 full parent attempts fall from369 to161 in the immediate-completion model.
 This is a call-count result, **not** a native speedup or ownership acceptance.
 Version2 timing and all original protocol/return predicates remain mandatory.
+
+
+Native `ef48998b` / `9679a4a7b8948d8c` completes drain/alias retirement in
+8,479us and requester return by98,558us, then fails the enclosing transfer at
+100,155us after the required1,597us closing full census. This remains an
+incomplete retained original lifetime. One matching session, prior files,
+offline integrity and recovery verify; no hardware authority is promoted.
+
+The provider-consolidation retry preserves every full core guard and the same
+107 cache/157 alias checks. Each register provider checks original identity,
+registration, root, cache and aliases before its clock; it then rechecks clock
+identity/registration, alias and fresh full hardware admission immediately
+before I/O. The earlier duplicate full hardware call in that provider is
+consolidated into the final call, with no witness or token reused across the
+clock. Model full-parent attempts become110 instead of161. Separate compiled
+controls must kill removal of the final load and store admissions when an HDA
+endpoint changes at their clock boundaries. Closing census, alias map/unmap,
+deregistration, complete-record requirements and all four deadlines stay intact.
+The changed call count is host evidence only; native timing remains pending.

@@ -164,6 +164,8 @@ class Native(unittest.TestCase):
                                           cwd=ROOT, text=True, timeout=120)
         mutations = {
             'omit-hardware-census': ('return vtd_parent_identity() && source_engines_guard(&nonzero_native);', 'return vtd_parent_identity();', 'vtd-hda-pci:2'),
+            'omit-final-load-hardware-admission': ('!vtd_registration() || !vtd_parent())return 0;', '!vtd_registration())return 0;', 'vtd-hda-pci:6'),
+            'omit-final-store-hardware-admission': ('!vtd_registration() || !vtd_parent())return GT_WRITE_NONE;', '!vtd_registration())return GT_WRITE_NONE;', 'vtd-hda-pci:'+str(stats(self.texts[0])['write_boundary'])),
             'omit-map-hardware-admission': ('!vtd_policy() || !vtd_parent() ||', '!vtd_policy() ||', 'vtd-hda-pci:1'),
             'omit-unmap-hardware-admission': ('!vtd_registration() || !vtd_parent() ||', '!vtd_registration() ||', 'vtd-hda-pci:210'),
             'omit-deregister-hardware-admission': (' || !vtd_parent())return vtd_fail(64)', ')return vtd_fail(64)', 'vtd-hda-pci:211'),

@@ -127,10 +127,10 @@ static uint64_t vtd_now(void *ctx) {
  if(failed){vtd_native.cost.failed=at;vtd_native.cost.previous=previous;vtd_native.cost.stage=failed;return 0;}
  return at;
 }
-static bool vtd_guard(void *ctx,const struct intel_vtd_drain_source *s) {
+static bool vtd_guard_checks(void *ctx,const struct intel_vtd_drain_source *s,bool hardware) {
  const struct intel_source_engines *p=&source_engines_native.result;
  if(ctx!=&vtd_native || s!=&vtd_native.source || vtd_native.registered_child!=s || s->consumer!=&vtd_native.core ||
-  !vtd_parent() || !vtd_alias() || !vtd_policy())return false;
+  !(hardware?vtd_parent():vtd_clock_identity()) || !vtd_registration() || !vtd_alias() || !vtd_policy())return false;
  const struct intel_vtd_drain_binding *b=&s->binding;
  return b->owner==p && b->provider==&vtd_native && b->lifetime==&joint.scope && b->epoch==p->epoch && b->sequence==1 &&
   b->root==vtd_native.root && b->hash==INTEL_DMA_DMAR_HASH && b->unit==INTEL_VTD_DRAIN_UNIT &&
@@ -138,8 +138,15 @@ static bool vtd_guard(void *ctx,const struct intel_vtd_drain_source *s) {
   b->outer_begin==joint.scope.outer_origin_us && b->vendor==0x8086 && b->device==0x1626 &&
   vtd_native.maps==1 && !vtd_native.retired && !vtd_native.complete;
 }
+static bool vtd_guard(void *ctx,const struct intel_vtd_drain_source *s) {
+ return vtd_guard_checks(ctx,s,true);
+}
 static bool vtd_load(void *ctx,uint32_t off,uint32_t *out) {
- if(!out || !vtd_guard(ctx,&vtd_native.source) ||
+ /* The core's guards retain full hardware admission. This provider also
+  * checks every original identity/cache/alias predicate, then performs its
+  * own fresh full hardware admission AFTER the last clock, before the load.
+  * No hardware witness is cached or carried across that clock callback. */
+ if(!out || !vtd_guard_checks(ctx,&vtd_native.source,false) ||
   !(off==0 || off==8 || off==12 || off==16 || off==20 || off==28 || off==32 || off==36 || off==40 || off==44 || off==52 || off==0x508 || off==0x50c))return false;
  if(!vtd_now(ctx) || !vtd_alias() || !vtd_registration() || !vtd_parent())return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -152,7 +159,7 @@ static enum intel_gt_write vtd_store(void *ctx,uint32_t off,uint32_t value) {
  const struct intel_vtd_drain *r=&vtd_native.core;
  if(off!=0x50c || value!=INTEL_VTD_DRAIN_REQUEST || r->object!=r || !r->busy || r->reason || r->retained || r->complete ||
   r->p.state!=VTD_DRAIN_REQUESTING || r->p.attempts!=1 || r->p.writes || r->p.uncertain ||
-  !vtd_guard(ctx,&vtd_native.source) || !vtd_now(ctx) || !vtd_alias() || !vtd_registration() || !vtd_parent())return GT_WRITE_NONE;
+  !vtd_guard_checks(ctx,&vtd_native.source,false) || !vtd_now(ctx) || !vtd_alias() || !vtd_registration() || !vtd_parent())return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_vtd_write(off,value);
 #else
