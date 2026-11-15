@@ -163,3 +163,21 @@ qualification, with receipt hashes verified again afterward. All long host gates
 ordinary/v35 exclusions and combined native link checks remain required. Earlier
 failed/cancelled host runs and their payloads stay distinct; none establishes
 hardware acceptance.
+
+## First bounded native combined acceptance
+
+Air7,2 runtime `fe3919ec` / release `451221606bdf74f7`, session
+`session-0006605896ca2c5f-00`, accepts one original kind2/epoch1/mode1 combined
+remapper/GGTT lifetime after all26 frozen host gates and both exact-stage VMs.
+The exact101008 DWORD1/posting read, independently derived UC/NX alias and
+original source/root/clock binding verify. GGTT mapping through verified retirement
+takes752us, with two loads, one known store,13 native parent checks,10 cache and
+12 alias checks. Full preparation/verified return is103,582/150,000us; original
+parent bounds remain. Both temporary command aliases and the full original
+diagnostic chain retire; private pages, files, offline USB and recovery verify.
+See the [unit evidence](machines/macbookair7-2.md#native-combined-remapper-and-system-agent-invalidation-accepted).
+
+This is ordered System Agent invalidation, not a self-clear ACK, pipeline/cache/
+prefetch/reader completion proof or a private GPU mapping. Enabled-route and
+repeatability acceptance remain pending. All255 hardware obligations and zero
+GPU assurances/managed pages remain; no historical receipt becomes live authority.

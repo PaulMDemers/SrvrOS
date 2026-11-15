@@ -8,7 +8,25 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Latest graphics acceptance adds **one original kind2 disabled-state graphics
+Latest graphics acceptance is **one original kind2 combined remapper drain and
+System Agent GGTT invalidation lifetime**: runtime `fe3919ec`, release
+`451221606bdf74f7`, session `session-0006605896ca2c5f-00`. All26 frozen host gates
+and both exact-stage VMs passed before the unattended1% trial. Strict version4
+raw/checkpoint and the independent432byte GGTT record verify. The remapper child
+takes8,071us; the new exact DWORD1/posting-read operation and UC-alias retirement
+take752us. Full original preparation/verified return is103,582/150,000us, leaving
+46,418us; final guard7us and borrow return3,171us. No parent bound changes.
+Both command aliases retire, all14 original GPU diagnostic aliases and HDA
+mapping retire,2,712 private pages release and DMA53→53 balances. All1,548 prior
+files preserve except expected metadata; three logs yield1,551files/173sessions.
+Offline fsck/allocation/writable/headroom, recovery, Ubuntu default and consumed
+one-shot pass. Raw/reviewed proof banks survive distclean. Current4512, recovery
+retained, USB unmounted, no trial outstanding. This accepts the ordered System
+Agent operation, not comprehensive GPU translation/cache/pipeline/reader retirement
+or a managed interval. Enabled route and repeatability remain pending; see the
+[dated result](macbookair7-2.md#native-combined-remapper-and-system-agent-invalidation-accepted).
+
+Earlier graphics acceptance adds **one original kind2 disabled-state graphics
 remapper drain and complete diagnostic retirement**: runtime `e271fd2c`, release
 `03ea83a4578614d5`, session `session-0006605639ae4307-00`. The explicit version3
 policy allows150ms for preparation and verified return; the original interval

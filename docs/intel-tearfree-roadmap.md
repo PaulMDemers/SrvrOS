@@ -517,11 +517,17 @@ protocol work before managed-memory publication. All255 obligations, zero
 assurances/managed GPU pages and inherited-framebuffer desktop remain unchanged.
 
 
-The next isolated software component is the
+The subsequently integrated software component is the
 [System Agent GGTT invalidation protocol](intel-ggtt-invalidation.md): one exact
 MMIO101008 DWORD1 followed by an ordered posting read, with original source/
 root/epoch/clock and retained-failure checks. Both100/150ms actual-core matrices,
-sanitizers,16 weakening controls and image isolation are locally qualified;
-there is no native caller yet. Its write-only zero read is not an ACK or a
-per-engine pipeline-flush proof. Native resource/alias/receipt integration and
-a measured enclosing envelope are next; it creates no mapping or assurance.
+sanitizers,16 weakening controls and image isolation are locally qualified.
+The separate combined native image now accepts one Air7,2 kind2 lifetime on
+`fe3919ec` / `451221606bdf74f7`: remapper drain plus exact GGTT operation and full
+original retirement in103,582/150,000us, with752us GGTT child. Its write-only zero
+read is not an ACK or a per-engine pipeline-flush proof. See the
+[native scope](intel-ggtt-invalidation.md#first-bounded-native-combined-acceptance).
+The next boundary remains actual outstanding DMA/prefetch, GPU pipeline/cache/
+per-engine translation and every firmware/display-reader completion, tied to
+the original owner before private mapping/publication. This bounded new witness
+closes no whole-device assurance bit and creates no managed GPU page.

@@ -5,14 +5,58 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-15. State: **active reference machine; partial device acceptance**.
 
-Current work: the bounded native VT-d drain/retirement result is published.
-The separate System Agent GGTT invalidation protocol now passes both policy
-matrices, fatal sanitizers and16 compiled weakening controls; its native
-resource/alias/receipt adapter remains the next block. See the
-[protocol contract](../intel-ggtt-invalidation.md). No new native caller/image or
-physical trial is introduced by this host-only component. Integration base
+Current work: the combined native remapper/System Agent invalidation and full
+diagnostic retirement result is published below. Remaining DMA/prefetch, GPU
+pipeline/cache/per-engine translation and firmware/display-reader ownership must
+still precede a private GPU mapping. See the
+[protocol contract](../intel-ggtt-invalidation.md). Integration base
 `4016abf0`; PR19 (Pro11,2 WiFi) and PR379 (WebCore) remain independent. All actual
 GPU ownership obligations remain open; inherited-framebuffer rendering stays.
+
+### Native combined remapper and System Agent invalidation accepted
+
+2026-11-15, runtime/collector `fe3919ec`, release `451221606bdf74f7`, session
+`session-0006605896ca2c5f-00`. All26 frozen local development/qualification gates
+pass without inherited cancelled-run receipts. Exact-stage save/return and
+missing-workspace refusal pass before the long matrices and their artifact
+hashes verify again afterward. The authorized unattended trial runs at1% volume,
+saves/unmounts and returns to Ubuntu; collection-only startup resumes successfully.
+
+One **kind2/epoch1/mode1** original held lifetime completes the remapper drain,
+then the System Agent MMIO101008 DWORD1 and ordered posting read. Strict wire4
+and its independent432byte packet bind the original root, source, epochs, clocks,
+captured GPU BAR and independently derived UC policy. The remapper child takes
+8,071us; GGTT child including mapping/retirement takes752us. Its two loads/one
+store, four core guards,13 native full-parent checks,10 cache and12 alias checks
+match. Both reads are zero as specified for the write-only register; these are
+not a self-clear ACK or a pipeline-flush witness. Each command alias maps/retires
+once with no registration, mapping or retained child remaining.
+
+Complete preparation and verified return take **103,582/150,000us** (46,418us
+margin). Closing guard7us and GT borrow return3,171us remain separately measured.
+Original admission/source age, operation waits/poll caps and300/400/500ms parent
+bounds remain. Complete engine cancellation, requester restoration, source/reset/
+HDA/root/private-memory return, all14 GPU diagnostic aliases and HDA mapping
+retire. Four patterns and exactly2,712 released pages verify; DMA53→53 balances.
+
+All1,548 prior files preserve except expected metadata. Exactly three matching
+session logs yield1,551files/173sessions. Raw hashes/checkpoint/recipe, unchanged
+boot digest, clean offline fsck/allocation/writable/headroom, installed/banked
+current/recovery, Ubuntu default and consumed one-shot pass. Eleven informational
+nested-capability attention rows remain in the general report; acceptance uses
+the complete strict original version4 chain and independently checked GGTT/wake/
+completion proofs. The original report is retained. Raw/proof/qualification banks
+survive distclean. Current4512 and recovery9aa8 remain, USB unmounted; no trial
+or one-shot is outstanding. Main4016 and independent PR19/379 are unchanged.
+
+This accepts one bounded combined diagnostic lifetime: AT00 memory already
+processed by the remapper and ordered System Agent graphics TLB invalidation.
+It supplies no proof that all GPU work reached that unit, or that pipeline,
+prefetch, GPU caches/per-engine translations, firmware and display readers have
+retired. All255 obligations, zero assurances/managed GPU pages and inherited
+framebuffer remain. Enabled route, repeatability, private interval/PTE/submission/
+page flips and native tear-free remain unaccepted. Do not reuse this saved receipt
+as live ownership authority; establish each next witness in its original owner.
 
 ### Native disabled-state VT-d drain and diagnostic return accepted
 
