@@ -195,7 +195,11 @@ static int audit_case_main(int argc,char **argv) {
  return code;
 }
 #include "fixture_server.h"
-int main(int argc,char **argv) {
+
+#ifndef INTEL_AUDIT_FIXTURE_MAIN
+#define INTEL_AUDIT_FIXTURE_MAIN main
+#endif
+int INTEL_AUDIT_FIXTURE_MAIN(int argc,char **argv) {
 #ifndef _WIN32
  if(argc==2 && !strcmp(argv[1],"--fixture-server"))return fixture_server(audit_case_main);
 #endif

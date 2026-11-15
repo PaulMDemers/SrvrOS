@@ -1,10 +1,11 @@
 # Broadwell graphics-unit memory drain
 
 The isolated `intel_vtd_drain` core implements one global read/write-drain
-operation for the reference Air's graphics remapping unit. It has **no native
-adapter, guest-image link or physical acceptance**. It does not change the
-inherited-framebuffer desktop, the existing read-only DMA observer, v35 receipts
-or any of the 255 open GPU hardware obligations.
+operation for the reference Air's graphics remapping unit. The distinct opt-in
+**v36 native adapter** joins it to the complete original v35 held lifetime.
+Native qualification/physical acceptance is pending. The inherited-framebuffer
+desktop, old read-only DMA observer and v35 receipts remain independent, with
+all255 GPU hardware obligations still open.
 
 ## Why this mechanism
 
@@ -103,33 +104,57 @@ successful drain, reset ACK or ready-for-reset state into that prerequisite.
 Cache maintenance, every firmware/display reader and the source-bound private
 GPU range/publication/restoration still need their own evidence.
 
-## Native integration checkpoint
+## Native v36 adapter and collection
 
-Before any writer image or reboot, integrate all of these together:
+`build/intel-vtd-drain/srvros.elf` and `--intel-vtd-drain` select the distinct
+15-token `srvros.intel-ring=vtd-drain-v1` recipe. Other images omit the writer.
+Only this image defers user services with `vtd-drain-preinit` and emits wake
+version36. The guest explains that no input is needed, saved safe outcomes
+return automatically and unsafe retained state halts visibly.
 
-- A distinct opt-in image/recipe and versioned raw/strict collection, isolated
-  from the old read-only observer and ordinary desktop. The actual writer must
-  exist in that image; no synthetic success callback may replace it.
-- A child of the **same original** held source/requester/engine lifetime,
-  independently registered by that provider. Maintain source/root/epoch,
-  requester inhibition and exact original clocks; no standalone recycled
-  descriptor outside the owner.
-- Exclusive command-register control under the actual kernel/firmware handoff;
-  exact DMAR bytes and prior resource policy; one admitted UC writable alias
-  with actual page-table/cache checks and explicit retained-failure retirement.
-  The accepted read-only alias is not a writable-map grant.
-- Live fresh CCMD/FSTS/IOTLB admission and complete original GPU/HDA/CPU/source
-  preservation/retirement. No completion-bit promotion beyond this limited
-  drain, and no GPU PTE stores.
-- Fault/sanitizer adapter tests, exact-stage VM refusal/save/return, recovery
-  preservation and an on-disk unattended run record. Show progress in the
-  guest, persist exact results and return Ubuntu only after safe retirement;
-  otherwise halt visibly. Keep volume1% under existing authorization.
+The adapter retains the entire original private CPU preparation and v35
+PCI/cache/alias/inventory/reader audit. After that audit, still inside the
+original inhibited requester and five-engine hold, it registers its original
+source/result as a dependent of that same provider. It uses the existing
+cooperative EFI boot-observer/exclusion lease, IRQ exclusion and original
+source/root/epoch/GT/HDA/outer clocks. This is bounded OS command serialization,
+not proof of SMM retirement or a generalized IOMMU/firmware ownership grant.
 
-The core and host fixture are the current completed boundary. A VM has no
-matching Broadwell remapper and cannot accept the positive hardware operation.
-Do not reboot into a known refusal or relabel this host implementation as native
-retirement merely to advance a checklist.
+Before mapping, the port checks exact DMAR bytes and the original resource
+policy, fresh PAT/MTRR context and an empty dedicated VA. It maps one NX,
+supervisor, writable4KiB UC alias at `0xffffc001f5150000`. Every register callback
+checks the original ownership graph, live registration, actual translation and
+entry attributes, fresh equal CPU cache context and original deadline. A clean
+operation removes that exact alias, verifies absence and checks policy/clock
+again before dropping its registration. Any uncertainty retains the enclosing
+source/requester/engine/HDA/backing lifetime. Nothing clears a pending request.
+
+The requester restoration gate independently rechecks the complete original
+drain record: source and both bindings, callbacks, counts, full control/poll
+trace, all four clock limits, actual alias retirement and enclosing child order.
+A later damaged record cannot authorize restoring BME, even if the nested
+operation had once completed. The old complete audit must also pass its own
+independent return gate.
+
+`intel-vtd-drain: v=1 b=...` carries a canonical1552-byte little-endian record:
+50uint64 header words, two eight-word contexts and256 DWORD poll positions.
+The header includes original clocks/source, first failed clock, all counts,
+initial/final controls, map/retire/registration, actual alias/cache attributes
+and core flags (complete/busy/retained/original object/source/consumer).
+`intel-vtd-table: v=1 b=...` preserves the independently decoded136-byte DMAR.
+The receiver checks the operation against the original audit and its independently
+parsed GT/HDA/outer binding, and independently computes the native UC policy.
+No copied v35 receipt, foreign recipe/version, missing/duplicate record or false
+completion can pass. Raw session files are saved before normalization/decoding;
+the report retains the actual wake version36.
+
+The [manifest workflow](device-workflow.md) selects `intel-vtd-drain-v36`, keeps
+the old full audit matrix and adds port/core/boot/image qualification. The local
+captured DMAR fixture is mandatory and content-bound; raw firmware stays out of
+Git. Exact-stage QEMU validates refusal, saving, unmount and return only. Before
+physical execution, preserve recovery and matching durable receipts, use the
+local USB identity and volume1%, and collect the matching result on Ubuntu.
+A VM has no matching Broadwell remapper and cannot accept the positive operation.
 
 ## Host qualification
 
@@ -143,8 +168,18 @@ The original four deadline boundaries pass at their exact limit and refuse+1us;
 a wholly frozen clock refuses final completion.
 
 The core compiles with both GCC freestanding and the actual Zig kernel flags
-under `-Wframe-larger-than=2048`. Expanded Make plans for37 default/Intel guest
-images omit it. Current strict decoding replays the original raw DMA capture
+under `-Wframe-larger-than=2048`. The original host-only checkpoint checked37 default/Intel image plans. The
+new explicit v36 image alone links the core; ordinary and v35 images omit it. Current strict decoding replays the original raw DMA capture
 and confirms both recorded capability values; that is revalidation of old
 evidence, not a new native run. Documentation links pass. Durable local evidence
 and pinned primary references survive `make distclean`.
+
+The port fixtures cover both original entry routes, target faults, permission/
+cache failures, every original callback boundary, no later register access after
+a broken boundary, and the final original-record return gate. Fatal sanitizers,
+compiled weakening controls and raw-first collector tests accompany them.
+The private local `build/device-fixtures/macbookair7-2-dmar.bin` is checked against
+the exact captured table; hosts without it skip these unit-specific positive
+fixtures. Generic protocol and exact boot-gate tests remain available without
+firmware. Frozen-source full qualification and native acceptance are tracked
+in the local workflow run, not inferred from an initial model result.

@@ -10,6 +10,7 @@ static bool suffix_hex(const char *p,unsigned n,const char *prefix,unsigned hex)
 }
 static bool recipe(const char *p,unsigned mode) {
  if(!p)return false;
+ bool drain=mode==35;if(drain)mode=34;
  static const char *const names[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only","srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-handoff=qualify","srvros.intel-gt-preflight=read-only","srvros.intel-firmware=read-only","srvros.intel-wake=trial","srvros.capture-failure=reboot"};
  unsigned seen=0,total=0;
  while(*p) {
@@ -42,7 +43,7 @@ static bool recipe(const char *p,unsigned mode) {
   if(mode==22 && equal(start,n,"srvros.intel-admission=disabled-bcs-v1"))bit=21;
   if((mode==25 || mode==26) && equal(start,n,"srvros.intel-ring=reset-v1"))bit=21;
   if(mode==23 && equal(start,n,"srvros.intel-ring=handoff-v1"))bit=14;
-  if(mode==34 && equal(start,n,"srvros.intel-ring=source-audit-v1"))bit=14;
+  if(mode==34 && equal(start,n,drain?"srvros.intel-ring=vtd-drain-v1":"srvros.intel-ring=source-audit-v1"))bit=14;
   if(mode==33 && equal(start,n,"srvros.intel-ring=source-engines-v1"))bit=14;
   if(mode==32 && equal(start,n,"srvros.intel-ring=source-requester-v1"))bit=14;
   if(mode==31 && equal(start,n,"srvros.intel-ring=startup-transfer-v1"))bit=14;
@@ -131,3 +132,5 @@ bool intel_gt_boot_source_requester_recipe(const char *p){return recipe(p,32);}
 bool intel_gt_boot_source_engines_recipe(const char *p){return recipe(p,33);}
 
 bool intel_gt_boot_source_audit_recipe(const char *p){return recipe(p,34);}
+
+bool intel_gt_boot_vtd_drain_recipe(const char *p){return recipe(p,35);}

@@ -854,7 +854,8 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         raw_payload=payload
-        source_audit_profile=any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
+        vtd_profile=any(b'srvros.intel-ring=vtd-drain-v1' in data for data in raw_payload.values())
+        source_audit_profile=vtd_profile or any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
         source_engines_profile=any(b'srvros.intel-ring=source-engines-v1' in data for data in raw_payload.values())
         source_requester_profile=any(b'srvros.intel-ring=source-requester-v1' in data for data in raw_payload.values())
         startup_transfer_profile=any(b'srvros.intel-ring=startup-transfer-v1' in data for data in raw_payload.values())
@@ -866,7 +867,8 @@ def collect(mount, volume, output):
             from intel_source_requester import shared_view as requester_shared_view
             from intel_source_engines import shared_view as engines_shared_view
             from intel_source_audit import shared_view as audit_shared_view
-            decode=audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
+            from intel_vtd_native import drain_shared_view
+            decode=drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
             try:
                 # Only the checked v31 dispatch may normalize shared wire schemas.
                 # Saved files above remain exact raw bytes; never publish a v30 result.
@@ -1228,8 +1230,19 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_vtd_drain=None
         intel_source_audit=None
-        if source_audit_profile:
+        if vtd_profile:
+            from intel_vtd_native import drain_result,verify_drain_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                vtd_proof=drain_result(final,native=True)
+                verify_drain_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                intel_vtd_drain=vtd_proof
+                intel_source_audit=intel_vtd_drain['audit']
+                if not intel_vtd_drain['native_complete']:attention.append('Intel disabled-state VT-d drain incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel disabled-state VT-d drain: '+str(error))
+        if source_audit_profile and not vtd_profile:
             from intel_source_audit import native_audit_result,verify_audit_checkpoint
             try:
                 final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
@@ -1375,8 +1388,9 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         if (source_audit_profile or source_engines_profile or source_requester_profile or startup_buffers_profile or startup_transfer_profile) and intel_wake:
-            intel_wake["summary"]["v"]=35 if source_audit_profile else 34 if source_engines_profile else 33 if source_requester_profile else 32 if startup_transfer_profile else 31
+            intel_wake["summary"]["v"]=36 if vtd_profile else 35 if source_audit_profile else 34 if source_engines_profile else 33 if source_requester_profile else 32 if startup_transfer_profile else 31
         records.append({
+            "intel_vtd_drain":intel_vtd_drain,
             "intel_source_audit":intel_source_audit,
             "intel_source_engines":intel_source_engines,
             "intel_source_requester":intel_source_requester,

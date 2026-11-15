@@ -147,7 +147,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#ifdef SRVROS_INTEL_VTD_DRAIN
+#define WAKE_VERSION 36u
+#elif defined(SRVROS_INTEL_SOURCE_AUDIT)
 #define WAKE_VERSION 35u
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)
 #define WAKE_VERSION 34u
@@ -641,6 +643,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_VTD_DRAIN)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_vtd_drain_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_SOURCE_AUDIT)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_source_audit_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)

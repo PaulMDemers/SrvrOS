@@ -100,3 +100,12 @@ original four budgets and ordinary/read-only images. Qualify retained failures,
 actual UC alias retirement and exact-stage refusal/save/return before a needed
 automated volume1% trial. No pipeline/cache/reader or GPU interval grant follows.
 PR19/379 remain independent; no other task contacted.
+
+The v36 candidate now implements that original child, fresh writable UC alias,
+full wire/strict collector and workflow profile, with the complete v35 audit
+retained. The host fixtures cover both original routes, retained target/boundary/final-
+record failures, fatal sanitizers, compiled weakening controls and raw-first
+collection. A last-clock mapping barrier additionally refuses every later
+register access; it preserves all original checks and limits. Native objects
+use the actual Zig flags and2KiB frame limit. Frozen-source qualification/image/VM and physical acceptance
+remain pending; no new hardware result or GPU assurance is claimed.

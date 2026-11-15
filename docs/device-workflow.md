@@ -1,7 +1,7 @@
 # Repeatable device trials
 
-Use `tools/device_workflow.py` for the reference Air's v35 source-audit trials.
-The initial profile deliberately covers that existing silent, automatic trial;
+Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
+opt-in v36 VT-d drain trials. Both profiles are silent and automatic;
 it does not enable another model or turn a future GPU operation into an
 accepted provider. Other trial profiles still use their documented harnesses.
 
@@ -194,3 +194,30 @@ copy. VM receipts also hash all saved artifacts. Failed runs retain their
 original evidence. This packing never targets a physical USB device or a
 banked boot payload. Use `gzip -dk IMAGE.exfat.gz` when an offline tool needs the
 original VM image again.
+
+## Native VT-d drain profile
+
+`new --profile intel-vtd-drain-v36` selects the separate writer image, recipe
+and strict collector. It retains the full v35 regression matrix and adds the
+actual adapter, core, boot gate and native image build. The same safe install,
+one-shot/recovery, raw-first collection and explicit native-review gates apply.
+Ordinary/source-audit recipes cannot stand in for this profile.
+
+Prepare `build/device-fixtures/macbookair7-2-dmar.bin` from this unit's previously
+accepted raw DMAR capture, never another host's table. The runner requires the
+actual Air7,2 model and validates the exact136-byte checksum/hash/topology before
+creating the run; the bytes enter both the frozen manifest and validation keys.
+Keep an accepted copy outside build for restoration after distclean. Raw firmware
+is not committed. See the [native protocol and receipt](intel-vtd-drain.md).
+
+```sh
+python3 tools/device_workflow.py new trial-name --profile intel-vtd-drain-v36 \
+  --question 'Does the original held lifetime complete one disabled-state graphics memory drain?' \
+  --expected 'Exact global DR/DW completion, full original retirement and preserved files; no GPU grant'
+python3 tools/device_workflow.py advance --run trial-name --through qualified
+```
+
+Qualification cannot accept physical completion. After local/VM qualification,
+use the existing install/arm/reboot sequence under the user's authorization, at
+volume1%. An unsafe retained failure halts visibly; a missing saved completion
+stays failed or incomplete when Ubuntu collection resumes.

@@ -6655,3 +6655,33 @@ build/tests/intel-vtd-drain$(HOST_EXE): tools/test_intel_vtd_drain.c kernel/diag
 test-intel-vtd-drain: build/tests/intel-vtd-drain$(HOST_EXE)
 	$(PYTHON) -m unittest discover -f -s tools -p test_intel_vtd_drain.py
 test-core: test-intel-vtd-drain
+
+# v36 keeps the complete v35 lifetime and adds one disabled-state VT-d drain.
+INTEL_VTD_DRAIN_FLAGS := $(INTEL_SOURCE_AUDIT_FLAGS) -DSRVROS_INTEL_VTD_DRAIN
+build/tests/intel-vtd-native$(HOST_EXE): tools/test_intel_vtd_native.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_VTD_DRAIN_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c kernel/diagnostics/intel_vtd_drain.c -o $@
+build/intel-vtd-drain/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_VTD_DRAIN_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-vtd-drain/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_VTD_DRAIN_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-vtd-drain/requests.o: kernel/src/limine_requests.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_VTD_DRAIN_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-vtd-drain/drain.o: kernel/diagnostics/intel_vtd_drain.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_VTD_DRAIN_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-vtd-drain/srvros.elf: build/intel-vtd-drain/drain.o build/intel-source-audit/engines.o build/intel-source-audit/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-source-audit/transfer.o build/intel-source-audit/buffers.o build/intel-joint/page.o build/intel-vtd-drain/main.o build/intel-vtd-drain/probe.o build/intel-vtd-drain/requests.o build/intel-source-audit/reset.o build/intel-source-audit/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/boot-vtd-drain$(HOST_EXE): tools/test_boot_vtd_drain.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_VTD_DRAIN_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-vtd-native
+test-intel-vtd-native: build/tests/intel-vtd-native$(HOST_EXE) build/tests/boot-vtd-drain$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_vtd_native
+	build/tests/boot-vtd-drain$(HOST_EXE)
+test-core: test-intel-vtd-native
+
+build/tests/intel-vtd-native$(HOST_EXE): tools/test_intel_source_audit_adapter.c tools/fixture_server.h

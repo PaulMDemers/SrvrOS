@@ -112,6 +112,7 @@ def main():
     new.add_argument('name')
     new.add_argument('--question', required=True)
     new.add_argument('--expected', required=True)
+    new.add_argument('--profile', choices=('intel-source-audit-v35', 'intel-vtd-drain-v36'), default='intel-source-audit-v35')
     new.add_argument('--plan', type=Path, help='JSON additional development/qualification jobs; never removes default gates')
     advance = sub.add_parser('advance')
     advance.add_argument('--run', required=True)
@@ -179,14 +180,14 @@ def main():
                 jobs = None
                 if args.plan:
                     from workflow.runner import profile
-                    jobs = profile(ROOT)
+                    jobs = profile(ROOT, args.profile)
                     extra = json.loads(args.plan.read_text())
                     if set(extra) - {'development', 'qualification'}:
                         raise ValueError('Plan contains unsupported validation levels')
                     for level, added in extra.items():
                         jobs[level].extend(added)
                 print(runner.create(args.name, json.loads((runner.store / 'unit.json').read_text()),
-                                    args.question, args.expected, jobs=jobs))
+                                    args.question, args.expected, jobs=jobs, trial_profile=args.profile))
             elif args.action == 'advance':
                 print(json.dumps(runner.advance(args.run, args.through.upper()), indent=2))
             elif args.action == 'collect':

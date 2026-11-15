@@ -105,6 +105,9 @@ static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32
 }
 #ifdef SRVROS_INTEL_SOURCE_AUDIT
 #include "intel_source_audit_trial.inc"
+#ifdef SRVROS_INTEL_VTD_DRAIN
+#include "intel_vtd_drain_trial.inc"
+#endif
 #endif
 static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
  struct nonzero_adapter *p=ctx;
@@ -116,6 +119,9 @@ static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
     scanout_memory_hold_end(&buffers_native.hold[0]) || scanout_memory_hold_end(&buffers_native.hold[1]))return false;
 #ifdef SRVROS_INTEL_SOURCE_AUDIT
  if(!source_audit_run())return false;
+#ifdef SRVROS_INTEL_VTD_DRAIN
+ if(!vtd_run())return false;
+#endif
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_source_engines_child(r);
@@ -133,6 +139,9 @@ static bool source_engines_run(struct nonzero_adapter *p) {
 static void source_engines_report(void) {
 #ifdef SRVROS_INTEL_SOURCE_AUDIT
  source_audit_report();
+#ifdef SRVROS_INTEL_VTD_DRAIN
+ vtd_report();
+#endif
 #endif
  const struct intel_source_engines *r=&source_engines_native.result;
  static uint8_t raw[624];static char data[833];unsigned k=0,j=0;

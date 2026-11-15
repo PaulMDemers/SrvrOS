@@ -425,7 +425,7 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
  assert(0);return false;
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
-static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+16];
+static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+17];
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 static bool intel_display_test_takeover_read(unsigned i,uint32_t reg,uint32_t *out) {
  static const uint32_t offsets[]={0x20d0,0x120d0,0x1a0d0,0x1c0d0,0x220d0,0x941c};
@@ -587,6 +587,9 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
+#ifdef SRVROS_INTEL_VTD_DRAIN
+ if(v==VTD_NATIVE_VA)return INTEL_CAPTURE_PAGES+16;
+#endif
 #if defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_RING_TRANSITION)
  if(v==BACKING_VA+0x1d000)return INTEL_CAPTURE_PAGES+14;
 #endif
@@ -623,6 +626,10 @@ bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t space,uint64_t va,u
 }
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     bool writable=wake_mode && v==BACKING_VA+0x10000;
+#ifdef SRVROS_INTEL_VTD_DRAIN
+ if(v==VTD_NATIVE_VA && !intel_display_test_vtd_map())return false;
+ writable=writable || (wake_mode && v==VTD_NATIVE_VA);
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
     writable=writable || (wake_mode && v>=BACKING_VA+0x13000 && v<=BACKING_VA+0x17000);
 #endif
@@ -670,6 +677,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
  return true;
 }
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
+#ifdef SRVROS_INTEL_VTD_DRAIN
+ if(v==VTD_NATIVE_VA && !intel_display_test_vtd_unmap())return false;
+#endif
 #ifdef SRVROS_INTEL_HELD_INTERVAL
  if(!strcmp(engine_mode,"interval-retire-slot") && v==BACKING_VA+0x1d000)return false;
 #endif
@@ -964,7 +974,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_RING_TRANSITION
     static char ring_recipe[1400];
-#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#ifdef SRVROS_INTEL_VTD_DRAIN
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=vtd-drain-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_SOURCE_AUDIT)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=source-audit-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=source-engines-v1",completion_recipe);
@@ -1126,6 +1138,9 @@ good=good || !strcmp(engine_mode,"requester-pending");
 #endif
 #ifdef SRVROS_INTEL_SOURCE_ENGINES
 good=good || !strcmp(engine_mode,"engines-poll");
+#endif
+#ifdef SRVROS_INTEL_VTD_DRAIN
+good=good || !strcmp(engine_mode,"vtd-poll");
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS

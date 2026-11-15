@@ -45,6 +45,10 @@ static struct intel_source_audit_native {
  bool cache_ok[2],registered,complete;
 } source_audit_native;
 static bool source_audit_returned(void);
+#ifdef SRVROS_INTEL_VTD_DRAIN
+static void vtd_prepare_storage(void);
+static bool vtd_returned(void);
+#endif
 #endif
 static struct {
  struct scanout_memory memory[2];
@@ -99,6 +103,9 @@ static bool buffers_pattern(unsigned n,bool initialize) {
  buffers_native.words+=words;buffers_native.patterns++;return true;
 }
 static bool buffers_prepare(void) {
+#ifdef SRVROS_INTEL_VTD_DRAIN
+ vtd_prepare_storage();
+#endif
 #ifdef SRVROS_INTEL_SOURCE_TRANSFER
  /* Touch the entire owned static transfer storage before the excluded native
   * lifetime/census. First-touch CPU A/D updates and cold zeroing are not work

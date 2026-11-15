@@ -41,7 +41,21 @@ def code_inputs(repo):
     return [pattern for pattern in INPUTS if glob.glob(str(Path(repo) / pattern), recursive=True)]
 
 
-def profile(repo):
+PROFILES = {'intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain'}
+VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
+
+
+def trial_parsers(name):
+    if name == 'intel-source-audit-v35':
+        return audit_recipe, native_audit_result, verify_audit_checkpoint
+    if name == 'intel-vtd-drain-v36':
+        from intel_vtd_native import drain_recipe, drain_result, verify_drain_checkpoint
+        return drain_recipe, lambda text: drain_result(text, native=True), verify_drain_checkpoint
+    raise ValueError('Unsupported exact trial profile: ' + str(name))
+
+
+def profile(repo, name='intel-source-audit-v35'):
+    trial_parsers(name)
     dependencies = code_inputs(repo)
     # All support fixtures are built once. Full qualification still runs every
     # fault case; development runs only two useful methods and is never launchable.
@@ -63,7 +77,29 @@ def profile(repo):
                 inputs=test_dependencies, outputs=[], timeout=1800)
     boot = dict(name='boot-recipe', argv=['build/tests/boot-source-audit'],
                 inputs=test_dependencies, outputs=[], timeout=60)
-    return dict(development=[build, fast], qualification=[build, full, boot])
+    jobs = dict(development=[build, fast], qualification=[build, full, boot])
+    if name == 'intel-vtd-drain-v36':
+        build['argv'].extend(['build/tests/intel-vtd-native', 'build/tests/boot-vtd-drain'])
+        build['outputs'].extend(['build/tests/intel-vtd-native', 'build/tests/boot-vtd-drain'])
+        extra_inputs = test_dependencies + build['outputs'] + [VTD_FIXTURE]
+        native = dict(name='vtd-native', argv=[sys.executable, '-m', 'unittest', '-v', 'test_intel_vtd_native'],
+                      env={'PYTHONPATH': 'tools', 'SRVROS_FIXTURE_BATCH': '1', 'SRVROS_VTD_DMAR': VTD_FIXTURE},
+                      inputs=extra_inputs, outputs=[], timeout=1800)
+        quick_native = dict(native, name='vtd-development', timeout=300,
+            argv=[sys.executable, '-m', 'unittest', '-v', 'test_intel_vtd_native.Recipe',
+                  'test_intel_vtd_native.Native.test_original_routes_and_pending_operation',
+                  'test_intel_vtd_native.Native.test_native_receiver_and_checkpoint_original_binding'])
+        jobs['development'].append(quick_native)
+        jobs['qualification'].extend([native, dict(name='vtd-core', argv=['make', 'test-intel-vtd-drain'],
+             inputs=dependencies, outputs=[], timeout=300),
+             dict(name='vtd-boot', argv=['build/tests/boot-vtd-drain'], inputs=extra_inputs, outputs=[], timeout=60),
+             ])
+        image = dict(name='vtd-image', argv=['make', 'build/intel-vtd-drain/srvros.elf', 'build/initramfs.tar'],
+                     inputs=dependencies, outputs=['build/intel-vtd-drain/srvros.elf', 'build/initramfs.tar'],
+                     cache=False, timeout=1800)
+        jobs['development'].append(image)
+        jobs['qualification'].append(image)
+    return jobs
 
 
 def check_config(config, repo):
@@ -125,7 +161,7 @@ class Runner:
         if submodules != manifest['submodules']:
             raise ValueError('Submodule state changed')
 
-    def create(self, name, config, question, expected, *, jobs=None):
+    def create(self, name, config, question, expected, *, jobs=None, trial_profile='intel-source-audit-v35'):
         active = self.store / 'active.json'
         if active.exists():
             previous = json.loads(active.read_text())
@@ -134,7 +170,13 @@ class Runner:
         check_config(config, self.repo)
         if not question.strip() or not expected.strip():
             raise ValueError('A hardware question and expected result are required')
-        jobs = jobs or profile(self.repo)
+        trial_parsers(trial_profile)
+        if trial_profile == 'intel-vtd-drain-v36' and (config['model'] != 'MacBookAir7,2' or not (self.repo / VTD_FIXTURE).is_file()):
+            raise ValueError('v36 requires this Air7,2 unit and its captured local DMAR fixture')
+        if trial_profile == 'intel-vtd-drain-v36':
+            from intel_vtd_native import _table
+            _table((self.repo / VTD_FIXTURE).read_bytes())
+        jobs = jobs or profile(self.repo, trial_profile)
         for level in ('development', 'qualification'):
             names = set()
             if not jobs.get(level):
@@ -147,7 +189,9 @@ class Runner:
                 if not job['inputs']:
                     raise ValueError('Every validation job needs explicit dependencies')
         inputs = code_inputs(self.repo)
-        manifest = dict(schema=1, unit=config, profile='intel-source-audit-v35', question=question,
+        if trial_profile == 'intel-vtd-drain-v36':
+            inputs.append(VTD_FIXTURE)
+        manifest = dict(schema=1, unit=config, profile=trial_profile, question=question,
                         expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                         branch=command(['git', 'branch', '--show-current'], self.repo),
                         submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),
@@ -239,7 +283,7 @@ class Runner:
 
     def stage(self, directory, manifest, state):
         subprocess.run([sys.executable, 'tools/hardware_boot.py', 'stage', '--laptop-probe-volume',
-                        manifest['unit']['volume'], '--intel-source-audit'], cwd=self.repo, check=True)
+                        manifest['unit']['volume'], PROFILES[manifest['profile']]], cwd=self.repo, check=True)
         release = (self.repo / 'build/hardware-boot/latest').read_text().strip()
         self.adopt_stage(directory, manifest, state, release)
 
@@ -265,7 +309,8 @@ class Runner:
         if payload['git_head'] != manifest['source'] or payload['git_dirty']:
             raise ValueError('Staged payload is not the frozen source')
         recipe = next(line.split('cmdline:', 1)[1].strip() for line in (stage / 'limine.conf').read_text().splitlines() if 'cmdline:' in line)
-        if audit_recipe(recipe) != dict(release=release, volume=manifest['unit']['volume']):
+        recipe_parser, _, _ = trial_parsers(manifest['profile'])
+        if recipe_parser(recipe) != dict(release=release, volume=manifest['unit']['volume']):
             raise ValueError('Staged recipe does not match the exact run/USB')
         bank = Path(manifest['unit']['payload_bank']) / release
         if not bank.exists():
@@ -397,9 +442,10 @@ class Runner:
                 if options != ['laptop-capture: boot options=' + state['recipe']]:
                     raise ValueError('Raw session recipe differs from the frozen stage')
             text, pre = (logs / 'exit.log').read_text(), (logs / 'session-a.log').read_text()
-            if not verify_audit_checkpoint(pre, text, native=True):
+            _, native_parser, verify_checkpoint = trial_parsers(manifest['profile'])
+            if not verify_checkpoint(pre, text, native=True):
                 raise ValueError('Native checkpoint mismatch')
-            native = native_audit_result(text)
+            native = native_parser(text)
             if not native['complete'] or not native['native_complete']:
                 raise ValueError('Native chain incomplete')
             self.guard(manifest, state, installed=True, armed=False)

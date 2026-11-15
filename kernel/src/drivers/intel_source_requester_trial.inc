@@ -91,6 +91,9 @@ static enum intel_gt_write source_requester_command(void *ctx,uint16_t value) {
     || (n && !intel_source_requester_child_returned(r))
 #ifdef SRVROS_INTEL_SOURCE_AUDIT
     || (n && !source_audit_returned())
+#ifdef SRVROS_INTEL_VTD_DRAIN
+    || (n && !vtd_returned())
+#endif
 #endif
 #endif
     )return GT_WRITE_NONE;
