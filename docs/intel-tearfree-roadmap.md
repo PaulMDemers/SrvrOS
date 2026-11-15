@@ -492,3 +492,11 @@ GPU/DMA/prefetch/cache/translation/firmware/display-reader obligations and zero
 assurances/managed GPU pages remain. Next establish device-side completion and
 reader exclusion/retirement before GPU interval/PTE/submission authority.
 Enabled route for this source, repeatability and native tear-free remain pending.
+
+The [disabled-state graphics-unit VT-d drain protocol](intel-vtd-drain.md) is now
+host-qualified against the prior captured CAP/ECAP. It deliberately avoids
+graphics remapping activation and cannot satisfy a flushed GPU pipeline, cache,
+prefetch or reader witness. Native integration must join its admitted command
+alias, registered original source child, raw/strict receipt and clean retirement
+in one bounded opt-in trial. No observation-only reboot or ownership-bit change
+is scheduled from this host result.

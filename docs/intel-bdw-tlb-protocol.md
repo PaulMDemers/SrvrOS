@@ -97,6 +97,13 @@ and restoration outcome. A command path must not depend on a GGTT ownership
 grant that the same command is supposed to establish. Reset readiness or reset
 acknowledgement alone cannot fill in the missing guarantee.
 
+The [disabled-state VT-d drain protocol](intel-vtd-drain.md) now implements one
+documented root-complex memory-drain mechanism against this unit's captured
+capabilities. It is host-qualified only and deliberately narrower than this
+TLB prerequisite: AT=00 memory requests already processed by the remapper do
+not cover remaining GPU pipeline/cache/prefetch work or display readers. It
+must not be wired in as a positive flushed-pipeline/memory-retirement mask.
+
 Then embed the operation inside that **same original** live owner, qualify
 native alias permissions and ordered accesses, and compose request completion
 with PTE publication and restoration. The existing transfer/publication cores

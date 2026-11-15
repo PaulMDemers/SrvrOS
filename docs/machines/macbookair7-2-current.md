@@ -79,3 +79,15 @@ checkpoint is actual-core fault/sanitizer qualification and an explicit native
 adapter contract, not a GPU ownership grant or another observation trial.
 No native write or physical trial is armed by this block; all deadlines and
 255 obligations stay unchanged. PR19/379 remain independent.
+
+That bounded block is now host-qualified: the
+[VT-d drain core and native integration contract](../intel-vtd-drain.md) pass
+20,154 cases, fatal ASan/UBSan,23 compiled weakening controls, GCC/native-Zig
+2KiB frame checks and37 guest-image plan isolation. The original raw DMA
+capture independently replays with the current strict decoder. No image or
+native callback is added. This selects a documented disabled-state AT=00
+memory-drain route without enabling Broadwell's quirked graphics remapping;
+it supplies no GPU pipeline/cache/prefetch or reader completion. Next implement
+the explicitly registered child, admitted writable UC alias, exact receipt and
+safe original retirement together before a volume1% physical trial. Current
+installed/recovery state and earlier native acceptance remain unchanged.

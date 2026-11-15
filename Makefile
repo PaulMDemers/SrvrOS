@@ -6647,3 +6647,11 @@ build/tests/x86-private-clean$(HOST_EXE): tools/test_x86_private_clean.c kernel/
 test-x86-private-clean: build/tests/x86-private-clean$(HOST_EXE)
 	./build/tests/x86-private-clean$(HOST_EXE)
 test-core: test-x86-private-clean
+
+.PHONY: test-intel-vtd-drain
+build/tests/intel-vtd-drain$(HOST_EXE): tools/test_intel_vtd_drain.c kernel/diagnostics/intel_vtd_drain.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include tools/test_intel_vtd_drain.c kernel/diagnostics/intel_vtd_drain.c -o $@
+test-intel-vtd-drain: build/tests/intel-vtd-drain$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_vtd_drain.py
+test-core: test-intel-vtd-drain
