@@ -15,6 +15,8 @@ static struct {
  struct x86_cache_snapshot cache;
  uint64_t begin,last,end,root,epoch,clock,previous,prepare_phase,gt_origin,hda_origin,outer_origin;
  uint64_t guard_begin,guard_end,return_begin,return_end,final_begin,final_end;
+ uint64_t maintain_begin,maintain_end,maintain_phase;
+ unsigned maintain_before,maintain_after,maintained;
  unsigned closing;
  uint32_t state,reason,issued,prepared,prepare_polls[5],prepare_first[5],prepare_final[5];
  uint32_t pci[4][9],pci_counts[4],pci_samples,pci_reads,command_writes,guards,alias_checks,cache_checks;
@@ -394,6 +396,32 @@ static bool bootstrap_epoch(void *ctx,const struct bdw_boot_source *source,uint6
  !gt_bootstrap_native.reset.registered || source->consumer!=&gt_bootstrap_native.reset ||
  gt_bootstrap_native.reset.stage!=BDW_BOOT_EPOCH || !gt_bootstrap_native.reset.epoch_attempted ||
  gt_bootstrap_native.reset.epoch_advanced || gt_bootstrap_native.reset.write_attempts)return false;
+ /* Full backing is still original here: all fences were captured/verified,
+  * no reset or restoration store has been attempted. Service the ORIGINAL
+  * lease through its original snapshot/guard/table, not a timestamp refresh.
+  * Never invoke that full guard in the transient reset/restore interval. */
+ struct intel_gt_access *g=gt_bootstrap_native.g;
+ gt_bootstrap_native.maintain_begin=gt_bootstrap_native.last;
+ gt_bootstrap_native.maintain_phase=g->last;
+ gt_bootstrap_native.maintain_before=g->snapshots;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_bootstrap_maintain_boundary(0);
+#endif
+ bool maintained=intel_gt_access_check(g);
+ gt_bootstrap_native.maintain_end=g->last;
+ gt_bootstrap_native.maintain_after=g->snapshots;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_bootstrap_maintain_boundary(1);
+#endif
+ if(!maintained || !bootstrap_guard() || !bootstrap_core_io() ||
+ g->engine_epoch!=before || gt_bootstrap_native.reset.stage!=BDW_BOOT_EPOCH ||
+ !gt_bootstrap_native.reset.epoch_attempted || gt_bootstrap_native.reset.epoch_advanced ||
+ gt_bootstrap_native.reset.write_attempts || gt_bootstrap_native.maintain_before==UINT32_MAX ||
+ gt_bootstrap_native.maintain_after!=gt_bootstrap_native.maintain_before+1 ||
+ gt_bootstrap_native.maintain_end<=gt_bootstrap_native.maintain_phase ||
+ gt_bootstrap_native.maintain_end<gt_bootstrap_native.maintain_begin ||
+ gt_bootstrap_native.maintain_end-gt_bootstrap_native.maintain_phase>GT_ACCESS_PHASE_US)return false;
+ gt_bootstrap_native.maintained=1;
  ++gt_bootstrap_native.g->engine_epoch;++gt_bootstrap_native.epoch_calls;return true;
 }
 static bool bootstrap_preserved(void *ctx,const struct intel_bdw_gt_bootstrap *r) {
@@ -489,7 +517,7 @@ fail:
 }
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
- console_printf("intel-bootstrap-summary: v=2 state=%u reason=%u complete=%u failed=%u blocked=%u returned=%u active=%u epoch_before=%u epoch_after=%u epoch_calls=%u begin=%u end=%u last=%u root=%x prepare_budget=%u prepared=%u issued=%u commands=%u pci_samples=%u pci_reads=%u guards=%u alias_checks=%u cache_checks=%u native_reads=%u native_writes=%u full_before=%u full_after=%u post_bound=%u clock=%u previous=%u obligations=255 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
+ console_printf("intel-bootstrap-summary: v=3 state=%u reason=%u complete=%u failed=%u blocked=%u returned=%u active=%u epoch_before=%u epoch_after=%u epoch_calls=%u begin=%u end=%u last=%u root=%x prepare_budget=%u prepared=%u issued=%u commands=%u pci_samples=%u pci_reads=%u guards=%u alias_checks=%u cache_checks=%u native_reads=%u native_writes=%u full_before=%u full_after=%u post_bound=%u clock=%u previous=%u obligations=255 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
   (uint64_t)gt_bootstrap_native.state,(uint64_t)gt_bootstrap_native.reason,(uint64_t)gt_bootstrap_native.complete,
   (uint64_t)gt_bootstrap_native.failed,(uint64_t)gt_bootstrap_native.blocked,(uint64_t)gt_bootstrap_native.returned,
   (uint64_t)gt_bootstrap_native.borrow.active,gt_bootstrap_native.epoch,
@@ -522,6 +550,9 @@ static void bootstrap_report(void) {
  console_printf("intel-bootstrap-retire: v=1 stage=%u guard_begin=%u guard_end=%u return_begin=%u return_end=%u final_begin=%u final_end=%u\n",
   (uint64_t)gt_bootstrap_native.closing,gt_bootstrap_native.guard_begin,gt_bootstrap_native.guard_end,
   gt_bootstrap_native.return_begin,gt_bootstrap_native.return_end,gt_bootstrap_native.final_begin,gt_bootstrap_native.final_end);
+ console_printf("intel-bootstrap-maintain: v=1 complete=%u begin=%u end=%u phase=%u before=%u after=%u\n",
+  (uint64_t)gt_bootstrap_native.maintained,gt_bootstrap_native.maintain_begin,gt_bootstrap_native.maintain_end,
+  gt_bootstrap_native.maintain_phase,(uint64_t)gt_bootstrap_native.maintain_before,(uint64_t)gt_bootstrap_native.maintain_after);
  console_printf("intel-bootstrap-admission: v=1 issued=%u consumed=%u rejected=%u active=%u stage=%u begin=%u partial_begin=%u\n",
   (uint64_t)bootstrap_admission.issued,(uint64_t)bootstrap_admission.consumed,(uint64_t)bootstrap_admission.rejected,
   (uint64_t)bootstrap_admission.active,(uint64_t)bootstrap_cost.stage,bootstrap_cost.begin,bootstrap_cost.start);

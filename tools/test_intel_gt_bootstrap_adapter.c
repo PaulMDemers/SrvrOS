@@ -18,6 +18,7 @@ static bool intel_display_test_bootstrap_clock(uint64_t *);
 static void intel_display_test_bootstrap_final_boundary(void);
 static void intel_display_test_bootstrap_receipt_boundary(void);
 static void intel_display_test_bootstrap_cost_boundary(unsigned);
+static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
@@ -36,6 +37,7 @@ static void intel_display_test_bootstrap_boundary(void) {
  if(gt_bootstrap_native.reset.stage<=BDW_BOOT_FAULT && !phase_points[gt_bootstrap_native.reset.stage])
   phase_points[gt_bootstrap_native.reset.stage]=boundaries;
  assert(wake_irq && hda_command==2 && !display_access_allowed());
+ if(!strcmp(bootstrap_mode,"maintain-slow"))ticks+=130;
  if(bf("zero",boundaries))ticks=UINT64_MAX;
  if(bf("back",boundaries))ticks=gt_bootstrap_native.last-2;
  if(bf("over",boundaries))ticks=gt_bootstrap_native.begin+150000;
@@ -155,7 +157,7 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
  if(bf("display-float",bdisplay))*out=UINT32_MAX;
  return !bf("display-read",bdisplay);
 }
-static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved");}
+static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow");}
 static bool intel_display_test_bootstrap_clock(uint64_t *out) {
  if(!gt_bootstrap_native.returned || gt_bootstrap_native.complete || hit)return false;
  if(bf("return-zero",1))*out=0;
@@ -170,6 +172,26 @@ static void intel_display_test_bootstrap_final_boundary(void) {
  if(bf("final-back",1))ticks=gt_bootstrap_native.last-2;
  if(bf("final-over",1))ticks=gt_bootstrap_native.begin+150000;
  if(bf("final-epoch",1))gt_bootstrap_native.g->engine_epoch++;
+}
+static void intel_display_test_bootstrap_maintain_boundary(unsigned phase) {
+ struct intel_gt_access *g=gt_bootstrap_native.g;
+ assert(phase<2 && g==joint.scope.gpu && g->engine_epoch==gt_bootstrap_native.epoch);
+ if(!phase)assert(bootstrap_parent());
+ assert(gt_bootstrap_native.reset.stage==BDW_BOOT_EPOCH && !gt_bootstrap_native.reset.write_attempts && !pulses);
+ for(unsigned i=0;i<32;i++)assert(fences[i]==gt_bootstrap_native.reset.fence_before[i]);
+ if(!phase) {
+  if(bf("maintain-zero",1))ticks=UINT64_MAX;
+  if(bf("maintain-back",1))ticks=g->last-2;
+  if(bf("maintain-phase",1))ticks=g->last+100001;
+  if(bf("maintain-total",1))ticks=g->begin+300001;
+  if(bf("maintain-request",1))wake_request|=2;
+  if(bf("maintain-root",1))gt_bootstrap_native.root^=4096;
+ } else {
+  if(bf("maintain-after-clock",1))ticks=gt_bootstrap_native.begin+150001;
+  if(bf("maintain-after-epoch",1))g->engine_epoch++;
+  if(bf("maintain-after-borrow",1))g->dependents=NULL;
+  if(bf("maintain-after-table",1))g->io.snapshot=NULL;
+ }
 }
 static void intel_display_test_bootstrap_cost_boundary(unsigned phase) {
  assert(phase<5);++cost_calls;
@@ -213,11 +235,14 @@ int main(int argc,char **argv) {
   assert(!gt_bootstrap_native.borrow.active && !r->registered && !r->retained && r->complete);
   assert(gt_bootstrap_native.epoch_calls==1 && gt_bootstrap_native.epoch==(ring_fixture_disabled?0u:1u) &&
    gt_bootstrap_native.post.engine_epoch==gt_bootstrap_native.epoch+1);
+  assert(gt_bootstrap_native.maintained==1 && gt_bootstrap_native.maintain_after==gt_bootstrap_native.maintain_before+1);
+  if(!strcmp(bootstrap_mode,"maintain-slow"))assert(gt_bootstrap_native.end-gt_bootstrap_native.begin>100000);
   assert(pulses==2 && bwrites==(preserve_fences?12u:15u) && bcommands==2 && gpu_command==7);
   assert(gt_bootstrap_native.pci_samples==4 && gt_bootstrap_native.pci_reads==36);
   assert(gt_bootstrap_native.full_before && gt_bootstrap_native.full_after && gt_bootstrap_native.post_bound);
   assert(display_access_allowed() && !joint_terminal());
  } else {
+  if(!strcmp(bootstrap_mode,"maintain-phase"))assert(gt_bootstrap_native.g->clock_cause & GT_CLOCK_PHASE);
   assert(hit && intel_gt_wake_retained() && !display_access_allowed());
   assert(bwrites==fault_writes && bcommands==fault_commands);
   if(gt_bootstrap_native.complete) {

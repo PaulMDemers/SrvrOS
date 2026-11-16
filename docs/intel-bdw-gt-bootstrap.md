@@ -158,7 +158,7 @@ counts, source/deadline binding and full parent retirement. Its explicit
 wake37→25 view verifies only unchanged historical entry/HDA prerequisites;
 raw files remain unchanged. It confers no new live authority. This profile has
 its own96KiB ring/save/collection bound; ordinary and older profiles stay64KiB.
-The workflow profile is `intel-gt-bootstrap-v39`; qualification and both exact
+The current workflow profile is `intel-gt-bootstrap-v41`; qualification and both exact
 staged VM paths are mandatory before the unattended1% physical trial. VM
 refusal/save/return evidence cannot accept the native owner or reset.
 
@@ -252,3 +252,35 @@ REJECTED, with raw/photo/qualification and offline recovery/media proof banked.
 Next maintain the original GT through existing fresh guarded checks at safe
 reset boundaries, preserving its callback table and every original deadline.
 See the [unit result](machines/macbookair7-2.md#native-sealed-read-reset-completes-gt-maintenance-check-refuses).
+
+
+## Original GT maintenance before reset
+
+Summary wire3 / workflow v41 adds one `intel-bootstrap-maintain` version1
+receipt. At the original core's EPOCH callback, all32 fences have been freshly
+captured and verified, all five readiness controls remain held, and no reset or
+restoration store has been attempted. The native adapter checks the unchanged
+original parent/binding/table, then invokes **`intel_gt_access_check` on the
+original live GT object**. That API performs its original guarded requester/
+ACK/thread snapshot, independent final guard and checked clock progress. Its
+100ms maintenance phase and300ms total origin are unchanged. No direct `last`
+assignment, copied owner or substituted callback supplies maintenance.
+
+A full native guard and exact source/table/borrow/epoch checks follow the call;
+only then may the existing epoch advance and first reset pulse occur. The full
+original backing guard is never called during deliberately transient reset or
+fence restoration. The next original live check occurs naturally at entry to
+the restored new-epoch census. The whole added cost stays inside preparation150ms,
+HDA400ms and outer500ms. Failure retains the original physical pins and aliases.
+
+The maintenance row records begin/end, original phase and before/after snapshot
+counts. Wire3 completion requires exactly one successful snapshot before reset
+settling, strict monotonic order and a maximum100ms original phase. Version1 and
+version2 logs retain separate historical parsing without invented rows; the
+workflow freezes version3 and refuses new v39/v40 runs. No GPU memory, DMA/cache,
+reader completion or tear-free authority follows from lease maintenance.
+
+The actual-adapter host model includes an over100ms whole trial, original phase/
+total/zero/backward clock refusals, requester drift, root/epoch/borrow/table
+changes and a compiled check-removal control. Model success is not hardware
+timing acceptance. Matching native qualification and retirement remain required.

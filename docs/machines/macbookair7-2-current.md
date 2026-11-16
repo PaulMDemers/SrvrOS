@@ -8,6 +8,19 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Active scope (base06667bf7, fetched main4016abf0): service the **original**
+GT access lease at the verified pre-reset epoch boundary. Touch only the separate
+native bootstrap adapter, strict receipts, local model/workflow and this unit's
+guides. Existing GT100ms maintenance/300ms total, preparation150ms and
+HDA400ms/outer500ms remain unchanged. Preserve original tables and live borrow;
+never perform full backing checks during reset/fence transients. PR301 owns this
+scope; PR19 Wi-Fi and PR379 WebCore are independent. No other task is contacted.
+Wire3 / workflowv41 records the original live maintenance interval and snapshot
+count; v39/v40 remain historical-only. Slow-clock/phase-fault models reproduce
+the maintenance gap before another qualified automated1% trial. No new physical
+acceptance yet. Obsolete failed423d installed copy retired only after exact
+payload-bank/raw/recovery/menu checks; its full bank/evidence remain intact.
+
 Latest v40 trial is **rejected at the enclosing GT maintenance check**: source
 `0d1f7315`, release `4fa2d3302fb0a0c6`, session
 `session-0006606be5ce204d-00`. All20 frozen workflow checks and both exact-stage

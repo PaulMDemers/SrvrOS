@@ -182,7 +182,7 @@ class RunnerTests(unittest.TestCase):
         import device_workflow
         (self.repo / 'build').mkdir()
         atomic(self.runner.store / 'unit.json', self.unit)
-        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v40'):
+        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41'):
             argv = ['device_workflow.py', 'new', 'combined', '--profile',
                     trial_profile, '--question', 'Complete original hold?',
                     '--expected', 'Exact retirement']
@@ -195,15 +195,17 @@ class RunnerTests(unittest.TestCase):
                     'Exact retirement', jobs=None, trial_profile=trial_profile)
             self.assertEqual(self.runner.effects, [])
 
-    def test_full_gt_v40_freezes_wire2_and_v39_is_historical(self):
-        runner=FixtureRunner(self.repo,self.root/'v40-store')
+    def test_full_gt_v41_freezes_wire3_and_old_profiles_are_historical(self):
+        runner=FixtureRunner(self.repo,self.root/'v41-store')
         unit=dict(self.unit,model='MacBookAir7,2')
         jobs=dict(development=[self.job],qualification=[self.job])
         with self.assertRaisesRegex(ValueError,'historical'):
             runner.create('obsolete',unit,'Original lifetime?','Complete retirement',jobs=jobs,trial_profile='intel-gt-bootstrap-v39')
-        runner.create('sealed',unit,'Original lifetime?','Complete retirement',jobs=jobs,trial_profile='intel-gt-bootstrap-v40')
+        with self.assertRaises(ValueError):
+            runner.create('obsolete40',unit,'Original lifetime?','Complete retirement',jobs=jobs,trial_profile='intel-gt-bootstrap-v40')
+        runner.create('sealed',unit,'Original lifetime?','Complete retirement',jobs=jobs,trial_profile='intel-gt-bootstrap-v41')
         _,manifest,state=runner.load('sealed')
-        self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-gt-bootstrap-v40',2,'NEW'))
+        self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-gt-bootstrap-v41',3,'NEW'))
         self.assertEqual(runner.effects,[])
 
     def test_complete_prepare_is_resumable_and_does_not_reboot(self):

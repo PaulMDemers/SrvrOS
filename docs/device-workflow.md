@@ -3,7 +3,7 @@
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
 opt-in v36 VT-d drain, combined GGTT invalidation, v37 CPU command-memory and
 [v38 joined native admission](intel-command-ownership.md) and separate
-[v40 full-GT owner/epoch](intel-bdw-gt-bootstrap.md) trials. Only v38 and the full-GT profiles
+[v41 full-GT owner/epoch](intel-bdw-gt-bootstrap.md) trials. Only v38 and the full-GT profiles
 select a96KiB ring/save/raw collection bound; older profiles remain64KiB.
 These profiles are silent and automatic;
 it does not enable another model or turn a future GPU operation into an
@@ -326,22 +326,23 @@ failed qualification or bypasses fresh media/recovery/1% checks.
 
 ## Separate full-GT owner and epoch trial
 
-New v40 runs require version2 owner receipts with a single-use read-admission
-receipt and five measured guard-cost rows. Historical v39/version1 collection
-remains explicitly supported; new v39 creation refuses. Runtime/header/collector
+New v41 runs require version3 owner receipts: the original GT live-check
+interval/snapshot receipt, a single-use read-admission receipt and five measured
+guard-cost rows. Historical v39/version1 and v40/version2 collection remain
+explicitly supported; new v39/v40 creation refuses. Runtime/header/collector
 versions must match the frozen manifest. No legacy record is upgraded into a
 fresh live admission.
 
-The Air7,2-only `intel-gt-bootstrap-v40` profile selects the separate
+The Air7,2-only `intel-gt-bootstrap-v41` profile selects the separate
 `--intel-gt-bootstrap` image and exact `srvros.intel-ring=gt-bootstrap-v1` recipe.
 It does not require or reuse the old nonzero/reset/VT-d source graph. Its
-version1 owner/reset receipts use wake wire37; these names are separate from
+version3 owner/version1 reset receipts use wake wire37; these names are separate from
 the older v37 CPU-command-memory profile. It accepts no GPU memory or tear-free
 capability. Native acceptance is pending until the matching physical run passes.
 
 ```sh
 python3 tools/device_workflow.py new original-gt-bootstrap \
-  --profile intel-gt-bootstrap-v40 \
+  --profile intel-gt-bootstrap-v41 \
   --question 'Does this original full-GT owner restore all fences and retire with a fresh new-epoch census?' \
   --expected 'Two full pulses, exact fences/display/backing, fresh epoch, original clocks, complete parent retirement and clean media/recovery'
 python3 tools/device_workflow.py advance --run original-gt-bootstrap

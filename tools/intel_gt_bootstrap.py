@@ -62,7 +62,7 @@ def historical_view(text):
 def bootstrap_result(text,*,native=False):
     lines=[l for l in text.splitlines() if l.startswith('intel-bootstrap-')]
     if not lines:return None
-    allowed=('summary','binding','reset','retire','admission','cost','fence','control','pulse','pci','display','post-row','post-context','post-summary')
+    allowed=('summary','binding','reset','retire','maintain','admission','cost','fence','control','pulse','pci','display','post-row','post-context','post-summary')
     if any(l.split(':',1)[0] not in ['intel-bootstrap-'+k for k in allowed] for l in lines):raise ValueError('Bootstrap unknown receipt')
     def one(kind,keys,hexkeys=(),versions=(1,)):
         selected=[l for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
@@ -70,11 +70,18 @@ def bootstrap_result(text,*,native=False):
         return fields(selected[0],'intel-bootstrap-'+kind+':',keys,hexkeys,versions)
     def rows(kind,keys,hexkeys=()):
         return [fields(l,'intel-bootstrap-'+kind+':',keys,hexkeys) for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
-    s=one('summary',SUMMARY,('root',),(1,2));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
+    s=one('summary',SUMMARY,('root',),(1,2,3));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
     r=one('reset',RESET,('changed','restored'))
     retire=one('retire','v stage guard_begin guard_end return_begin return_end final_begin final_end'.split())
+    maintain=None
+    if s['v']==3:
+        maintain=one('maintain','v complete begin end phase before after'.split())
+        if maintain['complete']>1 or max(maintain['before'],maintain['after'])>=1<<32:raise ValueError('Bootstrap maintenance bounds')
+        if maintain['complete']:
+            if not s['begin']<=r['begin']<=maintain['begin']<maintain['end']<=s['last'] or not 0<maintain['phase']<=maintain['begin'] or maintain['end']-maintain['phase']>100000 or maintain['after']!=maintain['before']+1:raise ValueError('Bootstrap maintenance clocks/snapshot')
+    elif any(l.startswith('intel-bootstrap-maintain:') for l in lines):raise ValueError('Bootstrap historical maintenance receipt')
     admission=None;cost=[]
-    if s['v']==2:
+    if s['v']>=2:
         admission=one('admission','v issued consumed rejected active stage begin partial_begin'.split())
         cost=rows('cost','v i calls total max'.split())
         if [q['i'] for q in cost]!=list(range(5)):raise ValueError('Bootstrap cost coverage')
@@ -89,7 +96,7 @@ def bootstrap_result(text,*,native=False):
     pulses=rows('pulse','v i first final polls'.split(),('first','final'))
     pci=rows('pci','v n i raw'.split(),('raw',));display=rows('display','v n p i raw'.split(),('raw',))
     boolean='complete failed blocked returned active full_before full_after post_bound'.split()
-    if s['state']>2 or s['reason']&~(511 if s['v']==2 else 255) or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
+    if s['state']>2 or s['reason']&~(511 if s['v']>=2 else 255) or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
         raise ValueError('Bootstrap owner range')
     if s['prepare_budget']!=150000 or s['obligations']!=255 or any(s[k] for k in ('managed_pages','pte_writes','hardware_ownership')):raise ValueError('Bootstrap false authority/policy')
     if s['prepared']>s['issued'] or s['issued']>5 or s['commands']>2 or s['pci_samples']>4 or s['pci_reads']>36 or s['guards']>20000 or s['alias_checks']>300000 or s['cache_checks']>20000:
@@ -104,7 +111,7 @@ def bootstrap_result(text,*,native=False):
         raise ValueError('Bootstrap PCI vector coverage')
     if [(q['n'],q['p'],q['i']) for q in display]!=[(n,k//13,k%13) for n,count in enumerate((b['display_before'],b['display_after'])) for k in range(count)]:raise ValueError('Bootstrap display vector coverage')
     if any(q[k]>=1<<32 for q in controls for k in ('prepare_first','prepare_final','before','after','cancel_first','cancel_final')) or any(q['raw']>=1<<32 for q in pci+display) or any(q['first']>=1<<32 or q['final']>=1<<32 for q in pulses):raise ValueError('Bootstrap DWORD width')
-    kinds=['summary','binding','reset','retire']+(['admission']+['cost']*5 if s['v']==2 else [])+['fence']*32+['control']*5+['pulse']*2+['pci']*len(pci)+['display']*len(display)
+    kinds=['summary','binding','reset','retire']+(['maintain'] if s['v']==3 else [])+(['admission']+['cost']*5 if s['v']>=2 else [])+['fence']*32+['control']*5+['pulse']*2+['pci']*len(pci)+['display']*len(display)
     actual=[l.split(':',1)[0].removeprefix('intel-bootstrap-') for l in lines if not l.startswith('intel-bootstrap-post-')]
     if actual!=kinds:raise ValueError('Bootstrap receipt order')
     view=historical_view(text)
@@ -115,6 +122,7 @@ def bootstrap_result(text,*,native=False):
     post=completion_result(post_text)
     complete=bool(s['complete'])
     if complete:
+        if maintain is not None and (maintain['complete']!=1 or maintain['end']>r['settle_begin']):raise ValueError('Bootstrap missing safe pre-reset maintenance')
         required=dict(state=2,reason=0,failed=0,blocked=1,returned=1,active=0,epoch_calls=1,prepared=5,issued=5,commands=2,pci_samples=4,pci_reads=36,full_before=1,full_after=1,post_bound=1,clock=0,previous=0)
         if any(s[k]!=v for k,v in required.items()) or s['epoch_after']!=s['epoch_before']+1 or not entry or not entry['summary']['complete'] or not post or not post['summary']['complete']:
             raise ValueError('Bootstrap false completed owner')
@@ -172,7 +180,7 @@ def bootstrap_result(text,*,native=False):
     owner_complete=complete
     complete=bool(owner_complete and entry and entry['complete'] and post and post['observation_complete'])
     if entry and entry['wake']['summary']['complete'] and not complete:raise ValueError('Bootstrap false enclosing completion')
-    return dict(version=s['v'],admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(native and complete and entry['native_complete']),summary=s,
+    return dict(version=s['v'],maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,
                 hardware_ownership=False,managed_pages=0,physical_tearfree=False,
                 scope='one original full-GT reset/fence restoration/new engine epoch; DMA/cache/all-reader authority unproved')

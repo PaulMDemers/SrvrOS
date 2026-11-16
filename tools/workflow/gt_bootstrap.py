@@ -17,7 +17,7 @@ def jobs(dependencies):
     quick=test('native-development',*[prefix+m for m in ('test_complete_original_owners_and_new_epoch',
         'test_recipe_preinit_and_profile_isolation','test_native_receiver_checkpoint_and_raw_preservation',
         'test_receiver_mutations_cannot_promote_a_partial_or_changed_source',
-        'test_receipt_cost_and_historical_v1_are_separate','test_receipt_and_cost_clock_edges')],timeout=300)
+        'test_receipt_cost_and_historical_v1_are_separate','test_receipt_and_cost_clock_edges','test_original_gt_maintenance_at_safe_epoch_boundary')],timeout=300)
     structural=test('workflow-structure','test_hardware_boot','test_hardware_desktop','test_device_workflow',
                     'test_intel_bdw_gt_bootstrap.Bootstrap.test_native_compiler_and_image_isolation',
                     'test_intel_ring_entry.EntryTests.test_two_routes_original_source_epoch_and_no_writer_inference',

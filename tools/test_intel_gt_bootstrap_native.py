@@ -90,6 +90,23 @@ class Native(unittest.TestCase):
         native=ShutdownTests.native(self.text[disabled,False]);before,after=native.split('intel-bootstrap-summary:',1)
         return prefix+before+'workspace-log: snapshot=session-a.log\n',prefix+before+'intel-wake: preflight checkpoint saved\nintel-bootstrap-summary:'+after+'laptop-capture: completed=yes\n'
 
+    def test_original_gt_maintenance_at_safe_epoch_boundary(self):
+        for disabled in (False,True):
+            p=bootstrap_result(run('maintain-slow',disabled=disabled))
+            self.assertTrue(p['complete'])
+            m=p['maintain'];self.assertEqual(m['complete'],1)
+            self.assertLessEqual(m['end']-m['phase'],100000)
+            self.assertGreater(p['summary']['end']-p['summary']['begin'],100000)
+            for mode in ('maintain-zero','maintain-back','maintain-phase','maintain-total','maintain-request','maintain-root',
+                         'maintain-after-clock','maintain-after-epoch','maintain-after-borrow','maintain-after-table'):
+                q=bootstrap_result(run(mode,1,disabled=disabled))
+                self.assertFalse(q['complete']);self.assertEqual(q['summary']['epoch_calls'],0)
+                self.assertEqual(q['reset']['reset_attempts'],0)
+        # Same raw historical records must not acquire a synthetic maintenance.
+        for text in self.text.values():
+            old='\n'.join(l.replace('intel-bootstrap-summary: v=3 ','intel-bootstrap-summary: v=2 ') for l in text.splitlines() if not l.startswith('intel-bootstrap-maintain:'))
+            p=bootstrap_result(old);self.assertTrue(p['complete']);self.assertIsNone(p['maintain'])
+
     def test_receipt_and_cost_clock_edges(self):
         for mode in ('ticket-empty','ticket-samples','ticket-clock','ticket-proof','ticket-attempt','ticket-state','ticket-zero','ticket-back','ticket-over'):
             for n in (1,self.stats[False,False]['tickets']):
@@ -108,12 +125,12 @@ class Native(unittest.TestCase):
     def test_receipt_cost_and_historical_v1_are_separate(self):
         for text in self.text.values():
             p=bootstrap_result(text);a=p['admission']
-            self.assertEqual(p['version'],2)
+            self.assertEqual(p['version'],3)
             self.assertEqual((a['consumed'],a['issued'],a['active'],a['rejected']),
                 (p['reset']['reads'],p['reset']['proofs'],0,0))
             self.assertLess(p['summary']['guards'],900)
             for q in p['cost']:self.assertEqual(q['calls'],p['summary']['guards'])
-            old='\n'.join(l.replace('intel-bootstrap-summary: v=2 ','intel-bootstrap-summary: v=1 ') for l in text.splitlines() if not l.startswith(('intel-bootstrap-admission:','intel-bootstrap-cost:')))
+            old='\n'.join(l.replace('intel-bootstrap-summary: v=3 ','intel-bootstrap-summary: v=1 ') for l in text.splitlines() if not l.startswith(('intel-bootstrap-maintain:','intel-bootstrap-admission:','intel-bootstrap-cost:')))
             historical=bootstrap_result(old)
             self.assertTrue(historical['complete']);self.assertEqual(historical['version'],1)
             self.assertIsNone(historical['admission'])
@@ -139,6 +156,7 @@ class Native(unittest.TestCase):
             'intel-bootstrap-reset':dict(complete=0,registered=1,retained=1,epoch=0,reset_attempts=1,reset_writes=1,reset_completed=1,cancelled=4,changed='0x0',restored='0x0',reads=309,writes=9,proofs=0,preserved=0,settle_end=1),
             'intel-bootstrap-binding':dict(owner=0,provider=0,lifetime=0,root='0x2000',mmio='0xd0000000',epoch=9,sequence=2,prepare=1,gt=1,hda=1,outer=1,policy='0x1',post_epoch=9,post_parent=0,post_object=0),
             'intel-bootstrap-retire':dict(stage=0,guard_end=1,return_end=1,final_end=1),
+            'intel-bootstrap-maintain':dict(complete=0,begin=0,end=0,phase=0,before=0,after=0),
             'intel-bootstrap-admission':dict(consumed=0,issued=0,rejected=1,active=1,stage=0,partial_begin=0),
             'intel-bootstrap-cost':dict(calls=0,total=150001,max=150001),
             'intel-bootstrap-fence':dict(before='0x1',after='0x1',final='0x0'),
@@ -185,8 +203,8 @@ class Native(unittest.TestCase):
             subprocess.run([cc,*flags,'-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer',*sources,'-o',str(exe)],cwd=ROOT,check=True,timeout=180)
             env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1:detect_stack_use_after_return=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1')
             for disabled in (False,True):
-                for mode in ('pass','preserved'):run(mode,disabled=disabled,exe=exe,env=env)
-                for mode,n in [('root',1),('cache',3),('walk',1),('source',self.phases[6]),('registration',self.phases[6]),('write-unknown',6),('write-none',7),('write-over',8),('command-unknown',2),('ticket-empty',1),('ticket-samples',2),('ticket-clock',1),('ticket-state',1),('ticket-zero',1),('ticket-back',1),('ticket-over',1),('ticket-byte',0)]:run(mode,n,disabled=disabled,exe=exe,env=env)
+                for mode in ('pass','preserved','maintain-slow'):run(mode,disabled=disabled,exe=exe,env=env)
+                for mode,n in [('root',1),('cache',3),('walk',1),('source',self.phases[6]),('registration',self.phases[6]),('write-unknown',6),('write-none',7),('write-over',8),('command-unknown',2),('ticket-empty',1),('ticket-samples',2),('ticket-clock',1),('ticket-state',1),('ticket-zero',1),('ticket-back',1),('ticket-over',1),('ticket-byte',0),('maintain-phase',1),('maintain-request',1),('maintain-after-table',1)]:run(mode,n,disabled=disabled,exe=exe,env=env)
 
     def test_completed_child_and_late_logical_return_cannot_release_physical_parent(self):
         outer=bootstrap_result(run('outer-pci',1))
@@ -202,7 +220,12 @@ class Native(unittest.TestCase):
     def test_compiled_native_weakening_controls(self):
         from fixture_compile import recipe
         source=(ROOT/'kernel/src/drivers/intel_gt_bootstrap_trial.inc').read_text()
+        service=source[source.index(' /* Full backing is still original here:'):source.index(' ++gt_bootstrap_native.g->engine_epoch;')]
         controls={
+            # Skip live service while forging the local success flag. Fast
+            # modeled work still fits the parent's phase; the long-work case
+            # MUST fail at the unchanged original GT phase check afterward.
+            'original-maintenance':(service,' (void)intel_display_test_bootstrap_maintain_boundary;\n gt_bootstrap_native.maintained=1;\n gt_bootstrap_native.maintain_after=gt_bootstrap_native.maintain_before+1;\n','maintain-slow',0),
             'receipt-single-use':('if(!active || bootstrap_admission.samples!=1 ||','if(((void)active,false) || bootstrap_admission.samples!=1 ||','ticket-empty',1),
             'receipt-clock-callback':('bootstrap_admission.samples!=1','false','ticket-samples',1),
             'receipt-byte-seal':('if(bytes[i]!=bootstrap_admission.bytes[i])goto refuse;','if((void)bytes,false)goto refuse;','ticket-byte',0),
