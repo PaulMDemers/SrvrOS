@@ -47,6 +47,22 @@ deadlines were weakened. Future workspace snapshots now omit only an incomplete
 leading line while keeping the64KiB cap and raw-byte API unchanged. That framing
 fix is host/native-compiler validated separately, not new physical acceptance.
 
+Active bounded block (base5e4fffd4, freshly fetched main4016abf0): join the
+accepted original CPU command arena to a genuinely transferred GPU address
+interval, using the existing transfer/space/publication mechanisms. Implement
+four-page Broadwell encoding, original-source/cache/clock admission, child
+registration, mapping/use/restore and exact retirement with terminal retention
+on uncertainty. Scope: isolated typed mapping owner, host integration fixture,
+fault/sanitizer/weakening/frame/isolation checks and contracts. The native
+provider still has no transferred interval or completed ownership witnesses;
+host success enables no native writer or positive assurance. Preserve
+native4864/8380 acceptance, recovery and all original bounds. Shared changes
+include explicit CPU-hold dependent helpers and an opt-in clock-accounted
+transfer check, preserving the existing transfer check and its100ms bound.
+The new wrapper accounts every nested sample against original100/150ms
+preparation and300/400/500ms parents, without replacing admitted I/O tables.
+Independent PR19/379 remain untouched; no subagents/task messages.
+
 Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
 isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)
 binds private ring/context/completion mappings, a fresh nonce and original owner/
