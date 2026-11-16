@@ -8,17 +8,34 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active follow-up (base2aa8bc5f; fetched main4016abf0): reduce duplicate nested
-read admissions using a single-use, byte-sealed protocol receipt. Keep full
-resource/cache/alias/requester admission before and after every hardware read,
-all write admissions, original clocks and late-return retention. Scope is the
-separate native adapter, its cost/receipt collector, host models and workflow;
-no legacy reset core or hardware gate is widened. The model and focused checks pass single-use/byte-sealed admissions, component
-clock faults,11 compiled controls,428 packet mutations, historical separation
-and200 native-build/structure/sanitizer checks. About43% fewer full guards are
-modeled with unchanged I/O; physical timing remains untested. New v40 freezes
-version2 timing/receipt data. Full qualification precedes the new1% trial.
-PR301 owns this bounded work; independent PR19/379 remain separate.
+Latest v40 trial is **rejected at the enclosing GT maintenance check**: source
+`0d1f7315`, release `4fa2d3302fb0a0c6`, session
+`session-0006606be5ce204d-00`. All20 frozen workflow checks and both exact-stage
+VM paths pass:23,682 native fault cases,428 packet mutations,11 controls,
+component-clock/receipt/lifetime tests, fatal sanitizers and all core/legacy gates.
+
+On hardware the reset core finishes in104,818us, including both pulses, exact
+fences, one actual epoch0→1, all five cancellations and full preservation.
+Preparation through core completion takes123,941/150,000us. All308 sealed reads
+are consumed with zero receipt rejections. The new census then refuses before
+its first sample: the original GT owner has gone120,907us without a live check,
+exceeding its existing100,000us maintenance phase (clock cause4). The150ms
+preparation clock did not expire. Original physical parent/aliases remain held;
+requester restoration, closing and full retirement are not reached. This is no
+whole-owner or native tear-free acceptance.
+
+Measured full-guard component totals are3,586us HDA/boot,57,635us backing endpoint,
+37,404us cache,4,077us aliases and3,423us requester/AF over788 guards. Next use the
+existing original GT live-check API at safe reset boundaries, keeping its table,
+100ms phase/300ms total and all150/400/500ms clocks unchanged. No direct timestamp
+refresh or cached echo can replace the guarded requester snapshot.
+
+The run is closed REJECTED. Exact raw/checkpoint, photo, qualification and review
+are banked outside build. Offline prior-file/media integrity, recovery, Ubuntu
+default and consumed one-shot verify; USB is unmounted and no reboot is armed.
+Current4fa2 is diagnostic; recovery9aa8 and acceptedf0a8 remain retained. Older8380
+has its complete bank/accepted evidence, with only the obsolete installed copy
+retired after full verification. Main4016abf0 and independent PR19/379 are unchanged.
 
 Latest original full-GT trial is **rejected for preparation timeout**: frozen
 source `d24b1ddd`, release `423dc0ae7ced8256`, session
@@ -35,8 +52,8 @@ GPU ownership or native tear-free acceptance follows.
 The complete57,994-byte exit log/checkpoint chain and all three raw files verify.
 Offline filesystem/allocation/writable/headroom and prior-file preservation pass;
 recovery, Ubuntu default and consumed one-shot verify. Failed raw/photo/review and
-qualification are banked outside build. The run is closed REJECTED; no trial is
-armed. Current is423d diagnostic, recovery9aa8 and acceptedf0a8 remain installed and
+qualification are banked outside build. At that checkpoint the run was closed REJECTED; no trial was
+armed. Current was423d diagnostic, recovery9aa8 and acceptedf0a8 remain installed and
 independently banked. The older8380 installed copy was retired after exact bank
 and accepted-raw verification; its full bank and acceptance remain outside build. Next measure/coalesce repeated
 nested admission costs without removing fresh checks or extending deadlines.

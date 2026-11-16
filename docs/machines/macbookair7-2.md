@@ -5,6 +5,43 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
 
+## Native sealed-read reset completes; GT maintenance check refuses
+
+2026-11-16: source `0d1f7315c49745885d583c75440f7a9418628432`, release
+`4fa2d3302fb0a0c6`, session `session-0006606be5ce204d-00`, run
+`air-gt-admission-20261116`. All20 frozen workflow gates and both exact-stage
+VM paths pass. Native matrices cover7,469 admission,1,204 I/O,2,408 CPU/alias,
+8,227 PCI and4,374 sealed-receipt faults, plus428 packet mutations,11 compiled
+controls, component clocks, fatal ASan/UBSan and all reset-core/legacy gates.
+
+The original reset core now completes/preserves:104,818us core time and123,941us
+from original preparation entry, within150,000us. Both pulses and all five
+cancellations verify, epoch0→1 occurs once, all fences remain exact, and full
+backing/display preservation passes. All308 sealed reads consume once; zero
+receipt rejections;788 full guards/11,820 aliases. These are measured substeps,
+not acceptance of a completely retired native lifetime.
+
+The enclosing GT owner then fails its unmodified100ms maintenance phase:
+clock cause4, sample4,378,151us versus previous service4,257,244us, gap120,907us.
+Its original begin/300ms total is intact. The150ms preparation clock did not
+expire. The new-epoch census refuses before its first sample; requester restore,
+borrow return, final closing clock and physical retirement are not reached.
+Parent/15 aliases remain held and no GPU grant follows. The run is REJECTED.
+
+New guard totals: HDA/boot3,586us; endpoint57,635us; cache37,404us; aliases4,077us;
+requester/AF3,423us. Resource/cache checks dominate. Next maintain the original
+GT owner through its existing fresh guarded snapshot at safe pre-reset/restored
+boundaries, keeping the callback table and all original phase/total clocks.
+Do not write timestamps directly or extend limits to hide the gap. Include the
+maintenance work in the same150ms preparation accounting.
+
+Strict raw/checkpoint collection and offline prior-file/media integrity,
+installed/banked recovery, Ubuntu default and consumed one-shot verify. Complete
+raw/photo/qualification/review are independently banked outside build. Current4fa2
+is diagnostic; recovery9aa8, acceptedf0a8 and other protected payloads are retained.
+USB is unmounted and no reboot armed. Older8380 retains its bank/accepted proof;
+only its installed copy was retired under the verified cleanup recorded below.
+
 ## Native read-admission cost follow-up
 
 2026-11-16: follow-up to rejected423d retains the unchanged reset core and all

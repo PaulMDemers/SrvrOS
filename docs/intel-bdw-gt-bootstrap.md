@@ -238,3 +238,17 @@ repeated nested admissions (1,012 guards/15,180 alias checks in this run), retai
 fresh resource/cache/alias/requester checks and all original deadlines. See the
 [dated unit result](machines/macbookair7-2.md#native-full-gt-bootstrap-preparation-timeout).
 This is no native completion, managed-memory or tear-free acceptance.
+
+## First sealed-read native result
+
+Source `0d1f7315` / release `4fa2d3302fb0a0c6` passes all20 frozen local gates and
+both exact-stage VMs. The native core completes/preserves in104,818us,123,941us
+from original preparation entry, with both pulses, exact fences, epoch0→1,
+all five cancellations and308 consumed/zero rejected read receipts. No150ms
+preparation timeout occurs. However, the new census refuses on the original GT
+owner's100ms maintenance phase:120,907us since its last live check. The parent
+and aliases remain held; closing/full retirement are untested. The trial is
+REJECTED, with raw/photo/qualification and offline recovery/media proof banked.
+Next maintain the original GT through existing fresh guarded checks at safe
+reset boundaries, preserving its callback table and every original deadline.
+See the [unit result](machines/macbookair7-2.md#native-sealed-read-reset-completes-gt-maintenance-check-refuses).
