@@ -14,6 +14,18 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_gt_bootstrap_dedicated_stage_and_original_recipe(self):
+        version='ram-usb-v1-intel-gt-bootstrap-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-gt-bootstrap/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_gt_bootstrap=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-gt-bootstrap/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_gt_bootstrap import bootstrap_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(bootstrap_recipe(cmd),dict(volume='37d8c5d0',release=release));self.assertEqual(len(cmd.split()),15)
+
     def test_command_memory_dedicated_stage_and_original_recipe(self):
         version='ram-usb-v1-intel-command-memory-laptop-probe-37d8c5d0-auto-return'
         for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-ggtt-native/srvros.elf','intel-command-memory/srvros.elf','initramfs.tar'):
