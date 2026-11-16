@@ -14,7 +14,7 @@ RESET='''v stage reason complete registered retained uncertain epoch reset_attem
 CONTROL='v i prepare_first prepare_final prepare_polls before after cancel_first cancel_final cancel_polls'.split()
 
 
-def fields(line,prefix,keys,hexkeys=()):
+def fields(line,prefix,keys,hexkeys=(),versions=(1,)):
     if not line.startswith(prefix+' '):raise ValueError('Bootstrap prefix')
     result={}
     for word in line[len(prefix):].split():
@@ -23,7 +23,7 @@ def fields(line,prefix,keys,hexkeys=()):
         if not sep or k not in keys or k in result or not re.fullmatch(pattern,value):raise ValueError('Bootstrap field encoding')
         result[k]=int(value,16 if k in hexkeys else 10)
         if result[k]>=1<<64:raise ValueError('Bootstrap overflow')
-    if set(result)!=set(keys) or result['v']!=1:raise ValueError('Bootstrap schema')
+    if set(result)!=set(keys) or result['v'] not in versions:raise ValueError('Bootstrap schema')
     return result
 
 
@@ -62,23 +62,34 @@ def historical_view(text):
 def bootstrap_result(text,*,native=False):
     lines=[l for l in text.splitlines() if l.startswith('intel-bootstrap-')]
     if not lines:return None
-    allowed=('summary','binding','reset','retire','fence','control','pulse','pci','display','post-row','post-context','post-summary')
+    allowed=('summary','binding','reset','retire','admission','cost','fence','control','pulse','pci','display','post-row','post-context','post-summary')
     if any(l.split(':',1)[0] not in ['intel-bootstrap-'+k for k in allowed] for l in lines):raise ValueError('Bootstrap unknown receipt')
-    def one(kind,keys,hexkeys=()):
+    def one(kind,keys,hexkeys=(),versions=(1,)):
         selected=[l for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
         if len(selected)!=1:raise ValueError('Bootstrap '+kind+' coverage')
-        return fields(selected[0],'intel-bootstrap-'+kind+':',keys,hexkeys)
+        return fields(selected[0],'intel-bootstrap-'+kind+':',keys,hexkeys,versions)
     def rows(kind,keys,hexkeys=()):
         return [fields(l,'intel-bootstrap-'+kind+':',keys,hexkeys) for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
-    s=one('summary',SUMMARY,('root',));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
+    s=one('summary',SUMMARY,('root',),(1,2));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
     r=one('reset',RESET,('changed','restored'))
     retire=one('retire','v stage guard_begin guard_end return_begin return_end final_begin final_end'.split())
+    admission=None;cost=[]
+    if s['v']==2:
+        admission=one('admission','v issued consumed rejected active stage begin partial_begin'.split())
+        cost=rows('cost','v i calls total max'.split())
+        if [q['i'] for q in cost]!=list(range(5)):raise ValueError('Bootstrap cost coverage')
+        if admission['active']>1 or admission['stage']>5:raise ValueError('Bootstrap admission bounds')
+        if admission['consumed']>s['native_reads']+1 or admission['issued']>r['proofs']+1 or admission['rejected']>1:raise ValueError('Bootstrap admission counts')
+        if admission['partial_begin']<admission['begin'] or admission['partial_begin']>s['last']:raise ValueError('Bootstrap cost clocks')
+        for q in cost:
+            if q['calls']>s['cache_checks']+1 or q['max']>q['total'] or (not q['calls'] and (q['total'] or q['max'])) or q['total']>150000:raise ValueError('Bootstrap cost bounds')
+    elif any(l.startswith(('intel-bootstrap-admission:','intel-bootstrap-cost:')) for l in lines):raise ValueError('Bootstrap v1 admission receipt')
     fences=rows('fence','v i before after final'.split(),('before','after','final'))
     controls=rows('control',CONTROL,('prepare_first','prepare_final','before','after','cancel_first','cancel_final'))
     pulses=rows('pulse','v i first final polls'.split(),('first','final'))
     pci=rows('pci','v n i raw'.split(),('raw',));display=rows('display','v n p i raw'.split(),('raw',))
     boolean='complete failed blocked returned active full_before full_after post_bound'.split()
-    if s['state']>2 or s['reason']&~255 or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
+    if s['state']>2 or s['reason']&~(511 if s['v']==2 else 255) or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
         raise ValueError('Bootstrap owner range')
     if s['prepare_budget']!=150000 or s['obligations']!=255 or any(s[k] for k in ('managed_pages','pte_writes','hardware_ownership')):raise ValueError('Bootstrap false authority/policy')
     if s['prepared']>s['issued'] or s['issued']>5 or s['commands']>2 or s['pci_samples']>4 or s['pci_reads']>36 or s['guards']>20000 or s['alias_checks']>300000 or s['cache_checks']>20000:
@@ -93,7 +104,7 @@ def bootstrap_result(text,*,native=False):
         raise ValueError('Bootstrap PCI vector coverage')
     if [(q['n'],q['p'],q['i']) for q in display]!=[(n,k//13,k%13) for n,count in enumerate((b['display_before'],b['display_after'])) for k in range(count)]:raise ValueError('Bootstrap display vector coverage')
     if any(q[k]>=1<<32 for q in controls for k in ('prepare_first','prepare_final','before','after','cancel_first','cancel_final')) or any(q['raw']>=1<<32 for q in pci+display) or any(q['first']>=1<<32 or q['final']>=1<<32 for q in pulses):raise ValueError('Bootstrap DWORD width')
-    kinds=['summary','binding','reset','retire']+['fence']*32+['control']*5+['pulse']*2+['pci']*len(pci)+['display']*len(display)
+    kinds=['summary','binding','reset','retire']+(['admission']+['cost']*5 if s['v']==2 else [])+['fence']*32+['control']*5+['pulse']*2+['pci']*len(pci)+['display']*len(display)
     actual=[l.split(':',1)[0].removeprefix('intel-bootstrap-') for l in lines if not l.startswith('intel-bootstrap-post-')]
     if actual!=kinds:raise ValueError('Bootstrap receipt order')
     view=historical_view(text)
@@ -132,6 +143,9 @@ def bootstrap_result(text,*,native=False):
         count=changed.bit_count()
         if (r['changed'],r['restored'],r['writes'],r['reads'])!=(changed,changed,7+3*count,308+2*count+sum(q['polls']-1 for q in pulses)+sum(q['cancel_polls']-1 for q in controls)):
             raise ValueError('Bootstrap derived reset counts')
+        if admission:
+            if s['guards']<r['proofs'] or admission['active'] or admission['rejected'] or admission['stage']!=5 or admission['consumed']!=r['reads'] or admission['issued']!=r['proofs']:raise ValueError('Bootstrap completed admission lifetime')
+            if any(q['calls']!=s['guards'] for q in cost) or sum(q['total'] for q in cost)>s['end']-s['begin']:raise ValueError('Bootstrap completed cost accounting')
         if s['native_reads']!=r['reads']+5+sum(q['prepare_polls'] for q in controls) or s['native_writes']!=r['writes']+5 or s['alias_checks']!=15*s['guards'] or s['cache_checks']!=s['guards'] or r['proofs']<2*(r['reads']+r['writes']):raise ValueError('Bootstrap native adapter counts')
         for q in controls:
             if not 1<=q['prepare_polls']<=256 or not 1<=q['cancel_polls']<=256 or q['prepare_final']&65535!=3 or q['before']&65535!=3 or q['after']&65535 or q['cancel_final']&3 or q['prepare_first']&~0xffff0003 or q['cancel_first']&~0xffff0003:
@@ -158,7 +172,7 @@ def bootstrap_result(text,*,native=False):
     owner_complete=complete
     complete=bool(owner_complete and entry and entry['complete'] and post and post['observation_complete'])
     if entry and entry['wake']['summary']['complete'] and not complete:raise ValueError('Bootstrap false enclosing completion')
-    return dict(version=1,owner_complete=owner_complete,complete=complete,native_complete=bool(native and complete and entry['native_complete']),summary=s,
+    return dict(version=s['v'],admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,
                 hardware_ownership=False,managed_pages=0,physical_tearfree=False,
                 scope='one original full-GT reset/fence restoration/new engine epoch; DMA/cache/all-reader authority unproved')

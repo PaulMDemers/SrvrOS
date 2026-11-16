@@ -182,7 +182,7 @@ class RunnerTests(unittest.TestCase):
         import device_workflow
         (self.repo / 'build').mkdir()
         atomic(self.runner.store / 'unit.json', self.unit)
-        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37'):
+        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v40'):
             argv = ['device_workflow.py', 'new', 'combined', '--profile',
                     trial_profile, '--question', 'Complete original hold?',
                     '--expected', 'Exact retirement']
@@ -194,6 +194,17 @@ class RunnerTests(unittest.TestCase):
             create.assert_called_once_with('combined', self.unit, 'Complete original hold?',
                     'Exact retirement', jobs=None, trial_profile=trial_profile)
             self.assertEqual(self.runner.effects, [])
+
+    def test_full_gt_v40_freezes_wire2_and_v39_is_historical(self):
+        runner=FixtureRunner(self.repo,self.root/'v40-store')
+        unit=dict(self.unit,model='MacBookAir7,2')
+        jobs=dict(development=[self.job],qualification=[self.job])
+        with self.assertRaisesRegex(ValueError,'historical'):
+            runner.create('obsolete',unit,'Original lifetime?','Complete retirement',jobs=jobs,trial_profile='intel-gt-bootstrap-v39')
+        runner.create('sealed',unit,'Original lifetime?','Complete retirement',jobs=jobs,trial_profile='intel-gt-bootstrap-v40')
+        _,manifest,state=runner.load('sealed')
+        self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-gt-bootstrap-v40',2,'NEW'))
+        self.assertEqual(runner.effects,[])
 
     def test_complete_prepare_is_resumable_and_does_not_reboot(self):
         self.runner.advance('candidate')

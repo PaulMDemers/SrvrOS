@@ -3,6 +3,7 @@
  * cooperation is an explicit boot policy, not an inference about SMM/DMA. */
 #include <srvros/intel_bdw_gt_bootstrap.h>
 #include <srvros/intel_pci_requester.h>
+#include <stddef.h>
 static struct {
  const void *object;
  struct wake_adapter *a;
@@ -21,6 +22,19 @@ static struct {
  uint32_t display[2][3][13],display_counts[2],display_samples;
  bool blocked,full_before,full_after,post_bound,returned,complete,failed;
 } gt_bootstrap_native;
+/* Receipt is data only; never a copied live ownership object. Valid only for
+ * one immediate read across the trusted protocol's one clock-only callback. */
+static struct {
+ unsigned char bytes[sizeof(struct intel_bdw_gt_bootstrap)];
+ uint64_t last,clock;
+ unsigned proofs,attempts,samples,issued,consumed,rejected;
+ bool active;
+} bootstrap_admission;
+static struct {
+ uint64_t total[5],maximum[5],start,begin;
+ unsigned calls[5],stage;
+} bootstrap_cost;
+_Static_assert(sizeof(bootstrap_admission.bytes)<=1792,"bounded native admission snapshot");
 static struct intel_capture_result bootstrap_owned_capture;
 static const uint32_t bootstrap_controls[5]={0x20d0,0x120d0,0x1a0d0,0x1c0d0,0x220d0};
 static bool bootstrap_fail(unsigned reason) {
@@ -123,15 +137,29 @@ static bool bootstrap_after_return(void) {
  * UC alias and complete CPU cache context. Full GGTT/display/fence equality is
  * independently required before entry and after exact restoration. No GPU
  * completion authority is inferred during the deliberately transient state. */
+static bool bootstrap_cost_end(unsigned i) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_bootstrap_cost_boundary(i);
+#endif
+ if(!bootstrap_tick())return false;
+ uint64_t elapsed=gt_bootstrap_native.last-bootstrap_cost.start;
+ bootstrap_cost.total[i]+=elapsed;++bootstrap_cost.calls[i];
+ if(elapsed>bootstrap_cost.maximum[i])bootstrap_cost.maximum[i]=elapsed;
+ bootstrap_cost.start=gt_bootstrap_native.last;bootstrap_cost.stage=i+1;return true;
+}
 static bool bootstrap_guard(void) {
+ bootstrap_admission.active=false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_bootstrap_boundary();
 #endif
  if(!bootstrap_parent() || !bootstrap_tick() || !wake_irq_off() || trial_mapping_fault ||
- vmm_current_address_space()!=gt_bootstrap_native.root || !joint_fast() ||
- !intel_boot_check(INTEL_BOOT_OBSERVER,gt_bootstrap_native.a->fw.gt.a.common.gpu))return bootstrap_fail(4);
+ vmm_current_address_space()!=gt_bootstrap_native.root)return bootstrap_fail(4);
+ bootstrap_cost.begin=bootstrap_cost.start=gt_bootstrap_native.last;bootstrap_cost.stage=0;
+ if(!joint_fast() || !intel_boot_check(INTEL_BOOT_OBSERVER,gt_bootstrap_native.a->fw.gt.a.common.gpu))return bootstrap_fail(4);
+ if(!bootstrap_cost_end(0))return false;
  struct intel_backing_endpoint endpoint;
  if(!backing_endpoint(&gt_bootstrap_native.a->fw.gt.a,&endpoint) || !trial_endpoint_same(&endpoint))return bootstrap_fail(4);
+ if(!bootstrap_cost_end(1))return false;
  struct x86_cache_snapshot cache;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  bool cache_ok=intel_display_test_bootstrap_cache(&cache);
@@ -140,6 +168,7 @@ static bool bootstrap_guard(void) {
 #endif
  ++gt_bootstrap_native.cache_checks;
  if(!cache_ok || !x86_cache_equal(&cache,&gt_bootstrap_native.cache))return bootstrap_fail(8);
+ if(!bootstrap_cost_end(2))return false;
  for(unsigned i=0;i<WAKE_MAPS;i++) {
   unsigned m,p,e;struct vmm_alias_observation alias;struct vmm_range_observation range;
   uint64_t physical=result.mmio_base+wake_pages[i];
@@ -155,6 +184,7 @@ static bool bootstrap_guard(void) {
    alias.writable!=(unsigned)writable || alias.user || !alias.no_execute || alias.leaf_sizes!=1 ||
    !x86_cache_page(&cache,physical,alias.pat_index,&m,&p,&e) || m || e)return bootstrap_fail(8);
  }
+ if(!bootstrap_cost_end(3))return false;
  ++gt_bootstrap_native.guards;
  if(!engine_requesters(gt_bootstrap_native.a))return bootstrap_fail(16);
  const struct pci_device *gpu=gt_bootstrap_native.a->fw.gt.a.common.gpu;
@@ -182,7 +212,7 @@ static bool bootstrap_guard(void) {
    if(words[i]!=value || !intel_pci_requester_prefix(words,i+1) || (i==8 && words[i]))return bootstrap_fail(16);
   }
  }
- return bootstrap_tick();
+ return bootstrap_cost_end(4);
 }
 static bool bootstrap_pci(unsigned n) {
  if(n!=gt_bootstrap_native.pci_samples || n>=4 || !bootstrap_guard())return false;
@@ -292,15 +322,67 @@ static bool bootstrap_display(unsigned n) {
  }
  (void)offsets;++gt_bootstrap_native.display_samples;return bootstrap_guard();
 }
+static bool bootstrap_core_io(void);
 static bool bootstrap_proof(void *ctx,const struct bdw_boot_source *source,struct bdw_boot_proof *out) {
  if(ctx!=&gt_bootstrap_native || source!=&gt_bootstrap_native.source || !out || !bootstrap_guard() ||
- gt_bootstrap_native.command_writes!=1 || gt_bootstrap_native.prepared!=5)return false;
+ gt_bootstrap_native.command_writes!=1 || gt_bootstrap_native.prepared!=5 || !bootstrap_core_io())return false;
  *out=(struct bdw_boot_proof){source,gt_bootstrap_native.g,&gt_bootstrap_native,&gt_bootstrap_native.borrow,
   gt_bootstrap_native.root,gt_bootstrap_native.g->engine_epoch,1,gt_bootstrap_native.last,BDW_BOOT_REQUIRED};
+ const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
+ const unsigned char *bytes=(const unsigned char *)r;
+ for(unsigned i=0;i<sizeof(*r);i++)bootstrap_admission.bytes[i]=bytes[i];
+ bootstrap_admission.last=r->last;bootstrap_admission.proofs=r->proofs;
+ bootstrap_admission.attempts=r->read_attempts;bootstrap_admission.samples=0;
+ bootstrap_admission.clock=0;bootstrap_admission.active=true;++bootstrap_admission.issued;
  return true;
 }
+static bool bootstrap_receipt_field(unsigned offset,const void *value,unsigned bytes) {
+ const unsigned char *expected=value;
+ for(unsigned i=0;i<bytes;i++)if(bootstrap_admission.bytes[offset+i]!=expected[i])return false;
+ return true;
+}
+static bool bootstrap_read_receipt(void) {
+ struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_bootstrap_receipt_boundary();
+#endif
+ bool active=bootstrap_admission.active;bootstrap_admission.active=false;
+ if(!active || bootstrap_admission.samples!=1 ||
+ !bootstrap_receipt_field(offsetof(struct intel_bdw_gt_bootstrap,last),&bootstrap_admission.last,sizeof(r->last)) ||
+ !bootstrap_receipt_field(offsetof(struct intel_bdw_gt_bootstrap,proofs),&bootstrap_admission.proofs,sizeof(r->proofs)) ||
+ !bootstrap_receipt_field(offsetof(struct intel_bdw_gt_bootstrap,read_attempts),&bootstrap_admission.attempts,sizeof(r->read_attempts)) ||
+ r->last!=bootstrap_admission.clock || r->last<bootstrap_admission.last ||
+ bootstrap_admission.proofs==UINT32_MAX || r->proofs!=bootstrap_admission.proofs+1 ||
+ bootstrap_admission.attempts==UINT32_MAX || r->read_attempts!=bootstrap_admission.attempts+1)
+  goto refuse;
+ const unsigned char *bytes=(const unsigned char *)r;
+ for(unsigned i=0;i<sizeof(*r);i++) {
+  /* These are the ONLY trusted pure-core updates since prerequisite return.
+   * Every other byte (including vectors, source and callback tables) is sealed. */
+  if((i>=offsetof(struct intel_bdw_gt_bootstrap,last) && i<offsetof(struct intel_bdw_gt_bootstrap,last)+sizeof(r->last)) ||
+   (i>=offsetof(struct intel_bdw_gt_bootstrap,proofs) && i<offsetof(struct intel_bdw_gt_bootstrap,proofs)+sizeof(r->proofs)) ||
+   (i>=offsetof(struct intel_bdw_gt_bootstrap,read_attempts) && i<offsetof(struct intel_bdw_gt_bootstrap,read_attempts)+sizeof(r->read_attempts)))continue;
+  if(bytes[i]!=bootstrap_admission.bytes[i])goto refuse;
+ }
+ if(!bootstrap_parent() || !bootstrap_core_io() || !wake_irq_off() || !intel_hda_gpu_live(&joint.scope) || joint.h.uncertain || !joint.h.mapped ||
+ trial_mapping_fault || vmm_current_address_space()!=gt_bootstrap_native.root || !bootstrap_tick())goto refuse;
+ ++bootstrap_admission.consumed;return true;
+refuse:
+ ++bootstrap_admission.rejected;return bootstrap_fail(256);
+}
 static bool bootstrap_read(void *ctx,uint32_t offset,uint32_t *value) {
- return ctx==&gt_bootstrap_native && bootstrap_load(offset,value);
+ unsigned slot=bootstrap_slot(offset);
+ if(ctx!=&gt_bootstrap_native || !value || slot>=WAKE_MAPS || !bootstrap_read_receipt())return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ bool ok=intel_display_test_bootstrap_read(offset,value);
+#else
+ *value=*(volatile const uint32_t *)(WAKE_VA+4096*slot+(offset&4095));bool ok=true;
+#endif
+ if(ok)++gt_bootstrap_native.native_reads;
+ /* The unchanged core immediately rechecks its snapshot and performs a fresh
+  * full prerequisite admission AFTER this callback. No GPU access intervenes. */
+ return ok && bootstrap_parent() && wake_irq_off() && !trial_mapping_fault &&
+  vmm_current_address_space()==gt_bootstrap_native.root && bootstrap_tick();
 }
 static enum intel_gt_write bootstrap_write(void *ctx,uint32_t offset,uint32_t value) {
  return ctx==&gt_bootstrap_native?bootstrap_store(offset,value,false):GT_WRITE_NONE;
@@ -322,9 +404,20 @@ static bool bootstrap_preserved(void *ctx,const struct intel_bdw_gt_bootstrap *r
  gt_bootstrap_native.full_after=true;return bootstrap_guard();
 }
 static uint64_t bootstrap_now(void *ctx) {
- return ctx==&gt_bootstrap_native?now(gt_bootstrap_native.a):0;
+ if(ctx!=&gt_bootstrap_native)return 0;
+ uint64_t at=now(gt_bootstrap_native.a);
+ if(bootstrap_admission.active){++bootstrap_admission.samples;bootstrap_admission.clock=at;}
+ return at;
 }
 static void bootstrap_pause(void *ctx) {if(ctx==&gt_bootstrap_native)wake_pause(gt_bootstrap_native.a);}
+static bool bootstrap_core_io(void) {
+ const struct bdw_boot_io *io=&gt_bootstrap_native.reset.io,*old=&gt_bootstrap_native.reset.original_io;
+ return io->ctx==&gt_bootstrap_native && io->prerequisite==bootstrap_proof && io->read==bootstrap_read &&
+ io->write==bootstrap_write && io->advance_epoch==bootstrap_epoch && io->preserved==bootstrap_preserved &&
+ io->now==bootstrap_now && io->pause==bootstrap_pause && old->ctx==io->ctx &&
+ old->prerequisite==io->prerequisite && old->read==io->read && old->write==io->write &&
+ old->advance_epoch==io->advance_epoch && old->preserved==io->preserved && old->now==io->now && old->pause==io->pause;
+}
 static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(gt_bootstrap_native.object)return;
  gt_bootstrap_native.object=&gt_bootstrap_native;gt_bootstrap_native.a=a;gt_bootstrap_native.g=g;
@@ -396,7 +489,7 @@ fail:
 }
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
- console_printf("intel-bootstrap-summary: v=1 state=%u reason=%u complete=%u failed=%u blocked=%u returned=%u active=%u epoch_before=%u epoch_after=%u epoch_calls=%u begin=%u end=%u last=%u root=%x prepare_budget=%u prepared=%u issued=%u commands=%u pci_samples=%u pci_reads=%u guards=%u alias_checks=%u cache_checks=%u native_reads=%u native_writes=%u full_before=%u full_after=%u post_bound=%u clock=%u previous=%u obligations=255 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
+ console_printf("intel-bootstrap-summary: v=2 state=%u reason=%u complete=%u failed=%u blocked=%u returned=%u active=%u epoch_before=%u epoch_after=%u epoch_calls=%u begin=%u end=%u last=%u root=%x prepare_budget=%u prepared=%u issued=%u commands=%u pci_samples=%u pci_reads=%u guards=%u alias_checks=%u cache_checks=%u native_reads=%u native_writes=%u full_before=%u full_after=%u post_bound=%u clock=%u previous=%u obligations=255 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
   (uint64_t)gt_bootstrap_native.state,(uint64_t)gt_bootstrap_native.reason,(uint64_t)gt_bootstrap_native.complete,
   (uint64_t)gt_bootstrap_native.failed,(uint64_t)gt_bootstrap_native.blocked,(uint64_t)gt_bootstrap_native.returned,
   (uint64_t)gt_bootstrap_native.borrow.active,gt_bootstrap_native.epoch,
@@ -429,6 +522,11 @@ static void bootstrap_report(void) {
  console_printf("intel-bootstrap-retire: v=1 stage=%u guard_begin=%u guard_end=%u return_begin=%u return_end=%u final_begin=%u final_end=%u\n",
   (uint64_t)gt_bootstrap_native.closing,gt_bootstrap_native.guard_begin,gt_bootstrap_native.guard_end,
   gt_bootstrap_native.return_begin,gt_bootstrap_native.return_end,gt_bootstrap_native.final_begin,gt_bootstrap_native.final_end);
+ console_printf("intel-bootstrap-admission: v=1 issued=%u consumed=%u rejected=%u active=%u stage=%u begin=%u partial_begin=%u\n",
+  (uint64_t)bootstrap_admission.issued,(uint64_t)bootstrap_admission.consumed,(uint64_t)bootstrap_admission.rejected,
+  (uint64_t)bootstrap_admission.active,(uint64_t)bootstrap_cost.stage,bootstrap_cost.begin,bootstrap_cost.start);
+ for(unsigned i=0;i<5;i++)console_printf("intel-bootstrap-cost: v=1 i=%u calls=%u total=%u max=%u\n",
+  (uint64_t)i,(uint64_t)bootstrap_cost.calls[i],bootstrap_cost.total[i],bootstrap_cost.maximum[i]);
  for(unsigned i=0;i<32;i++)console_printf("intel-bootstrap-fence: v=1 i=%u before=%x after=%x final=%x\n",
   (uint64_t)i,r->fence_before[i],r->fence_after[i],r->fence_final[i]);
  for(unsigned i=0;i<5;i++)console_printf("intel-bootstrap-control: v=1 i=%u prepare_first=%x prepare_final=%x prepare_polls=%u before=%x after=%x cancel_first=%x cancel_final=%x cancel_polls=%u\n",

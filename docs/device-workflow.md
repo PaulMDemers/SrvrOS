@@ -3,7 +3,7 @@
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
 opt-in v36 VT-d drain, combined GGTT invalidation, v37 CPU command-memory and
 [v38 joined native admission](intel-command-ownership.md) and separate
-[v39 full-GT owner/epoch](intel-bdw-gt-bootstrap.md) trials. Only v38 and v39
+[v40 full-GT owner/epoch](intel-bdw-gt-bootstrap.md) trials. Only v38 and the full-GT profiles
 select a96KiB ring/save/raw collection bound; older profiles remain64KiB.
 These profiles are silent and automatic;
 it does not enable another model or turn a future GPU operation into an
@@ -305,7 +305,7 @@ general permission to discard unknown receipts or replace missing hardware rows.
 
 Future workspace snapshots omit only a partial leading line and preserve an
 exact-boundary first record and raw total-byte sequence. Ordinary/older images
-retain64KiB; the isolated v38 and v39 profiles use96KiB. Raw
+retain64KiB; the isolated v38 and full-GT profiles use96KiB. Raw
 bootlog byte APIs retain their existing semantics. Missing protocol/checkpoint
 records still refuse; a logging change never accepts a native lifetime by itself.
 The full suites still repeat their structural checks; no gate is skipped.
@@ -326,7 +326,13 @@ failed qualification or bypasses fresh media/recovery/1% checks.
 
 ## Separate full-GT owner and epoch trial
 
-The Air7,2-only `intel-gt-bootstrap-v39` profile selects the separate
+New v40 runs require version2 owner receipts with a single-use read-admission
+receipt and five measured guard-cost rows. Historical v39/version1 collection
+remains explicitly supported; new v39 creation refuses. Runtime/header/collector
+versions must match the frozen manifest. No legacy record is upgraded into a
+fresh live admission.
+
+The Air7,2-only `intel-gt-bootstrap-v40` profile selects the separate
 `--intel-gt-bootstrap` image and exact `srvros.intel-ring=gt-bootstrap-v1` recipe.
 It does not require or reuse the old nonzero/reset/VT-d source graph. Its
 version1 owner/reset receipts use wake wire37; these names are separate from
@@ -335,7 +341,7 @@ capability. Native acceptance is pending until the matching physical run passes.
 
 ```sh
 python3 tools/device_workflow.py new original-gt-bootstrap \
-  --profile intel-gt-bootstrap-v39 \
+  --profile intel-gt-bootstrap-v40 \
   --question 'Does this original full-GT owner restore all fences and retire with a fresh new-epoch census?' \
   --expected 'Two full pulses, exact fences/display/backing, fresh epoch, original clocks, complete parent retirement and clean media/recovery'
 python3 tools/device_workflow.py advance --run original-gt-bootstrap

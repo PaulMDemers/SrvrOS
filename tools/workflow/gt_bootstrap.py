@@ -16,7 +16,8 @@ def jobs(dependencies):
     prefix='test_intel_gt_bootstrap_native.Native.'
     quick=test('native-development',*[prefix+m for m in ('test_complete_original_owners_and_new_epoch',
         'test_recipe_preinit_and_profile_isolation','test_native_receiver_checkpoint_and_raw_preservation',
-        'test_receiver_mutations_cannot_promote_a_partial_or_changed_source')],timeout=300)
+        'test_receiver_mutations_cannot_promote_a_partial_or_changed_source',
+        'test_receipt_cost_and_historical_v1_are_separate','test_receipt_and_cost_clock_edges')],timeout=300)
     structural=test('workflow-structure','test_hardware_boot','test_hardware_desktop','test_device_workflow',
                     'test_intel_bdw_gt_bootstrap.Bootstrap.test_native_compiler_and_image_isolation',
                     'test_intel_ring_entry.EntryTests.test_two_routes_original_source_epoch_and_no_writer_inference',
@@ -28,6 +29,8 @@ def jobs(dependencies):
                         ('native-io','test_each_native_register_and_store_failure'),
                         ('native-cpu','test_cpu_cache_and_every_alias_attribute'),
                         ('native-pci','test_every_native_pci_read_float_stops_before_more_io'),
+                        ('native-receipts','test_single_use_receipts_reject_stale_mutated_and_expired_reads'),
+                        ('native-receipt-accounting','test_receipt_cost_and_historical_v1_are_separate'),
                         ('native-sanitizers','test_fatal_sanitizers'),
                         ('native-controls','test_compiled_native_weakening_controls'),
                         ('native-closure','test_completed_child_and_late_logical_return_cannot_release_physical_parent'),

@@ -5,6 +5,27 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
 
+## Native read-admission cost follow-up
+
+2026-11-16: follow-up to rejected423d retains the unchanged reset core and all
+150/300/400/500ms bounds. The native core-read callback consumes one immediate
+byte-sealed full prerequisite receipt, bound to the exact callback table,
+original physical parents/root/epoch and one trusted clock-only callback. Full
+admissions remain before and after each protocol read; preparation reads and
+writes keep their existing checks. Five measured guard components and strict
+version2 receipts use new workflowv40. About43% fewer full guards are modeled
+with unchanged I/O; this does not establish physical timing or retirement.
+Focused checks pass11 native weakening controls,428 packet mutations, receipt/
+component clock and late-return cases, actual2KiB native frames and200 structural/
+sanitizer tests. Full frozen qualification and a matching1% trial remain next.
+
+EFI space was reclaimed by retiring only installed8380 (152,933,745bytes), which
+was neither current/recovery/protected nor referenced by GRUB/firmware. Its full
+payload bank and all accepted raw bytes/hash/proof remain outside build. Current
+423d, recovery9aa8 and acceptedf0a8 are retained and reverified; private unit and
+GRUB/state bytes are unchanged, no one-shot armed. A separate cleanup ledger
+records the exact action. Other protected payloads were independently rechecked.
+
 ## Native full-GT bootstrap preparation timeout
 
 2026-11-16: final source `d24b1ddde65eb2dde12ab82800401764cdd09822`, release

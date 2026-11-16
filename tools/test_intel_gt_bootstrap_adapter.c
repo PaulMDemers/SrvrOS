@@ -16,10 +16,12 @@ static bool intel_display_test_bootstrap_expected(void);
 static bool intel_display_test_bootstrap_display(unsigned,unsigned,uint32_t *);
 static bool intel_display_test_bootstrap_clock(uint64_t *);
 static void intel_display_test_bootstrap_final_boundary(void);
+static void intel_display_test_bootstrap_receipt_boundary(void);
+static void intel_display_test_bootstrap_cost_boundary(unsigned);
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
-static unsigned fault_at,first_native_pci;
+static unsigned fault_at,first_native_pci,receipt_calls,cost_calls;
 static bool hit,preserve_fences;
 static unsigned fault_writes,fault_commands;
 static uint32_t control[5];
@@ -169,6 +171,27 @@ static void intel_display_test_bootstrap_final_boundary(void) {
  if(bf("final-over",1))ticks=gt_bootstrap_native.begin+150000;
  if(bf("final-epoch",1))gt_bootstrap_native.g->engine_epoch++;
 }
+static void intel_display_test_bootstrap_cost_boundary(unsigned phase) {
+ assert(phase<5);++cost_calls;
+ if(bf("cost-zero",cost_calls))ticks=UINT64_MAX;
+ if(bf("cost-back",cost_calls))ticks=gt_bootstrap_native.last-2;
+ if(bf("cost-over",cost_calls))ticks=gt_bootstrap_native.begin+150000;
+}
+static void intel_display_test_bootstrap_receipt_boundary(void) {
+ ++receipt_calls;
+ if(bf("ticket-empty",receipt_calls))bootstrap_admission.active=false;
+ if(bf("ticket-samples",receipt_calls))bootstrap_admission.samples++;
+ if(bf("ticket-clock",receipt_calls))bootstrap_admission.clock++;
+ if(bf("ticket-proof",receipt_calls))bootstrap_admission.proofs++;
+ if(bf("ticket-attempt",receipt_calls))bootstrap_admission.attempts++;
+ if(bf("ticket-state",receipt_calls))gt_bootstrap_native.reset.index++;
+ if(bf("ticket-zero",receipt_calls))ticks=UINT64_MAX;
+ if(bf("ticket-back",receipt_calls))ticks=gt_bootstrap_native.last-2;
+ if(bf("ticket-over",receipt_calls))ticks=gt_bootstrap_native.begin+150000;
+ if(receipt_calls==1 && bf("ticket-byte",fault_at)) {
+  assert(fault_at<sizeof(bootstrap_admission.bytes));bootstrap_admission.bytes[fault_at]^=1;
+ }
+}
 static __attribute__((noinline)) void bootstrap_churn_stack(void) {
  volatile unsigned char bytes[65536];
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(unsigned char)(i*19+7);
@@ -208,8 +231,8 @@ int main(int argc,char **argv) {
    if(r->object && !r->complete)assert(r->registered && r->retained);
   }
  }
- printf("native-bootstrap-fixture: boundaries=%u cache=%u aliases=%u reads=%u writes=%u commands=%u pci=%u pulses=%u hit=%u complete=%u first_pci=%u\n",
-  boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,hit,gt_bootstrap_native.complete,first_native_pci);
+ printf("native-bootstrap-fixture: boundaries=%u cache=%u aliases=%u reads=%u writes=%u commands=%u pci=%u pulses=%u hit=%u complete=%u first_pci=%u tickets=%u seal_bytes=%u cost_clocks=%u\n",
+  boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,hit,gt_bootstrap_native.complete,first_native_pci,receipt_calls,(unsigned)sizeof(bootstrap_admission.bytes),cost_calls);
  printf("native-bootstrap-phases:");for(unsigned i=0;i<=BDW_BOOT_FAULT;i++)printf(" %u=%u",i,phase_points[i]);puts("");
  return code;
 }

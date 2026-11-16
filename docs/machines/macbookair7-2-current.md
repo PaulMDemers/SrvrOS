@@ -8,6 +8,18 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Active follow-up (base2aa8bc5f; fetched main4016abf0): reduce duplicate nested
+read admissions using a single-use, byte-sealed protocol receipt. Keep full
+resource/cache/alias/requester admission before and after every hardware read,
+all write admissions, original clocks and late-return retention. Scope is the
+separate native adapter, its cost/receipt collector, host models and workflow;
+no legacy reset core or hardware gate is widened. The model and focused checks pass single-use/byte-sealed admissions, component
+clock faults,11 compiled controls,428 packet mutations, historical separation
+and200 native-build/structure/sanitizer checks. About43% fewer full guards are
+modeled with unchanged I/O; physical timing remains untested. New v40 freezes
+version2 timing/receipt data. Full qualification precedes the new1% trial.
+PR301 owns this bounded work; independent PR19/379 remain separate.
+
 Latest original full-GT trial is **rejected for preparation timeout**: frozen
 source `d24b1ddd`, release `423dc0ae7ced8256`, session
 `session-0006606a46c77ab0-00`. All18 local workflow checks and both exact-stage
@@ -24,8 +36,9 @@ The complete57,994-byte exit log/checkpoint chain and all three raw files verify
 Offline filesystem/allocation/writable/headroom and prior-file preservation pass;
 recovery, Ubuntu default and consumed one-shot verify. Failed raw/photo/review and
 qualification are banked outside build. The run is closed REJECTED; no trial is
-armed. Current is423d diagnostic, recovery9aa8 and prior8380 remain installed and
-independently banked; acceptedf0a8 remains retained. Next measure/coalesce repeated
+armed. Current is423d diagnostic, recovery9aa8 and acceptedf0a8 remain installed and
+independently banked. The older8380 installed copy was retired after exact bank
+and accepted-raw verification; its full bank and acceptance remain outside build. Next measure/coalesce repeated
 nested admission costs without removing fresh checks or extending deadlines.
 The [full owner/epoch contract](../intel-bdw-gt-bootstrap.md#original-native-owner-and-new-epoch)
 records implementation; all255 GPU memory/completion obligations remain open.

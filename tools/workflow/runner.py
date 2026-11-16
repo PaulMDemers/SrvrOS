@@ -41,12 +41,12 @@ def code_inputs(repo):
     return [pattern for pattern in INPUTS if glob.glob(str(Path(repo) / pattern), recursive=True)]
 
 
-PROFILES = {'intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
+PROFILES = {'intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
 
 def trial_parsers(name):
-    if name == 'intel-gt-bootstrap-v39':
+    if name in ('intel-gt-bootstrap-v39','intel-gt-bootstrap-v40'):
         from intel_gt_bootstrap import bootstrap_recipe,bootstrap_result,verify_bootstrap_checkpoint
         return bootstrap_recipe,lambda text:bootstrap_result(text,native=True),verify_bootstrap_checkpoint
     if name == 'intel-source-audit-v35':
@@ -60,7 +60,7 @@ def trial_parsers(name):
 def profile(repo, name='intel-source-audit-v35'):
     trial_parsers(name)
     dependencies = code_inputs(repo)
-    if name == 'intel-gt-bootstrap-v39':
+    if name in ('intel-gt-bootstrap-v39','intel-gt-bootstrap-v40'):
         from workflow.gt_bootstrap import jobs
         return jobs(dependencies)
     # All support fixtures are built once. Full qualification still runs every
@@ -241,12 +241,14 @@ class Runner:
         if not question.strip() or not expected.strip():
             raise ValueError('A hardware question and expected result are required')
         trial_parsers(trial_profile)
+        if trial_profile=='intel-gt-bootstrap-v39':
+            raise ValueError('v39 is historical; use intel-gt-bootstrap-v40 for sealed read admission')
         if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37','intel-command-ownership-v38') and (config['model'] != 'MacBookAir7,2' or not (self.repo / VTD_FIXTURE).is_file()):
             raise ValueError('v36 requires this Air7,2 unit and its captured local DMAR fixture')
         if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37','intel-command-ownership-v38'):
             from intel_vtd_native import _table
             _table((self.repo / VTD_FIXTURE).read_bytes())
-        if trial_profile == 'intel-gt-bootstrap-v39' and config['model'] != 'MacBookAir7,2':
+        if trial_profile in ('intel-gt-bootstrap-v39','intel-gt-bootstrap-v40') and config['model'] != 'MacBookAir7,2':
             raise ValueError('Full-GT bootstrap requires this independently captured Air7,2 profile')
         jobs = jobs or profile(self.repo, trial_profile)
         for level in ('development', 'qualification'):
@@ -263,7 +265,7 @@ class Runner:
         inputs = code_inputs(self.repo)
         if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37','intel-command-ownership-v38'):
             inputs.append(VTD_FIXTURE)
-        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=1 if trial_profile=='intel-gt-bootstrap-v39' else 6 if trial_profile=='intel-command-ownership-v38' else 5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
+        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=2 if trial_profile=='intel-gt-bootstrap-v40' else 1 if trial_profile=='intel-gt-bootstrap-v39' else 6 if trial_profile=='intel-command-ownership-v38' else 5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
                         expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                         branch=command(['git', 'branch', '--show-current'], self.repo),
                         submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),

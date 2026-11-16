@@ -188,6 +188,44 @@ repeat the already-known missing ownership grant. After native bootstrap,
 exact interval and DMA/cache/reader ownership are still prerequisites of the
 [GPU mapping transaction](intel-command-mapping.md).
 
+## Single-use read admission and measured guard costs
+
+The follow-up keeps the protocol core unchanged. Its load path already brackets
+every read callback with full prerequisite admissions. The native callback now
+consumes that immediate pre-read admission once, instead of repeating both full
+admissions inside the callback. Standalone preparation reads and all write
+admissions remain unchanged. This is confined to the exact CPU0/pre-init image:
+IRQs and other aperture clients remain excluded, and only the known clock
+callback and pure protocol bookkeeping occur between admission and read.
+
+The receipt holds snapshot bytes, never a copied live ownership object. It binds
+the original core/source/parent/root/epoch and exact native callback table. The
+callback checks the whole snapshot; only one proof increment, one read-attempt
+increment and the exact one returned clock sample may differ. Original borrowed
+GT/HDA exclusion, root and every original deadline are checked again before the
+read. The receipt is consumed before access and invalidated by another full
+admission. A stale, replayed, extra-clock, modified-byte, replaced-table or
+expired receipt cannot become an alternative admission. The unchanged core
+checks its own callback snapshot and performs a fresh full post-read admission
+before any subsequent GPU operation. No GPU completion assurance follows.
+
+The full guard retains resource, CPU cache, every actual alias and requester/AF
+checks. Five validated-clock cost counters separate original HDA/boot admission,
+backing endpoint, cache context, fifteen aliases and requester/AF. They retain
+calls, total and maximum duration plus the current incomplete stage; closing
+still separately measures guard, borrow return and final guard. Cost sampling is
+charged to the existing150/300/400/500ms deadlines. No bound is extended.
+
+Native summary version2 requires a single admission receipt and exactly five
+cost rows. Explicit historical version1 parsing remains unchanged and does not
+invent the new records. New workflow `intel-gt-bootstrap-v40` freezes wire2;
+v39 is historical and cannot start a new run from this source. Wake version37,
+the exact boot recipe, fifteen UC/NX aliases and96KiB selected logging remain.
+The model performs the same register reads/stores with about43% fewer full
+guards; native timing and full retirement require a new physical trial. Tests
+cover every receipt byte, single-use/clock/counter faults, component-clock edges,
+compiled weakening controls and original failure/closing retention.
+
 ## First native original-owner result
 
 Air7,2 source `d24b1ddd` / release `423dc0ae7ced8256` passed all18 frozen local
