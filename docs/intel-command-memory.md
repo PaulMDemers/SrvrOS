@@ -3,7 +3,9 @@
 The separately selected `intel-command-memory-v37` diagnostic prepares private
 RAM for a Broadwell blitter ring, context storage and completion page. It owns
 the backing and actual CPU mappings through the original GPU diagnostic, then
-checks preservation and retirement. Native acceptance remains pending.
+checks preservation and retirement. One original kind2 Air7,2 lifetime is
+[accepted](machines/macbookair7-2.md#native-private-command-memory-accepted) on
+`4864ad3a` / `838082d16f6be16d`; enabled route and repeatability remain pending.
 
 This is the backing/mapping prerequisite for the
 [BCS completion protocol](intel-bdw-bcs-flush.md). It does not initialize an
@@ -78,3 +80,27 @@ The unattended Air7,2 trial uses its own USB UUID and retained Ubuntu recovery,
 saves progress/results, returns automatically when safe, and halts visibly on
 uncertain retirement. Volume is1%. Only matching collected native evidence may
 accept this CPU-owned arena; all GPU ownership/tear-free claims remain false.
+
+## Native Air7,2 result and log framing
+
+The accepted session owns four CPU-mapped pages through the full original
+remapper/GGTT lifetime. Initialization64us, held observation118us and closing
+preservation/alias retirement65us pass; four pages release once and DMA61→61
+balances. Original preparation and return take103,671/150,000us. The accepted
+scope includes zeroed context storage, not an executable LRC or GPU mapping.
+
+The raw final log reached its64KiB ring bound and began inside the initial
+command line. The normal reader rejected that fragment as an unknown GT receipt.
+Reviewed collection recovered only311 known preamble/command-line bytes from
+the complete preflight checkpoint, with39,456 exact overlapping bytes and
+terminal snapshot sequence/length checks. All hardware bytes and strict validators
+remain unchanged; raw files, rejected collection state, helper/tests and accepted
+proof are preserved. Changed overlap, bad/duplicate footers and hardware packet
+mutations refuse. This review is recorded separately from frozen qualification.
+
+Future workspace snapshots start at a complete line, retaining the original
+64KiB limit and total-byte sequence. Exact line boundaries keep their first
+record; only a partial leading line is omitted. Raw bootlog snapshot/dump APIs
+retain byte-exact semantics. Missing hardware records remain failures. The new
+framing has host wrap/boundary/fault and native compiler validation, without
+claiming physical acceptance of a new runtime or altering past raw logs.

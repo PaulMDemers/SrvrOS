@@ -291,4 +291,17 @@ GPU diagnostic and fully retired afterward. Neither CPU alias ownership nor
 zeroed context storage grants a GPU mapping, executable LRC or submission.
 The selected150/300/400/500ms original bounds remain unchanged. Only matching
 native collection and independent media/recovery review can accept that lifetime.
+
+Air7,2 now has one [accepted original kind2 CPU arena lifetime](machines/macbookair7-2.md#native-private-command-memory-accepted)
+on4864ad3a/838082d16f6be16d, after33 frozen host gates and both exact-stage VMs.
+Its original final log clipped a boot-command-line prefix at the64KiB bound.
+Acceptance records an explicit reviewed view with exact complete-checkpoint
+overlap and snapshot sequence/length checks; raw files and all hardware receipts
+remain unchanged. The original collection refusal is retained. This is not a
+general permission to discard unknown receipts or replace missing hardware rows.
+
+Future workspace snapshots omit only a partial leading line and preserve an
+exact-boundary first record, the64KiB cap and raw total-byte sequence. Raw
+bootlog byte APIs retain their existing semantics. Missing protocol/checkpoint
+records still refuse; a logging change never accepts a native lifetime by itself.
 The full suites still repeat their structural checks; no gate is skipped.

@@ -8,73 +8,44 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active bounded block (base `c8967e50`, main `4016abf0` freshly inspected): implement
-typed private command-memory ownership for ring, context storage and completion,
-with actual allocator-backed CPU mappings, initialization, original-source lease
-and exact retirement. Integrate a separate native preparation image/receipt and
-workflow so the first trial proves real CPU-owned backing/mappings held through
-the original GPU diagnostic and clean return. Scope: diagnostic owner/core,
-separate native adapter, host fixture, stage/receiver/workflow and guides. GPU
-GGTT address-space authority remains a distinct prerequisite; this trial does
-not submit an inherited ring, write GPU PTEs or claim an executable LRC context.
-All original150/300/400/500ms native clocks/checks remain. Run full local and
-exact-stage VM gates, preserve recovery/evidence, then automatically reboot at1%
-under the user's current authorization. PR19/379 remain independent; no other
-task or subagent is contacted.
+Latest bounded graphics milestone is **accepted private CPU command-memory
+ownership**, runtime `4864ad3a`, release `838082d16f6be16d`, session
+`session-0006605b86e107d4-00`. All33 frozen host gates and both exact-stage VMs
+passed. Four private pages for ring, two-page context storage and completion
+have actual supervisor writable/NX4KiB WB CPU aliases, remain held through the
+original remapper/GGTT child and complete parent retirement, preserve all16KiB,
+and retire exactly once. Four aliases/pages release,2048 QWords verify and
+command DMA61→61 balances; original2,712 pages release with DMA65→65.
+Storage initialization64us, held child118us and cleanup65us pass. Original
+preparation/verified return is103,671/150,000us, leaving46,329us; closing guard7us
+and borrow return3,168us. Original300/400/500ms parent bounds remain unchanged.
 
-Latest command-memory trial is **rejected**: source `0df3a9f1`, release
-`f2c10a290260b219`, session `session-0006605acba9ee9d-00`. All31 host gates and
-both exact-stage VMs passed, but native preparation allocated/mapped four pages
-and initialized16KiB before its first CPU alias/cache observation refused
-(state6/reason4; zero accepted observations). No original GPU parent, command
-or PTE operation started. The arena's four pages/aliases stayed pinned, so the
-guest intentionally halted after saving/unmounting; the user restarted it.
-Collection and offline integrity pass; exact raw/photo and31-gate receipts are
-sealed outside build. This is no native arena or GPU acceptance.
+All1,554 prior files preserve except expected metadata; exactly three logs yield
+1,557files/175sessions. Offline filesystem/allocation/writable/headroom, unchanged
+boot digest, installed/banked recovery, Ubuntu default and consumed one-shot
+verify. The log's64KiB tail clipped311 boot-preamble/command-line bytes. An
+explicit reviewed collector view recovered only those bytes from the complete
+preflight checkpoint, matching39,456 overlapping bytes exactly; every hardware
+receipt and raw file stayed unchanged. All original strict native/checkpoint
+validators and mutation tests pass. Original rejection, migration scripts/tests,
+raw/qualification and reviewed acceptance are sealed outside build. See the
+[dated result](macbookair7-2.md#native-private-command-memory-accepted).
 
-The caller invoked the VMM's IRQ-masked sole-root walker from preparation with
-interrupts enabled. Correct only the caller: briefly mask/restore the incoming
-IRQ state for initial cache capture and each fresh cache/alias observation,
-including final cleanup; preserve the enclosing masked child and all VMM checks.
-Add actual-adapter enabled/masked nesting and failure-restoration coverage;
-the shared host IRQ stub must model nesting accurately. Repeat local/native-frame
-and exact-stage qualification before another automated1% trial. Deadlines and
-GPU permissions remain unchanged; uncertain ownership still halts visibly.
+This accepts one original kind2 CPU backing/mapping lifetime. GPU address-space
+ownership, executable LRC initialization, cache visibility and native submission
+remain next prerequisites; no inherited ring is submitted and all255 GPU
+obligations, zero positive assurances/managed GPU pages and native tear-free
+pending remain. Enabled route and repeatability are not accepted. Current8380,
+recovery9aa8 retained; USB unmounted and no trial outstanding. Main4016 and
+independent PR19/379 are unchanged; no other task/subagent is contacted.
 
-The caller correction passes all11 new-owner methods (422 faults, fatal
-sanitizers, compiled controls, exact clocks, raw/collector/image checks and
-incoming IRQ nesting),158 focused legacy route/staging/workflow checks and the
-actual VMM alias walker's exclusion/permission/fault matrix. The native image
-build retains2KiB frame checks. A fresh33-gate run adds an independent actual-VMM
-contract gate and unchanged failed-native wire5 replay to the prior31 gates;
-all original qualification and exact-stage VM paths remain mandatory. Current
-is restored to accepted4512, recovery9aa8 retained. Failedf2 is losslessly
-archived with per-file roundtrip checks; only its obsolete stage/bank/EFI copies
-are removed, leaving the rejected raw/photo/proof bank intact. No retry armed yet.
-
-The separate [CPU command-memory owner](../intel-command-memory.md) now passes
-422 modeled native-adapter faults, strict64-field receipts/checkpoints and the
-original clock endpoints. Native image/frame checks verify writable/NX aliases
-and absence of the BCS submission core. The full sanitizer/weakening suites,
-legacy acceptance replays and exact-stage VMs will be rerun against the frozen
-candidate before the automated1% trial. Original retirement is checked again
-immediately before freeing backing. No native arena acceptance is claimed yet.
-
-The first frozen command-memory run stopped at host staging before install/arm:
-the source-audit selector allowlist omitted the derived command-memory flag.
-Its ten development gates passed, including fresh sanitizer suites; it is
-cancelled and preserved, with no native result or reused receipts. The explicit
-allowlist correction now has a positive dedicated-image/recipe staging test.
-A new clean-source31-gate run will repeat all gates and both exact-stage VMs
-before the authorized automated1% reboot. Kernel behavior and clocks are unchanged.
-
-The subsequent exact-stage VM safely refused native hardware preflight, but
-its strict reader rejected an empty command owner carrying a cleanup DMA count.
-That run is cancelled before install/arm; raw VM evidence remains rejected.
-Cleanup now leaves an unstarted owner completely untouched, tested through the
-actual adapter and strict non-completion reader. Fresh qualification and both
-exact-stage VM paths must pass on the corrected source before the1% trial;
-no reader relaxation, hardware gate or deadline change is used.
+The preceding0df3/f2 trial remains rejected: an unmasked first alias observer
+refused before the original GPU parent started, retaining four pages. Its raw/
+photo/proof bank remains intact. The4864 caller correction masks/restores the
+incoming IRQ state and the host fixture models nesting; neither VMM checks nor
+deadlines were weakened. Future workspace snapshots now omit only an incomplete
+leading line while keeping the64KiB cap and raw-byte API unchanged. That framing
+fix is host/native-compiler validated separately, not new physical acceptance.
 
 Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
 isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)
@@ -89,7 +60,7 @@ first independently own those resources and their initialization/retirement.
 Existing remapper/GGTT acceptance and all original hardware gates remain.
 PR19/379 are independent; no other task or subagent is contacted.
 
-Latest graphics acceptance is **one original kind2 combined remapper drain and
+The preceding graphics acceptance is **one original kind2 combined remapper drain and
 System Agent GGTT invalidation lifetime**: runtime `fe3919ec`, release
 `451221606bdf74f7`, session `session-0006605896ca2c5f-00`. All26 frozen host gates
 and both exact-stage VMs passed before the unattended1% trial. Strict version4

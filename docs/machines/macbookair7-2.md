@@ -5,13 +5,64 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-15. State: **active reference machine; partial device acceptance**.
 
-Current work: the combined native remapper/System Agent invalidation and full
-diagnostic retirement result is published below. Remaining DMA/prefetch, GPU
-pipeline/cache/per-engine translation and firmware/display-reader ownership must
-still precede a private GPU mapping. See the
-[protocol contract](../intel-ggtt-invalidation.md). Integration base
-`4016abf0`; PR19 (Pro11,2 WiFi) and PR379 (WebCore) remain independent. All actual
-GPU ownership obligations remain open; inherited-framebuffer rendering stays.
+## Native private command memory accepted
+
+2026-11-15: runtime `4864ad3a607d44ade164dce2e995c183ba7742b1`, release
+`838082d16f6be16d`, session `session-0006605b86e107d4-00` accepts one original
+kind2/epoch1/mode1 private CPU command arena lifetime. All33 frozen host gates,
+including actual VMM exclusion and rejected-native replay, and both exact-stage
+VM paths pass. Four allocated pages provide ring storage, two-page context
+storage and completion, with actual supervisor writable/NX4KiB WB CPU aliases.
+Initialization64us, held observation118us and cleanup65us pass. Four aliases
+retire, all2048 QWords preserve, two parent-retirement admissions hold, four
+pages release once and DMA61→61 balances. Original buffers release2,712 pages
+with DMA65→65; all14 original GPU diagnostic aliases and HDA mapping retire.
+
+The full original preparation/verified return is103,671/150,000us, leaving
+46,329us. Closing guard7us, borrow return3,168us, native remapper8,073us and
+System Agent GGTT769us pass with original parent deadlines unchanged. All255
+GPU obligations remain, with zero assurances/managed GPU pages. No GPU PTE or
+submission is attempted. This accepts CPU-owned backing/aliases and zeroed
+context storage, not an executable LRC, GPU address-space/engine authority,
+comprehensive DMA/cache/readers/firmware retirement or native tear-free scanout.
+Enabled route and repeatability remain pending.
+
+The final raw log is65,536bytes and lost311 initial boot-preamble/command-line
+bytes. Frozen collection refused its leading `intel-gt-preflight=...` fragment.
+An explicit reviewed view recovers only that known prefix from the complete
+39,767byte preflight checkpoint, matching39,456 overlapping bytes exactly and
+verifying terminal total-byte/snapshot markers. The65,847byte logical view
+passes every original strict native and checkpoint validator. Raw logs are
+unchanged;64 command-packet mutations, changed overlap and malformed/duplicate
+footer cases refuse. The migration code/hash, tests, original collection error,
+raw files and reviewed proof are sealed in the local `native-review` bank.
+No collector failure was silently counted as a hardware pass.
+
+Normal collection was rerun with that explicit reviewed view and every original
+media/recipe/recovery guard. All1,554 prior files preserve except expected
+`.srvros/meta`; three exact logs yield1,557files/175sessions. Offline fsck,
+allocation, writable/headroom, unchanged boot digest, current/recovery payload
+banks, Ubuntu default and consumed one-shot pass. Current8380, previous9aa8;
+USB unmounted, run closed ACCEPTED and no reboot armed. Accepted backups survive
+distclean. A separate host-tested workspace framing fix now omits only partial
+leading lines; it is not native acceptance of a new runtime.
+
+Earlier preparation history remains rejected: source0df3/releasef2 allocated
+and initialized four pages but called the first alias walker without its
+required IRQ exclusion. No original GPU parent began; four pages stayed pinned,
+and the guest halted after saving/unmounting. The user restarted it. The4864
+caller masks/restores initial and nested IRQ contexts, with matching host
+assertions; no VMM gate or deadline was widened. Its11 owner methods (422
+faults, fatal sanitizers and compiled controls),158 focused legacy/staging tests
+and the actual VMM matrix pass. Rejected f2 raw/photo/evidence stay sealed; its
+obsolete payload copies were losslessly archived after per-file verification.
+Prior host-only stage-selector and unstarted-owner receipt failures were never
+physically accepted and contributed no qualification receipts to the retry.
+
+Current work: private CPU command backing/mapping ownership is accepted on
+4864ad3a/838082d16f6be16d. GPU address-space, executable context, submission,
+coherence and reader ownership remain open; the inherited framebuffer stays the
+desktop backend. Integration base4016abf0 and independent PR19/379 are unchanged.
 
 ### Native combined remapper and System Agent invalidation accepted
 
