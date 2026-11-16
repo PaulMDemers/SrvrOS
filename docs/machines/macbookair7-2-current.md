@@ -8,16 +8,19 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active bootstrap block (base7cb536f8; freshly fetched main4016abf0): implement
-an isolated full-GT reset and inherited fence-preservation protocol, using the
-pinned Broadwell GDRST definition and Linux v6.12 sequence. This begins a fresh
-engine ownership route; it does not widen the accepted BCS8-only source or
-convert reset/ready endpoints into DMA/cache/reader completion. Scope: separate
-protocol, actual-core fault/clock/fence tests, native-integration decision and
-precise reference-backed side effects. Exact firmware/requester/RAM/source/root
-holds, two known pulses, bounded self-clear/settling, all32 opaque fences and
-safe original restoration must be accounted before a native adapter or trial.
-No new GPU mapping/submission is admitted. PR19 Wi-Fi and PR379 WebCore remain
+Active bootstrap block (basee43bfa30; freshly fetched main4016abf0): the separate
+[full-GT reset/fence protocol](../intel-bdw-gt-bootstrap.md) is implemented. Host
+qualification passes50,291 modeled cases per original100/150ms policy,23 compiled
+weakening controls,826 fatal-sanitizer cases per policy and native2KiB/image
+isolation. Original300/400/500ms parents, exact32-fence restoration and callback/
+clock/unknown-store retention remain. Legacy BCS-only core regressions pass. The BCS8-only writer remains unchanged; reset/ready
+endpoints grant no DMA/cache/reader completion. Next requires a new original
+native HDA/GT/requester/prepare parent and an epoch-aware post-reset source;
+the accepted BCS-only graph cannot host this wider operation. Keep all CPU
+aperture/fence clients stopped through restoration, retain exact backing and
+independent metadata/physical pins on failure, and qualify the new native recipe,
+receiver and exact-stage VM before any full-GT test. No such image is currently
+linked or trial armed; currentf0a8/recovery9aa8 remain intact. PR19/379 remain
 independent; no other task/subagent is contacted.
 
 Latest bounded graphics milestone is **accepted paired native command admission**,

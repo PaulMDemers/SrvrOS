@@ -554,3 +554,15 @@ ordered completion witnesses, then integrate the original native adapter and
 receipt chain. Executable LRC and submission remain separate steps. All255 GPU
 obligations, zero positive assurances/managed GPU pages and native tear-free
 pending remain; host composition does not accept any new hardware operation.
+
+
+The separate [full-GT reset/fence protocol](intel-bdw-gt-bootstrap.md) now has
+host qualification for the next fresh-owner bootstrap. It preserves the old
+BCS8-only writer and imports no memory-completion assurance. Both timing policies,
+callback/clock/proof faults, exact 32-fence restoration, unknown issuance and
+native compiler/image isolation are tested. Its new original native parent and
+epoch-aware post-reset source are not implemented; the accepted BCS ancestry
+cannot host it unchanged. Keep fenced CPU clients, including the console,
+stopped through restoration, and qualify the new source/receipt/recovery chain
+before a physical full-reset trial. Actual interval/DMA/cache/all-reader ownership
+remains necessary before a native mapping or submission.

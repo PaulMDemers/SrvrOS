@@ -6752,6 +6752,18 @@ test-intel-command-mapping: build/tests/intel-command-mapping$(HOST_EXE) build/t
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_command_mapping
 test-core: test-intel-command-mapping
 
+# Isolated full-GT reset/fence-preservation protocol. Host only: no native
+# image/adapter is enabled by this target or by the existing BCS8-only writer.
+.PHONY: test-intel-bdw-gt-bootstrap
+build/tests/intel-bdw-gt-bootstrap$(HOST_EXE): tools/test_intel_bdw_gt_bootstrap.c kernel/diagnostics/intel_bdw_gt_bootstrap.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_gt_bootstrap.c -o $@
+build/tests/intel-bdw-gt-bootstrap-policy$(HOST_EXE): tools/test_intel_bdw_gt_bootstrap.c kernel/diagnostics/intel_bdw_gt_bootstrap.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_gt_bootstrap.c -o $@
+test-intel-bdw-gt-bootstrap: build/tests/intel-bdw-gt-bootstrap$(HOST_EXE) build/tests/intel-bdw-gt-bootstrap-policy$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_gt_bootstrap
+
 # Combined v36 original-held remapper + System Agent invalidation diagnostic.
 INTEL_GGTT_NATIVE_FLAGS := $(INTEL_VTD_DRAIN_FLAGS) -DSRVROS_INTEL_GGTT_NATIVE
 build/intel-ggtt-native/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
