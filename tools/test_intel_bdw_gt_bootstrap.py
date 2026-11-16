@@ -101,12 +101,18 @@ class Bootstrap(unittest.TestCase):
                 args=[a for a in command if a not in ('-MMD','-MP') and not a.startswith('-DSRVROS_INTEL_')]
                 args[args.index('-c')+1]=CORE;args[args.index('-o')+1]=str(Path(directory)/f'{i}.o')
                 subprocess.run([*args,*extra],cwd=ROOT,check=True,timeout=180)
-        for p in (ROOT/'kernel/src').rglob('*'):
-            if p.suffix in ('.c','.inc','.h'):
-                self.assertNotIn('intel_bdw_gt_bootstrap',p.read_text(),str(p))
+        callers=[str(p.relative_to(ROOT/'kernel/src')) for p in (ROOT/'kernel/src').rglob('*')
+                 if p.suffix in ('.c','.inc','.h') and 'intel_bdw_gt_bootstrap' in p.read_text()]
+        self.assertEqual(callers,['drivers/intel_gt_bootstrap_trial.inc'])
+        wake=(ROOT/'kernel/src/drivers/intel_gt_wake.inc').read_text()
+        self.assertIn('#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE',wake)
+        self.assertIn('#include SRVROS_INTEL_GT_BOOTSTRAP_ADAPTER_FILE',wake)
+        selected=subprocess.check_output(['make','-Bn','--','build/intel-gt-bootstrap/srvros.elf'],cwd=ROOT,text=True,timeout=120)
+        self.assertIn('-DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE',selected)
+        self.assertIn('-Wframe-larger-than=2048 -c '+CORE,selected)
         lines=[l for l in (ROOT/'Makefile').read_text().splitlines() if CORE in l]
         self.assertTrue(lines)
-        self.assertTrue(all('build/tests/intel-bdw-gt-bootstrap' in l or '$(HOST_CC)' in l for l in lines))
+        self.assertTrue(all(l.startswith(('build/tests/intel-bdw-gt-bootstrap','build/tests/intel-gt-bootstrap-adapter$(HOST_EXE):','build/intel-gt-bootstrap/bootstrap.o:')) or '$(HOST_CC)' in l for l in lines))
         native=subprocess.check_output(['make','-Bn','--','build/kernel/srvros.elf',
             'build/intel-bcs-reset/srvros.elf','build/intel-source-audit/srvros.elf',
             'build/intel-vtd-drain/srvros.elf','build/intel-command-memory/srvros.elf',

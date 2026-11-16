@@ -17,7 +17,10 @@ def jobs(dependencies):
     quick=test('native-development',*[prefix+m for m in ('test_complete_original_owners_and_new_epoch',
         'test_recipe_preinit_and_profile_isolation','test_native_receiver_checkpoint_and_raw_preservation',
         'test_receiver_mutations_cannot_promote_a_partial_or_changed_source')],timeout=300)
-    structural=test('workflow-structure','test_hardware_boot','test_hardware_desktop','test_device_workflow',timeout=300)
+    structural=test('workflow-structure','test_hardware_boot','test_hardware_desktop','test_device_workflow',
+                    'test_intel_bdw_gt_bootstrap.Bootstrap.test_native_compiler_and_image_isolation',
+                    'test_intel_ring_entry.EntryTests.test_two_routes_original_source_epoch_and_no_writer_inference',
+                    'test_intel_ring_entry.EntryTests.test_exact_cli_boot_recipe_and_old_contracts',timeout=300)
     image=dict(name='native-image',argv=['make','build/intel-gt-bootstrap/srvros.elf','build/initramfs.tar'],
                cache=False,inputs=dependencies,outputs=['build/intel-gt-bootstrap/srvros.elf','build/initramfs.tar'],timeout=1800)
     full=[build,quick,structural]
