@@ -151,6 +151,7 @@ static bool command_prepare(void) {
  command_observe,command_initialize,command_preserved,command_parent_guard,command_parent_retired,command_now});
 }
 static bool command_finish(bool safe) {
+ if(!command_native.owner.object)return false;
  command_native.outer_safe=safe;
  bool ok=safe && intel_command_memory_close(&command_native.owner);
  command_native.dma_after=command_dma();

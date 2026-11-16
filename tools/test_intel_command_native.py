@@ -43,6 +43,16 @@ class Native(unittest.TestCase):
         os.environ['SRVROS_VTD_DMAR']=str(DMAR)
         cls.texts=[run('report'),run('entry-off-report')]
 
+    def test_unstarted_owner_is_untouched_by_cleanup(self):
+        text=run('command-unstarted')
+        raw=base64.b64decode(text.split('b=',1)[1].strip())
+        c=dict(zip(FIELDS,struct.unpack('<64Q',raw)))
+        self.assertEqual({k:v for k,v in c.items() if v},dict(virtual=0xffffc001f5160000,budget=150000,context_page=1,completion_page=3,arena_pages=4))
+        old=next(l for l in self.texts[0].splitlines() if l.startswith('intel-command-memory:'))
+        refused=self.texts[0].replace(old,text.strip())
+        result=drain_result(refused)
+        self.assertFalse(result['complete']);self.assertFalse(result['command_memory']['complete'])
+
     def test_original_routes_and_checkpoint(self):
         for text in self.texts:
             r=drain_result(text);self.assertEqual(r['version'],5);self.assertTrue(r['complete'])

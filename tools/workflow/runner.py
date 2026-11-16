@@ -138,6 +138,7 @@ def profile(repo, name='intel-source-audit-v35'):
                 'test_intel_ggtt_native.Native.test_collector_preserves_raw_and_legacy_profile_isolation'])
         if name=='intel-command-memory-v37':
             structure['argv'].extend([
+                'test_intel_command_native.Native.test_unstarted_owner_is_untouched_by_cleanup',
                 'test_intel_command_native.Native.test_stage_and_image_isolation',
                 'test_intel_command_native.Native.test_collector_keeps_original_raw_and_cpu_only_scope'])
         jobs['development'].insert(1,structure)

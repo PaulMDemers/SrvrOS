@@ -38,6 +38,14 @@ allowlist correction now has a positive dedicated-image/recipe staging test.
 A new clean-source31-gate run will repeat all gates and both exact-stage VMs
 before the authorized automated1% reboot. Kernel behavior and clocks are unchanged.
 
+The subsequent exact-stage VM safely refused native hardware preflight, but
+its strict reader rejected an empty command owner carrying a cleanup DMA count.
+That run is cancelled before install/arm; raw VM evidence remains rejected.
+Cleanup now leaves an unstarted owner completely untouched, tested through the
+actual adapter and strict non-completion reader. Fresh qualification and both
+exact-stage VM paths must pass on the corrected source before the1% trial;
+no reader relaxation, hardware gate or deadline change is used.
+
 Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
 isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)
 binds private ring/context/completion mappings, a fresh nonce and original owner/

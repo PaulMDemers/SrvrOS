@@ -151,6 +151,12 @@ static int command_core_case(const char *mode) {
  (unsigned long long)INTEL_DIAGNOSTIC_PREPARE_US,domain,!ok,cm_core_calls);return 0;
 }
 static int command_case(int argc,char **argv) {
+ if(argc==2 && strstr(argv[1],"command-unstarted")){
+  reset();assert(!command_finish(false) && !command_finish(true));
+  assert(!command_native.owner.object && !command_native.outer_safe && !command_native.dma_after &&
+   !cm_allocs && !cm_frees && !cm_retire && !cm_alias && !cm_cache && !command_native.retire_checks);
+  reporting=true;command_report();return 0;
+ }
  if(argc==2 && strstr(argv[1],"command-core-"))return command_core_case(argv[1]);
  int code=ggtt_case(argc,argv);struct intel_command_memory *o=&command_native.owner;
  if(o->state==COMMAND_CLOSED){assert(!command_allocated && cm_allocs==1 && cm_frees==1 && cm_map==4 && cm_unmap==4);
