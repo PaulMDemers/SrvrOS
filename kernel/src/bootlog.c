@@ -12,12 +12,16 @@ static uint64_t write_index;
 static uint64_t bytes_recorded;
 static uint64_t total_bytes;
 static bool suppress_recording;
+static bool oldest_is_line_start = true;
 
 void bootlog_putc(char c) {
     if (suppress_recording) {
         return;
     }
 
+    if (bytes_recorded == BOOTLOG_CAPACITY) {
+        oldest_is_line_start = ring[write_index] == '\n';
+    }
     total_bytes++;
     ring[write_index] = c;
     write_index = (write_index + 1) % BOOTLOG_CAPACITY;
@@ -94,6 +98,29 @@ uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *total) {
     if(total) *total=total_bytes;
 #ifndef SRVROS_BOOTLOG_HOST_TEST
     if(flags&(1ull<<9)) __asm__ volatile("sti":::"memory");
+#endif
+    return count;
+}
+/* Keep receipt parsers from mistaking a clipped command-line/receipt suffix
+ * for a new record. Raw snapshots/dumps retain their original byte contract. */
+uint64_t bootlog_snapshot_lines(char *out,uint64_t capacity,uint64_t *total) {
+#ifndef SRVROS_BOOTLOG_HOST_TEST
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+#endif
+    uint64_t count=copy_log(out,capacity,0);
+    if(count && total_bytes>count) {
+        uint64_t skip=bytes_recorded-count;
+        bool boundary=skip?ring[(oldest_index()+skip-1)%BOOTLOG_CAPACITY]=='\n':oldest_is_line_start;
+        if(!boundary) {
+            uint64_t partial=0;
+            while(partial<count && out[partial++]!='\n'){}
+            count-=partial;
+            for(uint64_t i=0;i<count;i++)out[i]=out[i+partial];
+        }
+    }
+    if(total)*total=total_bytes;
+#ifndef SRVROS_BOOTLOG_HOST_TEST
+    if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
 #endif
     return count;
 }

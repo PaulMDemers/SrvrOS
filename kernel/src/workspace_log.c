@@ -343,7 +343,7 @@ static bool save(const char *name) {
     if(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.')sidecar_history_print();
     uint64_t snapshot_us=timer_monotonic_us();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,snapshot_us,bootlog_total());
-    uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
+    uint64_t total,count=bootlog_snapshot_lines(snapshot,sizeof(snapshot),&total),flags;
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
     uint64_t prepared=measured?timer_monotonic_us():0;
     bool tracing=measured && usb_storage_timing_begin();

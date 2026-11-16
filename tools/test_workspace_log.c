@@ -71,7 +71,7 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
+uint64_t bootlog_snapshot_lines(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=pcm_fixture;*owner=pcm_owner; }
