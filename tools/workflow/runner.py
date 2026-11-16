@@ -139,6 +139,7 @@ def profile(repo, name='intel-source-audit-v35'):
         if name=='intel-command-memory-v37':
             structure['argv'].extend([
                 'test_intel_command_native.Native.test_unstarted_owner_is_untouched_by_cleanup',
+                'test_intel_command_native.Native.test_mapping_observation_masks_and_restores_incoming_irq_state',
                 'test_intel_command_native.Native.test_stage_and_image_isolation',
                 'test_intel_command_native.Native.test_collector_keeps_original_raw_and_cpu_only_scope'])
         jobs['development'].insert(1,structure)

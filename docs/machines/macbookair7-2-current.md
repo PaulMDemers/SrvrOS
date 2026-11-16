@@ -22,6 +22,36 @@ exact-stage VM gates, preserve recovery/evidence, then automatically reboot at1%
 under the user's current authorization. PR19/379 remain independent; no other
 task or subagent is contacted.
 
+Latest command-memory trial is **rejected**: source `0df3a9f1`, release
+`f2c10a290260b219`, session `session-0006605acba9ee9d-00`. All31 host gates and
+both exact-stage VMs passed, but native preparation allocated/mapped four pages
+and initialized16KiB before its first CPU alias/cache observation refused
+(state6/reason4; zero accepted observations). No original GPU parent, command
+or PTE operation started. The arena's four pages/aliases stayed pinned, so the
+guest intentionally halted after saving/unmounting; the user restarted it.
+Collection and offline integrity pass; exact raw/photo and31-gate receipts are
+sealed outside build. This is no native arena or GPU acceptance.
+
+The caller invoked the VMM's IRQ-masked sole-root walker from preparation with
+interrupts enabled. Correct only the caller: briefly mask/restore the incoming
+IRQ state for initial cache capture and each fresh cache/alias observation,
+including final cleanup; preserve the enclosing masked child and all VMM checks.
+Add actual-adapter enabled/masked nesting and failure-restoration coverage;
+the shared host IRQ stub must model nesting accurately. Repeat local/native-frame
+and exact-stage qualification before another automated1% trial. Deadlines and
+GPU permissions remain unchanged; uncertain ownership still halts visibly.
+
+The caller correction passes all11 new-owner methods (422 faults, fatal
+sanitizers, compiled controls, exact clocks, raw/collector/image checks and
+incoming IRQ nesting),158 focused legacy route/staging/workflow checks and the
+actual VMM alias walker's exclusion/permission/fault matrix. The native image
+build retains2KiB frame checks. A fresh33-gate run adds an independent actual-VMM
+contract gate and unchanged failed-native wire5 replay to the prior31 gates;
+all original qualification and exact-stage VM paths remain mandatory. Current
+is restored to accepted4512, recovery9aa8 retained. Failedf2 is losslessly
+archived with per-file roundtrip checks; only its obsolete stage/bank/EFI copies
+are removed, leaving the rejected raw/photo/proof bank intact. No retry armed yet.
+
 The separate [CPU command-memory owner](../intel-command-memory.md) now passes
 422 modeled native-adapter faults, strict64-field receipts/checkpoints and the
 original clock endpoints. Native image/frame checks verify writable/NX aliases

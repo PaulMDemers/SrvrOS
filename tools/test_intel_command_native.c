@@ -46,6 +46,7 @@ static bool intel_display_test_command_unmap(uint64_t root,uint64_t va,uint64_t 
  *pa=command_maps[i];command_maps[i]=0;if(cf("command-unmap-wrong",cm_unmap))*pa^=4096;return true;
 }
 static bool intel_display_test_command_cache(struct x86_cache_snapshot *out) {
+ assert(wake_irq);
  ++cm_cache;
  *out=(struct x86_cache_snapshot){.cpu={{0x756e6547,0x49656e69,0x6c65746e},0x306d4,0x91000,39,0x80050033},
  .pat=0x0007040600070406ull,.cap=0x402,.def_type=0x806,.base={0xb0000001,0},.mask={0x7ff0000800ull,0},
@@ -54,7 +55,7 @@ static bool intel_display_test_command_cache(struct x86_cache_snapshot *out) {
  return !cf("command-cache",cm_cache);
 }
 static bool intel_display_test_command_alias(uint64_t root,uint64_t va,uint64_t pa,struct vmm_alias_observation *out) {
- assert(root==0x1000 && va==COMMAND_NATIVE_VA && pa==0x3000000);++cm_alias;
+ assert(wake_irq && root==0x1000 && va==COMMAND_NATIVE_VA && pa==0x3000000);++cm_alias;
  for(unsigned i=0;i<4;i++)assert(command_maps[i]==pa+4096*i);
  *out=(struct vmm_alias_observation){.pages=4,.leaves=4,.writable=1,.no_execute=1,.leaf_sizes=1};
  if(cf("command-readonly",cm_alias))out->writable=0;
@@ -151,6 +152,15 @@ static int command_core_case(const char *mode) {
  (unsigned long long)INTEL_DIAGNOSTIC_PREPARE_US,domain,!ok,cm_core_calls);return 0;
 }
 static int command_case(int argc,char **argv) {
+ if(argc==2 && strstr(argv[1],"command-irq-")){
+  reset();bool initial=strstr(argv[1],"masked")!=NULL;wake_irq=initial;
+  assert(command_prepare() && wake_irq==initial);
+  struct intel_command_alias alias;
+  assert(command_observe(&command_native,0x1000,COMMAND_NATIVE_VA,command_native.owner.physical,&alias) && wake_irq==initial);
+  assert(alias.pages==4 && alias.leaves==4 && alias.nx && alias.writable && !alias.user && alias.effective==6);
+  assert(cm_allocs==1 && !cm_frees && cm_cache==3 && cm_alias==2);
+  printf("command-irq-context: PASS incoming_masked=%u restored=%u\n",initial,wake_irq==initial);return 0;
+ }
  if(argc==2 && strstr(argv[1],"command-unstarted")){
   reset();assert(!command_finish(false) && !command_finish(true));
   assert(!command_native.owner.object && !command_native.outer_safe && !command_native.dma_after &&
@@ -159,6 +169,7 @@ static int command_case(int argc,char **argv) {
  }
  if(argc==2 && strstr(argv[1],"command-core-"))return command_core_case(argv[1]);
  int code=ggtt_case(argc,argv);struct intel_command_memory *o=&command_native.owner;
+ assert(!wake_irq);
  if(o->state==COMMAND_CLOSED){assert(!command_allocated && cm_allocs==1 && cm_frees==1 && cm_map==4 && cm_unmap==4);
   assert(o->maps==4 && o->retired==4 && o->observations==4 && o->guards==2 && o->checks==1 && o->complete);
   assert(cm_guard==2 && cm_retire==2 && cm_alias==4 && cm_cache==5 && command_native.zeros==1 && command_native.word_checks==2048);

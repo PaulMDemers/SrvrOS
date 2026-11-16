@@ -80,11 +80,15 @@ static bool command_observe(void *ctx,uint64_t root,uint64_t va,uint64_t physica
  if(ctx!=&command_native || root!=o->root || va!=COMMAND_NATIVE_VA || physical!=o->physical || !out ||
  !command_backing(ctx,physical,4))return false;
  struct x86_cache_snapshot cache;struct vmm_alias_observation alias;
+ /* The actual VMM observer requires an uninterrupted sole-root snapshot.
+  * Preparation and final cleanup run outside the enclosing GPU IRQ scope. */
+ uint64_t flags=wake_irq_save();
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  bool ok=intel_display_test_command_cache(&cache) && intel_display_test_command_alias(root,va,physical,&alias);
 #else
  bool ok=intel_cache_probe_context(&cache) && vmm_diagnostic_kernel_alias(root,va,physical,4,cache.cpu.physical_bits,&alias,NULL);
 #endif
+ ok=ok && wake_irq_off();wake_irq_restore(flags);
  if(!ok || cache.status!=CACHE_OBSERVED || cache.cpu.signature!=0x306d4 ||
  !x86_cache_equal(&cache,&command_native.cache))return false;
  ++command_native.cache_checks;
@@ -140,12 +144,14 @@ static bool command_prepare(void) {
  volatile unsigned char *s=(volatile unsigned char *)&command_native;
  for(unsigned i=0;i<sizeof(command_native);i++)s[i]=0;
  command_native.dma_before=command_dma();
+ uint64_t flags=wake_irq_save();
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- if(!intel_display_test_command_cache(&command_native.cache))return false;
+ bool observed=intel_display_test_command_cache(&command_native.cache);
 #else
- if(!intel_cache_probe_context(&command_native.cache))return false;
+ bool observed=intel_cache_probe_context(&command_native.cache);
 #endif
- if(command_native.cache.status!=CACHE_OBSERVED || command_native.cache.cpu.signature!=0x306d4)return false;
+ observed=observed && wake_irq_off();wake_irq_restore(flags);
+ if(!observed || command_native.cache.status!=CACHE_OBSERVED || command_native.cache.cpu.signature!=0x306d4)return false;
  return intel_command_memory_prepare(&command_native.owner,vmm_current_address_space(),COMMAND_NATIVE_VA,
  (struct intel_command_io){{&command_native,command_alloc,command_backing,command_free},command_map,command_unmap,
  command_observe,command_initialize,command_preserved,command_parent_guard,command_parent_retired,command_now});

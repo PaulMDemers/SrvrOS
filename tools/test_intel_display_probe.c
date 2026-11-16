@@ -116,9 +116,9 @@ static bool intel_display_test_reader_read(unsigned,unsigned,uint32_t *);
 static bool wake_mode,wake_cache_fail,wake_map_fail,wake_retire_fail,wake_uncertain,wake_no_ack,wake_foreign,wake_busy,wake_thread_stuck,wake_late_foreign,wake_fw_after;
 static uint32_t wake_request __attribute__((unused))=0x10000,wake_ack __attribute__((unused));static unsigned wake_writes;static bool wake_irq __attribute__((unused));
 #ifdef SRVROS_INTEL_WAKE_TRIAL
-static uint64_t intel_display_test_wake_irq_save(void){wake_irq=true;return 512;}
+static uint64_t intel_display_test_wake_irq_save(void){uint64_t flags=wake_irq?0:512;wake_irq=true;return flags;}
 static bool intel_display_test_wake_irq_off(void){return wake_irq;}
-static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==512);wake_irq=false;}
+static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==0 || flags==512);if(flags&512)wake_irq=false;}
 static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000
 #if defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_RING_TRANSITION)
  || o==0x811000

@@ -29,6 +29,12 @@ captured CPU cache context. The allocator tag, HHDM translation and RAM backing
 are also checked. These dedicated aliases are not GPU mappings or a claim that
 the kernel's ordinary direct map does not exist.
 
+The native sole-root walker requires IRQ exclusion. Initial cache capture and
+each fresh cache/alias observation briefly mask interrupts and restore the
+incoming state. Preparation and final cleanup otherwise run outside the GPU's
+critical section; observations inside an already masked original child leave
+it masked. Allocation and content initialization do not move into that scope.
+
 Before acquiring the RAM hold, the adapter zeros and verifies all16KiB. A CPU
 borrow initializes storage; a separate consumed serial protects the held arena.
 No content access occurs while the original GPU child is active. Two parent

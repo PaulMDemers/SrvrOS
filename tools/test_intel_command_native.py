@@ -53,6 +53,10 @@ class Native(unittest.TestCase):
         result=drain_result(refused)
         self.assertFalse(result['complete']);self.assertFalse(result['command_memory']['complete'])
 
+    def test_mapping_observation_masks_and_restores_incoming_irq_state(self):
+        for mode in ('enabled','masked'):
+            self.assertIn('command-irq-context: PASS',run('command-irq-'+mode))
+
     def test_original_routes_and_checkpoint(self):
         for text in self.texts:
             r=drain_result(text);self.assertEqual(r['version'],5);self.assertTrue(r['complete'])
