@@ -195,6 +195,19 @@ class RunnerTests(unittest.TestCase):
                     'Exact retirement', jobs=None, trial_profile=trial_profile)
             self.assertEqual(self.runner.effects, [])
 
+    def test_firmware_identity_jobs_bind_capture_and_retain_native_gates(self):
+        from workflow.gt_bootstrap import jobs
+        plan=jobs(['Makefile'])
+        self.assertEqual(sum(map(len,plan.values())),22)
+        for level in ('development','qualification'):
+            job,=[j for j in plan[level] if j['name']=='firmware-identity']
+            self.assertIn('build/device-fixtures/macbookair7-2-dsdt.bin',job['inputs'])
+            self.assertEqual(job['env']['SRVROS_REQUIRE_NATIVE_FIRMWARE'],'1')
+        names={j['name'] for j in plan['qualification']}
+        self.assertTrue({'native-admissions','native-io','native-cpu','native-pci',
+                         'native-receipts','native-sanitizers','native-controls',
+                         'native-closure','native-isolation','reset-core','legacy-entry','native-image'}<=names)
+
     def test_full_gt_v41_freezes_wire3_and_old_profiles_are_historical(self):
         runner=FixtureRunner(self.repo,self.root/'v41-store')
         unit=dict(self.unit,model='MacBookAir7,2')

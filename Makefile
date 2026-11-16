@@ -3278,6 +3278,14 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_laptop_resources.c kernel/src/drivers/laptop_resources.c -o $@
 
+.PHONY: test-laptop-firmware-digest
+test-core: test-laptop-firmware-digest
+test-laptop-firmware-digest: build/tests/laptop-firmware-digest$(HOST_EXE)
+	$<
+build/tests/laptop-firmware-digest$(HOST_EXE): tools/test_laptop_firmware_digest.c kernel/src/drivers/laptop_resources.c kernel/include/srvros/laptop_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(if $(filter x86_64 amd64,$(shell uname -m)),-mno-sse -mno-sse2) -I kernel/include $< -o $@
+
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:

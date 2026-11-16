@@ -348,6 +348,22 @@ python3 tools/device_workflow.py new original-gt-bootstrap \
 python3 tools/device_workflow.py advance --run original-gt-bootstrap
 ```
 
+For the firmware-cost follow-up, capture this host's DSDT before creating a run:
+
+```sh
+mkdir -p build/device-fixtures
+sudo install -m 0644 /sys/firmware/acpi/tables/DSDT build/device-fixtures/macbookair7-2-dsdt.bin
+```
+
+Keep this raw firmware private and ignored. Do not substitute a sibling table.
+The Air7,2 matcher must accept the captured positive fixture; exhaustive prefix,
+byte/paired mutations, independent original-reference equality, fatal sanitizers
+and compiled controls run in both frozen firmware-identity jobs. The table bytes
+are hashed job inputs; missing/changed inputs cannot seal qualification. Preserve
+the local fixture outside build before cleanup, or recapture it on the same host.
+This adds two jobs (22 total), keeps v41/wire3 and all original deadlines, and
+supplies no native timing or ownership acceptance.
+
 As with the other profiles, ordinary advance qualifies without arming. Under
 existing user reboot authorization, advance through `boot_requested` only after
 all frozen development, native fault/control/sanitizer/legacy/image gates and

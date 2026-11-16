@@ -1,9 +1,23 @@
 #include <srvros/laptop_probe.h>
 static uint32_t le32(const uint8_t *b) { return b[0]|(uint32_t)b[1]<<8|(uint32_t)b[2]<<16|(uint32_t)b[3]<<24; }
 static bool equal(const uint8_t *a,const char *b,size_t n) { for(size_t i=0;i<n;i++) if(a[i]!=(uint8_t)b[i]) return false;return true; }
+static bool table_header(const uint8_t *b,size_t size,const char *sig,size_t minimum) {
+    return b && size>=minimum && size<=1024*1024 && equal(b,sig,4) && le32(b+4)==size;
+}
 static bool table(const uint8_t *b,size_t size,const char *sig,size_t minimum) {
-    if(!b || size<minimum || size>1024*1024 || !equal(b,sig,4) || le32(b+4)!=size) return false;
+    if(!table_header(b,size,sig,minimum))return false;
     uint8_t sum=0;for(size_t i=0;i<size;i++) sum+=b[i];return !sum;
+}
+struct firmware_digest {uint64_t hash;uint8_t sum;};
+/* Both original identity witnesses, over the SAME fresh byte stream. No cached
+ * table, skipped byte, extra load, callback or allocation. The checksum's
+ * modulo256 arithmetic remains independent of the serial FNV recurrence. */
+static struct firmware_digest firmware_digest(const uint8_t *b,size_t n) {
+    struct firmware_digest d={14695981039346656037ull,0};
+    for(size_t i=0;i<n;i++) {
+        unsigned byte=b[i];d.sum+=byte;d.hash=(d.hash^byte)*1099511628211ull;
+    }
+    return d;
 }
 static bool gas(const uint8_t *b,uint16_t port,unsigned width) {
     if(b[0]!=1 || b[1]!=width || b[2] || b[3]>2 || (b[4]|(uint16_t)b[5]<<8)!=port) return false;
@@ -19,11 +33,10 @@ bool laptop_resources_parse(struct laptop_resources *out,const uint8_t *ec,size_
     *out=(struct laptop_resources){0x66,0x62,0x1804,0x1899,0x40};return true;
 }
 bool laptop_firmware_match(const uint8_t *b,size_t n) {
-    if(!table(b,n,"DSDT",36) || n!=35034) return false;
-    uint64_t hash=14695981039346656037ull;
-    for(size_t i=0;i<n;i++) hash=(hash^b[i])*1099511628211ull;
-    /* Exact captured table identity, not a security/authentication primitive. */
-    return hash==0xe0f810cb41f75c0bull;
+    if(n!=35034 || !table_header(b,n,"DSDT",36)) return false;
+    struct firmware_digest d=firmware_digest(b,n);
+    /* Same exact captured identity, not a security/authentication primitive. */
+    return !d.sum && d.hash==0xe0f810cb41f75c0bull;
 }
 struct laptop_backlight laptop_backlight_decode(uint32_t cpu,uint32_t cd,uint32_t pch,uint32_t pd) {
     struct laptop_backlight b={0};

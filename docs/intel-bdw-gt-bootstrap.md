@@ -298,3 +298,32 @@ the run is rejected. Next reduce closing/admission cost with margin for the fina
 guard, keeping every original clock and independent check. This is no full-owner
 or native tear-free acceptance. See the
 [unit result](machines/macbookair7-2.md#native-original-gt-maintenance-passes-return-deadline-refuses).
+
+
+### Firmware identity cost without a retained admission
+
+The closing follow-up fuses the existing Air DSDT checksum and FNV computations
+into one fresh full byte stream. The exact35,034-byte length, DSDT header/length,
+modulo256 checksum and captured64-bit FNV constant remain. Other ACPI resource
+and Pro display matching keep their existing algorithms. No firmware copy,
+cached identity, skipped byte or guard, callback, allocation or hardware access
+is introduced. All original owner/epoch/requester/cache/alias checks and all
+100/150/300/400/500ms bounds remain. Wire3/v41 stays unchanged because the receipt
+predicates and protocol I/O are unchanged.
+
+An independent original two-pass reference checks the actual matcher and digest
+against this unit's captured table: every35,035 prefix, every35,034 byte mutation,
+494 checksum-preserving changes, malformed headers/lengths and unknown tables.
+Fatal ASan/UBSan and three runtime-detected compiled digest weakenings are required.
+Host timing compiles without SIMD on x86, alternates method order and records
+results without accepting native timing or making wall-clock speed a flaky gate.
+Initial host samples are60–62us two-pass versus45–47us fused. Native closure
+and timing still require the matching hardware run; the earlier rejected raw
+receipts remain unchanged.
+
+The frozen profile now adds a firmware-identity job at both development and
+qualification (22 total jobs). Its captured DSDT is a hashed job input, remains
+private/ignored and must come from this actual Ubuntu host. Generic
+`make test-laptop-firmware-digest` uses generated unknown tables without a private
+fixture; no native acceptance follows. See the
+[workflow setup](device-workflow.md#separate-full-gt-owner-and-epoch-trial).

@@ -7,12 +7,16 @@ def jobs(dependencies):
              'build/tests/intel-gt-boot','build/tests/intel-ring-entry-adapter','build/tests/boot-ring-entry',
              'build/tests/intel-cache-probe','build/tests/intel-handoff-probe','build/tests/exfat-driver',
              'build/tests/intel-bdw-gt-bootstrap','build/tests/intel-bdw-gt-bootstrap-policy',
-             'build/tests/bootlog-bootstrap','build/tests/workspace-log-bootstrap']
+             'build/tests/bootlog-bootstrap','build/tests/workspace-log-bootstrap',
+             'build/tests/laptop-firmware-digest','build/tests/laptop-resources-host']
     build=dict(name='fixtures',argv=[sys.executable,'tools/fixture_compile.py','--under-workflow-lock',*outputs],
                cache=False,inputs=dependencies,outputs=outputs,timeout=1200)
     def test(name,*methods,timeout=1800):
         return dict(name=name,argv=[sys.executable,'-m','unittest','-v',*methods],
                     env={'PYTHONPATH':'tools','SRVROS_FIXTURE_BATCH':'1'},inputs=dependencies+outputs,outputs=[],timeout=timeout)
+    firmware=test('firmware-identity','test_laptop_firmware_digest',timeout=300)
+    firmware['inputs'].append('build/device-fixtures/macbookair7-2-dsdt.bin')
+    firmware['env']['SRVROS_REQUIRE_NATIVE_FIRMWARE']='1'
     prefix='test_intel_gt_bootstrap_native.Native.'
     quick=test('native-development',*[prefix+m for m in ('test_complete_original_owners_and_new_epoch',
         'test_recipe_preinit_and_profile_isolation','test_native_receiver_checkpoint_and_raw_preservation',
@@ -24,7 +28,7 @@ def jobs(dependencies):
                     'test_intel_ring_entry.EntryTests.test_exact_cli_boot_recipe_and_old_contracts',timeout=300)
     image=dict(name='native-image',argv=['make','build/intel-gt-bootstrap/srvros.elf','build/initramfs.tar'],
                cache=False,inputs=dependencies,outputs=['build/intel-gt-bootstrap/srvros.elf','build/initramfs.tar'],timeout=1800)
-    full=[build,quick,structural]
+    full=[build,quick,structural,firmware]
     for name,method in [('native-admissions','test_every_native_admission_boundary_retains_independent_parent'),
                         ('native-io','test_each_native_register_and_store_failure'),
                         ('native-cpu','test_cpu_cache_and_every_alias_attribute'),
@@ -38,4 +42,4 @@ def jobs(dependencies):
         full.append(test(name,prefix+method))
     full.extend([dict(name='reset-core',argv=['make','test-intel-bdw-gt-bootstrap'],inputs=dependencies,outputs=[],timeout=1800),
                  test('legacy-entry','test_intel_ring_entry',timeout=1800),image])
-    return dict(development=[build,quick,structural,image],qualification=full)
+    return dict(development=[build,quick,structural,firmware,image],qualification=full)

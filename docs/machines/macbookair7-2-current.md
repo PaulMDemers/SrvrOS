@@ -8,6 +8,23 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Active follow-up (base196e6072, main4016abf0 unchanged): reduce repeated
+firmware identity work in the backing/closing guards by fusing the existing DSDT
+checksum and FNV into one fresh full byte pass. Keep the exact length/header,
+checksum/hash constants, all parent checks and deadlines; no retained firmware
+copy or skipped admission. Touch laptop_resources.c, independent actual-function
+reference/mutation/timing fixtures, frozen Air qualification and unit guides.
+PR301 owns this scope; independent PR19/379 unchanged. Actual captured-table host comparison60–62us old versus45–47us fused is host-only.
+Every35,035 prefix/35,034 byte/494 paired mutations, fatal sanitizers and3 compiled
+controls pass. Frozen qualification adds the private captured DSDT input and
+two firmware jobs (22 total); native timing remains pending. No other task/subagent is contacted.
+
+Cleanup reclaimed152,509,693bytes from only the obsolete installed4fa2 failed
+candidate after bank/raw/role/menu verification. Current8b73/recovery9aa8/
+acceptedf0a8 and all evidence remain. Removed265,854,778bytes of reproducible
+kernel/userspace/initramfs outputs in an unused historical reproduction checkout;
+its source/submodule status is byte-identical. Durable ledgers remain outside build.
+
 Latest v41 trial is **rejected after logical borrow return**: runtime
 `320df4fb`, release `8b73c62c3be2b936`, session
 `session-0006606cd95981f1-00`. All20 frozen gates and both exact-stage VM paths
