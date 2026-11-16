@@ -30,6 +30,14 @@ legacy acceptance replays and exact-stage VMs will be rerun against the frozen
 candidate before the automated1% trial. Original retirement is checked again
 immediately before freeing backing. No native arena acceptance is claimed yet.
 
+The first frozen command-memory run stopped at host staging before install/arm:
+the source-audit selector allowlist omitted the derived command-memory flag.
+Its ten development gates passed, including fresh sanitizer suites; it is
+cancelled and preserved, with no native result or reused receipts. The explicit
+allowlist correction now has a positive dedicated-image/recipe staging test.
+A new clean-source31-gate run will repeat all gates and both exact-stage VMs
+before the authorized automated1% reboot. Kernel behavior and clocks are unchanged.
+
 Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
 isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)
 binds private ring/context/completion mappings, a fresh nonce and original owner/
