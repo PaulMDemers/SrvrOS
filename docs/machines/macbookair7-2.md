@@ -5,6 +5,43 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
 
+## Native original GT maintenance passes; return deadline refuses
+
+2026-11-16: runtime `320df4fb5928288dd51d4303803bca2793952bd7`, release
+`8b73c62c3be2b936`, session `session-0006606cd95981f1-00`, run
+`air-gt-maintenance-20261116`, v41/wire3. All20 frozen host gates and both exact
+staged VM paths pass. Native matrices:7,478 admission,1,204 I/O,2,410 CPU/alias,
+8,237 PCI,4,374 sealed reads (23,703 total),436 packet mutations,12 compiled
+native controls, fatal ASan/UBSan/stack lifetimes, closing/isolation and unchanged
+core50,291 cases per100/150ms policy,23 controls,826 sanitizer cases per policy,
+plus9 legacy-entry tests. Host/VM success does not supply native acceptance.
+
+The original live GT check succeeds before the first reset pulse, while all
+original fences are intact:3,170us,49,434us original phase, one snapshot12→13.
+Both pulses/cancel5/exact fence/display/backing preservation and epoch0→1 then
+complete; core108,140us, preparation-to-core127,250/150,000us. All308 receipts
+consume, none reject. New-epoch census completes92 reads in14,321us and the full
+four9-word PCI vectors verify7→3→3→7 restoration. This closes the prior maintenance
+failure as a measured substep, not a wholly retired lifetime.
+
+Pre-close guard takes1,728us, ending at149,945us preparation (55us left). The
+original borrow-return API succeeds logically in3,168us, but the immediately
+following checked clock reaches153,113us and refuses. Final guard/closing never
+starts. Original physical GT/15 aliases remain held despite the inactive child;
+no GPU memory/completion/tear-free authority follows. All deadlines are unchanged.
+Full-guard totals over814 calls: HDA/boot3,709us, endpoint59,568us, cache38,674us,
+aliases4,208us, requester/AF3,536us. Next recover closing/admission cost with enough
+margin for both return and final guard; do not extend clocks or drop checks.
+
+Run is REJECTED. All62,588 exit/38,236 preflight/9,188 boot bytes, photo, complete
+qualification and requested-boot-state are verified in the independent evidence
+bank. The durable original manifest/state is the preboot record; no separate
+checkpoint sidecar was created. Offline prior files/allocation/writability/headroom,
+recovery, Ubuntu default and consumed one-shot pass. Current8b73 diagnostic,
+acceptedf0a8/recovery9aa8 retained; USB unmounted and no reboot armed. Only the
+obsolete failed423d EFI duplicate was retired after exact bank/raw/role/menu
+verification (152,501,813bytes); its complete bank/evidence remain outside build.
+
 ## Native sealed-read reset completes; GT maintenance check refuses
 
 2026-11-16: source `0d1f7315c49745885d583c75440f7a9418628432`, release

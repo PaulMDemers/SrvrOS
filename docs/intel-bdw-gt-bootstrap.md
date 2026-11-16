@@ -284,3 +284,17 @@ The actual-adapter host model includes an over100ms whole trial, original phase/
 total/zero/backward clock refusals, requester drift, root/epoch/borrow/table
 changes and a compiled check-removal control. Model success is not hardware
 timing acceptance. Matching native qualification and retirement remain required.
+
+
+### Native maintenance succeeds; closing budget remains incomplete
+
+Air7,2 v41 source320df4fb/release8b73 now verifies the original live service in
+3,170us with a49,434us maintenance phase and one actual snapshot12→13. Full reset,
+exact preservation, one epoch, new92-word census and requester restoration all
+complete. The clock immediately after logical borrow return instead reaches
+153,113/150,000us preparation: pre-close guard ends at149,945us and return costs
+3,168us. Final guard is not reached, physical parent/aliases remain retained and
+the run is rejected. Next reduce closing/admission cost with margin for the final
+guard, keeping every original clock and independent check. This is no full-owner
+or native tear-free acceptance. See the
+[unit result](machines/macbookair7-2.md#native-original-gt-maintenance-passes-return-deadline-refuses).

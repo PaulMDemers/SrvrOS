@@ -8,20 +8,39 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active scope (base06667bf7, fetched main4016abf0): service the **original**
-GT access lease at the verified pre-reset epoch boundary. Touch only the separate
-native bootstrap adapter, strict receipts, local model/workflow and this unit's
-guides. Existing GT100ms maintenance/300ms total, preparation150ms and
-HDA400ms/outer500ms remain unchanged. Preserve original tables and live borrow;
-never perform full backing checks during reset/fence transients. PR301 owns this
-scope; PR19 Wi-Fi and PR379 WebCore are independent. No other task is contacted.
-Wire3 / workflowv41 records the original live maintenance interval and snapshot
-count; v39/v40 remain historical-only. Slow-clock/phase-fault models reproduce
-the maintenance gap before another qualified automated1% trial. No new physical
-acceptance yet. Obsolete failed423d installed copy retired only after exact
-payload-bank/raw/recovery/menu checks; its full bank/evidence remain intact.
+Latest v41 trial is **rejected after logical borrow return**: runtime
+`320df4fb`, release `8b73c62c3be2b936`, session
+`session-0006606cd95981f1-00`. All20 frozen gates and both exact-stage VM paths
+pass:23,703 native fault cases,436 packet mutations,12 native controls, fatal
+sanitizers, original100/150ms core matrices and legacy regressions.
 
-Latest v40 trial is **rejected at the enclosing GT maintenance check**: source
+The original GT live maintenance check succeeds in3,170us (49,434us since its
+previous service, within100ms), using one actual guarded snapshot12→13. Full reset/
+preservation completes in108,140us,127,250us from preparation entry. Both pulses,
+all five cancellations, exact fences/display/backing and one epoch0→1 verify.
+The new-epoch92-word census completes in14,321us; PCI7→3→3→7 restoration verifies.
+All308 sealed reads consume with zero rejection;814 full guards/12,210 aliases.
+
+The checked clock immediately after **logical** borrow return reaches153,113us
+against the unchanged150,000us preparation budget. Pre-close guard takes1,728us
+and ends at149,945us, leaving55us; borrow return takes3,168us. Its child is inactive,
+but final guard/closing and original physical parent/15-alias retirement remain
+incomplete and retained. No whole-lifetime, GPU ownership or tear-free acceptance.
+GT maintenance did not fail; its clock-cause record is zero. Next reduce the
+closing and repeated full-admission cost enough for return **and** final guard,
+with margin, preserving original checks/owners and all deadlines.
+
+The run is REJECTED. Exact raw, photo, requested-boot-state, qualification and
+review are independently banked outside build. Prior-file/media integrity,
+recovery, Ubuntu default and consumed one-shot verify. Current8b73 is diagnostic;
+recovery9aa8 and acceptedf0a8 remain retained, USB unmounted, no reboot armed.
+Obsolete failed423d installed copy was retired only after exact bank/raw/role/menu
+checks; complete bank/evidence remain. Runtime source is320df4fb; subsequent
+result documentation does not claim a new runtime qualification. Scope remains
+PR301's separate native adapter/receipts/workflow, base06667bf7/main4016abf0;
+PR19 Wi-Fi and PR379 WebCore are independent, and no other task is contacted.
+
+Prior v40 trial is **rejected at the enclosing GT maintenance check**: source
 `0d1f7315`, release `4fa2d3302fb0a0c6`, session
 `session-0006606be5ce204d-00`. All20 frozen workflow checks and both exact-stage
 VM paths pass:23,682 native fault cases,428 packet mutations,11 controls,
