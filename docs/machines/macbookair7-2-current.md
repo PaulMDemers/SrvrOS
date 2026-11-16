@@ -8,30 +8,37 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active native integration (base841fa4f2; freshly fetched main4016abf0): a separate
-original HDA/GT/requester/five-engine owner, full-GT reset/fence restoration and
-new real-epoch census are implemented. Scope includes isolated image/recipe,
-15 exact UC aliases, bounded owner, strict raw collector and frozen v39 workflow.
-The accepted BCS graph and all150/300/400/500ms and10ms/256-poll bounds remain.
-Development passes four original entry/fence scenarios,405 focused adapter
-faults,407 receiver mutations, eight compiled native controls and selected96KiB
-logging/native frame/image checks. Full frozen matrices/sanitizers/legacy gates
-and both exact-stage VM paths must pass before the authorized unattended1% trial.
-No native full-GT acceptance is claimed; all255 memory-completion obligations,
-zero GPU mappings/submissions and native tear-free pending remain. A late logical
-return failure retains the independent physical parent. Closing receipts measure
-the guard, borrow return and final guard separately, with the last checked clock
-after the final guard. See the
-[full owner/epoch contract](../intel-bdw-gt-bootstrap.md#original-native-owner-and-new-epoch).
+Latest original full-GT trial is **rejected for preparation timeout**: frozen
+source `d24b1ddd`, release `423dc0ae7ced8256`, session
+`session-0006606a46c77ab0-00`. All18 local workflow checks and both exact-stage
+VM paths pass, including32,370 native adapter fault cases,407 receiver mutations,
+eight native controls, fatal sanitizers, closing/late-return tests and legacy
+regressions. On hardware, both full reset pulses and all five cancellations
+complete with one real epoch advance. Preparation then expires at150,005/150,000us
+during final fence verification, after1,012 full guards and15,180 alias checks.
+The owner remains registered/retained; final preservation, the new census,
+requester restoration and closing-clock phase are not reached. No completion,
+GPU ownership or native tear-free acceptance follows.
 
-Currentf0a8/recovery9aa8 and prior8380 remain installed and independently banked.
-Cleanup removed only abandoned host test images/old reproducible executables
-and, after complete independent bank/role/menu/hash checks, the obsolete installed
-3807 CPU-maintenance diagnostic. Its complete verified bank and accepted evidence
-remain. EFI now has room for a candidate plus the required margin. No reboot is
-armed at this implementation checkpoint. The next matching run is recorded by
-`intel-gt-bootstrap-v39`; collect it first on return. PR19 Wi-Fi and PR379 WebCore
-remain independent; no other task/subagent is contacted.
+The complete57,994-byte exit log/checkpoint chain and all three raw files verify.
+Offline filesystem/allocation/writable/headroom and prior-file preservation pass;
+recovery, Ubuntu default and consumed one-shot verify. Failed raw/photo/review and
+qualification are banked outside build. The run is closed REJECTED; no trial is
+armed. Current is423d diagnostic, recovery9aa8 and prior8380 remain installed and
+independently banked; acceptedf0a8 remains retained. Next measure/coalesce repeated
+nested admission costs without removing fresh checks or extending deadlines.
+The [full owner/epoch contract](../intel-bdw-gt-bootstrap.md#original-native-owner-and-new-epoch)
+records implementation; all255 GPU memory/completion obligations remain open.
+
+Scope (base841fa4f2; fetched main4016abf0) is isolated native owner/image/recipe,
+15 exact UC aliases, reset/fence/new-epoch census, strict raw collector and v39
+workflow. The accepted BCS graph and all150/300/400/500ms and10ms/256-poll bounds
+remain. Closing receipts separately charge guard, borrow return and final guard,
+with a checked clock after the final preservation guard. Late logical return or
+outer-parent failure retains independent physical exclusion. Cleanup removed
+only abandoned host fixtures/old reproducible executables and obsolete installed
+3807 after exact bank/role/menu/hash checks; its bank/evidence remain. PR19 Wi-Fi
+and PR379 WebCore remain independent; no other task/subagent is contacted.
 
 Previous bootstrap block (basee43bfa30; freshly fetched main4016abf0): the separate
 [full-GT reset/fence protocol](../intel-bdw-gt-bootstrap.md) is implemented. Host

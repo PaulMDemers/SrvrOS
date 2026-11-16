@@ -187,3 +187,16 @@ then schedule the bounded unattended 1% trial. No reboot is warranted just to
 repeat the already-known missing ownership grant. After native bootstrap,
 exact interval and DMA/cache/reader ownership are still prerequisites of the
 [GPU mapping transaction](intel-command-mapping.md).
+
+## First native original-owner result
+
+Air7,2 source `d24b1ddd` / release `423dc0ae7ced8256` passed all18 frozen local
+checks and both exact-stage VM paths, then failed its native150ms preparation
+bound at150,005us during final fence verification. Both pulses, one actual epoch
+advance and all five cancellations completed; final preservation/closing did
+not. The owner remains registered/retained. Complete raw/checkpoint and offline
+media/recovery proofs are banked; the run is REJECTED. Next measure and coalesce
+repeated nested admissions (1,012 guards/15,180 alias checks in this run), retaining
+fresh resource/cache/alias/requester checks and all original deadlines. See the
+[dated unit result](machines/macbookair7-2.md#native-full-gt-bootstrap-preparation-timeout).
+This is no native completion, managed-memory or tear-free acceptance.

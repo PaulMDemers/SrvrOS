@@ -5,6 +5,41 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
 
+## Native full-GT bootstrap preparation timeout
+
+2026-11-16: final source `d24b1ddde65eb2dde12ab82800401764cdd09822`, release
+`423dc0ae7ced8256`, session `session-0006606a46c77ab0-00`, run
+`air-gt-bootstrap-20261116-r3`. All18 frozen local gates and both exact-stage
+VM paths pass. This includes13,067 admission,1,204 I/O,3,652 CPU/alias and14,447
+PCI fault cases,407 packet mutations, eight native controls, fatal ASan/UBSan,
+closing/late-return tests, both50,291-case core policies,23 core controls,
+826 sanitizer cases per policy and nine legacy-entry tests.
+
+Native preparation expires150,005/150,000us during final fence verification.
+Both full-GT pulses complete; all five cancellations verify; epoch advances0→1
+once. All32 post-reset fence values match their originals, so no fence restore
+stores were required. The new owner executes1,012 guards and15,180 actual alias
+checks before failure. It remains active/registered and independently retained.
+Full final preservation, new census, requester restoration and closing phase
+are not reached. This rejects the trial; successful host closing-clock tests
+cannot supply native acceptance. No memory mapping/submission or tear-free grant.
+
+The complete57,994-byte exit log,9,188-byte boot log and38,377-byte preflight
+checkpoint preserve the exact recipe. Strict collection and offline integrity,
+prior-file preservation, installed/banked recovery, Ubuntu default and consumed
+one-shot pass. Raw/photo/review and qualification have verified copies outside
+build. The run is closed REJECTED, USB unmounted, no reboot armed. Current423d
+is diagnostic; recovery9aa8/prior8380 and independently retained acceptedf0a8
+remain. Next measure/coalesce repeated nested admissions without dropping checks
+or extending the150ms deadline. Main4016 and independent PR19/379 remain separate.
+
+Earlier frozen attempts stopped safely before installation: r1 omitted the new
+profile in the shared staging allowlist; r2 had a stale no-native-caller test.
+The final source fixes both and runs native-isolation checks before long sweeps.
+Test-only source changes retained identical runtime bytes/content release; the
+old uninstalled stage/bank were archived intact before genuine current-source
+restaging and fresh VM/qualification. Original receipts were not edited.
+
 ## Original full-GT owner/epoch candidate
 
 2026-11-16: the separate [full-GT bootstrap](../intel-bdw-gt-bootstrap.md) now has
