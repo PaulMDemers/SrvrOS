@@ -1,7 +1,8 @@
 # Separate Broadwell full-GT reset and fence preservation
 
 `intel_bdw_gt_bootstrap` is a host-qualified reset/preservation protocol for a
-future fresh graphics owner. No native adapter or image calls it. It cannot be
+fresh graphics owner. Its separate native adapter/image is now implemented and
+under qualification, with no physical acceptance yet. It cannot be
 nested unchanged in the accepted BCS8-only reset/source graph: that graph binds
 its own epoch transition, mixed post-reset controls and preservation rules.
 The accepted [paired admission](intel-command-ownership.md) remains separate.
@@ -108,7 +109,68 @@ fail at runtime; a compile error is not a detected control. Actual native flags
 pass the 2 KiB frame limit for both policies. Ordinary and existing BCS/audit/
 remapper/command images remain isolated from this component.
 
-Before any physical trial, implement the new original HDA/GT/requester/prepare
+### Original native owner and new epoch
+
+The selected `build/intel-gt-bootstrap/srvros.elf` uses the exact15-token
+`srvros.intel-ring=gt-bootstrap-v1` recipe. It defers user init, owns the inherited
+display exclusion and original HDA/GT parents, and runs the unchanged state-aware
+entry. That earlier entry/census is historical evidence once the new reset
+advances the actual GT epoch. It is never reused as a live post-reset source.
+
+A new registered GT borrow independently prevents parent closing. It inhibits
+the actual GPU requester with command16 `7→3`, validates the AF capability prefix
+before payload access, and owns all five preparation requests. Every native
+admission checks the original root/CPU exclusion, parent epoch and callback
+table, exact resource/firmware endpoint, HDA hold, complete fresh CPU cache
+context and all15 actual UC/NX aliases/permissions. The existing whole framebuffer
+translation check uses the bounded leaf walker under IRQ exclusion; it still
+checks every covered mapping and both root endpoints. No translated-page result
+is cached between callbacks. The extra fence page is mapped before wake and
+retired only after the original GT parent closes.
+
+Only this original owner may supply the bootstrap's prerequisite proof. The
+first possible reset store is preceded by a real parent epoch increment. CPU
+aperture/console clients remain excluded through complete fence restoration.
+The critical-section guard deliberately does not interpret a fence vector while
+the known reset/restoration is in progress. Whole GGTT/backing/display equality
+is required before entry and after restoration, alongside paired39-word
+programmed/live/stereo reader observations. A separately derived capture view
+accounts for the actual inhibited command halfword; it does not edit the boot
+capture, normalize another resource, or widen the existing backing core.
+
+After core restoration and reverse cancellation, a new92-DWORD engine/context
+census binds the actual new epoch. Four exact PCI vectors require `7,3,3,7`,
+unchanged resource/capability fields and no AF pending bit. Only then can the
+owner return its borrow. An independent failure latch prevents outer GT/HDA
+return and alias retirement on uncertainty, including a clock fault after the
+logical child return. Separate guard, borrow-return and final-guard timestamps
+include a fresh checked clock after the final preservation guard; completed
+local reset ownership never implies that an outer parent also retired.
+The original150ms preparation and300/400/500ms parent
+bounds remain; individual10ms/256-poll bounds are unchanged. The native image
+selects the existing150ms policy directly, without linking the old VT-d/reset
+graph or extending a parent clock.
+
+Version1 `intel-bootstrap-*` records retain all32 before/after/final fences,
+five controls, two pulses, partial PCI/display prefixes, original clocks and
+the new epoch census. The strict receiver checks exact coverage/order, derived
+counts, source/deadline binding and full parent retirement. Its explicit
+wake37→25 view verifies only unchanged historical entry/HDA prerequisites;
+raw files remain unchanged. It confers no new live authority. This profile has
+its own96KiB ring/save/collection bound; ordinary and older profiles stay64KiB.
+The workflow profile is `intel-gt-bootstrap-v39`; qualification and both exact
+staged VM paths are mandatory before the unattended1% physical trial. VM
+refusal/save/return evidence cannot accept the native owner or reset.
+
+Development passes both original entry routes with preserved or restored fences,
+405 focused adapter fault cases,407 receiver mutations and eight compiled
+native weakening controls. The latter must keep a valid run working and fail at
+runtime on their targeted fault; compilation failure is not detection. Late
+return clock faults retain the independent physical parent. Full frozen native
+fault matrices, fatal sanitizers, legacy regressions and exact-stage VMs remain
+the launch gates; this document records implementation, not physical acceptance.
+
+Before any physical trial, qualify the new original HDA/GT/requester/prepare
 parent and its epoch-aware post-reset source. It must keep CPU aperture clients
 stopped through fence restoration, map the exact fence page with fresh UC/NX
 resource/alias checks, and independently admit only the documented stores.
@@ -117,7 +179,7 @@ new engine census at the new epoch; do not reuse an earlier census. A full reset
 intentionally changes more engine state than the old BCS protocol permits, so
 neither its writer nor its preservation predicate may be widened silently.
 
-The native adapter needs a separate exact recipe/image, compact raw receipts,
+The native adapter uses a separate exact recipe/image, bounded raw receipts,
 strict receiver/checkpoint/retirement gates, exact-stage VM qualification and
 durable workflow profile. It must save progress before console exclusion and
 make retained failure visible without relying on an invalid CPU fence. Only

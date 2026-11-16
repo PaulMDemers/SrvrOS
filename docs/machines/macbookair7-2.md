@@ -5,6 +5,28 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
 
+## Original full-GT owner/epoch candidate
+
+2026-11-16: the separate [full-GT bootstrap](../intel-bdw-gt-bootstrap.md) now has
+an original HDA/GT/requester/five-engine native owner, real pre-store epoch
+advance, exact32-fence restoration and fresh new-epoch census. It has a distinct
+image/15-token recipe,15 fresh UC aliases and a strict receiver/frozen v39
+workflow. Development exercises both original entry routes and both preserved/
+restored fence outcomes,405 focused faults,401 receiver mutations, seven compiled
+native weakening controls, late logical-return faults and selected96KiB logging/
+frame/image checks. Full frozen fault/sanitizer/legacy/VM gates remain mandatory
+before the unattended1% trial. This is implementation, not physical acceptance;
+all255 GPU memory/completion obligations and native tear-free pending remain.
+
+Currentf0a8, recovery9aa8 and prior8380 remain installed and independently banked.
+Authorized cleanup retired abandoned host-test images/old reproducible binaries
+and the obsolete installed3807 maintenance payload only after exact independent
+bank equality, original role/menu/one-shot checks and verification of all retained
+payloads. Its complete verified payload bank and native evidence remain. Ubuntu,
+current/recovery, their menus and the boot state were unchanged; no trial was
+armed at this checkpoint. The next original reset/epoch run must be collected
+before another candidate. Main4016 and independent PR19/379 remain separate.
+
 ## Native paired command admission accepted
 
 2026-11-16: runtime `2abaf8f96b755f902a187181420411ee143f7ce5`, release

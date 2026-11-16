@@ -573,6 +573,23 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-bootstrap-summary:'):
+        from intel_gt_bootstrap import fields,SUMMARY
+        try:
+            s=fields(line,'intel-bootstrap-summary:',SUMMARY,('root',))
+            return not(s['complete']==1 and s['state']==2 and s['reason']==s['failed']==s['active']==0 and s['returned']==1)
+        except ValueError:return True
+    if line.startswith('intel-bootstrap-reset:'):
+        from intel_gt_bootstrap import fields,RESET
+        try:
+            s=fields(line,'intel-bootstrap-reset:',RESET,('changed','restored'))
+            return not(s['complete']==1 and s['stage']==9 and s['reason']==s['registered']==s['retained']==s['uncertain']==0)
+        except ValueError:return True
+    if line.startswith('intel-bootstrap-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-bootstrap-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+
     if line.startswith('intel-gpu-hold-summary: v=2 '):
         from intel_gpu_hold import gpu_hold_summary
         try:
@@ -814,7 +831,8 @@ def session_log_limit(exit_preview):
     lines=exit_preview.splitlines()
     provider=any(l.startswith(b'intel-vtd-drain: v=6 b=') for l in lines) and any(
         l.startswith(b'intel-command-ownership: v=1 b=') for l in lines)
-    return 98304 if provider else 65536
+    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith(b'intel-bootstrap-summary: v=1 ') for l in lines)
+    return 98304 if provider or bootstrap else 65536
 
 
 def collect(mount, volume, output):
@@ -872,6 +890,7 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         raw_payload=payload
+        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and b'srvros.intel-ring=gt-bootstrap-v1' in line.split() for data in raw_payload.values() for line in data.splitlines())
         vtd_profile=any(b'srvros.intel-ring=vtd-drain-v1' in data for data in raw_payload.values())
         source_audit_profile=vtd_profile or any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
         source_engines_profile=any(b'srvros.intel-ring=source-engines-v1' in data for data in raw_payload.values())
@@ -879,14 +898,15 @@ def collect(mount, volume, output):
         startup_transfer_profile=any(b'srvros.intel-ring=startup-transfer-v1' in data for data in raw_payload.values())
         startup_buffers_profile=any(b'srvros.intel-ring=startup-buffers-v1' in data for data in raw_payload.values())
         buffers_decode_error=None
-        if source_audit_profile or source_engines_profile or source_requester_profile or startup_buffers_profile or startup_transfer_profile:
+        if bootstrap_profile or source_audit_profile or source_engines_profile or source_requester_profile or startup_buffers_profile or startup_transfer_profile:
             from intel_startup_buffers import buffers_view
             from intel_startup_transfer import shared_view
             from intel_source_requester import shared_view as requester_shared_view
             from intel_source_engines import shared_view as engines_shared_view
             from intel_source_audit import shared_view as audit_shared_view
             from intel_vtd_native import drain_shared_view
-            decode=drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
+            from intel_gt_bootstrap import historical_view as bootstrap_view
+            decode=bootstrap_view if bootstrap_profile else drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
             try:
                 # Only the checked v31 dispatch may normalize shared wire schemas.
                 # Saved files above remain exact raw bytes; never publish a v30 result.
@@ -901,6 +921,15 @@ def collect(mount, volume, output):
             attention.append("collection: missing exit snapshot; session incomplete")
         if len(releases) > 1:
             attention.append("collection: conflicting boot release identities")
+        intel_gt_bootstrap=None
+        if bootstrap_profile:
+            from intel_gt_bootstrap import bootstrap_result,verify_bootstrap_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_gt_bootstrap=bootstrap_result(final,native=True)
+                verify_bootstrap_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_gt_bootstrap or not intel_gt_bootstrap['native_complete']:attention.append('Intel full-GT bootstrap incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel full-GT bootstrap: '+str(error))
         intel_vtd_drain=None
         intel_source_audit=None
         if vtd_profile:
@@ -1418,7 +1447,9 @@ def collect(mount, volume, output):
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         if (source_audit_profile or source_engines_profile or source_requester_profile or startup_buffers_profile or startup_transfer_profile) and intel_wake:
             intel_wake["summary"]["v"]=36 if vtd_profile else 35 if source_audit_profile else 34 if source_engines_profile else 33 if source_requester_profile else 32 if startup_transfer_profile else 31
+        if bootstrap_profile and intel_wake:intel_wake["summary"]["v"]=37
         records.append({
+            "intel_gt_bootstrap":intel_gt_bootstrap,
             "intel_vtd_drain":intel_vtd_drain,
             "intel_source_audit":intel_source_audit,
             "intel_source_engines":intel_source_engines,

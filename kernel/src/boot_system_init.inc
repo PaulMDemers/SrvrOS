@@ -2,7 +2,12 @@
  * may run its exact terminal capture before user address spaces are created.
  * It still uses all ordinary kernel services and admission checks. */
 static bool boot_system_init(const char *cmdline, bool timer_running) {
-#ifdef SRVROS_INTEL_VTD_DRAIN
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if(intel_gt_boot_gt_bootstrap_recipe(cmdline)) {
+        console_write("init: deferred=gt-bootstrap-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
+#elif defined(SRVROS_INTEL_VTD_DRAIN)
     if(intel_gt_boot_vtd_drain_recipe(cmdline)) {
         console_write("init: deferred=vtd-drain-preinit; terminal automatic capture, no user services\n");
         return false;

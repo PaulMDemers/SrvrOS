@@ -6839,3 +6839,44 @@ build/tests/bootlog-ownership$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlo
 build/tests/workspace-log-ownership$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_INTEL_COMMAND_OWNERSHIP -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+# Separate original full-GT reset/fence/new-epoch diagnostic. No legacy reset.
+INTEL_GT_BOOTSTRAP_FLAGS := $(INTEL_RING_ENTRY_FLAGS) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+build/intel-gt-bootstrap/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_BOOTSTRAP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-bootstrap/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_BOOTSTRAP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-bootstrap/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_BOOTSTRAP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-bootstrap/bootstrap.o: kernel/diagnostics/intel_bdw_gt_bootstrap.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_BOOTSTRAP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-bootstrap/srvros.elf: build/intel-gt-bootstrap/main.o build/intel-gt-bootstrap/probe.o build/intel-gt-bootstrap/requests.o build/intel-gt-bootstrap/bootstrap.o build/intel-gt-bootstrap/log-ring.o build/intel-gt-bootstrap/log-save.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o build/kernel/src/bootlog.c.o build/kernel/src/workspace_log.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-gt-bootstrap-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_BOOTSTRAP_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c -o $@
+
+build/intel-gt-bootstrap/log-ring.o: kernel/src/bootlog.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_BOOTSTRAP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-bootstrap/log-save.o: kernel/src/workspace_log.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_BOOTSTRAP_FLAGS) -Wframe-larger-than=36864 -c $< -o $@
+.PHONY: test-intel-gt-bootstrap-native
+test-intel-gt-bootstrap-native: build/tests/intel-gt-bootstrap-adapter build/tests/intel-gt-boot build/intel-gt-bootstrap/probe.o
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_gt_bootstrap_native
+
+build/tests/boot-gt-bootstrap$(HOST_EXE): tools/test_boot_gt_bootstrap.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_BOOTSTRAP_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+build/tests/bootlog-bootstrap$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+build/tests/workspace-log-bootstrap$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@

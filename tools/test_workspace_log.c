@@ -120,7 +120,7 @@ static void test_sidecar_retention(void) {
     puts("sidecar-retention: PASS original clocks and immutable copies; incomplete/post-PCM/growth refusal; handle/owner boundaries; bounded snapshot storage");
 }
 int main(void) {
-#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+#if defined(SRVROS_INTEL_COMMAND_OWNERSHIP) || defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
     assert(sizeof(snapshot)==98304);
 #else
     assert(sizeof(snapshot)==65536);

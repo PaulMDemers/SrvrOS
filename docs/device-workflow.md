@@ -2,8 +2,9 @@
 
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
 opt-in v36 VT-d drain, combined GGTT invalidation, v37 CPU command-memory and
-[v38 joined native admission](intel-command-ownership.md) trials. The v38 profile
-alone pins a96KiB ring/save/raw collection bound; older profiles remain64KiB.
+[v38 joined native admission](intel-command-ownership.md) and separate
+[v39 full-GT owner/epoch](intel-bdw-gt-bootstrap.md) trials. Only v38 and v39
+select a96KiB ring/save/raw collection bound; older profiles remain64KiB.
 These profiles are silent and automatic;
 it does not enable another model or turn a future GPU operation into an
 accepted provider. Other trial profiles still use their documented harnesses.
@@ -304,7 +305,7 @@ general permission to discard unknown receipts or replace missing hardware rows.
 
 Future workspace snapshots omit only a partial leading line and preserve an
 exact-boundary first record and raw total-byte sequence. Ordinary/older images
-retain64KiB; the isolated v38 profile uses96KiB. Raw
+retain64KiB; the isolated v38 and v39 profiles use96KiB. Raw
 bootlog byte APIs retain their existing semantics. Missing protocol/checkpoint
 records still refuse; a logging change never accepts a native lifetime by itself.
 The full suites still repeat their structural checks; no gate is skipped.
@@ -321,3 +322,38 @@ mapping, DMA/cache completion or all-reader ownership. The local one-shot
 handoff waits for the qualifier to finish, requires every frozen receipt and
 then uses the existing guarded install/arm/reboot sequence; it never retries
 failed qualification or bypasses fresh media/recovery/1% checks.
+
+
+## Separate full-GT owner and epoch trial
+
+The Air7,2-only `intel-gt-bootstrap-v39` profile selects the separate
+`--intel-gt-bootstrap` image and exact `srvros.intel-ring=gt-bootstrap-v1` recipe.
+It does not require or reuse the old nonzero/reset/VT-d source graph. Its
+version1 owner/reset receipts use wake wire37; these names are separate from
+the older v37 CPU-command-memory profile. It accepts no GPU memory or tear-free
+capability. Native acceptance is pending until the matching physical run passes.
+
+```sh
+python3 tools/device_workflow.py new original-gt-bootstrap \
+  --profile intel-gt-bootstrap-v39 \
+  --question 'Does this original full-GT owner restore all fences and retire with a fresh new-epoch census?' \
+  --expected 'Two full pulses, exact fences/display/backing, fresh epoch, original clocks, complete parent retirement and clean media/recovery'
+python3 tools/device_workflow.py advance --run original-gt-bootstrap
+```
+
+As with the other profiles, ordinary advance qualifies without arming. Under
+existing user reboot authorization, advance through `boot_requested` only after
+all frozen development, native fault/control/sanitizer/legacy/image gates and
+both exact-stage VM paths pass. The workflow verifies1% volume and records the
+model/source/release/workspace/recovery and one-shot state before reboot.
+Instructions/progress are visible before aperture exclusion. No input is
+required. A safely saved outcome returns automatically; uncertain GPU/fence or
+parent state retains the physical owners and halts behind the visible restart
+instruction. It cannot rely on drawing through an unverified CPU fence.
+
+The collector preserves raw logs before applying its explicit historical-entry
+view. Original32-fence vectors, five controls, two pulses, partial PCI/display
+prefixes, source clocks and the actual new epoch remain independently required.
+A logical child returned before a failed closing clock does not release the
+independent physical parent or become a pass. Collect/review the matching run
+before any next candidate. VM refusal/save/return is never native acceptance.

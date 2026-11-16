@@ -74,8 +74,8 @@ struct intel_bdw_gt_bootstrap {
  bool busy,registered,epoch_attempted,epoch_advanced,preserved,retained,uncertain,complete;
  uint64_t fence_before[BDW_BOOT_FENCES],fence_after[BDW_BOOT_FENCES],fence_final[BDW_BOOT_FENCES];
 };
-/* Distinct full-GT reset/fence-restoration SOFTWARE protocol. No native adapter
- * or image calls it. Caller already owns the original five-engine preparation,
+/* Distinct full-GT reset/fence-restoration protocol. Only the separate native
+ * bootstrap image may call it. Caller already owns the original five-engine preparation,
  * requester/GT/HDA/backing/exclusion and all fenced clients. The core registers
  * on this one-use source before callbacks; the adapter MUST block parent return
  * while registered, including failures. No GTT PTE or command submission occurs.

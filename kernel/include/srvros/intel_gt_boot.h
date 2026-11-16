@@ -48,4 +48,5 @@ bool intel_gt_boot_source_requester_recipe(const char *);
 bool intel_gt_boot_startup_transfer_recipe(const char *);
 bool intel_gt_boot_startup_buffers_recipe(const char *);
 bool intel_gt_boot_nonzero_reset_recipe(const char *);
+bool intel_gt_boot_gt_bootstrap_recipe(const char *);
 #endif

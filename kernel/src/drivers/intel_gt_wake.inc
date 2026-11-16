@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE) && (!defined(SRVROS_INTEL_RING_ENTRY) || !defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_NONZERO_RESET) || defined(SRVROS_INTEL_RING_RESET) || defined(SRVROS_INTEL_VTD_DRAIN) || defined(SRVROS_INTEL_SOURCE_AUDIT) || defined(SRVROS_INTEL_COMMAND_MEMORY) || defined(SRVROS_INTEL_SOURCE_ENGINES) || defined(SRVROS_INTEL_SOURCE_REQUESTER) || defined(SRVROS_INTEL_SOURCE_TRANSFER))
+#error "Full-GT bootstrap requires its separate original owner, without a legacy reset/source graph"
+#endif
 #if defined(SRVROS_INTEL_SOURCE_ENGINES) && !defined(SRVROS_INTEL_SOURCE_REQUESTER)
 #error "Source engine hold requires the original maintained requester"
 #endif
@@ -78,7 +81,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+extern volatile struct limine_firmware_type_request intel_gt_bootstrap_firmware_request;
+#elif defined(SRVROS_INTEL_SOURCE_AUDIT)
 extern volatile struct limine_firmware_type_request intel_source_audit_firmware_request;
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)
 extern volatile struct limine_firmware_type_request intel_source_engines_firmware_request;
@@ -146,6 +151,10 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+#define WAKE_MAPS 15u
+#define WAKE_VERSION 37u
+#else
 #define WAKE_MAPS 14u
 #ifdef SRVROS_INTEL_VTD_DRAIN
 #define WAKE_VERSION 36u
@@ -170,7 +179,12 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #else
 #define WAKE_VERSION 24u
 #endif
-static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000,INTEL_WINDOW_PAGE};
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000,INTEL_WINDOW_PAGE
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+,0x100000
+#endif
+};
 #elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_HELD_INTERVAL
@@ -313,6 +327,18 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
     uint64_t old,physical=result.mmio_base+wake_pages[i],va=WAKE_VA+4096*i;
     if(!wake_guard(a) || a->mapped[i] || vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))return false;
     a->cache_checks++;
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if(i==14) {
+        struct x86_cache_snapshot cache;unsigned m,p,e;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        if(!intel_display_test_bootstrap_cache(&cache))return false;
+#else
+        if(!intel_cache_probe_context(&cache))return false;
+#endif
+        if(!x86_cache_page(&cache,physical,2,&m,&p,&e) || m || e)return false;
+    } else
+#endif
+    {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     if(!intel_display_test_wake_uc(physical,wake_pages[i]))return false;
 #else
@@ -332,16 +358,20 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #endif
        ))return false;
 #endif
+    }
     if(!backing_range_reserved(physical,4096))return false;
     uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(i?0:VMM_PAGE_WRITABLE);
 #if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
     if(i==7)flags|=VMM_PAGE_WRITABLE;
 #endif
-#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_NONZERO_RESET)
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_NONZERO_RESET) || defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
     if(i>=3 && i<=7)flags|=VMM_PAGE_WRITABLE;
 #endif
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_NONZERO_RESET)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_NONZERO_RESET) || defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
     if(i==9)flags|=VMM_PAGE_WRITABLE;
+#endif
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if(i==14)flags|=VMM_PAGE_WRITABLE;
 #endif
     if(!vmm_map_page_in_space(a->fw.gt.a.common.cr3,va,physical,flags)) {
         if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))a->uncertain=true;
@@ -524,6 +554,15 @@ static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *
 #endif
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
 #include "intel_ring_transition_trial.inc"
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+#if defined(SRVROS_INTEL_GT_BOOTSTRAP_ADAPTER_FILE) && !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+#error "Adapter mutation override is host-fixture only"
+#endif
+#ifndef SRVROS_INTEL_GT_BOOTSTRAP_ADAPTER_FILE
+#define SRVROS_INTEL_GT_BOOTSTRAP_ADAPTER_FILE "intel_gt_bootstrap_trial.inc"
+#endif
+#include SRVROS_INTEL_GT_BOOTSTRAP_ADAPTER_FILE
+#endif
 #ifdef SRVROS_INTEL_NONZERO_RESET
 #include "intel_nonzero_reset_trial.inc"
 #endif
@@ -571,7 +610,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_SOURCE_AUDIT
+    #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    const struct limine_firmware_type_response *firmware=intel_gt_bootstrap_firmware_request.response;
+#elif defined(SRVROS_INTEL_SOURCE_AUDIT)
     const struct limine_firmware_type_response *firmware=intel_source_audit_firmware_request.response;
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)
     const struct limine_firmware_type_response *firmware=intel_source_engines_firmware_request.response;
@@ -643,6 +684,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_gt_bootstrap_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_VTD_DRAIN)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_vtd_drain_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_SOURCE_AUDIT)
@@ -754,7 +797,10 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
-#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");
+    console_write("intel-bootstrap: unchanged60s means photograph and restart manually. Safe saved outcomes return to Ubuntu.\n");
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
     #ifdef SRVROS_INTEL_SOURCE_AUDIT
     console_write("intel-state: held source audit; no GPU grant\n");
 #else
@@ -842,6 +888,9 @@ bool intel_gt_wake_probe_report(void) {
                 if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
                 if(completion.complete)(void)ring_run(&a,&owner,&completion,grants==7 && f.recipe);
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+                if(ring_native.result.complete && !a.uncertain)bootstrap_run(&a,&owner);
+#endif
 #ifdef SRVROS_INTEL_NONZERO_RESET
                 if(ring_native.result.complete && !a.uncertain)nonzero_run(&a,&owner,grants==7 && f.recipe);
 #endif
@@ -939,6 +988,9 @@ bool intel_gt_wake_probe_report(void) {
     retained=retained || joint_terminal();
 #endif
     wake_terminal_retained=retained;
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    bootstrap_report();
+#endif
     bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
 #if defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION)
     joint_report();complete=complete && joint.scope.state==IHG_CLOSED && !joint.scope.reason && !joint_terminal() && joint.scope.hda.complete;
@@ -947,6 +999,10 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_GPU_HOLD
     gpu_hold_report();complete=complete && gpu_hold_native.result.complete;
 #endif
+#endif
+
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    complete=complete && gt_bootstrap_native.complete && !gt_bootstrap_native.failed && !gt_bootstrap_native.borrow.active;
 #endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL

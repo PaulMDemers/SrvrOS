@@ -12,6 +12,10 @@
 #include <srvros/timer.h>
 #include <srvros/console.h>
 #include <limine.h>
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+static bool gt_bootstrap_identity_command(uint32_t,uint32_t);
+static const struct intel_capture_result *gt_bootstrap_capture(void);
+#endif
 #ifdef SRVROS_INTEL_GPU_HOLD
 #include <srvros/intel_gpu_requester_hold.h>
 static bool gpu_hold_identity_command(uint32_t observed,uint32_t original);
@@ -97,7 +101,12 @@ static bool read_word(void *opaque,uint32_t off,uint32_t *value) {
 static struct intel_hda_gpu *joint_clock;
 #endif
 static uint64_t now(void *p) {
- (void)p;uint64_t at=timer_monotonic_us();
+ (void)p;uint64_t at;
+#if defined(SRVROS_INTEL_DISPLAY_HOST_TEST) && defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
+ if(!intel_display_test_bootstrap_clock(&at))at=timer_monotonic_us();
+#else
+ at=timer_monotonic_us();
+#endif
 #ifdef SRVROS_INTEL_HDA_PAIR
  if(joint_clock && joint_clock->pinned && !intel_hda_gpu_deadline(joint_clock,at))return 0;
 #endif
@@ -179,6 +188,9 @@ static struct intel_backing_result backing;
 static struct limine_framebuffer trial_framebuffer;
 static bool backing_attempted;
 struct backing_adapter {struct adapter common;struct limine_framebuffer *fb;uint64_t physical;uint32_t page;bool mapped;};
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+static bool backing_pairs_irq_off(void);
+#endif
 #if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
 static bool backing_pairs_irq_off(void);
 static struct {
@@ -240,6 +252,12 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
        physical>UINT64_MAX-bytes || (physical&4095)!=(va&4095))return ADMISSION_FAIL(4,0);
     uint64_t first=va&~4095ull,last=(va+bytes-1)&~4095ull;
     e->fb_pages=(last-first)/4096+1;
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if(backing_pairs_irq_off()) {
+        if(!vmm_diagnostic_contiguous_kernel_range_observe(a->common.cr3,first,physical&~4095ull,e->fb_pages,NULL))return false;
+    } else
+#endif
+    {
 #if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)
     if(backing_pairs_irq_off()) {
         struct vmm_range_observation d={0};
@@ -253,6 +271,7 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
     {
     for(uint64_t i=0;i<e->fb_pages;i++) {
         uint64_t p;if(!vmm_virt_to_phys_in_space(a->common.cr3,first+i*4096,&p) || p!=(physical&~4095ull)+i*4096)return false;
+    }
     }
     }
     const struct limine_memmap_response *m=memmap_request.response;unsigned overlaps=0;
@@ -370,6 +389,9 @@ static bool trial_endpoint_same(const struct intel_backing_endpoint *e) {
     const struct intel_backing_endpoint *old=&backing.sample[1].endpoint;
     const struct intel_capture_identity *a=&e->identity,*b=&old->identity;
     bool command_same=a->command==b->command;
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if(!command_same)command_same=gt_bootstrap_identity_command(a->command,b->command);
+#endif
 #ifdef SRVROS_INTEL_GPU_HOLD
     if(!command_same)command_same=gpu_hold_identity_command(a->command,b->command);
 #endif
@@ -492,10 +514,14 @@ static bool backing_pairs(void *ctx,uint32_t offset,unsigned count,uint64_t *out
 bool intel_scanout_trial_revalidate(void) {
     struct backing_adapter a;if(!trial_adapter(&a))return ADMISSION_FAIL(100,0);
     const struct intel_backing_io io={&a,backing_endpoint,backing_map,backing_unmap,backing_read,now};
+    const struct intel_capture_result *capture=&result;
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    capture=gt_bootstrap_capture();if(!capture)return false;
+#endif
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
-    bool ok=intel_display_backing_batched(&trial_after,&result,&io,backing_pairs_irq_off()?backing_pairs:NULL);
+    bool ok=intel_display_backing_batched(&trial_after,capture,&io,backing_pairs_irq_off()?backing_pairs:NULL);
 #else
-    bool ok=intel_display_backing(&trial_after,&result,&io);
+    bool ok=intel_display_backing(&trial_after,capture,&io);
 #endif
 #ifdef SRVROS_INTEL_SOURCE_AUDIT
     admission_cost_record(&trial_after,ok);

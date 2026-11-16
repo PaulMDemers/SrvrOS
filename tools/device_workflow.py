@@ -112,7 +112,7 @@ def main():
     new.add_argument('name')
     new.add_argument('--question', required=True)
     new.add_argument('--expected', required=True)
-    new.add_argument('--profile', choices=('intel-source-audit-v35', 'intel-vtd-drain-v36', 'intel-ggtt-invalidate-v36', 'intel-command-memory-v37', 'intel-command-ownership-v38'), default='intel-source-audit-v35')
+    new.add_argument('--profile', choices=('intel-gt-bootstrap-v39','intel-source-audit-v35', 'intel-vtd-drain-v36', 'intel-ggtt-invalidate-v36', 'intel-command-memory-v37', 'intel-command-ownership-v38'), default='intel-source-audit-v35')
     new.add_argument('--plan', type=Path, help='JSON additional development/qualification jobs; never removes default gates')
     advance = sub.add_parser('advance')
     advance.add_argument('--run', required=True)

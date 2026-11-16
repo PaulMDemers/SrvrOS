@@ -1,0 +1,177 @@
+"""Original full-GT owner/epoch receipts. Reset is not GPU memory authority.
+
+The explicit v37 -> v25 view validates only unchanged historical wake/entry/HDA
+prerequisites. It never supplies a live post-reset source. Raw bytes stay raw;
+the separate bootstrap/post records and their original order decide completion.
+"""
+import re
+
+TOKEN='srvros.intel-ring=gt-bootstrap-v1'
+PROFILE='ram-usb-v1-intel-gt-bootstrap-'
+SUMMARY='''v state reason complete failed blocked returned active epoch_before epoch_after epoch_calls begin end last root prepare_budget prepared issued commands pci_samples pci_reads guards alias_checks cache_checks native_reads native_writes full_before full_after post_bound clock previous obligations managed_pages pte_writes hardware_ownership'''.split()
+BINDING='''v owner provider lifetime root mmio mmio_bytes aperture_bytes epoch sequence prepare gt hda outer policy vendor device display_samples display_before display_after pci0 pci1 pci2 pci3 post_epoch post_parent post_object'''.split()
+RESET='''v stage reason complete registered retained uncertain epoch reset_attempts reset_writes reset_completed cancelled changed restored reads writes proofs preserved begin end last settle_begin settle_end clock clock_previous clock_reason'''.split()
+CONTROL='v i prepare_first prepare_final prepare_polls before after cancel_first cancel_final cancel_polls'.split()
+
+
+def fields(line,prefix,keys,hexkeys=()):
+    if not line.startswith(prefix+' '):raise ValueError('Bootstrap prefix')
+    result={}
+    for word in line[len(prefix):].split():
+        k,sep,value=word.partition('=')
+        pattern=r'(?:0|0x[0-9a-fA-F]{1,16})' if k in hexkeys else r'[0-9]{1,20}'
+        if not sep or k not in keys or k in result or not re.fullmatch(pattern,value):raise ValueError('Bootstrap field encoding')
+        result[k]=int(value,16 if k in hexkeys else 10)
+        if result[k]>=1<<64:raise ValueError('Bootstrap overflow')
+    if set(result)!=set(keys) or result['v']!=1:raise ValueError('Bootstrap schema')
+    return result
+
+
+def bootstrap_recipe(cmd):
+    from intel_ring_entry import entry_recipe
+    if not isinstance(cmd,str) or cmd.split().count(TOKEN)!=1:raise ValueError('Bootstrap exact recipe')
+    return entry_recipe(cmd.replace(TOKEN,'srvros.intel-ring=entry-v1'))
+
+
+def historical_view(text):
+    lines=text.splitlines();out=[]
+    wakes=[l for l in lines if l.startswith('intel-wake-summary:')]
+    if len(wakes)>1:raise ValueError('Bootstrap duplicate wake')
+    if wakes:
+        raw=wakes[0]
+        if not raw.startswith('intel-wake-summary: v=37 '):raise ValueError('Bootstrap wake image')
+        # Check actual new mapping counters before projecting the unchanged
+        # fourteen aliases. Partial/faulted lifetimes never acquire completion.
+        values=dict(w.split('=',1) for w in raw.split()[1:])
+        if len(values)!=len(raw.split())-1:raise ValueError('Bootstrap duplicate wake field')
+        maps,retired,cache=(int(values[k]) for k in ('maps','retired','cache_checks'))
+        if not 0<=retired<=maps<=15 or not 0<=cache<=15:raise ValueError('Bootstrap actual alias counts')
+        if int(values['attempts']) and (maps!=15 or cache!=15):raise ValueError('Bootstrap missing fence alias')
+        if int(values['complete']) and (maps,retired,cache)!=(15,15,15):raise ValueError('Bootstrap false alias retirement')
+        for key,value in [('v',25),('maps',min(maps,14)),('retired',min(retired,14)),('cache_checks',min(cache,14))]:
+            raw=re.sub(r'\b'+key+r'=\d+(?= |$)',key+'='+str(value),raw,count=1)
+    for line in lines:
+        if line.startswith('intel-wake-summary:'):line=raw
+        if line.startswith('laptop-capture: boot options='):
+            bootstrap_recipe(line.split('=',1)[1]);line=line.replace(TOKEN,'srvros.intel-ring=entry-v1')
+        line=line.replace('init: deferred=gt-bootstrap-preinit;','init: deferred=ring-entry-preinit;')
+        out.append(line)
+    return '\n'.join(out)
+
+
+def bootstrap_result(text,*,native=False):
+    lines=[l for l in text.splitlines() if l.startswith('intel-bootstrap-')]
+    if not lines:return None
+    allowed=('summary','binding','reset','retire','fence','control','pulse','pci','display','post-row','post-context','post-summary')
+    if any(l.split(':',1)[0] not in ['intel-bootstrap-'+k for k in allowed] for l in lines):raise ValueError('Bootstrap unknown receipt')
+    def one(kind,keys,hexkeys=()):
+        selected=[l for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
+        if len(selected)!=1:raise ValueError('Bootstrap '+kind+' coverage')
+        return fields(selected[0],'intel-bootstrap-'+kind+':',keys,hexkeys)
+    def rows(kind,keys,hexkeys=()):
+        return [fields(l,'intel-bootstrap-'+kind+':',keys,hexkeys) for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
+    s=one('summary',SUMMARY,('root',));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
+    r=one('reset',RESET,('changed','restored'))
+    retire=one('retire','v stage guard_begin guard_end return_begin return_end final_begin final_end'.split())
+    fences=rows('fence','v i before after final'.split(),('before','after','final'))
+    controls=rows('control',CONTROL,('prepare_first','prepare_final','before','after','cancel_first','cancel_final'))
+    pulses=rows('pulse','v i first final polls'.split(),('first','final'))
+    pci=rows('pci','v n i raw'.split(),('raw',));display=rows('display','v n p i raw'.split(),('raw',))
+    boolean='complete failed blocked returned active full_before full_after post_bound'.split()
+    if s['state']>2 or s['reason']&~255 or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
+        raise ValueError('Bootstrap owner range')
+    if s['prepare_budget']!=150000 or s['obligations']!=255 or any(s[k] for k in ('managed_pages','pte_writes','hardware_ownership')):raise ValueError('Bootstrap false authority/policy')
+    if s['prepared']>s['issued'] or s['issued']>5 or s['commands']>2 or s['pci_samples']>4 or s['pci_reads']>36 or s['guards']>20000 or s['alias_checks']>300000 or s['cache_checks']>20000:
+        raise ValueError('Bootstrap owner counters')
+    if retire['stage']>3:raise ValueError('Bootstrap retirement phase')
+    if r['stage']>10 or r['reason']&~511 or any(r[k]>1 for k in ('complete','registered','retained','uncertain','epoch','preserved')) or r['reads']>10000 or r['writes']>103 or r['proofs']>20000 or r['changed']>=1<<32 or r['restored']>=1<<32:
+        raise ValueError('Bootstrap reset range')
+    if any(b[k]>1 for k in ('owner','provider','lifetime','post_parent','post_object')) or b['display_samples']>2 or max(b['display_before'],b['display_after'])>39 or max(b['pci'+str(n)] for n in range(4))>9:
+        raise ValueError('Bootstrap binding range')
+    if [q['i'] for q in fences]!=list(range(32)) or [q['i'] for q in controls]!=list(range(5)) or [q['i'] for q in pulses]!=[0,1]:raise ValueError('Bootstrap fixed vector order/coverage')
+    if [(q['n'],q['i']) for q in pci]!=[(n,i) for n in range(4) for i in range(b['pci'+str(n)])] or len(pci)!=s['pci_reads']:
+        raise ValueError('Bootstrap PCI vector coverage')
+    if [(q['n'],q['p'],q['i']) for q in display]!=[(n,k//13,k%13) for n,count in enumerate((b['display_before'],b['display_after'])) for k in range(count)]:raise ValueError('Bootstrap display vector coverage')
+    if any(q[k]>=1<<32 for q in controls for k in ('prepare_first','prepare_final','before','after','cancel_first','cancel_final')) or any(q['raw']>=1<<32 for q in pci+display) or any(q['first']>=1<<32 or q['final']>=1<<32 for q in pulses):raise ValueError('Bootstrap DWORD width')
+    kinds=['summary','binding','reset','retire']+['fence']*32+['control']*5+['pulse']*2+['pci']*len(pci)+['display']*len(display)
+    actual=[l.split(':',1)[0].removeprefix('intel-bootstrap-') for l in lines if not l.startswith('intel-bootstrap-post-')]
+    if actual!=kinds:raise ValueError('Bootstrap receipt order')
+    view=historical_view(text)
+    from intel_ring_entry import entry_result,native_entry_result
+    entry=(native_entry_result if native else entry_result)(view)
+    from intel_completion_audit import completion_result
+    post_text='\n'.join(l.replace('intel-bootstrap-post-','intel-completion-',1) for l in view.splitlines() if l.startswith(('intel-bootstrap-post-','intel-wake-summary:','intel-clock:')))
+    post=completion_result(post_text)
+    complete=bool(s['complete'])
+    if complete:
+        required=dict(state=2,reason=0,failed=0,blocked=1,returned=1,active=0,epoch_calls=1,prepared=5,issued=5,commands=2,pci_samples=4,pci_reads=36,full_before=1,full_after=1,post_bound=1,clock=0,previous=0)
+        if any(s[k]!=v for k,v in required.items()) or s['epoch_after']!=s['epoch_before']+1 or not entry or not entry['summary']['complete'] or not post or not post['summary']['complete']:
+            raise ValueError('Bootstrap false completed owner')
+        if (r['stage'],r['reason'],r['complete'],r['registered'],r['retained'],r['uncertain'],r['epoch'],r['reset_attempts'],r['reset_writes'],r['reset_completed'],r['cancelled'],r['preserved'],r['clock'],r['clock_previous'],r['clock_reason'])!=(9,0,1,0,0,0,1,2,2,2,5,1,0,0,0):raise ValueError('Bootstrap false reset completion')
+        if (b['owner'],b['provider'],b['lifetime'],b['sequence'],b['policy'],b['vendor'],b['device'],b['mmio_bytes'],b['display_samples'],b['display_before'],b['display_after'])!=(1,1,1,1,0x47544231,0x8086,0x1626,0x200000,2,39,39):raise ValueError('Bootstrap source identity')
+        if b['root']!=s['root'] or not b['root'] or b['root']&4095 or b['epoch']!=s['epoch_before'] or b['prepare']!=s['begin'] or b['mmio']&0xffffff or not b['mmio'] or not 0<b['aperture_bytes']<=1<<32 or b['aperture_bytes']&4095:raise ValueError('Bootstrap original resource')
+        h=entry['owner']['summary'];e=entry['summary'];p=post['summary'];w=entry['wake']['summary']
+        if b['outer']!=h['origin'] or b['hda']!=h['hda_begin'] or not b['outer']<=b['hda']<=b['gt']<=e['source_begin']:
+            raise ValueError('Bootstrap original parent clocks')
+        if b['post_epoch']!=s['epoch_after'] or b['post_parent']!=1 or b['post_object']!=1 or s['epoch_before']!=e['epoch_after'] or not 0<e['end']<=s['begin']<=r['begin']<r['end']==r['last']<=p['begin_us']<p['end_us']<=s['end']==s['last']<=w['end_us']:
+            raise ValueError('Bootstrap original/new epoch order')
+        if not b['outer']<=b['hda']<=b['gt']<=b['prepare'] or any(s['end']-b[k]>cap for k,cap in [('prepare',150000),('gt',300000),('hda',400000),('outer',500000)]):raise ValueError('Bootstrap original deadline')
+        if retire['stage']!=3 or not p['end_us']<=retire['guard_begin']<=retire['guard_end']==retire['return_begin']<=retire['return_end']==retire['final_begin']<=retire['final_end']==s['end']:raise ValueError('Bootstrap complete guarded/returned/final clocks')
+        if not r['begin']<=r['settle_begin']+50<=r['settle_end']<=r['end'] or r['settle_end']-r['settle_begin']>10000:raise ValueError('Bootstrap settling')
+        changed=0
+        for q in fences:
+            v=q['before'];i=q['i']
+            if v&~0xfffff7fffffff003 or q['final']!=v or q['after'] not in (0,v):raise ValueError('Bootstrap fence restoration')
+            if v&1:
+                low=v&0xfffff000;high=(v>>32)&0xfffff000
+                if low>high or high+4096>b['aperture_bytes'] or not(v&2) and (((v>>32)&2047)+1)&3:raise ValueError('Bootstrap fence geometry')
+                for old in fences[:i]:
+                    x=old['before']
+                    if x&1 and low<((x>>32)&0xfffff000)+4096 and (x&0xfffff000)<high+4096:raise ValueError('Bootstrap overlapping fences')
+            if q['after']!=v:changed|=1<<i
+        count=changed.bit_count()
+        if (r['changed'],r['restored'],r['writes'],r['reads'])!=(changed,changed,7+3*count,308+2*count+sum(q['polls']-1 for q in pulses)+sum(q['cancel_polls']-1 for q in controls)):
+            raise ValueError('Bootstrap derived reset counts')
+        if s['native_reads']!=r['reads']+5+sum(q['prepare_polls'] for q in controls) or s['native_writes']!=r['writes']+5 or s['alias_checks']!=15*s['guards'] or s['cache_checks']!=s['guards'] or r['proofs']<2*(r['reads']+r['writes']):raise ValueError('Bootstrap native adapter counts')
+        for q in controls:
+            if not 1<=q['prepare_polls']<=256 or not 1<=q['cancel_polls']<=256 or q['prepare_final']&65535!=3 or q['before']&65535!=3 or q['after']&65535 or q['cancel_final']&3 or q['prepare_first']&~0xffff0003 or q['cancel_first']&~0xffff0003:
+                raise ValueError('Bootstrap control endpoints')
+        if any(not 1<=q['polls']<=256 or q['final'] or q['first'] not in (0,1) for q in pulses):raise ValueError('Bootstrap reset acknowledgement')
+        matrix=[[q['raw'] for q in pci if q['n']==n] for n in range(4)]
+        if any(b['pci'+str(n)]!=9 for n in range(4)) or [row[1]&65535 for row in matrix]!=[7,3,3,7] or matrix[0]!=matrix[3] or matrix[1]!=matrix[2] or any(matrix[1][i]!=(matrix[0][i]&(~4 if i==1 else 0xffffffff)) for i in range(9)):raise ValueError('Bootstrap requester restoration')
+        from intel_gpu_hold import _prefix
+        if not all(_prefix(row) for row in matrix) or any(row[8] for row in matrix):raise ValueError('Bootstrap requester exact AF profile')
+        planes=[[q['raw'] for q in display if q['n']==n] for n in range(2)]
+        if planes[0]!=planes[1] or any(v==0xffffffff for v in planes[0]):raise ValueError('Bootstrap display preservation')
+        for pipe in range(3):
+            old=entry['readers'][pipe]['words'];sample=planes[0][pipe*13:(pipe+1)*13]
+            if [sample[i] for i in (0,1,2,5,6,7,8,9,10)]!=old:raise ValueError('Bootstrap inherited programmed/live/stereo source')
+        if any(p[k] for k in ('enabled','pending','flip_wait','tlb_pending')):raise ValueError('Bootstrap post-reset source not quiet')
+        if native:
+            from intel_display_backing import backing_result
+            from intel_ggtt_window import window_result
+            backing=backing_result(view);window=window_result(view)
+            if not backing or [q['raw'] for q in sorted(backing['rows']['fence'],key=lambda q:q['index'])]!=[q['before'] for q in fences]:raise ValueError('Bootstrap original native fence vector')
+            if not window or b['aperture_bytes']!=window['summary']['aperture_bytes'] or b['mmio']!=window['summary']['mmio']:raise ValueError('Bootstrap native resources')
+    elif s['state']==2 or s['returned'] and s['active'] or (s['returned'] or s['active'] or r['complete']) and not s['failed']:
+        raise ValueError('Bootstrap incomplete owner retirement')
+    owner_complete=complete
+    complete=bool(owner_complete and entry and entry['complete'] and post and post['observation_complete'])
+    if entry and entry['wake']['summary']['complete'] and not complete:raise ValueError('Bootstrap false enclosing completion')
+    return dict(version=1,owner_complete=owner_complete,complete=complete,native_complete=bool(native and complete and entry['native_complete']),summary=s,
+                binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,
+                hardware_ownership=False,managed_pages=0,physical_tearfree=False,
+                scope='one original full-GT reset/fence restoration/new engine epoch; DMA/cache/all-reader authority unproved')
+
+
+def verify_bootstrap_checkpoint(pre,text,*,native=False):
+    from intel_ring_entry import verify_entry_checkpoint
+    for value in (pre,text):
+        boots=re.findall(r'^laptop-capture: boot options=(.*)$',value,re.M)
+        if len(boots)!=1:raise ValueError('Bootstrap boot provenance')
+        bootstrap_recipe(boots[0])
+        if value.count('init: deferred=gt-bootstrap-preinit;')!=1 or 'init: started pid=' in value:raise ValueError('Bootstrap preinit provenance')
+    if any(l.startswith('intel-bootstrap-') for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
+    verify_entry_checkpoint(historical_view(pre),historical_view(text),native=native)
+    if not bootstrap_result(text,native=native):raise ValueError('Bootstrap missing final receipt')
+    return True

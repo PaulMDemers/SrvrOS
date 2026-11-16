@@ -225,7 +225,7 @@ static bool intel_display_test_ring_clock(uint64_t *out) {
  }
  return false;
 }
-#if !defined(SRVROS_INTEL_RING_RESET) && !defined(SRVROS_INTEL_NONZERO_RESET)
+#if !defined(SRVROS_INTEL_RING_RESET) && !defined(SRVROS_INTEL_NONZERO_RESET) && !defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
 __attribute__((noinline)) static void churn_stack(void) {
  volatile uint8_t bytes[32768];
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)(i*17+3);

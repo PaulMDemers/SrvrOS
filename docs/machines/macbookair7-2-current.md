@@ -8,16 +8,30 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active native integration (base841fa4f2; freshly fetched main4016abf0): implement
-a distinct original HDA/GT/requester/five-engine owner for the full-GT bootstrap,
-advance the real parent epoch before reset and collect a fresh post-reset census.
-Scope: isolated native adapter/image/recipe, exact UC fence alias, bounded owner,
-strict receipt/collector and workflow/VM integration. Preserve the accepted BCS
-graph, all existing deadlines and all255 memory-completion obligations. No other
-task is contacted; PR19 Wi-Fi and PR379 WebCore remain independent. Qualify host
-faults/native frames and exact-stage save/return before the authorized unattended
-1% trial; collect that matching run first on return. Currentf0a8/recovery9aa8
-remain intact; no new trial is armed at this checkpoint.
+Active native integration (base841fa4f2; freshly fetched main4016abf0): a separate
+original HDA/GT/requester/five-engine owner, full-GT reset/fence restoration and
+new real-epoch census are implemented. Scope includes isolated image/recipe,
+15 exact UC aliases, bounded owner, strict raw collector and frozen v39 workflow.
+The accepted BCS graph and all150/300/400/500ms and10ms/256-poll bounds remain.
+Development passes four original entry/fence scenarios,405 focused adapter
+faults,407 receiver mutations, eight compiled native controls and selected96KiB
+logging/native frame/image checks. Full frozen matrices/sanitizers/legacy gates
+and both exact-stage VM paths must pass before the authorized unattended1% trial.
+No native full-GT acceptance is claimed; all255 memory-completion obligations,
+zero GPU mappings/submissions and native tear-free pending remain. A late logical
+return failure retains the independent physical parent. Closing receipts measure
+the guard, borrow return and final guard separately, with the last checked clock
+after the final guard. See the
+[full owner/epoch contract](../intel-bdw-gt-bootstrap.md#original-native-owner-and-new-epoch).
+
+Currentf0a8/recovery9aa8 and prior8380 remain installed and independently banked.
+Cleanup removed only abandoned host test images/old reproducible executables
+and, after complete independent bank/role/menu/hash checks, the obsolete installed
+3807 CPU-maintenance diagnostic. Its complete verified bank and accepted evidence
+remain. EFI now has room for a candidate plus the required margin. No reboot is
+armed at this implementation checkpoint. The next matching run is recorded by
+`intel-gt-bootstrap-v39`; collect it first on return. PR19 Wi-Fi and PR379 WebCore
+remain independent; no other task/subagent is contacted.
 
 Previous bootstrap block (basee43bfa30; freshly fetched main4016abf0): the separate
 [full-GT reset/fence protocol](../intel-bdw-gt-bootstrap.md) is implemented. Host
@@ -25,13 +39,13 @@ qualification passes50,291 modeled cases per original100/150ms policy,23 compile
 weakening controls,826 fatal-sanitizer cases per policy and native2KiB/image
 isolation. Original300/400/500ms parents, exact32-fence restoration and callback/
 clock/unknown-store retention remain. Legacy BCS-only core regressions pass. The BCS8-only writer remains unchanged; reset/ready
-endpoints grant no DMA/cache/reader completion. Next requires a new original
-native HDA/GT/requester/prepare parent and an epoch-aware post-reset source;
-the accepted BCS-only graph cannot host this wider operation. Keep all CPU
+endpoints grant no DMA/cache/reader completion. At that checkpoint a new original
+native HDA/GT/requester/prepare parent and epoch-aware post-reset source were
+still required; the accepted BCS-only graph cannot host this wider operation. Keep all CPU
 aperture/fence clients stopped through restoration, retain exact backing and
 independent metadata/physical pins on failure, and qualify the new native recipe,
-receiver and exact-stage VM before any full-GT test. No such image is currently
-linked or trial armed; currentf0a8/recovery9aa8 remain intact. PR19/379 remain
+receiver and exact-stage VM before any full-GT test. No such image was
+then linked or trial armed; currentf0a8/recovery9aa8 remained intact. PR19/379 remain
 independent; no other task/subagent is contacted.
 
 Latest bounded graphics milestone is **accepted paired native command admission**,

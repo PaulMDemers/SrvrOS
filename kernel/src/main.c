@@ -1008,7 +1008,9 @@ void kmain(void) {
 #if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)
                 if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
 #endif
-#ifdef SRVROS_INTEL_VTD_DRAIN
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+                console_write("intel-bootstrap: automatic full-GT reset/fence restore/new epoch; no input. Volume1%. Safe saved completion returns to Ubuntu; retained failure halts. If this screen stops, photograph and restart manually.\n");
+#elif defined(SRVROS_INTEL_VTD_DRAIN)
 #ifdef SRVROS_INTEL_GGTT_NATIVE
 #ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
                 console_write("intel-provider-trial: automatic paired native DMA/cache/display/PTE admission dry run under original hold. No GPU grant or input. Safe saved completion returns to Ubuntu; uncertainty halts. Volume1%.\n");

@@ -307,7 +307,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_SOURCE_AUDIT
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+#define intel_wake_firmware_request intel_gt_bootstrap_firmware_request
+#elif defined(SRVROS_INTEL_SOURCE_AUDIT)
 #define intel_wake_firmware_request intel_source_audit_firmware_request
 #elif defined(SRVROS_INTEL_SOURCE_ENGINES)
 #define intel_wake_firmware_request intel_source_engines_firmware_request
@@ -514,6 +516,9 @@ uint64_t pci_device_count(void){
 }
 const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&devices[i]:NULL;}
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if(d==&devices[0] && (off==4 || off==0x34 || off==0x90 || off==0xd0 || off==0xa4 || off==0xa8))return intel_display_test_bootstrap_legacy_config(off);
+#endif
 #ifdef SRVROS_INTEL_SOURCE_REQUESTER
     if(d==&devices[0] && off==4)return 0x00100000|intel_display_test_source_requester_command();
 #endif
@@ -587,6 +592,9 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+ if(v==WAKE_VA+14*4096)return INTEL_CAPTURE_PAGES+16;
+#endif
 #ifdef SRVROS_INTEL_VTD_DRAIN
  if(v==VTD_NATIVE_VA)return INTEL_CAPTURE_PAGES+16;
 #ifdef SRVROS_INTEL_GGTT_NATIVE
@@ -655,7 +663,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
     if(!strcmp(engine_mode,"interval-map-slot") && v==BACKING_VA+0x1d000)return false;
     if(v==BACKING_VA+0x1d000)assert(!writable && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
 #endif
-#ifdef SRVROS_INTEL_NONZERO_RESET
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+    if((v>=WAKE_VA+3*4096 && v<=WAKE_VA+7*4096) || v==WAKE_VA+9*4096 || v==WAKE_VA+14*4096)writable=true;
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
     if((v>=WAKE_VA+3*4096 && v<=WAKE_VA+7*4096) || v==WAKE_VA+9*4096)writable=true;
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
     if(v==WAKE_VA+7*4096)writable=true;
@@ -1002,6 +1012,8 @@ int main(int argc,char **argv) {
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-source-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_NONZERO_RESET)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-reset-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_RING_ENTRY)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=entry-v1",completion_recipe);
 #else
@@ -1154,6 +1166,9 @@ good=good || !strcmp(engine_mode,"vtd-poll") || !strcmp(engine_mode,"vtd-reserve
 #endif
 #ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
 good=good || !strncmp(engine_mode,"ownership-reenter:",18);
+#endif
+#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+good=intel_display_test_bootstrap_expected();
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS

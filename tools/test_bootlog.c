@@ -19,7 +19,7 @@ static void check_lines(uint64_t length,uint64_t capacity) {
     assert(bootlog_total()==length && bootlog_size()==(length<BOOTLOG_CAPACITY?length:BOOTLOG_CAPACITY));
 }
 int main(void) {
-#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+#if defined(SRVROS_INTEL_COMMAND_OWNERSHIP) || defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
     assert(BOOTLOG_CAPACITY==98304);
 #else
     assert(BOOTLOG_CAPACITY==65536);

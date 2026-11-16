@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Only the dedicated joined-provider image needs the larger provenance tail.
+/* Only dedicated joined-provider and full-GT images select this provenance tail.
  * Ordinary images and older diagnostic payloads retain their64KiB budget. */
-#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+#if defined(SRVROS_INTEL_COMMAND_OWNERSHIP) || defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
 #define SRVROS_BOOTLOG_CAPACITY 98304u
 #else
 #define SRVROS_BOOTLOG_CAPACITY 65536u
