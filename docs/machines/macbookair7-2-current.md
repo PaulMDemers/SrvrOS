@@ -47,6 +47,19 @@ deadlines were weakened. Future workspace snapshots now omit only an incomplete
 leading line while keeping the64KiB cap and raw-byte API unchanged. That framing
 fix is host/native-compiler validated separately, not new physical acceptance.
 
+Active native-provider block (base54a21658, freshly fetched main4016abf0):
+implement an isolated original-held command ownership dry run, joining fresh
+requester/AF, engine, full programmed/live/stereo display-reader, four-page GGTT
+and CPU RAM/alias/cache witnesses. Register on the exact command hold before
+callbacks and retire that dependent before original parent return. Preserve the
+existing remapper/GGTT operations, clocks and native backing acceptance. Unknown
+pipeline/prefetch/firmware/reader completion must remain an explicit missing
+requirement, never a positive transfer or GPU store. Scope: native adapter,
+independent raw receiver, dedicated image/recipe/workflow and fault/sanitizer/
+weakening/frame/isolation/VM qualification. The next unattended 1% trial must
+measure these joined native witnesses, save progress and return automatically
+on safe completion; uncertain retirement halts. PR19/379 remain independent.
+
 Completed host block (base5e4fffd4, freshly fetched main4016abf0): the isolated
 [command mapping transaction](../intel-command-mapping.md) composes the CPU arena
 with an already transferred four-page interval through existing transfer/space/
