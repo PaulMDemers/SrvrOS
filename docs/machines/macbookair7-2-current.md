@@ -8,7 +8,18 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active bootstrap block (basee43bfa30; freshly fetched main4016abf0): the separate
+Active native integration (base841fa4f2; freshly fetched main4016abf0): implement
+a distinct original HDA/GT/requester/five-engine owner for the full-GT bootstrap,
+advance the real parent epoch before reset and collect a fresh post-reset census.
+Scope: isolated native adapter/image/recipe, exact UC fence alias, bounded owner,
+strict receipt/collector and workflow/VM integration. Preserve the accepted BCS
+graph, all existing deadlines and all255 memory-completion obligations. No other
+task is contacted; PR19 Wi-Fi and PR379 WebCore remain independent. Qualify host
+faults/native frames and exact-stage save/return before the authorized unattended
+1% trial; collect that matching run first on return. Currentf0a8/recovery9aa8
+remain intact; no new trial is armed at this checkpoint.
+
+Previous bootstrap block (basee43bfa30; freshly fetched main4016abf0): the separate
 [full-GT reset/fence protocol](../intel-bdw-gt-bootstrap.md) is implemented. Host
 qualification passes50,291 modeled cases per original100/150ms policy,23 compiled
 weakening controls,826 fatal-sanitizer cases per policy and native2KiB/image
