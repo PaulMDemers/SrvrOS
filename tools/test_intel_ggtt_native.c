@@ -98,7 +98,10 @@ static int ggtt_case(int argc,char **argv) {
  gg_boundaries,gg_reads,gg_writes,gg_maps,gg_unmaps,gg_caches,gg_aliases,ggtt_returned(),ggtt_native.retained,gg_write_boundary,gg_read_boundary[0],gg_read_boundary[1]);
  return code;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_GGTT_FIXTURE_MAIN
+#define INTEL_GGTT_FIXTURE_MAIN main
+#endif
+int INTEL_GGTT_FIXTURE_MAIN(int argc,char **argv) {
 #ifndef _WIN32
  if(argc==2 && !strcmp(argv[1],"--fixture-server"))return fixture_server(ggtt_case);
 #endif

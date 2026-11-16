@@ -41,14 +41,14 @@ def code_inputs(repo):
     return [pattern for pattern in INPUTS if glob.glob(str(Path(repo) / pattern), recursive=True)]
 
 
-PROFILES = {'intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate'}
+PROFILES = {'intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
 
 def trial_parsers(name):
     if name == 'intel-source-audit-v35':
         return audit_recipe, native_audit_result, verify_audit_checkpoint
-    if name in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36'):
+    if name in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37'):
         from intel_vtd_native import drain_recipe, drain_result, verify_drain_checkpoint
         return drain_recipe, lambda text: drain_result(text, native=True), verify_drain_checkpoint
     raise ValueError('Unsupported exact trial profile: ' + str(name))
@@ -78,7 +78,7 @@ def profile(repo, name='intel-source-audit-v35'):
     boot = dict(name='boot-recipe', argv=['build/tests/boot-source-audit'],
                 inputs=test_dependencies, outputs=[], timeout=60)
     jobs = dict(development=[build, fast], qualification=[build, full, boot])
-    if name in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36'):
+    if name in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37'):
         build['argv'].extend(['build/tests/intel-vtd-native', 'build/tests/boot-vtd-drain'])
         build['outputs'].extend(['build/tests/intel-vtd-native', 'build/tests/boot-vtd-drain'])
         extra_inputs = test_dependencies + build['outputs'] + [VTD_FIXTURE]
@@ -99,7 +99,7 @@ def profile(repo, name='intel-source-audit-v35'):
                      cache=False, timeout=1800)
         jobs['development'].append(image)
         jobs['qualification'].append(image)
-        if name=='intel-ggtt-invalidate-v36':
+        if name in ('intel-ggtt-invalidate-v36','intel-command-memory-v37'):
             build['argv'].extend(['build/tests/intel-ggtt-native','build/tests/intel-ggtt-invalidate','build/tests/intel-ggtt-invalidate-policy'])
             build['outputs'].extend(['build/tests/intel-ggtt-native','build/tests/intel-ggtt-invalidate','build/tests/intel-ggtt-invalidate-policy'])
             image['argv'][1]='build/intel-ggtt-native/srvros.elf'
@@ -111,17 +111,35 @@ def profile(repo, name='intel-source-audit-v35'):
                 inputs=extra_inputs+build['outputs'],outputs=[],timeout=1800)
             jobs['development'].insert(-1,dict(ggtt,name='ggtt-development',argv=[sys.executable,'-m','unittest','-v','test_intel_ggtt_native.Native.test_complete_original_routes_and_checkpoint']))
             jobs['qualification'].extend([ggtt,dict(name='ggtt-core',argv=['make','test-intel-ggtt-invalidate'],inputs=dependencies,outputs=[],timeout=300)])
+        if name=='intel-command-memory-v37':
+            build['argv'].append('build/tests/intel-command-native')
+            build['outputs'].append('build/tests/intel-command-native')
+            image['argv'][1]='build/intel-command-memory/srvros.elf'
+            image['outputs'][0]='build/intel-command-memory/srvros.elf'
+            image['argv'].append('build/intel-ggtt-native/srvros.elf')
+            image['outputs'].append('build/intel-ggtt-native/srvros.elf')
+            command=dict(name='command-native',argv=[sys.executable,'-m','unittest','-v','test_intel_command_native'],
+                env={'PYTHONPATH':'tools','SRVROS_FIXTURE_BATCH':'1','SRVROS_VTD_DMAR':VTD_FIXTURE},
+                inputs=extra_inputs+build['outputs'],outputs=[],timeout=1800)
+            jobs['development'].insert(-1,dict(command,name='command-development',argv=[sys.executable,'-m','unittest','-v',
+                'test_intel_command_native.Native.test_original_routes_and_checkpoint',
+                'test_intel_command_native.Native.test_stage_and_image_isolation']))
+            jobs['qualification'].append(command)
         # Cheap structural failures must stop before lengthy fault matrices.
         # Full qualification still repeats them; no prior gate is removed.
         structure=dict(native,name='image-structure',timeout=300,
             argv=[sys.executable,'-m','unittest','-v',
                   'test_intel_vtd_drain.Drain.test_native_image_is_explicit_and_old_images_stay_isolated',
                   'test_intel_vtd_native.Recipe','test_hardware_boot'])
-        if name=='intel-ggtt-invalidate-v36':
+        if name in ('intel-ggtt-invalidate-v36','intel-command-memory-v37'):
             structure['inputs']=extra_inputs+build['outputs']
             structure['argv'].extend([
                 'test_intel_ggtt_invalidate.Invalidation.test_only_dedicated_combined_image_caller',
                 'test_intel_ggtt_native.Native.test_collector_preserves_raw_and_legacy_profile_isolation'])
+        if name=='intel-command-memory-v37':
+            structure['argv'].extend([
+                'test_intel_command_native.Native.test_stage_and_image_isolation',
+                'test_intel_command_native.Native.test_collector_keeps_original_raw_and_cpu_only_scope'])
         jobs['development'].insert(1,structure)
         jobs['qualification'].insert(1,structure)
     return jobs
@@ -196,9 +214,9 @@ class Runner:
         if not question.strip() or not expected.strip():
             raise ValueError('A hardware question and expected result are required')
         trial_parsers(trial_profile)
-        if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36') and (config['model'] != 'MacBookAir7,2' or not (self.repo / VTD_FIXTURE).is_file()):
+        if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37') and (config['model'] != 'MacBookAir7,2' or not (self.repo / VTD_FIXTURE).is_file()):
             raise ValueError('v36 requires this Air7,2 unit and its captured local DMAR fixture')
-        if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36'):
+        if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37'):
             from intel_vtd_native import _table
             _table((self.repo / VTD_FIXTURE).read_bytes())
         jobs = jobs or profile(self.repo, trial_profile)
@@ -214,9 +232,9 @@ class Runner:
                 if not job['inputs']:
                     raise ValueError('Every validation job needs explicit dependencies')
         inputs = code_inputs(self.repo)
-        if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36'):
+        if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37'):
             inputs.append(VTD_FIXTURE)
-        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
+        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
                         expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                         branch=command(['git', 'branch', '--show-current'], self.repo),
                         submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),

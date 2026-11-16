@@ -8,6 +8,9 @@ ring is submitted, and existing Air7,2 acceptance remains unchanged.
 This supplies the command/completion layer described in the
 [managed-memory milestones](intel-managed-memory-plan.md#ordered-implementation-milestones).
 It cannot create the address-space ownership required to execute its own packet.
+The next separately selected [private command-memory trial](intel-command-memory.md)
+prepares actual CPU-owned ring/context/completion backing and aliases. GPU
+translations and executable context/submission authority remain separate.
 
 ## Exact packet
 

@@ -1059,9 +1059,17 @@ bool intel_gt_wake_probe_report(void) {
      && source_clean_retired
 #endif
     );
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+    bool command_clean=command_finish(buffers_clean && !retained && (!acquired || released) && source_clean_retired);
+    complete=complete && command_clean;
+    if(command_native.owner.retained || (command_native.allocated && !command_clean))buffers_native.retained=true;
+#endif
     complete=complete && buffers_ready && buffers_native.binding.complete && buffers_native.grant_refused && buffers_clean;
     wake_terminal_retained=retained || buffers_native.retained;
     buffers_report(complete);
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+    command_report();
+#endif
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
         (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);

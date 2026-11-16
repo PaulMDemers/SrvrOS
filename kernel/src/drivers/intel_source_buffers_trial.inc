@@ -51,6 +51,9 @@ static bool vtd_returned(void);
 #ifdef SRVROS_INTEL_GGTT_NATIVE
 static void ggtt_prepare_storage(void);
 static bool ggtt_returned(void);
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+static bool command_returned(void);
+#endif
 #endif
 #endif
 #endif
@@ -67,6 +70,10 @@ static struct {
  unsigned prepared,patterns,callbacks;
  bool grant_refused,retained;
 } buffers_native;
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+static void source_audit_u64(uint8_t *,unsigned *,uint64_t);
+#include "intel_command_memory_trial.inc"
+#endif
 static bool buffers_validate(void *ctx,uint64_t pa,uint32_t pages) {
  if(ctx!=&buffers_native || !intel_scanout_trial_ram(pa,pages))return false;
  for(unsigned i=0;i<pages;i++) {
@@ -107,6 +114,9 @@ static bool buffers_pattern(unsigned n,bool initialize) {
  buffers_native.words+=words;buffers_native.patterns++;return true;
 }
 static bool buffers_prepare(void) {
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+ if(!command_prepare())return false;
+#endif
 #ifdef SRVROS_INTEL_VTD_DRAIN
  vtd_prepare_storage();
 #ifdef SRVROS_INTEL_GGTT_NATIVE

@@ -54,8 +54,8 @@ def drain_result(text, *, native=False):
     lines=[l for l in text.splitlines() if l.startswith('intel-vtd-drain:')]
     if len(lines)!=1:raise ValueError('VT-d drain receipt coverage')
     budget=100000
-    if lines[0].startswith(('intel-vtd-drain: v=3 ','intel-vtd-drain: v=4 ')):
-        version=4 if lines[0].startswith('intel-vtd-drain: v=4 ') else 3
+    if lines[0].startswith(('intel-vtd-drain: v=3 ','intel-vtd-drain: v=4 ','intel-vtd-drain: v=5 ')):
+        version=5 if lines[0].startswith('intel-vtd-drain: v=5 ') else 4 if lines[0].startswith('intel-vtd-drain: v=4 ') else 3
         raw=_raw(lines[0],'intel-vtd-drain:',1688,version)
         budget=struct.unpack_from('<Q',raw,1680)[0]
         if budget!=150000:raise ValueError('VT-d version3 preparation policy')
@@ -70,7 +70,7 @@ def _drain_result(text, *, native=False):
         raise ValueError('VT-d drain receipt coverage/order')
     if any(l.startswith('intel-vtd-') and not l.startswith(('intel-vtd-drain:', 'intel-vtd-table:')) for l in text.splitlines()):
         raise ValueError('VT-d drain unknown receipt')
-    version = 4 if lines[0].startswith('intel-vtd-drain: v=4 ') else 3 if lines[0].startswith('intel-vtd-drain: v=3 ') else 2 if lines[0].startswith('intel-vtd-drain: v=2 ') else 1
+    version = 5 if lines[0].startswith('intel-vtd-drain: v=5 ') else 4 if lines[0].startswith('intel-vtd-drain: v=4 ') else 3 if lines[0].startswith('intel-vtd-drain: v=3 ') else 2 if lines[0].startswith('intel-vtd-drain: v=2 ') else 1
     raw = _raw(lines[0], 'intel-vtd-drain:', 1688 if version >= 3 else 1680 if version == 2 else 1552, version)
     timing = None
     if version >= 2:
@@ -162,19 +162,26 @@ def _drain_result(text, *, native=False):
             raise ValueError('VT-d drain enclosing child order')
     ggtt=None
     ggtt_lines=[l for l in text.splitlines() if l.startswith('intel-ggtt-invalidate:')]
-    if version==4:
+    if version>=4:
         from intel_ggtt_native import ggtt_result
         ggtt=ggtt_result(view,d,parent,native=native)
     elif ggtt_lines:
         raise ValueError('GGTT receipt in historical VT-d image')
+    command=None
+    if version==5:
+        from intel_command_native import command_result
+        command=command_result(view,d,parent,ggtt,native=native)
+        complete=bool(complete and command['complete'])
+    elif any(l.startswith('intel-command-memory:') for l in text.splitlines()):
+        raise ValueError('Command-memory receipt in historical image')
     return dict(version=version, prepare_budget_us=prepare_us(), timing=timing, summary=d, contexts=contexts, polls=polls, audit=parent, complete=complete,
                 native_complete=bool(native and complete and parent['native_complete']),
                 hardware_ownership=False, managed_pages=0, physical_tearfree=False,
-                scope='AT00 memory already processed by graphics remapper only',**({'ggtt':ggtt} if version==4 else {}))
+                scope='AT00 memory already processed by graphics remapper only',**({'ggtt':ggtt} if version>=4 else {}),**({'command_memory':command} if version==5 else {}))
 
 
 def verify_drain_checkpoint(pre, text, *, native=False):
-    if any(l.startswith(('intel-vtd-drain:', 'intel-vtd-table:','intel-ggtt-invalidate:')) for l in pre.splitlines()):
+    if any(l.startswith(('intel-vtd-drain:', 'intel-vtd-table:','intel-ggtt-invalidate:','intel-command-memory:')) for l in pre.splitlines()):
         raise ValueError('VT-d drain late prerequisite')
     result = drain_result(text, native=native)
     d = result['summary']

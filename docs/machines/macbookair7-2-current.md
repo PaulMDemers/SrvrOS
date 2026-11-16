@@ -8,6 +8,28 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Active bounded block (base `c8967e50`, main `4016abf0` freshly inspected): implement
+typed private command-memory ownership for ring, context storage and completion,
+with actual allocator-backed CPU mappings, initialization, original-source lease
+and exact retirement. Integrate a separate native preparation image/receipt and
+workflow so the first trial proves real CPU-owned backing/mappings held through
+the original GPU diagnostic and clean return. Scope: diagnostic owner/core,
+separate native adapter, host fixture, stage/receiver/workflow and guides. GPU
+GGTT address-space authority remains a distinct prerequisite; this trial does
+not submit an inherited ring, write GPU PTEs or claim an executable LRC context.
+All original150/300/400/500ms native clocks/checks remain. Run full local and
+exact-stage VM gates, preserve recovery/evidence, then automatically reboot at1%
+under the user's current authorization. PR19/379 remain independent; no other
+task or subagent is contacted.
+
+The separate [CPU command-memory owner](../intel-command-memory.md) now passes
+422 modeled native-adapter faults, strict64-field receipts/checkpoints and the
+original clock endpoints. Native image/frame checks verify writable/NX aliases
+and absence of the BCS submission core. The full sanitizer/weakening suites,
+legacy acceptance replays and exact-stage VMs will be rerun against the frozen
+candidate before the automated1% trial. Original retirement is checked again
+immediately before freeing backing. No native arena acceptance is claimed yet.
+
 Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
 isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)
 binds private ring/context/completion mappings, a fresh nonce and original owner/

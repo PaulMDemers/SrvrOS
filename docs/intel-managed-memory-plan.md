@@ -7,6 +7,9 @@ The current [tear-free roadmap](intel-tearfree-roadmap.md) selects the cooperati
 driver-takeover route and orders the next composition and software work.
 The inherited framebuffer remains the desktop backend. The current native
 provider still supplies zero hardware assurances to `scanout_handoff`.
+The current [private command-memory preparation](intel-command-memory.md) adds
+an isolated CPU-owned arena trial before native command submission. It preserves
+the distinction between CPU aliases and managed GPU address-space authority.
 
 The [source-audit version3 requested CPU mapping observation](intel-source-audit.md#native-version3-requested-alias-observation-accepted)
 is now accepted on Air7,2 source `4b4b4d5d` / release `4751b92fb87ad132`,

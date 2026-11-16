@@ -273,4 +273,22 @@ fault suites. It checks the explicit image/fixture allowlists, legacy exclusion,
 staging and (for the combined profile) VM classification, the explicit Broadwell
 TCG CPU fixture and collector dispatch. Battery/ordinary VMs retain their own
 CPU selection. The CLI also exposes the combined profile directly.
+
+### Private command-memory profile
+
+`new --profile intel-command-memory-v37` selects the separate
+`--intel-command-memory` image and pins **wire version5**. It retains the full
+remapper/GGTT qualification and adds the
+[private CPU command-memory owner](intel-command-memory.md),512byte receipt,
+allocator/mapping/cache/retirement fault cases, fatal sanitizers and weakening
+controls. The structural preflight checks the new route and raw collector;
+native object checks verify supervisor writable/NX aliases and submission-core
+exclusion. The exact-stage VMs use the explicit Broadwell fixture. Version4 and
+older acceptance stays bound to its unchanged original raw logs.
+
+The first native question is four private RAM pages held through the original
+GPU diagnostic and fully retired afterward. Neither CPU alias ownership nor
+zeroed context storage grants a GPU mapping, executable LRC or submission.
+The selected150/300/400/500ms original bounds remain unchanged. Only matching
+native collection and independent media/recovery review can accept that lifetime.
 The full suites still repeat their structural checks; no gate is skipped.

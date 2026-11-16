@@ -110,6 +110,54 @@ static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32
 #ifdef SRVROS_INTEL_GGTT_NATIVE
 #include "intel_ggtt_invalidate_trial.inc"
 #endif
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+static bool command_lease_identity(const struct intel_command_lease *l) {
+ const struct intel_source_engines *p=&source_engines_native.result;
+ return command_native.parent==p && l==&command_native.owner.lease && l->owner==p &&
+ l->provider==&nonzero_native && l->lifetime==&joint.scope && l->root==command_native.owner.root &&
+ l->root==vtd_native.root && l->epoch==p->epoch && l->sequence==1 && l->prepare==p->origin &&
+ l->gt==p->parent_begin && l->hda==joint.scope.hda.begin_us && l->outer==joint.scope.outer_origin_us &&
+ vmm_current_address_space()==l->root;
+}
+static bool command_parent_guard(void *ctx,const struct intel_command_lease *l) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_command_guard();
+#endif
+ return ctx==&command_native && command_lease_identity(l) && ggtt_native.complete &&
+ !ggtt_native.mapped && !ggtt_native.registered_child && !ggtt_native.retained &&
+ ggtt_native.maps==1 && ggtt_native.retired==1 && ggtt_completed_record() &&
+ source_engines_guard(&nonzero_native);
+}
+static bool command_parent_retired(void *ctx,const struct intel_command_lease *l) {
+ if(ctx==&command_native)++command_native.retire_checks;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ if(!intel_display_test_command_retire())return false;
+#endif
+ const struct intel_source_engines *p=&source_engines_native.result;
+ return ctx==&command_native && command_native.outer_safe && command_lease_identity(l) &&
+ p->complete && p->state==ISE_CLOSED && !p->busy && !p->registered && p->restored &&
+ source_requester_native.result.complete && source_requester_native.result.restored &&
+ !source_requester_native.uncertain && !source_engines_native.uncertain &&
+ nonzero_native.r.complete && !nonzero_native.failed && ggtt_returned();
+}
+static bool command_run(void) {
+ const struct intel_source_engines *p=&source_engines_native.result;
+ command_native.parent=p;
+ struct intel_command_lease l={p,&nonzero_native,&joint.scope,command_native.owner.root,p->epoch,1,
+ p->origin,p->parent_begin,joint.scope.hda.begin_us,joint.scope.outer_origin_us};
+ return intel_command_memory_run(&command_native.owner,&l);
+}
+static bool command_returned(void) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_command_return();
+#endif
+ const struct intel_command_memory *o=&command_native.owner;
+ return command_lease_identity(&o->lease) && intel_command_memory_returned(o) &&
+ command_native.parent->child_end>=o->end && ggtt_native.end<=o->begin &&
+ command_native.cache_checks==3 && command_native.alias_checks==3 && command_native.zeros==1 &&
+ command_native.allocated==4 && !command_native.released && !command_native.word_checks;
+}
+#endif
 #endif
 #endif
 static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
@@ -126,6 +174,9 @@ static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
  if(!vtd_run())return false;
 #ifdef SRVROS_INTEL_GGTT_NATIVE
  if(!ggtt_run())return false;
+#ifdef SRVROS_INTEL_COMMAND_MEMORY
+ if(!command_run())return false;
+#endif
 #endif
 #endif
 #endif

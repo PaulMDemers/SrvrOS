@@ -182,17 +182,18 @@ class RunnerTests(unittest.TestCase):
         import device_workflow
         (self.repo / 'build').mkdir()
         atomic(self.runner.store / 'unit.json', self.unit)
-        argv = ['device_workflow.py', 'new', 'combined', '--profile',
-                'intel-ggtt-invalidate-v36', '--question', 'Complete original hold?',
-                '--expected', 'Exact retirement']
-        with patch.object(device_workflow, 'ROOT', self.repo), \
-                patch.object(device_workflow, 'Runner', return_value=self.runner), \
-                patch.object(self.runner, 'create', return_value='combined') as create, \
-                patch.object(sys, 'argv', argv):
-            device_workflow.main()
-        create.assert_called_once_with('combined', self.unit, 'Complete original hold?',
-                'Exact retirement', jobs=None, trial_profile='intel-ggtt-invalidate-v36')
-        self.assertEqual(self.runner.effects, [])
+        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37'):
+            argv = ['device_workflow.py', 'new', 'combined', '--profile',
+                    trial_profile, '--question', 'Complete original hold?',
+                    '--expected', 'Exact retirement']
+            with patch.object(device_workflow, 'ROOT', self.repo), \
+                    patch.object(device_workflow, 'Runner', return_value=self.runner), \
+                    patch.object(self.runner, 'create', return_value='combined') as create, \
+                    patch.object(sys, 'argv', argv):
+                device_workflow.main()
+            create.assert_called_once_with('combined', self.unit, 'Complete original hold?',
+                    'Exact retirement', jobs=None, trial_profile=trial_profile)
+            self.assertEqual(self.runner.effects, [])
 
     def test_complete_prepare_is_resumable_and_does_not_reboot(self):
         self.runner.advance('candidate')

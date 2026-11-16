@@ -6758,3 +6758,24 @@ build/intel-ggtt-native/srvros.elf: build/intel-ggtt-native/invalidate.o build/i
 build/tests/intel-ggtt-native$(HOST_EXE): tools/test_intel_ggtt_native.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c tools/test_intel_vtd_native.c kernel/diagnostics/intel_ggtt_invalidate.c
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_GGTT_NATIVE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c -o $@
+
+
+# Separate CPU-owned private command-memory lifetime; no GPU submission.
+INTEL_COMMAND_MEMORY_FLAGS := $(INTEL_GGTT_NATIVE_FLAGS) -DSRVROS_INTEL_COMMAND_MEMORY
+build/intel-command-memory/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_MEMORY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-memory/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_MEMORY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-memory/requests.o: kernel/src/limine_requests.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_MEMORY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-memory/owner.o: kernel/diagnostics/intel_command_memory.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_MEMORY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-memory/srvros.elf: build/intel-command-memory/owner.o build/intel-ggtt-native/invalidate.o build/intel-vtd-drain/drain.o build/intel-vtd-drain/engines.o build/intel-vtd-drain/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-vtd-drain/transfer.o build/intel-vtd-drain/buffers.o build/intel-joint/page.o build/intel-command-memory/main.o build/intel-command-memory/probe.o build/intel-command-memory/requests.o build/intel-vtd-drain/reset.o build/intel-vtd-drain/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-command-native$(HOST_EXE): tools/test_intel_command_native.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c tools/test_intel_vtd_native.c kernel/diagnostics/intel_ggtt_invalidate.c tools/test_intel_ggtt_native.c kernel/diagnostics/intel_command_memory.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_COMMAND_MEMORY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c kernel/diagnostics/intel_command_memory.c -o $@
