@@ -47,21 +47,29 @@ deadlines were weakened. Future workspace snapshots now omit only an incomplete
 leading line while keeping the64KiB cap and raw-byte API unchanged. That framing
 fix is host/native-compiler validated separately, not new physical acceptance.
 
-Active bounded block (base5e4fffd4, freshly fetched main4016abf0): join the
-accepted original CPU command arena to a genuinely transferred GPU address
-interval, using the existing transfer/space/publication mechanisms. Implement
-four-page Broadwell encoding, original-source/cache/clock admission, child
-registration, mapping/use/restore and exact retirement with terminal retention
-on uncertainty. Scope: isolated typed mapping owner, host integration fixture,
-fault/sanitizer/weakening/frame/isolation checks and contracts. The native
-provider still has no transferred interval or completed ownership witnesses;
-host success enables no native writer or positive assurance. Preserve
-native4864/8380 acceptance, recovery and all original bounds. Shared changes
-include explicit CPU-hold dependent helpers and an opt-in clock-accounted
-transfer check, preserving the existing transfer check and its100ms bound.
-The new wrapper accounts every nested sample against original100/150ms
-preparation and300/400/500ms parents, without replacing admitted I/O tables.
-Independent PR19/379 remain untouched; no subagents/task messages.
+Completed host block (base5e4fffd4, freshly fetched main4016abf0): the isolated
+[command mapping transaction](../intel-command-mapping.md) composes the CPU arena
+with an already transferred four-page interval through existing transfer/space/
+publication cores. It registers the RAM hold before callbacks, requires fresh
+independent ownership, uses exact Broadwell encodings and restores all four
+opaque64bit originals before releasing its range/dependent. Every uncertain
+started lifetime retains backing and exclusion. Both100/150ms policies pass
+17,808 composed cases, fatal ASan/UBSan and21 compiled weakening controls; actual
+native2KiB frame and native-image exclusion pass. A new final-reader control
+checks retention even when every original PTE is already restored. Legacy
+transfer and all11 native command-owner regression methods pass, including422
+modeled faults. Actual selected CPU owner recompiles with the2KiB frame limit.
+
+The nested transfer clock wrapper fixes an accounting gap found by the fault
+matrix: every source-clock sample now reaches the enclosing observer, including
+backward samples inside nested checks. The original transfer check/table and
+its100ms limit are unchanged. All original100/150ms preparation and300/400/500ms
+parents remain; zero/backward/frozen/+1 refuse. No native provider supplies the
+required transferred interval or DMA/cache/reader witnesses, so this component
+has no native caller/image/trial. Next establish that real ownership provider
+and ordered completion before adapter/receipt integration; executable LRC and
+submission remain separate work. Native4864/8380 acceptance and recovery stay
+unchanged, no reboot armed. PR301 remains draft; PR19/379 are independent.
 
 Completed bounded block (base `ba239027`, freshly fetched main `4016abf0`): the
 isolated [Broadwell BCS packet/completion protocol](../intel-bdw-bcs-flush.md)

@@ -541,3 +541,16 @@ It cannot bootstrap those prerequisites, execute through an inherited ring or
 prove other engines/firmware/display readers retired. No native caller/image or
 new hardware acceptance follows. Next establish the genuine private command
 resource owner and its initialization/retirement before native submission.
+
+One native original kind2 [CPU command-arena lifetime](intel-command-memory.md)
+is now accepted on Air7,2 `4864ad3a` / `838082d16f6be16d`, with four WB CPU aliases,
+full16KiB preservation, exactly-once release and complete parent retirement.
+The subsequent [four-page GPU mapping transaction](intel-command-mapping.md)
+is host-qualified: it registers that CPU hold, requires an already transferred
+interval and fresh independent ownership, publishes/restores through the existing
+cores and retains every uncertain lifetime. It has no native provider or image
+caller. Next establish the actual firmware/engine/DMA/cache/reader interval and
+ordered completion witnesses, then integrate the original native adapter and
+receipt chain. Executable LRC and submission remain separate steps. All255 GPU
+obligations, zero positive assurances/managed GPU pages and native tear-free
+pending remain; host composition does not accept any new hardware operation.

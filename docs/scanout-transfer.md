@@ -44,6 +44,14 @@ An enclosing native owner must enforce its remaining whole-lifetime budget;
 starting a transfer validation phase or waiting for a child cannot restart or
 extend that parent deadline.
 
+The optional `scanout_transfer_check_clocked` check lets an enclosing owner
+account **every** nested clock sample through its own wrapper of the same
+admitted source clock. The transfer I/O table is never replaced; its100ms phase
+limit, progress check and terminal retention remain. The legacy
+`scanout_transfer_check` path is unchanged. The
+[command mapping composition](intel-command-mapping.md) exercises both enclosing
+and nested limits, including zero/backward/frozen clocks and exact boundary+1.
+
 Original-object and monotonic pool-epoch tokens reject copied, stale and rebound
 owners. Callback reentry refuses. `scanout_transfer_original` retrieves an exact
 captured entry for a child restoration plan; this is data, not a fresh hardware

@@ -53,6 +53,12 @@ bool scanout_transfer_open(struct scanout_transfer *,struct scanout_transfer_poo
 /* A live check failure closes reservation admission and latches FAULT. No retry
  * or reuse after lost ownership; all existing leases and backing stay pinned. */
 bool scanout_transfer_check(struct scanout_transfer *,const struct scanout_transfer_token *);
+/* Nested original-owner validation. The wrapper calls the SAME admitted source
+ * clock while accounting every sample against its enclosing deadlines; it does
+ * not replace the transfer I/O table. This check retains its own100ms bound.
+ * Trusted CPU0-serialized caller/clock context must survive the whole call. */
+bool scanout_transfer_check_clocked(struct scanout_transfer *,const struct scanout_transfer_token *,
+                                  uint64_t (*clock)(void *),void *);
 /* Exact captured entry lookup, not fresh hardware proof. Permitted while
  * closing so a still-owned child's restoration can use its original vector. */
 bool scanout_transfer_original(const struct scanout_transfer *,const struct scanout_transfer_token *,uint32_t index,uint64_t *);

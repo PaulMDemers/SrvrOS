@@ -56,6 +56,13 @@ bool intel_command_memory_prepare(struct intel_command_memory *,uint64_t root,ui
  * The hold and RAM remain pinned until the enclosing source actually retires. */
 bool intel_command_memory_run(struct intel_command_memory *,const struct intel_command_lease *);
 bool intel_command_memory_returned(const struct intel_command_memory *);
+/* One trusted GPU-mapping dependent, after this CPU child has returned but
+ * before the enclosing parent retires. Registration blocks returned()/close()
+ * and therefore the native parent-return gate. It grants no GPU authority.
+ * Only a clean mapping retirement may return the dependent; faults pin it. */
+bool intel_command_memory_consumer_begin(struct intel_command_memory *,const void *);
+bool intel_command_memory_consumer_live(const struct intel_command_memory *,const void *);
+bool intel_command_memory_consumer_end(struct intel_command_memory *,const void *);
 /* Only after independent original-parent retirement: verify full zero contents,
  * retire the exact four CPU aliases, then release the original RAM once. */
 bool intel_command_memory_close(struct intel_command_memory *);

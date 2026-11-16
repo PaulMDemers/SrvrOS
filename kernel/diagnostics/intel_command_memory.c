@@ -20,11 +20,12 @@ static bool identity(const struct intel_command_memory *r) {
  r->memory.allocator.ctx==r->io.ram.ctx && r->memory.allocator.allocate==r->io.ram.allocate &&
  r->memory.allocator.validate==r->io.ram.validate && r->memory.allocator.release==r->io.ram.release;
 }
-static bool hold_live(const struct intel_command_memory *r) {
+static bool registered_hold_live(const struct intel_command_memory *r,const void *dependent) {
  return identity(r) && scanout_memory_hold_live(&r->hold) && r->hold.lifetime==r &&
  r->hold.memory.object==&r->memory && r->hold.physical==r->physical && r->hold.bytes==INTEL_COMMAND_BYTES && r->hold.serial==r->serial &&
- (r->registered?(r->hold.dependent==r && r->hold.registered==r):(!r->hold.dependent && !r->hold.registered));
+ r->hold.dependent==dependent && r->hold.registered==dependent;
 }
+static bool hold_live(const struct intel_command_memory *r) {return registered_hold_live(r,r->registered?r:NULL);}
 static bool fail(struct intel_command_memory *r,unsigned reason) {
  r->reason|=reason;r->state=COMMAND_FAULT;r->retained=true;r->complete=false;r->busy=false;return false;
 }
@@ -135,13 +136,27 @@ bool intel_command_memory_run(struct intel_command_memory *r,const struct intel_
  r->end=r->last;r->complete=true;r->registered=false;r->hold.dependent=NULL;r->hold.registered=NULL;
  r->state=COMMAND_RETURNED;r->busy=false;return true;
 }
-bool intel_command_memory_returned(const struct intel_command_memory *r) {
- return r && r->state==COMMAND_RETURNED && !r->busy && !r->registered && r->complete && hold_live(r) &&
+static bool returned(const struct intel_command_memory *r,const void *dependent) {
+ return r && r->state==COMMAND_RETURNED && !r->busy && !r->registered && r->complete && registered_hold_live(r,dependent) &&
+ r->lease.owner && r->lease.provider && r->lease.lifetime && r->lease.root==r->root && r->lease.epoch && r->lease.sequence==1 &&
  r->alias.pages==4 && r->alias.leaves==4 && !r->alias.index && r->alias.writable==1 && !r->alias.user &&
  r->alias.nx==1 && r->alias.sizes==1 && r->alias.mtrr==6 && r->alias.pat==6 && r->alias.effective==6 &&
  r->maps==4 && !r->retired && r->observations==3 && r->guards==2 && r->initializations==1 && !r->checks &&
  r->begin>=r->lease.prepare && r->end>r->begin && r->end==r->last && r->end-r->lease.prepare<=INTEL_DIAGNOSTIC_PREPARE_US &&
  r->end-r->lease.gt<=300000 && r->end-r->lease.hda<=400000 && r->end-r->lease.outer<=500000;
+}
+bool intel_command_memory_returned(const struct intel_command_memory *r) {return returned(r,NULL);}
+bool intel_command_memory_consumer_live(const struct intel_command_memory *r,const void *dependent) {
+ return dependent && returned(r,dependent);
+}
+bool intel_command_memory_consumer_begin(struct intel_command_memory *r,const void *dependent) {
+ uintptr_t p=(uintptr_t)dependent,b=(uintptr_t)r;
+ if(!dependent || (p>=b && p-b<sizeof(*r)) || !intel_command_memory_returned(r))return false;
+ r->hold.dependent=dependent;r->hold.registered=dependent;return intel_command_memory_consumer_live(r,dependent);
+}
+bool intel_command_memory_consumer_end(struct intel_command_memory *r,const void *dependent) {
+ if(!intel_command_memory_consumer_live(r,dependent))return false;
+ r->hold.dependent=NULL;r->hold.registered=NULL;return intel_command_memory_returned(r);
 }
 bool intel_command_memory_close(struct intel_command_memory *r) {
  if(!intel_command_memory_returned(r))return false;

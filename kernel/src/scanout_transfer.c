@@ -115,6 +115,28 @@ bool scanout_transfer_check(struct scanout_transfer *t,const struct scanout_tran
     if(!arena(t)){t->error=TRANSFER_SPACE;return fault(t);}
     t->busy=false;return true;
 }
+bool scanout_transfer_check_clocked(struct scanout_transfer *t,const struct scanout_transfer_token *token,
+    uint64_t (*clock)(void *),void *ctx) {
+    if(!auth(t,token) || !clock || !ctx)return false;
+    t->busy=true;
+    if(!arena(t)){t->error=TRANSFER_SPACE;return fault(t);}
+    uint64_t now=clock(ctx);
+    if(!now || now<t->last_us){t->error=TRANSFER_CLOCK;return fault(t);}
+    t->begin_us=t->last_us=now;
+    now=clock(ctx);
+    if(!now || now<t->last_us || now-t->begin_us>SCANOUT_TRANSFER_DEADLINE_US){t->error=TRANSFER_CLOCK;return fault(t);}
+    t->last_us=now;
+    if(!parent(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
+    bool ok=t->io.revalidate(t->io.ctx,&t->manifest,TRANSFER_LIVE);
+    if(!parent(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
+    now=clock(ctx);
+    if(!now || now<t->last_us || now-t->begin_us>SCANOUT_TRANSFER_DEADLINE_US){t->error=TRANSFER_CLOCK;return fault(t);}
+    t->last_us=now;
+    if(!ok){t->error=TRANSFER_PROVIDER;return fault(t);}
+    if(t->last_us==t->begin_us){t->error=TRANSFER_CLOCK;return fault(t);}
+    if(!arena(t)){t->error=TRANSFER_SPACE;return fault(t);}
+    t->busy=false;return true;
+}
 bool scanout_transfer_original(const struct scanout_transfer *t,const struct scanout_transfer_token *token,
     uint32_t index,uint64_t *out) {
     if(!auth(t,token) || !parent(t) || !arena(t) || index<t->manifest.first ||

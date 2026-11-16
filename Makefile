@@ -6739,6 +6739,19 @@ test-intel-bdw-bcs-flush: build/tests/intel-bdw-bcs-flush$(HOST_EXE) build/tests
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_flush
 test-core: test-intel-bdw-bcs-flush
 
+# Host-qualified command arena/GPU interval composition; no native provider.
+COMMAND_MAPPING_HOST_SOURCES := kernel/diagnostics/intel_command_mapping.c kernel/diagnostics/intel_command_memory.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
+.PHONY: test-intel-command-mapping
+build/tests/intel-command-mapping$(HOST_EXE): tools/test_intel_command_mapping.c tools/fixture_server.h $(COMMAND_MAPPING_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(COMMAND_MAPPING_HOST_SOURCES) -o $@
+build/tests/intel-command-mapping-policy$(HOST_EXE): tools/test_intel_command_mapping.c tools/fixture_server.h $(COMMAND_MAPPING_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(COMMAND_MAPPING_HOST_SOURCES) -o $@
+test-intel-command-mapping: build/tests/intel-command-mapping$(HOST_EXE) build/tests/intel-command-mapping-policy$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_command_mapping
+test-core: test-intel-command-mapping
+
 # Combined v36 original-held remapper + System Agent invalidation diagnostic.
 INTEL_GGTT_NATIVE_FLAGS := $(INTEL_VTD_DRAIN_FLAGS) -DSRVROS_INTEL_GGTT_NATIVE
 build/intel-ggtt-native/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)

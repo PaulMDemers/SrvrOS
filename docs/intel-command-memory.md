@@ -13,6 +13,14 @@ executable context, install GPU translations or submit commands. GPU address-spa
 cache visibility and engine/context ownership must be established independently
 before the protocol can execute.
 
+The host-qualified [GPU mapping transaction](intel-command-mapping.md) composes
+this returned CPU owner with an already transferred interval. Its optional
+`consumer_begin/live/end` helpers register one dependent on the exact RAM hold
+before callbacks. While registered, ordinary `returned()` and `close()` refuse,
+also blocking the native parent-return gate. Only clean mapping retirement may
+return that dependent. These helpers grant no GPU authority and have no native
+caller. The original zero-preservation and parent-retirement rules remain.
+
 ## Arena and CPU mappings
 
 One original `intel_command_memory` object owns four contiguous allocator-tagged
