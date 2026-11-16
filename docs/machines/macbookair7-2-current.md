@@ -8,8 +8,41 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Latest bounded graphics milestone is **accepted private CPU command-memory
-ownership**, runtime `4864ad3a`, release `838082d16f6be16d`, session
+Latest bounded graphics milestone is **accepted paired native command admission**,
+runtime `2abaf8f9`, release `f0a84ce57c164e9c`, session
+`session-0006605f9255f1b8-00`. All23 frozen host checks and both exact-stage VM
+paths pass, including6,428 modeled provider faults, seven compiled weakening
+controls and fatal sanitizers. One original kind2/epoch1 hold registers the new
+observer and completes two matching requester/AF, five-engine, programmed/live/
+stereo reader, exact four-entry GGTT and actual CPU alias/cache observations.
+Its180 observation reads plus162 fresh command admissions finish in3,043us;
+22 groups and both fresh CPU observations verify. Known missing GPU interval,
+DMA/cache and all-reader authority remains explicit: requirement6, missing25,
+all255 whole-device obligations, zero assurances or managed GPU pages.
+
+The full original preparation/verified return is106,850/150,000us, leaving
+43,150us. Closing guard8us and borrow return3,169us remain separately measured.
+Four CPU pages preserve all2048 QWords, retire four aliases and release once,
+DMA57→57; original2,712-page buffers retire with DMA61→61. Parent restoration,
+HDA/root/14 original GPU alias retirement and the300/400/500ms bounds pass.
+The67,351byte raw exit log retains its complete original prefix under the new
+96KiB bound; no reconstruction or parser migration is used. All1,557 prior files
+preserve except expected metadata; three logs yield1,560files/176sessions.
+Offline integrity, boot digest, Ubuntu default, consumed one-shot and installed/
+banked recovery/prior8380 verify. Currentf0a8, recovery9aa8 retained; USB is
+unmounted, the run is closed ACCEPTED and no reboot is armed. Raw/proof/checks
+are sealed outside build. See the [dated result](macbookair7-2.md#native-paired-command-admission-accepted).
+
+This accepts the registered observation/retirement lifetime, not a transferred
+GPU interval, DMA/cache completion or all-reader ownership. Executable LRC,
+submission and native tear-free remain pending. Next implement those independent
+ownership/completion providers before connecting the host-qualified mapping
+transaction; do not repeat an unchanged refusal trial. Enabled route and
+repeatability remain unaccepted. Fresh main4016abf0 and independent PR19/379
+are unchanged; no other task/subagent is contacted.
+
+The preceding **accepted private CPU command-memory ownership** milestone used
+runtime `4864ad3a`, release `838082d16f6be16d`, session
 `session-0006605b86e107d4-00`. All33 frozen host gates and both exact-stage VMs
 passed. Four private pages for ring, two-page context storage and completion
 have actual supervisor writable/NX4KiB WB CPU aliases, remain held through the
@@ -35,8 +68,9 @@ This accepts one original kind2 CPU backing/mapping lifetime. GPU address-space
 ownership, executable LRC initialization, cache visibility and native submission
 remain next prerequisites; no inherited ring is submitted and all255 GPU
 obligations, zero positive assurances/managed GPU pages and native tear-free
-pending remain. Enabled route and repeatability are not accepted. Current8380,
-recovery9aa8 retained; USB unmounted and no trial outstanding. Main4016 and
+pending remain. Enabled route and repeatability are not accepted. At that
+checkpoint current8380/recovery9aa8 were retained, USB was unmounted and no trial
+was outstanding. Main4016 and
 independent PR19/379 are unchanged; no other task/subagent is contacted.
 
 The preceding0df3/f2 trial remains rejected: an unmasked first alias observer
@@ -44,24 +78,17 @@ refused before the original GPU parent started, retaining four pages. Its raw/
 photo/proof bank remains intact. The4864 caller correction masks/restores the
 incoming IRQ state and the host fixture models nesting; neither VMM checks nor
 deadlines were weakened. Future workspace snapshots now omit only an incomplete
-leading line while keeping the64KiB cap and raw-byte API unchanged. That framing
-fix is host/native-compiler validated separately, not new physical acceptance.
+leading line while keeping the ordinary64KiB cap and raw-byte API unchanged.
+Wrap/boundary behavior has host/native-compiler evidence; the selected v38 log
+now has the separate bounded native evidence above.
 
-Active native-provider block (base54a21658, freshly fetched main4016abf0):
-implement an isolated original-held command ownership dry run, joining fresh
-requester/AF, engine, full programmed/live/stereo display-reader, four-page GGTT
-and CPU RAM/alias/cache witnesses, with162 fresh command-register admissions
-before MMIO. Register on the exact command hold before
-callbacks and retire that dependent before original parent return. Preserve the
-existing remapper/GGTT operations, clocks and native backing acceptance. Unknown
-pipeline/prefetch/firmware/reader completion must remain an explicit missing
-requirement, never a positive transfer or GPU store. Scope: native adapter,
-independent raw receiver, dedicated image/recipe/workflow and fault/sanitizer/
-weakening/frame/isolation/VM qualification. The new profile alone gets a96KiB
-ring/save/collection bound to preserve provenance; ordinary/older images retain
-64KiB. Full-capacity readback and framing are required before staging. The next unattended 1% trial must
-measure these joined native witnesses, save progress and return automatically
-on safe completion; uncertain retirement halts. PR19/379 remain independent.
+Completed native-provider admission block (base54a21658, runtime2abaf8f9,
+fresh main4016abf0): the isolated [observer](../intel-command-ownership.md)
+now has the bounded native evidence above. Its registration and180+162 read
+counts, original clocks and full dependent/parent/RAM retirement pass. Unknown
+pipeline/prefetch/firmware/reader completion stays a missing requirement. The
+96KiB log is confined to this profile; ordinary and older images remain64KiB.
+No mapping/submission core is linked, and no positive hardware grant follows.
 
 Completed host block (base5e4fffd4, freshly fetched main4016abf0): the isolated
 [command mapping transaction](../intel-command-mapping.md) composes the CPU arena

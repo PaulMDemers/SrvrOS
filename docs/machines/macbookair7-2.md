@@ -3,7 +3,58 @@
 For the concise active checkpoint, use [current status](macbookair7-2-current.md).
 This journal preserves dated exact-source acceptance and historical anchors.
 
-Updated: 2026-11-15. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
+
+## Native paired command admission accepted
+
+2026-11-16: runtime `2abaf8f96b755f902a187181420411ee143f7ce5`, release
+`f0a84ce57c164e9c`, session `session-0006605f9255f1b8-00`. All23 frozen host
+gates and both exact-stage VM save/return and missing-workspace paths pass.
+The new actual-adapter matrix covers6,428 modeled faults on both source routes,
+seven compiled weakening controls,456 strict packet mutations, fatal sanitizers,
+native2KiB graphics frames, separate generic logger frames and image isolation.
+The unattended silent trial runs at1% host volume and returns automatically;
+Ubuntu's collection service preserves the matching raw files before parsing.
+
+One original kind2/epoch1 command hold registers its observer, then completes
+two paired actual PCI requester/AF, five-engine, three-pipe programmed/live/
+stereo, four-entry high/low/high GGTT and CPU backing/alias/cache samples.
+The180 observation DWORDs,162 immediately preceding command admissions,
+22 groups and two CPU observations take3,043us. Both sample vectors match the
+original source as applicable and each other; CPU policy independently resolves
+WB with four supervisor writable/NX4KiB aliases. The observer unregisters before
+original parent retirement. Requirement mask6 and missing25 are explicit: this
+is observation/registration evidence, not exact GPU interval transfer, GPU
+DMA/cache/prefetch completion or comprehensive reader/firmware ownership.
+
+Full preparation and verified return take106,850/150,000us (43,150us margin).
+Closing guard8us and borrow return3,169us pass. Native remapper8,097us and
+System Agent invalidation747us retain their own original receipts. All enclosing
+300/400/500ms bounds, five-engine reverse cancellation, requester restoration,
+source/reset/HDA/root and14 GPU alias retirements pass. The four CPU command
+pages initialize in64us, preserve all2048 QWords, remove four aliases and
+release once in65us; DMA57→57 balances. The original2,712 pages also release,
+with four patterns and DMA61→61. No GPU PTE store or submission is attempted;
+all255 whole-device obligations and zero assurances/managed GPU pages remain.
+
+The complete67,351byte raw exit retains its original kernel/command-line prefix
+under the selected96KiB bound. Raw hashes match collection; no reconstructed
+view, parser migration or discarded hardware row is used. Ordinary/older
+images remain64KiB;96KiB wrap/framing and full-capacity save/readback have host
+and fatal sanitizer evidence, without claiming a physical ring-wrap event.
+All1,557 prior files preserve except expected `.srvros/meta`; exactly three new
+logs yield1,560files/176sessions. Unchanged boot digest, offline fsck/allocation/
+writable/headroom, Ubuntu default, consumed one-shot, installed/banked recovery
+and prior accepted8380 verify. USB is unmounted, run closed ACCEPTED, no reboot
+armed. Manifest, raw, qualification, independent review assertions and proof
+are banked outside build and survive distclean.
+
+Currentf0a8 and recovery9aa8 remain installed. The inherited framebuffer desktop
+is unchanged. Enabled route, repeatability, actual managed GPU mapping,
+executable LRC, submission and tear-free scanout remain unaccepted. Next supply
+independent exact-interval and DMA/cache/all-reader completion authority for
+the existing host-qualified mapping transaction; a stable snapshot supplies
+none. Integration main4016abf0 and independent PR19/379 are unchanged.
 
 ## Native private command memory accepted
 

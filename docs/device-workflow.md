@@ -303,7 +303,21 @@ remain unchanged. The original collection refusal is retained. This is not a
 general permission to discard unknown receipts or replace missing hardware rows.
 
 Future workspace snapshots omit only a partial leading line and preserve an
-exact-boundary first record, the64KiB cap and raw total-byte sequence. Raw
+exact-boundary first record and raw total-byte sequence. Ordinary/older images
+retain64KiB; the isolated v38 profile uses96KiB. Raw
 bootlog byte APIs retain their existing semantics. Missing protocol/checkpoint
 records still refuse; a logging change never accepts a native lifetime by itself.
 The full suites still repeat their structural checks; no gate is skipped.
+
+### Paired native admission result
+
+The [v38 observer](intel-command-ownership.md) now has one accepted original
+kind2 Air7,2 lifetime on2abaf8f9/f0a84ce57c164e9c. All23 frozen checks and both
+exact-stage VMs pass. Ubuntu's unchanged return service collects the matching
+session; full original retirement, raw/checkpoint validation, prior-file and
+offline/recovery review close it as bounded native admission evidence. The
+67,351byte raw exit fits96KiB without prefix recovery. This accepts no GPU
+mapping, DMA/cache completion or all-reader ownership. The local one-shot
+handoff waits for the qualifier to finish, requires every frozen receipt and
+then uses the existing guarded install/arm/reboot sequence; it never retries
+failed qualification or bypasses fresh media/recovery/1% checks.

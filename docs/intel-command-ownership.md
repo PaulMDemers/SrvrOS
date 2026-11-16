@@ -100,3 +100,19 @@ The guest prints progress and needs no input. Volume is1% and no sound is played
 Safe completed observations save/unmount and return automatically to Ubuntu.
 Uncertain retained state halts visibly; missing completion is not a pass. Keep
 Ubuntu default, the known-good current payload and independent recovery intact.
+
+## Native Air7,2 result
+
+Runtime `2abaf8f9` / release `f0a84ce57c164e9c` has one
+[accepted original kind2 admission lifetime](machines/macbookair7-2.md#native-paired-command-admission-accepted).
+Both fresh samples and all180+162 hardware reads finish in3,043us. The full
+original preparation/verified return is106,850/150,000us; all CPU/dependent/
+parent resources retire and media/recovery verify. The67,351byte raw exit is
+complete under96KiB, with no recovered prefix or collector migration. All23
+frozen host gates,6,428 modeled faults, seven compiled controls, fatal sanitizers
+and both exact-stage VMs pass before the physical trial.
+
+This accepts the paired observation lifetime only. Requirement6/missing25,
+all255 whole-device obligations and zero managed GPU pages remain. Enabled
+route and repeatability, exact interval transfer, GPU DMA/cache/prefetch and
+all-reader completion, executable LRC/submission and native tear-free are pending.
