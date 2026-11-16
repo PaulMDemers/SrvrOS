@@ -147,12 +147,22 @@ static bool command_run(void) {
  p->origin,p->parent_begin,joint.scope.hda.begin_us,joint.scope.outer_origin_us};
  return intel_command_memory_run(&command_native.owner,&l);
 }
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+#if defined(SRVROS_INTEL_DISPLAY_HOST_TEST) && defined(SRVROS_COMMAND_OWNERSHIP_TEST_INCLUDE)
+#include SRVROS_COMMAND_OWNERSHIP_TEST_INCLUDE
+#else
+#include "intel_command_ownership_trial.inc"
+#endif
+#endif
 static bool command_returned(void) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_command_return();
 #endif
  const struct intel_command_memory *o=&command_native.owner;
  return command_lease_identity(&o->lease) && intel_command_memory_returned(o) &&
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+ command_ownership_returned() &&
+#endif
  command_native.parent->child_end>=o->end && ggtt_native.end<=o->begin &&
  command_native.cache_checks==3 && command_native.alias_checks==3 && command_native.zeros==1 &&
  command_native.allocated==4 && !command_native.released && !command_native.word_checks;
@@ -176,6 +186,9 @@ static bool source_engines_child(void *ctx,struct intel_source_engines *r) {
  if(!ggtt_run())return false;
 #ifdef SRVROS_INTEL_COMMAND_MEMORY
  if(!command_run())return false;
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+ if(!command_ownership_run())return false;
+#endif
 #endif
 #endif
 #endif

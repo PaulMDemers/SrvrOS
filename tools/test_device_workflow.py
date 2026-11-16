@@ -398,13 +398,13 @@ class MediaTests(unittest.TestCase):
         self.device.write_bytes(bytes(24*512))
         self.config = dict(volume='aabbccdd', repo=str(self.root))
 
-    def snapshot(self, before, parser):
+    def snapshot(self, before, parser, max_log_bytes=65536):
         from workflow.media import snapshot
         with patch('workflow.media.unmounted_partition', return_value=str(self.device)), \
                 patch('workflow.media.Reader'), patch('workflow.media.stat.S_ISBLK', return_value=True), \
                 patch('workflow.media.subprocess.run') as run, patch('workflow.media.collect', side_effect=parser):
             try:
-                return snapshot(self.config, self.dest, before=before)
+                return snapshot(self.config, self.dest, before=before,max_log_bytes=max_log_bytes)
             finally:
                 self.calls = [call.args[0] for call in run.call_args_list]
 
@@ -456,6 +456,22 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(sum('tools/check_exfat_allocation.py' in argv for argv in self.calls), 3)
         self.assertTrue(any(argv[0] == 'fsck.exfat' and '-n' in argv for argv in self.calls))
         self.assertEqual(json.loads((self.dest / 'offline.json').read_text())['status'], 'PASS')
+
+    def test_provider_bound_preserves_full_raw_before_parsing(self):
+        before,fresh=self.prepared()
+        payload=b'x'*98303+b'\n';(fresh/'exit.log').write_bytes(payload)
+        def parser(*args):
+            self.assertEqual((self.dest/('raw-'+fresh.name)/'exit.log').read_bytes(),payload)
+            return self.dest/'parsed',dict(sessions=[])
+        self.assertEqual(len(self.snapshot(before,parser,98304)['new_sessions']),1)
+
+    def test_default_and_provider_bounds_remain_strict(self):
+        before,fresh=self.prepared()
+        for cap in (65536,98304):
+            (fresh/'exit.log').write_bytes(b'x'*(cap+1))
+            with self.assertRaisesRegex(ValueError,'oversized'):
+                self.snapshot(before,lambda *args:self.fail('oversized raw must not be parsed'),cap)
+            self.assertEqual(self.calls[-1],['umount',str(self.mount)])
 
     def test_durable_copy_refuses_changed_raw_instead_of_overwriting(self):
         from workflow.media import durable_copy

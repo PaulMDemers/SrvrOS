@@ -19,16 +19,21 @@ static void check_lines(uint64_t length,uint64_t capacity) {
     assert(bootlog_total()==length && bootlog_size()==(length<BOOTLOG_CAPACITY?length:BOOTLOG_CAPACITY));
 }
 int main(void) {
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+    assert(BOOTLOG_CAPACITY==98304);
+#else
+    assert(BOOTLOG_CAPACITY==65536);
+#endif
     char out[12];uint64_t total;
     assert(!bootlog_snapshot(out,sizeof(out),&total) && !total);
     for(unsigned i=0;i<70000;i++) bootlog_putc('a'+i%26);
-    assert(bootlog_snapshot(out,sizeof(out),&total)==12 && total==70000 && bootlog_size()==65536);
+    assert(bootlog_snapshot(out,sizeof(out),&total)==12 && total==70000 && bootlog_size()==(70000<BOOTLOG_CAPACITY?70000:BOOTLOG_CAPACITY));
     for(unsigned i=0;i<12;i++) assert(out[i]==(char)('a'+(70000-12+i)%26));
     assert(!bootlog_snapshot(NULL,0,&total) && total==70000);
     suppress_recording=true;bootlog_putc('!');assert(bootlog_total()==70000);
     const char *line="intel-gt-summary: v=1 complete=1\n";
     for(unsigned i=0;i<sizeof(stream);i++)stream[i]=line[i%strlen(line)];
-    const uint64_t lengths[]={0,1,30,BOOTLOG_CAPACITY-1,BOOTLOG_CAPACITY,BOOTLOG_CAPACITY+1,BOOTLOG_CAPACITY*2+11,sizeof(stream)};
+    const uint64_t lengths[]={0,1,30,70000,BOOTLOG_CAPACITY-1,BOOTLOG_CAPACITY,BOOTLOG_CAPACITY+1,BOOTLOG_CAPACITY*2+11,sizeof(stream)};
     const uint64_t capacities[]={1,3,17,64,BOOTLOG_CAPACITY};
     for(unsigned i=0;i<sizeof(lengths)/sizeof(lengths[0]);i++)for(unsigned j=0;j<sizeof(capacities)/sizeof(capacities[0]);j++)check_lines(lengths[i],capacities[j]);
     for(unsigned i=1;i<512;i++)check_lines(sizeof(stream),i);

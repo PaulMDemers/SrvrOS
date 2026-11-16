@@ -1152,6 +1152,9 @@ good=good || !strcmp(engine_mode,"engines-poll");
 #ifdef SRVROS_INTEL_VTD_DRAIN
 good=good || !strcmp(engine_mode,"vtd-poll") || !strcmp(engine_mode,"vtd-reserved") || !strcmp(engine_mode,"vtd-policy-window");
 #endif
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+good=good || !strncmp(engine_mode,"ownership-reenter:",18);
+#endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS
 /* Private unexposed RAM can quarantine after the GPU root retired safely. */

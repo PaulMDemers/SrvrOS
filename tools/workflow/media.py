@@ -73,8 +73,14 @@ def durable_copy(source, destination):
     return expected
 
 
-def snapshot(config, destination, *, before=None):
+def raw_log_limit(profile):
+    return 98304 if profile=='intel-command-ownership-v38' else 65536
+
+
+def snapshot(config, destination, *, before=None, max_log_bytes=65536):
     """The caller owns the checkout lock. No filesystem repair or USB writes."""
+    if max_log_bytes not in (65536,98304):
+        raise ValueError('Unsupported raw log bound')
     destination = Path(destination)
     if destination.is_symlink():
         raise ValueError('Unsafe output directory')
@@ -124,7 +130,7 @@ def snapshot(config, destination, *, before=None):
                 if source.is_symlink() or not source.is_dir():
                     raise ValueError('Unsafe session directory')
                 for item in source.rglob('*'):
-                    if item.is_symlink() or not item.is_file() or item.stat().st_size > 65536:
+                    if item.is_symlink() or not item.is_file() or item.stat().st_size > max_log_bytes:
                         raise ValueError('Unsafe/oversized raw session file')
                     total += item.stat().st_size
                 if total > 64*1024*1024:

@@ -89,6 +89,11 @@ static enum intel_gt_write intel_display_test_source_engines_write(unsigned e,ui
  engines_actual++;engines_control[e]=n<5?3:0;return GT_WRITE_DONE;
 }
 static bool intel_display_test_source_engines_child(struct intel_source_engines *r) {
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+ /* A late injected hardware change can invalidate the enclosing root after
+  * the new read-only observation scope finished. Refuse this later child. */
+ if(requester_command!=3 || hda_command!=2)return false;
+#endif
  assert(intel_source_engines_live(r) && r->registered && r->state==ISE_HELD && requester_command==3);
  for(unsigned e=0;e<5;e++)assert(engines_control[e]==3);
  struct intel_source_engines copy=*r;assert(!intel_source_engines_live(&copy));

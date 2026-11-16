@@ -87,7 +87,7 @@ class Invalidation(unittest.TestCase):
     def test_only_dedicated_combined_image_caller(self):
         lines = [line for line in (ROOT / 'Makefile').read_text().splitlines() if CORE in line]
         self.assertTrue(lines)
-        self.assertTrue(all('build/tests/intel-ggtt-invalidate' in line or 'build/intel-ggtt-native/invalidate.o:' in line or line.startswith(('build/tests/intel-ggtt-native','build/tests/intel-command-native')) or '$(HOST_CC)' in line for line in lines))
+        self.assertTrue(all('build/tests/intel-ggtt-invalidate' in line or 'build/intel-ggtt-native/invalidate.o:' in line or line.startswith(('build/tests/intel-ggtt-native','build/tests/intel-command-native','build/tests/intel-command-ownership')) or '$(HOST_CC)' in line for line in lines))
         for path in (ROOT / 'kernel/src').rglob('*'):
             if path.suffix in ('.c', '.inc'):
                 if path.name not in ('intel_ggtt_invalidate_trial.inc','intel_source_engines_trial.inc'):

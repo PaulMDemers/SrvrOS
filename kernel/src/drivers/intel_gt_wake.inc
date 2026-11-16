@@ -1069,6 +1069,9 @@ bool intel_gt_wake_probe_report(void) {
     buffers_report(complete);
 #ifdef SRVROS_INTEL_COMMAND_MEMORY
     command_report();
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+    command_ownership_report();
+#endif
 #endif
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",

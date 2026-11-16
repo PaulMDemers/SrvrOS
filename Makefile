@@ -3255,7 +3255,7 @@ test-core: test-workspace-log
 test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
 	build/tests/workspace-log-host$(HOST_EXE)
 	build/tests/bootlog-host$(HOST_EXE)
-build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h kernel/include/srvros/exfat.h shared/include/srvros/audio_stream_abi.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h kernel/include/srvros/exfat.h shared/include/srvros/audio_stream_abi.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h kernel/include/srvros/bootlog.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
@@ -6789,6 +6789,41 @@ build/intel-command-memory/owner.o: kernel/diagnostics/intel_command_memory.c $(
 	$(CC) $(CFLAGS) $(INTEL_COMMAND_MEMORY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 build/intel-command-memory/srvros.elf: build/intel-command-memory/owner.o build/intel-ggtt-native/invalidate.o build/intel-vtd-drain/drain.o build/intel-vtd-drain/engines.o build/intel-vtd-drain/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-vtd-drain/transfer.o build/intel-vtd-drain/buffers.o build/intel-joint/page.o build/intel-command-memory/main.o build/intel-command-memory/probe.o build/intel-command-memory/requests.o build/intel-vtd-drain/reset.o build/intel-vtd-drain/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
-build/tests/intel-command-native$(HOST_EXE): tools/test_intel_command_native.c kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c tools/test_intel_vtd_native.c kernel/diagnostics/intel_ggtt_invalidate.c tools/test_intel_ggtt_native.c kernel/diagnostics/intel_command_memory.c
+build/tests/intel-command-native$(HOST_EXE): tools/test_intel_command_native.c tools/test_intel_source_audit_adapter.c tools/test_intel_source_engines_adapter.c tools/test_intel_source_requester_adapter.c tools/test_intel_startup_source_adapter.c tools/fixture_server.h  kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c tools/test_intel_vtd_native.c kernel/diagnostics/intel_ggtt_invalidate.c tools/test_intel_ggtt_native.c kernel/diagnostics/intel_command_memory.c
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_COMMAND_MEMORY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c kernel/diagnostics/intel_command_memory.c -o $@
+
+# Paired native ownership prerequisites; no GPU publication or submission.
+INTEL_COMMAND_OWNERSHIP_FLAGS := $(INTEL_COMMAND_MEMORY_FLAGS) -DSRVROS_INTEL_COMMAND_OWNERSHIP
+build/intel-command-ownership/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_OWNERSHIP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-ownership/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_OWNERSHIP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-ownership/requests.o: kernel/src/limine_requests.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_OWNERSHIP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-ownership/srvros.elf: build/intel-command-memory/owner.o build/intel-ggtt-native/invalidate.o build/intel-vtd-drain/drain.o build/intel-vtd-drain/engines.o build/intel-vtd-drain/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-vtd-drain/transfer.o build/intel-vtd-drain/buffers.o build/intel-joint/page.o build/intel-command-ownership/main.o build/intel-command-ownership/probe.o build/intel-command-ownership/requests.o build/intel-vtd-drain/reset.o build/intel-vtd-drain/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o build/intel-command-ownership/log-ring.o build/intel-command-ownership/log-save.o $(filter-out build/kernel/src/main.c.o build/kernel/src/bootlog.c.o build/kernel/src/workspace_log.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+build/tests/intel-command-ownership$(HOST_EXE): tools/test_intel_command_ownership.c tools/test_intel_command_native.c tools/test_intel_source_audit_adapter.c tools/test_intel_source_engines_adapter.c tools/test_intel_source_requester_adapter.c tools/test_intel_startup_source_adapter.c tools/fixture_server.h  kernel/src/x86_cache.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/diagnostics/intel_vtd_drain.c tools/test_intel_vtd_native.c kernel/diagnostics/intel_ggtt_invalidate.c tools/test_intel_ggtt_native.c kernel/diagnostics/intel_command_memory.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_COMMAND_OWNERSHIP_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/x86_cache.c $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/diagnostics/intel_source_engines.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c kernel/diagnostics/intel_command_memory.c -o $@
+
+.PHONY: test-intel-command-ownership
+test-intel-command-ownership: build/tests/intel-command-ownership$(HOST_EXE) build/intel-command-ownership/probe.o build/tests/bootlog-ownership$(HOST_EXE) build/tests/workspace-log-ownership$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_command_ownership
+
+build/intel-command-ownership/log-ring.o: kernel/src/bootlog.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_OWNERSHIP_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-command-ownership/log-save.o: kernel/src/workspace_log.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_COMMAND_OWNERSHIP_FLAGS) -Wframe-larger-than=36864 -c $< -o $@
+build/tests/bootlog-ownership$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_COMMAND_OWNERSHIP -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+build/tests/workspace-log-ownership$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_COMMAND_OWNERSHIP -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@

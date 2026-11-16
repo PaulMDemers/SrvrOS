@@ -1,7 +1,9 @@
 # Repeatable device trials
 
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
-opt-in v36 VT-d drain and separately selected combined GGTT invalidation trials.
+opt-in v36 VT-d drain, combined GGTT invalidation, v37 CPU command-memory and
+[v38 joined native admission](intel-command-ownership.md) trials. The v38 profile
+alone pins a96KiB ring/save/raw collection bound; older profiles remain64KiB.
 These profiles are silent and automatic;
 it does not enable another model or turn a future GPU operation into an
 accepted provider. Other trial profiles still use their documented harnesses.

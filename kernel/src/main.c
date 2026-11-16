@@ -1010,6 +1010,9 @@ void kmain(void) {
 #endif
 #ifdef SRVROS_INTEL_VTD_DRAIN
 #ifdef SRVROS_INTEL_GGTT_NATIVE
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+                console_write("intel-provider-trial: automatic paired native DMA/cache/display/PTE admission dry run under original hold. No GPU grant or input. Safe saved completion returns to Ubuntu; uncertainty halts. Volume1%.\n");
+#endif
                 console_write("intel-ggtt: automatic original-held remapper drain and System Agent invalidation/verified return; no PTE stores. Budget150/300/400/500ms. No input. Safe saved outcomes return; uncertainty halts.\n");
 #else
                 console_write("intel-vtd: automatic full audit and one disabled-state memory drain; preparation/return budget=150ms. No input. Safe saved outcomes return; uncertainty halts.\n");

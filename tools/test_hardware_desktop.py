@@ -698,6 +698,23 @@ class CollectionTests(unittest.TestCase):
             (folder/'checkpoint-00.log').unlink();(folder/'checkpoint-00.log').symlink_to(folder/'checkpoint-01.log')
             with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
 
+    def test_joined_provider_read_budget_keeps_older_sessions_bounded(self):
+        prefix=b'intel-vtd-drain: v=6 b=unqualified\nintel-command-ownership: v=1 b=unqualified\n'
+        self.assertEqual(desktop.session_log_limit(prefix),98304)
+        self.assertEqual(desktop.session_log_limit(prefix.replace(b'v=6',b'v=5')),65536)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            payload=prefix+b'x'*(98304-len(prefix));(folder/'exit.log').write_bytes(payload)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),payload)
+            self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            (folder/'exit.log').write_bytes(payload+b'x')
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+            (folder/'exit.log').write_bytes(b'x'*65537)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+
     def test_logs_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'

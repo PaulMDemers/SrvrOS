@@ -260,7 +260,9 @@ static void vtd_report(void) {
  for(unsigned i=0;i<7;i++)source_audit_u64(raw,&k,vtd_native.cost.phase[i]);
  source_audit_u64(raw,&k,INTEL_DIAGNOSTIC_PREPARE_US);
  entry_requester_base64(raw,k,encoded);
-#ifdef SRVROS_INTEL_COMMAND_MEMORY
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+ console_printf("intel-vtd-drain: v=6 b=%s\n",encoded);
+#elif defined(SRVROS_INTEL_COMMAND_MEMORY)
  console_printf("intel-vtd-drain: v=5 b=%s\n",encoded);
 #elif defined(SRVROS_INTEL_GGTT_NATIVE)
  console_printf("intel-vtd-drain: v=4 b=%s\n",encoded);

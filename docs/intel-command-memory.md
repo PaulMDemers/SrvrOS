@@ -18,8 +18,10 @@ this returned CPU owner with an already transferred interval. Its optional
 `consumer_begin/live/end` helpers register one dependent on the exact RAM hold
 before callbacks. While registered, ordinary `returned()` and `close()` refuse,
 also blocking the native parent-return gate. Only clean mapping retirement may
-return that dependent. These helpers grant no GPU authority and have no native
-caller. The original zero-preservation and parent-retirement rules remain.
+return that dependent. These helpers grant no GPU authority. The isolated
+[native provider dry run](intel-command-ownership.md) now uses them for paired
+observations; ordinary and v37 paths do not. The original zero-preservation and
+parent-retirement rules remain.
 
 ## Arena and CPU mappings
 

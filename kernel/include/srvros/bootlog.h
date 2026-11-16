@@ -4,6 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Only the dedicated joined-provider image needs the larger provenance tail.
+ * Ordinary images and older diagnostic payloads retain their64KiB budget. */
+#ifdef SRVROS_INTEL_COMMAND_OWNERSHIP
+#define SRVROS_BOOTLOG_CAPACITY 98304u
+#else
+#define SRVROS_BOOTLOG_CAPACITY 65536u
+#endif
+
 void bootlog_putc(char c);
 uint64_t bootlog_size(void);
 void bootlog_dump(uint64_t max_bytes);

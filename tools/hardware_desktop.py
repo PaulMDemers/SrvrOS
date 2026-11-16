@@ -807,6 +807,16 @@ def battery_preflight_result(text):
     return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
 
 
+def session_log_limit(exit_preview):
+    # A larger read bound is not acceptance. Preserve old64KiB sessions while
+    # allowing historical v38 sessions alongside later ordinary desktop runs;
+    # the strict receipt/recipe readers below still decide their actual scope.
+    lines=exit_preview.splitlines()
+    provider=any(l.startswith(b'intel-vtd-drain: v=6 b=') for l in lines) and any(
+        l.startswith(b'intel-command-ownership: v=1 b=') for l in lines)
+    return 98304 if provider else 65536
+
+
 def collect(mount, volume, output):
     workspace = mount / "srvros-work"
     marker = workspace / ".workspace"
@@ -827,6 +837,14 @@ def collect(mount, volume, output):
     for folder in sessions:
         if folder.is_symlink() or not folder.is_dir():
             raise ValueError(f"Unsafe session path: {folder.name}")
+        exit_source=folder/'exit.log';preview=b''
+        if exit_source.is_symlink():raise ValueError(f"Unsafe log path: {folder.name}/exit.log")
+        if exit_source.exists():
+            if not exit_source.is_file() or exit_source.stat().st_size>98304:
+                raise ValueError(f"Invalid log: {folder.name}/exit.log")
+            with exit_source.open('rb') as stream:preview=stream.read(98305)
+            if len(preview)>98304:raise ValueError('Log changed while reading')
+        limit=session_log_limit(preview)
         payload = {}
         for name in (*FILES, "ecam.log", "window.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
             source = folder / name
@@ -834,13 +852,13 @@ def collect(mount, volume, output):
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
             if not source.exists():
                 continue
-            if not source.is_file() or source.stat().st_size > 65536:
+            if not source.is_file() or source.stat().st_size > limit:
                 raise ValueError(f"Invalid log: {folder.name}/{name}")
             total_bytes += source.stat().st_size
             if total_bytes > 64*1024*1024:
                 raise ValueError("Collection exceeds 64 MiB; archive older session folders first")
             payload[name] = source.read_bytes()
-            if len(payload[name]) > 65536:
+            if len(payload[name]) > limit:
                 raise ValueError("Log changed while reading")
         snapshots.append((folder.name, payload))
     output.mkdir(parents=True, exist_ok=True)

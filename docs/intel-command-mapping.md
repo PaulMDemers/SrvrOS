@@ -99,3 +99,8 @@ of the exact interval, real ordered completion and the registered original
 native adapter/receipt/collector chain. Do not manufacture `HANDOFF_ALL` from
 host fixtures or stable PTE observations. Executable context initialization,
 engine submission and display/flip ownership remain subsequent work.
+
+The isolated [native admission dry run](intel-command-ownership.md) joins paired
+PCI/engine/display/GGTT and CPU alias/cache observations under the original
+command hold. It still supplies no transferred interval or GPU completion grant;
+its measured requirement6 and missing25 cannot admit this mapping transaction.

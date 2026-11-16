@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated: 2026-11-15. Reference A1466; partial desktop/device acceptance.
+Updated: 2026-11-16. Reference A1466; partial desktop/device acceptance.
 The [dated unit journal](macbookair7-2.md) retains earlier exact-source evidence.
 
 The inherited-framebuffer desktop is usable. Built-in keyboard and trackpad,
@@ -50,13 +50,16 @@ fix is host/native-compiler validated separately, not new physical acceptance.
 Active native-provider block (base54a21658, freshly fetched main4016abf0):
 implement an isolated original-held command ownership dry run, joining fresh
 requester/AF, engine, full programmed/live/stereo display-reader, four-page GGTT
-and CPU RAM/alias/cache witnesses. Register on the exact command hold before
+and CPU RAM/alias/cache witnesses, with162 fresh command-register admissions
+before MMIO. Register on the exact command hold before
 callbacks and retire that dependent before original parent return. Preserve the
 existing remapper/GGTT operations, clocks and native backing acceptance. Unknown
 pipeline/prefetch/firmware/reader completion must remain an explicit missing
 requirement, never a positive transfer or GPU store. Scope: native adapter,
 independent raw receiver, dedicated image/recipe/workflow and fault/sanitizer/
-weakening/frame/isolation/VM qualification. The next unattended 1% trial must
+weakening/frame/isolation/VM qualification. The new profile alone gets a96KiB
+ring/save/collection bound to preserve provenance; ordinary/older images retain
+64KiB. Full-capacity readback and framing are required before staging. The next unattended 1% trial must
 measure these joined native witnesses, save progress and return automatically
 on safe completion; uncertain retirement halts. PR19/379 remain independent.
 

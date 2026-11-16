@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#define BOOTLOG_CAPACITY 65536
+#define BOOTLOG_CAPACITY SRVROS_BOOTLOG_CAPACITY
 
 static char ring[BOOTLOG_CAPACITY];
 static char linear[BOOTLOG_CAPACITY];

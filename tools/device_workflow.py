@@ -112,7 +112,7 @@ def main():
     new.add_argument('name')
     new.add_argument('--question', required=True)
     new.add_argument('--expected', required=True)
-    new.add_argument('--profile', choices=('intel-source-audit-v35', 'intel-vtd-drain-v36', 'intel-ggtt-invalidate-v36', 'intel-command-memory-v37'), default='intel-source-audit-v35')
+    new.add_argument('--profile', choices=('intel-source-audit-v35', 'intel-vtd-drain-v36', 'intel-ggtt-invalidate-v36', 'intel-command-memory-v37', 'intel-command-ownership-v38'), default='intel-source-audit-v35')
     new.add_argument('--plan', type=Path, help='JSON additional development/qualification jobs; never removes default gates')
     advance = sub.add_parser('advance')
     advance.add_argument('--run', required=True)
@@ -151,11 +151,11 @@ def main():
             owner = directory.stat()
             if Path('/sys/class/dmi/id/product_name').read_text().strip() != manifest['unit']['model']:
                 raise ValueError('Local model mismatch')
-            from workflow.media import snapshot, as_owner
+            from workflow.media import snapshot, as_owner, raw_log_limit
             dest = directory / ('returned' if args.returning else 'before')
             try:
                 before = json.loads((directory / 'before/snapshot.json').read_text()) if args.returning else None
-                snapshot(manifest['unit'], dest, before=before)
+                snapshot(manifest['unit'], dest, before=before, max_log_bytes=raw_log_limit(manifest['profile']))
             finally:
                 if dest.exists():
                     as_owner(dest, owner.st_uid, owner.st_gid)

@@ -180,7 +180,10 @@ static int command_case(int argc,char **argv) {
  cm_clocks,cm_backing,cm_alias,cm_cache,cm_map,cm_unmap,cm_guard,cm_allocs,cm_frees,o->state,o->complete,o->retained);
  return code;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_COMMAND_FIXTURE_MAIN
+#define INTEL_COMMAND_FIXTURE_MAIN main
+#endif
+int INTEL_COMMAND_FIXTURE_MAIN(int argc,char **argv) {
 #ifndef _WIN32
  if(argc==2 && !strcmp(argv[1],"--fixture-server"))return fixture_server(command_case);
 #endif
