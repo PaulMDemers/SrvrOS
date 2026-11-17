@@ -6,6 +6,41 @@ This journal preserves dated exact-source acceptance and historical anchors.
 Updated: 2026-11-17. State: **active reference machine; partial device acceptance**.
 
 
+
+## Native private CPU context image lifetime completes
+
+2026-11-17: source `4ce676bd` / release `08ae0d63f7b821c4`, run
+`air-bcs-context-isolation-20261117`, session `session-0006607c842689c0-00`,
+wire8. All46 frozen host/qualification slots and both exact-stage VM paths pass.
+The first sourcebb857201 run stopped on a missing exact image/adapter allowlist
+entry after six passing slots; it was cancelled before staging. The correction
+changes that guard only; original failure evidence remains.
+
+One original kind2 epoch0→1 lifetime constructs the complete16KiB CPU candidate,
+verifies it initially and at both held-source guards, verifies/erases it after
+actual GT/HDA/outer retirement, then verifies2048 zero QWords and retires four
+CPU aliases/four pages once. Counts initialized/verified/held/erased/fault are
+1/4/2/1/0, DMA57→57. Image build/erase9/2us; CPU arena setup/held/cleanup87/401/82us.
+Original reset pulses, all32 fences/display/backing, two UC and15 GPU aliases
+preserve/retire. Remapper36.987ms, GGTT2.321ms, memory child83.119ms.
+Preparation219532/250000us, max GT phase77210/100000us, GT379409/500000us,
+HDA399125/750000us and outer451007/1000000us; all limits unchanged.
+
+All1,590 prior files preserve apart from expected metadata; three exact logs
+(9,204/39,096/74,581bytes) yield1,593files/187sessions. Strict matching raw/
+checkpoint parsing, offline fsck/allocation/writable/headroom, boot-region,
+installed/banked recovery, Ubuntu default and consumed one-shot pass. Run is
+DIAGNOSED;732 independently verified files are sealed outside build. Current08ae,
+recovery9aa8, priora382, acceptedf0a8/protected banks remain; USB unmounted,
+host volume1%, no new reboot armed. EFI61MiB requires capacity review next time.
+
+The accepted scope is one original CPU image lifetime under the practical policy.
+There are zero GPU mappings/PTE writes/submissions; all255 wider obligations stay.
+Actual executable context/mode/coherency/workaround policy, DMA/cache/prefetch/
+firmware/display-reader ownership, enabled entry and repeatability remain open.
+No native tear-free grant. See [current status](macbookair7-2-current.md) and
+[context contract](../intel-bdw-bcs-context.md#native-result-one-cpu-image-lifetime-complete).
+
 ## November17 private CPU context-image preparation
 
 The separate wire8/image/recipe candidate advances CPU construction without

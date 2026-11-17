@@ -31,7 +31,9 @@ The [private CPU context-image trial](intel-bdw-bcs-context.md) now prepares
 and verifies the complete byte image in the existing original-owner arena, with
 post-retirement erasure and exact cleanup. This separates CPU construction from
 actual GPU mapping, visibility and execution. Its own wire8/image/recipe retains
-all255 obligations; native context-image lifetime acceptance remains pending.
+all255 obligations. One original Air7,2 CPU image lifetime now completes on
+hardware (source4ce676bd/release08ae); exact source/evidence and the still-open
+GPU ownership boundary are recorded in the linked contract.
 
 ## Capability-sized trial plan
 

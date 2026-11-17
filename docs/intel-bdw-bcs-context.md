@@ -82,3 +82,27 @@ machine's exFAT workspace. Safe saved/unmounted outcomes return to Ubuntu;
 retained uncertainty halts visibly. User-authorized trials keep host volume1%;
 this CPU/reset profile plays no sound. Preserve current/recovery and accepted
 payload/evidence banks through staging and collection.
+
+
+## Native result: one CPU image lifetime complete
+
+Frozen source `4ce676bd` / release `08ae0d63f7b821c4`, session
+`session-0006607c842689c0-00`, completes one original Air7,2 kind2 epoch0→1
+lifetime. All46 frozen slots and both exact-stage VM paths passed beforehand.
+The image has four complete verifications, two held checks and one post-parent
+erasure, with no fault. Construction takes9us and erasure2us; CPU arena setup/
+held/cleanup take87/401/82us. All2048 zero QWords verify, four exact aliases retire
+and the same four pages release once with DMA57→57.
+
+Preparation219.532ms, maximum GT phase77.210ms, GT379.409ms, HDA399.125ms and
+outer451.007ms remain within the existing practical policy; no deadline changes.
+All1,590 prior files preserve apart from expected metadata, yielding1,593files/
+187sessions. Strict raw/checkpoint, offline filesystem/allocation/writable/
+headroom, boot-region, recovery/default and consumed one-shot checks pass.
+The run closes as `DIAGNOSED`;732 banked files independently verify outside build.
+
+This completes CPU image preparation only. Proposed addresses were never mapped,
+no command was submitted and all255 GPU obligations remain. Actual executable
+context/mode/cache/workaround policy, GPU ownership, enabled entry for this source,
+repeatability and tear-free scanout remain unaccepted. See the [current unit
+record](machines/macbookair7-2-current.md) for the remaining bootstrap boundary.

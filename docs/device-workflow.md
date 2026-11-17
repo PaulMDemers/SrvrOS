@@ -8,6 +8,9 @@ and original arena cleanup must agree. Both exact-stage VM paths remain
 mandatory. It is silent/automatic and closes only as a diagnostic; no GPU
 mapping, context execution or DMA/cache/reader ownership acceptance follows.
 The raw-copy96KiB bound recognizes wire8 with wake37; unknown wires retain64KiB.
+The first [matching native CPU image lifetime](intel-bdw-bcs-context.md#native-result-one-cpu-image-lifetime-complete)
+now completes, with strict automatic collection and no raw-size migration.
+It closes as DIAGNOSED, preserving the distinction from actual GPU acceptance.
 
 The opt-in `intel-gt-arena-v45` profile composes the
 [private CPU command arena](intel-command-memory.md#full-gt-composition-one-native-diagnostic-complete)
