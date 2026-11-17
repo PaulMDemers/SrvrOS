@@ -316,6 +316,7 @@ class Runner:
                         inputs=inputs, input_hashes=files(self.repo, inputs),
                         jobs=jobs, created_utc=now(),
                         hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
+        if trial_profile=='intel-stolen-v48':manifest['stolen_progress_version']=1
         self.frozen(manifest)
         directory = self.store / 'runs' / name
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', name):
@@ -437,6 +438,8 @@ class Runner:
         payload = verify(stage, release)
         if payload['git_head'] != manifest['source'] or payload['git_dirty']:
             raise ValueError('Staged payload is not the frozen source')
+        if payload.get('stolen_progress_version')!=manifest.get('stolen_progress_version'):
+            raise ValueError('Staged progress contract differs from frozen manifest')
         recipe = next(line.split('cmdline:', 1)[1].strip() for line in (stage / 'limine.conf').read_text().splitlines() if 'cmdline:' in line)
         recipe_parser, _, _ = trial_parsers(manifest['profile'])
         if recipe_parser(recipe) != dict(release=release, volume=manifest['unit']['volume']):
@@ -557,13 +560,23 @@ class Runner:
             if len(after['new_sessions']) != 1:
                 raise ValueError('Expected one new session; raw evidence preserved')
             session = after['new_sessions'][0]
+            logs = directory / 'returned' / ('raw-' + session)
+            progress_name='stolen-progress.log'
+            if progress_name in after.get('raw',{}).get(session,{}):
+                if manifest['profile']!='intel-stolen-v48' or manifest.get('stolen_progress_version')!=1:
+                    raise ValueError('Unexpected progress journal for frozen profile')
+                from intel_stolen_scanout import stolen_progress
+                progress=stolen_progress((logs/progress_name).read_text(),state['recipe'])
+                atomic(directory/'returned/stolen-progress.json',progress)
             parsed = json.loads((directory / 'returned/parsed.json').read_text())
             row, = [row for row in parsed['report']['sessions'] if row['session'] == session]
             if row['releases'] != [state['release']] or not row['exit_snapshot_present']:
                 raise ValueError('Missing matching release/exit marker; not a pass')
             logs = directory / 'returned' / ('raw-' + session)
-            if set(after['raw'][session]) != {'boot.log', 'session-a.log', 'exit.log'}:
-                raise ValueError('Unexpected raw files for the frozen v35 profile')
+            expected_raw={'boot.log','session-a.log','exit.log'}
+            if manifest.get('stolen_progress_version')==1:expected_raw.add('stolen-progress.log')
+            if set(after['raw'][session]) != expected_raw:
+                raise ValueError('Unexpected raw files for the frozen profile')
             before = json.loads((directory / 'before/snapshot.json').read_text())
             added = set(after['files']) - set(before['files'])
             if added != {f'srvros-work/Logs/{session}/{name}' for name in after['raw'][session]}:

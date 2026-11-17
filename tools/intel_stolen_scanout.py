@@ -11,7 +11,7 @@ FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range')
+          'changed-facts','source-window','allowed-range','progress-save')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
        'srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-stolen=read-only','srvros.capture-failure=reboot')
@@ -174,3 +174,33 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     after=[l for l in final.splitlines() if l.startswith(prefixes)]
     if not before or before!=after:raise ValueError('stolen preflight source mismatch')
     return True
+
+
+PROGRESS_STEPS=('invalid','profile','source-snapshot','root-PCI','console-sync',
+                'display-exclusion','identity','cache-context','source-revalidation',
+                'metadata','vectors','source-final','classification','cleanup',
+                'report','mapping','cache-policy','actual-alias','first-MMIO-read')
+
+def stolen_progress(text,command):
+    """Pending operation history only; never a completion or ownership receipt."""
+    if len(text.encode('utf-8'))>4096:raise ValueError('stolen progress size')
+    lines=text.splitlines()
+    if not lines or lines[0]!='laptop-capture: boot options='+command:
+        raise ValueError('stolen progress recipe mismatch')
+    stolen_recipe(command)
+    rows=[]
+    pattern=r'intel-stolen: progress v=1 seq=(\d{1,10}) step=(\d{1,2}) edge=([01]) phase=([0-3]) offset=(\d{1,8}) maps=(\d{1,3}) retired=(\d{1,3}) held=([01]) mapped=([01])'
+    for line in lines[1:]:
+        m=re.fullmatch(pattern,line)
+        if not m:raise ValueError('stolen progress encoding')
+        row=dict(zip(('seq','step','edge','phase','offset','maps','retired','held','mapped'),map(int,m.groups())))
+        if not 0<row['step']<len(PROGRESS_STEPS) or not 0<row['seq']<=4096 or row['offset']>=0x1000000 or row['offset']&3:
+            raise ValueError('stolen progress bounds')
+        if row['maps']>128 or row['retired']>row['maps'] or row['mapped']>row['held'] or row['maps']-row['retired']!=row['mapped']:
+            raise ValueError('stolen progress alias state')
+        if rows and row['seq']!=rows[-1]['seq']+1:raise ValueError('stolen progress sequence')
+        rows.append(row)
+    if not 1<=len(rows)<=16 or rows[-1]['mapped'] or rows[-1]['edge']:
+        raise ValueError('stolen progress checkpoint boundary')
+    return dict(version=1,rows=rows,pending_operation=PROGRESS_STEPS[rows[-1]['step']],
+                native_acceptance=False,completion_evidence=False,physical_tearfree=False)

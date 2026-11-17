@@ -20,7 +20,7 @@ class Receipts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if os.environ.get('SRVROS_FIXTURE_BATCH')!='1':
-            subprocess.run(['make','build/tests/intel-stolen-probe','build/tests/intel-display-probe','build/tests/intel-cache-probe'],cwd=ROOT,check=True,capture_output=True)
+            subprocess.run(['make','build/tests/intel-stolen-probe','build/tests/intel-display-probe','build/tests/intel-cache-probe','build/tests/workspace-log-host','build/tests/bootlog-host'],cwd=ROOT,check=True,capture_output=True)
         cls.text=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--report'],text=True)
         # The two actual adapters have separate modeled devices. Normalize only
         # transport inputs into a common synthetic affine-window/locked profile.
@@ -109,6 +109,12 @@ class Receipts(unittest.TestCase):
         text=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--unsupported-report'],text=True)
         version='ram-usb-v2-intel-stolen-laptop-probe-37d8c5d0-auto-return'
         self.assertEqual(intel_stolen_vm_result(text,version)['failure_stage'],'profile')
+        from hardware_boot_smoke import intel_stolen_vm_progress
+        progress=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--progress-unsupported-report'],text=True)
+        self.assertEqual(intel_stolen_vm_progress(progress,self.command)['pending_operation'],'profile')
+        for mode in ('--progress-report','--progress-refusal-report'):
+            with self.assertRaises(ValueError):intel_stolen_vm_progress(subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),mode],text=True),self.command)
+
         for bad in ('ram-usb-v1-intel-stolen-laptop-probe-37d8c5d0-auto-return','ordinary'):
             with self.assertRaises(ValueError):intel_stolen_vm_result(text,bad)
         for bad in (self.text,'no census packet',subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--refusal-report'],text=True)):
@@ -166,6 +172,54 @@ class Receipts(unittest.TestCase):
                 with self.assertRaises(ValueError):runner.close('model')
                 with self.assertRaises(ValueError):runner.diagnose('model')
                 runner.close('model',reject=True);self.assertEqual(state['phase'],'REJECTED')
+                # The newly frozen journal is required, parsed and separately
+                # preserved; a handled native refusal still cannot be accepted.
+                payload=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--progress-refusal-report'],text=True)
+                (logs/'stolen-progress.log').write_text(payload)
+                data=payload.encode();raw['stolen-progress.log']=dict(bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
+                after['files']['srvros-work/Logs/session-model/stolen-progress.log']={}
+                manifest['stolen_progress_version']=1;state['phase']='BOOT_REQUESTED'
+                runner.collect('model')
+                self.assertEqual(state['phase'],'COLLECTED')
+                self.assertEqual(json.loads((returned/'stolen-progress.json').read_text())['pending_operation'],'metadata')
+                with self.assertRaises(ValueError):runner.close('model')
+                runner.close('model',reject=True)
+
+
+    def test_small_journal_is_diagnostic_and_bounds_every_row(self):
+        from intel_stolen_scanout import stolen_progress
+        payload=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--progress-report'],text=True)
+        journal=stolen_progress(payload,self.command)
+        self.assertEqual(journal['pending_operation'],'classification')
+        self.assertEqual(len(journal['rows']),16)
+        self.assertFalse(journal['native_acceptance'] or journal['completion_evidence'])
+        for old,new in (('edge=0 phase=3','edge=1 phase=3'),('mapped=0\n','mapped=1\n'),
+                        ('step=12','step=99'),('seq=','seq=-'),('retired=52','retired=53')):
+            with self.subTest(old=old),self.assertRaises(ValueError):stolen_progress(payload.replace(old,new),self.command)
+        with self.assertRaises(ValueError):stolen_progress(payload,self.command.replace('37d8c5d0','12345678'))
+        for target in ('workspace-log-host','bootlog-host'):
+            subprocess.run([str(ROOT/'build/tests'/target)],check=True,capture_output=True,timeout=60)
+
+    def test_missing_exit_preserves_progress_without_collecting_a_pass(self):
+        from workflow.runner import Runner
+        from workflow.store import atomic
+        payload=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--progress-report'],text=True)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);directory=root/'run';logs=directory/'returned/raw-session-model';logs.mkdir(parents=True)
+            runner=Runner(ROOT,root/'store')
+            state=dict(phase='BOOT_REQUESTED',events=[],host_boot_id='old-model-boot',release='0123456789abcdef',recipe=self.command)
+            manifest=dict(profile='intel-stolen-v48',source='modeled-source',wire_version=2,stolen_progress_version=1,inputs=['fixture'],input_hashes={})
+            (logs/'stolen-progress.log').write_text(payload)
+            after=dict(new_sessions=['session-model'],raw={'session-model':{'stolen-progress.log':{}}})
+            atomic(directory/'returned/parsed.json',dict(report=dict(sessions=[dict(session='session-model',releases=[state['release']],exit_snapshot_present=False)])))
+            with patch.object(runner,'load',return_value=(directory,manifest,state)),patch.object(runner,'media',return_value=after),patch('workflow.runner.files',return_value={}):
+                with self.assertRaisesRegex(ValueError,'Missing matching release/exit'):runner.collect('model')
+                diagnostic=json.loads((directory/'returned/stolen-progress.json').read_text())
+                self.assertEqual(diagnostic['pending_operation'],'classification')
+                self.assertEqual((state['phase'],state['status']),('BOOT_REQUESTED','FAILED_OR_INCOMPLETE'))
+                self.assertFalse((directory/'report.json').exists())
+                manifest.pop('stolen_progress_version')
+                with self.assertRaisesRegex(ValueError,'Unexpected progress journal'):runner.collect('model')
 
     def test_exact_recipe_stage_and_profile_isolation(self):
         self.assertEqual(stolen_recipe(self.command),dict(release='0123456789abcdef',volume='37d8c5d0'))
@@ -179,6 +233,7 @@ class Receipts(unittest.TestCase):
                 release=boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=True)
             manifest=boot.verify(root/'build/hardware-boot'/release)
             self.assertEqual(manifest['config_version'],'ram-usb-v2-intel-stolen-laptop-probe-37d8c5d0-auto-return')
+            self.assertEqual(manifest['stolen_progress_version'],1)
             self.assertEqual((root/'build/hardware-boot'/release/'srvros.elf').read_text(),'intel-stolen/srvros.elf')
         for extra in ({'intel_bcs_context':True},{'intel_window_capture':True},{'intel_gt_bootstrap':True},{'hold_on_failure':True},{'desktop_audio':True}):
             with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=True,**extra)

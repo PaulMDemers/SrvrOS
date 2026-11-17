@@ -26,6 +26,7 @@ static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
 static bool retain_checkpoints;
 static bool ecam_saved,window_saved;
+static unsigned stolen_progress_saves;
 static uint64_t due;
 static struct scheduler_wait_queue wake;
 static uint64_t lock(void) {
@@ -437,7 +438,7 @@ static bool start_log(bool retain) {
     if(!ok || !created) { console_write("workspace-log: cannot create session directory\n");return false; }
     console_printf("workspace-log: directory=%s periodic_seconds=10\n",directory);
     uint64_t capture_start=timer_ticks();
-    retain_checkpoints=retain;checkpoint=0;ecam_saved=window_saved=false;
+    retain_checkpoints=retain;checkpoint=0;ecam_saved=window_saved=false;stolen_progress_saves=0;
     sidecar_pcm.owner=sidecar_pcm.handle=sidecar_pcm.first.at=sidecar_pcm.last.at=0;
     healthy=save("boot.log");
     if(!healthy) return false;
@@ -483,6 +484,25 @@ bool workspace_log_ecam_snapshot(void) {
 bool workspace_log_window_snapshot(void){
  if(enabled || busy || window_saved || !directory[0] || !workspace_active() || !healthy)return false;
  healthy=save("window.log");window_saved=healthy;return healthy;
+}
+
+/* Small diagnostic journal; the normal writer must already be paused. Keep
+ * the original preflight immutable and never invoke a global application sync. */
+bool workspace_log_stolen_progress(const char *data,uint64_t length) {
+ if(enabled || busy || !healthy || !directory[0] || !workspace_active() ||
+    !data || !length || length>4096 || stolen_progress_saves>=32)return false;
+ unsigned at=copy(path,directory);path[at++]='/';copy(path+at,"stolen-progress.log");
+ uint64_t flags;if(!begin(&flags))return false;
+ bool ok=!process_has_open_vfs_prefix(path) &&
+   exfat_write_file(path,(const uint8_t *)data,length);
+ const struct vfs_node *node=ok?vfs_lookup(path):NULL;
+ const uint8_t *actual=NULL;uint64_t bytes=0;
+ ok=ok && node && vfs_read_all(node,&actual,&bytes) && bytes==length;
+ for(uint64_t i=0;ok && i<length;i++)if(actual[i]!=(uint8_t)data[i])ok=false;
+ if(node && actual)vfs_release_data(node,actual);
+ end(flags);
+ if(ok)ok=workspace_flush_committed();
+ ++stolen_progress_saves;healthy=healthy && ok;return ok;
 }
 
 /* Fixed payload and balanced order avoid comparing different-size log snapshots.

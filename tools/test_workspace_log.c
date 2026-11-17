@@ -199,8 +199,19 @@ int main(void) {
     assert(workspace_log_window_snapshot() && window_saved && strstr(path,"/window.log"));
     old_writes=writes;assert(!workspace_log_window_snapshot() && writes==old_writes);
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    old_writes=writes;
+    assert(!workspace_log_stolen_progress(NULL,1) && !workspace_log_stolen_progress("x",0) && !workspace_log_stolen_progress("x",4097));
+    assert(writes==old_writes);
+    enabled=true;assert(!workspace_log_stolen_progress("progress",8));enabled=false;
+    busy=true;assert(!workspace_log_stolen_progress("progress",8));busy=false;
+    for(unsigned i=0;i<32;i++)assert(workspace_log_stolen_progress("progress",8) && strstr(path,"/stolen-progress.log"));
+    old_writes=writes;assert(!workspace_log_stolen_progress("progress",8) && writes==old_writes);
     assert(workspace_log_stop());
-    assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));
+    assert(workspace_log_start() && !stolen_progress_saves && !ecam_saved && workspace_log_quiesce(5000));
+    corrupt=true;old_writes=flushes;assert(!workspace_log_stolen_progress("progress",8) && !healthy && flushes==old_writes);corrupt=false;
+    assert(workspace_log_start() && workspace_log_quiesce(5000));
+    sync_ok=false;assert(!workspace_log_stolen_progress("progress",8) && !healthy);sync_ok=true;
+    assert(workspace_log_start() && workspace_log_quiesce(5000));
     corrupt=true;assert(!workspace_log_ecam_snapshot() && !ecam_saved && !healthy);corrupt=false;
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
     /* A seven-second write must not turn a ten-second capture cadence into

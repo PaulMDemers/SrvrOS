@@ -153,6 +153,14 @@ def intel_stolen_vm_result(text,config_version):
     return result
 
 
+def intel_stolen_vm_progress(text,command):
+    from intel_stolen_scanout import stolen_progress
+    result=stolen_progress(text,command)
+    if result['pending_operation']!='profile' or any(any(row[k] for k in ('held','mapped','maps','retired','phase')) for row in result['rows']):
+        raise ValueError('VM progress must stop before unsupported native profile')
+    return result
+
+
 def intel_probe_profile(version):
     return version.startswith(("ram-usb-v2-intel-stolen-","ram-usb-v1-intel-stolen-","ram-usb-v1-intel-gt-bootstrap-","ram-usb-v1-intel-command-ownership-","ram-usb-v1-intel-command-memory-","ram-usb-v1-intel-ggtt-invalidate-","ram-usb-v2-intel-ggtt-invalidate-","ram-usb-v3-intel-ggtt-invalidate-","ram-usb-v1-intel-vtd-drain-","ram-usb-v1-intel-source-audit-","ram-usb-v1-intel-source-engines-","ram-usb-v1-intel-source-requester-","ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-"))
 
@@ -895,6 +903,13 @@ def main():
                         if 'srvros.intel-stolen=read-only' in text:
                             stolen=intel_stolen_vm_result(stored.read(folder+"/exit.log").decode(),manifest['config_version'])
                             (logs/'intel-stolen-result.json').write_text(json.dumps(stolen,indent=2)+"\n")
+                            if manifest.get('stolen_progress_version') is not None:
+                                if manifest['stolen_progress_version']!=1:raise ValueError('unknown staged progress contract')
+                                final=stored.read(folder+'/exit.log').decode()
+                                command=next(line.split('laptop-capture: boot options=',1)[1] for line in final.splitlines() if line.startswith('laptop-capture: boot options='))
+                                progress=intel_stolen_vm_progress(stored.read(folder+'/stolen-progress.log').decode(),command)
+                                (logs/'intel-stolen-progress.json').write_text(json.dumps(progress,indent=2)+'\n')
+
                         if 'srvros.intel-window=read-only' in text:
                             from intel_ggtt_window import native_window_result
                             window=native_window_result(shared_receipt(stored.read(folder+"/exit.log").decode()))

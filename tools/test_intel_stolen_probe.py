@@ -43,6 +43,7 @@ class StolenProbe(unittest.TestCase):
             'lost-reserved-resource':('!reserved_page(physical)','false'),
             'lost-actual-alias':('bool ok=intel_stolen_test_alias(stolen.root,STOLEN_VA,physical);','bool ok=true;'),
             'lost-read-deadline':('at-begin>STOLEN_CENSUS_US','false'),
+            'lost-progress-alias-exclusion':('stolen.mapped || stolen.uncertain','false'),
         }
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():

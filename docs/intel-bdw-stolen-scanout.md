@@ -142,6 +142,36 @@ see the [unit record](machines/macbookair7-2-current.md). Next diagnostic work
 must distinguish admission/source revalidation/first access. A loop deadline
 checked between operations does not interrupt a primitive that never returns.
 
+## Pending-operation progress journal
+
+The diagnostic adapter now saves a separate `stolen-progress.log`, capped at4KiB
+per update and32 updates per paused logger lifetime. The normal complete route
+uses16 updates. It never overwrites boot/session-a/exit snapshots. The caller
+refuses storage through a live or uncertain diagnostic MMIO alias and brackets
+held writes with the original exclusion/root identity. Normal framebuffer
+exclusion remains active. There is no display bypass or GPU writer.
+
+A16-entry RAM ring records phase, offset, pending/completed operation edges,
+mapping/retirement counts and participating CPU exclusion. Safe-boundary saves
+include pending profile/source/root/console/exclusion/cache checks, each source
+revalidation, metadata/vector pass and classification. Mapping, cache-policy,
+actual-alias and first-read details stay in RAM until the next safe boundary.
+A durable row is the last saved boundary, not proof that the next call began,
+returned or was the cause of a stall. Storage itself can fail or block.
+
+Journal writes inside a census pass consume its original2-second budget; an
+immediate clock check follows each such save. No start time or deadline is reset.
+Failed progress saving has first-refusal code27 (`progress-save`); ordinary
+readback/committed-flush and unhealthy-workspace refusal still apply.
+
+New v48 manifests freeze `stolen_progress_version=1` and require the fourth raw
+file on a complete return. Historical frozen manifests retain their three-file
+contract. The collector parses recipe-bound, bounded, consecutive progress rows
+into `returned/stolen-progress.json` before checking the exit marker, so a later
+missing exit still leaves useful diagnostics. It still fails collection without
+that exit, all original summary/source/retirement predicates and offline checks.
+The progress JSON explicitly denies completion evidence and native acceptance.
+
 ## After a native result
 
 If the census refuses or exposes holes/aliases/reservations, do not fill or

@@ -3,7 +3,7 @@ import sys
 
 def jobs(dependencies):
     outputs=['build/tests/'+name for name in ('intel-bdw-stolen-scanout','intel-stolen-probe',
-        'intel-display-probe','intel-cache-probe','intel-handoff-probe','exfat-driver')]
+        'intel-display-probe','intel-cache-probe','intel-handoff-probe','exfat-driver','workspace-log-host','bootlog-host')]
     build=dict(name='fixtures',argv=[sys.executable,'tools/fixture_compile.py','--under-workflow-lock',*outputs],
                cache=False,inputs=dependencies,outputs=outputs,timeout=1200)
     image=dict(name='stolen-image',argv=['make','build/intel-stolen/srvros.elf'],cache=False,

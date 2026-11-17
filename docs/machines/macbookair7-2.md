@@ -15468,3 +15468,25 @@ current6816/recovery9aa8 and protected payloads remain. Main4016abf0 is unchange
 No native layout or ownership pass is claimed. The next bounded scope is
 operation-level diagnostic progress before another native retry, retaining
 cache/source/alias checks and existing deadlines. No new test is armed.
+
+
+## Bounded census progress journal
+
+2026-11-17: the isolated adapter now maintains16 RAM operation edges and saves
+safe-boundary history to a separate4KiB `stolen-progress.log`, with a32-write
+per-session ceiling. No live/uncertain diagnostic alias may cross a save; held
+exclusion/root checks bracket storage. The normal route uses16 saves. Pass I/O
+consumes the original2-second bound with an immediate clock check, without a
+new start time. Readback/committed flush failures poison logger health; code27
+preserves the first progress-save refusal. No framebuffer bypass or GPU writer.
+New staged and workflow manifests bind progress version1; historical frozen
+manifests retain their prior raw contract. Missing exits still fail, after
+recipe-bound pending progress is separately parsed and retained. Progress never
+counts as successful operation, cleanup or ownership evidence. Unsupported VM
+profiles must have pending profile-only progress and no acquisition/mappings.
+Local adapter213 cases/12 compiled controls, fatal sanitizers/2KiB frames and
+252 broad regressions pass; the final staging/VM helper changes pass their
+additional focused suite. Fresh frozen gates and native evidence remain open.
+Verified identical inactive9fbb EFI/stage and cancelled223a stage duplicates
+were removed; their independent payload banks and raw failure evidence survive.
+Current6816/recovery9aa8/accepted GUI f0a8 and protected payloads are preserved.

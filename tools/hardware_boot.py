@@ -692,6 +692,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         manifest = {"release": release, "sha256": hashes, "config_version": version,
                     "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
+        if intel_stolen_capture:manifest['stolen_progress_version']=1
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         verify(target, release)
         destination = STAGE / release

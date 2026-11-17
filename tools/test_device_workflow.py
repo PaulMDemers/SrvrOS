@@ -317,6 +317,7 @@ class RunnerTests(unittest.TestCase):
         runner.create('stolen',dict(self.unit,model='MacBookAir7,2'),'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v48')
         _,manifest,state=runner.load('stolen')
         self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-stolen-v48',2,'NEW'))
+        self.assertEqual(manifest['stolen_progress_version'],1)
         self.assertFalse(runner.effects)
         with self.assertRaises(ValueError):
             runner.create('legacy',dict(self.unit,model='MacBookAir7,2'),'Historical image?','Refusal',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v47')

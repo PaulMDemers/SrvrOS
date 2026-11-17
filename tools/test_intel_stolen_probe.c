@@ -16,7 +16,7 @@ static bool intel_stolen_test_read(uint32_t,uint32_t *);
 #endif
 #include SRVROS_STOLEN_ADAPTER_FILE
 
-enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,FAULT_COUNT};
+enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,FAULT_COUNT};
 static struct {
  unsigned calls[FAULT_COUNT],which,at,cases,reads,maps,unmaps;
  uint64_t physical,clock;
@@ -60,6 +60,14 @@ bool intel_window_handoff_snapshot(struct scanout_handoff_snapshot *s) {
 }
 bool intel_window_handoff_revalidate(const struct scanout_handoff_snapshot *s) {assert(s==&stolen.source && model.held && !model.mapped);return !fault(REVALIDATE);}
 bool intel_window_handoff_clean(void) {return !fault(CLEAN);}
+bool workspace_log_stolen_progress(const char *data,uint64_t length) {
+ assert(!model.mapped && !stolen.uncertain && length && length<4096);
+ assert(!strncmp(data,"laptop-capture: boot options=",27));
+ assert(strstr(data,"intel-stolen: progress v=1 seq="));
+ assert(model.held==(stolen.acquired && !stolen.released));
+ if(model.mode==31 && stolen.phase==1)model.clock+=STOLEN_CENSUS_US+1;
+ return !fault(PROGRESS);
+}
 bool console_sync(void) {return !fault(SYNC);}
 bool display_access_acquire(uint64_t owner,struct display_access_token *t) {
  assert(!model.held && owner);if(fault(ACQUIRE))return false;
@@ -152,11 +160,14 @@ static void positive(void) {
  reset();assert(intel_stolen_probe_report(command));assert(stolen.complete && !intel_stolen_probe_retained());
  assert(!model.mapped && !model.held && model.maps==52 && model.unmaps==52);
  assert(model.reads==70664 && stolen.layout.checked==23552 && stolen.meta_reads==8);
- assert(model.calls[REVALIDATE]==4);
+ assert(model.calls[REVALIDATE]==4);assert(model.calls[PROGRESS]==16);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<3;r++)assert(stolen.count[n][r]==stolen.plan.range[r].pages);
  assert(!intel_stolen_probe_report(command));++model.cases;
 }
 int main(int argc,char **argv) {
+ if(argc==2 && !strcmp(argv[1],"--progress-refusal-report")) {reset();model.mode=27;assert(!intel_stolen_probe_report(command));fputs(stolen.progress,stdout);return 0;}
+ if(argc==2 && !strcmp(argv[1],"--progress-unsupported-report")) {reset();model.which=PROFILE;model.at=1;assert(!intel_stolen_probe_report(command));fputs(stolen.progress,stdout);return 0;}
+ if(argc==2 && !strcmp(argv[1],"--progress-report")) {reset();assert(intel_stolen_probe_report(command));fputs(stolen.progress,stdout);return 0;}
  if(argc==2 && !strcmp(argv[1],"--unsupported-report")) {reset();model.which=PROFILE;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--refusal-report")) {reset();model.mode=27;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
@@ -209,6 +220,15 @@ int main(int argc,char **argv) {
   assert(!model.maps && !model.held && !intel_stolen_probe_retained());
   assert((mode==27 && stolen.pat==7) || (mode==28 && stolen.mtrr==6) || (mode==29 && stolen.pat==4));
   ++model.cases;
+ }
+ reset();model.mode=31;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==18 && !model.held && !model.mapped);++model.cases;
+ for(unsigned mode=0;mode<3;mode++) {
+  reset();stolen.command=command;stolen.root=0x1000;model.held=stolen.acquired=true;
+  if(mode==0)model.mapped=stolen.mapped=true;
+  if(mode==1)stolen.uncertain=true;
+  if(mode==2){model.which=ROOT;model.at=1;stolen.root=0x1000;}
+  assert(!checkpoint(9) && stolen.fail==27 && !model.calls[PROGRESS]);++model.cases;
  }
  const char *bad[]={"",NULL,"srvros.intel-stolen=read-only", "srvros.storage=ram srvros.storage=ram"};
  for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {reset();assert(!intel_stolen_probe_report(bad[i]) && !model.maps && !model.held);++model.cases;}

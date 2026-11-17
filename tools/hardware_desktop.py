@@ -864,7 +864,7 @@ def collect(mount, volume, output):
             if len(preview)>98304:raise ValueError('Log changed while reading')
         limit=session_log_limit(preview)
         payload = {}
-        for name in (*FILES, "ecam.log", "window.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
+        for name in (*FILES, "ecam.log", "window.log", "stolen-progress.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
             source = folder / name
             if source.is_symlink():
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")

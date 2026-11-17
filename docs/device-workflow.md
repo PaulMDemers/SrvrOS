@@ -141,6 +141,13 @@ halts visibly in SrvrOS; safe saved/unmounted outcomes return automatically.
 
 ## Return, collect, review
 
+The v48 census's new frozen progress contract adds `stolen-progress.log` to
+its three original raw logs. The collector preserves and parses its pending
+operation history before refusing a missing exit snapshot. See the
+[progress contract](intel-bdw-stolen-scanout.md#pending-operation-progress-journal).
+Progress is diagnostic only and cannot complete or accept a run. Historical
+manifests keep their original raw-file contract.
+
 The enabled **user** service runs at Ubuntu login. `resume` only collects a
 pending run after the Linux boot ID changed. It never runs validation, installs,
 arms or reboots. No pending return means no work and no notification. It refuses

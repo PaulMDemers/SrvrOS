@@ -103,10 +103,22 @@ unmounted and installed/banked recovery/default/consumed one-shot checks pass.
 The raw logs, photo and negative review are sealed outside build. Current is
 6816 under recovery9aa8. Both exact-stage VM paths and seven frozen host slots
 passed before boot; those results do not establish native progress or cleanup.
-Next scope is operation-level progress capture around admission, source
-revalidation and first MMIO access. Do not repeat this image unchanged or infer
-that its two-second loop budget can interrupt a blocked primitive. No retry is
-armed, and no GPU mapping, ownership or tear-free acceptance follows.
+Active scope is bounded diagnostic progress around admission, source
+revalidation and first MMIO access: the isolated stolen adapter, paused workspace
+logger, raw collector and local regressions. The implemented separate4KiB
+progress file preserves pending operations without overwriting session-a.log or
+writing through a live diagnostic MMIO alias. The16-entry RAM history supplies
+finer operation edges at the next safe save. Inside-pass I/O consumes the original
+2-second budget, checked immediately after each save. First-refusal27 identifies
+progress-save failure. New frozen manifests require this fourth file; historical
+ones keep their three-file contract. Missing exits still fail after the pending
+operation JSON is saved. No framebuffer-exclusion bypass or GPU authority is
+added. The actual adapter passes213 modeled cases/12 compiled controls and fatal
+sanitizers/native frame checks; broad local regression passes252 tests. Staging
+also binds the progress contract, and VM dispatch checks unsupported-profile
+progress before any acquisition. Fresh frozen qualification and exact-stage VM
+remain required before the next unattended1% native trial. No GPU mapping,
+ownership or tear-free acceptance follows.
 
 Base main4016abf0 remains unchanged. PR301 owns these native census/collector
 changes; ordinary startup and reset/CPU-context protocols remain unchanged.

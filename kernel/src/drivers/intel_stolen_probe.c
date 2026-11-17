@@ -14,6 +14,7 @@ extern volatile struct limine_memmap_request memmap_request;
 #include <srvros/vmm.h>
 #include <srvros/timer.h>
 #include <srvros/console.h>
+#include <srvros/workspace_log.h>
 
 /* Separate read-only census budget: at most23 GGTT pages/pass and three
  * stable DWORD loads for every entry, with fresh PCI/root/alias checks. This
@@ -36,6 +37,10 @@ static struct {
  unsigned maps,retired,cache_checks,alias_checks,phase,reason,fail,fail_offset,active_offset;
  unsigned mtrr,pat,effective;
  uint32_t page;
+ struct {unsigned seq,step,edge,phase,offset,maps,retired,held,mapped;} trace[16];
+ unsigned sequence;
+ const char *command;
+ char progress[4096];
  bool attempted,mapped,uncertain,unmap_failed,acquired,released,complete;
 } stolen;
 /* Wire2: preserve the first refusal, even if cleanup subsequently fails.
@@ -43,6 +48,44 @@ static struct {
 static bool refuse(unsigned code) {
  if(!stolen.fail){stolen.fail=code;stolen.fail_offset=stolen.active_offset;}
  return false;
+}
+/* RAM trace never writes the framebuffer or storage through a live alias.
+ * A durable entry names a pending operation, not its successful completion.
+ * Persisting inside a pass consumes that original pass's existing budget. */
+static void trace(unsigned step,unsigned edge) {
+ unsigned seq=++stolen.sequence;
+ stolen.trace[(seq-1)%16]=(__typeof__(stolen.trace[0])){seq,step,edge,stolen.phase,
+  stolen.active_offset,stolen.maps,stolen.retired,stolen.acquired && !stolen.released,stolen.mapped};
+}
+static bool append(char **out,const char *text) {
+ while(*text) {if(*out>=stolen.progress+sizeof(stolen.progress)-1)return false;*(*out)++=*text++;}return true;
+}
+static bool number(char **out,uint64_t value) {
+ char digits[20];unsigned n=0;do{digits[n++]=(char)('0'+value%10);value/=10;}while(value);
+ while(n){char t[2]={digits[--n],0};if(!append(out,t))return false;}return true;
+}
+static bool checkpoint(unsigned step) {
+ trace(step,0);
+ if(stolen.mapped || stolen.uncertain)return refuse(27);
+ if(stolen.acquired && !stolen.released &&
+    (!display_access_held(&stolen.exclusion) || vmm_current_address_space()!=stolen.root))return refuse(27);
+ char *out=stolen.progress;
+ if(!append(&out,"laptop-capture: boot options=") || !append(&out,stolen.command) || !append(&out,"\n"))return refuse(27);
+ unsigned start=stolen.sequence>16?stolen.sequence-15:1;
+ for(unsigned seq=start;seq<=stolen.sequence;seq++) {
+  const __typeof__(stolen.trace[0]) *t=&stolen.trace[(seq-1)%16];
+  const char *keys[]={"seq","step","edge","phase","offset","maps","retired","held","mapped"};
+  const unsigned values[]={t->seq,t->step,t->edge,t->phase,t->offset,t->maps,t->retired,t->held,t->mapped};
+  if(!append(&out,"intel-stolen: progress v=1"))return refuse(27);
+  for(unsigned i=0;i<9;i++)if(!append(&out," ") || !append(&out,keys[i]) || !append(&out,"=") || !number(&out,values[i]))return refuse(27);
+  if(!append(&out,"\n"))return refuse(27);
+ }
+ *out=0;
+ if(!stolen.acquired || stolen.released)console_printf("intel-stolen: pending step=%u; saving diagnostic progress\n",(uint64_t)step);
+ if(!workspace_log_stolen_progress(stolen.progress,(uint64_t)(out-stolen.progress)))return refuse(27);
+ if(stolen.acquired && !stolen.released &&
+    (!display_access_held(&stolen.exclusion) || vmm_current_address_space()!=stolen.root))return refuse(27);
+ return true;
 }
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
@@ -157,25 +200,31 @@ static bool map(uint32_t page) {
  if(!identity())return false;
  uint64_t physical=stolen.source.mmio+page,old;
  if(physical<stolen.source.mmio || vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&old))return refuse(15);
+ trace(16,0);
  if(!policy(physical))return false;
+ trace(16,1);
+ trace(15,0);
  if(!vmm_map_page_in_space(stolen.root,STOLEN_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITE_THROUGH)) {
   if(vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&old))stolen.uncertain=true;
   return refuse(15);
  }
  stolen.mapped=true;stolen.page=page;stolen.physical=physical;++stolen.maps;
- return alias() && policy(physical);
+ trace(15,1);trace(17,0);
+ bool ok=alias() && policy(physical);if(ok)trace(17,1);return ok;
 }
 static bool load(uint32_t offset,uint32_t *out) {
  /* alias() brackets the actual sole-root leaf walk with fresh identity
   * checks. Repeating the same PCI census immediately before it adds no check. */
  stolen.active_offset=offset;
  if(offset&3)return refuse(17);
+ bool first=stolen.meta_reads==0 && stolen.maps<=1;
  if(!map(offset&~4095u) || !alias())return false;
+ if(first)trace(18,0);
 #ifdef SRVROS_INTEL_STOLEN_HOST_TEST
- return intel_stolen_test_read(offset,out) || refuse(17);
+ bool ok=intel_stolen_test_read(offset,out);if(ok && first)trace(18,1);return ok || refuse(17);
 #else
  __asm__ volatile("mfence":::"memory");*out=*(volatile const uint32_t *)(STOLEN_VA+(offset&4095));
- __asm__ volatile("mfence":::"memory");return true;
+ __asm__ volatile("mfence":::"memory");if(first)trace(18,1);return true;
 #endif
 }
 static bool facts(unsigned n) {
@@ -204,8 +253,11 @@ static uint64_t hash_word(uint64_t hash,uint64_t value) {
 }
 static bool capture(unsigned n) {
  if(!unmap())return false;
+ if(!checkpoint(8) || !tick(stolen.begin[n]))return false;
  if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);
+ if(!checkpoint(9) || !tick(stolen.begin[n]))return false;
  if(!facts(n) || !tick(stolen.begin[n]))return false;
+ if(!checkpoint(10) || !tick(stolen.begin[n]))return false;
  if(!n && !intel_bdw_stolen_scanout_plan(&stolen.facts[0],&stolen.plan))return refuse(19);
  for(unsigned r=0;r<3;r++) {
   stolen.hash[n][r]=14695981039346656037ull;
@@ -225,6 +277,7 @@ static bool capture(unsigned n) {
   }
  }
  if(!unmap())return false;
+ if(!checkpoint(11) || !tick(stolen.begin[n]))return false;
  if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);
  if(!identity() || !tick(stolen.begin[n]))return false;
  stolen.end[n]=stolen.last;return stolen.end[n]>stolen.begin[n] || refuse(18);
@@ -233,14 +286,18 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire2 UC3 read-only complete inherited/candidate translation census; two bounded2s passes, no input, no writes or allocation grant\n");
+ console_write("intel-stolen: wire2 UC3 read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
+ stolen.command=cmdline;
+ if(!checkpoint(1))goto report;
  if(!intel_scanout_trial_profile(&stolen.profile) || stolen.profile.width!=1440 ||
  stolen.profile.height!=900 || stolen.profile.pitch!=6144){refuse(3);goto report;}
+ if(!checkpoint(2))goto report;
  if(!intel_window_handoff_snapshot(&stolen.source) || stolen.source.assurances || stolen.source.pages!=16 ||
  stolen.source.first!=8704 || stolen.source.fence_begin || stolen.source.fence_end!=0x2200000 ||
  stolen.source.aperture_bytes!=0x10000000 || !intel_window_handoff_clean()){refuse(4);goto report;}
+ if(!checkpoint(3))goto report;
  stolen.root=vmm_current_address_space();
  if(!stolen.root || stolen.root!=vmm_kernel_address_space()){refuse(5);goto report;}
  for(uint64_t i=0;i<pci_device_count();i++) {
@@ -248,10 +305,14 @@ bool intel_stolen_probe_report(const char *cmdline) {
   if(!d->device)stolen.host=d;else if(d->device==2)stolen.gpu=d;
  }
  if(!stolen.host || !stolen.gpu){refuse(6);goto report;}
+ if(!checkpoint(4))goto report;
  if(!console_sync()){refuse(7);goto report;}
+ if(!checkpoint(5))goto report;
  if(!display_access_acquire(0x53544f4c454eull,&stolen.exclusion)){refuse(8);goto report;}
  stolen.acquired=true;
+ if(!checkpoint(6))goto cleanup;
  if(!identity())goto cleanup;
+ if(!checkpoint(7))goto cleanup;
  if(!intel_cache_probe_context(&stolen.cache)){refuse(10);goto cleanup;}
  for(unsigned n=0;n<2;n++) {
   stolen.phase=n+1;stolen.begin[n]=timer_monotonic_us();
@@ -261,12 +322,15 @@ bool intel_stolen_probe_report(const char *cmdline) {
  }
  for(unsigned n=0;n<2;n++)for(unsigned i=0;i<HANDOFF_PAGES;i++)
   if(stolen.pte[n][1][i]!=stolen.source.original[i]){stolen.reason|=32;refuse(25);goto cleanup;}
- stolen.phase=3;stolen.complete=intel_bdw_stolen_scanout_check(&stolen.facts[0],&stolen.vectors,&stolen.layout);
+ stolen.phase=3;if(!checkpoint(12))goto cleanup;
+ stolen.complete=intel_bdw_stolen_scanout_check(&stolen.facts[0],&stolen.vectors,&stolen.layout);
  if(!stolen.complete){stolen.reason|=16;refuse(21);}
 cleanup:
+ trace(13,0);
  if(unmap() && !stolen.uncertain && intel_window_handoff_clean())stolen.released=display_access_release(&stolen.exclusion,true);
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
+ trace(14,1);
  console_printf("intel-stolen-summary: v=2 fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
  (uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
