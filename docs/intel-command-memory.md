@@ -1,5 +1,40 @@
 # Private command-memory ownership
 
+## Full-GT composition (native qualification pending)
+
+The separate `intel-gt-arena-v45` profile, `build/intel-gt-arena/srvros.elf` and
+`srvros.intel-ring=gt-bootstrap-arena-v1` recipe bind this CPU arena to the
+original full-GT reset/new-epoch/memory child. Bootstrap wire7 requires both
+`intel-arena-memory` and `intel-arena-binding`; earlier wires reject them.
+The [current Air record](machines/macbookair7-2-current.md) owns trial status.
+
+Four tagged DMA pages and their WB supervisor/NX CPU aliases are allocated and
+zeroed before GPU exclusion. After reset and the original remapper/GGTT child,
+the arena registers against that actual GT object, original borrow, new epoch,
+CPU root and enclosing clock origins. Two admissions bracket fresh mapping/cache
+observations. No content accesses or allocation run inside the GPU lifetime.
+Requester restoration, logical borrow return and the final guard require the
+original child to have returned with its RAM still held. Cleanup independently
+requires the original GT/HDA/outer lifetimes and all15 original aliases to retire;
+then it verifies all2048 zero QWords, removes all4 exact CPU aliases and releases
+the allocation exactly once. Unknown retirement retains the arena and fails.
+
+Practical250ms preparation,100ms GT maintenance,500ms GT total,750ms HDA and1s
+outer bounds are unchanged. CPU setup/cleanup each retain separate100ms bounds.
+The command library selects its enclosing diagnostic timing aliases rather than
+depending on legacy reset types; default and v37 timing values stay unchanged.
+Callback snapshots seal hold identity data, including the final setup clock and
+the cleanup clock before deliberately ending the hold. Parent identity is checked
+between CPU-cache and alias callbacks, so identity loss stops the following call.
+
+This composes CPU-owned storage only. Zeroed context pages are not an executable
+LRC, a private GPU interval or permission for PTE writes/submission. All255 wider
+DMA/cache/reader obligations remain open. The profile preserves all36 prior
+qualification slots and adds6 arena/legacy/image slots (42 total), plus both
+exact-stage VM paths. No VM result accepts native ownership.
+
+## Legacy source composition
+
 The separately selected `intel-command-memory-v37` diagnostic prepares private
 RAM for a Broadwell blitter ring, context storage and completion page. It owns
 the backing and actual CPU mappings through the original GPU diagnostic, then

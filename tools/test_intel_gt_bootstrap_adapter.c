@@ -29,6 +29,23 @@ static enum intel_gt_write intel_display_test_memory_write(unsigned,uint32_t,uin
 static bool intel_display_test_memory_map(unsigned,uint64_t);
 static bool intel_display_test_memory_unmap(unsigned,uint64_t *);
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+static uint64_t intel_display_test_command_alloc(void);
+static bool intel_display_test_command_backing(uint64_t,uint32_t);
+static bool intel_display_test_command_free(uint64_t);
+static bool intel_display_test_command_map(uint64_t,uint64_t,uint64_t);
+static bool intel_display_test_command_unmap(uint64_t,uint64_t,uint64_t *);
+static bool intel_display_test_command_cache(struct x86_cache_snapshot *);
+static bool intel_display_test_command_alias(uint64_t,uint64_t,uint64_t,struct vmm_alias_observation *);
+static volatile uint64_t *intel_display_test_command_pointer(void);
+static void intel_display_test_command_preserved(void);
+
+static uint64_t intel_display_test_command_clock(void);
+static void intel_display_test_command_guard(void);
+static void intel_display_test_command_return(void);
+static bool intel_display_test_command_retire(void);
+static uint64_t intel_display_test_command_dma(void);
+#endif
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
@@ -63,7 +80,12 @@ static void intel_display_test_bootstrap_boundary(void) {
 #endif
  if(gt_bootstrap_native.reset.stage<=BDW_BOOT_FAULT && !phase_points[gt_bootstrap_native.reset.stage])
   phase_points[gt_bootstrap_native.reset.stage]=boundaries;
- assert(wake_irq && hda_command==2 && !display_access_allowed());
+ assert(wake_irq && !display_access_allowed());
+#ifdef SRVROS_INTEL_GT_ARENA
+ assert(hda_command==2 || (hit && !strcmp(bootstrap_mode,"command-hda")));
+#else
+ assert(hda_command==2);
+#endif
  if(!strcmp(bootstrap_mode,"maintain-slow"))ticks+=130;
  if(!strcmp(bootstrap_mode,"seconds-slow"))ticks+=1000;
  if(!strcmp(bootstrap_mode,"practical-slow"))ticks+=175;
@@ -91,7 +113,11 @@ static bool intel_display_test_bootstrap_cache(struct x86_cache_snapshot *out) {
  .pat=0x0007040600070406ull,.cap=0x400,.def_type=0x800,.status=CACHE_OBSERVED,.reads=6,
  .begin_us=ticks,.end_us=ticks+1};ticks++;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
- if(!strcmp(bootstrap_mode,"memory-cache-layout")) {
+ if(!strcmp(bootstrap_mode,"memory-cache-layout")
+#ifdef SRVROS_INTEL_GT_ARENA
+ || true
+#endif
+ ) {
   out->cap=0x501;out->count=1;out->fixed_count=11;out->reads=19;
   out->base[0]=6;out->mask[0]=0x7fc0000800ull;
   for(unsigned i=0;i<11;i++)out->fixed[i]=0x0606060606060606ull;
@@ -265,7 +291,13 @@ static __attribute__((noinline)) void bootstrap_churn_stack(void) {
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
 #include "test_intel_gt_memory_model.inc"
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+#include "test_intel_gt_arena_model.inc"
+#endif
 int main(int argc,char **argv) {
+#ifdef SRVROS_INTEL_GT_ARENA
+ if(argc>1 && !strncmp(argv[1],"arena-core-",11))return arena_core_case(argv[1]);
+#endif
  if(argc>1)bootstrap_mode=argv[1];
  if(argc>2)fault_at=(unsigned)atoi(argv[2]);
  if(argc>3){assert(!strcmp(argv[3],"disabled"));ring_fixture_disabled=true;ring_ctl=0;}
@@ -273,6 +305,9 @@ int main(int argc,char **argv) {
  char *args[]={argv[0],"--wake-engine-report",NULL};
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
+#ifdef SRVROS_INTEL_GT_ARENA
+ return arena_fixture_verify(code);
+#endif
  assert(gt_bootstrap_native.a==joint.wake && gt_bootstrap_native.g==joint.scope.gpu);
  assert(gt_bootstrap_native.a->fw.gt.a.common.cr3==0x1000 && gt_bootstrap_native.a->maps<=15);
  assert(gt_bootstrap_native.g->io.context==gt_bootstrap_native.a);

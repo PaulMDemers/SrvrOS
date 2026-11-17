@@ -27,6 +27,10 @@ static struct {
  const void *memory_child,*memory_original;
  unsigned memory_borrows,memory_returns;
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ const void *arena_child,*arena_original;
+ unsigned arena_borrows,arena_returns;
+#endif
 } gt_bootstrap_native;
 /* Receipt is data only; never a copied live ownership object. Valid only for
  * one immediate read across the trusted protocol's one clock-only callback. */
@@ -239,6 +243,9 @@ static bool bootstrap_pci(unsigned n) {
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
 static bool bootstrap_memory_returned(void);
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+static bool command_returned(void);
+#endif
 static bool bootstrap_command(unsigned value) {
  unsigned issued=gt_bootstrap_native.command_writes;
  if(!((issued==0 && value==3 && gt_bootstrap_native.pci_samples==1) ||
@@ -248,6 +255,9 @@ static bool bootstrap_command(unsigned value) {
  if(!bootstrap_tick() || !bootstrap_parent())return false;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  if(value==7 && !bootstrap_memory_returned())return bootstrap_fail(512);
+#endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ if(value==7 && !command_returned())return bootstrap_fail(1024);
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  if(!intel_display_test_bootstrap_command(value))return bootstrap_fail(32);
@@ -465,6 +475,18 @@ static bool bootstrap_core_io(void) {
 #endif
 #include SRVROS_INTEL_GT_MEMORY_ADAPTER_FILE
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+#if !defined(SRVROS_INTEL_GT_MEMORY_PREPARE) || defined(SRVROS_INTEL_COMMAND_MEMORY)
+#error "Private full-GT arena needs its actual memory child, never the legacy source"
+#endif
+#if defined(SRVROS_INTEL_GT_ARENA_ADAPTER_FILE) && !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+#error "A full-GT arena adapter override is host-test-only"
+#endif
+#ifndef SRVROS_INTEL_GT_ARENA_ADAPTER_FILE
+#define SRVROS_INTEL_GT_ARENA_ADAPTER_FILE "intel_gt_arena_trial.inc"
+#endif
+#include SRVROS_INTEL_GT_ARENA_ADAPTER_FILE
+#endif
 static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(gt_bootstrap_native.object)return;
  gt_bootstrap_native.object=&gt_bootstrap_native;gt_bootstrap_native.a=a;gt_bootstrap_native.g=g;
@@ -520,12 +542,18 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  if(!bootstrap_memory_run() || !bootstrap_memory_returned())goto fail;
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ if(!command_run() || !command_returned())goto fail;
+#endif
  if(!bootstrap_pci(2) || !bootstrap_command(7) || !bootstrap_pci(3))goto fail;
  gt_bootstrap_native.guard_begin=gt_bootstrap_native.last;
  if(!bootstrap_guard() || !engine_guard(a) || !bootstrap_tick() || gt_bootstrap_native.reset.registered ||
   gt_bootstrap_native.reset.retained || !gt_bootstrap_native.full_after)goto fail;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  if(!bootstrap_memory_returned())goto fail;
+#endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ if(!command_returned())goto fail;
 #endif
  gt_bootstrap_native.guard_end=gt_bootstrap_native.return_begin=gt_bootstrap_native.last;
  gt_bootstrap_native.closing=1;
@@ -542,6 +570,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  if(!bootstrap_memory_returned())goto fail;
 #endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ if(!command_returned())goto fail;
+#endif
  gt_bootstrap_native.final_end=gt_bootstrap_native.last;gt_bootstrap_native.closing=3;
  gt_bootstrap_native.end=gt_bootstrap_native.last;gt_bootstrap_native.state=2;gt_bootstrap_native.complete=true;return;
 fail:
@@ -550,7 +581,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
+#if defined(SRVROS_INTEL_GT_ARENA)
+ "intel-bootstrap-summary: v=7 "
+#elif defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
  "intel-bootstrap-summary: v=6 "
 #elif defined(SRVROS_INTEL_GT_PRACTICAL)
  "intel-bootstrap-summary: v=5 "

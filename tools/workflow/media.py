@@ -74,7 +74,7 @@ def durable_copy(source, destination):
 
 
 def raw_log_limit(profile):
-    return 98304 if profile in ('intel-command-ownership-v38','intel-gt-bootstrap-v39','intel-gt-bootstrap-v40','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44') else 65536
+    return 98304 if profile in ('intel-command-ownership-v38','intel-gt-bootstrap-v39','intel-gt-bootstrap-v40','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45') else 65536
 
 
 def snapshot(config, destination, *, before=None, max_log_bytes=65536):

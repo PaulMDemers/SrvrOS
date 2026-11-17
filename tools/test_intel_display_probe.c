@@ -1012,6 +1012,8 @@ int main(int argc,char **argv) {
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-source-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_NONZERO_RESET)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-reset-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_GT_ARENA)
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-arena-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-memory-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_PRACTICAL)
@@ -1181,7 +1183,14 @@ assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 /* Private unexposed RAM can quarantine after the GPU root retired safely. */
 assert(intel_gt_wake_retained()==(!display_access_allowed() || buffers_native.retained));
 #else
-assert(intel_gt_wake_retained()==!display_access_allowed());
+#ifdef SRVROS_INTEL_GT_ARENA
+        /* A private CPU arena can remain quarantined before GPU acquisition,
+         * or after independent GPU retirement. It must still fail the trial. */
+        assert(intel_gt_wake_retained()==(!display_access_allowed() || command_native.owner.retained ||
+            (command_native.allocated && command_native.owner.state!=COMMAND_CLOSED)));
+#else
+        assert(intel_gt_wake_retained()==!display_access_allowed());
+#endif
 #endif
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
 shutdown_check_lifetime();

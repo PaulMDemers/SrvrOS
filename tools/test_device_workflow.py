@@ -191,7 +191,7 @@ class RunnerTests(unittest.TestCase):
         import device_workflow
         (self.repo / 'build').mkdir()
         atomic(self.runner.store / 'unit.json', self.unit)
-        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44'):
+        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45'):
             argv = ['device_workflow.py', 'new', 'combined', '--profile',
                     trial_profile, '--question', 'Complete original hold?',
                     '--expected', 'Exact retirement']
@@ -263,6 +263,23 @@ class RunnerTests(unittest.TestCase):
         runner.create('memory',dict(self.unit,model='MacBookAir7,2'),'Compose original epoch','Bounded remapper/GGTT retirement',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-memory-v44')
         _,manifest,state=runner.load('memory')
         self.assertEqual(manifest['wire_version'],6);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
+
+    def test_arena_profile_freezes_wire7_and_keeps_all_prior_jobs(self):
+        from workflow.gt_arena import jobs
+        from workflow.gt_memory import jobs as previous
+        from workflow.media import raw_log_limit
+        plan=jobs(['Makefile'])
+        self.assertEqual(sum(map(len,plan.values())),42)
+        for level in ('development','qualification'):
+            names={j['name'] for j in plan[level]}
+            self.assertEqual(len(names),len(plan[level]))
+            self.assertTrue({j['name'] for j in previous(['Makefile'])[level]}<=names)
+            self.assertTrue({'arena-native-model','arena-legacy-policy','arena-image'}<=names)
+        self.assertEqual(raw_log_limit('intel-gt-arena-v45'),98304)
+        runner=FixtureRunner(self.repo,self.root/'v45-store')
+        runner.create('arena',dict(self.unit,model='MacBookAir7,2'),'Original CPU arena','Single release after original parent retirement',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-arena-v45')
+        _,manifest,state=runner.load('arena')
+        self.assertEqual(manifest['wire_version'],7);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
 
     def test_full_gt_v41_freezes_wire3_and_old_profiles_are_historical(self):
         runner=FixtureRunner(self.repo,self.root/'v41-store')

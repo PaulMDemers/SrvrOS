@@ -5,16 +5,26 @@
 static struct {
  struct intel_command_memory owner;
  struct x86_cache_snapshot cache;
+#ifdef SRVROS_INTEL_GT_ARENA
+ const void *parent;
+#else
  const struct intel_source_engines *parent;
+#endif
  uint64_t dma_before,dma_after,allocated,released,cache_checks,alias_checks,zeros,word_checks,retire_checks;
  bool outer_safe;
 } command_native;
 static bool command_parent_guard(void *,const struct intel_command_lease *);
 static bool command_parent_retired(void *,const struct intel_command_lease *);
 static bool command_returned(void);
+#ifdef SRVROS_INTEL_GT_ARENA
+static bool command_context_live(void);
+#endif
 static bool command_backing(void *ctx,uint64_t physical,uint32_t pages) {
  if(ctx!=&command_native || pages!=4 || !physical || (physical&4095) || physical>0x100000000ull-16384 ||
  vmm_current_address_space()!=command_native.owner.root)return false;
+#ifdef SRVROS_INTEL_GT_ARENA
+ if(!command_context_live())return false;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_command_backing(physical,pages);
 #else
@@ -84,9 +94,20 @@ static bool command_observe(void *ctx,uint64_t root,uint64_t va,uint64_t physica
   * Preparation and final cleanup run outside the enclosing GPU IRQ scope. */
  uint64_t flags=wake_irq_save();
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- bool ok=intel_display_test_command_cache(&cache) && intel_display_test_command_alias(root,va,physical,&alias);
+ bool ok=intel_display_test_command_cache(&cache);
 #else
- bool ok=intel_cache_probe_context(&cache) && vmm_diagnostic_kernel_alias(root,va,physical,4,cache.cpu.physical_bits,&alias,NULL);
+ bool ok=intel_cache_probe_context(&cache);
+#endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ ok=ok && command_context_live();
+#endif
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ ok=ok && intel_display_test_command_alias(root,va,physical,&alias);
+#else
+ ok=ok && vmm_diagnostic_kernel_alias(root,va,physical,4,cache.cpu.physical_bits,&alias,NULL);
+#endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ ok=ok && command_context_live();
 #endif
  ok=ok && wake_irq_off();wake_irq_restore(flags);
  if(!ok || cache.status!=CACHE_OBSERVED || cache.cpu.signature!=0x306d4 ||
@@ -152,6 +173,11 @@ static bool command_prepare(void) {
 #endif
  observed=observed && wake_irq_off();wake_irq_restore(flags);
  if(!observed || command_native.cache.status!=CACHE_OBSERVED || command_native.cache.cpu.signature!=0x306d4)return false;
+#ifdef SRVROS_INTEL_GT_ARENA
+ /* PAT0 is fixed by this arena's WB leaf contract; reject an incompatible
+  * captured policy before allocating private storage. */
+ if((command_native.cache.pat&255)!=6)return false;
+#endif
  return intel_command_memory_prepare(&command_native.owner,vmm_current_address_space(),COMMAND_NATIVE_VA,
  (struct intel_command_io){{&command_native,command_alloc,command_backing,command_free},command_map,command_unmap,
  command_observe,command_initialize,command_preserved,command_parent_guard,command_parent_retired,command_now});
@@ -179,6 +205,10 @@ static void command_report(void) {
  (uint64_t)command_native.outer_safe|(command_native.retire_checks<<1),INTEL_DIAGNOSTIC_PREPARE_US,0,1,3,4,0,0,0};
  _Static_assert(sizeof(f)==512,"command-memory64Q");
  static uint8_t raw[512];static char data[685];unsigned k=0;
- for(unsigned i=0;i<64;i++)source_audit_u64(raw,&k,f[i]);
+ for(unsigned i=0;i<64;i++)for(unsigned j=0;j<8;j++)raw[k++]=(uint8_t)(f[i]>>(8*j));
+#ifdef SRVROS_INTEL_GT_ARENA
+ entry_requester_base64(raw,k,data);console_printf("intel-arena-memory: v=1 b=%s\n",data);
+#else
  entry_requester_base64(raw,k,data);console_printf("intel-command-memory: v=1 b=%s\n",data);
+#endif
 }

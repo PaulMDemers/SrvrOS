@@ -15175,3 +15175,36 @@ with zero managed GPU pages/PTE writes/submissions and no native tear-free grant
 Next establish remaining completion/exclusion witnesses and bind managed GPU
 interval/private ring/context/mapping storage to the maintained native owner.
 No sibling profile or ordinary desktop startup is enabled by this result.
+
+
+## Original full-GT CPU command-arena implementation
+
+2026-11-17: main4016abf0 was fetched unchanged; PR301 continues this bounded
+scope, independent of Pro11,2 Wi-Fi PR19 and WebCore audit PR379. The opt-in
+`intel-gt-arena-v45` image/recipe/wire7 composes four private CPU ring/context/
+completion pages with the actual full-GT reset/new epoch and original memory
+child. Allocation/zeroing precedes GPU exclusion. A registered original-borrow
+child gates requester and logical return; all4 CPU aliases/2048 zero QWords/
+exactly-once RAM release close only after the original GT/HDA/outer and15 native
+aliases retire. Practical250/100/500/750/1000ms and CPU100ms bounds stay fixed.
+No private GPU interval, executable LRC, GPU PTE writes or submission is enabled;
+all255 broader ownership obligations and native tear-free remain pending.
+
+Fault injection found final-setup-clock and pre-cleanup-clock hold identity gaps;
+the shared CPU core now snapshots hold identity data and revalidates it across
+callbacks. The memory API no longer imports legacy reset types; the mapping API
+explicitly includes its GT write type. Existing default/v37 clocks stay unchanged.
+Host checks pass282 arena failures, both original routes, selected clock limits/
+overruns, fatal ASan/UBSan, compiled controls and strict receipt mutations. The
+existing mapping consumer passes17,808 cases/21 compiled controls. This is host
+qualification only; matching new native evidence is required. The42-slot profile
+retains all36 older gates and both exact-stage VM paths before one unattended1%
+trial. The unit current record and local run plan own subsequent status.
+
+Capacity cleanup verified independent payload banks before removing1,068,065,202
+bytes of identical generated stage copies. Separately, all58 sealed files and
+strict raw parses of the old33d9 reset-only diagnostic were verified before its
+unreferenced EFI duplicate was removed. Its full payload/evidence remain outside
+build; current434e, recovery9aa8, acceptedf0a8 and protected releases survive.
+External cleanup ledgers record both exact operations. No dirty reproduction
+checkout or independent evidence was pruned.

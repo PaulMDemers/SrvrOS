@@ -890,7 +890,7 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         raw_payload=payload
-        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and any(t in line.split() for t in (b'srvros.intel-ring=gt-bootstrap-v1',b'srvros.intel-ring=gt-bootstrap-seconds-v1',b'srvros.intel-ring=gt-bootstrap-practical-v1',b'srvros.intel-ring=gt-bootstrap-memory-v1')) for data in raw_payload.values() for line in data.splitlines())
+        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and any(t in line.split() for t in (b'srvros.intel-ring=gt-bootstrap-v1',b'srvros.intel-ring=gt-bootstrap-seconds-v1',b'srvros.intel-ring=gt-bootstrap-practical-v1',b'srvros.intel-ring=gt-bootstrap-memory-v1',b'srvros.intel-ring=gt-bootstrap-arena-v1')) for data in raw_payload.values() for line in data.splitlines())
         vtd_profile=any(b'srvros.intel-ring=vtd-drain-v1' in data for data in raw_payload.values())
         source_audit_profile=vtd_profile or any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
         source_engines_profile=any(b'srvros.intel-ring=source-engines-v1' in data for data in raw_payload.values())
@@ -908,8 +908,9 @@ def collect(mount, volume, output):
             from intel_gt_bootstrap import historical_view as bootstrap_view
             def selected_bootstrap_view(data):
                 words=next((l.split('=',1)[1].split() for l in data.splitlines() if l.startswith('laptop-capture: boot options=')),[])
-                memory='srvros.intel-ring=gt-bootstrap-memory-v1' in words
-                return bootstrap_view(data,seconds='srvros.intel-ring=gt-bootstrap-seconds-v1' in words,practical=memory or 'srvros.intel-ring=gt-bootstrap-practical-v1' in words,memory=memory)
+                arena='srvros.intel-ring=gt-bootstrap-arena-v1' in words
+                memory=arena or 'srvros.intel-ring=gt-bootstrap-memory-v1' in words
+                return bootstrap_view(data,seconds='srvros.intel-ring=gt-bootstrap-seconds-v1' in words,practical=memory or 'srvros.intel-ring=gt-bootstrap-practical-v1' in words,memory=memory,arena=arena)
             decode=selected_bootstrap_view if bootstrap_profile else drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
             try:
                 # Only the checked v31 dispatch may normalize shared wire schemas.

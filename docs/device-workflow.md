@@ -1,5 +1,17 @@
 # Repeatable device trials
 
+The opt-in `intel-gt-arena-v45` profile composes the
+[private CPU command arena](intel-command-memory.md#full-gt-composition-native-qualification-pending)
+with the original full-GT memory child. It selects `--intel-gt-arena`, a separate
+image/recipe and exact wire7;42 required host/qualification slots preserve all36
+v44 gates, add actual arena faults/controls, legacy-policy regression and the new
+image. Both exact-stage VM paths remain mandatory. The ring/save/raw bound stays
+96KiB and all practical/individual hardware deadlines stay unchanged. Complete
+matching native evidence closes as a diagnostic, with separate CPU setup/held/
+cleanup timings and no GPU mapping/tear-free acceptance. Safe saved/unmounted
+outcomes return to Ubuntu; uncertain lifetime/retirement retains storage and
+halts. Earlier wires reject the new arena packets.
+
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
 opt-in v36 VT-d drain, combined GGTT invalidation, v37 CPU command-memory and
 [v38 joined native admission](intel-command-ownership.md) and separate

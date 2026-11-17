@@ -76,3 +76,15 @@ No private GPU interval, PTE store, executable LRC or submission is enabled.
 The next checkpoint requires host fault/mutation/sanitizer coverage, exact-stage
 VM qualification and a source-bound automated1% trial; native acceptance is
 pending. Recovery9aa8/current434e and external accepted banks remain protected.
+
+Local implementation now passes282 retained-prefix arena faults, both original
+entry routes, all4 selected aggregate clock limits/overruns, fatal sanitizers,
+compiled hold/parent/retirement/timing controls, strict wire mutations and native
+CPU-alias/no-GPU-mapping symbol checks. The existing consumer also passes17,808
+composed mapping cases/21 weakening controls. Host evidence does not accept this
+new native composition. Full42 frozen gates and both exact-stage VMs must pass
+before the next unattended1% boot. Setup/cleanup hold identity is sealed across
+clock callbacks; no hold is copied as a usable owner. Root staging cleanup removed
+only byte-identical banked duplicates (1.068GB). The old installed reset-only33d9
+copy was retired only after58 sealed evidence files/strict raw/recovery checks;
+its full independent bank remains. Current434e/recovery9aa8 are preserved.
