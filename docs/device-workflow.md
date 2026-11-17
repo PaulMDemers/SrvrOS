@@ -5,7 +5,9 @@ The opt-in `intel-gt-arena-v45` profile composes the
 with the original full-GT memory child. It selects `--intel-gt-arena`, a separate
 image/recipe and exact wire7;42 required host/qualification slots preserve all36
 v44 gates, add actual arena faults/controls, legacy-policy regression and the new
-image. Both exact-stage VM paths remain mandatory. The ring/save/raw bound stays
+image. The explicit remapper/GGTT caller-isolation guards also run immediately
+after fixture compilation in development; full qualification reruns both modules.
+Both exact-stage VM paths remain mandatory. The ring/save/raw bound stays
 96KiB and all practical/individual hardware deadlines stay unchanged. Complete
 matching native evidence closes as a diagnostic, with separate CPU setup/held/
 cleanup timings and no GPU mapping/tear-free acceptance. Safe saved/unmounted

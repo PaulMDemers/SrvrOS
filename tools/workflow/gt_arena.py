@@ -22,4 +22,10 @@ def jobs(dependencies):
     for index,name in enumerate(('arena-image','arena-native-model'),1):
         job=next(j for j in plan['development'] if j['name']==name)
         plan['development'].remove(job);plan['development'].insert(index,job)
+    # Exercise explicit core/image allowlists before expensive original-owner
+    # matrices. The full qualification suite still reruns both entire modules.
+    image_guards=next(j for j in plan['development'] if j['name']=='memory-operation-cores')
+    image_guards['argv'].extend(['test_intel_vtd_drain.Drain.test_native_image_is_explicit_and_old_images_stay_isolated',
+        'test_intel_ggtt_invalidate.Invalidation.test_only_dedicated_combined_image_caller'])
+    plan['development'].remove(image_guards);plan['development'].insert(1,image_guards)
     return plan

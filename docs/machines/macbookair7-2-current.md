@@ -99,3 +99,16 @@ while global time continues, so later good clocks cannot conceal the loss.
 The new source requires a fresh full42 qualification; current434e/recovery9aa8
 and the prior native memory result remain unchanged. No native arena acceptance
 is claimed from this cancelled host-only run.
+
+The2ec9 frozen host run stopped after37/42 passing slots: two operation-core
+image-isolation allowlists omitted the intended arena targets. Protocol fault,
+compiled control and sanitizer tests passed. No install/arm/native boot occurred.
+The allowlists now name only the exact new arena host/object targets, and both
+checks run immediately after fixtures in development; qualification still reruns
+the complete modules. Full operation-core/workflow regression passes49 tests.
+Kernel bytes and deadlines are unchanged; a fresh complete42+VM run is required.
+The cancelled unaccepted a382 stage and payload bank were verified identical and
+moved intact to an external source-specific archive before metadata requalification;
+current434e/recovery9aa8/acceptedf0a8 and protected banks were preserved. The local
+latest pointer again targets434e until fresh staging. Old validation/raw records
+and the cleanup ledger remain outside build; none is a native arena pass.

@@ -270,6 +270,9 @@ class RunnerTests(unittest.TestCase):
         from workflow.media import raw_log_limit
         plan=jobs(['Makefile'])
         self.assertEqual(sum(map(len,plan.values())),42)
+        self.assertEqual([j['name'] for j in plan['development'][:2]],['fixtures','memory-operation-cores'])
+        self.assertIn('test_intel_vtd_drain.Drain.test_native_image_is_explicit_and_old_images_stay_isolated',plan['development'][1]['argv'])
+        self.assertIn('test_intel_ggtt_invalidate.Invalidation.test_only_dedicated_combined_image_caller',plan['development'][1]['argv'])
         for level in ('development','qualification'):
             names={j['name'] for j in plan[level]}
             self.assertEqual(len(names),len(plan[level]))
