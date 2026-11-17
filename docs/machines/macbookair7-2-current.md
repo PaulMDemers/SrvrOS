@@ -60,3 +60,19 @@ installed duplicate (about153MB). The complete payload and evidence stay outside
 Earlier reset-only timing, failed qualification attempts and superseded plans
 are preserved in the [GPU qualification history](macbookair7-2-gpu-history.md).
 The dated unit journal remains the ledger for source-specific physical results.
+
+## Active implementation scope: original full-GT command arena
+
+Base4016abf0 was fetched and inspected; PR301 owns these GPU changes. Open
+PR19 (Pro11,2 Wi-Fi) and PR379 (WebCore audit) do not overlap. The next isolated
+image composes the existing four-page CPU command arena with the actual full-GT
+reset/new-epoch/remapper/GGTT owner. Allocate and zero before GPU exclusion,
+register the arena against the original post-reset borrow, gate requester and
+borrow return on its terminal identity, and free only after the original outer
+parents retire. Preserve practical250/100/500/750/1000ms clocks and independent
+100ms CPU preparation/cleanup bounds. Shared touch points are command-memory
+policy/adapter, full-GT adapter, image/recipe and strict workflow/collector tests.
+No private GPU interval, PTE store, executable LRC or submission is enabled.
+The next checkpoint requires host fault/mutation/sanitizer coverage, exact-stage
+VM qualification and a source-bound automated1% trial; native acceptance is
+pending. Recovery9aa8/current434e and external accepted banks remain protected.
