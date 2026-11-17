@@ -50,7 +50,7 @@ within96KiB. Offline fsck/allocation/writable/headroom, unchanged boot region,
 installed/banked recovery, Ubuntu default and consumed one-shot pass. All715 run files verify; full run
 and reviewed raw evidence are sealed outside `build` and survive distclean.
 Currenta382/recovery9aa8/acceptedf0a8 and protected banks remain; USB is unmounted,
-no further reboot is armed. Host/guest trial volume remains1%.
+no further reboot is armed. Host volume is1%; this guest profile is silent.
 
 This qualifies CPU-owned backing and retirement in one original full-GT
 lifetime under the explicit practical policy. It does not accept the historical
