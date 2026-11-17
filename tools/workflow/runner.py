@@ -16,7 +16,7 @@ from workflow.store import Cache, atomic, encoded, files, sha, fsync_dir
 
 PHASES = ('NEW', 'VALIDATED', 'STAGED', 'QUALIFIED', 'INSTALLED', 'ARMED', 'BOOT_REQUESTED', 'COLLECTED')
 TERMINAL = ('ACCEPTED', 'REJECTED', 'CANCELLED', 'IMPORTED', 'DIAGNOSED')
-INPUTS = ['Makefile', 'tools/**/*.py', 'tools/**/*.c', 'tools/**/*.h',
+INPUTS = ['Makefile', 'tools/**/*.py', 'tools/**/*.c', 'tools/**/*.h', 'tools/**/*.inc',
           'kernel/**/*.c', 'kernel/**/*.h', 'kernel/**/*.inc', 'shared/**/*.h',
           'kernel/**/*.S', 'kernel/**/*.ld', 'build/limine-protocol/include/*.h']
 # Resolve the actual protocol location below; no reliance on a sibling host layout.

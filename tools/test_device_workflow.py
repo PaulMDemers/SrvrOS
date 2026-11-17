@@ -151,6 +151,15 @@ class FixtureRunner(Runner):
         self.effects.append('volume-1')
 
 
+class InputClosureTests(unittest.TestCase):
+    def test_fixture_include_fragments_are_frozen_inputs(self):
+        from workflow.runner import code_inputs
+        with tempfile.TemporaryDirectory() as d:
+            repo=Path(d);folder=repo/'tools';folder.mkdir()
+            (folder/'model.inc').write_text('/* dependency */\n')
+            self.assertIn('tools/**/*.inc',code_inputs(repo))
+
+
 class RunnerTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
