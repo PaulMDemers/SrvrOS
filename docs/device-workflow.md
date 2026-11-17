@@ -432,3 +432,11 @@ with original timing acceptance and physical tear-free both false. `diagnose`
 rechecks raw hashes, typed chain and installed/media/recovery state before closing.
 The summary records actual preparation, original parent lifetimes and separate
 closing guard, borrow return and final guard costs for selecting future budgets.
+
+The first Air7,2 series on source `2a61bed1` / release `2281c7cc04bacba7`
+completed all three runs, with26 jobs and both exact-stage VMs repeated for each.
+The controller reached `COMPLETE`, independently banked53 files per result and
+disabled its own service without a fourth boot. All three diagnoses remain
+separate from ordinary timing acceptance. The
+[unit journal](machines/macbookair7-2.md#three-multi-second-gt-diagnostic-runs-complete)
+records actual times, original-limit comparisons and remaining GPU ownership work.

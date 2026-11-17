@@ -14987,3 +14987,74 @@ attention or rejected power samples; offline exFAT clean (165 directories,
 Current installed is this automated diagnostic; previous remains accepted
 `b427b78f21644bd2`. The one-shot is consumed. Interactive `5282cfde546ea2b5`
 is independently backed up. No additional physical trial is armed.
+
+## Three multi-second GT diagnostic runs complete
+
+2026-11-17 UTC. The user requested a few trials with multi-second aggregate
+limits to measure complete behavior. Runtime `2a61bed1e59932906e27aa82ec3905c18c4342bb`,
+release `2281c7cc04bacba7`, separate profile `intel-gt-seconds-v42` / owner wire4
+uses preparation3s, GT phase3s/total4s, HDA5s and outer6s. Original profiles and
+individual10ms operation waits, poll/source-age caps, identities, preservation,
+original origins and failure retention remain unchanged. Main4016abf0 was
+fetched and unchanged; scope stays PR301, with no other agents contacted.
+
+The first attempted manifest was cancelled before installation when stage
+version validation refused the new recipe. A positive stage/verify regression
+and the narrow validator fix are in2a61bed1; no physical result is attributed to
+the cancelled attempt. All three actual runs use that same clean frozen source
+and exact payload, with all26 frozen host jobs and both exact-stage VM paths
+repeated before each physical boot. This includes the original native/core/
+legacy matrices, weakening controls, fatal sanitizers, captured firmware,
+wide-policy clock/receipt mutations, image isolation and bounded-series tests.
+
+| Run / session suffix | Preparation µs | Original GT µs | HDA µs | Outer µs |
+| --- | ---: | ---: | ---: | ---: |
+| r1 / `0006606faf56025b-00` | 153726 | 313435 | 333150 | 385015 |
+| r2 / `000660701776fe0b-00` | 153558 | 313256 | 332965 | 384835 |
+| r3 / `000660707e57a1ba-00` | 153882 | 313681 | 333396 | 385264 |
+
+Sessions have the `session-` prefix. Each native kind2 lifetime completes both
+full-GT pulses, all five cancellations, exact32-fence/display/backing preservation,
+requester restoration, new92-word census and one real epoch0→1. Actual wake wire37
+records15 maps,15 cache checks and15 retired aliases, complete1/retained0 in all
+three raw logs. The explicit legacy projection shows14 unchanged entry aliases;
+that projection is not the actual physical alias count.
+
+Reset core takes107121–107435µs. Closing guard1721–1722µs, borrow return3158–3159µs
+and final guard1580–1581µs complete. Original GT maintenance phase is49038–49193µs.
+All three exceed the former150000µs preparation and300000µs GT-total limits;
+maintenance/HDA/outer stay inside their original100/400/500ms limits. No
+multi-second runtime delay is observed. The spread is324µs preparation and429µs
+outer, useful measurements rather than a proven worst-case bound.
+
+The explicit series collects, diagnoses and independently banks each result,
+then reaches `COMPLETE` at03:31:35UTC and disables its own service after exactly
+three runs. Each saved/unmounted and returned to Ubuntu automatically with1%
+volume and no human input. The general startup collector remains collection-only.
+All53 sealed files per bank (159 total) were independently rehashed afterward;
+raw/checkpoint reparse matches the stored native report. Prior-file/offline
+filesystem/allocation/writable/headroom, exact release/session and recovery pass
+for each return. A fresh installed/model/recovery/Ubuntu-default/consumed-one-shot
+check also passes after the series. Current is2281, recovery9aa8 and acceptedf0a8
+remain retained; USB is unmounted and no further reboot is armed.
+
+All three results are terminal `DIAGNOSED`, with original timing acceptance,
+normal native acceptance and physical tear-free false. All255 GPU memory/DMA/
+cache/reader obligations remain open; no managed-page, mapping or submission
+capability is inferred. The bounded original-owner reset/retirement behavior now
+has three successful diagnostic samples, while original-limit receipts remain
+strict historical failures.
+
+Proposed next policy:250ms preparation,100ms maintenance phase,500ms GT total,
+750ms HDA and1s outer. These have not been implemented or qualified. Keep the
+multi-second experiment separate and preserve all checks when qualifying a
+practical policy before further managed GPU ownership work. This result-only
+documentation does not claim that a later source revision was physically tested.
+
+Capacity maintenance before staging losslessly archived20 inactive generated
+stage initramfs copies, verified original hashes and retained manifests/source/
+raw/banks (2691435317bytes reclaimed). The obsolete installed8b73 rejected duplicate
+was removed only after independent payload/raw/roles/menu/protected checks
+(152510189bytes EFI reclaimed); all evidence and recovery remain. Restore the
+historical build copies from their verified local archives before any tool
+expects their original paths. No distclean or blanket payload pruning was used.

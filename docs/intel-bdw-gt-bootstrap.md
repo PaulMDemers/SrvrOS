@@ -382,3 +382,26 @@ fatal ASan/UBSan, policy and closing-clock mutations, late-return/clock failures
 image isolation and all original default/core/legacy gates. Model and exact-stage
 VM completion still do not establish physical completion or repeatability.
 See the [bounded three-run workflow](device-workflow.md#multi-second-diagnostic-series).
+
+### Three native wide-policy lifetimes complete
+
+Air7,2 runtime `2a61bed1` / release `2281c7cc04bacba7` completes three native
+kind2 lifetimes under this diagnostic policy. Each run repeats all26 frozen
+jobs and both exact-stage VMs, saves/unmounts and returns automatically, with
+matching raw/checkpoint, filesystem and recovery evidence. All32 fences,
+display/backing, two pulses, five cancellations, requester restoration,
+new92-word census and original parent/15-alias retirement verify; epoch0→1.
+
+Preparation takes153.558–153.882ms, original GT313.256–313.681ms,
+HDA332.965–333.396ms and outer384.835–385.264ms. The100ms original GT phase would
+cover all observed maintenance intervals (49.038–49.193ms), while150ms
+preparation and300ms GT total would fail all three. This is repeatable diagnostic
+completion beyond the original limits, with no observed multi-second delay.
+All255 GPU ownership/completion obligations remain open and ordinary timing
+acceptance stays false. The normal image and wire1–3 policies remain unchanged.
+
+A practical next policy candidate is250ms preparation,100ms maintenance phase,
+500ms GT,750ms HDA and1s outer. It has not been implemented or qualified by
+these runs. Individual operation waits, source age, identities and failure
+retention must remain intact when selecting the next policy. See the
+[unit evidence](machines/macbookair7-2.md#three-multi-second-gt-diagnostic-runs-complete).

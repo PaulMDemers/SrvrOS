@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated: 2026-11-16. Reference A1466; partial desktop/device acceptance.
+Updated: 2026-11-17 UTC. Reference A1466; partial desktop/device acceptance.
 The [dated unit journal](macbookair7-2.md) retains earlier exact-source evidence.
 
 The inherited-framebuffer desktop is usable. Built-in keyboard and trackpad,
@@ -8,31 +8,38 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active scope (base39714566/main4016abf0, PR301): the user now requests three
-multi-second diagnostic trials. Implemented an explicitly separate image/recipe/wire4
-and workflow profile with preparation3s, GT phase3s/total4s, HDA5s/outer6s. Keep
-original defaults, bounded individual hardware waits, identities/preservation/
-retirement and failure retention. Wide-policy completion cannot become normal
-timing acceptance. The bounded opt-in series collects and verifies
-media/recovery between trials and stops on any incomplete/failure. No general
-startup reboot loop, no auto-accept, no subagents/messages. Touched scope is timing
-headers/native variants, strict receivers, staging/workflow/tests and unit guides.
+The requested **three-run multi-second diagnostic is complete** on runtime
+`2a61bed1` / release `2281c7cc04bacba7` (main4016abf0, PR301). Every run passes
+all26 frozen jobs and both exact-stage VM paths, then completes the native
+kind2 original GT/reset/fence/new-epoch lifetime with full physical retirement.
+All three saved/unmounted and returned to Ubuntu automatically at1% volume.
+The controller stopped after exactly three results and disabled its own service;
+the ordinary startup collector remains collection-only. No additional boot is armed.
 
-Focused native-model/series tests pass, including the complete840ms modeled
-lifetime,15 timing/policy mutations,96 failure/clock boundaries and fatal
-ASan/UBSan in both original entry routes. Ordinary image isolation and docs
-checks pass. These are host results; the new profile is not physically accepted.
-Next freeze the candidate, run all26 original-plus-wide jobs and both exact-stage
-VM paths, then execute the explicit three-run series under existing unattended
-1% authorization. The user manager has linger enabled and the ordinary return
-collector stays collection-only. Keep the source frozen across the series.
+Preparation is153.558–153.882ms, original GT313.256–313.681ms,
+HDA332.965–333.396ms and outer384.835–385.264ms. Final guard1.580–1.581ms and
+borrow return3.158–3.159ms are stable. All32 fences, display/backing, two pulses,
+five cancellations, requester restoration, new92-word census, epoch0→1 and
+all15 actual UC aliases retire cleanly. All159 independently banked files,
+strict raw/checkpoint parsing and per-return media/recovery checks verify.
+See the [full timing result](macbookair7-2.md#three-multi-second-gt-diagnostic-runs-complete).
+
+The prior150ms preparation and300ms GT limits are exceeded in every run; the
+separate3/3/4/5/6-second policy permits completion without a multi-second stall.
+Ordinary timing acceptance remains false, original defaults remain unchanged,
+and all255 GPU memory/DMA/cache/reader obligations stay open. Native tear-free
+is not accepted. A next bounded candidate can use250ms preparation,500ms GT,
+750ms HDA and1s outer while retaining100ms maintenance phase and all individual
+operation/source-age/poll limits. These are proposed limits, not a qualified
+policy or an upper bound established by three samples. Scope next is selecting
+that policy before continuing managed GPU ownership; no new native writer is granted.
 
 Capacity maintenance retained all raw/source/banks: twenty inactive generated
 stage initramfs copies are losslessly archived with verified original SHA256
 and a local restore ledger (about2.7GB reclaimed). The obsolete installed8b73
 diagnostic duplicate was retired only after exact independent bank/raw and
-current/recovery/protected/menu checks (about152.5MB EFI reclaimed). Current9298,
-recovery9aa8 and acceptedf0a8 remain intact; no new diagnostic is armed yet.
+current/recovery/protected/menu checks (about152.5MB EFI reclaimed). Current2281,
+recovery9aa8 and acceptedf0a8 remain intact; no reboot is armed.
 
 Latest v41 firmware-fusion trial is **rejected after logical borrow return**:
 runtime `aa022502`, release `9298a4e02ad9b1d5`, session
