@@ -1,6 +1,7 @@
 #ifndef SRVROS_INTEL_COMMAND_MAPPING_H
 #define SRVROS_INTEL_COMMAND_MAPPING_H
 #include <srvros/intel_command_memory.h>
+#include <srvros/intel_gt_access.h>
 #include <srvros/intel_bdw_ggtt.h>
 
 /* A trusted-provider transaction, not a source of native GPU ownership.

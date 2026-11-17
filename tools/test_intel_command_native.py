@@ -150,12 +150,16 @@ class Native(unittest.TestCase):
             'repair-lost-final-registration':('if(!tick(r) || !hold_live(r))','if(!tick(r))','command-registration:19'),
             'frozen-clock':('if(r->last<=r->begin)','if(false)','command-core-frozen'),
         }
-        for name,limit in (('prepare','INTEL_DIAGNOSTIC_PREPARE_US'),('gt','300000'),('hda','400000'),('outer','500000')):
+        for name,limit in (('prepare','INTEL_DIAGNOSTIC_PREPARE_US'),('gt','INTEL_DIAGNOSTIC_GT_TOTAL_US'),('hda','INTEL_DIAGNOSTIC_HDA_US'),('outer','INTEL_DIAGNOSTIC_OUTER_US')):
             controls['extended-'+name]=('>'+limit,'>('+limit+'+1)',f'command-core-{name}-over')
         with tempfile.TemporaryDirectory(prefix='command-core-controls-') as directory:
             for name,(old,new,mode) in controls.items():
                 with self.subTest(control=name):
-                    self.assertIn(old,text);unit=Path(directory)/(name+'.c');unit.write_text(text.replace(old,new))
+                    self.assertIn(old,text);unit=Path(directory)/(name+'.c');changed=text.replace(old,new)
+                    if name=='repair-lost-final-registration':
+                        seal='r->hold.registered==s->hold_registered'
+                        self.assertIn(seal,changed);changed=changed.replace(seal,'true')
+                    unit.write_text(changed)
                     binary=Path(directory)/name
                     compile_fixture(TARGET,output=binary,declaration=declaration,replacements=[core+'='+str(unit)])
                     p=fixture_run(binary,mode)

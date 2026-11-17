@@ -38,11 +38,18 @@ struct callback {
  bool registered;
  uint64_t prepare_begin,prepare_end,begin,end,close_begin,close_end;
  bool complete;
+ /* Snapshot data only, never a copied usable ownership object. A callback
+  * cannot erase a hold immediately before our deliberate retirement step. */
+ const void *hold_object,*hold_lifetime,*hold_dependent,*hold_registered;
+ uint64_t hold_physical,hold_bytes,hold_serial;
+ bool hold_active,hold_busy,hold_fault;
 };
 static struct callback capture(const struct intel_command_memory *r) {
  return (struct callback){r->lease,r->io,r->object,r->root,r->virtual_base,r->physical,r->serial,r->last,
  r->state,r->maps,r->retired,r->observations,r->guards,r->initializations,r->checks,r->registered,
- r->prepare_begin,r->prepare_end,r->begin,r->end,r->close_begin,r->close_end,r->complete};
+ r->prepare_begin,r->prepare_end,r->begin,r->end,r->close_begin,r->close_end,r->complete,
+ r->hold.object,r->hold.lifetime,r->hold.dependent,r->hold.registered,
+ r->hold.physical,r->hold.bytes,r->hold.serial,r->hold.active,r->hold.busy,r->hold.fault};
 }
 static bool unchanged(const struct intel_command_memory *r,const struct callback *s) {
  return identity(r) && r->object==s->object && r->busy && lease_same(&r->lease,&s->lease) && io_same(&r->io,&s->io) &&
@@ -50,7 +57,11 @@ static bool unchanged(const struct intel_command_memory *r,const struct callback
  r->state==s->state && r->maps==s->maps && r->retired==s->retired && r->observations==s->observations &&
  r->guards==s->guards && r->initializations==s->initializations && r->checks==s->checks && r->registered==s->registered &&
  r->prepare_begin==s->prepare_begin && r->prepare_end==s->prepare_end && r->begin==s->begin && r->end==s->end &&
- r->close_begin==s->close_begin && r->close_end==s->close_end && r->complete==s->complete;
+ r->close_begin==s->close_begin && r->close_end==s->close_end && r->complete==s->complete &&
+ r->hold.object==s->hold_object && r->hold.lifetime==s->hold_lifetime &&
+ r->hold.dependent==s->hold_dependent && r->hold.registered==s->hold_registered &&
+ r->hold.physical==s->hold_physical && r->hold.bytes==s->hold_bytes && r->hold.serial==s->hold_serial &&
+ r->hold.active==s->hold_active && r->hold.busy==s->hold_busy && r->hold.fault==s->hold_fault;
 }
 static bool tick(struct intel_command_memory *r) {
  if(!identity(r) || !r->busy)return fail(r,COMMAND_SOURCE);
@@ -59,7 +70,7 @@ static bool tick(struct intel_command_memory *r) {
  unsigned why=!at?1:at<r->last?2:0;
  if(!why && r->state==COMMAND_HELD){
   const struct intel_command_lease *l=&r->lease;
-  why=at-l->prepare>INTEL_DIAGNOSTIC_PREPARE_US?3:at-l->gt>300000?4:at-l->hda>400000?5:at-l->outer>500000?6:0;
+  why=at-l->prepare>INTEL_DIAGNOSTIC_PREPARE_US?3:at-l->gt>INTEL_DIAGNOSTIC_GT_TOTAL_US?4:at-l->hda>INTEL_DIAGNOSTIC_HDA_US?5:at-l->outer>INTEL_DIAGNOSTIC_OUTER_US?6:0;
  } else if(!why && r->prepare_begin && r->state==COMMAND_PREPARING && at-r->prepare_begin>100000)why=7;
  else if(!why && r->close_begin && r->state==COMMAND_RETURNED && at-r->close_begin>100000)why=8;
  if(why){r->clock_at=at;r->clock_previous=r->last;r->clock_reason=why;return fail(r,COMMAND_CLOCK);}
@@ -108,7 +119,7 @@ bool intel_command_memory_prepare(struct intel_command_memory *r,uint64_t root,u
  if(!tick(r) || !observe(r))return false;
  if(!scanout_memory_cpu_end(&r->memory,&cpu) || !scanout_memory_hold_begin(&r->memory,&r->token,&r->hold))return fail(r,COMMAND_BACKING);
  r->hold.lifetime=r;r->serial=r->hold.serial;
- if(!hold_live(r) || !tick(r))return fail(r,COMMAND_BACKING);
+ if(!hold_live(r) || !tick(r) || !hold_live(r))return fail(r,COMMAND_BACKING);
  r->prepare_end=r->last;if(r->prepare_end<=r->prepare_begin)return fail(r,COMMAND_CLOCK);
  r->state=COMMAND_PREPARED;r->busy=false;return true;
 }
@@ -143,7 +154,7 @@ static bool returned(const struct intel_command_memory *r,const void *dependent)
  r->alias.nx==1 && r->alias.sizes==1 && r->alias.mtrr==6 && r->alias.pat==6 && r->alias.effective==6 &&
  r->maps==4 && !r->retired && r->observations==3 && r->guards==2 && r->initializations==1 && !r->checks &&
  r->begin>=r->lease.prepare && r->end>r->begin && r->end==r->last && r->end-r->lease.prepare<=INTEL_DIAGNOSTIC_PREPARE_US &&
- r->end-r->lease.gt<=300000 && r->end-r->lease.hda<=400000 && r->end-r->lease.outer<=500000;
+ r->end-r->lease.gt<=INTEL_DIAGNOSTIC_GT_TOTAL_US && r->end-r->lease.hda<=INTEL_DIAGNOSTIC_HDA_US && r->end-r->lease.outer<=INTEL_DIAGNOSTIC_OUTER_US;
 }
 bool intel_command_memory_returned(const struct intel_command_memory *r) {return returned(r,NULL);}
 bool intel_command_memory_consumer_live(const struct intel_command_memory *r,const void *dependent) {

@@ -2,7 +2,7 @@
 #define SRVROS_INTEL_COMMAND_MEMORY_H
 #include <stddef.h>
 #include <srvros/scanout_memory.h>
-#include <srvros/intel_nonzero_reset.h>
+#include <srvros/intel_diagnostic_timing.h>
 #define INTEL_COMMAND_PAGES 4u
 #define INTEL_COMMAND_BYTES 16384u
 #define INTEL_COMMAND_OWNER 0x4243534d454dull
