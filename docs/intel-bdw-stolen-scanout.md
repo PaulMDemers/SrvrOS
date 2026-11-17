@@ -1,0 +1,126 @@
+# Broadwell existing-mapping scanout census
+
+The first native tear-free target is a CPU-rendered desktop with synchronous
+primary-A flips. The [primary protocol](intel-bdw-primary-flip.md) exists as a
+host-qualified mechanism; its native buffer/reader/visibility provider does not.
+A complete executable blitter bootstrap is a larger, separate prerequisite if
+we must install new GPU translations. This census investigates a narrower path:
+can the reference Air reuse two *already mapped* stolen-memory spans outside
+the entire inherited framebuffer fence? A matching translation does not make
+that memory available to the OS.
+
+## Scope and evidence
+
+The opt-in `intel-stolen-v47` workflow selects the separate
+`build/intel-stolen/srvros.elf` image. Ordinary kernels contain only refusal
+stubs. It performs read-only PCI/MMIO observations, with no GPU PTE, command,
+plane, framebuffer, cache-control, remapping or firmware-mailbox writes. CPU
+mapping operations are limited to one temporary read-only/supervisor/NX/UC
+4KiB MMIO alias. It cannot allocate or transfer stolen RAM.
+
+The local Ubuntu inventory reports locked GGC2c1, BDSM8c000001,
+BGSM8b800001, TOLUD90000001 and stable STOLEN_RESERVED8ff00007:64MiB DSM,
+a separate8MiB GTT allocation and a1MiB reservation at the top of DSM.
+These are Ubuntu observations, not SrvrOS native acceptance. The existing
+SrvrOS16-entry window starts at GPU34MiB; its contents alone do not establish
+the rest of either proposed buffer. No v47 native result is accepted yet.
+
+The generation-specific reference audit excludes two shortcuts:
+
+- VT-d4.1 section4.3 recommends against Device-TLB invalidations with translation
+  disabled. The saved Air remapper has TES clear. Linuxv6.12 also skips these
+  requests in that state; its Broadwell graphics-remapping quirk includes1626.
+  Do not enable remapping or assert a whole-device GTI-empty witness from a
+  narrower wait, drain or invalidation result.
+- Broadwell PRM2c describes FLRCTLMSG8100, but the volume13 route is System Agent
+  to Command Parser. A generic R/W table field is not permission for an IA CPU
+  store. The native probe adds no such writer. PCI AF FLR is a different reset
+  with PCI/display restoration requirements, not a preservation shortcut.
+
+Relevant primary references are Intel Broadwell PRM Memory Views vol5,
+Display/GT Registers vol2c and Interfaces vol13; Intel document330835-003
+(GGC/BDSM/BGSM/TOLUD); and Linuxv6.12 `intel_stolen.c`,
+`drivers/iommu/intel/cache.c` and `iommu.c`. Local exact reference copies/hashes
+and read-only host captures remain in ignored evidence storage.
+
+## Complete-vector classification
+
+The pure planner accepts the captured Air host/GPU/subsystem, locked PCI bounds,
+a nonzero enabled BDW WOPCM reservation, legal framebuffer dimensions and the
+complete old GPU fence. Proposed linear buffers include page padding,128 PTEs
+of display tail and256KiB allocation alignment. The reference1440x900,
+6144-byte-pitch plan is:
+
+| Range | GPU bytes | Pages |
+| --- | --- | ---: |
+| Entire inherited fence | 0..34MiB | 8704 |
+| First prospective buffer | 34..40MiB | 1536 |
+| Second prospective buffer | 40..46MiB | 1536 |
+
+The native adapter requires this captured geometry. Two full snapshots read
+every entry high/low/high. All23,552 PTEs must be present, flag1, low32-bit,
+contiguous, equal across snapshots and disjoint physically. Every physical
+extent must lie after the first DSM page, below WOPCM and outside GTT storage.
+The original16-entry window and full inherited framebuffer PTE vector must
+also match the earlier observations. Fit, stability and nonoverlap supply only
+a layout classification, never firmware, engine, DMA, cache or reader ownership.
+
+A fresh original window/backing/cache revalidation brackets each pass. Every
+DWORD read checks the observer claim, GPU/BAR/command, original kernel root,
+CPU display exclusion and actual alias. Each newly mapped page is checked
+against the firmware memory map and fresh full PAT/MTRR context. Only previously
+admitted BAR pages are eligible. No aperture RAM is mapped. FBC_CTL43208,
+EDP PSR control/status6f800/6f840 and WOPCM1082c0 are observed, not modified.
+Two disabled auxiliary samples do not prove future exclusion or retirement.
+
+Each read-only pass has its own2-second budget, checked every64 PTEs and at
+completion. The reason is the full11,776-entry pass and repeated PCI/root/alias
+checks, not a hardware completion delay. This does not change any existing
+100ms GT maintenance, publication or transfer deadline. Failed clocks preserve
+the sampled value/previous clock. Unknown alias retirement retains the alias
+and exclusion; there is one cleanup attempt and no blind release/retry.
+
+## Trial and collection
+
+Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v47`.
+Its manifest freezes the new image, actual-adapter and classifier fixtures,
+sanitizers, compiled weakening controls,2KiB native frames, strict transport,
+source/cache/window regressions and exact-stage QEMU save/return and
+missing-workspace refusal. It is a read-only profile, not inherited from the
+reset/submission validation stack. No human interaction is needed.
+
+The exact nine-token recipe includes RAM storage, this unit's volume/release,
+Intel display/backing/cache/window observations, `srvros.intel-stolen=read-only`
+and safe failure return. The guest saves a durable prerequisite checkpoint
+before acquiring the census alias/exclusion. Saved and unmounted outcomes return
+to Ubuntu; uncertain alias retirement halts. The visible preflight explains
+that an unchanged screen for60seconds needs a photograph/manual restart.
+The profile is silent; launch verifies host volume1%.
+
+Summary, two fact rows and six affine-run rows preserve actual read/count/hash,
+first/last, the first non-affine index/value, maps/retirement/cache/alias checks
+and failed-clock samples. Affine
+transport is emitted after the actual C core examines every entry; the collector
+reconstructs and hashes every claimed contiguous vector and binds it to the
+original display/backing/cache/window. It rejects missing/duplicate/unknown rows,
+changed source, partial counts, unsafe bounds and claimed write authority.
+QEMU identity refusal never becomes an observation pass. Native completion can
+close only as `DIAGNOSED`; it cannot accept hardware ownership or tear-free.
+
+## After a native result
+
+If the census refuses or exposes holes/aliases/reservations, do not fill or
+remap them to make this route fit. Use the captured complete data to decide
+whether to retain the private GPU mapping/bootstrap route instead.
+
+If the layout fits, the next milestone is an audited, original-lifetime *borrow
+provider*: explicit firmware transfer/reservation, all engine/DMA/cache/prefetch
+and auxiliary-display-reader exclusion, and maintained bounds through return.
+It must preserve the old fence and reject ordinary clients until restoration.
+Only then may a separate adapter map the two exact CPU buffer aliases, establish
+visibility and prepare pixels. The first transition from inherited X-tiling to
+linear scanout needs its own ordered control/surface transaction; the current
+same-control flip core does not authorize that change. Finally connect latch
+checking and proven old-reader retirement before reuse, compositor scheduling,
+and repeated native preservation/restore/endurance tests. No census flag closes
+any of those milestones.

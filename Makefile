@@ -6811,6 +6811,25 @@ test-intel-bdw-primary-flip: build/tests/intel-bdw-primary-flip$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_primary_flip
 test-core: test-intel-bdw-primary-flip
 
+STOLEN_SCANOUT_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c
+build/tests/intel-bdw-stolen-scanout$(HOST_EXE): tools/test_intel_bdw_stolen_scanout.c $(STOLEN_SCANOUT_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(STOLEN_SCANOUT_HOST_SOURCES) -o $@
+.PHONY: test-intel-bdw-stolen-scanout
+test-intel-bdw-stolen-scanout: build/tests/intel-bdw-stolen-scanout$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_stolen_scanout
+test-core: test-intel-bdw-stolen-scanout
+
+build/intel-stolen/probe.o: kernel/src/drivers/intel_stolen_probe.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_STOLEN_CAPTURE -c $< -o $@
+build/intel-stolen/layout.o: kernel/diagnostics/intel_bdw_stolen_scanout.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+INTEL_STOLEN_BASE := $(filter-out build/kernel/src/drivers/intel_stolen_probe.c.o,$(KERNEL_OBJ))
+build/intel-stolen/srvros.elf: build/intel-stolen/probe.o build/intel-stolen/layout.o $(INTEL_STOLEN_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-stolen/probe.o build/intel-stolen/layout.o $(INTEL_STOLEN_BASE) -o $@
+
 # Isolated full-GT reset/fence-preservation protocol. Host only: no native
 # image/adapter is enabled by this target or by the existing BCS8-only writer.
 .PHONY: test-intel-bdw-gt-bootstrap
@@ -7186,3 +7205,12 @@ build/intel-bcs-context/arena.o: kernel/diagnostics/intel_command_memory.c $(ZIG
 build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+
+STOLEN_ADAPTER_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c
+build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -o $@
+.PHONY: test-intel-stolen-probe
+test-intel-stolen-probe: build/tests/intel-stolen-probe$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_stolen_probe
+test-core: test-intel-stolen-probe

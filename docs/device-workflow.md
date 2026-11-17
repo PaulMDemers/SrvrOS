@@ -51,6 +51,14 @@ VM results and acceptance proofs live under
 `current.md` and `active.json` there are the short local handoff. Git receives
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
+The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
+`intel-stolen-v47` builds a read-only image and freezes classifier/actual-adapter,
+strict receipt/stage, resource/cache/source and safe-return regressions. It keeps
+both exact-stage VM paths,64KiB collection and the existing recovery/integrity
+sequence. Matching native layout evidence can close only as DIAGNOSED; it never
+grants GPU memory/reader ownership or tear-free acceptance. It does not select
+or weaken any reset/submission protocol.
+
 ## Configure once on this unit
 
 Follow the [Ubuntu guide](ubuntu-device-agent-setup.md) first: initialize the

@@ -305,6 +305,20 @@ class RunnerTests(unittest.TestCase):
         _,manifest,state=runner.load('arena')
         self.assertEqual(manifest['wire_version'],7);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
 
+    def test_read_only_census_freezes_its_own_wire_and_rejects_sibling(self):
+        from workflow.stolen_scanout import jobs
+        from workflow.media import raw_log_limit
+        plan=jobs(['Makefile'])
+        self.assertEqual(sum(map(len,plan.values())),7)
+        self.assertEqual(raw_log_limit('intel-stolen-v47'),65536)
+        runner=FixtureRunner(self.repo,self.root/'v47-store')
+        with self.assertRaises(ValueError):
+            runner.create('wrong-unit',self.unit,'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v47')
+        runner.create('stolen',dict(self.unit,model='MacBookAir7,2'),'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v47')
+        _,manifest,state=runner.load('stolen')
+        self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-stolen-v47',1,'NEW'))
+        self.assertFalse(runner.effects)
+
     def test_context_profile_freezes_wire8_and_preserves_all42_prior_slots(self):
         from workflow.bcs_context import jobs
         from workflow.gt_arena import jobs as previous

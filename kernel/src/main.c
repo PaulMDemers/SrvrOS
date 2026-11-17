@@ -26,6 +26,7 @@
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/intel_display_capture.h>
+#include <srvros/intel_bdw_stolen_scanout.h>
 #include <srvros/intel_dma_observe.h>
 #include <srvros/x86_cache.h>
 #include <srvros/intel_ggtt_window.h>
@@ -1000,6 +1001,17 @@ void kmain(void) {
             bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
             bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
             if(cmdline_has_token(cmdline,"srvros.intel-window=read-only")){bool window_ok=intel_ggtt_window_probe_report();sampled=sampled && window_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-stolen=read-only")) {
+                console_write("intel-stolen: automatic read-only layout census; silent, no input. Saved/unmounted outcomes return to Ubuntu.\n"
+                    "intel-stolen: unchanged60s means photograph and restart manually; no GPU write or memory grant.\n");
+                bool checkpoint=started && workspace_log_pause();
+                bool stolen_ok=checkpoint && intel_stolen_probe_report(cmdline);sampled=sampled && stolen_ok;
+                if(!checkpoint)console_write("intel-stolen: checkpoint failed; census refused\n");
+                if(intel_stolen_probe_retained()) {
+                    console_write("intel-stolen: HALTED retained CPU alias/exclusion; restart manually\n");
+                    halt_forever();
+                }
+            }
             if(cmdline_has_token(cmdline,"srvros.intel-handoff=qualify")){bool handoff_ok=started && intel_handoff_probe_report();sampled=sampled && handoff_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-gt-preflight=read-only")){bool gt_ok=started && intel_gt_preflight_probe_report();sampled=sampled && gt_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
