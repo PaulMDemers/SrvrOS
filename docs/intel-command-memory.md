@@ -27,6 +27,15 @@ Callback snapshots seal hold identity data, including the final setup clock and
 the cleanup clock before deliberately ending the hold. Parent identity is checked
 between CPU-cache and alias callbacks, so identity loss stops the following call.
 
+Before the clock callback, held samples capture the original parent's latest
+sample; cleanup samples capture the actual outer-return sample and the retired
+GT/HDA/outer endpoints. A backward or missing floor refuses before further
+effects. The binding reports `clock`, failed `at`, `previous` and the exact
+`outer_end`; the receiver independently matches the outer wake record. Scalar
+comparisons add no hardware census or enclosing deadline restart. First-held and
+first-cleanup regressions keep global time advancing, and a compiled omission
+control must miss those faults while preserving ordinary positives.
+
 This composes CPU-owned storage only. Zeroed context pages are not an executable
 LRC, a private GPU interval or permission for PTE writes/submission. All255 wider
 DMA/cache/reader obligations remain open. The profile preserves all36 prior
