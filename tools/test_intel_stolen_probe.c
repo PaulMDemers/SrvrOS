@@ -90,13 +90,16 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
 }
 bool intel_cache_probe_context(struct x86_cache_snapshot *s) {
  if(fault(CACHE))return false;
- *s=(struct x86_cache_snapshot){.cpu={.vendor={0x756e6547,0x49656e69,0x6c65746e},.features=0x11000,.physical_bits=36},.def_type=0x800,.status=CACHE_OBSERVED};
+ *s=(struct x86_cache_snapshot){.cpu={.vendor={0x756e6547,0x49656e69,0x6c65746e},.features=0x11000,.physical_bits=36},.pat=0x0007040600070406ull,.def_type=0x800,.status=CACHE_OBSERVED};
  if(model.mode==3 && model.calls[CACHE]>1)++s->cpu.signature;
+ if(model.mode==27)s->pat|=7ull<<24;
+ if(model.mode==28)s->def_type=0x806;
+ if(model.mode==29)s->pat|=4ull<<24;
  return true;
 }
 bool vmm_map_page_in_space(uint64_t root,uint64_t va,uint64_t physical,uint64_t flags) {
  assert(root==0x1000 && va==STOLEN_VA && !model.mapped && model.held);
- assert(flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
+ assert(flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITE_THROUGH));
  assert(physical>=0xc0000000 && physical<0xc1000000);
  bool fail=fault(MAP);
  if(fail && model.mode!=4)return false;
@@ -154,6 +157,7 @@ static void positive(void) {
  assert(!intel_stolen_probe_report(command));++model.cases;
 }
 int main(int argc,char **argv) {
+ if(argc==2 && !strcmp(argv[1],"--refusal-report")) {reset();model.mode=27;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
  positive();
  unsigned counts[FAULT_COUNT];memcpy(counts,model.calls,sizeof(counts));
@@ -162,7 +166,7 @@ int main(int argc,char **argv) {
   for(unsigned k=0;k<5;k++) {
    if(!stops[k] || stops[k]>counts[which] || (which==CLOCK && stops[k]==1))continue;
    reset();model.which=which;model.at=stops[k];
-   bool ok=intel_stolen_probe_report(command);if(ok)fprintf(stderr,"undetected which=%u at=%u calls=%u\n",which,stops[k],model.calls[which]);assert(!ok);if(stolen.complete)assert(intel_stolen_probe_retained());
+   bool ok=intel_stolen_probe_report(command);assert(stolen.fail);if(ok)fprintf(stderr,"undetected which=%u at=%u calls=%u\n",which,stops[k],model.calls[which]);assert(!ok);if(stolen.complete)assert(intel_stolen_probe_retained());
    if(model.mapped || model.held)assert(intel_stolen_probe_retained());
    else assert(!intel_stolen_probe_retained());
    assert(model.unmaps<=model.maps);++model.cases;
@@ -184,7 +188,7 @@ int main(int argc,char **argv) {
  for(unsigned mode=6;mode<=16;mode++) {
   if(mode==9)continue;
   reset();model.mode=mode;assert(!intel_stolen_probe_report(command));
-  if(mode==7 || mode==8)assert(intel_stolen_probe_retained() && model.held);
+  if(mode==7 || mode==8){assert(intel_stolen_probe_retained() && model.held);assert(stolen.fail==(mode==7?16:22));}
   else assert(!model.held && !model.mapped && !intel_stolen_probe_retained());
   if(mode>=12)assert(!model.maps);
   ++model.cases;
@@ -195,6 +199,15 @@ int main(int argc,char **argv) {
   if(mode==2)memmap_request.response=NULL;
   if(mode==3){entry.base=UINT64_MAX-1;entry.length=4096;}
   assert(!intel_stolen_probe_report(command));assert(!model.maps && !model.held);++model.cases;
+ }
+ /* Captured PAT2=UC-minus is not silently accepted as PAT UC0. These
+  * failures are after original-source admission and before any new alias. */
+ for(unsigned mode=27;mode<=29;mode++) {
+  reset();model.mode=mode;assert(!intel_stolen_probe_report(command));
+  assert(stolen.fail==14 && stolen.fail_offset==0x1082c0);
+  assert(!model.maps && !model.held && !intel_stolen_probe_retained());
+  assert((mode==27 && stolen.pat==7) || (mode==28 && stolen.mtrr==6) || (mode==29 && stolen.pat==4));
+  ++model.cases;
  }
  const char *bad[]={"",NULL,"srvros.intel-stolen=read-only", "srvros.storage=ram srvros.storage=ram"};
  for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {reset();assert(!intel_stolen_probe_report(bad[i]) && !model.maps && !model.held);++model.cases;}

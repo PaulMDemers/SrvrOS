@@ -11,7 +11,7 @@ that memory available to the OS.
 
 ## Scope and evidence
 
-The opt-in `intel-stolen-v47` workflow selects the separate
+The opt-in `intel-stolen-v48` workflow selects the separate
 `build/intel-stolen/srvros.elf` image. Ordinary kernels contain only refusal
 stubs. It performs read-only PCI/MMIO observations, with no GPU PTE, command,
 plane, framebuffer, cache-control, remapping or firmware-mailbox writes. CPU
@@ -23,7 +23,18 @@ BGSM8b800001, TOLUD90000001 and stable STOLEN_RESERVED8ff00007:64MiB DSM,
 a separate8MiB GTT allocation and a1MiB reservation at the top of DSM.
 These are Ubuntu observations, not SrvrOS native acceptance. The existing
 SrvrOS16-entry window starts at GPU34MiB; its contents alone do not establish
-the rest of either proposed buffer. No v47 native result is accepted yet.
+the rest of either proposed buffer. The first v47 native run, source21bd9f7c / release9fbbcd3ad8e3a69a,
+refuses during initial admission (phase1/reason4), before new mappings or
+metadata reads. Exclusion releases; all matching raw hashes, safe recovery and
+offline integrity verify. It is explicitly reviewed/rejected. No native layout
+or ownership is accepted.
+
+That same raw cache capture records PAT2=7 (UC-minus), PAT3=0 (UC), with MTRR0
+and effective0. The first adapter mistakenly required PAT2 itself to equal UC0.
+Wire2 selects observed UC3 using leaf PCD|PWT, and still requires MTRR0, PAT0
+and effective0 on every page. The host fixture now uses the actual PAT layout;
+forcing slot2 or accepting PAT7/MTRR WB is caught. The new native retry must
+establish whether any other admission check remains unsatisfied.
 
 The generation-specific reference audit excludes two shortcuts:
 
@@ -68,7 +79,10 @@ a layout classification, never firmware, engine, DMA, cache or reader ownership.
 A fresh original window/backing/cache revalidation brackets each pass. Every
 DWORD read checks the observer claim, GPU/BAR/command, original kernel root,
 CPU display exclusion and actual alias. Each newly mapped page is checked
-against the firmware memory map and fresh full PAT/MTRR context. Only previously
+against the firmware memory map and fresh full PAT/MTRR context. Leaf PAT index3 is independently checked by the
+actual alias walk. The collector also decodes the original CPU cache snapshots
+for all26 MMIO pages at UC3; effective UC alone cannot bypass the MTRR/PAT checks.
+Only previously
 admitted BAR pages are eligible. No aperture RAM is mapped. FBC_CTL43208,
 EDP PSR control/status6f800/6f840 and WOPCM1082c0 are observed, not modified.
 Two disabled auxiliary samples do not prove future exclusion or retirement.
@@ -82,7 +96,8 @@ and exclusion; there is one cleanup attempt and no blind release/retry.
 
 ## Trial and collection
 
-Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v47`.
+Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v48`. Historical v47/wire1 receipts remain readable,
+but cannot start a new trial with the wire2 image.
 Its manifest freezes the new image, actual-adapter and classifier fixtures,
 sanitizers, compiled weakening controls,2KiB native frames, strict transport,
 source/cache/window regressions and exact-stage QEMU save/return and
@@ -97,6 +112,13 @@ to Ubuntu; uncertain alias retirement halts. The visible preflight explains
 that an unchanged screen for60seconds needs a photograph/manual restart.
 The profile is silent; launch verifies host volume1%.
 
+The summary is wire2; fact/run rows retain version1. It records the first
+refusing operation and last requested DWORD offset, chosen PAT slot and last
+completed MTRR/PAT/effective query. Later cleanup errors do not overwrite the
+first refusal. Unknown type queries remain255. V48 requires wire2 and rejects
+historical wire1 even for an incomplete result; v47 rejects wire2. Legacy recipes
+remain byte-verifiable. No source guard or existing deadline is removed.
+
 Summary, two fact rows and six affine-run rows preserve actual read/count/hash,
 first/last, the first non-affine index/value, maps/retirement/cache/alias checks
 and failed-clock samples. Affine
@@ -104,6 +126,11 @@ transport is emitted after the actual C core examines every entry; the collector
 reconstructs and hashes every claimed contiguous vector and binds it to the
 original display/backing/cache/window. It rejects missing/duplicate/unknown rows,
 changed source, partial counts, unsafe bounds and claimed write authority.
+Valid incomplete receipts now pass *checkpoint identity/preservation checking*
+and collect with their named refusal, rather than failing with the misleading
+"Native checkpoint mismatch". They remain incomplete, cannot be diagnosed as
+complete or accepted, and can only close rejected after review. Missing packets,
+changed prerequisite rows and checkpoints containing late census packets refuse.
 QEMU identity refusal never becomes an observation pass. Native completion can
 close only as `DIAGNOSED`; it cannot accept hardware ownership or tear-free.
 

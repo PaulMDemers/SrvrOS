@@ -32,8 +32,11 @@ class StolenProbe(unittest.TestCase):
     def test_compiled_adapter_weakening_controls(self):
         original=(ROOT/CORE).read_text();cc,flags,sources=recipe(TARGET)
         controls={
-            'lost-source-bracket':('if(!unmap() || !intel_window_handoff_revalidate(&stolen.source) || !facts(n)', 'if(!unmap() || !facts(n)'),
+            'lost-source-bracket':('if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);', ';'),
             'lost-original-window':('if(stolen.pte[n][1][i]!=stolen.source.original[i])','if(false)'),
+            'wrong-captured-pat-slot':('x86_cache_page(&fresh,physical,3,','x86_cache_page(&fresh,physical,2,'),
+            'lost-pat-type':('mtrr || pat || effective','mtrr || effective'),
+            'lost-mtrr-type':('mtrr || pat || effective','pat || effective'),
             'release-lie':('stolen.released=display_access_release(&stolen.exclusion,true);','stolen.released=true;'),
             'lost-retention':('stolen.uncertain || (stolen.acquired && !stolen.released)','false'),
             'lost-fresh-cache':('!x86_cache_equal(&fresh,&stolen.cache)','false'),
@@ -44,7 +47,7 @@ class StolenProbe(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),1)
+                    self.assertEqual(original.count(old),2 if name=='lost-source-bracket' else 1)
                     source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
                     p=subprocess.run([str(binary)],capture_output=True,timeout=120)

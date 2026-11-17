@@ -52,12 +52,15 @@ VM results and acceptance proofs live under
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
 The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
-`intel-stolen-v47` builds a read-only image and freezes classifier/actual-adapter,
+`intel-stolen-v48` builds a wire2 read-only image and freezes classifier/actual-adapter,
 strict receipt/stage, resource/cache/source and safe-return regressions. It keeps
 both exact-stage VM paths,64KiB collection and the existing recovery/integrity
 sequence. Matching native layout evidence can close only as DIAGNOSED; it never
 grants GPU memory/reader ownership or tear-free acceptance. It does not select
-or weaken any reset/submission protocol.
+or weaken any reset/submission protocol. Historical v47/wire1 remains readable
+but cannot launch a new trial. Wire2 selects captured true-UC PAT3, records first
+admission refusal and lets valid incomplete returns collect with that cause;
+those returns cannot be accepted or closed as a completed diagnostic.
 
 ## Configure once on this unit
 

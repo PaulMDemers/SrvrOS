@@ -6,6 +6,12 @@ SCHEMAS={
     'facts':'v sample begin end host gpu subsystem ggc bdsm bgsm tolud reserved width height stride aperture ggtt fence_begin fence_end fbc psr_ctl psr_status',
     'run':'v sample range gpu bytes pages count reads first last hash bad_index bad_value',
 }
+WIRE2='fail offset cache_index mtrr pat effective'
+FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','PCI-devices',
+          'console-sync','display-exclusion','identity','cache-context','source-revalidation',
+          'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
+          'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
+          'changed-facts','source-window','allowed-range')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
        'srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-stolen=read-only','srvros.capture-failure=reboot')
@@ -28,7 +34,7 @@ def _hash(first,pages):
         for b in word.to_bytes(8,'little'):h=((h^b)*1099511628211)&((1<<64)-1)
     return h
 
-def stolen_result(text,*,native=False):
+def stolen_result(text,*,native=False,required_version=None):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
         if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:')):
@@ -46,12 +52,22 @@ def stolen_result(text,*,native=False):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        if set(row)!=set(SCHEMAS[kind].split()) or row['v']!=1:raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version==2 else ''
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
-    s=rows['summary'][0]
+    s=rows['summary'][0];wire=s['v']
+    if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
+    if wire==2:
+        if s['cache_index']!=3 or s['fail']>=len(FAILURES) or s['offset']>=0x1000000 or s['offset']&3:
+            raise ValueError('stolen admission receipt')
+        if any(s[k] not in (0,1,4,5,6,7,255) for k in ('mtrr','pat','effective')):raise ValueError('stolen cache type encoding')
+        success=bool(s['complete'] and s['released'] and not s['retained'])
+        if success:
+            if s['fail'] or s['offset'] or any(s[k] for k in ('mtrr','pat','effective')):raise ValueError('stolen unresolved admission')
+        elif not s['fail']:raise ValueError('stolen missing refusal cause')
     if any(s[k]>1 for k in ('complete','acquired','released','retained','classified')) or s['phase']>3 or s['reason']&~62 or s['writes'] or s['ownership']!='none':
         raise ValueError('stolen authority/outcome')
     if s['released']>s['acquired'] or s['retained']!=(s['acquired'] and not s['released']) or s['classified']!=s['complete']:
@@ -67,7 +83,8 @@ def stolen_result(text,*,native=False):
         if not r['count'] and (r['first'] or r['last']):raise ValueError('stolen empty prefix')
     complete=bool(s['complete'] and s['released'] and not s['retained'])
     result=dict(complete=complete,native_complete=False,diagnostic_complete=complete,diagnostic_stolen=True,
-                hardware_ownership=False,managed_range=False,physical_tearfree=False,version=1,rows=rows,summary=s)
+                hardware_ownership=False,managed_range=False,physical_tearfree=False,version=wire,rows=rows,summary=s,
+                failure_stage=FAILURES[s['fail']] if wire==2 else 'legacy-unspecified')
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -125,6 +142,17 @@ def stolen_result(text,*,native=False):
         front=rows['run'][0]['first'];offset=backing['summary']['offset']//4096
         if backing['ptes']!=[front+(offset+i)*4096 for i in range(len(backing['ptes']))]:
             raise ValueError('stolen original framebuffer translations differ')
+        if wire==2:
+            from intel_cache import native_cache_result,_snapshot,_page
+            cache=native_cache_result(text)
+            offsets={0x108000,0x43000,0x6f000}
+            for gpu,size in spans:
+                start=0x800000+gpu//4096*8;end=start+size//4096*8
+                offsets.update(range(start&~4095,(end+4095)&~4095,4096))
+            for sample in cache['rows']['sample']:
+                n=sample['sample'];regions=_snapshot(sample,[r for r in cache['rows']['variable'] if r['sample']==n],[r for r in cache['rows']['fixed'] if r['sample']==n])
+                if any(_page(sample,regions,window['summary']['mmio']+offset,3)!=(0,0,0) for offset in offsets):
+                    raise ValueError('stolen original UC3 cache policy mismatch')
         fb=display['rows']['framebuffer'][0]
         if (fb['width'],fb['height'],fb['pitch'])!=(a['width'],a['height'],a['stride']) or window['rows']['sample'][1]['end_us']>a['begin']:
             raise ValueError('stolen stale/changed source')
@@ -133,9 +161,11 @@ def stolen_result(text,*,native=False):
         result['native_observation_complete']=True
     return result
 
-def verify_stolen_checkpoint(preflight,final,**_):
-    result=stolen_result(final,native=True)
-    if not result or not result['complete']:return False
+def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
+    result=stolen_result(final,native=True,required_version=required_version)
+    if not result:return False
+    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:')) for l in preflight.splitlines()):
+        raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
     stolen_recipe(lines[0].split('=',1)[1])

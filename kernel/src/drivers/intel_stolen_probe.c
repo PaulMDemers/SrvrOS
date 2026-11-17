@@ -33,10 +33,17 @@ static struct {
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
  uint32_t aux[2][3],count[2][3],reads[2][3],meta_reads;
- unsigned maps,retired,cache_checks,alias_checks,phase,reason;
+ unsigned maps,retired,cache_checks,alias_checks,phase,reason,fail,fail_offset,active_offset;
+ unsigned mtrr,pat,effective;
  uint32_t page;
  bool attempted,mapped,uncertain,unmap_failed,acquired,released,complete;
 } stolen;
+/* Wire2: preserve the first refusal, even if cleanup subsequently fails.
+ * Values13/14 distinguish resource admission from actual PAT/MTRR policy. */
+static bool refuse(unsigned code) {
+ if(!stolen.fail){stolen.fail=code;stolen.fail_offset=stolen.active_offset;}
+ return false;
+}
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }
@@ -70,16 +77,17 @@ static bool recipe(const char *s) {
 }
 static bool tick(uint64_t begin) {
  uint64_t at=timer_monotonic_us();
- if(!at || at<stolen.last || at<begin || at-begin>STOLEN_CENSUS_US){stolen.clock_at=at;stolen.clock_previous=stolen.last;stolen.reason|=2;return false;}
+ if(!at || at<stolen.last || at<begin || at-begin>STOLEN_CENSUS_US){stolen.clock_at=at;stolen.clock_previous=stolen.last;stolen.reason|=2;return refuse(18);}
  stolen.last=at;return true;
 }
 static bool identity(void) {
  if(!stolen.acquired || stolen.released || !display_access_held(&stolen.exclusion) ||
  vmm_current_address_space()!=stolen.root || stolen.root!=vmm_kernel_address_space() ||
- !intel_boot_check(INTEL_BOOT_OBSERVER,stolen.gpu))return false;
+ !intel_boot_check(INTEL_BOOT_OBSERVER,stolen.gpu))return refuse(9);
  uint32_t lo=pci_read_config32(stolen.gpu,0x10),hi=pci_read_config32(stolen.gpu,0x14);
- return pci_read_config32(stolen.gpu,0)==0x16268086 && pci_read_config32(stolen.gpu,0x2c)==0x011b106b &&
+ bool ok=pci_read_config32(stolen.gpu,0)==0x16268086 && pci_read_config32(stolen.gpu,0x2c)==0x011b106b &&
  ((uint64_t)hi<<32 | (lo&~15u))==stolen.source.mmio && (pci_read_config32(stolen.gpu,4)&7)==7;
+ return ok || refuse(9);
 }
 static bool allowed(uint32_t page) {
  if(page==0x108000 || page==0x43000 || page==0x6f000)return true;
@@ -107,24 +115,30 @@ static bool reserved_page(uint64_t physical) {
 }
 static bool policy(uint64_t physical) {
  struct x86_cache_snapshot fresh;unsigned mtrr,pat,effective;
- if(!identity() || !reserved_page(physical) || !intel_cache_probe_context(&fresh) || !x86_cache_equal(&fresh,&stolen.cache) ||
- !x86_cache_page(&fresh,physical,2,&mtrr,&pat,&effective) || mtrr || pat || effective)return false;
+ if(!identity())return false;
+ if(!reserved_page(physical))return refuse(13);
+ if(!intel_cache_probe_context(&fresh) || !x86_cache_equal(&fresh,&stolen.cache))return refuse(10);
+ /* Captured native PAT: index2 is UC-minus(7), index3 is UC(0).
+  * Require actual UC at every layer, rather than weakening the old type check. */
+ if(!x86_cache_page(&fresh,physical,3,&mtrr,&pat,&effective))return refuse(14);
+ stolen.mtrr=mtrr;stolen.pat=pat;stolen.effective=effective;
+ if(mtrr || pat || effective)return refuse(14);
  ++stolen.cache_checks;return identity();
 }
 static bool alias(void) {
  uint64_t physical;
- if(!stolen.mapped || !identity() || !vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&physical) || physical!=stolen.physical)return false;
+ if(!stolen.mapped || !identity() || !vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&physical) || physical!=stolen.physical)return refuse(16);
 #ifdef SRVROS_INTEL_STOLEN_HOST_TEST
  bool ok=intel_stolen_test_alias(stolen.root,STOLEN_VA,physical);
 #else
  uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
  struct vmm_alias_observation a={0};
  bool ok=vmm_diagnostic_kernel_alias(stolen.root,STOLEN_VA,physical,1,stolen.cache.cpu.physical_bits,&a,NULL) &&
- a.pages==1 && a.leaves==1 && a.pat_index==2 && !a.writable && !a.user && a.no_execute==1 && a.leaf_sizes==1;
+ a.pages==1 && a.leaves==1 && a.pat_index==3 && !a.writable && !a.user && a.no_execute==1 && a.leaf_sizes==1;
  if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
 #endif
  if(ok)++stolen.alias_checks;
- return ok && identity();
+ return (ok || refuse(16)) && identity();
 }
 static bool unmap(void) {
  if(!stolen.mapped)return !stolen.uncertain;
@@ -132,18 +146,21 @@ static bool unmap(void) {
  uint64_t physical;
  if(!alias() || !vmm_unmap_page_in_space(stolen.root,STOLEN_VA,&physical) || physical!=stolen.physical ||
  vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&physical)) {
-  stolen.uncertain=stolen.unmap_failed=true;stolen.reason|=8;return false;
+  stolen.uncertain=stolen.unmap_failed=true;stolen.reason|=8;return refuse(22);
  }
  stolen.mapped=false;++stolen.retired;return true;
 }
 static bool map(uint32_t page) {
  if(stolen.mapped && stolen.page==page)return true;
- if(!unmap() || !allowed(page) || !identity())return false;
+ if(!unmap())return false;
+ if(!allowed(page))return refuse(26);
+ if(!identity())return false;
  uint64_t physical=stolen.source.mmio+page,old;
- if(physical<stolen.source.mmio || vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&old) || !policy(physical))return false;
- if(!vmm_map_page_in_space(stolen.root,STOLEN_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) {
+ if(physical<stolen.source.mmio || vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&old))return refuse(15);
+ if(!policy(physical))return false;
+ if(!vmm_map_page_in_space(stolen.root,STOLEN_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITE_THROUGH)) {
   if(vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&old))stolen.uncertain=true;
-  return false;
+  return refuse(15);
  }
  stolen.mapped=true;stolen.page=page;stolen.physical=physical;++stolen.maps;
  return alias() && policy(physical);
@@ -151,9 +168,11 @@ static bool map(uint32_t page) {
 static bool load(uint32_t offset,uint32_t *out) {
  /* alias() brackets the actual sole-root leaf walk with fresh identity
   * checks. Repeating the same PCI census immediately before it adds no check. */
- if((offset&3) || !map(offset&~4095u) || !alias())return false;
+ stolen.active_offset=offset;
+ if(offset&3)return refuse(17);
+ if(!map(offset&~4095u) || !alias())return false;
 #ifdef SRVROS_INTEL_STOLEN_HOST_TEST
- return intel_stolen_test_read(offset,out);
+ return intel_stolen_test_read(offset,out) || refuse(17);
 #else
  __asm__ volatile("mfence":::"memory");*out=*(volatile const uint32_t *)(STOLEN_VA+(offset&4095));
  __asm__ volatile("mfence":::"memory");return true;
@@ -167,7 +186,7 @@ static bool facts(unsigned n) {
  .aperture_bytes=stolen.source.aperture_bytes,.ggtt_bytes=0x800000,.fence_begin=stolen.source.fence_begin,
  .fence_end=stolen.source.fence_end,.width=stolen.profile.width,.height=stolen.profile.height,.stride=stolen.profile.pitch};
  if((pci_read_config32(stolen.gpu,0x50)&65535)!=f.ggc ||
- (pci_read_config32(stolen.gpu,0x5c)&0xfff00000u)!=(f.bdsm&0xfff00000u))return false;
+ (pci_read_config32(stolen.gpu,0x5c)&0xfff00000u)!=(f.bdsm&0xfff00000u))return refuse(12);
  if(!load(0x1082c0,&f.reserved))return false;
  ++stolen.meta_reads;
  const uint32_t off[]={0x43208,0x6f800,0x6f840};
@@ -177,15 +196,17 @@ static bool facts(unsigned n) {
  if(n && (f.host!=old->host || f.gpu!=old->gpu || f.subsystem!=old->subsystem || f.ggc!=old->ggc ||
  f.bdsm!=old->bdsm || f.bgsm!=old->bgsm || f.tolud!=old->tolud || f.reserved!=old->reserved ||
  f.aperture_bytes!=old->aperture_bytes || f.ggtt_bytes!=old->ggtt_bytes || f.fence_begin!=old->fence_begin ||
- f.fence_end!=old->fence_end || f.width!=old->width || f.height!=old->height || f.stride!=old->stride))return false;
+ f.fence_end!=old->fence_end || f.width!=old->width || f.height!=old->height || f.stride!=old->stride))return refuse(24);
  stolen.facts[n]=f;return true;
 }
 static uint64_t hash_word(uint64_t hash,uint64_t value) {
  for(unsigned i=0;i<8;i++){hash=(hash^(value&255))*1099511628211ull;value>>=8;}return hash;
 }
 static bool capture(unsigned n) {
- if(!unmap() || !intel_window_handoff_revalidate(&stolen.source) || !facts(n) || !tick(stolen.begin[n]))return false;
- if(!n && !intel_bdw_stolen_scanout_plan(&stolen.facts[0],&stolen.plan))return false;
+ if(!unmap())return false;
+ if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);
+ if(!facts(n) || !tick(stolen.begin[n]))return false;
+ if(!n && !intel_bdw_stolen_scanout_plan(&stolen.facts[0],&stolen.plan))return refuse(19);
  for(unsigned r=0;r<3;r++) {
   stolen.hash[n][r]=14695981039346656037ull;
   stolen.vectors.pte[n][r]=stolen.pte[n][r];stolen.vectors.count[n][r]=stolen.plan.range[r].pages;
@@ -197,49 +218,57 @@ static bool capture(unsigned n) {
    ++stolen.reads[n][r];
    if(!load(off+4,&again))return false;
    ++stolen.reads[n][r];
-   if(high!=again)return false;
+   if(high!=again)return refuse(20);
    uint64_t value=(uint64_t)high<<32|low;stolen.pte[n][r][i]=value;
    stolen.hash[n][r]=hash_word(stolen.hash[n][r],value);++stolen.count[n][r];
    if((i&63)==63 && !tick(stolen.begin[n]))return false;
   }
  }
- if(!unmap() || !intel_window_handoff_revalidate(&stolen.source) || !identity() || !tick(stolen.begin[n]))return false;
- stolen.end[n]=stolen.last;return stolen.end[n]>stolen.begin[n];
+ if(!unmap())return false;
+ if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);
+ if(!identity() || !tick(stolen.begin[n]))return false;
+ stolen.end[n]=stolen.last;return stolen.end[n]>stolen.begin[n] || refuse(18);
 }
 bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquired && !stolen.released);}
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
- stolen.attempted=true;
+ stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
  console_write("intel-stolen: read-only complete inherited/candidate translation census; two bounded2s passes, no input, no writes or allocation grant\n");
- if(!recipe(cmdline) || !timer_reference_ready() || !intel_scanout_trial_profile(&stolen.profile) ||
- stolen.profile.width!=1440 || stolen.profile.height!=900 || stolen.profile.pitch!=6144 ||
- !intel_window_handoff_snapshot(&stolen.source) || stolen.source.assurances || stolen.source.pages!=16 ||
+ if(!recipe(cmdline)){refuse(1);goto report;}
+ if(!timer_reference_ready()){refuse(2);goto report;}
+ if(!intel_scanout_trial_profile(&stolen.profile) || stolen.profile.width!=1440 ||
+ stolen.profile.height!=900 || stolen.profile.pitch!=6144){refuse(3);goto report;}
+ if(!intel_window_handoff_snapshot(&stolen.source) || stolen.source.assurances || stolen.source.pages!=16 ||
  stolen.source.first!=8704 || stolen.source.fence_begin || stolen.source.fence_end!=0x2200000 ||
- stolen.source.aperture_bytes!=0x10000000 || !intel_window_handoff_clean())goto report;
+ stolen.source.aperture_bytes!=0x10000000 || !intel_window_handoff_clean()){refuse(4);goto report;}
  stolen.root=vmm_current_address_space();
- if(!stolen.root || stolen.root!=vmm_kernel_address_space())goto report;
+ if(!stolen.root || stolen.root!=vmm_kernel_address_space()){refuse(5);goto report;}
  for(uint64_t i=0;i<pci_device_count();i++) {
   const struct pci_device *d=pci_device_at(i);if(!d || d->bus || d->function)continue;
   if(!d->device)stolen.host=d;else if(d->device==2)stolen.gpu=d;
  }
- if(!stolen.host || !stolen.gpu || !console_sync() || !display_access_acquire(0x53544f4c454eull,&stolen.exclusion))goto report;
+ if(!stolen.host || !stolen.gpu){refuse(6);goto report;}
+ if(!console_sync()){refuse(7);goto report;}
+ if(!display_access_acquire(0x53544f4c454eull,&stolen.exclusion)){refuse(8);goto report;}
  stolen.acquired=true;
- if(!identity() || !intel_cache_probe_context(&stolen.cache))goto cleanup;
+ if(!identity())goto cleanup;
+ if(!intel_cache_probe_context(&stolen.cache)){refuse(10);goto cleanup;}
  for(unsigned n=0;n<2;n++) {
   stolen.phase=n+1;stolen.begin[n]=timer_monotonic_us();
-  if(!stolen.begin[n] || stolen.begin[n]<stolen.last){stolen.clock_at=stolen.begin[n];stolen.clock_previous=stolen.last;stolen.reason|=2;goto cleanup;}
+  if(!stolen.begin[n] || stolen.begin[n]<stolen.last){stolen.clock_at=stolen.begin[n];stolen.clock_previous=stolen.last;stolen.reason|=2;refuse(18);goto cleanup;}
   stolen.last=stolen.begin[n];
   if(!capture(n)){stolen.reason|=4;goto cleanup;}
  }
  for(unsigned n=0;n<2;n++)for(unsigned i=0;i<HANDOFF_PAGES;i++)
-  if(stolen.pte[n][1][i]!=stolen.source.original[i]){stolen.reason|=32;goto cleanup;}
+  if(stolen.pte[n][1][i]!=stolen.source.original[i]){stolen.reason|=32;refuse(25);goto cleanup;}
  stolen.phase=3;stolen.complete=intel_bdw_stolen_scanout_check(&stolen.facts[0],&stolen.vectors,&stolen.layout);
- if(!stolen.complete)stolen.reason|=16;
+ if(!stolen.complete){stolen.reason|=16;refuse(21);}
 cleanup:
  if(unmap() && !stolen.uncertain && intel_window_handoff_clean())stolen.released=display_access_release(&stolen.exclusion,true);
- if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;}
+ if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
- console_printf("intel-stolen-summary: v=1 complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ console_printf("intel-stolen-summary: v=2 fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ (uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
  (uint64_t)stolen.alias_checks,(uint64_t)stolen.meta_reads,(uint64_t)stolen.layout.classified,(uint64_t)stolen.layout.checked,

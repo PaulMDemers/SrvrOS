@@ -80,7 +80,13 @@ UC0. Active scope is to reproduce that refusal using the captured PAT layout,
 select actual UC slot3 while retaining strict MTRR/PAT/effective checks, record
 the first failing admission operation, and collect valid incomplete diagnostics
 without granting acceptance. No original-source/resource/alias check or deadline
-is dropped. A versioned collector/image/profile will distinguish the new proof.
+is dropped. V48/wire2 now selects UC3/PCD|PWT and records the first refusal/cache types.
+The actual adapter passes204 cases/11 compiled controls, fatal sanitizers and
+2KiB native frames;205 source/transport/workflow regressions pass. The collector
+independently decodes UC3 for all26 observed MMIO pages. Valid incomplete
+returns collect with the refusing operation and can only be closed rejected;
+they cannot be accepted or diagnosed complete. Historical v47 is read-only.
+Exact frozen-source and staged-VM qualification still precede the new trial.
 
 Base main4016abf0 remains unchanged. PR301 owns these native census/collector
 changes; ordinary startup and reset/CPU-context protocols remain unchanged.

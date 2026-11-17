@@ -15425,3 +15425,27 @@ moved intact to an external source-specific archive before metadata requalificat
 current434e/recovery9aa8/acceptedf0a8 and protected banks were preserved. The local
 latest pointer again targets434e until fresh staging. Old validation/raw records
 and the cleanup ledger remain outside build; none is a native arena pass.
+
+
+## Read-only existing-mapping census: first refusal and UC correction
+
+2026-11-17: source21bd9f7c, release9fbbcd3ad8e3a69a, v47/wire1,
+session0006607e6908faf0-00 returned an incomplete census at phase1/reason4.
+No new mapping or metadata read occurred; participating CPU exclusion released,
+with no retained alias or GPU write. All three exact raw hashes and offline
+integrity verify; USB is unmounted, recovery/default/consumed one-shot guard
+passes. The source-frozen run was explicitly reviewed and closed REJECTED;
+its original generic checkpoint-mismatch failure and raw evidence remain intact.
+
+The same raw CPU-cache rows show MTRR0, PAT2=7 (UC-minus), PAT3=0 (UC), effective0.
+The new adapter had incorrectly required PAT2 itself to be UC0. The bounded
+correction selects actual UC slot3/PCD|PWT, retaining all MTRR/PAT/effective,
+original-source, resource, root and actual-alias checks and existing deadlines.
+A captured-PAT fixture reproduces the old refusal. Wire2 adds first-refusal and
+cache-type detail; valid incomplete diagnostics can collect but cannot be
+accepted or closed as completed. See the [census contract](../intel-bdw-stolen-scanout.md).
+This is still read-only qualification, with no accepted native layout, borrowed
+GPU buffers or tear-free rendering. V48 requires fresh host/exact-stage VM and
+native evidence. Only equal inactive08ae EFI/staged duplicates were retired to
+make room; its accepted independent CPU-context bank, all other accepted banks,
+current9fbb, recovery9aa8, accepted GUI f0a8 and four protected installs remain.
