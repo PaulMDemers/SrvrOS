@@ -20,6 +20,13 @@ new native operation needs a documented outstanding-memory completion witness
 and maintained firmware/all-reader exclusion before the exact-range transfer;
 replaying or rebooting unchanged positive observations will not fill that gap.
 
+The [private BCS submit step](intel-bdw-bcs-submit.md) now has a bounded
+four-DWORD protocol and actual joined flush/nonce tests. The old MMIO sync-flush
+shortcut is reserved on Broadwell, so it supplies no bootstrap mechanism.
+The new host code still needs an independently initialized/owned context and
+mappings; no queue sample, issued packet or nonce can create that prior authority.
+Native startup memory-completion/reader ownership remains the next decision.
+
 ## Capability-sized trial plan
 
 The next acceptance target is one complete **private one-page GPU mapping

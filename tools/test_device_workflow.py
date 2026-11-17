@@ -293,6 +293,12 @@ class RunnerTests(unittest.TestCase):
                 self.assertIn(target,fixture['argv']);self.assertIn(target,fixture['outputs'])
             regression=next(j for j in plan[level] if j['name']=='arena-legacy-policy')
             self.assertIn('test_intel_bdw_primary_range',regression['argv'])
+            for name in ('intel-bdw-bcs-submit','intel-bdw-bcs-flush','intel-bdw-bcs-flush-submit'):
+                for suffix in ('','-policy','-practical'):
+                    target='build/tests/'+name+suffix
+                    self.assertIn(target,fixture['argv']);self.assertIn(target,fixture['outputs'])
+            for module in ('test_intel_bdw_bcs_submit','test_intel_bdw_bcs_flush'):
+                self.assertIn(module,regression['argv'])
         self.assertEqual(raw_log_limit('intel-gt-arena-v45'),98304)
         runner=FixtureRunner(self.repo,self.root/'v45-store')
         runner.create('arena',dict(self.unit,model='MacBookAir7,2'),'Original CPU arena','Single release after original parent retirement',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-arena-v45')

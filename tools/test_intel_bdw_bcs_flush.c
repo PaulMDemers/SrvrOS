@@ -227,9 +227,9 @@ static void boundaries(unsigned clocks) {
  for(unsigned which=0;which<5;which++)for(unsigned over=0;over<2;over++){
   setup(CLOCK_LIMIT,clocks,0);uint64_t end;
   if(which==0)end=1000000+BCS_FLUSH_PREPARE_US;
-  else if(which==1){source.binding.prepare_begin=1250000;source.binding.hda_begin=1250000;end=1300000;}
-  else if(which==2){source.binding.prepare_begin=1350000;source.binding.gt_begin=1250000;end=1400000;}
-  else if(which==3){source.binding.prepare_begin=1450000;source.binding.gt_begin=1300000;source.binding.hda_begin=1300000;end=1500000;}
+  else if(which==1){end=source.binding.gt_begin+BCS_FLUSH_GT_US;source.binding.prepare_begin=end-50000;}
+  else if(which==2){end=source.binding.hda_begin+BCS_FLUSH_HDA_US;source.binding.prepare_begin=end-50000;source.binding.gt_begin=end-100000;}
+  else if(which==3){end=source.binding.outer_begin+BCS_FLUSH_OUTER_US;source.binding.prepare_begin=end-50000;source.binding.gt_begin=source.binding.hda_begin=end-200000;}
   else end=0;
   if(which<4)model.time=end-clocks;
   if(which==4){

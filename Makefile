@@ -6743,9 +6743,37 @@ build/tests/intel-bdw-bcs-flush$(HOST_EXE): tools/test_intel_bdw_bcs_flush.c ker
 build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE): tools/test_intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
-test-intel-bdw-bcs-flush: build/tests/intel-bdw-bcs-flush$(HOST_EXE) build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE)
+build/tests/intel-bdw-bcs-flush-practical$(HOST_EXE): tools/test_intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+test-intel-bdw-bcs-flush: build/tests/intel-bdw-bcs-flush$(HOST_EXE) build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-practical$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_flush
 test-core: test-intel-bdw-bcs-flush
+
+# Trusted-provider BCS submit port; no native adapter, image or implicit owner.
+BCS_SUBMIT_HOST_SOURCES := kernel/diagnostics/intel_bdw_bcs_submit.c
+build/tests/intel-bdw-bcs-submit$(HOST_EXE): tools/test_intel_bdw_bcs_submit.c $(BCS_SUBMIT_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
+build/tests/intel-bdw-bcs-submit-policy$(HOST_EXE): tools/test_intel_bdw_bcs_submit.c $(BCS_SUBMIT_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
+build/tests/intel-bdw-bcs-submit-practical$(HOST_EXE): tools/test_intel_bdw_bcs_submit.c $(BCS_SUBMIT_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
+.PHONY: test-intel-bdw-bcs-submit
+build/tests/intel-bdw-bcs-flush-submit$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+test-intel-bdw-bcs-submit: build/tests/intel-bdw-bcs-submit$(HOST_EXE) build/tests/intel-bdw-bcs-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-submit-practical$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_submit
+test-core: test-intel-bdw-bcs-submit
 
 # Host-qualified command arena/GPU interval composition; no native provider.
 COMMAND_MAPPING_HOST_SOURCES := kernel/diagnostics/intel_command_mapping.c kernel/diagnostics/intel_command_memory.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c

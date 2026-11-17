@@ -72,7 +72,7 @@ Retain current recovery and independently accepted banks. No new trial is armed.
 
 Earlier memory-child acceptance, failed host-only candidates and verified staging/
 EFI duplicate cleanup are preserved in the [GPU qualification history](macbookair7-2-gpu-history.md)
-and dated journal. Root free space is about1.5GiB and EFI61MiB; review capacity
+and dated journal. Root free space is about1.3GiB and EFI61MiB; review capacity
 before another payload, preserving dirty reproduction work and accepted banks.
 
 
@@ -105,18 +105,30 @@ Next specify the documented completion witness before integrating a native
 range transfer/mapping lifetime, preserving the original backing and clocks.
 
 
-## Active scope: original private BCS execlist submission
+## Private BCS submission/completion software
 
-Base4016abf0 fetched unchanged; PR301 owns this bounded host-only step, with
-independent PR19/379 untouched. Broadwell RCS INSTPM bit5 is reserved (PRM2c826),
-so the older MMIO sync-flush recipe cannot supply the missing completion proof.
-Implement the documented BCS four-DWORD Execlist Submit Port transaction as the
-future private-flush submit provider. Require independent original initialized
-context/descriptor, execlist mode, reserved empty queue, exact mappings and GPU
-visibility before accesses. Preserve source/epoch/registration, original clocks,
-known partial writes and terminal retained failures; issuance is not execution
-or completion. No native image/caller, inherited ring or ownership grant. Shared
-touch points are a new protocol header/core, host model, Makefile and guides.
-Next checkpoint is exact order/width, callback/fault/clock matrices, controls,
-fatal sanitizers and no-image/native-frame checks before native integration.
-Currenta382/recovery9aa8 and all previous evidence remain unchanged.
+Base4016abf0 and independent PR19/379 remain unchanged; PR301 owns the
+[private execlist submit protocol](../intel-bdw-bcs-submit.md). It writes only
+the documented four DWORDs through a trusted provider, records known prefixes
+and distinguishes a triggered submission from nonce completion and retirement.
+All failures retain source/context/backing; success also keeps registration
+until the independent original completion/retirement owner can release it.
+It requires already initialized private context/descriptor, execlist mode,
+reserved empty queue, mappings and visibility. No native image links it.
+
+Three existing policies pass2,519 port cases each,24 compiled controls, fatal
+sanitizers and2KiB native frames. The actual port and flush/nonce cores also
+pass35 joined cases per policy, with fatal sanitizers and immediate/256th-poll/
+failed completion, partial/uncertain writes, lost post-trigger verification and
+held backing. A220ms-aged parent completes only under the selected practical
+policy; legacy targets refuse before publication/stores. The existing flush
+core now uses selected aggregate aliases too, retaining all original legacy
+values,2,326 cases per policy,24 controls and independent10ms waits.
+
+Broadwell INSTPM bit5 is reserved (PRM2c826); the older MMIO sync-flush shortcut
+is unavailable. Neither reset ACK nor the narrower remapper operation supplies
+the still-missing whole pipeline/cache/prefetch/reader ownership witness. No new
+hardware trial/stage/arm is prepared. Currenta382/recovery9aa8 and all original
+native evidence remain unchanged, with all255 GPU obligations open. Next is the
+real bootstrap ownership mechanism, followed by private LRC/page-directory
+initialization and native queue/nonce/context retirement under that same owner.

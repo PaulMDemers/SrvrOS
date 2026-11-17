@@ -12,7 +12,7 @@ from fixture_compile import recipe
 
 ROOT=Path(__file__).resolve().parents[1]
 CORE='kernel/diagnostics/intel_bdw_bcs_flush.c'
-TARGETS=('build/tests/intel-bdw-bcs-flush','build/tests/intel-bdw-bcs-flush-policy')
+TARGETS=('build/tests/intel-bdw-bcs-flush','build/tests/intel-bdw-bcs-flush-policy','build/tests/intel-bdw-bcs-flush-practical')
 
 
 def execute(binary,env=None):
@@ -24,7 +24,7 @@ def execute(binary,env=None):
 
 class Flush(unittest.TestCase):
     def test_packet_and_actual_protocol_under_both_original_policies(self):
-        for target,budget in zip(TARGETS,(100000,150000)):
+        for target,budget in zip(TARGETS,(100000,150000,250000)):
             with self.subTest(target=target):
                 p=execute(ROOT/target)
                 self.assertEqual(p.returncode,0,p.stderr)
@@ -101,7 +101,7 @@ class Flush(unittest.TestCase):
 
     def test_actual_native_compiler_frame_limit(self):
         # Use the real freestanding x86_64 compiler/flags without linking or
-        # modifying any native payload. Both explicit software policies compile.
+        # modifying any native payload. All three selected policies compile.
         plan=subprocess.check_output(['make','-Bn','--','build/intel-ggtt-native/invalidate.o'],
                                       cwd=ROOT,text=True,timeout=120)
         commands=[shlex.split(line) for line in plan.splitlines() if ' -c kernel/diagnostics/intel_ggtt_invalidate.c ' in line]
@@ -109,11 +109,12 @@ class Flush(unittest.TestCase):
         command=commands[0]
         self.assertIn('-Wframe-larger-than=2048',command)
         with tempfile.TemporaryDirectory(prefix='bcs-flush-frame-') as directory:
-            for policy in (False,True):
+            for index,extra in enumerate(([],['-DSRVROS_INTEL_VTD_DRAIN'],
+                                          ['-DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE','-DSRVROS_INTEL_GT_PRACTICAL'])):
                 cmd=[arg for arg in command if arg not in ('-DSRVROS_INTEL_VTD_DRAIN','-DSRVROS_INTEL_GGTT_NATIVE')]
                 cmd[cmd.index('-c')+1]=CORE
-                cmd[cmd.index('-o')+1]=str(Path(directory)/('selected.o' if policy else 'legacy.o'))
-                if policy:cmd.insert(cmd.index('-c'),'-DSRVROS_INTEL_VTD_DRAIN')
+                cmd[cmd.index('-o')+1]=str(Path(directory)/(str(index)+'.o'))
+                cmd[cmd.index('-c'):cmd.index('-c')]=extra
                 subprocess.run(cmd,cwd=ROOT,check=True,timeout=120)
 
 

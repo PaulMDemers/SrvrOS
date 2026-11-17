@@ -5,6 +5,37 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-17. State: **active reference machine; partial device acceptance**.
 
+## Host private BCS port and nonce-completion composition
+
+2026-11-17: base4016abf0 unchanged, PR301. A source-bound private BCS submit
+core now implements the documented four-DWORD port sequence, with original
+context/provider/epoch/root/descriptor/prefix proofs, selected aggregate clocks
+and a10ms original-admission port bound. Known fourth-store issuance is separate
+from execution or completion. Every failure preserves its known-effect prefix
+and retains original registration/backing, including lost verification after
+the trigger. Success remains registered for independent context retirement.
+No native adapter, image, ring/context adoption or GPU ownership grant is added.
+
+Three policies pass2,519 port faults/boundaries each,24 compiled controls,
+fatal ASan/UBSan and native2KiB frame/isolation. The actual new port and existing
+flush/nonce cores join in35 cases per policy, including immediate/last-poll
+completion, timeout/wrong/stale nonce, every partial/uncertain write, lost proof
+and10ms failure, without releasing backing. The selected practical policy admits
+an aged220ms original preparation; legacy policies issue no publication/port
+stores. The existing flush library now uses named selected aggregate aliases,
+with all old values preserved,2,326 cases per policy,24 controls and unchanged
+10ms submit-through-completion bound. Host workflow freezes all nine new/
+standalone/joined targets and both suites without dropping any of42 slots.
+
+Reference audit rejects the old sync-flush shortcut: RCS INSTPM bit5 is reserved
+on Broadwell PRM2c826, and VCS6:5 is reserved on1698. Original full-GT reset ACK
+and remapper completion retain their narrower scope. No undocumented store is
+used to fill the missing pipeline/cache/prefetch/firmware/all-reader witness.
+No new physical trial or payload is staged; previous37b/a382/session000660767ae66ad9-00
+acceptance is unchanged. All255 obligations remain open. Next establish genuine
+bootstrap ownership and private initialized LRC/page-directory/mapping authority
+before using the software port/completion chain on hardware.
+
 ## Host practical mapping and primary-envelope prerequisites
 
 2026-11-17: after collecting and banking the original full-GT CPU arena run,

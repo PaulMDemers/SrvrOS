@@ -86,9 +86,10 @@ reuse refuse. No operation returns a hardware token or a handoff assurance.
    record before reporting this request complete. The enclosing owner still
    must retire the command/ring/context/mappings before releasing any backing.
 
-The original preparation policy is100ms by default and150ms only under the
-separately selected diagnostic build policy. GT300ms, HDA400ms and outer500ms
-origins remain unchanged. An additional **10ms submit-through-completion bound**
+The default100ms and selected150ms legacy preparation policies retain their
+GT300ms, HDA400ms and outer500ms origins. Named aggregate aliases also select
+the existing separate practical250/500/750/1000ms preparation/GT/HDA/outer
+policy; no legacy value changes and no origin restarts. An additional **10ms submit-through-completion bound**
 starts before the submit callback; a slow submit cannot buy a fresh wait interval.
 All bounds include the final ownership validation. Zero/backward/frozen clocks
 and exact-limit-plus-one refuse. No existing native deadline is changed.
@@ -103,13 +104,13 @@ The PRM's display-flip caveat on printed page825 still applies.
 ## Validation and next native boundary
 
 `make test-intel-bdw-bcs-flush` runs the independent actual-C device model under
-both100/150ms policies:2,326 cases each. It covers exact encoding, bad descriptors,
+the100/150ms legacy and250ms practical policies:2,326 cases each. It covers exact encoding, bad descriptors,
 all21 binding fields and20 progress/identity fields at all39 callback boundaries,
 packet/callback/registration changes, all proof fields, stale/wrong/never-written
 completion, write uncertainty, immediate/256th-poll completion, reentry and all
 24 clock failures. All five deadlines have exact/+1us cases. Both complete
 matrices pass fatal ASan/UBSan;24 compiled weakening controls must fail. Actual
-native compiler flags pass the2KiB frame limit under both policies; ordinary,
+native compiler flags pass the2KiB frame limit under all three policies; ordinary,
 audit, legacy VT-d and combined GGTT image plans exclude this caller.
 
 Next establish a genuine private ring/context/status/completion mapping owner,
@@ -121,3 +122,11 @@ No physical trial is scheduled merely to demonstrate the known missing owner.
 The [tear-free roadmap](intel-tearfree-roadmap.md) still requires every remaining
 DMA/prefetch, GPU pipeline/cache/translation and firmware/display-reader witness
 before a managed mapping/publication grant. All255 obligations remain open.
+
+
+The [private BCS execlist submit protocol](intel-bdw-bcs-submit.md) now supplies
+the host-qualified four-DWORD port operation beneath the future submit callback.
+Actual joined-core tests keep nonce completion separate from port issuance and
+retain backing on every partial/uncertain/late outcome. This still requires
+already owned initialized context/mappings; it cannot bootstrap their transfer
+or certify other engines, firmware or display readers. No native adapter exists.
