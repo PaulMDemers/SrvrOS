@@ -798,6 +798,9 @@ bool intel_gt_wake_probe_report(void) {
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+#ifdef SRVROS_INTEL_GT_SECONDS
+    console_write("intel-timing: DIAGNOSTIC ONLY prep=3s GT=4s HDA=5s outer=6s; no input, volume1%; original timing acceptance withheld\n");
+#endif
     console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");
     console_write("intel-bootstrap: unchanged60s means photograph and restart manually. Safe saved outcomes return to Ubuntu.\n");
 #elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
@@ -991,7 +994,7 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
     bootstrap_report();
 #endif
-    bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
+    bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=INTEL_DIAGNOSTIC_OUTER_US;
 #if defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION)
     joint_report();complete=complete && joint.scope.state==IHG_CLOSED && !joint.scope.reason && !joint_terminal() && joint.scope.hda.complete;
 #elif defined(SRVROS_INTEL_JOINT)

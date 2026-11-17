@@ -6888,3 +6888,45 @@ build/tests/bootlog-bootstrap$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlo
 build/tests/workspace-log-bootstrap$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+# Explicit user-requested wide software-budget diagnostic. Never default objects.
+INTEL_GT_SECONDS_FLAGS := $(INTEL_GT_BOOTSTRAP_FLAGS) -DSRVROS_INTEL_GT_SECONDS
+build/intel-gt-seconds/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/requests.o: kernel/src/limine_requests.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/bootstrap.o: kernel/diagnostics/intel_bdw_gt_bootstrap.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/joint.o: kernel/diagnostics/intel_hda_gpu.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/gt-access.o: kernel/src/drivers/intel_gt_access.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/hda-owner.o: kernel/src/drivers/intel_hda_owner.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/boot.o: kernel/src/drivers/intel_gt_boot.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/log-ring.o: kernel/src/bootlog.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-seconds/log-save.o: kernel/src/workspace_log.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_SECONDS_FLAGS) -Wframe-larger-than=36864 -c $< -o $@
+INTEL_GT_SECONDS_EXCLUDE := build/kernel/src/main.c.o build/kernel/src/bootlog.c.o build/kernel/src/workspace_log.c.o build/kernel/src/drivers/intel_gt_access.c.o build/kernel/src/drivers/intel_hda_owner.c.o build/kernel/src/drivers/intel_gt_boot.c.o
+build/intel-gt-seconds/srvros.elf: build/intel-gt-seconds/main.o build/intel-gt-seconds/probe.o build/intel-gt-seconds/requests.o build/intel-gt-seconds/bootstrap.o build/intel-gt-seconds/joint.o build/intel-gt-seconds/gt-access.o build/intel-gt-seconds/hda-owner.o build/intel-gt-seconds/boot.o build/intel-gt-seconds/log-ring.o build/intel-gt-seconds/log-save.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-ring-transition/transition.o $(filter-out $(INTEL_GT_SECONDS_EXCLUDE),$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-gt-seconds-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_SECONDS_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c -o $@
+build/tests/intel-gt-seconds-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_SECONDS_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@

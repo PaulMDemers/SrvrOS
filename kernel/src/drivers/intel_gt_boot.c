@@ -52,7 +52,13 @@ static bool recipe(const char *p,unsigned mode) {
   if(mode==29 && equal(start,n,"srvros.intel-ring=startup-source-v1"))bit=14;
   if(mode==28 && equal(start,n,"srvros.intel-ring=nonzero-source-v1"))bit=14;
   if(mode==27 && equal(start,n,"srvros.intel-ring=nonzero-reset-v1"))bit=14;
-  if(mode==24 && equal(start,n,bootstrap?"srvros.intel-ring=gt-bootstrap-v1":"srvros.intel-ring=entry-v1"))bit=14;
+  if(mode==24 && equal(start,n,bootstrap?
+#ifdef SRVROS_INTEL_GT_SECONDS
+ "srvros.intel-ring=gt-bootstrap-seconds-v1":
+#else
+ "srvros.intel-ring=gt-bootstrap-v1":
+#endif
+ "srvros.intel-ring=entry-v1"))bit=14;
   if(mode==21 && equal(start,n,"srvros.intel-engines=read-only"))bit=12;
   if(mode==21 && equal(start,n,"srvros.intel-hda-bcs=joint-owner-v1"))bit=15;
   if(bit==23 || (seen&(1u<<bit)))return false;

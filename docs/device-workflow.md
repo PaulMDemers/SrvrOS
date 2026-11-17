@@ -380,3 +380,55 @@ prefixes, source clocks and the actual new epoch remain independently required.
 A logical child returned before a failed closing clock does not release the
 independent physical parent or become a pass. Collect/review the matching run
 before any next candidate. VM refusal/save/return is never native acceptance.
+
+## Multi-second diagnostic series
+
+Air7,2 has an explicit `intel-gt-seconds-v42` profile for the user-requested
+three-run timing experiment. It selects a separate image/recipe and owner wire4:
+preparation3s, GT phase3s/total4s, HDA5s and outer6s. Individual hardware waits,
+poll caps and ownership/preservation checks remain unchanged. The original
+full-GT profile retains its original limits. See the
+[timing contract](intel-bdw-gt-bootstrap.md#separate-multi-second-diagnostic).
+
+```sh
+python3 tools/device_workflow.py new seconds-trial-r1 \
+  --profile intel-gt-seconds-v42 \
+  --question 'Does the complete original GT lifetime retire under multi-second aggregate limits?' \
+  --expected 'Complete diagnostic chain, preserved state and clean media/recovery; ordinary timing acceptance withheld'
+python3 tools/device_workflow.py advance --run seconds-trial-r1
+# Only after full qualification, with existing local physical reboot authorization:
+python3 tools/gt_seconds_series.py start --first-run seconds-trial-r1
+```
+
+The first run must be fully qualified. The profile adds wide-policy/series tests
+and the separate image to both validation levels, retaining all22 original jobs
+(26 total), followed by both exact-stage VM persistence/recovery paths. The
+explicit series installs its own user service, ordered after the unchanged
+collection-only startup service. The configured user manager must start on
+Ubuntu return; verify this host's setup rather than assuming another unit's
+login/linger policy. Keep the source commit and unit configuration frozen until
+the series ends, including documentation commits. Every later trial goes through
+the guarded qualification/install/media/recovery/1%/one-shot sequence again.
+
+After each return it collects and strictly verifies the matching raw session and
+offline integrity, runs `diagnose`, independently banks evidence, then advances.
+It stops after exactly three complete diagnostics, or on any failure, incomplete
+result, source/configuration change or unsafe interrupted operation. It never
+promotes diagnostic timing to ordinary acceptance or bypasses a failed gate.
+An uncertain GPU/fence/parent state still halts for a manual restart. Safe saved
+completion returns to Ubuntu automatically; no human input is required.
+
+```sh
+python3 tools/gt_seconds_series.py status
+python3 tools/gt_seconds_series.py stop
+```
+
+`stop` prevents future trials; an already requested reboot may finish and is
+still collected. The private plan/action log and per-run records live under
+`~/.local/share/srvros/device-workflow`, and banks under
+`~/.local/share/srvros/evidence`. A stopped plan must be reviewed/archived before
+another explicit series. A successfully diagnosed run is terminal `DIAGNOSED`,
+with original timing acceptance and physical tear-free both false. `diagnose`
+rechecks raw hashes, typed chain and installed/media/recovery state before closing.
+The summary records actual preparation, original parent lifetimes and separate
+closing guard, borrow return and final guard costs for selecting future budgets.

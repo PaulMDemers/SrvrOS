@@ -42,8 +42,8 @@ static __attribute__((noinline)) bool tick(struct intel_bdw_gt_bootstrap *r) {
  struct saved s;capture(r,&s);uint64_t at=r->io.now(r->io.ctx);
  if(!unchanged(r,&s))return fail(r,BDW_BOOT_SOURCE);
  unsigned why=!at?1:at<r->last?2:at<r->binding.prepare || at-r->binding.prepare>INTEL_DIAGNOSTIC_PREPARE_US?3:
- at<r->binding.gt || at-r->binding.gt>300000?4:at<r->binding.hda || at-r->binding.hda>400000?5:
- at<r->binding.outer || at-r->binding.outer>500000?6:0;
+ at<r->binding.gt || at-r->binding.gt>INTEL_DIAGNOSTIC_GT_TOTAL_US?4:at<r->binding.hda || at-r->binding.hda>INTEL_DIAGNOSTIC_HDA_US?5:
+ at<r->binding.outer || at-r->binding.outer>INTEL_DIAGNOSTIC_OUTER_US?6:0;
  if(why){r->clock_at=at;r->clock_previous=r->last;r->clock_reason=why;return fail(r,BDW_BOOT_CLOCK);}
  if(!why && r->phase_begin && (r->stage==BDW_BOOT_RESET || r->stage==BDW_BOOT_SETTLE || r->stage==BDW_BOOT_CANCEL) &&
  (at<r->phase_begin || at-r->phase_begin>BDW_BOOT_PHASE_US)) {

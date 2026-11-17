@@ -24,6 +24,12 @@ install/one-shot boot, collection-only Ubuntu startup resume and durable reports
 Configure it with this unit's UUID/recovery and existing privilege helper. Other
 profiles still follow their dedicated guides. Host reuse never accepts hardware.
 
+The Air7,2 [three-run timing diagnostic](device-workflow.md#multi-second-diagnostic-series)
+has a separate opt-in service for that bounded experiment. The ordinary return
+collector remains collection-only. Do not enable a batch on another machine or
+infer reboot permission from its presence; use that unit's existing authorization,
+recovery, workspace and actual user-manager startup configuration.
+
 ## 1. One checkout and agent per machine
 
 Use `main`, the shared integration baseline. The completed work from

@@ -1,8 +1,9 @@
 #ifndef SRVROS_INTEL_HDA_GPU_H
 #define SRVROS_INTEL_HDA_GPU_H
+#include <srvros/intel_diagnostic_timing.h>
 #include <srvros/intel_hda_owner.h>
 #include <srvros/intel_interval_claim.h>
-#define INTEL_HDA_GPU_TOTAL_US 500000ull
+#define INTEL_HDA_GPU_TOTAL_US INTEL_DIAGNOSTIC_OUTER_US
 enum intel_hda_gpu_state {IHG_EMPTY,IHG_OPENING,IHG_ACTIVE,IHG_CLOSING,IHG_CLOSED,IHG_FAULT};
 enum intel_hda_gpu_reason {IHG_INPUT=1,IHG_SOURCE=2,IHG_CLOCK=4,IHG_HDA=8,IHG_GPU=16,IHG_CLAIM=32,IHG_RETIRE=64,IHG_EXCLUSION=128};
 struct intel_hda_gpu_io {

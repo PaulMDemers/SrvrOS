@@ -8,6 +8,32 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Active scope (base39714566/main4016abf0, PR301): the user now requests three
+multi-second diagnostic trials. Implemented an explicitly separate image/recipe/wire4
+and workflow profile with preparation3s, GT phase3s/total4s, HDA5s/outer6s. Keep
+original defaults, bounded individual hardware waits, identities/preservation/
+retirement and failure retention. Wide-policy completion cannot become normal
+timing acceptance. The bounded opt-in series collects and verifies
+media/recovery between trials and stops on any incomplete/failure. No general
+startup reboot loop, no auto-accept, no subagents/messages. Touched scope is timing
+headers/native variants, strict receivers, staging/workflow/tests and unit guides.
+
+Focused native-model/series tests pass, including the complete840ms modeled
+lifetime,15 timing/policy mutations,96 failure/clock boundaries and fatal
+ASan/UBSan in both original entry routes. Ordinary image isolation and docs
+checks pass. These are host results; the new profile is not physically accepted.
+Next freeze the candidate, run all26 original-plus-wide jobs and both exact-stage
+VM paths, then execute the explicit three-run series under existing unattended
+1% authorization. The user manager has linger enabled and the ordinary return
+collector stays collection-only. Keep the source frozen across the series.
+
+Capacity maintenance retained all raw/source/banks: twenty inactive generated
+stage initramfs copies are losslessly archived with verified original SHA256
+and a local restore ledger (about2.7GB reclaimed). The obsolete installed8b73
+diagnostic duplicate was retired only after exact independent bank/raw and
+current/recovery/protected/menu checks (about152.5MB EFI reclaimed). Current9298,
+recovery9aa8 and acceptedf0a8 remain intact; no new diagnostic is armed yet.
+
 Latest v41 firmware-fusion trial is **rejected after logical borrow return**:
 runtime `aa022502`, release `9298a4e02ad9b1d5`, session
 `session-0006606dea46d051-00`. All22 frozen jobs and both exact-stage VMs pass,

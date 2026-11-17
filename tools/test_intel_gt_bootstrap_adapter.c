@@ -38,9 +38,10 @@ static void intel_display_test_bootstrap_boundary(void) {
   phase_points[gt_bootstrap_native.reset.stage]=boundaries;
  assert(wake_irq && hda_command==2 && !display_access_allowed());
  if(!strcmp(bootstrap_mode,"maintain-slow"))ticks+=130;
+ if(!strcmp(bootstrap_mode,"seconds-slow"))ticks+=1000;
  if(bf("zero",boundaries))ticks=UINT64_MAX;
  if(bf("back",boundaries))ticks=gt_bootstrap_native.last-2;
- if(bf("over",boundaries))ticks=gt_bootstrap_native.begin+150000;
+ if(bf("over",boundaries))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US;
  if(bf("root",boundaries))gt_bootstrap_native.root^=4096;
  if(bf("epoch",boundaries))gt_bootstrap_native.g->engine_epoch++;
  if(bf("borrow",boundaries))gt_bootstrap_native.g->dependents=NULL;
@@ -120,7 +121,7 @@ static bool intel_display_test_bootstrap_read(uint32_t offset,uint32_t *out) {
  }
  if(bf("float",breads))*out=UINT32_MAX;
  if(bf("foreign",breads))*out^=16;
- if(bf("read-over",breads))ticks+=150001;
+ if(bf("read-over",breads))ticks+=INTEL_DIAGNOSTIC_PREPARE_US+1;
  return true;
 }
 static enum intel_gt_write intel_display_test_bootstrap_write(uint32_t offset,uint32_t value) {
@@ -147,7 +148,7 @@ static enum intel_gt_write intel_display_test_bootstrap_write(uint32_t offset,ui
   else {assert(value==0x10000 && pulses==2 && n==4-gt_bootstrap_native.reset.cancelled);control[n]=0;}
  }
  if(bf("write-unknown",bwrites))return GT_WRITE_UNCERTAIN;
- if(bf("write-over",bwrites))ticks+=150001;
+ if(bf("write-over",bwrites))ticks+=INTEL_DIAGNOSTIC_PREPARE_US+1;
  return GT_WRITE_DONE;
 }
 static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t *out) {
@@ -157,12 +158,12 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
  if(bf("display-float",bdisplay))*out=UINT32_MAX;
  return !bf("display-read",bdisplay);
 }
-static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow");}
+static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow");}
 static bool intel_display_test_bootstrap_clock(uint64_t *out) {
  if(!gt_bootstrap_native.returned || gt_bootstrap_native.complete || hit)return false;
  if(bf("return-zero",1))*out=0;
  else if(bf("return-back",1))*out=gt_bootstrap_native.last-1;
- else if(bf("return-over",1))*out=gt_bootstrap_native.begin+150001;
+ else if(bf("return-over",1))*out=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  else return false;
  return true;
 }
@@ -170,7 +171,7 @@ static void intel_display_test_bootstrap_final_boundary(void) {
  assert(gt_bootstrap_native.returned && !gt_bootstrap_native.borrow.active && gt_bootstrap_native.g->pinned);
  if(bf("final-zero",1))ticks=UINT64_MAX;
  if(bf("final-back",1))ticks=gt_bootstrap_native.last-2;
- if(bf("final-over",1))ticks=gt_bootstrap_native.begin+150000;
+ if(bf("final-over",1))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US;
  if(bf("final-epoch",1))gt_bootstrap_native.g->engine_epoch++;
 }
 static void intel_display_test_bootstrap_maintain_boundary(unsigned phase) {
@@ -182,12 +183,12 @@ static void intel_display_test_bootstrap_maintain_boundary(unsigned phase) {
  if(!phase) {
   if(bf("maintain-zero",1))ticks=UINT64_MAX;
   if(bf("maintain-back",1))ticks=g->last-2;
-  if(bf("maintain-phase",1))ticks=g->last+100001;
-  if(bf("maintain-total",1))ticks=g->begin+300001;
+  if(bf("maintain-phase",1))ticks=g->last+GT_ACCESS_PHASE_US+1;
+  if(bf("maintain-total",1))ticks=g->begin+GT_ACCESS_TOTAL_US+1;
   if(bf("maintain-request",1))wake_request|=2;
   if(bf("maintain-root",1))gt_bootstrap_native.root^=4096;
  } else {
-  if(bf("maintain-after-clock",1))ticks=gt_bootstrap_native.begin+150001;
+  if(bf("maintain-after-clock",1))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
   if(bf("maintain-after-epoch",1))g->engine_epoch++;
   if(bf("maintain-after-borrow",1))g->dependents=NULL;
   if(bf("maintain-after-table",1))g->io.snapshot=NULL;
@@ -197,7 +198,7 @@ static void intel_display_test_bootstrap_cost_boundary(unsigned phase) {
  assert(phase<5);++cost_calls;
  if(bf("cost-zero",cost_calls))ticks=UINT64_MAX;
  if(bf("cost-back",cost_calls))ticks=gt_bootstrap_native.last-2;
- if(bf("cost-over",cost_calls))ticks=gt_bootstrap_native.begin+150000;
+ if(bf("cost-over",cost_calls))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US;
 }
 static void intel_display_test_bootstrap_receipt_boundary(void) {
  ++receipt_calls;
@@ -209,7 +210,7 @@ static void intel_display_test_bootstrap_receipt_boundary(void) {
  if(bf("ticket-state",receipt_calls))gt_bootstrap_native.reset.index++;
  if(bf("ticket-zero",receipt_calls))ticks=UINT64_MAX;
  if(bf("ticket-back",receipt_calls))ticks=gt_bootstrap_native.last-2;
- if(bf("ticket-over",receipt_calls))ticks=gt_bootstrap_native.begin+150000;
+ if(bf("ticket-over",receipt_calls))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US;
  if(receipt_calls==1 && bf("ticket-byte",fault_at)) {
   assert(fault_at<sizeof(bootstrap_admission.bytes));bootstrap_admission.bytes[fault_at]^=1;
  }

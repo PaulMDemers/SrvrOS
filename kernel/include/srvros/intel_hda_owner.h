@@ -1,5 +1,6 @@
 #ifndef SRVROS_INTEL_HDA_OWNER_H
 #define SRVROS_INTEL_HDA_OWNER_H
+#include <srvros/intel_diagnostic_timing.h>
 #include <srvros/intel_display_hda.h>
 /* Cooperative EFI submission policy, not SMM exclusion or DMA completion.
  * Only an isolated boot adapter may supply these same-boot facts. */
@@ -16,7 +17,7 @@ struct intel_hda_owner_io {
  uint64_t (*now)(void *);
 };
 enum intel_hda_owner_state { INTEL_HDA_OWNER_NEW, INTEL_HDA_OWNER_LIVE, INTEL_HDA_OWNER_CLOSED, INTEL_HDA_OWNER_FAULT };
-#define INTEL_HDA_OWNER_TOTAL_US 400000ull
+#define INTEL_HDA_OWNER_TOTAL_US INTEL_DIAGNOSTIC_HDA_US
 #define INTEL_HDA_OWNER_BORROWS 32u
 struct intel_hda_owner_borrow;
 struct intel_hda_gpu;

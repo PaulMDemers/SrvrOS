@@ -345,3 +345,40 @@ must inspect/measure the actual kernel compiler and flags before another trial.
 Pure witness/reference tests remain valid. Keep exact fresh identity and all
 bounds while addressing serial hashing or redundant guards. See the
 [unit result](machines/macbookair7-2.md#native-firmware-fusion-is-insufficient-for-closing).
+
+### Separate multi-second diagnostic
+
+The user requested three runs with aggregate timeouts of a few seconds to
+measure the complete lifetime before choosing practical limits. This is the
+separate `build/intel-gt-seconds/srvros.elf` image, exact
+`srvros.intel-ring=gt-bootstrap-seconds-v1` recipe and workflow profile
+`intel-gt-seconds-v42`. Ordinary images retain their original timing policy.
+
+| Clock | Original full-GT policy | Diagnostic policy |
+| --- | --- | --- |
+| Preparation, including return/final guard | 150 ms | 3 s |
+| Original GT maintenance phase | 100 ms | 3 s |
+| Original GT total | 300 ms | 4 s |
+| Original HDA total | 400 ms | 5 s |
+| Original outer total | 500 ms | 6 s |
+
+Individual hardware waits remain 10 ms with 256-poll caps. Source-age, bounded
+census, identity, ownership, preservation and retirement checks remain in place.
+No timestamp is refreshed to manufacture a younger parent. Separate GT-access,
+HDA-owner, joint, bootstrap, boot and probe objects select the diagnostic policy;
+ordinary builds do not link these relaxed objects.
+
+Owner wire4 requires an exact `intel-bootstrap-timing` policy row and the actual
+original GT/HDA/outer closing timestamps. The receiver checks each parent from
+its original origin, retains the existing full native chain, and reports
+`diagnostic_complete` separately from `native_complete`. Wire1–3 retain their
+original policies. The new recipe is refused by the old image and vice versa.
+Diagnostic completion cannot be passed to ordinary workflow acceptance. It is
+closed with `diagnose`, preserving actual durations and comparisons with the
+original bounds; no native tear-free or GPU-memory authority follows.
+
+The host matrix includes a complete modeled lifetime over the former limits,
+fatal ASan/UBSan, policy and closing-clock mutations, late-return/clock failures,
+image isolation and all original default/core/legacy gates. Model and exact-stage
+VM completion still do not establish physical completion or repeatability.
+See the [bounded three-run workflow](device-workflow.md#multi-second-diagnostic-series).

@@ -76,7 +76,7 @@ class Bootstrap(unittest.TestCase):
             'phase-extended':[('>BDW_BOOT_PHASE_US','>(BDW_BOOT_PHASE_US+1)'),
                                ('<=BDW_BOOT_PHASE_US','<=(BDW_BOOT_PHASE_US+1)')],
         }
-        for label,limit in (('prepare','INTEL_DIAGNOSTIC_PREPARE_US'),('gt','300000'),('hda','400000'),('outer','500000')):
+        for label,limit in (('prepare','INTEL_DIAGNOSTIC_PREPARE_US'),('gt','INTEL_DIAGNOSTIC_GT_TOTAL_US'),('hda','INTEL_DIAGNOSTIC_HDA_US'),('outer','INTEL_DIAGNOSTIC_OUTER_US')):
             controls['extended-'+label]=[('>'+limit,'>('+limit+'+1)')]
         cc,flags,sources=recipe(TARGETS[0])
         with tempfile.TemporaryDirectory(prefix='gt-bootstrap-controls-') as directory:
@@ -112,7 +112,7 @@ class Bootstrap(unittest.TestCase):
         self.assertIn('-Wframe-larger-than=2048 -c '+CORE,selected)
         lines=[l for l in (ROOT/'Makefile').read_text().splitlines() if CORE in l]
         self.assertTrue(lines)
-        self.assertTrue(all(l.startswith(('build/tests/intel-bdw-gt-bootstrap','build/tests/intel-gt-bootstrap-adapter$(HOST_EXE):','build/intel-gt-bootstrap/bootstrap.o:')) or '$(HOST_CC)' in l for l in lines))
+        self.assertTrue(all(l.startswith(('build/tests/intel-bdw-gt-bootstrap','build/tests/intel-gt-bootstrap-adapter$(HOST_EXE):','build/intel-gt-bootstrap/bootstrap.o:','build/intel-gt-seconds/bootstrap.o:','build/tests/intel-gt-seconds-adapter$(HOST_EXE):')) or '$(HOST_CC)' in l for l in lines))
         native=subprocess.check_output(['make','-Bn','--','build/kernel/srvros.elf',
             'build/intel-bcs-reset/srvros.elf','build/intel-source-audit/srvros.elf',
             'build/intel-vtd-drain/srvros.elf','build/intel-command-memory/srvros.elf',

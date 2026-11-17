@@ -16,19 +16,19 @@ def entry_recipe(cmd):
  if set(ts)!=set(expected):raise ValueError('entry foreign recipe')
  return dict(volume=v[0],release=r[0])
 def entry_summary(line):return _summary(_normalize(line),entry=True)
-def entry_result(text):
+def entry_result(text,*,seconds=False):
  if not any(l.startswith('intel-ring-entry-') for l in text.splitlines()):return None
- r=_ring_result(_normalize(text),entry=True)
+ r=_ring_result(_normalize(text),entry=True,seconds=seconds)
  if r:r['entry_kind']={0:'none',1:'enabled',2:'already-disabled'}[r['summary']['kind']]
  return r
-def native_entry_result(text):
+def native_entry_result(text,*,seconds=False):
  if not any(l.startswith('intel-ring-entry-') for l in text.splitlines()):return None
  # Native wake must see the original distinct wire records.
- r=entry_result(text)
+ r=entry_result(text,seconds=seconds)
  if r and r['complete']:
   from intel_gt_wake import native_wake_result
   from intel_display_capture import capture_result
-  if not native_wake_result(text)['native_wake_complete']:raise ValueError('entry native wake prerequisites')
+  if not native_wake_result(text,seconds=seconds)['native_wake_complete']:raise ValueError('entry native wake prerequisites')
   display=capture_result(text)
   for row in r['readers']:
    old=display['rows']['pipe'][3+row['p']]
@@ -36,7 +36,7 @@ def native_entry_result(text):
   r['native_complete']=True
  if r:r['native_enabled_writer_complete']=r['native_complete'] and r['enabled_writer_complete']
  return r
-def verify_entry_checkpoint(pre,text,native=False):
+def verify_entry_checkpoint(pre,text,native=False,*,seconds=False):
  from intel_gt_wake import verify_wake_checkpoint
  if 'intel-ring-entry-' in pre:raise ValueError('entry late prerequisite checkpoint')
  verify_wake_checkpoint(pre,text,native=native)
@@ -44,5 +44,5 @@ def verify_entry_checkpoint(pre,text,native=False):
  if any(len(b)!=1 for b in boots) or boots[0]!=boots[1]:raise ValueError('entry boot provenance')
  entry_recipe(boots[0][0])
  if any(s.count('init: deferred=ring-entry-preinit;')!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('entry preinit provenance')
- if not entry_result(text):raise ValueError('entry missing final result')
+ if not entry_result(text,seconds=seconds):raise ValueError('entry missing final result')
  return True

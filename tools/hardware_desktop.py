@@ -576,7 +576,7 @@ def needs_attention(line):
     if line.startswith('intel-bootstrap-summary:'):
         from intel_gt_bootstrap import fields,SUMMARY
         try:
-            s=fields(line,'intel-bootstrap-summary:',SUMMARY,('root',),(1,2,3))
+            s=fields(line,'intel-bootstrap-summary:',SUMMARY,('root',),(1,2,3,4))
             return not(s['complete']==1 and s['state']==2 and s['reason']==s['failed']==s['active']==0 and s['returned']==1)
         except ValueError:return True
     if line.startswith('intel-bootstrap-reset:'):
@@ -831,7 +831,7 @@ def session_log_limit(exit_preview):
     lines=exit_preview.splitlines()
     provider=any(l.startswith(b'intel-vtd-drain: v=6 b=') for l in lines) and any(
         l.startswith(b'intel-command-ownership: v=1 b=') for l in lines)
-    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith((b'intel-bootstrap-summary: v=1 ',b'intel-bootstrap-summary: v=2 ',b'intel-bootstrap-summary: v=3 ')) for l in lines)
+    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith((b'intel-bootstrap-summary: v=1 ',b'intel-bootstrap-summary: v=2 ',b'intel-bootstrap-summary: v=3 ',b'intel-bootstrap-summary: v=4 ')) for l in lines)
     return 98304 if provider or bootstrap else 65536
 
 

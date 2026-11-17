@@ -64,11 +64,11 @@ static bool bootstrap_tick(void) {
  uint64_t at=now(gt_bootstrap_native.a),old=gt_bootstrap_native.last;
  const struct intel_gt_access *g=gt_bootstrap_native.g;
  if(!at || at<old || at<gt_bootstrap_native.begin || at-gt_bootstrap_native.begin>INTEL_DIAGNOSTIC_PREPARE_US ||
- !g || at<g->last || at<g->begin || at-g->begin>300000 ||
+ !g || at<g->last || at<g->begin || at-g->begin>INTEL_DIAGNOSTIC_GT_TOTAL_US ||
  g->begin!=gt_bootstrap_native.gt_origin || joint.scope.hda.begin_us!=gt_bootstrap_native.hda_origin ||
  joint.scope.outer_origin_us!=gt_bootstrap_native.outer_origin ||
- at<gt_bootstrap_native.hda_origin || at-gt_bootstrap_native.hda_origin>400000 ||
- at<gt_bootstrap_native.outer_origin || at-gt_bootstrap_native.outer_origin>500000) {
+ at<gt_bootstrap_native.hda_origin || at-gt_bootstrap_native.hda_origin>INTEL_DIAGNOSTIC_HDA_US ||
+ at<gt_bootstrap_native.outer_origin || at-gt_bootstrap_native.outer_origin>INTEL_DIAGNOSTIC_OUTER_US) {
   gt_bootstrap_native.clock=at;gt_bootstrap_native.previous=old;return bootstrap_fail(2);
  }
  gt_bootstrap_native.last=at;return true;
@@ -517,7 +517,13 @@ fail:
 }
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
- console_printf("intel-bootstrap-summary: v=3 state=%u reason=%u complete=%u failed=%u blocked=%u returned=%u active=%u epoch_before=%u epoch_after=%u epoch_calls=%u begin=%u end=%u last=%u root=%x prepare_budget=%u prepared=%u issued=%u commands=%u pci_samples=%u pci_reads=%u guards=%u alias_checks=%u cache_checks=%u native_reads=%u native_writes=%u full_before=%u full_after=%u post_bound=%u clock=%u previous=%u obligations=255 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
+ console_printf(
+#ifdef SRVROS_INTEL_GT_SECONDS
+ "intel-bootstrap-summary: v=4 "
+#else
+ "intel-bootstrap-summary: v=3 "
+#endif
+ "state=%u reason=%u complete=%u failed=%u blocked=%u returned=%u active=%u epoch_before=%u epoch_after=%u epoch_calls=%u begin=%u end=%u last=%u root=%x prepare_budget=%u prepared=%u issued=%u commands=%u pci_samples=%u pci_reads=%u guards=%u alias_checks=%u cache_checks=%u native_reads=%u native_writes=%u full_before=%u full_after=%u post_bound=%u clock=%u previous=%u obligations=255 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
   (uint64_t)gt_bootstrap_native.state,(uint64_t)gt_bootstrap_native.reason,(uint64_t)gt_bootstrap_native.complete,
   (uint64_t)gt_bootstrap_native.failed,(uint64_t)gt_bootstrap_native.blocked,(uint64_t)gt_bootstrap_native.returned,
   (uint64_t)gt_bootstrap_native.borrow.active,gt_bootstrap_native.epoch,
@@ -550,6 +556,10 @@ static void bootstrap_report(void) {
  console_printf("intel-bootstrap-retire: v=1 stage=%u guard_begin=%u guard_end=%u return_begin=%u return_end=%u final_begin=%u final_end=%u\n",
   (uint64_t)gt_bootstrap_native.closing,gt_bootstrap_native.guard_begin,gt_bootstrap_native.guard_end,
   gt_bootstrap_native.return_begin,gt_bootstrap_native.return_end,gt_bootstrap_native.final_begin,gt_bootstrap_native.final_end);
+#ifdef SRVROS_INTEL_GT_SECONDS
+ console_printf("intel-bootstrap-timing: v=1 diagnostic=1 prepare=%u gt_phase=%u gt=%u hda=%u outer=%u hardware_phase=%u poll_cap=%u gt_end=%u hda_end=%u outer_end=%u\n",
+ INTEL_DIAGNOSTIC_PREPARE_US,GT_ACCESS_PHASE_US,GT_ACCESS_TOTAL_US,INTEL_DIAGNOSTIC_HDA_US,INTEL_DIAGNOSTIC_OUTER_US,BDW_BOOT_PHASE_US,(uint64_t)BDW_BOOT_POLLS,gt_bootstrap_native.g?gt_bootstrap_native.g->last:0,joint.scope.hda.end_us,joint.scope.end_us);
+#endif
  console_printf("intel-bootstrap-maintain: v=1 complete=%u begin=%u end=%u phase=%u before=%u after=%u\n",
   (uint64_t)gt_bootstrap_native.maintained,gt_bootstrap_native.maintain_begin,gt_bootstrap_native.maintain_end,
   gt_bootstrap_native.maintain_phase,(uint64_t)gt_bootstrap_native.maintain_before,(uint64_t)gt_bootstrap_native.maintain_after);

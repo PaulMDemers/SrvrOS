@@ -1,5 +1,6 @@
 #ifndef SRVROS_INTEL_GT_ACCESS_H
 #define SRVROS_INTEL_GT_ACCESS_H
+#include <srvros/intel_diagnostic_timing.h>
 #include <srvros/display_access.h>
 #define INTEL_GT_REQUEST 0xa188u
 #define INTEL_GT_ACK 0x130044u
@@ -17,8 +18,8 @@
 #define GT_ACCESS_FOREIGN 512u
 #define GT_ACCESS_TIMEOUT 1024u
 #define GT_ACCESS_POLL_CAP 4096u
-#define GT_ACCESS_PHASE_US 100000ull
-#define GT_ACCESS_TOTAL_US 300000ull
+#define GT_ACCESS_PHASE_US INTEL_DIAGNOSTIC_GT_PHASE_US
+#define GT_ACCESS_TOTAL_US INTEL_DIAGNOSTIC_GT_TOTAL_US
 /* BDW PRM2c pp493-495: mandatory initial all-request clear, then the thread's
  * masked request/acknowledgement protocol. Pinned i915 additionally waits for
  * GT thread C0. Not a GPU/firmware, range, reset or engine-stop authority.

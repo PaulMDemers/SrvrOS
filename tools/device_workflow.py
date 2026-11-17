@@ -112,12 +112,12 @@ def main():
     new.add_argument('name')
     new.add_argument('--question', required=True)
     new.add_argument('--expected', required=True)
-    new.add_argument('--profile', choices=('intel-gt-bootstrap-v41','intel-gt-bootstrap-v40','intel-gt-bootstrap-v39','intel-source-audit-v35', 'intel-vtd-drain-v36', 'intel-ggtt-invalidate-v36', 'intel-command-memory-v37', 'intel-command-ownership-v38'), default='intel-source-audit-v35')
+    new.add_argument('--profile', choices=('intel-gt-seconds-v42','intel-gt-bootstrap-v41','intel-gt-bootstrap-v40','intel-gt-bootstrap-v39','intel-source-audit-v35', 'intel-vtd-drain-v36', 'intel-ggtt-invalidate-v36', 'intel-command-memory-v37', 'intel-command-ownership-v38'), default='intel-source-audit-v35')
     new.add_argument('--plan', type=Path, help='JSON additional development/qualification jobs; never removes default gates')
     advance = sub.add_parser('advance')
     advance.add_argument('--run', required=True)
     advance.add_argument('--through', choices=('validated', 'staged', 'qualified', 'installed', 'armed', 'boot_requested'), default='qualified')
-    for action in ('collect', 'cancel', 'reject'):
+    for action in ('collect', 'cancel', 'reject','diagnose'):
         sub.add_parser(action).add_argument('--run', required=True)
     accept = sub.add_parser('accept')
     accept.add_argument('--run', required=True)
@@ -192,6 +192,8 @@ def main():
                 print(json.dumps(runner.advance(args.run, args.through.upper()), indent=2))
             elif args.action == 'collect':
                 print(json.dumps(runner.collect(args.run), indent=2))
+            elif args.action == 'diagnose':
+                print(json.dumps(runner.diagnose(args.run),indent=2))
             elif args.action == 'resume':
                 active = runner.store / 'active.json'
                 if not active.exists():

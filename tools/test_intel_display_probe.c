@@ -1012,6 +1012,8 @@ int main(int argc,char **argv) {
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-source-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_NONZERO_RESET)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-reset-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_GT_SECONDS)
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-seconds-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_RING_ENTRY)

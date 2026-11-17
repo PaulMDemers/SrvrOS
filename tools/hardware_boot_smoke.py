@@ -21,9 +21,9 @@ from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_q
 HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 
 def shared_receipt(text):
-    if "srvros.intel-ring=gt-bootstrap-v1" in text:
+    if "srvros.intel-ring=gt-bootstrap-v1" in text or "srvros.intel-ring=gt-bootstrap-seconds-v1" in text:
         from intel_gt_bootstrap import historical_view
-        return historical_view(text)
+        return historical_view(text,seconds="srvros.intel-ring=gt-bootstrap-seconds-v1" in text)
     if 'srvros.intel-ring=vtd-drain-v1' in text:
         from intel_vtd_native import drain_shared_view
         return drain_shared_view(text)
@@ -765,7 +765,7 @@ def main():
                                 assert proof and not proof['complete'] and not proof['entry']['summary']['borrowed'] and not proof['summary']['eligible'] and not proof['summary']['controls'] and not proof['summary']['resets']
                                 assert verify_nonzero_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
                                 (logs/'intel-nonzero-reset-result.json').write_text(json.dumps(proof,indent=2)+'\n')
-                            if 'srvros.intel-ring=gt-bootstrap-v1' in text:
+                            if 'srvros.intel-ring=gt-bootstrap-v1' in text or 'srvros.intel-ring=gt-bootstrap-seconds-v1' in text:
                                 from intel_gt_bootstrap import bootstrap_result,verify_bootstrap_checkpoint
                                 final=stored.read(folder+'/exit.log').decode()
                                 proof=bootstrap_result(final)
