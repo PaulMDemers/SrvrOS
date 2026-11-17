@@ -1,3 +1,4 @@
+from intel_gt_timing import policy as timing_policy
 """Original-owner enabled submission transition; nonzero geometry, no reset."""
 import re
 from intel_engine_census import _fields
@@ -59,7 +60,7 @@ def _rows(text,prefix,keys,width):
   rows.append(dict(zip(keys,map(int,m.groups()[:len(keys)])),words=values))
  return rows
 
-def _ring_result(text,*,entry=False,composition=False,nonzero=False,startup=False,seconds=False):
+def _ring_result(text,*,entry=False,composition=False,nonzero=False,startup=False,seconds=False,practical=False):
  lines=[l for l in text.splitlines() if l.startswith('intel-ring-')]
  if not lines:return None
  allowed=('intel-ring-summary:','intel-ring-bcs:','intel-ring-post-row:','intel-ring-post-context:','intel-ring-post-summary:','intel-ring-reader:','intel-ring-audio:','intel-ring-hda:','intel-ring-owner:')
@@ -71,16 +72,16 @@ def _ring_result(text,*,entry=False,composition=False,nonzero=False,startup=Fals
  from intel_gt_wake import wake_result
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
- w=wake_result(text,seconds=seconds)
+ w=wake_result(text,seconds=seconds,practical=practical)
  if not w or w['summary']['v'] not in ((30,) if startup else (28,29) if nonzero else (26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
  if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v'] in (27,28,29,30)):raise ValueError('entry wire image binding')
  owner=joint_capture(text if composition else text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']
  if not composition and (h['complete'] or h['gpu_complete'] or h['attached']):raise ValueError('ring unsupported claim')
- pre=completion_result(text,seconds=seconds)
+ pre=completion_result(text,seconds=seconds,practical=practical)
  post_text='\n'.join(l.replace('intel-ring-post-','intel-completion-',1) for l in text.splitlines() if l.startswith(('intel-ring-post-','intel-wake-summary:','intel-clock:')))
- post=completion_result(post_text,seconds=seconds)
+ post=completion_result(post_text,seconds=seconds,practical=practical)
  if not pre or not post:raise ValueError('ring full source/post coverage')
  bcs=_rows(text,'intel-ring-bcs',['n'],8);readers=_rows(text,'intel-ring-reader',['n','p'],9);audio=_rows(text,'intel-ring-audio',['n'],10)
  if [r['n'] for r in bcs]!=list(range(s['read_attempts'])) or [(r['n'],r['p']) for r in readers]!=[(n,p) for n in range(s['reader_attempts']) for p in range(3)] or [a['n'] for a in audio]!=list(range(s['reader_attempts'])):raise ValueError('ring row coverage/order')
@@ -115,7 +116,7 @@ def _ring_result(text,*,entry=False,composition=False,nonzero=False,startup=Fals
   if any(v==0xffffffff for row in readers for v in row['words']):raise ValueError('ring floating reader')
   if any(readers[p]['words']!=readers[p+3]['words'] for p in range(3)) or audio[0]['words']!=audio[1]['words'] or audio[0]['words'][:6]!=[0x160c8086,0x040300,2,1,0,1]:raise ValueError('ring plane/HDA preservation')
  if complete and retired:
-  if not 0<h['origin']<=h['begin']<=h['hda_begin']<s['source_begin']<s['begin']<s['end']<h['hda_end']<=h['end']==h['last']<=h['origin']+(6000000 if seconds else 500000) or h['end']>h['hda_begin']+(5000000 if seconds else 400000):raise ValueError('ring original HDA/outer lifetime')
+  if not 0<h['origin']<=h['begin']<=h['hda_begin']<s['source_begin']<s['begin']<s['end']<h['hda_end']<=h['end']==h['last']<=h['origin']+timing_policy(seconds=seconds,practical=practical)['outer'] or h['end']>h['hda_begin']+timing_policy(seconds=seconds,practical=practical)['hda']:raise ValueError('ring original HDA/outer lifetime')
   phases=owner['phases']
   if len(phases)!=4 or not all(p['quiet'] and p['summary']['complete'] for p in phases) or [p['endpoint']['command'] for p in phases]!=[6,2,2,6] or any(p['samples']!=phases[0]['samples'] for p in phases):raise ValueError('ring HDA inhibition/preservation')
   previous=h['hda_begin']
@@ -151,5 +152,5 @@ def verify_ring_checkpoint(pre,text,native=False):
  if not ring_result(text):raise ValueError('ring missing final result')
  return True
 
-def ring_result(text,*,seconds=False):return _ring_result(text,seconds=seconds)
+def ring_result(text,*,seconds=False,practical=False):return _ring_result(text,seconds=seconds,practical=practical)
 def native_ring_result(text):return _native_ring_result(text)

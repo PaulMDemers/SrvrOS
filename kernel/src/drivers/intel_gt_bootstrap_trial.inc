@@ -518,7 +518,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#ifdef SRVROS_INTEL_GT_SECONDS
+#if defined(SRVROS_INTEL_GT_PRACTICAL)
+ "intel-bootstrap-summary: v=5 "
+#elif defined(SRVROS_INTEL_GT_SECONDS)
  "intel-bootstrap-summary: v=4 "
 #else
  "intel-bootstrap-summary: v=3 "
@@ -556,7 +558,7 @@ static void bootstrap_report(void) {
  console_printf("intel-bootstrap-retire: v=1 stage=%u guard_begin=%u guard_end=%u return_begin=%u return_end=%u final_begin=%u final_end=%u\n",
   (uint64_t)gt_bootstrap_native.closing,gt_bootstrap_native.guard_begin,gt_bootstrap_native.guard_end,
   gt_bootstrap_native.return_begin,gt_bootstrap_native.return_end,gt_bootstrap_native.final_begin,gt_bootstrap_native.final_end);
-#ifdef SRVROS_INTEL_GT_SECONDS
+#if defined(SRVROS_INTEL_GT_SECONDS) || defined(SRVROS_INTEL_GT_PRACTICAL)
  console_printf("intel-bootstrap-timing: v=1 diagnostic=1 prepare=%u gt_phase=%u gt=%u hda=%u outer=%u hardware_phase=%u poll_cap=%u gt_end=%u hda_end=%u outer_end=%u\n",
  INTEL_DIAGNOSTIC_PREPARE_US,GT_ACCESS_PHASE_US,GT_ACCESS_TOTAL_US,INTEL_DIAGNOSTIC_HDA_US,INTEL_DIAGNOSTIC_OUTER_US,BDW_BOOT_PHASE_US,(uint64_t)BDW_BOOT_POLLS,gt_bootstrap_native.g?gt_bootstrap_native.g->last:0,joint.scope.hda.end_us,joint.scope.end_us);
 #endif

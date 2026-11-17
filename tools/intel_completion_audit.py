@@ -32,7 +32,7 @@ def entry_census_lines(text,*,nonzero=False,startup=False):
   _,lines=post_vector(f'intel-prepare-post-vector: v=3 s={m[1]} n={count} h='+''.join(f'{v:08x}' for v in words))
   samples.append(int(m[1]));out.extend(lines)
  return out
-def completion_result(text,*,seconds=False):
+def completion_result(text,*,seconds=False,practical=False):
  if 'intel-nonzero-census:' in text:
   if 'intel-entry-census:' in text:raise ValueError('mixed census image')
   from intel_gt_wake import wake_result
@@ -82,7 +82,7 @@ def completion_result(text,*,seconds=False):
   idle=(1 if contexts[0]['c0']&contexts[1]['c0']&512 else 0)|(2 if contexts[0]['c3']&contexts[1]['c3']&512 else 0)
   if masks!=[s[k] for k in ('enabled','pending','flip_wait','tlb_pending')] or idle!=s['parser_idle']:raise ValueError('completion derived masks')
  from intel_gt_wake import wake_result
- wake=wake_result(text,seconds=seconds);complete=bool(s['complete'] and wake and wake['lease_complete'])
+ wake=wake_result(text,seconds=seconds,practical=practical);complete=bool(s['complete'] and wake and wake['lease_complete'])
  if wake and any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12,14,16,17,18,19,20,21,23,24,25,26,27,28,29,30) else 1) for r in rows+contexts):raise ValueError('completion row version binding')
  if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29,30):raise ValueError('completion wrong wake image')
  if complete and not wake['summary']['begin_us']<s['begin_us']<s['end_us']<wake['summary']['end_us']:raise ValueError('completion parent ordering')

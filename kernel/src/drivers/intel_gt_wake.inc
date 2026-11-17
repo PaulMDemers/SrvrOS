@@ -798,7 +798,9 @@ bool intel_gt_wake_probe_report(void) {
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
-#ifdef SRVROS_INTEL_GT_SECONDS
+#if defined(SRVROS_INTEL_GT_PRACTICAL)
+    console_write("intel-timing: PRACTICAL DIAGNOSTIC prep=250ms phase=100ms GT=500ms HDA=750ms outer=1s; no input, volume1%\n");
+#elif defined(SRVROS_INTEL_GT_SECONDS)
     console_write("intel-timing: DIAGNOSTIC ONLY prep=3s GT=4s HDA=5s outer=6s; no input, volume1%; original timing acceptance withheld\n");
 #endif
     console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");

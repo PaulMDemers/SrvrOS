@@ -41,11 +41,14 @@ def code_inputs(repo):
     return [pattern for pattern in INPUTS if glob.glob(str(Path(repo) / pattern), recursive=True)]
 
 
-PROFILES = {'intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
+PROFILES = {'intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
 
 def trial_parsers(name):
+    if name=='intel-gt-practical-v43':
+        from intel_gt_bootstrap import bootstrap_recipe,bootstrap_result,verify_bootstrap_checkpoint
+        return lambda cmd:bootstrap_recipe(cmd,practical=True),lambda text:bootstrap_result(text,native=True),verify_bootstrap_checkpoint
     if name=='intel-gt-seconds-v42':
         from intel_gt_bootstrap import bootstrap_recipe,bootstrap_result,verify_bootstrap_checkpoint
         return lambda cmd:bootstrap_recipe(cmd,seconds=True),lambda text:bootstrap_result(text,native=True),verify_bootstrap_checkpoint
@@ -63,6 +66,9 @@ def trial_parsers(name):
 def profile(repo, name='intel-source-audit-v35'):
     trial_parsers(name)
     dependencies = code_inputs(repo)
+    if name=='intel-gt-practical-v43':
+        from workflow.gt_practical import jobs
+        return jobs(dependencies)
     if name=='intel-gt-seconds-v42':
         from workflow.gt_seconds import jobs
         return jobs(dependencies)
@@ -254,7 +260,7 @@ class Runner:
         if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37','intel-command-ownership-v38'):
             from intel_vtd_native import _table
             _table((self.repo / VTD_FIXTURE).read_bytes())
-        if trial_profile in ('intel-gt-bootstrap-v39','intel-gt-bootstrap-v40','intel-gt-bootstrap-v41','intel-gt-seconds-v42') and config['model'] != 'MacBookAir7,2':
+        if trial_profile in ('intel-gt-bootstrap-v39','intel-gt-bootstrap-v40','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43') and config['model'] != 'MacBookAir7,2':
             raise ValueError('Full-GT bootstrap requires this independently captured Air7,2 profile')
         jobs = jobs or profile(self.repo, trial_profile)
         for level in ('development', 'qualification'):
@@ -271,7 +277,7 @@ class Runner:
         inputs = code_inputs(self.repo)
         if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37','intel-command-ownership-v38'):
             inputs.append(VTD_FIXTURE)
-        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=4 if trial_profile=='intel-gt-seconds-v42' else 3 if trial_profile=='intel-gt-bootstrap-v41' else 2 if trial_profile=='intel-gt-bootstrap-v40' else 1 if trial_profile=='intel-gt-bootstrap-v39' else 6 if trial_profile=='intel-command-ownership-v38' else 5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
+        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=5 if trial_profile=='intel-gt-practical-v43' else 4 if trial_profile=='intel-gt-seconds-v42' else 3 if trial_profile=='intel-gt-bootstrap-v41' else 2 if trial_profile=='intel-gt-bootstrap-v40' else 1 if trial_profile=='intel-gt-bootstrap-v39' else 6 if trial_profile=='intel-command-ownership-v38' else 5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
                         expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                         branch=command(['git', 'branch', '--show-current'], self.repo),
                         submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),
@@ -543,7 +549,7 @@ class Runner:
             if manifest.get('wire_version') is not None and native.get('version') != manifest['wire_version']:
                 raise ValueError('Native receipt differs from frozen wire version')
             native_complete = bool(native['complete'] and native['native_complete'])
-            diagnostic_complete = bool(manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds') and native.get('diagnostic_complete'))
+            diagnostic_complete = bool(((manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds')) or (manifest['profile']=='intel-gt-practical-v43' and native.get('diagnostic_practical'))) and native.get('diagnostic_complete'))
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -565,7 +571,7 @@ class Runner:
             self.finish(directory, state, 'REJECTED', status='reviewed failure; raw evidence retained')
             return
         report = json.loads((directory / 'report.json').read_text())
-        if manifest['profile']=='intel-gt-seconds-v42':
+        if manifest['profile'] in ('intel-gt-seconds-v42','intel-gt-practical-v43'):
             raise ValueError('Wide diagnostic timing cannot be accepted as original timing; use diagnose')
         if not report.get('native_complete', report.get('native', {}).get('native_complete', False)):
             raise ValueError('Incomplete native chain cannot be accepted')
@@ -584,8 +590,8 @@ class Runner:
 
     def diagnose(self,run):
         directory,manifest,state=self.load(run)
-        if state['phase']!='COLLECTED' or manifest['profile']!='intel-gt-seconds-v42':
-            raise ValueError('Only collected explicit seconds diagnostics may be diagnosed')
+        if state['phase']!='COLLECTED' or manifest['profile'] not in ('intel-gt-seconds-v42','intel-gt-practical-v43'):
+            raise ValueError('Only collected explicit timing diagnostics may be diagnosed')
         report=json.loads((directory/'report.json').read_text())
         if not report.get('diagnostic_complete') or report.get('native_acceptance') or report.get('offline_integrity')!='PASS':
             raise ValueError('Incomplete or unverified diagnostic cannot be closed successfully')
@@ -601,9 +607,9 @@ class Runner:
         native=report['native'];s=native['summary'];b=native['binding'];w=native['entry']['wake']['summary']
         t=native['timing']
         elapsed=dict(prepare=s['end']-s['begin'],gt_phase=native['maintain']['end']-native['maintain']['phase'],gt=t['gt_end']-b['gt'],hda=t['hda_end']-b['hda'],outer=t['outer_end']-b['outer'])
-        from intel_gt_bootstrap import ORIGINAL,SECONDS
+        from intel_gt_bootstrap import ORIGINAL
         record=dict(status='DIAGNOSTIC_COMPLETE',source=manifest['source'],release=state['release'],session=state['session'],
-                    policy=SECONDS,elapsed_us=elapsed,closing_us=dict(guard=native['retire']['guard_end']-native['retire']['guard_begin'],borrow_return=native['retire']['return_end']-native['retire']['return_begin'],final_guard=native['retire']['final_end']-native['retire']['final_begin']),within_original={k:elapsed[k]<=ORIGINAL[k] for k in elapsed},
+                    policy={k:t[k] for k in ORIGINAL},elapsed_us=elapsed,closing_us=dict(guard=native['retire']['guard_end']-native['retire']['guard_begin'],borrow_return=native['retire']['return_end']-native['retire']['return_begin'],final_guard=native['retire']['final_end']-native['retire']['final_begin']),within_original={k:elapsed[k]<=ORIGINAL[k] for k in elapsed},
                     native_acceptance=False,original_timing_acceptance=False,physical_tearfree=False,return_integrity='PASS')
         atomic(directory/'diagnostic.json',record)
         report.update(status='DIAGNOSTIC_COMPLETE',original_timing_acceptance=False,native_acceptance=False)

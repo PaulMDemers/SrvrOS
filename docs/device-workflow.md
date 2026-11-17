@@ -440,3 +440,43 @@ disabled its own service without a fourth boot. All three diagnoses remain
 separate from ordinary timing acceptance. The
 [unit journal](machines/macbookair7-2.md#three-multi-second-gt-diagnostic-runs-complete)
 records actual times, original-limit comparisons and remaining GPU ownership work.
+
+## Practical GT timing candidate
+
+The Air7,2-only `intel-gt-practical-v43` profile selects
+`--intel-gt-bootstrap-practical`, its own image/recipe and owner wire5. Limits
+are250ms preparation,100ms maintenance phase,500ms GT,750ms HDA and1s outer;
+ordinary and seconds policies remain unchanged. Successful completion still
+requires diagnostic review through `diagnose`; ordinary `accept` refuses it.
+No GPU memory/completion authority is added.
+
+```sh
+python3 tools/device_workflow.py new practical-gt-trial \
+  --profile intel-gt-practical-v43 \
+  --question 'Does the original full-GT lifetime retire within the measured practical limits?' \
+  --expected 'Exact wire5 policy, original owners and complete preservation/retirement; clean media/recovery'
+python3 tools/device_workflow.py advance --run practical-gt-trial
+# After all30 frozen jobs and both exact-stage VMs, under existing reboot authorization:
+python3 tools/device_workflow.py advance --run practical-gt-trial --through boot_requested
+# On Ubuntu return, the ordinary service collects only; review and close:
+python3 tools/device_workflow.py diagnose --run practical-gt-trial
+```
+
+The30-job plan retains the original22 gates and four seconds gates, then adds
+four practical gates. The private replay fixtures are
+`build/device-fixtures/gt-seconds-history/r{1,2,3}/` with `report.json`, `exit.log`
+and `session-a.log` from this unit's completed seconds series. Restore only from
+its independently verified banks, checking each source hash against `bank.json`
+before copying; never copy another unit's acceptance or edit the raw bytes.
+Both practical jobs require exactly three original reports and exact reparse
+equality/checkpoints; all nine files are hashed job inputs. Missing fixtures
+refuse frozen qualification. Portable tests may skip native replay when those
+private files are absent, but cannot establish this unit's qualification.
+
+The previous seconds controller remains complete/disabled and is not reused or
+generalized for this trial. The single-run workflow verifies model, AC, this
+unit's USB/recovery, exact payload, media,1% volume and one-shot state. Guest
+instructions precede aperture exclusion; no input is required. Safe saved and
+unmounted outcomes return to Ubuntu, while uncertain ownership halts visibly.
+The current [unit record](machines/macbookair7-2-current.md) distinguishes host
+qualification from the new physical result.

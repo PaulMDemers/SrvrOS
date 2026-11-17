@@ -405,3 +405,32 @@ A practical next policy candidate is250ms preparation,100ms maintenance phase,
 these runs. Individual operation waits, source age, identities and failure
 retention must remain intact when selecting the next policy. See the
 [unit evidence](machines/macbookair7-2.md#three-multi-second-gt-diagnostic-runs-complete).
+
+### Measured practical policy candidate
+
+The follow-up implements the measured policy as a separate
+`build/intel-gt-practical/srvros.elf`, compiled with
+`SRVROS_INTEL_GT_PRACTICAL`, exact
+`srvros.intel-ring=gt-bootstrap-practical-v1` recipe and owner wire5.
+Preparation250ms, original GT maintenance100ms/total500ms, HDA750ms and outer1s
+are checked from the original origins, including logical return and final guard.
+All individual operation waits, poll/source-age limits and identity/ownership/
+preservation/retirement checks remain. Selecting both timing variants, or
+selecting a variant without the original full-GT native graph, fails compilation.
+
+Wire5 requires the exact timing-policy row and actual original parent closing
+timestamps. Ordinary wire1–3 and seconds wire4 remain unchanged, including
+receiver result shapes. The new image refuses the old recipes and vice versa.
+Completion is a separate practical diagnostic, with no original timing,
+managed-memory, DMA/cache/reader or tear-free grant. The old three-run controller
+continues to accept only the seconds profile; this candidate uses a single
+manifest-driven trial.
+
+The candidate retains all26 original/seconds qualification jobs and adds
+practical-model/policy and image gates at both levels (30 total). The actual
+adapter model completes a158ms preparation under the250ms budget, both entry
+routes, and refuses zero/backward/late clocks, stale owners and failed closing
+checks. Tests include fatal ASan/UBSan, all three image/recipe pairings, exclusive
+header gates, changed policy/parent clocks and exact replay of the three saved
+native seconds reports. Qualification must also pass both exact-stage VM paths
+before a new native run. See the [workflow](device-workflow.md#practical-gt-timing-candidate).

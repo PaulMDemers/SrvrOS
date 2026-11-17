@@ -53,7 +53,9 @@ static bool recipe(const char *p,unsigned mode) {
   if(mode==28 && equal(start,n,"srvros.intel-ring=nonzero-source-v1"))bit=14;
   if(mode==27 && equal(start,n,"srvros.intel-ring=nonzero-reset-v1"))bit=14;
   if(mode==24 && equal(start,n,bootstrap?
-#ifdef SRVROS_INTEL_GT_SECONDS
+#if defined(SRVROS_INTEL_GT_PRACTICAL)
+ "srvros.intel-ring=gt-bootstrap-practical-v1":
+#elif defined(SRVROS_INTEL_GT_SECONDS)
  "srvros.intel-ring=gt-bootstrap-seconds-v1":
 #else
  "srvros.intel-ring=gt-bootstrap-v1":

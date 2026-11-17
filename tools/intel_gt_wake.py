@@ -1,3 +1,4 @@
+from intel_gt_timing import policy as timing_policy
 """Bounded cooperative EFI wake lease; never SMM/engine/GPU-memory ownership."""
 import re
 FIELDS='v compiled contract efi64 loader recipe serialized prerequisites profile fw_quiet req_quiet initial_req initial_ack grants acquired before opened checked closed fw_after after released maps retired cache_checks guards retained state reason writes attempts requests ack thread begin_us end_us complete engine_reads pte_writes managed_pages smm_retired hardware_ownership'.split()
@@ -9,7 +10,7 @@ def clock_row(line):
  if c['v']!=1 or c['why']>63 or c['n']>200000 or any(c[k]>=1<<64 for k in ('at','prev','phase')):raise ValueError('clock schema/range')
  if not c['why'] and any(c[k] for k in ('at','prev','phase')):raise ValueError('clock unexplained sample')
  return c
-def wake_result(text, *, summary_only=False, seconds=False):
+def wake_result(text, *, summary_only=False, seconds=False,practical=False):
  if any(l.startswith('intel-wake-') and not l.startswith('intel-wake-summary:') for l in text.splitlines()):raise ValueError('wake unknown receipt')
  lines=[l for l in text.splitlines() if l.startswith('intel-wake-summary:')]
  if not lines:return None
@@ -29,7 +30,7 @@ def wake_result(text, *, summary_only=False, seconds=False):
  if s['attempts'] and (not s['grants'] or s['maps']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) or s['cache_checks']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']])):raise ValueError('wake issued without prerequisites')
  if s['state']==4 and not s['retained']:raise ValueError('wake fault not retained')
  if not s['compiled'] and any(v for k,v in s.items() if k!='v'):raise ValueError('wake ordinary writer')
- complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) and s['writes']==s['attempts']==3 and s['engine_reads']==({1:0,2:60,3:92,4:92,5:92,6:184,7:184,8:152,9:216,10:216,11:216,12:216,13:104,14:(s['engine_reads'] if s['engine_reads']>=230 else -1),15:122,16:(s['engine_reads'] if s['engine_reads']>=248 else -1),17:(s['engine_reads'] if s['engine_reads']>=274 else -1),18:(s['engine_reads'] if s['engine_reads']>=280 else -1),19:(s['engine_reads'] if s['engine_reads']>=401 else -1),20:(s['engine_reads'] if s['engine_reads']>=587 else -1),21:(s['engine_reads'] if s['engine_reads']>=651 else -1),22:152,23:(s['engine_reads'] if s['engine_reads']>=619 else -1),24:216,25:216,26:(s['engine_reads'] if s['engine_reads']>=711 else -1),27:(s['engine_reads'] if s['engine_reads']>=775 else -1),28:(s['engine_reads'] if s['engine_reads']>=380 else -1),29:(s['engine_reads'] if s['engine_reads']>=386 else -1),30:(s['engine_reads'] if s['engine_reads']>=386 else -1)}[s['v']]) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+(6000000 if seconds else 500000) and s['guards']>0
+ complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) and s['writes']==s['attempts']==3 and s['engine_reads']==({1:0,2:60,3:92,4:92,5:92,6:184,7:184,8:152,9:216,10:216,11:216,12:216,13:104,14:(s['engine_reads'] if s['engine_reads']>=230 else -1),15:122,16:(s['engine_reads'] if s['engine_reads']>=248 else -1),17:(s['engine_reads'] if s['engine_reads']>=274 else -1),18:(s['engine_reads'] if s['engine_reads']>=280 else -1),19:(s['engine_reads'] if s['engine_reads']>=401 else -1),20:(s['engine_reads'] if s['engine_reads']>=587 else -1),21:(s['engine_reads'] if s['engine_reads']>=651 else -1),22:152,23:(s['engine_reads'] if s['engine_reads']>=619 else -1),24:216,25:216,26:(s['engine_reads'] if s['engine_reads']>=711 else -1),27:(s['engine_reads'] if s['engine_reads']>=775 else -1),28:(s['engine_reads'] if s['engine_reads']>=380 else -1),29:(s['engine_reads'] if s['engine_reads']>=386 else -1),30:(s['engine_reads'] if s['engine_reads']>=386 else -1)}[s['v']]) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+timing_policy(seconds=seconds,practical=practical)['outer'] and s['guards']>0
  # Line-by-line triage cannot validate a separate clock receipt. Return a
  # summary predicate only, never a lease/native acceptance result in this mode.
  if summary_only:
@@ -51,8 +52,8 @@ def wake_result(text, *, summary_only=False, seconds=False):
  if s['complete']!=int(complete) and not (s['v']>=2 and not s['complete']):raise ValueError('wake completion')
  complete=complete and bool(s['complete'])
  return dict(lease_complete=complete,native_wake_complete=False,cooperative_firmware_contract=bool(s['contract']),smm_retirement=False,engine_retirement=False,hardware_ownership=False,managed_range=False,physical_tearfree=False,summary=s,clock=clock)
-def native_wake_result(text, *, seconds=False):
- r=wake_result(text,seconds=seconds)
+def native_wake_result(text, *, seconds=False,practical=False):
+ r=wake_result(text,seconds=seconds,practical=practical)
  if not r or not r['lease_complete']:return r
  from intel_gt_firmware import native_firmware_result
  fw=native_firmware_result(text)
@@ -74,7 +75,7 @@ def native_wake_result(text, *, seconds=False):
   from intel_engine_census import engine_result,PAGES
   if r['summary']['v'] in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29,30):
    from intel_completion_audit import completion_result
-   completion=completion_result(text,seconds=seconds)
+   completion=completion_result(text,seconds=seconds,practical=practical)
    if not completion or not completion['observation_complete']:raise ValueError('completion native coverage')
   else:
    engines=engine_result(text)
@@ -222,7 +223,7 @@ def native_wake_result(text, *, seconds=False):
   if r['summary']['v']==25:
    from intel_ring_entry import entry_result as ring_result
   from intel_joint import native_hda_context
-  tr=ring_result(text,seconds=seconds)
+  tr=ring_result(text,seconds=seconds,practical=practical)
   if not tr or not tr['complete']:raise ValueError('enabled ring transition source/preservation')
   native_hda_context(text)
   for n,s in enumerate(cache['rows']['sample']):

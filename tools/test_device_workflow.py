@@ -182,7 +182,7 @@ class RunnerTests(unittest.TestCase):
         import device_workflow
         (self.repo / 'build').mkdir()
         atomic(self.runner.store / 'unit.json', self.unit)
-        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41','intel-gt-seconds-v42'):
+        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43'):
             argv = ['device_workflow.py', 'new', 'combined', '--profile',
                     trial_profile, '--question', 'Complete original hold?',
                     '--expected', 'Exact retirement']
@@ -223,6 +223,20 @@ class RunnerTests(unittest.TestCase):
                       jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-seconds-v42')
         _,manifest,state=runner.load('wide')
         self.assertEqual(manifest['wire_version'],4);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
+
+    def test_practical_profile_freezes_wire5_and_retains_original_and_seconds_gates(self):
+        from workflow.gt_practical import jobs
+        from workflow.media import raw_log_limit
+        plan=jobs(['Makefile'])
+        self.assertEqual(sum(map(len,plan.values())),30)
+        for level in ('development','qualification'):
+            self.assertEqual(len({j['name'] for j in plan[level]}),len(plan[level]))
+            self.assertTrue({'seconds-model-series','seconds-image','practical-model-policy','practical-image'}<={j['name'] for j in plan[level]})
+        self.assertEqual(raw_log_limit('intel-gt-practical-v43'),98304)
+        runner=FixtureRunner(self.repo,self.root/'v43-store')
+        runner.create('practical',dict(self.unit,model='MacBookAir7,2'),'Measured lifetime','Complete diagnostic',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-practical-v43')
+        _,manifest,state=runner.load('practical')
+        self.assertEqual(manifest['wire_version'],5);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
 
     def test_full_gt_v41_freezes_wire3_and_old_profiles_are_historical(self):
         runner=FixtureRunner(self.repo,self.root/'v41-store')

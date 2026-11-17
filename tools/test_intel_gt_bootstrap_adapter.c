@@ -39,6 +39,7 @@ static void intel_display_test_bootstrap_boundary(void) {
  assert(wake_irq && hda_command==2 && !display_access_allowed());
  if(!strcmp(bootstrap_mode,"maintain-slow"))ticks+=130;
  if(!strcmp(bootstrap_mode,"seconds-slow"))ticks+=1000;
+ if(!strcmp(bootstrap_mode,"practical-slow"))ticks+=175;
  if(bf("zero",boundaries))ticks=UINT64_MAX;
  if(bf("back",boundaries))ticks=gt_bootstrap_native.last-2;
  if(bf("over",boundaries))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US;
@@ -158,7 +159,7 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
  if(bf("display-float",bdisplay))*out=UINT32_MAX;
  return !bf("display-read",bdisplay);
 }
-static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow");}
+static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow") || !strcmp(bootstrap_mode,"practical-slow");}
 static bool intel_display_test_bootstrap_clock(uint64_t *out) {
  if(!gt_bootstrap_native.returned || gt_bootstrap_native.complete || hit)return false;
  if(bf("return-zero",1))*out=0;
