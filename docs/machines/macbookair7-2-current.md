@@ -93,6 +93,21 @@ wire-specific helper; unsupported, native-active and mixed-wire inputs are
 covered. The native startup line now identifies wire2/UC3. The replacement
 still requires fresh frozen-source and both exact-stage VM gates.
 
+The qualified UC3 retry, source `b4d8569b`, release `6816e9b06874f4f3`,
+session `session-0006607f33b0cd71-00`, stopped after the census startup line.
+Ubuntu collected exactly two matching logs (boot and prerequisite checkpoint),
+with no census summary or exit snapshot. The run is reviewed and REJECTED as
+incomplete; neither the photo nor saved preflight identifies the failing call.
+All prior USB files and boot region preserve, offline integrity passes, USB is
+unmounted and installed/banked recovery/default/consumed one-shot checks pass.
+The raw logs, photo and negative review are sealed outside build. Current is
+6816 under recovery9aa8. Both exact-stage VM paths and seven frozen host slots
+passed before boot; those results do not establish native progress or cleanup.
+Next scope is operation-level progress capture around admission, source
+revalidation and first MMIO access. Do not repeat this image unchanged or infer
+that its two-second loop budget can interrupt a blocked primitive. No retry is
+armed, and no GPU mapping, ownership or tear-free acceptance follows.
+
 Base main4016abf0 remains unchanged. PR301 owns these native census/collector
 changes; ordinary startup and reset/CPU-context protocols remain unchanged.
 

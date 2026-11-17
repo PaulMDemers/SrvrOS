@@ -15449,3 +15449,22 @@ GPU buffers or tear-free rendering. V48 requires fresh host/exact-stage VM and
 native evidence. Only equal inactive08ae EFI/staged duplicates were retired to
 make room; its accepted independent CPU-context bank, all other accepted banks,
 current9fbb, recovery9aa8, accepted GUI f0a8 and four protected installs remain.
+
+
+## UC3 census stops before a result
+
+2026-11-17: all seven frozen host slots and both exact-stage VM paths passed
+for sourceb4d8569b/release6816e9b06874f4f3, v48/wire2. Native run
+`air-stolen-uc-retry-20261117`, session0006607f33b0cd71-00, stopped after the
+wire2 UC3 startup line. Only boot.log and session-a.log exist; there is no
+summary or exit snapshot. The photo agrees with that boundary but cannot
+identify the operation or establish whether exclusion/aliases were acquired.
+The run is reviewed and REJECTED as incomplete, retaining the collector's
+original missing-exit error. Two exact raw hashes, prior-file preservation,
+unchanged boot region, offline integrity, unmounted USB and installed/banked
+current/recovery/default/consumed one-shot checks verify. Raw logs, supplied
+photo and negative review are independently sealed outside build. Installed
+current6816/recovery9aa8 and protected payloads remain. Main4016abf0 is unchanged.
+No native layout or ownership pass is claimed. The next bounded scope is
+operation-level diagnostic progress before another native retry, retaining
+cache/source/alias checks and existing deadlines. No new test is armed.

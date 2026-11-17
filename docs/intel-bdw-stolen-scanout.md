@@ -134,6 +134,14 @@ changed prerequisite rows and checkpoints containing late census packets refuse.
 QEMU identity refusal never becomes an observation pass. Native completion can
 close only as `DIAGNOSED`; it cannot accept hardware ownership or tear-free.
 
+The first native wire2/UC3 retry (Air7,2 sourceb4d8569b, release6816e9b06874f4f3)
+stopped after startup and left only boot/prerequisite logs. Its missing summary
+and exit are incomplete evidence, not a named handled refusal or safe-cleanup
+receipt. The negative review preserves raw logs and offline/recovery checks;
+see the [unit record](machines/macbookair7-2-current.md). Next diagnostic work
+must distinguish admission/source revalidation/first access. A loop deadline
+checked between operations does not interrupt a primitive that never returns.
+
 ## After a native result
 
 If the census refuses or exposes holes/aliases/reservations, do not fill or
