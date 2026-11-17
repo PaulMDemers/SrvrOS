@@ -60,6 +60,17 @@ The prior zero-arena result remains in the [dated journal](macbookair7-2.md#nati
 
 ## Next bounded scope
 
+Active ownership audit: determine whether Broadwell's documented GAM/GTI-empty
+invalidation response can be reached through a device-TLB invalidation queue
+without depending on the private GPU mappings it would authorize. Scope is the
+captured Air graphics remapper/PCI capabilities, generation-specific reference
+audit and any separately justified protocol implementation. No remapping,
+queue-enable, ATS, GPU PTE or display writer is authorized by a capability bit.
+Keep ordinary images and the accepted reset/CPU-context graph unchanged until
+all operation prerequisites and failure-state ownership are established.
+Integration main4016abf0 is unchanged; PR301 owns this bounded work, with no
+overlap in the independent Wi-Fi/WebCore PRs.
+
 The separate [primary-A flip protocol](../intel-bdw-primary-flip.md) now
 implements original-source admission, one synchronous arm, actual live-surface
 latch interpretation and incremental bounded polling. Its host qualification
