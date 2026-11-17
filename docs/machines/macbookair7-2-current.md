@@ -74,3 +74,21 @@ Earlier memory-child acceptance, failed host-only candidates and verified stagin
 EFI duplicate cleanup are preserved in the [GPU qualification history](macbookair7-2-gpu-history.md)
 and dated journal. Root free space is about1.5GiB and EFI61MiB; review capacity
 before another payload, preserving dirty reproduction work and accepted banks.
+
+
+## Active work: mapping-policy composition and display extent classification
+
+Air7,2 local branch `device/macbookair7-2/tearfree`, base4016abf0, PR301.
+The returned arena run is closed and banked before this work. The next bounded
+implementation uses the selected existing aggregate clocks in the host mapping
+transaction, retaining all legacy values and its nested100ms transfer/publication
+bounds. Add an independent conservative Broadwell primary-reader extent check
+from captured raw geometry/programmed/live/stereo values and the full protected
+fence; reject unsupported/ambiguous routes and overlap without granting GPU
+ownership. Touch points: command-mapping core/fixtures, new pure reader-range
+classifier/fixtures, Makefile and associated guides. PR19/379 are independent.
+No new native writer/provider or reboot is authorized by a classifier result;
+actual DMA/cache/prefetch/firmware retirement remains a prerequisite. Qualify
+positive/negative/overflow/reference and policy-boundary/control cases first,
+then decide whether new native capture is needed to resolve a remaining field.
+Recovery9aa8/currenta382 and all independently accepted evidence stay protected.
