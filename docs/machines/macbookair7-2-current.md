@@ -103,3 +103,20 @@ write refusal. No new hardware trial is prepared for this host-only change;
 currenta382/recovery9aa8 and externally banked native evidence are unchanged.
 Next specify the documented completion witness before integrating a native
 range transfer/mapping lifetime, preserving the original backing and clocks.
+
+
+## Active scope: original private BCS execlist submission
+
+Base4016abf0 fetched unchanged; PR301 owns this bounded host-only step, with
+independent PR19/379 untouched. Broadwell RCS INSTPM bit5 is reserved (PRM2c826),
+so the older MMIO sync-flush recipe cannot supply the missing completion proof.
+Implement the documented BCS four-DWORD Execlist Submit Port transaction as the
+future private-flush submit provider. Require independent original initialized
+context/descriptor, execlist mode, reserved empty queue, exact mappings and GPU
+visibility before accesses. Preserve source/epoch/registration, original clocks,
+known partial writes and terminal retained failures; issuance is not execution
+or completion. No native image/caller, inherited ring or ownership grant. Shared
+touch points are a new protocol header/core, host model, Makefile and guides.
+Next checkpoint is exact order/width, callback/fault/clock matrices, controls,
+fatal sanitizers and no-image/native-frame checks before native integration.
+Currenta382/recovery9aa8 and all previous evidence remain unchanged.
