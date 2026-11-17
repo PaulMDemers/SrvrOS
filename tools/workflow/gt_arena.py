@@ -5,7 +5,7 @@ from workflow.gt_memory import jobs as previous
 
 def jobs(dependencies):
     plan=copy.deepcopy(previous(dependencies))
-    outputs=['build/tests/intel-gt-arena-adapter','build/tests/intel-gt-arena-boot','build/tests/intel-command-native','build/tests/intel-command-mapping','build/tests/intel-command-mapping-policy']
+    outputs=['build/tests/intel-gt-arena-adapter','build/tests/intel-gt-arena-boot','build/tests/intel-command-native','build/tests/intel-command-mapping','build/tests/intel-command-mapping-policy','build/tests/intel-command-mapping-practical','build/tests/intel-bdw-primary-range']
     build=plan['development'][0];build['argv'].extend(outputs);build['outputs'].extend(outputs)
     for level in ('development','qualification'):
         plan[level].append(dict(name='arena-image',argv=['make','build/intel-gt-arena/srvros.elf','build/intel-command-memory/srvros.elf','build/intel-ggtt-native/srvros.elf'],cache=False,
@@ -16,7 +16,7 @@ def jobs(dependencies):
             'test_receipts_and_old_wire_refuse_forged_completion','test_exact_recipe_stage_and_separate_image')]
         plan[level].append(dict(name='arena-native-model',argv=[sys.executable,'-m','unittest','-v',*tests],
             env={'PYTHONPATH':'tools','SRVROS_FIXTURE_BATCH':'1'},inputs=dependencies+outputs,outputs=[],timeout=1200))
-        plan[level].append(dict(name='arena-legacy-policy',argv=[sys.executable,'-m','unittest','-v','test_intel_command_native','test_intel_command_mapping'],
+        plan[level].append(dict(name='arena-legacy-policy',argv=[sys.executable,'-m','unittest','-v','test_intel_command_native','test_intel_command_mapping','test_intel_bdw_primary_range'],
             env={'PYTHONPATH':'tools','SRVROS_FIXTURE_BATCH':'1'},inputs=dependencies+outputs,outputs=[],timeout=1200))
 
     for index,name in enumerate(('arena-image','arena-native-model'),1):

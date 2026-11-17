@@ -75,7 +75,10 @@ retirement and preservation of all16KiB of zero storage.
 
 Every nested source-clock sample is accounted against the original preparation
 origin:100ms by default,150ms under the existing selected diagnostic policy.
-GT300ms, HDA400ms and outer500ms origins remain unchanged. The publication and
+GT300ms, HDA400ms and outer500ms origins remain unchanged for those legacy
+policies. A separate host practical-policy target uses the already selected
+full-GT250/500/750/1000ms preparation/GT/HDA/outer aliases; it does not change
+any existing policy value or enable a native caller. The publication and
 transfer cores retain their own100ms phase bounds; none restarts the enclosing
 deadline. The optional `scanout_transfer_check_clocked` entry point observes the
 same admitted source clock through the enclosing wrapper, leaving the original
@@ -84,14 +87,19 @@ direct changes to the mapping owner's last timestamp during nested callbacks.
 Zero, backward, frozen and limit-plus-one clocks refuse; exact endpoints pass.
 
 `make test-intel-command-mapping` exercises actual CPU, transfer, memory,
-publication, space and exclusion cores with synthetic hardware. Both100/150ms
-policies pass17,808 composed cases, covering every callback's identity/vector/
+publication, space and exclusion cores with synthetic hardware. The100/150ms
+legacy and250ms practical
+policies pass26,712 composed cases, covering every callback's identity/vector/
 registration mutation, safe reentry, every clock sample, proof freshness/bits,
 uncertain access, retained faults, parent closing and pending readers. Separate
 tests cover the nested transfer's own100ms boundary and a reader reappearing
 after exact restoration, which must retain backing. Fatal ASan/UBSan,21 compiled
 weakening controls, native compiler2KiB frame checks and native-image exclusion
-pass. Compile failures do not count as detected weakening controls.
+pass. Four additional practical-policy compiled controls reject one-microsecond
+extensions independently. A220ms-aged original parent now completes only under
+the explicitly selected practical policy; both legacy targets refuse before
+stores and keep RAM held. Compile failures do not count as detected weakening
+controls.
 
 These results qualify composition and failure retention only. Before a native
 trial, implement independent firmware/engine/DMA/cache/display-reader ownership
@@ -104,3 +112,10 @@ The isolated [native admission dry run](intel-command-ownership.md) joins paired
 PCI/engine/display/GGTT and CPU alias/cache observations under the original
 command hold. It still supplies no transferred interval or GPU completion grant;
 its measured requirement6 and missing25 cannot admit this mapping transaction.
+
+
+The separate [primary-range classifier](intel-bdw-primary-range.md) checks raw
+geometry and full-fence separation, including the128-PTE display translation
+tail. It is a pure host-only data interpreter, not the missing native transfer/
+DMA/cache/reader provider. A positive layout result cannot fill the five mapping
+requirements or clear any completion obligation.

@@ -10,7 +10,7 @@ from fixture_client import run as execute
 from fixture_compile import recipe,compile_fixture
 ROOT=Path(__file__).resolve().parents[1]
 CORE='kernel/diagnostics/intel_command_mapping.c'
-TARGETS=('build/tests/intel-command-mapping','build/tests/intel-command-mapping-policy')
+TARGETS=('build/tests/intel-command-mapping','build/tests/intel-command-mapping-policy','build/tests/intel-command-mapping-practical')
 
 
 def run(binary,mode):
@@ -22,7 +22,7 @@ def run(binary,mode):
 class Mapping(unittest.TestCase):
  def test_original_composition_and_callback_faults(self):
   total=0
-  for target,budget in zip(TARGETS,(100000,150000)):
+  for target,budget in zip(TARGETS,(100000,150000,250000)):
    s=run(target,'report');self.assertEqual(s['prepare_us'],budget)
    self.assertEqual((s['reads'],s['writes'],s['completions'],s['held']),(20,8,2,0))
    for mode in ('registration','hold','cpu-source','cpu-io','map-source','map-io','map-counter','map-time','map-vector','publication','publication-vector','transfer','transfer-vector','range'):
@@ -55,6 +55,14 @@ class Mapping(unittest.TestCase):
    for mode in ('pending:16','stuck','frozen','reader-returned:2'):self.assertEqual(run(target,mode)['complete'],0)
    for mode in ('limit','over','zero','back','frozen'):run(target,'transfer-phase-'+mode)
 
+ def test_mapping_after_aged_original_parent_uses_only_selected_policy(self):
+  # Model the actual enclosing age, including the already spent220ms. A new
+  # transfer phase may not reset preparation or silently relax legacy callers.
+  for i,target in enumerate(TARGETS):
+   r=run(target,'late');self.assertEqual(r['complete'],i==2)
+   self.assertEqual(r['writes'],8 if i==2 else 0)
+   self.assertEqual(r['held'],0 if i==2 else 1)
+
  def test_compiled_weakening_controls(self):
   originals={p:(ROOT/p).read_text() for p in (CORE,'kernel/src/scanout_publish.c','kernel/diagnostics/intel_command_memory.c')}
   pub='kernel/src/scanout_publish.c';cpu='kernel/diagnostics/intel_command_memory.c'
@@ -78,7 +86,7 @@ class Mapping(unittest.TestCase):
    'backward-clock':([(CORE,'at<r->last','false')],'clock-back:4'),
    'missing-final-clock':([(CORE,'|| !sample(r) || r->last<=r->begin','|| false || r->last<=r->begin')],f'clock-zero:{clocks}'),
   }
-  for domain,cap in enumerate(('INTEL_DIAGNOSTIC_PREPARE_US','300000','400000','500000')):
+  for domain,cap in enumerate(('INTEL_DIAGNOSTIC_PREPARE_US','INTEL_DIAGNOSTIC_GT_TOTAL_US','INTEL_DIAGNOSTIC_HDA_US','INTEL_DIAGNOSTIC_OUTER_US')):
    controls['extended-deadline-'+str(domain)]=([(CORE,'>'+cap,'>('+cap+'+1)')],f'clock-over:{clocks}:{domain}')
   declaration=recipe(TARGETS[0])
   with tempfile.TemporaryDirectory(prefix='command-map-controls-') as directory:
@@ -94,6 +102,19 @@ class Mapping(unittest.TestCase):
      compile_fixture(TARGETS[0],output=binary,declaration=declaration,replacements=replacements)
      p=execute(binary,mode);self.assertNotEqual(p.returncode,0,'Undetected weakening '+name+' '+p.stdout)
   print('Compiled mapping weakening controls',len(controls))
+
+ def test_practical_clock_aliases_keep_independent_deadlines(self):
+  # Compile each weakened cap under the actual practical selection. The final
+  # sample is after publication's own phase, so nested bounds cannot conceal it.
+  original=(ROOT/CORE).read_text();target=TARGETS[2];clocks=run(target,'report')['clocks']
+  with tempfile.TemporaryDirectory(prefix='command-map-practical-controls-') as directory:
+   for domain,cap in enumerate(('INTEL_DIAGNOSTIC_PREPARE_US','INTEL_DIAGNOSTIC_GT_TOTAL_US','INTEL_DIAGNOSTIC_HDA_US','INTEL_DIAGNOSTIC_OUTER_US')):
+    changed=Path(directory)/f'{domain}.c';self.assertEqual(original.count('>'+cap),1)
+    changed.write_text(original.replace('>'+cap,'>('+cap+'+1)'))
+    binary=Path(directory)/str(domain)
+    compile_fixture(target,output=binary,declaration=recipe(target),replacements=[CORE+'='+str(changed)])
+    p=execute(binary,f'clock-over:{clocks}:{domain}')
+    self.assertNotEqual(p.returncode,0,'Undetected practical clock extension '+str(domain))
 
  def test_fatal_sanitizers_on_callback_classes(self):
   with tempfile.TemporaryDirectory(prefix='command-map-san-') as directory:
@@ -117,7 +138,7 @@ class Mapping(unittest.TestCase):
   plan=subprocess.check_output(['make','-Bn','--','build/intel-command-memory/owner.o'],cwd=ROOT,text=True,timeout=120)
   command=next(shlex.split(l) for l in plan.splitlines() if '-c kernel/diagnostics/intel_command_memory.c ' in l)
   with tempfile.TemporaryDirectory(prefix='command-map-frame-') as directory:
-   for i,flags in enumerate(([],['-DSRVROS_INTEL_VTD_DRAIN'])):
+   for i,flags in enumerate(([],['-DSRVROS_INTEL_VTD_DRAIN'],['-DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE','-DSRVROS_INTEL_GT_PRACTICAL'])):
     args=[a for a in command if a not in ('-MMD','-MP') and not a.startswith('-DSRVROS_INTEL_')];args[args.index('-c')+1]=CORE;args[args.index('-o')+1]=str(Path(directory)/f'{i}.o')
     subprocess.run([*args,*flags],cwd=ROOT,check=True,timeout=180)
 

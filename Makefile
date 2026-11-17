@@ -6756,9 +6756,22 @@ build/tests/intel-command-mapping$(HOST_EXE): tools/test_intel_command_mapping.c
 build/tests/intel-command-mapping-policy$(HOST_EXE): tools/test_intel_command_mapping.c tools/fixture_server.h $(COMMAND_MAPPING_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(COMMAND_MAPPING_HOST_SOURCES) -o $@
-test-intel-command-mapping: build/tests/intel-command-mapping$(HOST_EXE) build/tests/intel-command-mapping-policy$(HOST_EXE)
+build/tests/intel-command-mapping-practical$(HOST_EXE): tools/test_intel_command_mapping.c tools/fixture_server.h $(COMMAND_MAPPING_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(COMMAND_MAPPING_HOST_SOURCES) -o $@
+test-intel-command-mapping: build/tests/intel-command-mapping$(HOST_EXE) build/tests/intel-command-mapping-policy$(HOST_EXE) build/tests/intel-command-mapping-practical$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_command_mapping
 test-core: test-intel-command-mapping
+
+# Pure Broadwell primary address envelope; no native mapping/transfer caller.
+PRIMARY_RANGE_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_range.c
+build/tests/intel-bdw-primary-range$(HOST_EXE): tools/test_intel_bdw_primary_range.c $(PRIMARY_RANGE_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(PRIMARY_RANGE_HOST_SOURCES) -o $@
+.PHONY: test-intel-bdw-primary-range
+test-intel-bdw-primary-range: build/tests/intel-bdw-primary-range$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_primary_range
+test-core: test-intel-bdw-primary-range
 
 # Isolated full-GT reset/fence-preservation protocol. Host only: no native
 # image/adapter is enabled by this target or by the existing BCS8-only writer.

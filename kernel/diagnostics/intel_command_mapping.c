@@ -80,8 +80,8 @@ static uint64_t sample(void *ctx) {
  struct saved s=capture(r);uint64_t at=r->io.now(r->io.ctx);
  if(!unchanged(r,&s)){fail(r,COMMAND_MAP_SOURCE);return 0;}
  unsigned why=!at?1:at<r->last?2:
- at-r->lease.prepare>INTEL_DIAGNOSTIC_PREPARE_US?3:at-r->lease.gt>300000?4:
- at-r->lease.hda>400000?5:at-r->lease.outer>500000?6:0;
+ at-r->lease.prepare>INTEL_DIAGNOSTIC_PREPARE_US?3:at-r->lease.gt>INTEL_DIAGNOSTIC_GT_TOTAL_US?4:
+ at-r->lease.hda>INTEL_DIAGNOSTIC_HDA_US?5:at-r->lease.outer>INTEL_DIAGNOSTIC_OUTER_US?6:0;
  if(why){r->clock_at=at;r->clock_previous=r->last;r->clock_reason=why;fail(r,COMMAND_MAP_CLOCK);return 0;}
  if(!r->begin)r->begin=at;
  r->last=at;return at;

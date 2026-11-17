@@ -5,6 +5,37 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-17. State: **active reference machine; partial device acceptance**.
 
+## Host practical mapping and primary-envelope prerequisites
+
+2026-11-17: after collecting and banking the original full-GT CPU arena run,
+base4016abf0/PR301 adds host-only mapping-policy and range interpretation work.
+The mapping transaction now consumes the selected aggregate clock aliases,
+with unchanged100/150ms legacy and250ms practical preparation policies and
+unchanged independent100ms transfer/publication phases. Three policies pass
+26,712 callback/fault cases, fatal sanitizers,21 existing weakening controls,
+four additional practical one-microsecond controls and2KiB native frames.
+An aged220ms original preparation is accepted only by the selected practical
+policy; both legacy policies refuse before stores and retain RAM. No guest
+image links the mapping transaction and no native store is introduced.
+
+The new pure Broadwell primary-range core checks raw source/stride/format,
+programmed/live/stereo joins, tile padding,128 extra display PTEs, real capacity
+and full-fence overlap.18,216 cases, twelve compiled weakening controls, fatal
+sanitizers, native frames and no-image isolation pass. The sanitized earlier
+Air geometry/full-GT reader fixture yields a5,554,176byte padded image and
+6,078,464byte translation envelope inside the34MiB protected fence. The whole
+remaining fence stays protected. This is offline arithmetic, not same-phase
+live-owner, DMA/cache/prefetch/flip or all-reader completion evidence.
+
+Workflow regression passes42 tests, including fixture-JSON byte invalidation;
+both new targets/suites are frozen in future development and qualification
+without dropping any of the42 existing job slots. No previous receipt becomes
+qualification of changed code. No native trial/stage/arm is performed, and the
+prior source37b/releasea382/session000660767ae66ad9-00 result remains unchanged.
+All255 GPU obligations stay open. Next supply a documented actual memory-
+completion witness and maintained firmware/all-reader exclusion before transfer;
+another unchanged observation boot would not supply that authority.
+
 ## Native full-GT private CPU arena completes
 
 2026-11-17: frozen source `37b54934fceb59bc17f53a6bb9f71642747783f7`,

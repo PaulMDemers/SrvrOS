@@ -10,6 +10,16 @@ The [Air7,2 unit record](machines/macbookair7-2.md) owns physical acceptance;
 the [coordination guide](agent-coordination.md) governs shared implementation.
 It does not accept another Mac's firmware or graphics profile.
 
+The latest hardware result completes the original full-GT reset/memory/private
+CPU arena lifetime; see the [current Air record](machines/macbookair7-2-current.md).
+The mapping core now supports the selected practical timing aliases in host
+qualification. A separate [primary-envelope classifier](intel-bdw-primary-range.md)
+accounts for tiled padding,128 extra display translations and the full protected
+fence using raw observations. Neither is a native ownership provider. The next
+new native operation needs a documented outstanding-memory completion witness
+and maintained firmware/all-reader exclusion before the exact-range transfer;
+replaying or rebooting unchanged positive observations will not fill that gap.
+
 ## Capability-sized trial plan
 
 The next acceptance target is one complete **private one-page GPU mapping

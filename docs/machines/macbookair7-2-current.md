@@ -76,19 +76,30 @@ and dated journal. Root free space is about1.5GiB and EFI61MiB; review capacity
 before another payload, preserving dirty reproduction work and accepted banks.
 
 
-## Active work: mapping-policy composition and display extent classification
+## Host mapping-policy and display-range prerequisites
 
-Air7,2 local branch `device/macbookair7-2/tearfree`, base4016abf0, PR301.
-The returned arena run is closed and banked before this work. The next bounded
-implementation uses the selected existing aggregate clocks in the host mapping
-transaction, retaining all legacy values and its nested100ms transfer/publication
-bounds. Add an independent conservative Broadwell primary-reader extent check
-from captured raw geometry/programmed/live/stereo values and the full protected
-fence; reject unsupported/ambiguous routes and overlap without granting GPU
-ownership. Touch points: command-mapping core/fixtures, new pure reader-range
-classifier/fixtures, Makefile and associated guides. PR19/379 are independent.
-No new native writer/provider or reboot is authorized by a classifier result;
-actual DMA/cache/prefetch/firmware retirement remains a prerequisite. Qualify
-positive/negative/overflow/reference and policy-boundary/control cases first,
-then decide whether new native capture is needed to resolve a remaining field.
-Recovery9aa8/currenta382 and all independently accepted evidence stay protected.
+Base4016abf0 and independent PR19/379 remain unchanged; PR301 owns this work.
+The host-only mapping transaction now uses existing selected aggregate aliases,
+including250/500/750/1000ms for the full-GT practical policy. Both legacy policies
+retain their original values and all nested100ms transfer/publication bounds.
+Three policies pass26,712 composed cases, fatal sanitizers,21 existing compiled
+controls plus4 practical clock controls and2KiB native compiler frames.
+A220ms-aged original parent is admitted only under the practical policy;
+legacy targets retain RAM and issue no stores. No native image links this core.
+
+The new [primary-range classifier](../intel-bdw-primary-range.md) checks two
+raw geometry/reader snapshots, tile padding, the documented128-PTE display tail,
+capacity and separation from the complete protected fence. It passes18,216
+cases, twelve compiled controls, fatal sanitizers and native compiler/image checks.
+Sanitized saved-Air replay confirms the primary envelope/tail fit inside34MiB;
+it supplies no fresh same-phase/owner proof or additional hardware acceptance.
+Unknown layouts/readers refuse. Fixture JSON bytes and both new host targets/
+suites are included in future frozen qualifications; all42 job slots remain.
+
+The native provider gap remains outstanding pipeline/cache/prefetch and full
+firmware/display-reader retirement. The new classifier cannot certify those
+from saved or matching samples. Keep all255 obligations and the existing GPU
+write refusal. No new hardware trial is prepared for this host-only change;
+currenta382/recovery9aa8 and externally banked native evidence are unchanged.
+Next specify the documented completion witness before integrating a native
+range transfer/mapping lifetime, preserving the original backing and clocks.

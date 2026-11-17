@@ -152,6 +152,16 @@ class FixtureRunner(Runner):
 
 
 class InputClosureTests(unittest.TestCase):
+    def test_geometry_fixture_bytes_are_frozen_inputs(self):
+        from workflow.runner import code_inputs
+        from workflow.store import files
+        with tempfile.TemporaryDirectory() as d:
+            repo=Path(d);folder=repo/'tools/fixtures';folder.mkdir(parents=True)
+            fixture=folder/'geometry.json';fixture.write_text('{"width":1440}\n')
+            patterns=code_inputs(repo);self.assertIn('tools/fixtures/**/*.json',patterns)
+            before=files(repo,patterns);fixture.write_text('{"width":1441}\n')
+            self.assertNotEqual(files(repo,patterns),before)
+
     def test_fixture_include_fragments_are_frozen_inputs(self):
         from workflow.runner import code_inputs
         with tempfile.TemporaryDirectory() as d:
@@ -278,6 +288,11 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(len(names),len(plan[level]))
             self.assertTrue({j['name'] for j in previous(['Makefile'])[level]}<=names)
             self.assertTrue({'arena-native-model','arena-legacy-policy','arena-image'}<=names)
+            fixture=next(j for j in plan[level] if j['name']=='fixtures')
+            for target in ('build/tests/intel-command-mapping-practical','build/tests/intel-bdw-primary-range'):
+                self.assertIn(target,fixture['argv']);self.assertIn(target,fixture['outputs'])
+            regression=next(j for j in plan[level] if j['name']=='arena-legacy-policy')
+            self.assertIn('test_intel_bdw_primary_range',regression['argv'])
         self.assertEqual(raw_log_limit('intel-gt-arena-v45'),98304)
         runner=FixtureRunner(self.repo,self.root/'v45-store')
         runner.create('arena',dict(self.unit,model='MacBookAir7,2'),'Original CPU arena','Single release after original parent retirement',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-arena-v45')

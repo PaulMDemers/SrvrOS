@@ -136,12 +136,20 @@ static void setup(void){
  assert(intel_command_memory_prepare(&cpu,0x1000,0xffffc001f5160000ull,(struct intel_command_io){{&m,allocate,backing,release},cpu_map,cpu_unmap,cpu_observe,initialize,preserved,cpu_guard,cpu_retired,now}));
  m.time=3000000;
  uint64_t gt=m.time,hda=m.time,outer=m.time;
+#ifdef SRVROS_INTEL_GT_PRACTICAL
+ if(m.domain==1){gt-=300000;hda=outer=gt;}
+ if(m.domain==2){gt-=275000;hda-=550000;outer=hda;}
+ if(m.domain==3){gt-=262500;hda-=525000;outer-=800000;}
+#else
  if(m.domain==1){gt-=250000;outer=gt;}
  if(m.domain==2){gt-=100000;hda-=350000;outer=hda;}
  if(m.domain==3){gt-=150000;hda-=250000;outer-=450000;}
+#endif
+ if(mode("late")){gt=m.time-160000;hda=m.time-180000;outer=m.time-232000;}
  struct intel_command_lease lease={&parent,&m,&lifetime,0x1000,1,1,m.time,gt,hda,outer};
  assert(intel_command_memory_run(&cpu,&lease) && intel_command_memory_returned(&cpu));
- const uint64_t origins[]={lease.prepare,lease.gt,lease.hda,lease.outer},caps[]={INTEL_DIAGNOSTIC_PREPARE_US,300000,400000,500000};m.limit=origins[m.domain]+caps[m.domain];
+ if(mode("late"))m.time=lease.prepare+220000;
+ const uint64_t origins[]={lease.prepare,lease.gt,lease.hda,lease.outer},caps[]={INTEL_DIAGNOSTIC_PREPARE_US,INTEL_DIAGNOSTIC_GT_TOTAL_US,INTEL_DIAGNOSTIC_HDA_US,INTEL_DIAGNOSTIC_OUTER_US};m.limit=origins[m.domain]+caps[m.domain];
  assert(display_access_acquire(9,&exclusion));
  struct scanout_transfer_manifest manifest={.mmio=0xc0000000,.aperture=0xb0000000,.aperture_bytes=0x10000000,.fence_end=0x2200000,.source_epoch=1,.first=8704,.pages=4,.assurances=HANDOFF_ALL,.original=original};
  assert(scanout_transfer_open(&transfer,&transfers,&spaces,&exclusion,&manifest,(struct scanout_transfer_io){&m,transferred,now},&token));
@@ -170,7 +178,7 @@ static int run_case(int argc,char **argv){
   assert(!intel_command_mapping_run(&mapping,&cpu,&transfer,&token,provider,use,&m) && !mapping.object && !m.events && !m.writes);puts("command-mapping: PASS invalid no callbacks");return 0;
  }
  m.active=true;bool ok=intel_command_mapping_run(&mapping,&cpu,&transfer,&token,provider,use,&m);
- bool normal=mode("report") || mode("reenter") || mode("parent-close") || (mode("pending") && m.pending<COMMAND_MAP_POLLS) || mode("clock-limit");
+ bool normal=mode("report") || mode("reenter") || mode("parent-close") || (mode("pending") && m.pending<COMMAND_MAP_POLLS) || mode("clock-limit") || (mode("late") && INTEL_DIAGNOSTIC_PREPARE_US==250000);
  if(normal){
   assert(ok && mapping.complete && !mapping.retained && !mapping.busy && !mapping.registered && mapping.state==COMMAND_MAP_CLOSED);
   assert(mapping.attempts==8 && mapping.writes==8 && m.attempts==8 && m.writes==8 && m.completions==2 && mapping.completions==2 && m.children==1);
@@ -184,7 +192,7 @@ static int run_case(int argc,char **argv){
  }else{
   assert(!ok && !mapping.complete && mapping.retained && mapping.registered && mapping.state==COMMAND_MAP_FAULT && !mapping.busy);
   assert(m.allocated && !intel_command_memory_close(&cpu) && !display_access_release(&exclusion,true));
-  assert(mapping.cpu==&cpu);assert(m.hit || mode("stuck") || mode("pending") || mode("frozen"));
+  assert(mapping.cpu==&cpu);assert(m.hit || mode("stuck") || mode("pending") || mode("frozen") || mode("late"));
   if(mode("reader-returned")){
    assert(m.at==2 && m.readers==2 && mapping.writes==8 && mapping.completions==2);
    for(unsigned i=0;i<4;i++)assert(gtt[i]==original[i]);
