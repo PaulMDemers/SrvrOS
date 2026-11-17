@@ -464,8 +464,9 @@ The separate `build/intel-gt-memory/srvros.elf` image selects
 `srvros.intel-ring=gt-bootstrap-memory-v1` recipe. Workflow profile
 `intel-gt-memory-v44` freezes wire6; it uses the already measured practical
 250ms preparation / 100ms maintenance phase / 500ms GT / 750ms HDA / 1s outer
-policy. Individual hardware phases and poll caps stay unchanged. This composition
-is implemented for qualification; it is not yet physically accepted.
+policy. Individual hardware phases and poll caps stay unchanged. One bounded native
+completion is recorded below; broader physical coverage and GPU ownership
+acceptance remain pending.
 
 After full reset and fence restoration, a registered child binds the **original**
 GT borrow and new engine epoch while GPU requester command3, the HDA hold and
@@ -515,3 +516,21 @@ by the valid adapter and success on an unmodified positive. A positive cache mod
 also exercises variable and fixed MTRR rows; CPU word widths are checked explicitly
 by the decoder. Complete qualification and native composition evidence remain
 required for the corrected candidate.
+
+### Native full-GT memory child completes
+
+Air7,2 runtime `c86685d8` / release `434e31fd8123e5bd`, session
+`session-00066073af2a582b-00`, completes one kind2 wire6 original-owner lifetime.
+All36 frozen slots and both exact-stage VMs pass before the1% trial. The two
+operations complete in37.044ms (remapper, one poll) and2.323ms (System Agent),
+with exact cache/alias identity, a matching second census and both actual aliases
+retired before requester/parent return. The entire child takes83.188ms;
+preparation219.728/250ms and largest GT maintenance77.601/100ms fit unchanged
+practical clocks. Original requester/GT/HDA and all15 original aliases retire.
+All705 banked files, raw/checkpoint reparse, prior-file/offline integrity and
+recovery/consumed-one-shot checks verify; the run is closed as `DIAGNOSED`.
+
+This is narrow native operation evidence, without managed GPU mapping/context/
+submission, pipeline/cache/all-reader assurance or tear-free acceptance. All255
+whole-device obligations remain open. See the [unit result](machines/macbookair7-2.md#native-full-gt-memory-child-completes)
+for exact clocks, scope and remaining physical coverage.

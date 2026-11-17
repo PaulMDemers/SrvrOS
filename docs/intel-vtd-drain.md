@@ -340,4 +340,6 @@ its own native provider, registration, two UC aliases, clocks and receipts;
 the legacy source graph and v36 evidence are not transferred. The operation core
 inherits the explicitly selected practical aggregate clocks, while ordinary and
 legacy images retain their existing defaults. The256-poll cap and narrow AT00
-processed-request scope are unchanged. Native composition acceptance is pending.
+processed-request scope are unchanged. One bounded native kind2 composition now completes; see
+[the unit result](machines/macbookair7-2.md#native-full-gt-memory-child-completes).
+Enabled-entry coverage, repeatability and whole-device ownership remain pending.

@@ -15125,3 +15125,53 @@ USB is unmounted, the transient handoff is absent/inactive, the earlier three-ru
 controller remains complete/disabled and no further reboot is armed. This result
 is attributed to runtimeb7752e6f; subsequent result-only documentation does not
 claim a new runtime qualification. No new hardware test is queued in this update.
+
+## Native full-GT memory child completes
+
+2026-11-17 UTC: runtime `c86685d812c0c73806cf6c4775c7bd373892e434`, release
+`434e31fd8123e5bd`, session `session-00066073af2a582b-00`; actual main4016abf0,
+PR301. The separately selected wire6 `intel-gt-memory-v44` run passes all36
+frozen development/qualification slots and both exact-stage VM paths. The sealed
+single-trial handoff rechecked receipts, logs, outputs, original inputs/source,
+payload/bank, local model/AC/recovery/default/unarmed state, offline USB integrity
+and1% volume before boot. The matching native return was automatically collected
+and strict raw/checkpoint parsing plus fresh recovery/media checks pass.
+
+The actual original kind2 full-GT owner advances epoch0→1, completes both reset
+pulses and all five cancellations, preserves32 fences (changed/restored0/0) and
+exact display/backing, and keeps requester command3/HDA/CPU/firmware exclusion
+through the new registered child. The child completes one graphics-remapper
+DR/DW request in37,044us (50 reads,53 guards, one poll) and the ordered System
+Agent invalidation/posting read in2,323us (two reads/four guards/one write).
+Its total83,188us includes the two actual UC alias admissions, original-clock
+maintenance and second92-word census;52 reads/two writes,169 guards,173 cache
+checks and225 alias checks are derived from the complete receipts. The original
+cache snapshot has10 variable/11 fixed MTRRs. Both aliases actually unmap before
+BME restoration, the census words/context match, and the original GT borrow,
+requester/HDA and all15 original aliases retire without retained state.
+
+Preparation including final guard is219,728/250,000us (30,272us margin), largest
+original GT maintenance77,601/100,000us, GT total379,489/500,000us,
+HDA399,212/750,000us and outer451,076/1,000,000us. Closing guard/borrow return/final
+guard are1,722/3,178/1,580us. No clock or identity error occurs and no deadline,
+individual hardware phase or poll limit is extended. Native kind1/enabled-entry
+coverage and practical repeatability are not established by this run.
+
+All705 independently banked files verify, including exact raw boot/pre/exit
+snapshots9,202/38,251/70,526 bytes under the unchanged96KiB cap. Banks and the
+separately sealed handoff scripts/records survive `make distclean`. Prior-file
+preservation/offline integrity, recovery payload/default Ubuntu, consumed one-shot,
+unmounted37D8-C5D0 and host volume1% verify. The run is `DIAGNOSED`, both services
+inactive/collection-only and no new reboot armed. Current434e, recovery9aa8,
+acceptedf0a8 and unit protected payloads remain. The old unreferenced installed
+2281 duplicate was retired only after all159 separate evidence files and its
+complete payload bank verified; its full history remains outside build.
+
+This is a completed bounded diagnostic of these two operations on the actual
+original full-GT new-epoch owner. AT00 remapper processing and System Agent
+translation invalidation do not prove GPU pipeline/prefetch/cache, firmware or
+all display-reader retirement. All255 whole-device obligations remain open,
+with zero managed GPU pages/PTE writes/submissions and no native tear-free grant.
+Next establish remaining completion/exclusion witnesses and bind managed GPU
+interval/private ring/context/mapping storage to the maintained native owner.
+No sibling profile or ordinary desktop startup is enabled by this result.

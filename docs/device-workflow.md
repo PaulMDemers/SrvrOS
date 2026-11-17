@@ -500,3 +500,11 @@ The ordinary collector validates the matching raw checkpoint and offline USB
 integrity; `diagnose` can close a complete diagnostic. `accept` refuses it.
 This cannot accept native tear-free or discharge memory/cache/reader obligations.
 See the [composition contract](intel-bdw-gt-bootstrap.md#same-owner-post-reset-memory-preparation-wire6).
+
+Air7,2's first completed wire6 native run is source `c86685d8`, release
+`434e31fd8123e5bd`, session `session-00066073af2a582b-00`. All36 slots and both
+VM paths pass; strict collection/diagnosis verifies both operations, alias/parent
+retirement, raw snapshots and offline preservation. The705-file evidence bank
+and separate handoff records are outside build. `DIAGNOSED` records this narrow
+operation result; it does not promote all255 remaining GPU obligations or native
+tear-free acceptance. See the [unit evidence](machines/macbookair7-2.md#native-full-gt-memory-child-completes).

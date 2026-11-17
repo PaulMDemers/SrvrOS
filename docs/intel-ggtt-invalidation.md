@@ -190,4 +190,6 @@ borrow. It checks its own exact UC alias and retires both aliases before parent
 return, then verifies a fresh census. Selected practical aggregate clocks are
 inherited without changing older defaults. The posting read remains a posting
 read; zero does not become a completion ACK or whole-device ownership witness.
-Native composition acceptance is pending.
+One bounded native kind2 composition now completes; see
+[the unit result](machines/macbookair7-2.md#native-full-gt-memory-child-completes).
+Enabled-entry coverage, repeatability and whole-device ownership remain pending.
