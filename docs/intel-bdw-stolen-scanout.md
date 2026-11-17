@@ -184,6 +184,16 @@ primitive from a deliberately retained halt.
 
 ## First metadata alias preflight
 
+Wire3/v49 addresses the native stop at metadata. Admission now invokes the
+existing sole-kernel-root diagnostic with interrupts masked, before exclusion
+and again before each new mapping. Being in the kernel root is insufficient
+when other roots are registered; the actual leaf observer already requires the
+stronger condition. Known-invalid contexts must refuse before installing a new
+alias whose cleanup would then refuse the same observer. The incoming IRQ state
+is restored, later leaf/root checks remain, and a context change while mapped
+still retains the alias. This closes a precondition gap, not a proven diagnosis
+of the photographed stop.
+
 Wire3/v49 addresses the native stop at metadata. Before the first load from
 1082c0, save the cache-policy boundary (step16), validate the resource and strict
 UC3 policy, then save the pending mapping boundary (step15). Map its exact4KiB page with

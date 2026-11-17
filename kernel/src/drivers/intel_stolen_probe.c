@@ -123,6 +123,19 @@ static bool tick(uint64_t begin) {
  if(!at || at<stolen.last || at<begin || at-begin>STOLEN_CENSUS_US){stolen.clock_at=at;stolen.clock_previous=stolen.last;stolen.reason|=2;return refuse(18);}
  stolen.last=at;return true;
 }
+/* The leaf observer requires a sole kernel root, not merely current==kernel.
+ * Admit that condition before installing an alias that cleanup must validate.
+ * Repeat per mapping; never infer later retirement from this early check. */
+static bool sole_root(void) {
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ bool ok=vmm_diagnostic_sole_kernel_root(stolen.root);
+#else
+ uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+ bool ok=vmm_diagnostic_sole_kernel_root(stolen.root);
+ if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+ return ok || refuse(5);
+}
 static bool identity(void) {
  if(!stolen.acquired || stolen.released || !display_access_held(&stolen.exclusion) ||
  vmm_current_address_space()!=stolen.root || stolen.root!=vmm_kernel_address_space() ||
@@ -197,7 +210,7 @@ static bool map(uint32_t page) {
  if(stolen.mapped && stolen.page==page)return true;
  if(!unmap())return false;
  if(!allowed(page))return refuse(26);
- if(!identity())return false;
+ if(!identity() || !sole_root())return false;
  uint64_t physical=stolen.source.mmio+page,old;
  if(physical<stolen.source.mmio || vmm_virt_to_phys_in_space(stolen.root,STOLEN_VA,&old))return refuse(15);
  trace(16,0);
@@ -312,6 +325,7 @@ bool intel_stolen_probe_report(const char *cmdline) {
  if(!checkpoint(3))goto report;
  stolen.root=vmm_current_address_space();
  if(!stolen.root || stolen.root!=vmm_kernel_address_space()){refuse(5);goto report;}
+ if(!sole_root())goto report;
  for(uint64_t i=0;i<pci_device_count();i++) {
   const struct pci_device *d=pci_device_at(i);if(!d || d->bus || d->function)continue;
   if(!d->device)stolen.host=d;else if(d->device==2)stolen.gpu=d;

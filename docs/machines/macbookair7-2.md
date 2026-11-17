@@ -15534,3 +15534,17 @@ the installed accepted GUI f0a8, current91e4, recovery9aa8, protected installs,
 all independent payload/evidence banks and dirty reproduction checkout survive.
 No physical preflight acceptance or new trial is claimed at this implementation
 checkpoint; main4016abf0 and PR301 remain the integration coordinates.
+
+
+The first wire3 candidate fbaa146d/release5cf87ec255325742 passed all7 frozen
+slots and both exact-stage VMs, then was cancelled before installation. Review
+found that the new adapter's initial root check did not establish the sole-root
+condition required by its actual leaf observer. Initial and per-mapping admission
+now call the existing sole-kernel-root diagnostic with interrupts masked and
+restore incoming IRQ state. Known-invalid contexts refuse before installing a
+new alias; later checks and retained-race semantics remain. This does not identify
+the physical stop's cause.218 actual-adapter cases/15 compiled controls, fatal
+sanitizers/native frames and16 current-module tests pass. The cancelled payload
+is fully preserved in a lossless external archive, verified against every original
+file before generated stage/bank removal; current/recovery/accepted banks remain.
+The corrected source needs fresh7-slot and exact-stage VM qualification.

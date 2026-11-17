@@ -44,13 +44,14 @@ class StolenProbe(unittest.TestCase):
             'lost-actual-alias':('bool ok=intel_stolen_test_alias(stolen.root,STOLEN_VA,physical);','bool ok=true;'),
             'lost-read-deadline':('at-begin>STOLEN_CENSUS_US','false'),
             'lost-first-alias-preflight':('if(!stolen.preflight) {','if(false) {'),
+            'lost-sole-root-admission':('!sole_root()','false'),
             'lost-preflight-cache-admission':('if(!policy(stolen.source.mmio+0x108000) || !tick(stolen.begin[n]))return false;','if(!tick(stolen.begin[n]))return false;'),
             'lost-progress-alias-exclusion':('stolen.mapped || stolen.uncertain','false'),
         }
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),2 if name=='lost-source-bracket' else 1)
+                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-sole-root-admission') else 1)
                     source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
                     p=subprocess.run([str(binary)],capture_output=True,timeout=120)

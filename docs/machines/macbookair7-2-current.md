@@ -148,6 +148,16 @@ cannot create new trials. No live-alias storage, GPU writer, broader model gate
 or deadline increase. Adapter213 cases/14 compiled controls, fatal sanitizers/
 2KiB frames and final16 current-module tests pass; focused dispatch179 and broad
 regression253 pass. Fresh frozen7-slot and exact-stage VM gates remain pending.
+Review found an additional precondition gap: the actual alias observer requires
+sole kernel root/zero registered alternate roots, while initial admission only
+checked current==kernel. The adapter now invokes the existing IRQ-masked sole-root
+diagnostic before exclusion and every new mapping, restores incoming IRQ state
+and keeps all later leaf checks/retention. Root-context fault qualification now
+passes218 cases/15 controls and16 current-module tests. This is a precondition
+fix, not proof of the native stop's cause. The first sourcefbaa146d/release5cf8
+candidate passed all7 slots/both VMs but was cancelled before installation; its
+payload was losslessly archived and byte-verified outside build to make room
+for the corrected source. Fresh qualification remains required.
 Only equal inactive6816 EFI/stage and GUI f0a8 generated-stage duplicates were
 removed against independent banks; the installed GUI/current/recovery/protected
 payloads and all banks remain. PR19 Wi-Fi and PR379 WebCore are untouched.

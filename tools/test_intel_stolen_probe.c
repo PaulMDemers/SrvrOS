@@ -16,7 +16,7 @@ static bool intel_stolen_test_read(uint32_t,uint32_t *);
 #endif
 #include SRVROS_STOLEN_ADAPTER_FILE
 
-enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,FAULT_COUNT};
+enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,SOLE_ROOT,FAULT_COUNT};
 static struct {
  unsigned calls[FAULT_COUNT],which,at,cases,reads,maps,unmaps;
  uint64_t physical,clock;
@@ -79,6 +79,7 @@ bool display_access_held(const struct display_access_token *t) {assert(t==&stole
 bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped);if(fault(RELEASE))return false;model.held=false;return true;}
 uint64_t vmm_current_address_space(void) {return fault(ROOT)?0x2000:0x1000;}
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
+bool vmm_diagnostic_sole_kernel_root(uint64_t root) {assert(root==0x1000);return !fault(SOLE_ROOT);}
 uint64_t pci_device_count(void) {return 2;}
 const struct pci_device *pci_device_at(uint64_t i) {return i<2?&devices[i]:NULL;}
 bool intel_boot_check(unsigned client,const struct pci_device *gpu) {assert(client==INTEL_BOOT_OBSERVER && gpu==&devices[1]);return !fault(CLAIM);}
