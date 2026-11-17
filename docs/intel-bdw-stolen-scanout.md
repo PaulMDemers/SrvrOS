@@ -172,6 +172,15 @@ missing exit still leaves useful diagnostics. It still fails collection without
 that exit, all original summary/source/retirement predicates and offline checks.
 The progress JSON explicitly denies completion evidence and native acceptance.
 
+Native progress qualification (source7c89b656/release91e478bb7b14aefa) recovered
+a valid journal through step9/metadata despite missing summary/exit. This places
+the saved boundary after exclusion, initial cache context and source revalidation,
+with no new census alias mapped at that point. Later mapping/read/cleanup remains
+unknown. The run is rejected, with raw/photo/offline/recovery proof preserved.
+The next diagnostic must separate first-page cache/map admission, actual alias
+validation and register access; the journal alone cannot distinguish a blocked
+primitive from a deliberately retained halt.
+
 ## After a native result
 
 If the census refuses or exposes holes/aliases/reservations, do not fill or

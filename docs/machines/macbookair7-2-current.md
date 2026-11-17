@@ -120,6 +120,21 @@ progress before any acquisition. Fresh frozen qualification and exact-stage VM
 remain required before the next unattended1% native trial. No GPU mapping,
 ownership or tear-free acceptance follows.
 
+The progress-enabled native retry, source `7c89b656`, release
+`91e478bb7b14aefa`, session `session-00066080b658c5ac-00`, again lacks a
+summary/exit, but its new recipe-bound journal is valid. It records steps1–9:
+CPU display exclusion acquired, initial cache context captured and original
+source revalidation returned before the metadata boundary. No census alias
+was mapped at that saved boundary. Subsequent PCI/cache/map/alias/MMIO-read
+and cleanup state is unknown; this does not identify a specific blocked call.
+The run is reviewed/REJECTED with three raw logs, photo and negative proof
+sealed outside build. Prior USB files, boot region, offline integrity and fresh
+installed/banked recovery/default/consumed-one-shot checks pass; USB is unmounted.
+Current91e4/recovery9aa8 remain, with no new test armed. Next isolate metadata's
+first page/cache/mapping admission from actual alias validation and register
+access; do not infer a safe read or retirement from the journal. Existing budgets,
+source/cache/alias gates and no-GPU-write policy remain. Main4016abf0 is unchanged.
+
 Base main4016abf0 remains unchanged. PR301 owns these native census/collector
 changes; ordinary startup and reset/CPU-context protocols remain unchanged.
 

@@ -15490,3 +15490,24 @@ additional focused suite. Fresh frozen gates and native evidence remain open.
 Verified identical inactive9fbb EFI/stage and cancelled223a stage duplicates
 were removed; their independent payload banks and raw failure evidence survive.
 Current6816/recovery9aa8/accepted GUI f0a8 and protected payloads are preserved.
+
+
+## Native journal narrows the census stop to metadata
+
+2026-11-17: source7c89b656/release91e478bb7b14aefa, run
+`air-stolen-progress-20261117`, session00066080b658c5ac-00, stopped without
+summary/exit. The visible screen stops at step5 because display exclusion
+suppresses subsequent rendering. The separate persisted journal records steps1–9,
+ending at metadata: exclusion acquired, initial cache context and source
+revalidation completed, zero new census mappings at that boundary. Subsequent
+operations/cleanup remain unknown; a blocked read and a retained-alias halt
+cannot yet be distinguished. No native observation/ownership pass is claimed.
+All three raw hashes/recipes, expected file additions, prior USB files, unchanged
+boot region, offline integrity and fresh installed/banked recovery/Ubuntu-default/
+consumed-one-shot checks verify. USB is unmounted. The original collection error
+is retained; the run is explicitly REJECTED, with raw/photo/progress/negative
+proof sealed outside build. Current91e4/recovery9aa8 and protected payloads remain.
+No retry is armed. Next scope separates first metadata cache/map admission,
+actual alias validation and register access without dropping checks or changing
+budgets. The journal is now useful on a missing-exit return, without making
+that return acceptable or identifying the exact stopping instruction.
