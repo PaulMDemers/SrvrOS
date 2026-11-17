@@ -3,7 +3,53 @@
 For the concise active checkpoint, use [current status](macbookair7-2-current.md).
 This journal preserves dated exact-source acceptance and historical anchors.
 
-Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-17. State: **active reference machine; partial device acceptance**.
+
+## Native full-GT private CPU arena completes
+
+2026-11-17: frozen source `37b54934fceb59bc17f53a6bb9f71642747783f7`,
+runtime fix `4b4ca01a`, release `a38270ffedf462fa`, run
+`air-gt-arena-isolation-20261117`, session `session-000660767ae66ad9-00`.
+All42 frozen host/qualification slots and both exact-stage VM paths pass; main
+4016abf0 and independent PR19/379 are unchanged. One original kind2 full-GT
+owner advances epoch0→1, completes both reset pulses/five cancellations,
+preserves32 fences/display/backing and retires requester, GT/HDA/outer and all15
+original aliases. Preparation219,986/250,000us, largest maintenance77,573/100,000us,
+GT379,954/500,000us, HDA399,672/750,000us and outer451,561/1,000,000us pass.
+Closing guard1,725us, borrow return3,159us and final guard1,580us retain their
+original clock origins. Historical stricter preparation/GT acceptance is withheld.
+
+The registered original memory child takes83,129us: remapper DR/DW37,001us,
+System Agent GGTT2,342us,52 reads/two writes,169 guards/173 cache/225 alias checks
+and both temporary UC aliases retired. Four CPU ring/context/completion pages
+initialize outside GPU exclusion in65us, register against that same original
+borrow/epoch/root and enclosing clocks, and perform held mapping/cache checks
+in384us. Requester/logical return gates require the arena child returned with
+storage held. Only after actual original parent retirement does69us cleanup
+verify all2048 zero QWords, retire4 exact supervisor writable/NX WB CPU aliases
+and release4 pages once, with DMA61→61 and no lost clock/retained state.
+
+Automatic return collection initially failed: the generic session size selector
+omitted bootstrap wire7, applying64KiB to the73,050byte exit log. Raw-first copies
+survived. A reviewed collection-only migration adds exactly wire7+wake37 to the
+existing96KiB allowance, with frozen files unchanged, strict original raw/parser/
+checkpoint/recovery guards and no reconstructed view. Its first local invocation
+used root's home for the store and failed before media access; the corrected
+explicit unit-store path and both attempts are preserved. The original failure,
+migration function/script, raw SHA/bytes and final proof are externally banked.
+The permanent selector fix has boundary/version/refusal regression coverage.
+
+All1,587 prior files preserve except expected `.srvros/meta`; exactly three new
+logs yield1,590files/186sessions. Boot10,756bytes, preflight39,806bytes and
+exit73,050bytes match unchanged raw hashes and recipe/release. Offline fsck,
+allocation/writable/headroom, unchanged boot digest, installed/banked recovery,
+Ubuntu default and consumed one-shot pass. Full run, qualification, raw and
+review seal survive distclean outside `build`; run is DIAGNOSED. Currenta382,
+recovery9aa8 and acceptedf0a8/protected banks remain; USB unmounted, no reboot
+armed,1% volume. CPU backing/retirement only: all255 whole-device GPU obligations
+remain open, with zero GPU managed pages/PTE writes/submissions or tear-free
+authority. Enabled route and repeatability remain pending. Next supply exact
+interval and DMA/cache/display-reader ownership before using the mapping path.
 
 ## Native firmware fusion is insufficient for closing
 

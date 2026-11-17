@@ -1,7 +1,7 @@
 # Repeatable device trials
 
 The opt-in `intel-gt-arena-v45` profile composes the
-[private CPU command arena](intel-command-memory.md#full-gt-composition-native-qualification-pending)
+[private CPU command arena](intel-command-memory.md#full-gt-composition-one-native-diagnostic-complete)
 with the original full-GT memory child. It selects `--intel-gt-arena`, a separate
 image/recipe and exact wire7;42 required host/qualification slots preserve all36
 v44 gates, add actual arena faults/controls, legacy-policy regression and the new
@@ -13,6 +13,14 @@ matching native evidence closes as a diagnostic, with separate CPU setup/held/
 cleanup timings and no GPU mapping/tear-free acceptance. Safe saved/unmounted
 outcomes return to Ubuntu; uncertain lifetime/retirement retains storage and
 halts. Earlier wires reject the new arena packets.
+
+The first Air7,2 wire7 run now [completes and retires on hardware](machines/macbookair7-2.md#native-full-gt-private-cpu-arena-completes).
+The generic historical-session size selector must include wire7 together with
+wake37 before reading its full96KiB allowance. The first collection refused a
+73,050-byte log under64KiB; raw-first copies survived and an explicit reviewed
+read-bound-only migration completed every unchanged integrity/strict receipt
+guard. A larger read allowance never grants native acceptance. Unknown versions
+and ordinary sessions retain64KiB; the absolute cap remains96KiB.
 
 Use `tools/device_workflow.py` for the reference Air's v35 source-audit and
 opt-in v36 VT-d drain, combined GGTT invalidation, v37 CPU command-memory and

@@ -831,7 +831,7 @@ def session_log_limit(exit_preview):
     lines=exit_preview.splitlines()
     provider=any(l.startswith(b'intel-vtd-drain: v=6 b=') for l in lines) and any(
         l.startswith(b'intel-command-ownership: v=1 b=') for l in lines)
-    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith((b'intel-bootstrap-summary: v=1 ',b'intel-bootstrap-summary: v=2 ',b'intel-bootstrap-summary: v=3 ',b'intel-bootstrap-summary: v=4 ',b'intel-bootstrap-summary: v=5 ',b'intel-bootstrap-summary: v=6 ')) for l in lines)
+    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith((b'intel-bootstrap-summary: v=1 ',b'intel-bootstrap-summary: v=2 ',b'intel-bootstrap-summary: v=3 ',b'intel-bootstrap-summary: v=4 ',b'intel-bootstrap-summary: v=5 ',b'intel-bootstrap-summary: v=6 ',b'intel-bootstrap-summary: v=7 ')) for l in lines)
     return 98304 if provider or bootstrap else 65536
 
 

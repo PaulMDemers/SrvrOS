@@ -1,6 +1,6 @@
 # Private command-memory ownership
 
-## Full-GT composition (native qualification pending)
+## Full-GT composition (one native diagnostic complete)
 
 The separate `intel-gt-arena-v45` profile, `build/intel-gt-arena/srvros.elf` and
 `srvros.intel-ring=gt-bootstrap-arena-v1` recipe bind this CPU arena to the
@@ -41,6 +41,15 @@ LRC, a private GPU interval or permission for PTE writes/submission. All255 wide
 DMA/cache/reader obligations remain open. The profile preserves all36 prior
 qualification slots and adds6 arena/legacy/image slots (42 total), plus both
 exact-stage VM paths. No VM result accepts native ownership.
+
+Air7,2 source `37b54934` / release `a38270ffedf462fa` now completes one
+[native full-GT CPU arena lifetime](machines/macbookair7-2.md#native-full-gt-private-cpu-arena-completes).
+Setup/held/cleanup65/384/69us, four CPU aliases retired,2048 zero QWords
+preserved and one4-page release with balanced DMA61→61. All42 frozen gates,
+both exact-stage VMs and matching return-integrity checks pass. Collection
+required an explicit read-bound-only wire7 migration; raw bytes and strict
+proofs are unchanged. This is `DIAGNOSED` under practical timing, with no
+historical stricter timing, managed GPU interval or tear-free acceptance.
 
 ## Legacy source composition
 
