@@ -43,7 +43,9 @@ yield1,593files/187sessions. Boot/preflight/exit are9,204/39,096/74,581bytes,
 within96KiB. Offline fsck/allocation/writable/headroom, unchanged boot region,
 installed/banked recovery, Ubuntu default and consumed one-shot pass.
 
-Current08ae/recovery9aa8, acceptedf0a8 and protected installed releases remain.
+At the accepted CPU-image checkpoint current08ae/recovery9aa8, acceptedf0a8
+and protected installed releases remained. The later census installs9fbb as
+current under the unchanged9aa8 recovery; independent accepted banks remain.
 Prior a382 remains independently banked; only its equal inactive EFI/staged
 copies were pruned to make room for the next read-only image.
 USB is unmounted, host volume is1%, this profile is silent and no reboot is armed.
@@ -61,23 +63,27 @@ native tear-free. All eight obligations (mask255) remain, with zero managed GPU 
 writes/submissions. Enabled entry for this source and repeatability remain open.
 The prior zero-arena result remains in the [dated journal](macbookair7-2.md#native-full-gt-private-cpu-arena-completes).
 
-## Next bounded scope
+## Latest census and next bounded scope
 
-Active scope: [complete existing-mapping scanout census](../intel-bdw-stolen-scanout.md).
-The audited VT-d/device-TLB route cannot supply the bootstrap witness while
-TES is clear; an internal SA-to-CP FLR message is not an IA reset interface.
-A separate read-only image now checks the entire34MiB protected fence plus
-two prospective6MiB already-mapped spans, locked DSM/GTT/WOPCM bounds and
-auxiliary FBC/PSR observations. Its native source, alias/cache/resource checks,
-strict collector and dedicated manifest profile now pass host qualification.
-The planner passes27,922 cases/10 compiled controls; the actual adapter passes
-201 fault/prefix cases/8 controls, fatal sanitizers and2KiB native frames.
-Source/recipe/transport/workflow regressions pass202 tests;1,749 doc links pass.
-Exact frozen-profile and staged-VM qualification still precede physical boot. No PTE,
-GPU command, plane or framebuffer writes are added; fitting mappings are not
-owned RAM. Ordinary images and the accepted reset/CPU context remain unchanged.
-Integration main4016abf0 is the inspected base; PR301 owns this bounded work,
-with no overlap in the independent Wi-Fi/WebCore PRs.
+The first [existing-mapping census](../intel-bdw-stolen-scanout.md), source
+`21bd9f7c`, release `9fbbcd3ad8e3a69a`, session
+`session-0006607e6908faf0-00`, returned with an initial admission refusal:
+phase1/reason4, no new mappings/metadata reads, exclusion released and no
+retained alias. All three matching raw hashes and offline integrity pass; USB
+is unmounted. The original collector stopped on a generic checkpoint mismatch.
+The frozen run is explicitly reviewed/rejected, with its raw evidence intact.
+No mapping-layout or ownership acceptance follows from that run.
+
+The same raw CPU-cache observations expose PAT2=7 (UC-minus), PAT3=0 (UC),
+MTRR=0 and effective=0. The new adapter incorrectly required PAT2 itself to be
+UC0. Active scope is to reproduce that refusal using the captured PAT layout,
+select actual UC slot3 while retaining strict MTRR/PAT/effective checks, record
+the first failing admission operation, and collect valid incomplete diagnostics
+without granting acceptance. No original-source/resource/alias check or deadline
+is dropped. A versioned collector/image/profile will distinguish the new proof.
+
+Base main4016abf0 remains unchanged. PR301 owns these native census/collector
+changes; ordinary startup and reset/CPU-context protocols remain unchanged.
 
 The separate [primary-A flip protocol](../intel-bdw-primary-flip.md) now
 implements original-source admission, one synchronous arm, actual live-surface
@@ -99,7 +105,7 @@ reset ACK, narrower remapper operation or stable saved sample is not that
 witness. Keep the first-GPU-write refusal and original backing pinned through
 all readers; do not repeat the completed CPU image trial without a new question.
 Shared scope remains the original-owner adapter, memory/mapping contracts and
-isolated image/recipe/collector. The read-only v47 candidate is not yet staged or physically accepted.
+isolated image/recipe/collector. The v47 census was staged and run; its incomplete result is recorded above.
 
 Integration main4016abf0 was fetched unchanged; draft PR301 owns this work.
 Independent PR19 (Pro Wi-Fi) and PR379 (WebCore audit) remain untouched. No agents
