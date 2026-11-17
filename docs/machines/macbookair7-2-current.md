@@ -60,6 +60,17 @@ The prior zero-arena result remains in the [dated journal](macbookair7-2.md#nati
 
 ## Next bounded scope
 
+Active implementation: a separate Broadwell primary-A surface flip protocol,
+covering original-source admission, one synchronous arm, real live-surface
+latch observation, bounded incremental polling and retained failure. Shared
+scope is a new isolated diagnostic core/header and host fault fixtures; it
+does not change ordinary startup, the accepted reset graph or another device's
+profile. Base main4016abf0 and draft PR301 are unchanged; open PR19 Wi-Fi and
+PR379 WebCore do not overlap. Native invocation depends on independently owned
+buffers, display/firmware exclusion and real mapping/cache visibility. No
+ownership assertion, first GPU mapping or physical trial follows from the
+software protocol. Keep latch completion distinct from all-reader retirement.
+
 Resolve the real bootstrap outstanding-memory/cache/prefetch and firmware/
 display-reader witness before a private GPU interval can be transferred. Then
 bind exact mappings, visibility, actual mode/workaround/coherency policy and
