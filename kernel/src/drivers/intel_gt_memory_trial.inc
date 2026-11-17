@@ -63,7 +63,7 @@ static bool memory_translation(unsigned i,uint64_t *physical) {
 }
 static bool memory_alias(unsigned i) {
  uint64_t physical;
- if(i>1 || !gt_memory.d.mapped[i] || !memory_translation(i,&physical) || physical!=memory_physical(i))return false;
+ if(i>1 || !memory_identity() || !gt_memory.d.mapped[i] || !memory_translation(i,&physical) || !memory_identity() || physical!=memory_physical(i))return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  bool ok=intel_display_test_memory_alias(i,&gt_memory.d.alias[i]);
 #else
@@ -71,27 +71,30 @@ static bool memory_alias(unsigned i) {
   gt_bootstrap_native.cache.cpu.physical_bits,&gt_memory.d.alias[i],NULL);
 #endif
  const struct vmm_alias_observation *a=&gt_memory.d.alias[i];
- if(!ok || a->pages!=1 || a->leaves!=1 || a->pat_index!=2 || a->writable!=1 || a->user || a->no_execute!=1 || a->leaf_sizes!=1)return false;
+ if(!memory_identity() || !ok || a->pages!=1 || a->leaves!=1 || a->pat_index!=2 || a->writable!=1 || a->user || a->no_execute!=1 || a->leaf_sizes!=1)return false;
  ++gt_memory.d.alias_checks;return true;
 }
 static bool memory_policy(unsigned i) {
+ if(i>1 || !memory_identity())return false;
  struct x86_cache_snapshot cache;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  bool resource=intel_display_test_memory_resource(&gt_memory.d.resource);
+ if(!resource || !memory_identity() || (gt_memory.d.resource!=1 && gt_memory.d.resource!=2))return false;
  bool ok=intel_display_test_bootstrap_cache(&cache);
 #else
  bool resource=dma_resource() && (dma_resource_declared || dma_table_current());
  gt_memory.d.resource=dma_resource_source;
+ if(!resource || !memory_identity() || (gt_memory.d.resource!=1 && gt_memory.d.resource!=2))return false;
  bool ok=intel_cache_probe_context(&cache);
 #endif
- if(i>1 || !resource || (gt_memory.d.resource!=1 && gt_memory.d.resource!=2) || !ok ||
+ if(!memory_identity() || !ok ||
  !x86_cache_equal(&cache,&gt_bootstrap_native.cache) ||
  !x86_cache_page(&cache,memory_physical(i),2,&gt_memory.d.mtrr[i],&gt_memory.d.pat[i],&gt_memory.d.effective[i]) ||
  gt_memory.d.effective[i])return false;
  ++gt_memory.d.cache_checks;return true;
 }
 static bool memory_guard(unsigned i) {
- if(i>1 || !memory_tick() || !bootstrap_guard() || !memory_identity() || !memory_alias(i) || !memory_policy(i) ||
+ if(i>1 || !memory_tick() || !bootstrap_guard() || !memory_identity() || !memory_alias(i) || !memory_identity() || !memory_policy(i) ||
  !memory_tick() || !memory_identity())return memory_fail(4);
  ++gt_memory.d.guards;return true;
 }

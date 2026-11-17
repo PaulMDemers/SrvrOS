@@ -498,3 +498,20 @@ plus posting read do not establish GPU pipeline/prefetch/cache completion,
 firmware/display-reader retirement, a GPU interval or PTE authority. All255
 whole-device obligations, zero managed GPU pages and zero PTE writes remain.
 Private ring/context/mapping ownership and tear-free scanout are subsequent work.
+
+#### Provider boundary qualification
+
+During wire6 qualification the candidate passed all30 prior gates, then the exhaustive child
+matrix injected an epoch change at a successful alias callback. The next resource
+callback was reached before ownership was rechecked, so qualification stopped
+before installation or boot. The adapter now validates identity before and after
+translation/alias callbacks, between alias and policy checks, and before and after
+resource/cache callbacks. A failed resource admission no longer invokes the cache
+callback. The original clocks and operation/poll limits are unchanged.
+
+The early development gate now exercises every alias/epoch edge before legacy
+qualification. Compiled weakening controls must first demonstrate clean refusal
+by the valid adapter and success on an unmodified positive. A positive cache model
+also exercises variable and fixed MTRR rows; CPU word widths are checked explicitly
+by the decoder. Complete qualification and native composition evidence remain
+required for the corrected candidate.

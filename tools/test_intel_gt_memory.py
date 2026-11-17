@@ -19,7 +19,7 @@ class Memory(unittest.TestCase):
         return tuple(t.replace('gt-bootstrap-seconds-v1','gt-bootstrap-memory-v1') for t in wide_tests.Seconds.native_fixture(self,text))
     def test_original_epoch_full_operations_and_retirement(self):
         for disabled in (False,True):
-            for mode in ('pass','preserved'):
+            for mode in ('pass','preserved','memory-cache-layout'):
                 pre,text=self.fixture(run(mode,disabled=disabled,exe=EXE));p=bootstrap_result(text,native=True)
                 self.assertTrue(verify_bootstrap_checkpoint(pre,text,native=True))
                 self.assertTrue(p['complete'] and p['diagnostic_complete'] and p['diagnostic_memory'])
@@ -40,6 +40,13 @@ class Memory(unittest.TestCase):
                 except ValueError:pass # malformed/partial operation receipts also refuse
                 cases+=1
         print('Original memory callback/IO retained-prefix cases PASS',cases,flush=True)
+    def test_alias_epoch_and_policy_faults_stop_before_following_callbacks(self):
+        points=int(re.search(r'native-memory-fixture:.*?aliases=(\d+)',self.text).group(1))
+        for n in range(1,points+1):run('memory-alias-epoch',n,exe=EXE)
+        for mode in ('memory-resource','memory-resource-change','memory-alias','memory-alias-cache'):
+            for n in (1,2):run(mode,n,exe=EXE)
+        print('Early alias/epoch/policy callback regression PASS',points+8,flush=True)
+
     def test_every_completed_child_boundary_blocks_parent_return(self):
         points=int(re.search(r'native-memory-fixture:.*?late=(\d+)',self.text).group(1))
         self.assertGreater(points,20)
@@ -62,7 +69,7 @@ class Memory(unittest.TestCase):
             for index,row in enumerate(rows):
                 for key,value in row.items():
                     selected=selected_rows[index]
-                    changed_line=edit(selected,'intel-memory-'+kind,key,(1<<64) if kind=='cache' else 255 if key in ('mtrr','pat') else 0 if key in ('begin','end','last','phase','gt','hda','outer','prepare') else value^1)
+                    changed_line=edit(selected,'intel-memory-'+kind,key,(1<<32 if key in ('signature','features','vendor0','vendor1','vendor2') else 1<<64) if kind=='cache' else 255 if key in ('mtrr','pat') else 0 if key in ('begin','end','last','phase','gt','hda','outer','prepare') else value^1)
                     changed=text.replace(selected,changed_line,1)
                     with self.assertRaises(ValueError,msg=(kind,key)):bootstrap_result(changed,native=True)
         for kind in ('summary','vtd','ggtt','binding','polls','post-summary','post-row','post-context'):
@@ -128,5 +135,7 @@ class Memory(unittest.TestCase):
                 self.assertIn(old,source);path=Path(d)/(name+'.inc');path.write_text(source.replace(old,new));target=Path(d)/name
                 subprocess.run([cc,*flags,'-DSRVROS_INTEL_GT_MEMORY_ADAPTER_FILE="'+str(path)+'"',*sources,'-o',str(target)],cwd=ROOT,check=True,timeout=180)
                 mode={'child-registration':'memory-child','epoch':'memory-alias-epoch','data-snapshot':'memory-data','alias-user':'memory-alias-user','resource':'memory-resource-change'}[name]
+                run(mode,1,exe=EXE) # The valid adapter must refuse cleanly, not crash.
+                run(exe=target) # A control must still handle an unmodified positive.
                 result=subprocess.run([str(target),mode,'1'],cwd=ROOT,capture_output=True,timeout=20)
                 self.assertNotEqual(result.returncode,0,'Weakening survived: '+name)

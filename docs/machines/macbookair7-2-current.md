@@ -26,6 +26,17 @@ installed duplicate (about153MB). The complete payload and evidence remain outsi
 `build`; current `33d9`, recovery `9aa8`, accepted `f0a8`, protected releases and
 boot menus are unchanged. This leaves about216MB for the next isolated candidate.
 
+The `c97b5085` wire6 qualification passed all30 prior gates but failed
+an injected alias/epoch boundary before installation or boot. The corrected child
+checks identity between provider callbacks and stops before the next resource or
+cache read. Its early development regression, variable/fixed MTRR positive and
+CPU word-width checks now precede a fresh qualification. No deadline was extended
+and current/recovery installation remained unchanged during these host tests.
+The corrected local suite passes5,942 child callback/I/O cases,233 early boundary
+cases,102 terminal-child cases, both entry routes with variable/fixed MTRRs,
+fatal sanitizers and compiled controls. A fresh frozen qualification and native
+trial are still required.
+
 The **practical timing diagnostic now completes on hardware**: runtime
 `b7752e6f`, release `33d9e5dacde0d12b`, session
 `session-0006607172203a36-00` (main4016abf0, PR301). All30 frozen qualification

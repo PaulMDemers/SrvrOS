@@ -19,6 +19,7 @@ def memory_result(text,parent,binding,reset,retire,initial,view,parent_complete)
         return [fields(l,'intel-memory-'+kind+':',['v',*SCHEMAS[kind]]) for l in lines if l.startswith('intel-memory-'+kind+':')]
     cached=rows('cache')
     if len(cached)!=1 or cached[0]['count']>16 or cached[0]['fixed']>11:raise ValueError('Memory CPU cache coverage')
+    if any(cached[0][k]>0xffffffff for k in ('signature','features','vendor0','vendor1','vendor2')):raise ValueError('Memory CPU word width')
     values={}
     for kind in SCHEMAS:
         q=rows(kind)

@@ -90,6 +90,13 @@ static bool intel_display_test_bootstrap_cache(struct x86_cache_snapshot *out) {
  *out=(struct x86_cache_snapshot){.cpu={{0x756e6547,0x49656e69,0x6c65746e},0x306d4,0x91000,39,0x80050033},
  .pat=0x0007040600070406ull,.cap=0x400,.def_type=0x800,.status=CACHE_OBSERVED,.reads=6,
  .begin_us=ticks,.end_us=ticks+1};ticks++;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(!strcmp(bootstrap_mode,"memory-cache-layout")) {
+  out->cap=0x501;out->count=1;out->fixed_count=11;out->reads=19;
+  out->base[0]=6;out->mask[0]=0x7fc0000800ull;
+  for(unsigned i=0;i<11;i++)out->fixed[i]=0x0606060606060606ull;
+ }
+#endif
  if(bf("cache-change",bcache))out->pat^=1;
  return !bf("cache",bcache);
 }
@@ -186,7 +193,11 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
  if(bf("display-float",bdisplay))*out=UINT32_MAX;
  return !bf("display-read",bdisplay);
 }
-static bool intel_display_test_bootstrap_expected(void) {return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow") || !strcmp(bootstrap_mode,"practical-slow");}
+static bool intel_display_test_bootstrap_expected(void) {
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(!strcmp(bootstrap_mode,"memory-cache-layout"))return true;
+#endif
+ return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow") || !strcmp(bootstrap_mode,"practical-slow");}
 static bool intel_display_test_bootstrap_clock(uint64_t *out) {
  if(!gt_bootstrap_native.returned || gt_bootstrap_native.complete || hit)return false;
  if(bf("return-zero",1))*out=0;
