@@ -327,3 +327,21 @@ private/ignored and must come from this actual Ubuntu host. Generic
 `make test-laptop-firmware-digest` uses generated unknown tables without a private
 fixture; no native acceptance follows. See the
 [workflow setup](device-workflow.md#separate-full-gt-owner-and-epoch-trial).
+
+
+### Native fusion result and compiler correction
+
+Air7,2 aa022502/9298 remains rejected at152,475/150,000us immediately after
+logical return. Core/reset/preservation, original maintenance, new92-word census
+and requester restoration pass; final guard/physical retirement are incomplete.
+The guard before return ends at149,318us (682us left); return costs3,157us.
+
+The earlier GCC/no-SIMD host timing is not representative of this kernel's
+Zig/Clang output: the old installed checksum was already SIMD-vectorized. Actual
+kernel-compiled old/new objects both measure about46us per call on Ubuntu. The
+serial FNV dependency remains; observed native endpoint reduction753us is
+insufficient and has no repeatability claim. Future performance qualification
+must inspect/measure the actual kernel compiler and flags before another trial.
+Pure witness/reference tests remain valid. Keep exact fresh identity and all
+bounds while addressing serial hashing or redundant guards. See the
+[unit result](machines/macbookair7-2.md#native-firmware-fusion-is-insufficient-for-closing).

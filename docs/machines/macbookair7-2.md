@@ -5,6 +5,46 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-16. State: **active reference machine; partial device acceptance**.
 
+## Native firmware fusion is insufficient for closing
+
+2026-11-16: runtime `aa022502fa37c32e586a950d474585cf05e760b4`, release
+`9298a4e02ad9b1d5`, run `air-gt-firmware-20261116`, session
+`session-0006606dea46d051-00`, unchanged v41/wire3. All22 frozen jobs and both
+exact-stage VMs pass. Actual captured DSDT matches old/new predicates over all
+35,035 prefixes,35,034 byte changes and494 checksum-preserving changes;3 digest
+controls/fatal sanitizers and all23,703 native faults/436 packets/12 controls,
+original-core/legacy gates remain. No identity gate/deadline/protocol is widened.
+
+Native core completes/preserves in107,644us (126,689us preparation-to-core),
+including pulses2, cancellation5, exact fences/display/backing, epoch0→1 and
+308 consumed/zero-rejected receipts. Maintenance3,159us/49,214us phase and one
+actual snapshot12→13 pass. The new92-word census takes14,246us; all4 PCI vectors
+verify7→3→3→7. Pre-close guard1,723us ends at149,318us, leaving682us. Logical
+borrow return3,157us completes but its checked clock reaches152,475/150,000us.
+Final guard and physical GT/15-alias retirement remain incomplete/retained;
+no native full-owner, managed-memory, completion or tear-free acceptance follows.
+
+Native full-guard totals: HDA/boot3,714us, endpoint58,815us, cache38,732us,
+aliases4,354us, requester/AF3,598us over814 guards. Observed preparation is638us
+shorter than the previous run; this is not repeatability or enough closing margin.
+The earlier host benchmark used GCC/no-SIMD while the actual kernel uses Zig/Clang
+and already vectorized the old checksum (confirmed in the installed ELF). A new
+host comparison links actual kernel-compiled old/new objects with the original
+kernel flags: both about46us per call. The former23–27% estimate is not a native
+prediction. Next benchmark actual compiler output and reduce serial FNV or
+redundant full-guard work without dropping fresh identity or extending bounds.
+
+Run REJECTED. Full62,433-byte exit/38,229 preflight/9,186 boot raw bytes, photo,
+preboot/requested-boot states,22 qualification jobs, private fixture, exact
+compiler benchmark/disassembly and review are independently hashed/banked.
+Offline prior-file/allocation/writable/headroom, recovery, Ubuntu default and
+consumed one-shot pass. Current9298 diagnostic, acceptedf0a8/recovery9aa8 retained;
+USB unmounted, no reboot armed. Obsolete installed4fa2 duplicate was removed after
+complete bank/raw/role/menu verification (152,509,693bytes), with bank/evidence
+retained. Cleanup also removed265,854,778bytes of generated kernel/userspace/
+initramfs outputs from an unused historical checkout, preserving its exact source/
+submodule status and all evidence. Durable cleanup ledgers remain outside build.
+
 ## Native original GT maintenance passes; return deadline refuses
 
 2026-11-16: runtime `320df4fb5928288dd51d4303803bca2793952bd7`, release

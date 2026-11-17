@@ -8,24 +8,40 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active follow-up (base196e6072, main4016abf0 unchanged): reduce repeated
-firmware identity work in the backing/closing guards by fusing the existing DSDT
-checksum and FNV into one fresh full byte pass. Keep the exact length/header,
-checksum/hash constants, all parent checks and deadlines; no retained firmware
-copy or skipped admission. Touch laptop_resources.c, independent actual-function
-reference/mutation/timing fixtures, frozen Air qualification and unit guides.
-PR301 owns this scope; independent PR19/379 unchanged. Actual captured-table host comparison60–62us old versus45–47us fused is host-only.
-Every35,035 prefix/35,034 byte/494 paired mutations, fatal sanitizers and3 compiled
-controls pass. Frozen qualification adds the private captured DSDT input and
-two firmware jobs (22 total); native timing remains pending. No other task/subagent is contacted.
+Latest v41 firmware-fusion trial is **rejected after logical borrow return**:
+runtime `aa022502`, release `9298a4e02ad9b1d5`, session
+`session-0006606dea46d051-00`. All22 frozen jobs and both exact-stage VMs pass,
+including the captured positive,35,035 prefixes/35,034 single-byte/494 paired
+mutations,3 digest controls/sanitizers and all original native/core/legacy gates.
 
-Cleanup reclaimed152,509,693bytes from only the obsolete installed4fa2 failed
-candidate after bank/raw/role/menu verification. Current8b73/recovery9aa8/
-acceptedf0a8 and all evidence remain. Removed265,854,778bytes of reproducible
-kernel/userspace/initramfs outputs in an unused historical reproduction checkout;
-its source/submodule status is byte-identical. Durable ledgers remain outside build.
+Native reset/preservation completes in107,644us,126,689us from preparation entry;
+maintenance3,159us/49,214us phase, exact snapshot12→13. New92-word census14,246us,
+PCI7→3→3→7, fences/display/backing, pulses2/cancel5 and epoch0→1 verify. All308
+receipts consume;814 guards/12,210 aliases remain. Pre-close guard1,723us ends at
+149,318us (682us left). Logical return3,157us completes, then the clock refuses
+at152,475/150,000us; final guard/physical GT/15-alias retirement are not reached.
+GT maintenance clock cause stays zero. No full-owner or native tear-free acceptance.
 
-Latest v41 trial is **rejected after logical borrow return**: runtime
+The earlier GCC/no-SIMD benchmark overstated the expected native gain. The old
+installed Zig/Clang kernel already vectorizes its checksum; matched kernel-object
+host timings are about46us for either algorithm. The native endpoint total is
+58,815us versus prior59,568us; one run does not establish repeatability. Fusion
+keeps both exact witnesses and fresh bytes but does not solve the serial FNV
+cost or closing budget. Next measure with the actual kernel compiler and reduce
+serial hashing or redundant guard work, preserving fresh identity, owners and
+all original deadlines. Do not repeat an unchanged failed candidate.
+
+The run is REJECTED; exact raw/photo/preboot/22-job qualification, private fixture,
+matched compiler benchmark/disassembly and review are independently banked.
+Prior-file/media integrity, recovery, Ubuntu default and consumed one-shot pass.
+Current9298 diagnostic, acceptedf0a8/recovery9aa8 retained; USB unmounted, no reboot
+armed. Obsolete installed4fa2 failed duplicate and historical reproducible build
+outputs were removed only after bank/evidence/role/menu/source-status checks;
+all source and required banks remain. Source aa022502 is the tested runtime;
+result documentation does not claim a new runtime qualification. Scope remains
+PR301, base196e6072/main4016abf0; PR19/379 independent, no other task contacted.
+
+Prior v41 maintenance trial is **rejected after logical borrow return**: runtime
 `320df4fb`, release `8b73c62c3be2b936`, session
 `session-0006606cd95981f1-00`. All20 frozen gates and both exact-stage VM paths
 pass:23,703 native fault cases,436 packet mutations,12 native controls, fatal
