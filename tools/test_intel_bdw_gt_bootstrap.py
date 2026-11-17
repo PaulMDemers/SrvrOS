@@ -112,7 +112,7 @@ class Bootstrap(unittest.TestCase):
         self.assertIn('-Wframe-larger-than=2048 -c '+CORE,selected)
         lines=[l for l in (ROOT/'Makefile').read_text().splitlines() if CORE in l]
         self.assertTrue(lines)
-        self.assertTrue(all(l.startswith(('build/tests/intel-bdw-gt-bootstrap','build/tests/intel-gt-bootstrap-adapter$(HOST_EXE):','build/intel-gt-bootstrap/bootstrap.o:','build/intel-gt-seconds/bootstrap.o:','build/intel-gt-practical/bootstrap.o:','build/intel-gt-memory/bootstrap.o:','build/intel-gt-arena/bootstrap.o:','build/tests/intel-gt-arena-adapter$(HOST_EXE):','build/tests/intel-gt-memory-adapter$(HOST_EXE):','build/tests/intel-gt-practical-adapter$(HOST_EXE):','build/tests/intel-gt-seconds-adapter$(HOST_EXE):')) or '$(HOST_CC)' in l for l in lines))
+        self.assertTrue(all(l.startswith(('build/tests/intel-bdw-gt-bootstrap','build/tests/intel-gt-bootstrap-adapter$(HOST_EXE):','build/intel-gt-bootstrap/bootstrap.o:','build/intel-gt-seconds/bootstrap.o:','build/intel-gt-practical/bootstrap.o:','build/intel-gt-memory/bootstrap.o:','build/intel-gt-arena/bootstrap.o:','build/intel-bcs-context/bootstrap.o:','build/tests/intel-gt-arena-adapter$(HOST_EXE):','build/tests/intel-bcs-context-adapter$(HOST_EXE):','build/tests/intel-gt-memory-adapter$(HOST_EXE):','build/tests/intel-gt-practical-adapter$(HOST_EXE):','build/tests/intel-gt-seconds-adapter$(HOST_EXE):')) or '$(HOST_CC)' in l for l in lines))
         native=subprocess.check_output(['make','-Bn','--','build/kernel/srvros.elf',
             'build/intel-bcs-reset/srvros.elf','build/intel-source-audit/srvros.elf',
             'build/intel-vtd-drain/srvros.elf','build/intel-command-memory/srvros.elf',
