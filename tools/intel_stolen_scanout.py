@@ -52,15 +52,16 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version==2 else ''
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3) else ''
+        if kind=='summary' and version==3:extra+=' preflight'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
     if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
-    if wire==2:
+    if wire>=2:
         if s['cache_index']!=3 or s['fail']>=len(FAILURES) or s['offset']>=0x1000000 or s['offset']&3:
             raise ValueError('stolen admission receipt')
         if any(s[k] not in (0,1,4,5,6,7,255) for k in ('mtrr','pat','effective')):raise ValueError('stolen cache type encoding')
@@ -68,6 +69,10 @@ def stolen_result(text,*,native=False,required_version=None):
         if success:
             if s['fail'] or s['offset'] or any(s[k] for k in ('mtrr','pat','effective')):raise ValueError('stolen unresolved admission')
         elif not s['fail']:raise ValueError('stolen missing refusal cause')
+    if wire==3:
+        if s['preflight'] not in (0,1) or (not s['preflight'] and (s['maps']>1 or s['meta_reads'] or any(row['reads'] for row in rows['run']))):raise ValueError('stolen preflight before read')
+        if s['preflight'] and (s['maps']<1 or s['retired']<1 or s['cache_checks']<3 or s['alias_checks']<2):raise ValueError('stolen preflight retirement')
+        if s['complete'] and not s['preflight']:raise ValueError('stolen missing preflight')
     if any(s[k]>1 for k in ('complete','acquired','released','retained','classified')) or s['phase']>3 or s['reason']&~62 or s['writes'] or s['ownership']!='none':
         raise ValueError('stolen authority/outcome')
     if s['released']>s['acquired'] or s['retained']!=(s['acquired'] and not s['released']) or s['classified']!=s['complete']:
@@ -84,7 +89,7 @@ def stolen_result(text,*,native=False,required_version=None):
     complete=bool(s['complete'] and s['released'] and not s['retained'])
     result=dict(complete=complete,native_complete=False,diagnostic_complete=complete,diagnostic_stolen=True,
                 hardware_ownership=False,managed_range=False,physical_tearfree=False,version=wire,rows=rows,summary=s,
-                failure_stage=FAILURES[s['fail']] if wire==2 else 'legacy-unspecified')
+                failure_stage=FAILURES[s['fail']] if wire>=2 else 'legacy-unspecified')
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -110,8 +115,9 @@ def stolen_result(text,*,native=False,required_version=None):
     if size>16*1048576 or a['fence_end']+2*size>a['aperture']:raise ValueError('stolen proposed range overflow')
     spans=[(0,0x2200000),(0x2200000,size),(0x2200000+size,size)]
     maps=2*(3+sum(((gpu//4096*8+size//4096*8+4095)//4096)-(gpu//4096*8//4096) for gpu,size in spans))
+    if wire==3:maps+=1
     entries=sum(size//4096 for _,size in spans)
-    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps,6*entries+8+2*maps,2*entries):
+    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire==3),6*entries+8+2*maps,2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]
     for n in range(2):
@@ -142,7 +148,7 @@ def stolen_result(text,*,native=False,required_version=None):
         front=rows['run'][0]['first'];offset=backing['summary']['offset']//4096
         if backing['ptes']!=[front+(offset+i)*4096 for i in range(len(backing['ptes']))]:
             raise ValueError('stolen original framebuffer translations differ')
-        if wire==2:
+        if wire>=2:
             from intel_cache import native_cache_result,_snapshot,_page
             cache=native_cache_result(text)
             offsets={0x108000,0x43000,0x6f000}

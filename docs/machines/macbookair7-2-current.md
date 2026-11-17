@@ -135,6 +135,23 @@ first page/cache/mapping admission from actual alias validation and register
 access; do not infer a safe read or retirement from the journal. Existing budgets,
 source/cache/alias gates and no-GPU-write policy remain. Main4016abf0 is unchanged.
 
+Active implementation is the first-page CPU-alias preflight in the isolated
+census adapter and versioned recipe/collector/tests. Under the same original
+exclusion and2-second pass, save pending cache policy (step16), admit strict UC3,
+save pending mapping (step15), map/check/unmap the first metadata page without
+a register load, then save retired preflight (step18). The real load remaps with
+every original check; no retired observation is reused as authority. Wire3/v49
+requires preflight before any metadata/vector reads and accounts for53 mappings,
+53 retirements,107 cache checks and70,770 alias checks. Nineteen safe journal
+saves fit the unchanged32-update cap. Historical wire1/2 remain readable but
+cannot create new trials. No live-alias storage, GPU writer, broader model gate
+or deadline increase. Adapter213 cases/14 compiled controls, fatal sanitizers/
+2KiB frames and final16 current-module tests pass; focused dispatch179 and broad
+regression253 pass. Fresh frozen7-slot and exact-stage VM gates remain pending.
+Only equal inactive6816 EFI/stage and GUI f0a8 generated-stage duplicates were
+removed against independent banks; the installed GUI/current/recovery/protected
+payloads and all banks remain. PR19 Wi-Fi and PR379 WebCore are untouched.
+
 Base main4016abf0 remains unchanged. PR301 owns these native census/collector
 changes; ordinary startup and reset/CPU-context protocols remain unchanged.
 

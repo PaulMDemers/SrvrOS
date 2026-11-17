@@ -65,6 +65,8 @@ bool workspace_log_stolen_progress(const char *data,uint64_t length) {
  assert(!strncmp(data,"laptop-capture: boot options=",27));
  assert(strstr(data,"intel-stolen: progress v=1 seq="));
  assert(model.held==(stolen.acquired && !stolen.released));
+ if(stolen.trace[(stolen.sequence-1)%16].step==15)assert(stolen.cache_checks==1 && !model.maps && !model.reads);
+ if(stolen.trace[(stolen.sequence-1)%16].step==18)assert(stolen.preflight && model.maps==1 && model.unmaps==1 && !model.reads);
  if(model.mode==31 && stolen.phase==1)model.clock+=STOLEN_CENSUS_US+1;
  return !fault(PROGRESS);
 }
@@ -128,6 +130,7 @@ static bool intel_stolen_test_alias(uint64_t root,uint64_t va,uint64_t physical)
 }
 static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  assert(model.mapped && model.physical==0xc0000000ull+(offset&~4095u));
+ assert(stolen.preflight && model.unmaps>=1);
  if(fault(READ))return false;
  ++model.reads;
  switch(offset) {
@@ -158,9 +161,9 @@ void console_printf(const char *fmt,...) {
 }
 static void positive(void) {
  reset();assert(intel_stolen_probe_report(command));assert(stolen.complete && !intel_stolen_probe_retained());
- assert(!model.mapped && !model.held && model.maps==52 && model.unmaps==52);
+ assert(!model.mapped && !model.held && model.maps==53 && model.unmaps==53);
  assert(model.reads==70664 && stolen.layout.checked==23552 && stolen.meta_reads==8);
- assert(model.calls[REVALIDATE]==4);assert(model.calls[PROGRESS]==16);
+ assert(model.calls[REVALIDATE]==4);assert(model.calls[PROGRESS]==19);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<3;r++)assert(stolen.count[n][r]==stolen.plan.range[r].pages);
  assert(!intel_stolen_probe_report(command));++model.cases;
 }

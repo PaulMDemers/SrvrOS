@@ -52,13 +52,16 @@ VM results and acceptance proofs live under
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
 The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
-`intel-stolen-v48` builds a wire2 read-only image and freezes classifier/actual-adapter,
+`intel-stolen-v49` builds a wire3 read-only image and freezes classifier/actual-adapter,
 strict receipt/stage, resource/cache/source and safe-return regressions. It keeps
 both exact-stage VM paths,64KiB collection and the existing recovery/integrity
 sequence. Matching native layout evidence can close only as DIAGNOSED; it never
 grants GPU memory/reader ownership or tear-free acceptance. It does not select
-or weaken any reset/submission protocol. Historical v47/wire1 remains readable
-but cannot launch a new trial. Wire2 selects captured true-UC PAT3, records first
+or weaken any reset/submission protocol. Historical v47/wire1 and v48/wire2 remain
+readable but cannot launch a new trial. Wire3 first maps/checks/retires the first
+metadata CPU alias without a register load, saves that boundary, then remaps
+with all original checks for the read. Its extra mapping and preflight flag are
+strictly accounted for without resetting the2-second pass. Wire2 and wire3 select captured true-UC PAT3, records first
 admission refusal and lets valid incomplete returns collect with that cause;
 those returns cannot be accepted or closed as a completed diagnostic.
 
@@ -141,7 +144,7 @@ halts visibly in SrvrOS; safe saved/unmounted outcomes return automatically.
 
 ## Return, collect, review
 
-The v48 census's new frozen progress contract adds `stolen-progress.log` to
+The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the
 [progress contract](intel-bdw-stolen-scanout.md#pending-operation-progress-journal).

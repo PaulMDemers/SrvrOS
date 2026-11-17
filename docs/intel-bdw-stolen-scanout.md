@@ -11,7 +11,7 @@ that memory available to the OS.
 
 ## Scope and evidence
 
-The opt-in `intel-stolen-v48` workflow selects the separate
+The opt-in `intel-stolen-v49` workflow selects the separate
 `build/intel-stolen/srvros.elf` image. Ordinary kernels contain only refusal
 stubs. It performs read-only PCI/MMIO observations, with no GPU PTE, command,
 plane, framebuffer, cache-control, remapping or firmware-mailbox writes. CPU
@@ -96,8 +96,8 @@ and exclusion; there is one cleanup attempt and no blind release/retry.
 
 ## Trial and collection
 
-Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v48`. Historical v47/wire1 receipts remain readable,
-but cannot start a new trial with the wire2 image.
+Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v49`. Historical v47/wire1 and v48/wire2 receipts remain readable,
+but cannot start a new trial with the wire3 image.
 Its manifest freezes the new image, actual-adapter and classifier fixtures,
 sanitizers, compiled weakening controls,2KiB native frames, strict transport,
 source/cache/window regressions and exact-stage QEMU save/return and
@@ -112,11 +112,12 @@ to Ubuntu; uncertain alias retirement halts. The visible preflight explains
 that an unchanged screen for60seconds needs a photograph/manual restart.
 The profile is silent; launch verifies host volume1%.
 
-The summary is wire2; fact/run rows retain version1. It records the first
+The current summary is wire3; fact/run rows retain version1. Wire3 adds the
+first-alias `preflight` flag to wire2 admission details. It records the first
 refusing operation and last requested DWORD offset, chosen PAT slot and last
 completed MTRR/PAT/effective query. Later cleanup errors do not overwrite the
-first refusal. Unknown type queries remain255. V48 requires wire2 and rejects
-historical wire1 even for an incomplete result; v47 rejects wire2. Legacy recipes
+first refusal. Unknown type queries remain255. V49 requires wire3; historical
+v48 requires wire2 and v47 requires wire1, including incomplete results. Legacy recipes
 remain byte-verifiable. No source guard or existing deadline is removed.
 
 Summary, two fact rows and six affine-run rows preserve actual read/count/hash,
@@ -146,7 +147,7 @@ checked between operations does not interrupt a primitive that never returns.
 
 The diagnostic adapter now saves a separate `stolen-progress.log`, capped at4KiB
 per update and32 updates per paused logger lifetime. The normal complete route
-uses16 updates. It never overwrites boot/session-a/exit snapshots. The caller
+uses19 updates (historical wire2 used16). It never overwrites boot/session-a/exit snapshots. The caller
 refuses storage through a live or uncertain diagnostic MMIO alias and brackets
 held writes with the original exclusion/root identity. Normal framebuffer
 exclusion remains active. There is no display bypass or GPU writer.
@@ -164,7 +165,7 @@ immediate clock check follows each such save. No start time or deadline is reset
 Failed progress saving has first-refusal code27 (`progress-save`); ordinary
 readback/committed-flush and unhealthy-workspace refusal still apply.
 
-New v48 manifests freeze `stolen_progress_version=1` and require the fourth raw
+Current v49 and historical progress-enabled v48 manifests freeze `stolen_progress_version=1` and require the fourth raw
 file on a complete return. Historical frozen manifests retain their three-file
 contract. The collector parses recipe-bound, bounded, consecutive progress rows
 into `returned/stolen-progress.json` before checking the exit marker, so a later
@@ -180,6 +181,32 @@ unknown. The run is rejected, with raw/photo/offline/recovery proof preserved.
 The next diagnostic must separate first-page cache/map admission, actual alias
 validation and register access; the journal alone cannot distinguish a blocked
 primitive from a deliberately retained halt.
+
+## First metadata alias preflight
+
+Wire3/v49 addresses the native stop at metadata. Before the first load from
+1082c0, save the cache-policy boundary (step16), validate the resource and strict
+UC3 policy, then save the pending mapping boundary (step15). Map its exact4KiB page with
+the original RO/supervisor/NX/UC3 policy, validate the actual leaf/root/token,
+and unmap with exact retirement checks. There is no register load in this
+preflight. A retained or uncertain alias still halts without a storage write.
+
+Only after that lifetime retires does `preflight=1` become true and the journal
+save step18/first-MMIO-read with one mapping and one retirement, no live alias.
+The real load remaps and repeats every original resource/cache/identity/alias
+check; the retired preflight is not reused as authority. The preflight and its
+journal writes consume the same original2-second pass budget, with immediate
+clock checks and no timestamp reset. Normal route counts are now53 mappings,
+53 retirements,107 cache checks and70,770 alias checks; all23,552 translation
+checks and70,664 actual MMIO DWORD loads remain. Nineteen journal saves fit the
+unchanged32-update ceiling. Legacy counters remain exact for older wires.
+
+A step16 stop precedes the first cache-policy return; a saved step15 follows
+that return but precedes the cold mapping. Neither attempts a new metadata load. A saved
+step18 establishes that the preceding cold CPU-alias lifetime retired. Neither
+label identifies the precise later instruction or proves a successful register
+read, cleanup, GPU memory ownership or tear-free operation. Wire3 completion
+requires the flag and exact counters; metadata reads without preflight refuse.
 
 ## After a native result
 

@@ -15511,3 +15511,26 @@ No retry is armed. Next scope separates first metadata cache/map admission,
 actual alias validation and register access without dropping checks or changing
 budgets. The journal is now useful on a missing-exit return, without making
 that return acceptable or identifying the exact stopping instruction.
+
+
+## First metadata alias lifecycle preflight
+
+2026-11-17: v49/wire3 separates initial strict cache-policy admission (step16),
+pending mapping after that admission (step15), and a retired map/check/unmap
+lifetime before any new metadata register load (step18). It uses the same
+original CPU exclusion/root and2-second pass. The first alias never reads a
+register; retirement must succeed before `preflight=1` and its safe journal save.
+The actual load remaps and repeats all original gates. No live/uncertain alias
+crosses storage and no time/counter resets or GPU writer is introduced.
+Normal exact counters are53 mappings/retirements,107 cache checks,70,770 alias
+checks and unchanged23,552 PTE/70,664 actual DWORD reads. Nineteen journal saves
+stay below32. Wire3 requires preflight before any metadata/vector read; v47/v48
+historical parsers remain isolated and new creation refuses those old profiles.
+Actual adapter213 cases/14 compiled controls, fatal sanitizers/2KiB frames and
+16 current-module tests pass. Focused dispatch179 and broad regression253 pass;
+fresh frozen7-slot/native image and both exact-stage VM gates remain necessary.
+Only independently equal6816 EFI/stage and f0a8 generated stage were pruned;
+the installed accepted GUI f0a8, current91e4, recovery9aa8, protected installs,
+all independent payload/evidence banks and dirty reproduction checkout survive.
+No physical preflight acceptance or new trial is claimed at this implementation
+checkpoint; main4016abf0 and PR301 remain the integration coordinates.

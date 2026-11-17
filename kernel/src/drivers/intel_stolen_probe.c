@@ -41,9 +41,9 @@ static struct {
  unsigned sequence;
  const char *command;
  char progress[4096];
- bool attempted,mapped,uncertain,unmap_failed,acquired,released,complete;
+ bool attempted,mapped,uncertain,unmap_failed,acquired,released,complete,preflight;
 } stolen;
-/* Wire2: preserve the first refusal, even if cleanup subsequently fails.
+/* Wire2/3: preserve the first refusal, even if cleanup subsequently fails.
  * Values13/14 distinguish resource admission from actual PAT/MTRR policy. */
 static bool refuse(unsigned code) {
  if(!stolen.fail){stolen.fail=code;stolen.fail_offset=stolen.active_offset;}
@@ -236,6 +236,18 @@ static bool facts(unsigned n) {
  .fence_end=stolen.source.fence_end,.width=stolen.profile.width,.height=stolen.profile.height,.stride=stolen.profile.pitch};
  if((pci_read_config32(stolen.gpu,0x50)&65535)!=f.ggc ||
  (pci_read_config32(stolen.gpu,0x5c)&0xfff00000u)!=(f.bdsm&0xfff00000u))return refuse(12);
+ /* Qualify the actual RO UC3 alias lifetime before the first register load.
+  * No storage crosses a live alias, and no count/clock is reset between this
+  * preflight and the real read. A retained alias must still halt. */
+ if(!stolen.preflight) {
+  stolen.active_offset=0x1082c0;
+  if(!checkpoint(16) || !tick(stolen.begin[n]))return false;
+  if(!policy(stolen.source.mmio+0x108000) || !tick(stolen.begin[n]))return false;
+  if(!checkpoint(15) || !tick(stolen.begin[n]))return false;
+  if(!map(0x108000) || !unmap() || !identity())return false;
+  stolen.preflight=true;
+  if(!checkpoint(18) || !tick(stolen.begin[n]))return false;
+ }
  if(!load(0x1082c0,&f.reserved))return false;
  ++stolen.meta_reads;
  const uint32_t off[]={0x43208,0x6f800,0x6f840};
@@ -286,7 +298,7 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire2 UC3 read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ console_write("intel-stolen: wire3 UC3 alias-preflight read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
@@ -331,8 +343,8 @@ cleanup:
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=2 fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
- (uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
+ console_printf("intel-stolen-summary: v=3 preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
  (uint64_t)stolen.alias_checks,(uint64_t)stolen.meta_reads,(uint64_t)stolen.layout.classified,(uint64_t)stolen.layout.checked,
