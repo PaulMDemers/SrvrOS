@@ -1,5 +1,6 @@
 """Wide diagnostics must preserve strict ownership, clocks and old-policy separation."""
 import copy,hashlib,json,os,resource,subprocess,tempfile,unittest
+from unittest.mock import patch
 from pathlib import Path
 from hardware_boot import limine_config,stage
 from intel_gt_bootstrap import bootstrap_result,bootstrap_recipe,verify_bootstrap_checkpoint,SECONDS
@@ -50,6 +51,15 @@ class Seconds(unittest.TestCase):
         self.assertIn('-DSRVROS_INTEL_GT_SECONDS',plan)
         plain=subprocess.check_output(['make','-Bn','build/intel-gt-bootstrap/srvros.elf'],cwd=ROOT,text=True)
         self.assertNotIn('-DSRVROS_INTEL_GT_SECONDS',plain)
+        import hardware_boot as boot
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);stages=root/'build/hardware-boot'
+            for name in ('limine-binary/BOOTX64.EFI','intel-gt-seconds/srvros.elf','intel-gt-bootstrap/srvros.elf','initramfs.tar'):
+                p=root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+            with patch.object(boot,'ROOT',root),patch.object(boot,'STAGE',stages),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+                release=boot.stage(laptop_probe_volume='37d8c5d0',intel_gt_seconds=True)
+            self.assertEqual((stages/release/'srvros.elf').read_text(),'intel-gt-seconds/srvros.elf')
+            self.assertEqual(boot.verify(stages/release)['config_version'],'ram-usb-v1-intel-gt-bootstrap-seconds-laptop-probe-37d8c5d0-auto-return')
     def test_policy_and_parent_closing_mutations_refuse(self):
         pre,text=self.native_fixture(self.slow);count=0
         for k in ('diagnostic','prepare','gt_phase','gt','hda','outer','hardware_phase','poll_cap','gt_end','hda_end','outer_end'):
