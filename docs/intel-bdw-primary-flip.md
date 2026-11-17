@@ -1,0 +1,123 @@
+# Broadwell synchronous primary-plane flips
+
+`intel_bdw_primary_flip` implements the primary-A arm and live-surface latch
+sequence for already owned buffers. It is a host-qualified protocol with an
+incremental polling API. There is no native adapter, guest-image caller or new
+hardware acceptance. The ordinary desktop still uses its inherited framebuffer.
+This advances presentation in the [tear-free roadmap](intel-tearfree-roadmap.md);
+the [Air current record](machines/macbookair7-2-current.md) owns native acceptance.
+
+## Hardware sequence and scope
+
+Intel's [Broadwell PRM Volume2c](https://cdrdv2.intel.com/v1/dl/getcontent/690789),
+SHA256 `09b48addae09923e35dcbf0d07fcf8d578f060ac68d58c42bb9b66a76a7e0742`,
+defines the relevant registers:
+
+| Register | Offset | Role |
+| --- | --- | --- |
+| `PIPE_FRMCNT_A` | `0x70040` | 32-bit frame count, advancing at vertical blank and wrapping; printed page1207 |
+| `PRI_CTL_A` | `0x70180` | Primary format/layout; async MMIO update is bit9; pages1247–1250 |
+| `PRI_STRIDE_A` | `0x70188` | Fixed admitted pitch |
+| `PIPE_SRCSZ_A` | `0x6001c` | Fixed admitted dimensions |
+| `PRI_OFFSET_A` | `0x701a4` | Zero panning in this path |
+| `PRI_SURF_A` | `0x7019c` | Double-buffered surface arm; pages1255–1256 |
+| `PRI_SURFLIVE_A` | `0x701ac` | Actual currently used surface base; pages1221–1223 |
+
+Only synchronous primary-A, non-stereo, unrotated BGRX8888 is supported, with
+unchanged admitted gamma/CSC, linear or X-tiled layout and unchanged pitch.
+The sole store writes the new surface to `PRI_SURF_A`. Plane control, routes,
+timing, brightness, interrupts and other planes are untouched. `PRI_SURF` bit3
+records a prior ring flip source: mask it for comparisons, never copy it into
+a new MMIO arm. Reserved low bits, async, rotation and unsupported layouts refuse.
+
+Both bases have256KiB alignment. Complete disjoint mapping extents must fit
+the aperture and include padded tiled rows, page rounding and the manual's
+extra128-PTE display tail. The tail consumes translations, not an assertion
+that128 extra RAM pages are fetched. Arithmetic supplies no mapping authority.
+
+## Independent native prerequisites
+
+The consumed-once source binds original owner/provider/lifetime, distinct
+from/to mapping leases, root, epoch, sequence, admitted time, addresses, extent
+and exact geometry. The device gate is8086:1626, not sibling acceptance.
+
+Before every actual access, a future native provider must independently maintain:
+
+1. The registered original device owner, root, epoch and request.
+2. Both complete mappings and their pinned physical backing.
+3. Completed rendering and CPU/device cache visibility before the arm.
+4. The fixed enabled, non-stereo, resource/power-qualified pipe/route.
+5. Firmware cooperation and exclusive plane programming, excluding competing
+   MMIO and command-streamer posters throughout the pending request.
+6. Independent exclusion/ownership of auxiliary readers/writers, including
+   firmware/FBC/PSR, under the selected native protocol.
+
+The sixth requirement maintains reader ownership; it does not claim that the
+old front buffer's outstanding accesses have already retired. That separate
+post-latch witness is mandatory before old-buffer reuse or translation teardown.
+Synthetic proof callbacks, idle bits and saved samples establish none of these
+native prerequisites. The first GPU mapping remains blocked on real bootstrap
+DMA/cache/prefetch and firmware/display-reader ownership.
+
+Each proof matches the exact source, mappings, original epoch/sequence, state
+and a fresh bounded timestamp. An actual read/write callback must revalidate
+the native access policy after the last clock immediately before ordered UC
+access. The posting read is neither a live latch nor a device memory fence.
+
+## Nonblocking lifetime and failure
+
+`begin` checks exact geometry and matching programmed/live old addresses, then
+arms one new surface. A pending/foreign flip refuses before an overwrite.
+A known store requires posting readback and closing ownership admission; it
+still returns pending. There is no frame-wait loop.
+
+Each `poll` performs one finite batch: frame count, four geometry words,
+programmed surface, two live reads and another frame count, then fresh ownership
+admission. The caller schedules later polls outside blocking UI work. A batch
+spanning more than one frame, reversed/foreign live transition, changed geometry
+or lost ownership fails. A normal latch between live reads remains pending.
+
+Completion requires both live reads at the exact new base and positive frame
+progress since pre-arm capture. A frame change alone never completes a flip;
+a stale matching live value without frame progress stays pending. Counter
+arithmetic handles32-bit wrap, conservatively allowing up to eight frames.
+Counter regression between polls, or a live surface reverting after a sampled
+new target, refuses even when the total delta from the original frame is legal.
+
+One100ms origin covers admission, store and every poll/final check, without
+restarting on return to the caller. Each public batch requires positive clock
+progress. Zero/backward/expired clocks refuse. At most256 polls are allowed:
+the256th may complete, otherwise it fails without a257th batch. Providers must
+themselves be bounded. No existing reset/preparation/HDA/outer policy changes.
+
+Every started failure retains source and both mappings/backing, including a
+definitely unissued or uncertain store. Known store counts survive callback
+corruption. There is no automatic retry, restore, cancellation, unmap or free.
+Source reuse, copied objects and callback reentry cannot issue another flip.
+
+`DONE` means **surface latched**, not all-reader retirement or RAM release.
+A future adapter must not call generic hardware `scanout_complete` or let the
+next render reuse the old front before independent reader retirement. Timeout
+or uncertainty retains both buffers and their address leases.
+
+## Qualification and remaining integration
+
+`make test-intel-bdw-primary-flip` exercises the actual C core against independent
+queued/live device state. A frame may advance while the old surface remains
+live: it must still return pending. Coverage includes late/mid-sample latch,
+frame wrap, stale matching live values, foreign/pending flips, geometry changes,
+ownership/visibility loss, every callback identity/progress mutation, every read
+failure, proof fields/bits, uncertain stores, all clock positions, exact/+1us
+endpoints, frozen polling and256th-poll outcomes.
+
+The10,000-case matrix passes fatal ASan/UBSan and18 runtime-detected compiled
+weakening controls. Actual native compiler flags pass the2KiB frame limit;
+ordinary and accepted CPU-context image plans exclude this core. An initial
+test candidate missed the removed posting-readback control. Requiring every
+intentionally wrong register read to refuse exposed it; all controls pass
+after that fixture correction, with runtime checks unchanged.
+
+Next supply the genuine mapping/visibility owner and native ordered register
+adapter, bind old-reader retirement to the existing [buffer lifetime](scanout-buffer-lifetime.md),
+then qualify full-buffer flips, inherited restoration and desktop presentation.
+Host/QEMU success cannot accept the native provider or visible tear-free behavior.

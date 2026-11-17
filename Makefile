@@ -6801,6 +6801,16 @@ test-intel-bdw-primary-range: build/tests/intel-bdw-primary-range$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_primary_range
 test-core: test-intel-bdw-primary-range
 
+# Synchronous primary-A arm/live-latch protocol; no native image or writer.
+PRIMARY_FLIP_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_flip.c
+build/tests/intel-bdw-primary-flip$(HOST_EXE): tools/test_intel_bdw_primary_flip.c $(PRIMARY_FLIP_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(PRIMARY_FLIP_HOST_SOURCES) -o $@
+.PHONY: test-intel-bdw-primary-flip
+test-intel-bdw-primary-flip: build/tests/intel-bdw-primary-flip$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_primary_flip
+test-core: test-intel-bdw-primary-flip
+
 # Isolated full-GT reset/fence-preservation protocol. Host only: no native
 # image/adapter is enabled by this target or by the existing BCS8-only writer.
 .PHONY: test-intel-bdw-gt-bootstrap

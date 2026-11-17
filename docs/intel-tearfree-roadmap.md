@@ -35,6 +35,13 @@ all255 obligations. One original Air7,2 CPU image lifetime now completes on
 hardware (source4ce676bd/release08ae); exact source/evidence and the still-open
 GPU ownership boundary are recorded in the linked contract.
 
+The [primary-A flip protocol](intel-bdw-primary-flip.md) now implements the
+separate synchronous arm/live-latch sequence with incremental bounded polling.
+A queued surface, posting read or advanced frame alone cannot complete it.
+Host qualification covers retained failures and late latch, but no native image
+calls it. Actual mapping/visibility ownership and old-reader retirement remain
+independent prerequisites; this is not native page-flip acceptance.
+
 ## Capability-sized trial plan
 
 The next acceptance target is one complete **private one-page GPU mapping
@@ -257,7 +264,7 @@ future memory provider.
 | 3. One-page GPU mapping | Lease a transferred non-display GPU interval and pin one private RAM page. Bind DMA addressing/translation, CPU aliases/cache policy and original PTE. Implement exact PTE write, posting and required invalidation/completion sequence. | The page is the only changed translation; exact readback and documented visibility/completion pass. No plane, route or visible framebuffer changes. Unknown completion retains both address and RAM leases. |
 | 4. Owned command completion | Where required by the selected route, own ring/context/status/completion backing and implement a finite generation-specific command sequence with a fresh nonzero completion value. This block moves earlier if mapping/retirement depends on it. | Completion is tied to the submitted request, original mappings and exact scope. Stale completion values, timeouts and unrelated engine completion cannot release backing. Never submit through an inherited ring. |
 | 5. Restore and retire | Restore original translations only while ownership remains established, complete the required translation/cache/reader retirement, then release address and RAM leases. | Success and injected failure paths have explicit ownership outcomes. A known store followed by an unknown result cannot free, replay or optimistically restore memory. Native trial verifies preserved original display and clean retirement. |
-| 6. Full scanout buffers | Expand the existing handoff contract to describe complete allocations, then own two full buffers with checked stride, padding, layout/tiling, swizzle, DMA and cache policy. | Host overflow/extent/alias/lease tests and native buffer validation pass. The current16-page contract cannot describe the inherited1356-page extent. No truncated import is accepted. |
+| 6. Full scanout buffers | Connect the existing complete4096-entry transfer contract to a real native owner, then own two full buffers with checked stride, padding, layout/tiling, swizzle, DMA and cache policy. | Host overflow/extent/alias/lease tests and native buffer validation pass. The legacy16-entry observer is not a full native import. No truncated import is accepted. |
 | 7. Flip publication | Connect owned buffers to surface programming, latch detection and old-reader retirement while preserving link, route and brightness. Integrate [publication](scanout-publication.md), [buffer lifetime](scanout-buffer-lifetime.md) and [reservations](native-scanout-reservations.md). | A real latch witness identifies the displayed buffer; the previous buffer remains pinned until its readers retire. Failed/uncertain publication quarantines backing. A frame counter alone is insufficient. |
 | 8. Desktop qualification | Enable the native backend as an explicit candidate, retain verified recovery, and exercise drawing, resize/drag, window churn and I/O/audio overlap. | Automated repeated flips and teardown, saved screenshots/timings and endurance pass; attended moving-content checks verify absence of visible tearing and normal interaction separately. Only then consider default enablement. |
 

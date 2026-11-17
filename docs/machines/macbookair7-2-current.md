@@ -54,22 +54,23 @@ This accepts CPU image construction/preservation/retirement in one original
 hardware lifetime under the explicit practical policy. It does not accept the
 historical stricter preparation/GT limits, actual executable LRC/mode/cache
 policy, GPU mappings, DMA/cache/prefetch/firmware/display-reader ownership or
-native tear-free. All255 obligations remain, with zero managed GPU pages/PTE
+native tear-free. All eight obligations (mask255) remain, with zero managed GPU pages/PTE
 writes/submissions. Enabled entry for this source and repeatability remain open.
 The prior zero-arena result remains in the [dated journal](macbookair7-2.md#native-full-gt-private-cpu-arena-completes).
 
 ## Next bounded scope
 
-Active implementation: a separate Broadwell primary-A surface flip protocol,
-covering original-source admission, one synchronous arm, real live-surface
-latch observation, bounded incremental polling and retained failure. Shared
-scope is a new isolated diagnostic core/header and host fault fixtures; it
-does not change ordinary startup, the accepted reset graph or another device's
-profile. Base main4016abf0 and draft PR301 are unchanged; open PR19 Wi-Fi and
-PR379 WebCore do not overlap. Native invocation depends on independently owned
-buffers, display/firmware exclusion and real mapping/cache visibility. No
-ownership assertion, first GPU mapping or physical trial follows from the
-software protocol. Keep latch completion distinct from all-reader retirement.
+The separate [primary-A flip protocol](../intel-bdw-primary-flip.md) now
+implements original-source admission, one synchronous arm, actual live-surface
+latch interpretation and incremental bounded polling. Its host qualification
+covers10,000 cases,18 compiled weakening controls, fatal sanitizers, native2KiB
+frames and image isolation. Queued surface/frame progress alone cannot complete
+a request; cross-poll counter/live regressions and missing old-reader retirement
+remain distinct. Native buffers/mappings/visibility and the ordered adapter are
+still absent. Ordinary startup, the accepted reset graph, installed payloads
+and other device profiles are unchanged. Base main4016abf0 and draft PR301 remain;
+open PR19 Wi-Fi and PR379 WebCore do not overlap. No new physical trial is
+warranted by host qualification alone.
 
 Resolve the real bootstrap outstanding-memory/cache/prefetch and firmware/
 display-reader witness before a private GPU interval can be transferred. Then
@@ -96,6 +97,12 @@ The [primary-range classifier](../intel-bdw-primary-range.md) passes18,216 cases
 12 controls, fatal sanitizers and native frames/image isolation. It includes tile
 padding,256KiB alignment,128-PTE display tail and full protected-fence separation.
 Saved-Air replay is offline geometry, not a live reader/ownership token.
+
+The [primary flip protocol](../intel-bdw-primary-flip.md) has no native caller.
+Its finite9-read polling batch and100ms original operation bound cover arm and
+live-latch checking without a frame-wait loop. It supplies no old-reader
+retirement, GPU mapping or native tear-free grant. Related full-fence geometry,
+100,000 buffer-lifetime interleavings and publication/restore regressions pass.
 
 The [submit port](../intel-bdw-bcs-submit.md) and actual joined flush/nonce cores
 pass2,519 port,2,326 flush and35 joined cases per policy,24 new plus24 existing

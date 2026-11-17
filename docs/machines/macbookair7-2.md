@@ -7,6 +7,37 @@ Updated: 2026-11-17. State: **active reference machine; partial device acceptanc
 
 
 
+## Primary-plane arm and live-latch protocol implemented
+
+2026-11-17: main4016abf0 fetched unchanged, same device branch/PR301. Independent
+PR19 Wi-Fi and PR379 WebCore scopes remain untouched. The new
+[primary-A protocol](../intel-bdw-primary-flip.md) binds the original owner,
+mapping leases, geometry and one100ms presentation lifetime. It checks current
+programmed/live agreement before one synchronous surface arm, then performs
+finite scheduled observation batches. Actual live target and positive frame
+progress are both required; posting readback or a frame change alone cannot
+complete it. Every uncertain outcome retains source/backing and its known-store
+prefix. There is no native caller, image link, GPU mapping or hardware flip.
+
+The10,000-case independent queued/live model,18 runtime-detected compiled
+controls, fatal ASan/UBSan and actual native2KiB compiler frames qualify the
+software. Review added cross-poll counter and live-address monotonicity;
+regressions cannot hide behind a legal delta from the original frame. An
+initial fixture missed the removed posting-readback control: requiring all
+intentionally wrong register reads to refuse fixes the oracle, not the runtime
+gate. All final controls pass. Existing18,216-case primary geometry,100,000
+buffer-lifetime interleavings and complete publication/restore regressions pass.
+
+Bootstrap audit still finds no complete native outstanding-memory/cache/
+prefetch and firmware/all-reader witness. Full-GT reset, narrower remapper
+DR/DW, System Agent invalidation and a private command retain their established
+scope; a command cannot authorize the mappings required to execute itself.
+The flip protocol can report latch only, never old-reader retirement or RAM
+release. Current08ae/recovery9aa8, USB, volume1% and no-reboot-armed state remain.
+No repeated CPU-image/reset-only boot or native acceptance follows from this
+host-only implementation. Next supply the genuine ownership/visibility provider
+and independent old-reader retirement before wiring native presentation.
+
 ## Native private CPU context image lifetime completes
 
 2026-11-17: source `4ce676bd` / release `08ae0d63f7b821c4`, run
