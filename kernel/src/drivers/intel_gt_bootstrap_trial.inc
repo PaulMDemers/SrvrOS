@@ -581,7 +581,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_GT_ARENA)
+#if defined(SRVROS_INTEL_BCS_CONTEXT)
+ "intel-bootstrap-summary: v=8 "
+#elif defined(SRVROS_INTEL_GT_ARENA)
  "intel-bootstrap-summary: v=7 "
 #elif defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
  "intel-bootstrap-summary: v=6 "

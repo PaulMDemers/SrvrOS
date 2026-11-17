@@ -8,6 +8,7 @@ submodule files.
 
 | Component | Location / notice | Role |
 | --- | --- | --- |
+| Intel Broadwell context layout | [MIT notice and adaptation](kernel/diagnostics/intel_bdw_bcs_context.c) | Private CPU context register layout cross-checked against Intel Linux v6.12 `intel_lrc.c` |
 | musl float math | [MIT and Sun notices, pinned-source adaptation](userspace/lib/src/posix_math_hyperbolic.c) | `tanhf` and `expm1f` SDK support for ICU; algorithms from Zig 0.15.2 musl |
 | musl JSC math supplement | [musl copyright](ports/srvros/libm/COPYRIGHT.musl), [Sun/Arm notice and port](ports/srvros/libm/PORT.md) | Experimental prefixed math closure using Zig 0.15.2 musl sources |
 | ICU4C | [pinned source/data and license contract](ports/srvros/icu/PORT.md) | Experimental static Unicode/i18n prerequisite; upstream Unicode license retained in the install |

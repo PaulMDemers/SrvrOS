@@ -1013,7 +1013,11 @@ int main(int argc,char **argv) {
 #elif defined(SRVROS_INTEL_NONZERO_RESET)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-reset-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_ARENA)
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-context-v1",completion_recipe);
+#else
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-arena-v1",completion_recipe);
+#endif
 #elif defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-memory-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_PRACTICAL)

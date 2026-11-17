@@ -48,7 +48,11 @@ static bool command_parent_guard(void *ctx,const struct intel_command_lease *l) 
 #endif
  return ctx==&command_native && command_lease_identity(l) && command_context_live() &&
   x86_cache_equal(&command_native.cache,&gt_bootstrap_native.cache) &&
-  bootstrap_guard() && command_context_live();
+  bootstrap_guard() && command_context_live()
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+  && bcs_context_held()
+#endif
+  ;
 }
 static bool command_parent_retired(void *ctx,const struct intel_command_lease *l) {
  if(ctx!=&command_native)return false;
@@ -90,6 +94,9 @@ static bool command_returned(void) {
 }
 static void arena_report(void) {
  command_report();
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ bcs_context_report();
+#endif
  console_printf("intel-arena-binding: v=1 owner=%u provider=%u lifetime=%u original=%u child=%u borrows=%u returns=%u parent_retired=%u clock=%u at=%u previous=%u outer_end=%u\n",
   (uint64_t)(command_native.owner.lease.owner && command_native.owner.lease.owner==gt_bootstrap_native.g),
   (uint64_t)(command_native.owner.lease.provider==&gt_bootstrap_native),

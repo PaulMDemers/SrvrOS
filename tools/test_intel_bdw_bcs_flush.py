@@ -90,7 +90,7 @@ class Flush(unittest.TestCase):
     def test_guest_images_have_no_provider_or_protocol_caller(self):
         lines=[line for line in (ROOT/'Makefile').read_text().splitlines() if CORE in line]
         self.assertTrue(lines)
-        self.assertTrue(all('build/tests/intel-bdw-bcs-flush' in line or '$(HOST_CC)' in line for line in lines))
+        self.assertTrue(all('build/tests/intel-bdw-bcs-flush' in line or line.startswith('build/tests/intel-bdw-bcs-context$(HOST_EXE):') or '$(HOST_CC)' in line for line in lines))
         for p in (ROOT/'kernel/src').rglob('*'):
             if p.suffix in ('.c','.h','.inc'):
                 self.assertNotIn('intel_bdw_bcs_flush',p.read_text(),str(p))

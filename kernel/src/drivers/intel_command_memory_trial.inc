@@ -127,6 +127,15 @@ static volatile uint64_t *command_pointer(void) {
  return (volatile uint64_t *)COMMAND_NATIVE_VA;
 #endif
 }
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+#if defined(SRVROS_BCS_CONTEXT_ADAPTER_FILE) && !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+#error "Context test override is forbidden in native images"
+#endif
+#ifndef SRVROS_BCS_CONTEXT_ADAPTER_FILE
+#define SRVROS_BCS_CONTEXT_ADAPTER_FILE "intel_bcs_context_trial.inc"
+#endif
+#include SRVROS_BCS_CONTEXT_ADAPTER_FILE
+#endif
 static bool command_initialize(void *ctx,uint64_t va,uint32_t bytes) {
  struct intel_command_memory *o=&command_native.owner;
  if(ctx!=&command_native || va!=COMMAND_NATIVE_VA || bytes!=16384 || o->maps!=4 || o->memory.state!=MEM_RAM ||
@@ -135,7 +144,12 @@ static bool command_initialize(void *ctx,uint64_t va,uint32_t bytes) {
  for(unsigned i=0;i<2048;i++)ram[i]=0;
  __asm__ volatile("mfence":::"memory");
  for(unsigned i=0;i<2048;i++)if(ram[i])return false;
- ++command_native.zeros;return true;
+ ++command_native.zeros;
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ return bcs_context_initialize();
+#else
+ return true;
+#endif
 }
 static bool command_preserved(void *ctx,uint64_t va,uint32_t bytes) {
  struct intel_command_memory *o=&command_native.owner;
@@ -143,6 +157,9 @@ static bool command_preserved(void *ctx,uint64_t va,uint32_t bytes) {
  !o->memory.cpu_serial || !command_backing(ctx,o->physical,4))return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_command_preserved();
+#endif
+ #ifdef SRVROS_INTEL_BCS_CONTEXT
+ if(!bcs_context_erase())return false;
 #endif
  volatile uint64_t *ram=command_pointer();if(!ram)return false;
  for(unsigned i=0;i<2048;i++){if(ram[i])return false;++command_native.word_checks;}
@@ -191,6 +208,9 @@ static uint64_t command_dma(void) {
 #endif
 }
 static bool command_prepare(void) {
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ console_write("intel-context: preparing private CPU image; proposed GPU addresses remain unmapped; no input needed\n");
+#endif
  volatile unsigned char *s=(volatile unsigned char *)&command_native;
  for(unsigned i=0;i<sizeof(command_native);i++)s[i]=0;
  command_native.dma_before=command_dma();

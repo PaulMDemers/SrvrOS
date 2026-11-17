@@ -27,6 +27,12 @@ The new host code still needs an independently initialized/owned context and
 mappings; no queue sample, issued packet or nonce can create that prior authority.
 Native startup memory-completion/reader ownership remains the next decision.
 
+The [private CPU context-image trial](intel-bdw-bcs-context.md) now prepares
+and verifies the complete byte image in the existing original-owner arena, with
+post-retirement erasure and exact cleanup. This separates CPU construction from
+actual GPU mapping, visibility and execution. Its own wire8/image/recipe retains
+all255 obligations; native context-image lifetime acceptance remains pending.
+
 ## Capability-sized trial plan
 
 The next acceptance target is one complete **private one-page GPU mapping

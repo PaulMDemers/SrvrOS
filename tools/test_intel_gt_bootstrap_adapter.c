@@ -39,6 +39,9 @@ static bool intel_display_test_command_cache(struct x86_cache_snapshot *);
 static bool intel_display_test_command_alias(uint64_t,uint64_t,uint64_t,struct vmm_alias_observation *);
 static volatile uint64_t *intel_display_test_command_pointer(void);
 static void intel_display_test_command_preserved(void);
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+static void intel_display_test_context_boundary(void);
+#endif
 
 static uint64_t intel_display_test_command_clock(void);
 static void intel_display_test_command_guard(void);
@@ -293,6 +296,22 @@ static __attribute__((noinline)) void bootstrap_churn_stack(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_ARENA
 #include "test_intel_gt_arena_model.inc"
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+static unsigned context_boundaries;
+static void intel_display_test_context_boundary(void) {
+ ++context_boundaries;
+ if(cf("context-content",context_boundaries))command_ram[1024]^=1;
+ if(cf("context-ring",context_boundaries))command_ram[0]^=1;
+ if(cf("context-hwsp",context_boundaries))command_ram[512]^=1;
+ if(cf("context-completion",context_boundaries))command_ram[1536]^=1;
+ if(cf("context-config",context_boundaries))bcs_context_native.config.nonce++;
+ if(cf("context-physical",context_boundaries))bcs_context_native.physical+=4096;
+ if(cf("context-root",context_boundaries))bcs_context_native.root+=4096;
+ if(cf("context-descriptor",context_boundaries))bcs_context_native.descriptor^=1;
+ if(cf("context-count",context_boundaries))bcs_context_native.verified++;
+}
+#endif
+
 #endif
 int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_GT_ARENA

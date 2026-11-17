@@ -5,6 +5,25 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-17. State: **active reference machine; partial device acceptance**.
 
+
+## November17 private CPU context-image preparation
+
+The separate wire8/image/recipe candidate advances CPU construction without
+manufacturing a native GPU ownership provider. See the [current unit status](macbookair7-2-current.md)
+and [format/lifetime contract](../intel-bdw-bcs-context.md). Intel's context
+register layout is cross-checked with its MIT-licensed Linux implementation;
+incorrect printed LRI counts, non-adjacent high batch registers and the final
+EXCC register are handled explicitly. Complete image verification/retained
+prefixes and independent post-parent cleanup remain mandatory. All255 GPU
+obligations stay; no PTE, mapping, submission or tear-free acceptance follows.
+Frozen host/VM and the matching native lifetime remain pending.
+
+The inactive installed434e payload was removed only after full file equality
+with the external payload bank, verified current/recovery/fallback/protected
+payloads and absence from boot configuration. The independent434e bank and raw
+native evidence remain; cleanup ledger is outside build. Currenta382/recovery9aa8
+and acceptedf0a8 stay installed, with207MiB EFI capacity before the new stage.
+
 ## Host private BCS port and nonce-completion composition
 
 2026-11-17: base4016abf0 unchanged, PR301. A source-bound private BCS submit

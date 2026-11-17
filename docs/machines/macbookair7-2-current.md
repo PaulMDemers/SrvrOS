@@ -72,7 +72,7 @@ Retain current recovery and independently accepted banks. No new trial is armed.
 
 Earlier memory-child acceptance, failed host-only candidates and verified staging/
 EFI duplicate cleanup are preserved in the [GPU qualification history](macbookair7-2-gpu-history.md)
-and dated journal. Root free space is about1.3GiB and EFI61MiB; review capacity
+and dated journal. Root free space is about1.3GiB and EFI207MiB; review capacity
 before another payload, preserving dirty reproduction work and accepted banks.
 
 
@@ -147,3 +147,26 @@ Publish measured evidence and initialize executable context only after its exact
 mapping/address-space contract is admitted. Keep currenta382/recovery9aa8 and
 all accepted banks; no new physical run is pending. A new bounded qualified trial
 may reboot automatically at1% under the user's standing authorization.
+
+
+## Private CPU context-image candidate
+
+The next bounded [context trial](../intel-bdw-bcs-context.md) uses the same four
+private CPU pages and original full-GT/memory/arena owner. It materializes a
+complete ring/HWSP/register/completion image before GPU exclusion, verifies all
+bytes initially and at both held-source guards, then verifies and erases it
+only after actual enclosing retirement. Existing exact alias/zero/once-free
+cleanup remains. The image/recipe/wire8 are separate; older gates stay strict.
+This tests CPU preparation, with prospective GPU addresses deliberately unmapped;
+actual mapping/context execution and DMA/cache/display-reader ownership remain
+unaccepted and all255 obligations stay. Qualification and hardware are pending.
+
+The codec passes4,463 decode/word-corruption/input cases; initial actual adapter
+coverage includes72 retained-prefix faults on two modeled entry routes, fatal
+sanitizers and2KiB native frames. Frozen validation will retain all42 prior slots
+and add context image/model slots, then exact-stage VM paths before hardware.
+Currenta382/recovery9aa8/acceptedf0a8 and protected banks remain. The old installed
+434e duplicate was removed only after all files matched its independently verified
+external payload bank; that bank and all native evidence remain. EFI now has207MiB
+free for the next candidate. No user input is required for this silent trial;
+a qualified candidate may reboot automatically at1% under standing permission.

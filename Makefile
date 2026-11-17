@@ -7112,3 +7112,67 @@ build/tests/intel-gt-arena-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/sr
 build/intel-gt-arena/arena.o: kernel/diagnostics/intel_command_memory.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_GT_ARENA_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+
+# Private CPU context image: no implicit GPU mapping/submission authority.
+BCS_CONTEXT_SOURCES := kernel/diagnostics/intel_bdw_bcs_context.c
+build/tests/intel-bdw-bcs-context$(HOST_EXE): tools/test_intel_bdw_bcs_context.c $(BCS_CONTEXT_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_CONTEXT_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+.PHONY: test-intel-bdw-bcs-context
+test-intel-bdw-bcs-context: build/tests/intel-bdw-bcs-context$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_context
+test-core: test-intel-bdw-bcs-context
+
+# Isolated private CPU context materialization; prospective GPU addresses stay unmapped.
+INTEL_BCS_CONTEXT_FLAGS := $(INTEL_GT_ARENA_FLAGS) -DSRVROS_INTEL_BCS_CONTEXT
+build/intel-bcs-context/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/requests.o: kernel/src/limine_requests.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/bootstrap.o: kernel/diagnostics/intel_bdw_gt_bootstrap.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/joint.o: kernel/diagnostics/intel_hda_gpu.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/gt-access.o: kernel/src/drivers/intel_gt_access.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/hda-owner.o: kernel/src/drivers/intel_hda_owner.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/boot.o: kernel/src/drivers/intel_gt_boot.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/log-ring.o: kernel/src/bootlog.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/log-save.o: kernel/src/workspace_log.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=36864 -c $< -o $@
+INTEL_BCS_CONTEXT_EXCLUDE := build/kernel/src/main.c.o build/kernel/src/bootlog.c.o build/kernel/src/workspace_log.c.o build/kernel/src/drivers/intel_gt_access.c.o build/kernel/src/drivers/intel_hda_owner.c.o build/kernel/src/drivers/intel_gt_boot.c.o
+build/intel-bcs-context/vtd.o: kernel/diagnostics/intel_vtd_drain.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=4096 -c $< -o $@
+build/intel-bcs-context/ggtt.o: kernel/diagnostics/intel_ggtt_invalidate.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/srvros.elf: build/intel-bcs-context/context.o build/intel-bcs-context/arena.o build/intel-bcs-context/vtd.o build/intel-bcs-context/ggtt.o build/intel-bcs-context/main.o build/intel-bcs-context/probe.o build/intel-bcs-context/requests.o build/intel-bcs-context/bootstrap.o build/intel-bcs-context/joint.o build/intel-bcs-context/gt-access.o build/intel-bcs-context/hda-owner.o build/intel-bcs-context/boot.o build/intel-bcs-context/log-ring.o build/intel-bcs-context/log-save.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-ring-transition/transition.o $(filter-out $(INTEL_BCS_CONTEXT_EXCLUDE),$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-bcs-context-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/diagnostics/intel_command_memory.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c tools/test_intel_gt_memory_model.inc tools/test_intel_gt_arena_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_BCS_CONTEXT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/intel_bdw_bcs_context.c kernel/diagnostics/intel_command_memory.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c -o $@
+build/tests/intel-bcs-context-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_BCS_CONTEXT_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+build/intel-bcs-context/arena.o: kernel/diagnostics/intel_command_memory.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@

@@ -305,6 +305,25 @@ class RunnerTests(unittest.TestCase):
         _,manifest,state=runner.load('arena')
         self.assertEqual(manifest['wire_version'],7);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
 
+    def test_context_profile_freezes_wire8_and_preserves_all42_prior_slots(self):
+        from workflow.bcs_context import jobs
+        from workflow.gt_arena import jobs as previous
+        from workflow.media import raw_log_limit
+        plan=jobs(['Makefile']);old=previous(['Makefile'])
+        self.assertEqual(sum(map(len,plan.values())),46)
+        for level in ('development','qualification'):
+            self.assertEqual(len(plan[level]),len(old[level])+2)
+            self.assertEqual(len({j['name'] for j in plan[level]}),len(plan[level]))
+            self.assertTrue({j['name'] for j in old[level]}<={j['name'] for j in plan[level]})
+            fixture=next(j for j in plan[level] if j['name']=='fixtures')
+            for target in ('intel-bcs-context-adapter','intel-bcs-context-boot','intel-bdw-bcs-context'):
+                self.assertIn('build/tests/'+target,fixture['argv']);self.assertIn('build/tests/'+target,fixture['outputs'])
+        self.assertEqual(raw_log_limit('intel-bcs-context-v46'),98304)
+        runner=FixtureRunner(self.repo,self.root/'v46-store')
+        runner.create('context',dict(self.unit,model='MacBookAir7,2'),'Private CPU context lifetime','No GPU mapping or execution',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-bcs-context-v46')
+        _,manifest,state=runner.load('context')
+        self.assertEqual(manifest['wire_version'],8);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
+
     def test_full_gt_v41_freezes_wire3_and_old_profiles_are_historical(self):
         runner=FixtureRunner(self.repo,self.root/'v41-store')
         unit=dict(self.unit,model='MacBookAir7,2')
