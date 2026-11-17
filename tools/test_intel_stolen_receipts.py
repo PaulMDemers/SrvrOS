@@ -104,6 +104,16 @@ class Receipts(unittest.TestCase):
                 state['phase']='COLLECTED';(logs/'exit.log').write_text(final+'changed')
                 with self.assertRaises(ValueError):runner.diagnose('model')
 
+    def test_exact_vm_dispatch_uses_manifest_profile_and_refuses_native_activity(self):
+        from hardware_boot_smoke import intel_stolen_vm_result
+        text=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--unsupported-report'],text=True)
+        version='ram-usb-v2-intel-stolen-laptop-probe-37d8c5d0-auto-return'
+        self.assertEqual(intel_stolen_vm_result(text,version)['failure_stage'],'profile')
+        for bad in ('ram-usb-v1-intel-stolen-laptop-probe-37d8c5d0-auto-return','ordinary'):
+            with self.assertRaises(ValueError):intel_stolen_vm_result(text,bad)
+        for bad in (self.text,'no census packet',subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--refusal-report'],text=True)):
+            with self.assertRaises(ValueError):intel_stolen_vm_result(bad,version)
+
     def test_original_cache_must_supply_mtrr_uc_as_well_as_pat_uc(self):
         raw_cache=subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe')],text=True)
         # This alternate actual cache fixture has MTRR WB and PAT UC3, so the

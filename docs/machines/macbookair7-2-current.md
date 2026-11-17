@@ -86,7 +86,12 @@ The actual adapter passes204 cases/11 compiled controls, fatal sanitizers and
 independently decodes UC3 for all26 observed MMIO pages. Valid incomplete
 returns collect with the refusing operation and can only be closed rejected;
 they cannot be accepted or diagnosed complete. Historical v47 is read-only.
-Exact frozen-source and staged-VM qualification still precede the new trial.
+The first exact-stage VM caught a host verifier NameError; that uninstalled
+candidate was cancelled. Its guest had correctly refused/saved/unmounted.
+The corrected verifier consumes the actual manifest profile through a tested
+wire-specific helper; unsupported, native-active and mixed-wire inputs are
+covered. The native startup line now identifies wire2/UC3. The replacement
+still requires fresh frozen-source and both exact-stage VM gates.
 
 Base main4016abf0 remains unchanged. PR301 owns these native census/collector
 changes; ordinary startup and reset/CPU-context protocols remain unchanged.

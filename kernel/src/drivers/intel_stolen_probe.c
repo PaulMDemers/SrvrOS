@@ -233,7 +233,7 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: read-only complete inherited/candidate translation census; two bounded2s passes, no input, no writes or allocation grant\n");
+ console_write("intel-stolen: wire2 UC3 read-only complete inherited/candidate translation census; two bounded2s passes, no input, no writes or allocation grant\n");
  if(!recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  if(!intel_scanout_trial_profile(&stolen.profile) || stolen.profile.width!=1440 ||
