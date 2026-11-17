@@ -331,3 +331,13 @@ policy. It must not infer150ms from a command-line token. Each reader's policy
 scope resets on success/error and the next historical session retains100ms.
 The frozen original report's two false legacy-policy warnings stay archived;
 corrected host replay preserves all raw bytes and the exact native result.
+
+## Original full-GT composition
+
+The separately selected [wire6 full-GT memory child](intel-bdw-gt-bootstrap.md#same-owner-post-reset-memory-preparation-wire6)
+reuses this protocol after a full reset on its original new-epoch owner. It has
+its own native provider, registration, two UC aliases, clocks and receipts;
+the legacy source graph and v36 evidence are not transferred. The operation core
+inherits the explicitly selected practical aggregate clocks, while ordinary and
+legacy images retain their existing defaults. The256-poll cap and narrow AT00
+processed-request scope are unchanged. Native composition acceptance is pending.

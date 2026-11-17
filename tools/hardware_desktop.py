@@ -576,7 +576,7 @@ def needs_attention(line):
     if line.startswith('intel-bootstrap-summary:'):
         from intel_gt_bootstrap import fields,SUMMARY
         try:
-            s=fields(line,'intel-bootstrap-summary:',SUMMARY,('root',),(1,2,3,4,5))
+            s=fields(line,'intel-bootstrap-summary:',SUMMARY,('root',),(1,2,3,4,5,6))
             return not(s['complete']==1 and s['state']==2 and s['reason']==s['failed']==s['active']==0 and s['returned']==1)
         except ValueError:return True
     if line.startswith('intel-bootstrap-reset:'):
@@ -831,7 +831,7 @@ def session_log_limit(exit_preview):
     lines=exit_preview.splitlines()
     provider=any(l.startswith(b'intel-vtd-drain: v=6 b=') for l in lines) and any(
         l.startswith(b'intel-command-ownership: v=1 b=') for l in lines)
-    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith((b'intel-bootstrap-summary: v=1 ',b'intel-bootstrap-summary: v=2 ',b'intel-bootstrap-summary: v=3 ',b'intel-bootstrap-summary: v=4 ',b'intel-bootstrap-summary: v=5 ')) for l in lines)
+    bootstrap=any(l.startswith(b'intel-wake-summary: v=37 ') for l in lines) and any(l.startswith((b'intel-bootstrap-summary: v=1 ',b'intel-bootstrap-summary: v=2 ',b'intel-bootstrap-summary: v=3 ',b'intel-bootstrap-summary: v=4 ',b'intel-bootstrap-summary: v=5 ',b'intel-bootstrap-summary: v=6 ')) for l in lines)
     return 98304 if provider or bootstrap else 65536
 
 
@@ -890,7 +890,7 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         raw_payload=payload
-        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and b'srvros.intel-ring=gt-bootstrap-v1' in line.split() for data in raw_payload.values() for line in data.splitlines())
+        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and any(t in line.split() for t in (b'srvros.intel-ring=gt-bootstrap-v1',b'srvros.intel-ring=gt-bootstrap-seconds-v1',b'srvros.intel-ring=gt-bootstrap-practical-v1',b'srvros.intel-ring=gt-bootstrap-memory-v1')) for data in raw_payload.values() for line in data.splitlines())
         vtd_profile=any(b'srvros.intel-ring=vtd-drain-v1' in data for data in raw_payload.values())
         source_audit_profile=vtd_profile or any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
         source_engines_profile=any(b'srvros.intel-ring=source-engines-v1' in data for data in raw_payload.values())
@@ -906,7 +906,11 @@ def collect(mount, volume, output):
             from intel_source_audit import shared_view as audit_shared_view
             from intel_vtd_native import drain_shared_view
             from intel_gt_bootstrap import historical_view as bootstrap_view
-            decode=bootstrap_view if bootstrap_profile else drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
+            def selected_bootstrap_view(data):
+                words=next((l.split('=',1)[1].split() for l in data.splitlines() if l.startswith('laptop-capture: boot options=')),[])
+                memory='srvros.intel-ring=gt-bootstrap-memory-v1' in words
+                return bootstrap_view(data,seconds='srvros.intel-ring=gt-bootstrap-seconds-v1' in words,practical=memory or 'srvros.intel-ring=gt-bootstrap-practical-v1' in words,memory=memory)
+            decode=selected_bootstrap_view if bootstrap_profile else drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
             try:
                 # Only the checked v31 dispatch may normalize shared wire schemas.
                 # Saved files above remain exact raw bytes; never publish a v30 result.
@@ -928,7 +932,7 @@ def collect(mount, volume, output):
                 final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
                 intel_gt_bootstrap=bootstrap_result(final,native=True)
                 verify_bootstrap_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
-                if not intel_gt_bootstrap or not intel_gt_bootstrap['native_complete']:attention.append('Intel full-GT bootstrap incomplete or refused')
+                if not intel_gt_bootstrap or not (intel_gt_bootstrap['native_complete'] or intel_gt_bootstrap.get('diagnostic_complete')):attention.append('Intel full-GT bootstrap incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel full-GT bootstrap: '+str(error))
         intel_vtd_drain=None
         intel_source_audit=None

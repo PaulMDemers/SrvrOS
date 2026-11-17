@@ -23,6 +23,10 @@ static struct {
  uint32_t native_reads,native_writes,epoch_calls;
  uint32_t display[2][3][13],display_counts[2],display_samples;
  bool blocked,full_before,full_after,post_bound,returned,complete,failed;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ const void *memory_child,*memory_original;
+ unsigned memory_borrows,memory_returns;
+#endif
 } gt_bootstrap_native;
 /* Receipt is data only; never a copied live ownership object. Valid only for
  * one immediate read across the trusted protocol's one clock-only callback. */
@@ -232,6 +236,9 @@ static bool bootstrap_pci(unsigned n) {
  }
  ++gt_bootstrap_native.pci_samples;return bootstrap_guard();
 }
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+static bool bootstrap_memory_returned(void);
+#endif
 static bool bootstrap_command(unsigned value) {
  unsigned issued=gt_bootstrap_native.command_writes;
  if(!((issued==0 && value==3 && gt_bootstrap_native.pci_samples==1) ||
@@ -239,6 +246,9 @@ static bool bootstrap_command(unsigned value) {
  !gt_bootstrap_native.reset.registered && !gt_bootstrap_native.reset.retained &&
  gt_bootstrap_native.full_after && gt_bootstrap_native.post_bound)) || !bootstrap_guard())return bootstrap_fail(32);
  if(!bootstrap_tick() || !bootstrap_parent())return false;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(value==7 && !bootstrap_memory_returned())return bootstrap_fail(512);
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  if(!intel_display_test_bootstrap_command(value))return bootstrap_fail(32);
 #else
@@ -446,6 +456,15 @@ static bool bootstrap_core_io(void) {
  old->prerequisite==io->prerequisite && old->read==io->read && old->write==io->write &&
  old->advance_epoch==io->advance_epoch && old->preserved==io->preserved && old->now==io->now && old->pause==io->pause;
 }
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+#if defined(SRVROS_INTEL_GT_MEMORY_ADAPTER_FILE) && !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+#error "A full-GT memory adapter override is host-test-only"
+#endif
+#ifndef SRVROS_INTEL_GT_MEMORY_ADAPTER_FILE
+#define SRVROS_INTEL_GT_MEMORY_ADAPTER_FILE "intel_gt_memory_trial.inc"
+#endif
+#include SRVROS_INTEL_GT_MEMORY_ADAPTER_FILE
+#endif
 static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(gt_bootstrap_native.object)return;
  gt_bootstrap_native.object=&gt_bootstrap_native;gt_bootstrap_native.a=a;gt_bootstrap_native.g=g;
@@ -487,6 +506,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(!intel_bdw_gt_bootstrap_run(&gt_bootstrap_native.reset,&gt_bootstrap_native.source,
   (struct bdw_boot_io){&gt_bootstrap_native,bootstrap_proof,bootstrap_read,bootstrap_write,bootstrap_epoch,
    bootstrap_preserved,bootstrap_now,bootstrap_pause}))goto fail;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(!bootstrap_memory_open())goto fail;
+#endif
  if(!bootstrap_guard() || !intel_completion_observe(&gt_bootstrap_native.post,g,
   (struct intel_completion_io){a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE}))goto fail;
  gt_bootstrap_native.post_bound=gt_bootstrap_native.post.object==&gt_bootstrap_native.post &&
@@ -494,10 +516,17 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
   gt_bootstrap_native.post.complete && gt_bootstrap_native.post.stable && !gt_bootstrap_native.post.enabled &&
   !gt_bootstrap_native.post.pending && !gt_bootstrap_native.post.flip_wait && !gt_bootstrap_native.post.tlb_pending &&
   gt_bootstrap_native.post.begin_us>=gt_bootstrap_native.reset.end;
- if(!gt_bootstrap_native.post_bound || !bootstrap_pci(2) || !bootstrap_command(7) || !bootstrap_pci(3))goto fail;
+ if(!gt_bootstrap_native.post_bound)goto fail;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(!bootstrap_memory_run() || !bootstrap_memory_returned())goto fail;
+#endif
+ if(!bootstrap_pci(2) || !bootstrap_command(7) || !bootstrap_pci(3))goto fail;
  gt_bootstrap_native.guard_begin=gt_bootstrap_native.last;
  if(!bootstrap_guard() || !engine_guard(a) || !bootstrap_tick() || gt_bootstrap_native.reset.registered ||
   gt_bootstrap_native.reset.retained || !gt_bootstrap_native.full_after)goto fail;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(!bootstrap_memory_returned())goto fail;
+#endif
  gt_bootstrap_native.guard_end=gt_bootstrap_native.return_begin=gt_bootstrap_native.last;
  gt_bootstrap_native.closing=1;
  gt_bootstrap_native.returned=intel_gt_access_return(&gt_bootstrap_native.borrow);
@@ -510,6 +539,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  intel_display_test_bootstrap_final_boundary();
 #endif
  if(!bootstrap_after_return() || !bootstrap_tick())goto fail;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(!bootstrap_memory_returned())goto fail;
+#endif
  gt_bootstrap_native.final_end=gt_bootstrap_native.last;gt_bootstrap_native.closing=3;
  gt_bootstrap_native.end=gt_bootstrap_native.last;gt_bootstrap_native.state=2;gt_bootstrap_native.complete=true;return;
 fail:
@@ -518,7 +550,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_GT_PRACTICAL)
+#if defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
+ "intel-bootstrap-summary: v=6 "
+#elif defined(SRVROS_INTEL_GT_PRACTICAL)
  "intel-bootstrap-summary: v=5 "
 #elif defined(SRVROS_INTEL_GT_SECONDS)
  "intel-bootstrap-summary: v=4 "
@@ -586,4 +620,7 @@ static void bootstrap_report(void) {
    (uint64_t)gt_bootstrap_native.display[n][p][i]);
  }
  completion_report_named(&gt_bootstrap_native.post,"intel-bootstrap-post");
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ bootstrap_memory_report();
+#endif
 }

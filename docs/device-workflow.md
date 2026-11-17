@@ -488,3 +488,15 @@ exact-stage VMs, receipt-guarded single handoff, automatic return collection and
 Preparation153.910ms and outer385.267ms fit the250ms/1s bounds, with complete
 parent/15-alias retirement. It remains diagnostic-only with no original-timing
 or GPU ownership grant. The single handoff has ended and no further boot is armed.
+
+### Full-GT memory composition candidate
+
+`--profile intel-gt-memory-v44` selects the original post-reset child,
+`--intel-gt-memory` stage flag and `gt-bootstrap-memory-v1` recipe. Wire6 requires
+its complete same-owner remapper/GGTT/alias/census receipt in addition to the
+original full-GT chain. All36 frozen jobs and both exact-stage VM paths must pass
+before boot. Current practical clocks and96KiB raw capacity stay unchanged.
+The ordinary collector validates the matching raw checkpoint and offline USB
+integrity; `diagnose` can close a complete diagnostic. `accept` refuses it.
+This cannot accept native tear-free or discharge memory/cache/reader obligations.
+See the [composition contract](intel-bdw-gt-bootstrap.md#same-owner-post-reset-memory-preparation-wire6).

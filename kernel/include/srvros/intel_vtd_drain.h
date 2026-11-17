@@ -10,9 +10,9 @@
 #define INTEL_VTD_DRAIN_REQUEST 0x90030000u
 #define INTEL_VTD_DRAIN_POLLS 256u
 #define INTEL_VTD_DRAIN_PREPARE_US INTEL_DIAGNOSTIC_PREPARE_US
-#define INTEL_VTD_DRAIN_GT_US 300000ull
-#define INTEL_VTD_DRAIN_HDA_US 400000ull
-#define INTEL_VTD_DRAIN_OUTER_US 500000ull
+#define INTEL_VTD_DRAIN_GT_US INTEL_DIAGNOSTIC_GT_TOTAL_US
+#define INTEL_VTD_DRAIN_HDA_US INTEL_DIAGNOSTIC_HDA_US
+#define INTEL_VTD_DRAIN_OUTER_US INTEL_DIAGNOSTIC_OUTER_US
 struct intel_vtd_drain;
 /* Scalar description only, not authority. An adapter must independently match
  * the ORIGINAL registered child against its actual maintained requester/engine/
@@ -33,7 +33,7 @@ struct intel_vtd_drain_io {
  void *ctx;
  bool (*guard)(void *,const struct intel_vtd_drain_source *);
  /* Ordered UC DWORDs, strictly within the one admitted graphics-unit page.
-  * Only the isolated v36 native adapter uses this writer.
+  * Only separately selected native diagnostic adapters use this writer.
   * No GCMD, RTADDR, IVA, queue or fault writes. */
  bool (*read)(void *,uint32_t offset,uint32_t *);
  /* Only offset0x50c, value0x90030000: IVT, global, DR and DW. Writing this
@@ -72,10 +72,10 @@ struct intel_vtd_drain {
 /* Exact captured Air7,2 graphics DRHD/8086:1626 only. Requires TES/QIES and all
  * GSTS clear, root0, idle context command and no fault. One global DR/DW request,
  * at most256 fresh IVT polls, IAIG=global, final unchanged policy. Preserve the
- * original origins, selected preparation and300/400/500ms owner budgets.
+ * original origins and explicitly selected aggregate owner budgets.
  * No retry, clearing, mapping or release API.
  * Success describes AT=00 memory requests already processed by this remapper;
  * not GPU pipeline/prefetch/cache, ATS/peers, later requests, readers or a PTE
- * grant. Only the dedicated v36 image links the native writer. */
+ * grant. Only dedicated legacy or full-GT composition images link native writers. */
 bool intel_vtd_drain_run(struct intel_vtd_drain *,struct intel_vtd_drain_source *,struct intel_vtd_drain_io);
 #endif

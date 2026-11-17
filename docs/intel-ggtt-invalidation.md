@@ -181,3 +181,13 @@ This is ordered System Agent invalidation, not a self-clear ACK, pipeline/cache/
 prefetch/reader completion proof or a private GPU mapping. Enabled-route and
 repeatability acceptance remain pending. All255 hardware obligations and zero
 GPU assurances/managed pages remain; no historical receipt becomes live authority.
+
+## Original full-GT composition
+
+The separate [wire6 full-GT memory child](intel-bdw-gt-bootstrap.md#same-owner-post-reset-memory-preparation-wire6)
+composes this operation after its remapper drain on the original post-reset GT
+borrow. It checks its own exact UC alias and retires both aliases before parent
+return, then verifies a fresh census. Selected practical aggregate clocks are
+inherited without changing older defaults. The posting read remains a posting
+read; zero does not become a completion ACK or whole-device ownership witness.
+Native composition acceptance is pending.

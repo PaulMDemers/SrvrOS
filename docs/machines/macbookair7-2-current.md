@@ -8,6 +8,24 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
+Active scope (base `d2de91ce`, main `4016abf0`, PR301): compose full-GT
+post-reset ownership with the graphics-remapper drain and System Agent GGTT
+invalidation before requester/GT/HDA return. The separate wire6 child binds the
+original borrow, new epoch, original clocks, exact resources and two UC aliases.
+It must verify preservation and retire before BME restoration. No legacy owner
+copy, GPU PTE, context initialization, submission or whole-device grant is added.
+Practical 250/100/500/750/1000ms clocks and individual wait/poll caps remain.
+Scope covers the isolated adapter/image, operation-core clock aliases, strict
+receipts/collector/workflow and tests. Native qualification is pending; a complete
+36-job qualification and both exact-stage VM paths precede an automated 1% trial.
+Current `33d9` and recovery `9aa8` remain installed. No other agent is contacted.
+
+EFI capacity maintenance verified the separate payload bank and all159 sealed
+files from the completed three-run `2281` study, then retired only its unreferenced
+installed duplicate (about153MB). The complete payload and evidence remain outside
+`build`; current `33d9`, recovery `9aa8`, accepted `f0a8`, protected releases and
+boot menus are unchanged. This leaves about216MB for the next isolated candidate.
+
 The **practical timing diagnostic now completes on hardware**: runtime
 `b7752e6f`, release `33d9e5dacde0d12b`, session
 `session-0006607172203a36-00` (main4016abf0, PR301). All30 frozen qualification

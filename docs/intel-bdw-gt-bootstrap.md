@@ -456,3 +456,45 @@ false; enabled-entry practical hardware coverage, repeatability and all255
 GPU memory/DMA/cache/reader obligations remain pending. No managed GPU page,
 PTE write, submission or native tear-free authority follows. See the
 [unit result](machines/macbookair7-2.md#practical-gt-timing-diagnostic-completes).
+
+### Same-owner post-reset memory preparation (wire6)
+
+The separate `build/intel-gt-memory/srvros.elf` image selects
+`SRVROS_INTEL_GT_MEMORY_PREPARE` and the exact
+`srvros.intel-ring=gt-bootstrap-memory-v1` recipe. Workflow profile
+`intel-gt-memory-v44` freezes wire6; it uses the already measured practical
+250ms preparation / 100ms maintenance phase / 500ms GT / 750ms HDA / 1s outer
+policy. Individual hardware phases and poll caps stay unchanged. This composition
+is implemented for qualification; it is not yet physically accepted.
+
+After full reset and fence restoration, a registered child binds the **original**
+GT borrow and new engine epoch while GPU requester command3, the HDA hold and
+CPU/firmware exclusion remain active. It checks the actual GT lease before the
+first post-reset census, then creates two exact supervisor/NX UC aliases. It
+runs the existing [graphics-remapper drain](intel-vtd-drain.md) and
+[System Agent GGTT invalidation](intel-ggtt-invalidation.md) cores on this graph.
+It does not replay a receipt or copy an owner from the older BCS/source graph.
+
+Every access independently checks original source/callback/progress identity,
+requester/HDA/resource/root, the CPU cache context and actual UC alias after its
+last clock. Success requires a second stable92-word census, exact prior engine
+and context words, actual GT maintenance and reverse alias retirement. The parent
+checks the terminal child independently before requester restore, logical borrow
+return and final completion. Unknown stores, changed policy or failed retirement
+keep exclusion and the remaining mappings pinned. No retry is attempted.
+
+`intel-memory-*` receipts retain original bindings/clocks, ordered core contexts,
+all256 remapper poll slots (including zero tail), both operations' attempt and
+completion counts, actual alias/cache attributes, maintenance and final census.
+The strict wire6 decoder derives counts/order and refuses a missing child or
+foreign older recipe. Wire1–5 result shapes and historical timing evidence remain
+unchanged. The raw log limit remains96KiB. Qualification keeps all30 prior jobs
+and adds native composition, operation-core and image gates at both levels
+(36 total), followed by both exact-stage VM paths.
+
+Completion proves these two narrow operations in the full-GT owner's lifetime.
+AT00 requests already processed by the remapper and a System Agent WO trigger
+plus posting read do not establish GPU pipeline/prefetch/cache completion,
+firmware/display-reader retirement, a GPU interval or PTE authority. All255
+whole-device obligations, zero managed GPU pages and zero PTE writes remain.
+Private ring/context/mapping ownership and tear-free scanout are subsequent work.

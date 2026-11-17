@@ -182,7 +182,7 @@ class RunnerTests(unittest.TestCase):
         import device_workflow
         (self.repo / 'build').mkdir()
         atomic(self.runner.store / 'unit.json', self.unit)
-        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43'):
+        for trial_profile in ('intel-ggtt-invalidate-v36', 'intel-command-memory-v37','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44'):
             argv = ['device_workflow.py', 'new', 'combined', '--profile',
                     trial_profile, '--question', 'Complete original hold?',
                     '--expected', 'Exact retirement']
@@ -237,6 +237,23 @@ class RunnerTests(unittest.TestCase):
         runner.create('practical',dict(self.unit,model='MacBookAir7,2'),'Measured lifetime','Complete diagnostic',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-practical-v43')
         _,manifest,state=runner.load('practical')
         self.assertEqual(manifest['wire_version'],5);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
+
+    def test_memory_profile_freezes_original_child_and_keeps_all_prior_jobs(self):
+        from workflow.gt_memory import jobs
+        from workflow.gt_practical import jobs as previous
+        from workflow.media import raw_log_limit
+        plan=jobs(['Makefile'])
+        self.assertEqual(sum(map(len,plan.values())),36)
+        for level in ('development','qualification'):
+            names={j['name'] for j in plan[level]}
+            self.assertEqual(len(names),len(plan[level]))
+            self.assertTrue({j['name'] for j in previous(['Makefile'])[level]}<=names)
+            self.assertTrue({'memory-native-model','memory-operation-cores','memory-image'}<=names)
+        self.assertEqual(raw_log_limit('intel-gt-memory-v44'),98304)
+        runner=FixtureRunner(self.repo,self.root/'v44-store')
+        runner.create('memory',dict(self.unit,model='MacBookAir7,2'),'Compose original epoch','Bounded remapper/GGTT retirement',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-gt-memory-v44')
+        _,manifest,state=runner.load('memory')
+        self.assertEqual(manifest['wire_version'],6);self.assertEqual(state['phase'],'NEW');self.assertFalse(runner.effects)
 
     def test_full_gt_v41_freezes_wire3_and_old_profiles_are_historical(self):
         runner=FixtureRunner(self.repo,self.root/'v41-store')

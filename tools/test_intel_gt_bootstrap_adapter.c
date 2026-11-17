@@ -19,6 +19,16 @@ static void intel_display_test_bootstrap_final_boundary(void);
 static void intel_display_test_bootstrap_receipt_boundary(void);
 static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+static void intel_display_test_memory_boundary(void);
+static bool intel_display_test_memory_translate(unsigned,uint64_t *);
+static bool intel_display_test_memory_alias(unsigned,struct vmm_alias_observation *);
+static bool intel_display_test_memory_resource(unsigned *);
+static bool intel_display_test_memory_read(unsigned,uint32_t,uint32_t *);
+static enum intel_gt_write intel_display_test_memory_write(unsigned,uint32_t,uint32_t);
+static bool intel_display_test_memory_map(unsigned,uint64_t);
+static bool intel_display_test_memory_unmap(unsigned,uint64_t *);
+#endif
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
@@ -29,11 +39,28 @@ static uint32_t control[5];
 static uint64_t fences[32]={0x021ff02f00000001ull};
 static uint32_t gpu_command=7;
 static unsigned phase_points[BDW_BOOT_FAULT+1];
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+static unsigned memory_writes,memory_unmaps,memory_fault_writes,memory_fault_unmaps,memory_fault_reads,memory_late_boundaries,memory_reads;
+static bool memory_fault_returned;
+#endif
 static bool bf(const char *mode,unsigned n) {
- bool yes=!strcmp(mode,bootstrap_mode) && n==fault_at;if(yes && !hit){hit=true;fault_writes=bwrites;fault_commands=bcommands;}return yes;
+ bool yes=!strcmp(mode,bootstrap_mode) && n==fault_at;if(yes && !hit){hit=true;fault_writes=bwrites;fault_commands=bcommands;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ memory_fault_writes=memory_writes;memory_fault_unmaps=memory_unmaps;memory_fault_reads=memory_reads;memory_fault_returned=gt_bootstrap_native.returned;
+#endif
+ }return yes;
 }
 static void intel_display_test_bootstrap_boundary(void) {
  ++boundaries;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(gt_memory.d.state==2) {
+  ++memory_late_boundaries;
+  if(bf("memory-late-child",memory_late_boundaries))gt_bootstrap_native.memory_child=&gt_memory;
+  if(bf("memory-late-core",memory_late_boundaries))gt_memory.vtd.p.reads++;
+  if(bf("memory-late-alias",memory_late_boundaries))gt_memory.d.alias[0].pat_index++;
+  if(bf("memory-late-post",memory_late_boundaries))gt_memory.post.words[0][0][0]^=8;
+ }
+#endif
  if(gt_bootstrap_native.reset.stage<=BDW_BOOT_FAULT && !phase_points[gt_bootstrap_native.reset.stage])
   phase_points[gt_bootstrap_native.reset.stage]=boundaries;
  assert(wake_irq && hda_command==2 && !display_access_allowed());
@@ -174,6 +201,10 @@ static void intel_display_test_bootstrap_final_boundary(void) {
  if(bf("final-back",1))ticks=gt_bootstrap_native.last-2;
  if(bf("final-over",1))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US;
  if(bf("final-epoch",1))gt_bootstrap_native.g->engine_epoch++;
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ if(bf("final-memory-child",1))gt_bootstrap_native.memory_child=&gt_memory;
+ if(bf("final-memory-core",1))gt_memory.vtd.p.reads++;
+#endif
 }
 static void intel_display_test_bootstrap_maintain_boundary(unsigned phase) {
  struct intel_gt_access *g=gt_bootstrap_native.g;
@@ -220,6 +251,9 @@ static __attribute__((noinline)) void bootstrap_churn_stack(void) {
  volatile unsigned char bytes[65536];
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(unsigned char)(i*19+7);
 }
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+#include "test_intel_gt_memory_model.inc"
+#endif
 int main(int argc,char **argv) {
  if(argc>1)bootstrap_mode=argv[1];
  if(argc>2)fault_at=(unsigned)atoi(argv[2]);
@@ -243,10 +277,16 @@ int main(int argc,char **argv) {
   assert(gt_bootstrap_native.pci_samples==4 && gt_bootstrap_native.pci_reads==36);
   assert(gt_bootstrap_native.full_before && gt_bootstrap_native.full_after && gt_bootstrap_native.post_bound);
   assert(display_access_allowed() && !joint_terminal());
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+  assert(bootstrap_memory_returned() && memory_writes==2 && memory_maps==2 && memory_unmaps==2);
+#endif
  } else {
   if(!strcmp(bootstrap_mode,"maintain-phase"))assert(gt_bootstrap_native.g->clock_cause & GT_CLOCK_PHASE);
   assert(hit && intel_gt_wake_retained() && !display_access_allowed());
   assert(bwrites==fault_writes && bcommands==fault_commands);
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+  assert(memory_writes==memory_fault_writes && memory_unmaps==memory_fault_unmaps && memory_reads==memory_fault_reads);
+#endif
   if(gt_bootstrap_native.complete) {
    /* A later outer-parent failure cannot undo the completed local child or
     * become a whole hardware pass. The remaining original root stays held. */
@@ -254,12 +294,19 @@ int main(int argc,char **argv) {
    assert(gt_bootstrap_native.g->pinned || joint_terminal());
   } else {
    assert(gt_bootstrap_native.failed && gt_bootstrap_native.g->pinned);
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+   if(!strncmp(bootstrap_mode,"memory-late-",12))assert(gt_bootstrap_native.returned==memory_fault_returned);
+   else
+#endif
    assert(gt_bootstrap_native.returned==(!strncmp(bootstrap_mode,"return-",7) || (!strncmp(bootstrap_mode,"final-",6) && strcmp(bootstrap_mode,"final-fence"))));
    if(r->object && !r->complete)assert(r->registered && r->retained);
   }
  }
  printf("native-bootstrap-fixture: boundaries=%u cache=%u aliases=%u reads=%u writes=%u commands=%u pci=%u pulses=%u hit=%u complete=%u first_pci=%u tickets=%u seal_bytes=%u cost_clocks=%u\n",
   boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,hit,gt_bootstrap_native.complete,first_native_pci,receipt_calls,(unsigned)sizeof(bootstrap_admission.bytes),cost_calls);
+#ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+ printf("native-memory-fixture: boundaries=%u aliases=%u resources=%u reads=%u writes=%u maps=%u unmaps=%u complete=%u reason=%u late=%u\n",memory_boundaries,memory_aliases,memory_resources,memory_reads,memory_writes,memory_maps,memory_unmaps,gt_memory.d.state==2,gt_memory.d.reason,memory_late_boundaries);
+#endif
  printf("native-bootstrap-phases:");for(unsigned i=0;i<=BDW_BOOT_FAULT;i++)printf(" %u=%u",i,phase_points[i]);puts("");
  return code;
 }

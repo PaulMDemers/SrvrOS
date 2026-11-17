@@ -5,14 +5,15 @@
 
 #define INTEL_GGTT_INVALIDATE_REGISTER 0x101008u
 #define INTEL_GGTT_INVALIDATE_PREPARE_US INTEL_DIAGNOSTIC_PREPARE_US
-#define INTEL_GGTT_INVALIDATE_GT_US 300000ull
-#define INTEL_GGTT_INVALIDATE_HDA_US 400000ull
-#define INTEL_GGTT_INVALIDATE_OUTER_US 500000ull
+#define INTEL_GGTT_INVALIDATE_GT_US INTEL_DIAGNOSTIC_GT_TOTAL_US
+#define INTEL_GGTT_INVALIDATE_HDA_US INTEL_DIAGNOSTIC_HDA_US
+#define INTEL_GGTT_INVALIDATE_OUTER_US INTEL_DIAGNOSTIC_OUTER_US
 struct intel_ggtt_invalidate;
 /* Trusted provider description, NOT an exclusion/mapping capability. The
  * provider must match this original registered child to its maintained native
  * owner, exact MMIO resource, CPU root, cache/alias policy and original clocks.
- * Ordinary source defaults100ms; a separately built VT-d child selects150ms. */
+ * Ordinary source defaults100ms; isolated legacy and full-GT children select
+ * their explicit aggregate policy without renewing the original origins. */
 struct intel_ggtt_invalidate_binding {
  const void *owner,*provider,*lifetime;
  uint64_t root,epoch,sequence,mmio,mmio_bytes;
