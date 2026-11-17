@@ -15058,3 +15058,70 @@ was removed only after independent payload/raw/roles/menu/protected checks
 (152510189bytes EFI reclaimed); all evidence and recovery remain. Restore the
 historical build copies from their verified local archives before any tool
 expects their original paths. No distclean or blanket payload pruning was used.
+
+## Practical GT timing diagnostic completes
+
+2026-11-17 UTC (late November16 local). Frozen runtime
+`b7752e6fc8a3c976be094cd20fca0a638d77fb15`, release `33d9e5dacde0d12b`,
+profile `intel-gt-practical-v43` / owner wire5, native session
+`session-0006607172203a36-00`. Main4016abf0 remains unchanged; PR301 owns this
+scope and independent PR19/379 were inspected without contacting another task.
+
+The separate practical image selects250ms preparation,100ms original GT
+maintenance,500ms GT total,750ms HDA and1s outer. Original/default wire1–3 and
+seconds wire4 remain unchanged, with their historical parsed results intact.
+No individual operation wait, source age, poll cap, identity, ownership,
+preservation or failure-retention check is removed.
+
+All30 frozen jobs and both exact-stage VM paths pass, including the original
+fault/core/legacy gates, fatal sanitizers/compiled controls, private captured
+firmware and exact replay of all three prior native seconds reports. A local
+transient one-shot waits for that exact qualifier process, then rechecks clean
+source, all30 receipt identities/current inputs/logs/outputs, both VM artifact
+trees, exact stage/bank, model/AC/unit/recovery/Ubuntu/default/unarmed state before
+using the ordinary guarded install/offline/1%/one-shot path. It reaches
+BOOT_REQUESTED and is not installed as a startup reboot loop or retried.
+
+| Original clock | Measured µs | Practical limit µs | Margin µs |
+| --- | ---: | ---: | ---: |
+| Preparation including logical return/final guard | 153910 | 250000 | 96090 |
+| GT maintenance phase | 49162 | 100000 | 50838 |
+| GT total | 313696 | 500000 | 186304 |
+| HDA total | 333403 | 750000 | 416597 |
+| Outer total | 385267 | 1000000 | 614733 |
+
+The original kind2 already-disabled route completes core107474µs, both full-GT
+pulses and all five cancellations, exact32-fence/display/backing preservation,
+requester restoration, fresh92-word census and one epoch0→1. Fence values are
+already preserved, with changed/restored masks0/0; the core performs seven stores
+and the enclosing adapter twelve, rather than inventing fence writes. This is
+not new physical fence-rewrite recovery coverage. All646 read admissions and308
+consumed native reads have zero rejection/active receipt;814 full guards and
+12210 alias checks remain. Maintenance takes3157µs with one snapshot12→13.
+Closing guard1722µs, logical borrow return3157µs and final guard1579µs all complete.
+Actual wake wire37 records maps/cache-checks/retired15/15/15, complete1/retained0;
+the original physical parents retire. Clock/reason/failure fields are zero.
+
+The guest saves/unmounts and returns automatically to Ubuntu at1% with no input.
+The ordinary startup service collects only. Matching raw boot9208bytes,
+preflight38257bytes and exit64159bytes fit the selected96KiB bound without prefix
+repair; hashes/checkpoint/strict wire5 parse and policy/closing origins verify.
+Prior USB files, offline exFAT/allocation/writability/headroom and installed
+recovery/Ubuntu default/consumed one-shot pass. `diagnose` independently rechecks
+the raw chain and current guard, then closes DIAGNOSED. All58 banked files rehash
+correctly; the independent review and original local handoff/preboot records
+are retained outside build along with the complete payload and raw evidence.
+
+This physically completes one bounded practical-policy diagnostic, with96.090ms
+preparation margin. The original150ms preparation/300ms GT policy still fails its
+comparisons and ordinary/native acceptance remains false. All255 GPU memory,
+DMA/cache and reader ownership obligations remain open, with zero managed GPU
+pages, PTE writes or hardware-ownership grant; native tear-free is not accepted.
+Enabled-entry practical native coverage, practical repeatability and future
+mapping/context/submission remain separate work.
+
+Current is33d9; prior wide2281, recovery9aa8 and acceptedf0a8 remain retained.
+USB is unmounted, the transient handoff is absent/inactive, the earlier three-run
+controller remains complete/disabled and no further reboot is armed. This result
+is attributed to runtimeb7752e6f; subsequent result-only documentation does not
+claim a new runtime qualification. No new hardware test is queued in this update.

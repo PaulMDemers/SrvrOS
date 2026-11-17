@@ -8,16 +8,39 @@ secondary click, window management/navigation, saved Home documents, brightness,
 sensors, battery indication and the previously recorded USB Ethernet/audio
 rounds have independent unit evidence. Native tear-free scanout is still pending.
 
-Active scope (basee508e61c/main4016abf0, PR301): qualify the implemented practical
-policy in a separate native image/recipe, owner wire5 and Air7,2-only workflow
-profile. Preparation250ms, maintenance100ms, GT500ms, HDA750ms and outer1s;
-original and seconds policies/receipts remain unchanged. Touched subsystems are
-compile-time timing/native variants, strict receivers, staging/workflow/tests
-and this unit's guides. Retain all hardware waits, source-age/poll caps,
-identity/preservation/retirement and all255 outstanding GPU obligations. Next
-checkpoint is full local/exact-stage VM qualification, then one authorized
-unattended native trial at1%. Prior three-run controller is complete/disabled;
-no new batch or other task contact is needed.
+The **practical timing diagnostic now completes on hardware**: runtime
+`b7752e6f`, release `33d9e5dacde0d12b`, session
+`session-0006607172203a36-00` (main4016abf0, PR301). All30 frozen qualification
+jobs and both exact-stage VM paths pass. The single-trial handoff rechecked
+every receipt/input/log/output, exact payload and recovery before the1% boot;
+the ordinary return service collected the matching native session.
+
+| Clock | Observed | Practical limit |
+| --- | ---: | ---: |
+| Preparation including return/final guard | 153.910 ms | 250 ms |
+| Original GT maintenance phase | 49.162 ms | 100 ms |
+| Original GT total | 313.696 ms | 500 ms |
+| HDA total | 333.403 ms | 750 ms |
+| Outer total | 385.267 ms | 1000 ms |
+
+The original kind2 owner completes both reset pulses, all five cancellations,
+exact32-fence/display/backing preservation, requester restoration, new92-word
+census and epoch0→1. Core107.474ms; guard/borrow return/final guard
+1.722/3.157/1.579ms. All15 actual UC aliases and original parents retire, with
+zero retained state or clock/receipt error. Preparation has96.090ms margin.
+All58 independently banked files, raw/checkpoint reparse, USB prior-file/offline
+integrity and fresh recovery/default/consumed-one-shot checks verify.
+
+This qualifies one bounded practical-policy diagnostic, not the old150/300ms
+policy or a native tear-free desktop. Wire1–4/default images retain their old
+policies; individual operation/source-age/poll limits stay unchanged. All255
+GPU memory/DMA/cache/reader obligations remain open, with zero managed pages,
+PTE writes or hardware-ownership grant. Enabled-entry physical coverage and
+practical repeatability remain pending. Next scope is native managed-memory,
+DMA/cache and display-reader ownership before mapping/context/submission.
+Current33d9, prior2281, recovery9aa8 and acceptedf0a8 remain retained; USB is
+unmounted, both automatic test controllers are inactive and no reboot is armed.
+See the [unit result](macbookair7-2.md#practical-gt-timing-diagnostic-completes).
 
 The requested **three-run multi-second diagnostic is complete** on runtime
 `2a61bed1` / release `2281c7cc04bacba7` (main4016abf0, PR301). Every run passes
@@ -39,24 +62,19 @@ The prior150ms preparation and300ms GT limits are exceeded in every run; the
 separate3/3/4/5/6-second policy permits completion without a multi-second stall.
 Ordinary timing acceptance remains false, original defaults remain unchanged,
 and all255 GPU memory/DMA/cache/reader obligations stay open. Native tear-free
-is not accepted. A next bounded candidate can use250ms preparation,500ms GT,
-750ms HDA and1s outer while retaining100ms maintenance phase and all individual
-operation/source-age/poll limits. These are proposed limits, not a qualified
-policy or an upper bound established by three samples. Scope next is selecting
-that policy before continuing managed GPU ownership; no new native writer is granted.
-The [separate v43 candidate](../device-workflow.md#practical-gt-timing-candidate)
-now implements those values; original and seconds profiles remain unchanged.
-Full30-job/exact-stage qualification and its physical result remain pending.
+is not accepted. These measurements selected the separate practical policy,
+whose successful v43 result is recorded above. The three earlier runs are
+unchanged diagnostic evidence and do not establish a worst-case timing bound.
 
 Capacity maintenance retained all raw/source/banks: twenty inactive generated
 stage initramfs copies are losslessly archived with verified original SHA256
 and a local restore ledger (about2.7GB reclaimed). The obsolete installed8b73
 diagnostic duplicate was retired only after exact independent bank/raw and
-current/recovery/protected/menu checks (about152.5MB EFI reclaimed). Current2281,
+current/recovery/protected/menu checks (about152.5MB EFI reclaimed). Current33d9,
 recovery9aa8 and acceptedf0a8 remain intact; no reboot is armed.
 The later obsolete installed9298 failed duplicate was also retired after exact
 independent bank/raw/roles/menu/protected checks (about152.5MB EFI reclaimed).
-Its rejected evidence remains; current2281/recovery9aa8/acceptedf0a8 are preserved.
+Its rejected evidence remains; prior2281/recovery9aa8/acceptedf0a8 are preserved.
 
 Latest v41 firmware-fusion trial is **rejected after logical borrow return**:
 runtime `aa022502`, release `9298a4e02ad9b1d5`, session

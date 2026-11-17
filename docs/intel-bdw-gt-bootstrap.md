@@ -434,3 +434,25 @@ checks. Tests include fatal ASan/UBSan, all three image/recipe pairings, exclusi
 header gates, changed policy/parent clocks and exact replay of the three saved
 native seconds reports. Qualification must also pass both exact-stage VM paths
 before a new native run. See the [workflow](device-workflow.md#practical-gt-timing-candidate).
+
+### Native practical policy completes
+
+Air7,2 runtime `b7752e6f` / release `33d9e5dacde0d12b` now completes one native
+kind2 lifetime under wire5. All30 frozen jobs and both exact-stage VMs pass.
+The checked one-shot handoff boots at1%; the ordinary collector verifies the
+matching saved/unmounted return. Preparation153910µs, GT maintenance49162µs,
+GT total313696µs, HDA333403µs and outer385267µs fit250/100/500/750/1000ms.
+Preparation retains96090µs margin, with1579µs final guard and3157µs borrow return.
+
+Both pulses, all five cancellations, exact32-fence/display/backing preservation,
+requester restoration, fresh92-word census and epoch0→1 verify. The fence state
+already matches the preserved values, so changed/restored masks are both zero;
+this is the preserved-fence path, not a new native test of fence-rewrite recovery.
+The original parents and all15 actual aliases retire cleanly. Raw/checkpoint,
+all58 banked files and USB/recovery/default/one-shot checks pass.
+
+This is one completed practical diagnostic. Original-policy acceptance remains
+false; enabled-entry practical hardware coverage, repeatability and all255
+GPU memory/DMA/cache/reader obligations remain pending. No managed GPU page,
+PTE write, submission or native tear-free authority follows. See the
+[unit result](machines/macbookair7-2.md#practical-gt-timing-diagnostic-completes).

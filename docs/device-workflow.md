@@ -480,3 +480,11 @@ instructions precede aperture exclusion; no input is required. Safe saved and
 unmounted outcomes return to Ubuntu, while uncertain ownership halts visibly.
 The current [unit record](machines/macbookair7-2-current.md) distinguishes host
 qualification from the new physical result.
+
+The first practical trial now completes on Air7,2 runtime `b7752e6f` / release
+`33d9e5dacde0d12b`, session `session-0006607172203a36-00`. All30 jobs, both
+exact-stage VMs, receipt-guarded single handoff, automatic return collection and
+`diagnose` pass;58 independently banked files and raw/checkpoint reparse verify.
+Preparation153.910ms and outer385.267ms fit the250ms/1s bounds, with complete
+parent/15-alias retirement. It remains diagnostic-only with no original-timing
+or GPU ownership grant. The single handoff has ended and no further boot is armed.
