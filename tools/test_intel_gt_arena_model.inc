@@ -2,7 +2,7 @@ static uint64_t command_ram[2048],command_maps[4];
 static bool command_allocated,cm_hit;
 static unsigned cm_clocks,cm_backing,cm_alias,cm_cache,cm_allocs,cm_frees,cm_map,cm_unmap,cm_guard,cm_retire;
 static unsigned cm_effects[7];
-static uint64_t cm_held_mask,cm_hold_mask;
+static uint64_t cm_held_mask,cm_hold_mask,cm_close_mask;
 static bool cf(const char *name,unsigned n){bool yes=bf(name,n);if(yes && !cm_hit){
  cm_hit=true;cm_effects[0]=cm_frees;cm_effects[1]=cm_map;cm_effects[2]=cm_unmap;
  cm_effects[3]=bcommands;cm_effects[4]=bwrites;cm_effects[5]=memory_writes;cm_effects[6]=cm_alias;
@@ -64,6 +64,7 @@ static void intel_display_test_command_boundary(void) {
  assert(cm_clocks<64);
  if(o->state==COMMAND_HELD)cm_held_mask|=1ull<<cm_clocks;
  if(o->hold.active)cm_hold_mask|=1ull<<cm_clocks;
+ if(o->state==COMMAND_RETURNED && command_native.outer_safe)cm_close_mask|=1ull<<cm_clocks;
  if(cf("command-root",cm_clocks))o->root+=4096;
  if(cf("command-serial",cm_clocks))o->serial++;
  if(cf("command-io",cm_clocks))o->io.observe=NULL;
@@ -76,7 +77,18 @@ static void intel_display_test_command_boundary(void) {
  if(cf("command-epoch",cm_clocks) && o->state==COMMAND_HELD)o->lease.epoch++;
  if(cf("command-time",cm_clocks) && o->state==COMMAND_HELD)ticks=o->lease.prepare+INTEL_DIAGNOSTIC_PREPARE_US+1;
 }
-static uint64_t intel_display_test_command_clock(void) {intel_display_test_command_boundary();return ++ticks;}
+static uint64_t intel_display_test_command_clock(void) {
+ intel_display_test_command_boundary();
+ if(command_native.owner.state==COMMAND_HELD && cf("command-parent-back",cm_clocks))return gt_bootstrap_native.last-1;
+ if(command_native.owner.state==COMMAND_RETURNED && command_native.outer_safe && cf("command-close-parent-back",cm_clocks)){
+  uint64_t at=command_native.outer_end;
+  if(joint.scope.end_us>at)at=joint.scope.end_us;
+  if(joint.scope.hda.end_us>at)at=joint.scope.hda.end_us;
+  if(gt_bootstrap_native.g->last>at)at=gt_bootstrap_native.g->last;
+  return at-1;
+ }
+ return ++ticks;
+}
 static void intel_display_test_command_guard(void) {
  ++cm_guard;
  if(cf("command-parent",cm_guard))command_native.parent=NULL;
@@ -123,9 +135,9 @@ static int arena_fixture_verify(int code) {
   if(cm_hit && o->state!=COMMAND_PREPARED && gt_bootstrap_native.object && !gt_bootstrap_native.complete)
    assert(gt_bootstrap_native.g->pinned && gt_bootstrap_native.failed);
  }
- printf("native-arena-fixture: clocks=%u backing=%u cache=%u alias=%u alloc=%u free=%u map=%u unmap=%u guard=%u retire=%u complete=%u hit=%u held=%llu hold=%llu\n",
+ printf("native-arena-fixture: clocks=%u backing=%u cache=%u alias=%u alloc=%u free=%u map=%u unmap=%u guard=%u retire=%u complete=%u hit=%u held=%llu hold=%llu close=%llu\n",
  cm_clocks,cm_backing,cm_cache,cm_alias,cm_allocs,cm_frees,cm_map,cm_unmap,cm_guard,cm_retire,o->state==COMMAND_CLOSED,cm_hit,
- (unsigned long long)cm_held_mask,(unsigned long long)cm_hold_mask);
+ (unsigned long long)cm_held_mask,(unsigned long long)cm_hold_mask,(unsigned long long)cm_close_mask);
  return code;
 }
 /* Actual command core with an explicitly synthetic parent, to distinguish

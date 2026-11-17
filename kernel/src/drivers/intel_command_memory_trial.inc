@@ -7,6 +7,8 @@ static struct {
  struct x86_cache_snapshot cache;
 #ifdef SRVROS_INTEL_GT_ARENA
  const void *parent;
+ uint64_t clock_at,clock_previous,outer_end;
+ bool clock_lost;
 #else
  const struct intel_source_engines *parent;
 #endif
@@ -146,13 +148,40 @@ static bool command_preserved(void *ctx,uint64_t va,uint32_t bytes) {
  for(unsigned i=0;i<2048;i++){if(ram[i])return false;++command_native.word_checks;}
  return true;
 }
+#ifdef SRVROS_INTEL_GT_ARENA
+static uint64_t command_clock_floor(void) {
+ if(command_native.owner.state==COMMAND_HELD)return gt_bootstrap_native.last;
+ if(command_native.owner.state!=COMMAND_RETURNED || !command_native.outer_safe)return 0;
+ uint64_t at=command_native.outer_end;
+ if(joint.scope.end_us>at)at=joint.scope.end_us;
+ if(joint.scope.hda.end_us>at)at=joint.scope.hda.end_us;
+ if(gt_bootstrap_native.g && gt_bootstrap_native.g->last>at)at=gt_bootstrap_native.g->last;
+ return at;
+}
+#endif
 static uint64_t command_now(void *ctx) {
  if(ctx!=&command_native)return 0;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_command_clock();
-#else
- return timer_monotonic_us();
+#ifdef SRVROS_INTEL_GT_ARENA
+ bool parent_clock=command_native.owner.state==COMMAND_HELD ||
+  (command_native.owner.state==COMMAND_RETURNED && command_native.outer_safe);
+ uint64_t previous=command_clock_floor();
 #endif
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ uint64_t at=intel_display_test_command_clock();
+#else
+ uint64_t at=timer_monotonic_us();
+#endif
+#ifdef SRVROS_INTEL_GT_ARENA
+ /* The core starts from the original preparation origin. Its first sample
+  * must also follow the parent's latest sample, not merely that older origin.
+  * Cleanup must follow actual parent retirement. Capture that floor BEFORE
+  * the clock callback; no resource census or enclosing deadline restart. */
+ if(parent_clock && (!previous || at<previous)){
+  command_native.clock_lost=true;command_native.clock_at=at;
+  command_native.clock_previous=previous;return 0;
+ }
+#endif
+ return at;
 }
 static uint64_t command_dma(void) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST

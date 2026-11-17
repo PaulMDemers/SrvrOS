@@ -16,6 +16,9 @@ static bool command_outer_retired(void) {
  const struct intel_gt_access *g=gt_bootstrap_native.g;
  const struct wake_adapter *a=gt_bootstrap_native.a;
  return command_native.outer_safe && command_lease_identity(&command_native.owner.lease) &&
+  !command_native.clock_lost && !command_native.clock_at && !command_native.clock_previous &&
+  command_native.outer_end && command_native.outer_end>=joint.scope.end_us &&
+  command_native.outer_end>=joint.scope.hda.end_us && command_native.outer_end>=g->last &&
   gt_bootstrap_native.complete && gt_bootstrap_native.state==2 && !gt_bootstrap_native.failed &&
   gt_bootstrap_native.returned && !gt_bootstrap_native.borrow.active &&
   gt_bootstrap_native.closing==3 && gt_bootstrap_native.arena_original==&command_native.owner &&
@@ -76,6 +79,8 @@ static bool command_returned(void) {
 #endif
  const struct intel_command_memory *o=&command_native.owner;
  return command_lease_identity(&o->lease) && intel_command_memory_returned(o) &&
+  !command_native.clock_lost && !command_native.clock_at && !command_native.clock_previous &&
+  !command_native.outer_end &&
   gt_bootstrap_native.arena_original==o && !gt_bootstrap_native.arena_child &&
   gt_bootstrap_native.arena_borrows==1 && gt_bootstrap_native.arena_returns==1 &&
   gt_memory.d.end<=o->begin && o->end<=gt_bootstrap_native.last &&
@@ -85,11 +90,12 @@ static bool command_returned(void) {
 }
 static void arena_report(void) {
  command_report();
- console_printf("intel-arena-binding: v=1 owner=%u provider=%u lifetime=%u original=%u child=%u borrows=%u returns=%u parent_retired=%u\n",
+ console_printf("intel-arena-binding: v=1 owner=%u provider=%u lifetime=%u original=%u child=%u borrows=%u returns=%u parent_retired=%u clock=%u at=%u previous=%u outer_end=%u\n",
   (uint64_t)(command_native.owner.lease.owner && command_native.owner.lease.owner==gt_bootstrap_native.g),
   (uint64_t)(command_native.owner.lease.provider==&gt_bootstrap_native),
   (uint64_t)(command_native.owner.lease.lifetime==&gt_bootstrap_native.borrow),
   (uint64_t)(gt_bootstrap_native.arena_original==&command_native.owner),
   (uint64_t)(gt_bootstrap_native.arena_child!=NULL),(uint64_t)gt_bootstrap_native.arena_borrows,
-  (uint64_t)gt_bootstrap_native.arena_returns,(uint64_t)command_outer_retired());
+  (uint64_t)gt_bootstrap_native.arena_returns,(uint64_t)command_outer_retired(),
+  (uint64_t)command_native.clock_lost,command_native.clock_at,command_native.clock_previous,command_native.outer_end);
 }

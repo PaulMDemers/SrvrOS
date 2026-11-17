@@ -77,7 +77,7 @@ The next checkpoint requires host fault/mutation/sanitizer coverage, exact-stage
 VM qualification and a source-bound automated1% trial; native acceptance is
 pending. Recovery9aa8/current434e and external accepted banks remain protected.
 
-Local implementation now passes282 retained-prefix arena faults, both original
+Local implementation now passes292 retained-prefix arena faults, both original
 entry routes, all4 selected aggregate clock limits/overruns, fatal sanitizers,
 compiled hold/parent/retirement/timing controls, strict wire mutations and native
 CPU-alias/no-GPU-mapping symbol checks. The existing consumer also passes17,808
@@ -88,3 +88,14 @@ clock callbacks; no hold is copied as a usable owner. Root staging cleanup remov
 only byte-identical banked duplicates (1.068GB). The old installed reset-only33d9
 copy was retired only after58 sealed evidence files/strict raw/recovery checks;
 its full independent bank remains. Current434e/recovery9aa8 are preserved.
+
+The first23818cbf arena candidate was cancelled after14 development slots,
+before staging/install/boot. Audit added monotonic admission against the original
+parent's latest sample and, for cleanup, the actual saved outer-return sample.
+Those scalar floors are captured before the clock callback; failed sample and
+previous/source timestamp are reported, with no extra census or deadline restart.
+A compiled omission control moves just the first held/cleanup sample backward
+while global time continues, so later good clocks cannot conceal the loss.
+The new source requires a fresh full42 qualification; current434e/recovery9aa8
+and the prior native memory result remain unchanged. No native arena acceptance
+is claimed from this cancelled host-only run.

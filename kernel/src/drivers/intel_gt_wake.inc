@@ -1144,6 +1144,7 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #endif
 #ifdef SRVROS_INTEL_GT_ARENA
+    command_native.outer_end=end;
     bool arena_clean=arena_ready && command_finish(complete && !retained && acquired && released);
     complete=complete && arena_clean;
     if(command_native.owner.retained || (command_native.allocated && !arena_clean)){

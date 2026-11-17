@@ -11,9 +11,13 @@ def arena_result(text,parent,binding,memory,entry,parent_complete):
     if len(lines)!=2 or not lines[0].startswith('intel-arena-memory:') or not lines[1].startswith('intel-arena-binding:'):
         raise ValueError('Arena coverage/order')
     c=dict(zip(FIELDS,struct.unpack('<64Q',_raw(lines[0],'intel-arena-memory:',512))))
-    b=fields(lines[1],'intel-arena-binding:','v owner provider lifetime original child borrows returns parent_retired'.split())
-    if any(b[k]>1 for k in b if k!='v') or b['returns']>b['borrows']:
+    b=fields(lines[1],'intel-arena-binding:','v owner provider lifetime original child borrows returns parent_retired clock at previous outer_end'.split())
+    if any(b[k]>1 for k in b if k not in ('v','at','previous','outer_end')) or b['returns']>b['borrows']:
         raise ValueError('Arena original registration range')
+    if (b['clock'] and b['previous'] and not b['at']<b['previous']) or (not b['clock'] and (b['at'] or b['previous'])):
+        raise ValueError('Arena original parent clock witness')
+    if entry and b['outer_end']!=entry['wake']['summary']['end_us']:
+        raise ValueError('Arena actual original outer return sample')
     if c['state']>6 or c['reason']&~255 or c['clock_reason']>9:
         raise ValueError('Arena state/reason')
     if (c['virtual'],c['budget'],c['ring_page'],c['context_page'],c['completion_page'],c['arena_pages'])!=(0xffffc001f5160000,250000,0,1,3,4):
@@ -33,6 +37,7 @@ def arena_result(text,parent,binding,memory,entry,parent_complete):
             raise ValueError('Arena unstarted state')
     if c['state']==5 and not c['complete']:raise ValueError('Arena closed without completed child')
     if c['complete']:
+        if b['clock']:raise ValueError('Arena completed after parent clock loss')
         if c['state'] not in (4,5) or any(c[k] for k in ('reason','retained','busy','registered','clock','previous','clock_reason')):
             raise ValueError('Arena false child completion')
         if (c['maps'],c['guards'],c['initializations'],c['allocated'],c['zeros'],c['serial'],c['sequence'])!=(4,2,1,4,1,2,1):

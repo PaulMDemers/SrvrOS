@@ -33,7 +33,7 @@ class Arena(unittest.TestCase):
     def test_every_callback_and_terminal_child_retains_prefix(self):
         counts={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',next(l for l in self.text.splitlines() if l.startswith('native-arena-fixture:')))}
         modes={m:counts[k] for k,items in {
-            'clocks':('command-root','command-serial','command-io','command-hold','command-hold-object','command-hold-physical','command-hold-serial','command-hold-active','command-registration','command-epoch','command-time'),
+            'clocks':('command-root','command-serial','command-io','command-hold','command-hold-object','command-hold-physical','command-hold-serial','command-hold-active','command-registration','command-epoch','command-time','command-parent-back'),
             'backing':('command-backing',),'cache':('command-cache','command-cache-drift'),
             'alias':('command-alias','command-readonly','command-user','command-exec','command-pat','command-large'),
             'alloc':('command-alloc',),'free':('command-free',),'map':('command-map','command-partial-map'),
@@ -43,7 +43,7 @@ class Arena(unittest.TestCase):
         # Registration/lease/hold faults apply only while those fields exist.
         for mode,points in modes.items():
             for n in range(1,points+1):
-                if mode in ('command-registration','command-epoch','command-time') and not counts['held']&(1<<n):continue
+                if mode in ('command-registration','command-epoch','command-time','command-parent-back') and not counts['held']&(1<<n):continue
                 if mode.startswith('command-hold') and not counts['hold']&(1<<n):continue
                 text=run(mode,n,exe=EXE)
                 try:self.assertFalse(bootstrap_result(text)['complete'],(mode,n))
@@ -110,7 +110,7 @@ class Arena(unittest.TestCase):
             exe=Path(d)/'san'
             subprocess.run([cc,*flags,'-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer',*sources,'-o',str(exe)],cwd=ROOT,check=True,timeout=180)
             for disabled in (False,True):
-                for mode,n in (('pass',1),('preserved',1),('command-parent',1),('command-cache-parent-epoch',3),('command-content',1),('command-unmap',2),('command-retire',2),('memory-write-unknown',1),('final-over',1)):
+                for mode,n in (('pass',1),('preserved',1),('command-parent',1),('command-cache-parent-epoch',3),('command-content',1),('command-unmap',2),('command-retire',2),('memory-write-unknown',1),('final-over',1),('command-parent-back',10),('command-close-parent-back',20)):
                     run(mode,n,disabled=disabled,exe=exe,env=env)
             source=(ROOT/'kernel/src/drivers/intel_gt_arena_trial.inc').read_text()
             controls={
@@ -137,6 +137,33 @@ class Arena(unittest.TestCase):
         self.assertIn('intel_command_memory_run',symbols)
         for symbol in ('intel_command_mapping_run','intel_bdw_bcs_flush_run'):
             self.assertNotIn(symbol,symbols)
+
+    def test_first_clock_follows_original_parent_and_control_detects_omission(self):
+        from fixture_compile import recipe
+        cases=[]
+        for phase,mode in (('held','command-parent-back'),('close','command-close-parent-back')):
+            mask=int(re.search(r'native-arena-fixture:.*?\b'+phase+r'=(\d+)',self.text).group(1))
+            first=(mask&-mask).bit_length()-1;cases.append((mode,first))
+            text=run(mode,first,exe=EXE)
+            row=next(l for l in text.splitlines() if l.startswith('intel-arena-binding:'))
+            values={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',row)}
+            self.assertEqual(values['clock'],1);self.assertLess(values['at'],values['previous'])
+            if phase=='close':
+                wake=next(l for l in text.splitlines() if l.startswith('intel-wake-summary:'))
+                self.assertEqual(values['previous'],int(re.search(r'\bend_us=(\d+)',wake).group(1)))
+        cc,flags,sources=recipe('build/tests/intel-gt-arena-adapter')
+        common=(ROOT/'kernel/src/drivers/intel_command_memory_trial.inc').read_text()
+        parent=(ROOT/'kernel/src/drivers/intel_gt_arena_trial.inc').read_text()
+        old='if(parent_clock && (!previous || at<previous))';self.assertIn(old,common)
+        with tempfile.TemporaryDirectory(prefix='gt-arena-first-clock-') as d:
+            shared=Path(d)/'shared.inc';shared.write_text(common.replace(old,'if(parent_clock && false)'))
+            adapter=Path(d)/'arena.inc';adapter.write_text(parent.replace('"intel_command_memory_trial.inc"','"'+str(shared)+'"'))
+            exe=Path(d)/'weak'
+            subprocess.run([cc,*flags,'-DSRVROS_INTEL_GT_ARENA_ADAPTER_FILE="'+str(adapter)+'"',*sources,'-o',str(exe)],cwd=ROOT,check=True,timeout=180)
+            run(exe=exe)
+            for mode,first in cases:
+                result=subprocess.run([str(exe),mode,str(first)],cwd=ROOT,capture_output=True,timeout=20)
+                self.assertNotEqual(result.returncode,0,mode)
 
     def test_selected_core_limits_and_frozen_clock(self):
         for domain in ('prepare','gt','hda','outer'):

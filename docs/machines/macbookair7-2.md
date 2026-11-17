@@ -15194,7 +15194,7 @@ Fault injection found final-setup-clock and pre-cleanup-clock hold identity gaps
 the shared CPU core now snapshots hold identity data and revalidates it across
 callbacks. The memory API no longer imports legacy reset types; the mapping API
 explicitly includes its GT write type. Existing default/v37 clocks stay unchanged.
-Host checks pass282 arena failures, both original routes, selected clock limits/
+Host checks pass292 arena failures, both original routes, selected clock limits/
 overruns, fatal ASan/UBSan, compiled controls and strict receipt mutations. The
 existing mapping consumer passes17,808 cases/21 compiled controls. This is host
 qualification only; matching new native evidence is required. The42-slot profile
@@ -15208,3 +15208,14 @@ unreferenced EFI duplicate was removed. Its full payload/evidence remain outside
 build; current434e, recovery9aa8, acceptedf0a8 and protected releases survive.
 External cleanup ledgers record both exact operations. No dirty reproduction
 checkout or independent evidence was pruned.
+
+The first23818cbf arena candidate was cancelled after14 development slots,
+before staging/install/boot. Audit added monotonic admission against the original
+parent's latest sample and, for cleanup, the actual saved outer-return sample.
+Those scalar floors are captured before the clock callback; failed sample and
+previous/source timestamp are reported, with no extra census or deadline restart.
+A compiled omission control moves just the first held/cleanup sample backward
+while global time continues, so later good clocks cannot conceal the loss.
+The new source requires a fresh full42 qualification; current434e/recovery9aa8
+and the prior native memory result remain unchanged. No native arena acceptance
+is claimed from this cancelled host-only run.
