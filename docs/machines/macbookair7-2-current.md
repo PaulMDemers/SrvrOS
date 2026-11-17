@@ -132,3 +132,18 @@ hardware trial/stage/arm is prepared. Currenta382/recovery9aa8 and all original
 native evidence remain unchanged, with all255 GPU obligations open. Next is the
 real bootstrap ownership mechanism, followed by private LRC/page-directory
 initialization and native queue/nonce/context retirement under that same owner.
+
+
+## Active native ownership/context block
+
+Starting from113e2b31, integration main4016abf0 fetched unchanged. PR301 owns
+this bounded work; PR19 Wi-Fi and PR379 WebCore remain independent. Audit the
+Broadwell bootstrap DMA/cache/display-reader boundary and implement the next
+independently verifiable context-initialization prerequisite. Touched scope:
+private BCS context format, original command arena/native adapter, host fixtures
+and exact image/recipe/collector only as required by the resulting hardware
+question. Do not infer a mapping grant from the port/nonce model or old receipts.
+Publish measured evidence and initialize executable context only after its exact
+mapping/address-space contract is admitted. Keep currenta382/recovery9aa8 and
+all accepted banks; no new physical run is pending. A new bounded qualified trial
+may reboot automatically at1% under the user's standing authorization.
