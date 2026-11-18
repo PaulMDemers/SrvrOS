@@ -92,7 +92,8 @@ class Drain(unittest.TestCase):
     def test_native_image_is_explicit_and_old_images_stay_isolated(self):
         references = [line for line in (ROOT / 'Makefile').read_text().splitlines() if CORE in line]
         self.assertTrue(references)
-        self.assertTrue(all(any(x in line for x in ('build/tests/intel-vtd-drain', 'build/tests/intel-vtd-native', 'build/tests/intel-ggtt-native', 'build/tests/intel-command-native', 'build/tests/intel-command-ownership','build/tests/intel-gt-memory-adapter','build/tests/intel-gt-arena-adapter','build/tests/intel-bcs-context-adapter', 'build/intel-vtd-drain/drain.o', 'build/intel-gt-memory/','build/intel-gt-arena/vtd.o:','build/intel-bcs-context/vtd.o:', '$(HOST_CC)')) for line in references))
+        self.assertTrue(all(any(x in line for x in ('build/tests/intel-vtd-drain', 'build/tests/intel-vtd-native', 'build/tests/intel-ggtt-native', 'build/tests/intel-command-native', 'build/tests/intel-command-ownership','build/tests/intel-gt-memory-adapter','build/tests/intel-gt-arena-adapter','build/tests/intel-bcs-context-adapter', 'build/intel-vtd-drain/drain.o', 'build/intel-gt-memory/','build/intel-gt-arena/vtd.o:','build/intel-bcs-context/vtd.o:', '$(HOST_CC)'))
+                            or line.startswith("build/tests/intel-gt-range-adapter$(HOST_EXE):") for line in references))
         for path in (ROOT / 'kernel/src').rglob('*'):
             if path.suffix in ('.c', '.inc') and path.name not in ('intel_vtd_drain_trial.inc', 'intel_source_engines_trial.inc', 'intel_gt_memory_trial.inc'):
                 self.assertNotIn('intel_vtd_drain', path.read_text(), str(path))
