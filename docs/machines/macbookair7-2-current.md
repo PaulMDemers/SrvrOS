@@ -8,7 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: bind GGTT publication to the transferred entries
+## Active scope: preserve the inherited display translation tail
+
+On main `4016abf0`, PR301 is extending the isolated full-GT memory owner
+with a read-only pre/post check of all 128 inherited display-tail PTEs and
+one prospective GGTT slot. It reuses the held boot owner, recovery lifetimes
+and original clocks. The checkpoint is qualification of the adapter and its
+failure handling. This still depends on a separate native pipeline, cache
+and display-reader completion provider for any PTE write.
+
+## Bind GGTT publication to the transferred entries
 
 On main `4016abf0`, PR301 binds the original PTE vector in
 `scanout_transfer` to every child publication and restore. The one-page
