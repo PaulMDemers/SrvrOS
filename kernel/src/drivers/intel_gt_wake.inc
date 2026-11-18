@@ -807,7 +807,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    console_write("intel-gt-flush: sampling engine and L3 acknowledgements around reset preparation and maintenance.\n");
+    console_write("intel-flush: sampling engine and L3 acknowledgements around reset preparation and maintenance.\n");
 #endif
     console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");
     console_write("intel-bootstrap: unchanged60s means photograph and restart manually. Safe saved outcomes return to Ubuntu.\n");

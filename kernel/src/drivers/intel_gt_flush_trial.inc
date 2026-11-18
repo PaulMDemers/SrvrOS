@@ -49,12 +49,12 @@ static bool gt_flush_sample(unsigned n) {
 }
 
 static void gt_flush_report(void) {
-    console_printf("intel-gt-flush-summary: v=1 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
+    console_printf("intel-flush-summary: v=1 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
         (uint64_t)gt_flush.access.retired, gt_flush.access.mapped);
     for (unsigned n = 0; n < GT_FLUSH_SAMPLES; ++n) {
         const uint32_t *w = gt_flush.raw[n];
-        console_printf("intel-gt-flush-sample: v=1 n=%u begin=%u end=%u rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x l3=%x\n",
+        console_printf("intel-flush-sample: v=1 n=%u begin=%u end=%u rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x l3=%x\n",
             (uint64_t)n, gt_flush.begin[n], gt_flush.end[n], (uint64_t)w[0], (uint64_t)w[1],
             (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4], (uint64_t)w[5]);
     }

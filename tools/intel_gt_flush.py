@@ -7,10 +7,10 @@ WORDS = (*ENGINES, "l3")
 
 
 def flush_result(text, parent, reset, translation, primary, retire):
-    rows = [line for line in text.splitlines() if line.startswith("intel-gt-flush-")]
+    rows = [line for line in text.splitlines() if line.startswith("intel-flush-")]
     if len(rows) != 4 or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
-    summary = fields(rows[0].removesuffix(" authority=none"), "intel-gt-flush-summary:",
+    summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
                      ("v", "samples", "reads", "maps", "retired", "live"), ("live",))
     count, reads, maps, retired, live = (summary[key] for key in ("samples", "reads", "maps", "retired", "live"))
     if (count > 3 or not count * 6 <= reads <= min(18, (count + 1) * 6)
@@ -19,7 +19,7 @@ def flush_result(text, parent, reset, translation, primary, retire):
             or (live and count == 3) or reads > maps * 6):
         raise ValueError("GT flush accounting")
 
-    samples = [fields(row, "intel-gt-flush-sample:", ("v", "n", "begin", "end", *WORDS), WORDS)
+    samples = [fields(row, "intel-flush-sample:", ("v", "n", "begin", "end", *WORDS), WORDS)
                for row in rows[1:]]
     if [row["n"] for row in samples] != [0, 1, 2]:
         raise ValueError("GT flush sample order")

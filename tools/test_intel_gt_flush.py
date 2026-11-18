@@ -11,6 +11,7 @@ from fixture_compile import compile_fixture, recipe
 from hardware_desktop import session_log_limit
 from hardware_boot_smoke import shared_receipt
 from intel_gt_bootstrap import bootstrap_result
+from intel_gt_preflight import gt_result
 from test_intel_gt_primary import run
 from test_intel_gt_range import RECIPE, ROOT, TESTS
 from workflow.runner import trial_parsers
@@ -57,9 +58,10 @@ class FlushAcknowledgements(unittest.TestCase):
     def test_strict_version_authority_and_bracket_validation(self):
         text = observe("pass")
         flush = bootstrap_result(text)["flush"]
+        self.assertTrue(gt_result(text)["qualification_complete"])
         self.assertEqual(session_log_limit(text.encode()), 98304)
         for n, packet in enumerate(flush["samples"]):
-            sample = next(line for line in text.splitlines() if line.startswith(f"intel-gt-flush-sample: v=1 n={n} "))
+            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=1 n={n} "))
             for bad in ("", sample + "\n" + sample, sample.replace(f"begin={packet['begin']}", "begin=1"),
                         sample.replace(f"end={packet['end']}", f"end={packet['begin'] + 10001}"),
                         sample.replace(" l3=", " unknown="),
@@ -67,7 +69,7 @@ class FlushAcknowledgements(unittest.TestCase):
                 with self.subTest(bad=bad), self.assertRaises(ValueError):
                     bootstrap_result(text.replace(sample, bad))
         for before, after in (("intel-bootstrap-summary: v=12 ", "intel-bootstrap-summary: v=11 "),
-                              ("authority=none\nintel-gt-flush-sample", "authority=write\nintel-gt-flush-sample"),
+                              ("authority=none\nintel-flush-sample", "authority=write\nintel-flush-sample"),
                               ("samples=3 reads=18 maps=3 retired=3", "samples=3 reads=18 maps=3 retired=2")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
