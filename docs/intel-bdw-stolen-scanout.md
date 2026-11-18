@@ -431,3 +431,8 @@ aliases. No target RAM is accessed or mapped. Known unavailable backing remains
 a valid diagnostic observation; it never supplies firmware/DMA/reader rights.
 Earlier wire1–5 packets retain their exact historical shape. Progress adds
 step21,24 updates total, within the same original second-pass2-second clock.
+
+The [native v53 result](intel-bdw-cpu-backing.md#native-result) now completes
+these CPU checks on Air7,2: all3,072 reserved carriers/tags and a whole-root
+absence scan pass in22,924us, within the original deadline. Hardware ownership,
+exclusive reservation and pixel writes remain unavailable.

@@ -15734,3 +15734,55 @@ the cancelled run. Actual prior aad02 raw still reparses identically. No sibling
 acceptance, writable buffer or tear-free claim follows. Next implement the live
 reservation/firmware/DMA/cache/all-reader provider, actual WC alias/visibility,
 first plane transition, latch and independent old-buffer retirement.
+
+
+## November18 native CPU backing admission diagnostic complete
+
+Runtime source `bc8af8e196156fbccf5d857c853468d743ceb7c7`, release
+`6771b4c6bb8713cc`, v53/wire6/config7, run `air-stolen-cpu-backing-20261117`,
+session `session-000660858468bf7b-00` completes the read-only CPU guard. Returned
+Ubuntu boot ID is `bd878d54-6732-43fb-b2d3-1b27821d1b30`. Original guard replay
+closes the run DIAGNOSED, with hardware ownership and physical tear-free false.
+
+Each full6MiB candidate has1,536 complete reserved firmware-map carriers and
+reserved PMM tags, with zero framebuffer/other/uncovered pages. All3,072 actual
+PMM queries complete. With39 physical bits and24 immutable table-RAM ranges,
+the actual whole-root scan checks110 table paths,56,320 entries and47,470 leaves,
+finding no present CPU alias intersecting either candidate. CPU admission work
+uses22,924us; full original passes use660,826/705,920us below unchanged2s limits.
+All59 metadata aliases retire, with119 cache/70,860 alias/78 reader/8 metadata/
+23,552 translation checks. Root4/0/0, preflight/released1; fail/reason/clock/
+retained/writes0. CPU observation is admission evidence at this instant, not
+an exclusive reservation or firmware/DMA/cache/display-reader right.
+
+All7 frozen jobs,38 focused methods,197 source/return methods,316 actual-adapter
+cases,3,159 actual whole-root cases, compiled weakening controls, fatal ASan/UBSan,
+native2KiB frames and both exact-stage VM paths passed before installation.
+All1,617 prior USB files preserve except expected metadata; four exact new logs
+yield1,621files/4,660clusters, with zero leaks/FAT-bitmap mismatches. Raw boot/
+preflight/exit/progress sizes are8,802/46,673/62,297/2,028bytes within64KiB.
+Offline fsck/allocation/writable/headroom, unchanged boot region, raw checkpoint/
+source/release/session and fresh installed/banked recovery/default/consumed
+one-shot checks pass. The automated silent trial needed no human input.
+
+Independent19-file native evidence seal:
+`~/.local/share/srvros/evidence/cpu-backing-bc8af8e1/native-complete/seal.json`.
+The original47-file host/source/VM seal remains verified alongside it. Current
+6771/recovery9aa8 and accepted GUI/protected banks remain. USB UUID37D8-C5D0
+was collected from/dev/sdb1 and left unmounted; no reboot is armed.
+
+Capacity cleanup after diagnosis losslessly archives the standalone generated
+USB image outside build, verifies decompressed SHA256/size, then removes only
+its original build copy, reclaiming512,357,342bytes net. Inactive installed1070
+is fully compared with its independent payload bank before removing that EFI
+duplicate; accepted bank/raw evidence remain. Current6771, recovery9aa8, GUI,
+protected payloads and current stage verify unchanged. Root/EFI free space is
+644/207MiB. Independent cleanup ledgers retain hashes and restoration paths.
+
+Main4016abf0 is unchanged after fresh fetch. PR301 owns the VMM/native probe/
+collector changes; inspected PR19 Wi-Fi and PR379 WebCore do not overlap.
+No Actions, subagents or other chats were used. Next maintain an exclusive
+original reservation with firmware/requester/engine/DMA/cache/all-reader proof,
+then actual WC alias/visibility, primary transition, latch and independent old-
+reader retirement. No candidate RAM load/store, GPU PTE/command or plane write
+was added by this milestone. Native tear-free is still pending.

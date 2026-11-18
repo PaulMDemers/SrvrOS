@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated: 2026-11-17 (America/New_York). Reference A1466; partial desktop/device acceptance.
+Updated: 2026-11-18 (America/New_York). Reference A1466; partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -8,7 +8,7 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active provider work: CPU backing admission
+## Native CPU backing admission diagnostic complete
 
 On baseline4016abf0, PR301 adds the native provider's CPU backing guard:
 firmware-map/PMM reservation checks for both complete candidate spans and a
@@ -16,8 +16,31 @@ bounded whole-root search for any existing CPU alias. Scope is the VMM
 read-only reverse walker, isolated stolen probe, actual-core fixtures and its
 versioned collector/workflow. Existing unique-alias callers keep their original
 contract. No target RAM is read or written, no mapping is changed and no
-firmware/DMA/cache/display-reader right is issued. First qualify the guard and
-its refusal evidence locally; combine both span checks in one automated trial.
+firmware/DMA/cache/display-reader right is issued.
+
+Source `bc8af8e1`, release `6771b4c6bb8713cc`, v53/wire6/config7, run
+`air-stolen-cpu-backing-20261117`, session `session-000660858468bf7b-00`
+[completes the CPU backing diagnostic](../intel-bdw-cpu-backing.md#native-result).
+Both complete6MiB candidates have1,536 reserved firmware carriers and reserved
+PMM tags, with no uncovered/other/framebuffer page. The actual whole-root walk
+checks110 table paths /56,320 entries /47,470 leaves and finds no intersecting
+CPU alias. The CPU phase takes22,924us; both original passes660,826/705,920us
+remain below2s. All59 metadata aliases retire with no writes or retained state.
+
+All7 frozen jobs and both exact-stage VMs passed. Matching raw/checkpoint/source,
+all1,617 prior USB files apart from expected metadata, four exact new logs,
+offline integrity and fresh recovery/default/consumed-one-shot checks verify.
+The run is `DIAGNOSED`;19 native evidence files are independently sealed outside
+build. Current6771/recovery9aa8 and accepted GUI/banks remain; no reboot is armed.
+Next implement the exclusive original reservation and maintained firmware/DMA/
+cache/all-reader ownership provider before a writable alias. The CPU observation
+does not reserve these spans or issue any borrowed-backend right.
+
+After collection, the standalone generated USB image was losslessly archived
+and verified before removing its build copy. The inactive1070 EFI copy was
+removed only after full equality with its independent bank and current/recovery/
+GUI/protected checks. Banks, raw evidence and the current6771 stage remain.
+Root/EFI free space is now644/207MiB; recheck before staging.
 
 ## Native reader/cache preflight complete
 
@@ -35,8 +58,9 @@ alias, GPU cache/visibility guarantee or maintained reader retirement.
 All7 frozen jobs/both VMs, matching raw/checkpoint/source, USB preservation,
 offline integrity and fresh recovery/default/consumed-one-shot checks pass.
 The run is `DIAGNOSED`;19 native evidence files are independently sealed outside
-build. Current1070/recovery9aa8 and accepted GUI/banks remain; no reboot is
-armed. Next implement the original live firmware/DMA/cache/all-reader ownership
+build. At that checkpoint current1070/recovery9aa8 and accepted GUI/banks remained.
+The v53 result above supersedes the current installation. Next implement the
+original live firmware/DMA/cache/all-reader ownership
 provider and reservation before the first writable CPU alias. Do not repeat
 this completed snapshot or turn saved packets into live authority.
 
@@ -95,7 +119,7 @@ native tear-free. All eight obligations (mask255) remain, with zero managed GPU 
 writes/submissions. Enabled entry for this source and repeatability remain open.
 The prior zero-arena result remains in the [dated journal](macbookair7-2.md#native-full-gt-private-cpu-arena-completes).
 
-## Latest native census and next bounded scope
+## Earlier native layout census
 
 Source `aad02bb5` / release `aa2c4bed41ec15f4` / v51/wire4 / session
 `session-00066082b1847677-00` completes the
@@ -123,9 +147,10 @@ All7 frozen steps,27 census/boot/VMM/receipt methods,197 source/return methods,
 Exact four raw files/recipe/journal/exit, prior USB contents, boot region,
 offline integrity and fresh installed/banked recovery/default/consumed-one-shot
 checks pass. Raw hashes/checkpoints are reparsed before the run closes DIAGNOSED;
-self-contained native evidence is independently sealed outside build. Currentaa2c,
-recovery9aa8 and accepted GUI/protected banks remain; USB is unmounted and no
-trial is armed. Earlier refusals and startup-conflict evidence remain in the
+self-contained native evidence is independently sealed outside build. At that
+checkpoint currentaa2c,
+recovery9aa8 and accepted GUI/protected banks remained; USB was unmounted and no
+trial was armed. Earlier refusals and startup-conflict evidence remain in the
 [dated journal](macbookair7-2.md#native-pre-init-read-only-census-completes).
 
 The next bounded milestone is explicit original-lifetime borrowing of these

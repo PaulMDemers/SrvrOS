@@ -86,6 +86,27 @@ zero stores. All12 compiled weakening controls, fatal ASan/UBSan and native
 and tag refusals, known present-leaf reports and retained uncertainty; these
 fixtures do not accept hardware.
 
+## Native result
+
+MacBookAir7,2 source `bc8af8e1`, release `6771b4c6bb8713cc`, v53/wire6/config7,
+run `air-stolen-cpu-backing-20261117`, session `session-000660858468bf7b-00`
+completes this read-only CPU prerequisite on the actual machine. Each candidate
+has1,536 complete reserved firmware-map carriers and1,536 reserved PMM tags;
+other/framebuffer/uncovered counts are zero. The39-bit original CPU context and
+24 RAM whitelist ranges support a complete110-table /56,320-entry /47,470-leaf
+walk with no intersecting present CPU alias. CPU work takes22,924us, including
+the original source/cache checks. The two full passes take660,826/705,920us
+within their unchanged2-second bounds. All59 metadata aliases retire; fail,
+reason, clock, writes and retained counts are zero, with original root4/0/0.
+
+All7 frozen validation jobs,38 focused and197 source/return methods,316 actual
+adapter cases,3,159 actual whole-root cases and both exact-stage VM paths passed
+before boot. Matching raw bytes/checkpoints, all prior USB contents apart from
+expected metadata, offline integrity and fresh recovery/default/consumed-one-shot
+guards verify. The run is DIAGNOSED and19 native evidence files are independently
+sealed outside build. This accepts the named CPU diagnostic observation only;
+no exclusive reservation, writable CPU alias or hardware ownership was granted.
+
 After native evidence, the next provider work must maintain an exclusive
 original reservation and firmware/DMA/cache/all-reader ownership. A conflicting
 CPU alias must be resolved under a real mapping owner, not blindly removed.

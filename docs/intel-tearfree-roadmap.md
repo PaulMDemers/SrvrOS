@@ -10,8 +10,10 @@ The [Air7,2 unit record](machines/macbookair7-2.md) owns physical acceptance;
 the [coordination guide](agent-coordination.md) governs shared implementation.
 It does not accept another Mac's firmware or graphics profile.
 
-The latest hardware result completes the original full-GT reset/memory/private
-CPU arena lifetime; see the [current Air record](machines/macbookair7-2-current.md).
+The latest hardware result completes the read-only CPU backing guard for two
+existing6MiB candidates; the earlier original full-GT reset/memory/private CPU
+arena lifetime remains separate evidence. See the
+[current Air record](machines/macbookair7-2-current.md).
 The mapping core now supports the selected practical timing aliases in host
 qualification. A separate [primary-envelope classifier](intel-bdw-primary-range.md)
 accounts for tiled padding,128 extra display translations and the full protected
@@ -619,3 +621,11 @@ questions. Next implement the original live reservation/firmware/DMA/cache/
 all-reader provider before the first writable alias; then visibility, initial
 plane transition, latch/old-reader retirement and compositor/endurance. Stable
 snapshots and a valid cache-type combination supply no ownership right.
+
+The [native v53 CPU backing guard](intel-bdw-cpu-backing.md#native-result) also
+completes: all3,072 candidate pages have reserved carriers/PMM tags, and the
+actual whole-root scan finds no intersecting CPU alias. The22.924ms phase fits
+the original second-pass budget. This closes CPU eligibility observation only;
+an exclusive maintained reservation and the firmware/DMA/cache/all-reader proof
+producer are still needed. Do not repeat this unchanged diagnostic or treat its
+saved admission result as a live borrowed-source token.
