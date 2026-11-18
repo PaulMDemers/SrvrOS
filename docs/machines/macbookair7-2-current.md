@@ -8,14 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope — first-page physical backing check
+## First-page physical disjointness checked
 
-On main `4016abf0`, PR301 is joining the exact candidate entry to the inherited
-primary image and translation tail in the held range check. The first useful
-mapping trial needs a candidate whose original physical page is distinct from
-the full sampled display footprint. The kernel and collector will check both
-views. Firmware transfer and pending GPU work remain independent prerequisites
-for any software to acquire the candidate.
+PR301 now joins the candidate's original target to the inherited primary image
+and translation tail. The latest archived runs agree that the original points
+into firmware-reserved stolen memory and is physically distinct from the 1,484
+sampled display pages. The new kernel and collector checks refuse a candidate
+that aliases a display page. Host qualification and replay cover the new
+check. A live firmware and GPU ownership provider is still required before
+the first write. [Physical backing check](../intel-bdw-primary-range.md#first-candidates-original-physical-backing).
 
 ## Native GT pipeline and L3 acknowledgement observation complete
 

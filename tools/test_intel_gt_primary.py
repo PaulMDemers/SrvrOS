@@ -10,7 +10,9 @@ from unittest.mock import patch
 
 import hardware_boot as boot
 from fixture_compile import compile_fixture, recipe
-from intel_gt_bootstrap import bootstrap_result
+from intel_display_backing import backing_result
+from intel_gt_bootstrap import bootstrap_result, historical_view
+from intel_gt_primary import verify_primary_backing
 from test_intel_gt_range import RECIPE, ROOT, TESTS, matching_lines
 from workflow.runner import trial_parsers
 
@@ -80,6 +82,21 @@ class Primary(unittest.TestCase):
                     report, = matching_lines(run(mode, position), "intel-primary-summary")
                     self.assertEqual(report["complete"], "0")
 
+    def test_distinct_virtual_slot_with_aliased_physical_target_refuses(self):
+        raw = run("pass")
+        parsed = bootstrap_result(raw)
+        source = backing_result(historical_view(raw, practical=True, memory=True, range_check=True, primary=True))
+        verify_primary_backing(source, parsed["range"], parsed["primary"])
+        for position in (0, 1355, 1356, 1483):
+            with self.subTest(physical_page=position), self.assertRaisesRegex(ValueError, "aliases primary"):
+                parsed["range"]["vectors"][1][-1] = 0x8c001001 + position * 4096
+                verify_primary_backing(source, parsed["range"], parsed["primary"])
+        fault = bootstrap_result(run("primary-physical-overlap", 1))
+        self.assertFalse(fault["owner_complete"])
+        self.assertEqual((fault["primary"]["summary"]["samples"], fault["primary"]["summary"]["reason"]), (2, 7))
+        self.assertEqual(fault["summary"]["commands"], 1)
+        self.assertEqual(fault["summary"]["pte_writes"], 0)
+
     def test_alias_and_clock_failure_retain_the_right_resources(self):
         for mode in ("primary-map", "primary-map-retained", "primary-alias", "primary-unmap"):
             for position in range(1, 11):
@@ -128,7 +145,7 @@ class Primary(unittest.TestCase):
                 compiler, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
             for mode, position in (("pass", 0), ("primary-drift", 6), ("primary-unmap", 10),
-                                   ("primary-clock", 112), ("primary-float", 1)):
+                                   ("primary-clock", 112), ("primary-float", 1), ("primary-physical-overlap", 1)):
                 run(mode, position, binary=binary)
 
 

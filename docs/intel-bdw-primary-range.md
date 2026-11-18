@@ -159,3 +159,27 @@ offline USB integrity and Ubuntu recovery. The run closed as `DIAGNOSED`.
 Outstanding accesses, prefetch and cache completion remain open. The trial
 granted zero managed pages and performed zero PTE writes. Physical flip and
 tear-free validation remain open.
+
+## First candidate's original physical backing
+
+The primary adapter and native collector cross-check the preserved image PTEs,
+the 128-entry translation tail and the candidate's original PTE. On this Air
+the sampled display pages must form a contiguous run of present, low-address
+stolen-memory mappings. The candidate's physical target must lie in the same
+stolen resource and outside that run. Geometry, counts and exact encodings are
+checked before the candidate can be recorded as disjoint. A stable PTE in a
+different GPU slot can still alias the primary or its tail, so the test checks
+both address spaces.
+
+Replaying native wires 10, 11 and 12 verifies the same result in each run.
+GPU offset `0x02200000` has original PTE `0x8e201001`, pointing to physical
+`0x8e201000`. The padded primary and tail cover physical `0x8c001000` through
+`0x8c5cd000` (exclusive), a total of 1,484 pages. The already verified wire12
+artifact remains the latest hardware evidence. The new refusal path is checked
+in host fixtures.
+
+Keep the candidate's original backing and the whole inherited fence pinned.
+The physical comparison covers the sampled primary and its 128 tail entries.
+It does not inventory all other aliases or prove that firmware or outstanding
+GPU work cannot access the candidate. A live provider still needs to maintain
+those conditions before replacing its PTE.

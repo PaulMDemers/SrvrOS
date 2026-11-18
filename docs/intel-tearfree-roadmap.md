@@ -688,3 +688,9 @@ acknowledgements. Before granting a writable interval, the hardware-backed
 owner must maintain this exclusion and establish completion of outstanding
 accesses, prefetched reads and cache effects. Physical flip qualification
 remains open.
+
+The [first candidate's physical backing check](intel-bdw-primary-range.md#first-candidates-original-physical-backing)
+now checks aliases between the selected PTE's original physical target and the
+complete sampled primary image and translation tail. Saved wires 10–12 confirm
+that physical separation. Keep the target reserved while a live owner proves
+firmware exclusion and interval-specific completion before the first write.

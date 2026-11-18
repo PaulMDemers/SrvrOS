@@ -235,8 +235,10 @@ def bootstrap_result(text,*,native=False):
     elif any(l.startswith('intel-range-') for l in text.splitlines()):raise ValueError('Foreign GGTT range receipt')
     primary_proof=None
     if primary:
-        from intel_gt_primary import primary_result
+        from intel_gt_primary import primary_result,verify_primary_backing
         primary_proof=primary_result(text,s,range_proof,retire,display)
+        if native and owner_complete:
+            verify_primary_backing(backing,range_proof,primary_proof)
     elif any(l.startswith('intel-primary-') for l in text.splitlines()):raise ValueError('Foreign primary receipt')
     aux_proof=None
     if aux:

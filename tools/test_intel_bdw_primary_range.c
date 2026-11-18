@@ -1,5 +1,6 @@
 /* Pure raw-data classification. Synthetic cases/replay never confer authority. */
 #include <srvros/intel_bdw_primary_range.h>
+#include <srvros/intel_display_backing.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +23,39 @@ static struct intel_bdw_primary_range check(bool expected) {
  else assert(out.reason && !out.begin && !out.end && !out.pte_end && !out.candidate_begin && !out.candidate_end && !out.width && !out.height && !out.stride && !out.tiled);
  return out;
 }
+static void check_physical_backing(void) {
+ static struct intel_backing_result image;
+ uint64_t tail[128];
+ setup();in.pages=1;
+ struct intel_bdw_primary_range view=check(true);
+ image=(struct intel_backing_result){.status=1,.count=1356,
+  .stolen_base=0x8c000000,.stolen_end=0x90000000};
+ const uint64_t first=0x8c001001,candidate=0x8e201001;
+ for(unsigned i=0;i<image.count;i++)image.pte[i]=first+4096ull*i;
+ for(unsigned i=0;i<128;i++)tail[i]=first+4096ull*(image.count+i);
+ assert(intel_bdw_primary_backing_check(&view,&image,tail,128,candidate));
+ for(unsigned i=0;i<image.count+128;i++)
+  assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,first+4096ull*i));
+ for(unsigned i=0;i<image.count;i++) {
+  image.pte[i]^=4096;
+  assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,candidate));
+  image.pte[i]^=4096;
+ }
+ for(unsigned i=0;i<128;i++) {
+  tail[i]^=4096;
+  assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,candidate));
+  tail[i]^=4096;
+ }
+ assert(!intel_bdw_primary_backing_check(&view,&image,tail,127,candidate));
+ assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,candidate|0x100000000ull));
+ assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,0));
+ assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,0x90000001));
+ assert(intel_bdw_primary_backing_check(&view,&image,tail,128,tail[127]+4096));
+ view.pte_end-=4096;
+ assert(!intel_bdw_primary_backing_check(&view,&image,tail,128,candidate));
+}
 static void all(void) {
+ check_physical_backing();
  setup();struct intel_bdw_primary_range out=check(true);
  assert(out.begin==0 && out.end==5554176 && out.pte_end==6078464 && out.width==1440 && out.height==900 && out.stride==6144 && out.tiled==1 && out.candidate_begin==0x2200000 && out.candidate_end==0x2204000);
  /* Every captured geometry/reader word is checked for equality. */

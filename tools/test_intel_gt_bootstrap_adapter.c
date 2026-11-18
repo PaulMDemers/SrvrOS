@@ -411,6 +411,13 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
  unsigned slot=(offset-0x800000)/8;
  assert((slot>=1356 && slot<1484) || slot==8704);
  uint64_t value=0x200000001ull+(uint64_t)slot*4096;
+#ifdef SRVROS_INTEL_GT_PRIMARY
+ value=0x8c001001ull+(uint64_t)slot*4096;
+ if(slot==8704 && !strcmp(bootstrap_mode,"primary-physical-overlap")) {
+  value=0x8c54d001;
+  if(gt_range.completed)bf("primary-physical-overlap",1);
+ }
+#endif
  if(bf("range-drift",range_reads))value^=0x1000;
  if(bf("range-high",range_reads))value^=1ull<<44;
  *out=(uint32_t)(value>>((offset&4)?32:0));

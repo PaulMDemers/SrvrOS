@@ -1,4 +1,5 @@
 #include <srvros/intel_bdw_primary_range.h>
+#include <srvros/intel_display_backing.h>
 
 static bool reject(struct intel_bdw_primary_range *r,unsigned why) {
  *r=(struct intel_bdw_primary_range){.reason=why};return false;
@@ -55,5 +56,29 @@ bool intel_bdw_primary_range_check(const struct intel_bdw_primary_input *in,stru
  if(candidate<in->fence_end && in->fence_begin<candidate+bytes)
   return reject(out,BDW_PRIMARY_OVERLAP);
  *out=(struct intel_bdw_primary_range){r[1],end,pte_end,candidate,candidate+bytes,width,height,stride,tiled,0,true};
+ return true;
+}
+
+bool intel_bdw_primary_backing_check(const struct intel_bdw_primary_range *range,
+ const struct intel_backing_result *image,const uint64_t *tail,unsigned tail_pages,uint64_t candidate_pte) {
+ if(!range || !image || !tail || tail_pages!=128 || !range->classified || image->status!=1 ||
+    !image->count || image->count>INTEL_BACKING_PTES || range->begin!=image->offset ||
+    (range->begin&4095) || range->end<=range->begin || range->end>0x100000000ull ||
+    (range->candidate_begin&4095) || range->candidate_end<=range->candidate_begin ||
+    range->candidate_end-range->candidate_begin!=4096 ||
+    !image->stolen_base || image->stolen_end>0x100000000ull ||
+    image->stolen_end<=image->stolen_base || ((image->stolen_base|image->stolen_end)&4095) ||
+    (image->pte[0]&0xffffffff00000fffull)!=1 || (candidate_pte&0xffffffff00000fffull)!=1)
+  return false;
+ uint64_t image_end=(range->end+4095)&~4095ull, tail_bytes=4096ull*tail_pages;
+ uint64_t image_bytes=(uint64_t)image->count*4096;
+ if(image_end-range->begin!=image_bytes || range->pte_end!=image_end+tail_bytes)return false;
+ uint64_t first=image->pte[0]&~4095ull, candidate=candidate_pte&~4095ull, end=first+image_bytes+tail_bytes;
+ if(first<image->stolen_base || end>image->stolen_end || candidate<image->stolen_base ||
+    candidate>=image->stolen_end || (candidate>=first && candidate<end))return false;
+ for(unsigned i=0;i<image->count;i++)
+  if(image->pte[i]!=image->pte[0]+4096ull*i)return false;
+ for(unsigned i=0;i<tail_pages;i++)
+  if(tail[i]!=image->pte[0]+image_bytes+4096ull*i)return false;
  return true;
 }

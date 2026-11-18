@@ -16,7 +16,7 @@ def primary_result(text, parent, protection, retire, display):
     complete, samples, reads, maps, retired, live = (
         summary[key] for key in ("complete", "samples", "reads", "maps", "retired", "live")
     )
-    if (complete > 1 or samples > 2 or len(rows) != samples + 1 or summary["reason"] > 6
+    if (complete > 1 or samples > 2 or len(rows) != samples + 1 or summary["reason"] > 7
             or not samples * 56 <= reads <= min(112, (samples + 1) * 56)
             or not samples * 5 <= retired <= maps <= min(10, (samples + 1) * 5)
             or maps - retired > 1 or (maps != retired and not live)):
@@ -87,3 +87,27 @@ def primary_result(text, parent, protection, retire, display):
     elif parent["complete"]:
         raise ValueError("Primary parent returned before completing geometry")
     return dict(summary=summary, vectors=vectors)
+
+
+def verify_primary_backing(backing, protection, primary):
+    """Cross-check the raw original targets without granting the candidate."""
+    retained = protection["vectors"][1]
+    image = backing["ptes"]
+    aperture = primary["summary"]
+    original = backing["rows"]["summary"][0]
+    base, end = original["stolen_base"], original["stolen_end"]
+    image_end = (aperture["image_end"] + 4095) & ~4095
+    if (len(retained) != 129 or not 0 < base < end <= 2**32
+            or (base | end) & 4095
+            or original["offset"] & 4095 or not original["offset"] < aperture["image_end"] <= 2**32
+            or not 1 <= len(image) <= 1536 or original["offset"] + len(image) * 4096 != image_end
+            or aperture["pte_end"] != image_end + 128 * 4096):
+        raise ValueError("Primary physical backing coverage")
+    protected = image + retained[:-1]
+    for word in protected + retained[-1:]:
+        if word & 4095 != 1 or word >= 2**32 or not base <= word - 1 < end:
+            raise ValueError("Primary physical backing encoding")
+    if protected != list(range(protected[0], protected[0] + len(protected) * 4096, 4096)):
+        raise ValueError("Primary physical backing continuity")
+    if retained[-1] in protected:
+        raise ValueError("Candidate original PTE aliases primary physical backing")

@@ -17,7 +17,8 @@ struct intel_bdw_primary_input {
 };
 enum intel_bdw_primary_reason {
  BDW_PRIMARY_INPUT=1,BDW_PRIMARY_UNSTABLE=2,BDW_PRIMARY_LAYOUT=3,
- BDW_PRIMARY_OTHER_READER=4,BDW_PRIMARY_EXTENT=5,BDW_PRIMARY_OVERLAP=6
+ BDW_PRIMARY_OTHER_READER=4,BDW_PRIMARY_EXTENT=5,BDW_PRIMARY_OVERLAP=6,
+ BDW_PRIMARY_BACKING=7
 };
 struct intel_bdw_primary_range {
  uint64_t begin,end,pte_end,candidate_begin,candidate_end;
@@ -37,4 +38,12 @@ struct intel_bdw_primary_range {
  * Rejected inputs produce no usable span; overlapping input/output refuses
  * without modifying either. Host-only until a separately qualified caller. */
 bool intel_bdw_primary_range_check(const struct intel_bdw_primary_input *,struct intel_bdw_primary_range *);
+
+struct intel_backing_result;
+/* This Air's original image and tail are one contiguous run of present,
+ * below-4GiB stolen pages. Check that the candidate's original page does
+ * not alias any of them. The original target stays firmware-owned. */
+bool intel_bdw_primary_backing_check(const struct intel_bdw_primary_range *,
+    const struct intel_backing_result *,const uint64_t *tail,unsigned tail_pages,
+    uint64_t candidate_pte);
 #endif

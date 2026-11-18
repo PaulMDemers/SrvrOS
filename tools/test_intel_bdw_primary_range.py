@@ -76,6 +76,10 @@ class Primary(unittest.TestCase):
    'ignored-cursor':('|| r[5] || r[8]','|| r[8]'),
    'unpadded-tile-rows':('tiled?((uint64_t)height+7)&~7ull:height','height'),
    'unbounded-stride':('stride>32768','false'),
+   'ignored-physical-overlap':('(candidate>=first && candidate<end)','false'),
+   'unchecked-image-ptes':('image->pte[i]!=image->pte[0]+4096ull*i','false'),
+   'unchecked-tail-ptes':('tail[i]!=image->pte[0]+image_bytes+4096ull*i','false && tail[i]!='
+                          'image->pte[0]+image_bytes+4096ull*i'),
   }
   with tempfile.TemporaryDirectory(prefix='bdw-primary-controls-') as directory:
    for name,(old,new) in changes.items():

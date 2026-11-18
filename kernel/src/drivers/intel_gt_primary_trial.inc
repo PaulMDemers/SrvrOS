@@ -188,6 +188,12 @@ static bool gt_primary_capture(void) {
         out->width != result.fb.width || out->height != result.fb.height ||
         out->stride != result.fb.pitch || out->tiled != backing.tiled ||
         !gt_primary_guard()) return false;
+    if (!intel_bdw_primary_backing_check(out, &backing, gt_range.words[1], GT_RANGE_TAIL,
+                                        gt_range.words[1][GT_RANGE_TAIL])) {
+        out->reason = BDW_PRIMARY_BACKING;
+        return false;
+    }
+    if (!gt_primary_live() || !bootstrap_tick()) return false;
     gt_primary.complete = true;
     return true;
 }
