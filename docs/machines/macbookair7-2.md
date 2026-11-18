@@ -15663,3 +15663,21 @@ actual live latch plus old-reader retirement, and compositor/endurance/restorati
 No managed GPU interval, firmware transfer, safe buffer reuse or native tear-free
 acceptance follows from a stable layout. Main4016abf0/PR301 remain; PR19/379 and
 other machines' acceptance are unchanged. No Actions or other-agent work ran.
+
+## Existing-mapping reservation backend qualified on host
+
+Added the original-source reservation backend linking the classified candidate
+pair to real scanout_memory CPU borrows/holds and participating CPU exclusion.
+It never calls PMM or frees firmware backing. It binds source/provider/root/epoch,
+registers before callbacks, freezes original geometry/deadline, refuses unknown
+rights and retains on failed proof/context/clock. Closing blocks new CPU borrows
+while original children drain; fresh RETURN proof precedes outer unpin.
+
+Actual backend/memory/hold/exclusion pass7,360 cases and16 runtime-detected
+compiled controls, fatal ASan/UBSan, native2KiB frames/import and ordinary-image
+isolation checks. Existing memory/hold/transfer/handoff regressions pass.
+There is no native ownership producer, CPU alias or data/PTE writer; the completed
+census is not a live reservation grant. No hardware trial or new image is staged.
+Currentaa2c/recovery9aa8, accepted banks and the native census seal remain.
+Next implement the explicit provider in the [borrow contract](../intel-bdw-stolen-borrow.md),
+then native alias/visibility and publication/retirement qualification.

@@ -7226,3 +7226,12 @@ build/tests/boot-stolen$(HOST_EXE): tools/test_boot_stolen.c tools/test_intel_st
 test-boot-stolen: build/tests/boot-stolen$(HOST_EXE)
 	$<
 test-core: test-boot-stolen
+
+STOLEN_BORROW_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_borrow.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c
+build/tests/intel-bdw-stolen-borrow$(HOST_EXE): tools/test_intel_bdw_stolen_borrow.c kernel/src/display_access.c $(STOLEN_BORROW_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(STOLEN_BORROW_HOST_SOURCES) -o $@
+.PHONY: test-intel-bdw-stolen-borrow
+test-intel-bdw-stolen-borrow: build/tests/intel-bdw-stolen-borrow$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_stolen_borrow
+test-core: test-intel-bdw-stolen-borrow

@@ -598,3 +598,15 @@ cannot host it unchanged. Keep fenced CPU clients, including the console,
 stopped through restoration, and qualify the new source/receipt/recovery chain
 before a physical full-reset trial. Actual interval/DMA/cache/all-reader ownership
 remains necessary before a native mapping or submission.
+
+## Existing-mapping reservation bridge
+
+The [native existing-mapping census](intel-bdw-stolen-scanout.md#native-v51-read-only-observation-complete)
+now completes after isolated pre-init dispatch. A separate
+[borrow backend](intel-bdw-stolen-borrow.md) connects an already owned reservation
+of those two external spans to the existing memory/hold lifecycle without PMM
+allocation/free or a GGTT store.7,360 host cases/16 controls, sanitizers/native
+frames and lifetime regressions pass. No native producer grants its rights;
+CPU aliases, first RAM store, live reader ownership and tear-free remain pending.
+The next native integration must establish the original live provider before
+wiring this bridge in; saved vectors and successful resets are insufficient.

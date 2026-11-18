@@ -114,6 +114,25 @@ has its own recipe-gated pre-init dispatch.
 Integration main4016abf0 and draft PR301 own this scope. PR19 Wi-Fi and PR379
 WebCore do not overlap; no agents/chats were contacted or Actions requested.
 
+## Existing-mapping borrow backend: host-qualified
+
+The [reservation backend](../intel-bdw-stolen-borrow.md) now binds an original
+live source/provider/root/epoch and the exact classified pair to the existing
+scanout_memory lifecycle. It pins real CPU display exclusion, registers children
+before callbacks and stops new CPU borrows while original users drain. Returning
+a child never frees firmware RAM or returns the outer reservation; final return
+requires fresh provider proof. Missing rights refuses before admission; later
+uncertainty retains the original source, backing and exclusion.
+
+The actual backend/memory/hold/exclusion pass7,360 cases,16 runtime-detected
+compiled controls, fatal sanitizers and native2KiB frames, with the existing
+memory/hold/transfer/handoff regressions passing. It is excluded from ordinary
+image linkage and has no native ownership producer, CPU alias or RAM/PTE writer.
+No new trial is armed. Next supply the live reservation/firmware/DMA/cache/reader
+provider specified in the contract; the completed census is historical data,
+not that live source. PR301 owns the software bridge; other device scopes remain
+unchanged and no Actions/other agents were used.
+
 ## Qualified software prerequisites
 
 The [mapping transaction](../intel-managed-memory-plan.md) supports the existing

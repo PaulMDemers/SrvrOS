@@ -335,3 +335,12 @@ firmware/stolen-memory borrow and maintained DMA/cache/prefetch/reader ownership
 must precede any candidate RAM store; visibility, primary transition/live latch,
 old-reader retirement and compositor/endurance acceptance remain separate.
 See the [current Air record](machines/macbookair7-2-current.md) for the next scope.
+
+### Borrow backend software bridge
+
+The [original-lifetime reservation backend](intel-bdw-stolen-borrow.md) now
+connects an explicitly owned pair to the existing memory/CPU-hold lifecycle,
+without PMM free or a PTE writer. It stops new CPU work on close and retains
+reservation/exclusion until original children and the provider retire. Host
+qualification does not create a native provider; the completed census cannot
+be reopened as a live source or authorize a candidate RAM store.
