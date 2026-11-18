@@ -475,6 +475,12 @@ static bool bootstrap_core_io(void) {
 #endif
 #include SRVROS_INTEL_GT_MEMORY_ADAPTER_FILE
 #endif
+#ifdef SRVROS_INTEL_GT_RANGE
+#if !defined(SRVROS_INTEL_GT_MEMORY_PREPARE) || defined(SRVROS_INTEL_GT_ARENA)
+#error "Display translation range requires the isolated original GT memory owner"
+#endif
+#include "intel_gt_range_trial.inc"
+#endif
 #ifdef SRVROS_INTEL_GT_ARENA
 #if !defined(SRVROS_INTEL_GT_MEMORY_PREPARE) || defined(SRVROS_INTEL_COMMAND_MEMORY)
 #error "Private full-GT arena needs its actual memory child, never the legacy source"
@@ -516,8 +522,11 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #else
  gt_bootstrap_native.pci[0][1]=pci_read_config32(a->fw.gt.a.common.gpu,4);
 #endif
- if((gt_bootstrap_native.pci[0][1]&65535)!=7 || !bootstrap_pci(0) || !bootstrap_display(0) ||
- !bootstrap_command(3) || !bootstrap_pci(1) || !bootstrap_prepare())goto fail;
+ if((gt_bootstrap_native.pci[0][1]&65535)!=7 || !bootstrap_pci(0) || !bootstrap_display(0))goto fail;
+#ifdef SRVROS_INTEL_GT_RANGE
+ if(!gt_range_capture(0))goto fail;
+#endif
+ if(!bootstrap_command(3) || !bootstrap_pci(1) || !bootstrap_prepare())goto fail;
  struct bdw_boot_binding *binding=&gt_bootstrap_native.source.binding;
  *binding=(struct bdw_boot_binding){.owner=g,.provider=&gt_bootstrap_native,.lifetime=&gt_bootstrap_native.borrow,
   .root=gt_bootstrap_native.root,.mmio=result.mmio_base,.mmio_bytes=0x200000,
@@ -541,6 +550,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(!gt_bootstrap_native.post_bound)goto fail;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  if(!bootstrap_memory_run() || !bootstrap_memory_returned())goto fail;
+#endif
+#ifdef SRVROS_INTEL_GT_RANGE
+ if(!gt_range_capture(1))goto fail;
 #endif
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_run() || !command_returned())goto fail;
@@ -581,7 +593,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_BCS_CONTEXT)
+#if defined(SRVROS_INTEL_GT_RANGE)
+ "intel-bootstrap-summary: v=9 "
+#elif defined(SRVROS_INTEL_BCS_CONTEXT)
  "intel-bootstrap-summary: v=8 "
 #elif defined(SRVROS_INTEL_GT_ARENA)
  "intel-bootstrap-summary: v=7 "
@@ -657,5 +671,8 @@ static void bootstrap_report(void) {
  completion_report_named(&gt_bootstrap_native.post,"intel-bootstrap-post");
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  bootstrap_memory_report();
+#endif
+#ifdef SRVROS_INTEL_GT_RANGE
+ gt_range_report();
 #endif
 }

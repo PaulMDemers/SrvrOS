@@ -1018,6 +1018,8 @@ int main(int argc,char **argv) {
 #else
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-arena-v1",completion_recipe);
 #endif
+#elif defined(SRVROS_INTEL_GT_RANGE)
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-range-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-memory-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_PRACTICAL)

@@ -49,6 +49,13 @@ static void intel_display_test_command_return(void);
 static bool intel_display_test_command_retire(void);
 static uint64_t intel_display_test_command_dma(void);
 #endif
+#ifdef SRVROS_INTEL_GT_RANGE
+static bool intel_display_test_range_translate(uint64_t *);
+static bool intel_display_test_range_alias(struct vmm_alias_observation *);
+static bool intel_display_test_range_map(uint64_t);
+static bool intel_display_test_range_read(uint32_t,uint32_t *);
+static bool intel_display_test_range_unmap(uint64_t *);
+#endif
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
@@ -313,6 +320,43 @@ static void intel_display_test_context_boundary(void) {
 #endif
 
 #endif
+#ifdef SRVROS_INTEL_GT_RANGE
+static uint64_t range_pa;
+static unsigned range_maps,range_reads,range_unmaps,range_aliases;
+static bool intel_display_test_range_translate(uint64_t *physical) {
+ if(!range_pa)return false;
+ *physical=range_pa;return true;
+}
+static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
+ assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
+ *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
+ if(bf("range-alias",++range_aliases))out->writable=1;
+ return true;
+}
+static bool intel_display_test_range_map(uint64_t physical) {
+ assert(bootstrap_parent() && !range_pa && wake_irq && (physical==0xc0802000 || physical==0xc0811000));
+ if(bf("range-map",++range_maps))return false;
+ range_pa=physical;return !bf("range-map-retained",range_maps);
+}
+static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
+ assert(bootstrap_parent() && range_pa==0xc0000000ull+(offset&~4095u));
+ assert(gpu_command==(gt_range.completed?3:7));
+ if(bf("range-read",++range_reads))return false;
+ if(bf("range-clock",range_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
+ unsigned slot=(offset-0x800000)/8;
+ assert((slot>=1356 && slot<1484) || slot==8704);
+ uint64_t value=0x200000001ull+(uint64_t)slot*4096;
+ if(bf("range-drift",range_reads))value^=0x1000;
+ if(bf("range-high",range_reads))value^=1ull<<44;
+ *out=(uint32_t)(value>>((offset&4)?32:0));
+ return true;
+}
+static bool intel_display_test_range_unmap(uint64_t *physical) {
+ assert(bootstrap_parent() && range_pa);
+ if(bf("range-unmap",++range_unmaps))return false;
+ *physical=range_pa;range_pa=0;return true;
+}
+#endif
 int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_GT_ARENA
  if(argc>1 && !strncmp(argv[1],"arena-core-",11))return arena_core_case(argv[1]);
@@ -345,6 +389,13 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
   assert(bootstrap_memory_returned() && memory_writes==2 && memory_maps==2 && memory_unmaps==2);
 #endif
+#ifdef SRVROS_INTEL_GT_RANGE
+  assert(gt_range.completed==2 && gt_range.maps==4 && gt_range.retired==4 && !gt_range.mapped && !range_pa);
+  assert(gt_range.reads==774 && range_reads==774 && range_maps==4 && range_unmaps==4);
+  assert(gt_range.begin[0]<gt_range.end[0] && gt_range.end[0]<r->begin &&
+   gt_range.begin[1]>=gt_memory.d.end && gt_range.end[1]>gt_range.begin[1]);
+  assert(!memcmp(gt_range.words[0],gt_range.words[1],sizeof(gt_range.words[0])));
+#endif
  } else {
   if(!strcmp(bootstrap_mode,"maintain-phase"))assert(gt_bootstrap_native.g->clock_cause & GT_CLOCK_PHASE);
   assert(hit && intel_gt_wake_retained() && !display_access_allowed());
@@ -359,6 +410,14 @@ int main(int argc,char **argv) {
    assert(gt_bootstrap_native.g->pinned || joint_terminal());
   } else {
    assert(gt_bootstrap_native.failed && gt_bootstrap_native.g->pinned);
+#ifdef SRVROS_INTEL_GT_RANGE
+   if(!strncmp(bootstrap_mode,"range-",6)) {
+    assert(gt_range.completed<2 && !gt_bootstrap_native.returned);
+    bool retained=!strcmp(bootstrap_mode,"range-unmap") || !strcmp(bootstrap_mode,"range-map-retained") ||
+     !strcmp(bootstrap_mode,"range-clock");
+    assert((gt_range.mapped!=0)==retained);
+   }
+#endif
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
    if(!strncmp(bootstrap_mode,"memory-late-",12))assert(gt_bootstrap_native.returned==memory_fault_returned);
    else

@@ -7085,7 +7085,10 @@ build/intel-gt-memory/vtd.o: kernel/diagnostics/intel_vtd_drain.c $(ZIG) $(KERNE
 build/intel-gt-memory/ggtt.o: kernel/diagnostics/intel_ggtt_invalidate.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_GT_MEMORY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
-build/intel-gt-memory/srvros.elf: build/intel-gt-memory/vtd.o build/intel-gt-memory/ggtt.o build/intel-gt-memory/main.o build/intel-gt-memory/probe.o build/intel-gt-memory/requests.o build/intel-gt-memory/bootstrap.o build/intel-gt-memory/joint.o build/intel-gt-memory/gt-access.o build/intel-gt-memory/hda-owner.o build/intel-gt-memory/boot.o build/intel-gt-memory/log-ring.o build/intel-gt-memory/log-save.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-ring-transition/transition.o $(filter-out $(INTEL_GT_MEMORY_EXCLUDE),$(INTEL_WAKE_BASE)) kernel/linker.ld
+INTEL_GT_MEMORY_HEAD := build/intel-gt-memory/vtd.o build/intel-gt-memory/ggtt.o build/intel-gt-memory/main.o
+INTEL_GT_MEMORY_OWNER := build/intel-gt-memory/requests.o build/intel-gt-memory/bootstrap.o build/intel-gt-memory/joint.o build/intel-gt-memory/gt-access.o build/intel-gt-memory/hda-owner.o
+INTEL_GT_MEMORY_BASE := build/intel-gt-memory/log-ring.o build/intel-gt-memory/log-save.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-ring-transition/transition.o $(filter-out $(INTEL_GT_MEMORY_EXCLUDE),$(INTEL_WAKE_BASE))
+build/intel-gt-memory/srvros.elf: $(INTEL_GT_MEMORY_HEAD) build/intel-gt-memory/probe.o $(INTEL_GT_MEMORY_OWNER) build/intel-gt-memory/boot.o $(INTEL_GT_MEMORY_BASE) kernel/linker.ld
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
 build/tests/intel-gt-memory-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
@@ -7093,6 +7096,27 @@ build/tests/intel-gt-memory-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_ad
 build/tests/intel-gt-memory-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_GT_MEMORY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+# Isolated read-only tail and candidate observation under the full-GT owner.
+INTEL_GT_RANGE_FLAGS := $(INTEL_GT_MEMORY_FLAGS) -DSRVROS_INTEL_GT_RANGE
+build/intel-gt-range/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_RANGE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-range/boot.o: kernel/src/drivers/intel_gt_boot.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_RANGE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-range/srvros.elf: $(INTEL_GT_MEMORY_HEAD) build/intel-gt-range/probe.o $(INTEL_GT_MEMORY_OWNER) build/intel-gt-range/boot.o $(INTEL_GT_MEMORY_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-gt-range-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_RANGE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c -o $@
+build/tests/intel-gt-range-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_RANGE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-gt-range
+test-intel-gt-range: build/tests/intel-gt-range-adapter$(HOST_EXE) build/tests/intel-gt-range-boot$(HOST_EXE) build/tests/intel-gt-memory-boot$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_gt_range
+test-core: test-intel-gt-range
 
 # Private CPU command arena bound to the same full-GT new epoch.
 INTEL_GT_ARENA_FLAGS := $(INTEL_GT_MEMORY_FLAGS) -DSRVROS_INTEL_GT_ARENA

@@ -500,6 +500,34 @@ firmware/display-reader retirement, a GPU interval or PTE authority. All255
 whole-device obligations, zero managed GPU pages and zero PTE writes remain.
 Private ring/context/mapping ownership and tear-free scanout are subsequent work.
 
+### Held display translation preservation (wire9)
+
+The separate range image extends the original full-GT memory trial. The
+existing preservation check covers the 1,356 padded image pages and all 32
+fence registers. The additional check covers the 128 translations immediately
+after the image and the prospective slot at page 8,704, after the complete
+34 MiB inherited fence. The Air7,2 geometry and full-fence identity gate must
+match before the range check runs. [Intel Broadwell PRM, PRI_SURF](https://cdrdv2.intel.com/v1/dl/getcontent/690789).
+
+The first sample runs under the original bootstrap borrow before requester
+inhibition or reset. The second runs after the post-reset remapper/GGTT
+maintenance child and before restoring requester command 7. Four temporary
+supervisor, read-only, NX aliases must resolve to the exact GGTT BAR pages
+with effective UC at PAT slot 3. Each sample reads the complete 129-entry
+vector in high/low/high order and retires both aliases. A differing entry or
+uncertain alias refuses completion under the original hold. The adapter uses
+the existing 250 ms preparation deadline and enclosing clocks.
+
+The native image uses its own `gt-bootstrap-range-v1` recipe. The decoder
+requires both exact vectors, 774 DWORD reads, four retired aliases and
+clock ordering through the original memory child and terminal guard. It
+preserves a failed sample prefix and keeps an incomplete outer lifetime
+incomplete. The separate kernel image has passed local build and host
+validation. Stage and exact-image VM checks remain before a physical trial.
+Equality across reset and maintenance is preservation evidence. Establishing
+actual pipeline, cache and display-reader completion still precedes a writable
+interval.
+
 #### Provider boundary qualification
 
 During wire6 qualification the candidate passed all30 prior gates, then the exhaustive child

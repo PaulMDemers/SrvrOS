@@ -10,12 +10,14 @@ tear-free scanout is still pending.
 
 ## Active scope: preserve the inherited display translation tail
 
-On main `4016abf0`, PR301 is extending the isolated full-GT memory owner
-with a read-only pre/post check of all 128 inherited display-tail PTEs and
-one prospective GGTT slot. It reuses the held boot owner, recovery lifetimes
-and original clocks. The checkpoint is qualification of the adapter and its
-failure handling. This still depends on a separate native pipeline, cache
-and display-reader completion provider for any PTE write.
+On main `4016abf0`, PR301 extends the isolated full-GT memory owner with
+a read-only pre/post check of all 128 inherited display-tail PTEs and one
+prospective GGTT slot. The separate wire9 image links, and the host adapter
+and strict decoder check both original entry routes, drift at every sampled
+entry and mapping, retirement and clock failures. The native trial awaits a
+staged workflow profile and exact-image VM qualification. Pipeline, cache and
+display-reader completion remain prerequisites for a PTE write. See the
+[preservation contract](../intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9).
 
 ## Bind GGTT publication to the transferred entries
 

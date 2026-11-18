@@ -671,3 +671,9 @@ It needs to revalidate the enabled display's full footprint, other readers
 and the original backing in that lifetime. It also needs separate pipeline,
 cache and reader completion witnesses before arming the first aligned QWord
 PTE store. [Linux v6.12 GGTT insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L405).
+
+The [wire9 preservation image](intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9)
+adds exact comparison of the inherited display's 128 trailing translations
+and one prospective slot before reset and after original memory maintenance.
+This extends the native preservation check beyond the padded image pages.
+Physical qualification and a live ownership provider remain open.
