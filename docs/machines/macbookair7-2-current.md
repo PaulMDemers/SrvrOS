@@ -8,14 +8,18 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: Broadwell auxiliary display readers
+## Native auxiliary display-reader observation complete
 
-On main `4016abf0`, PR301 is extending the held primary footprint diagnostic
-with VGA, framebuffer compression and eDP panel self-refresh observations.
-The samples will bracket the live primary capture inside the original
-requester, clock and display power-well checks. The next checkpoint is a
-native-build and host fault check with independently decoded register state.
-Outstanding-access and cache completion remain separate prerequisites.
+PR301 release `19e263fec39500ce` captured matching control and status words
+for VGA, framebuffer compression and eDP panel self-refresh while the
+original requester hold was in force. Both samples showed all three paths
+inactive. All eight temporary auxiliary aliases retired, all 129 checked
+translations matched, and the Mac returned to Ubuntu automatically. The
+USB integrity and recovery checks passed. The run closed as `DIAGNOSED` under
+the wider diagnostic timing policy. The next ownership checkpoint needs
+evidence that outstanding GPU accesses and prefetched reads have drained and
+that cache effects have completed before a writable GGTT interval can be granted.
+[Native wire11 result](../intel-bdw-primary-range.md#native-wire11-result).
 
 ## Native post-maintenance primary display footprint
 
@@ -23,9 +27,9 @@ PR301 release `2945aece351aa904` captured two matching live primary geometry,
 reader and display-well samples after reset and memory maintenance, while the
 requester was still inhibited. The 112 DWORD reads matched the original
 display records and all ten temporary aliases retired. The laptop returned to
-Ubuntu, and automatic collection passed. The display path still needs
-independent VGA, FBC, PSR and outstanding reader completion before admitting a
-writable GPU interval. [Native wire10 result](../intel-bdw-primary-range.md#native-wire10-result).
+Ubuntu, and automatic collection passed. The wire11 follow-up added the
+VGA, FBC and PSR register observations in the same held window.
+[Native wire10 result](../intel-bdw-primary-range.md#native-wire10-result).
 
 ## Native preservation of the inherited display translation tail
 

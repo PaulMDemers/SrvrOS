@@ -138,3 +138,24 @@ The snapshot describes the current endpoints. The Intel VGA disable sequence
 and PSR idle wait address transitions controlled by their driver. Outstanding
 accesses, prefetched requests, write visibility and hardware ownership still
 require independent evidence. [Intel Broadwell display manual](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf) · [Intel i915 PSR implementation](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_psr.c).
+
+### Native wire11 result
+
+MacBookAir7,2 ran release `19e263fec39500ce` from source `d796b38f` and
+returned to Ubuntu automatically. Both auxiliary samples matched. VGA
+control was `0x80002900`, FBC control and segment status were zero, and
+PSR control and status were `0x00100001` and `0x04000000`. Both samples
+showed VGA and FBC disabled and PSR disabled and idle. The inherited eDP
+route matched in both samples. The auxiliary windows took 1.126 ms and
+1.133 ms. The 14 reads used eight temporary aliases, all of which retired.
+
+Both live primary packets matched, and the comparison again preserved all
+129 translations across reset and memory maintenance. Preparation took
+228.230 ms and the enclosing trial took 459.701 ms. The run fit the wider
+diagnostic policy. Preparation, GT and HDA exceeded the original limits.
+Automatic collection verified the 75,462-byte exit log, matching checkpoint,
+offline USB integrity and Ubuntu recovery. The run closed as `DIAGNOSED`.
+
+Outstanding accesses, prefetch and cache completion remain open. The trial
+granted zero managed pages and performed zero PTE writes. Physical flip and
+tear-free validation remain open.

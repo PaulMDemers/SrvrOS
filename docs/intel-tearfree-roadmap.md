@@ -678,7 +678,10 @@ and one prospective slot before reset and after original memory maintenance.
 The MacBookAir7,2 matched both vectors and retired all four read-only aliases.
 The [wire10 hardware trial](intel-bdw-primary-range.md#native-wire10-result)
 also verified the live primary footprint, reader controls and display wells
-in the same held window after memory maintenance. The remaining prerequisite
-for a writable interval is a hardware-backed owner that can maintain this
-boundary and prove outstanding accesses, auxiliary readers and cache activity
-have retired. Physical flip qualification remains open.
+in the same held window after memory maintenance. The
+[wire11 hardware trial](intel-bdw-primary-range.md#native-wire11-result)
+showed VGA, framebuffer compression and panel self-refresh inactive in both
+samples bracketing that footprint. Before granting a writable interval, the
+hardware-backed owner must maintain this exclusion and establish completion of
+outstanding accesses, prefetched reads and cache effects. Physical flip
+qualification remains open.

@@ -5,6 +5,19 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-18. State: **active reference machine; partial device acceptance**.
 
+## Native auxiliary display-reader observation
+
+2026-11-18. Source `d796b38f`, release `19e263fec39500ce`, session
+`session-000660924a621678-00`. Both snapshots taken under the original
+requester hold showed VGA disabled, FBC disabled with zero compressed
+segments, and PSR disabled and idle on the inherited eDP route. Both primary
+packets and all 129 translation entries matched. All 22 temporary aliases
+from the auxiliary, primary and translation checks retired. The laptop
+returned to Ubuntu automatically. Offline integrity, recovery and the
+consumed one-shot passed. The reviewed result closed as `DIAGNOSED` and
+the raw evidence was banked independently of the build tree.
+[Native wire11 result](../intel-bdw-primary-range.md#native-wire11-result).
+
 ## Native post-maintenance primary display footprint
 
 2026-11-18. Source `be7bad20`, release `2945aece351aa904`, session
