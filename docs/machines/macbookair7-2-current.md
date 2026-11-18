@@ -222,3 +222,26 @@ controls, fatal sanitizers and2KiB frames. The complete PCI matrix passes8,237
 fault cases. All42 prior frozen slots remain among the46 qualified slots.
 Earlier failed candidates and staging/collector history remain in the
 [GPU qualification history](macbookair7-2-gpu-history.md) and dated journal.
+
+## Native wire3 alias trial refuses before exclusion
+
+Source `87922b9f`, release `7c8aa2e4c47b3626`, session
+`session-000660813db3e74d-00` returned with its exact recipe, four raw files,
+valid progress journal and matching exit snapshot. The first refusal is code5
+(root), phase0: preflight0, acquired0, retained0, maps0, retired0 and metadata
+reads0. Journal steps1–3 end before root/PCI admission. The new sole-root guard
+therefore prevents this trial from entering display exclusion or creating a
+census alias; it does not explain which of that guard's subconditions failed,
+nor prove the cause of the earlier silent stop. The census remains incomplete.
+
+The seven frozen qualification slots and both exact-stage VM routes passed
+before this trial. Post-return collection verifies unchanged prior USB contents
+and boot region, exactly four added session files, clean offline fsck/allocation/
+writable/headroom, installed/banked recovery, Ubuntu default and consumed
+one-shot. The run is reviewed/rejected; all four raw logs, frozen manifest,
+report, progress and review are independently sealed outside build. Current7c8a,
+recovery9aa8 and accepted GUI/protected banks remain; USB is unmounted and no
+new trial is armed. Main4016abf0 remains unchanged. Next expose the original
+sole-root predicate's failure details without a second probe, changing its
+requirements or mapping on a known-invalid context. No native census, GPU-memory
+ownership or tear-free acceptance follows from this return.

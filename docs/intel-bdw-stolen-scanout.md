@@ -235,3 +235,14 @@ same-control flip core does not authorize that change. Finally connect latch
 checking and proven old-reader retirement before reuse, compositor scheduling,
 and repeated native preservation/restore/endurance tests. No census flag closes
 any of those milestones.
+
+### Native wire3 precondition refusal
+
+Source `87922b9f` / release `7c8aa2e4c47b3626` returned with a complete exit
+snapshot but an incomplete census: first refusal5/root, phase0, no exclusion,
+no new mapping or metadata read, and no retained alias. The separate progress
+journal ends at root/PCI admission (step3). Return integrity/recovery pass and
+the trial is rejected. This is a known-invalid admission context; the exact
+sole-root subcondition is not yet identified. Instrument the original check's
+value-only failure result rather than retrying a second probe or relaxing its
+predicates. Earlier wire2 metadata stops remain separate incomplete evidence.
