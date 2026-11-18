@@ -681,7 +681,10 @@ also verified the live primary footprint, reader controls and display wells
 in the same held window after memory maintenance. The
 [wire11 hardware trial](intel-bdw-primary-range.md#native-wire11-result)
 showed VGA, framebuffer compression and panel self-refresh inactive in both
-samples bracketing that footprint. Before granting a writable interval, the
-hardware-backed owner must maintain this exclusion and establish completion of
-outstanding accesses, prefetched reads and cache effects. Physical flip
-qualification remains open.
+samples bracketing that footprint. The
+[wire12 trial](intel-completion-prerequisites.md#native-wire12-result) reached
+Ready for Reset on all five engines and observed no engine or L3 flush-and-block
+acknowledgements. Before granting a writable interval, the hardware-backed
+owner must maintain this exclusion and establish completion of outstanding
+accesses, prefetched reads and cache effects. Physical flip qualification
+remains open.

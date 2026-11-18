@@ -5,6 +5,19 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-18. State: **active reference machine; partial device acceptance**.
 
+## Native GT pipeline and L3 acknowledgement observation
+
+2026-11-18. Source `fd2bcf6e`, release `9d2b6c6ea286892a`, session
+`session-000660932273164a-00`. All five Prepare for Reset requests reached
+Ready for Reset. Across three snapshots, none of the five message registers
+showed a flush-and-block acknowledgement, and the L3 flush acknowledgement was
+clear in all three. All three temporary aliases retired after 18 reads. The
+known-footprint checks preserved all 129 translations and the active primary
+geometry. Ubuntu returned automatically and offline USB integrity, recovery
+and the consumed one-shot checks passed. The run closed as `DIAGNOSED`, and
+the exact evidence was banked independently of the build tree.
+[Native wire12 result](../intel-completion-prerequisites.md#native-wire12-result).
+
 ## Native auxiliary display-reader observation
 
 2026-11-18. Source `d796b38f`, release `19e263fec39500ce`, session

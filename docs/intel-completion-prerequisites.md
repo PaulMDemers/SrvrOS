@@ -118,6 +118,26 @@ an executable ring and its completion backing are independently owned. Keep
 all writable GGTT and scanout authority closed until those remaining proofs
 are available. [Private BCS completion](intel-bdw-bcs-flush.md).
 
+### Native wire12 result
+
+MacBookAir7,2 ran release `9d2b6c6ea286892a` from source `fd2bcf6e` and
+returned to Ubuntu automatically. All five reset controls reached Ready for
+Reset. The message snapshots, taken before preparation, after preparation and
+after maintenance, showed engine flush-and-block masks `0, 0, 0` and L3 flush
+acknowledgements `0, 0, 0`. The first two complete vectors matched. After
+maintenance the VEBox and blitter message words changed from `0x1f` to `0x10`,
+while their flush bits remained clear. The L3 bit can be transient, so the
+sampled zeros leave L3 completion unresolved.
+
+The snapshots took 284, 283 and 295 µs. All three read-only aliases retired,
+all 129 translations matched, and both live display checks completed.
+Preparation took 229.362 ms and the enclosing trial took 460.760 ms under the
+wider diagnostic policy. Preparation, GT and HDA exceeded the original
+timing limits. The saved exit log, offline USB integrity and Ubuntu recovery
+verified. The run closed as `DIAGNOSED`, with zero PTE writes and zero managed
+pages. The observations leave outstanding GPU accesses, prefetch, and cache
+completion unproved.
+
 ## Automated trial
 
 ```sh

@@ -8,15 +8,17 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope — GT pipeline and L3 acknowledgements
+## Native GT pipeline and L3 acknowledgement observation complete
 
-On main `4016abf0`, PR301 will sample Broadwell's documented engine
-flush-and-block acknowledgements before and after the original Prepare for
-Reset requests, then after the existing maintenance and display checks.
-The isolated GT adapter, exact recipe and collector will retain the real
-preparation and memory-maintenance evidence together. L3 acknowledgements are
-sampled as hardware reports them. A separately attributed completion witness
-for prefetched requests and cache effects remains necessary for GPU ownership.
+PR301 release `9d2b6c6ea286892a` captured three message snapshots and returned
+to Ubuntu automatically. All five Prepare for Reset requests reached Ready
+for Reset. The samples showed no engine flush-and-block acknowledgement or L3
+flush acknowledgement. All 18 reads completed, the three temporary aliases
+retired, and USB integrity and recovery checks passed. The run closed as
+`DIAGNOSED` under the wider timing policy. Outstanding GPU accesses, prefetch,
+and cache completion still need an independent hardware witness before GPU
+ownership can be granted.
+[Native wire12 result](../intel-completion-prerequisites.md#native-wire12-result).
 
 ## Native auxiliary display-reader observation complete
 
