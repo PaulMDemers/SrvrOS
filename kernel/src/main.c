@@ -617,6 +617,9 @@ void kmain(void) {
         }
     }
 
+#ifdef SRVROS_INTEL_STOLEN_CAPTURE
+    if(!intel_stolen_probe_recipe(cmdline)){console_write("Stolen census kernel requires exact terminal read-only recipe\n");halt_forever();}
+#endif
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
     if(!cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only")){console_write("Register sample kernel requires explicit read-only token\n");halt_forever();}

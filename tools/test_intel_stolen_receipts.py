@@ -20,7 +20,7 @@ class Receipts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if os.environ.get('SRVROS_FIXTURE_BATCH')!='1':
-            subprocess.run(['make','build/tests/intel-stolen-probe','build/tests/intel-display-probe','build/tests/intel-cache-probe','build/tests/workspace-log-host','build/tests/bootlog-host'],cwd=ROOT,check=True,capture_output=True)
+            subprocess.run(['make','build/tests/intel-stolen-probe','build/tests/boot-stolen','build/tests/intel-display-probe','build/tests/intel-cache-probe','build/tests/workspace-log-host','build/tests/bootlog-host'],cwd=ROOT,check=True,capture_output=True)
         cls.text=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--report'],text=True)
         # The two actual adapters have separate modeled devices. Normalize only
         # transport inputs into a common synthetic affine-window/locked profile.
@@ -35,9 +35,10 @@ class Receipts(unittest.TestCase):
                 line=re.sub(r'\bhash=\S+','hash='+hex(_hash(words[0],16)),line)
                 line=line.replace('zero=1','zero=0').replace('bit0=15','bit0=16')
             lines.append(line)
-        cls.prefix=subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe'),'fresh-uc'],text=True)+'\n'.join(lines)+'\n'
+        cls.preinit=subprocess.check_output([str(ROOT/'build/tests/boot-stolen'),'--report'],text=True)
+        cls.prefix=cls.preinit+subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe'),'fresh-uc'],text=True)+'\n'.join(lines)+'\n'
         cls.late=re.sub(r'\b(begin|end)=(\d+)',lambda m:m[1]+'='+str(int(m[2])+1000000),cls.text)
-        cls.command=next(l.split('cmdline:',1)[1].strip() for l in boot.limine_config('0123456789abcdef','ram-usb-v4-intel-stolen-laptop-probe-37d8c5d0-auto-return').splitlines() if 'cmdline:' in l)
+        cls.command=next(l.split('cmdline:',1)[1].strip() for l in boot.limine_config('0123456789abcdef','ram-usb-v5-intel-stolen-laptop-probe-37d8c5d0-auto-return').splitlines() if 'cmdline:' in l)
     def test_actual_complete_adapter_stream_and_native_binding(self):
         p=stolen_result(self.text)
         self.assertTrue(p['complete'] and p['diagnostic_complete'])
@@ -84,7 +85,7 @@ class Receipts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);runner=Runner(ROOT,root/'store');directory=root/'run';directory.mkdir()
             state=dict(phase='COLLECTED',events=[],release='0123456789abcdef',session='session-model')
-            manifest=dict(profile='intel-stolen-v50',source='modeled-source')
+            manifest=dict(profile='intel-stolen-v51',source='modeled-source')
             logs=directory/'returned/raw-session-model';logs.mkdir(parents=True)
             pre='laptop-capture: boot options='+self.command+'\n'+self.prefix
             final=self.prefix+self.late
@@ -106,8 +107,8 @@ class Receipts(unittest.TestCase):
 
     def test_exact_vm_dispatch_uses_manifest_profile_and_refuses_native_activity(self):
         from hardware_boot_smoke import intel_stolen_vm_result
-        text=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--unsupported-report'],text=True)
-        version='ram-usb-v4-intel-stolen-laptop-probe-37d8c5d0-auto-return'
+        text=self.preinit+subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--unsupported-report'],text=True)
+        version='ram-usb-v5-intel-stolen-laptop-probe-37d8c5d0-auto-return'
         self.assertEqual(intel_stolen_vm_result(text,version)['failure_stage'],'profile')
         from hardware_boot_smoke import intel_stolen_vm_progress
         progress=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--progress-unsupported-report'],text=True)
@@ -145,6 +146,22 @@ class Receipts(unittest.TestCase):
             self.assertEqual(stolen_result(changed,required_version=4)['summary']['root_reason'],reason)
         with self.assertRaises(ValueError):trial_parsers('intel-stolen-v49')[1](text)
 
+    def test_isolated_preinit_receipt_is_required_for_new_trial(self):
+        from intel_stolen_scanout import verify_stolen_preinit,PREINIT_LINE
+        from hardware_boot_smoke import intel_stolen_vm_result
+        self.assertEqual(self.preinit,PREINIT_LINE+'\n')
+        text=self.preinit+subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--unsupported-report'],text=True)
+        version='ram-usb-v5-intel-stolen-laptop-probe-37d8c5d0-auto-return'
+        self.assertTrue(verify_stolen_preinit(text))
+        for bad in (text.replace(self.preinit,''),text+self.preinit,text+'init: started pid=1\n',
+                    text+'init: readiness=ready elapsed_us=1\n',text+'init: startup complete\n',text+'init: start failed\n',
+                    text.replace(self.preinit,'')+self.preinit):
+            with self.subTest(text=bad[-80:]),self.assertRaises(ValueError):intel_stolen_vm_result(bad,version)
+        old=text.replace(self.preinit,'')
+        self.assertEqual(intel_stolen_vm_result(old,version.replace('v5-','v4-'))['version'],4)
+        with self.assertRaises(ValueError):trial_parsers('intel-stolen-v51')[1](self.prefix.replace(self.preinit,'')+self.late)
+        self.assertTrue(trial_parsers('intel-stolen-v51')[1](self.prefix+self.late)['complete'])
+
     def test_original_cache_must_supply_mtrr_uc_as_well_as_pat_uc(self):
         raw_cache=subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe')],text=True)
         # This alternate actual cache fixture has MTRR WB and PAT UC3, so the
@@ -167,7 +184,7 @@ class Receipts(unittest.TestCase):
         self.assertEqual(stolen_result(old,required_version=1)['failure_stage'],'legacy-unspecified')
         with self.assertRaises(ValueError):stolen_result(old,required_version=4)
         with self.assertRaises(ValueError):trial_parsers('intel-stolen-v47')[1](refused)
-        with self.assertRaises(ValueError):trial_parsers('intel-stolen-v50')[1](old)
+        with self.assertRaises(ValueError):trial_parsers('intel-stolen-v51')[1](old)
         for token in (' fail=14',' cache_index=3',' effective=0'):
             with self.assertRaises(ValueError):stolen_result(refused.replace(token,'',1))
 
@@ -181,7 +198,7 @@ class Receipts(unittest.TestCase):
             root=Path(d);directory=root/'run';directory.mkdir();runner=Runner(ROOT,root/'store')
             returned=directory/'returned';logs=returned/'raw-session-model';logs.mkdir(parents=True)
             state=dict(phase='BOOT_REQUESTED',events=[],host_boot_id='old-model-boot',release='0123456789abcdef',recipe=self.command)
-            manifest=dict(profile='intel-stolen-v50',source='modeled-source',wire_version=4,inputs=['fixture'],input_hashes={})
+            manifest=dict(profile='intel-stolen-v51',source='modeled-source',wire_version=4,inputs=['fixture'],input_hashes={})
             raw={}
             for name,text in (('boot.log','laptop-capture: boot options='+self.command+'\n'),('session-a.log',pre),('exit.log',final)):
                 (logs/name).write_text(text);data=(logs/name).read_bytes();raw[name]=dict(bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
@@ -233,7 +250,7 @@ class Receipts(unittest.TestCase):
             root=Path(d);directory=root/'run';logs=directory/'returned/raw-session-model';logs.mkdir(parents=True)
             runner=Runner(ROOT,root/'store')
             state=dict(phase='BOOT_REQUESTED',events=[],host_boot_id='old-model-boot',release='0123456789abcdef',recipe=self.command)
-            manifest=dict(profile='intel-stolen-v50',source='modeled-source',wire_version=4,stolen_progress_version=1,inputs=['fixture'],input_hashes={})
+            manifest=dict(profile='intel-stolen-v51',source='modeled-source',wire_version=4,stolen_progress_version=1,inputs=['fixture'],input_hashes={})
             (logs/'stolen-progress.log').write_text(payload)
             after=dict(new_sessions=['session-model'],raw={'session-model':{'stolen-progress.log':{}}})
             atomic(directory/'returned/parsed.json',dict(report=dict(sessions=[dict(session='session-model',releases=[state['release']],exit_snapshot_present=False)])))
@@ -266,13 +283,13 @@ class Receipts(unittest.TestCase):
             with patch.object(boot,'ROOT',root),patch.object(boot,'STAGE',root/'build/hardware-boot'),patch.object(boot.subprocess,'check_output',side_effect=['source','']):
                 release=boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=True)
             manifest=boot.verify(root/'build/hardware-boot'/release)
-            self.assertEqual(manifest['config_version'],'ram-usb-v4-intel-stolen-laptop-probe-37d8c5d0-auto-return')
+            self.assertEqual(manifest['config_version'],'ram-usb-v5-intel-stolen-laptop-probe-37d8c5d0-auto-return')
             self.assertEqual(manifest['stolen_progress_version'],1)
             self.assertEqual((root/'build/hardware-boot'/release/'srvros.elf').read_text(),'intel-stolen/srvros.elf')
         for extra in ({'intel_bcs_context':True},{'intel_window_capture':True},{'intel_gt_bootstrap':True},{'hold_on_failure':True},{'desktop_audio':True}):
             with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=True,**extra)
-        plan=profile(ROOT,'intel-stolen-v50');self.assertEqual(len(plan['qualification']),4)
-        self.assertEqual(trial_parsers('intel-stolen-v50')[0](self.command),dict(release='0123456789abcdef',volume='37d8c5d0'))
+        plan=profile(ROOT,'intel-stolen-v51');self.assertEqual(len(plan['qualification']),4)
+        self.assertEqual(trial_parsers('intel-stolen-v51')[0](self.command),dict(release='0123456789abcdef',volume='37d8c5d0'))
         for level in ('development','qualification'):
             self.assertTrue(any('build/intel-stolen/srvros.elf' in j['argv'] for j in plan[level]))
             self.assertFalse(any('build/intel-bcs-context/srvros.elf' in j['argv'] for j in plan[level]))

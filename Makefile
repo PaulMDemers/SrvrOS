@@ -6820,15 +6820,18 @@ test-intel-bdw-stolen-scanout: build/tests/intel-bdw-stolen-scanout$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_stolen_scanout
 test-core: test-intel-bdw-stolen-scanout
 
+build/intel-stolen/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_STOLEN_CAPTURE -c $< -o $@
 build/intel-stolen/probe.o: kernel/src/drivers/intel_stolen_probe.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_INTEL_STOLEN_CAPTURE -c $< -o $@
 build/intel-stolen/layout.o: kernel/diagnostics/intel_bdw_stolen_scanout.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
-INTEL_STOLEN_BASE := $(filter-out build/kernel/src/drivers/intel_stolen_probe.c.o,$(KERNEL_OBJ))
-build/intel-stolen/srvros.elf: build/intel-stolen/probe.o build/intel-stolen/layout.o $(INTEL_STOLEN_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) build/intel-stolen/probe.o build/intel-stolen/layout.o $(INTEL_STOLEN_BASE) -o $@
+INTEL_STOLEN_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/drivers/intel_stolen_probe.c.o,$(KERNEL_OBJ))
+build/intel-stolen/srvros.elf: build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o $(INTEL_STOLEN_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o $(INTEL_STOLEN_BASE) -o $@
 
 # Isolated full-GT reset/fence-preservation protocol. Host only: no native
 # image/adapter is enabled by this target or by the existing BCS8-only writer.
@@ -7214,3 +7217,12 @@ build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kerne
 test-intel-stolen-probe: build/tests/intel-stolen-probe$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_stolen_probe
 test-core: test-intel-stolen-probe
+
+# Execute the real census recipe and boot-init dispatcher together.
+build/tests/boot-stolen$(HOST_EXE): tools/test_boot_stolen.c tools/test_intel_stolen_probe.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -o $@
+.PHONY: test-boot-stolen
+test-boot-stolen: build/tests/boot-stolen$(HOST_EXE)
+	$<
+test-core: test-boot-stolen

@@ -3,11 +3,11 @@ import sys
 
 def jobs(dependencies):
     outputs=['build/tests/'+name for name in ('intel-bdw-stolen-scanout','intel-stolen-probe',
-        'intel-display-probe','intel-cache-probe','intel-handoff-probe','exfat-driver','workspace-log-host','bootlog-host','vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias')]
+        'boot-stolen','intel-display-probe','intel-cache-probe','intel-handoff-probe','exfat-driver','workspace-log-host','bootlog-host','vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias')]
     build=dict(name='fixtures',argv=[sys.executable,'tools/fixture_compile.py','--under-workflow-lock',*outputs],
                cache=False,inputs=dependencies,outputs=outputs,timeout=1200)
     image=dict(name='stolen-image',argv=['make','build/intel-stolen/srvros.elf'],cache=False,
-               inputs=dependencies,outputs=['build/intel-stolen/srvros.elf','build/intel-stolen/layout.o','build/intel-stolen/probe.o'],timeout=1800)
+               inputs=dependencies,outputs=['build/intel-stolen/srvros.elf','build/intel-stolen/layout.o','build/intel-stolen/probe.o','build/intel-stolen/main.o'],timeout=1800)
     def tests(name,modules):
         return dict(name=name,argv=[sys.executable,'-m','unittest','-v',*modules],
                     env={'PYTHONPATH':'tools','SRVROS_FIXTURE_BATCH':'1'},inputs=dependencies+outputs,outputs=[],timeout=1200)

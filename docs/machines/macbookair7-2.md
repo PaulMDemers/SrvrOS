@@ -15611,3 +15611,14 @@ VM paths passed before this run. Currentf718/recovery9aa8 remain, USB is unmount
 and no new trial is armed. Native census, GPU memory/reader ownership and
 tear-free acceptance remain open. Main4016abf0 and other PR19/379 scopes are
 unchanged; source/recipe/startup isolation is the next bounded scope.
+
+## Census pre-init isolation candidate
+
+The v51 candidate uses a separately compiled census main and pure exact-recipe
+boot dispatch to defer `/init` before terminal capture. It preserves wire4 root
+observations, every mapping/source/cache gate and all existing deadlines. New
+native/VM receipts require the deferral witness without user-init activity;
+historical profiles remain readable. Qualification must exercise actual recipe/
+boot dispatch, malformed and ordinary-image behavior, linked main isolation,
+compiled controls/sanitizers and both exact-stage VM paths. Physical acceptance
+is pending. Main4016abf0 and PR19/379 remain unchanged.

@@ -1,8 +1,13 @@
-/* Included by main and its host fixture. Only the isolated held-reset/interval images
- * may run its exact terminal capture before user address spaces are created.
- * It still uses all ordinary kernel services and admission checks. */
+/* Included by main and its host fixtures. Only dedicated terminal images may
+ * defer user init for their exact capture recipes. Ordinary kernel services
+ * and all admission checks still apply. */
 static bool boot_system_init(const char *cmdline, bool timer_running) {
-#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
+#ifdef SRVROS_INTEL_STOLEN_CAPTURE
+    if(intel_stolen_probe_recipe(cmdline)) {
+        console_write("init: deferred=stolen-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
+#elif defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
     if(intel_gt_boot_gt_bootstrap_recipe(cmdline)) {
         console_write("init: deferred=gt-bootstrap-preinit; terminal automatic capture, no user services\n");
         return false;

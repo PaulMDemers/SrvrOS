@@ -16,6 +16,18 @@ HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status 
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
        'srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-stolen=read-only','srvros.capture-failure=reboot')
 
+PREINIT_LINE='init: deferred=stolen-preinit; terminal automatic capture, no user services'
+def verify_stolen_preinit(text):
+    """Exact isolated boot witness, not root/alias or GPU ownership authority."""
+    lines=text.splitlines()
+    if lines.count(PREINIT_LINE)!=1:raise ValueError('missing/duplicate stolen preinit witness')
+    if any(re.match(r'init: (?:started\b|readiness=|startup complete\b|start failed\b)',line) for line in lines):
+        raise ValueError('stolen census started user init')
+    edge=lines.index(PREINIT_LINE)
+    if any(line.startswith(('intel-stolen:','intel-stolen-summary:')) for line in lines[:edge]):
+        raise ValueError('late stolen preinit witness')
+    return True
+
 def stolen_recipe(command):
     tokens=command.split()
     if len(tokens)!=9 or len(set(tokens))!=9 or not set(FIXED)<=set(tokens):

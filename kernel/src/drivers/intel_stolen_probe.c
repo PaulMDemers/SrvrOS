@@ -1,6 +1,7 @@
 #include <srvros/intel_bdw_stolen_scanout.h>
 #ifndef SRVROS_INTEL_STOLEN_CAPTURE
 bool intel_stolen_probe_report(const char *cmdline) {(void)cmdline;return false;}
+bool intel_stolen_probe_recipe(const char *cmdline) {(void)cmdline;return false;}
 bool intel_stolen_probe_retained(void) {return false;}
 #else
 #include <srvros/intel_scanout_trial.h>
@@ -91,7 +92,7 @@ static bool checkpoint(unsigned step) {
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }
-static bool recipe(const char *s) {
+bool intel_stolen_probe_recipe(const char *s) {
  static const char *const fixed[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only",
  "srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-stolen=read-only","srvros.capture-failure=reboot"};
  unsigned seen=0,tokens=0;
@@ -313,7 +314,7 @@ bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
  console_write("intel-stolen: wire4 root-observed UC3 alias-preflight read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
- if(!recipe(cmdline)){refuse(1);goto report;}
+ if(!intel_stolen_probe_recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
  if(!checkpoint(1))goto report;

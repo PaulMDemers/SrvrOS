@@ -293,3 +293,22 @@ VM paths passed before this run. Currentf718/recovery9aa8 remain, USB is unmount
 and no new trial is armed. Native census, GPU memory/reader ownership and
 tear-free acceptance remain open. Main4016abf0 and other PR19/379 scopes are
 unchanged; source/recipe/startup isolation is the next bounded scope.
+
+Active implementation scope: isolated census main object and shared exact-recipe
+validator for terminal pre-init dispatch; add native/VM receipt checks for actual
+init deferral and reject user-service startup. New v51 keeps wire4 observation
+but has a distinct staged profile and startup contract; older v50 remains readable.
+Ordinary desktop boot, live roots and all sole-root/leaf/resource/cache gates,
+retention and deadlines remain unchanged. Main4016abf0 and PR19/379 unchanged.
+Only verified stage duplicates7c8/f718, inactive7c8 EFI and recomputable fixture
+cache entries were retired for space; currentf718/recovery9aa8, independent banks
+and raw evidence remain. A candidate with unexpected contents was preserved.
+
+The implementation now passes184 focused methods, including the actual pure
+recipe/boot dispatcher, ordinary-image behavior and startup failures, three
+compiled boot weakening controls, native main2KiB frames/link isolation and
+strict new pre-init transport rules. Final frozen gates and both exact-stage
+VM routes remain required. V51 uses a distinct configuration while retaining
+wire4 observations; it refuses missing/duplicate/late init deferral or contradictory
+user-init activity in native checkpoints and the saved VM result. No source/root/
+cache/leaf predicate, retained-state rule or deadline changed.

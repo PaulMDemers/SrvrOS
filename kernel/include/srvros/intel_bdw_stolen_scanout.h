@@ -38,6 +38,9 @@ bool intel_bdw_stolen_scanout_plan(const struct bdw_stolen_facts *,struct bdw_st
 bool intel_bdw_stolen_scanout_check(const struct bdw_stolen_facts *,const struct bdw_stolen_vectors *,struct bdw_stolen_layout *);
 /* Separate read-only native image. Ordinary image supplies only a refusal
  * stub. This does not write PTEs, framebuffer RAM, plane or engine registers. */
+/* Pure exact terminal-capture recipe; only the isolated image admits it.
+ * No process creation, hardware access or persistent diagnostic state. */
+bool intel_stolen_probe_recipe(const char *cmdline);
 bool intel_stolen_probe_report(const char *cmdline);
 bool intel_stolen_probe_retained(void);
 #endif

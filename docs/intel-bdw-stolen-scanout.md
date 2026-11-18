@@ -290,3 +290,30 @@ startup before the census. Existing terminal diagnostics instead defer services.
 A separate exact-recipe pre-init census entry is required before retrying its
 unchanged sole-root mapping protocol. Keep ordinary startup and all guards/
 deadlines intact; require explicit host/VM evidence that init was deferred.
+
+## Isolated terminal boot before user services
+
+V51 retains the exact wire4 root diagnostics and all census gates/deadlines, but
+uses a separately compiled `main.o` under the census-only build flag. The ordinary
+main object is excluded from this image; ordinary desktop builds remain unchanged.
+The pure exact nine-token recipe validator is shared by boot dispatch and the
+probe. Only the exact isolated terminal recipe defers `/init`; malformed,
+duplicate or foreign recipes do not qualify for that boot dispatch. The isolated
+entry additionally refuses an invalid recipe before kernel/device initialization.
+No running root is deleted, and a registered-root count still refuses admission.
+
+The new staged configuration and manifest-driven profile require exactly one
+`init: deferred=stolen-preinit; terminal automatic capture, no user services`
+witness before the census. Native prerequisite/final checkpoints and the actual
+save-return VM must contain it, with no ordinary init-start/readiness/completion
+record. Missing, duplicate, late or contradictory witnesses refuse collection;
+the marker itself supplies no root lease, alias or GPU ownership. Actual root/
+leaf/resource/cache admission remains independently required. Historical profiles
+retain their exact old contracts but cannot launch new trials.
+
+Qualification executes the actual boot dispatcher and actual pure census recipe,
+including missing/duplicate tokens, foreign options, ordinary-image behavior and
+startup failure/readiness. Mutation controls must detect lost deferral, token-only
+admission and accidental ordinary-image deferral. Native-object/link checks ensure
+the new main is linked and the ordinary main has no recipe-gate dependency. Both
+exact-stage VM routes and every prior frozen gate remain required before hardware.

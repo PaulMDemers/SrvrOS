@@ -21,7 +21,7 @@ static struct {
  unsigned calls[FAULT_COUNT],which,at,cases,reads,maps,unmaps;
  uint64_t physical,clock;
  bool mapped,held,report;
- unsigned mode;
+ unsigned mode,deferred;
 } model;
 static struct pci_device devices[2]={{.device=0},{.device=2}};
 static struct limine_memmap_entry entry;
@@ -154,7 +154,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  }
  }
 }
-void console_write(const char *s) {if(model.report)fputs(s,stdout);}
+void console_write(const char *s) {if(strstr(s,"init: deferred=stolen-preinit;"))model.deferred++;if(model.report)fputs(s,stdout);}
 void console_printf(const char *fmt,...) {
  if(!model.report)return;
  va_list args;va_start(args,fmt);

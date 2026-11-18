@@ -18,11 +18,52 @@ class StolenProbe(unittest.TestCase):
     def setUpClass(cls):
         if os.environ.get('SRVROS_FIXTURE_BATCH')!='1':
             compile_fixture(TARGET)
-            for target in ('vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias'):compile_fixture('build/tests/'+target)
+            for target in ('boot-stolen','vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias'):compile_fixture('build/tests/'+target)
     def test_actual_adapter_fault_prefixes(self):
         p=subprocess.run([str(ROOT/TARGET)],check=True,capture_output=True,text=True,timeout=120)
         self.assertIn('actual-adapter=1 hardware=0 writes=0 ownership=0',p.stdout)
         print(p.stdout.strip(),flush=True)
+    def test_actual_recipe_boot_dispatch_and_ordinary_isolation(self):
+        target='build/tests/boot-stolen'
+        subprocess.run([str(ROOT/target)],check=True,capture_output=True,timeout=120)
+        cc,flags,sources=recipe(target)
+        with tempfile.TemporaryDirectory(prefix='stolen-boot-isolation-') as d:
+            for ordinary in (False,True):
+                extra=['-DSRVROS_STOLEN_BOOT_ORDINARY'] if ordinary else []
+                binary=Path(d)/('ordinary' if ordinary else 'isolated')
+                compile_fixture(target,output=binary,declaration=(cc,[*flags,*extra,'-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'],sources))
+                with patch.dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'):
+                    subprocess.run([str(binary)],check=True,capture_output=True,timeout=120)
+    def test_boot_dispatch_controls(self):
+        target='build/tests/boot-stolen';cc,flags,sources=recipe(target)
+        original=(ROOT/'kernel/src/boot_system_init.inc').read_text()
+        controls={
+            'lost-preinit-deferral':('no user services\\n");\n        return false;','no user services\\n");\n        return true;',[]),
+            'token-only-admission':('if(intel_stolen_probe_recipe(cmdline))','if(cmdline && strstr(cmdline,"srvros.intel-stolen=read-only"))',[]),
+            'ordinary-boot-deferral':('#ifdef SRVROS_INTEL_STOLEN_CAPTURE','#if 1',['-DSRVROS_STOLEN_BOOT_ORDINARY']),
+        }
+        with tempfile.TemporaryDirectory(prefix='stolen-boot-controls-') as d:
+            for name,(old,new,extra) in controls.items():
+                with self.subTest(control=name):
+                    self.assertIn(old,original)
+                    source=Path(d)/(name+'.inc');source.write_text(original.replace(old,new,1));binary=Path(d)/name
+                    compile_fixture(target,output=binary,declaration=(cc,[*flags,*extra,'-DSRVROS_STOLEN_BOOT_INIT_FILE="'+str(source)+'"'],sources))
+                    p=subprocess.run([str(binary)],capture_output=True,timeout=120)
+                    self.assertNotEqual(p.returncode,0,'Undetected boot control '+name)
+    def test_isolated_main_link_and_default_boot_object(self):
+        plan=subprocess.check_output(['make','-Bn','build/intel-stolen/srvros.elf'],cwd=ROOT,text=True,timeout=120)
+        link=next(shlex.split(line) for line in plan.splitlines() if ' -o build/intel-stolen/srvros.elf' in line)
+        self.assertIn('build/intel-stolen/main.o',link)
+        self.assertNotIn('build/kernel/src/main.c.o',link)
+        command=next(shlex.split(line) for line in plan.splitlines() if '-c kernel/src/main.c ' in line and '-DSRVROS_INTEL_STOLEN_CAPTURE' in line)
+        with tempfile.TemporaryDirectory(prefix='stolen-main-') as d:
+            args=[a for a in command if a not in ('-MMD','-MP')]
+            args[args.index('-o')+1]=str(Path(d)/'main.o');args+=['-Wframe-larger-than=2048','-Werror']
+            subprocess.run(args,cwd=ROOT,check=True,capture_output=True,timeout=180)
+            self.assertIn('intel_stolen_probe_recipe',subprocess.check_output(['nm','-u',str(Path(d)/'main.o')],text=True))
+            args.remove('-DSRVROS_INTEL_STOLEN_CAPTURE');args[args.index('-o')+1]=str(Path(d)/'ordinary.o')
+            subprocess.run(args,cwd=ROOT,check=True,capture_output=True,timeout=180)
+            self.assertNotIn('intel_stolen_probe_recipe',subprocess.check_output(['nm','-u',str(Path(d)/'ordinary.o')],text=True))
     def test_actual_vmm_root_observation(self):
         for name in ('vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias'):
             subprocess.run([str(ROOT/'build/tests'/name)],check=True,capture_output=True,timeout=120)
