@@ -30,8 +30,9 @@ static bool gt_primary_guard(void) {
     return gt_primary_live() && bootstrap_guard();
 }
 
-static bool gt_primary_read(struct gt_display_access *access, uint64_t address, uint32_t offset, uint32_t *value) {
-    if (!gt_primary_live() || !bootstrap_tick()) return false;
+static bool gt_held_read(struct gt_display_access *access, uint64_t address, uint32_t offset,
+                         uint32_t *value, bool (*live)(void)) {
+    if (!live() || !bootstrap_tick()) return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     (void)address;
     if (!intel_display_test_primary_read(offset, value)) return false;
@@ -40,24 +41,20 @@ static bool gt_primary_read(struct gt_display_access *access, uint64_t address, 
     (void)offset;
 #endif
     ++access->reads;
-    return gt_primary_live() && bootstrap_tick() && *value != UINT32_MAX;
+    return live() && bootstrap_tick() && *value != UINT32_MAX;
 }
 
-/* Read one page of explicitly admitted registers. Reuse the range VA only
- * after the translation comparison has verified all four retirements. */
-static bool gt_primary_alias(struct gt_display_access *access, const uint32_t *offsets, uint32_t *out, unsigned count) {
-    if (!count || count > 4) return false;
+/* Each caller admits exact offsets and the stage where the range VA is free. */
+static bool gt_held_read_alias(struct gt_display_access *access, const uint32_t *offsets,
+                               uint32_t *out, unsigned count, bool (*live)(void),
+                               bool (*allowed)(uint32_t)) {
+    if (!count || count > 6) return false;
     uint32_t page = offsets[0] & ~4095u;
-    for (unsigned i = 0; i < count; ++i) {
-        bool allowed = intel_capture_offset_allowed(offsets[i]);
-#ifdef SRVROS_INTEL_GT_AUX
-        allowed = allowed || gt_aux_offset_allowed(offsets[i]);
-#endif
-        if (!allowed || (offsets[i] & ~4095u) != page) return false;
-    }
+    for (unsigned i = 0; i < count; ++i)
+        if (!allowed(offsets[i]) || (offsets[i] & ~4095u) != page) return false;
     uint64_t actual, physical = result.mmio_base + page;
     unsigned mtrr, pat, effective;
-    if (!gt_primary_guard() || access->mapped) return false;
+    if (!live() || !bootstrap_guard() || access->mapped) return false;
     if (gt_range_translation(&actual)) {
         access->mapped = actual;
         return false;
@@ -78,7 +75,7 @@ static bool gt_primary_alias(struct gt_display_access *access, const uint32_t *o
     access->mapped = physical;
     ++access->maps;
     struct vmm_alias_observation alias;
-    bool ok = gt_primary_live() && bootstrap_tick() &&
+    bool ok = live() && bootstrap_tick() &&
         gt_range_translation(&actual) && actual == physical;
     if (ok) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -91,8 +88,8 @@ static bool gt_primary_alias(struct gt_display_access *access, const uint32_t *o
             !alias.writable && !alias.user && alias.no_execute == 1 && alias.leaf_sizes == 1;
     }
     for (unsigned i = 0; ok && i < count; ++i)
-        ok = gt_primary_read(access, GT_RANGE_VA + (offsets[i] & 4095), offsets[i], &out[i]);
-    if (!gt_primary_live() || !bootstrap_tick() ||
+        ok = gt_held_read(access, GT_RANGE_VA + (offsets[i] & 4095), offsets[i], &out[i], live);
+    if (!live() || !bootstrap_tick() ||
         !gt_range_translation(&actual) || actual != physical) return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     bool retired = intel_display_test_range_unmap(&actual);
@@ -102,7 +99,18 @@ static bool gt_primary_alias(struct gt_display_access *access, const uint32_t *o
     if (!retired || actual != physical || gt_range_translation(&actual)) return false;
     access->mapped = 0;
     ++access->retired;
-    return gt_primary_guard() && ok;
+    return live() && bootstrap_guard() && ok;
+}
+
+static bool gt_primary_offset_allowed(uint32_t offset) {
+#ifdef SRVROS_INTEL_GT_AUX
+    if (gt_aux_offset_allowed(offset)) return true;
+#endif
+    return intel_capture_offset_allowed(offset);
+}
+
+static bool gt_primary_alias(struct gt_display_access *access, const uint32_t *offsets, uint32_t *out, unsigned count) {
+    return count <= 4 && gt_held_read_alias(access, offsets, out, count, gt_primary_live, gt_primary_offset_allowed);
 }
 
 static bool gt_primary_wells(uint32_t observed[4]) {
@@ -124,14 +132,14 @@ static bool gt_primary_pipe(unsigned pipe, struct intel_bdw_primary_sample *samp
     uint32_t page = 0x70000 + pipe * 4096;
     for (unsigned i = 0; i < 13; ++i) {
         uint32_t *word = &sample->reader[pipe][i];
-        if (!gt_primary_read(&gt_primary.access, address + offsets[i], page + offsets[i], word) ||
+        if (!gt_held_read(&gt_primary.access, address + offsets[i], page + offsets[i], word, gt_primary_live) ||
             *word != gt_bootstrap_native.display[1][pipe][i]) return false;
     }
     for (unsigned i = 0; i < 5; ++i)
         sample->pipe[pipe][pipe_indices[i]] = sample->reader[pipe][reader_for_pipe[i]];
     for (unsigned i = 3; i <= 5; i += 2) {
         uint32_t offset = intel_capture_pipe_offsets[i];
-        if (!gt_primary_read(&gt_primary.access, address + offset, page + offset, &sample->pipe[pipe][i])) return false;
+        if (!gt_held_read(&gt_primary.access, address + offset, page + offset, &sample->pipe[pipe][i], gt_primary_live)) return false;
     }
     for (unsigned i = 2; i < 9; ++i)
         if (sample->pipe[pipe][i] != result.sample[1].pipe[pipe][i]) return false;

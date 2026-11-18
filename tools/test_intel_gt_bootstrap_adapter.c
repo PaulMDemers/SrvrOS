@@ -233,6 +233,9 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
  return !bf("display-read",bdisplay);
 }
 static bool intel_display_test_bootstrap_expected(void) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale"))return true;
+#endif
 #ifdef SRVROS_INTEL_GT_AUX
  if(!strcmp(bootstrap_mode,"aux-vga-active") || !strcmp(bootstrap_mode,"aux-fbc-active") ||
     !strcmp(bootstrap_mode,"aux-fbc-segment") || !strcmp(bootstrap_mode,"aux-psr-enable") ||
@@ -338,6 +341,9 @@ static unsigned primary_reads,primary_maps,primary_unmaps,primary_aliases;
 #ifdef SRVROS_INTEL_GT_AUX
 static unsigned aux_reads,aux_maps,aux_unmaps,aux_aliases;
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+static unsigned flush_reads,flush_maps,flush_unmaps,flush_aliases;
+#endif
 static bool intel_display_test_range_translate(uint64_t *physical) {
  if(!range_pa)return false;
  *physical=range_pa;return true;
@@ -345,6 +351,12 @@ static bool intel_display_test_range_translate(uint64_t *physical) {
 static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(range_pa==0xc0008000) {
+  if(bf("flush-alias",++flush_aliases))out->writable=1;
+  return true;
+ }
+#endif
 #ifdef SRVROS_INTEL_GT_AUX
  if(gt_aux.active) {
   if(bf("aux-alias",++aux_aliases))out->writable=1;
@@ -361,6 +373,14 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  return true;
 }
 static bool intel_display_test_range_map(uint64_t physical) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(physical==0xc0008000) {
+  assert(gt_flush_live() && !range_pa && wake_irq && gpu_command==3);
+  if(bf("flush-map",++flush_maps))return false;
+  range_pa=physical;
+  return !bf("flush-map-retained",flush_maps);
+ }
+#endif
 #ifdef SRVROS_INTEL_GT_AUX
  if(gt_aux.active) {
   assert(bootstrap_parent() && !range_pa && wake_irq && gpu_command==3);
@@ -398,6 +418,12 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
 }
 static bool intel_display_test_range_unmap(uint64_t *physical) {
  assert(bootstrap_parent() && range_pa);
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(range_pa==0xc0008000) {
+  if(bf("flush-unmap",++flush_unmaps))return false;
+  *physical=range_pa;range_pa=0;return true;
+ }
+#endif
 #ifdef SRVROS_INTEL_GT_AUX
  if(gt_aux.active) {
   if(bf("aux-unmap",++aux_unmaps))return false;
@@ -417,6 +443,22 @@ static bool intel_display_test_range_unmap(uint64_t *physical) {
 #ifdef SRVROS_INTEL_GT_PRIMARY
 static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(range_pa==0xc0008000) {
+  static const uint32_t expected[]={0x8000,0x8004,0x8010,0x8008,0x800c,0x8038};
+  unsigned i=flush_reads%6, n=gt_flush.samples;
+  assert(gt_flush_live() && offset==expected[i] && gpu_command==3);
+  assert((n==0 && bwrites==0 && !pulses) || (n==1 && bwrites==5 && !pulses) ||
+         (n==2 && pulses==2 && gt_memory.d.state==2 && gt_primary.complete));
+  if(bf("flush-read",++flush_reads))return false;
+  bool ack=(n==1 && strcmp(bootstrap_mode,"flush-quiet")) || !strcmp(bootstrap_mode,"flush-stale");
+  *out=ack?(i<5?32:1):0;
+  if(bf("flush-float",flush_reads))*out=UINT32_MAX;
+  if(bf("flush-clock",flush_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
+  if(bf("flush-window",flush_reads))ticks=gt_flush.begin[n]+BDW_BOOT_PHASE_US+1;
+  return true;
+ }
+#endif
  assert(gt_primary_live() && gpu_command==3);
  unsigned page=offset&~4095u;
 #ifdef SRVROS_INTEL_GT_AUX
@@ -515,6 +557,11 @@ int main(int argc,char **argv) {
   assert(gt_primary.begin[0]<=gt_aux.begin[0] && gt_aux.end[0]<=gt_primary.end[0]);
   assert(gt_primary.begin[1]<=gt_aux.begin[1] && gt_aux.end[1]<=gt_primary.end[1]);
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+  assert(gt_flush.samples==3 && flush_reads==18 && flush_maps==3 && flush_aliases==3 && flush_unmaps==3);
+  assert(!gt_flush.access.mapped && gt_flush.end[0]<gt_flush.begin[1] && gt_flush.end[1]<=r->begin);
+  assert(gt_primary.end[1]<gt_flush.begin[2] && gt_flush.end[2]<gt_bootstrap_native.guard_begin);
+#endif
  } else {
   if(!strcmp(bootstrap_mode,"maintain-phase"))assert(gt_bootstrap_native.g->clock_cause & GT_CLOCK_PHASE);
   assert(hit && intel_gt_wake_retained() && !display_access_allowed());
@@ -550,6 +597,14 @@ int main(int argc,char **argv) {
     assert(gt_range.completed==2 && gt_memory.d.state==2 && bcommands==1 && gpu_command==3);
     assert(!gt_primary.complete && !gt_bootstrap_native.returned);
     assert((range_pa!=0)==(gt_aux.access.mapped!=0));
+   }
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+   if(!strncmp(bootstrap_mode,"flush-",6)) {
+    assert(gt_flush.samples<3 && !gt_bootstrap_native.returned && gpu_command==3);
+    assert((range_pa!=0)==(gt_flush.access.mapped!=0));
+    assert(gt_flush.access.mapped || gt_flush.access.maps==gt_flush.access.retired);
+    assert(gt_flush.samples==2 || !pulses);
    }
 #endif
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE

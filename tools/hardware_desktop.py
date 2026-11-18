@@ -831,7 +831,7 @@ def session_log_limit(exit_preview):
     lines=exit_preview.splitlines()
     provider=any(l.startswith(b'intel-vtd-drain: v=6 b=') for l in lines) and any(
         l.startswith(b'intel-command-ownership: v=1 b=') for l in lines)
-    bootstrap_versions = tuple(f'intel-bootstrap-summary: v={version} '.encode() for version in range(1, 12))
+    bootstrap_versions = tuple(f'intel-bootstrap-summary: v={version} '.encode() for version in range(1, 13))
     bootstrap = any(line.startswith(b'intel-wake-summary: v=37 ') for line in lines) and any(
         line.startswith(bootstrap_versions) for line in lines)
     return 98304 if provider or bootstrap else 65536
@@ -892,7 +892,7 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         raw_payload=payload
-        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and any(t in line.split() for t in (b'srvros.intel-ring=gt-bootstrap-v1',b'srvros.intel-ring=gt-bootstrap-seconds-v1',b'srvros.intel-ring=gt-bootstrap-practical-v1',b'srvros.intel-ring=gt-bootstrap-range-v1',b'srvros.intel-ring=gt-bootstrap-primary-v1',b'srvros.intel-ring=gt-bootstrap-aux-v1',b'srvros.intel-ring=gt-bootstrap-memory-v1',b'srvros.intel-ring=gt-bootstrap-arena-v1',b'srvros.intel-ring=gt-bootstrap-context-v1')) for data in raw_payload.values() for line in data.splitlines())
+        bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and any(t in line.split() for t in (b'srvros.intel-ring=gt-bootstrap-v1',b'srvros.intel-ring=gt-bootstrap-seconds-v1',b'srvros.intel-ring=gt-bootstrap-practical-v1',b'srvros.intel-ring=gt-bootstrap-range-v1',b'srvros.intel-ring=gt-bootstrap-primary-v1',b'srvros.intel-ring=gt-bootstrap-aux-v1',b'srvros.intel-ring=gt-bootstrap-flush-v1',b'srvros.intel-ring=gt-bootstrap-memory-v1',b'srvros.intel-ring=gt-bootstrap-arena-v1',b'srvros.intel-ring=gt-bootstrap-context-v1')) for data in raw_payload.values() for line in data.splitlines())
         vtd_profile=any(b'srvros.intel-ring=vtd-drain-v1' in data for data in raw_payload.values())
         source_audit_profile=vtd_profile or any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
         source_engines_profile=any(b'srvros.intel-ring=source-engines-v1' in data for data in raw_payload.values())
@@ -912,11 +912,12 @@ def collect(mount, volume, output):
                 words=next((l.split('=',1)[1].split() for l in data.splitlines() if l.startswith('laptop-capture: boot options=')),[])
                 context='srvros.intel-ring=gt-bootstrap-context-v1' in words
                 arena=context or 'srvros.intel-ring=gt-bootstrap-arena-v1' in words
-                aux='srvros.intel-ring=gt-bootstrap-aux-v1' in words
+                flush='srvros.intel-ring=gt-bootstrap-flush-v1' in words
+                aux=flush or 'srvros.intel-ring=gt-bootstrap-aux-v1' in words
                 primary=aux or 'srvros.intel-ring=gt-bootstrap-primary-v1' in words
                 range_check=primary or 'srvros.intel-ring=gt-bootstrap-range-v1' in words
                 memory=range_check or arena or 'srvros.intel-ring=gt-bootstrap-memory-v1' in words
-                return bootstrap_view(data,seconds='srvros.intel-ring=gt-bootstrap-seconds-v1' in words,practical=memory or 'srvros.intel-ring=gt-bootstrap-practical-v1' in words,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux)
+                return bootstrap_view(data,seconds='srvros.intel-ring=gt-bootstrap-seconds-v1' in words,practical=memory or 'srvros.intel-ring=gt-bootstrap-practical-v1' in words,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush)
             decode=selected_bootstrap_view if bootstrap_profile else drain_shared_view if vtd_profile else audit_shared_view if source_audit_profile else engines_shared_view if source_engines_profile else requester_shared_view if source_requester_profile else shared_view if startup_transfer_profile else buffers_view
             try:
                 # Only the checked v31 dispatch may normalize shared wire schemas.

@@ -1022,6 +1022,8 @@ int main(int argc,char **argv) {
 #else
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-arena-v1",completion_recipe);
 #endif
+#elif defined(SRVROS_INTEL_GT_FLUSH)
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-flush-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_AUX)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-aux-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_PRIMARY)

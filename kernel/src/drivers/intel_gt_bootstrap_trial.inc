@@ -487,6 +487,12 @@ static bool bootstrap_core_io(void) {
 #endif
 #include "intel_gt_primary_trial.inc"
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+#ifndef SRVROS_INTEL_GT_AUX
+#error "Flush acknowledgements require the original held display-reader trial"
+#endif
+#include "intel_gt_flush_trial.inc"
+#endif
 #ifdef SRVROS_INTEL_GT_ARENA
 #if !defined(SRVROS_INTEL_GT_MEMORY_PREPARE) || defined(SRVROS_INTEL_COMMAND_MEMORY)
 #error "Private full-GT arena needs its actual memory child, never the legacy source"
@@ -532,7 +538,14 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_RANGE
  if(!gt_range_capture(0))goto fail;
 #endif
- if(!bootstrap_command(3) || !bootstrap_pci(1) || !bootstrap_prepare())goto fail;
+ if(!bootstrap_command(3) || !bootstrap_pci(1))goto fail;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!gt_flush_sample(0))goto fail;
+#endif
+ if(!bootstrap_prepare())goto fail;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!gt_flush_sample(1))goto fail;
+#endif
  struct bdw_boot_binding *binding=&gt_bootstrap_native.source.binding;
  *binding=(struct bdw_boot_binding){.owner=g,.provider=&gt_bootstrap_native,.lifetime=&gt_bootstrap_native.borrow,
   .root=gt_bootstrap_native.root,.mmio=result.mmio_base,.mmio_bytes=0x200000,
@@ -562,6 +575,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #endif
 #ifdef SRVROS_INTEL_GT_PRIMARY
  if(!gt_primary_capture())goto fail;
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!gt_flush_sample(2))goto fail;
 #endif
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_run() || !command_returned())goto fail;
@@ -602,7 +618,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_GT_AUX)
+#if defined(SRVROS_INTEL_GT_FLUSH)
+ "intel-bootstrap-summary: v=12 "
+#elif defined(SRVROS_INTEL_GT_AUX)
  "intel-bootstrap-summary: v=11 "
 #elif defined(SRVROS_INTEL_GT_PRIMARY)
  "intel-bootstrap-summary: v=10 "
@@ -693,5 +711,8 @@ static void bootstrap_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_AUX
  gt_aux_report();
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ gt_flush_report();
 #endif
 }

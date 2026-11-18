@@ -1,5 +1,13 @@
 # Repeatable device trials
 
+The [GT flush acknowledgement trial](intel-completion-prerequisites.md#engine-and-l3-acknowledgement-trial)
+uses `intel-gt-flush-v59`, `--intel-gt-flush` and wire12. The source-bound
+image takes three read-only message snapshots under the original requester
+hold. Both exact-stage VM paths are required. The native receipt preserves
+engine acknowledgement changes and sampled L3 state under the existing clocks
+and 96 KiB log bound. It closes only as a diagnostic. This profile is silent
+and saves and returns to Ubuntu on a safe outcome.
+
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe
 and exact wire8. It retains all42 v45 slots and adds context image/model slots.

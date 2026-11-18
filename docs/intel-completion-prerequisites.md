@@ -89,6 +89,35 @@ now implements the downstream five-engine sequence and fault handling. It has
 no native provider/caller. Fresh pipeline/memory-retirement proofs remain
 mandatory; this observer and its old recipes still perform no TLB writes.
 
+## Engine and L3 acknowledgement trial
+
+The isolated wire12 image samples the five `MSG_IDLE` registers and
+`MSG_L3_LPFC` at `0x8038`. `MSG_IDLE` bit 5 reports the respective engine's
+pipeline flush-and-block acknowledgement. `MSG_L3_LPFC` bit 0 reports an L3
+flush-and-block acknowledgement and the GPM unit clears it on sampling.
+The collector reports each raw word and each engine bit that rose across the
+original Prepare for Reset requests. It reports individual L3 samples without
+attributing a sampled bit to a software request. An absent bit cannot rule out
+a short acknowledgement. [Intel Broadwell PRM Volume 2c, pp. 805–814 and 859](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789).
+
+The first two snapshots bracket the original five Prepare for Reset requests
+under PCI Command 3. The second ends before the reset core enters. The third
+follows the original reset, remapper and GGTT maintenance, translation
+preservation, and primary and auxiliary display checks. It finishes before
+requester restoration. Each snapshot uses a fresh, exact read-only NX UC3
+alias and the existing parent clocks. Faulted or floating reads and uncertain
+alias retirement prevent parent completion. The new probe adds 18 reads and
+three temporary aliases. All message registers remain read-only to SrvrOS.
+
+An observed engine transition identifies the engine pipeline acknowledgement.
+The usual VT-d completion still covers only requests that reached that unit.
+The Power Management L3 word remains observational, and neither receipt
+supplies GT-wide posted-write visibility, prefetch completion or display-reader
+retirement. A private command can establish visibility for its own scope once
+an executable ring and its completion backing are independently owned. Keep
+all writable GGTT and scanout authority closed until those remaining proofs
+are available. [Private BCS completion](intel-bdw-bcs-flush.md).
+
 ## Automated trial
 
 ```sh

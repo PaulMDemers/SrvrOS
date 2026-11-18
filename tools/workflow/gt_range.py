@@ -2,7 +2,7 @@
 import sys
 
 
-def jobs(dependencies, *, primary=False, aux=False):
+def jobs(dependencies, *, primary=False, aux=False, flush=False):
     outputs = ['build/tests/' + name for name in (
         'intel-gt-range-adapter', 'intel-gt-range-boot',
         'intel-gt-memory-adapter', 'intel-gt-memory-boot',
@@ -16,6 +16,8 @@ def jobs(dependencies, *, primary=False, aux=False):
         ))
     if aux:
         outputs.extend(('build/tests/intel-gt-aux-adapter', 'build/tests/intel-gt-aux-boot'))
+    if flush:
+        outputs.extend(('build/tests/intel-gt-flush-adapter', 'build/tests/intel-gt-flush-boot'))
     fixtures = dict(name='fixtures',
                     argv=[sys.executable, 'tools/fixture_compile.py', '--under-workflow-lock', *outputs],
                     inputs=dependencies, outputs=outputs, cache=False, timeout=1200)
@@ -30,7 +32,7 @@ def jobs(dependencies, *, primary=False, aux=False):
                       env={'SRVROS_REQUIRE_NATIVE_FIRMWARE': '1'}, timeout=300)
     range_checks = checks('range-transport', 'test_intel_gt_range', 'test_hardware_boot',
                           'test_hardware_desktop', 'test_device_workflow', timeout=300)
-    variant = 'aux' if aux else 'primary' if primary else 'range'
+    variant = 'flush' if flush else 'aux' if aux else 'primary' if primary else 'range'
     images = (f'build/intel-gt-{variant}/srvros.elf', 'build/initramfs.tar')
     image = dict(name='range-image', argv=['make', *images], inputs=dependencies,
                  outputs=list(images), cache=False, timeout=1800)
@@ -41,5 +43,7 @@ def jobs(dependencies, *, primary=False, aux=False):
         shared.append(checks('primary-footprint', 'test_intel_gt_primary', 'test_intel_bdw_primary_range'))
     if aux:
         shared.append(checks('auxiliary-readers', 'test_intel_gt_aux'))
+    if flush:
+        shared.append(checks('flush-acknowledgements', 'test_intel_gt_flush'))
     return dict(development=[*shared, image],
                 qualification=[*shared, inherited, image])
