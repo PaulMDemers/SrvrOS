@@ -33,7 +33,8 @@ def smi_guard_result(rows, version, parent, memory, retire):
     if (not point or (point == 1 and reads != 1)
             or (point == 6 and retire["stage"] < 2)
             or ((first != last) != (fault == 2))
-            or (fault == 2 and reads < 2)
+            or (fault == 1 and reads != minimum)
+            or (fault == 2 and reads != minimum + 1)
             or not minimum <= reads <= minimum + 1):
         raise ValueError("GT SMI checkpoint accounting")
     if parent["complete"] and (point != 6 or reads != minimum + 1 or fault):

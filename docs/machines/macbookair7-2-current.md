@@ -14,8 +14,11 @@ On main `4016abf0`, PR301 adds a read-only SMI counter check before the
 Air7,2 full-GT bootstrap stores and borrow retirement. Ubuntu read the
 counter on all four logical CPUs on this unit. The host fixture injects a
 count change at every checkpoint and verifies that the original GT owner
-stays pinned. The exact new SrvrOS image remains pending physical
-qualification. An unchanged counter grants no GGTT access or GPU completion.
+stays pinned. Release `fd9743c1fe226cd4` passed both exact-stage QEMU cases.
+QEMU refused the native bootstrap before sampling the counter. It saved and
+reset with a workspace, and halted visibly when the workspace was missing.
+The new image remains pending physical qualification. An unchanged counter
+grants no GGTT access or GPU completion.
 [Firmware interference check](../intel-completion-prerequisites.md#firmware-interference-check-inside-the-original-gt-owner).
 
 ## First-page physical disjointness checked

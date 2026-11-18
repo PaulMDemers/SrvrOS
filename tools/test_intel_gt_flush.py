@@ -66,6 +66,9 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertFalse(wrapped["complete"])
         self.assertEqual(wrapped["flush"]["smi_guard"]["first"], 0xffffffff)
         self.assertEqual(wrapped["flush"]["smi_guard"]["last"], 0)
+        failure = observe("smi-count", 3)
+        with self.assertRaisesRegex(ValueError, "GT SMI checkpoint accounting"):
+            bootstrap_result(failure.replace("intel-smi-guard: v=1 reads=3 ", "intel-smi-guard: v=1 reads=2 "))
 
     def test_smi_msr_is_never_accessed_on_an_unsupported_cpu_profile(self):
         for mode in ("smi-no-leaf", "smi-vendor", "smi-model", "smi-hypervisor", "smi-no-msr"):
