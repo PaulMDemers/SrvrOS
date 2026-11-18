@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope: original scanout ownership trial
+
+PR301 on main `4016abf0` covers an isolated trial of the hardware ownership
+gate while the existing CPU guard and display exclusion are held. It will
+capture the firmware endpoint and PCI requester state around a fresh display
+reader sample, then report the first unmet ownership condition and check clean
+retirement. Engine and cache operations require their original live owner.
+The trial has no target pixel or GPU control writes. The previous v54 run is
+closed as `DIAGNOSED`. PR19 and PR379 remain unrelated.
+
 ## Native CPU mapping guard lifetime complete
 
 Source `e4d7772e`, release `7daeada549485c7e`, v54/wire7/configuration8,
