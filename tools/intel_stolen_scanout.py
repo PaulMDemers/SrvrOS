@@ -7,15 +7,17 @@ SCHEMAS={
     'run':'v sample range gpu bytes pages count reads first last hash bad_index bad_value',
     'reader':'v sample pipe count '+ ' '.join('w'+str(i) for i in range(13)),
     'policy':'v sample range index physical pages queried ok mtrr pat effective checks',
+    'cpu-span':'v range physical pages checked reserved framebuffer other uncovered tagged',
+    'cpu':'v attempted observed admitted begin end ram_ranges bits pmm_checks unmapped reason level root_phase root_reason root_detail tables entries leaves span virtual physical bytes entry writes authority',
 }
 WIRE2='fail offset cache_index mtrr pat effective'
 FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','PCI-devices',
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word')
+          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
-HEX.update(['physical']+['w'+str(i) for i in range(13)])
+HEX.update(['virtual','entry','physical']+['w'+str(i) for i in range(13)])
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
        'srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-stolen=read-only','srvros.capture-failure=reboot')
 
@@ -109,38 +111,100 @@ def verify_candidate_policies(rows,sample,regions):
             checks=1+sum(q['physical']<b<q['physical']+4096*q['pages'] for lo,hi,_ in regions for b in (lo,hi)) if sample['def']&0x800 else 1
             if (q['mtrr'],q['pat'],q['effective'])!=values[0] or q['checks']!=checks:raise ValueError('candidate cache replay')
 
+def verify_cpu_progress(rows,summary):
+    if len(rows['cpu'])!=1 or [r['range'] for r in rows['cpu-span']]!=[1,2]:raise ValueError('missing/duplicate/unordered CPU backing rows')
+    c=rows['cpu'][0];spans=rows['cpu-span']
+    if any(c[k] not in (0,1) for k in ('attempted','observed','admitted','unmapped')) or c['writes'] or c['authority']!='none':raise ValueError('CPU backing authority')
+    if c['reason']>12 or c['level']>4 or c['span']>1 or c['ram_ranges']>256 or c['tables']>256 or c['entries']>512*c['tables'] or c['leaves']>c['entries']:
+        raise ValueError('CPU root bounds')
+    if c['root_phase'] not in (0,1,3) or c['root_reason']>8 or (not c['root_phase'] and (c['root_reason'] or c['root_detail'])):raise ValueError('CPU root refusal')
+    if c['root_phase']:
+        reason,detail=c['root_reason'],c['root_detail']
+        if c['reason']!=2 or not reason or ((reason==1 and detail!=512) or (reason in (2,3,5,6) and detail) or
+            (reason==4 and detail&0x000ffffffffff000) or (reason==7 and not 1<=detail<=64) or (reason==8 and not detail)):
+            raise ValueError('CPU original root detail')
+    if c['attempted'] and (summary['checked']!=23552 or summary['reader_reads']!=78 or summary['meta_reads']!=8 or
+            any(not v['pages'] or v['count']!=v['pages'] for v in rows['run'])):raise ValueError('CPU backing before layout census')
+    checked=0;partial=False
+    for q in spans:
+        if q['pages'] not in (0,1536) or q['checked']>q['pages'] or q['tagged']>q['checked'] or q['physical']&4095:raise ValueError('CPU backing progress')
+        if sum(q[k] for k in ('reserved','framebuffer','other','uncovered'))!=q['checked']:raise ValueError('CPU coverage count')
+        if partial and q['checked']:raise ValueError('CPU backing prefix')
+        partial |= not q['pages'] or q['checked']<q['pages'];checked+=q['checked']
+        if not q['pages'] and q['physical']:raise ValueError('unobserved CPU physical span')
+        if q['pages']:
+            v=rows['run'][q['range']]
+            if (q['physical'],q['pages'])!=(v['first']&~4095,v['pages']):raise ValueError('CPU backing original span')
+    if c['pmm_checks']!=checked:raise ValueError('CPU PMM query count')
+    if not c['attempted']:
+        if any(c[k] for k in c if k not in ('v','authority')) or any(any(q[k] for k in q if k not in ('v','range')) for q in spans):raise ValueError('unattempted CPU backing')
+    if c['attempted'] and not 36<=c['bits']<=52:raise ValueError('CPU backing physical width')
+    if c['admitted'] and not c['observed']:raise ValueError('CPU backing before observation')
+    if summary['complete'] and not c['observed']:raise ValueError('missing CPU backing completion')
+    if not c['observed']:return
+    if not c['attempted'] or partial or checked!=3072 or not c['ram_ranges'] or not c['tables']:raise ValueError('CPU backing incomplete observation')
+    final=rows['facts'][1]
+    if not final['begin']<=c['begin']<c['end']<=final['end']:raise ValueError('CPU backing clock')
+    if c['root_phase'] or c['root_reason'] or c['root_detail']:raise ValueError('CPU backing root context')
+    if c['unmapped']:
+        if c['reason'] or c['level'] or any(c[k] for k in ('span','virtual','physical','bytes','entry')) or c['entries']!=512*c['tables']:raise ValueError('CPU unmapped result')
+    else:
+        if c['reason']!=12 or c['level'] not in (2,3,4) or c['leaves']<1:raise ValueError('CPU present-leaf refusal')
+        size={2:1<<30,3:1<<21,4:4096}[c['level']]
+        if c['bytes']!=size or c['physical']&(size-1) or c['virtual']&(size-1) or c['virtual']>>47 not in (0,0x1ffff) or c['virtual']>((1<<64)-size):raise ValueError('CPU leaf geometry')
+        raw=c['entry'];mask=((1<<c['bits'])-1)&~4095;physical=(raw&mask)&~(size-1)
+        if raw&~(mask|4095|(1<<63)) or (c['level']<4 and raw&((size-1)&~0x1fff)):raise ValueError('CPU leaf reserved bits')
+        if not raw&1 or physical!=c['physical'] or (c['level']<4 and not raw&128):raise ValueError('CPU leaf encoding')
+        q=spans[c['span']]
+        if not c['physical']<q['physical']+q['pages']*4096 or not q['physical']<c['physical']+size:raise ValueError('CPU leaf does not intersect candidate')
+    reserved=all(q['reserved']==q['pages'] and q['tagged']==q['pages'] for q in spans)
+    if c['admitted']!=bool(reserved and c['unmapped']):raise ValueError('CPU backing admission derivation')
+
+def cpu_admission(rows,physical):
+    c=rows['cpu'][0]
+    for q in rows['cpu-span']:
+        lo,hi=physical[q['range']]
+        if (q['physical'],q['pages'])!=(lo,(hi-lo)//4096):raise ValueError('CPU backing complete geometry')
+    return dict(observed=bool(c['observed']),os_backing_admitted=bool(c['admitted']),cpu_unmapped=bool(c['unmapped']),
+                conflict=None if c['unmapped'] else {k:c[k] for k in ('span','virtual','physical','bytes','entry','level')},
+                hardware_ownership=False,physical_tearfree=False)
+
 def stolen_result(text,*,native=False,required_version=None):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
-        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:')):
+        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:')):
             if re.match(r'intel-stolen-[^ :]+:',line):raise ValueError('unknown stolen receipt')
             continue
-        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy): (.+)',line)
+        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy|cpu-span|cpu): (.+)',line)
         if not match:raise ValueError('malformed stolen receipt')
         kind=match[1];row={}
         for token in match[2].split():
             k,sep,value=token.partition('=')
             if not sep or k in row:raise ValueError('duplicate stolen field')
-            if k=='ownership':row[k]=value;continue
-            hexadecimal=k in HEX and not (kind=='run' and k=='gpu')
+            if k in ('ownership','authority'):row[k]=value;continue
+            hexadecimal=k in HEX and not ((kind=='run' and k=='gpu') or (kind=='cpu-span' and k=='reserved'))
             if not re.fullmatch(r'(?:0|0x[0-9a-fA-F]{1,16})' if hexadecimal else r'[0-9]{1,20}',value):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5) else ''
-        if kind=='summary' and version in (3,4,5):extra+=' preflight'
-        if kind=='summary' and version in (4,5):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version==5:extra+=' reader_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5,6) else ''
+        if kind=='summary' and version in (3,4,5,6):extra+=' preflight'
+        if kind=='summary' and version in (4,5,6):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in (5,6):extra+=' reader_reads'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5,6) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
+    if wire<6:
+        if rows.pop('cpu') or rows.pop('cpu-span'):raise ValueError('unexpected CPU backing preflight')
+    else:verify_cpu_progress(rows,s)
+    if wire==5 and s.get('fail',0)>28:raise ValueError('historical refusal cause')
     if wire<5:
         if rows.pop('reader') or rows.pop('policy'):raise ValueError('unexpected owner preflight')
         if s.get('fail',0)>27:raise ValueError('historical refusal cause')
-    if wire==5:verify_owner_progress(rows,s)
+    if wire>=5:verify_owner_progress(rows,s)
     if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
     if wire>=2:
         if s['cache_index']!=3 or s['fail']>=len(FAILURES) or s['offset']>=0x1000000 or s['offset']&3:
@@ -214,7 +278,7 @@ def stolen_result(text,*,native=False,required_version=None):
     maps=2*(3+sum(((gpu//4096*8+size//4096*8+4095)//4096)-(gpu//4096*8//4096) for gpu,size in spans))
     if wire>=3:maps+=1
     entries=sum(size//4096 for _,size in spans)
-    if wire==5:maps+=6
+    if wire>=5:maps+=6
     if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+s.get('reader_reads',0),2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]
@@ -233,7 +297,8 @@ def stolen_result(text,*,native=False,required_version=None):
             else:
                 if any(base<end and start<base+size for start,end in physical):raise ValueError('stolen physical overlap')
                 physical.append((base,base+size))
-    if wire==5:result['owner_preflight']=owner_preflight(rows,physical)
+    if wire>=5:result['owner_preflight']=owner_preflight(rows,physical)
+    if wire==6:result['cpu_backing_admission']=cpu_admission(rows,physical)
     result.update(physical=[list(v) for v in physical],proposed_ranges=[list(v) for v in spans],auxiliary_disabled=all(not (f['fbc']&0x80000000 or f['psr_ctl']&0x80000000 or f['psr_status']&0xe0000000) for f in (a,b)))
     if native:
         from intel_ggtt_window import native_window_result
@@ -251,7 +316,7 @@ def stolen_result(text,*,native=False,required_version=None):
             from intel_cache import native_cache_result,_snapshot,_page
             cache=native_cache_result(text)
             offsets={0x108000,0x43000,0x6f000}
-            if wire==5:offsets.update((0x70000,0x71000,0x72000))
+            if wire>=5:offsets.update((0x70000,0x71000,0x72000))
             for gpu,size in spans:
                 start=0x800000+gpu//4096*8;end=start+size//4096*8
                 offsets.update(range(start&~4095,(end+4095)&~4095,4096))
@@ -259,7 +324,8 @@ def stolen_result(text,*,native=False,required_version=None):
                 n=sample['sample'];regions=_snapshot(sample,[r for r in cache['rows']['variable'] if r['sample']==n],[r for r in cache['rows']['fixed'] if r['sample']==n])
                 if any(_page(sample,regions,window['summary']['mmio']+offset,3)!=(0,0,0) for offset in offsets):
                     raise ValueError('stolen original UC3 cache policy mismatch')
-                if wire==5:verify_candidate_policies(rows,sample,regions)
+                if wire>=5:verify_candidate_policies(rows,sample,regions)
+                if wire==6 and rows['cpu'][0]['bits']!=sample['bits']:raise ValueError('CPU backing width differs from original context')
         fb=display['rows']['framebuffer'][0]
         if (fb['width'],fb['height'],fb['pitch'])!=(a['width'],a['height'],a['stride']) or window['rows']['sample'][1]['end_us']>a['begin']:
             raise ValueError('stolen stale/changed source')
@@ -271,7 +337,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
@@ -286,7 +352,7 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
 PROGRESS_STEPS=('invalid','profile','source-snapshot','root-PCI','console-sync',
                 'display-exclusion','identity','cache-context','source-revalidation',
                 'metadata','vectors','source-final','classification','cleanup',
-                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache')
+                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache','CPU-backing')
 
 def stolen_progress(text,command):
     """Pending operation history only; never a completion or ownership receipt."""

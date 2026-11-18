@@ -11,7 +11,7 @@ that memory available to the OS.
 
 ## Scope and evidence
 
-The opt-in `intel-stolen-v52` workflow selects the separate
+The opt-in `intel-stolen-v53` workflow selects the separate
 `build/intel-stolen/srvros.elf` image. Ordinary kernels contain only refusal
 stubs. It performs read-only PCI/MMIO observations, with no GPU PTE, command,
 plane, framebuffer, cache-control, remapping or firmware-mailbox writes. CPU
@@ -96,8 +96,8 @@ and exclusion; there is one cleanup attempt and no blind release/retry.
 
 ## Trial and collection
 
-Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v52`. Historical v47/wire1 and v48/wire2 receipts remain readable,
-but cannot start a new trial with the current wire5 image.
+Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v53`. Historical v47/wire1 and v48/wire2 receipts remain readable,
+but cannot start a new trial with the current wire6 image.
 Its manifest freezes the new image, actual-adapter and classifier fixtures,
 sanitizers, compiled weakening controls,2KiB native frames, strict transport,
 source/cache/window regressions and exact-stage QEMU save/return and
@@ -421,3 +421,13 @@ writable/headroom and fresh recovery/default/consumed one-shot checks pass.
 Exit59,130bytes remains within64KiB. The run closes only as `DIAGNOSED`;19
 native files are independently sealed outside build. This completes the new
 read-only preflight, not hardware ownership or native tear-free scanout.
+
+## CPU backing guard (wire6)
+
+Current v53 composes the [CPU backing admission guard](intel-bdw-cpu-backing.md)
+inside this original exclusion after full layout classification. It counts all
+candidate firmware carriers/PMM tags and searches the whole kernel root for CPU
+aliases. No target RAM is accessed or mapped. Known unavailable backing remains
+a valid diagnostic observation; it never supplies firmware/DMA/reader rights.
+Earlier wire1–5 packets retain their exact historical shape. Progress adds
+step21,24 updates total, within the same original second-pass2-second clock.

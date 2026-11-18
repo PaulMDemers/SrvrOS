@@ -16,16 +16,17 @@ static bool intel_stolen_test_read(uint32_t,uint32_t *);
 #endif
 #include SRVROS_STOLEN_ADAPTER_FILE
 
-enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,SOLE_ROOT,FAULT_COUNT};
+enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,SOLE_ROOT,PHYSICAL_UNMAPPED,FAULT_COUNT};
 static struct {
  unsigned calls[FAULT_COUNT],which,at,cases,reads,maps,unmaps;
  uint64_t physical,clock;
  bool mapped,held,report;
- unsigned mode,deferred;
+ unsigned mode,deferred,tag_queries;
 } model;
 static struct pci_device devices[2]={{.device=0},{.device=2}};
 static struct limine_memmap_entry entry;
-static struct limine_memmap_entry *entries[]={&entry};
+static struct limine_memmap_entry table_ram,target_reserved;
+static struct limine_memmap_entry *entries[]={&entry,&table_ram,&target_reserved,NULL};
 static struct limine_memmap_response memory;
 volatile struct limine_memmap_request memmap_request;
 static const char *command="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-stolen=read-only srvros.capture-failure=reboot";
@@ -34,7 +35,9 @@ static void reset(void) {
  unsigned cases=model.cases;memset(&model,0,sizeof(model));model.cases=cases;model.clock=1000;
  memset(&stolen,0,sizeof(stolen));
  entry=(struct limine_memmap_entry){.base=0xc0000000,.length=0x1000000,.type=LIMINE_MEMMAP_RESERVED};
- memory=(struct limine_memmap_response){.entry_count=1,.entries=entries};memmap_request.response=&memory;
+ table_ram=(struct limine_memmap_entry){.base=0x1000,.length=0x8b7ff000,.type=LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE};
+ target_reserved=(struct limine_memmap_entry){.base=0x8b800000,.length=0x4800000,.type=LIMINE_MEMMAP_RESERVED};
+ memory=(struct limine_memmap_response){.entry_count=3,.entries=entries};memmap_request.response=&memory;
 }
 bool timer_reference_ready(void) {return true;}
 uint64_t timer_monotonic_us(void) {if(fault(CLOCK)) {
@@ -77,6 +80,25 @@ bool display_access_acquire(uint64_t owner,struct display_access_token *t) {
 }
 bool display_access_held(const struct display_access_token *t) {assert(t==&stolen.exclusion);return model.held && !fault(HELD);}
 bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped);if(fault(RELEASE))return false;model.held=false;return true;}
+bool pmm_frame_has_tag(uint64_t physical,enum pmm_frame_tag tag) {
+ assert(tag==PMM_FRAME_RESERVED && physical>=0x8e201000 && physical<0x8ee01000 && !(physical&4095));
+ assert(physical==0x8e201000+4096ull*model.tag_queries);
+ ++model.tag_queries;
+ return !(model.mode==36 && model.tag_queries==model.at);
+}
+bool vmm_diagnostic_kernel_physical_unmapped(uint64_t root,const struct vmm_physical_span *spans,unsigned count,unsigned bits,
+ const struct vmm_alias_ram *ram,unsigned ram_count,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ assert(model.held && !model.mapped && root==0x1000 && count==2 && bits==39);
+ assert(spans[0].physical==0x8e201000 && spans[1].physical==0x8e801000 && spans[0].pages==1536 && spans[1].pages==1536);
+ assert(ram==stolen.cpu.ram && ram_count>=1 && ram[0].base==0x1000 && ram[0].length==0x8b7ff000);
+ assert(out==&stolen.cpu.inventory && d==&stolen.cpu.detail && model.tag_queries==3072);
+ if(fault(PHYSICAL_UNMAPPED) || model.mode==39){d->walk.reason=VMM_ALIAS_MODE;return false;}
+ if(model.mode==38) {
+  *d=(struct vmm_unmapped_detail){.walk={.reason=VMM_ALIAS_PRESENT,.level=4},.prefix={.tables=4,.entries=1796,.leaves=1},
+   .virtual_base=0xffff800000000000ull,.physical=0x8e201000,.bytes=4096,.entry=0x8e201003};return false;
+ }
+ *out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
+}
 uint64_t vmm_current_address_space(void) {return fault(ROOT)?(model.mode==32?0:0x2000):0x1000;}
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
 bool vmm_diagnostic_sole_kernel_root_observe(uint64_t root,struct vmm_range_observation *out) {
@@ -108,6 +130,7 @@ bool intel_cache_probe_context(struct x86_cache_snapshot *s) {
  if(fault(CACHE))return false;
  *s=(struct x86_cache_snapshot){.cpu={.vendor={0x756e6547,0x49656e69,0x6c65746e},.features=0x11000,.physical_bits=39},.pat=0x0007040600070406ull,.cap=0x402,.count=2,.base={0xb0000001,0xc0000000},.mask={0x7ff0000800ull,0x7ff0000800ull},.def_type=0x806,.status=CACHE_OBSERVED};
  if(model.mode==35){s->cap=0x403;s->count=3;s->base[2]=0x8e400000;s->mask[2]=0x7fffe00800ull;}
+ if(model.mode==40 && stolen.cpu.pmm_checks==3072)++s->cpu.signature;
  if(model.mode==3 && model.calls[CACHE]>1)++s->cpu.signature;
  if(model.mode==27)s->pat|=7ull<<24;
  if(model.mode==28)s->mask[1]=0;
@@ -187,7 +210,11 @@ static void positive(void) {
   const unsigned expected[]={6,4,0,0,6,4,0,0};
   assert(q->pat==((stolen.cache.pat>>(8*i))&255) && q->mtrr==6 && q->effective==expected[i]);
  }
- assert(model.calls[REVALIDATE]==4);assert(model.calls[PROGRESS]==23);
+ assert(stolen.cpu.observed && stolen.cpu.admitted && stolen.cpu.unmapped && model.tag_queries==3072);
+ assert(stolen.cpu.span[0].checked==1536 && stolen.cpu.span[1].checked==1536 && stolen.cpu.pmm_checks==3072);
+ assert(stolen.cpu.inventory.tables==9 && stolen.cpu.inventory.entries==4608);
+ assert(stolen.cpu.begin<stolen.cpu.end && stolen.cpu.end==stolen.end[1]);
+ assert(model.calls[REVALIDATE]==6);assert(model.calls[PROGRESS]==24);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<3;r++)assert(stolen.count[n][r]==stolen.plan.range[r].pages);
  assert(!intel_stolen_probe_report(command));++model.cases;
 }
@@ -198,6 +225,9 @@ int main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--unsupported-report")) {reset();model.which=PROFILE;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--refusal-report")) {reset();model.mode=27;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--root-refusal-report")) {reset();model.which=SOLE_ROOT;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
+ if(argc==2 && !strcmp(argv[1],"--cpu-present-report")) {reset();model.mode=38;model.report=true;return intel_stolen_probe_report(command)?0:1;}
+ if(argc==2 && !strcmp(argv[1],"--cpu-tag-report")) {reset();model.mode=36;model.at=1536;model.report=true;return intel_stolen_probe_report(command)?0:1;}
+ if(argc==2 && !strcmp(argv[1],"--cpu-root-refusal-report")) {reset();model.mode=39;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
  positive();
  for(unsigned i=0;i<78;i++) {
@@ -210,6 +240,27 @@ int main(int argc,char **argv) {
  reset();model.mode=35;assert(intel_stolen_probe_report(command));
  for(unsigned n=0;n<2;n++)for(unsigned i=0;i<8;i++)assert(!stolen.policy[n][0][i].ok && stolen.policy[n][0][i].queried && stolen.policy[n][0][i].mtrr==255 && !stolen.policy[n][0][i].checks);
  ++model.cases;
+ positive();
+ for(unsigned at=1;at<=3072;at+=(at==1?1534:1)) {
+  reset();model.mode=36;model.at=at;assert(intel_stolen_probe_report(command));
+  assert(stolen.cpu.observed && !stolen.cpu.admitted && stolen.cpu.unmapped && model.tag_queries==3072);
+  assert(stolen.cpu.span[0].tagged+stolen.cpu.span[1].tagged==3071);++model.cases;
+  if(at==1537)at=3071;
+ }
+ reset();target_reserved.type=LIMINE_MEMMAP_USABLE;assert(intel_stolen_probe_report(command));
+ assert(stolen.cpu.observed && !stolen.cpu.admitted && stolen.cpu.span[0].other==1536);++model.cases;
+ reset();target_reserved.type=(1ull<<32)|LIMINE_MEMMAP_RESERVED;assert(intel_stolen_probe_report(command));
+ assert(stolen.cpu.observed && !stolen.cpu.admitted && stolen.cpu.span[0].other==1536);++model.cases;
+ reset();entries[3]=&target_reserved;memory.entry_count=4;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==29 && !stolen.cpu.observed && !model.held);++model.cases;
+ reset();table_ram.type=LIMINE_MEMMAP_RESERVED;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==29 && !model.tag_queries && !model.calls[PHYSICAL_UNMAPPED]);++model.cases;
+ reset();model.mode=38;assert(intel_stolen_probe_report(command));
+ assert(stolen.cpu.observed && !stolen.cpu.admitted && !stolen.cpu.unmapped && stolen.cpu.detail.walk.reason==VMM_ALIAS_PRESENT);++model.cases;
+ reset();model.mode=40;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==29 && !stolen.cpu.observed && !model.held && !model.mapped);++model.cases;
+ reset();model.mode=39;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==29 && !stolen.cpu.observed && !model.held && !model.mapped);++model.cases;
  positive();
  unsigned counts[FAULT_COUNT];memcpy(counts,model.calls,sizeof(counts));
  for(unsigned which=1;which<FAULT_COUNT;which++) {

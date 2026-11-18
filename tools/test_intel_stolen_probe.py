@@ -102,6 +102,13 @@ class StolenProbe(unittest.TestCase):
         controls={
             'lost-reader-census':('!readers(n)', '(false && !readers(n))'),
             'lost-candidate-policy':('!candidate_policy(n)', '(false && !candidate_policy(n))'),
+            'repeated-CPU-frame-query':('physical=q->physical+4096ull*page,type=0', 'physical=q->physical,type=0'),
+            'lost-CPU-root-census':('bool absent=vmm_diagnostic_kernel_physical_unmapped(', 'bool absent=true || vmm_diagnostic_kernel_physical_unmapped('),
+            'lost-CPU-tag-query':('if(pmm_frame_has_tag(physical,PMM_FRAME_RESERVED))', 'if(true)'),
+            'lost-CPU-map-reservation':('q->reserved!=q->pages || q->tagged!=q->pages', 'q->tagged!=q->pages'),
+            'lost-CPU-reserved-tag':('q->reserved!=q->pages || q->tagged!=q->pages', 'q->reserved!=q->pages'),
+            'present-leaf-admitted':('reserved && absent', 'reserved'),
+            'lost-CPU-fresh-cache':('!x86_cache_equal(&fresh,&stolen.cache))return refuse(29);', 'false)return refuse(29);'),
             'lost-source-bracket':('if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);', ';'),
             'lost-original-window':('if(stolen.pte[n][1][i]!=stolen.source.original[i])','if(false)'),
             'wrong-captured-pat-slot':('x86_cache_page(&fresh,physical,3,','x86_cache_page(&fresh,physical,2,'),
@@ -121,7 +128,7 @@ class StolenProbe(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-sole-root-admission','lost-fresh-cache') else 1)
+                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-CPU-root-census') else 4 if name=='lost-sole-root-admission' else 3 if name=='lost-fresh-cache' else 1)
                     source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
                     p=subprocess.run([str(binary)],capture_output=True,timeout=120)

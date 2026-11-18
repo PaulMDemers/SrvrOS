@@ -135,3 +135,8 @@ It gathers new observations within the original census exclusion. Its active
 reader bases and hypothetical cache policies do not satisfy any rights bit;
 complete reader footprints, maintained exclusion and actual alias visibility
 still need their own native implementation and evidence.
+
+The [CPU backing guard](intel-bdw-cpu-backing.md) now supplies the actual native
+map/tag and whole-root preconditions for a future alias. CPU admission is not
+an exclusive firmware reservation or a borrowed source. Its diagnostic returns
+the original exclusion; saved packets cannot create a live owner afterward.

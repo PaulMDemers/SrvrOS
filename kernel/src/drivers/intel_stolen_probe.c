@@ -14,6 +14,7 @@ extern volatile struct limine_memmap_request memmap_request;
 #include <srvros/x86_cache.h>
 #include <srvros/pci.h>
 #include <srvros/vmm.h>
+#include <srvros/pmm.h>
 #include <srvros/timer.h>
 #include <srvros/console.h>
 #include <srvros/workspace_log.h>
@@ -33,6 +34,14 @@ static struct {
  struct bdw_stolen_vectors vectors;
  struct x86_cache_snapshot cache;
  struct vmm_range_observation root_observation;
+ struct {
+  uint64_t begin,end;
+  unsigned attempted,observed,admitted,ram_count,pmm_checks,unmapped;
+  struct {uint64_t physical;unsigned pages,checked,reserved,framebuffer,other,uncovered,tagged;} span[2];
+  struct vmm_alias_ram ram[VMM_ALIAS_RAM_LIMIT];
+  struct vmm_alias_inventory inventory;
+  struct vmm_unmapped_detail detail;
+ } cpu;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -346,11 +355,80 @@ static bool capture(unsigned n) {
  if(!identity() || !tick(stolen.begin[n]))return false;
  stolen.end[n]=stolen.last;return stolen.end[n]>stolen.begin[n] || refuse(18);
 }
+/* CPU-side preparation only. A reserved OS frame and absence of CPU aliases
+ * do not transfer firmware memory or stop any GPU/DMA/display reader. */
+static bool cpu_backing(void) {
+ stolen.cpu.attempted=1;
+ if(!tick(stolen.begin[1]))return false;
+ stolen.cpu.begin=stolen.last;
+ if(!identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source))return refuse(29);
+ const struct limine_memmap_response *m=memmap_request.response;
+ if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return refuse(29);
+ uint64_t limit=1ull<<stolen.cache.cpu.physical_bits;
+ for(uint64_t i=0;i<m->entry_count;i++) {
+  const struct limine_memmap_entry *e=m->entries[i];
+  if(!e || !e->length || e->base>=limit || e->length>limit-e->base)return refuse(29);
+  bool ram=e->type==LIMINE_MEMMAP_USABLE || e->type==LIMINE_MEMMAP_ACPI_RECLAIMABLE ||
+   e->type==LIMINE_MEMMAP_ACPI_NVS || e->type==LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE || e->type==LIMINE_MEMMAP_EXECUTABLE_AND_MODULES;
+  if(!ram)continue;
+  unsigned n=stolen.cpu.ram_count,at=0;
+  if(n==VMM_ALIAS_RAM_LIMIT)return refuse(29);
+  while(at<n && stolen.cpu.ram[at].base<e->base)++at;
+  if((at && stolen.cpu.ram[at-1].base+stolen.cpu.ram[at-1].length>e->base) ||
+     (at<n && e->base+e->length>stolen.cpu.ram[at].base))return refuse(29);
+  for(unsigned j=n;j>at;j--)stolen.cpu.ram[j]=stolen.cpu.ram[j-1];
+  stolen.cpu.ram[at]=(struct vmm_alias_ram){e->base,e->length};++stolen.cpu.ram_count;
+ }
+ if(!stolen.cpu.ram_count)return refuse(29);
+ struct vmm_physical_span spans[2];bool reserved=true;
+ for(unsigned r=0;r<2;r++) {
+  __typeof__(stolen.cpu.span[0]) *q=&stolen.cpu.span[r];
+  q->physical=stolen.layout.physical[r+1];q->pages=stolen.plan.range[r+1].pages;
+  spans[r]=(struct vmm_physical_span){q->physical,q->pages};
+  for(unsigned page=0;page<q->pages;page++) {
+   if(!(page&63) && (!identity() || !tick(stolen.begin[1])))return false;
+   uint64_t physical=q->physical+4096ull*page,type=0;unsigned cover=0;
+   for(uint64_t i=0;i<m->entry_count;i++) {
+    const struct limine_memmap_entry *e=m->entries[i];
+    if(e->base<=physical && e->length>=4096 && physical-e->base<=e->length-4096){++cover;type=e->type;}
+   }
+   if(cover>1)return refuse(29);
+   if(!cover)++q->uncovered;
+   else if(type==LIMINE_MEMMAP_RESERVED)++q->reserved;
+   else if(type==LIMINE_MEMMAP_FRAMEBUFFER)++q->framebuffer;
+   else ++q->other;
+   if(pmm_frame_has_tag(physical,PMM_FRAME_RESERVED))++q->tagged;
+   ++q->checked;++stolen.cpu.pmm_checks;
+  }
+  if(q->reserved!=q->pages || q->tagged!=q->pages)reserved=false;
+ }
+ if(!identity() || !tick(stolen.begin[1]))return false;
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ bool absent=vmm_diagnostic_kernel_physical_unmapped(stolen.root,spans,2,stolen.cache.cpu.physical_bits,
+  stolen.cpu.ram,stolen.cpu.ram_count,&stolen.cpu.inventory,&stolen.cpu.detail);
+#else
+ uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+ bool absent=vmm_diagnostic_kernel_physical_unmapped(stolen.root,spans,2,stolen.cache.cpu.physical_bits,
+  stolen.cpu.ram,stolen.cpu.ram_count,&stolen.cpu.inventory,&stolen.cpu.detail);
+ if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+ if(!absent && stolen.cpu.detail.walk.reason!=VMM_ALIAS_PRESENT)return refuse(29);
+ stolen.cpu.unmapped=absent;
+ if(!absent)stolen.cpu.inventory=stolen.cpu.detail.prefix;
+ struct x86_cache_snapshot fresh;
+ if(!identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source) ||
+    !intel_cache_probe_context(&fresh) || !x86_cache_equal(&fresh,&stolen.cache))return refuse(29);
+ if(!tick(stolen.begin[1]))return false;
+ stolen.cpu.end=stolen.last;stolen.end[1]=stolen.last;
+ if(stolen.cpu.end<=stolen.cpu.begin)return refuse(18);
+ stolen.cpu.admitted=reserved && absent;stolen.cpu.observed=1;
+ return true;
+}
 bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquired && !stolen.released);}
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire5 live reader/cache preflight and complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ console_write("intel-stolen: wire6 CPU backing admission and live reader/cache preflight and complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!intel_stolen_probe_recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
@@ -391,18 +469,19 @@ bool intel_stolen_probe_report(const char *cmdline) {
  stolen.phase=3;if(!checkpoint(12))goto cleanup;
  stolen.complete=intel_bdw_stolen_scanout_check(&stolen.facts[0],&stolen.vectors,&stolen.layout);
  if(!stolen.complete){stolen.reason|=16;refuse(21);}
+ if(stolen.complete && (!checkpoint(21) || !cpu_backing()))stolen.complete=false;
 cleanup:
  trace(13,0);
  if(unmap() && !stolen.uncertain && intel_window_handoff_clean())stolen.released=display_access_release(&stolen.exclusion,true);
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=5 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ console_printf("intel-stolen-summary: v=6 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
  (uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
- (uint64_t)stolen.alias_checks,(uint64_t)stolen.meta_reads,(uint64_t)stolen.layout.classified,(uint64_t)stolen.layout.checked,
+ (uint64_t)stolen.alias_checks,(uint64_t)stolen.meta_reads,(uint64_t)(stolen.complete && stolen.layout.classified),(uint64_t)stolen.layout.checked,
  stolen.clock_at,stolen.clock_previous);
  for(unsigned n=0;n<2;n++) {
   const struct bdw_stolen_facts *f=&stolen.facts[n];
@@ -433,6 +512,19 @@ report:
     (uint64_t)q->mtrr,(uint64_t)q->pat,(uint64_t)q->effective,(uint64_t)q->checks);
   }
  }
+ for(unsigned r=0;r<2;r++) {
+  const __typeof__(stolen.cpu.span[0]) *q=&stolen.cpu.span[r];
+  console_printf("intel-stolen-cpu-span: v=1 range=%u physical=%x pages=%u checked=%u reserved=%u framebuffer=%u other=%u uncovered=%u tagged=%u\n",
+   (uint64_t)(r+1),q->physical,(uint64_t)q->pages,(uint64_t)q->checked,(uint64_t)q->reserved,(uint64_t)q->framebuffer,
+   (uint64_t)q->other,(uint64_t)q->uncovered,(uint64_t)q->tagged);
+ }
+ const struct vmm_unmapped_detail *d=&stolen.cpu.detail;
+ const struct vmm_alias_inventory *i=&stolen.cpu.inventory;
+ console_printf("intel-stolen-cpu: v=1 attempted=%u observed=%u admitted=%u begin=%u end=%u ram_ranges=%u bits=%u pmm_checks=%u unmapped=%u reason=%u level=%u root_phase=%u root_reason=%u root_detail=%u tables=%u entries=%u leaves=%u span=%u virtual=%x physical=%x bytes=%u entry=%x writes=0 authority=none\n",
+  (uint64_t)stolen.cpu.attempted,(uint64_t)stolen.cpu.observed,(uint64_t)stolen.cpu.admitted,stolen.cpu.begin,stolen.cpu.end,
+  (uint64_t)stolen.cpu.ram_count,(uint64_t)(stolen.cpu.attempted?stolen.cache.cpu.physical_bits:0),(uint64_t)stolen.cpu.pmm_checks,(uint64_t)stolen.cpu.unmapped,(uint64_t)d->walk.reason,(uint64_t)d->walk.level,
+  (uint64_t)d->walk.root.phase,(uint64_t)d->walk.root.reason,d->walk.root.detail,(uint64_t)i->tables,(uint64_t)i->entries,(uint64_t)i->leaves,
+  (uint64_t)d->span,d->virtual_base,d->physical,d->bytes,d->entry);
  return stolen.complete && !intel_stolen_probe_retained();
 }
 #endif

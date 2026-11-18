@@ -52,25 +52,21 @@ VM results and acceptance proofs live under
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
 The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
-`intel-stolen-v52` builds an isolated pre-init wire5 read-only image and freezes classifier/actual-adapter,
-strict receipt/stage, resource/cache/source and safe-return regressions. It keeps
-both exact-stage VM paths,64KiB collection and the existing recovery/integrity
-sequence. Matching native layout evidence can close only as DIAGNOSED; it never
-grants GPU memory/reader ownership or tear-free acceptance. It does not select
-or weaken any reset/submission protocol. Historical v47/wire1, v48/wire2, v49/wire3 and v50/v51 wire4 remain
-readable but cannot launch a new trial. Wire3 first maps/checks/retires the first
-metadata CPU alias without a register load, saves that boundary, then remaps
-with all original checks for the read. Its extra mapping and preflight flag are
-strictly accounted for without resetting the2-second pass. Wire2 onward selects captured true-UC PAT3, records first
-admission refusal and lets valid incomplete returns collect with that cause;
-those returns cannot be accepted or closed as a completed diagnostic.
+`intel-stolen-v53` selects isolated pre-init wire6/configuration7. It freezes
+classifier/actual-adapter, reader/cache transport and the actual VMM whole-root
+[CPU backing guard](intel-bdw-cpu-backing.md), plus source/cache/window/return
+regressions. Both exact-stage VM paths,64KiB collection and the original
+recovery/integrity sequence remain. The CPU phase uses the second pass's
+remaining2-second budget; it does not restart that clock. Historical profiles
+47–52 remain readable but cannot launch the new image.
 
-Wire5 additionally requires all three pipes' programmed/live/stereo reader
-observations and both whole candidate spans' eight hypothetical PAT policies.
-The collector replays every physical page against the captured CPU contexts;
-unknown/nonuniform policy remains unknown. Read-only completion still grants no
-native ownership. New launches require v52/configuration6; earlier versions are
-historical only. See the [live preflight contract](intel-bdw-stolen-scanout.md#live-display-reader-and-candidate-cache-preflight-wire5).
+Read-only completion closes only as DIAGNOSED. It can report that CPU backing
+is unavailable because of a reservation/tag conflict or an existing CPU alias;
+it does not grant firmware/DMA/cache/all-reader ownership or tear-free output.
+No reset/submission protocol or ordinary desktop startup is selected. Existing
+metadata UC3 preflight, source/root/actual-alias checks, both complete vectors
+and independent whole-span cache replay remain mandatory. Unknown retirement
+retains exclusion and halts; safe saved/unmounted outcomes return to Ubuntu.
 
 ## Configure once on this unit
 
