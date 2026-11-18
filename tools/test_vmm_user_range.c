@@ -28,13 +28,21 @@ static uint64_t vmm_test_efer(void) {
 #endif
  return test_efer;
 }
-static void vmm_test_write_cr3(uint64_t value) { test_cr3=value;switches++; }
+static void vmm_test_write_cr3(uint64_t value) {
+#ifdef SRVROS_VMM_RESERVED_TEST
+ vmm_reserved_switch_hook();
+#endif
+ test_cr3=value;switches++;
+}
 static uint64_t vmm_test_cr3(void) { return test_cr3; }
 #ifdef SRVROS_VMM_ALIAS_INVENTORY_TEST
 static uint64_t vmm_test_cr4(void) { return test_cr4; }
 #endif
 #define SRVROS_VMM_HOST_TEST
-#include "../kernel/src/memory/vmm.c"
+#ifndef SRVROS_VMM_SOURCE_FILE
+#define SRVROS_VMM_SOURCE_FILE "../kernel/src/memory/vmm.c"
+#endif
+#include SRVROS_VMM_SOURCE_FILE
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t minimum,enum pmm_frame_tag tag) {
     (void)n;(void)minimum;(void)tag;assert(0 && "unexpected page-table allocation");return 0;
 }
@@ -46,6 +54,9 @@ void pmm_free_frame(uint64_t frame) {
     retired[retire_count++]=frame;
 }
 void *pmm_phys_to_virt(uint64_t address) { table_reads++;
+#ifdef SRVROS_VMM_RESERVED_TEST
+    vmm_reserved_lookup_hook();
+#endif
 #ifdef SRVROS_VMM_RANGE_TEST
     range_lookup_hook();
 #endif

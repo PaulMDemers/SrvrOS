@@ -7243,3 +7243,11 @@ test-vmm-physical-unmapped: build/tests/vmm-physical-unmapped$(HOST_EXE)
 build/tests/vmm-physical-unmapped$(HOST_EXE): tools/test_vmm_physical_unmapped.c tools/test_vmm_alias_inventory.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c kernel/src/memory/vmm_alias_inventory.inc $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-vmm-reserved-guard
+test-core: test-vmm-reserved-guard
+test-vmm-reserved-guard: build/tests/vmm-reserved-guard$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_vmm_reserved_guard
+build/tests/vmm-reserved-guard$(HOST_EXE): tools/test_vmm_reserved_guard.c tools/test_vmm_alias_inventory.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c kernel/src/memory/vmm_alias_inventory.inc kernel/src/memory/vmm_reserved_guard.inc $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

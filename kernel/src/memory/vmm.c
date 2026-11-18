@@ -398,6 +398,49 @@ bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t p
 #endif
 
 
+/* CPU0 mutation barrier: an interrupted writer prevents guard admission even
+ * before its first PTE store. Atomics cover interrupt/preemption nesting; this
+ * is not an AP/SMP ownership protocol. Guard transitions require IRQ exclusion. */
+static uint32_t reserved_mutations;
+static struct {
+ struct vmm_reserved_guard *owner;
+ uint64_t root,epoch,cr4,efer;
+ unsigned state,count,bits,ram_count;
+ struct vmm_physical_span spans[VMM_ALIAS_SPANS];
+ struct vmm_alias_ram ram[VMM_ALIAS_RAM_LIMIT];
+} reserved_guard;
+enum reserved_mutation {RESERVED_MAP,RESERVED_REMOVE,RESERVED_PROTECT,RESERVED_ROOT,RESERVED_SWITCH};
+static bool reserved_mutation_enter(enum reserved_mutation kind,uint64_t root,uint64_t physical,uint64_t flags) {
+ uint32_t old=__atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST);
+ do {if(old==UINT32_MAX)return false;}
+ while(!__atomic_compare_exchange_n(&reserved_mutations,&old,old+1,false,__ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST));
+ if(!reserved_guard.owner)return true;
+ if(reserved_guard.state!=VMM_GUARD_ACTIVE ||
+    reserved_guard.owner->object!=reserved_guard.owner || reserved_guard.owner->epoch!=reserved_guard.epoch ||
+    kind==RESERVED_ROOT || (root && root!=reserved_guard.root) || read_cr3()!=reserved_guard.root)goto refuse;
+ /* Physical bits smuggled through flags could create a different leaf. */
+ if((kind==RESERVED_MAP || kind==RESERVED_PROTECT) && (flags&PAGE_MASK))goto refuse;
+ if(kind==RESERVED_MAP) {
+  if((physical&~PAGE_MASK) || (physical&4095) || physical>=(1ull<<reserved_guard.bits))goto refuse;
+  for(unsigned i=0;i<reserved_guard.count;i++)
+   if(physical>=reserved_guard.spans[i].physical &&
+      physical<reserved_guard.spans[i].physical+(uint64_t)reserved_guard.spans[i].pages*4096)goto refuse;
+ }
+ return true;
+refuse:
+ __atomic_fetch_sub(&reserved_mutations,1,__ATOMIC_SEQ_CST);return false;
+}
+static void reserved_mutation_leave(void) {
+ if(!__atomic_fetch_sub(&reserved_mutations,1,__ATOMIC_SEQ_CST))__builtin_trap();
+}
+#if !defined(SRVROS_VMM_HOST_TEST) || defined(SRVROS_VMM_ALIAS_INVENTORY_TEST)
+#ifndef SRVROS_VMM_RESERVED_GUARD_FILE
+#define SRVROS_VMM_RESERVED_GUARD_FILE "vmm_reserved_guard.inc"
+#endif
+#include SRVROS_VMM_RESERVED_GUARD_FILE
+#endif
+
+
 static bool map_page_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,
@@ -440,7 +483,7 @@ static bool map_page_in_space(uint64_t address_space,
     return true;
 }
 
-bool vmm_map_page(uint64_t virtual_address, uint64_t physical_address, uint64_t flags) {
+static bool vmm_map_page_impl(uint64_t virtual_address, uint64_t physical_address, uint64_t flags) {
     if (!is_kernel_virtual(virtual_address)) {
         return map_page_in_space(active_address_space(), virtual_address, physical_address, flags, false);
     }
@@ -458,26 +501,47 @@ bool vmm_map_page(uint64_t virtual_address, uint64_t physical_address, uint64_t 
 
     return true;
 }
+bool vmm_map_page(uint64_t virtual_address, uint64_t physical_address, uint64_t flags) {
+ if(!reserved_mutation_enter(RESERVED_MAP,0,physical_address,flags))return false;
+ bool ok=vmm_map_page_impl(virtual_address,physical_address,flags);
+ reserved_mutation_leave();return ok;
+}
 
-bool vmm_map_page_in_space(uint64_t address_space,
+static bool vmm_map_page_in_space_impl(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,
     uint64_t flags) {
     return map_page_in_space(address_space, virtual_address, physical_address, flags, false);
 }
+bool vmm_map_page_in_space(uint64_t address_space,
+    uint64_t virtual_address,
+    uint64_t physical_address,
+    uint64_t flags) {
+ if(!reserved_mutation_enter(RESERVED_MAP,address_space,physical_address,flags))return false;
+ bool ok=vmm_map_page_in_space_impl(address_space,virtual_address,physical_address,flags);
+ reserved_mutation_leave();return ok;
+}
 
-bool vmm_ensure_page_in_space(uint64_t address_space,
+static bool vmm_ensure_page_in_space_impl(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,
     uint64_t flags) {
     return map_page_in_space(address_space, virtual_address, physical_address, flags, true);
+}
+bool vmm_ensure_page_in_space(uint64_t address_space,
+    uint64_t virtual_address,
+    uint64_t physical_address,
+    uint64_t flags) {
+ if(!reserved_mutation_enter(RESERVED_MAP,address_space,physical_address,flags))return false;
+ bool ok=vmm_ensure_page_in_space_impl(address_space,virtual_address,physical_address,flags);
+ reserved_mutation_leave();return ok;
 }
 
 bool vmm_unmap_page(uint64_t virtual_address, uint64_t *physical_address) {
     return vmm_unmap_page_in_space(active_address_space(), virtual_address, physical_address);
 }
 
-bool vmm_unmap_page_in_space(uint64_t address_space,
+static bool vmm_unmap_page_in_space_impl(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t *physical_address) {
     uint64_t *pdpt;
@@ -535,8 +599,15 @@ bool vmm_unmap_page_in_space(uint64_t address_space,
     }
     return true;
 }
+bool vmm_unmap_page_in_space(uint64_t address_space,
+    uint64_t virtual_address,
+    uint64_t *physical_address) {
+ if(!reserved_mutation_enter(RESERVED_REMOVE,address_space,0,0))return false;
+ bool ok=vmm_unmap_page_in_space_impl(address_space,virtual_address,physical_address);
+ reserved_mutation_leave();return ok;
+}
 
-bool vmm_protect_page_in_space(uint64_t address_space,
+static bool vmm_protect_page_in_space_impl(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t flags) {
     uint64_t *pdpt;
@@ -590,6 +661,13 @@ bool vmm_protect_page_in_space(uint64_t address_space,
         invlpg(virtual_address);
     }
     return true;
+}
+bool vmm_protect_page_in_space(uint64_t address_space,
+    uint64_t virtual_address,
+    uint64_t flags) {
+ if(!reserved_mutation_enter(RESERVED_PROTECT,address_space,0,flags))return false;
+ bool ok=vmm_protect_page_in_space_impl(address_space,virtual_address,flags);
+ reserved_mutation_leave();return ok;
 }
 
 bool vmm_virt_to_phys(uint64_t virtual_address, uint64_t *physical_address) {
@@ -729,7 +807,7 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
 
 
 /* Caller owns CPU0 IRQ exclusion through validation and publication. */
-bool vmm_prepare_user_kernel_mappings(uint64_t target_root) {
+static bool vmm_prepare_user_kernel_mappings_impl(uint64_t target_root) {
     uint64_t flags;
 #ifdef SRVROS_VMM_HOST_TEST
     flags=vmm_test_rflags();
@@ -804,6 +882,11 @@ bool vmm_prepare_user_kernel_mappings(uint64_t target_root) {
     for (uint64_t i=ENTRIES_PER_TABLE/2; i<ENTRIES_PER_TABLE; ++i)
         target[i]=kernel_pml4[i];
     return true;
+}
+bool vmm_prepare_user_kernel_mappings(uint64_t target_root) {
+ if(!reserved_mutation_enter(RESERVED_ROOT,target_root,0,0))return false;
+ bool ok=vmm_prepare_user_kernel_mappings_impl(target_root);
+ reserved_mutation_leave();return ok;
 }
 
 /* Entry permission only. CPU0, IRQs already masked; no scheduler or image
@@ -893,7 +976,7 @@ uint64_t vmm_current_address_space(void) {
     return active_address_space();
 }
 
-void vmm_switch_address_space(uint64_t address_space) {
+static void vmm_switch_address_space_impl(uint64_t address_space) {
     if (address_space == 0) {
         address_space = kernel_cr3;
     }
@@ -902,7 +985,17 @@ void vmm_switch_address_space(uint64_t address_space) {
     }
 }
 
-bool vmm_create_address_space(uint64_t *address_space_out) {
+void vmm_switch_address_space(uint64_t address_space) {
+    if(!reserved_mutation_enter(RESERVED_SWITCH,address_space,0,0)) {
+        /* The void API cannot report a foreign switch as successful. */
+        if(address_space && address_space!=kernel_cr3)__builtin_trap();
+        return;
+    }
+    vmm_switch_address_space_impl(address_space);
+    reserved_mutation_leave();
+}
+
+static bool vmm_create_address_space_impl(uint64_t *address_space_out) {
     if (address_space_out == NULL) return false;
     *address_space_out = 0;
     if (kernel_pml4 == NULL) return false;
@@ -933,8 +1026,14 @@ bool vmm_create_address_space(uint64_t *address_space_out) {
     if (!prepared) pmm_free_frame(physical);
     return prepared;
 }
+bool vmm_create_address_space(uint64_t *address_space_out) {
+ if(address_space_out)*address_space_out=0;
+ if(!reserved_mutation_enter(RESERVED_ROOT,0,0,0))return false;
+ bool ok=vmm_create_address_space_impl(address_space_out);
+ reserved_mutation_leave();return ok;
+}
 
-void vmm_refresh_kernel_mappings(uint64_t address_space) {
+static void vmm_refresh_kernel_mappings_impl(uint64_t address_space) {
     if (address_space == 0 || kernel_pml4 == NULL) {
         return;
     }
@@ -951,8 +1050,13 @@ void vmm_refresh_kernel_mappings(uint64_t address_space) {
             true);
     }
 }
+void vmm_refresh_kernel_mappings(uint64_t address_space) {
+ if(!reserved_mutation_enter(RESERVED_ROOT,address_space,0,0))return ;
+ vmm_refresh_kernel_mappings_impl(address_space);
+ reserved_mutation_leave();
+}
 
-void vmm_destroy_address_space(uint64_t address_space) {
+static void vmm_destroy_address_space_impl(uint64_t address_space) {
     if (address_space == 0 || address_space == kernel_cr3) {
         return;
     }
@@ -970,6 +1074,11 @@ void vmm_destroy_address_space(uint64_t address_space) {
     }
     unregister_address_space(address_space);
     pmm_free_frame(address_space);
+}
+void vmm_destroy_address_space(uint64_t address_space) {
+ if(!reserved_mutation_enter(RESERVED_ROOT,address_space,0,0))return ;
+ vmm_destroy_address_space_impl(address_space);
+ reserved_mutation_leave();
 }
 
 /* Private CPU0 signal-frame copy policy. No page tables are read here. */

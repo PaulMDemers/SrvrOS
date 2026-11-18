@@ -107,6 +107,46 @@ guards verify. The run is DIAGNOSED and19 native evidence files are independentl
 sealed outside build. This accepts the named CPU diagnostic observation only;
 no exclusive reservation, writable CPU alias or hardware ownership was granted.
 
+## Maintained CPU mapping exclusion
+
+The new `vmm_reserved_guard` extends an absence observation into an original
+CPU-side deny interval. Begin copies the exact pair and immutable table-RAM
+whitelist, checks every actual PMM reserved tag and scans the whole root before
+admission. Public VMM mutations register before allocation, table access or
+registry/catalog work; an interrupted mutation blocks admission. PREPARING and
+CHECKING states block recursive mutations and guard acquisition.
+
+While ACTIVE, mappings intersecting either complete candidate are refused
+before table access, including addresses smuggled through flags. New roots,
+kernel mapping clones and root destruction are refused. A foreign CR3 switch
+through the void switch API fails visibly instead of reporting false success.
+Unrelated mapping/protection/removal remains available for diagnostic/storage
+metadata. Protection flags cannot add physical-address bits. PMM reserved tags
+already prohibit allocator reuse/free; this guard never changes them.
+
+Check and close freshly repeat all tags, whole-root absence, original mode and
+terminal IF/CR3 guards. The original zero-initialized handle is single-use and
+address-bound; a copied handle cannot release it. Failed admission issues no
+rights and drops only its empty deny scope. Uncertain live validation latches a
+fault and retains exclusion until reset; no forced release or retry exists.
+Pending existing mutations refuse check/close without releasing the guard.
+
+This service requires boot CPU0 serialization, no APs/user roots, trusted VMM
+callers and the original enclosing exclusion/deadline/storage. It is not an SMP
+protocol or protection against direct privileged page-table/HHDM stores. It
+provides no permitted target mapping, CPU pixel access or firmware/DMA/cache/
+reader right. The native adapter must separately pin display exclusion through
+the entire guard and retain that pin on uncertain retirement.
+
+`make test-vmm-reserved-guard` executes actual mutators and the original walker:
+21,557 cases cover every page through all three mapping routes, flag bypasses,
+copied handles, in-flight mapping/CR3 transitions, recursive callbacks, each
+reserved tag, source/context faults, fresh closing proof and permanent retention.
+All14 compiled weakening controls, fatal ASan/UBSan and native2KiB frames pass;
+existing range/alias/root-creation regressions pass. Native guard integration
+and acceptance remain pending; the v53 result above accepted only the earlier
+instantaneous CPU observation.
+
 After native evidence, the next provider work must maintain an exclusive
 original reservation and firmware/DMA/cache/all-reader ownership. A conflicting
 CPU alias must be resolved under a real mapping owner, not blindly removed.

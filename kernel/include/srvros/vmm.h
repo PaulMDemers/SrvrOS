@@ -104,6 +104,31 @@ bool vmm_diagnostic_kernel_physical_unmapped(uint64_t root,
  const struct vmm_alias_ram *,unsigned ram_count,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
 
+/* Boot CPU0 only, IRQs already excluded, no APs or user roots. Original-address
+ * zero-init/single-use handle for an exclusive CPU mapping deny interval. Begin
+ * checks actual PMM RESERVED tags and whole-root absence; public VMM mutations
+ * cannot introduce aliases or roots until close. In-flight mutations refuse
+ * admission. The two spans and RAM whitelist are copied, never table pointers.
+ * Check/close repeat tags, absence and original CR4/EFER/root validation. Any
+ * uncertain live check retains a faulted guard until reset. Wrong/copied handles
+ * cannot release it. No PMM tag/bitmap change, free, target load, mapping store,
+ * hardware/firmware/DMA/cache/reader right or writable CPU alias is supplied.
+ * Caller maintains original enclosing exclusion/deadline/storage throughout. */
+struct vmm_reserved_guard {const struct vmm_reserved_guard *object;uint64_t epoch;};
+#define VMM_ALIAS_PMM_RESERVED 13u
+#define VMM_ALIAS_GUARD 14u
+#define VMM_ALIAS_BUSY 15u
+enum vmm_reserved_guard_state {VMM_GUARD_EMPTY,VMM_GUARD_PREPARING,VMM_GUARD_ACTIVE,
+ VMM_GUARD_CHECKING,VMM_GUARD_FAULT};
+bool vmm_reserved_guard_begin(struct vmm_reserved_guard *,uint64_t root,
+ const struct vmm_physical_span *,unsigned count,unsigned physical_bits,
+ const struct vmm_alias_ram *,unsigned ram_count,
+ struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+bool vmm_reserved_guard_check(struct vmm_reserved_guard *,
+ struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+bool vmm_reserved_guard_close(struct vmm_reserved_guard *,
+ struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */

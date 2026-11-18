@@ -140,3 +140,8 @@ The [CPU backing guard](intel-bdw-cpu-backing.md) now supplies the actual native
 map/tag and whole-root preconditions for a future alias. CPU admission is not
 an exclusive firmware reservation or a borrowed source. Its diagnostic returns
 the original exclusion; saved packets cannot create a live owner afterward.
+
+The maintained VMM reserved-span guard additionally denies conflicting CPU
+mappings and new roots while held. It is a CPU-only prerequisite: it issues
+none of this backend's seven rights and permits no target alias. Do not set
+`BDW_BORROW_RESERVATION` merely because that deny guard began successfully.
