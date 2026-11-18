@@ -579,3 +579,20 @@ retirement, raw snapshots and offline preservation. The705-file evidence bank
 and separate handoff records are outside build. `DIAGNOSED` records this narrow
 operation result; it does not promote all255 remaining GPU obligations or native
 tear-free acceptance. See the [unit evidence](machines/macbookair7-2.md#native-full-gt-memory-child-completes).
+
+### Full-GT display translation preservation
+
+`--profile intel-gt-range-v56` selects the isolated `--intel-gt-range` image
+and `gt-bootstrap-range-v1` recipe. It freezes the local Air7,2 firmware
+fixtures, host checks and exact wire9 image. QEMU must refuse hardware
+admission before reset, PTE mapping or translation reads, save intact
+checkpoints and return with its disposable workspace. The missing-workspace
+rehearsal must halt. Both VM receipts bind the same staged manifest.
+
+The unattended native trial uses the original full-GT memory sequence.
+It compares all 128 trailing translations of the inherited display plus
+one candidate entry across reset and memory maintenance. The matching
+session is saved to USB with a 96 KiB log limit. Clean completion returns
+to Ubuntu. If the display is unchanged for 60 seconds while exclusion is
+held, photograph it and restart manually. The collector closes complete
+preservation evidence as `DIAGNOSED`. [Preservation contract](intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9).

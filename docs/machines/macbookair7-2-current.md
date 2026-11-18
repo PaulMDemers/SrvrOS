@@ -20,8 +20,8 @@ On main `4016abf0`, PR301 extends the isolated full-GT memory owner with
 a read-only pre/post check of all 128 inherited display-tail PTEs and one
 prospective GGTT slot. The separate wire9 image links, and the host adapter
 and strict decoder check both original entry routes, drift at every sampled
-entry and mapping, retirement and clock failures. The native trial awaits a
-staged workflow profile and exact-image VM qualification. Pipeline, cache and
+entry and mapping, retirement and clock failures. The native trial uses the new
+`intel-gt-range-v56` profile and requires exact-image VM qualification. Pipeline, cache and
 display-reader completion remain prerequisites for a PTE write. See the
 [preservation contract](../intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9).
 

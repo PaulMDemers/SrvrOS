@@ -522,8 +522,8 @@ The native image uses its own `gt-bootstrap-range-v1` recipe. The decoder
 requires both exact vectors, 774 DWORD reads, four retired aliases and
 clock ordering through the original memory child and terminal guard. It
 preserves a failed sample prefix and keeps an incomplete outer lifetime
-incomplete. The separate kernel image has passed local build and host
-validation. Stage and exact-image VM checks remain before a physical trial.
+incomplete. The `intel-gt-range-v56` staging workflow binds these receipts
+to the exact image, its VM checks and the matching native session.
 Equality across reset and maintenance is preservation evidence. Establishing
 actual pipeline, cache and display-reader completion still precedes a writable
 interval.

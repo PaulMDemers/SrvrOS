@@ -3,9 +3,15 @@ import base64
 from pathlib import Path
 import struct
 import subprocess
+import tempfile
 import unittest
+from unittest.mock import patch
 
+import hardware_boot as boot
+from hardware_boot_smoke import shared_receipt
 from intel_gt_bootstrap import bootstrap_recipe, bootstrap_result
+from workflow.media import raw_log_limit
+from workflow.runner import trial_parsers
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = ROOT / "build/tests"
@@ -43,6 +49,35 @@ def fixture(mode, position=0, entry=None):
 
 
 class Range(unittest.TestCase):
+    def test_stage_selects_only_the_range_image(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ('limine-binary/BOOTX64.EFI', 'intel-gt-range/srvros.elf',
+                         'intel-gt-memory/srvros.elf', 'initramfs.tar'):
+                artifact = root / 'build' / name
+                artifact.parent.mkdir(parents=True, exist_ok=True)
+                artifact.write_text(name)
+            stage = root / 'build/hardware-boot'
+            with (
+                patch.object(boot, 'ROOT', root),
+                patch.object(boot, 'STAGE', stage),
+                patch.object(boot.subprocess, 'check_output', side_effect=['source', '']),
+            ):
+                release = boot.stage(laptop_probe_volume='12345678', intel_gt_range=True)
+            payload = stage / release
+            self.assertEqual(boot.verify(payload, release)['config_version'],
+                             'ram-usb-v1-intel-gt-bootstrap-range-laptop-probe-12345678-auto-return')
+            self.assertEqual((payload / 'srvros.elf').read_text(), 'intel-gt-range/srvros.elf')
+            command = next(line.split('cmdline:', 1)[1].strip()
+                           for line in (payload / 'limine.conf').read_text().splitlines() if 'cmdline:' in line)
+            recipe, _, _ = trial_parsers('intel-gt-range-v56')
+            self.assertEqual(recipe(command), dict(release=release, volume='12345678'))
+            self.assertIn('srvros.intel-ring=entry-v1', shared_receipt('laptop-capture: boot options=' + command))
+            self.assertEqual(raw_log_limit('intel-gt-range-v56'), 98304)
+        for others in (dict(intel_gt_memory=True), dict(intel_gt_arena=True), dict(hold_on_failure=True)):
+            with self.assertRaises(ValueError):
+                boot.stage(laptop_probe_volume='12345678', intel_gt_range=True, **others)
+
     def test_distinct_recipe(self):
         for build in ("range", "memory"):
             for recipe in ("range", "memory", "arena"):
