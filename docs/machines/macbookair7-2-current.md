@@ -10,6 +10,12 @@ tear-free scanout is still pending.
 
 ## Active scope: preserve the inherited display translation tail
 
+The next trial block on main `4016abf0` adds the separate wire9 staging,
+VM and return-collection paths to PR301. It will verify the frozen image
+and Ubuntu recovery before launching the unattended MacBookAir7,2
+preservation test at 1% volume. The test uses the original reset and memory
+operations with the additional read-only translation check.
+
 On main `4016abf0`, PR301 extends the isolated full-GT memory owner with
 a read-only pre/post check of all 128 inherited display-tail PTEs and one
 prospective GGTT slot. The separate wire9 image links, and the host adapter
