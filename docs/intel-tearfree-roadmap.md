@@ -676,4 +676,9 @@ The [wire9 preservation image](intel-bdw-gt-bootstrap.md#held-display-translatio
 adds exact comparison of the inherited display's 128 trailing translations
 and one prospective slot before reset and after original memory maintenance.
 The MacBookAir7,2 matched both vectors and retired all four read-only aliases.
-A live ownership provider and physical flip qualification remain open.
+The [wire10 hardware trial](intel-bdw-primary-range.md#native-wire10-result)
+also verified the live primary footprint, reader controls and display wells
+in the same held window after memory maintenance. The remaining prerequisite
+for a writable interval is a hardware-backed owner that can maintain this
+boundary and prove outstanding accesses, auxiliary readers and cache activity
+have retired. Physical flip qualification remains open.

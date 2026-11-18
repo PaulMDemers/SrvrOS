@@ -99,3 +99,20 @@ A native provider still needs documented completion of outstanding and
 prefetched accesses, engine pipelines and caches, firmware, and other readers
 such as VGA, FBC and PSR. The captured control state and WC/UC observations
 leave each of those completion requirements open.
+
+### Native wire10 result
+
+MacBookAir7,2 ran release `2945aece351aa904` from source `be7bad20` and
+returned to Ubuntu automatically. Both live packets matched the original
+display records. They confirmed the 1440×900 X-tiled primary, a padded image
+end of 5,554,176 bytes and a translation-tail end of 6,078,464 bytes inside
+the protected 34 MiB fence. The prospective slot starts at the fence end.
+All ten temporary display aliases retired after 112 reads. The two
+sampling windows took 2.426 ms and 2.424 ms.
+
+The preceding comparison again matched all 129 translations before and
+after reset. Preparation took 226.112 ms and the enclosing trial took
+462.277 ms under the diagnostic policy. Stricter timing qualification
+remains pending. Automatic collection verified the 75,111-byte exit log,
+the matching checkpoint, offline USB integrity and Ubuntu recovery. The
+run closed as `DIAGNOSED`.

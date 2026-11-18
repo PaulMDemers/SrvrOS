@@ -5,6 +5,17 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-18. State: **active reference machine; partial device acceptance**.
 
+## Native post-maintenance primary display footprint
+
+2026-11-18. Source `be7bad20`, release `2945aece351aa904`, session
+`session-00066091c8ebd3ab-00`. Both live display packets matched under the
+original full-GT owner after memory maintenance. All 129 translation entries
+matched across reset and the ten new display aliases retired. The laptop
+returned to Ubuntu automatically. The startup collector verified the original
+logs and USB integrity, and the diagnostic review checked recovery and the
+consumed one-shot. The exact evidence was banked independently.
+[Native wire10 result](../intel-bdw-primary-range.md#native-wire10-result).
+
 ## Native inherited display translation preservation
 
 2026-11-18. Source `52b27888`, release `12d3110bd495bbc2`, session

@@ -8,14 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: live primary display footprint
+## Native post-maintenance primary display footprint
 
-On main `4016abf0`, PR301 is adding a fresh primary-plane footprint check
-after original full-GT reset and memory maintenance, while the requester is
-still inhibited. This uses the existing Broadwell range checker and wire9
-translation measurement. The next checkpoint is host fault coverage and a
-separate native build. The display path needs independent VGA, FBC, PSR and
-outstanding reader completion before a writable GPU interval.
+PR301 release `2945aece351aa904` captured two matching live primary geometry,
+reader and display-well samples after reset and memory maintenance, while the
+requester was still inhibited. The 112 DWORD reads matched the original
+display records and all ten temporary aliases retired. The laptop returned to
+Ubuntu, and automatic collection passed. The display path still needs
+independent VGA, FBC, PSR and outstanding reader completion before admitting a
+writable GPU interval. [Native wire10 result](../intel-bdw-primary-range.md#native-wire10-result).
 
 ## Native preservation of the inherited display translation tail
 
