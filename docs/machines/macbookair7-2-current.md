@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope — GT pipeline and L3 acknowledgements
+
+On main `4016abf0`, PR301 will sample Broadwell's documented engine
+flush-and-block acknowledgements before and after the original Prepare for
+Reset requests, then after the existing maintenance and display checks.
+The isolated GT adapter, exact recipe and collector will retain the real
+preparation and memory-maintenance evidence together. L3 acknowledgements are
+sampled as hardware reports them. A separately attributed completion witness
+for prefetched requests and cache effects remains necessary for GPU ownership.
+
 ## Native auxiliary display-reader observation complete
 
 PR301 release `19e263fec39500ce` captured matching control and status words
