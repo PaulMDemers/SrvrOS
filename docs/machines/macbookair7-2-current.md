@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope — detect firmware preemption of the held GT owner
+
+On main `4016abf0`, PR301 will qualify a read-only SMI counter check in the
+Air7,2 full-GT bootstrap adapter and its host fault fixtures. This depends on
+the native Broadwell MSR definition and the existing CPU0/interrupt and
+requester holds. The next checkpoint is to detect a changed count before
+another protected operation and retain the original owner on interference.
+An unchanged local count cannot transfer a GGTT entry or establish GPU
+completion. This work does not introduce a PTE write or a new deadline.
+
 ## First-page physical disjointness checked
 
 PR301 now joins the candidate's original target to the inherited primary image
