@@ -52,18 +52,25 @@ VM results and acceptance proofs live under
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
 The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
-`intel-stolen-v51` builds an isolated pre-init wire4 read-only image and freezes classifier/actual-adapter,
+`intel-stolen-v52` builds an isolated pre-init wire5 read-only image and freezes classifier/actual-adapter,
 strict receipt/stage, resource/cache/source and safe-return regressions. It keeps
 both exact-stage VM paths,64KiB collection and the existing recovery/integrity
 sequence. Matching native layout evidence can close only as DIAGNOSED; it never
 grants GPU memory/reader ownership or tear-free acceptance. It does not select
-or weaken any reset/submission protocol. Historical v47/wire1, v48/wire2, v49/wire3 and v50/wire4 remain
+or weaken any reset/submission protocol. Historical v47/wire1, v48/wire2, v49/wire3 and v50/v51 wire4 remain
 readable but cannot launch a new trial. Wire3 first maps/checks/retires the first
 metadata CPU alias without a register load, saves that boundary, then remaps
 with all original checks for the read. Its extra mapping and preflight flag are
 strictly accounted for without resetting the2-second pass. Wire2 onward selects captured true-UC PAT3, records first
 admission refusal and lets valid incomplete returns collect with that cause;
 those returns cannot be accepted or closed as a completed diagnostic.
+
+Wire5 additionally requires all three pipes' programmed/live/stereo reader
+observations and both whole candidate spans' eight hypothetical PAT policies.
+The collector replays every physical page against the captured CPU contexts;
+unknown/nonuniform policy remains unknown. Read-only completion still grants no
+native ownership. New launches require v52/configuration6; earlier versions are
+historical only. See the [live preflight contract](intel-bdw-stolen-scanout.md#live-display-reader-and-candidate-cache-preflight-wire5).
 
 ## Configure once on this unit
 

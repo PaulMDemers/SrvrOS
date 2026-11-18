@@ -5,6 +5,7 @@ bool intel_stolen_probe_recipe(const char *cmdline) {(void)cmdline;return false;
 bool intel_stolen_probe_retained(void) {return false;}
 #else
 #include <srvros/intel_scanout_trial.h>
+#include <srvros/intel_reader_audit.h>
 #include <srvros/intel_handoff.h>
 #include <limine.h>
 extern volatile struct limine_memmap_request memmap_request;
@@ -36,6 +37,8 @@ static struct {
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
  uint32_t aux[2][3],count[2][3],reads[2][3],meta_reads;
+ uint32_t reader[2][3][13],reader_count[2][3],reader_reads;
+ struct {uint64_t physical;unsigned pages,queried,ok,mtrr,pat,effective,checks;} policy[2][2][8];
  unsigned maps,retired,cache_checks,alias_checks,phase,reason,fail,fail_offset,active_offset;
  unsigned mtrr,pat,effective;
  uint32_t page;
@@ -148,7 +151,8 @@ static bool identity(void) {
  return ok || refuse(9);
 }
 static bool allowed(uint32_t page) {
- if(page==0x108000 || page==0x43000 || page==0x6f000)return true;
+ if(page==0x108000 || page==0x43000 || page==0x6f000 ||
+    page==0x70000 || page==0x71000 || page==0x72000)return true;
  if(!stolen.plan.range[0].pages)return false;
  for(unsigned r=0;r<3;r++) {
   uint64_t first=0x800000+stolen.plan.range[r].gpu/4096*8;
@@ -275,6 +279,37 @@ static bool facts(unsigned n) {
  f.fence_end!=old->fence_end || f.width!=old->width || f.height!=old->height || f.stride!=old->stride))return refuse(24);
  stolen.facts[n]=f;return true;
 }
+/* Same thirteen documented read-only words as intel_reader_audit.c. These
+ * bases do not describe a complete tiled/stereo/scaled reader footprint, and
+ * a quiet snapshot is not maintained exclusion. Never turn this into rights. */
+static bool readers(unsigned n) {
+ for(unsigned p=0;p<3;p++) {
+  if(!tick(stolen.begin[n]))return false;
+  for(unsigned w=0;w<13;w++) {
+   uint32_t value;
+   if(!load(0x70000+0x1000*p+intel_reader_offsets[w],&value))return false;
+   ++stolen.reader_reads;
+   if(value==UINT32_MAX)return refuse(28);
+   stolen.reader[n][p][w]=value;++stolen.reader_count[n][p];
+  }
+ }
+ return unmap() && identity() && tick(stolen.begin[n]);
+}
+/* Entire physical candidate spans at every hypothetical PAT slot. The actual
+ * translation census remains mandatory. No target RAM load, alias, reservation,
+ * flush or visibility claim is made. Nonuniform/undefined policy stays unknown. */
+static bool candidate_policy(unsigned n) {
+ struct x86_cache_snapshot fresh;
+ if(!identity() || !intel_cache_probe_context(&fresh) || !x86_cache_equal(&fresh,&stolen.cache))return refuse(10);
+ for(unsigned r=0;r<2;r++)for(unsigned i=0;i<8;i++) {
+  if(!tick(stolen.begin[n]))return false;
+  __typeof__(stolen.policy[0][0][0]) *q=&stolen.policy[n][r][i];
+  q->physical=stolen.pte[n][r+1][0]&~4095ull;q->pages=stolen.plan.range[r+1].pages;
+  q->mtrr=q->pat=q->effective=255;q->queried=1;
+  q->ok=x86_cache_range(&fresh,q->physical,q->pages,i,&q->mtrr,&q->pat,&q->effective,&q->checks);
+ }
+ return identity() && tick(stolen.begin[n]);
+}
 static uint64_t hash_word(uint64_t hash,uint64_t value) {
  for(unsigned i=0;i<8;i++){hash=(hash^(value&255))*1099511628211ull;value>>=8;}return hash;
 }
@@ -286,6 +321,7 @@ static bool capture(unsigned n) {
  if(!facts(n) || !tick(stolen.begin[n]))return false;
  if(!checkpoint(10) || !tick(stolen.begin[n]))return false;
  if(!n && !intel_bdw_stolen_scanout_plan(&stolen.facts[0],&stolen.plan))return refuse(19);
+ if(!checkpoint(19) || !tick(stolen.begin[n]) || !readers(n))return false;
  for(unsigned r=0;r<3;r++) {
   stolen.hash[n][r]=14695981039346656037ull;
   stolen.vectors.pte[n][r]=stolen.pte[n][r];stolen.vectors.count[n][r]=stolen.plan.range[r].pages;
@@ -304,6 +340,7 @@ static bool capture(unsigned n) {
   }
  }
  if(!unmap())return false;
+ if(!checkpoint(20) || !tick(stolen.begin[n]) || !candidate_policy(n))return false;
  if(!checkpoint(11) || !tick(stolen.begin[n]))return false;
  if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);
  if(!identity() || !tick(stolen.begin[n]))return false;
@@ -313,7 +350,7 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire4 root-observed UC3 alias-preflight read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ console_write("intel-stolen: wire5 live reader/cache preflight and complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!intel_stolen_probe_recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
@@ -360,8 +397,8 @@ cleanup:
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=4 root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
- (uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
+ console_printf("intel-stolen-summary: v=5 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ (uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
@@ -381,6 +418,19 @@ report:
    console_printf("intel-stolen-run: v=1 sample=%u range=%u gpu=%u bytes=%u pages=%u count=%u reads=%u first=%x last=%x hash=%x bad_index=%u bad_value=%x\n",
     (uint64_t)n,(uint64_t)r,stolen.plan.range[r].gpu,stolen.plan.range[r].bytes,(uint64_t)stolen.plan.range[r].pages,
     (uint64_t)count,(uint64_t)stolen.reads[n][r],count?stolen.pte[n][r][0]:0,count?stolen.pte[n][r][count-1]:0,stolen.hash[n][r],(uint64_t)bad,bad_value);
+  }
+ }
+ for(unsigned n=0;n<2;n++) {
+  for(unsigned p=0;p<3;p++) {
+   console_printf("intel-stolen-reader: v=1 sample=%u pipe=%u count=%u",(uint64_t)n,(uint64_t)p,(uint64_t)stolen.reader_count[n][p]);
+   for(unsigned w=0;w<13;w++)console_printf(" w%u=%x",(uint64_t)w,(uint64_t)stolen.reader[n][p][w]);
+   console_write("\n");
+  }
+  for(unsigned r=0;r<2;r++)for(unsigned i=0;i<8;i++) {
+   const __typeof__(stolen.policy[0][0][0]) *q=&stolen.policy[n][r][i];
+   console_printf("intel-stolen-policy: v=1 sample=%u range=%u index=%u physical=%x pages=%u queried=%u ok=%u mtrr=%u pat=%u effective=%u checks=%u\n",
+    (uint64_t)n,(uint64_t)(r+1),(uint64_t)i,q->physical,(uint64_t)q->pages,(uint64_t)q->queried,(uint64_t)q->ok,
+    (uint64_t)q->mtrr,(uint64_t)q->pat,(uint64_t)q->effective,(uint64_t)q->checks);
   }
  }
  return stolen.complete && !intel_stolen_probe_retained();

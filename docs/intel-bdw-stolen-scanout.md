@@ -11,7 +11,7 @@ that memory available to the OS.
 
 ## Scope and evidence
 
-The opt-in `intel-stolen-v49` workflow selects the separate
+The opt-in `intel-stolen-v52` workflow selects the separate
 `build/intel-stolen/srvros.elf` image. Ordinary kernels contain only refusal
 stubs. It performs read-only PCI/MMIO observations, with no GPU PTE, command,
 plane, framebuffer, cache-control, remapping or firmware-mailbox writes. CPU
@@ -96,7 +96,7 @@ and exclusion; there is one cleanup attempt and no blind release/retry.
 
 ## Trial and collection
 
-Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v49`. Historical v47/wire1 and v48/wire2 receipts remain readable,
+Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v52`. Historical v47/wire1 and v48/wire2 receipts remain readable,
 but cannot start a new trial with the wire3 image.
 Its manifest freezes the new image, actual-adapter and classifier fixtures,
 sanitizers, compiled weakening controls,2KiB native frames, strict transport,
@@ -112,7 +112,7 @@ to Ubuntu; uncertain alias retirement halts. The visible preflight explains
 that an unchanged screen for60seconds needs a photograph/manual restart.
 The profile is silent; launch verifies host volume1%.
 
-The current summary is wire3; fact/run rows retain version1. Wire3 adds the
+The historical v49 summary is wire3; fact/run rows retain version1. Wire3 adds the
 first-alias `preflight` flag to wire2 admission details. It records the first
 refusing operation and last requested DWORD offset, chosen PAT slot and last
 completed MTRR/PAT/effective query. Later cleanup errors do not overwrite the
@@ -344,3 +344,51 @@ without PMM free or a PTE writer. It stops new CPU work on close and retains
 reservation/exclusion until original children and the provider retire. Host
 qualification does not create a native provider; the completed census cannot
 be reopened as a live source or authorize a candidate RAM store.
+
+## Live display-reader and candidate-cache preflight (wire5)
+
+The current `intel-stolen-v52` / configuration `ram-usb-v6-intel-stolen-…`
+adds evidence needed by the native borrowed-buffer provider. The original
+pre-init root, CPU exclusion, observer identity and two2-second census passes
+remain live. Before each translation vector, it reads the same13 documented
+primary/cursor/sprite words on each of the three display pages as the
+[pinned reader audit](intel-pinned-reader-audit.md#display-coverage-and-lifetime).
+No new engine, power, plane or firmware store is introduced. Every DWORD uses
+this census's actual RO/NX/UC3 alias and original resource/root/cache checks.
+All-ones words refuse with cause28; a partial prefix is retained in the receipt.
+
+After each complete vector and alias retirement, a fresh full cache context
+must equal the original. Both complete physical candidate spans are queried at
+all eight hypothetical PAT slots with `x86_cache_range`. Its piecewise analysis
+checks every enabled MTRR transition, including interior holes. Nonuniform or
+undefined policy is reported as `ok=0` with unknown types255; it does not become
+a writable alias or make a layout failure pass. The collector independently
+recomputes the policy **page by page** against both original raw CPU snapshots,
+including the number of relevant range boundaries. GPU reads/visibility and
+actual CPU aliases remain separate obligations.
+
+Wire5 retains all wire4 fields and adds `reader_reads`. Six ordered reader
+rows contain `sample`, `pipe`, admitted `count` and raw words `w0` through
+`w12`. Thirty-two ordered policy rows contain sample/range/PAT index, complete
+physical span, queried/ok flags, MTRR/PAT/effective types and boundary-check
+count. Missing/duplicate/unknown rows, non-prefix progress, geometry/counter/type
+changes and substituted cache observations refuse. Complete counters are59
+maps/retirements,119 metadata cache checks,70,860 alias checks,78 reader loads,
+8 old metadata loads and23,552 PTEs classified. No census count is reset.
+
+The report derives active primary/cursor/sprite bits, programmed/live address
+inequality, cross-sample stability and starting-address hits in either candidate.
+These are **starting addresses only**: tiled, stereo, scaled, cursor and pending
+reader footprints are not bounded by this report. Disabled/stable samples do
+not establish maintained retirement, and a starting address outside a candidate
+cannot establish that its footprint misses it. Hardware ownership and all eight
+completion obligations remain unchanged. No source is exported after the live
+census ends, and saved packets cannot mint one.
+
+Progress steps19 (`display-readers`) and20 (`candidate-cache`) are saved only
+with no mapped alias. The complete route uses23 updates, inside the existing32
+update ceiling and original pass clocks. Safe saved/unmounted completion returns
+to Ubuntu; uncertain alias retirement retains exclusion and halts. No input is
+needed. Historical wire1–4 and profiles47–51 remain readable with their original
+counts; only v52 may create a new trial with this image. Host/VM qualification
+is required before native testing and does not accept any ownership right.

@@ -8,6 +8,19 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active native provider preflight
+
+On baseline `4016abf0`, branch `device/macbookair7-2/tearfree`, PR301 adds
+read-only display-reader and candidate-cache observations inside the original
+pre-init census exclusion. Scope: isolated `intel_stolen_probe.c`, its actual
+adapter/transport fixtures and workflow profile. The six reader snapshots cover
+all three pipes' primary, sprite and cursor programmed/live/stereo bases; cache
+queries cover each complete candidate span at all eight PAT slots. No writable
+alias, new ownership assurance, GT writer or ordinary desktop behavior changes.
+Enabled readers and matching bases remain observations, not bounded footprints
+or maintained retirement. Existing two-second pass deadlines remain. Qualify
+locally before a source-bound automated trial; no unchanged census retry.
+
 ## Earlier private CPU context image milestone
 
 Source `4ce676bd`, release `08ae0d63f7b821c4`, profile `intel-bcs-context-v46`

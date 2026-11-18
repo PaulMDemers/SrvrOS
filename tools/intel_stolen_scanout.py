@@ -5,14 +5,17 @@ SCHEMAS={
     'summary':'v complete phase reason acquired released retained maps retired cache_checks alias_checks meta_reads classified checked clock previous writes ownership',
     'facts':'v sample begin end host gpu subsystem ggc bdsm bgsm tolud reserved width height stride aperture ggtt fence_begin fence_end fbc psr_ctl psr_status',
     'run':'v sample range gpu bytes pages count reads first last hash bad_index bad_value',
+    'reader':'v sample pipe count '+ ' '.join('w'+str(i) for i in range(13)),
+    'policy':'v sample range index physical pages queried ok mtrr pat effective checks',
 }
 WIRE2='fail offset cache_index mtrr pat effective'
 FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','PCI-devices',
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range','progress-save')
+          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
+HEX.update(['physical']+['w'+str(i) for i in range(13)])
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
        'srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-stolen=read-only','srvros.capture-failure=reboot')
 
@@ -46,13 +49,69 @@ def _hash(first,pages):
         for b in word.to_bytes(8,'little'):h=((h^b)*1099511628211)&((1<<64)-1)
     return h
 
+def verify_owner_progress(rows,summary):
+    if [(r['sample'],r['pipe']) for r in rows['reader']]!=[(n,p) for n in range(2) for p in range(3)]:
+        raise ValueError('missing/duplicate/unordered reader preflight')
+    if [(r['sample'],r['range'],r['index']) for r in rows['policy']]!=[(n,r,i) for n in range(2) for r in (1,2) for i in range(8)]:
+        raise ValueError('missing/duplicate/unordered candidate policy')
+    reads=0;partial=False
+    for r in rows['reader']:
+        if r['count']>13 or (partial and r['count']):raise ValueError('reader prefix')
+        partial |= r['count']<13;reads+=r['count']
+        for w in range(13):
+            if r['w'+str(w)]>=0xffffffff or (w>=r['count'] and r['w'+str(w)]):raise ValueError('reader word')
+    # A refused all-ones word was loaded but is not admitted into the prefix.
+    if summary['reader_reads']!=reads+(summary['fail']==28):raise ValueError('reader load count')
+    if summary['complete'] and reads!=78:raise ValueError('incomplete reader preflight')
+    partial=False
+    for q in rows['policy']:
+        if q['queried'] not in (0,1) or q['ok'] not in (0,1) or (partial and q['queried']):raise ValueError('policy prefix')
+        partial |= not q['queried']
+        if not q['queried']:
+            if any(q[k] for k in ('physical','pages','ok','mtrr','pat','effective','checks')):raise ValueError('unqueried policy')
+        elif not q['ok']:
+            if (q['mtrr'],q['pat'],q['effective'],q['checks'])!=(255,255,255,0):raise ValueError('unknown policy')
+        elif any(q[k] not in (0,1,4,5,6,7) for k in ('mtrr','pat','effective')) or not 1<=q['checks']<=33:
+            raise ValueError('policy type')
+    if summary['complete'] and partial:raise ValueError('incomplete candidate policy')
+
+def owner_preflight(rows,physical):
+    for q in rows['policy']:
+        lo,hi=physical[q['range']]
+        if q['physical']!=lo or q['pages']!=(hi-lo)//4096:raise ValueError('candidate policy geometry')
+    stable=all(all(rows['reader'][p][k]==rows['reader'][3+p][k] for k in ['count']+['w'+str(w) for w in range(13)]) for p in range(3))
+    active=[];mismatch=[];base_hits=[]
+    # Only starting addresses are classified. No inferred length/tile footprint.
+    gpu_spans=[(rows['run'][r]['gpu'],rows['run'][r]['gpu']+rows['run'][r]['bytes']) for r in (1,2)]
+    for r in rows['reader']:
+        active.append(dict(sample=r['sample'],pipe=r['pipe'],primary=bool(r['w0']&0x80000000),cursor=bool(r['w5']&63),sprite=bool(r['w8']&0x80000000)))
+        for a,b in ((1,2),(3,4),(6,7),(9,10),(11,12)):
+            if (r['w'+str(a)]^r['w'+str(b)])&0xfffff000:mismatch.append([r['sample'],r['pipe'],a,b])
+        for w in (1,2,3,4,6,7,9,10,11,12):
+            base=r['w'+str(w)]&0xfffff000
+            for i,(lo,hi) in enumerate(gpu_spans,1):
+                if lo<=base<hi:base_hits.append([r['sample'],r['pipe'],w,i])
+    return dict(stable=stable,active=active,address_mismatches=mismatch,candidate_base_hits=base_hits,
+                footprint_complete=False,maintained_retirement=False,hardware_ownership=False)
+
+def verify_candidate_policies(rows,sample,regions):
+    from intel_cache import _page
+    for q in rows['policy']:
+        if q['sample']!=sample['sample']:continue
+        values=[_page(sample,regions,q['physical']+4096*i,q['index']) for i in range(q['pages'])]
+        uniform=bool(values and values[0] is not None and all(v==values[0] for v in values))
+        if q['ok']!=uniform:raise ValueError('candidate cache uniformity')
+        if uniform:
+            checks=1+sum(q['physical']<b<q['physical']+4096*q['pages'] for lo,hi,_ in regions for b in (lo,hi)) if sample['def']&0x800 else 1
+            if (q['mtrr'],q['pat'],q['effective'])!=values[0] or q['checks']!=checks:raise ValueError('candidate cache replay')
+
 def stolen_result(text,*,native=False,required_version=None):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
-        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:')):
+        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:')):
             if re.match(r'intel-stolen-[^ :]+:',line):raise ValueError('unknown stolen receipt')
             continue
-        match=re.fullmatch(r'intel-stolen-(summary|facts|run): (.+)',line)
+        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy): (.+)',line)
         if not match:raise ValueError('malformed stolen receipt')
         kind=match[1];row={}
         for token in match[2].split():
@@ -64,15 +123,18 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4) else ''
-        if kind=='summary' and version in (3,4):extra+=' preflight'
-        if kind=='summary' and version==4:extra+=' root_phase root_reason root_detail'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5) else ''
+        if kind=='summary' and version in (3,4,5):extra+=' preflight'
+        if kind=='summary' and version in (4,5):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version==5:extra+=' reader_reads'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
+    if wire<5 and (rows['reader'] or rows['policy']):raise ValueError('unexpected owner preflight')
+    if wire==5:verify_owner_progress(rows,s)
     if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
     if wire>=2:
         if s['cache_index']!=3 or s['fail']>=len(FAILURES) or s['offset']>=0x1000000 or s['offset']&3:
@@ -82,7 +144,7 @@ def stolen_result(text,*,native=False,required_version=None):
         if success:
             if s['fail'] or s['offset'] or any(s[k] for k in ('mtrr','pat','effective')):raise ValueError('stolen unresolved admission')
         elif not s['fail']:raise ValueError('stolen missing refusal cause')
-    if wire==4:
+    if wire>=4:
         phase,reason,detail=(s[k] for k in ('root_phase','root_reason','root_detail'))
         if phase not in (0,1,4) or reason>8:raise ValueError('stolen root observation encoding')
         if phase==0 and (reason or detail):raise ValueError('stolen unobserved root')
@@ -115,7 +177,7 @@ def stolen_result(text,*,native=False,required_version=None):
     result=dict(complete=complete,native_complete=False,diagnostic_complete=complete,diagnostic_stolen=True,
                 hardware_ownership=False,managed_range=False,physical_tearfree=False,version=wire,rows=rows,summary=s,
                 failure_stage=FAILURES[s['fail']] if wire>=2 else 'legacy-unspecified')
-    if wire==4:
+    if wire>=4:
         names=('none','interrupts-enabled','invalid-expected-root','kernel-root-mismatch','current-CR3-mismatch',
                'missing-root-pointer','root-pointer-mismatch','registered-roots','occupied-root-records')
         result['root_observation']=dict(phase=s['root_phase'],reason=s['root_reason'],detail=s['root_detail'],condition=names[s['root_reason']])
@@ -146,7 +208,8 @@ def stolen_result(text,*,native=False,required_version=None):
     maps=2*(3+sum(((gpu//4096*8+size//4096*8+4095)//4096)-(gpu//4096*8//4096) for gpu,size in spans))
     if wire>=3:maps+=1
     entries=sum(size//4096 for _,size in spans)
-    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps,2*entries):
+    if wire==5:maps+=6
+    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+s.get('reader_reads',0),2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]
     for n in range(2):
@@ -164,6 +227,7 @@ def stolen_result(text,*,native=False,required_version=None):
             else:
                 if any(base<end and start<base+size for start,end in physical):raise ValueError('stolen physical overlap')
                 physical.append((base,base+size))
+    if wire==5:result['owner_preflight']=owner_preflight(rows,physical)
     result.update(physical=[list(v) for v in physical],proposed_ranges=[list(v) for v in spans],auxiliary_disabled=all(not (f['fbc']&0x80000000 or f['psr_ctl']&0x80000000 or f['psr_status']&0xe0000000) for f in (a,b)))
     if native:
         from intel_ggtt_window import native_window_result
@@ -181,6 +245,7 @@ def stolen_result(text,*,native=False,required_version=None):
             from intel_cache import native_cache_result,_snapshot,_page
             cache=native_cache_result(text)
             offsets={0x108000,0x43000,0x6f000}
+            if wire==5:offsets.update((0x70000,0x71000,0x72000))
             for gpu,size in spans:
                 start=0x800000+gpu//4096*8;end=start+size//4096*8
                 offsets.update(range(start&~4095,(end+4095)&~4095,4096))
@@ -188,6 +253,7 @@ def stolen_result(text,*,native=False,required_version=None):
                 n=sample['sample'];regions=_snapshot(sample,[r for r in cache['rows']['variable'] if r['sample']==n],[r for r in cache['rows']['fixed'] if r['sample']==n])
                 if any(_page(sample,regions,window['summary']['mmio']+offset,3)!=(0,0,0) for offset in offsets):
                     raise ValueError('stolen original UC3 cache policy mismatch')
+                if wire==5:verify_candidate_policies(rows,sample,regions)
         fb=display['rows']['framebuffer'][0]
         if (fb['width'],fb['height'],fb['pitch'])!=(a['width'],a['height'],a['stride']) or window['rows']['sample'][1]['end_us']>a['begin']:
             raise ValueError('stolen stale/changed source')
@@ -199,7 +265,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
@@ -214,7 +280,7 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
 PROGRESS_STEPS=('invalid','profile','source-snapshot','root-PCI','console-sync',
                 'display-exclusion','identity','cache-context','source-revalidation',
                 'metadata','vectors','source-final','classification','cleanup',
-                'report','mapping','cache-policy','actual-alias','first-MMIO-read')
+                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache')
 
 def stolen_progress(text,command):
     """Pending operation history only; never a completion or ownership receipt."""

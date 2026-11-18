@@ -15681,3 +15681,17 @@ census is not a live reservation grant. No hardware trial or new image is staged
 Currentaa2c/recovery9aa8, accepted banks and the native census seal remain.
 Next implement the explicit provider in the [borrow contract](../intel-bdw-stolen-borrow.md),
 then native alias/visibility and publication/retirement qualification.
+
+## November17 live stolen-buffer reader/cache preflight implementation
+
+PR301 on baseline4016abf0 adds isolated v52/wire5 evidence inside the original
+pre-init census lifetime. New observations reuse the existing three display
+pages/thirteen-word register list, and query the entire two candidate physical
+spans at all eight hypothetical PAT slots. The collector independently replays
+cache policy page by page and derives enabled readers, address mismatches and
+candidate starting-address hits without claiming bounded footprints, retirement
+or hardware ownership. No writable alias or GPU/plane/cache-control store is
+added. Both2-second pass deadlines remain; progress adds two named boundaries
+per pass within the existing32-update ceiling. Qualification and native evidence
+are pending for this revision. Earlier aad02/aa2c completed layout evidence
+remains historical, independently banked and does not accept the new checks.

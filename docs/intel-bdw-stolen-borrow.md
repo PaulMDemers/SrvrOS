@@ -129,3 +129,9 @@ this backend into a native producer, supply and review all of the following:
 The [current Air record](machines/macbookair7-2-current.md) remains the authority
 for physical acceptance. This work closes the reservation-to-memory software
 bridge only; native ownership, first RAM store and tear-free output stay pending.
+
+The next native producer input is the [live reader/cache preflight](intel-bdw-stolen-scanout.md#live-display-reader-and-candidate-cache-preflight-wire5).
+It gathers new observations within the original census exclusion. Its active
+reader bases and hypothetical cache policies do not satisfy any rights bit;
+complete reader footprints, maintained exclusion and actual alias visibility
+still need their own native implementation and evidence.

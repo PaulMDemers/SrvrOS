@@ -7209,7 +7209,7 @@ build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-STOLEN_ADAPTER_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c
+STOLEN_ADAPTER_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c
 build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -o $@

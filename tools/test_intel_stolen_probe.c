@@ -106,10 +106,11 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
 }
 bool intel_cache_probe_context(struct x86_cache_snapshot *s) {
  if(fault(CACHE))return false;
- *s=(struct x86_cache_snapshot){.cpu={.vendor={0x756e6547,0x49656e69,0x6c65746e},.features=0x11000,.physical_bits=36},.pat=0x0007040600070406ull,.def_type=0x800,.status=CACHE_OBSERVED};
+ *s=(struct x86_cache_snapshot){.cpu={.vendor={0x756e6547,0x49656e69,0x6c65746e},.features=0x11000,.physical_bits=39},.pat=0x0007040600070406ull,.cap=0x402,.count=2,.base={0xb0000001,0xc0000000},.mask={0x7ff0000800ull,0x7ff0000800ull},.def_type=0x806,.status=CACHE_OBSERVED};
+ if(model.mode==35){s->cap=0x403;s->count=3;s->base[2]=0x8e400000;s->mask[2]=0x7fffe00800ull;}
  if(model.mode==3 && model.calls[CACHE]>1)++s->cpu.signature;
  if(model.mode==27)s->pat|=7ull<<24;
- if(model.mode==28)s->def_type=0x806;
+ if(model.mode==28)s->mask[1]=0;
  if(model.mode==29)s->pat|=4ull<<24;
  return true;
 }
@@ -145,11 +146,21 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  case 0x6f800:*out=0x00100001;return true;
  case 0x6f840:*out=0;return true;
  default: {
+  if(offset>=0x70000 && offset<0x73000) {
+   unsigned p=(offset-0x70000)/0x1000,w=0;
+   const unsigned offsets[]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x080,0x084,0x0ac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
+   while(w<13 && offsets[w]!=(offset&4095))++w;
+   assert(w<13);
+   *out=p==0 && w==0?0x80000000u:0;
+   if(model.mode==33 && stolen.reader_reads==model.at)*out=UINT32_MAX;
+   if(model.mode==34 && stolen.phase==2 && p==1 && w==9)*out=0x2400000;
+   return true;
+  }
   assert(offset>=0x800000 && offset<0x817000 && !(offset&3));
   uint64_t pte=0x8c001001ull+((offset-0x800000)/8)*4096ull;
   if(model.mode==5 && (offset-0x800000)/8==9000)pte^=4096;
   *out=(offset&4)?(uint32_t)(pte>>32):(uint32_t)pte;
-  if(model.mode==6 && model.reads==7)*out^=1;
+  if(model.mode==6 && offset==0x80000c && stolen.reads[0][0]==3)*out^=1;
   return true;
  }
  }
@@ -167,9 +178,16 @@ void console_printf(const char *fmt,...) {
 }
 static void positive(void) {
  reset();assert(intel_stolen_probe_report(command));assert(stolen.complete && !intel_stolen_probe_retained());
- assert(!model.mapped && !model.held && model.maps==53 && model.unmaps==53);
- assert(model.reads==70664 && stolen.layout.checked==23552 && stolen.meta_reads==8);
- assert(model.calls[REVALIDATE]==4);assert(model.calls[PROGRESS]==19);
+ assert(!model.mapped && !model.held && model.maps==59 && model.unmaps==59);
+ assert(model.reads==70742 && stolen.layout.checked==23552 && stolen.meta_reads==8 && stolen.reader_reads==78);
+ for(unsigned n=0;n<2;n++)for(unsigned p=0;p<3;p++)assert(stolen.reader_count[n][p]==13);
+ for(unsigned n=0;n<2;n++)for(unsigned r=0;r<2;r++)for(unsigned i=0;i<8;i++) {
+  const __typeof__(stolen.policy[0][0][0]) *q=&stolen.policy[n][r][i];
+  assert(q->queried && q->ok && q->physical==stolen.layout.physical[r+1] && q->pages==1536);
+  const unsigned expected[]={6,4,0,0,6,4,0,0};
+  assert(q->pat==((stolen.cache.pat>>(8*i))&255) && q->mtrr==6 && q->effective==expected[i]);
+ }
+ assert(model.calls[REVALIDATE]==4);assert(model.calls[PROGRESS]==23);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<3;r++)assert(stolen.count[n][r]==stolen.plan.range[r].pages);
  assert(!intel_stolen_probe_report(command));++model.cases;
 }
@@ -181,6 +199,17 @@ int main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--refusal-report")) {reset();model.mode=27;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--root-refusal-report")) {reset();model.which=SOLE_ROOT;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
+ positive();
+ for(unsigned i=0;i<78;i++) {
+  reset();model.mode=33;model.at=i;
+  assert(!intel_stolen_probe_report(command) && stolen.fail==28);
+  assert(!model.held && !model.mapped && !intel_stolen_probe_retained());++model.cases;
+ }
+ reset();model.mode=34;assert(intel_stolen_probe_report(command));
+ assert(stolen.reader[0][1][9]!=stolen.reader[1][1][9]);++model.cases;
+ reset();model.mode=35;assert(intel_stolen_probe_report(command));
+ for(unsigned n=0;n<2;n++)for(unsigned i=0;i<8;i++)assert(!stolen.policy[n][0][i].ok && stolen.policy[n][0][i].queried && stolen.policy[n][0][i].mtrr==255 && !stolen.policy[n][0][i].checks);
+ ++model.cases;
  positive();
  unsigned counts[FAULT_COUNT];memcpy(counts,model.calls,sizeof(counts));
  for(unsigned which=1;which<FAULT_COUNT;which++) {

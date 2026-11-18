@@ -100,6 +100,8 @@ class StolenProbe(unittest.TestCase):
     def test_compiled_adapter_weakening_controls(self):
         original=(ROOT/CORE).read_text();cc,flags,sources=recipe(TARGET)
         controls={
+            'lost-reader-census':('!readers(n)', '(false && !readers(n))'),
+            'lost-candidate-policy':('!candidate_policy(n)', '(false && !candidate_policy(n))'),
             'lost-source-bracket':('if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);', ';'),
             'lost-original-window':('if(stolen.pte[n][1][i]!=stolen.source.original[i])','if(false)'),
             'wrong-captured-pat-slot':('x86_cache_page(&fresh,physical,3,','x86_cache_page(&fresh,physical,2,'),
@@ -119,7 +121,7 @@ class StolenProbe(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-sole-root-admission') else 1)
+                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-sole-root-admission','lost-fresh-cache') else 1)
                     source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
                     p=subprocess.run([str(binary)],capture_output=True,timeout=120)
