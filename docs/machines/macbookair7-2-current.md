@@ -8,17 +8,21 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: maintained CPU mapping exclusion
+## Native CPU mapping guard lifetime complete
 
-PR301 on main4016abf0 now owns a bounded VMM reserved-span guard, reusing the
-completed whole-root observer and actual PMM reserved-tag checks. Register the
-original owner before validation; reject conflicting public mappings and new
-roots for its lifetime, and freshly validate absence before releasing it.
-In-flight mutations must block admission rather than race the first scan.
-Scope is VMM/header, actual-core tests and isolated native integration. No
-firmware/DMA/cache/reader right, writable alias or pixel store follows. PR19
-and PR379 remain unrelated after fresh inspection; no cross-chat contacts or
-parallel harnesses are authorized. The previous run is closed DIAGNOSED.
+Source `e4d7772e`, release `7daeada549485c7e`, v54/wire7/configuration8,
+completed the CPU mapping guard diagnostic in session
+`session-00066087356fa4c7-00`. The original display exclusion stayed pinned
+through guard acquire, check and close, then unpinned cleanly. Each whole-root
+walk checked 110 table paths, 56,320 entries and 47,472 leaves. The guard took
+24.119 ms and both full passes stayed within their original two-second limits.
+All 59 temporary aliases retired. See the [native guard result](../intel-bdw-cpu-backing.md#native-guard-result).
+
+The run is `DIAGNOSED`. Raw receipts, media preservation, all 1,621 prior USB
+files apart from expected metadata, four new logs, offline integrity and the
+installed recovery and consumed one-shot checks passed. The current release is
+`7daeada549485c7e` with recovery `9aa8dbf6fbda8252`. Firmware, DMA, cache and
+display-reader ownership remain prerequisites for writable scanout buffers.
 
 ## Native CPU backing admission diagnostic complete
 
@@ -43,16 +47,14 @@ All7 frozen jobs and both exact-stage VMs passed. Matching raw/checkpoint/source
 all1,617 prior USB files apart from expected metadata, four exact new logs,
 offline integrity and fresh recovery/default/consumed-one-shot checks verify.
 The run is `DIAGNOSED`;19 native evidence files are independently sealed outside
-build. Current6771/recovery9aa8 and accepted GUI/banks remain; no reboot is armed.
-Next implement the exclusive original reservation and maintained firmware/DMA/
-cache/all-reader ownership provider before a writable alias. The CPU observation
-does not reserve these spans or issue any borrowed-backend right.
+build. At that checkpoint the installed pair was 6771/9aa8. The CPU observation
+establishes backing eligibility for the maintained VMM guard described above.
 
 After collection, the standalone generated USB image was losslessly archived
 and verified before removing its build copy. The inactive1070 EFI copy was
 removed only after full equality with its independent bank and current/recovery/
 GUI/protected checks. Banks, raw evidence and the current6771 stage remain.
-Root/EFI free space is now644/207MiB; recheck before staging.
+Root/EFI free space was 644/207 MiB at that checkpoint.
 
 ## Native reader/cache preflight complete
 

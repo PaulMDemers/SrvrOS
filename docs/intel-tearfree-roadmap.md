@@ -629,3 +629,9 @@ the original second-pass budget. This closes CPU eligibility observation only;
 an exclusive maintained reservation and the firmware/DMA/cache/all-reader proof
 producer are still needed. Do not repeat this unchanged diagnostic or treat its
 saved admission result as a live borrowed-source token.
+
+The [native v54 guard](intel-bdw-cpu-backing.md#native-guard-result) maintained
+CPU mapping exclusion through pin, acquisition, check, close and unpin on both
+candidates in 24.119 ms. The hardware ownership work now centers on the
+original firmware reservation and maintained requester, engine, DMA, cache
+and reader proof. Writable CPU aliases depend on that ownership.

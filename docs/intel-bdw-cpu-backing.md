@@ -149,8 +149,8 @@ copied handles, in-flight mapping/CR3 transitions, recursive callbacks, each
 reserved tag, source/context faults, fresh closing proof and permanent retention.
 The suite includes15 compiled weakening controls, fatal ASan/UBSan and native
 2KiB frames, alongside existing range/alias/root-creation regressions. Native
-qualification and acceptance remain pending; the v53 result above accepted only the earlier
-instantaneous CPU observation.
+qualification covers both the earlier v53 observation and the v54 guard
+lifetime below.
 
 Current v54/wire7/configuration8 joins this guard to the original census owner.
 After CPU admission, the adapter pins actual display exclusion, acquires the
@@ -161,6 +161,23 @@ bracket the work; no deadline is restarted. Failed live/closing validation or
 uncertain unpin retains exclusion. A known empty admission refusal can unpin
 and return safely. The native report preserves the causal stage prefix and
 each successful walk; report snapshots remain historical CPU-only evidence.
+
+### Native guard result
+
+MacBookAir7,2 source `e4d7772e` and release `7daeada549485c7e` completed the
+v54 guard lifetime in session `session-00066087356fa4c7-00`. Both 6 MiB
+candidates passed reserved-carrier, PMM and CPU alias checks. The guard
+pinned the display exclusion, acquired, checked, closed and unpinned in
+24.119 ms. Each guard walk visited 110 table paths, 56,320 entries and
+47,472 leaves. The two full passes took 741.006 and 621.008 ms within their
+original two-second limits. All 59 temporary aliases retired cleanly.
+
+The device returned to Ubuntu and closed as `DIAGNOSED`. Exact raw and
+checkpoint verification, USB integrity and the installed recovery checks
+passed. The 19-file native record is sealed independently of the build
+directory. This result covers CPU mapping exclusion for the original
+diagnostic interval. Firmware, DMA, cache and display-reader ownership still
+gate pixel access.
 
 After native evidence, the next provider work must maintain an exclusive
 original reservation and firmware/DMA/cache/all-reader ownership. A conflicting

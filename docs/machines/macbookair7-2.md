@@ -15786,3 +15786,35 @@ original reservation with firmware/requester/engine/DMA/cache/all-reader proof,
 then actual WC alias/visibility, primary transition, latch and independent old-
 reader retirement. No candidate RAM load/store, GPU PTE/command or plane write
 was added by this milestone. Native tear-free is still pending.
+
+## November 18 native CPU mapping exclusion lifetime complete
+
+The automated trial `air-stolen-cpu-guard-20261118` used source
+`e4d7772e43550c18e5bf989b9586a2b3d7f6cbd2`, release `7daeada549485c7e`,
+v54/wire7/configuration8. Matching session `session-00066087356fa4c7-00`
+returned to Ubuntu and closed as `DIAGNOSED`. The return boot ID was
+`30d0b93b-bbb4-47cb-b473-b5ec386dd988`.
+
+The original display exclusion stayed pinned through guard acquire, check and
+close, then unpinned successfully. The guard interval took 24.119 ms. All three
+fresh walks checked 110 table paths, 56,320 entries and 47,472 leaves. Both
+6 MiB candidates passed CPU backing admission after 3,072 reserved-tag
+checks. Its observation took 22.795 ms. The full passes took 741.006 and
+621.008 ms within the original two-second limits. All 59 temporary aliases
+retired, with zero writes and no retained state.
+
+Seven frozen validation jobs and both exact-image QEMU paths passed before
+boot. Host tests covered 21,557 guard scenarios and 328 adapter scenarios.
+The collector verified the exact source, release, raw receipts and consumed
+one-shot. The USB boot region and 1,621 previous files preserved except the
+expected metadata update. Four new logs brought the total to 1,625 files
+and 4,665 clusters, with zero allocation leaks or FAT/bitmap mismatches.
+Boot, preflight, exit and progress logs used 8,806, 45,840, 60,214 and 2,028
+bytes respectively. The 19-file native evidence seal is at
+`~/.local/share/srvros/evidence/cpu-guard-e4d7772e/native-complete/seal.json`,
+alongside the 48-file host qualification seal.
+
+Current `7daeada549485c7e` and recovery `9aa8dbf6fbda8252` verified.
+This run establishes the maintained CPU guard lifetime. Firmware,
+requester, engine, DMA, cache and display-reader ownership remain open for
+the writable scanout path. [Guard contract and result](../intel-bdw-cpu-backing.md#native-guard-result).
