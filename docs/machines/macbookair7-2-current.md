@@ -8,6 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope — first-page physical backing check
+
+On main `4016abf0`, PR301 is joining the exact candidate entry to the inherited
+primary image and translation tail in the held range check. The first useful
+mapping trial needs a candidate whose original physical page is distinct from
+the full sampled display footprint. The kernel and collector will check both
+views. Firmware transfer and pending GPU work remain independent prerequisites
+for any software to acquire the candidate.
+
 ## Native GT pipeline and L3 acknowledgement observation complete
 
 PR301 release `9d2b6c6ea286892a` captured three message snapshots and returned
