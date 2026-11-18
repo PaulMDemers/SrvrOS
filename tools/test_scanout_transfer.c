@@ -20,6 +20,7 @@ static struct {
     uint64_t time,source_epoch,physical;
     unsigned calls[3],releases,allocations,reads,writes,flushes,write_fail,first,pages,memory_pages;
     bool mutate,reenter,poison,pending,fail,stuck,regress,clock_fail,step_deadline,post_open_clock,other_pin;
+    bool late_restore_change;
 } model;
 static struct scanout_transfer_io provider(void);
 static uint64_t now(void *ctx) {
@@ -28,6 +29,10 @@ static uint64_t now(void *ctx) {
     if(model.regress)return 1;
     if(model.post_open_clock && transfer.space.state==SPACE_ACTIVE)return 0;
     if(model.step_deadline)model.time+=SCANOUT_TRANSFER_DEADLINE_US;
+    if(model.late_restore_change && a.publication.state==PUB_RESTORING) {
+        model.late_restore_change=false;
+        a.publication.before[0]^=1ull<<36;
+    }
     return model.stuck?model.time:++model.time;
 }
 static bool revalidate(void *ctx,const struct scanout_transfer_manifest *m,enum scanout_transfer_phase phase) {
@@ -91,13 +96,13 @@ static bool readers(void *ctx) {assert(ctx==&model);return !model.pending;}
 static struct scanout_memory_binding binding(void) {
     return (struct scanout_memory_binding){&model,encode,{&model,guard,read_entry,write_entry,flush,readers,now}};
 }
-static void memory(struct scanout_memory *m,struct scanout_memory_token *out,uint32_t tail_pages) {
+static bool prepare_memory(struct scanout_memory *m,struct scanout_memory_token *out,uint32_t tail_pages) {
     struct scanout_memory_layout layout;
     assert(model.memory_pages==1?scanout_memory_layout(1,1,64,false,&layout):
         scanout_memory_layout(1440,900,6144,!tail_pages,&layout));
     assert(scanout_memory_create_with_tail(m,&memories,7,&layout,tail_pages,0x100000000ull,
         (struct scanout_memory_io){&model,allocate,backing,release},out));
-    assert(scanout_memory_prepare(m,out,&transfer.space,&publications,tail_pages?64:1,binding()));
+    return scanout_memory_prepare(m,out,&transfer.space,&publications,tail_pages?64:1,binding());
 }
 static void close_clean(void) {
     assert(scanout_transfer_close(&transfer,&token));
@@ -112,12 +117,18 @@ static void close_clean(void) {
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];setup();
     bool linear_tail=!strcmp(mode,"linear-tail");
-    if(linear_tail) {
+    bool tail_changed=!strcmp(mode,"linear-tail-original-change");
+    bool before_changed=!strcmp(mode,"one-page-before-change");
+    bool apply_changed=!strcmp(mode,"one-page-apply-change");
+    bool restore_changed=!strcmp(mode,"one-page-restore-snapshot");
+    bool late_restore_changed=!strcmp(mode,"one-page-restore-clock");
+    if(linear_tail || tail_changed) {
         model.memory_pages=1478;
         model.pages=manifest.pages=3014;
     }
     if(!strcmp(mode,"other-pin")){assert(display_access_pin(&exclusion));model.other_pin=true;}
-    if(!strcmp(mode,"one-page"))model.memory_pages=model.pages=manifest.pages=1;
+    if(!strcmp(mode,"one-page") || before_changed || apply_changed || restore_changed || late_restore_changed)
+        model.memory_pages=model.pages=manifest.pages=1;
     if(!strcmp(mode,"capacity") || !strcmp(mode,"last-aperture-page")) {
         model.pages=manifest.pages=SCANOUT_TRANSFER_PAGES;
         if(!strcmp(mode,"last-aperture-page"))model.first=manifest.first=SCANOUT_SPACE_PAGES-SCANOUT_TRANSFER_PAGES;
@@ -193,6 +204,36 @@ int main(int argc,char **argv) {
     assert(!scanout_transfer_original(&copy,&rebound,8704,&value));
     assert(!scanout_transfer_open(&copy,&pool,&spaces,&exclusion,&manifest,provider(),&rebound));
     assert(!display_access_release(&transfer.exclusion,true));
+    if(before_changed || apply_changed || tail_changed) {
+        uint32_t changed=tail_changed?model.first+model.pages-1:model.first;
+        if(apply_changed || tail_changed)assert(prepare_memory(&a,&at,tail_changed?128:0));
+        table[changed]^=1ull<<36;
+        uint64_t foreign=table[changed];
+        if(before_changed)assert(!prepare_memory(&a,&at,0));
+        if(apply_changed)assert(!scanout_memory_apply(&a,&at));
+        if(tail_changed) {
+            assert(!prepare_memory(&b,&bt,128));
+            assert(b.publication.error==PUB_CHANGED && b.publication.reads==1478);
+            assert(!scanout_memory_apply(&a,&at) && scanout_memory_close(&b,&bt));
+        } else assert(a.publication.error==PUB_CHANGED);
+        assert(transfer.space.state==SPACE_FAULT && !model.writes && !model.flushes);
+        assert(scanout_memory_close(&a,&at));
+        assert(!scanout_transfer_close(&transfer,&token) && transfer.pinned && transfer.state==TRANSFER_FAULT);
+        assert(!model.calls[TRANSFER_RETIRE] && table[changed]==foreign);
+        assert(!display_access_release(&transfer.exclusion,true));
+        puts("PASS foreign PTE faults the range before exposure");return 0;
+    }
+    if(restore_changed || late_restore_changed) {
+        assert(prepare_memory(&a,&at,0) && scanout_memory_apply(&a,&at));
+        if(restore_changed)a.publication.before[0]^=1ull<<36;
+        else model.late_restore_change=true;
+        assert(!scanout_memory_close(&a,&at) && a.publication.error==PUB_CHANGED);
+        assert(!model.late_restore_change);
+        assert(model.writes==1 && model.flushes==1 && !model.releases && table[model.first]==(a.physical|1));
+        assert(!scanout_transfer_close(&transfer,&token) && transfer.pinned && a.state==MEM_FAULT);
+        assert(!display_access_release(&transfer.exclusion,true));
+        puts("PASS changed restoration snapshot retains exposed backing");return 0;
+    }
     if(!strcmp(mode,"source-live") || !strcmp(mode,"clock-live") || !strcmp(mode,"poison-live") || !strcmp(mode,"regress-live")) {
         struct scanout_space_token range;assert(scanout_space_reserve(&transfer.space,7,transfer.arena_epoch,1,1,&range));
         if(!strcmp(mode,"source-live"))model.source_epoch++;
@@ -214,7 +255,7 @@ int main(int argc,char **argv) {
         puts("PASS failed retirement keeps exclusion");return 0;
     }
     if(!strcmp(mode,"one-page")) {
-        memory(&a,&at,0);assert(a.range.first==8704 && a.range.pages==1);
+        assert(prepare_memory(&a,&at,0));assert(a.range.first==8704 && a.range.pages==1);
         assert(scanout_memory_apply(&a,&at));assert(table[8704]==(a.physical|1));
         assert(!scanout_transfer_close(&transfer,&token) && !model.calls[TRANSFER_RETIRE]);
         assert(scanout_memory_close(&a,&at) && model.releases==1 && table[8704]==input[0]);
@@ -222,7 +263,8 @@ int main(int argc,char **argv) {
     }
     if(linear_tail || !strcmp(mode,"full-buffers") || !strcmp(mode,"partial-write") || !strcmp(mode,"pending-readers") ||
        !strcmp(mode,"partial-restore") || !strcmp(mode,"lost-mapped-owner")) {
-        memory(&a,&at,linear_tail?128:0);memory(&b,&bt,linear_tail?128:0);
+        uint32_t tail=linear_tail?128:0;
+        assert(prepare_memory(&a,&at,tail) && prepare_memory(&b,&bt,tail));
         assert(a.range.first==8704 && b.range.first==(linear_tail?10240:10060));
         if(!strcmp(mode,"partial-write"))model.write_fail=1356;
         bool published=scanout_memory_apply(&a,&at);

@@ -661,3 +661,13 @@ driver initialization, with separate handling for the inherited framebuffer.
    Keep the inherited surface pinned until independent reader retirement.
 4. Exercise repeated flips and restoration before compositor integration and
    physical tear-free acceptance.
+
+The [transfer-backed publication path](scanout-transfer.md#capture-and-maintained-ownership)
+now binds the leased entry to the original GGTT vector across preparation,
+exposure and restoration. Host tests cover the one-entry transaction and a
+late conflict in the second full buffer. The next native checkpoint is an
+interval provider inside the [original post-reset owner](intel-bdw-gt-bootstrap.md#same-owner-post-reset-memory-preparation-wire6).
+It needs to revalidate the enabled display's full footprint, other readers
+and the original backing in that lifetime. It also needs separate pipeline,
+cache and reader completion witnesses before arming the first aligned QWord
+PTE store. [Linux v6.12 GGTT insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L405).

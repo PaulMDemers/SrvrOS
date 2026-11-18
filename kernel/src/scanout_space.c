@@ -41,6 +41,24 @@ bool scanout_space_open(struct scanout_space *s, struct scanout_space_pool *pool
     for (uint32_t i = 0; i < protected_count; i++) mark(s, guards[i].first, guards[i].pages, false);
     return true;
 }
+bool scanout_space_open_transferred(struct scanout_space *s, struct scanout_space_pool *pool, uint64_t owner,
+                                    uint32_t pages, struct scanout_space_range managed,
+                                    struct scanout_space_range protected, const uint64_t *originals) {
+    if (!s || !pool || !originals || !range_valid(managed, pages) || !range_valid(protected, pages) ||
+        (managed.first < protected.first + protected.pages && protected.first < managed.first + managed.pages))
+        return false;
+    uintptr_t base = (uintptr_t)originals, space = (uintptr_t)s, epoch = (uintptr_t)pool;
+    uint64_t bytes = (uint64_t)managed.pages * sizeof(*originals);
+    if (base % _Alignof(uint64_t) || bytes > UINTPTR_MAX - base ||
+        space > UINTPTR_MAX - sizeof(*s) || epoch > UINTPTR_MAX - sizeof(*pool) ||
+        (base < space + sizeof(*s) && space < base + bytes) ||
+        (base < epoch + sizeof(*pool) && epoch < base + bytes))
+        return false;
+    if (!scanout_space_open(s, pool, owner, pages, &managed, 1, &protected, 1)) return false;
+    s->originals = originals;
+    s->original_range = managed;
+    return true;
+}
 bool scanout_space_reserve(struct scanout_space *s, uint64_t owner, uint64_t epoch,
                            uint32_t pages, uint32_t align, struct scanout_space_token *out) {
     if (!live(s) || s->state != SPACE_ACTIVE || owner != s->owner || epoch != s->epoch || !out ||
@@ -67,6 +85,20 @@ static struct scanout_space_entry *entry(struct scanout_space *s, const struct s
     struct scanout_space_entry *e = &s->leases[t->slot];
     if (!e->use || e->serial != t->serial || e->first != t->first || e->pages != t->pages) return 0;
     return e;
+}
+bool scanout_space_verify_original(struct scanout_space *s, const struct scanout_space_token *t,
+                                   uint32_t offset, uint64_t value) {
+    const struct scanout_space_entry *e = entry(s, t);
+    if (!e || s->state == SPACE_FAULT || offset >= e->pages ||
+        (e->use != SPACE_RESERVED && e->use != SPACE_EXPOSED))
+        return false;
+    if (!s->originals && !s->original_range.pages) return true;
+    uint32_t page = e->first + offset;
+    if (s->originals && page >= s->original_range.first && page - s->original_range.first < s->original_range.pages &&
+        s->originals[page - s->original_range.first] == value)
+        return true;
+    s->state = SPACE_FAULT;
+    return false;
 }
 bool scanout_space_expose(struct scanout_space *s, const struct scanout_space_token *t) {
     struct scanout_space_entry *e = entry(s, t);

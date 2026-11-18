@@ -10,12 +10,14 @@ tear-free scanout is still pending.
 
 ## Active scope: bind GGTT publication to the transferred entries
 
-On main `4016abf0`, PR301 is joining the exact original PTE vector in
-`scanout_transfer` to the existing space and publication cores. The checkpoint
-is local qualification of one-page and full-buffer mapping and restoration,
-including refusal when an entry changes after transfer admission. Native
-requester, engine, cache and display-reader completion evidence is still
-required for a hardware write.
+On main `4016abf0`, PR301 binds the original PTE vector in
+`scanout_transfer` to every child publication and restore. The one-page
+fixture refuses drift before a write and retains exposed backing if its
+restore vector no longer matches. The two-buffer fixture verifies that a
+conflict in the second buffer's translation tail also blocks the first
+buffer from publishing. The first physical write still requires a live
+native GGTT owner with all requester, cache and display-reader prerequisites.
+See the [transfer contract](../scanout-transfer.md#capture-and-maintained-ownership).
 
 ## OS-allocated scanout backing
 

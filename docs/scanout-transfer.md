@@ -55,8 +55,15 @@ and nested limits, including zero/backward/frozen clocks and exact boundary+1.
 Original-object and monotonic pool-epoch tokens reject copied, stale and rebound
 owners. Callback reentry refuses. `scanout_transfer_original` retrieves an exact
 captured entry for a child restoration plan; this is data, not a fresh hardware
-validation. Callers must still bind publication guards and the mapping provider
-to the maintained transfer, including source/epoch and original-state checks.
+validation. The arena now borrows the transfer's immutable original vector and
+uses the leased page index to compare each entry at publication preparation
+and immediately before exposure. This catches a changed PTE even when a live
+provider permits differences for other published children. A conflicting
+value faults the arena, stops sibling publication and retains the parent
+exclusion. Unexposed backing may still be released. Publication also checks
+its restore vector against these originals before any restore store and
+checks the readback afterward. Callers still bind real hardware checks to the
+same maintained owner and source epoch.
 
 ## Drain, restoration and faults
 

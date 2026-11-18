@@ -24,6 +24,8 @@ static bool parent(const struct scanout_transfer *t) {
 static bool arena(const struct scanout_transfer *t) {
     return t->space.object==&t->space && t->space.epoch==t->arena_epoch &&
         t->space.owner==t->owner && t->space.pages==t->manifest.aperture_bytes/4096 &&
+        t->space.originals==t->original && t->space.original_range.first==t->manifest.first &&
+        t->space.original_range.pages==t->manifest.pages &&
         (t->space.state==SPACE_ACTIVE || t->space.state==SPACE_CLOSING || t->space.state==SPACE_CLOSED);
 }
 static bool tick(struct scanout_transfer *t) {
@@ -97,7 +99,7 @@ bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_po
     for(uint32_t i=0;i<m.pages;i++)t->original[i]=m.original[i];
     if(!validate(t,TRANSFER_ADMIT))return unwind(t);
     struct scanout_space_range managed={m.first,m.pages},protected={0,(uint32_t)(m.fence_end/4096)};
-    if(!scanout_space_open(&t->space,spaces,t->owner,(uint32_t)(m.aperture_bytes/4096),&managed,1,&protected,1)) {
+    if(!scanout_space_open_transferred(&t->space,spaces,t->owner,(uint32_t)(m.aperture_bytes/4096),managed,protected,t->original)) {
         t->error=TRANSFER_SPACE;return unwind(t);
     }
     t->arena_epoch=t->space.epoch;

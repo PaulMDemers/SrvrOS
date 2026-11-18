@@ -57,10 +57,16 @@ static bool read_entry(struct scanout_publication *p,uint32_t i,uint64_t *value)
     if(!p->io.read(p->io.ctx,p->range.first+i,value))return fail(p,PUB_IO);
     return tick(p);
 }
+static bool verify_original(struct scanout_publication *p,uint32_t i,uint64_t value) {
+    if((!p->space->originals && !p->space->original_range.pages) ||
+       scanout_space_verify_original(p->space,&p->range,i,value))return true;
+    return fail(p,PUB_CHANGED);
+}
 static bool match(struct scanout_publication *p,const uint64_t *expected) {
     for(uint32_t i=0;i<p->pages;i++) {
         uint64_t value;
         if(!read_entry(p,i,&value))return false;
+        if(expected==p->before && !verify_original(p,i,value))return false;
         if(value!=expected[i])return fail(p,PUB_CHANGED);
     }
     return true;
@@ -69,9 +75,11 @@ static bool write_entries(struct scanout_publication *p,const uint64_t *values) 
     for(uint32_t i=0;i<p->pages;i++) {
         if(!tick(p))return false;
         if(!range_live(p,SPACE_EXPOSED,active_phase(p)))return fail(p,PUB_LEASE);
+        uint64_t value=values[i];
+        if(p->state==PUB_RESTORING && !verify_original(p,i,value))return false;
         /* Exposure precedes the FIRST callback, including an uncertain failure. */
         p->writes++;
-        if(!p->io.write(p->io.ctx,p->range.first+i,values[i]))return fail(p,PUB_IO);
+        if(!p->io.write(p->io.ctx,p->range.first+i,value))return fail(p,PUB_IO);
         if(!tick(p))return false;
     }
     if(!tick(p))return false;
@@ -99,7 +107,9 @@ bool scanout_publish_prepare(struct scanout_publication *p,struct scanout_publis
     p->busy=false;p->exposed=false;p->last_us=p->phase_us=0;
     for(uint32_t i=0;i<pages;i++)p->after[i]=entries[i];
     if(!start(p,true))return false;
-    for(uint32_t i=0;i<pages;i++)if(!read_entry(p,i,&p->before[i]))return false;
+    for(uint32_t i=0;i<pages;i++) {
+        if(!read_entry(p,i,&p->before[i]) || !verify_original(p,i,p->before[i]))return false;
+    }
     if(!guard(p,true))return false;
     if(p->last_us==p->phase_us)return fail(p,PUB_CLOCK);
     p->state=PUB_PREPARED;p->busy=false;
@@ -125,6 +135,8 @@ bool scanout_publish_restore(struct scanout_publication *p,const struct scanout_
     }
     if(!tick(p) || !match(p,p->after) || !guard(p,false))return false;
     if(p->last_us==p->phase_us)return fail(p,PUB_CLOCK);
+    if(p->space->originals || p->space->original_range.pages)
+        for(uint32_t i=0;i<p->pages;i++)if(!verify_original(p,i,p->before[i]))return false;
     p->state=PUB_RESTORING;
     if(!write_entries(p,p->before) || !match(p,p->before) || !guard(p,false))return false;
     if(!tick(p))return false;

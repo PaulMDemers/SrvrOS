@@ -8,7 +8,9 @@ MODES = """normal missing invalid failed-open clock-open stuck-open deadline-ope
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close
 clock-close changed-close full-buffers linear-tail partial-write pending-readers reuse
-capacity last-aperture-page one-page partial-restore lost-mapped-owner other-pin""".split()
+capacity last-aperture-page one-page partial-restore lost-mapped-owner other-pin
+one-page-before-change one-page-apply-change one-page-restore-snapshot one-page-restore-clock
+linear-tail-original-change""".split()
 
 class TransferTests(unittest.TestCase):
     def test_actual_core(self):

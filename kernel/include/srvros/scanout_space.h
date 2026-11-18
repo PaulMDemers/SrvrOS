@@ -22,6 +22,8 @@ struct scanout_space {
     const struct scanout_space *object;
     uint64_t epoch, owner, serial;
     uint32_t state, pages;
+    const uint64_t *originals;
+    struct scanout_space_range original_range;
     uint64_t available[SCANOUT_SPACE_PAGES / 64];
     struct scanout_space_entry leases[SCANOUT_SPACE_LEASES];
 };
@@ -37,8 +39,17 @@ struct scanout_space_token {
 bool scanout_space_open(struct scanout_space *, struct scanout_space_pool *, uint64_t owner,
                         uint32_t pages, const struct scanout_space_range *managed, uint32_t managed_count,
                         const struct scanout_space_range *protected, uint32_t protected_count);
+/* Import a single transferred interval. Its original owner keeps one immutable
+ * entry per managed page live until all leases retire and the arena closes. */
+bool scanout_space_open_transferred(struct scanout_space *, struct scanout_space_pool *, uint64_t owner,
+                                    uint32_t pages, struct scanout_space_range managed,
+                                    struct scanout_space_range protected, const uint64_t *originals);
 bool scanout_space_reserve(struct scanout_space *, uint64_t owner, uint64_t epoch,
                            uint32_t pages, uint32_t align_pages, struct scanout_space_token *);
+/* Compare an entry within the actual lease. A conflict with transferred
+ * originals faults the arena and stops other leases from publishing. */
+bool scanout_space_verify_original(struct scanout_space *, const struct scanout_space_token *,
+                                   uint32_t offset, uint64_t value);
 /* Must run BEFORE any PTE writer can observe the lease. Once exposed, release
  * requires independently proven restoration, translation and reader retirement. */
 bool scanout_space_expose(struct scanout_space *, const struct scanout_space_token *);
