@@ -61,7 +61,7 @@ def verify_owner_progress(rows,summary):
         for w in range(13):
             if r['w'+str(w)]>=0xffffffff or (w>=r['count'] and r['w'+str(w)]):raise ValueError('reader word')
     # A refused all-ones word was loaded but is not admitted into the prefix.
-    if summary['reader_reads']!=reads+(summary['fail']==28):raise ValueError('reader load count')
+    if summary['reader_reads']>78 or summary['reader_reads']!=reads+(summary['fail']==28):raise ValueError('reader load count')
     if summary['complete'] and reads!=78:raise ValueError('incomplete reader preflight')
     partial=False
     for q in rows['policy']:
@@ -73,6 +73,10 @@ def verify_owner_progress(rows,summary):
             if (q['mtrr'],q['pat'],q['effective'],q['checks'])!=(255,255,255,0):raise ValueError('unknown policy')
         elif any(q[k] not in (0,1,4,5,6,7) for k in ('mtrr','pat','effective')) or not 1<=q['checks']<=33:
             raise ValueError('policy type')
+        if q['queried']:
+            vectors=rows['run'][q['sample']*3:q['sample']*3+3];v=vectors[q['range']]
+            if any(not v['pages'] or v['count']!=v['pages'] for v in vectors) or any(r['count']!=13 for r in rows['reader'][q['sample']*3:q['sample']*3+3]):raise ValueError('policy before complete census')
+            if (q['physical'],q['pages'])!=(v['first']&~4095,v['pages']):raise ValueError('policy progress geometry')
     if summary['complete'] and partial:raise ValueError('incomplete candidate policy')
 
 def owner_preflight(rows,physical):
@@ -133,7 +137,9 @@ def stolen_result(text,*,native=False,required_version=None):
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
-    if wire<5 and (rows['reader'] or rows['policy']):raise ValueError('unexpected owner preflight')
+    if wire<5:
+        if rows.pop('reader') or rows.pop('policy'):raise ValueError('unexpected owner preflight')
+        if s.get('fail',0)>27:raise ValueError('historical refusal cause')
     if wire==5:verify_owner_progress(rows,s)
     if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
     if wire>=2:

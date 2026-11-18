@@ -293,6 +293,21 @@ class Receipts(unittest.TestCase):
         row['ok']=1
         with self.assertRaises(ValueError):verify_candidate_policies(dict(policy=[row]),sample,regions)
 
+    def test_owner_incomplete_progress_has_causal_prefix(self):
+        from intel_stolen_scanout import verify_owner_progress
+        r=stolen_result(self.text);rows=copy.deepcopy(r['rows']);summary=dict(r['summary'])
+        summary.update(complete=0,fail=28,reader_reads=79)
+        with self.assertRaises(ValueError):verify_owner_progress(rows,summary)
+        summary.update(complete=0,fail=17,reader_reads=78)
+        for vector in range(6):
+            bad=copy.deepcopy(rows);bad['run'][vector]['count']-=1
+            with self.subTest(vector=vector),self.assertRaises(ValueError):verify_owner_progress(bad,summary)
+        for k in ('physical','pages'):
+            bad=copy.deepcopy(rows);bad['policy'][0][k]^=1
+            with self.subTest(key=k),self.assertRaises(ValueError):verify_owner_progress(bad,summary)
+        old=historical4(self.text).replace('complete=1','complete=0',1).replace('fail=0','fail=28',1)
+        with self.assertRaises(ValueError):stolen_result(old,required_version=4)
+
     def test_reader_observations_never_grant_retirement(self):
         from intel_stolen_scanout import owner_preflight
         r=stolen_result(self.text);rows=r['rows'];physical=r['physical']
@@ -314,6 +329,7 @@ class Receipts(unittest.TestCase):
         historical=historical4(self.text)
         old=stolen_result(historical,required_version=4)
         self.assertTrue(old['complete']);self.assertNotIn('owner_preflight',old)
+        self.assertEqual(set(old['rows']),{'summary','facts','run'})
         with self.assertRaises(ValueError):stolen_result(historical,required_version=5)
 
     def test_exact_recipe_stage_and_profile_isolation(self):

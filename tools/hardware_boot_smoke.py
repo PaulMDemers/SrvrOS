@@ -145,13 +145,13 @@ def intel_stolen_vm_result(text,config_version):
     """Exact wire plus complete unsupported-device refusal, never native proof."""
     from intel_stolen_scanout import stolen_result
     if config_version.startswith('ram-usb-v6-intel-stolen-'):wire=5
-    elif config_version.startswith(('ram-usb-v6-intel-stolen-','ram-usb-v5-intel-stolen-','ram-usb-v6-intel-stolen-')):wire=4
+    elif config_version.startswith('ram-usb-v5-intel-stolen-'):wire=4
     elif config_version.startswith('ram-usb-v4-intel-stolen-'):wire=4
     elif config_version.startswith('ram-usb-v3-intel-stolen-'):wire=3
     elif config_version.startswith('ram-usb-v2-intel-stolen-'):wire=2
     elif config_version.startswith('ram-usb-v1-intel-stolen-'):wire=1
     else:raise ValueError('not an exact stolen-census VM profile')
-    if config_version.startswith(('ram-usb-v6-intel-stolen-','ram-usb-v5-intel-stolen-','ram-usb-v6-intel-stolen-')):
+    if config_version.startswith(('ram-usb-v5-intel-stolen-','ram-usb-v6-intel-stolen-')):
         from intel_stolen_scanout import verify_stolen_preinit
         verify_stolen_preinit(shared_receipt(text))
     result=stolen_result(shared_receipt(text),native=True,required_version=wire)
