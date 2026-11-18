@@ -21,7 +21,13 @@ static void vmm_test_cpuid(uint32_t leaf,uint32_t *eax,uint32_t *ebx,uint32_t *e
     if(leaf==0x80000001u) *edx=test_nx;
     if(leaf==0x80000008u) *eax=test_physical_bits;
 }
-static uint64_t vmm_test_efer(void) { efer_calls++; return test_efer; }
+static uint64_t vmm_test_efer(void) {
+ efer_calls++;
+#ifdef SRVROS_VMM_UNMAPPED_CONTEXT_TEST
+ vmm_unmapped_efer_hook();
+#endif
+ return test_efer;
+}
 static void vmm_test_write_cr3(uint64_t value) { test_cr3=value;switches++; }
 static uint64_t vmm_test_cr3(void) { return test_cr3; }
 #ifdef SRVROS_VMM_ALIAS_INVENTORY_TEST

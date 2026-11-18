@@ -7235,3 +7235,11 @@ build/tests/intel-bdw-stolen-borrow$(HOST_EXE): tools/test_intel_bdw_stolen_borr
 test-intel-bdw-stolen-borrow: build/tests/intel-bdw-stolen-borrow$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_stolen_borrow
 test-core: test-intel-bdw-stolen-borrow
+
+.PHONY: test-vmm-physical-unmapped
+test-core: test-vmm-physical-unmapped
+test-vmm-physical-unmapped: build/tests/vmm-physical-unmapped$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_vmm_physical_unmapped
+build/tests/vmm-physical-unmapped$(HOST_EXE): tools/test_vmm_physical_unmapped.c tools/test_vmm_alias_inventory.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c kernel/src/memory/vmm_alias_inventory.inc $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

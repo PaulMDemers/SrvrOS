@@ -8,6 +8,17 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active provider work: CPU backing admission
+
+On baseline4016abf0, PR301 adds the native provider's CPU backing guard:
+firmware-map/PMM reservation checks for both complete candidate spans and a
+bounded whole-root search for any existing CPU alias. Scope is the VMM
+read-only reverse walker, isolated stolen probe, actual-core fixtures and its
+versioned collector/workflow. Existing unique-alias callers keep their original
+contract. No target RAM is read or written, no mapping is changed and no
+firmware/DMA/cache/display-reader right is issued. First qualify the guard and
+its refusal evidence locally; combine both span checks in one automated trial.
+
 ## Native reader/cache preflight complete
 
 Source `2d7b164b`, release `10703e82a2760453`, v52/wire5/config6, run

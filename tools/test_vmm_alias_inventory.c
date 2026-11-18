@@ -30,7 +30,10 @@ static bool check(void){
  else assert(!memcmp(&result,&old,sizeof(old)) && detail.reason);
  return ok;
 }
-int main(void){
+#ifndef SRVROS_VMM_ALIAS_FIXTURE_MAIN
+#define SRVROS_VMM_ALIAS_FIXTURE_MAIN main
+#endif
+int SRVROS_VMM_ALIAS_FIXTURE_MAIN(void){
  for(unsigned i=0;i<260;i++){t[i]=aligned_alloc(4096,4096);assert(t[i]);}
  layout();assert(check() && result.tables==9 && result.leaves==3072 && result.matches[0]==1356 && result.matches[1]==1356);
  /* Every foreign leaf, including both endpoints and partial overlap. */
@@ -86,4 +89,5 @@ int main(void){
  assert(!vmm_diagnostic_unique_kernel_aliases(root,spans,2,52,ram,2,0,&detail));
  layout();assert(check());puts("vmm-alias-inventory: PASS both spans, every foreign page,4K/2M/1G, DAG/cycle/bounds/RAM/mode/root drift, untouched failure and no writes");
  for(unsigned i=0;i<260;i++)free(t[i]);
+ return 0;
 }

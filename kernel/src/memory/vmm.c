@@ -391,7 +391,10 @@ bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t p
 }
 
 #if !defined(SRVROS_VMM_HOST_TEST) || defined(SRVROS_VMM_ALIAS_INVENTORY_TEST)
-#include "vmm_alias_inventory.inc"
+#ifndef SRVROS_VMM_ALIAS_INVENTORY_FILE
+#define SRVROS_VMM_ALIAS_INVENTORY_FILE "vmm_alias_inventory.inc"
+#endif
+#include SRVROS_VMM_ALIAS_INVENTORY_FILE
 #endif
 
 

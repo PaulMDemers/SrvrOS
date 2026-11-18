@@ -84,6 +84,26 @@ bool vmm_diagnostic_unique_kernel_aliases(uint64_t root,
  const struct vmm_alias_ram *,unsigned ram_count,
  struct vmm_alias_inventory *,struct vmm_alias_detail *);
 
+/* Same bounded whole-root read-only observer, but require NO present leaf
+ * intersecting either physical span. Targets may be firmware-reserved/MMIO;
+ * only page-table backing must fit the immutable RAM whitelist. Never follow a
+ * table in a target span. No target load, allocation, unmap or ownership grant.
+ * A present-leaf refusal reports the original first leaf after final context
+ * guards, not a second probe. Prefix is not an exhaustive alias inventory.
+ * The ordinary inventory output remains untouched on every refusal. */
+struct vmm_physical_span {uint64_t physical;uint32_t pages;};
+#define VMM_ALIAS_PRESENT 12u
+struct vmm_unmapped_detail {
+ struct vmm_alias_detail walk;
+ struct vmm_alias_inventory prefix;
+ uint64_t virtual_base,physical,bytes,entry;
+ uint32_t span;
+};
+bool vmm_diagnostic_kernel_physical_unmapped(uint64_t root,
+ const struct vmm_physical_span *,unsigned count,unsigned physical_bits,
+ const struct vmm_alias_ram *,unsigned ram_count,
+ struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */
