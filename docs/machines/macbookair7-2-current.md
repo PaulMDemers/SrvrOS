@@ -245,3 +245,21 @@ new trial is armed. Main4016abf0 remains unchanged. Next expose the original
 sole-root predicate's failure details without a second probe, changing its
 requirements or mapping on a known-invalid context. No native census, GPU-memory
 ownership or tear-free acceptance follows from this return.
+
+Active bounded scope: expose the existing VMM sole-root guard's original failure
+observation to the isolated census; shared VMM predicates/order remain unchanged.
+Wire4/v50 binds value-only root phase/reason/detail, including original CR3
+non-address bits on a current-root refusal, without a second probe. Touched
+subsystems are VMM observation API, isolated census/recipe/collector and tests.
+No root normalization, registry mutation, mapping on refused entry, new writer
+or deadline increase. Main4016abf0 and other PR19/379 scopes are unchanged.
+
+Wire4 implementation records the preliminary zero/kernel-root refusals as well
+as the existing sole-root observer, using only values from the original checks.
+No second probe, root normalization, registry change or predicate removal.
+Current local suite185 passes before the final two preliminary-root fixture cases;
+actual VMM observation/sanitizer and three compiled controls pass. The frozen
+candidate must rerun all gates, including those final cases, before installation.
+Only independently verified91e4 inactive EFI/stage duplicates were removed for
+capacity; its bank and negative evidence, current7c8a/recovery9aa8, accepted GUI
+and protected banks survive. No test is installed/armed for wire4 yet.

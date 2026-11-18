@@ -246,3 +246,35 @@ the trial is rejected. This is a known-invalid admission context; the exact
 sole-root subcondition is not yet identified. Instrument the original check's
 value-only failure result rather than retrying a second probe or relaxing its
 predicates. Earlier wire2 metadata stops remain separate incomplete evidence.
+
+## Original root-guard diagnostics
+
+Wire4/v50 adds `root_phase`, `root_reason` and `root_detail` to the summary.
+The VMM observer exports the original sole-root check's first failure without
+resampling. Predicates and short-circuit order stay identical; the boolean API
+and all existing leaf checks remain. An already-invalid context still refuses
+before display exclusion or a census alias, without normalizing CR3 or changing
+the registry. Incoming IRQ state, strict UC3, all2-second pass bounds and
+retained-alias semantics remain unchanged.
+
+The existing preliminary zero/kernel-root checks also record their original
+refusal without calling the sole-root observer. Root phase0 means no root
+check result was reached; phase1 is its first failure;
+phase4 is a completed successful guard, not a lasting ownership token. Reasons
+1–8 identify enabled interrupts, invalid expected root, kernel-root mismatch,
+current-CR3 mismatch, missing root pointer, root-pointer mismatch, registered
+roots and occupied registry records. Detail is only the original IF bit, CR3
+non-address bits, registered count or occupancy; it carries no table pointer.
+For current-CR3 mismatch, zero detail does not mean matching physical roots.
+Each mapping still repeats the guard, and a later failure replaces a prior
+success. No successful sample grants authority to a later mapping or read.
+
+Strict wire4 parsing rejects missing fields, impossible phase/reason/detail
+combinations, failed-root success and acquisition without observed admission.
+Versions1–3 remain readable with their own exact schemas/counters. New launches
+require v50/wire4 and its own exact staged configuration. Qualification now
+includes actual VMM guard, range and alias walkers alongside the existing
+classifier/adapter, source/return and VM gates. Host fixtures cover all4,095
+nonzero CR3 low-bit values, every original refusal reason, short-circuit read
+counts and unchanged context. Fatal sanitizer and later native acceptance are
+separate requirements; no CPU root observation accepts GPU ownership.

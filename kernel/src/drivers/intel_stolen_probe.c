@@ -30,6 +30,7 @@ static struct {
  struct bdw_stolen_layout layout;
  struct bdw_stolen_vectors vectors;
  struct x86_cache_snapshot cache;
+ struct vmm_range_observation root_observation;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -128,10 +129,10 @@ static bool tick(uint64_t begin) {
  * Repeat per mapping; never infer later retirement from this early check. */
 static bool sole_root(void) {
 #ifdef SRVROS_INTEL_STOLEN_HOST_TEST
- bool ok=vmm_diagnostic_sole_kernel_root(stolen.root);
+ bool ok=vmm_diagnostic_sole_kernel_root_observe(stolen.root,&stolen.root_observation);
 #else
  uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
- bool ok=vmm_diagnostic_sole_kernel_root(stolen.root);
+ bool ok=vmm_diagnostic_sole_kernel_root_observe(stolen.root,&stolen.root_observation);
  if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
 #endif
  return ok || refuse(5);
@@ -311,7 +312,7 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire3 UC3 alias-preflight read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ console_write("intel-stolen: wire4 root-observed UC3 alias-preflight read-only complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
@@ -324,7 +325,8 @@ bool intel_stolen_probe_report(const char *cmdline) {
  stolen.source.aperture_bytes!=0x10000000 || !intel_window_handoff_clean()){refuse(4);goto report;}
  if(!checkpoint(3))goto report;
  stolen.root=vmm_current_address_space();
- if(!stolen.root || stolen.root!=vmm_kernel_address_space()){refuse(5);goto report;}
+ if(!stolen.root){stolen.root_observation=(struct vmm_range_observation){.phase=1,.reason=VMM_RANGE_ROOT};refuse(5);goto report;}
+ if(stolen.root!=vmm_kernel_address_space()){stolen.root_observation=(struct vmm_range_observation){.phase=1,.reason=VMM_RANGE_KERNEL};refuse(5);goto report;}
  if(!sole_root())goto report;
  for(uint64_t i=0;i<pci_device_count();i++) {
   const struct pci_device *d=pci_device_at(i);if(!d || d->bus || d->function)continue;
@@ -357,7 +359,8 @@ cleanup:
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=3 preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ console_printf("intel-stolen-summary: v=4 root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ (uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,

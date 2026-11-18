@@ -77,9 +77,14 @@ bool display_access_acquire(uint64_t owner,struct display_access_token *t) {
 }
 bool display_access_held(const struct display_access_token *t) {assert(t==&stolen.exclusion);return model.held && !fault(HELD);}
 bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped);if(fault(RELEASE))return false;model.held=false;return true;}
-uint64_t vmm_current_address_space(void) {return fault(ROOT)?0x2000:0x1000;}
+uint64_t vmm_current_address_space(void) {return fault(ROOT)?(model.mode==32?0:0x2000):0x1000;}
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
-bool vmm_diagnostic_sole_kernel_root(uint64_t root) {assert(root==0x1000);return !fault(SOLE_ROOT);}
+bool vmm_diagnostic_sole_kernel_root_observe(uint64_t root,struct vmm_range_observation *out) {
+ assert(root==0x1000 && out==&stolen.root_observation);
+ bool ok=!fault(SOLE_ROOT);
+ *out=(struct vmm_range_observation){.phase=ok?4:1,.reason=ok?0:VMM_RANGE_CURRENT,.detail=ok?0:24};
+ return ok;
+}
 uint64_t pci_device_count(void) {return 2;}
 const struct pci_device *pci_device_at(uint64_t i) {return i<2?&devices[i]:NULL;}
 bool intel_boot_check(unsigned client,const struct pci_device *gpu) {assert(client==INTEL_BOOT_OBSERVER && gpu==&devices[1]);return !fault(CLAIM);}
@@ -174,6 +179,7 @@ int main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--progress-report")) {reset();assert(intel_stolen_probe_report(command));fputs(stolen.progress,stdout);return 0;}
  if(argc==2 && !strcmp(argv[1],"--unsupported-report")) {reset();model.which=PROFILE;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--refusal-report")) {reset();model.mode=27;model.report=true;return intel_stolen_probe_report(command)?1:0;}
+ if(argc==2 && !strcmp(argv[1],"--root-refusal-report")) {reset();model.which=SOLE_ROOT;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
  positive();
  unsigned counts[FAULT_COUNT];memcpy(counts,model.calls,sizeof(counts));
@@ -185,6 +191,7 @@ int main(int argc,char **argv) {
    bool ok=intel_stolen_probe_report(command);assert(stolen.fail);if(ok)fprintf(stderr,"undetected which=%u at=%u calls=%u\n",which,stops[k],model.calls[which]);assert(!ok);if(stolen.complete)assert(intel_stolen_probe_retained());
    if(model.mapped || model.held)assert(intel_stolen_probe_retained());
    else assert(!intel_stolen_probe_retained());
+   if(which==SOLE_ROOT)assert(stolen.fail==5 && stolen.root_observation.phase==1 && stolen.root_observation.reason==VMM_RANGE_CURRENT && stolen.root_observation.detail==24);
    assert(model.unmaps<=model.maps);++model.cases;
   }
  }
@@ -233,6 +240,12 @@ int main(int argc,char **argv) {
   if(mode==1)stolen.uncertain=true;
   if(mode==2){model.which=ROOT;model.at=1;stolen.root=0x1000;}
   assert(!checkpoint(9) && stolen.fail==27 && !model.calls[PROGRESS]);++model.cases;
+ }
+ for(unsigned mode=0;mode<2;mode++) {
+  reset();model.which=ROOT;model.at=1;model.mode=mode?32:0;
+  assert(!intel_stolen_probe_report(command) && stolen.fail==5);
+  assert(stolen.root_observation.phase==1 && stolen.root_observation.reason==(mode?VMM_RANGE_ROOT:VMM_RANGE_KERNEL) && !stolen.root_observation.detail);
+  assert(!model.held && !model.maps && !model.calls[SOLE_ROOT]);++model.cases;
  }
  const char *bad[]={"",NULL,"srvros.intel-stolen=read-only", "srvros.storage=ram srvros.storage=ram"};
  for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {reset();assert(!intel_stolen_probe_report(bad[i]) && !model.maps && !model.held);++model.cases;}

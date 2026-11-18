@@ -52,16 +52,16 @@ VM results and acceptance proofs live under
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
 The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
-`intel-stolen-v49` builds a wire3 read-only image and freezes classifier/actual-adapter,
+`intel-stolen-v50` builds a wire4 read-only image and freezes classifier/actual-adapter,
 strict receipt/stage, resource/cache/source and safe-return regressions. It keeps
 both exact-stage VM paths,64KiB collection and the existing recovery/integrity
 sequence. Matching native layout evidence can close only as DIAGNOSED; it never
 grants GPU memory/reader ownership or tear-free acceptance. It does not select
-or weaken any reset/submission protocol. Historical v47/wire1 and v48/wire2 remain
+or weaken any reset/submission protocol. Historical v47/wire1, v48/wire2 and v49/wire3 remain
 readable but cannot launch a new trial. Wire3 first maps/checks/retires the first
 metadata CPU alias without a register load, saves that boundary, then remaps
 with all original checks for the read. Its extra mapping and preflight flag are
-strictly accounted for without resetting the2-second pass. Wire2 and wire3 select captured true-UC PAT3, records first
+strictly accounted for without resetting the2-second pass. Wire2 onward selects captured true-UC PAT3, records first
 admission refusal and lets valid incomplete returns collect with that cause;
 those returns cannot be accepted or closed as a completed diagnostic.
 

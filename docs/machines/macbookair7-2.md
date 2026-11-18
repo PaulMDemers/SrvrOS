@@ -15571,3 +15571,13 @@ new trial is armed. Main4016abf0 remains unchanged. Next expose the original
 sole-root predicate's failure details without a second probe, changing its
 requirements or mapping on a known-invalid context. No native census, GPU-memory
 ownership or tear-free acceptance follows from this return.
+
+## Root-observation candidate scope
+
+After the native wire3 root refusal, v50/wire4 adds an original-check value-only
+root observation to the isolated census, exact recipe/collector and local
+qualification. Shared VMM exports its existing first-refusal result; predicates,
+order, IRQ state and actual leaf requirements stay unchanged. CR3 non-address
+bits are recorded from the original read on mismatch; no normalization or extra
+probe is performed. All2-second bounds and retention remain. Other PR19/379
+scopes and main4016abf0 remain unchanged. Native qualification is pending.

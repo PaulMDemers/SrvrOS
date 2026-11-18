@@ -31,11 +31,17 @@ enum vmm_range_reason {
 /* Optional value-only witness from the original checks; no second probe.
  * phase0=input,1=entry root,2=walk,3=exit root,4=complete. level1..4 is
  * PML4..PT; checked is the completed page prefix. detail is input subreason,
- * IF bit, registered-root count or occupancy, never a retained table pointer. */
+ * IF bit, current CR3 non-address bits, registered-root count or occupancy,
+ * never a retained table pointer. */
 struct vmm_range_observation {
     uint64_t checked,detail;
     uint32_t phase,reason,level;
 };
+/* Same original guard and short-circuit order; no table walk or second probe.
+ * Success: phase4 and zero remaining fields. Failure: phase1, first reason.
+ * Does not change IRQ state, CR3, roots or admission requirements. */
+bool vmm_diagnostic_sole_kernel_root_observe(uint64_t expected,
+    struct vmm_range_observation *);
 bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,
     uint64_t virtual_base,uint64_t physical_base,uint64_t pages,
     struct vmm_range_observation *);

@@ -18,10 +18,37 @@ class StolenProbe(unittest.TestCase):
     def setUpClass(cls):
         if os.environ.get('SRVROS_FIXTURE_BATCH')!='1':
             compile_fixture(TARGET)
+            for target in ('vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias'):compile_fixture('build/tests/'+target)
     def test_actual_adapter_fault_prefixes(self):
         p=subprocess.run([str(ROOT/TARGET)],check=True,capture_output=True,text=True,timeout=120)
         self.assertIn('actual-adapter=1 hardware=0 writes=0 ownership=0',p.stdout)
         print(p.stdout.strip(),flush=True)
+    def test_actual_vmm_root_observation(self):
+        for name in ('vmm-prepare-host','vmm-diagnostic-range','vmm-kernel-alias'):
+            subprocess.run([str(ROOT/'build/tests'/name)],check=True,capture_output=True,timeout=120)
+        target='build/tests/vmm-prepare-host'
+        cc,flags,sources=recipe(target)
+        with tempfile.TemporaryDirectory(prefix='root-observer-san-') as d:
+            binary=Path(d)/'fixture'
+            compile_fixture(target,output=binary,declaration=(cc,[*flags,'-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'],sources))
+            with patch.dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'):
+                subprocess.run([str(binary)],check=True,capture_output=True,timeout=120)
+    def test_original_root_observer_controls(self):
+        target='build/tests/vmm-prepare-host';cc,flags,sources=recipe(target)
+        original=(ROOT/'kernel/src/memory/vmm.c').read_text()
+        controls={
+            'lost-failure-detail':('if(!diagnostic_sole_root(expected,d,1,0))return false;','if(!diagnostic_sole_root(expected,NULL,1,0))return false;'),
+            'resampled-failed-root':('checked,current&~PAGE_MASK);','checked,read_cr3()&~PAGE_MASK);'),
+            'normalized-tagged-root':('if(current!=expected)return range_refuse','if((current&PAGE_MASK)!=expected)return range_refuse'),
+        }
+        with tempfile.TemporaryDirectory(prefix='root-observer-controls-') as d:
+            for name,(old,new) in controls.items():
+                with self.subTest(control=name):
+                    self.assertEqual(original.count(old),1)
+                    source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
+                    compile_fixture(target,output=binary,declaration=(cc,[*flags,'-DSRVROS_VMM_ROOT_OBSERVER_FILE="'+str(source)+'"','-iquote',str(ROOT/'kernel/src/memory')],sources))
+                    p=subprocess.run([str(binary)],capture_output=True,timeout=120)
+                    self.assertNotEqual(p.returncode,0,'Undetected root control '+name)
     def test_fatal_sanitizers(self):
         cc,flags,sources=recipe(TARGET)
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-san-') as d:

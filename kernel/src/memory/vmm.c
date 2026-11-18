@@ -265,7 +265,8 @@ static bool diagnostic_sole_root(uint64_t expected,struct vmm_range_observation 
     if(flags&(1ull<<9))return range_refuse(d,phase,VMM_RANGE_IRQ,0,checked,flags&(1ull<<9));
     if(!expected || (expected&~PAGE_MASK))return range_refuse(d,phase,VMM_RANGE_ROOT,0,checked,0);
     if(expected!=kernel_cr3)return range_refuse(d,phase,VMM_RANGE_KERNEL,0,checked,0);
-    if(read_cr3()!=expected)return range_refuse(d,phase,VMM_RANGE_CURRENT,0,checked,0);
+    uint64_t current=read_cr3();
+    if(current!=expected)return range_refuse(d,phase,VMM_RANGE_CURRENT,0,checked,current&~PAGE_MASK);
     if(!kernel_pml4)return range_refuse(d,phase,VMM_RANGE_PML4,0,checked,0);
     if(kernel_pml4!=pmm_phys_to_virt(expected))return range_refuse(d,phase,VMM_RANGE_POINTER,0,checked,0);
     uint64_t count=address_space_count;
@@ -276,6 +277,13 @@ static bool diagnostic_sole_root(uint64_t expected,struct vmm_range_observation 
 }
 bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
     return diagnostic_sole_root(expected,NULL,1,0);
+}
+
+bool vmm_diagnostic_sole_kernel_root_observe(uint64_t expected,struct vmm_range_observation *d) {
+    if(d)*d=(struct vmm_range_observation){0};
+    if(!diagnostic_sole_root(expected,d,1,0))return false;
+    if(d)d->phase=4;
+    return true;
 }
 
 /* Data PAT comes from the leaf only. Nonleaf PWT/PCD select page-table

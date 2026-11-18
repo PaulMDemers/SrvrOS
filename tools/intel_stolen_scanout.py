@@ -52,9 +52,10 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3) else ''
-        if kind=='summary' and version==3:extra+=' preflight'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4) else ''
+        if kind=='summary' and version in (3,4):extra+=' preflight'
+        if kind=='summary' and version==4:extra+=' root_phase root_reason root_detail'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
@@ -69,7 +70,19 @@ def stolen_result(text,*,native=False,required_version=None):
         if success:
             if s['fail'] or s['offset'] or any(s[k] for k in ('mtrr','pat','effective')):raise ValueError('stolen unresolved admission')
         elif not s['fail']:raise ValueError('stolen missing refusal cause')
-    if wire==3:
+    if wire==4:
+        phase,reason,detail=(s[k] for k in ('root_phase','root_reason','root_detail'))
+        if phase not in (0,1,4) or reason>8:raise ValueError('stolen root observation encoding')
+        if phase==0 and (reason or detail):raise ValueError('stolen unobserved root')
+        if phase==4 and (reason or detail):raise ValueError('stolen successful root detail')
+        if phase==1:
+            if not reason or s['fail']!=5 or s['complete']:raise ValueError('stolen failed root outcome')
+            if ((reason==1 and detail!=512) or (reason in (2,3,5,6) and detail) or
+                (reason==4 and detail&0x000ffffffffff000) or (reason==7 and not 1<=detail<=64) or
+                (reason==8 and not detail)):raise ValueError('stolen root detail')
+        if s['acquired'] and phase==0:raise ValueError('stolen missing root admission')
+        if s['complete'] and phase!=4:raise ValueError('stolen missing successful root')
+    if wire>=3:
         if s['preflight'] not in (0,1) or (not s['preflight'] and (s['maps']>1 or s['meta_reads'] or any(row['reads'] for row in rows['run']))):raise ValueError('stolen preflight before read')
         if s['preflight'] and (s['maps']<1 or s['retired']<1 or s['cache_checks']<3 or s['alias_checks']<2):raise ValueError('stolen preflight retirement')
         if s['complete'] and not s['preflight']:raise ValueError('stolen missing preflight')
@@ -90,6 +103,10 @@ def stolen_result(text,*,native=False,required_version=None):
     result=dict(complete=complete,native_complete=False,diagnostic_complete=complete,diagnostic_stolen=True,
                 hardware_ownership=False,managed_range=False,physical_tearfree=False,version=wire,rows=rows,summary=s,
                 failure_stage=FAILURES[s['fail']] if wire>=2 else 'legacy-unspecified')
+    if wire==4:
+        names=('none','interrupts-enabled','invalid-expected-root','kernel-root-mismatch','current-CR3-mismatch',
+               'missing-root-pointer','root-pointer-mismatch','registered-roots','occupied-root-records')
+        result['root_observation']=dict(phase=s['root_phase'],reason=s['root_reason'],detail=s['root_detail'],condition=names[s['root_reason']])
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -115,9 +132,9 @@ def stolen_result(text,*,native=False,required_version=None):
     if size>16*1048576 or a['fence_end']+2*size>a['aperture']:raise ValueError('stolen proposed range overflow')
     spans=[(0,0x2200000),(0x2200000,size),(0x2200000+size,size)]
     maps=2*(3+sum(((gpu//4096*8+size//4096*8+4095)//4096)-(gpu//4096*8//4096) for gpu,size in spans))
-    if wire==3:maps+=1
+    if wire>=3:maps+=1
     entries=sum(size//4096 for _,size in spans)
-    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire==3),6*entries+8+2*maps,2*entries):
+    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps,2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]
     for n in range(2):
