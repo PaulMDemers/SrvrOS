@@ -16,11 +16,11 @@ static bool intel_stolen_test_read(uint32_t,uint32_t *);
 #endif
 #include SRVROS_STOLEN_ADAPTER_FILE
 
-enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,SOLE_ROOT,PHYSICAL_UNMAPPED,FAULT_COUNT};
+enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI,CACHE,ALIAS,MAP,UNMAP,READ,CLOCK,RELEASE,PROGRESS,SOLE_ROOT,PHYSICAL_UNMAPPED,PIN,GUARD_BEGIN,GUARD_CHECK,GUARD_CLOSE,UNPIN,FAULT_COUNT};
 static struct {
  unsigned calls[FAULT_COUNT],which,at,cases,reads,maps,unmaps;
  uint64_t physical,clock;
- bool mapped,held,report;
+ bool mapped,held,report,pinned,guard_live;
  unsigned mode,deferred,tag_queries;
 } model;
 static struct pci_device devices[2]={{.device=0},{.device=2}};
@@ -40,7 +40,10 @@ static void reset(void) {
  memory=(struct limine_memmap_response){.entry_count=3,.entries=entries};memmap_request.response=&memory;
 }
 bool timer_reference_ready(void) {return true;}
-uint64_t timer_monotonic_us(void) {if(fault(CLOCK)) {
+uint64_t timer_monotonic_us(void) {
+ if((model.mode==41 && stolen.guard.acquired && !stolen.guard.checked) ||
+    (model.mode==42 && stolen.guard.checked && !stolen.guard.closed))return model.clock+=STOLEN_CENSUS_US+1;
+ if(fault(CLOCK)) {
  if(model.mode==1)return 0;
  if(model.mode==2)return 1000;
  model.clock+=STOLEN_CENSUS_US+1;return model.clock;
@@ -79,7 +82,38 @@ bool display_access_acquire(uint64_t owner,struct display_access_token *t) {
  *t=(struct display_access_token){1,owner};model.held=true;return true;
 }
 bool display_access_held(const struct display_access_token *t) {assert(t==&stolen.exclusion);return model.held && !fault(HELD);}
-bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped);if(fault(RELEASE))return false;model.held=false;return true;}
+bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped && !model.pinned && !model.guard_live);if(fault(RELEASE))return false;model.held=false;return true;}
+bool display_access_pin(const struct display_access_token *t) {
+ assert(t==&stolen.exclusion && model.held && !model.pinned);
+ if(fault(PIN))return false;
+ model.pinned=true;return true;
+}
+bool display_access_unpin(const struct display_access_token *t) {
+ assert(t==&stolen.exclusion && model.held && model.pinned && !model.guard_live);
+ if(fault(UNPIN))return false;
+ model.pinned=false;return true;
+}
+bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
+ const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
+ unsigned ranges,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ assert(g==&stolen.guard.owner && !g->object && model.pinned && !model.guard_live && root==stolen.root && bits==39);
+ assert(count==2 && pair[0].physical==stolen.cpu.span[0].physical && pair[1].physical==stolen.cpu.span[1].physical);
+ assert(pair[0].pages==1536 && pair[1].pages==1536 && ram==stolen.cpu.ram && ranges==stolen.cpu.ram_count);
+ assert(out==&stolen.guard.inventory[0] && d==&stolen.guard.detail);
+ g->object=g;g->epoch=1;
+ if(fault(GUARD_BEGIN)){d->walk.reason=VMM_ALIAS_MODE;return false;}
+ model.guard_live=true;*out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
+}
+bool vmm_reserved_guard_check(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ assert(g==&stolen.guard.owner && g->object==g && model.guard_live && model.pinned && out==&stolen.guard.inventory[1] && d==&stolen.guard.detail);
+ if(fault(GUARD_CHECK)){d->walk.reason=VMM_ALIAS_MODE;return false;}
+ *out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
+}
+bool vmm_reserved_guard_close(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ assert(g==&stolen.guard.owner && model.guard_live && model.pinned && out==&stolen.guard.inventory[2] && d==&stolen.guard.detail);
+ if(fault(GUARD_CLOSE)){d->walk.reason=VMM_ALIAS_MODE;return false;}
+ model.guard_live=false;*out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
+}
 bool pmm_frame_has_tag(uint64_t physical,enum pmm_frame_tag tag) {
  assert(tag==PMM_FRAME_RESERVED && physical>=0x8e201000 && physical<0x8ee01000 && !(physical&4095));
  assert(physical==0x8e201000+4096ull*model.tag_queries);
@@ -213,8 +247,9 @@ static void positive(void) {
  assert(stolen.cpu.observed && stolen.cpu.admitted && stolen.cpu.unmapped && model.tag_queries==3072);
  assert(stolen.cpu.span[0].checked==1536 && stolen.cpu.span[1].checked==1536 && stolen.cpu.pmm_checks==3072);
  assert(stolen.cpu.inventory.tables==9 && stolen.cpu.inventory.entries==4608);
- assert(stolen.cpu.begin<stolen.cpu.end && stolen.cpu.end==stolen.end[1]);
- assert(model.calls[REVALIDATE]==6);assert(model.calls[PROGRESS]==24);
+ assert(stolen.cpu.begin<stolen.cpu.end && stolen.cpu.end<stolen.guard.begin && stolen.guard.end==stolen.end[1]);
+ assert(model.calls[REVALIDATE]==8);assert(model.calls[PROGRESS]==25);
+ assert(stolen.guard.pinned && stolen.guard.acquired && stolen.guard.checked && stolen.guard.closed && stolen.guard.unpinned && !model.pinned && !model.guard_live);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<3;r++)assert(stolen.count[n][r]==stolen.plan.range[r].pages);
  assert(!intel_stolen_probe_report(command));++model.cases;
 }
@@ -228,6 +263,10 @@ int main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--cpu-present-report")) {reset();model.mode=38;model.report=true;return intel_stolen_probe_report(command)?0:1;}
  if(argc==2 && !strcmp(argv[1],"--cpu-tag-report")) {reset();model.mode=36;model.at=1536;model.report=true;return intel_stolen_probe_report(command)?0:1;}
  if(argc==2 && !strcmp(argv[1],"--cpu-root-refusal-report")) {reset();model.mode=39;model.report=true;return intel_stolen_probe_report(command)?1:0;}
+ if(argc==2 && !strcmp(argv[1],"--guard-begin-refusal-report")) {reset();model.which=GUARD_BEGIN;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
+ if(argc==2 && !strcmp(argv[1],"--guard-check-refusal-report")) {reset();model.which=GUARD_CHECK;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
+ if(argc==2 && !strcmp(argv[1],"--guard-close-refusal-report")) {reset();model.which=GUARD_CLOSE;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
+ if(argc==2 && !strcmp(argv[1],"--guard-unpin-refusal-report")) {reset();model.which=UNPIN;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
  positive();
  for(unsigned i=0;i<78;i++) {
@@ -261,6 +300,11 @@ int main(int argc,char **argv) {
  assert(stolen.fail==29 && !stolen.cpu.observed && !model.held && !model.mapped);++model.cases;
  reset();model.mode=39;assert(!intel_stolen_probe_report(command));
  assert(stolen.fail==29 && !stolen.cpu.observed && !model.held && !model.mapped);++model.cases;
+ for(unsigned mode=41;mode<=42;mode++) {
+  reset();model.mode=mode;assert(!intel_stolen_probe_report(command));
+  assert(stolen.fail==18 && stolen.guard.acquired && !stolen.guard.closed && !stolen.guard.unpinned);
+  assert(model.guard_live && model.pinned && model.held && intel_stolen_probe_retained());++model.cases;
+ }
  positive();
  unsigned counts[FAULT_COUNT];memcpy(counts,model.calls,sizeof(counts));
  for(unsigned which=1;which<FAULT_COUNT;which++) {

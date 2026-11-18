@@ -11,6 +11,7 @@ static struct vmm_physical_span pair[2];
 static struct vmm_unmapped_detail why;
 static unsigned checks,tags,bad_tag,hook,efer_fault,efer_target;
 static bool recursive;
+void console_printf(const char *fmt,...) {(void)fmt;assert(0 && "blocked init reached console");}
 static void vmm_unmapped_efer_hook(void) {
  if(efer_target && efer_calls==efer_target) {
   if(efer_fault==1)test_rflags|=512;
@@ -80,6 +81,7 @@ int main(int argc,char **argv) {
  }
  unsigned reads=table_reads;uint64_t new_root=123,old_switches=switches;
  assert(!vmm_create_address_space(&new_root) && !new_root);
+ vmm_init();
  assert(!vmm_prepare_user_kernel_mappings(root+4096));
  vmm_refresh_kernel_mappings(root+4096);vmm_destroy_address_space(root+4096);
  vmm_switch_address_space(0);vmm_switch_address_space(root);
@@ -143,6 +145,17 @@ int main(int argc,char **argv) {
  assert(!begin(&guard) && !guard.object);reserved_mutations=0;
  setup();test_rflags|=512;assert(!begin(&guard) && !guard.object && !reserved_guard.owner);
  setup();pair[1]=pair[0];assert(!begin(&guard) && !guard.object);
+ setup();t[3][0]=pa|3;assert(!begin(&guard) && why.walk.reason==VMM_ALIAS_PRESENT && !reserved_guard.owner);
+ for(unsigned bad=0;bad<4;bad++) {
+  setup();
+  if(bad==0)pair[0].pages=4097;
+  if(bad==1)pair[0].physical++;
+  if(bad==2)pair[0].physical=UINT64_MAX-4095;
+  if(bad==3)ram[1].length=0;
+  assert(!begin(&guard) && !reserved_guard.owner);
+ }
+ setup();uint64_t epoch=reserved_epoch;reserved_epoch=UINT64_MAX;
+ assert(!begin(&guard) && !guard.object && !reserved_guard.owner);reserved_epoch=epoch;
  setup();assert(begin(&guard));assert(vmm_reserved_guard_close(&guard,&result,&why));
  /* Without a guard, normal mappings and existing unique-alias contracts remain. */
  assert(vmm_map_page_in_space(root,va,pa,3) && (t[3][0]&PAGE_MASK)==pa);

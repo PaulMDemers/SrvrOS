@@ -42,6 +42,13 @@ static struct {
   struct vmm_alias_inventory inventory;
   struct vmm_unmapped_detail detail;
  } cpu;
+ struct {
+  struct vmm_reserved_guard owner;
+  struct vmm_alias_inventory inventory[3];
+  struct vmm_unmapped_detail detail;
+  uint64_t begin,end;
+  unsigned attempted,pinned,acquired,checked,closed,unpinned;
+ } guard;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -424,11 +431,59 @@ static bool cpu_backing(void) {
  stolen.cpu.admitted=reserved && absent;stolen.cpu.observed=1;
  return true;
 }
+/* Maintain CPU mapping exclusion in this original census/exclusion lifetime.
+ * No native hardware right or target access is issued by this guard. */
+static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *pair) {
+#ifndef SRVROS_INTEL_STOLEN_HOST_TEST
+ uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+#endif
+ bool ok=phase==0?vmm_reserved_guard_begin(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
+  stolen.cpu.ram,stolen.cpu.ram_count,&stolen.guard.inventory[0],&stolen.guard.detail):
+  phase==1?vmm_reserved_guard_check(&stolen.guard.owner,&stolen.guard.inventory[1],&stolen.guard.detail):
+  vmm_reserved_guard_close(&stolen.guard.owner,&stolen.guard.inventory[2],&stolen.guard.detail);
+#ifndef SRVROS_INTEL_STOLEN_HOST_TEST
+ if(flags&512)__asm__ volatile("sti":::"memory");
+#endif
+ return ok;
+}
+static bool cpu_guard(void) {
+ if(!stolen.cpu.admitted)return true;
+ if(!checkpoint(22))return false;
+ stolen.guard.attempted=1;
+ if(!tick(stolen.begin[1]))return false;
+ stolen.guard.begin=stolen.last;
+ if(!identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source))return refuse(30);
+ if(!display_access_pin(&stolen.exclusion))return refuse(30);
+ stolen.guard.pinned=1;
+ struct vmm_physical_span pair[2];
+ for(unsigned i=0;i<2;i++)pair[i]=(struct vmm_physical_span){stolen.cpu.span[i].physical,stolen.cpu.span[i].pages};
+ bool ok=false;
+ if(!tick(stolen.begin[1]) || !cpu_guard_operation(0,pair)){refuse(30);goto done;}
+ stolen.guard.acquired=1;
+ if(!tick(stolen.begin[1]) || !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source))goto done;
+ if(!cpu_guard_operation(1,pair)){refuse(30);goto done;}
+ stolen.guard.checked=1;
+ if(!tick(stolen.begin[1]) || !identity() || !sole_root())goto done;
+ if(!cpu_guard_operation(2,pair)){refuse(30);goto done;}
+ stolen.guard.closed=1;ok=true;
+done:
+ if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
+ if(!stolen.uncertain) {
+  if(display_access_unpin(&stolen.exclusion))stolen.guard.unpinned=1;
+  else {stolen.uncertain=true;ok=false;refuse(30);}
+ }
+ if(!ok)return refuse(30);
+ struct x86_cache_snapshot fresh;
+ if(!identity() || !intel_cache_probe_context(&fresh) || !x86_cache_equal(&fresh,&stolen.cache))return refuse(30);
+ if(!tick(stolen.begin[1]))return false;
+ stolen.guard.end=stolen.last;stolen.end[1]=stolen.last;
+ return stolen.guard.end>stolen.guard.begin || refuse(18);
+}
 bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquired && !stolen.released);}
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire6 CPU backing admission and live reader/cache preflight and complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ console_write("intel-stolen: wire7 maintained CPU mapping exclusion and CPU backing admission and live reader/cache preflight and complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!intel_stolen_probe_recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
@@ -469,14 +524,14 @@ bool intel_stolen_probe_report(const char *cmdline) {
  stolen.phase=3;if(!checkpoint(12))goto cleanup;
  stolen.complete=intel_bdw_stolen_scanout_check(&stolen.facts[0],&stolen.vectors,&stolen.layout);
  if(!stolen.complete){stolen.reason|=16;refuse(21);}
- if(stolen.complete && (!checkpoint(21) || !cpu_backing()))stolen.complete=false;
+ if(stolen.complete && (!checkpoint(21) || !cpu_backing() || !cpu_guard()))stolen.complete=false;
 cleanup:
  trace(13,0);
  if(unmap() && !stolen.uncertain && intel_window_handoff_clean())stolen.released=display_access_release(&stolen.exclusion,true);
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=6 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ console_printf("intel-stolen-summary: v=7 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
  (uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
@@ -525,6 +580,15 @@ report:
   (uint64_t)stolen.cpu.ram_count,(uint64_t)(stolen.cpu.attempted?stolen.cache.cpu.physical_bits:0),(uint64_t)stolen.cpu.pmm_checks,(uint64_t)stolen.cpu.unmapped,(uint64_t)d->walk.reason,(uint64_t)d->walk.level,
   (uint64_t)d->walk.root.phase,(uint64_t)d->walk.root.reason,d->walk.root.detail,(uint64_t)i->tables,(uint64_t)i->entries,(uint64_t)i->leaves,
   (uint64_t)d->span,d->virtual_base,d->physical,d->bytes,d->entry);
+ console_printf("intel-stolen-guard: v=1 attempted=%u begin=%u end=%u pinned=%u acquired=%u checked=%u closed=%u unpinned=%u reason=%u writes=0 authority=none\n",
+  (uint64_t)stolen.guard.attempted,stolen.guard.begin,stolen.guard.end,(uint64_t)stolen.guard.pinned,
+  (uint64_t)stolen.guard.acquired,(uint64_t)stolen.guard.checked,(uint64_t)stolen.guard.closed,(uint64_t)stolen.guard.unpinned,
+  (uint64_t)stolen.guard.detail.walk.reason);
+ for(unsigned n=0;n<3;n++) {
+  const struct vmm_alias_inventory *g=&stolen.guard.inventory[n];
+  console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
+   (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
+ }
  return stolen.complete && !intel_stolen_probe_retained();
 }
 #endif

@@ -14,6 +14,10 @@
 #define VMM_MAX_TRACKED_TABLES 256
 #define VMM_PAGE_TABLE_MIN_PHYSICAL 0x2000000ull
 
+enum reserved_mutation {RESERVED_MAP,RESERVED_REMOVE,RESERVED_PROTECT,RESERVED_ROOT,RESERVED_SWITCH};
+static bool reserved_mutation_enter(enum reserved_mutation,uint64_t,uint64_t,uint64_t);
+static void reserved_mutation_leave(void);
+
 struct kernel_mapping {
     uint64_t virtual_address;
     uint64_t physical_address;
@@ -240,12 +244,14 @@ static void register_kernel_mapping(uint64_t virtual_address,
 }
 
 void vmm_init(void) {
+    if(!reserved_mutation_enter(RESERVED_ROOT,0,0,0))return;
     kernel_cr3 = read_cr3() & PAGE_MASK;
     kernel_pml4 = pmm_phys_to_virt(kernel_cr3);
 
     console_printf("vmm: active pml4 phys=%x virt=%x\n",
         kernel_cr3,
         (uint64_t)kernel_pml4);
+    reserved_mutation_leave();
 }
 
 static bool range_refuse(struct vmm_range_observation *d,unsigned phase,unsigned reason,
@@ -409,7 +415,6 @@ static struct {
  struct vmm_physical_span spans[VMM_ALIAS_SPANS];
  struct vmm_alias_ram ram[VMM_ALIAS_RAM_LIMIT];
 } reserved_guard;
-enum reserved_mutation {RESERVED_MAP,RESERVED_REMOVE,RESERVED_PROTECT,RESERVED_ROOT,RESERVED_SWITCH};
 static bool reserved_mutation_enter(enum reserved_mutation kind,uint64_t root,uint64_t physical,uint64_t flags) {
  uint32_t old=__atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST);
  do {if(old==UINT32_MAX)return false;}

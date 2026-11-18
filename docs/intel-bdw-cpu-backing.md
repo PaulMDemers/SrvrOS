@@ -36,8 +36,9 @@ ancestor permissions or coherence/retirement guarantees.
 
 ## Native composition
 
-Only the isolated `intel-stolen-v53` / wire6 / configuration7 diagnostic calls
-the guard. It runs after both complete translation passes classify the original
+The isolated `intel-stolen-v53` / wire6 / configuration7 diagnostic introduced
+this observer; current v54/wire7/configuration8 adds the maintained CPU deny
+interval described below. It runs after both translation passes classify the original
 layout, while the same CPU display exclusion, kernel root, PCI observer and
 source snapshot remain live. A fresh source revalidation brackets the CPU work.
 This code does not reconstruct a live owner from a saved report.
@@ -62,7 +63,8 @@ GPU PTE/command/plane store or ordinary-desktop caller.
 The CPU phase consumes the original second pass's remaining2-second budget.
 The final fact timestamp includes it; there is no clock restart or deadline
 extension. Progress step21 (`CPU-backing`) is saved with no live metadata alias;
-the complete route uses24 updates under the existing32-update ceiling.
+the original v53 route uses24 updates. Current v54 adds step22 (`CPU-guard`)
+and uses25 updates under the existing32-update ceiling.
 Safe saved/unmounted outcomes return to Ubuntu; unsafe alias retirement retains
 exclusion and halts. The diagnostic is silent and requires no input.
 
@@ -75,7 +77,10 @@ whole-root scan counts and first conflict/root-refusal detail. The collector
 checks complete-span geometry, count prefixes, raw leaf encoding/intersection,
 physical width against the original CPU snapshots and the CPU-admission result.
 Authority stays none and hardware ownership stays false. Historical wire1–5
-reports keep their original shape and counts; only v53 can launch a new trial.
+reports keep their original shape and counts. Wire7 additionally records the
+original guard's pin/acquire/check/close/unpin prefix and all three completed
+whole-root inventories. Only v54 can launch the current image; wire6 remains
+historical and cannot silently inherit that new lifetime evidence.
 
 `make test-vmm-physical-unmapped` runs the real VMM walker and original unique-
 alias regression.3,159 modeled cases cover every candidate page, huge leaves,
@@ -142,10 +147,20 @@ the entire guard and retain that pin on uncertain retirement.
 21,557 cases cover every page through all three mapping routes, flag bypasses,
 copied handles, in-flight mapping/CR3 transitions, recursive callbacks, each
 reserved tag, source/context faults, fresh closing proof and permanent retention.
-All14 compiled weakening controls, fatal ASan/UBSan and native2KiB frames pass;
-existing range/alias/root-creation regressions pass. Native guard integration
-and acceptance remain pending; the v53 result above accepted only the earlier
+The suite includes15 compiled weakening controls, fatal ASan/UBSan and native
+2KiB frames, alongside existing range/alias/root-creation regressions. Native
+qualification and acceptance remain pending; the v53 result above accepted only the earlier
 instantaneous CPU observation.
+
+Current v54/wire7/configuration8 joins this guard to the original census owner.
+After CPU admission, the adapter pins actual display exclusion, acquires the
+CPU guard, checks it and closes it with three fresh tag/whole-root validations.
+Only then does it unpin display exclusion. No target alias is requested. Fresh
+source/root/cache checks and the original remaining second-pass2-second budget
+bracket the work; no deadline is restarted. Failed live/closing validation or
+uncertain unpin retains exclusion. A known empty admission refusal can unpin
+and return safely. The native report preserves the causal stage prefix and
+each successful walk; report snapshots remain historical CPU-only evidence.
 
 After native evidence, the next provider work must maintain an exclusive
 original reservation and firmware/DMA/cache/all-reader ownership. A conflicting

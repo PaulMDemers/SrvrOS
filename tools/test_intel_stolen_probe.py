@@ -102,6 +102,12 @@ class StolenProbe(unittest.TestCase):
         controls={
             'lost-reader-census':('!readers(n)', '(false && !readers(n))'),
             'lost-candidate-policy':('!candidate_policy(n)', '(false && !candidate_policy(n))'),
+            'skipped-native-guard-begin':('!cpu_guard_operation(0,pair)','false'),
+            'skipped-native-guard-check':('!cpu_guard_operation(1,pair)','false'),
+            'skipped-native-guard-close':('!cpu_guard_operation(2,pair)','false'),
+            'guard-fault-unpins':('if(!stolen.uncertain) {','if(true) {'),
+            'lost-guard-retention':('if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;','if(false)stolen.uncertain=true;'),
+            'skipped-display-pin':('!display_access_pin(&stolen.exclusion)','false'),
             'repeated-CPU-frame-query':('physical=q->physical+4096ull*page,type=0', 'physical=q->physical,type=0'),
             'lost-CPU-root-census':('bool absent=vmm_diagnostic_kernel_physical_unmapped(', 'bool absent=true || vmm_diagnostic_kernel_physical_unmapped('),
             'lost-CPU-tag-query':('if(pmm_frame_has_tag(physical,PMM_FRAME_RESERVED))', 'if(true)'),
@@ -128,7 +134,7 @@ class StolenProbe(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-CPU-root-census') else 4 if name=='lost-sole-root-admission' else 3 if name=='lost-fresh-cache' else 1)
+                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-CPU-root-census') else 7 if name=='lost-sole-root-admission' else 4 if name=='lost-fresh-cache' else 1)
                     source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
                     p=subprocess.run([str(binary)],capture_output=True,timeout=120)

@@ -7251,3 +7251,6 @@ test-vmm-reserved-guard: build/tests/vmm-reserved-guard$(HOST_EXE)
 build/tests/vmm-reserved-guard$(HOST_EXE): tools/test_vmm_reserved_guard.c tools/test_vmm_alias_inventory.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c kernel/src/memory/vmm_alias_inventory.inc kernel/src/memory/vmm_reserved_guard.inc $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+# These host fixtures include the actual VMM source; follow its private engine.
+build/tests/vmm-user-range-host$(HOST_EXE) build/tests/vmm-prepare-host$(HOST_EXE) build/tests/vmm-diagnostic-range$(HOST_EXE) build/tests/vmm-kernel-alias$(HOST_EXE) build/tests/vmm-alias-inventory$(HOST_EXE) build/tests/vmm-physical-unmapped$(HOST_EXE): kernel/src/memory/vmm_reserved_guard.inc

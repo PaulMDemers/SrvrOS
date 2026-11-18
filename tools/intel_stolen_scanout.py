@@ -7,6 +7,8 @@ SCHEMAS={
     'run':'v sample range gpu bytes pages count reads first last hash bad_index bad_value',
     'reader':'v sample pipe count '+ ' '.join('w'+str(i) for i in range(13)),
     'policy':'v sample range index physical pages queried ok mtrr pat effective checks',
+    'guard':'v attempted begin end pinned acquired checked closed unpinned reason writes authority',
+    'guard-walk':'v phase tables entries leaves',
     'cpu-span':'v range physical pages checked reserved framebuffer other uncovered tagged',
     'cpu':'v attempted observed admitted begin end ram_ranges bits pmm_checks unmapped reason level root_phase root_reason root_detail tables entries leaves span virtual physical bytes entry writes authority',
 }
@@ -15,7 +17,7 @@ FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard')
+          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
 HEX.update(['virtual','entry','physical']+['w'+str(i) for i in range(13)])
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
@@ -169,13 +171,38 @@ def cpu_admission(rows,physical):
                 conflict=None if c['unmapped'] else {k:c[k] for k in ('span','virtual','physical','bytes','entry','level')},
                 hardware_ownership=False,physical_tearfree=False)
 
+def verify_guard_progress(rows,s):
+    if len(rows['guard'])!=1 or [r['phase'] for r in rows['guard-walk']]!=[0,1,2]:raise ValueError('CPU guard rows')
+    g=rows['guard'][0]
+    flags=('attempted','pinned','acquired','checked','closed','unpinned')
+    if any(g[k] not in (0,1) for k in flags) or g['reason']>15 or g['writes'] or g['authority']!='none':raise ValueError('CPU guard authority')
+    if len(rows['cpu'])!=1:raise ValueError('CPU guard missing CPU prerequisite')
+    c=rows['cpu'][0]
+    if not g['attempted']:
+        if any(g[k] for k in g if k not in ('v','authority')) or any(any(r[k] for k in ('tables','entries','leaves')) for r in rows['guard-walk']):raise ValueError('unattempted CPU guard')
+        if s['complete'] and c['admitted']:raise ValueError('missing CPU guard')
+        return
+    if not c['observed'] or not c['admitted']:raise ValueError('CPU guard before admission')
+    if g['pinned'] and (not g['begin'] or g['begin']<c['end']):raise ValueError('CPU guard pin clock')
+    for child,parent in (('pinned','attempted'),('acquired','pinned'),('checked','acquired'),('closed','checked'),('unpinned','pinned')):
+        if g[child] and not g[parent]:raise ValueError('CPU guard causal prefix')
+    if g['unpinned'] and g['acquired'] and not g['closed']:raise ValueError('CPU guard early unpin')
+    if (g['acquired'] and not g['closed']) or (g['pinned'] and not g['unpinned']):
+        if not s['retained'] or s['released']:raise ValueError('CPU guard lost retained exclusion')
+    for r,done in zip(rows['guard-walk'],('acquired','checked','closed')):
+        if r['tables']>256 or r['entries']!=512*r['tables'] or r['leaves']>r['entries']:raise ValueError('CPU guard walk bounds')
+        if bool(r['tables'])!=bool(g[done]):raise ValueError('CPU guard walk prefix')
+    if g['end'] and (not all(g[k] for k in flags) or not c['end']<=g['begin']<g['end']<=rows['facts'][1]['end']):raise ValueError('CPU guard final clock')
+    if s['complete'] and (not all(g[k] for k in flags) or not g['end'] or g['reason']):raise ValueError('CPU guard incomplete')
+    if g['reason'] and (s['complete'] or not s['fail']):raise ValueError('CPU guard missing refusal')
+
 def stolen_result(text,*,native=False,required_version=None):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
-        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:')):
+        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:')):
             if re.match(r'intel-stolen-[^ :]+:',line):raise ValueError('unknown stolen receipt')
             continue
-        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy|cpu-span|cpu): (.+)',line)
+        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy|cpu-span|cpu|guard-walk|guard): (.+)',line)
         if not match:raise ValueError('malformed stolen receipt')
         kind=match[1];row={}
         for token in match[2].split():
@@ -187,16 +214,20 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5,6) else ''
-        if kind=='summary' and version in (3,4,5,6):extra+=' preflight'
-        if kind=='summary' and version in (4,5,6):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in (5,6):extra+=' reader_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5,6) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5,6,7) else ''
+        if kind=='summary' and version in (3,4,5,6,7):extra+=' preflight'
+        if kind=='summary' and version in (4,5,6,7):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in (5,6,7):extra+=' reader_reads'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5,6,7) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
+    if wire<7:
+        if rows.pop('guard') or rows.pop('guard-walk'):raise ValueError('unexpected CPU exclusion rows')
+    else:verify_guard_progress(rows,s)
+    if wire==6 and s.get('fail',0)>29:raise ValueError('historical refusal cause')
     if wire<6:
         if rows.pop('cpu') or rows.pop('cpu-span'):raise ValueError('unexpected CPU backing preflight')
     else:verify_cpu_progress(rows,s)
@@ -298,7 +329,8 @@ def stolen_result(text,*,native=False,required_version=None):
                 if any(base<end and start<base+size for start,end in physical):raise ValueError('stolen physical overlap')
                 physical.append((base,base+size))
     if wire>=5:result['owner_preflight']=owner_preflight(rows,physical)
-    if wire==6:result['cpu_backing_admission']=cpu_admission(rows,physical)
+    if wire>=6:result['cpu_backing_admission']=cpu_admission(rows,physical)
+    if wire>=7:result['cpu_mapping_exclusion']=dict(lifetime_complete=bool(rows['guard'][0]['end']),hardware_ownership=False,physical_tearfree=False)
     result.update(physical=[list(v) for v in physical],proposed_ranges=[list(v) for v in spans],auxiliary_disabled=all(not (f['fbc']&0x80000000 or f['psr_ctl']&0x80000000 or f['psr_status']&0xe0000000) for f in (a,b)))
     if native:
         from intel_ggtt_window import native_window_result
@@ -325,7 +357,7 @@ def stolen_result(text,*,native=False,required_version=None):
                 if any(_page(sample,regions,window['summary']['mmio']+offset,3)!=(0,0,0) for offset in offsets):
                     raise ValueError('stolen original UC3 cache policy mismatch')
                 if wire>=5:verify_candidate_policies(rows,sample,regions)
-                if wire==6 and rows['cpu'][0]['bits']!=sample['bits']:raise ValueError('CPU backing width differs from original context')
+                if wire>=6 and rows['cpu'][0]['bits']!=sample['bits']:raise ValueError('CPU backing width differs from original context')
         fb=display['rows']['framebuffer'][0]
         if (fb['width'],fb['height'],fb['pitch'])!=(a['width'],a['height'],a['stride']) or window['rows']['sample'][1]['end_us']>a['begin']:
             raise ValueError('stolen stale/changed source')
@@ -337,7 +369,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
@@ -352,7 +384,7 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
 PROGRESS_STEPS=('invalid','profile','source-snapshot','root-PCI','console-sync',
                 'display-exclusion','identity','cache-context','source-revalidation',
                 'metadata','vectors','source-final','classification','cleanup',
-                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache','CPU-backing')
+                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache','CPU-backing','CPU-guard')
 
 def stolen_progress(text,command):
     """Pending operation history only; never a completion or ownership receipt."""
