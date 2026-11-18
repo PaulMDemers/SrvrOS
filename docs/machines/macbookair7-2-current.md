@@ -263,3 +263,33 @@ candidate must rerun all gates, including those final cases, before installation
 Only independently verified91e4 inactive EFI/stage duplicates were removed for
 capacity; its bank and negative evidence, current7c8a/recovery9aa8, accepted GUI
 and protected banks survive. No test is installed/armed for wire4 yet.
+
+## Native wire4 identifies registered-root startup conflict
+
+Source `08e93b36`, release `f71826d1d791bb36`, session
+`session-0006608248062abb-00` returned with four exact recipe-bound raw files,
+valid journal and matching exit. Wire4 records root phase1/reason7/detail2:
+the original guard found two registered nonkernel address spaces. Exclusion,
+census mappings, retirements and metadata reads are all zero, with no retained
+alias. The run is reviewed/rejected as an incomplete census. Prior contents,
+expected four additions, boot region, offline fsck/allocation/writable/headroom,
+installed/banked recovery, Ubuntu default and consumed one-shot pass. Raw logs,
+report/checkpoint and review are independently sealed outside build.
+
+Source review finds the image links ordinary `main.c.o`; its boot initialization
+starts `/init` before the census. The matching native log confirms init startup
+and readiness. Existing terminal GT diagnostics defer user services, but the
+census lacks that isolated boot entry/deferral. The count is established; the
+two individual root identities are not. Next provide a separate census main
+and exact-recipe terminal pre-init gate, with ordinary/malformed-recipe isolation
+tests and explicit exact-stage VM deferral evidence. Do not delete live roots,
+normalize CR3 or relax the sole-root/alias/resource/cache checks or deadlines.
+This also gives a concrete reason the earlier alias observer could refuse;
+previous silent stops still have no proven instruction-level diagnosis.
+
+All seven frozen steps,23 census/VMM/receipt methods,197 source/return methods,
+220 adapter cases/15 controls, actual VMM tests/three controls and both exact-stage
+VM paths passed before this run. Currentf718/recovery9aa8 remain, USB is unmounted
+and no new trial is armed. Native census, GPU memory/reader ownership and
+tear-free acceptance remain open. Main4016abf0 and other PR19/379 scopes are
+unchanged; source/recipe/startup isolation is the next bounded scope.

@@ -278,3 +278,15 @@ classifier/adapter, source/return and VM gates. Host fixtures cover all4,095
 nonzero CR3 low-bit values, every original refusal reason, short-circuit read
 counts and unchanged context. Fatal sanitizer and later native acceptance are
 separate requirements; no CPU root observation accepts GPU ownership.
+
+### Native wire4 root result
+
+Runtime `08e93b36` / release `f71826d1d791bb36` returned root phase1/reason7/
+detail2: two registered nonkernel roots, before exclusion or any census alias.
+Matching exit, exact raw files, media integrity and recovery pass; the incomplete
+run is rejected. This identifies the refused predicate, not each root's identity.
+The current image reuses ordinary main and the native log confirms `/init`
+startup before the census. Existing terminal diagnostics instead defer services.
+A separate exact-recipe pre-init census entry is required before retrying its
+unchanged sole-root mapping protocol. Keep ordinary startup and all guards/
+deadlines intact; require explicit host/VM evidence that init was deferred.
