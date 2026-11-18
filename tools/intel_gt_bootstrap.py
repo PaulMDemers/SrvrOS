@@ -12,6 +12,7 @@ from intel_gt_timing import ORIGINAL,SECONDS,PRACTICAL,policy as timing_policy
 PRACTICAL_TOKEN='srvros.intel-ring=gt-bootstrap-practical-v1'
 MEMORY_TOKEN='srvros.intel-ring=gt-bootstrap-memory-v1'
 RANGE_TOKEN='srvros.intel-ring=gt-bootstrap-range-v1'
+PRIMARY_TOKEN='srvros.intel-ring=gt-bootstrap-primary-v1'
 CONTEXT_TOKEN='srvros.intel-ring=gt-bootstrap-context-v1'
 ARENA_TOKEN='srvros.intel-ring=gt-bootstrap-arena-v1'
 PROFILE='ram-usb-v1-intel-gt-bootstrap-'
@@ -34,24 +35,25 @@ def fields(line,prefix,keys,hexkeys=(),versions=(1,)):
     return result
 
 
-def _bootstrap_token(seconds,practical,memory,arena,context,range_check):
+def _bootstrap_token(seconds,practical,memory,arena,context,range_check,primary):
+    if primary and not range_check:raise ValueError("Primary receipt requires the range child")
     if range_check and (not memory or arena):raise ValueError('Range requires the isolated original memory child')
     if context and not arena:raise ValueError('Context requires original arena')
     if arena and not memory:raise ValueError('Arena requires the original memory child')
     if memory and not practical:raise ValueError("Memory composition requires practical policy")
     timing_policy(seconds=seconds,practical=practical)
-    return RANGE_TOKEN if range_check else CONTEXT_TOKEN if context else ARENA_TOKEN if arena else MEMORY_TOKEN if memory else PRACTICAL_TOKEN if practical else SECONDS_TOKEN if seconds else TOKEN
+    return PRIMARY_TOKEN if primary else RANGE_TOKEN if range_check else CONTEXT_TOKEN if context else ARENA_TOKEN if arena else MEMORY_TOKEN if memory else PRACTICAL_TOKEN if practical else SECONDS_TOKEN if seconds else TOKEN
 
 
-def bootstrap_recipe(cmd,*,seconds=False,practical=False,memory=False,arena=False,context=False,range_check=False):
-    token=_bootstrap_token(seconds,practical,memory,arena,context,range_check)
+def bootstrap_recipe(cmd,*,seconds=False,practical=False,memory=False,arena=False,context=False,range_check=False,primary=False):
+    token=_bootstrap_token(seconds,practical,memory,arena,context,range_check,primary)
     from intel_ring_entry import entry_recipe
     if not isinstance(cmd,str) or cmd.split().count(token)!=1:raise ValueError('Bootstrap exact recipe')
     return entry_recipe(cmd.replace(token,'srvros.intel-ring=entry-v1'))
 
 
-def historical_view(text,*,seconds=False,practical=False,memory=False,arena=False,context=False,range_check=False):
-    token=_bootstrap_token(seconds,practical,memory,arena,context,range_check)
+def historical_view(text,*,seconds=False,practical=False,memory=False,arena=False,context=False,range_check=False,primary=False):
+    token=_bootstrap_token(seconds,practical,memory,arena,context,range_check,primary)
     lines=text.splitlines();out=[]
     wakes=[l for l in lines if l.startswith('intel-wake-summary:')]
     if len(wakes)>1:raise ValueError('Bootstrap duplicate wake')
@@ -71,7 +73,7 @@ def historical_view(text,*,seconds=False,practical=False,memory=False,arena=Fals
     for line in lines:
         if line.startswith('intel-wake-summary:'):line=raw
         if line.startswith('laptop-capture: boot options='):
-            bootstrap_recipe(line.split('=',1)[1],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check);line=line.replace(token,'srvros.intel-ring=entry-v1')
+            bootstrap_recipe(line.split('=',1)[1],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary);line=line.replace(token,'srvros.intel-ring=entry-v1')
         line=line.replace('init: deferred=gt-bootstrap-preinit;','init: deferred=ring-entry-preinit;')
         out.append(line)
     return '\n'.join(out)
@@ -88,10 +90,10 @@ def bootstrap_result(text,*,native=False):
         return fields(selected[0],'intel-bootstrap-'+kind+':',keys,hexkeys,versions)
     def rows(kind,keys,hexkeys=()):
         return [fields(l,'intel-bootstrap-'+kind+':',keys,hexkeys) for l in lines if l.startswith('intel-bootstrap-'+kind+':')]
-    s=one('summary',SUMMARY,('root',),(1,2,3,4,5,6,7,8,9));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
+    s=one('summary',SUMMARY,('root',),(1,2,3,4,5,6,7,8,9,10));b=one('binding',BINDING,('root','mmio','policy','vendor','device'))
     r=one('reset',RESET,('changed','restored'))
     retire=one('retire','v stage guard_begin guard_end return_begin return_end final_begin final_end'.split())
-    range_check=s['v']==9;context=s['v']==8;arena=s['v'] in (7,8);memory=s['v'] in (6,7,8,9);seconds=s['v']==4;practical=s['v'] in (5,6,7,8,9);diagnostic=seconds or practical;policy=timing_policy(seconds=seconds,practical=practical);timing=None
+    primary=s['v']==10;range_check=s['v'] in (9,10);context=s['v']==8;arena=s['v'] in (7,8);memory=s['v'] in (6,7,8,9,10);seconds=s['v']==4;practical=s['v'] in (5,6,7,8,9,10);diagnostic=seconds or practical;policy=timing_policy(seconds=seconds,practical=practical);timing=None
     if diagnostic:
         timing=one('timing','v diagnostic prepare gt_phase gt hda outer hardware_phase poll_cap gt_end hda_end outer_end'.split())
         if {k:v for k,v in timing.items() if k not in ('gt_end','hda_end','outer_end')}!=dict(v=1,diagnostic=1,**policy,hardware_phase=10000,poll_cap=256):raise ValueError('Bootstrap seconds policy')
@@ -137,7 +139,7 @@ def bootstrap_result(text,*,native=False):
     kinds=['summary','binding','reset','retire']+(['timing'] if diagnostic else [])+(['maintain'] if s['v']>=3 else [])+(['admission']+['cost']*5 if s['v']>=2 else [])+['fence']*32+['control']*5+['pulse']*2+['pci']*len(pci)+['display']*len(display)
     actual=[l.split(':',1)[0].removeprefix('intel-bootstrap-') for l in lines if not l.startswith('intel-bootstrap-post-')]
     if actual!=kinds:raise ValueError('Bootstrap receipt order')
-    view=historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check)
+    view=historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary)
     from intel_ring_entry import entry_result,native_entry_result
     entry=(native_entry_result if native else entry_result)(view,seconds=seconds,practical=practical)
     from intel_completion_audit import completion_result
@@ -227,16 +229,22 @@ def bootstrap_result(text,*,native=False):
         from intel_gt_range import range_result
         range_proof=range_result(text,s,r,memory_proof,retire,owner_complete)
     elif any(l.startswith('intel-range-') for l in text.splitlines()):raise ValueError('Foreign GGTT range receipt')
+    primary_proof=None
+    if primary:
+        from intel_gt_primary import primary_result
+        primary_proof=primary_result(text,s,range_proof,retire,display)
+    elif any(l.startswith('intel-primary-') for l in text.splitlines()):raise ValueError('Foreign primary receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,
                 hardware_ownership=False,managed_pages=0,physical_tearfree=False,
-                scope='one original full-GT reset/fence restoration/new engine epoch; DMA/cache/all-reader authority unproved',**({'diagnostic_practical':True} if practical else {}),**({'diagnostic_memory':True,'memory':memory_proof} if memory else {}),**({'diagnostic_arena':True,'arena':arena_proof} if arena else {}),**({'diagnostic_context':True,'context':context_proof} if context else {}),**({'diagnostic_range':True,'range':range_proof} if range_check else {}))
+                scope='one original full-GT reset/fence restoration/new engine epoch; DMA/cache/all-reader authority unproved',**({'diagnostic_practical':True} if practical else {}),**({'diagnostic_memory':True,'memory':memory_proof} if memory else {}),**({'diagnostic_arena':True,'arena':arena_proof} if arena else {}),**({'diagnostic_context':True,'context':context_proof} if context else {}),**({'diagnostic_range':True,'range':range_proof} if range_check else {}),**({'diagnostic_primary':True,'primary':primary_proof} if primary else {}))
 
 
 def verify_bootstrap_checkpoint(pre,text,*,native=False):
     from intel_ring_entry import verify_entry_checkpoint
     seconds=any(l.startswith('intel-bootstrap-summary: v=4 ') for l in text.splitlines())
-    range_check=any(l.startswith('intel-bootstrap-summary: v=9 ') for l in text.splitlines())
+    primary=any(l.startswith('intel-bootstrap-summary: v=10 ') for l in text.splitlines())
+    range_check=primary or any(l.startswith('intel-bootstrap-summary: v=9 ') for l in text.splitlines())
     context=any(l.startswith('intel-bootstrap-summary: v=8 ') for l in text.splitlines())
     arena=context or any(l.startswith('intel-bootstrap-summary: v=7 ') for l in text.splitlines())
     memory=range_check or arena or any(l.startswith('intel-bootstrap-summary: v=6 ') for l in text.splitlines())
@@ -244,9 +252,9 @@ def verify_bootstrap_checkpoint(pre,text,*,native=False):
     for value in (pre,text):
         boots=re.findall(r'^laptop-capture: boot options=(.*)$',value,re.M)
         if len(boots)!=1:raise ValueError('Bootstrap boot provenance')
-        bootstrap_recipe(boots[0],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check)
+        bootstrap_recipe(boots[0],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary)
         if value.count('init: deferred=gt-bootstrap-preinit;')!=1 or 'init: started pid=' in value:raise ValueError('Bootstrap preinit provenance')
-    if any(l.startswith(('intel-bootstrap-','intel-range-')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
-    verify_entry_checkpoint(historical_view(pre,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check),historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check),native=native,seconds=seconds,practical=practical)
+    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
+    verify_entry_checkpoint(historical_view(pre,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary),historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary),native=native,seconds=seconds,practical=practical)
     if not bootstrap_result(text,native=native):raise ValueError('Bootstrap missing final receipt')
     return True

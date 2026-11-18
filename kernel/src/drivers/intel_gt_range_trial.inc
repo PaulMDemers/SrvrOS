@@ -11,16 +11,19 @@ static struct {
  unsigned count[2],reads,maps,retired,completed;
 } gt_range;
 
-static bool gt_range_live(unsigned phase) {
- if(phase!=gt_range.completed || !bootstrap_parent() || !wake_irq_off() ||
-  vmm_current_address_space()!=gt_bootstrap_native.root)return false;
- if(!phase)return !gt_bootstrap_native.reset.object && !gt_bootstrap_native.command_writes &&
-  gt_bootstrap_native.display_samples==1;
+static bool gt_range_post_memory(void) {
  return gt_bootstrap_native.reset.complete && gt_bootstrap_native.post_bound &&
   gt_bootstrap_native.command_writes==1 && gt_bootstrap_native.display_samples==2 &&
   gt_memory.d.state==2 && !gt_bootstrap_native.memory_child &&
   gt_memory.d.epoch==gt_bootstrap_native.g->engine_epoch &&
   gt_bootstrap_native.g->engine_epoch==gt_bootstrap_native.epoch+1;
+}
+static bool gt_range_live(unsigned phase) {
+ if(phase!=gt_range.completed || !bootstrap_parent() || !wake_irq_off() ||
+  vmm_current_address_space()!=gt_bootstrap_native.root)return false;
+ if(!phase)return !gt_bootstrap_native.reset.object && !gt_bootstrap_native.command_writes &&
+  gt_bootstrap_native.display_samples==1;
+ return gt_range_post_memory();
 }
 static bool gt_range_translation(uint64_t *physical) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST

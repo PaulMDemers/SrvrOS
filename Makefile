@@ -7118,6 +7118,30 @@ test-intel-gt-range: build/tests/intel-gt-range-adapter$(HOST_EXE) build/tests/i
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_gt_range
 test-core: test-intel-gt-range
 
+# Isolated live primary geometry after the original post-reset memory child.
+INTEL_GT_PRIMARY_FLAGS := $(INTEL_GT_RANGE_FLAGS) -DSRVROS_INTEL_GT_PRIMARY
+build/intel-gt-primary/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_PRIMARY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-primary/boot.o: kernel/src/drivers/intel_gt_boot.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_PRIMARY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-primary/range.o: $(PRIMARY_RANGE_HOST_SOURCES) $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GT_PRIMARY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-gt-primary/srvros.elf: $(INTEL_GT_MEMORY_HEAD) build/intel-gt-primary/probe.o $(INTEL_GT_MEMORY_OWNER) build/intel-gt-primary/boot.o build/intel-gt-primary/range.o $(INTEL_GT_MEMORY_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-gt-primary-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_PRIMARY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) -o $@
+build/tests/intel-gt-primary-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_GT_PRIMARY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-gt-primary
+test-intel-gt-primary: build/tests/intel-gt-primary-adapter$(HOST_EXE) build/tests/intel-gt-primary-boot$(HOST_EXE) build/tests/intel-gt-range-boot$(HOST_EXE)
+	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_gt_primary
+test-core: test-intel-gt-primary
+
 # Private CPU command arena bound to the same full-GT new epoch.
 INTEL_GT_ARENA_FLAGS := $(INTEL_GT_MEMORY_FLAGS) -DSRVROS_INTEL_GT_ARENA
 build/intel-gt-arena/main.o: kernel/src/main.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)

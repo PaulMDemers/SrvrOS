@@ -3,8 +3,9 @@
 `intel_bdw_primary_range` conservatively classifies two raw snapshots of one
 primary-A route. It computes the complete padded image and required translation
 tail, joins shared programmed/live/control fields, and checks a candidate against
-the **entire protected fence**. It is host-only arithmetic, with no I/O, callbacks,
-registered hardware owner, transfer token or GPU write. No native image links it.
+the **entire protected fence**. The arithmetic has no I/O, callbacks, transfer
+token or GPU write. The isolated wire10 diagnostic links it to a fresh native
+capture under the original full-GT owner.
 
 This resolves a layout prerequisite for the [command mapping transaction](intel-command-mapping.md).
 It does not resolve the remaining [native ownership protocol](intel-tearfree-roadmap.md).
@@ -81,13 +82,20 @@ The frozen workflow includes the fixture JSON bytes, the new classifier target
 and this suite in both development and qualification. All42 existing job slots
 remain; no previous frozen receipt is reused as qualification of changed code.
 
-A future native provider needs fresh geometry and reader state bound to the
-original held owner and actual interval before every permitted transition.
-It must separately handle previously prefetched/outstanding accesses, engine
-pipelines/caches/TLBs, firmware and other readers such as VGA/FBC/PSR. Disabled
-cursor/sprite controls do not prove their earlier requests retired, and matching
-programmed/live addresses do not prove every flip completed. The current reset,
-remapper DR/DW and System Agent invalidation have narrower documented scope.
-No new observation-only reboot is justified by this already replayable layout.
-The next native operation needs a documented completion witness, maintained
-exclusion and exact restoration/retirement under the original owner.
+## Post-maintenance wire10 capture
+
+The `intel-gt-primary-v57` profile takes two fresh source-size, primary
+geometry and reader samples after the wire9 translation comparison and before
+restoring the requester. Both samples use the same live boot owner, original
+borrow, engine epoch, CPU root and deadlines. Read-only UC aliases bracket
+each sample with display-well controls. Ten temporary aliases retire, and
+the complete 112 DWORD reads must agree with the original boot and held reset
+records. The pure checker then joins that observed display footprint to the
+full inherited fence and the prospective single slot. The receiver checks
+sample order, aliases, both raw packets and exact source provenance. A refused
+sample keeps the enclosing lifetime incomplete.
+
+A native provider still needs documented completion of outstanding and
+prefetched accesses, engine pipelines and caches, firmware, and other readers
+such as VGA, FBC and PSR. The captured control state and WC/UC observations
+leave each of those completion requirements open.

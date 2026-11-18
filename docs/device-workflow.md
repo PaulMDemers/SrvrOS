@@ -590,7 +590,7 @@ QEMU must refuse hardware
 admission before reset, PTE mapping or translation reads, save intact
 checkpoints and return with its disposable workspace. The missing-workspace
 rehearsal must halt. Both VM receipts bind the same staged manifest.
-Historical log collection recognizes bootstrap wires 1–9 paired with wake37
+Historical log collection recognizes bootstrap wires 1–10 paired with wake37
 for the existing 96 KiB limit. Unknown wire versions and ordinary sessions
 retain the 64 KiB limit.
 
@@ -601,3 +601,9 @@ session is saved to USB with a 96 KiB log limit. Clean completion returns
 to Ubuntu. If the display is unchanged for 60 seconds while exclusion is
 held, photograph it and restart manually. The collector closes complete
 preservation evidence as `DIAGNOSED`. [Preservation contract](intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9).
+
+`--profile intel-gt-primary-v57` adds two geometry and display-reader samples
+after the wire9 comparison while the original requester is inhibited. Its
+source-bound stage uses `--intel-gt-primary` and a distinct wire10 receipt.
+The workflow keeps both exact-image VM paths and accepts a clean native return
+only as a diagnostic. [Sample and footprint contract](intel-bdw-primary-range.md#post-maintenance-wire10-capture).

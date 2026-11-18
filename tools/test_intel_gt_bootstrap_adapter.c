@@ -56,6 +56,9 @@ static bool intel_display_test_range_map(uint64_t);
 static bool intel_display_test_range_read(uint32_t,uint32_t *);
 static bool intel_display_test_range_unmap(uint64_t *);
 #endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+static bool intel_display_test_primary_read(uint32_t, uint32_t *);
+#endif
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
@@ -323,6 +326,9 @@ static void intel_display_test_context_boundary(void) {
 #ifdef SRVROS_INTEL_GT_RANGE
 static uint64_t range_pa;
 static unsigned range_maps,range_reads,range_unmaps,range_aliases;
+#ifdef SRVROS_INTEL_GT_PRIMARY
+static unsigned primary_reads,primary_maps,primary_unmaps,primary_aliases;
+#endif
 static bool intel_display_test_range_translate(uint64_t *physical) {
  if(!range_pa)return false;
  *physical=range_pa;return true;
@@ -330,10 +336,25 @@ static bool intel_display_test_range_translate(uint64_t *physical) {
 static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
+#ifdef SRVROS_INTEL_GT_PRIMARY
+ if(gt_range.completed==2) {
+  if(bf("primary-alias",++primary_aliases))out->writable=1;
+  return true;
+ }
+#endif
  if(bf("range-alias",++range_aliases))out->writable=1;
  return true;
 }
 static bool intel_display_test_range_map(uint64_t physical) {
+#ifdef SRVROS_INTEL_GT_PRIMARY
+ if(gt_range.completed==2) {
+  assert(bootstrap_parent() && !range_pa && wake_irq && gpu_command==3);
+  assert(physical==0xc0045000 || physical==0xc0060000 || physical==0xc0061000 || physical==0xc0062000);
+  if(bf("primary-map",++primary_maps))return false;
+  range_pa=physical;
+  return !bf("primary-map-retained",primary_maps);
+ }
+#endif
  assert(bootstrap_parent() && !range_pa && wake_irq && (physical==0xc0802000 || physical==0xc0811000));
  if(bf("range-map",++range_maps))return false;
  range_pa=physical;return !bf("range-map-retained",range_maps);
@@ -353,8 +374,43 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
 }
 static bool intel_display_test_range_unmap(uint64_t *physical) {
  assert(bootstrap_parent() && range_pa);
+#ifdef SRVROS_INTEL_GT_PRIMARY
+ if(gt_range.completed==2) {
+  if(bf("primary-unmap",++primary_unmaps))return false;
+  *physical=range_pa;range_pa=0;return true;
+ }
+#endif
  if(bf("range-unmap",++range_unmaps))return false;
  *physical=range_pa;range_pa=0;return true;
+}
+#endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
+ static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
+ assert(gt_primary_live() && gpu_command==3);
+ unsigned page=offset&~4095u;
+ if(page>=0x70000 && page<=0x72000) {
+  assert(!range_pa);
+  unsigned pipe=(page-0x70000)/4096,i=0;
+  while(i<13 && reader_offsets[i]!=(offset&4095))++i;
+  if(i<13)*out=gt_bootstrap_native.display[1][pipe][i];
+  else {
+   assert((offset&4095)==0x188 || (offset&4095)==0x1a4);
+   *out=result.sample[1].pipe[pipe][(offset&4095)==0x188?3:5];
+  }
+ } else {
+  assert(range_pa==0xc0000000ull+page && intel_capture_offset_allowed(offset));
+  if(page==0x45000)*out=result.sample[1].well_after[(offset-0x45400)/4];
+  else {
+   assert(page>=0x60000 && page<=0x62000);
+   *out=result.sample[1].source[(page-0x60000)/4096];
+  }
+ }
+ if(bf("primary-read",++primary_reads))return false;
+ if(bf("primary-drift",primary_reads))*out^=1;
+ if(bf("primary-float",primary_reads))*out=UINT32_MAX;
+ if(bf("primary-clock",primary_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
+ return true;
 }
 #endif
 int main(int argc,char **argv) {
@@ -396,6 +452,14 @@ int main(int argc,char **argv) {
    gt_range.begin[1]>=gt_memory.d.end && gt_range.end[1]>gt_range.begin[1]);
   assert(!memcmp(gt_range.words[0],gt_range.words[1],sizeof(gt_range.words[0])));
 #endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+  assert(gt_primary.complete && gt_primary.input.samples==2 && gt_primary.reads==112 && primary_reads==112);
+  assert(gt_primary.maps==10 && gt_primary.retired==10 && primary_maps==10 && primary_unmaps==10 && !gt_primary.mapped);
+  assert(gt_primary.begin[0]>=gt_range.end[1] && gt_primary.end[0]<=gt_primary.begin[1] &&
+   gt_primary.end[1]<gt_bootstrap_native.guard_begin);
+  assert(gt_primary.result.end==5554176 && gt_primary.result.pte_end==6078464 &&
+   gt_primary.result.candidate_begin==0x2200000);
+#endif
  } else {
   if(!strcmp(bootstrap_mode,"maintain-phase"))assert(gt_bootstrap_native.g->clock_cause & GT_CLOCK_PHASE);
   assert(hit && intel_gt_wake_retained() && !display_access_allowed());
@@ -416,6 +480,14 @@ int main(int argc,char **argv) {
     bool retained=!strcmp(bootstrap_mode,"range-unmap") || !strcmp(bootstrap_mode,"range-map-retained") ||
      !strcmp(bootstrap_mode,"range-clock");
     assert((gt_range.mapped!=0)==retained);
+   }
+#endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+   if(!strncmp(bootstrap_mode,"primary-",8)) {
+    assert(gt_range.completed==2 && gt_memory.d.state==2 && bcommands==1 && gpu_command==3);
+    assert(!gt_primary.complete && !gt_bootstrap_native.returned);
+    assert((range_pa!=0)==(gt_primary.mapped!=0));
+    assert(gt_primary.mapped || gt_primary.maps==gt_primary.retired);
    }
 #endif
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE

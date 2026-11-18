@@ -481,6 +481,12 @@ static bool bootstrap_core_io(void) {
 #endif
 #include "intel_gt_range_trial.inc"
 #endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+#ifndef SRVROS_INTEL_GT_RANGE
+#error "Live primary geometry requires the held translation comparison"
+#endif
+#include "intel_gt_primary_trial.inc"
+#endif
 #ifdef SRVROS_INTEL_GT_ARENA
 #if !defined(SRVROS_INTEL_GT_MEMORY_PREPARE) || defined(SRVROS_INTEL_COMMAND_MEMORY)
 #error "Private full-GT arena needs its actual memory child, never the legacy source"
@@ -554,6 +560,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_RANGE
  if(!gt_range_capture(1))goto fail;
 #endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+ if(!gt_primary_capture())goto fail;
+#endif
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_run() || !command_returned())goto fail;
 #endif
@@ -593,7 +602,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_GT_RANGE)
+#if defined(SRVROS_INTEL_GT_PRIMARY)
+ "intel-bootstrap-summary: v=10 "
+#elif defined(SRVROS_INTEL_GT_RANGE)
  "intel-bootstrap-summary: v=9 "
 #elif defined(SRVROS_INTEL_BCS_CONTEXT)
  "intel-bootstrap-summary: v=8 "
@@ -674,5 +685,8 @@ static void bootstrap_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_RANGE
  gt_range_report();
+#endif
+#ifdef SRVROS_INTEL_GT_PRIMARY
+ gt_primary_report();
 #endif
 }

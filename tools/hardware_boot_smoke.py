@@ -14,7 +14,7 @@ import time
 import uuid
 
 import hardware_boot as boot
-from intel_gt_bootstrap import RANGE_TOKEN
+from intel_gt_bootstrap import PRIMARY_TOKEN, RANGE_TOKEN
 from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
 from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
@@ -22,9 +22,9 @@ from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_q
 HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 
 def shared_receipt(text):
-    if RANGE_TOKEN in text:
+    if PRIMARY_TOKEN in text or RANGE_TOKEN in text:
         from intel_gt_bootstrap import historical_view
-        return historical_view(text,practical=True,memory=True,range_check=True)
+        return historical_view(text,practical=True,memory=True,range_check=True,primary=PRIMARY_TOKEN in text)
     if "srvros.intel-ring=gt-bootstrap-v1" in text or "srvros.intel-ring=gt-bootstrap-seconds-v1" in text or "srvros.intel-ring=gt-bootstrap-practical-v1" in text or "srvros.intel-ring=gt-bootstrap-memory-v1" in text or "srvros.intel-ring=gt-bootstrap-arena-v1" in text or "srvros.intel-ring=gt-bootstrap-context-v1" in text:
         from intel_gt_bootstrap import historical_view
         return historical_view(text,seconds="srvros.intel-ring=gt-bootstrap-seconds-v1" in text,practical=any(t in text for t in ("srvros.intel-ring=gt-bootstrap-practical-v1","srvros.intel-ring=gt-bootstrap-memory-v1","srvros.intel-ring=gt-bootstrap-arena-v1","srvros.intel-ring=gt-bootstrap-context-v1")),memory=any(t in text for t in ("srvros.intel-ring=gt-bootstrap-memory-v1","srvros.intel-ring=gt-bootstrap-arena-v1","srvros.intel-ring=gt-bootstrap-context-v1")),arena=any(t in text for t in ("srvros.intel-ring=gt-bootstrap-arena-v1","srvros.intel-ring=gt-bootstrap-context-v1")),context="srvros.intel-ring=gt-bootstrap-context-v1" in text)
@@ -799,17 +799,21 @@ def main():
                                 assert proof and not proof['complete'] and not proof['entry']['summary']['borrowed'] and not proof['summary']['eligible'] and not proof['summary']['controls'] and not proof['summary']['resets']
                                 assert verify_nonzero_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
                                 (logs/'intel-nonzero-reset-result.json').write_text(json.dumps(proof,indent=2)+'\n')
-                            if RANGE_TOKEN in text or 'srvros.intel-ring=gt-bootstrap-v1' in text or 'srvros.intel-ring=gt-bootstrap-seconds-v1' in text or 'srvros.intel-ring=gt-bootstrap-practical-v1' in text or 'srvros.intel-ring=gt-bootstrap-memory-v1' in text or 'srvros.intel-ring=gt-bootstrap-arena-v1' in text or 'srvros.intel-ring=gt-bootstrap-context-v1' in text:
+                            if PRIMARY_TOKEN in text or RANGE_TOKEN in text or 'srvros.intel-ring=gt-bootstrap-v1' in text or 'srvros.intel-ring=gt-bootstrap-seconds-v1' in text or 'srvros.intel-ring=gt-bootstrap-practical-v1' in text or 'srvros.intel-ring=gt-bootstrap-memory-v1' in text or 'srvros.intel-ring=gt-bootstrap-arena-v1' in text or 'srvros.intel-ring=gt-bootstrap-context-v1' in text:
                                 from intel_gt_bootstrap import bootstrap_result,verify_bootstrap_checkpoint
                                 final=stored.read(folder+'/exit.log').decode()
                                 proof=bootstrap_result(final)
                                 assert proof and not proof['complete'] and not proof['summary']['issued'] and not proof['summary']['commands'] and not proof['reset']['writes']
                                 assert verify_bootstrap_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
-                                if RANGE_TOKEN in text:
-                                    assert proof['version']==9 and proof['diagnostic_range']
+                                if PRIMARY_TOKEN in text or RANGE_TOKEN in text:
+                                    assert proof['version']==(10 if PRIMARY_TOKEN in text else 9) and proof['diagnostic_range']
                                     observed=proof['range']
                                     assert not any(observed['summary'][k] for k in ('complete','maps','retired','live','reads','phase'))
                                     assert observed['vectors']==[[],[]]
+                                if PRIMARY_TOKEN in text:
+                                    assert proof['diagnostic_primary']
+                                    assert proof['primary']['vectors']==[]
+                                    assert not any(value for key,value in proof['primary']['summary'].items() if key!='v')
                                 (logs/'intel-gt-bootstrap-result.json').write_text(json.dumps(proof,indent=2)+'\n')
                             if 'srvros.intel-ring=entry-v1' in text:
                                 from intel_ring_entry import entry_result,verify_entry_checkpoint

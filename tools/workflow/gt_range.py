@@ -2,7 +2,7 @@
 import sys
 
 
-def jobs(dependencies):
+def jobs(dependencies, *, primary=False):
     outputs = ['build/tests/' + name for name in (
         'intel-gt-range-adapter', 'intel-gt-range-boot',
         'intel-gt-memory-adapter', 'intel-gt-memory-boot',
@@ -10,6 +10,10 @@ def jobs(dependencies):
         'intel-ggtt-invalidate', 'intel-ggtt-invalidate-policy',
         'exfat-driver', 'laptop-firmware-digest',
     )]
+    if primary:
+        outputs.extend('build/tests/' + name for name in (
+            'intel-gt-primary-adapter', 'intel-gt-primary-boot', 'intel-bdw-primary-range',
+        ))
     fixtures = dict(name='fixtures',
                     argv=[sys.executable, 'tools/fixture_compile.py', '--under-workflow-lock', *outputs],
                     inputs=dependencies, outputs=outputs, cache=False, timeout=1200)
@@ -24,10 +28,14 @@ def jobs(dependencies):
                       env={'SRVROS_REQUIRE_NATIVE_FIRMWARE': '1'}, timeout=300)
     range_checks = checks('range-transport', 'test_intel_gt_range', 'test_hardware_boot',
                           'test_hardware_desktop', 'test_device_workflow', timeout=300)
-    images = ('build/intel-gt-range/srvros.elf', 'build/initramfs.tar')
+    variant = 'primary' if primary else 'range'
+    images = (f'build/intel-gt-{variant}/srvros.elf', 'build/initramfs.tar')
     image = dict(name='range-image', argv=['make', *images], inputs=dependencies,
                  outputs=list(images), cache=False, timeout=1800)
     inherited = checks('original-memory', 'test_intel_gt_memory',
                        'test_intel_vtd_drain', 'test_intel_ggtt_invalidate')
-    return dict(development=[fixtures, firmware, range_checks, image],
-                qualification=[fixtures, firmware, range_checks, inherited, image])
+    shared = [fixtures, firmware, range_checks]
+    if primary:
+        shared.append(checks('primary-footprint', 'test_intel_gt_primary', 'test_intel_bdw_primary_range'))
+    return dict(development=[*shared, image],
+                qualification=[*shared, inherited, image])

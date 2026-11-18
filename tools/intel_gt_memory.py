@@ -73,10 +73,10 @@ def memory_result(text,parent,binding,reset,retire,initial,view,parent_complete)
         m0,m1=values['maintain']
         for m in (m0,m1):
             if not s['begin']<=m['begin']<=m['end']<=s['end'] or not 0<m['phase']<=m['begin'] or m['end']-m['phase']>PRACTICAL['gt_phase'] or m['after']!=m['before']+1:raise ValueError('Memory maintained original GT lease')
-        # The range child runs after this census while the same owner is held.
+        # The range and primary children run after this census under the same owner.
         # A later failure can retain the outer lease while the raw memory
         # census still contains both independently checked samples.
-        retained_range_parent=parent['v']==9 and not parent_complete and post and post['summary']['complete']
+        retained_range_parent=parent['v'] in (9,10) and not parent_complete and post and post['summary']['complete']
         if not post or not (post['observation_complete'] or retained_range_parent):raise ValueError('Memory missing post-operation census')
         p=post['summary'];first=initial['summary']
         if not m0['end']<=first['begin_us']<first['end_us']<=v['begin'] or not g['end']<=p['begin_us']<p['end_us']<=m1['begin'] or any(p[k] for k in ('enabled','pending','flip_wait','tlb_pending')):raise ValueError('Memory census clock/quiet order')
