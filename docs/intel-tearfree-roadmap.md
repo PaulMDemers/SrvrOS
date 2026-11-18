@@ -635,3 +635,13 @@ CPU mapping exclusion through pin, acquisition, check, close and unpin on both
 candidates in 24.119 ms. The hardware ownership work now centers on the
 original firmware reservation and maintained requester, engine, DMA, cache
 and reader proof. Writable CPU aliases depend on that ownership.
+
+The [native v55 ownership gate](intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result)
+completed with clean release. The first unmet condition was an explicit
+firmware transfer of the two inherited candidates. Before repeating a
+physical trial, establish how the native driver can prove ownership over its
+scanout backing. Reuse of the inherited candidates needs a verified transfer
+for those exact spans. OS-allocated backing needs ownership of a GGTT interval,
+native mapping and visibility completion, and a display transition that
+preserves the inherited surface until its readers retire. Evaluate those two
+paths before choosing the next implementation.

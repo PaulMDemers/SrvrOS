@@ -8,15 +8,24 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: original scanout ownership trial
+## Native scanout ownership gate diagnosed
 
-PR301 on main `4016abf0` covers an isolated trial of the hardware ownership
-gate while the existing CPU guard and display exclusion are held. It will
-capture the firmware endpoint and PCI requester state around a fresh display
-reader sample, then report the first unmet ownership condition and check clean
-retirement. Engine and cache operations require their original live owner.
-The trial has no target pixel or GPU control writes. The previous v54 run is
-closed as `DIAGNOSED`. PR19 and PR379 remain unrelated.
+PR301 on main `4016abf0` covers the isolated ownership gate. The native v55
+trial from `c767ee23`, release `42cdc13b60340ddd`, closed as `DIAGNOSED` in
+session `session-00066087a8a5365f-00`. Both PCI samples agreed, with bus
+mastering enabled and transaction pending clear. The 42 fresh display-reader
+words matched the earlier sample. The first unmet condition was an explicit
+firmware transfer for the two 6 MiB spans. The CPU guard closed and the display
+exclusion unpinned in 35.624 ms, with all 64 temporary aliases retired and
+zero GPU control or pixel writes.
+
+The matching session, prior USB files, offline allocation and installed
+recovery checks passed. Current `42cdc13b60340ddd` and recovery
+`9aa8dbf6fbda8252` verified after the return to Ubuntu. See the
+[native gate result](../intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result).
+The next design step is to establish a source for live scanout ownership.
+The [roadmap](../intel-tearfree-roadmap.md#existing-mapping-reservation-bridge)
+records what must be proven before a first flip.
 
 ## Native CPU mapping guard lifetime complete
 
@@ -30,7 +39,7 @@ All 59 temporary aliases retired. See the [native guard result](../intel-bdw-cpu
 
 The run is `DIAGNOSED`. Raw receipts, media preservation, all 1,621 prior USB
 files apart from expected metadata, four new logs, offline integrity and the
-installed recovery and consumed one-shot checks passed. The current release is
+installed recovery and consumed one-shot checks passed. At that checkpoint the release was
 `7daeada549485c7e` with recovery `9aa8dbf6fbda8252`. Firmware, DMA, cache and
 display-reader ownership remain prerequisites for writable scanout buffers.
 

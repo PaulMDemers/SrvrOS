@@ -458,3 +458,19 @@ snapshots describe sampled register values. Neither satisfies the handoff's
 drain and retirement obligations. The profile accesses PCI configuration
 and the already admitted display registers, with zero GPU control or target
 pixel writes. [PCI capability layout](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h).
+
+### Native v55 ownership gate result
+
+MacBookAir7,2 source `c767ee23` and release `42cdc13b60340ddd` completed
+wire8 in session `session-00066087a8a5365f-00`. The held observation took
+605 µs and the full guard interval took 35.624 ms. The whole-root walks each
+covered 110 table paths, 56,320 entries and 47,473 leaves. The two full passes
+took 546.891 and 561.282 ms, within their two-second limits.
+
+The firmware endpoints and requester registers agreed on both sides of the
+held display-reader sample. Bus mastering was enabled and the sampled
+transaction-pending bit was clear both times. All 42 reader words matched
+the earlier sample. The first unmet condition remained `firmware-transfer`
+for both candidate spans. The diagnostic retired all 64 temporary aliases
+with zero writes and returned to Ubuntu with its four logs intact. The run
+closed as `DIAGNOSED` with hardware ownership and native tear-free pending.

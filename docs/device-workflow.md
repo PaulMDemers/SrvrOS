@@ -68,6 +68,11 @@ The CPU phases use the second pass's
 remaining2-second budget; it does not restart that clock. Historical profiles
 47–54 remain readable but cannot launch the current image.
 
+The [native v55 return](intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result)
+completed the held observation and closed as `DIAGNOSED`. The collector
+preserved the missing firmware transfer as the first unmet condition and
+verified the matching logs, offline USB integrity and consumed one-shot.
+
 Read-only completion closes only as DIAGNOSED. It can report that CPU backing
 is unavailable because of a reservation/tag conflict or an existing CPU alias;
 it does not grant firmware/DMA/cache/all-reader ownership or tear-free output.

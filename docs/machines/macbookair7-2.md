@@ -15818,3 +15818,33 @@ Current `7daeada549485c7e` and recovery `9aa8dbf6fbda8252` verified.
 This run establishes the maintained CPU guard lifetime. Firmware,
 requester, engine, DMA, cache and display-reader ownership remain open for
 the writable scanout path. [Guard contract and result](../intel-bdw-cpu-backing.md#native-guard-result).
+
+## November 18 native scanout ownership gate diagnosed
+
+The automated v55/wire8/configuration9 trial
+`air-stolen-handoff-gate-20261118` used source
+`c767ee23d0551a1787a53bc24aa903ccc1956fe5`, release `42cdc13b60340ddd`,
+and matched session `session-00066087a8a5365f-00`. It returned to Ubuntu
+boot `93572673-b338-4eab-a420-640bb5ac0c7d` and closed as `DIAGNOSED`.
+
+The held ownership observation took 605 µs with unchanged firmware and
+requester samples, bus mastering enabled, and transaction pending clear.
+The 42 fresh FBC/PSR/pipe words matched the earlier reader sample. The
+first unmet condition was `firmware-transfer` for both 6 MiB candidates.
+The original guard and display pin released in 35.624 ms after three
+whole-root walks of 110 table paths, 56,320 entries and 47,473 leaves each.
+The full passes took 546.891 and 561.282 ms within the two-second limits.
+All 64 temporary aliases retired with no retained state or GPU/pixel writes.
+See the [native gate result](../intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result).
+
+Seven frozen local jobs and both exact-image QEMU paths passed before boot.
+The USB boot region and all 1,625 prior files preserved except the expected
+metadata update. Four exact new logs brought the USB to 1,629 files and
+4,670 clusters. Offline fsck, allocation, writability and headroom checks
+passed with no leaks or FAT/bitmap mismatches. The boot, preflight, exit and
+progress log sizes were 8,798, 45,819, 61,809 and 2,028 bytes. The fresh
+diagnosis also verified current/recovery (`42cdc13b60340ddd` /
+`9aa8dbf6fbda8252`), Ubuntu default and consumed one-shot state.
+The 19-file native seal is at
+`~/.local/share/srvros/evidence/scanout-gate-c767ee23/native-complete/seal.json`,
+alongside the 39-file host qualification seal.
