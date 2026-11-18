@@ -9,6 +9,7 @@ from unittest.mock import patch
 import hardware_boot as boot
 from fixture_compile import compile_fixture, recipe
 from hardware_desktop import session_log_limit
+from hardware_boot_smoke import shared_receipt
 from intel_gt_bootstrap import bootstrap_result
 from test_intel_gt_primary import run
 from test_intel_gt_range import RECIPE, ROOT, TESTS
@@ -95,6 +96,9 @@ class FlushAcknowledgements(unittest.TestCase):
             cmdline = next(line.split("cmdline:", 1)[1].strip()
                            for line in (payload / "limine.conf").read_text().splitlines() if "cmdline:" in line)
             self.assertEqual(trial_parsers("intel-gt-flush-v59")[0](cmdline), dict(release=release, volume="12345678"))
+            options = "laptop-capture: boot options=" + cmdline
+            self.assertIn("srvros.intel-ring=entry-v1", shared_receipt(options))
+            self.assertNotIn("gt-bootstrap-flush-v1", shared_receipt(options))
             with self.assertRaises(ValueError):
                 trial_parsers("intel-gt-aux-v58")[0](cmdline)
         with self.assertRaises(ValueError):

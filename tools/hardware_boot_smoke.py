@@ -14,7 +14,7 @@ import time
 import uuid
 
 import hardware_boot as boot
-from intel_gt_bootstrap import AUX_TOKEN, PRIMARY_TOKEN, RANGE_TOKEN
+from intel_gt_bootstrap import AUX_TOKEN, FLUSH_TOKEN, PRIMARY_TOKEN, RANGE_TOKEN
 from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
 from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
@@ -22,9 +22,13 @@ from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_q
 HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 
 def shared_receipt(text):
-    if AUX_TOKEN in text or PRIMARY_TOKEN in text or RANGE_TOKEN in text:
+    flush = FLUSH_TOKEN in text
+    aux = flush or AUX_TOKEN in text
+    primary = aux or PRIMARY_TOKEN in text
+    if primary or RANGE_TOKEN in text:
         from intel_gt_bootstrap import historical_view
-        return historical_view(text,practical=True,memory=True,range_check=True,primary=PRIMARY_TOKEN in text or AUX_TOKEN in text,aux=AUX_TOKEN in text)
+        return historical_view(text, practical=True, memory=True, range_check=True,
+                               primary=primary, aux=aux, flush=flush)
     if "srvros.intel-ring=gt-bootstrap-v1" in text or "srvros.intel-ring=gt-bootstrap-seconds-v1" in text or "srvros.intel-ring=gt-bootstrap-practical-v1" in text or "srvros.intel-ring=gt-bootstrap-memory-v1" in text or "srvros.intel-ring=gt-bootstrap-arena-v1" in text or "srvros.intel-ring=gt-bootstrap-context-v1" in text:
         from intel_gt_bootstrap import historical_view
         return historical_view(text,seconds="srvros.intel-ring=gt-bootstrap-seconds-v1" in text,practical=any(t in text for t in ("srvros.intel-ring=gt-bootstrap-practical-v1","srvros.intel-ring=gt-bootstrap-memory-v1","srvros.intel-ring=gt-bootstrap-arena-v1","srvros.intel-ring=gt-bootstrap-context-v1")),memory=any(t in text for t in ("srvros.intel-ring=gt-bootstrap-memory-v1","srvros.intel-ring=gt-bootstrap-arena-v1","srvros.intel-ring=gt-bootstrap-context-v1")),arena=any(t in text for t in ("srvros.intel-ring=gt-bootstrap-arena-v1","srvros.intel-ring=gt-bootstrap-context-v1")),context="srvros.intel-ring=gt-bootstrap-context-v1" in text)
@@ -799,25 +803,32 @@ def main():
                                 assert proof and not proof['complete'] and not proof['entry']['summary']['borrowed'] and not proof['summary']['eligible'] and not proof['summary']['controls'] and not proof['summary']['resets']
                                 assert verify_nonzero_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
                                 (logs/'intel-nonzero-reset-result.json').write_text(json.dumps(proof,indent=2)+'\n')
-                            if AUX_TOKEN in text or PRIMARY_TOKEN in text or RANGE_TOKEN in text or 'srvros.intel-ring=gt-bootstrap-v1' in text or 'srvros.intel-ring=gt-bootstrap-seconds-v1' in text or 'srvros.intel-ring=gt-bootstrap-practical-v1' in text or 'srvros.intel-ring=gt-bootstrap-memory-v1' in text or 'srvros.intel-ring=gt-bootstrap-arena-v1' in text or 'srvros.intel-ring=gt-bootstrap-context-v1' in text:
+                            if FLUSH_TOKEN in text or AUX_TOKEN in text or PRIMARY_TOKEN in text or RANGE_TOKEN in text or 'srvros.intel-ring=gt-bootstrap-v1' in text or 'srvros.intel-ring=gt-bootstrap-seconds-v1' in text or 'srvros.intel-ring=gt-bootstrap-practical-v1' in text or 'srvros.intel-ring=gt-bootstrap-memory-v1' in text or 'srvros.intel-ring=gt-bootstrap-arena-v1' in text or 'srvros.intel-ring=gt-bootstrap-context-v1' in text:
                                 from intel_gt_bootstrap import bootstrap_result,verify_bootstrap_checkpoint
                                 final=stored.read(folder+'/exit.log').decode()
                                 proof=bootstrap_result(final)
                                 assert proof and not proof['complete'] and not proof['summary']['issued'] and not proof['summary']['commands'] and not proof['reset']['writes']
                                 assert verify_bootstrap_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
-                                if AUX_TOKEN in text or PRIMARY_TOKEN in text or RANGE_TOKEN in text:
-                                    assert proof['version']==(11 if AUX_TOKEN in text else 10 if PRIMARY_TOKEN in text else 9) and proof['diagnostic_range']
+                                flush = FLUSH_TOKEN in text
+                                aux = flush or AUX_TOKEN in text
+                                primary = aux or PRIMARY_TOKEN in text
+                                if primary or RANGE_TOKEN in text:
+                                    assert proof['version']==(12 if flush else 11 if aux else 10 if primary else 9) and proof['diagnostic_range']
                                     observed=proof['range']
                                     assert not any(observed['summary'][k] for k in ('complete','maps','retired','live','reads','phase'))
                                     assert observed['vectors']==[[],[]]
-                                if AUX_TOKEN in text or PRIMARY_TOKEN in text:
+                                if primary:
                                     assert proof['diagnostic_primary']
                                     assert proof['primary']['vectors']==[]
                                     assert not any(value for key,value in proof['primary']['summary'].items() if key!='v')
-                                if AUX_TOKEN in text:
+                                if aux:
                                     assert proof['diagnostic_aux']
                                     assert not any(value for key,value in proof['aux']['summary'].items() if key!='v')
                                     assert not any(value for row in proof['aux']['packets'] for key,value in row.items() if key not in ('v','n'))
+                                if flush:
+                                    assert proof['diagnostic_flush'] and not proof['flush']['samples']
+                                    assert not any(value for key,value in proof['flush']['summary'].items() if key!='v')
+                                    assert not any(value for row in proof['flush']['partial'] for key,value in row.items() if key not in ('v','n'))
                                 (logs/'intel-gt-bootstrap-result.json').write_text(json.dumps(proof,indent=2)+'\n')
                             if 'srvros.intel-ring=entry-v1' in text:
                                 from intel_ring_entry import entry_result,verify_entry_checkpoint
