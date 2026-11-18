@@ -15695,3 +15695,42 @@ added. Both2-second pass deadlines remain; progress adds two named boundaries
 per pass within the existing32-update ceiling. Qualification and native evidence
 are pending for this revision. Earlier aad02/aa2c completed layout evidence
 remains historical, independently banked and does not accept the new checks.
+
+## November17 native v52 reader/cache preflight complete
+
+Final source2d7b164b / release10703e82a2760453 / v52wire5config6 / run
+ air-stolen-owner-final-20261117 / session00066083dd93046c-00 is COLLECTED then
+DIAGNOSED after fresh original raw/checkpoint/source and boot-guard replay.
+Hostboot190bed5a-a350-44e3-ad27-8658d7ecc8f6. Both passes830295/406653us <2s;
+59maps=retired,119cache,70860alias,78reader,8metadata,23552classified. Root4/0/0,
+preflight1/released1 and fail/reason/retained/writes0. Complete old/candidate
+vectors agree with earlier native geometry. No allocation or write authority.
+
+Only primaryA is active, control d8000400; all sampled primary/cursor/sprite
+bases zero, other controls zero, stable across both samples. No programmed/live
+mismatch or candidate starting-address hit. Footprints/maintained retirement
+are not established. Both complete1536-page candidates have MTRR0; existing
+PAT5=WC1 gives effectiveWC1 throughout; other slots give effectiveUC0. All32
+queries independently replay against the two raw CPU contexts. These facts do
+not create an actual CPU alias, GPU visibility, firmware lease or memory grant.
+
+All7 frozen gates/both exact VMs pass, including301actualadaptercases/17controls,
+fatalASan/UBSan/native2KiB,30 census/transport methods and197source/return tests.
+Before launch protected/current/recovery/GUI payloads were verified,1%volume,
+ACconnected and UUID37D8-C5D0 unmounted. Return preserves1613priorfiles apart
+from expected metadata and four newlogs →1617files/4655clusters; no leaks or
+FAT/bitmap mismatches. Boot8802/pre45832/exit59130/progress2028bytes match exact
+source/release/session. Offline fsck/allocation/writable/headroom/bootregion,
+Ubuntu default/consumed one-shot and installed/banked recovery checks pass.
+USB now/dev/sdb1, unmounted. Current1070/recovery9aa8 retained; no reboot armed.
+Independent19-file native seal:
+~/.local/share/srvros/evidence/stolen-owner-2d7b164b/native-complete/seal.json.
+
+The first b7e7 source qualified but was cancelled before installation to retain
+historical report shape and tighten impossible progress. Its lossless verified
+payload archive remains separate. The final parser-only revision has the same
+content release1070 but its own source/manifest identity; never confuse it with
+the cancelled run. Actual prior aad02 raw still reparses identically. No sibling
+acceptance, writable buffer or tear-free claim follows. Next implement the live
+reservation/firmware/DMA/cache/all-reader provider, actual WC alias/visibility,
+first plane transition, latch and independent old-buffer retirement.

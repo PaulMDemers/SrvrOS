@@ -610,3 +610,12 @@ frames and lifetime regressions pass. No native producer grants its rights;
 CPU aliases, first RAM store, live reader ownership and tear-free remain pending.
 The next native integration must establish the original live provider before
 wiring this bridge in; saved vectors and successful resets are insufficient.
+
+The [native v52 reader/cache preflight](intel-bdw-stolen-scanout.md#native-v52-reader-and-cache-observations-complete)
+now completes on Air7,2. Only primaryA is sampled active; existing PAT5 gives
+uniform hypothetical WC throughout both full candidates. All aliases retire
+and source/media/recovery evidence verifies. This closes those observation
+questions. Next implement the original live reservation/firmware/DMA/cache/
+all-reader provider before the first writable alias; then visibility, initial
+plane transition, latch/old-reader retirement and compositor/endurance. Stable
+snapshots and a valid cache-type combination supply no ownership right.

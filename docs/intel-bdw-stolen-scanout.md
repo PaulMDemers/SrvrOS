@@ -81,7 +81,7 @@ DWORD read checks the observer claim, GPU/BAR/command, original kernel root,
 CPU display exclusion and actual alias. Each newly mapped page is checked
 against the firmware memory map and fresh full PAT/MTRR context. Leaf PAT index3 is independently checked by the
 actual alias walk. The collector also decodes the original CPU cache snapshots
-for all26 MMIO pages at UC3; effective UC alone cannot bypass the MTRR/PAT checks.
+for all29 MMIO pages at UC3 (26 on earlier wires); effective UC alone cannot bypass the MTRR/PAT checks.
 Only previously
 admitted BAR pages are eligible. No aperture RAM is mapped. FBC_CTL43208,
 EDP PSR control/status6f800/6f840 and WOPCM1082c0 are observed, not modified.
@@ -97,7 +97,7 @@ and exclusion; there is one cleanup attempt and no blind release/retry.
 ## Trial and collection
 
 Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v52`. Historical v47/wire1 and v48/wire2 receipts remain readable,
-but cannot start a new trial with the wire3 image.
+but cannot start a new trial with the current wire5 image.
 Its manifest freezes the new image, actual-adapter and classifier fixtures,
 sanitizers, compiled weakening controls,2KiB native frames, strict transport,
 source/cache/window regressions and exact-stage QEMU save/return and
@@ -146,8 +146,8 @@ checked between operations does not interrupt a primitive that never returns.
 ## Pending-operation progress journal
 
 The diagnostic adapter now saves a separate `stolen-progress.log`, capped at4KiB
-per update and32 updates per paused logger lifetime. The normal complete route
-uses19 updates (historical wire2 used16). It never overwrites boot/session-a/exit snapshots. The caller
+per update and32 updates per paused logger lifetime. The normal wire5 complete route
+uses23 updates (wire3/4 used19 and wire2 used16). It never overwrites boot/session-a/exit snapshots. The caller
 refuses storage through a live or uncertain diagnostic MMIO alias and brackets
 held writes with the original exclusion/root identity. Normal framebuffer
 exclusion remains active. There is no display bypass or GPU writer.
@@ -392,3 +392,32 @@ to Ubuntu; uncertain alias retirement retains exclusion and halts. No input is
 needed. Historical wire1–4 and profiles47–51 remain readable with their original
 counts; only v52 may create a new trial with this image. Host/VM qualification
 is required before native testing and does not accept any ownership right.
+
+### Native v52 reader and cache observations complete
+
+Air7,2 source `2d7b164b` / release `10703e82a2760453`, final run
+`air-stolen-owner-final-20261117`, session `session-00066083dd93046c-00`
+completes both original passes in830,295/406,653us. Wire5 has the exact59
+maps/retirements,119 metadata cache checks,70,860 alias checks,78 reader loads,
+8 old metadata loads and23,552 classified PTEs. Rootphase4/reason0/detail0,
+preflight1, fail/reason/retained/writes0 and released1. The original physical
+spans and both full vectors remain equal to the earlier native census.
+
+The six reader rows are stable: primaryA control `d8000400`, other controls
+zero; all sampled surface/cursor/sprite bases zero. No programmed/live mismatch
+or candidate starting-address hit is observed. This does not bound every reader
+footprint or prevent later firmware activity.
+
+All32 whole-span queries are uniform and independently replay against both raw
+cache contexts. Each complete1536-page candidate has MTRR UC0. PAT slot5 has
+PAT WC1/effective WC1; slots0/1/2/3/4/6/7 resolve effective UC0. No PAT/MTRR change
+is needed to *describe* a hypothetical WC leaf. Creating that alias still
+requires genuine original reservation, firmware/DMA/cache/all-reader ownership,
+actual alias checks and visibility handling. No candidate pixel is written.
+
+All7 frozen jobs and both VMs pass. The matching raw/pre-init/checkpoint/source,
+prior USB contents/boot region, four exact new logs, offline fsck/allocation/
+writable/headroom and fresh recovery/default/consumed one-shot checks pass.
+Exit59,130bytes remains within64KiB. The run closes only as `DIAGNOSED`;19
+native files are independently sealed outside build. This completes the new
+read-only preflight, not hardware ownership or native tear-free scanout.

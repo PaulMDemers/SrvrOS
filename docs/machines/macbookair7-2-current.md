@@ -8,18 +8,26 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active native provider preflight
+## Native reader/cache preflight complete
 
-On baseline `4016abf0`, branch `device/macbookair7-2/tearfree`, PR301 adds
-read-only display-reader and candidate-cache observations inside the original
-pre-init census exclusion. Scope: isolated `intel_stolen_probe.c`, its actual
-adapter/transport fixtures and workflow profile. The six reader snapshots cover
-all three pipes' primary, sprite and cursor programmed/live/stereo bases; cache
-queries cover each complete candidate span at all eight PAT slots. No writable
-alias, new ownership assurance, GT writer or ordinary desktop behavior changes.
-Enabled readers and matching bases remain observations, not bounded footprints
-or maintained retirement. Existing two-second pass deadlines remain. Qualify
-locally before a source-bound automated trial; no unchanged census retry.
+Source `2d7b164b`, release `10703e82a2760453`, v52/wire5/config6, run
+`air-stolen-owner-final-20261117`, session `session-00066083dd93046c-00`
+[completes the live reader/cache diagnostic](../intel-bdw-stolen-scanout.md#native-v52-reader-and-cache-observations-complete).
+Both full census passes finish in830,295/406,653us below the unchanged2s bound;
+all59 aliases retire, with zero writes/refusals/retained resources. Only primary
+A is enabled; cursor/sprite readers are disabled, programmed/live addresses
+agree and no sampled starting address hits a candidate. Both complete6MiB
+physical spans have MTRR UC0 and effective WC1 at the existing PAT slot5.
+Other PAT slots resolve UC0. This is hypothetical CPU policy, not a writable
+alias, GPU cache/visibility guarantee or maintained reader retirement.
+
+All7 frozen jobs/both VMs, matching raw/checkpoint/source, USB preservation,
+offline integrity and fresh recovery/default/consumed-one-shot checks pass.
+The run is `DIAGNOSED`;19 native evidence files are independently sealed outside
+build. Current1070/recovery9aa8 and accepted GUI/banks remain; no reboot is
+armed. Next implement the original live firmware/DMA/cache/all-reader ownership
+provider and reservation before the first writable CPU alias. Do not repeat
+this completed snapshot or turn saved packets into live authority.
 
 ## Earlier private CPU context image milestone
 
