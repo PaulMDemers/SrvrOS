@@ -8,6 +8,18 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope: maintained CPU mapping exclusion
+
+PR301 on main4016abf0 now owns a bounded VMM reserved-span guard, reusing the
+completed whole-root observer and actual PMM reserved-tag checks. Register the
+original owner before validation; reject conflicting public mappings and new
+roots for its lifetime, and freshly validate absence before releasing it.
+In-flight mutations must block admission rather than race the first scan.
+Scope is VMM/header, actual-core tests and isolated native integration. No
+firmware/DMA/cache/reader right, writable alias or pixel store follows. PR19
+and PR379 remain unrelated after fresh inspection; no cross-chat contacts or
+parallel harnesses are authorized. The previous run is closed DIAGNOSED.
+
 ## Native CPU backing admission diagnostic complete
 
 On baseline4016abf0, PR301 adds the native provider's CPU backing guard:
