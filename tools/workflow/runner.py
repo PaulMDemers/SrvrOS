@@ -456,6 +456,8 @@ class Runner:
         payload = verify(stage, release)
         if payload['git_head'] != manifest['source'] or payload['git_dirty']:
             raise ValueError('Staged payload is not the frozen source')
+        if manifest['profile'] == 'intel-gt-range-v56' and payload.get('source_bound') is not True:
+            raise ValueError('Range payload release does not bind the frozen source')
         if payload.get('stolen_progress_version')!=manifest.get('stolen_progress_version'):
             raise ValueError('Staged progress contract differs from frozen manifest')
         recipe = next(line.split('cmdline:', 1)[1].strip() for line in (stage / 'limine.conf').read_text().splitlines() if 'cmdline:' in line)

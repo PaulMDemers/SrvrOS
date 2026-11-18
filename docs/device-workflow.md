@@ -584,7 +584,9 @@ tear-free acceptance. See the [unit evidence](machines/macbookair7-2.md#native-f
 
 `--profile intel-gt-range-v56` selects the isolated `--intel-gt-range` image
 and `gt-bootstrap-range-v1` recipe. It freezes the local Air7,2 firmware
-fixtures, host checks and exact wire9 image. QEMU must refuse hardware
+fixtures, host checks and exact wire9 image. The release ID also binds the
+source commit, including when two commits build byte-identical binaries.
+QEMU must refuse hardware
 admission before reset, PTE mapping or translation reads, save intact
 checkpoints and return with its disposable workspace. The missing-workspace
 rehearsal must halt. Both VM receipts bind the same staged manifest.

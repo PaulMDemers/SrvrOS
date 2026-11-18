@@ -34,9 +34,14 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def release_id(hashes, version=CONFIG_VERSION):
+def release_id(hashes, version=CONFIG_VERSION, *, source=None):
     # Configuration version is included so a command-line change creates a new release.
-    return hashlib.sha256((version + "\n" + json.dumps(hashes, sort_keys=True)).encode()).hexdigest()[:16]
+    key = version + "\n" + json.dumps(hashes, sort_keys=True)
+    if source is not None:
+        if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+            raise ValueError("Invalid boot payload source binding")
+        key += "\nsource=" + source
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
 def limine_config(release, version=CONFIG_VERSION):
@@ -353,7 +358,14 @@ def verify(directory, expected_release=None):
     if version not in CONFIG_VERSIONS and not (isinstance(version, str) and
             (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version) or LAPTOP_PROBE_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
-    release = release_id(payload, version)
+    source = None
+    if "source_bound" in manifest:
+        if manifest["source_bound"] is not True or not version.startswith("ram-usb-v1-intel-gt-bootstrap-range-"):
+            raise ValueError("Unexpected boot payload source binding")
+        source = manifest.get("git_head")
+        if source is None:
+            raise ValueError("Missing boot payload source binding")
+    release = release_id(payload, version, source=source)
     if manifest["release"] != release or any(
             (directory / name).read_text() != limine_config(release, version)
             for name in ("limine.conf", "loader/limine.conf")):
@@ -697,7 +709,8 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         for name, source in sources.items():
             shutil.copyfile(source, target / name)
         hashes = {name: digest(target / name) for name in sources}
-        release = release_id(hashes, version)
+        git_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        release = release_id(hashes, version, source=git_head if intel_gt_range else None)
         (target / "limine.conf").write_text(limine_config(release, version))
         # GRUB splits the EFI file path into directory and filename nodes.
         # Limine 11 reads only the first node, so it searches one level up.
@@ -706,9 +719,11 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         hashes["limine.conf"] = digest(target / "limine.conf")
         hashes["loader/limine.conf"] = hashes["limine.conf"]
         manifest = {"release": release, "sha256": hashes, "config_version": version,
-                    "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+                    "git_head": git_head,
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
         if intel_stolen_capture:manifest['stolen_progress_version']=1
+        if intel_gt_range:
+            manifest["source_bound"] = True
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         verify(target, release)
         destination = STAGE / release

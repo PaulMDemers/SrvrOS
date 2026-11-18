@@ -1,5 +1,6 @@
 """Layout and lifetime checks against the actual full-GT range adapter."""
 import base64
+import json
 from pathlib import Path
 import struct
 import subprocess
@@ -61,11 +62,18 @@ class Range(unittest.TestCase):
             with (
                 patch.object(boot, 'ROOT', root),
                 patch.object(boot, 'STAGE', stage),
-                patch.object(boot.subprocess, 'check_output', side_effect=['source', '']),
+                patch.object(boot.subprocess, 'check_output', side_effect=['a' * 40, '', 'b' * 40, '']),
             ):
                 release = boot.stage(laptop_probe_volume='12345678', intel_gt_range=True)
+                retry = boot.stage(laptop_probe_volume='12345678', intel_gt_range=True)
             payload = stage / release
-            self.assertEqual(boot.verify(payload, release)['config_version'],
+            first = boot.verify(payload, release)
+            second = boot.verify(stage / retry, retry)
+            self.assertNotEqual(release, retry)
+            self.assertTrue(first['source_bound'] and second['source_bound'])
+            self.assertEqual((first['git_head'], second['git_head']), ('a' * 40, 'b' * 40))
+            self.assertEqual(first['sha256']['srvros.elf'], second['sha256']['srvros.elf'])
+            self.assertEqual(first['config_version'],
                              'ram-usb-v1-intel-gt-bootstrap-range-laptop-probe-12345678-auto-return')
             self.assertEqual((payload / 'srvros.elf').read_text(), 'intel-gt-range/srvros.elf')
             command = next(line.split('cmdline:', 1)[1].strip()
@@ -74,6 +82,10 @@ class Range(unittest.TestCase):
             self.assertEqual(recipe(command), dict(release=release, volume='12345678'))
             self.assertIn('srvros.intel-ring=entry-v1', shared_receipt('laptop-capture: boot options=' + command))
             self.assertEqual(raw_log_limit('intel-gt-range-v56'), 98304)
+            first['git_head'] = second['git_head']
+            (payload / 'manifest.json').write_text(json.dumps(first))
+            with self.assertRaisesRegex(ValueError, 'release identity mismatch'):
+                boot.verify(payload, release)
         for others in (dict(intel_gt_memory=True), dict(intel_gt_arena=True), dict(hold_on_failure=True)):
             with self.assertRaises(ValueError):
                 boot.stage(laptop_probe_volume='12345678', intel_gt_range=True, **others)
