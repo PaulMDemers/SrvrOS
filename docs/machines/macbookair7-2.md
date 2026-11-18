@@ -3,8 +3,18 @@
 For the concise active checkpoint, use [current status](macbookair7-2-current.md).
 This journal preserves dated exact-source acceptance and historical anchors.
 
-Updated: 2026-11-17. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-18. State: **active reference machine; partial device acceptance**.
 
+## Native inherited display translation preservation
+
+2026-11-18. Source `52b27888`, release `12d3110bd495bbc2`, session
+`session-00066091337dc199-00`. The wire9 run verified all 129 entries across
+full-GT reset and memory maintenance, retired the four read-only aliases and
+returned to Ubuntu automatically. The automatic collector's older size limit
+rejected the exit log after preserving its raw bytes. The reviewed retry
+verified recovery and offline USB integrity and closed as `DIAGNOSED`. The
+raw evidence and migration were banked independently.
+[Native wire9 result](../intel-bdw-gt-bootstrap.md#native-wire9-result).
 
 
 ## Primary-plane arm and live-latch protocol implemented

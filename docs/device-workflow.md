@@ -590,6 +590,9 @@ QEMU must refuse hardware
 admission before reset, PTE mapping or translation reads, save intact
 checkpoints and return with its disposable workspace. The missing-workspace
 rehearsal must halt. Both VM receipts bind the same staged manifest.
+Historical log collection recognizes bootstrap wires 1–9 paired with wake37
+for the existing 96 KiB limit. Unknown wire versions and ordinary sessions
+retain the 64 KiB limit.
 
 The unattended native trial uses the original full-GT memory sequence.
 It compares all 128 trailing translations of the inherited display plus

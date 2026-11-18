@@ -528,6 +528,23 @@ Equality across reset and maintenance is preservation evidence. Establishing
 actual pipeline, cache and display-reader completion still precedes a writable
 interval.
 
+#### Native wire9 result
+
+MacBookAir7,2 completed release `12d3110bd495bbc2` on source `52b27888` and
+returned to Ubuntu automatically. Both 129-entry vectors matched exactly.
+The samples took 791 µs and 800 µs, read 774 DWORDs in total and retired all
+four read-only aliases. Preparation completed in 221.0 ms and the enclosing
+trial in 452.5 ms under the diagnostic policy. The original stricter timing
+qualification remains pending.
+
+The automatic collector initially applied its 64 KiB limit to the 73,585-byte
+exit log. The raw copy survived. A reviewed collection retry restored the
+intended 96 KiB bound for wire9 with wake37, then verified the matching
+checkpoint, unchanged USB contents outside the new logs and expected workspace
+metadata, offline filesystem integrity and Ubuntu recovery. The run closed
+as `DIAGNOSED`. Native write ownership and physical tear-free scanout remain
+pending.
+
 #### Provider boundary qualification
 
 During wire6 qualification the candidate passed all30 prior gates, then the exhaustive child

@@ -675,5 +675,5 @@ PTE store. [Linux v6.12 GGTT insertion](https://github.com/torvalds/linux/blob/v
 The [wire9 preservation image](intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9)
 adds exact comparison of the inherited display's 128 trailing translations
 and one prospective slot before reset and after original memory maintenance.
-This extends the native preservation check beyond the padded image pages.
-Physical qualification and a live ownership provider remain open.
+The MacBookAir7,2 matched both vectors and retired all four read-only aliases.
+A live ownership provider and physical flip qualification remain open.

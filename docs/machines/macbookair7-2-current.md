@@ -8,22 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: preserve the inherited display translation tail
+## Native preservation of the inherited display translation tail
 
-The next trial block on main `4016abf0` adds the separate wire9 staging,
-VM and return-collection paths to PR301. It will verify the frozen image
-and Ubuntu recovery before launching the unattended MacBookAir7,2
-preservation test at 1% volume. The test uses the original reset and memory
-operations with the additional read-only translation check.
-
-On main `4016abf0`, PR301 extends the isolated full-GT memory owner with
-a read-only pre/post check of all 128 inherited display-tail PTEs and one
-prospective GGTT slot. The separate wire9 image links, and the host adapter
-and strict decoder check both original entry routes, drift at every sampled
-entry and mapping, retirement and clock failures. The native trial uses the new
-`intel-gt-range-v56` profile and requires exact-image VM qualification. Pipeline, cache and
-display-reader completion remain prerequisites for a PTE write. See the
-[preservation contract](../intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9).
+PR301 release `12d3110bd495bbc2` completed the wire9 trial and returned to
+Ubuntu automatically. The 128 inherited display-tail PTEs and one prospective
+GGTT slot matched before and after reset and memory maintenance. Both
+exact-image VM checks and all nine local validation jobs passed. The initial
+collection needed a read-limit correction for wire9. The reviewed collection
+verified the raw checkpoint and USB integrity and closed as `DIAGNOSED`.
+Pipeline, cache and display-reader completion remain prerequisites for a PTE
+write. See the [native result](../intel-bdw-gt-bootstrap.md#native-wire9-result).
 
 ## Bind GGTT publication to the transferred entries
 
