@@ -80,10 +80,10 @@ static bool encode(void *ctx,uint64_t pa,uint64_t *out) {
 }
 static bool guard(void *ctx) {assert(ctx==&model);return scanout_transfer_check(&transfer,&token);}
 static bool read_entry(void *ctx,uint32_t index,uint64_t *out) {
-    assert(ctx==&model && index>=8704 && index<11416);model.reads++;*out=table[index];return true;
+    assert(ctx==&model && index>=model.first && index<model.first+model.pages);model.reads++;*out=table[index];return true;
 }
 static bool write_entry(void *ctx,uint32_t index,uint64_t value) {
-    assert(ctx==&model && index>=8704 && index<11416);table[index]=value;
+    assert(ctx==&model && index>=model.first && index<model.first+model.pages);table[index]=value;
     return ++model.writes!=model.write_fail;
 }
 static bool flush(void *ctx) {assert(ctx==&model);model.flushes++;return true;}
@@ -91,12 +91,13 @@ static bool readers(void *ctx) {assert(ctx==&model);return !model.pending;}
 static struct scanout_memory_binding binding(void) {
     return (struct scanout_memory_binding){&model,encode,{&model,guard,read_entry,write_entry,flush,readers,now}};
 }
-static void memory(struct scanout_memory *m,struct scanout_memory_token *out) {
+static void memory(struct scanout_memory *m,struct scanout_memory_token *out,uint32_t tail_pages) {
     struct scanout_memory_layout layout;
-    assert(model.memory_pages==1?scanout_memory_layout(1,1,64,false,&layout):scanout_memory_layout(1440,900,6144,true,&layout));
-    assert(scanout_memory_create(m,&memories,7,&layout,0x100000000ull,
+    assert(model.memory_pages==1?scanout_memory_layout(1,1,64,false,&layout):
+        scanout_memory_layout(1440,900,6144,!tail_pages,&layout));
+    assert(scanout_memory_create_with_tail(m,&memories,7,&layout,tail_pages,0x100000000ull,
         (struct scanout_memory_io){&model,allocate,backing,release},out));
-    assert(scanout_memory_prepare(m,out,&transfer.space,&publications,1,binding()));
+    assert(scanout_memory_prepare(m,out,&transfer.space,&publications,tail_pages?64:1,binding()));
 }
 static void close_clean(void) {
     assert(scanout_transfer_close(&transfer,&token));
@@ -110,6 +111,11 @@ static void close_clean(void) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];setup();
+    bool linear_tail=!strcmp(mode,"linear-tail");
+    if(linear_tail) {
+        model.memory_pages=1478;
+        model.pages=manifest.pages=3014;
+    }
     if(!strcmp(mode,"other-pin")){assert(display_access_pin(&exclusion));model.other_pin=true;}
     if(!strcmp(mode,"one-page"))model.memory_pages=model.pages=manifest.pages=1;
     if(!strcmp(mode,"capacity") || !strcmp(mode,"last-aperture-page")) {
@@ -208,16 +214,16 @@ int main(int argc,char **argv) {
         puts("PASS failed retirement keeps exclusion");return 0;
     }
     if(!strcmp(mode,"one-page")) {
-        memory(&a,&at);assert(a.range.first==8704 && a.range.pages==1);
+        memory(&a,&at,0);assert(a.range.first==8704 && a.range.pages==1);
         assert(scanout_memory_apply(&a,&at));assert(table[8704]==(a.physical|1));
         assert(!scanout_transfer_close(&transfer,&token) && !model.calls[TRANSFER_RETIRE]);
         assert(scanout_memory_close(&a,&at) && model.releases==1 && table[8704]==input[0]);
         assert(model.writes==2 && model.flushes==2);
     }
-    if(!strcmp(mode,"full-buffers") || !strcmp(mode,"partial-write") || !strcmp(mode,"pending-readers") ||
+    if(linear_tail || !strcmp(mode,"full-buffers") || !strcmp(mode,"partial-write") || !strcmp(mode,"pending-readers") ||
        !strcmp(mode,"partial-restore") || !strcmp(mode,"lost-mapped-owner")) {
-        memory(&a,&at);memory(&b,&bt);
-        assert(a.range.first==8704 && b.range.first==10060);
+        memory(&a,&at,linear_tail?128:0);memory(&b,&bt,linear_tail?128:0);
+        assert(a.range.first==8704 && b.range.first==(linear_tail?10240:10060));
         if(!strcmp(mode,"partial-write"))model.write_fail=1356;
         bool published=scanout_memory_apply(&a,&at);
         if(!strcmp(mode,"partial-write")) {
@@ -227,6 +233,15 @@ int main(int argc,char **argv) {
             assert(!display_access_release(&transfer.exclusion,true));puts("PASS uncertain mapping retains RAM/range/exclusion");return 0;
         }
         assert(published && scanout_memory_apply(&b,&bt));
+        if(linear_tail) {
+            assert(a.range.pages==1478 && b.range.pages==1478 && b.physical==a.physical+1478*4096ull);
+            for(unsigned i=0;i<1478;i++) {
+                assert(table[a.range.first+i]==(a.physical+(uint64_t)i*4096+1));
+                assert(table[b.range.first+i]==(b.physical+(uint64_t)i*4096+1));
+            }
+            for(uint32_t i=a.range.first+a.range.pages;i<b.range.first;i++)
+                assert(table[i]==input[i-model.first]);
+        }
         if(!strcmp(mode,"partial-restore") || !strcmp(mode,"lost-mapped-owner")) {
             if(!strcmp(mode,"partial-restore"))model.write_fail=model.writes+1356;
             else model.source_epoch++;
@@ -237,9 +252,9 @@ int main(int argc,char **argv) {
         unsigned calls=model.calls[TRANSFER_RETIRE];
         assert(!scanout_transfer_close(&transfer,&token) && transfer.state==TRANSFER_CLOSING);
         assert(model.calls[TRANSFER_RETIRE]==calls);
-        assert(scanout_transfer_original(&transfer,&token,11415,&value));
+        assert(scanout_transfer_original(&transfer,&token,model.first+model.pages-1,&value));
         struct scanout_space_token third;assert(!scanout_space_reserve(&transfer.space,7,transfer.arena_epoch,1,1,&third));
-        if(!strcmp(mode,"pending-readers")) {
+        if(linear_tail || !strcmp(mode,"pending-readers")) {
             model.pending=true;unsigned writes=model.writes;
             assert(!scanout_memory_close(&a,&at) && model.writes==writes && !model.releases);
             assert(!scanout_transfer_close(&transfer,&token) && model.calls[TRANSFER_RETIRE]==calls);
@@ -248,7 +263,7 @@ int main(int argc,char **argv) {
         assert(scanout_memory_close(&a,&at) && model.releases==1);
         assert(!scanout_transfer_close(&transfer,&token) && model.calls[TRANSFER_RETIRE]==calls);
         assert(scanout_memory_close(&b,&bt) && model.releases==2 && model.flushes==4);
-        for(unsigned i=0;i<2712;i++)assert(table[8704+i]==transfer.original[i]);
+        for(unsigned i=0;i<model.pages;i++)assert(table[model.first+i]==transfer.original[i]);
     }
     struct scanout_transfer_token stale=token;
     close_clean();

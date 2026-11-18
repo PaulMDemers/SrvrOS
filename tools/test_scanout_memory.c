@@ -11,6 +11,7 @@ static struct scanout_memory_token token;
 static struct scanout_memory_layout layout;
 static struct {
     uint64_t entries[SCANOUT_SPACE_PAGES],time,physical;
+    uint32_t tail_pages;
     unsigned alloc,valid,release,encode,write,flush,readers,operation,fail_at,fail_write_at;
     bool pending,release_fail,allocate_fail,validate_fail,reenter;
 } model;
@@ -24,16 +25,16 @@ static bool step(void) {
     return model.operation!=model.fail_at;
 }
 static uint64_t allocate(void *ctx,uint32_t pages) {
-    assert(ctx==&model && pages==layout.pages);model.alloc++;assert(a.busy);
+    assert(ctx==&model && pages==layout.pages+model.tail_pages);model.alloc++;assert(a.busy);
     if(!step() || model.allocate_fail)return 0;
     return model.physical;
 }
 static bool validate(void *ctx,uint64_t pa,uint32_t pages) {
-    assert(ctx==&model && pa==model.physical && pages==layout.pages);model.valid++;
+    assert(ctx==&model && pa==model.physical && pages==layout.pages+model.tail_pages);model.valid++;
     return step() && !model.validate_fail;
 }
 static bool release(void *ctx,uint64_t pa,uint32_t pages) {
-    assert(ctx==&model && pa==model.physical && pages==layout.pages);model.release++;
+    assert(ctx==&model && pa==model.physical && pages==layout.pages+model.tail_pages);model.release++;
     assert(!a.range.object && (!a.publication.exposed || a.publication.state==PUB_RETIRED));
     return step() && !model.release_fail;
 }
@@ -69,7 +70,72 @@ static void arena(void) {
     struct scanout_space_range grant={0,SCANOUT_SPACE_PAGES},protect={0,8704};
     assert(scanout_space_open(&space,&spaces,7,SCANOUT_SPACE_PAGES,&grant,1,&protect,1));
 }
+static void padded_setup(uint64_t limit) {
+    setup(false);
+    model.tail_pages=128;
+    assert(scanout_memory_layout(1440,900,6144,false,&layout));
+    assert(layout.pages==1350 && layout.bytes==5529600);
+    assert(scanout_memory_create_with_tail(&a,&pool,7,&layout,model.tail_pages,limit,allocator(),&token));
+    assert(a.layout.pages==1350 && a.backing_pages==1478);
+}
+static void translation_tail(void) {
+    const uint32_t pages=1478,first=8704;
+    const uint64_t bytes=(uint64_t)pages*4096;
+    padded_setup(0x100000+bytes);
+    struct scanout_memory_cpu cpu;
+    assert(scanout_memory_cpu_begin(&a,&token,&cpu) && cpu.bytes==bytes);
+    struct scanout_memory_cpu short_borrow=cpu;
+    short_borrow.bytes=layout.bytes;
+    assert(!scanout_memory_cpu_end(&a,&short_borrow));
+    assert(scanout_memory_cpu_end(&a,&cpu));
+
+    struct scanout_space_range image_only={first,layout.pages};
+    assert(scanout_space_open(&space,&spaces,7,SCANOUT_SPACE_PAGES,&image_only,1,NULL,0));
+    assert(!scanout_memory_prepare(&a,&token,&space,&publications,64,binding()));
+    assert(!a.range.object && !model.encode && !model.write);
+    assert(scanout_space_close(&space,7,space.epoch));
+    arena();
+    assert(scanout_memory_prepare(&a,&token,&space,&publications,64,binding()));
+    assert(a.range.first==first && a.range.pages==pages && a.publication.pages==pages && model.encode==pages);
+    struct scanout_space_token next;
+    assert(scanout_space_reserve(&space,7,space.epoch,pages,64,&next));
+    assert(next.first==10240 && next.first>=a.range.first+a.range.pages);
+    assert(scanout_space_release(&space,&next));
+    assert(scanout_memory_apply(&a,&token));
+    for(uint32_t i=0;i<pages;i++)
+        assert(model.entries[first+i]==(model.physical+(uint64_t)i*4096+1));
+    model.pending=true;
+    assert(!scanout_memory_close(&a,&token) && !model.release && model.write==pages);
+    model.pending=false;
+    assert(scanout_memory_close(&a,&token) && model.release==1 && model.write==2*pages);
+    for(uint32_t i=0;i<=pages;i++)
+        assert(model.entries[first+i]==0x200000001ull+(uint64_t)(first+i)*4096);
+
+    const uint32_t tail_edges[]={1351,pages};
+    for(unsigned i=0;i<sizeof tail_edges/sizeof tail_edges[0];i++) {
+        padded_setup(0x100000000ull);arena();
+        assert(scanout_memory_prepare(&a,&token,&space,&publications,64,binding()));
+        model.fail_write_at=tail_edges[i];
+        assert(!scanout_memory_apply(&a,&token) && space.state==SPACE_FAULT);
+        assert(!scanout_memory_close(&a,&token) && !model.release);
+
+        padded_setup(0x100000000ull);arena();
+        assert(scanout_memory_prepare(&a,&token,&space,&publications,64,binding()));
+        assert(scanout_memory_apply(&a,&token));
+        model.fail_write_at=pages+tail_edges[i];
+        assert(!scanout_memory_close(&a,&token) && space.state==SPACE_FAULT && !model.release);
+    }
+    setup(false);
+    struct scanout_memory_token sentinel={0};
+    assert(!scanout_memory_create_with_tail(&a,&pool,7,&layout,UINT32_MAX,0x100000000ull,allocator(),&sentinel));
+    assert(!scanout_memory_create_with_tail(&a,&pool,7,&layout,128,128*4096,allocator(),&sentinel));
+    assert(!model.alloc && !sentinel.object && !pool.epoch);
+    model.tail_pages=128;
+    assert(!scanout_memory_create_with_tail(&a,&pool,7,&layout,128,model.physical+129*4096-1,allocator(),&sentinel));
+    assert(model.alloc==1 && a.state==MEM_FAULT && !model.valid && !model.release);
+}
 int main(void) {
+    translation_tail();
     setup(true);assert(layout.visible_bytes==5529600 && layout.bytes==5554176 && layout.rows==904 && layout.pages==1356);
     struct scanout_memory_layout saved=layout;
     assert(!scanout_memory_layout(1440,900,6145,true,&layout) && !memcmp(&saved,&layout,sizeof layout));
@@ -145,6 +211,6 @@ int main(void) {
     assert(!model.alloc && !memcmp(&sentinel,&unchanged,sizeof sentinel));
     assert(!scanout_memory_create(&a,(struct scanout_memory_pool *)&a,7,&layout,0x100000000ull,allocator(),&sentinel));
     assert(!scanout_memory_create(&a,&pool,7,&layout,0x100000000ull,allocator(),(struct scanout_memory_token *)&a));
-    printf("scanout-memory: PASS padded1356-page storage, joined publication/restore, pending readers, CPU borrow/close, copies/stale/reentry, %u callback and1356 partial-write failures\n",operations);
+    printf("scanout-memory: PASS 128-entry translation tail, padded1356-page storage, joined publication/restore, pending readers, CPU borrow/close, copies/stale/reentry, %u callback and1356 partial-write failures\n",operations);
     return 0;
 }

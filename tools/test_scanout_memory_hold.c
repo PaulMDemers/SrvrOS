@@ -10,6 +10,7 @@ static bool drift_validate(void *ctx,uint64_t physical,uint32_t pages) {
  if(drift==3)held.lifetime=&other;
  if(drift==4)held.dependent=held.registered=&other;
  if(drift==5)a.publication.object=&a.publication;
+ if(drift==6)a.backing_pages--;
  return ok;
 }
 static void start(void) {
@@ -68,5 +69,13 @@ int main(void) {
   }
   assert(!scanout_memory_close(&a,&token) && !model.release);
  }
+ padded_setup(0x100000000ull);memset(&held,0,sizeof held);
+ assert(scanout_memory_hold_begin(&a,&token,&held));
+ assert(held.layout.pages==1350 && held.bytes==1478*4096ull);
+ assert(scanout_memory_hold_end(&held) && scanout_memory_close(&a,&token));
+ padded_setup(0x100000000ull);memset(&held,0,sizeof held);
+ a.allocator.validate=drift_validate;drift=6;
+ assert(!scanout_memory_hold_begin(&a,&token,&held));
+ assert(a.state==MEM_FAULT && !held.object && !model.release);
  puts("scanout-memory-hold: PASS original registration, close drain, copy/stale/refusal, reentry, backing loss and no premature RAM release");
 }

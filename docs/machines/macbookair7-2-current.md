@@ -10,13 +10,14 @@ tear-free scanout is still pending.
 
 ## Active scope: OS-allocated scanout backing
 
-On main `4016abf0`, PR301 will qualify the backing and translation lifetime
-for private scanout buffers using the existing scanout memory, space and
-publication cores. The Broadwell surface needs an additional 128 translations
-kept with each mapping through verified retirement. The first checkpoint is
-host validation of that lifecycle and its refusal paths. The native GGTT
-interval owner, cache/DMA completion and first live plane transition remain
-dependencies. The Wi-Fi and WebCore PRs do not touch this scope.
+On main `4016abf0`, PR301 adds an explicit translation tail to the existing
+private scanout allocation, mapping and retirement path. The Air7,2 linear
+surface has 1,350 image pages and 128 tail pages per buffer. The host fixture
+uses two independently backed buffers with aligned GPU bases and verifies
+exact restoration across the full interval before releasing the owner.
+The native GGTT interval owner, cache/DMA completion and first live plane
+transition remain dependencies. See the
+[private backing contract](../scanout-memory.md#broadwell-translation-tail).
 
 ## Native scanout ownership gate diagnosed
 

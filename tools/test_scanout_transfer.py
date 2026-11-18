@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODES = """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close
-clock-close changed-close full-buffers partial-write pending-readers reuse
+clock-close changed-close full-buffers linear-tail partial-write pending-readers reuse
 capacity last-aperture-page one-page partial-restore lost-mapped-owner other-pin""".split()
 
 class TransferTests(unittest.TestCase):

@@ -42,6 +42,7 @@ struct scanout_memory {
     struct scanout_publication publication;
     struct scanout_publish_token publication_token;
     uint64_t entries[SCANOUT_PUBLISH_PAGES];
+    uint32_t backing_pages;
     uint32_t state,error,allocations,release_attempts,releases;
     struct scanout_memory_hold *dependent;
     const struct scanout_memory_hold *registered;
@@ -73,6 +74,12 @@ bool scanout_memory_hold_end(struct scanout_memory_hold *);
  * fresh pool epoch. Outputs/pool must not alias the object. */
 bool scanout_memory_create(struct scanout_memory *,struct scanout_memory_pool *,uint64_t owner,
     const struct scanout_memory_layout *,uint64_t physical_limit,struct scanout_memory_io,struct scanout_memory_token *);
+/* Allocate an image plus a separately counted, physically backed translation
+ * tail. The CPU borrow, address lease, PTE vector and retirement cover the
+ * whole allocation. The image layout still describes only the surface. */
+bool scanout_memory_create_with_tail(struct scanout_memory *,struct scanout_memory_pool *,uint64_t owner,
+    const struct scanout_memory_layout *,uint32_t tail_pages,uint64_t physical_limit,struct scanout_memory_io,
+    struct scanout_memory_token *);
 bool scanout_memory_cpu_begin(struct scanout_memory *,const struct scanout_memory_token *,struct scanout_memory_cpu *);
 bool scanout_memory_cpu_end(struct scanout_memory *,const struct scanout_memory_cpu *);
 /* Requires an ALREADY admitted original address-space owner and its live guard.

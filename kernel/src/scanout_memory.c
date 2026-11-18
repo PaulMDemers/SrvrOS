@@ -22,28 +22,37 @@ static bool fault(struct scanout_memory *m,unsigned why) {
     return false;
 }
 static bool backing(struct scanout_memory *m) {
-    if(!m->allocator.validate(m->allocator.ctx,m->physical,m->layout.pages))return fault(m,MEM_BACKING);
+    if(!m->allocator.validate(m->allocator.ctx,m->physical,m->backing_pages))return fault(m,MEM_BACKING);
     return true;
 }
 bool scanout_memory_create(struct scanout_memory *m,struct scanout_memory_pool *pool,uint64_t owner,
     const struct scanout_memory_layout *layout,uint64_t limit,struct scanout_memory_io io,struct scanout_memory_token *out) {
+    return scanout_memory_create_with_tail(m,pool,owner,layout,0,limit,io,out);
+}
+bool scanout_memory_create_with_tail(struct scanout_memory *m,struct scanout_memory_pool *pool,uint64_t owner,
+    const struct scanout_memory_layout *layout,uint32_t tail_pages,uint64_t limit,
+    struct scanout_memory_io io,struct scanout_memory_token *out) {
     if(!m || (m->object && m->object!=m) || m->busy || m->dependent || m->registered || m->hold_serial || (m->state!=MEM_EMPTY && m->state!=MEM_RELEASED) ||
        !owner || !layout || !io.allocate || !io.validate || !io.release || aliases(pool,sizeof(*pool),m) ||
        aliases(out,sizeof(*out),m) || pool->epoch==UINT64_MAX || pool->epoch<m->epoch)return false;
     struct scanout_memory_layout checked;
     if(layout->tiled>1 || !scanout_memory_layout(layout->width,layout->height,layout->pitch,layout->tiled,&checked) ||
        layout->rows!=checked.rows || layout->bytes!=checked.bytes || layout->visible_bytes!=checked.visible_bytes ||
-       layout->pages!=checked.pages || checked.pages>limit/4096)return false;
+       layout->pages!=checked.pages || tail_pages>SCANOUT_PUBLISH_PAGES-checked.pages)return false;
+    uint32_t pages=checked.pages+tail_pages;
+    uint64_t bytes=(uint64_t)pages*4096;
+    if(bytes>limit)return false;
     uint64_t epoch=pool->epoch+1;
     /* Clear directly in owned storage, never by copying a large stack object.
      * Capture all small inputs before clearing possible caller aliases. */
     unsigned char *p=(unsigned char *)m;
     for(uint64_t i=0;i<sizeof(*m);i++)p[i]=0;
     m->object=m;m->epoch=epoch;pool->epoch=epoch;m->owner=owner;m->layout=checked;m->allocator=io;
+    m->backing_pages=pages;
     m->state=MEM_ALLOCATING;m->busy=true;
-    m->allocations=1;m->physical=io.allocate(io.ctx,checked.pages);
+    m->allocations=1;m->physical=io.allocate(io.ctx,pages);
     if(!m->physical){m->state=MEM_RELEASED;m->error=MEM_ALLOC;m->busy=false;return false;}
-    if((m->physical&4095) || m->physical>limit-(uint64_t)checked.pages*4096)return fault(m,MEM_BACKING);
+    if((m->physical&4095) || m->physical>limit-bytes)return fault(m,MEM_BACKING);
     if(!backing(m))return false;
     m->state=MEM_RAM;m->busy=false;*out=(struct scanout_memory_token){m,epoch,owner};return true;
 }
@@ -51,11 +60,11 @@ bool scanout_memory_cpu_begin(struct scanout_memory *m,const struct scanout_memo
     if(!auth(m,t) || m->state!=MEM_RAM || m->closing || m->dependent || m->registered || m->hold_serial || m->cpu_serial || m->range.object ||
        m->serial==UINT64_MAX || aliases(out,sizeof(*out),m))return false;
     m->busy=true;if(!backing(m))return false;
-    m->cpu_serial=++m->serial;*out=(struct scanout_memory_cpu){*t,m->cpu_serial,m->physical,(uint64_t)m->layout.pages*4096};m->busy=false;return true;
+    m->cpu_serial=++m->serial;*out=(struct scanout_memory_cpu){*t,m->cpu_serial,m->physical,(uint64_t)m->backing_pages*4096};m->busy=false;return true;
 }
 bool scanout_memory_cpu_end(struct scanout_memory *m,const struct scanout_memory_cpu *cpu) {
     if(!cpu || !auth(m,&cpu->memory) || m->state!=MEM_RAM || !m->cpu_serial ||
-       cpu->serial!=m->cpu_serial || cpu->physical!=m->physical || cpu->bytes!=(uint64_t)m->layout.pages*4096)return false;
+       cpu->serial!=m->cpu_serial || cpu->physical!=m->physical || cpu->bytes!=(uint64_t)m->backing_pages*4096)return false;
     m->busy=true;if(!backing(m))return false;
     m->cpu_serial=0;m->busy=false;return true;
 }
@@ -65,12 +74,13 @@ bool scanout_memory_prepare(struct scanout_memory *m,const struct scanout_memory
        space->object!=space || space->state!=SPACE_ACTIVE || space->owner!=m->owner || !pool ||
        aliases(pool,sizeof(*pool),m) || aliases(space,sizeof(*space),m) || !binding.encode)return false;
     m->busy=true;if(!backing(m))return false;
-    if(!scanout_space_reserve(space,m->owner,space->epoch,m->layout.pages,align,&m->range)){m->busy=false;return false;}
+    uint32_t pages=m->backing_pages;
+    if(!scanout_space_reserve(space,m->owner,space->epoch,pages,align,&m->range)){m->busy=false;return false;}
     m->space=space;
-    for(uint32_t i=0;i<m->layout.pages;i++)if(!binding.encode(binding.ctx,m->physical+(uint64_t)i*4096,&m->entries[i])) {
+    for(uint32_t i=0;i<pages;i++)if(!binding.encode(binding.ctx,m->physical+(uint64_t)i*4096,&m->entries[i])) {
         m->error=MEM_MAPPING;m->busy=false;return false;
     }
-    bool ok=scanout_publish_prepare(&m->publication,pool,m->owner,space,&m->range,m->entries,m->layout.pages,
+    bool ok=scanout_publish_prepare(&m->publication,pool,m->owner,space,&m->range,m->entries,pages,
         &binding.publication,&m->publication_token);
     if(!ok){m->error=MEM_MAPPING;m->busy=false;return false;}
     if(!backing(m))return false;
@@ -101,7 +111,7 @@ bool scanout_memory_close(struct scanout_memory *m,const struct scanout_memory_t
     m->range.object=0;
     if(!backing(m))return false;
     m->release_attempts++;
-    if(!m->allocator.release(m->allocator.ctx,m->physical,m->layout.pages))return fault(m,MEM_RELEASE);
+    if(!m->allocator.release(m->allocator.ctx,m->physical,m->backing_pages))return fault(m,MEM_RELEASE);
     m->releases++;m->state=MEM_RELEASED;m->busy=false;return true;
 }
 static bool layout_same(const struct scanout_memory_layout *a,const struct scanout_memory_layout *b) {
@@ -115,7 +125,7 @@ static bool hold_identity(const struct scanout_memory_hold *h) {
        m->state!=MEM_RAM || m->error || m->cpu_serial || m->range.object || m->publication.exposed ||
        m->publication.object || m->publication.state!=PUB_EMPTY ||
        m->dependent!=h || m->registered!=h || !h->serial || m->serial!=h->serial || m->hold_serial!=h->serial ||
-       m->physical!=h->physical || h->bytes!=(uint64_t)m->layout.pages*4096 ||
+       m->physical!=h->physical || h->bytes!=(uint64_t)m->backing_pages*4096 ||
        m->allocator.ctx!=h->allocator.ctx || m->allocator.allocate!=h->allocator.allocate ||
        m->allocator.validate!=h->allocator.validate || m->allocator.release!=h->allocator.release ||
        m->release_attempts || m->releases || m->allocations!=1)return false;
@@ -131,17 +141,18 @@ bool scanout_memory_hold_begin(struct scanout_memory *m,const struct scanout_mem
     struct scanout_memory_token captured=*t;
     struct scanout_memory_io allocator=m->allocator;
     struct scanout_memory_layout layout=m->layout;
+    uint32_t pages=m->backing_pages;
     uint64_t physical=m->physical,serial=m->serial;
     m->busy=true;
     if(!backing(m))return false;
-    if(m->object!=m || m->epoch!=captured.epoch || m->owner!=captured.owner || m->physical!=physical ||
+    if(m->object!=m || m->epoch!=captured.epoch || m->owner!=captured.owner || m->physical!=physical || m->backing_pages!=pages ||
        m->serial!=serial || !m->busy || m->closing || m->state!=MEM_RAM || m->error ||
        m->dependent || m->registered || m->hold_serial || m->cpu_serial || m->range.object ||
        m->publication.object || m->publication.state!=PUB_EMPTY || m->publication.exposed || m->release_attempts || m->releases ||
        m->allocator.ctx!=allocator.ctx || m->allocator.allocate!=allocator.allocate ||
        m->allocator.validate!=allocator.validate || m->allocator.release!=allocator.release || !layout_same(&m->layout,&layout))return fault(m,MEM_BACKING);
     *h=(struct scanout_memory_hold){.object=h,.memory=captured,.allocator=m->allocator,.layout=m->layout,
-        .physical=m->physical,.bytes=(uint64_t)m->layout.pages*4096,.serial=++m->serial,.active=true};
+        .physical=m->physical,.bytes=(uint64_t)pages*4096,.serial=++m->serial,.active=true};
     m->dependent=h;m->registered=h;m->hold_serial=h->serial;m->busy=false;
     return true;
 }

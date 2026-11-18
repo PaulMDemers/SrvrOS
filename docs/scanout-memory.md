@@ -31,6 +31,25 @@ allocated page, including row/page padding; initialize that complete span before
 GPU exposure. Ending a borrow revalidates backing and rejects stale or duplicate
 returns. No copying, allocation or hardware access happens inside a UI callback.
 
+### Broadwell translation tail
+
+Use `scanout_memory_create_with_tail` to allocate the image and an explicit
+physically backed translation tail together. Broadwell requires 128 extra
+PTEs after the surface and a 256 KiB-aligned GPU base. Intel specifies that the
+tail translations are used without accessing their backing pages. This
+implementation backs each tail entry with a distinct owned page so the
+existing allocator, CPU initialization and mapping lifetimes cover every
+entry without introducing scratch aliases. The caller initializes the
+full CPU borrow and passes 64-page alignment at preparation. The image
+layout excludes the tail from its pixel and pitch arithmetic. [Intel Broadwell PRM, PRI_SURF](https://cdrdv2.intel.com/v1/dl/getcontent/690789).
+
+The Air7,2's 1440 × 900 linear image at pitch 6144 uses 1,350 image pages and
+128 tail pages, totaling 1,478 pages per lease. The PTE vector, exact original
+restoration and allocator release cover all 1,478 pages. Two such leases need
+3,014 pages in a single 256 KiB-aligned interval, including the 58-page gap
+between them. The provider still has to supply an owned interval and complete
+cache/translation visibility and reader retirement before using this path.
+
 ## Mapping and retirement
 
 Preparation requires an original active `scanout_space` with an actual admitted

@@ -638,10 +638,26 @@ and reader proof. Writable CPU aliases depend on that ownership.
 
 The [native v55 ownership gate](intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result)
 completed with clean release. The first unmet condition was an explicit
-firmware transfer of the two inherited candidates. Before repeating a
-physical trial, establish how the native driver can prove ownership over its
-scanout backing. Reuse of the inherited candidates needs a verified transfer
-for those exact spans. OS-allocated backing needs ownership of a GGTT interval,
-native mapping and visibility completion, and a display transition that
-preserves the inherited surface until its readers retire. Evaluate those two
-paths before choosing the next implementation.
+firmware transfer of the two inherited candidates. UEFI GOP describes the
+active framebuffer, and the captured Air7,2 firmware interfaces provide no
+verified transfer for the two extra spans. The active route is OS-allocated
+backing under a cooperative native graphics-driver takeover. Linux i915
+provides a design reference: GGTT reservations and reclamation are part of
+driver initialization, with separate handling for the inherited framebuffer.
+[UEFI GOP](https://uefi.org/specs/UEFI/2.10/12_Protocols_Console_Support.html#graphics-output-protocol)
+[Linux v6.12 GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L761)
+[Linux v6.12 initial plane](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_plane_initial.c#L127).
+
+1. Use [owned linear backing with a translation tail](scanout-memory.md#broadwell-translation-tail).
+   Keep the full inherited fence, all existing display translations and their
+   physical backing pinned.
+2. Implement native admission of an exact GGTT interval under the boot-scoped
+   owner. Bind all protected ranges and original entries to the same live
+   requester/engine/firmware lifetime. Require actual completion and exclusion
+   evidence before granting the interval to the allocator.
+3. Qualify one mapping and exact restoration with private backing, real
+   ordering, translation invalidation and observed completion. Then qualify
+   both complete surfaces and the initial tiled-to-linear primary transition.
+   Keep the inherited surface pinned until independent reader retirement.
+4. Exercise repeated flips and restoration before compositor integration and
+   physical tear-free acceptance.
