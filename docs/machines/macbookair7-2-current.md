@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope: OS-allocated scanout backing
+
+On main `4016abf0`, PR301 will qualify the backing and translation lifetime
+for private scanout buffers using the existing scanout memory, space and
+publication cores. The Broadwell surface needs an additional 128 translations
+kept with each mapping through verified retirement. The first checkpoint is
+host validation of that lifecycle and its refusal paths. The native GGTT
+interval owner, cache/DMA completion and first live plane transition remain
+dependencies. The Wi-Fi and WebCore PRs do not touch this scope.
+
 ## Native scanout ownership gate diagnosed
 
 PR301 on main `4016abf0` covers the isolated ownership gate. The native v55
