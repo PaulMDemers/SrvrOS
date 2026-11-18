@@ -8,7 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope: OS-allocated scanout backing
+## Active scope: bind GGTT publication to the transferred entries
+
+On main `4016abf0`, PR301 is joining the exact original PTE vector in
+`scanout_transfer` to the existing space and publication cores. The checkpoint
+is local qualification of one-page and full-buffer mapping and restoration,
+including refusal when an entry changes after transfer admission. Native
+requester, engine, cache and display-reader completion evidence is still
+required for a hardware write.
+
+## OS-allocated scanout backing
 
 On main `4016abf0`, PR301 adds an explicit translation tail to the existing
 private scanout allocation, mapping and retirement path. The Air7,2 linear
