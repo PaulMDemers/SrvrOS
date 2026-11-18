@@ -105,6 +105,8 @@ class StolenProbe(unittest.TestCase):
             'skipped-native-guard-begin':('!cpu_guard_operation(0,pair)','false'),
             'skipped-native-guard-check':('!cpu_guard_operation(1,pair)','false'),
             'skipped-native-guard-close':('!cpu_guard_operation(2,pair)','false'),
+            'skipped-held-observation':('bool observed=observe_handoff();','bool observed=true;'),
+            'lost-held-requester-prefix':('!intel_pci_requester_prefix(words,i+1)','false'),
             'guard-fault-unpins':('if(!stolen.uncertain) {','if(true) {'),
             'lost-guard-retention':('if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;','if(false)stolen.uncertain=true;'),
             'skipped-display-pin':('!display_access_pin(&stolen.exclusion)','false'),

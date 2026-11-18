@@ -7,6 +7,9 @@ SCHEMAS={
     'run':'v sample range gpu bytes pages count reads first last hash bad_index bad_value',
     'reader':'v sample pipe count '+ ' '.join('w'+str(i) for i in range(13)),
     'policy':'v sample range index physical pages queried ok mtrr pat effective checks',
+    'hardware-gate':'v begin end firmware_transfer first_unmet writes',
+    'hardware-config':'v sample count '+' '.join(f'w{i}' for i in range(11)),
+    'hardware-readers':'v count '+' '.join(f'w{i}' for i in range(42)),
     'guard':'v attempted begin end pinned acquired checked closed unpinned reason writes authority',
     'guard-walk':'v phase tables entries leaves',
     'cpu-span':'v range physical pages checked reserved framebuffer other uncovered tagged',
@@ -17,9 +20,9 @@ FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion')
+          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion','hardware-observation')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
-HEX.update(['virtual','entry','physical']+['w'+str(i) for i in range(13)])
+HEX.update(['virtual','entry','physical']+['w'+str(i) for i in range(42)])
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
        'srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-stolen=read-only','srvros.capture-failure=reboot')
 
@@ -75,7 +78,7 @@ def verify_owner_progress(rows,summary):
             if any(q[k] for k in ('physical','pages','ok','mtrr','pat','effective','checks')):raise ValueError('unqueried policy')
         elif not q['ok']:
             if (q['mtrr'],q['pat'],q['effective'],q['checks'])!=(255,255,255,0):raise ValueError('unknown policy')
-        elif any(q[k] not in (0,1,4,5,6,7) for k in ('mtrr','pat','effective')) or not 1<=q['checks']<=33:
+        elif any(q[k] not in (0,1,4,5,6,7,8) for k in ('mtrr','pat','effective')) or not 1<=q['checks']<=33:
             raise ValueError('policy type')
         if q['queried']:
             vectors=rows['run'][q['sample']*3:q['sample']*3+3];v=vectors[q['range']]
@@ -196,34 +199,92 @@ def verify_guard_progress(rows,s):
     if s['complete'] and (not all(g[k] for k in flags) or not g['end'] or g['reason']):raise ValueError('CPU guard incomplete')
     if g['reason'] and (s['complete'] or not s['fail']):raise ValueError('CPU guard missing refusal')
 
+def verify_hardware_gate(rows, summary):
+    from intel_held_requester import _prefix as requester_prefix
+    if (len(rows['hardware-gate'])!=1 or len(rows['hardware-readers'])!=1 or
+        [item['sample'] for item in rows['hardware-config']]!=[0,1]):
+        raise ValueError('held hardware row order')
+    gate=rows['hardware-gate'][0]
+    guard=rows['guard'][0]
+    c=rows['cpu'][0]
+    readers=rows['hardware-readers'][0]
+    counts=[sample['count'] for sample in rows['hardware-config']]
+    def words(row, size):
+        full=[row[f'w{i}'] for i in range(size)]
+        count=row['count']
+        if count>size or any(word>=0xffffffff for word in full) or any(full[count:]):
+            raise ValueError('held hardware word prefix')
+        return full[:count]
+    start, finish=(words(sample,11) for sample in rows['hardware-config'])
+    display=words(readers,42)
+    if ((readers['count'] and counts[0]!=11) or (counts[1] and readers['count']!=42)
+        or (any(counts) and not gate['begin'])):
+        raise ValueError('held hardware causal prefix')
+    for sample in (start,finish):
+        for n in range(1,min(9,len(sample))+1):
+            if not requester_prefix(sample[:n]) and (n!=len(sample) or summary['complete'] or summary['fail']!=31):
+                raise ValueError('held requester capability chain')
+        if len(sample)==11 and sample[10]>0xffff:
+            raise ValueError('held firmware register width')
+    if gate['begin'] and (not guard['checked'] or gate['begin']<guard['begin']):
+        raise ValueError('held hardware outside CPU guard')
+    if gate['end'] and (not gate['end']>gate['begin']>0 or
+        counts!=[11,11] or readers['count']!=42 or
+        (guard['end'] and gate['end']>guard['end'])):
+        raise ValueError('held hardware incomplete observation')
+    if summary['complete'] and bool(c['admitted'])!=bool(gate['end']):
+        raise ValueError('missing held hardware observation')
+    expected='firmware-transfer' if gate['end'] else 'unresolved'
+    if not gate['end'] and c['observed'] and not c['admitted']:expected='cpu-backing'
+    if gate['firmware_transfer'] or gate['writes'] or gate['first_unmet']!=expected:
+        raise ValueError('held hardware authority')
+    result=dict(observation_complete=bool(gate['end']),first_unmet=expected,firmware_transfer=False)
+    if gate['end']:
+        old=rows['facts'][1]
+        prior=[old['fbc'],old['psr_ctl'],old['psr_status']]
+        for pipe in rows['reader'][3:]:
+            prior.extend(pipe[f'w{i}'] for i in range(13))
+        result.update(firmware_endpoints=[dict(asls=s[9],swsci=s[10]) for s in (start,finish)],
+                      firmware_endpoint_stable=start[9:]==finish[9:],
+                      requester_stable=start[:9]==finish[:9],
+                      bus_master=[bool(s[1]&4) for s in (start,finish)],
+                      transaction_pending=[bool(s[8]&256) for s in (start,finish)],
+                      display_sample_matches=display==prior)
+    return result
+
+
 def stolen_result(text,*,native=False,required_version=None):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
-        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:')):
+        if not line.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')):
             if re.match(r'intel-stolen-[^ :]+:',line):raise ValueError('unknown stolen receipt')
             continue
-        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy|cpu-span|cpu|guard-walk|guard): (.+)',line)
+        match=re.fullmatch(r'intel-stolen-(summary|facts|run|reader|policy|cpu-span|cpu|guard-walk|guard|hardware-gate|hardware-config|hardware-readers): (.+)',line)
         if not match:raise ValueError('malformed stolen receipt')
         kind=match[1];row={}
         for token in match[2].split():
             k,sep,value=token.partition('=')
             if not sep or k in row:raise ValueError('duplicate stolen field')
-            if k in ('ownership','authority'):row[k]=value;continue
+            if k in ('ownership','authority','first_unmet'):row[k]=value;continue
             hexadecimal=k in HEX and not ((kind=='run' and k=='gpu') or (kind=='cpu-span' and k=='reserved'))
             if not re.fullmatch(r'(?:0|0x[0-9a-fA-F]{1,16})' if hexadecimal else r'[0-9]{1,20}',value):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5,6,7) else ''
-        if kind=='summary' and version in (3,4,5,6,7):extra+=' preflight'
-        if kind=='summary' and version in (4,5,6,7):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in (5,6,7):extra+=' reader_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5,6,7) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5,6,7,8) else ''
+        if kind=='summary' and version in (3,4,5,6,7,8):extra+=' preflight'
+        if kind=='summary' and version in (4,5,6,7,8):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in (5,6,7,8):extra+=' reader_reads'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5,6,7,8) if kind=='summary' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
+    if wire<8:
+        if any(rows.pop(kind) for kind in ('hardware-gate','hardware-config','hardware-readers')):
+            raise ValueError('unexpected held hardware rows')
+    if wire==7 and s.get('fail',0)>30:raise ValueError('historical refusal cause')
     if wire<7:
         if rows.pop('guard') or rows.pop('guard-walk'):raise ValueError('unexpected CPU exclusion rows')
     else:verify_guard_progress(rows,s)
@@ -231,6 +292,7 @@ def stolen_result(text,*,native=False,required_version=None):
     if wire<6:
         if rows.pop('cpu') or rows.pop('cpu-span'):raise ValueError('unexpected CPU backing preflight')
     else:verify_cpu_progress(rows,s)
+    hardware = verify_hardware_gate(rows,s) if wire>=8 else None
     if wire==5 and s.get('fail',0)>28:raise ValueError('historical refusal cause')
     if wire<5:
         if rows.pop('reader') or rows.pop('policy'):raise ValueError('unexpected owner preflight')
@@ -282,6 +344,7 @@ def stolen_result(text,*,native=False,required_version=None):
         names=('none','interrupts-enabled','invalid-expected-root','kernel-root-mismatch','current-CR3-mismatch',
                'missing-root-pointer','root-pointer-mismatch','registered-roots','occupied-root-records')
         result['root_observation']=dict(phase=s['root_phase'],reason=s['root_reason'],detail=s['root_detail'],condition=names[s['root_reason']])
+    if hardware is not None:result['hardware_gate']=hardware
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -310,7 +373,9 @@ def stolen_result(text,*,native=False,required_version=None):
     if wire>=3:maps+=1
     entries=sum(size//4096 for _,size in spans)
     if wire>=5:maps+=6
-    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+s.get('reader_reads',0),2*entries):
+    held_maps=5 if hardware and hardware['observation_complete'] else 0
+    maps+=held_maps
+    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+s.get('reader_reads',0)+(42 if held_maps else 0),2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]
     for n in range(2):
@@ -369,7 +434,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-stolen-summary:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
@@ -384,7 +449,7 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
 PROGRESS_STEPS=('invalid','profile','source-snapshot','root-PCI','console-sync',
                 'display-exclusion','identity','cache-context','source-revalidation',
                 'metadata','vectors','source-final','classification','cleanup',
-                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache','CPU-backing','CPU-guard')
+                'report','mapping','cache-policy','actual-alias','first-MMIO-read','display-readers','candidate-cache','CPU-backing','CPU-guard','hardware-ownership-gate')
 
 def stolen_progress(text,command):
     """Pending operation history only; never a completion or ownership receipt."""

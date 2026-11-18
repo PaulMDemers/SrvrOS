@@ -310,14 +310,14 @@ class RunnerTests(unittest.TestCase):
         from workflow.media import raw_log_limit
         plan=jobs(['Makefile'])
         self.assertEqual(sum(map(len,plan.values())),7)
-        self.assertEqual(raw_log_limit('intel-stolen-v54'),65536)
-        self.assertIn('intel-stolen-v54',subprocess.check_output([sys.executable,str(Path(__file__).resolve().with_name('device_workflow.py')),'new','--help'],text=True))
+        self.assertEqual(raw_log_limit('intel-stolen-v55'),65536)
+        self.assertIn('intel-stolen-v55',subprocess.check_output([sys.executable,str(Path(__file__).resolve().with_name('device_workflow.py')),'new','--help'],text=True))
         runner=FixtureRunner(self.repo,self.root/'v48-store')
         with self.assertRaises(ValueError):
-            runner.create('wrong-unit',self.unit,'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v54')
-        runner.create('stolen',dict(self.unit,model='MacBookAir7,2'),'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v54')
+            runner.create('wrong-unit',self.unit,'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v55')
+        runner.create('stolen',dict(self.unit,model='MacBookAir7,2'),'Complete vector census?','No ownership',jobs=dict(development=[self.job],qualification=[self.job]),trial_profile='intel-stolen-v55')
         _,manifest,state=runner.load('stolen')
-        self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-stolen-v54',7,'NEW'))
+        self.assertEqual((manifest['profile'],manifest['wire_version'],state['phase']),('intel-stolen-v55',8,'NEW'))
         self.assertEqual(manifest['stolen_progress_version'],1)
         self.assertFalse(runner.effects)
         with self.assertRaises(ValueError):

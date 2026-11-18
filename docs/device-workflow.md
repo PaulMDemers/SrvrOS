@@ -52,7 +52,7 @@ VM results and acceptance proofs live under
 sanitized summaries, never the unit configuration, USB contents or credentials.
 
 The separate [existing-mapping census](intel-bdw-stolen-scanout.md) profile
-`intel-stolen-v54` selects isolated pre-init wire7/configuration8. It freezes
+`intel-stolen-v55` selects isolated pre-init wire8/configuration9. It freezes
 classifier/actual-adapter, reader/cache transport and the actual VMM whole-root
 [CPU backing guard](intel-bdw-cpu-backing.md), plus source/cache/window/return
 regressions. Both exact-stage VM paths,64KiB collection and the original
@@ -61,9 +61,12 @@ guard/mutators. The native adapter pins original display exclusion, performs
 guard begin/check/close with three fresh PMM/whole-root validations, then unpins
 only after clean close. New guard and per-phase walk rows reject impossible
 prefixes, lost retention, missing scans, changed clocks and fabricated authority.
+The current trial captures the PCI firmware endpoint and requester state around
+a fresh reader sample inside the held CPU guard. The result identifies the
+first unmet ownership condition separately from diagnostic completion.
 The CPU phases use the second pass's
 remaining2-second budget; it does not restart that clock. Historical profiles
-47–53 remain readable but cannot launch the new image.
+47–54 remain readable but cannot launch the current image.
 
 Read-only completion closes only as DIAGNOSED. It can report that CPU backing
 is unavailable because of a reservation/tag conflict or an existing CPU alias;

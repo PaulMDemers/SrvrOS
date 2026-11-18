@@ -6,6 +6,7 @@ bool intel_stolen_probe_retained(void) {return false;}
 #else
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/intel_reader_audit.h>
+#include <srvros/intel_pci_requester.h>
 #include <srvros/intel_handoff.h>
 #include <limine.h>
 extern volatile struct limine_memmap_request memmap_request;
@@ -49,6 +50,12 @@ static struct {
   uint64_t begin,end;
   unsigned attempted,pinned,acquired,checked,closed,unpinned;
  } guard;
+ struct {
+  uint64_t begin,end;
+  uint32_t config[2][INTEL_PCI_REQUESTER_WORDS+2];
+  uint32_t readers[42];
+  unsigned config_reads[2],reader_reads;
+ } handoff;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -446,9 +453,55 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
 #endif
  return ok;
 }
+
+/* Keep the firmware endpoint and requester observation in the same CPU
+ * guard lifetime as the reader snapshot. Config words are observational.
+ * Bus mastering stays enabled. The exact captured capability chain admits
+ * each successive read, and no OpRegion backing or mailbox is accessed. */
+static bool handoff_config(unsigned sample) {
+ uint32_t *words=stolen.handoff.config[sample];
+ for(unsigned i=0;i<INTEL_PCI_REQUESTER_WORDS+2;i++) {
+  if(!tick(stolen.begin[1]) || !identity())return false;
+  uint8_t offset=i<INTEL_PCI_REQUESTER_WORDS ? intel_pci_requester_offsets[i] :
+     i==INTEL_PCI_REQUESTER_WORDS ? 0xfc : 0xe8;
+  uint32_t raw=pci_read_config32(stolen.gpu,offset);
+  if(raw==UINT32_MAX)return refuse(31);
+  words[i]=i==INTEL_PCI_REQUESTER_WORDS+1 ? raw&0xffffu : raw;
+  ++stolen.handoff.config_reads[sample];
+  if(i<INTEL_PCI_REQUESTER_WORDS && !intel_pci_requester_prefix(words,i+1))return refuse(31);
+ }
+ return true;
+}
+
+static bool handoff_readers(void) {
+ const uint32_t auxiliary[]={0x43208,0x6f800,0x6f840};
+ for(unsigned i=0;i<42;i++) {
+  if(!tick(stolen.begin[1]))return false;
+  unsigned plane_word=i>=3?i-3:0;
+  uint32_t offset=i<3?auxiliary[i]:
+    0x70000+0x1000*(plane_word/INTEL_READER_WORDS)+intel_reader_offsets[plane_word%INTEL_READER_WORDS];
+  uint32_t raw;
+  if(!load(offset,&raw))return false;
+  if(raw==UINT32_MAX)return refuse(31);
+  stolen.handoff.readers[i]=raw;
+  ++stolen.handoff.reader_reads;
+ }
+ return true;
+}
+
+static bool observe_handoff(void) {
+ if(!tick(stolen.begin[1]))return false;
+ stolen.handoff.begin=stolen.last;
+ if(!handoff_config(0) || !handoff_readers() || !unmap() || !handoff_config(1) ||
+    !tick(stolen.begin[1]))return false;
+ if(stolen.last<=stolen.handoff.begin)return refuse(31);
+ stolen.handoff.end=stolen.last;
+ return true;
+}
+
 static bool cpu_guard(void) {
  if(!stolen.cpu.admitted)return true;
- if(!checkpoint(22))return false;
+ if(!checkpoint(23))return false;
  stolen.guard.attempted=1;
  if(!tick(stolen.begin[1]))return false;
  stolen.guard.begin=stolen.last;
@@ -463,9 +516,14 @@ static bool cpu_guard(void) {
  if(!tick(stolen.begin[1]) || !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source))goto done;
  if(!cpu_guard_operation(1,pair)){refuse(30);goto done;}
  stolen.guard.checked=1;
- if(!tick(stolen.begin[1]) || !identity() || !sole_root())goto done;
+ bool observed=observe_handoff();
+ /* A read refusal can return after the alias and original guard have been
+  * proved clean. Context, time or alias uncertainty retains exclusion. */
+ if(!unmap())goto done;
+ if(!tick(stolen.begin[1]) || !identity() || !sole_root() ||
+    !intel_window_handoff_revalidate(&stolen.source))goto done;
  if(!cpu_guard_operation(2,pair)){refuse(30);goto done;}
- stolen.guard.closed=1;ok=true;
+ stolen.guard.closed=1;ok=observed;
 done:
  if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
  if(!stolen.uncertain) {
@@ -483,7 +541,7 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire7 maintained CPU mapping exclusion and CPU backing admission and live reader/cache preflight and complete inherited/candidate translation census; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ console_write("intel-stolen: wire8 hardware ownership gate under maintained CPU mapping exclusion; two bounded2s passes, no input, no GPU writes or allocation grant\n");
  if(!intel_stolen_probe_recipe(cmdline)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
@@ -531,7 +589,7 @@ cleanup:
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=7 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ console_printf("intel-stolen-summary: v=8 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
  (uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
@@ -589,6 +647,18 @@ report:
   console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
+ console_printf("intel-stolen-hardware-gate: v=1 begin=%u end=%u firmware_transfer=0 first_unmet=%s writes=0\n",
+  stolen.handoff.begin,stolen.handoff.end,stolen.handoff.end?"firmware-transfer":
+  stolen.cpu.observed && !stolen.cpu.admitted?"cpu-backing":"unresolved");
+ for(unsigned sample=0;sample<2;sample++) {
+  console_printf("intel-stolen-hardware-config: v=1 sample=%u count=%u",(uint64_t)sample,(uint64_t)stolen.handoff.config_reads[sample]);
+  for(unsigned word=0;word<INTEL_PCI_REQUESTER_WORDS+2;word++)
+   console_printf(" w%u=%x",(uint64_t)word,(uint64_t)stolen.handoff.config[sample][word]);
+  console_write("\n");
+ }
+ console_printf("intel-stolen-hardware-readers: v=1 count=%u",(uint64_t)stolen.handoff.reader_reads);
+ for(unsigned word=0;word<42;word++)console_printf(" w%u=%x",(uint64_t)word,(uint64_t)stolen.handoff.readers[word]);
+ console_write("\n");
  return stolen.complete && !intel_stolen_probe_retained();
 }
 #endif

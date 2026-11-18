@@ -11,7 +11,7 @@ that memory available to the OS.
 
 ## Scope and evidence
 
-The opt-in `intel-stolen-v54` workflow selects the separate
+The opt-in `intel-stolen-v55` workflow selects the separate
 `build/intel-stolen/srvros.elf` image. Ordinary kernels contain only refusal
 stubs. It performs read-only PCI/MMIO observations, with no GPU PTE, command,
 plane, framebuffer, cache-control, remapping or firmware-mailbox writes. CPU
@@ -96,9 +96,8 @@ and exclusion; there is one cleanup attempt and no blind release/retry.
 
 ## Trial and collection
 
-Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v54`.
-Historical v47–v53 receipts remain readable but cannot start a new trial with
-the current wire7 image.
+Use the [device workflow](device-workflow.md) with `--profile intel-stolen-v55`.
+The current image uses wire8. The collector still reads v47–v54 receipts.
 Its manifest freezes the new image, actual-adapter and classifier fixtures,
 sanitizers, compiled weakening controls,2KiB native frames, strict transport,
 source/cache/window regressions and exact-stage QEMU save/return and
@@ -437,3 +436,25 @@ The [native v53 result](intel-bdw-cpu-backing.md#native-result) now completes
 these CPU checks on Air7,2: all3,072 reserved carriers/tags and a whole-root
 absence scan pass in22,924us, within the original deadline. Hardware ownership,
 exclusive reservation and pixel writes remain unavailable.
+
+## Ownership gate under the original CPU guard
+
+The v55 trial keeps the original CPU guard and display exclusion live while it
+reads the exact Broadwell PCI requester capability chain, ASLS and SWSCI. It
+then resamples FBC, PSR and all three pipes using the existing read-only UC
+alias checks, retires those aliases and samples the same PCI words again.
+The parser independently checks the capability chain, both observation
+prefixes, the original clocks and final retirement. It reports requester
+and firmware endpoint stability, bus mastering, transaction pending and
+whether the held reader snapshot matches the earlier one. The entire
+operation runs inside the original second pass's two-second budget.
+
+The first unmet hardware condition after a complete observation is an
+explicit firmware transfer of the two candidate spans. The kernel records
+that refusal before engine, DMA or cache operations can be entered. A
+complete diagnostic can therefore return cleanly with those operations still
+gated. PCI transaction pending observes non-posted requests. Display
+snapshots describe sampled register values. Neither satisfies the handoff's
+drain and retirement obligations. The profile accesses PCI configuration
+and the already admitted display registers, with zero GPU control or target
+pixel writes. [PCI capability layout](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h).

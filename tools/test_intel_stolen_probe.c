@@ -149,7 +149,15 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
  bool gpu=p==&devices[1];assert(gpu || p==&devices[0]);
  switch(offset) {
  case 0:return gpu?0x16268086:0x16048086;
- case 4:return 7;
+ case 4:return (1u<<20)|7;
+ case 8:return 0x03000009;
+ case 0x34:return 0x90;
+ case 0x90:return model.mode==43?0:0xd005;
+ case 0xd0:return 0x02a401;
+ case 0xa4:return 0x03060013;
+ case 0xa8:return model.mode==44 && stolen.handoff.config_reads[0]==11?0x100:0;
+ case 0xfc:return 0x8ad03190;
+ case 0xe8:return 0x8000;
  case 0x10:return 0xc0000004;
  case 0x14:return 0;
  case 0x2c:return 0x011b106b;
@@ -199,7 +207,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  ++model.reads;
  switch(offset) {
  case 0x1082c0:*out=0x8ff00007;return true;
- case 0x43208:*out=0;return true;
+ case 0x43208:*out=model.mode==45 && model.guard_live?UINT32_MAX:0;return true;
  case 0x6f800:*out=0x00100001;return true;
  case 0x6f840:*out=0;return true;
  default: {
@@ -228,15 +236,16 @@ void console_printf(const char *fmt,...) {
  va_list args;va_start(args,fmt);
  for(const char *p=fmt;*p;p++) {
   if(*p!='%'){putchar(*p);continue;}
-  ++p;uint64_t value=va_arg(args,uint64_t);
+  ++p;if(*p=='s'){fputs(va_arg(args,const char *),stdout);continue;}
+  uint64_t value=va_arg(args,uint64_t);
   assert(*p=='u' || *p=='x');if(*p=='u')printf("%" PRIu64,value);else printf("0x%016" PRIx64,value);
  }
  va_end(args);
 }
 static void positive(void) {
  reset();assert(intel_stolen_probe_report(command));assert(stolen.complete && !intel_stolen_probe_retained());
- assert(!model.mapped && !model.held && model.maps==59 && model.unmaps==59);
- assert(model.reads==70742 && stolen.layout.checked==23552 && stolen.meta_reads==8 && stolen.reader_reads==78);
+ assert(!model.mapped && !model.held && model.maps==64 && model.unmaps==64);
+ assert(model.reads==70784 && stolen.layout.checked==23552 && stolen.meta_reads==8 && stolen.reader_reads==78);
  for(unsigned n=0;n<2;n++)for(unsigned p=0;p<3;p++)assert(stolen.reader_count[n][p]==13);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<2;r++)for(unsigned i=0;i<8;i++) {
   const __typeof__(stolen.policy[0][0][0]) *q=&stolen.policy[n][r][i];
@@ -248,7 +257,9 @@ static void positive(void) {
  assert(stolen.cpu.span[0].checked==1536 && stolen.cpu.span[1].checked==1536 && stolen.cpu.pmm_checks==3072);
  assert(stolen.cpu.inventory.tables==9 && stolen.cpu.inventory.entries==4608);
  assert(stolen.cpu.begin<stolen.cpu.end && stolen.cpu.end<stolen.guard.begin && stolen.guard.end==stolen.end[1]);
- assert(model.calls[REVALIDATE]==8);assert(model.calls[PROGRESS]==25);
+ assert(stolen.handoff.config_reads[0]==11 && stolen.handoff.config_reads[1]==11 && stolen.handoff.reader_reads==42);
+ assert(stolen.guard.begin<=stolen.handoff.begin && stolen.handoff.begin<stolen.handoff.end && stolen.handoff.end<=stolen.guard.end);
+ assert(model.calls[REVALIDATE]==9);assert(model.calls[PROGRESS]==25);
  assert(stolen.guard.pinned && stolen.guard.acquired && stolen.guard.checked && stolen.guard.closed && stolen.guard.unpinned && !model.pinned && !model.guard_live);
  for(unsigned n=0;n<2;n++)for(unsigned r=0;r<3;r++)assert(stolen.count[n][r]==stolen.plan.range[r].pages);
  assert(!intel_stolen_probe_report(command));++model.cases;
@@ -305,6 +316,12 @@ int main(int argc,char **argv) {
   assert(stolen.fail==18 && stolen.guard.acquired && !stolen.guard.closed && !stolen.guard.unpinned);
   assert(model.guard_live && model.pinned && model.held && intel_stolen_probe_retained());++model.cases;
  }
+ reset();model.mode=43;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==31 && stolen.handoff.config_reads[0]==6 && !stolen.handoff.reader_reads && !model.held);++model.cases;
+ reset();model.mode=44;assert(intel_stolen_probe_report(command));
+ assert(stolen.handoff.config[0][8]==0 && stolen.handoff.config[1][8]==0x100);++model.cases;
+ reset();model.mode=45;assert(!intel_stolen_probe_report(command));
+ assert(stolen.fail==31 && !stolen.handoff.reader_reads && stolen.guard.closed && !model.held);++model.cases;
  positive();
  unsigned counts[FAULT_COUNT];memcpy(counts,model.calls,sizeof(counts));
  for(unsigned which=1;which<FAULT_COUNT;which++) {
