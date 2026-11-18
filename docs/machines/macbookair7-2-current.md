@@ -8,6 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope: live primary display footprint
+
+On main `4016abf0`, PR301 is adding a fresh primary-plane footprint check
+after original full-GT reset and memory maintenance, while the requester is
+still inhibited. This uses the existing Broadwell range checker and wire9
+translation measurement. The next checkpoint is host fault coverage and a
+separate native build. The display path needs independent VGA, FBC, PSR and
+outstanding reader completion before a writable GPU interval.
+
 ## Native preservation of the inherited display translation tail
 
 PR301 release `12d3110bd495bbc2` completed the wire9 trial and returned to
