@@ -590,7 +590,7 @@ QEMU must refuse hardware
 admission before reset, PTE mapping or translation reads, save intact
 checkpoints and return with its disposable workspace. The missing-workspace
 rehearsal must halt. Both VM receipts bind the same staged manifest.
-Historical log collection recognizes bootstrap wires 1–10 paired with wake37
+Historical log collection recognizes bootstrap wires 1–11 paired with wake37
 for the existing 96 KiB limit. Unknown wire versions and ordinary sessions
 retain the 64 KiB limit.
 
@@ -607,3 +607,9 @@ after the wire9 comparison while the original requester is inhibited. Its
 source-bound stage uses `--intel-gt-primary` and a distinct wire10 receipt.
 The workflow keeps both exact-image VM paths and accepts a clean native return
 only as a diagnostic. [Sample and footprint contract](intel-bdw-primary-range.md#post-maintenance-wire10-capture).
+
+`--profile intel-gt-aux-v58` uses `--intel-gt-aux` for the source-bound
+wire11 image. It checks VGA, FBC, PSR and the eDP route around the held primary
+samples. The two VM checks and all older host checks still run. A complete
+report records the observed activity and alias retirement as a diagnostic.
+[Auxiliary display capture](intel-bdw-primary-range.md#auxiliary-display-readers-under-the-same-hold).

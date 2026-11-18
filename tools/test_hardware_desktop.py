@@ -718,9 +718,9 @@ class CollectionTests(unittest.TestCase):
     def test_full_gt_read_budget_preserves_raw_without_accepting_receipts(self):
         prefix=b'intel-wake-summary: v=37 unqualified\nintel-bootstrap-summary: v=7 unqualified\n'
         self.assertEqual(desktop.session_log_limit(prefix),98304)
-        for version in range(1,11):
+        for version in range(1,12):
             self.assertEqual(desktop.session_log_limit(prefix.replace(b'v=7 ',f'v={version} '.encode())),98304)
-        for bad in (prefix.replace(b'v=7 ',b'v=11 '),prefix.replace(b'v=7 ',b'v=010 '),
+        for bad in (prefix.replace(b'v=7 ',b'v=12 '),prefix.replace(b'v=7 ',b'v=011 '),
                     prefix.replace(b'v=37 ',b'v=36 '),prefix.split(b'\n',1)[1]):
             self.assertEqual(desktop.session_log_limit(bad),65536)
         with tempfile.TemporaryDirectory() as tmp:
@@ -750,7 +750,12 @@ class CollectionTests(unittest.TestCase):
             out,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertEqual((out/folder.name/'exit.log').read_bytes(),wire10)
             self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
-            (folder/'exit.log').write_bytes(wire10.replace(b'v=10 ',b'v=11 '))
+            wire11 = wire10.replace(b'v=10 ',b'v=11 ')
+            (folder/'exit.log').write_bytes(wire11)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),wire11)
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            (folder/'exit.log').write_bytes(wire11.replace(b'v=11 ',b'v=12 '))
             with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
 
     def test_logs_and_unsafe_paths(self):

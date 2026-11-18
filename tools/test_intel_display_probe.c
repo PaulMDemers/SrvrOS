@@ -816,6 +816,10 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     if(off==0x70180)*value=backing_mode?0xd8000400:0x98000000;
     if(off==0x70188)*value=6144;
     if(off==0x6001c)*value=(1439u<<16)|899;
+#ifdef SRVROS_INTEL_GT_AUX
+    if(backing_mode && off==0x6f400)*value=0x82200000;
+    if(backing_mode && off==0x7f008)*value=0xc0000000;
+#endif
     if(off==0x70000)*value=(uint32_t)ticks%926;
     if(off==0x70040)*value=(uint32_t)(ticks/16667);
     return true;
@@ -1018,6 +1022,8 @@ int main(int argc,char **argv) {
 #else
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-arena-v1",completion_recipe);
 #endif
+#elif defined(SRVROS_INTEL_GT_AUX)
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-aux-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_PRIMARY)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=gt-bootstrap-primary-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_GT_RANGE)

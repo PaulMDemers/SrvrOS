@@ -602,7 +602,9 @@ fail:
 static void bootstrap_report(void) {
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
  console_printf(
-#if defined(SRVROS_INTEL_GT_PRIMARY)
+#if defined(SRVROS_INTEL_GT_AUX)
+ "intel-bootstrap-summary: v=11 "
+#elif defined(SRVROS_INTEL_GT_PRIMARY)
  "intel-bootstrap-summary: v=10 "
 #elif defined(SRVROS_INTEL_GT_RANGE)
  "intel-bootstrap-summary: v=9 "
@@ -688,5 +690,8 @@ static void bootstrap_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_PRIMARY
  gt_primary_report();
+#endif
+#ifdef SRVROS_INTEL_GT_AUX
+ gt_aux_report();
 #endif
 }

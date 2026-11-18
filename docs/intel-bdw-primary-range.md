@@ -116,3 +116,25 @@ after reset. Preparation took 226.112 ms and the enclosing trial took
 remains pending. Automatic collection verified the 75,111-byte exit log,
 the matching checkpoint, offline USB integrity and Ubuntu recovery. The
 run closed as `DIAGNOSED`.
+
+## Auxiliary display readers under the same hold
+
+The wire11 auxiliary profile brackets primary geometry with two snapshots
+of the inherited display controls, inside the existing power-well, original
+requester and clock checks. It reads VGA control, FBC control and compressed
+segment status, and eDP routing, PSR control and PSR state. Each sample uses
+four read-only UC aliases and verifies their retirement. The collector
+independently checks the raw words, clock brackets, resource counts and blocker
+bits. [Intel Broadwell display manual](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf) · [Intel i915 VGA register definitions](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/i915_reg.h) · [Intel i915 FBC implementation](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_fbc.c) · [Intel i915 PSR register definitions](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_psr_regs.h).
+
+The blocker flags record VGA enabled, FBC enabled, nonzero compressed
+segments, PSR enabled, PSR state other than idle, and an unsupported or
+changed eDP route. Stable inactive observations require both packets to agree
+and every blocker to be clear. Known activity or drift remains a valid
+diagnostic result. An inaccessible register, failed alias retirement or
+lost parent deadline makes the enclosing diagnostic incomplete.
+
+The snapshot describes the current endpoints. The Intel VGA disable sequence
+and PSR idle wait address transitions controlled by their driver. Outstanding
+accesses, prefetched requests, write visibility and hardware ownership still
+require independent evidence. [Intel Broadwell display manual](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf) · [Intel i915 PSR implementation](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_psr.c).
