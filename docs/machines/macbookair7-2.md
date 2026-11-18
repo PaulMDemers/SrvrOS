@@ -15622,3 +15622,44 @@ historical profiles remain readable. Qualification must exercise actual recipe/
 boot dispatch, malformed and ordinary-image behavior, linked main isolation,
 compiled controls/sanitizers and both exact-stage VM paths. Physical acceptance
 is pending. Main4016abf0 and PR19/379 remain unchanged.
+
+## Native pre-init read-only census completes
+
+Source `aad02bb5`, release `aa2c4bed41ec15f4`, profilev51/wire4, session
+`session-00066082b1847677-00` completes the full existing-mapping census. The
+exact pre-init marker is present without user-init startup; the unchanged
+sole-root check succeeds. Both complete11,776-entry vectors agree, including
+the full34MiB inherited fence and two6MiB candidate ranges. The original passes
+take479,746us and232,507us, each below the unchanged2-second bound.
+
+The final receipt has53 mappings/53 retirements,107 cache checks,70,770 alias
+checks,23,552 translation checks and8 metadata reads. Cold alias preflight
+completes before the first metadata read; strict MTRR/PAT/effective UC remains.
+The exclusion is released, with no retained alias, refusal, clock failure or
+GPU writer. The candidate GPU spans are2200000–2800000 and2800000–2e00000;
+physical spans8e201000–8e801000 and8e801000–8ee01000 are contiguous, distinct,
+and inside the sampled usable stolen-memory bounds. Sampled FBC/PSR gates are
+clear; none of these observations provides maintained reader or firmware ownership.
+
+Four exact recipe-bound raw files/journal/exit, unchanged prior USB contents and
+boot region, offline fsck/allocation/writable/headroom, installed/banked recovery,
+Ubuntu default and consumed one-shot pass. Fresh diagnosis reparses raw hashes,
+checkpoints and exact source/release/session, then repeats recovery guards.
+The run closes DIAGNOSED; a self-contained native bank with before/after metadata,
+raw logs, report, diagnostic and review is independently hash-sealed outside build.
+Currentaa2c/recovery9aa8 remain; USB is unmounted, no new trial is armed.
+
+All7 frozen host gates,27 census/boot/VMM/receipt methods,197 source/return
+methods,22 additional legacy boot dispatchers and both exact-stage VM paths passed
+before the trial. The registered-root startup conflict is resolved in this
+isolated image; ordinary desktop startup remains unchanged. Prior refusals and
+silent stops remain preserved as separate evidence.
+
+This closes read-only layout observation only. Next implement an original-lifetime
+borrow of the candidate spans with explicit firmware reservation and maintained
+DMA/cache/display-reader exclusion before any candidate RAM store. Then bind
+CPU aliases/visibility, the first inherited-X-tiled-to-linear primary transition,
+actual live latch plus old-reader retirement, and compositor/endurance/restoration.
+No managed GPU interval, firmware transfer, safe buffer reuse or native tear-free
+acceptance follows from a stable layout. Main4016abf0/PR301 remain; PR19/379 and
+other machines' acceptance are unchanged. No Actions or other-agent work ran.

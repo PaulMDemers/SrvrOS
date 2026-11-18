@@ -317,3 +317,21 @@ startup failure/readiness. Mutation controls must detect lost deferral, token-on
 admission and accidental ordinary-image deferral. Native-object/link checks ensure
 the new main is linked and the ordinary main has no recipe-gate dependency. Both
 exact-stage VM routes and every prior frozen gate remain required before hardware.
+
+### Native v51 read-only observation complete
+
+Source `aad02bb5` / release `aa2c4bed41ec15f4` / session
+`session-00066082b1847677-00` passes the full read-only census after exact pre-init
+isolation. Both complete11,776-entry vectors agree; passes479,746us/232,507us
+satisfy the unchanged2-second bounds.53 aliases retire, exclusion releases,
+strict UC3/107 cache/70,770 alias/23,552 translation/8 metadata checks complete,
+and no GPU write, retained state or refusal is reported. Raw/checkpoint/media/
+recovery verification and DIAGNOSED closeout pass; evidence is banked outside build.
+
+The inherited physical span is8c001000–8e201000. The two observed6MiB candidates
+are8e201000–8e801000 and8e801000–8ee01000, from existing GPU ranges2200000 and
+2800000. Layout classification does not reserve or transfer them. Explicit
+firmware/stolen-memory borrow and maintained DMA/cache/prefetch/reader ownership
+must precede any candidate RAM store; visibility, primary transition/live latch,
+old-reader retirement and compositor/endurance acceptance remain separate.
+See the [current Air record](machines/macbookair7-2-current.md) for the next scope.
