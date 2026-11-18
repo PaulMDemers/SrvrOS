@@ -5,7 +5,9 @@ uses `intel-gt-flush-v59`, `--intel-gt-flush` and wire12. The source-bound
 image takes three read-only message snapshots under the original requester
 hold. Both exact-stage VM paths are required. The native receipt preserves
 engine acknowledgement changes and sampled L3 state under the existing clocks
-and 96 KiB log bound. It closes only as a diagnostic. This profile is silent
+and 96 KiB log bound. New wire12 images also record the boot CPU SMI counter
+at protected store and retirement checkpoints. A change retains exclusion
+and halts. It closes only as a diagnostic. This profile is silent
 and saves and returns to Ubuntu on a safe outcome.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile

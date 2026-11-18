@@ -125,7 +125,11 @@ def bootstrap_result(text,*,native=False):
     pulses=rows('pulse','v i first final polls'.split(),('first','final'))
     pci=rows('pci','v n i raw'.split(),('raw',));display=rows('display','v n p i raw'.split(),('raw',))
     boolean='complete failed blocked returned active full_before full_after post_bound'.split()
-    if s['state']>2 or s['reason']&~(2047 if arena else 1023 if memory else 511 if s['v']>=2 else 255) or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
+    reasons=2047 if arena else 1023 if memory else 511 if s['v']>=2 else 255
+    if flush:
+        from intel_gt_flush import SMI_FAULT
+        reasons |= SMI_FAULT
+    if s['state']>2 or s['reason']&~reasons or any(s[k]>1 for k in boolean) or s['epoch_calls']>1 or s['epoch_after']>=1<<32 or s['epoch_before']>=1<<32:
         raise ValueError('Bootstrap owner range')
     if s['prepare_budget']!=policy['prepare'] or s['obligations']!=255 or any(s[k] for k in ('managed_pages','pte_writes','hardware_ownership')):raise ValueError('Bootstrap false authority/policy')
     if s['prepared']>s['issued'] or s['issued']>5 or s['commands']>2 or s['pci_samples']>4 or s['pci_reads']>36 or s['guards']>20000 or s['alias_checks']>300000 or s['cache_checks']>20000:
@@ -248,8 +252,8 @@ def bootstrap_result(text,*,native=False):
     flush_proof=None
     if flush:
         from intel_gt_flush import flush_result
-        flush_proof=flush_result(text,s,r,range_proof['summary'],primary_proof['summary'],retire)
-    elif any(l.startswith('intel-flush-') for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
+        flush_proof=flush_result(text,s,r,range_proof['summary'],primary_proof['summary'],retire,memory_proof['summary'])
+    elif any(l.startswith(('intel-flush-','intel-smi-guard:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,
                 hardware_ownership=False,managed_pages=0,physical_tearfree=False,
@@ -272,7 +276,7 @@ def verify_bootstrap_checkpoint(pre,text,*,native=False):
         if len(boots)!=1:raise ValueError('Bootstrap boot provenance')
         bootstrap_recipe(boots[0],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush)
         if value.count('init: deferred=gt-bootstrap-preinit;')!=1 or 'init: started pid=' in value:raise ValueError('Bootstrap preinit provenance')
-    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-','intel-aux-','intel-flush-')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
+    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-','intel-aux-','intel-flush-','intel-smi-guard:')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
     verify_entry_checkpoint(historical_view(pre,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush),historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush),native=native,seconds=seconds,practical=practical)
     if not bootstrap_result(text,native=native):raise ValueError('Bootstrap missing final receipt')
     return True

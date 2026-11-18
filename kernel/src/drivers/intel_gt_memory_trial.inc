@@ -175,6 +175,9 @@ static bool memory_ggtt_read(void *ctx,uint32_t off,uint32_t *out) {
 }
 static enum intel_gt_write memory_store(unsigned i,uint32_t off,uint32_t value) {
  if(!memory_access(i))return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!bootstrap_smi_check(BOOT_SMI_TRANSLATION) || !memory_now(&gt_memory))return GT_WRITE_NONE;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  enum intel_gt_write w=intel_display_test_memory_write(i,off,value);
 #else

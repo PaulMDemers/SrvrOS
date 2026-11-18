@@ -8,15 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope — detect firmware preemption of the held GT owner
+## Firmware interference detection added to the held GT owner
 
-On main `4016abf0`, PR301 will qualify a read-only SMI counter check in the
-Air7,2 full-GT bootstrap adapter and its host fault fixtures. This depends on
-the native Broadwell MSR definition and the existing CPU0/interrupt and
-requester holds. The next checkpoint is to detect a changed count before
-another protected operation and retain the original owner on interference.
-An unchanged local count cannot transfer a GGTT entry or establish GPU
-completion. This work does not introduce a PTE write or a new deadline.
+On main `4016abf0`, PR301 adds a read-only SMI counter check before the
+Air7,2 full-GT bootstrap stores and borrow retirement. Ubuntu read the
+counter on all four logical CPUs on this unit. The host fixture injects a
+count change at every checkpoint and verifies that the original GT owner
+stays pinned. The exact new SrvrOS image remains pending physical
+qualification. An unchanged counter grants no GGTT access or GPU completion.
+[Firmware interference check](../intel-completion-prerequisites.md#firmware-interference-check-inside-the-original-gt-owner).
 
 ## First-page physical disjointness checked
 

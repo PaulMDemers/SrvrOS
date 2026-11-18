@@ -19,6 +19,10 @@ static void intel_display_test_bootstrap_final_boundary(void);
 static void intel_display_test_bootstrap_receipt_boundary(void);
 static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
+#ifdef SRVROS_INTEL_GT_FLUSH
+static void intel_display_test_bootstrap_smi_cpuid(uint32_t,uint32_t *,uint32_t *,uint32_t *,uint32_t *);
+static uint32_t intel_display_test_bootstrap_smi_count(unsigned);
+#endif
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
 static void intel_display_test_memory_boundary(void);
 static bool intel_display_test_memory_translate(unsigned,uint64_t *);
@@ -80,6 +84,26 @@ static bool bf(const char *mode,unsigned n) {
 #endif
  }return yes;
 }
+#ifdef SRVROS_INTEL_GT_FLUSH
+static void intel_display_test_bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
+ assert(wake_irq && !display_access_allowed());
+ if(!leaf) {
+  *a=bf("smi-no-leaf",1)?0:1;*b=bf("smi-vendor",1)?0:0x756e6547;
+  *c=0x6c65746e;*d=0x49656e69;
+ } else {
+  assert(leaf==1);
+  *a=bf("smi-model",1)?0x406e3:0x306d4;*b=0;
+  *c=bf("smi-hypervisor",1)?1u<<31:0;*d=bf("smi-no-msr",1)?0:1u<<5;
+ }
+}
+static uint32_t intel_display_test_bootstrap_smi_count(unsigned point) {
+ assert(wake_irq && !display_access_allowed());
+ assert(point>=BOOT_SMI_START && point<=BOOT_SMI_END);
+ unsigned sample=bootstrap_smi.reads+1;
+ if(!strcmp(bootstrap_mode,"smi-wrap"))return bf("smi-wrap",sample)?0:UINT32_MAX;
+ return bf("smi-count",sample)?14:13;
+}
+#endif
 static void intel_display_test_bootstrap_boundary(void) {
  ++boundaries;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
@@ -616,6 +640,11 @@ int main(int argc,char **argv) {
 #endif
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
    if(!strncmp(bootstrap_mode,"memory-late-",12))assert(gt_bootstrap_native.returned==memory_fault_returned);
+   else
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+   if(!strncmp(bootstrap_mode,"smi-",4))
+    assert(gt_bootstrap_native.returned==(bootstrap_smi.point==BOOT_SMI_END));
    else
 #endif
    assert(gt_bootstrap_native.returned==(!strncmp(bootstrap_mode,"return-",7) || (!strncmp(bootstrap_mode,"final-",6) && strcmp(bootstrap_mode,"final-fence"))));

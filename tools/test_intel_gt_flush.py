@@ -39,8 +39,44 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 1, "samples": 3, "reads": 18, "maps": 3, "retired": 3, "live": 0,
+                        "v": 2, "samples": 3, "reads": 18, "maps": 3, "retired": 3, "live": 0,
                     })
+                    self.assertEqual(flush["smi_guard"], {
+                        "v": 1, "reads": result["summary"]["native_writes"] + 7,
+                        "point": 6, "fault": 0, "first": 13, "last": 13,
+                    })
+
+    def test_smi_change_stops_each_store_and_both_retirement_checkpoints(self):
+        healthy = bootstrap_result(observe("pass"))
+        expected = [2, *([3] * healthy["summary"]["native_writes"]), 4, 4, 2, 5, 6]
+        for read, point in enumerate(expected, start=2):
+            with self.subTest(read=read, point=point):
+                result = bootstrap_result(observe("smi-count", read))
+                self.assertFalse(result["complete"])
+                self.assertFalse(result["hardware_ownership"])
+                self.assertEqual(result["summary"]["returned"], point == 6)
+                self.assertEqual(result["flush"]["smi_guard"], {
+                    "v": 1, "reads": read, "point": point, "fault": 2, "first": 13, "last": 14,
+                })
+                if read == 2:
+                    self.assertEqual(result["summary"]["commands"], 0)
+                elif point in (4, 5, 6):
+                    self.assertEqual(result["summary"]["commands"], 2 if point in (5, 6) else 1)
+        wrapped = bootstrap_result(observe("smi-wrap", 2))
+        self.assertFalse(wrapped["complete"])
+        self.assertEqual(wrapped["flush"]["smi_guard"]["first"], 0xffffffff)
+        self.assertEqual(wrapped["flush"]["smi_guard"]["last"], 0)
+
+    def test_smi_msr_is_never_accessed_on_an_unsupported_cpu_profile(self):
+        for mode in ("smi-no-leaf", "smi-vendor", "smi-model", "smi-hypervisor", "smi-no-msr"):
+            with self.subTest(mode=mode):
+                result = bootstrap_result(observe(mode, 1))
+                self.assertFalse(result["complete"])
+                self.assertEqual(result["summary"]["commands"], 0)
+                self.assertEqual(result["summary"]["native_writes"], 0)
+                self.assertEqual(result["flush"]["smi_guard"], {
+                    "v": 1, "reads": 0, "point": 1, "fault": 1, "first": 0, "last": 0,
+                })
 
     def test_access_failures_retain_the_parent_and_report_the_attempt(self):
         for mode, limit in (("flush-read", 18), ("flush-float", 18), ("flush-clock", 18), ("flush-window", 18),
@@ -60,6 +96,14 @@ class FlushAcknowledgements(unittest.TestCase):
         flush = bootstrap_result(text)["flush"]
         self.assertTrue(gt_result(text)["qualification_complete"])
         self.assertEqual(session_log_limit(text.encode()), 98304)
+        row = next(line for line in text.splitlines(keepends=True) if line.startswith("intel-smi-guard:"))
+        for bad in ("", row * 2, row.replace("fault=0", "fault=2"), row.replace("last=13", "last=14"),
+                    row.replace("point=6", "point=5"), row.replace("reads=", "other="),
+                    row.replace("authority=none", "authority=write")):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row, bad))
+        old = text.replace(row, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
+        self.assertIsNone(bootstrap_result(old)["flush"]["smi_guard"])
         for n, packet in enumerate(flush["samples"]):
             sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=1 n={n} "))
             for bad in ("", sample + "\n" + sample, sample.replace(f"begin={packet['begin']}", "begin=1"),
@@ -113,5 +157,6 @@ class FlushAcknowledgements(unittest.TestCase):
             compile_fixture(TARGET, output=binary, declaration=(
                 cc, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
-            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 18)):
+            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 18),
+                              ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)

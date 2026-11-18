@@ -829,6 +829,9 @@ def main():
                                     assert proof['diagnostic_flush'] and not proof['flush']['samples']
                                     assert not any(value for key,value in proof['flush']['summary'].items() if key!='v')
                                     assert not any(value for row in proof['flush']['partial'] for key,value in row.items() if key not in ('v','n'))
+                                    smi = proof['flush']['smi_guard']
+                                    if smi is not None:
+                                        assert not any(value for key,value in smi.items() if key!='v')
                                 (logs/'intel-gt-bootstrap-result.json').write_text(json.dumps(proof,indent=2)+'\n')
                             if 'srvros.intel-ring=entry-v1' in text:
                                 from intel_ring_entry import entry_result,verify_entry_checkpoint

@@ -49,7 +49,7 @@ static bool gt_flush_sample(unsigned n) {
 }
 
 static void gt_flush_report(void) {
-    console_printf("intel-flush-summary: v=1 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
+    console_printf("intel-flush-summary: v=2 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
         (uint64_t)gt_flush.access.retired, gt_flush.access.mapped);
     for (unsigned n = 0; n < GT_FLUSH_SAMPLES; ++n) {

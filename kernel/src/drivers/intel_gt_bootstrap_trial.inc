@@ -52,6 +52,55 @@ static bool bootstrap_fail(unsigned reason) {
  if(gt_bootstrap_native.a)gt_bootstrap_native.a->uncertain=true;
  return false;
 }
+#ifdef SRVROS_INTEL_GT_FLUSH
+/* The boot CPU is pinned by preinit and interrupts stay disabled throughout.
+ * Count changes expose possible firmware interference. Equality grants no
+ * access and cannot speak for other logical CPUs or independent requesters. */
+enum bootstrap_smi_point {
+ BOOT_SMI_START=1, BOOT_SMI_PCI, BOOT_SMI_ENGINE, BOOT_SMI_TRANSLATION,
+ BOOT_SMI_RETURN, BOOT_SMI_END,
+};
+enum {BOOT_SMI_UNAVAILABLE=1, BOOT_SMI_CHANGED=2, BOOT_SMI_FAULT=2048};
+static struct {
+ uint32_t first,last;
+ unsigned reads,point,fault;
+} bootstrap_smi;
+static void bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_bootstrap_smi_cpuid(leaf,a,b,c,d);
+#else
+ __asm__ volatile("cpuid":"=a"(*a),"=b"(*b),"=c"(*c),"=d"(*d):"a"(leaf),"c"(0):"memory");
+#endif
+}
+static bool bootstrap_smi_supported(void) {
+ uint32_t a,b,c,d;
+ bootstrap_smi_cpuid(0,&a,&b,&c,&d);
+ if(a<1 || b!=0x756e6547 || d!=0x49656e69 || c!=0x6c65746e)return false;
+ bootstrap_smi_cpuid(1,&a,&b,&c,&d);
+ return a==0x306d4 && (d&(1u<<5)) && !(c&(1u<<31));
+}
+static bool bootstrap_smi_check(enum bootstrap_smi_point point) {
+ if(bootstrap_smi.fault)return false;
+ bootstrap_smi.point=point;
+ if(!wake_irq_off() || (!bootstrap_smi.reads && (point!=BOOT_SMI_START || !bootstrap_smi_supported()))) {
+  bootstrap_smi.fault=BOOT_SMI_UNAVAILABLE;
+  return bootstrap_fail(BOOT_SMI_FAULT);
+ }
+ uint32_t count;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ count=intel_display_test_bootstrap_smi_count(point);
+#else
+ uint32_t reserved;
+ __asm__ volatile("lfence; rdmsr; lfence":"=a"(count),"=d"(reserved):"c"(0x34):"memory");
+ (void)reserved;
+#endif
+ if(!bootstrap_smi.reads++)bootstrap_smi.first=count;
+ bootstrap_smi.last=count;
+ if(count==bootstrap_smi.first)return true;
+ bootstrap_smi.fault=BOOT_SMI_CHANGED;
+ return bootstrap_fail(BOOT_SMI_FAULT);
+}
+#endif
 static bool gt_bootstrap_identity_command(uint32_t actual,uint32_t original) {
  return gt_bootstrap_native.object==&gt_bootstrap_native && !gt_bootstrap_native.failed &&
  gt_bootstrap_native.command_writes==1 && gt_bootstrap_native.borrow.active &&
@@ -259,6 +308,9 @@ static bool bootstrap_command(unsigned value) {
 #ifdef SRVROS_INTEL_GT_ARENA
  if(value==7 && !command_returned())return bootstrap_fail(1024);
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!bootstrap_smi_check(BOOT_SMI_PCI) || !bootstrap_tick())return false;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  if(!intel_display_test_bootstrap_command(value))return bootstrap_fail(32);
 #else
@@ -294,6 +346,9 @@ static enum intel_gt_write bootstrap_store(uint32_t offset,uint32_t value,bool p
  } else if(!intel_bdw_gt_bootstrap_write_ready(&gt_bootstrap_native.reset,offset,value) ||
   gt_bootstrap_native.source.consumer!=&gt_bootstrap_native.reset ||
   !gt_bootstrap_native.reset.registered || gt_bootstrap_native.prepared!=5)return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!bootstrap_smi_check(BOOT_SMI_ENGINE))return GT_WRITE_NONE;
+#endif
  if(!bootstrap_tick() || !bootstrap_parent() || (preparing &&
   (!gt_bootstrap_native.prepare_phase || gt_bootstrap_native.last<gt_bootstrap_native.prepare_phase ||
    gt_bootstrap_native.last-gt_bootstrap_native.prepare_phase>10000)))return GT_WRITE_NONE;
@@ -518,6 +573,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  ring_native.result.post.flip_wait || ring_native.result.post.tlb_pending ||
  gt_bootstrap_native.begin<ring_native.result.post.end_us ||
  gt_bootstrap_native.begin-ring_native.result.post.end_us>100000)goto fail;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!bootstrap_smi_check(BOOT_SMI_START))goto fail;
+#endif
  if(!intel_gt_access_borrow(g,&gt_bootstrap_native.borrow))goto fail;
  unsigned attempts=g->write_attempts;
  gt_bootstrap_native.blocked=!intel_gt_access_close(g) && g->write_attempts==attempts;
@@ -592,6 +650,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_returned())goto fail;
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!bootstrap_smi_check(BOOT_SMI_RETURN) || !bootstrap_tick())goto fail;
+#endif
  gt_bootstrap_native.guard_end=gt_bootstrap_native.return_begin=gt_bootstrap_native.last;
  gt_bootstrap_native.closing=1;
  gt_bootstrap_native.returned=intel_gt_access_return(&gt_bootstrap_native.borrow);
@@ -609,6 +670,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #endif
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_returned())goto fail;
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!bootstrap_smi_check(BOOT_SMI_END) || !bootstrap_tick())goto fail;
 #endif
  gt_bootstrap_native.final_end=gt_bootstrap_native.last;gt_bootstrap_native.closing=3;
  gt_bootstrap_native.end=gt_bootstrap_native.last;gt_bootstrap_native.state=2;gt_bootstrap_native.complete=true;return;
@@ -714,5 +778,8 @@ static void bootstrap_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
  gt_flush_report();
+ console_printf("intel-smi-guard: v=1 reads=%u point=%u fault=%u first=%u last=%u authority=none\n",
+  (uint64_t)bootstrap_smi.reads,(uint64_t)bootstrap_smi.point,(uint64_t)bootstrap_smi.fault,
+  (uint64_t)bootstrap_smi.first,(uint64_t)bootstrap_smi.last);
 #endif
 }

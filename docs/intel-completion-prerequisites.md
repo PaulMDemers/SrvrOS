@@ -138,6 +138,36 @@ verified. The run closed as `DIAGNOSED`, with zero PTE writes and zero managed
 pages. The observations leave outstanding GPU accesses, prefetch, and cache
 completion unproved.
 
+### Firmware interference check inside the original GT owner
+
+The current wire12 image reads `MSR_SMI_COUNT` (0x34) on the preinit boot
+CPU with interrupts disabled. Admission requires native GenuineIntel
+CPUID signature 0x306d4 and architectural MSR support before reading the
+32-bit counter. Intel documents this register for Broadwell 06_3DH through
+SDM Volume 4 section 2.15 and Table 2-20. The snapshot applies to the
+executing logical CPU.
+[Intel SDM Volume 4](https://cdrdv2-public.intel.com/835765/335592-sdm-vol-4.pdf).
+
+The adapter samples once before entering the full-GT bootstrap borrow,
+before each of its PCI Command, engine reset/control/fence and VT-d/GGTT
+maintenance stores, immediately before returning the borrow, and again before
+reporting the child complete. A changed count, including a wrap, ends the
+diagnostic and retains the outer GT exclusion. The active child stays held
+if it has yet to return. The clocks and allowed GPU operations stay as
+specified above. The existing firmware-preservation tests still apply.
+
+The version-2 flush summary requires one `intel-smi-guard` record. The
+record includes the first and last count, count of reads, last checkpoint
+and fault. The collector binds those reads to the actual store and
+retirement counters. Historical version-1 summaries remain replayable.
+QEMU refuses the native path before this counter or any protected store.
+
+An unchanged count only means these samples detected no SMI on the boot
+CPU during this interval. It leaves other logical CPUs, firmware-owned
+device activity, access between samples, outstanding GPU transactions and
+cache effects outside its scope. It supplies no GGTT, DMA, cache, or
+display-reader authority.
+
 ## Automated trial
 
 ```sh
