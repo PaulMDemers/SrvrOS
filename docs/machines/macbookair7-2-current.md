@@ -8,6 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope: Broadwell auxiliary display readers
+
+On main `4016abf0`, PR301 is extending the held primary footprint diagnostic
+with VGA, framebuffer compression and eDP panel self-refresh observations.
+The samples will bracket the live primary capture inside the original
+requester, clock and display power-well checks. The next checkpoint is a
+native-build and host fault check with independently decoded register state.
+Outstanding-access and cache completion remain separate prerequisites.
+
 ## Native post-maintenance primary display footprint
 
 PR301 release `2945aece351aa904` captured two matching live primary geometry,
