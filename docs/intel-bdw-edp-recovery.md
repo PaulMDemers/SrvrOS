@@ -199,6 +199,16 @@ coexist with a verified preflight receipt. It identifies preparation the
 native display-cycle owner must still do.
 [Intel Broadwell port disable sequence, p. 100](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf#page=114).
 
+On MacBookAir7,2, release `81cfc92b023e51c5` completed the native
+preflight and returned to Ubuntu with offline USB integrity verified.
+The independent backing census matched the route-bound digest
+`0x012970c1aee06011`. The reference CRC repeated at `0xc2798333` around
+alternate CRC `0xe3219ccc`; the driver-well request retired in 94.102 ms.
+The sole shutdown blocker was the masked Pipe A FIFO underrun bit
+(`IMR=0xffffffff`, `IER=0`, `IIR=0`). The native cycle needs to temporarily
+unmask that status bit for polling while interrupt delivery stays disabled,
+then restore the inherited mask. The panel stayed active during this trial.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·

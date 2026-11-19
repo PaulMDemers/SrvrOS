@@ -88,6 +88,15 @@ backing again with the eDP pipe off. The isolated native preflight exercises
 the route-independent backing census and records the live shutdown
 prerequisites. Main remains `4016abf0`, with separate Wi-Fi and WebCore scopes.
 
+Release `81cfc92b023e51c5` verified the same framebuffer translation and
+fence digest through the independent native census and repeated the
+reference CRC. It returned automatically and passed offline USB checks.
+The only shutdown prerequisite still open is temporarily unmasking Pipe A
+FIFO underrun status for polling and restoring the mask before releasing
+the display lease. The display shutdown and CRC-checked restore still
+need a native trial.
+[Display-cycle preflight result](../intel-bdw-edp-recovery.md#display-disable-and-restore-rehearsal).
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
