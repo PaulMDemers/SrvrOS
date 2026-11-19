@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from hardware_boot import limine_config
+from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
 from intel_edp_baseline import PREFIX, checkpoint, recipe, result
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +65,9 @@ class EdpBaseline(unittest.TestCase):
                 boot.verify(payload)
 
     def test_exact_recipe_and_vm_refusal(self):
+        version = PREFIX + "laptop-probe-" + VOLUME + "-auto-return"
+        self.assertTrue(intel_probe_profile(version))
+        self.assertEqual(intel_probe_cpu_args(version), ["-cpu", "Broadwell"])
         cmd = cmdline()
         self.assertEqual(recipe(cmd), dict(release=RELEASE, volume=VOLUME))
         with self.assertRaises(ValueError):
