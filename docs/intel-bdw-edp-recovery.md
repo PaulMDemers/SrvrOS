@@ -164,6 +164,17 @@ restored.
 [i915 global well request and readback](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_display_power_well.c) ·
 [i915 Lynx Point clock gating](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_clock_gating.c).
 
+On MacBookAir7,2, release `d68c99c294da7d5c` passed the driver-well
+cycle in 94.452 ms. The four samples differed only in the driver request
+bit. They recorded LCPLL `0x4c000000`, the 675 MHz CDCLK encoding
+`0x2a2`, the Lynx Point-LP clock-gating bit set at `0xc2020[12]`,
+PPS status/control `0x80000008`/`0x7`, and PCH PWM override enabled
+with CPU PWM disabled. The reference CRC under the driver request was
+`0xc2798333`, equal to both the first window of this run and the earlier
+fixed-frame trial. The original backing remained intact, the request
+retired cleanly, and USB return verification passed. These observations
+cover the inherited display with the firmware request still asserted.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·

@@ -74,12 +74,13 @@ Pro11,2 Wi-Fi and WebCore PRs have separate scopes. The remaining native
 checkpoint is continuous ownership of powered MMIO, clocks and the
 original framebuffer across reset.
 
-PR301's display platform trial acquires and releases the Broadwell driver
-well request during the final reference CRC. It keeps the firmware request
-asserted and checks the exact clocks, panel sequencer and PWM state under
-the original framebuffer pin. The host restore fixture now also requires
-the original qualified pre-reset receipt at entry. Main remains
-`4016abf0`, with separate Wi-Fi and WebCore scopes.
+Release `d68c99c294da7d5c` physically verified the Broadwell driver
+well request and release around the final reference CRC in 94.452 ms.
+The firmware request remained asserted, and the pinned backing, clock,
+panel sequencer and PWM state held steady. USB and Ubuntu return checks
+passed. The native restore still needs to carry the backing pin across
+reset and reestablish the sampled clock, panel sequencer and PWM state.
+[Display-well trial result](../intel-bdw-edp-recovery.md#display-well-reservation-trial).
 
 ## PCI reset needs independent display recovery
 
