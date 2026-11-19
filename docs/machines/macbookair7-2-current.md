@@ -82,6 +82,14 @@ passed. The native restore still needs to carry the backing pin across
 reset and reestablish the sampled clock, panel sequencer and PWM state.
 [Display-well trial result](../intel-bdw-edp-recovery.md#display-well-reservation-trial).
 
+The next PR301 block connects ordered display disable to the fixed-mode
+restore adapter. The first recovery rehearsal keeps PCI and LCPLL running
+and preserves the same pinned backing while the plane, eDP link and panel
+are off. The host fixture will exercise the whole dark-to-lit transition.
+The native adapter needs a backing census that works with the pipe off and
+live proof of the remaining shutdown prerequisites. Main remains
+`4016abf0`. The open Pro11,2 Wi-Fi and WebCore PRs have separate scopes.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
