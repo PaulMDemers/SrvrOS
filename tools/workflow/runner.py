@@ -723,6 +723,8 @@ class Runner:
                 record['display_cycle_blockers'] = report['native']['cycle_preflight']['blockers']
             if display_cycle:
                 record['display_cycle'] = display_cycle
+                if 'panel_off' in report['native']:
+                    record['panel_off'] = report['native']['panel_off']
             atomic(directory/'diagnostic.json', record)
             report.update(status=record['status'])
             atomic(directory/'report.json', report)

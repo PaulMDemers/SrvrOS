@@ -53,16 +53,19 @@
 #define PP_POWER_STABLE_MASK 0xb8000000u
 #define PP_POWER_STABLE_ON 0x80000000u
 #define PP_BACKLIGHT (1u << 2)
-#define PP_SEQUENCE_MASK 0xb000000fu
+#define PP_OFF_PENDING 0xb0000000u /* Panel on or power sequence in progress. */
 #define PRI_GAMMA_ENABLE (1u << 30)
 #define PRI_ENABLE (1u << 31)
 
 #define SOURCE_STAGE_US 25000u
 #define FRAME_CHECK_US 60000u
-#define DISABLE_LIMIT_US 550000u
+#define DISABLE_LIMIT_US 800000u
 #define DISABLE_TWO_FRAMES_US 34000u
 #define BACKLIGHT_OFF_US 250000u
-#define PANEL_OFF_US 100000u
+/* The inherited PPS times its own T9 (250 ms) and T10 (74 ms) on
+ * shutdown. T12 can remain active after the rail is off and is waited
+ * separately by panel_power before the original path can be powered up. */
+#define PANEL_OFF_US 350000u
 #define MODE_PAIR(high, low) ((((high) - 1u) << 16) | ((low) - 1u))
 #define PIXEL_KHZ 88890ull
 #define LINK_SYMBOL_KHZ 270000ull
@@ -112,11 +115,11 @@ static bool check(struct source_attempt *a)
     if (!(a->require_panel ? link_held(a) : held(a)))
         return false;
     uint64_t now = a->io.now(a->io.context);
-    if (!now || now < a->last ||
-        (a->budget && now - a->phase_start >= a->budget))
+    if (!now || now < a->last)
         return reject(a, BDW_EDP_SOURCE_CLOCK);
     a->last = now;
-    return true;
+    return (!a->budget || now - a->phase_start < a->budget) ||
+           reject(a, BDW_EDP_SOURCE_CLOCK);
 }
 
 static bool start_phase(struct source_attempt *a, uint32_t budget)
@@ -505,21 +508,44 @@ static bool backing_preserved(struct source_attempt *a)
 }
 
 static bool poll_value(struct source_attempt *a, uint32_t offset,
-                       uint32_t mask, uint32_t expected, uint32_t budget)
+                       uint32_t mask, uint32_t expected, uint32_t budget,
+                       struct bdw_edp_panel_off_report *off)
 {
+    if (off)
+        off->outcome = BDW_EDP_PANEL_OFF_INTERRUPTED;
     if (!check(a))
         return false;
     uint64_t begin = a->last;
     for (;;) {
         uint32_t word;
-        if (!load(a, offset, &word))
+        bool read = load(a, offset, &word);
+        uint64_t elapsed = a->last - begin;
+        if (off) {
+            off->elapsed_us = elapsed;
+            if (read) {
+                if (!off->samples)
+                    off->first = word;
+                ++off->samples;
+                off->last = word;
+            }
+        }
+        if (!read)
             return false;
-        if (a->last - begin >= budget)
+        if (elapsed >= budget) {
+            if (off)
+                off->outcome = BDW_EDP_PANEL_OFF_TIMEOUT;
             return reject(a, BDW_EDP_SOURCE_CLOCK);
-        if ((word & mask) == expected)
+        }
+        if ((word & mask) == expected) {
+            if (off)
+                off->outcome = BDW_EDP_PANEL_OFF_COMPLETE;
             return true;
-        if (!wait(a, 100))
+        }
+        if (!wait(a, 100)) {
+            if (off)
+                off->elapsed_us = a->last - begin;
             return false;
+        }
     }
 }
 
@@ -614,18 +640,18 @@ static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *
         return false;
     r->stage = BDW_EDP_CYCLE_TRANSCODER;
     if (!store(a, EDP_CONF, 0, TRANS_ENABLE) ||
-        !poll_value(a, EDP_CONF, TRANS_ENABLE | TRANS_ACTIVE, 0, DISABLE_TWO_FRAMES_US) ||
+        !poll_value(a, EDP_CONF, TRANS_ENABLE | TRANS_ACTIVE, 0, DISABLE_TWO_FRAMES_US, 0) ||
         !store(a, EDP_DDI, EDP_DDI_SST_6BPC_A & ~(TRANS_ENABLE | (7u << 24) | (7u << 28)),
                UINT32_MAX))
         return false;
     r->stage = BDW_EDP_CYCLE_PORT;
     if (!store(a, DDI_BUF_A, buffer & ~DDI_BUF_ENABLE, DDI_BUF_ENABLE) ||
         !store(a, DP_TP_A, transport & ~DP_TP_ENABLE, DP_TP_ENABLE) ||
-        !poll_value(a, DDI_BUF_A, DDI_BUF_ENABLE | DDI_BUF_IDLE, DDI_BUF_IDLE, 1000u))
+        !poll_value(a, DDI_BUF_A, DDI_BUF_ENABLE | DDI_BUF_IDLE, DDI_BUF_IDLE, 1000u, 0))
         return false;
     r->stage = BDW_EDP_CYCLE_PANEL;
     if (!store(a, PP_CONTROL, 0, UINT32_MAX) ||
-        !poll_value(a, PP_STATUS, PP_SEQUENCE_MASK, 0, PANEL_OFF_US) ||
+        !poll_value(a, PP_STATUS, PP_OFF_PENDING, 0, PANEL_OFF_US, &r->panel_off) ||
         !store(a, PORT_CLOCK_A, PORT_CLOCK_NONE, UINT32_MAX))
         return false;
     r->stage = BDW_EDP_CYCLE_DARK;
@@ -663,8 +689,12 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
                    start_phase(&a, SOURCE_STAGE_US) && scanout_matches(&a) && backing_preserved(&a) &&
                    expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL);
     }
-    if ((opened || r->mask_writes) && !r->restore.crc_retained)
+    if ((opened || r->mask_writes) && !r->restore.crc_retained) {
+        struct bdw_edp_source_report cleanup = {0};
+        a.report = &cleanup;
         r->mask_restored = start_phase(&a, SOURCE_STAGE_US) && fifo_mask(&a, r, true);
+        r->mask_error = cleanup.source_error;
+    }
     r->retained = (r->mask_writes && !r->mask_restored) ||
                   (r->shutdown.source_writes && !restored);
     if (!restored || !r->mask_restored)

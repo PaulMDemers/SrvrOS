@@ -22,6 +22,7 @@ SCHEMAS = {
     "intel-edp-cycle": ("v attempted complete stage shutdown_error restore_error restore_result offset word panel "
                         "aux dark_hash crc_checks crc0 crc1 mask_before mask_live mask_after mask_writes "
                         "mask_restored shutdown_writes restore_writes well_released retired retained"),
+    "intel-edp-panel-off": "v outcome samples first last elapsed_us mask_error",
 }
 
 
@@ -156,6 +157,30 @@ def cycle_result(rows, *, native, baseline_complete, preflight):
     return c
 
 
+def panel_off_result(rows, cycle, *, native):
+    entries = rows["intel-edp-panel-off"]
+    if not entries:
+        return None
+    if len(entries) != 1:
+        raise ValueError("Duplicate eDP panel-off evidence")
+    off = entries[0]
+    outcome = off["outcome"]
+    if (outcome > 3 or off["samples"] > 3501 or off["mask_error"] > 9 or
+            any(off[key] >= 1 << 32 for key in ("first", "last")) or
+            (not native and any(off[k] for k in off if k != "v")) or
+            (off["mask_error"] and (not cycle["attempted"] or cycle["mask_restored"])) or
+            (not off["samples"] and (off["first"] or off["last"])) or
+            (not outcome and any(off[key] for key in ("samples", "elapsed_us"))) or
+            (outcome and (cycle["stage"] < 5 or cycle["shutdown_writes"] < 8)) or
+            (cycle["stage"] > 5 and outcome != 3)):
+        raise ValueError("Invalid eDP panel-off receipt")
+    if outcome == 2 and (not off["samples"] or off["elapsed_us"] < 350000 or cycle["shutdown_error"] != 4):
+        raise ValueError("Missing eDP panel-off deadline evidence")
+    if outcome == 3 and (not off["samples"] or off["elapsed_us"] >= 350000 or off["last"] & 0xb0000000):
+        raise ValueError("Missing completed eDP panel-off status")
+    return off
+
+
 def result(text, *, native=True, cycle=False):
     rows = rows_of(text)
     summaries = rows[SUMMARY]
@@ -221,9 +246,10 @@ def result(text, *, native=True, cycle=False):
         raise ValueError("eDP summary contradicts the raw rows")
     if cycle:
         observed = cycle_result(rows, native=native, baseline_complete=complete, preflight=preflight)
+        panel_off = panel_off_result(rows, observed, native=native)
         retained = retained or bool(observed["retained"])
         complete = bool(observed["complete"])
-    elif rows["intel-edp-cycle"]:
+    elif rows["intel-edp-cycle"] or rows["intel-edp-panel-off"]:
         raise ValueError("Unexpected display-cycle evidence for baseline")
     if ("laptop-capture: completed=yes" in text.splitlines()) != complete:
         raise ValueError("Incomplete eDP terminal record")
@@ -243,6 +269,10 @@ def result(text, *, native=True, cycle=False):
                   retained=retained, rows=rows)
     if cycle:
         report["display_cycle"] = observed
+    if cycle and panel_off is not None:
+        report["panel_off"] = panel_off
+    else:
+        del rows["intel-edp-panel-off"]
     return report
 
 

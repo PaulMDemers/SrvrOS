@@ -208,3 +208,18 @@ class EdpBaseline(unittest.TestCase):
                 "well_released=1 retired=1 retained=0", "well_released=0 retired=0 retained=1")
             self.assertTrue(result(refused_cycle, cycle=True)["retained"])
             self.assertFalse(result(refused_cycle, cycle=True)["diagnostic_complete"])
+            off = ("intel-edp-panel-off: v=1 outcome=3 samples=3000 first=0xa000000b "
+                   "last=0x08000001 elapsed_us=324000 mask_error=0\n")
+            self.assertEqual(result(native + off, cycle=True)["panel_off"]["elapsed_us"], 324000)
+            for wrong in (off.replace("last=0x08000001", "last=0xa000000b"),
+                          off.replace("elapsed_us=324000", "elapsed_us=350000"),
+                          off.replace("mask_error=0", "mask_error=7"), off + off):
+                with self.assertRaises(ValueError):
+                    result(native + wrong, cycle=True)
+            timeout = (refused_cycle.replace("stage=7 shutdown_error=0", "stage=5 shutdown_error=4")
+                       .replace("shutdown_writes=9", "shutdown_writes=8") +
+                       off.replace("outcome=3", "outcome=2").replace("last=0x08000001", "last=0xa000000b")
+                       .replace("elapsed_us=324000", "elapsed_us=350152"))
+            failed = result(timeout, cycle=True)
+            self.assertTrue(failed["retained"])
+            self.assertEqual(failed["panel_off"]["last"], 0xa000000b)

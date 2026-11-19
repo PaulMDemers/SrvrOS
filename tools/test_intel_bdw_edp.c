@@ -89,6 +89,7 @@ struct source_fixture {
     uint64_t buffer_enabled_at, normal_at;
     unsigned step, proofs;
     uint64_t backlight_off_at, plane_off_at, trans_off_at, panel_off_at;
+    uint32_t panel_off_delay_us;
     unsigned disable_step, fail_disable_write, mask_writes;
     bool cycle, dark, lose_dark_backing, fail_mask_close, uncertain_mask_open;
 };
@@ -432,7 +433,7 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
             *word = f->pp_control;
             if (offset == PP_STATUS)
                 *word = !s->panel_off_at ? 0x80000008u :
-                        f->time - s->panel_off_at < 74000 ? 0xa000000bu : 0x08000000u;
+                        f->time - s->panel_off_at < s->panel_off_delay_us ? 0xa000000bu : 0x08000001u;
             return true;
         }
         if (!read(f, offset, word))
@@ -573,7 +574,7 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
             break;
         case 0x64040: s->transport = word; break;
         case 0x46100:
-            assert(f->time - s->panel_off_at >= 74000);
+            assert(f->time - s->panel_off_at >= s->panel_off_delay_us);
             s->clock = word;
             f->power_requested = 0;
             f->cycle_until = f->time + 500000;
@@ -763,6 +764,8 @@ static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *rep
     const struct bdw_edp_baseline_report reference = setup_source(s);
     const struct bdw_edp_source_io io = source_io(s);
     s->cycle = true;
+    if (!s->panel_off_delay_us)
+        s->panel_off_delay_us = 324000u;
     s->panel.keep_timings = true;
     s->irq_mask = UINT32_MAX;
     s->panel.time = 300000;
@@ -791,6 +794,9 @@ static unsigned test_cycle(void)
     assert(r.mask_writes == 2 && r.mask_restored && f.mask_writes == 2 && f.irq_mask == UINT32_MAX);
     assert(r.mask_before == UINT32_MAX && r.mask_live == 0x7fffffffu && r.mask_after == UINT32_MAX);
     assert(r.dark_hash == TEST_BACKING_HASH && f.panel.pp_writes == 2 && f.primary == 0xd8000400u);
+    assert(r.panel_off.outcome == BDW_EDP_PANEL_OFF_COMPLETE && r.panel_off.samples > 1);
+    assert(r.panel_off.first == 0xa000000bu && r.panel_off.last == 0x08000001u);
+    assert(r.panel_off.elapsed_us >= 323900u && r.panel_off.elapsed_us < 350000u);
     for (unsigned i = 1; i <= writes; ++i) {
         f = (struct source_fixture){.fail_disable_write = i};
         assert(!run_cycle(&f, &r) && r.retained && r.shutdown.source_writes == i);
@@ -811,6 +817,13 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.fail_mask_close = true};
     assert(!run_cycle(&f, &r) && r.retained && !r.mask_restored && r.mask_writes == 2);
     assert(r.stage == BDW_EDP_CYCLE_RESTORE && f.panel.backlight);
+    assert(!r.restore.source_error && r.mask_error == BDW_EDP_SOURCE_UNDERRUN);
+    f = (struct source_fixture){.panel_off_delay_us = 351000u};
+    assert(!run_cycle(&f, &r) && r.retained && r.stage == BDW_EDP_CYCLE_PANEL);
+    assert(r.shutdown.source_error == BDW_EDP_SOURCE_CLOCK && r.shutdown.offset == PP_STATUS);
+    assert(r.shutdown.word == 0xa000000bu && r.panel_off.last == r.shutdown.word);
+    assert(r.panel_off.outcome == BDW_EDP_PANEL_OFF_TIMEOUT && r.panel_off.elapsed_us >= 350000u);
+    assert(r.mask_restored && !r.mask_error && !r.restore.source_writes && !f.dark);
     f = (struct source_fixture){.fault = SOURCE_CLOCK_STOPPED};
     assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_PRIMARY && r.retained);
     assert(!f.panel.backlight && !r.restore.source_writes);
@@ -820,7 +833,7 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.fault = SOURCE_SECOND_CRC_WRONG};
     assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_RESTORE && r.retained);
     assert(f.dark && f.proofs == 2 && !f.panel.backlight);
-    return writes + 9;
+    return writes + 10;
 }
 
 static unsigned test_source(void)

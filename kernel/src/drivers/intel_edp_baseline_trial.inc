@@ -670,6 +670,10 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle)
             (uint64_t)c->mask_before, (uint64_t)c->mask_live, (uint64_t)c->mask_after, (uint64_t)c->mask_writes,
             (uint64_t)c->mask_restored, (uint64_t)c->shutdown.source_writes, (uint64_t)c->restore.source_writes,
             (uint64_t)native.well_released, (uint64_t)native.retired, (uint64_t)native.retained);
+        const struct bdw_edp_panel_off_report *off = &c->panel_off;
+        console_printf("intel-edp-panel-off: v=1 outcome=%u samples=%u first=%x last=%x elapsed_us=%u mask_error=%u\n",
+            (uint64_t)off->outcome, (uint64_t)off->samples, (uint64_t)off->first, (uint64_t)off->last,
+            off->elapsed_us, (uint64_t)c->mask_error);
         return restored;
     }
     return complete;

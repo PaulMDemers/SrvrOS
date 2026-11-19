@@ -237,6 +237,24 @@ Offline allocation and prior-file checks passed. The collector refused
 the unexpected pair and both were reviewed and rejected as retained
 failures. The evidence does not identify what selected the second boot.
 
+#### Panel-off timing retry
+
+The inherited `PP_OFF_DELAYS=0x02e409c4` programs 250 ms for T9 and 74 ms
+for T10. The retry gives the panel-off poll 350 ms for both hardware
+delays, after the existing 250 ms backlight-to-video wait. The enclosing
+shutdown ceiling is 800 ms. The poll requires panel-on and sequencing
+progress to clear. The power-on path separately waits for the T12
+power-cycle flag to clear before setting the on target. The hardware
+delay programming remains intact.
+[Intel Broadwell Register Reference, pp. 1232–1236](https://cdrdv2.intel.com/v1/dl/getcontent/690789) ·
+[i915 panel-off and power-cycle waits](https://codebrowser.dev/linux/linux/drivers/gpu/drm/i915/display/intel_pps.c.html#596).
+
+The cycle emits a panel-off receipt with the first and last guarded
+raw samples, elapsed polling time, sample count and outcome. The
+source-register failure survives the underrun mask cleanup, whose error
+is recorded separately. The host fixture verifies both completion with
+T12 active and a timed-out shutdown with retained ownership.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·

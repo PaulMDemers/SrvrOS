@@ -75,9 +75,23 @@ enum bdw_edp_cycle_stage {
     BDW_EDP_CYCLE_DARK, BDW_EDP_CYCLE_RESTORE, BDW_EDP_CYCLE_COMPLETE,
 };
 
+enum bdw_edp_panel_off_outcome {
+    BDW_EDP_PANEL_OFF_UNSTARTED, BDW_EDP_PANEL_OFF_INTERRUPTED,
+    BDW_EDP_PANEL_OFF_TIMEOUT, BDW_EDP_PANEL_OFF_COMPLETE,
+};
+
+struct bdw_edp_panel_off_report {
+    enum bdw_edp_panel_off_outcome outcome;
+    unsigned samples;
+    uint32_t first, last;
+    uint64_t elapsed_us;
+};
+
 struct bdw_edp_cycle_report {
     enum bdw_edp_cycle_stage stage;
     struct bdw_edp_source_report shutdown, restore;
+    struct bdw_edp_panel_off_report panel_off;
+    enum bdw_edp_source_error mask_error;
     uint32_t mask_before, mask_live, mask_after;
     uint64_t dark_hash;
     unsigned mask_writes;
