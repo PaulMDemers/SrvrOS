@@ -40,6 +40,15 @@ Backlight permission requires advancing frames, a clean underrun latch,
 and independent fetch evidence. Native MMIO admission, the pre-reset PHY
 snapshot and the fetch observer remain pending. Ubuntu was kept running.
 
+PR301 now owns the inherited-route qualification for pre-reset DDI PHY,
+the original framebuffer pin and its primary-plane CRC. Work is limited to
+the Broadwell display diagnostic, its host/native checks and the boot recipe
+that carries them. The first trial keeps the inherited display running and
+leaves PCI reset and translation writes out of the sequence. It requires an
+exclusive CPU display lease, verified primary mappings, and independent
+CRC completion and retirement. Main remains `4016abf0`; Wi-Fi and WebCore
+have separate scopes.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
