@@ -130,8 +130,16 @@ console content changed. Both windows reported only CRC-done in the sampled
 interrupt status. Their nine PHY entries and backing hash `0x012970c1aee06011`
 matched. The probe retired both windows without retaining resources,
 performed zero PTE writes, and saved a report that passed Ubuntu return
-verification. The CRC values are specific to the content of this diagnostic
-boot. Use a reproducible frame for a future comparison across reset.
+verification.
+
+Release `43785d3ecb432ae1` then verified the fixed A–B–A sequence on the
+same MacBookAir7,2. After warm-up, the reference image returned
+`0xc2798333` on frames 960–961 and again on frames 972–973. The alternate
+returned `0xe3219ccc` on frames 966–967. All three windows preserved the
+nine PHY entries and 1,484 backing translations, restored CRC control and
+the local interrupt mask, and passed offline return verification. The
+restore provider must still capture and bind the reference in the same
+ownership lifetime as the native reset.
 
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
