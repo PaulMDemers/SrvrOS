@@ -6746,7 +6746,7 @@ build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE): tools/test_intel_bdw_bcs_flus
 build/tests/intel-bdw-bcs-flush-practical$(HOST_EXE): tools/test_intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
-test-intel-bdw-bcs-flush: build/tests/intel-bdw-bcs-flush$(HOST_EXE) build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-practical$(HOST_EXE)
+test-intel-bdw-bcs-flush: $(ZIG) build/tests/intel-bdw-bcs-flush$(HOST_EXE) build/tests/intel-bdw-bcs-flush-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-practical$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_flush
 test-core: test-intel-bdw-bcs-flush
 
@@ -6771,7 +6771,7 @@ build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE): tools/test_intel_bdw_b
 build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
-test-intel-bdw-bcs-submit: build/tests/intel-bdw-bcs-submit$(HOST_EXE) build/tests/intel-bdw-bcs-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-submit-practical$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE)
+test-intel-bdw-bcs-submit: $(ZIG) build/tests/intel-bdw-bcs-submit$(HOST_EXE) build/tests/intel-bdw-bcs-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-submit-practical$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_submit
 test-core: test-intel-bdw-bcs-submit
 
