@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope — verify an owned blitter completion on Ubuntu
+
+On main `4016abf0`, PR301 will exercise the Broadwell blitter on this unit
+through the Linux i915 render node. The host probe will use only driver-owned
+private objects and verify a fresh post-sync marker and earlier private write
+after the driver reports completion. Its dependencies are the Broadwell
+instruction reference, Linux i915 UAPI and the same Air7,2 GPU. Its scope is
+one owned command stream. SrvrOS still needs its own native mapping and
+completion provider.
+
 ## Native graphics memory arbitration diagnostic complete
 
 PR301 release `9b727e958b7591d3` returned automatically and closed as
