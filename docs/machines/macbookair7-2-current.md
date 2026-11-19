@@ -91,17 +91,18 @@ prerequisites. Main remains `4016abf0`, with separate Wi-Fi and WebCore scopes.
 Release `81cfc92b023e51c5` verified the same framebuffer translation and
 fence digest through the independent native census and repeated the
 reference CRC. It returned automatically and passed offline USB checks.
-The only shutdown prerequisite still open is temporarily unmasking Pipe A
-FIFO underrun status for polling and restoring the mask before releasing
-the display lease. The display shutdown and CRC-checked restore still
-need a native trial.
+The preflight identified the inherited Pipe A FIFO underrun mask as the
+only blocker in its shutdown prerequisite census.
 [Display-cycle preflight result](../intel-bdw-edp-recovery.md#display-disable-and-restore-rehearsal).
 
-PR301's next native trial owns the Pipe A underrun mask and the isolated
-eDP disable/restore path. It uses the live reference and framebuffer
-lease from the same boot and requires two restored CRC windows before
-lighting the panel. The boot recipe and collector will distinguish the
-cycle from the observer. Main is `4016abf0`; Wi-Fi and WebCore are separate.
+Release `f9ac1a127a36316f` physically verified the temporary underrun
+unmask and exact mask restoration in two sessions. Both stopped after
+the panel-off request, before the dark backing check or any restore
+writes. The inactive display remained leased and the USB reports
+survived. Native display restore is still pending. The next checkpoint
+is to preserve the panel sequencer's last raw sample and elapsed time
+before mask cleanup, then qualify its shutdown timing.
+[Native cycle result](../intel-bdw-edp-recovery.md#first-native-display-cycle).
 
 ## PCI reset needs independent display recovery
 

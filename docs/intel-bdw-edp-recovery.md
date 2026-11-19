@@ -219,6 +219,24 @@ verified recovery keeps the display lease pinned and saves diagnostics
 if the USB workspace is available. A safely retired outcome returns
 through the normal Ubuntu boot.
 
+#### First native display cycle
+
+Release `f9ac1a127a36316f` produced two separately saved MacBookAir7,2
+sessions, at 12:03 and 12:33 p.m. EST on November 19. Both repeated the
+baseline and physically verified the mask sequence
+`0xffffffff → 0x7fffffff → 0xffffffff`. Both stopped at the panel-off
+stage with a clock/deadline error after eight shutdown writes. They
+issued the panel-off store and never recorded the port-clock park,
+dark backing check, link restore or restored CRC. Retained display and
+well ownership blocked the automatic reboot path.
+
+Mask cleanup replaced the failing register sample in the receipt, so
+the last raw PPS status and the exact clock check remain unknown.
+Both raw sessions passed the frozen checkpoint and receipt parsers.
+Offline allocation and prior-file checks passed. The collector refused
+the unexpected pair and both were reviewed and rejected as retained
+failures. The evidence does not identify what selected the second boot.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·
