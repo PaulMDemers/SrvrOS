@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope — qualify the reset boundary and display-independent recovery
+
+On main `4016abf0`, PR301 will compare PCI AF FLR, PCI power reset and
+GT soft reset with the Broadwell display and PCI references and the
+Air7,2 observations. The work covers the exact reset domains, unanswered
+memory-completion guarantees, and the existing QEMU boot and return
+harness. The immediate checkpoint is to verify whether the diagnostic
+can persist its result and reset with no guest framebuffer. A live
+takeover still requires a documented memory and display lifecycle.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
