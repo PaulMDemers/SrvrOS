@@ -25,6 +25,14 @@ AUX link training, live-primary verification and backlight admission. The
 native clock, PHY, primary restore and recovery provider is the next
 checkpoint. There is no new release or physical acceptance.
 
+PR301's next checkpoint is the source-side DDI A and pipe A restore in
+`kernel/diagnostics`, using Intel's ordering and the Air7,2 reference mode.
+It joins the AUX/PPS sequence to actual source register programming and live
+primary readback in a host fixture. Native use requires a separate authority
+for the powered display wells, restored CDCLK/LCPLL, and the original
+framebuffer translation lifetime. Main is `4016abf0`. The open Wi-Fi and
+WebCore work has no shared display-driver changes.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
