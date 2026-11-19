@@ -4,6 +4,8 @@ from intel_gt_bootstrap import fields
 
 ENGINES = ("rcs", "vcs0", "vecs", "vcs1", "bcs")
 WORDS = (*ENGINES, "l3")
+GAM_WORDS = ("gam_go", "gam_eco")
+GAM_GO_MASK = 0x5f  # RCS, VCS0, VCS1, VECS, BCS and WiDi (bit 6).
 
 SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
@@ -47,17 +49,21 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     if len(rows) != 4 or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
     summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
-                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2))
+                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3))
     smi_rows = [line for line in text.splitlines() if line.startswith(SMI_PREFIX)]
     smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire)
+    gam = summary["v"] == 3
+    words = (*WORDS, *GAM_WORDS) if gam else WORDS
+    width = len(words)
     count, reads, maps, retired, live = (summary[key] for key in ("samples", "reads", "maps", "retired", "live"))
-    if (count > 3 or not count * 6 <= reads <= min(18, (count + 1) * 6)
+    if (count > 3 or not count * width <= reads <= min(3, count + 1) * width
             or not count <= retired <= maps <= min(3, count + 1)
             or (maps != retired and not live)
-            or (live and count == 3) or reads > maps * 6):
+            or (live and count == 3) or reads > maps * width):
         raise ValueError("GT flush accounting")
 
-    samples = [fields(row, "intel-flush-sample:", ("v", "n", "begin", "end", *WORDS), WORDS)
+    samples = [fields(row, "intel-flush-sample:", ("v", "n", "begin", "end", *words), words,
+                      versions=(2 if gam else 1,))
                for row in rows[1:]]
     if [row["n"] for row in samples] != [0, 1, 2]:
         raise ValueError("GT flush sample order")
@@ -68,17 +74,17 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     starts_after = (translation["end0"], samples[0]["end"], primary["end1"])
     ends_before = (samples[1]["begin"], reset["begin"], retire["guard_begin"])
     for n, sample in enumerate(samples):
-        words = [sample[key] for key in WORDS]
+        values = [sample[key] for key in words]
         begin, end = sample["begin"], sample["end"]
-        if any(word > 0xffffffff for word in words):
+        if any(word > 0xffffffff for word in values):
             raise ValueError("GT flush DWORD width")
         if begin and (n > count or not parent["begin"] <= starts_after[n] < begin <= parent["last"]):
             raise ValueError("GT flush sample start")
         if n < count:
             if (not 0 < begin < end <= parent["last"] or end - begin > 10000
-                    or (ends_before[n] and end > ends_before[n]) or 0xffffffff in words):
+                    or (ends_before[n] and end > ends_before[n]) or 0xffffffff in values):
                 raise ValueError("GT flush completed sample clock or register")
-        elif end or (not begin and any(words)):
+        elif end or (not begin and any(values)):
             raise ValueError("GT flush partial sample")
     if ((samples[0]["begin"] and parent["pci_samples"] < 2)
             or (samples[1]["begin"] and (parent["prepared"], parent["issued"]) != (5, 5))
@@ -88,6 +94,13 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     engine_ack = [sum((bool(row[key] & 32) << index) for index, key in enumerate(ENGINES))
                   for row in samples[:count]]
     engine_ack_rise = (engine_ack[1] & ~engine_ack[0]) if count >= 2 else 0
-    return dict(summary=summary, samples=samples[:count], partial=samples[count:], smi_guard=smi,
-                engine_ack=engine_ack, engine_ack_rise=engine_ack_rise,
-                l3_flush_ack=[bool(row["l3"] & 1) for row in samples[:count]])
+    gam_state = [{"allowed": row["gam_go"] & GAM_GO_MASK, "idle": bool(row["gam_eco"] & 1)}
+                 for row in samples[:count]] if gam else None
+    result = dict(summary=summary, samples=samples[:count], partial=samples[count:],
+                  engine_ack=engine_ack, engine_ack_rise=engine_ack_rise,
+                  l3_flush_ack=[bool(row["l3"] & 1) for row in samples[:count]])
+    if smi is not None:
+        result["smi_guard"] = smi
+    if gam:
+        result["gam"] = gam_state
+    return result

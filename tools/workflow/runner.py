@@ -709,6 +709,10 @@ class Runner:
             record['flush_sample_us']=[row['end']-row['begin'] for row in observed['samples']]
             record['prepare_engine_ack_rise']=observed['engine_ack_rise']
             record['l3_flush_ack_samples']=observed['l3_flush_ack']
+            if 'smi_guard' in observed:
+                record['smi_guard']=observed['smi_guard']
+            if 'gam' in observed:
+                record['gam_samples']=observed['gam']
         if native.get('diagnostic_arena'):
             c=native['arena']['summary']
             record['cpu_arena_us']=dict(prepare=c['storage_end']-c['storage_begin'],held=c['end']-c['begin'],cleanup=c['close_end']-c['close_begin'])

@@ -7,8 +7,9 @@ hold. Both exact-stage VM paths are required. The native receipt preserves
 engine acknowledgement changes and sampled L3 state under the existing clocks
 and 96 KiB log bound. New wire12 images also record the boot CPU SMI counter
 at protected store and retirement checkpoints. A change retains exclusion
-and halts. It closes only as a diagnostic. This profile is silent
-and saves and returns to Ubuntu on a safe outcome.
+and halts. Version 3 of the flush receipt also records the raw and decoded
+graphics memory arbitration state. It closes only as a diagnostic. This
+profile is silent and saves and returns to Ubuntu on a safe outcome.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe

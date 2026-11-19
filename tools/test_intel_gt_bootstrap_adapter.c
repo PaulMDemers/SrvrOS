@@ -476,14 +476,19 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(range_pa==0xc0008000) {
-  static const uint32_t expected[]={0x8000,0x8004,0x8010,0x8008,0x800c,0x8038};
-  unsigned i=flush_reads%6, n=gt_flush.samples;
+  static const uint32_t expected[]={0x8000,0x8004,0x8010,0x8008,0x800c,0x8038,0x8028,0x8040};
+  unsigned i=flush_reads%8, n=gt_flush.samples;
   assert(gt_flush_live() && offset==expected[i] && gpu_command==3);
   assert((n==0 && bwrites==0 && !pulses) || (n==1 && bwrites==5 && !pulses) ||
          (n==2 && pulses==2 && gt_memory.d.state==2 && gt_primary.complete));
   if(bf("flush-read",++flush_reads))return false;
   bool ack=(n==1 && strcmp(bootstrap_mode,"flush-quiet")) || !strcmp(bootstrap_mode,"flush-stale");
-  *out=ack?(i<5?32:1):0;
+  if(i<6)*out=ack?(i<5?32:1):0;
+  else {
+    bool idle=n==1 && strcmp(bootstrap_mode,"flush-quiet");
+    /* Keep non-decoded bits in the raw receipt. */
+    *out=i==6?(idle?0x20:0x7f):(idle?0x201:0x200);
+  }
   if(bf("flush-float",flush_reads))*out=UINT32_MAX;
   if(bf("flush-clock",flush_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
   if(bf("flush-window",flush_reads))ticks=gt_flush.begin[n]+BDW_BOOT_PHASE_US+1;
@@ -589,7 +594,7 @@ int main(int argc,char **argv) {
   assert(gt_primary.begin[1]<=gt_aux.begin[1] && gt_aux.end[1]<=gt_primary.end[1]);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-  assert(gt_flush.samples==3 && flush_reads==18 && flush_maps==3 && flush_aliases==3 && flush_unmaps==3);
+  assert(gt_flush.samples==3 && flush_reads==24 && flush_maps==3 && flush_aliases==3 && flush_unmaps==3);
   assert(!gt_flush.access.mapped && gt_flush.end[0]<gt_flush.begin[1] && gt_flush.end[1]<=r->begin);
   assert(gt_primary.end[1]<gt_flush.begin[2] && gt_flush.end[2]<gt_bootstrap_native.guard_begin);
 #endif

@@ -1,6 +1,7 @@
 """Exercise the Broadwell hardware acknowledgement capture and its receipts."""
 
 import subprocess
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -39,8 +40,15 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 2, "samples": 3, "reads": 18, "maps": 3, "retired": 3, "live": 0,
+                        "v": 3, "samples": 3, "reads": 24, "maps": 3, "retired": 3, "live": 0,
                     })
+                    idle = mode != "flush-quiet"
+                    self.assertEqual(flush["gam"], [
+                        dict(allowed=0x5f, idle=False), dict(allowed=0 if idle else 0x5f, idle=idle),
+                        dict(allowed=0x5f, idle=False),
+                    ])
+                    self.assertEqual(flush["samples"][1]["gam_go"], 0x20 if idle else 0x7f)
+                    self.assertEqual(flush["samples"][1]["gam_eco"], 0x201 if idle else 0x200)
                     self.assertEqual(flush["smi_guard"], {
                         "v": 1, "reads": result["summary"]["native_writes"] + 7,
                         "point": 6, "fault": 0, "first": 13, "last": 13,
@@ -82,7 +90,7 @@ class FlushAcknowledgements(unittest.TestCase):
                 })
 
     def test_access_failures_retain_the_parent_and_report_the_attempt(self):
-        for mode, limit in (("flush-read", 18), ("flush-float", 18), ("flush-clock", 18), ("flush-window", 18),
+        for mode, limit in (("flush-read", 24), ("flush-float", 24), ("flush-clock", 24), ("flush-window", 24),
                             ("flush-map", 3), ("flush-map-retained", 3), ("flush-alias", 3), ("flush-unmap", 3)):
             for pos in range(1, limit + 1):
                 with self.subTest(mode=mode, position=pos):
@@ -91,7 +99,8 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(result["summary"]["commands"], 1)
                     self.assertFalse(result["summary"]["returned"])
                     summary = result["flush"]["summary"]
-                    self.assertEqual(summary["samples"], (pos - 1) // (6 if limit == 18 else 1))
+                    self.assertEqual(summary["samples"], (pos - 1) // (8 if limit == 24 else 1))
+                    self.assertEqual(len(result["flush"]["gam"]), summary["samples"])
                     self.assertEqual(bool(summary["live"]), mode in ("flush-clock", "flush-map-retained", "flush-unmap"))
 
     def test_strict_version_authority_and_bracket_validation(self):
@@ -105,19 +114,29 @@ class FlushAcknowledgements(unittest.TestCase):
                     row.replace("authority=none", "authority=write")):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        old = text.replace(row, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
-        self.assertIsNone(bootstrap_result(old)["flush"]["smi_guard"])
+        previous = text.replace("intel-flush-summary: v=3 samples=3 reads=24 ",
+                                "intel-flush-summary: v=2 samples=3 reads=18 ")
+        previous = re.sub(r" gam_go=\S+ gam_eco=\S+", "", previous)
+        previous = previous.replace("intel-flush-sample: v=2 ", "intel-flush-sample: v=1 ")
+        self.assertNotIn("gam", bootstrap_result(previous)["flush"])
+        old = previous.replace(row, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
+        self.assertNotIn("smi_guard", bootstrap_result(old)["flush"])
         for n, packet in enumerate(flush["samples"]):
-            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=1 n={n} "))
+            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=2 n={n} "))
             for bad in ("", sample + "\n" + sample, sample.replace(f"begin={packet['begin']}", "begin=1"),
                         sample.replace(f"end={packet['end']}", f"end={packet['begin'] + 10001}"),
                         sample.replace(" l3=", " unknown="),
+                        sample.replace(" gam_go=", " unknown_go="),
+                        sample.rsplit(" ", 1)[0],
+                        sample.rsplit("=", 1)[0] + "=0xffffffff",
                         sample.rsplit("=", 1)[0] + "=0x100000000"):
                 with self.subTest(bad=bad), self.assertRaises(ValueError):
                     bootstrap_result(text.replace(sample, bad))
         for before, after in (("intel-bootstrap-summary: v=12 ", "intel-bootstrap-summary: v=11 "),
                               ("authority=none\nintel-flush-sample", "authority=write\nintel-flush-sample"),
-                              ("samples=3 reads=18 maps=3 retired=3", "samples=3 reads=18 maps=3 retired=2")):
+                              ("samples=3 reads=24 maps=3 retired=3", "samples=3 reads=24 maps=3 retired=2"),
+                              ("samples=3 reads=24 maps=3 retired=3", "samples=3 reads=18 maps=3 retired=3"),
+                              ("intel-flush-summary: v=3 ", "intel-flush-summary: v=2 ")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(before, after))
@@ -160,6 +179,6 @@ class FlushAcknowledgements(unittest.TestCase):
             compile_fixture(TARGET, output=binary, declaration=(
                 cc, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
-            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 18),
+            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 24),
                               ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)

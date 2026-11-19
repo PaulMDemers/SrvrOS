@@ -156,7 +156,7 @@ diagnostic and retains the outer GT exclusion. The active child stays held
 if it has yet to return. The clocks and allowed GPU operations stay as
 specified above. The existing firmware-preservation tests still apply.
 
-The version-2 flush summary requires one `intel-smi-guard` record. The
+Flush summaries from version 2 require one `intel-smi-guard` record. The
 record includes the first and last count, count of reads, last checkpoint
 and fault. The collector binds those reads to the actual store and
 retirement counters. Historical version-1 summaries remain replayable.
@@ -167,6 +167,23 @@ CPU during this interval. It leaves other logical CPUs, firmware-owned
 device activity, access between samples, outstanding GPU transactions and
 cache effects outside its scope. It supplies no GGTT, DMA, cache, or
 display-reader authority.
+
+### Graphics memory arbitration observations
+
+Version 3 of the flush summary adds two DWORDs to each of the original three
+snapshots, all through the same read-only 0x8000 alias. `MSG_GO_GAM`
+at 0x8028 reports which engine groups the arbiter allows to issue graphics
+memory cycles. The collector decodes bits 0–4 and 6 for render, Media0,
+Media1, VEBox, blitter and WiDi. `ECO_MSG` at 0x8040 reports GAM idle in
+bit 0. The collector retains the raw DWORDs and requires all 24 reads on a
+complete return. A partial sample never contributes a decoded value.
+[Intel Broadwell PRM Volume 2c, pp. 403–405 and 587–588](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789).
+
+The result distinguishes observed graphics-memory admission from engine and
+L3 acknowledgements. Both values are snapshots. The GAM idle bit defaults
+to one, so a post-reset idle sample alone cannot distinguish completed work
+from the register's reset value. This measurement grants no ownership and
+does not establish completion of earlier accesses, prefetch or cache effects.
 
 ## Automated trial
 
