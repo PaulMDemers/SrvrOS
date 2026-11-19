@@ -277,6 +277,21 @@ command, D0, AF status and OpRegion address. Bytes remain private to the
 kernel and the receipt reports only digests and timings. The preflight
 keeps PCI decode live through the real display cycle.
 
+On MacBookAir7,2, release `373cffdfd77b05c3` completed this preflight
+in session `session-000660a5fa513d15-00`. The copy and both comparisons
+took 198.020, 194.973 and 196.825 ms and produced the same pixel digest,
+`0x7c16ae0a6bb7718d`. All 16 PCI values matched across the three samples.
+The PCI command word remained `0x0007` with bus mastering enabled.
+The AF Transactions Pending bit was clear in each sample.
+
+The PPS reached panel-off in 324.073 ms and the dark translation and
+fence digest remained `0x012970c1aee06011`. Both restored primary-plane
+CRC windows matched `0xc2798333` before the backlight was enabled.
+The display lease, driver-well request and CPU backup retired cleanly.
+The diagnostic saved and unmounted its workspace, returned to Ubuntu and
+passed the offline USB integrity check. The receipt records zero reset
+writes.
+
 The host fixture runs the PCI AF reset core at the dark boundary. The
 configuration layer requires an independent retirement and resource
 admission before writing AFCTL. It waits at least 100 ms before reading

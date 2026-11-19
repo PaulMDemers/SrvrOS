@@ -125,12 +125,16 @@ GGTT takeover.
 
 PR301 owns the PCI AF FLR recovery work on main `4016abf0`, in the
 Broadwell display diagnostic and its host and native trial tools.
-The first checkpoint keeps a CPU-owned copy of the reference pixels
-through the dark handoff and samples the original function's PCI
-resources there. The PCI reset and config-recovery state machine will
-be exercised with a fault-injecting provider. Native reset requires
+Release `373cffdfd77b05c3` physically verified a 5,529,600-byte CPU-owned
+framebuffer copy and identical PCI snapshots before shutdown, while the
+panel was off and after restore. Both restored primary-plane CRCs
+matched the reference before the backlight came on. The trial saved its
+result, returned to Ubuntu and passed the offline USB integrity check
+with zero reset writes. The PCI reset and configuration recovery state
+machine passed its fault-injecting host fixture. Native reset requires
 proof of requester and memory retirement and a provider that can
 reestablish the reset display resources. Wi-Fi and WebCore are separate.
+[PCI function reset preflight](../intel-bdw-edp-recovery.md#pci-function-reset-preparation).
 
 ## Owned blitter completion observed on Ubuntu
 
