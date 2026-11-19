@@ -32,6 +32,12 @@ struct edp_flr_preflight {
     uint32_t pci[3][EDP_FLR_PCI_WORDS];
     unsigned pixel_samples, pci_samples;
     bool released;
+    bool exercise_well;
+    struct {
+        uint32_t bios, driver, pps;
+    } well[3];
+    unsigned well_samples, well_writes;
+    uint64_t well_begin, well_elapsed;
 };
 
 struct edp_adapter {
@@ -354,6 +360,52 @@ static bool edp_source_backing(void *context, const struct bdw_edp_source_image 
     return edp_source_held(context, image) && edp_pinned_translations(context, hash);
 }
 
+static enum intel_gt_write edp_well_request(void *context, bool enable);
+
+static bool edp_dark_well_sample(struct edp_adapter *a, bool requested)
+{
+    struct edp_flr_preflight *f = a->flr;
+    unsigned n = f->well_samples;
+    if (!edp_held(a) || !edp_cycle_platform(a, requested) ||
+        !edp_read(a, 0x45400, &f->well[n].bios) ||
+        !edp_read(a, BDW_EDP_WELL_DRIVER, &f->well[n].driver) ||
+        !edp_read(a, 0xc7200, &f->well[n].pps) ||
+        !edp_expect(a, 0xc7204, UINT32_MAX, 0))
+        return false;
+    uint64_t end = now(a);
+    if (end < f->well_begin || end - f->well_begin < f->well_elapsed ||
+        end - f->well_begin >= 100000 ||
+        f->well[n].bios != (BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON) ||
+        f->well[n].driver != (BDW_EDP_WELL_ON | (requested ? BDW_EDP_WELL_REQUEST : 0)) ||
+        (f->well[n].pps & 0xb0000000u) || !edp_held(a))
+        return false;
+    f->well_elapsed = end - f->well_begin;
+    ++f->well_samples;
+    return true;
+}
+
+/* The original CPU and backing pin remain live while the driver releases
+ * and reclaims its own bit. Firmware must keep the physical well powered. */
+static bool edp_dark_well(struct edp_adapter *a)
+{
+    struct edp_flr_preflight *f = a->flr;
+    f->well_begin = now(a);
+    if (!f->well_begin || !edp_dark_well_sample(a, true))
+        return false;
+    for (unsigned step = 0; step < 2; ++step) {
+        bool enable = step != 0;
+        uint64_t before = now(a);
+        if (before < f->well_begin || before - f->well_begin >= 100000)
+            return false;
+        enum intel_gt_write status = edp_well_request(a, enable);
+        if (status != GT_WRITE_NONE)
+            ++f->well_writes;
+        if (status != GT_WRITE_DONE || !edp_dark_well_sample(a, enable))
+            return false;
+    }
+    return f->well_elapsed != 0;
+}
+
 static bool edp_flr_config(struct edp_adapter *a)
 {
     static const uint8_t offsets[EDP_FLR_PCI_WORDS] = {
@@ -438,7 +490,8 @@ static bool edp_flr_pixels(struct edp_adapter *a)
 static enum bdw_edp_dark_result edp_flr_dark(void *context, const struct bdw_edp_source_image *image)
 {
     struct edp_adapter *a = context;
-    if (!edp_source_held(a, image) || !edp_flr_pixels(a))
+    if (!edp_source_held(a, image) ||
+        (a->flr->exercise_well && !edp_dark_well(a)) || !edp_flr_pixels(a))
         return BDW_EDP_DARK_REFUSED;
     /* A read-only config refusal can still recover the original display. */
     (void)edp_flr_config(a);
@@ -704,7 +757,7 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
     return ok && !r->retained;
 }
 
-bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight)
+bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight, bool dark_well)
 {
     static bool attempted;
     if (attempted || !retained)
@@ -724,7 +777,7 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
     struct bdw_edp_platform_report platform = {0};
     struct edp_cycle_observation cycle = {0};
     struct edp_native_cycle native = {0};
-    struct edp_flr_preflight flr = {0};
+    struct edp_flr_preflight flr = {.exercise_well = dark_well};
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */
@@ -797,6 +850,17 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
             off->elapsed_us, (uint64_t)c->mask_error);
         if (flr_preflight) {
             bool ready = restored && flr.pixel_samples == 3 && flr.pci_samples == 3 && flr.released;
+            if (dark_well) {
+                bool well_complete = flr.well_samples == 3 && flr.well_writes == 2 && flr.well_elapsed;
+                for (unsigned i = 0; i < flr.well_samples; ++i)
+                    console_printf("intel-edp-dark-well-word: v=1 phase=%u bios=%x driver=%x pps=%x\n",
+                        (uint64_t)i, (uint64_t)flr.well[i].bios, (uint64_t)flr.well[i].driver,
+                        (uint64_t)flr.well[i].pps);
+                console_printf("intel-edp-dark-well: v=1 complete=%u samples=%u writes=%u elapsed_us=%u\n",
+                    (uint64_t)well_complete, (uint64_t)flr.well_samples, (uint64_t)flr.well_writes,
+                    flr.well_elapsed);
+                ready = ready && well_complete;
+            }
             for (unsigned i = 0; i < flr.pixel_samples; ++i)
                 console_printf("intel-edp-flr-pixels: v=1 phase=%u digest=%x elapsed_us=%u\n",
                     (uint64_t)i, flr.pixels[i], flr.elapsed[i]);

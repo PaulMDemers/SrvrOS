@@ -6,6 +6,7 @@ from intel_display_backing import backing_result
 PROFILE = "intel-edp-baseline-v1"
 CYCLE_PROFILE = "intel-edp-cycle-v1"
 FLR_PREFLIGHT_PROFILE = "intel-edp-flr-preflight-v1"
+DARK_WELL_PROFILE = "intel-edp-dark-well-v1"
 PREFIX = "ram-usb-v1-intel-edp-baseline-"
 SUMMARY = "intel-edp-baseline"
 SCHEMAS = {
@@ -27,11 +28,15 @@ SCHEMAS = {
     "intel-edp-flr-preflight": "v complete pixels configs bytes released reset",
     "intel-edp-flr-pixels": "v phase digest elapsed_us",
     "intel-edp-flr-config": "v phase index word",
+    "intel-edp-dark-well": "v complete samples writes elapsed_us",
+    "intel-edp-dark-well-word": "v phase bios driver pps",
 }
 FLR_ROWS = ("intel-edp-flr-preflight", "intel-edp-flr-pixels", "intel-edp-flr-config")
+WELL_ROWS = ("intel-edp-dark-well", "intel-edp-dark-well-word")
 
 
-def recipe(command, *, cycle=False, flr=False):
+def recipe(command, *, cycle=False, flr=False, dark_well=False):
+    flr = flr or dark_well
     cycle = cycle or flr
     match = re.fullmatch(
         r"srvros.storage=ram srvros.workspace-volume=([0-9a-f]{8}) "
@@ -39,7 +44,7 @@ def recipe(command, *, cycle=False, flr=False):
         r"srvros.intel-backing=read-only srvros.intel-cache=read-only "
         r"srvros.intel-edp-baseline=on" +
         (r" srvros.intel-edp-cycle=on" if cycle else "") +
-        (r" srvros.intel-edp-flr=preflight" if flr else "") +
+        (r" srvros.intel-edp-flr=" + ("dark-well" if dark_well else "preflight") if flr else "") +
         r" srvros.capture-failure=reboot", command)
     if not match:
         raise ValueError("Invalid eDP baseline recipe")
@@ -188,7 +193,27 @@ def panel_off_result(rows, cycle, *, native):
     return off
 
 
-def flr_result(rows, *, native, display):
+def dark_well_result(rows, *, native, display):
+    summaries, samples = (rows[k] for k in WELL_ROWS)
+    if len(summaries) != 1:
+        raise ValueError("Missing dark well summary")
+    s = summaries[0]
+    complete = len(samples) == 3 and s["writes"] == 2 and bool(s["elapsed_us"])
+    if (s["samples"] > 3 or [w["phase"] for w in samples] != list(range(s["samples"])) or
+            s["writes"] > 2 or not s["samples"] - 1 <= s["writes"] <= s["samples"] or
+            s["elapsed_us"] >= 100000 or (not samples and s["elapsed_us"]) or
+            s["complete"] != complete or (display["complete"] and not complete) or
+            ((samples or s["writes"]) and (not native or display["stage"] < 6)) or
+            (s["writes"] and not complete and not display["retained"])):
+        raise ValueError("Invalid dark well coverage")
+    for w in samples:
+        if (w["bios"] != 0xc0000000 or w["driver"] != (0x40000000 if w["phase"] == 1 else 0xc0000000) or
+                w["pps"] >= 1 << 32 or w["pps"] & 0xb0000000):
+            raise ValueError("Display well or panel power changed unexpectedly")
+    return s
+
+
+def flr_result(rows, *, native, display, well_complete=True):
     summaries, pixels, config = (rows[key] for key in FLR_ROWS)
     if len(summaries) != 1:
         raise ValueError("Missing eDP FLR preflight summary")
@@ -214,13 +239,15 @@ def flr_result(rows, *, native, display):
                 w[13] != 0x03060013 or w[14] & ~0x100 or
                 (n and w != [r["word"] for r in config[:16]])):
             raise ValueError("eDP FLR config differs")
-    complete = display["complete"] and s["pixels"] == s["configs"] == 3 and bool(s["released"])
+    complete = (display["complete"] and s["pixels"] == s["configs"] == 3 and
+                bool(s["released"]) and well_complete)
     if complete != s["complete"] or (s["released"] and not display["retired"]):
         raise ValueError("Contradictory eDP FLR preflight completion")
     return s
 
 
-def result(text, *, native=True, cycle=False, flr=False):
+def result(text, *, native=True, cycle=False, flr=False, dark_well=False):
+    flr = flr or dark_well
     cycle = cycle or flr
     rows = rows_of(text)
     summaries = rows[SUMMARY]
@@ -291,8 +318,15 @@ def result(text, *, native=True, cycle=False, flr=False):
         complete = bool(observed["complete"])
     elif rows["intel-edp-cycle"] or rows["intel-edp-panel-off"]:
         raise ValueError("Unexpected display-cycle evidence for baseline")
+    if dark_well:
+        well = dark_well_result(rows, native=native, display=observed)
+    else:
+        for key in WELL_ROWS:
+            if rows.pop(key):
+                raise ValueError("Unexpected dark well evidence")
     if flr:
-        flr_preflight = flr_result(rows, native=native, display=observed)
+        flr_preflight = flr_result(rows, native=native, display=observed,
+                                   well_complete=not dark_well or bool(well["complete"]))
         complete = bool(flr_preflight["complete"])
     else:
         for key in FLR_ROWS:
@@ -322,20 +356,22 @@ def result(text, *, native=True, cycle=False, flr=False):
         del rows["intel-edp-panel-off"]
     if flr:
         report["flr_preflight"] = flr_preflight
+    if dark_well:
+        report["dark_well"] = well
     return report
 
 
-def checkpoint(pre, text, native=False, *, cycle=False, flr=False):
+def checkpoint(pre, text, native=False, *, cycle=False, flr=False, dark_well=False):
     boot = "laptop-capture: boot options="
     a = [line[len(boot):] for line in pre.splitlines() if line.startswith(boot)]
     b = [line[len(boot):] for line in text.splitlines() if line.startswith(boot)]
     if len(a) != 1 or a != b or any(rows_of(pre).values()):
         raise ValueError("Invalid eDP baseline preflight checkpoint")
-    recipe(a[0], cycle=cycle, flr=flr)
+    recipe(a[0], cycle=cycle, flr=flr, dark_well=dark_well)
     prefixes = ("intel-display-", "intel-backing-", "intel-cache-")
     original = [line for line in pre.splitlines() if line.startswith(prefixes)]
     terminal = [line for line in text.splitlines() if line.startswith(prefixes)]
     if not original or original != terminal:
         raise ValueError("Changed eDP baseline preflight evidence")
-    result(text, native=native, cycle=cycle, flr=flr)
+    result(text, native=native, cycle=cycle, flr=flr, dark_well=dark_well)
     return True

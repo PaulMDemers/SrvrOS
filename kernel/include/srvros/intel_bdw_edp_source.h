@@ -107,7 +107,8 @@ enum bdw_edp_dark_result {
 
 /* Runs under the same display and backing lease after shutdown. A recovered
  * reset must return with config/MMIO decoding reestablished, the original
- * backing verified, clocks/PWM ready, and the underrun latch still owned.
+ * backing verified, clocks/PWM ready, and an owned all-masked Pipe A with
+ * IER and IIR clear. The cycle re-arms underrun observation before restore.
  * No register access follows a refused or uncertain handoff. */
 typedef enum bdw_edp_dark_result (*bdw_edp_dark_handoff)(
     void *, const struct bdw_edp_source_image *);

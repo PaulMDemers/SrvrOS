@@ -592,21 +592,27 @@ static bool active_path(struct source_attempt *a, const struct bdw_edp_baseline_
 /* An all-masked IMR is valid. While we poll, IER stays disabled and IIR
  * underrun is never acknowledged. Distinguish a possibly issued write
  * from a refused write and require exact posted readback. */
-static bool fifo_mask(struct source_attempt *a, struct bdw_edp_cycle_report *r, bool closing)
+enum fifo_phase { FIFO_OPEN, FIFO_RESET_OPEN, FIFO_CLOSE };
+
+static bool fifo_mask(struct source_attempt *a, struct bdw_edp_cycle_report *r,
+                      enum fifo_phase phase)
 {
     uint32_t before;
+    uint32_t irq_mask = phase == FIFO_RESET_OPEN ? UINT32_MAX : FIFO_UNDERRUN;
     if (!check(a) || !a->io.read(a->io.context, PIPE_A_IMR, &before) || !check(a) ||
-        !expect(a, PIPE_A_IER, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN) ||
-        !expect(a, PIPE_A_IIR, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN))
+        !expect(a, PIPE_A_IER, irq_mask, 0, BDW_EDP_SOURCE_UNDERRUN) ||
+        !expect(a, PIPE_A_IIR, irq_mask, 0, BDW_EDP_SOURCE_UNDERRUN))
         return reject(a, BDW_EDP_SOURCE_UNDERRUN);
-    if (!closing)
+    if (phase == FIFO_OPEN) {
         r->mask_before = before;
-    else if (before != r->mask_live && before != r->mask_before)
+        r->mask_live = before & ~FIFO_UNDERRUN;
+    } else if (phase == FIFO_RESET_OPEN && (before != UINT32_MAX || r->mask_before != UINT32_MAX)) {
         return reject(a, BDW_EDP_SOURCE_UNDERRUN);
+    } else if (phase == FIFO_CLOSE && before != r->mask_live && before != r->mask_before) {
+        return reject(a, BDW_EDP_SOURCE_UNDERRUN);
+    }
 
-    uint32_t target = closing ? r->mask_before : before & ~FIFO_UNDERRUN;
-    if (!closing)
-        r->mask_live = target;
+    uint32_t target = phase == FIFO_CLOSE ? r->mask_before : r->mask_live;
     if (target != before) {
         if (!check(a))
             return false;
@@ -619,10 +625,10 @@ static bool fifo_mask(struct source_attempt *a, struct bdw_edp_cycle_report *r, 
     uint32_t observed;
     if (!check(a) || !a->io.read(a->io.context, PIPE_A_IMR, &observed) ||
         observed != target || !check(a) ||
-        !expect(a, PIPE_A_IER, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN) ||
-        !expect(a, PIPE_A_IIR, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN))
+        !expect(a, PIPE_A_IER, irq_mask, 0, BDW_EDP_SOURCE_UNDERRUN) ||
+        !expect(a, PIPE_A_IIR, irq_mask, 0, BDW_EDP_SOURCE_UNDERRUN))
         return reject(a, BDW_EDP_SOURCE_UNDERRUN);
-    if (closing)
+    if (phase == FIFO_CLOSE)
         r->mask_after = observed;
     return true;
 }
@@ -681,7 +687,7 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
         return false;
 
     a.gamma = primary & PRI_GAMMA_ENABLE;
-    bool opened = fifo_mask(&a, r, false);
+    bool opened = fifo_mask(&a, r, FIFO_OPEN);
     bool restored = false;
     if (opened && disable_path(&a, r, primary, buffer, transport)) {
         enum bdw_edp_dark_result state = handoff ?
@@ -691,14 +697,16 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
             return false;
         }
         bool keep = state == BDW_EDP_DARK_UNCHANGED;
-        if (!keep && (!start_phase(&a, SOURCE_STAGE_US) || !backing_preserved(&a))) {
-            r->retained = true;
-            return false;
-        }
         r->stage = BDW_EDP_CYCLE_RESTORE;
         a.report = &r->restore;
-        if (!keep)
+        if (!keep) {
             a.gamma = 0;
+            if (!start_phase(&a, SOURCE_STAGE_US) || !clock_ready(&a) ||
+                !backing_preserved(&a) || !fifo_mask(&a, r, FIFO_RESET_OPEN)) {
+                r->retained = true;
+                return false;
+            }
+        }
         restored = restore(io, image, reference, &r->restore, keep, a.gamma) == BDW_EDP_OK &&
                    start_phase(&a, SOURCE_STAGE_US) && scanout_matches(&a) && backing_preserved(&a) &&
                    expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL);
@@ -706,7 +714,7 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
     if ((opened || r->mask_writes) && !r->restore.crc_retained) {
         struct bdw_edp_source_report cleanup = {0};
         a.report = &cleanup;
-        r->mask_restored = start_phase(&a, SOURCE_STAGE_US) && fifo_mask(&a, r, true);
+        r->mask_restored = start_phase(&a, SOURCE_STAGE_US) && fifo_mask(&a, r, FIFO_CLOSE);
         r->mask_error = cleanup.source_error;
     }
     r->retained = (r->mask_writes && !r->mask_restored) ||

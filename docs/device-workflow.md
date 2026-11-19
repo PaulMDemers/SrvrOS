@@ -221,6 +221,13 @@ three matching pixel and configuration samples and release of the CPU
 copy. The physical function stays active during this preflight.
 [PCI reset preparation](intel-bdw-edp-recovery.md#pci-function-reset-preparation).
 
+The explicit `--profile intel-edp-dark-well-v1` adds a driver-well
+release and reclaim while the panel is dark. It requires three matching
+firmware-well samples and both driver request readbacks, followed by the
+same pixel, PCI and display restore checks. This guest is silent and
+returns after saving a safe result. If the panel stays dark for 60 seconds,
+restart manually. [Driver well recovery](intel-bdw-edp-recovery.md#pci-function-reset-preparation).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the

@@ -17,9 +17,9 @@ VOLUME = "01234567"
 BOOT = "laptop-capture: boot options="
 
 
-def cmdline(cycle=False, flr=False):
+def cmdline(cycle=False, flr=False, dark_well=False):
     return next(line.partition("cmdline:")[2].strip() for line in
-                limine_config(RELEASE, EDP_CONFIGS[2 if flr else cycle] + "laptop-probe-" +
+                limine_config(RELEASE, EDP_CONFIGS[3 if dark_well else 2 if flr else cycle] + "laptop-probe-" +
                               VOLUME + "-auto-return").splitlines()
                 if "cmdline:" in line)
 
@@ -56,7 +56,7 @@ class EdpBaseline(unittest.TestCase):
                 path = root / "build" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
-            for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight"):
+            for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight", "intel_edp_dark_well"):
                 with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
                         patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
                     release = boot.stage(laptop_probe_volume=VOLUME, **{mode: True})
@@ -239,3 +239,19 @@ class EdpBaseline(unittest.TestCase):
                             flr.replace("bytes=5529600 released=1 reset=0", "bytes=5529600 released=1 reset=1")):
                 with self.assertRaises(ValueError):
                     result(changed, cycle=True, flr=True)
+            well = flr.replace(cmdline(flr=True), cmdline(dark_well=True))
+            well += "intel-edp-dark-well: v=1 complete=1 samples=3 writes=2 elapsed_us=100\n"
+            for phase, driver in enumerate((0xc0000000, 0x40000000, 0xc0000000)):
+                well += f"intel-edp-dark-well-word: v=1 phase={phase} bios=0xc0000000 driver={driver} pps=0x08000001\n"
+            self.assertEqual(recipe(cmdline(dark_well=True), dark_well=True),
+                             dict(release=RELEASE, volume=VOLUME))
+            self.assertTrue(result(well, dark_well=True)["dark_well"]["complete"])
+            with self.assertRaises(ValueError):
+                result(well, flr=True)
+            for wrong in (well.replace("bios=0xc0000000", "bios=0x40000000"),
+                          well.replace("pps=0x08000001", "pps=0x80000008"),
+                          well.replace("writes=2 elapsed_us=100", "writes=1 elapsed_us=100"),
+                          well.replace("elapsed_us=100\n", "elapsed_us=100000\n"),
+                          well.replace("samples=3 writes=2", "samples=1000000000000 writes=2")):
+                with self.assertRaises(ValueError):
+                    result(wrong, dark_well=True)

@@ -503,7 +503,10 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
             *word ^= 1;
         break;
     case 0x44404: *word = s->irq_mask | (s->fault == SOURCE_MASKED ? 0x80000000u : 0); break;
-    case 0x4440c: *word = s->fault == SOURCE_IRQ_ENABLED ? 0x80000000u : 0; break;
+    case 0x4440c:
+        *word = s->fault == SOURCE_IRQ_ENABLED ? 0x80000000u :
+                (s->function_reset && s->flr_fault == 8 ? BDW_EDP_CRC_DONE : 0);
+        break;
     case 0x44408: {
         uint32_t frame = (uint32_t)((f->time - s->normal_at) / 16667);
         if (s->crc_ctl && frame != s->crc_frame && s->fault != SOURCE_NO_CRC) {
@@ -839,6 +842,7 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
     if (!intel_bdw_flr(&io, &pci, &s->flr))
         return BDW_EDP_DARK_REFUSED;
     s->function_reset = true;
+    s->irq_mask = s->flr_fault == 7 ? 0x7fffffffu : UINT32_MAX;
     s->panel.keep_timings = false;
     return BDW_EDP_DARK_RESET_RECOVERED;
 }
@@ -923,14 +927,16 @@ static unsigned test_cycle(void)
     assert(f.flr.reset_issued && f.flr.ready_polls == 3 && f.flr_writes == 5);
     assert(f.flr.stage == BDW_FLR_COMPLETE && !f.flr.retained);
     assert(f.primary == 0x98000400u && f.panel.pp_writes == 5 && f.proofs == 2);
-    for (unsigned fault = 1; fault <= 6; ++fault) {
+    assert(r.mask_writes == 3 && r.mask_restored && f.irq_mask == UINT32_MAX);
+    for (unsigned fault = 1; fault <= 8; ++fault) {
         f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
-        assert(!run_cycle(&f, &r) && r.retained && r.stage == BDW_EDP_CYCLE_DARK);
+        assert(!run_cycle(&f, &r) && r.retained);
+        assert(r.stage == ((fault == 5 || fault >= 7) ? BDW_EDP_CYCLE_RESTORE : BDW_EDP_CYCLE_DARK));
         assert(!r.restore.source_writes && !f.panel.backlight && !r.mask_restored && r.mask_writes == 1);
-        assert(f.flr.reset_issued == (fault >= 2 && fault <= 5));
+        assert(f.flr.reset_issued == (fault != 1 && fault != 6));
         assert(f.flr.retained == (fault == 2 || fault == 3 || fault == 4));
     }
-    return writes + 17;
+    return writes + 19;
 }
 
 static unsigned test_source(void)

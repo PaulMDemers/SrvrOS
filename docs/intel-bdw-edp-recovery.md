@@ -303,6 +303,24 @@ check before it can access the panel and prove the reference CRC twice.
 Faults cover a missing retirement witness, uncertain reset store,
 timeout, changed BAR and post-reset backing drift.
 
+On the modeled post-reset path, source recovery first revalidates the clock
+and backing. It requires an all-masked Pipe A with IER and IIR clear, then
+unmasks only FIFO underrun before restore and restores the original mask
+after the CRC checks. The fixture exercises an unexpected mask and enabled
+interrupt delivery as separate refusals before any restore writes.
+[i915 GEN8 display IRQ setup and reset](https://linux.googlesource.com/linux/kernel/git/netdev/net-next/+/7dda2a8bfde23c8f787aa34e5ce40725a6be65b9/drivers/gpu/drm/i915/display/intel_display_irq.c).
+
+The native `intel-edp-dark-well-v1` diagnostic exercises driver well recovery
+with PCI decode live. After shutting down the panel it releases and reclaims
+only the original driver request bit. It retains the CPU display lease and
+framebuffer copy throughout. The firmware request must remain asserted and
+the well powered. Each of three samples checks the known clocks and panel
+timings, with the panel still dark, inside a 100 ms interval. The native
+cycle then compares the framebuffer and checks both restored CRCs before
+lighting the panel. This qualifies reestablishing the driver request under
+the firmware hold. Recovery from an actually unpowered well still needs
+its own initialization and qualification.
+
 The native AFCTL store depends on a live requester and memory-completion
 witness, a CPU-only reset hold while MMIO decode is unavailable, and a
 provider that can restore the actual clock, well and interrupt state
