@@ -6,7 +6,7 @@ def jobs(dependencies):
     image = "build/intel-edp-baseline/srvros.elf"
     host = "build/tests/intel-bdw-edp-baseline"
     stage = [image, "build/initramfs.tar", "build/limine-binary/BOOTX64.EFI"]
-    build = dict(name="edp-image", argv=["make", "-j2", *stage], inputs=dependencies,
+    build = dict(name="edp-image", argv=["make", "-j2", *stage[:2], "build/limine-binary/.ready"], inputs=dependencies,
                  outputs=stage, cache=False, timeout=1800)
     fixtures = dict(name="edp-host", argv=["make", "test-intel-bdw-edp-baseline"],
                     inputs=dependencies, outputs=[host], cache=False, timeout=180)
