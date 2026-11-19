@@ -65,6 +65,13 @@ returned to Ubuntu. The next step is to reproduce a known frame during
 native display restoration and verify its CRC across reset.
 [Pre-reset trial result](../intel-bdw-edp-recovery.md#physical-pre-reset-result).
 
+PR301's next block covers reproducible frame content in the isolated inherited
+trial and the primary CRC check in the fixed-mode restore adapter. It uses the
+qualified Air7,2 capture and the original pinned framebuffer contract. The
+restore fixture must keep the backlight dark if the reference CRC differs.
+On main `4016abf0`, the open Pro11,2 Wi-Fi and WebCore PRs have separate scopes.
+Native reset remains gated on its clock, powered MMIO and framebuffer owner.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
