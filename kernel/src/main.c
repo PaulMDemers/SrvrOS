@@ -975,6 +975,9 @@ void kmain(void) {
         console_printf("sync-timing: enabled=%s capacity=8\n",sync_timing_enable()?"yes":"NO");
     }
     workspace_boot(cmdline);
+#ifdef SRVROS_INTEL_EDP_BASELINE
+    bool edp_retained = false;
+#endif
     if (automatic_probe) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
@@ -1003,6 +1006,20 @@ void kmain(void) {
             }
             bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
             bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
+#ifdef SRVROS_INTEL_EDP_BASELINE
+            if (cmdline_has_token(cmdline, "srvros.intel-edp-baseline=on")) {
+                extern bool intel_edp_baseline_probe(bool *retained);
+                console_write("intel-edp-baseline: automatic PHY/backing/CRC trial, silent, no input.\n"
+                              "intel-edp-baseline: saved outcomes return to Ubuntu. If unchanged 60s, photograph and restart manually.\n");
+                if (started && workspace_log_pause()) {
+                    bool baseline_ok = intel_edp_baseline_probe(&edp_retained);
+                    sampled = sampled && cache_ok && baseline_ok;
+                } else {
+                    console_write("intel-edp-baseline: checkpoint unavailable; no trial\n");
+                    sampled = false;
+                }
+            }
+#endif
             if(cmdline_has_token(cmdline,"srvros.intel-window=read-only")){bool window_ok=intel_ggtt_window_probe_report();sampled=sampled && window_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-stolen=read-only")) {
                 console_write("intel-stolen: automatic read-only layout census; silent, no input. Saved/unmounted outcomes return to Ubuntu.\n"
@@ -1228,6 +1245,9 @@ void kmain(void) {
         /* The new read-only observation may save a handled refusal and return,
          * but never resets past a failed log save or workspace unmount. */
         if(!intel_gt_wake_retained() && !intel_display_hda_owner_retained() && !intel_memory_retained() &&
+#ifdef SRVROS_INTEL_EDP_BASELINE
+           !edp_retained &&
+#endif
            (!intel_display_capture_requested || (saved && unmounted)) &&
            (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");

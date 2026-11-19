@@ -549,6 +549,10 @@ bool intel_scanout_trial_cache_pages(uint64_t pages[3]) {
     return true;
 }
 
+#ifdef SRVROS_INTEL_EDP_BASELINE
+#include "intel_edp_baseline_trial.inc"
+#endif
+
 /* VT-d v4.1 sections11.4.1-5. No GCMD/FSTS reads or any write callback.
  * Share the retired backing window; guards run only while it is unmapped. */
 #include <srvros/intel_dma_observe.h>

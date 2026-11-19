@@ -189,6 +189,15 @@ halts visibly in SrvrOS; safe saved/unmounted outcomes return automatically.
 
 ## Return, collect, review
 
+The isolated `--profile intel-edp-baseline-v1` trial checks Air7,2 inherited
+PHY, the complete primary/tail translation range and primary-plane CRC
+freshness. Its exact source-bound image runs both no-framebuffer VM checks.
+On the Air it saves before reaching live CRC control. A safely retired
+outcome saves and returns to Ubuntu. An uncertain lifetime keeps the lease
+and halts. Review a complete native receipt with `diagnose`. The receipt
+qualifies the inherited baseline, with post-reset restoration and ownership
+remaining separate. [Hardware trial contract](intel-bdw-edp-recovery.md#inherited-display-hardware-trial).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the

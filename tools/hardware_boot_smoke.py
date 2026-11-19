@@ -180,6 +180,8 @@ def intel_stolen_vm_progress(text,command):
 
 
 def intel_probe_profile(version):
+    if version.startswith("ram-usb-v1-intel-edp-baseline-"):
+        return True
     return version.startswith(("ram-usb-v9-intel-stolen-","ram-usb-v8-intel-stolen-","ram-usb-v7-intel-stolen-","ram-usb-v6-intel-stolen-","ram-usb-v5-intel-stolen-","ram-usb-v4-intel-stolen-","ram-usb-v3-intel-stolen-","ram-usb-v2-intel-stolen-","ram-usb-v1-intel-stolen-","ram-usb-v1-intel-gt-bootstrap-","ram-usb-v1-intel-command-ownership-","ram-usb-v1-intel-command-memory-","ram-usb-v1-intel-ggtt-invalidate-","ram-usb-v2-intel-ggtt-invalidate-","ram-usb-v3-intel-ggtt-invalidate-","ram-usb-v1-intel-vtd-drain-","ram-usb-v1-intel-source-audit-","ram-usb-v1-intel-source-engines-","ram-usb-v1-intel-source-requester-","ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-"))
 
 
@@ -422,6 +424,9 @@ def main():
                             time.sleep(2)
                             assert process.poll() is None and "laptop-capture: returning" not in text
                         assert "laptop-capture: saved=NO unmounted=NO" in text
+                        if manifest["config_version"].startswith("ram-usb-v1-intel-edp-baseline-"):
+                            assert "intel-edp-baseline: checkpoint unavailable; no trial" in text
+                            assert "intel-edp-window:" not in text
                         if args.probe_no_framebuffer:
                             result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source/"manifest.json"),
                                           framebuffer_unavailable=True, workspace_table=args.workspace_table,
@@ -663,6 +668,14 @@ def main():
                         assert proof and proof['status']=='identity-refused' and not proof['observation_complete']
                         assert not proof['scanout_ownership'] and not proof['rows']['observe'][0]['maps']
                         (logs/'intel-display-result.json').write_text(json.dumps(proof,indent=2)+"\n")
+                        if manifest["config_version"].startswith("ram-usb-v1-intel-edp-baseline-"):
+                            from intel_edp_baseline import checkpoint, result
+                            pre = stored.read(folder+"/session-a.log").decode()
+                            terminal = stored.read(folder+"/exit.log").decode()
+                            assert checkpoint(pre, terminal, native=False)
+                            edp = result(terminal, native=False)
+                            assert not edp["complete"] and not edp["retained"]
+                            (logs/'intel-edp-baseline-result.json').write_text(json.dumps(edp,indent=2)+"\n")
                         if 'srvros.intel-memory=' in text:
                             from intel_memory import memory_result,verify_memory_checkpoint
                             memory=memory_result(shared_receipt(stored.read(folder+"/exit.log").decode()))

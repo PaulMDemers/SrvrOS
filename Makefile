@@ -6821,6 +6821,28 @@ test-intel-bdw-edp: build/tests/intel-bdw-edp$(HOST_EXE)
 	$<
 test-core: test-intel-bdw-edp
 
+INTEL_EDP_BASELINE_FLAGS := -DSRVROS_INTEL_EDP_BASELINE
+INTEL_EDP_BASELINE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/drivers/intel_display_probe.c.o,$(KERNEL_OBJ))
+INTEL_EDP_BASELINE_SOURCE := kernel/diagnostics/intel_bdw_edp_baseline.c
+build/intel-edp-baseline/boot.o: kernel/src/main.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INTEL_EDP_BASELINE_FLAGS) -c $< -o $@
+build/intel-edp-baseline/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INTEL_EDP_BASELINE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-edp-baseline/core.o: $(INTEL_EDP_BASELINE_SOURCE) $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-edp-baseline/srvros.elf: build/intel-edp-baseline/boot.o build/intel-edp-baseline/probe.o build/intel-edp-baseline/core.o $(INTEL_EDP_BASELINE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter-out kernel/linker.ld,$^) -o $@
+build/tests/intel-bdw-edp-baseline$(HOST_EXE): tools/test_intel_bdw_edp_baseline.c $(INTEL_EDP_BASELINE_SOURCE) $(KERNEL_HEADERS)
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(INTEL_EDP_BASELINE_SOURCE) -o $@
+.PHONY: test-intel-bdw-edp-baseline
+test-intel-bdw-edp-baseline: build/tests/intel-bdw-edp-baseline$(HOST_EXE)
+	$<
+test-core: test-intel-bdw-edp-baseline
+
 STOLEN_SCANOUT_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c
 build/tests/intel-bdw-stolen-scanout$(HOST_EXE): tools/test_intel_bdw_stolen_scanout.c $(STOLEN_SCANOUT_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)

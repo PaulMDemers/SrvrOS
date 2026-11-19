@@ -90,12 +90,30 @@ Ubuntu i915 exposes a primary-plane CRC source on this unit. Capturing and
 qualifying a matching native pre/post-reset frame signature is a candidate
 for the fetch proof.
 
-The remaining steps for the first hardware trial are capturing the native
-PHY words before reset, binding powered MMIO and the original GGTT lifetime
-to the restored clocks, implementing the frame proof and underrun latch
-owner, and staging off-screen evidence and Ubuntu recovery. Qualify display
-and sound recovery before a PCI reset-based GGTT takeover. A separate live
-memory-completion witness is required before even one GGTT store.
+## Inherited display hardware trial
+
+The isolated `intel-edp-baseline-v1` recipe keeps the inherited panel
+running. It pins the CPU display lease, revalidates the tiled primary and
+all 128 tail PTEs, samples the nine DDI A PHY translations and relevant
+clock/route registers, and runs the Broadwell primary-plane CRC tap. The
+adapter excludes PSR, FBC and IPS, checks the boot CPU's SMI count and
+keeps the pinned resources on uncertain retirement.
+
+CRC-done and error are locally latched with delivery disabled. Four
+fresh completions must cross distinct frame counters. The first two
+warm-up results are ignored and the next two must agree. Then the adapter
+disables CRC, waits for retirement, restores the exact local interrupt
+mask, and compares the PHY and backing again. A second window changes the
+console content through the regular renderer, keeping the same route
+and backing. Its stable CRC must differ from the first window.
+
+The trial changes only the CRC control and its local interrupt state.
+It grants no GGTT write access and leaves the PCI function untouched.
+This can qualify the pre-reset observation and the CRC tap on the inherited
+route. A later reset trial must still establish MMIO and the framebuffer
+lifetime after reset, reproduce a known frame, and verify a matching CRC.
+Qualify display and sound recovery before PCI reset-based GGTT takeover.
+A separate live memory-completion witness is required before any GGTT store.
 
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy

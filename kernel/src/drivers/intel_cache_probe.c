@@ -86,6 +86,25 @@ bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset) {
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
 
+/* The separate eDP baseline recipe maps only these display pages. The
+ * CRC adapter separately binds the permitted writes and mapping lifetime. */
+bool intel_cache_probe_edp_uc_page(uint64_t physical, uint32_t offset) {
+    static const uint32_t pages[] = {
+        0x41000, 0x43000, 0x44000, 0x45000, 0x46000, 0x60000,
+        0x64000, 0x6f000, 0x70000, 0x7f000, 0x130000, 0x802000
+    };
+    bool allowed = false;
+    for (unsigned i = 0; i < sizeof(pages) / sizeof(pages[0]); ++i)
+        allowed |= pages[i] == offset;
+    struct x86_cache_snapshot current;
+    unsigned m, p, e;
+    uint64_t profile[3];
+    return allowed && report_ok && intel_scanout_trial_cache_pages(profile) &&
+           profile[0] >= 0x101000 && physical == profile[0] - 0x101000 + offset &&
+           x86_cache_snapshot(&current, &io) && x86_cache_equal(&sample[1], &current) &&
+           x86_cache_page(&current, physical, 2, &m, &p, &e) && m == 0 && e == 0;
+}
+
 /* Cache eligibility only: callers separately bind firmware catalog ownership,
  * pointer, exact RO/NX mapping and lifetime; never accepts MMIO or UC aliases. */
 bool intel_cache_probe_firmware_wb_page(uint64_t physical) {

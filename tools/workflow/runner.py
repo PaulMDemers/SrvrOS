@@ -42,11 +42,16 @@ def code_inputs(repo):
 
 
 GT_DISPLAY_WIRES = {'intel-gt-range-v56': 9, 'intel-gt-primary-v57': 10, 'intel-gt-aux-v58': 11, 'intel-gt-flush-v59': 12}
-PROFILES = {'intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
+from intel_edp_baseline import PROFILE as EDP_BASELINE, PREFIX as EDP_PREFIX
+
+PROFILES = {EDP_BASELINE:'--intel-edp-baseline','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
 
 def trial_parsers(name):
+    if name == EDP_BASELINE:
+        from intel_edp_baseline import recipe, result, checkpoint
+        return recipe, result, checkpoint
     def exact_bootstrap(text,version):
         from intel_gt_bootstrap import bootstrap_result
         result=bootstrap_result(text,native=True)
@@ -99,6 +104,9 @@ def trial_parsers(name):
 def profile(repo, name='intel-source-audit-v35'):
     trial_parsers(name)
     dependencies = code_inputs(repo)
+    if name == EDP_BASELINE:
+        from workflow.edp_baseline import jobs
+        return jobs(dependencies)
     if name in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):
         from workflow.stolen_scanout import jobs
         return jobs(dependencies)
@@ -301,6 +309,8 @@ class Runner:
         if not question.strip() or not expected.strip():
             raise ValueError('A hardware question and expected result are required')
         trial_parsers(trial_profile)
+        if trial_profile == EDP_BASELINE and config['model'] != 'MacBookAir7,2':
+            raise ValueError('eDP baseline requires the independently captured Air7,2 profile')
         if trial_profile in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v53','intel-stolen-v54'):
             raise ValueError('v47–v54 are historical; use intel-stolen-v55 for the held ownership gate')
         if trial_profile in ('intel-gt-bootstrap-v39','intel-gt-bootstrap-v40'):
@@ -458,7 +468,7 @@ class Runner:
         payload = verify(stage, release)
         if payload['git_head'] != manifest['source'] or payload['git_dirty']:
             raise ValueError('Staged payload is not the frozen source')
-        if manifest['profile'] in GT_DISPLAY_WIRES and payload.get('source_bound') is not True:
+        if (manifest['profile'] in GT_DISPLAY_WIRES or manifest['profile'] == EDP_BASELINE) and payload.get('source_bound') is not True:
             raise ValueError('Range payload release does not bind the frozen source')
         if payload.get('stolen_progress_version')!=manifest.get('stolen_progress_version'):
             raise ValueError('Staged progress contract differs from frozen manifest')
@@ -477,6 +487,8 @@ class Runner:
                      payload_bank=str(bank))
 
     def vm(self, directory, state):
+        staged_manifest = json.loads((Path(state['stage']) / 'manifest.json').read_text())
+        display_args = ['--probe-no-framebuffer'] if staged_manifest['config_version'].startswith(EDP_PREFIX) else []
         for name, extra in (('save-return', []), ('missing-workspace', ['--probe-missing-workspace'])):
             receipt = directory / ('vm-' + name + '.json')
             if receipt.is_file():
@@ -491,7 +503,7 @@ class Runner:
             log = directory / ('vm-' + name + '-' + str(attempt) + '.log')
             with log.open('wb') as stream:
                 subprocess.run([sys.executable, 'tools/hardware_boot_smoke.py', '--release', state['release'],
-                    '--output-dir', str(output), '--probe-check', '--workspace-table', 'mbr', *extra], cwd=self.repo,
+                    '--output-dir', str(output), '--probe-check', '--workspace-table', 'mbr', *display_args, *extra], cwd=self.repo,
                     stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=360)
             from workflow.artifacts import archive_image
             from workflow.media import tree
@@ -617,6 +629,8 @@ class Runner:
                 raise ValueError('Native receipt differs from frozen wire version')
             native_complete = bool(native['complete'] and native['native_complete'])
             diagnostic_complete = bool(((manifest['profile'] in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53') and native.get('diagnostic_stolen')) or (manifest['profile']=='intel-bcs-context-v46' and native.get('diagnostic_context')) or (manifest['profile']=='intel-gt-arena-v45' and native.get('diagnostic_arena')) or (manifest['profile']=='intel-gt-memory-v44' and native.get('diagnostic_memory')) or (manifest['profile']=='intel-gt-range-v56' and native.get('diagnostic_range')) or (manifest['profile']=='intel-gt-primary-v57' and native.get('diagnostic_primary')) or (manifest['profile']=='intel-gt-aux-v58' and native.get('diagnostic_aux')) or (manifest['profile']=='intel-gt-flush-v59' and native.get('diagnostic_flush')) or (manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds')) or (manifest['profile']=='intel-gt-practical-v43' and native.get('diagnostic_practical'))) and native.get('diagnostic_complete'))
+            if manifest['profile'] == EDP_BASELINE:
+                diagnostic_complete = native['diagnostic_complete']
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -627,6 +641,8 @@ class Runner:
             if manifest['profile'] in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53') and not diagnostic_complete:
                 status='census refused at '+native['failure_stage']+'; incomplete, no ownership acceptance'
                 report['failure_stage']=native['failure_stage'];atomic(directory/'report.json',report)
+            if manifest['profile'] == EDP_BASELINE and diagnostic_complete:
+                status = 'review inherited PHY/CRC baseline; restoration and takeover pending'
             self.finish(directory, state, 'COLLECTED', status=status, session=session)
         except BaseException as error:
             state.update(status='FAILED_OR_INCOMPLETE', error=str(error))
@@ -661,7 +677,7 @@ class Runner:
 
     def diagnose(self,run):
         directory,manifest,state=self.load(run)
-        if state['phase']!='COLLECTED' or manifest['profile'] not in ('intel-stolen-v55','intel-stolen-v54','intel-stolen-v53','intel-stolen-v52','intel-stolen-v51','intel-stolen-v50','intel-stolen-v49','intel-stolen-v48','intel-stolen-v47','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
+        if state['phase']!='COLLECTED' or manifest['profile'] not in (EDP_BASELINE,'intel-stolen-v55','intel-stolen-v54','intel-stolen-v53','intel-stolen-v52','intel-stolen-v51','intel-stolen-v50','intel-stolen-v49','intel-stolen-v48','intel-stolen-v47','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
             raise ValueError('Only collected explicit diagnostics may be diagnosed')
         report=json.loads((directory/'report.json').read_text())
         if not report.get('diagnostic_complete') or report.get('native_acceptance') or report.get('offline_integrity')!='PASS':
@@ -683,6 +699,16 @@ class Runner:
             report.update(status=record['status'],native_acceptance=False)
             atomic(directory/'report.json',report)
             self.finish(directory,state,'DIAGNOSED',status='read-only layout census complete; ownership and tear-free remain pending',diagnostic_sha256=sha(directory/'diagnostic.json'))
+            return record
+        if manifest['profile'] == EDP_BASELINE:
+            record = dict(status='EDP_PHY_CRC_BASELINE_COMPLETE', source=manifest['source'],
+                          release=state['release'], session=state['session'], native_acceptance=False,
+                          physical_tearfree=False, return_integrity='PASS')
+            atomic(directory/'diagnostic.json', record)
+            report.update(status=record['status'])
+            atomic(directory/'report.json', report)
+            self.finish(directory, state, 'DIAGNOSED', status='inherited PHY/backing/CRC baseline observed',
+                        diagnostic_sha256=sha(directory/'diagnostic.json'))
             return record
         native=report['native'];s=native['summary'];b=native['binding'];w=native['entry']['wake']['summary']
         t=native['timing']
