@@ -104,6 +104,11 @@ is to preserve the panel sequencer's last raw sample and elapsed time
 before mask cleanup, then qualify its shutdown timing.
 [Native cycle result](../intel-bdw-edp-recovery.md#first-native-display-cycle).
 
+PR301's retry is limited to the PPS shutdown wait and receipt in the
+Broadwell display diagnostic, its fixtures and collector. It uses the
+existing framebuffer lease and IRQ/CRC checks on main `4016abf0`.
+The Wi-Fi and WebCore PRs have separate scopes.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
