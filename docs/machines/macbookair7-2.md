@@ -5,6 +5,22 @@ This journal preserves dated exact-source acceptance and historical anchors.
 
 Updated: 2026-11-18. State: **active reference machine; partial device acceptance**.
 
+## Native graphics memory arbitration and SMI checks
+
+2026-11-18. Source `b35b5219`, release `9b727e958b7591d3`, session
+`session-000660962df5b7a5-00`. All 15 frozen local jobs and both exact
+QEMU paths passed. All three native snapshots showed the same graphics
+memory arbiter permission mask and idle bit across the original reset
+preparation and maintenance. The first and last SMI count were 12 across
+19 samples through retirement. All three temporary aliases retired,
+and the display and translation checks passed.
+
+Ubuntu returned automatically. Raw logs, offline USB integrity, recovery
+`9aa8dbf6fbda8252` and the consumed one-shot verified. The run closed as
+`DIAGNOSED`. The native seal is at
+`~/.local/share/srvros/evidence/gt-gam-b35b5219/native-complete/seal.json`.
+[Native arbitration result](../intel-completion-prerequisites.md#native-graphics-memory-arbitration-result).
+
 ## Native GT pipeline and L3 acknowledgement observation
 
 2026-11-18. Source `fd2bcf6e`, release `9d2b6c6ea286892a`, session

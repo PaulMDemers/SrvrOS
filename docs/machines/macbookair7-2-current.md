@@ -8,16 +8,17 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Graphics memory arbitration capture prepared
+## Native graphics memory arbitration diagnostic complete
 
-On main `4016abf0`, PR301 samples Broadwell's Graphics Address
-Mapping (GAM) memory-cycle allowance and idle status in the existing
-read-only flush window. The kernel and collector bind these samples to the
-original PCI requester hold and reset phases. The next hardware trial will
-determine whether Prepare for Reset changes engine memory admission at GAM.
-Host fault tests cover the expanded capture and its receipt. A sampled
-denial or idle bit cannot establish posted-write, prefetch or cache
-completion. [Arbitration capture](../intel-completion-prerequisites.md#graphics-memory-arbitration-observations).
+PR301 release `9b727e958b7591d3` returned automatically and closed as
+`DIAGNOSED`. The graphics memory arbiter reported all six documented
+request groups allowed and idle in all three samples. The sample after
+all five engines reached Ready for Reset showed the same permission mask
+as the one before preparation. Both display packets and all 129 checked
+translations were preserved. USB integrity, recovery and the consumed
+one-shot verified. An independent completion witness is still required
+before a writable GGTT interval can be granted.
+[Native arbitration result](../intel-completion-prerequisites.md#native-graphics-memory-arbitration-result).
 
 ## Firmware interference detection added to the held GT owner
 
@@ -28,8 +29,9 @@ count change at every checkpoint and verifies that the original GT owner
 stays pinned. Release `fd9743c1fe226cd4` passed both exact-stage QEMU cases.
 QEMU refused the native bootstrap before sampling the counter. It saved and
 reset with a workspace, and halted visibly when the workspace was missing.
-The new image remains pending physical qualification. An unchanged counter
-grants no GGTT access or GPU completion.
+The later native arbitration run sampled the counter 19 times through
+retirement and observed a stable count of 12. This covers the boot CPU
+checkpoints in that run. GGTT access and GPU completion still need their own proof.
 [Firmware interference check](../intel-completion-prerequisites.md#firmware-interference-check-inside-the-original-gt-owner).
 
 ## First-page physical disjointness checked

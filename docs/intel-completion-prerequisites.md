@@ -185,6 +185,25 @@ to one, so a post-reset idle sample alone cannot distinguish completed work
 from the register's reset value. This measurement grants no ownership and
 does not establish completion of earlier accesses, prefetch or cache effects.
 
+#### Native graphics memory arbitration result
+
+MacBookAir7,2 ran source `b35b5219`, release `9b727e958b7591d3`, and
+saved session `session-000660962df5b7a5-00`. Before preparation, after all
+five engines reached Ready for Reset, and after maintenance, the arbiter
+returned `MSG_GO_GAM=0x7f` and `ECO_MSG=0x1`. The decoded permission
+mask was `0x5f` and the idle bit was set in each sample. Engine and L3
+flush-and-block acknowledgement masks were clear in all three snapshots.
+The sampled Ready for Reset boundary therefore supplies no evidence that
+the arbiter revoked permission for those request groups.
+
+All 24 reads completed and the three temporary aliases retired. The boot
+CPU SMI count was 12 from the first to the last of 19 checks through
+retirement. Both display packets and all 129 checked translations were
+preserved. Preparation took 229.193 ms and the enclosing run took 465.384 ms
+under the wider diagnostic policy. Automatic Ubuntu return, offline USB
+integrity, exact log replay and recovery checks passed. The run closed as
+`DIAGNOSED` with zero PTE writes and zero managed pages.
+
 ## Automated trial
 
 ```sh
