@@ -18,6 +18,13 @@ power and clock sequencing, an owned display route, and a known-good scanout
 backing. GGTT writes and reset-based takeover remain downstream. The base is
 main `4016abf0`. The open Pro11,2 Wi-Fi and WebCore PRs have separate scopes.
 
+The [eDP recovery core](../intel-bdw-edp-recovery.md) now uses the single
+enhanced-framing 2.7 Gb/s lane and panel power delays observed for this
+unit's 1440×900 mode through Ubuntu i915. The host fixture covers dark panel power-up,
+AUX link training, live-primary verification and backlight admission. The
+native clock, PHY, primary restore and recovery provider is the next
+checkpoint. There is no new release or physical acceptance.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the

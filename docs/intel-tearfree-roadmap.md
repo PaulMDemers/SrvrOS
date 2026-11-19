@@ -700,3 +700,8 @@ rules out PCI AF FLR for a trial that preserves the running display. A
 reset-based takeover would first need independent eDP and audio reinitialization.
 The exact diagnostic now has VM receipts for saving and resetting without a
 framebuffer and for halting over serial when its workspace is missing.
+
+The [Air7,2 eDP recovery core](intel-bdw-edp-recovery.md) now covers PPS
+power-up, AUX/DPCD training and backlight admission in the host fixture.
+The next step is the native clock and DDI provider with a verified restore of
+the known-good primary. Qualify that recovery before adding any GGTT store.
