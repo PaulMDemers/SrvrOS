@@ -213,6 +213,14 @@ If a retained failure leaves the screen dark for 60 seconds, restart
 manually. The collector treats a validated cycle as a diagnostic of the
 original display path. [Cycle contract](intel-bdw-edp-recovery.md#display-disable-and-restore-rehearsal).
 
+The explicit `--profile intel-edp-flr-preflight-v1` verifies a CPU-owned
+framebuffer copy and PCI configuration across that display cycle. It
+saves a boot checkpoint, runs silently at 1% host volume, and returns to
+Ubuntu on a safely retired outcome. Its completion receipt requires
+three matching pixel and configuration samples and release of the CPU
+copy. The physical function stays active during this preflight.
+[PCI reset preparation](intel-bdw-edp-recovery.md#pci-function-reset-preparation).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the

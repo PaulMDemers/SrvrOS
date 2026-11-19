@@ -22,11 +22,24 @@ struct edp_cycle_observation {
     bool complete;
 };
 
+#define EDP_FRAME_BYTES (6144u * 900u)
+#define EDP_FRAME_PAGES (EDP_FRAME_BYTES / 4096u)
+#define EDP_FRAME_DEADLINE_US 2000000u
+#define EDP_FLR_PCI_WORDS 16u
+
+struct edp_flr_preflight {
+    uint64_t copy, pixels[3], elapsed[3];
+    uint32_t pci[3][EDP_FLR_PCI_WORDS];
+    unsigned pixel_samples, pci_samples;
+    bool released;
+};
+
 struct edp_adapter {
     struct backing_adapter backing;
     struct display_access_token lease;
     struct bdw_edp_baseline_report *crc;
     struct edp_cycle_observation *cycle;
+    struct edp_flr_preflight *flr;
     unsigned mapped, smi, reason;
     bool pinned, map_fault, platform, well_requested, run_cycle;
     uint64_t cycle_epoch;
@@ -341,6 +354,97 @@ static bool edp_source_backing(void *context, const struct bdw_edp_source_image 
     return edp_source_held(context, image) && edp_pinned_translations(context, hash);
 }
 
+static bool edp_flr_config(struct edp_adapter *a)
+{
+    static const uint8_t offsets[EDP_FLR_PCI_WORDS] = {
+        0, 8, 0x2c, 4, 0x10, 0x14, 0x18, 0x1c, 0x20, 0x34, 0x90, 0xd0, 0xd4, 0xa4, 0xa8, 0xfc
+    };
+    struct edp_flr_preflight *f = a->flr;
+    unsigned n = f->pci_samples;
+    if (n >= 3)
+        return false;
+    uint32_t *w = f->pci[n];
+    for (unsigned i = 0; i < EDP_FLR_PCI_WORDS; ++i) {
+        if (!edp_source_held(a, a->image))
+            return false;
+        w[i] = pci_read_config32(a->backing.common.gpu, offsets[i]);
+        if (w[i] == UINT32_MAX || (n && w[i] != f->pci[0][i]))
+            return false;
+        if ((i == 0 && w[i] != 0x16268086u) || (i == 1 && w[i] != 0x03000009u) ||
+            (i == 2 && w[i] != 0x011b106bu) || (i == 3 && (w[i] & 0x100007u) != 0x100007u) ||
+            (i == 9 && (w[i] & 255u) != 0x90u) || (i == 10 && (w[i] & 65535u) != 0xd005u) ||
+            (i == 11 && (w[i] & 0x7ffffu) != 0x2a401u) || (i == 12 && (w[i] & 3u)) ||
+            (i == 13 && w[i] != 0x03060013u) || (i == 14 && (w[i] & ~0x100u)))
+            return false;
+    }
+    if (!edp_source_held(a, a->image))
+        return false;
+    ++f->pci_samples;
+    return true;
+}
+
+/* Clone the proven CPU aperture view into ordinary RAM while decode is
+ * usable. This backup remains CPU-owned across any later PCI reset. Each
+ * aperture load is covered by the original held translation census. */
+static bool edp_flr_pixels(struct edp_adapter *a)
+{
+    struct edp_flr_preflight *f = a->flr;
+    unsigned n = f->pixel_samples;
+    uint64_t va = (uint64_t)a->backing.fb->address, hash, begin = now(a);
+    if (n >= 3 || !begin || (va & 4095u) || (result.fb.physical & 4095u) ||
+        (va > UINT64_MAX - EDP_FRAME_BYTES) ||
+        !edp_source_backing(a, a->image, &hash) || hash != a->image->backing_hash)
+        return false;
+    if (!f->copy) {
+        f->copy = pmm_alloc_frames(EDP_FRAME_PAGES);
+        if (!f->copy)
+            return false;
+    }
+    uint32_t *copy = pmm_phys_to_virt(f->copy);
+    uint64_t pixels = 14695981039346656037ull;
+    uint32_t variation = 0, first = 0;
+    /* Fence completed CPU aperture stores before copying the reference. */
+    __asm__ volatile("mfence" ::: "memory");
+    for (unsigned page = 0; page < EDP_FRAME_PAGES; ++page) {
+        uint64_t physical, source = va + 4096ull * page;
+        if (!edp_source_held(a, a->image) || now(a) - begin >= EDP_FRAME_DEADLINE_US ||
+            !vmm_virt_to_phys_in_space(a->backing.common.cr3, source, &physical) ||
+            physical != result.fb.physical + 4096ull * page)
+            return false;
+        volatile const uint32_t *words = (volatile const uint32_t *)source;
+        for (unsigned i = 0; i < 1024; ++i) {
+            uint32_t word = words[i];
+            if (!page && !i)
+                first = word;
+            variation |= word ^ first;
+            if (!n)
+                *copy = word;
+            else if (*copy != word)
+                return false;
+            ++copy;
+            pixels = (pixels ^ word) * 1099511628211ull;
+        }
+    }
+    uint64_t done = now(a);
+    if (!variation || !pixels || done <= begin || done - begin >= EDP_FRAME_DEADLINE_US ||
+        (n && pixels != f->pixels[0]) || !edp_source_held(a, a->image))
+        return false;
+    f->pixels[n] = pixels;
+    f->elapsed[n] = done - begin;
+    ++f->pixel_samples;
+    return true;
+}
+
+static enum bdw_edp_dark_result edp_flr_dark(void *context, const struct bdw_edp_source_image *image)
+{
+    struct edp_adapter *a = context;
+    if (!edp_source_held(a, image) || !edp_flr_pixels(a))
+        return BDW_EDP_DARK_REFUSED;
+    /* A read-only config refusal can still recover the original display. */
+    (void)edp_flr_config(a);
+    return BDW_EDP_DARK_UNCHANGED;
+}
+
 static enum intel_gt_write edp_source_write(void *context, uint32_t offset, uint32_t value)
 {
     struct edp_adapter *a = context;
@@ -508,8 +612,17 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
     const struct bdw_edp_source_io io = {
         a, edp_source_held, edp_read, edp_source_write, now, edp_pause, edp_source_backing,
     };
-    bool ok = edp_cycle_platform(a, true) &&
-              intel_bdw_edp_source_cycle(&io, &image, ref, &native->report);
+    bool flr = a->flr != NULL;
+    bool ready = edp_cycle_platform(a, true) && (!flr || (edp_flr_config(a) && edp_flr_pixels(a)));
+    bool ok = ready && intel_bdw_edp_source_cycle(&io, &image, ref,
+                                                  flr ? edp_flr_dark : NULL, &native->report);
+    if (ok && flr) {
+        bool pixels = edp_flr_pixels(a);
+        if (a->flr->pci_samples == 2)
+            (void)edp_flr_config(a);
+        if (!pixels)
+            native->report.retained = true;
+    }
     a->image = NULL;
     if (!native->report.retained && !a->map_fault && !trial_mapping_fault &&
         edp_cycle_platform(a, true) && edp_expect(a, 0xc8254, UINT32_MAX, pwm) &&
@@ -523,7 +636,8 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
 
 static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_report *platform,
                     struct edp_cycle_observation *cycle,
-                    struct edp_native_cycle *native, struct bdw_edp_baseline_report *windows)
+                    struct edp_native_cycle *native, struct edp_flr_preflight *flr,
+                    struct bdw_edp_baseline_report *windows)
 {
     struct edp_adapter *a = &edp_session;
     *a = (struct edp_adapter){0};
@@ -540,6 +654,7 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
     a->platform = platform != NULL;
     a->crc = r;
     a->cycle = cycle;
+    a->flr = flr;
     a->run_cycle = native != NULL;
     bool ok = false;
     a->reason = 3;
@@ -578,6 +693,10 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
             r->retained = true;
     } else if (native) {
         native->retired = true;
+        if (flr && flr->copy) {
+            pmm_free_frame_range(flr->copy, EDP_FRAME_PAGES);
+            flr->released = true;
+        }
     }
     if (r->retained)
         r->status = BDW_EDP_BASELINE_INCOMPLETE;
@@ -585,7 +704,7 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
     return ok && !r->retained;
 }
 
-bool intel_edp_baseline_probe(bool *retained, bool display_cycle)
+bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight)
 {
     static bool attempted;
     if (attempted || !retained)
@@ -605,13 +724,15 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle)
     struct bdw_edp_platform_report platform = {0};
     struct edp_cycle_observation cycle = {0};
     struct edp_native_cycle native = {0};
+    struct edp_flr_preflight flr = {0};
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */
         console_clear();
         console_write(pattern[frames[i]]);
         if (!edp_try(&r[i], i == 2 ? &platform : NULL, i == 2 ? &cycle : NULL,
-                     i == 2 && display_cycle ? &native : NULL, r))
+                     i == 2 && display_cycle ? &native : NULL,
+                     i == 2 && flr_preflight ? &flr : NULL, r))
             break;
     }
     for (unsigned i = 0; i < platform.samples; ++i) {
@@ -674,6 +795,21 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle)
         console_printf("intel-edp-panel-off: v=1 outcome=%u samples=%u first=%x last=%x elapsed_us=%u mask_error=%u\n",
             (uint64_t)off->outcome, (uint64_t)off->samples, (uint64_t)off->first, (uint64_t)off->last,
             off->elapsed_us, (uint64_t)c->mask_error);
+        if (flr_preflight) {
+            bool ready = restored && flr.pixel_samples == 3 && flr.pci_samples == 3 && flr.released;
+            for (unsigned i = 0; i < flr.pixel_samples; ++i)
+                console_printf("intel-edp-flr-pixels: v=1 phase=%u digest=%x elapsed_us=%u\n",
+                    (uint64_t)i, flr.pixels[i], flr.elapsed[i]);
+            for (unsigned i = 0; i < flr.pci_samples; ++i) {
+                for (unsigned j = 0; j < EDP_FLR_PCI_WORDS; ++j)
+                    console_printf("intel-edp-flr-config: v=1 phase=%u index=%u word=%x\n",
+                        (uint64_t)i, (uint64_t)j, (uint64_t)flr.pci[i][j]);
+            }
+            console_printf("intel-edp-flr-preflight: v=1 complete=%u pixels=%u configs=%u bytes=%u released=%u reset=0\n",
+                (uint64_t)ready, (uint64_t)flr.pixel_samples, (uint64_t)flr.pci_samples,
+                (uint64_t)(flr.copy ? EDP_FRAME_BYTES : 0), (uint64_t)flr.released);
+            return ready;
+        }
         return restored;
     }
     return complete;

@@ -266,6 +266,38 @@ display lease retired cleanly. The one-shot returned to Ubuntu and
 offline USB integrity passed. This result covers the display-only
 cycle with the original powered PCI function and translation backing.
 
+### PCI function reset preparation
+
+The `intel-edp-flr-preflight-v1` recipe adds an ordinary RAM backup of
+the full 5,529,600-byte aperture view. It copies under the original
+display lease and compares every word while the display is dark and
+again after restore. Each pass also checks the independent translation
+and fence digest. Three live PCI snapshots compare identity, BARs,
+command, D0, AF status and OpRegion address. Bytes remain private to the
+kernel and the receipt reports only digests and timings. The preflight
+keeps PCI decode live through the real display cycle.
+
+The host fixture runs the PCI AF reset core at the dark boundary. The
+configuration layer requires an independent retirement and resource
+admission before writing AFCTL. It waits at least 100 ms before reading
+config, then polls identity within the documented five-second bound.
+It restores only the original reserved BARs and subsystem identity
+when their reset values match, and enables memory decode with bus
+mastering and interrupts disabled. Restore then needs a fresh backing
+check before it can access the panel and prove the reference CRC twice.
+Faults cover a missing retirement witness, uncertain reset store,
+timeout, changed BAR and post-reset backing drift.
+
+The native AFCTL store depends on a live requester and memory-completion
+witness, a CPU-only reset hold while MMIO decode is unavailable, and a
+provider that can restore the actual clock, well and interrupt state
+after reset. The saved pixel copy establishes a reference independent
+of the device. Replaying a changed GGTT or framebuffer still requires
+the matching translation and cache ownership.
+[Intel Broadwell AFCTL, Register Reference p. 2](https://cdrdv2.intel.com/v1/dl/getcontent/690789) ·
+[Intel Broadwell processor datasheet, §§3.2.29–3.2.31](https://cdrdv2-public.intel.com/330835/5th-gen-core-family-datasheet-vol-2.pdf#page=86) ·
+[Linux AF reset implementation](https://github.com/torvalds/linux/blob/v6.12/drivers/pci/pci.c#L4304).
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·

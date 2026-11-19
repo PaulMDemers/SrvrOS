@@ -5,6 +5,7 @@ from intel_display_backing import backing_result
 
 PROFILE = "intel-edp-baseline-v1"
 CYCLE_PROFILE = "intel-edp-cycle-v1"
+FLR_PREFLIGHT_PROFILE = "intel-edp-flr-preflight-v1"
 PREFIX = "ram-usb-v1-intel-edp-baseline-"
 SUMMARY = "intel-edp-baseline"
 SCHEMAS = {
@@ -23,16 +24,22 @@ SCHEMAS = {
                         "aux dark_hash crc_checks crc0 crc1 mask_before mask_live mask_after mask_writes "
                         "mask_restored shutdown_writes restore_writes well_released retired retained"),
     "intel-edp-panel-off": "v outcome samples first last elapsed_us mask_error",
+    "intel-edp-flr-preflight": "v complete pixels configs bytes released reset",
+    "intel-edp-flr-pixels": "v phase digest elapsed_us",
+    "intel-edp-flr-config": "v phase index word",
 }
+FLR_ROWS = ("intel-edp-flr-preflight", "intel-edp-flr-pixels", "intel-edp-flr-config")
 
 
-def recipe(command, *, cycle=False):
+def recipe(command, *, cycle=False, flr=False):
+    cycle = cycle or flr
     match = re.fullmatch(
         r"srvros.storage=ram srvros.workspace-volume=([0-9a-f]{8}) "
         r"srvros.desktop-release=([0-9a-f]{16}) srvros.capture=intel-display "
         r"srvros.intel-backing=read-only srvros.intel-cache=read-only "
         r"srvros.intel-edp-baseline=on" +
         (r" srvros.intel-edp-cycle=on" if cycle else "") +
+        (r" srvros.intel-edp-flr=preflight" if flr else "") +
         r" srvros.capture-failure=reboot", command)
     if not match:
         raise ValueError("Invalid eDP baseline recipe")
@@ -181,7 +188,40 @@ def panel_off_result(rows, cycle, *, native):
     return off
 
 
-def result(text, *, native=True, cycle=False):
+def flr_result(rows, *, native, display):
+    summaries, pixels, config = (rows[key] for key in FLR_ROWS)
+    if len(summaries) != 1:
+        raise ValueError("Missing eDP FLR preflight summary")
+    s = summaries[0]
+    if (s["pixels"] > 3 or s["configs"] > 3 or s["bytes"] not in (0, 6144 * 900) or
+            s["released"] > 1 or s["complete"] > 1 or s["reset"] or
+            (not native and any(s[k] for k in s if k != "v")) or
+            ((pixels or s["released"]) and not s["bytes"]) or
+            [p["phase"] for p in pixels] != list(range(s["pixels"])) or
+            [(r["phase"], r["index"]) for r in config] !=
+            [(i, j) for i in range(s["configs"]) for j in range(16)]):
+        raise ValueError("Invalid eDP FLR preflight coverage")
+    if any(not p["digest"] or not 0 < p["elapsed_us"] < 2000000 or
+           p["digest"] != pixels[0]["digest"] for p in pixels):
+        raise ValueError("eDP FLR pixel copy differs")
+    for n in range(s["configs"]):
+        w = [r["word"] for r in config[16*n:16*(n+1)]]
+        if (any(value >= 0xffffffff for value in w) or
+                w[:3] != [0x16268086, 0x03000009, 0x011b106b] or
+                w[3] & 0x100007 != 0x100007 or
+                w[9] & 255 != 0x90 or w[10] & 65535 != 0xd005 or
+                w[11] & 0x7ffff != 0x2a401 or w[12] & 3 or
+                w[13] != 0x03060013 or w[14] & ~0x100 or
+                (n and w != [r["word"] for r in config[:16]])):
+            raise ValueError("eDP FLR config differs")
+    complete = display["complete"] and s["pixels"] == s["configs"] == 3 and bool(s["released"])
+    if complete != s["complete"] or (s["released"] and not display["retired"]):
+        raise ValueError("Contradictory eDP FLR preflight completion")
+    return s
+
+
+def result(text, *, native=True, cycle=False, flr=False):
+    cycle = cycle or flr
     rows = rows_of(text)
     summaries = rows[SUMMARY]
     windows = rows["intel-edp-window"]
@@ -251,6 +291,13 @@ def result(text, *, native=True, cycle=False):
         complete = bool(observed["complete"])
     elif rows["intel-edp-cycle"] or rows["intel-edp-panel-off"]:
         raise ValueError("Unexpected display-cycle evidence for baseline")
+    if flr:
+        flr_preflight = flr_result(rows, native=native, display=observed)
+        complete = bool(flr_preflight["complete"])
+    else:
+        for key in FLR_ROWS:
+            if rows.pop(key):
+                raise ValueError("Unexpected eDP FLR preflight evidence")
     if ("laptop-capture: completed=yes" in text.splitlines()) != complete:
         raise ValueError("Incomplete eDP terminal record")
     if not native and any(r["writes"] or r["restored"] for r in windows):
@@ -273,20 +320,22 @@ def result(text, *, native=True, cycle=False):
         report["panel_off"] = panel_off
     else:
         del rows["intel-edp-panel-off"]
+    if flr:
+        report["flr_preflight"] = flr_preflight
     return report
 
 
-def checkpoint(pre, text, native=False, *, cycle=False):
+def checkpoint(pre, text, native=False, *, cycle=False, flr=False):
     boot = "laptop-capture: boot options="
     a = [line[len(boot):] for line in pre.splitlines() if line.startswith(boot)]
     b = [line[len(boot):] for line in text.splitlines() if line.startswith(boot)]
     if len(a) != 1 or a != b or any(rows_of(pre).values()):
         raise ValueError("Invalid eDP baseline preflight checkpoint")
-    recipe(a[0], cycle=cycle)
+    recipe(a[0], cycle=cycle, flr=flr)
     prefixes = ("intel-display-", "intel-backing-", "intel-cache-")
     original = [line for line in pre.splitlines() if line.startswith(prefixes)]
     terminal = [line for line in text.splitlines() if line.startswith(prefixes)]
     if not original or original != terminal:
         raise ValueError("Changed eDP baseline preflight evidence")
-    result(text, native=native, cycle=cycle)
+    result(text, native=native, cycle=cycle, flr=flr)
     return True

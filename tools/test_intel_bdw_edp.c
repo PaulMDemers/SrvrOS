@@ -1,6 +1,7 @@
 #include <srvros/intel_bdw_edp.h>
 #include <srvros/intel_bdw_edp_source.h>
 #include <srvros/intel_bdw_edp_baseline.h>
+#include <srvros/intel_bdw_flr.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -90,6 +91,11 @@ struct source_fixture {
     unsigned step, proofs;
     uint64_t backlight_off_at, plane_off_at, trans_off_at, panel_off_at;
     uint32_t panel_off_delay_us;
+    unsigned flr_fault, flr_writes;
+    uint64_t flr_issued;
+    uint32_t flr_config[64];
+    struct bdw_flr_report flr;
+    bool exercise_flr, function_reset;
     unsigned disable_step, fail_disable_write, mask_writes;
     bool cycle, dark, lose_dark_backing, fail_mask_close, uncertain_mask_open;
 };
@@ -635,7 +641,7 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
         unsigned i = step - 1 - BDW_EDP_PHY_ENTRIES * 2;
         assert(i < sizeof(source_suffix) / sizeof(source_suffix[0]));
         uint32_t expected = source_suffix[i].value;
-        if (s->cycle && offset == 0x70180)
+        if (s->cycle && !s->function_reset && offset == 0x70180)
             expected |= 1u << 30;
         assert(source_suffix[i].offset == offset && expected == word);
         switch (offset) {
@@ -698,7 +704,8 @@ static bool source_backing_hash(void *context, const struct bdw_edp_source_image
     *hash = TEST_BACKING_HASH;
     if (s->fault == SOURCE_BACKING_CHANGED && s->crc_retired)
         *hash ^= 1;
-    if (s->lose_dark_backing && s->dark && !s->panel.power_requested)
+    if ((s->lose_dark_backing && s->dark && !s->panel.power_requested) ||
+        (s->function_reset && s->flr_fault == 5))
         *hash ^= 1;
     return event(&s->panel);
 }
@@ -759,6 +766,83 @@ static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_s
         s->fault == SOURCE_NO_REFERENCE ? NULL : &reference, report);
 }
 
+static bool flr_held(void *context)
+{
+    struct source_fixture *s = context;
+    return s->dark && held(&s->panel) && !s->panel.backlight;
+}
+
+static bool flr_admitted(void *context, const struct bdw_flr_pci_image *image)
+{
+    struct source_fixture *s = context;
+    assert(image->bar[0] == 0xc0000004 && image->bar[2] == 0xb000000c);
+    return s->flr_fault != 1;
+}
+
+static bool flr_read(void *context, uint8_t offset, uint32_t *word)
+{
+    struct source_fixture *s = context;
+    if (s->flr_issued && (s->flr_fault == 2 || s->panel.time - s->flr_issued < 102000u)) {
+        assert(offset == 0 && s->panel.time - s->flr_issued >= 100000u);
+        *word = UINT32_MAX;
+    } else {
+        *word = s->flr_config[offset / 4];
+    }
+    return true;
+}
+
+static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned bytes, uint32_t word)
+{
+    struct source_fixture *s = context;
+    static const unsigned sequence[] = {0xa8, 0x2c, 0x10, 0x18, 4};
+    assert(s->flr_writes < sizeof(sequence) / sizeof(sequence[0]));
+    assert(offset == sequence[s->flr_writes++]);
+    if (offset == 0xa8) {
+        assert(word == 1 && bytes == 1 && !s->flr_issued);
+        s->flr_issued = s->panel.time;
+        s->flr_config[1] = 0x00100000;
+        s->flr_config[0x2c / 4] = 0;
+        s->flr_config[0x10 / 4] = 4;
+        s->flr_config[0x18 / 4] = s->flr_fault == 3 ? 0xa000000c : 12;
+        return s->flr_fault == 4 ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+    }
+    assert(s->panel.time - s->flr_issued >= 102000);
+    assert(!(s->flr_config[1] & 7) && bytes == (offset == 4 ? 2u : 4u));
+    if (offset == 4) {
+        assert(word == 0x402u);
+        word |= 0x00100000u;
+    }
+    s->flr_config[offset / 4] = word;
+    return GT_WRITE_DONE;
+}
+
+static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp_source_image *image)
+{
+    struct source_fixture *s = context;
+    assert(image->backing_hash == TEST_BACKING_HASH && s->dark);
+    const struct bdw_flr_pci_image pci = {{0xc0000004, 0, 0xb000000c, 0}, 0x011b106b};
+    s->flr_config[0] = 0x16268086;
+    s->flr_config[1] = 0x00100400;
+    s->flr_config[2] = 0x03000009;
+    s->flr_config[0x2c / 4] = pci.subsystem;
+    s->flr_config[0x34 / 4] = 0x90;
+    s->flr_config[0x90 / 4] = 0xd005;
+    s->flr_config[0xa4 / 4] = 0x03060013;
+    if (s->flr_fault == 6)
+        s->flr_config[0xa8 / 4] = 0x100;
+    s->flr_config[0xd0 / 4] = 0x2a401;
+    for (unsigned i = 0; i < 4; ++i)
+        s->flr_config[4 + i] = pci.bar[i];
+    const struct bdw_flr_io io = {
+        s, flr_held, flr_admitted, flr_read, flr_write, source_now, source_delay,
+    };
+    if (!intel_bdw_flr(&io, &pci, &s->flr))
+        return BDW_EDP_DARK_REFUSED;
+    s->function_reset = true;
+    s->panel.keep_timings = false;
+    return BDW_EDP_DARK_RESET_RECOVERED;
+}
+
 static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *report)
 {
     const struct bdw_edp_baseline_report reference = setup_source(s);
@@ -780,7 +864,8 @@ static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *rep
     s->transcoder = 0x80000000u;
     s->primary = 0xd8000400u;
     s->stride = 6144;
-    return intel_bdw_edp_source_cycle(&io, &s->image, &reference, report);
+    return intel_bdw_edp_source_cycle(&io, &s->image, &reference,
+                                      s->exercise_flr ? source_reset : NULL, report);
 }
 
 static unsigned test_cycle(void)
@@ -833,7 +918,19 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.fault = SOURCE_SECOND_CRC_WRONG};
     assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_RESTORE && r.retained);
     assert(f.dark && f.proofs == 2 && !f.panel.backlight);
-    return writes + 10;
+    f = (struct source_fixture){.exercise_flr = true};
+    assert(run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_COMPLETE && !r.retained);
+    assert(f.flr.reset_issued && f.flr.ready_polls == 3 && f.flr_writes == 5);
+    assert(f.flr.stage == BDW_FLR_COMPLETE && !f.flr.retained);
+    assert(f.primary == 0x98000400u && f.panel.pp_writes == 5 && f.proofs == 2);
+    for (unsigned fault = 1; fault <= 6; ++fault) {
+        f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
+        assert(!run_cycle(&f, &r) && r.retained && r.stage == BDW_EDP_CYCLE_DARK);
+        assert(!r.restore.source_writes && !f.panel.backlight && !r.mask_restored && r.mask_writes == 1);
+        assert(f.flr.reset_issued == (fault >= 2 && fault <= 5));
+        assert(f.flr.retained == (fault == 2 || fault == 3 || fault == 4));
+    }
+    return writes + 17;
 }
 
 static unsigned test_source(void)

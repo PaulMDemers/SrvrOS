@@ -17,9 +17,10 @@ VOLUME = "01234567"
 BOOT = "laptop-capture: boot options="
 
 
-def cmdline(cycle=False):
+def cmdline(cycle=False, flr=False):
     return next(line.partition("cmdline:")[2].strip() for line in
-                limine_config(RELEASE, EDP_CONFIGS[cycle] + "laptop-probe-" + VOLUME + "-auto-return").splitlines()
+                limine_config(RELEASE, EDP_CONFIGS[2 if flr else cycle] + "laptop-probe-" +
+                              VOLUME + "-auto-return").splitlines()
                 if "cmdline:" in line)
 
 
@@ -55,11 +56,10 @@ class EdpBaseline(unittest.TestCase):
                 path = root / "build" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
-            for cycle in (False, True):
+            for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight"):
                 with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
                         patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
-                    release = boot.stage(intel_edp_baseline=not cycle, intel_edp_cycle=cycle,
-                                         laptop_probe_volume=VOLUME)
+                    release = boot.stage(laptop_probe_volume=VOLUME, **{mode: True})
                 payload = stage / release
                 self.assertTrue(boot.verify(payload)["source_bound"])
                 self.assertEqual((payload / "srvros.elf").read_text(), "intel-edp-baseline/srvros.elf")
@@ -110,7 +110,7 @@ class EdpBaseline(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="edp-baseline-") as tmp:
             for fixture, sources in [
                 ("baseline", ["intel_bdw_edp_baseline", "intel_bdw_edp_platform"]),
-                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source"]),
+                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source", "intel_bdw_flr"]),
             ]:
                 with self.subTest(fixture=fixture):
                     binary = str(Path(tmp) / fixture)
@@ -223,3 +223,19 @@ class EdpBaseline(unittest.TestCase):
             failed = result(timeout, cycle=True)
             self.assertTrue(failed["retained"])
             self.assertEqual(failed["panel_off"]["last"], 0xa000000b)
+            flr = native.replace(cmdline(True), cmdline(cycle=True, flr=True)) + off
+            self.assertEqual(recipe(cmdline(cycle=True, flr=True), cycle=True, flr=True),
+                             dict(release=RELEASE, volume=VOLUME))
+            flr += "intel-edp-flr-preflight: v=1 complete=1 pixels=3 configs=3 bytes=5529600 released=1 reset=0\n"
+            config = [0x16268086, 0x03000009, 0x011b106b, 0x100007, 0xc0000004, 0, 0xb000000c,
+                      0, 1, 0x90, 0xd005, 0x2a401, 0, 0x03060013, 0, 0x8ad03190]
+            for phase in range(3):
+                flr += f"intel-edp-flr-pixels: v=1 phase={phase} digest=17 elapsed_us=10000\n"
+                for index, word in enumerate(config):
+                    flr += f"intel-edp-flr-config: v=1 phase={phase} index={index} word={word}\n"
+            self.assertTrue(result(flr, cycle=True, flr=True)["diagnostic_complete"])
+            for changed in (flr.replace("phase=1 digest=17", "phase=1 digest=18"),
+                            flr.replace(f"phase=1 index=4 word={config[4]}", "phase=1 index=4 word=4"),
+                            flr.replace("bytes=5529600 released=1 reset=0", "bytes=5529600 released=1 reset=1")):
+                with self.assertRaises(ValueError):
+                    result(changed, cycle=True, flr=True)

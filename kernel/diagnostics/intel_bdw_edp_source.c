@@ -664,6 +664,7 @@ static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *
 bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
                                 const struct bdw_edp_source_image *image,
                                 const struct bdw_edp_baseline_report *reference,
+                                bdw_edp_dark_handoff handoff,
                                 struct bdw_edp_cycle_report *r)
 {
     if (!r)
@@ -683,9 +684,22 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
     bool opened = fifo_mask(&a, r, false);
     bool restored = false;
     if (opened && disable_path(&a, r, primary, buffer, transport)) {
+        enum bdw_edp_dark_result state = handoff ?
+            handoff(io->context, image) : BDW_EDP_DARK_UNCHANGED;
+        if (state != BDW_EDP_DARK_UNCHANGED && state != BDW_EDP_DARK_RESET_RECOVERED) {
+            r->retained = true;
+            return false;
+        }
+        bool keep = state == BDW_EDP_DARK_UNCHANGED;
+        if (!keep && (!start_phase(&a, SOURCE_STAGE_US) || !backing_preserved(&a))) {
+            r->retained = true;
+            return false;
+        }
         r->stage = BDW_EDP_CYCLE_RESTORE;
         a.report = &r->restore;
-        restored = restore(io, image, reference, &r->restore, true, a.gamma) == BDW_EDP_OK &&
+        if (!keep)
+            a.gamma = 0;
+        restored = restore(io, image, reference, &r->restore, keep, a.gamma) == BDW_EDP_OK &&
                    start_phase(&a, SOURCE_STAGE_US) && scanout_matches(&a) && backing_preserved(&a) &&
                    expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL);
     }

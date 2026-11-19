@@ -674,9 +674,10 @@ def main():
                             from intel_edp_baseline import checkpoint, result
                             pre = stored.read(folder+"/session-a.log").decode()
                             terminal = stored.read(folder+"/exit.log").decode()
-                            cycle = manifest["config_version"].startswith(boot.EDP_CONFIGS[1])
-                            assert checkpoint(pre, terminal, native=False, cycle=cycle)
-                            edp = result(terminal, native=False, cycle=cycle)
+                            cycle = manifest["config_version"].startswith(boot.EDP_CONFIGS[1:])
+                            flr = manifest["config_version"].startswith(boot.EDP_CONFIGS[2])
+                            assert checkpoint(pre, terminal, native=False, cycle=cycle, flr=flr)
+                            edp = result(terminal, native=False, cycle=cycle, flr=flr)
                             assert not edp["complete"] and not edp["retained"]
                             (logs/'intel-edp-baseline-result.json').write_text(json.dumps(edp,indent=2)+"\n")
                         if 'srvros.intel-memory=' in text:

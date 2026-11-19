@@ -43,10 +43,11 @@ def code_inputs(repo):
 
 GT_DISPLAY_WIRES = {'intel-gt-range-v56': 9, 'intel-gt-primary-v57': 10, 'intel-gt-aux-v58': 11, 'intel-gt-flush-v59': 12}
 from intel_edp_baseline import PROFILE as EDP_BASELINE, CYCLE_PROFILE as EDP_CYCLE
+from intel_edp_baseline import FLR_PREFLIGHT_PROFILE as EDP_FLR
 
-EDP_PROFILES = (EDP_BASELINE, EDP_CYCLE)
+EDP_PROFILES = (EDP_BASELINE, EDP_CYCLE, EDP_FLR)
 
-PROFILES = {EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
+PROFILES = {EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle', EDP_FLR:'--intel-edp-flr-preflight','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
 
@@ -54,8 +55,8 @@ def trial_parsers(name):
     if name in EDP_PROFILES:
         from functools import partial
         from intel_edp_baseline import recipe, result, checkpoint
-        cycle = name == EDP_CYCLE
-        return tuple(partial(parser, cycle=cycle) for parser in (recipe, result, checkpoint))
+        return tuple(partial(parser, cycle=name != EDP_BASELINE, flr=name == EDP_FLR)
+                     for parser in (recipe, result, checkpoint))
     def exact_bootstrap(text,version):
         from intel_gt_bootstrap import bootstrap_result
         result=bootstrap_result(text,native=True)
@@ -646,7 +647,7 @@ class Runner:
                 status='census refused at '+native['failure_stage']+'; incomplete, no ownership acceptance'
                 report['failure_stage']=native['failure_stage'];atomic(directory/'report.json',report)
             if manifest['profile'] in EDP_PROFILES and diagnostic_complete:
-                status = ('review isolated native display-cycle result' if manifest['profile'] == EDP_CYCLE
+                status = ('review isolated native display-cycle result' if manifest['profile'] != EDP_BASELINE
                           else 'review inherited PHY/CRC baseline; restoration and takeover pending')
             self.finish(directory, state, 'COLLECTED', status=status, session=session)
         except BaseException as error:
@@ -707,8 +708,10 @@ class Runner:
             return record
         if manifest['profile'] in EDP_PROFILES:
             display_cycle = report['native'].get('display_cycle')
-            record = dict(status='EDP_DISPLAY_CYCLE_COMPLETE' if display_cycle else 'EDP_PHY_CRC_BASELINE_COMPLETE',
-                          source=manifest['source'],
+            result_status = {EDP_BASELINE: 'EDP_PHY_CRC_BASELINE_COMPLETE',
+                             EDP_CYCLE: 'EDP_DISPLAY_CYCLE_COMPLETE',
+                             EDP_FLR: 'EDP_FLR_PREFLIGHT_COMPLETE'}[manifest['profile']]
+            record = dict(status=result_status, source=manifest['source'],
                           release=state['release'], session=state['session'], native_acceptance=False,
                           physical_tearfree=False, return_integrity='PASS')
             if report['native'].get('pattern_repeated'):
@@ -725,10 +728,14 @@ class Runner:
                 record['display_cycle'] = display_cycle
                 if 'panel_off' in report['native']:
                     record['panel_off'] = report['native']['panel_off']
+            if 'flr_preflight' in report['native']:
+                record['flr_preflight'] = report['native']['flr_preflight']
             atomic(directory/'diagnostic.json', record)
             report.update(status=record['status'])
             atomic(directory/'report.json', report)
-            status = 'isolated native display cycle observed' if display_cycle else 'inherited PHY/backing/CRC baseline observed'
+            status = {EDP_BASELINE: 'inherited PHY/backing/CRC baseline observed',
+                      EDP_CYCLE: 'isolated native display cycle observed',
+                      EDP_FLR: 'framebuffer copy and PCI state verified across dark handoff'}[manifest['profile']]
             self.finish(directory, state, 'DIAGNOSED', status=status, diagnostic_sha256=sha(directory/'diagnostic.json'))
             return record
         native=report['native'];s=native['summary'];b=native['binding'];w=native['entry']['wake']['summary']

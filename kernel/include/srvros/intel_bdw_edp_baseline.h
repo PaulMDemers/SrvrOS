@@ -56,6 +56,6 @@ bool intel_bdw_edp_baseline_same(const struct bdw_edp_baseline_report *,
                                  const struct bdw_edp_baseline_report *);
 
 #ifdef SRVROS_INTEL_EDP_BASELINE
-bool intel_edp_baseline_probe(bool *retained, bool display_cycle);
+bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight);
 #endif
 #endif

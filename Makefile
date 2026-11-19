@@ -6812,7 +6812,7 @@ test-intel-bdw-primary-flip: build/tests/intel-bdw-primary-flip$(HOST_EXE)
 test-core: test-intel-bdw-primary-flip
 
 # Fixed Broadwell eDP recovery, exercised without a native MMIO provider.
-BDW_EDP_HOST_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c
+BDW_EDP_HOST_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c kernel/diagnostics/intel_bdw_flr.c
 build/tests/intel-bdw-edp$(HOST_EXE): tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BDW_EDP_HOST_SOURCES) -o $@
