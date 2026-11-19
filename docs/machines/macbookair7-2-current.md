@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated: 2026-11-18 (America/New_York). Reference A1466; partial desktop/device acceptance.
+Updated 2026-11-19 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -33,12 +33,12 @@ for the powered display wells, restored CDCLK/LCPLL, and the original
 framebuffer translation lifetime. Main is `4016abf0`. The open Wi-Fi and
 WebCore work has no shared display-driver changes.
 
-The source adapter now joins LCPLL 1350 selection and PHY replay to the
+The source adapter joins LCPLL 1350 selection and PHY replay to the
 1440×900 timing, M/N, watermark, and original tiled primary programming.
 The same register sequence runs through PPS and AUX in the host fixture.
 Backlight permission requires advancing frames, a clean underrun latch,
-and independent fetch evidence. Native MMIO admission, the pre-reset PHY
-snapshot and the fetch observer remain pending. Ubuntu was kept running.
+and independent fetch evidence. The native reset and restore adapter
+still needs to supply that evidence after reinitializing the display.
 
 PR301 now owns the inherited-route qualification for pre-reset DDI PHY,
 the original framebuffer pin and its primary-plane CRC. Work is limited to
@@ -55,6 +55,15 @@ around the CRC window. The first window accepted zero CRC completions and
 restored its control state. It saved logs, unmounted, and returned to
 Ubuntu automatically. The retry unmasks only CRC-done and records the
 raw poll status. The reason for the original CRC failure remains unconfirmed.
+
+The retry, release `5d36f1891358bf06`, closed as
+`EDP_PHY_CRC_BASELINE_COMPLETE`. Both windows preserved all nine PHY
+entries and all 1,484 backing translations. Each produced four fresh
+completions, and the stable CRC changed with the console content. The
+probe restored the CRC control and interrupt mask, saved its report, and
+returned to Ubuntu. The next step is to reproduce a known frame during
+native display restoration and verify its CRC across reset.
+[Pre-reset trial result](../intel-bdw-edp-recovery.md#physical-pre-reset-result).
 
 ## PCI reset needs independent display recovery
 

@@ -117,6 +117,18 @@ lifetime after reset, reproduce a known frame, and verify a matching CRC.
 Qualify display and sound recovery before PCI reset-based GGTT takeover.
 A separate live memory-completion witness is required before any GGTT store.
 
+### Physical pre-reset result
+
+Release `5d36f1891358bf06` on MacBookAir7,2 observed four consecutive CRC
+completions in each window. After warm-up, frames 1034–1035 each returned
+`0x5d3928e4` and frames 1040–1041 each returned `0x124ccc05` after the
+console content changed. Both windows reported only CRC-done in the sampled
+interrupt status. Their nine PHY entries and backing hash `0x012970c1aee06011`
+matched. The probe retired both windows without retaining resources,
+performed zero PTE writes, and saved a report that passed Ubuntu return
+verification. The CRC values are specific to the content of this diagnostic
+boot. Use a reproducible frame for a future comparison across reset.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·
