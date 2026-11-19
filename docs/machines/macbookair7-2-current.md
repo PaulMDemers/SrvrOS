@@ -8,6 +8,17 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Active scope — observe graphics memory arbitration during the held reset
+
+On main `4016abf0`, PR301 will sample Broadwell's Graphics Address
+Mapping (GAM) memory-cycle allowance and idle status in the existing
+read-only flush window. The kernel flush adapter and its collector will
+bind these samples to the original PCI requester hold and reset phases.
+The checkpoint is to determine whether Prepare for Reset also visibly
+blocks engine memory traffic at GAM. Intel's register definitions and the
+existing guarded UC3 alias are dependencies. A sampled denial or idle bit
+cannot establish posted-write, prefetch or cache completion.
+
 ## Firmware interference detection added to the held GT owner
 
 On main `4016abf0`, PR301 adds a read-only SMI counter check before the
