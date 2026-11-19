@@ -55,7 +55,7 @@ owner must enforce the 250 ms backlight-off delay before a later power-down.
    issued operation is uncertain, hold its original lifetime. The
    enclosing boot diagnostic owns terminal save and recovery.
 
-The joined fixture passes 4,902 cases, including fatal ASan/UBSan runs. It injects
+The joined fixture passes 24,471 cases and runs with fatal ASan/UBSan. It injects
 faults across register and source accesses, tests the wire and stage order,
 and checks that missing scanout keeps the backlight dark. The freestanding
 x86-64 object passes a 2 KiB stack-frame limit. AUX and link training have
@@ -113,7 +113,8 @@ and renders the same fixed reference image before and after a distinct
 alternate image. All three windows must use the same route and backing,
 and the two reference CRCs must agree and differ from the alternate CRC.
 
-The trial changes only the CRC control and its local interrupt state.
+The trial uses CRC control and its local interrupt state. The final reference
+window also exercises the driver's display-well request as described below.
 It grants no GGTT write access and leaves the PCI function untouched.
 This can qualify the pre-reset observation and the CRC tap on the inherited
 route. A later reset trial must still establish MMIO and the framebuffer
@@ -140,6 +141,28 @@ nine PHY entries and 1,484 backing translations, restored CRC control and
 the local interrupt mask, and passed offline return verification. The
 restore provider must still capture and bind the reference in the same
 ownership lifetime as the native reset.
+
+### Display-well reservation trial
+
+The final reference window adds the Broadwell driver request at
+`0x45404[31]` while the BIOS request remains asserted and the global well
+reports powered. The trial checks the original tiled backing before writing,
+keeps the CPU/framebuffer pin and UC aliases throughout the CRC window,
+and releases only the driver request it set. Four samples must agree
+except for that bit in the two held samples. The vector includes the LCPLL,
+CDCLK and fuse, Lynx Point-LP clock gating, panel sequencer, CPU and PCH
+PWM controls. These registers are sampled read-only. The trial repeats the
+full original backing census after release. Uncertain retirement keeps
+the exclusion and aliases pinned.
+
+The restore entry now rejects a missing, altered or unretired pre-reset
+CRC receipt before any platform access. It checks the receipt's verified
+frame sequence, PHY, lane configuration and backing against the selected
+restore image. The future native reset owner must keep that receipt and
+the framebuffer pinned while the PCI function and display state are
+restored.
+[i915 global well request and readback](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_display_power_well.c) ·
+[i915 Lynx Point clock gating](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_clock_gating.c).
 
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy

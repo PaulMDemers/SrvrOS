@@ -709,6 +709,9 @@ class Runner:
                 record['reference_crc'] = rows['intel-edp-crc'][2]['value']
                 record['alternate_crc'] = rows['intel-edp-crc'][6]['value']
                 record['backing_hash'] = rows['intel-edp-window'][0]['hash']
+            if report['native'].get('well_cycle'):
+                platform = report['native']['rows']['intel-edp-platform'][0]
+                record['display_well_cycle_us'] = platform['end'] - platform['begin']
             atomic(directory/'diagnostic.json', record)
             report.update(status=record['status'])
             atomic(directory/'report.json', report)

@@ -33,6 +33,7 @@ struct bdw_edp_source_report {
     unsigned source_writes, verified_frames, crc_checks;
     bool crc_retained;
 };
+struct bdw_edp_baseline_report;
 
 struct bdw_edp_source_io {
     void *context;
@@ -57,11 +58,14 @@ struct bdw_edp_source_io {
 
 /* Host-testable source adapter for the fixed Air7,2 replay. The caller
  * supplies already-restored LCPLL/CDCLK, an original backing pin and the
- * stable pre-reset primary CRC for the reference pixels. It retains the pin
- * regardless of outcome. No reset, mapping or global clock writes. The only
- * intended native caller is a terminal recovery diagnostic. */
+ * stable pre-reset primary CRC for the reference pixels. The provider must
+ * keep the captured reference and backing under the same live owner across
+ * reset. A report from a previous boot cannot grant that authority. It
+ * retains the pin regardless of outcome. No reset, mapping or global clock
+ * writes. The only intended native caller is a terminal recovery diagnostic. */
 enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io *,
                                                 const struct bdw_edp_source_image *,
+                                                const struct bdw_edp_baseline_report *,
                                                 struct bdw_edp_source_report *);
 
 #endif

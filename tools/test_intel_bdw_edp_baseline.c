@@ -1,4 +1,5 @@
 #include <srvros/intel_bdw_edp_baseline.h>
+#include <srvros/intel_bdw_edp_platform.h>
 #include <assert.h>
 #include <stdio.h>
 
@@ -139,6 +140,109 @@ static bool exercise(struct fixture *f, struct bdw_edp_baseline_report *report)
     return intel_bdw_edp_baseline(&io, report);
 }
 
+struct platform_fixture {
+    uint64_t time;
+    unsigned reads, writes, captures, stop_read, bad_write;
+    bool requested, bad_profile, changed, overdue, child_uncertain, no_crc;
+};
+
+static bool platform_held(void *context)
+{
+    return context != NULL;
+}
+
+static bool platform_read(void *context, uint32_t reg, uint32_t *word)
+{
+    struct platform_fixture *f = context;
+    ++f->time;
+    if (++f->reads == f->stop_read)
+        return false;
+    switch (reg) {
+    case 0x45400: *word = 0xc0000000u; break;
+    case 0x45404: *word = f->requested ? 0xc0000000u : 0x40000000u; break;
+    case 0x45408: case 0x4540c: *word = 0x40000000u; break;
+    case 0x42014: *word = 0; break;
+    case 0x130040: *word = 0x4c000000u; break;
+    case 0x46200: *word = f->bad_profile ? 449u : 674u; break;
+    case 0xc2020: *word = 0x1000u; break;
+    case 0xc2004: *word = 0; break;
+    case 0xc7200: *word = 0xc0000008u; break;
+    case 0xc7204: *word = 7u; break;
+    case 0xc7208: *word = 0x07d00001u; break;
+    case 0xc720c: *word = 0x02e40001u; break;
+    case 0xc7210: *word = 0x0004af06u; break;
+    case 0x48250: case 0x48254: *word = 0; break;
+    case 0xc8250: *word = 0x80000000u; break;
+    case 0xc8254: *word = f->changed && f->captures ? 0x0ad90183u : 0x0ad90184u; break;
+    default: assert(0); return false;
+    }
+    return true;
+}
+
+static enum intel_gt_write platform_request(void *context, bool enable)
+{
+    struct platform_fixture *f = context;
+    assert(f->requested != enable);
+    f->requested = enable;
+    return ++f->writes == f->bad_write ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+
+static uint64_t platform_now(void *context)
+{
+    return ((struct platform_fixture *)context)->time;
+}
+
+static bool platform_capture(void *context, bool *retained)
+{
+    struct platform_fixture *f = context;
+    assert(f->requested && f->writes == 1 && !f->captures);
+    ++f->captures;
+    struct fixture crc = {.fault = f->child_uncertain ? LOST_HOLD : f->no_crc ? NO_CRC : NO_FAULT};
+    struct bdw_edp_baseline_report report;
+    bool ok = exercise(&crc, &report);
+    f->time += f->overdue ? 600000u : crc.time;
+    *retained = report.retained;
+    return ok;
+}
+
+static bool platform_run(struct platform_fixture *f, struct bdw_edp_platform_report *r)
+{
+    f->time = 1000;
+    const struct bdw_edp_platform_io io = {
+        f, platform_held, platform_read, platform_request, platform_now, platform_capture
+    };
+    return intel_bdw_edp_platform_trial(&io, r);
+}
+
+static void test_platform(void)
+{
+    struct bdw_edp_platform_report r;
+    struct platform_fixture f = {0};
+    assert(platform_run(&f, &r));
+    assert(r.acquired && r.released && !r.retained && r.samples == 4 && r.writes == 2 && !f.requested);
+    unsigned reads = f.reads;
+    for (unsigned i = 1; i <= reads; ++i) {
+        f = (struct platform_fixture){.stop_read = i};
+        assert(!platform_run(&f, &r));
+        assert(r.retained == (i > BDW_EDP_PLAT_WORDS));
+        assert(!r.released);
+    }
+    for (unsigned i = 1; i <= 2; ++i) {
+        f = (struct platform_fixture){.bad_write = i};
+        assert(!platform_run(&f, &r) && r.retained && !r.released && r.writes == i);
+    }
+    f = (struct platform_fixture){.bad_profile = true};
+    assert(!platform_run(&f, &r) && r.samples == 1 && !r.retained && !r.writes && !f.captures);
+    f = (struct platform_fixture){.no_crc = true};
+    assert(!platform_run(&f, &r) && r.released && !r.retained && !f.requested);
+    f = (struct platform_fixture){.child_uncertain = true};
+    assert(!platform_run(&f, &r) && r.retained && f.requested && r.writes == 1);
+    f = (struct platform_fixture){.changed = true};
+    assert(!platform_run(&f, &r) && r.retained && f.requested && r.writes == 1);
+    f = (struct platform_fixture){.overdue = true};
+    assert(!platform_run(&f, &r) && r.retained && f.requested && r.writes == 1);
+}
+
 int main(void)
 {
     struct fixture f = {0};
@@ -177,6 +281,7 @@ int main(void)
         }
         assert(f.iir & 2u);
     }
-    puts("Broadwell eDP baseline: CRC frame freshness, PHY and lease revalidation, and exact rollback passed");
+    test_platform();
+    puts("Broadwell eDP baseline: CRC freshness, PHY, display-well request and exact rollback passed");
     return 0;
 }

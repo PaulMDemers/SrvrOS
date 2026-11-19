@@ -205,6 +205,30 @@ static bool valid_image(const struct bdw_edp_source_image *image)
     return true;
 }
 
+static bool reference_matches(const struct bdw_edp_source_image *image,
+                              const struct bdw_edp_baseline_report *ref)
+{
+    if (!ref || ref->status != BDW_EDP_BASELINE_OK || ref->reason || ref->retained ||
+        !ref->restored || ref->events != BDW_EDP_CRC_FRAMES || ref->writes < 8 ||
+        (ref->poll_iir & (BDW_EDP_CRC_IRQS | FIFO_UNDERRUN)) != BDW_EDP_CRC_DONE ||
+        ref->sample.port != PORT_CLOCK_LCPLL_1350 ||
+        (ref->sample.buffer & (DDI_BUF_ENABLE | DDI_BUF_IDLE | DDI_LANE_CONFIG | DDI_BUF_WIDTH)) !=
+        (DDI_BUF_ENABLE | image->ddi_lane_bits) ||
+        ref->sample.backing_hash != image->backing_hash || ref->crc[2] != image->reference_crc ||
+        ref->crc[3] != image->reference_crc)
+        return false;
+    for (unsigned i = 1; i < BDW_EDP_CRC_FRAMES; ++i) {
+        uint32_t gap = ref->frame[i] - ref->frame[i - 1];
+        if (!gap || gap > 2)
+            return false;
+    }
+    for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
+        if (image->phy[i][0] != ref->sample.phy[i][0] || image->phy[i][1] != ref->sample.phy[i][1])
+            return false;
+    }
+    return true;
+}
+
 static bool clock_ready(struct source_attempt *a)
 {
     const uint32_t rate[] = {450000, 540000, 337500, 675000};
@@ -419,6 +443,7 @@ static bool read_live(void *context)
 
 enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io *io,
                                                 const struct bdw_edp_source_image *image,
+                                                const struct bdw_edp_baseline_report *reference,
                                                 struct bdw_edp_source_report *report)
 {
     if (!report)
@@ -431,7 +456,7 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
     }
 
     struct source_attempt a = {.io = *io, .image = *image, .report = report};
-    if (!valid_image(&a.image)) {
+    if (!valid_image(&a.image) || !reference_matches(&a.image, reference)) {
         report->source_error = BDW_EDP_SOURCE_IMAGE;
         return report->panel.result;
     }

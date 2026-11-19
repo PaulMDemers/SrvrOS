@@ -13,6 +13,9 @@ SCHEMAS = {
     "intel-edp-crc": "v sample event frame value",
     "intel-edp-phy": "v sample entry low high",
     "intel-edp-pattern": "v repeat",
+    "intel-edp-platform": "v samples writes reason acquired released retained begin end",
+    "intel-edp-platform-word": ("v phase bios driver kvmr debug fuse pll cdclk gate chicken "
+                               "pps_status pps_ctl pps_on pps_off pps_div cpu_pwm cpu_duty pch_pwm pch_duty"),
 }
 
 
@@ -45,6 +48,47 @@ def rows_of(text):
     return rows
 
 
+def platform_result(rows, *, native):
+    summaries = rows["intel-edp-platform"]
+    samples = rows["intel-edp-platform-word"]
+    if not summaries and not samples:
+        return False
+    if len(summaries) != 1 or not rows["intel-edp-pattern"]:
+        raise ValueError("Missing eDP platform summary or reference pattern")
+    p = summaries[0]
+    if (p["samples"] > 4 or p["writes"] > 2 or p["reason"] > 6 or
+            [s["phase"] for s in samples] != list(range(p["samples"])) or
+            p["end"] < p["begin"] or any(p[k] > 1 for k in ("acquired", "released", "retained"))):
+        raise ValueError("Invalid eDP platform result")
+    if any(s[k] >= 1 << 32 for s in samples for k in s if k not in ("v", "phase")):
+        raise ValueError("Invalid eDP platform register")
+    if not native and (p["writes"] or p["acquired"] or p["released"] or p["samples"]):
+        raise ValueError("VM reached native eDP platform access")
+    if p["retained"] != bool(p["writes"] and not p["released"]):
+        raise ValueError("Unretired eDP driver request")
+    if p["acquired"] and (p["samples"] < 2 or not p["writes"]):
+        raise ValueError("Missing eDP driver acquisition evidence")
+    if not p["released"]:
+        return False
+    if (p["samples"] != 4 or p["writes"] != 2 or not p["acquired"] or p["retained"] or
+            not 0 < p["end"] - p["begin"] < 600000 or p["reason"] not in (0, 5)):
+        raise ValueError("Invalid eDP driver release")
+    first = samples[0]
+    period, duty = first["pch_duty"] >> 16, first["pch_duty"] & 0xffff
+    if ((first["bios"], first["driver"], first["kvmr"], first["debug"]) !=
+            (0xc0000000, 0x40000000, 0x40000000, 0x40000000) or
+            first["fuse"] & (1 << 24) or (first["pll"], first["cdclk"]) != (0x4c000000, 674) or
+            first["pps_status"] & 0xb800000f != 0x80000008 or first["pps_ctl"] & 0xd != 5 or
+            first["cpu_pwm"] & (1 << 31) or not first["pch_pwm"] & (1 << 31) or
+            not 0 < period or duty > period):
+        raise ValueError("Invalid inherited eDP platform profile")
+    for phase, row in enumerate(samples):
+        driver = 0xc0000000 if phase in (1, 2) else 0x40000000
+        if row != {**first, "phase": phase, "driver": driver}:
+            raise ValueError("eDP platform changed during the well request")
+    return True
+
+
 def result(text, *, native=True):
     rows = rows_of(text)
     summaries = rows[SUMMARY]
@@ -63,9 +107,11 @@ def result(text, *, native=True):
     if [(r["sample"], r["entry"]) for r in phy] != [(s, n) for s in samples for n in range(9)]:
         raise ValueError("Missing eDP PHY rows")
     summary = summaries[0]
+    platform = rows["intel-edp-platform"]
+    well_cycle = platform_result(rows, native=native)
     if (summary["pte_writes"] or summary["reset"] or
             any(summary[key] > 1 for key in ("complete", "same", "changed", "retained")) or
-            any(r["status"] > 2 or r["reason"] > 9 or r["events"] > 4 or r["writes"] > 10 or
+            any(r["status"] > 2 or r["reason"] > (10 if platform else 9) or r["events"] > 4 or r["writes"] > 10 or
                 r["restored"] > 1 or r["retained"] > 1 for r in windows) or
             any(r[key] >= 1 << 32 for r in crc for key in ("frame", "value"))):
         raise ValueError("Impossible eDP outcome")
@@ -98,6 +144,9 @@ def result(text, *, native=True):
         raise ValueError("eDP repeat verdict contradicts the CRC")
     complete = changed and (not pattern or repeat)
     retained = any(r["retained"] for r in windows)
+    if platform and ((complete and (not well_cycle or platform[0]["reason"])) or
+                     (platform[0]["retained"] and not windows[-1]["retained"])):
+        raise ValueError("eDP platform result contradicts the CRC")
     if (summary["same"], summary["changed"], summary["complete"], summary["retained"]) != (same, changed, complete, retained):
         raise ValueError("eDP summary contradicts the raw rows")
     if ("laptop-capture: completed=yes" in text.splitlines()) != complete:
@@ -112,7 +161,7 @@ def result(text, *, native=True):
         if (b["count"], b["offset"], b["tiled"], b["fence_matches"]) != (1356, 0, 1, 1):
             raise ValueError("Unexpected eDP framebuffer geometry")
     return dict(version=1, complete=complete, native_complete=False, pattern_repeated=repeat,
-                diagnostic_complete=complete, retained=retained, rows=rows)
+                well_cycle=well_cycle, diagnostic_complete=complete, retained=retained, rows=rows)
 
 
 def checkpoint(pre, text, native=False):

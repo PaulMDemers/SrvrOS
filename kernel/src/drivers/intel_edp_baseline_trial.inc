@@ -1,4 +1,5 @@
 #include <srvros/intel_bdw_edp_baseline.h>
+#include <srvros/intel_bdw_edp_platform.h>
 #include <srvros/display_access.h>
 #include <srvros/display_present.h>
 
@@ -8,17 +9,20 @@ extern bool intel_cache_probe_edp_uc_page(uint64_t physical, uint32_t offset);
 #define EDP_RENDERED_PTES (BDW_EDP_BACKING_PAGES - 128u)
 #define EDP_TAIL_PAGE 0x802000u
 #define EDP_LEASE 0x454450435243ull
+#define EDP_BASELINE_PAGES 11u
 
 static const uint32_t edp_pages[] = {
     0x41000, 0x43000, 0x44000, 0x45000, 0x46000, 0x60000,
-    0x64000, 0x6f000, 0x70000, 0x7f000, 0x130000
+    0x64000, 0x6f000, 0x70000, 0x7f000, 0x130000,
+    0x42000, 0x48000, 0xc2000, 0xc7000, 0xc8000
 };
 
 struct edp_adapter {
     struct backing_adapter backing;
     struct display_access_token lease;
+    struct bdw_edp_baseline_report *crc;
     unsigned mapped, smi, reason;
-    bool pinned, map_fault;
+    bool pinned, map_fault, platform, well_requested;
 };
 static struct edp_adapter edp_session;
 
@@ -67,7 +71,8 @@ static bool edp_unmap_all(struct edp_adapter *a)
 
 static bool edp_map_all(struct edp_adapter *a)
 {
-    for (unsigned i = 0; i < sizeof(edp_pages) / sizeof(edp_pages[0]); ++i) {
+    unsigned pages = a->platform ? sizeof(edp_pages) / sizeof(edp_pages[0]) : EDP_BASELINE_PAGES;
+    for (unsigned i = 0; i < pages; ++i) {
         uint32_t page = edp_pages[i];
         uint64_t va = EDP_VA + 4096ull * i;
         uint64_t physical = result.mmio_base + page, existing;
@@ -76,7 +81,7 @@ static bool edp_map_all(struct edp_adapter *a)
             vmm_virt_to_phys_in_space(a->backing.common.cr3, va, &existing))
             return false;
         uint64_t flags = VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE;
-        if (page == 0x44000 || page == 0x60000)
+        if (page == 0x44000 || page == 0x60000 || (a->platform && page == 0x45000))
             flags |= VMM_PAGE_WRITABLE;
         if (!vmm_map_page_in_space(a->backing.common.cr3, va, physical, flags)) {
             a->map_fault = vmm_virt_to_phys_in_space(a->backing.common.cr3, va, &existing);
@@ -142,10 +147,17 @@ static bool edp_expect(struct edp_adapter *a, uint32_t reg, uint32_t mask, uint3
 static bool edp_check_backing(struct edp_adapter *a, uint64_t *hash)
 {
     struct scanout_profile profile;
+    struct intel_capture_result owned;
+    const struct intel_capture_result *capture = &result;
+    if (a->well_requested) {
+        owned = result;
+        owned.sample[1].well_after[1] |= BDW_EDP_WELL_REQUEST;
+        capture = &owned;
+    }
     if (!edp_held(a) || !intel_scanout_trial_profile(&profile) ||
         profile.width != 1440 || profile.height != 900 || profile.pitch != 6144 ||
         backing.offset || backing.count != EDP_RENDERED_PTES ||
-        !intel_scanout_trial_revalidate())
+        !trial_revalidate_capture(capture))
         return false;
     const uint64_t first = backing.pte[0];
     if ((first & 4095u) != 1 || first < backing.stolen_base ||
@@ -187,9 +199,13 @@ static bool edp_snapshot(void *context, struct bdw_edp_baseline_sample *s)
     if (!edp_check_backing(a, &s->backing_hash))
         return false;
     a->reason = 5;
-    for (unsigned i = 0; i < 4; ++i)
-        if (!edp_expect(a, 0x45400 + 4 * i, UINT32_MAX, result.sample[1].well_after[i]))
+    for (unsigned i = 0; i < 4; ++i) {
+        uint32_t well = result.sample[1].well_after[i];
+        if (i == 1 && a->well_requested)
+            well |= BDW_EDP_WELL_REQUEST;
+        if (!edp_expect(a, 0x45400 + 4 * i, UINT32_MAX, well))
             return false;
+    }
     a->reason = 6;
     if (!edp_read(a, 0x46100, &s->port) || !edp_read(a, 0x64000, &s->buffer) ||
         !edp_read(a, 0x64040, &s->transport) || !edp_read(a, 0x130040, &s->lcpll) ||
@@ -225,7 +241,36 @@ static void edp_pause(void *context, uint32_t us)
     timer_delay_us(us);
 }
 
-static bool edp_try(struct bdw_edp_baseline_report *r)
+static enum intel_gt_write edp_well_request(void *context, bool enable)
+{
+    struct edp_adapter *a = context;
+    if (!a->platform || enable == a->well_requested ||
+        !edp_expect(a, 0x45400, UINT32_MAX, BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON))
+        return GT_WRITE_NONE;
+    volatile uint32_t *reg = edp_mmio(a, BDW_EDP_WELL_DRIVER);
+    if (!reg || !edp_held(a))
+        return GT_WRITE_NONE;
+    uint32_t before = *reg;
+    uint32_t expected = BDW_EDP_WELL_ON | (enable ? 0 : BDW_EDP_WELL_REQUEST);
+    if (before != expected || !edp_held(a))
+        return GT_WRITE_NONE;
+    *reg = before ^ BDW_EDP_WELL_REQUEST;
+    a->well_requested = enable;
+    return GT_WRITE_DONE;
+}
+
+static bool edp_capture_crc(void *context, bool *retained)
+{
+    struct edp_adapter *a = context;
+    const struct bdw_edp_baseline_io io = {
+        a, edp_held, edp_snapshot, edp_read, edp_write, now, edp_pause
+    };
+    bool ok = intel_bdw_edp_baseline(&io, a->crc);
+    *retained = a->crc->retained || a->map_fault || trial_mapping_fault;
+    return ok;
+}
+
+static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_report *platform)
 {
     struct edp_adapter *a = &edp_session;
     *a = (struct edp_adapter){0};
@@ -239,14 +284,29 @@ static bool edp_try(struct bdw_edp_baseline_report *r)
     }
     a->smi = edp_smi();
     a->pinned = display_access_pin(&a->lease);
+    a->platform = platform != NULL;
+    a->crc = r;
     bool ok = false;
     a->reason = 3;
     if (a->pinned && edp_map_all(a)) {
-        const struct bdw_edp_baseline_io io = {
-            a, edp_held, edp_snapshot, edp_read, edp_write, now, edp_pause
-        };
-        ok = intel_bdw_edp_baseline(&io, r);
+        if (platform) {
+            const struct bdw_edp_platform_io io = {
+                a, edp_held, edp_read, edp_well_request, now, edp_capture_crc
+            };
+            uint64_t before, after;
+            a->reason = 10;
+            if (edp_check_backing(a, &before)) {
+                ok = intel_bdw_edp_platform_trial(&io, platform);
+                if (platform->released &&
+                    (!edp_check_backing(a, &after) || before != after))
+                    r->retained = true;
+            }
+            r->retained |= platform->retained;
+        } else {
+            ok = edp_capture_crc(a, &r->retained);
+        }
     }
+    a->crc = NULL;
     bool retired = !r->retained && !a->map_fault && !trial_mapping_fault && edp_unmap_all(a);
     if (retired && a->pinned)
         retired = display_access_unpin(&a->lease);
@@ -275,14 +335,27 @@ bool intel_edp_baseline_probe(bool *retained)
     };
     const unsigned frames[] = {0, 1, 0};
     struct bdw_edp_baseline_report r[3] = {0};
+    struct bdw_edp_platform_report platform = {0};
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */
         console_clear();
         console_write(pattern[frames[i]]);
-        if (!edp_try(&r[i]))
+        if (!edp_try(&r[i], i == 2 ? &platform : NULL))
             break;
     }
+    for (unsigned i = 0; i < platform.samples; ++i) {
+        const uint32_t *w = platform.words[i];
+        console_printf("intel-edp-platform-word: v=1 phase=%u bios=%x driver=%x kvmr=%x debug=%x fuse=%x pll=%x cdclk=%x gate=%x chicken=%x pps_status=%x pps_ctl=%x pps_on=%x pps_off=%x pps_div=%x cpu_pwm=%x cpu_duty=%x pch_pwm=%x pch_duty=%x\n",
+            (uint64_t)i, (uint64_t)w[0], (uint64_t)w[1], (uint64_t)w[2], (uint64_t)w[3],
+            (uint64_t)w[4], (uint64_t)w[5], (uint64_t)w[6], (uint64_t)w[7], (uint64_t)w[8],
+            (uint64_t)w[9], (uint64_t)w[10], (uint64_t)w[11], (uint64_t)w[12], (uint64_t)w[13],
+            (uint64_t)w[14], (uint64_t)w[15], (uint64_t)w[16], (uint64_t)w[17]);
+    }
+    console_printf("intel-edp-platform: v=1 samples=%u writes=%u reason=%u acquired=%u released=%u retained=%u begin=%u end=%u\n",
+        (uint64_t)platform.samples, (uint64_t)platform.writes, (uint64_t)platform.reason,
+        (uint64_t)platform.acquired, (uint64_t)platform.released, (uint64_t)platform.retained,
+        platform.begin_us, platform.end_us);
     *retained = r[0].retained || r[1].retained || r[2].retained;
     uint32_t first_gap = r[1].frame[0] - r[0].frame[3];
     uint32_t last_gap = r[2].frame[0] - r[1].frame[3];

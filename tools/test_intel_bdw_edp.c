@@ -67,7 +67,7 @@ enum source_fault {
     SOURCE_WRONG_LIVE, SOURCE_UNPROVEN_FETCH, SOURCE_UNDERRUN_AFTER_PROOF,
     SOURCE_CLOCK_LOST_AFTER_PROOF, SOURCE_PANEL_LOST, SOURCE_COUNTER_WRAP,
     SOURCE_NO_CRC, SOURCE_CRC_RETAINED, SOURCE_BACKING_CHANGED, SOURCE_SECOND_CRC_WRONG,
-    SOURCE_DDI_LOST_DURING_CRC, SOURCE_NO_REFERENCE,
+    SOURCE_DDI_LOST_DURING_CRC, SOURCE_NO_REFERENCE, SOURCE_REFERENCE_CHANGED,
 };
 
 #define TEST_REFERENCE_CRC 0x5d3928e4u
@@ -644,7 +644,18 @@ static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_s
     const struct bdw_edp_source_io io = {
         s, source_held, source_read, source_write, source_now, source_delay, source_backing_hash,
     };
-    return intel_bdw_edp_source_restore(&io, &s->image, report);
+    struct bdw_edp_baseline_report reference = {
+        .status = BDW_EDP_BASELINE_OK,
+        .sample = {.port = 0x20000000u, .buffer = 0x80010010u, .backing_hash = TEST_BACKING_HASH},
+        .frame = {100, 101, 102, 103},
+        .crc = {0, 0, TEST_REFERENCE_CRC, TEST_REFERENCE_CRC},
+        .poll_iir = BDW_EDP_CRC_DONE, .events = 4, .writes = 8, .restored = true,
+    };
+    memcpy(reference.sample.phy, s->image.phy, sizeof(reference.sample.phy));
+    if (s->fault == SOURCE_REFERENCE_CHANGED)
+        reference.sample.backing_hash ^= 1;
+    return intel_bdw_edp_source_restore(&io, &s->image,
+        s->fault == SOURCE_NO_REFERENCE ? NULL : &reference, report);
 }
 
 static unsigned test_source(void)
@@ -686,17 +697,17 @@ static unsigned test_source(void)
     struct source_fixture wrap = {.fault = SOURCE_COUNTER_WRAP};
     assert(run_source(&wrap, &report) == BDW_EDP_OK);
     assert(report.verified_frames == 4 && wrap.panel.backlight);
-    for (enum source_fault fault = SOURCE_NO_CRC; fault <= SOURCE_NO_REFERENCE; ++fault) {
+    for (enum source_fault fault = SOURCE_NO_CRC; fault <= SOURCE_REFERENCE_CHANGED; ++fault) {
         struct source_fixture f = {.fault = fault};
         assert(run_source(&f, &report) != BDW_EDP_OK && !f.panel.backlight);
-        if (fault == SOURCE_NO_REFERENCE)
+        if (fault == SOURCE_NO_REFERENCE || fault == SOURCE_REFERENCE_CHANGED)
             assert(!report.crc_checks && !f.panel.writes);
         else
             assert(report.crc_checks == (fault == SOURCE_SECOND_CRC_WRONG ? 2u : 1u));
         assert(report.crc_retained == (fault == SOURCE_CRC_RETAINED || fault == SOURCE_BACKING_CHANGED ||
                                        fault == SOURCE_DDI_LOST_DURING_CRC));
     }
-    return 8 + good.panel.events * 2 + sizeof(errors) / sizeof(errors[0]);
+    return 9 + good.panel.events * 2 + sizeof(errors) / sizeof(errors[0]);
 }
 
 static enum bdw_edp_result run(struct fixture *f, struct bdw_edp_report *report, uint32_t cdclk)

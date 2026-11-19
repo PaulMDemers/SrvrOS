@@ -511,12 +511,13 @@ static bool backing_pairs(void *ctx,uint32_t offset,unsigned count,uint64_t *out
     return backing_pairs_mapping(a);
 }
 #endif
-bool intel_scanout_trial_revalidate(void) {
+static bool trial_revalidate_capture(const struct intel_capture_result *capture) {
     struct backing_adapter a;if(!trial_adapter(&a))return ADMISSION_FAIL(100,0);
     const struct intel_backing_io io={&a,backing_endpoint,backing_map,backing_unmap,backing_read,now};
-    const struct intel_capture_result *capture=&result;
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
-    capture=gt_bootstrap_capture();if(!capture)return false;
+    if(!capture){capture=gt_bootstrap_capture();if(!capture)return false;}
+#else
+    if(!capture)capture=&result;
 #endif
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
     bool ok=intel_display_backing_batched(&trial_after,capture,&io,backing_pairs_irq_off()?backing_pairs:NULL);
@@ -532,6 +533,10 @@ bool intel_scanout_trial_revalidate(void) {
     for(unsigned i=0;i<backing.count;i++)if(trial_after.pte[i]!=backing.pte[i])return ADMISSION_FAIL(103,i);
     for(unsigned i=0;i<32;i++)if(trial_after.sample[1].fence[i]!=backing.sample[1].fence[i])return ADMISSION_FAIL(104,i);
     return true;
+}
+
+bool intel_scanout_trial_revalidate(void) {
+    return trial_revalidate_capture(NULL);
 }
 
 bool intel_scanout_trial_cache_pages(uint64_t pages[3]) {

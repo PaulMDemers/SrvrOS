@@ -107,7 +107,7 @@ class EdpBaseline(unittest.TestCase):
     def test_fatal_sanitizers(self):
         with tempfile.TemporaryDirectory(prefix="edp-baseline-") as tmp:
             for fixture, sources in [
-                ("baseline", ["intel_bdw_edp_baseline"]),
+                ("baseline", ["intel_bdw_edp_baseline", "intel_bdw_edp_platform"]),
                 ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source"]),
             ]:
                 with self.subTest(fixture=fixture):
@@ -140,3 +140,32 @@ class EdpBaseline(unittest.TestCase):
                      .replace("completed=yes", "completed=NO"))
             self.assertFalse(result(wrong)["diagnostic_complete"])
         self.assertFalse(result(packet(False, patterned=True), native=False)["diagnostic_complete"])
+
+    def test_well_request_must_restore_only_driver_bit(self):
+        rows = [
+            "intel-edp-platform: v=1 samples=4 writes=2 reason=0 acquired=1 released=1 retained=0 begin=1000 end=103001",
+        ]
+        for phase in range(4):
+            driver = 0xc0000000 if phase in (1, 2) else 0x40000000
+            rows.append(f"intel-edp-platform-word: v=1 phase={phase} bios=0xc0000000 driver={driver} "
+                        "kvmr=0x40000000 debug=0x40000000 fuse=0 pll=0x4c000000 cdclk=674 gate=4096 "
+                        "chicken=0 pps_status=0xc0000008 pps_ctl=7 pps_on=1 pps_off=1 pps_div=1 "
+                        "cpu_pwm=0 cpu_duty=0 pch_pwm=0x80000000 pch_duty=0x0ad90184")
+        text = packet(True, patterned=True) + "\n".join(rows) + "\n"
+        backing = dict(observation_complete=True, summary=dict(count=1356, offset=0, tiled=1, fence_matches=1))
+        with patch("intel_edp_baseline.backing_result", return_value=backing):
+            self.assertTrue(result(text)["well_cycle"])
+            for changed in (
+                text.replace("phase=2 bios=0xc0000000", "phase=2 bios=0x40000000"),
+                text.replace("phase=2 bios=0xc0000000 driver=3221225472", "phase=2 bios=0xc0000000 driver=1073741824"),
+                text.replace("acquired=1 released=1 retained=0", "acquired=1 released=0 retained=1"),
+                text.replace("end=103001", "end=601000"),
+            ):
+                with self.assertRaises(ValueError):
+                    result(changed)
+        with self.assertRaises(ValueError):
+            result(text, native=False)
+
+        refused = ("intel-edp-platform: v=1 samples=0 writes=0 reason=0 acquired=0 "
+                   "released=0 retained=0 begin=0 end=0\n")
+        self.assertFalse(result(packet(False, patterned=True) + refused, native=False)["well_cycle"])
