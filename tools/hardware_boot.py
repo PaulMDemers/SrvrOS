@@ -373,8 +373,10 @@ def verify(directory, expected_release=None):
             (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version) or LAPTOP_PROBE_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     source = None
+    if version.startswith("ram-usb-v1-intel-edp-baseline-") and manifest.get("source_bound") is not True:
+        raise ValueError("Missing eDP payload source binding")
     if "source_bound" in manifest:
-        if manifest["source_bound"] is not True or not version.startswith(("ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
+        if manifest["source_bound"] is not True or not version.startswith(("ram-usb-v1-intel-edp-baseline-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
             raise ValueError("Unexpected boot payload source binding")
         source = manifest.get("git_head")
         if source is None:

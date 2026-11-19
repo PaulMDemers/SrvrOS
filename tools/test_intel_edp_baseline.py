@@ -1,4 +1,6 @@
 from pathlib import Path
+import importlib
+import json
 import os
 import subprocess
 import tempfile
@@ -39,6 +41,28 @@ def packet(positive):
 
 
 class EdpBaseline(unittest.TestCase):
+    def test_stage_binds_exact_source_and_separate_image(self):
+        boot = importlib.import_module("hardware_boot")
+        with tempfile.TemporaryDirectory(prefix="edp-stage-") as tmp:
+            root = Path(tmp)
+            stage = root / "stage"
+            for name in ("limine-binary/BOOTX64.EFI", "intel-edp-baseline/srvros.elf", "initramfs.tar"):
+                path = root / "build" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(name)
+            with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
+                    patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
+                release = boot.stage(intel_edp_baseline=True, laptop_probe_volume=VOLUME)
+            payload = stage / release
+            self.assertTrue(boot.verify(payload)["source_bound"])
+            self.assertEqual((payload / "srvros.elf").read_text(), "intel-edp-baseline/srvros.elf")
+            path = payload / "manifest.json"
+            manifest = json.loads(path.read_text())
+            del manifest["source_bound"]
+            path.write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):
+                boot.verify(payload)
+
     def test_exact_recipe_and_vm_refusal(self):
         cmd = cmdline()
         self.assertEqual(recipe(cmd), dict(release=RELEASE, volume=VOLUME))
