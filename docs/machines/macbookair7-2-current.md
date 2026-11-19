@@ -123,6 +123,15 @@ independent memory-completion witness remain open before reset-based
 GGTT takeover.
 [Reset decision](../intel-completion-prerequisites.md#reset-and-display-recovery-decision).
 
+PR301 owns the PCI AF FLR recovery work on main `4016abf0`, in the
+Broadwell display diagnostic and its host and native trial tools.
+The first checkpoint keeps a CPU-owned copy of the reference pixels
+through the dark handoff and samples the original function's PCI
+resources there. The PCI reset and config-recovery state machine will
+be exercised with a fault-injecting provider. Native reset requires
+proof of requester and memory retirement and a provider that can
+reestablish the reset display resources. Wi-Fi and WebCore are separate.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
