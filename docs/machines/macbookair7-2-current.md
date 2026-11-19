@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Native eDP recovery scope
+
+PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
+training in `kernel/diagnostics`, with host tests in `tools`. The first
+checkpoint is bounded AUX traffic and link-training state transitions using
+this unit's Ubuntu display reference. Native use depends on verified panel
+power and clock sequencing, an owned display route, and a known-good scanout
+backing. GGTT writes and reset-based takeover remain downstream. The base is
+main `4016abf0`. The open Pro11,2 Wi-Fi and WebCore PRs have separate scopes.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
