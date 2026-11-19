@@ -91,8 +91,8 @@ bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset) {
 bool intel_cache_probe_edp_uc_page(uint64_t physical, uint32_t offset) {
     static const uint32_t pages[] = {
         0x41000, 0x42000, 0x43000, 0x44000, 0x45000, 0x46000, 0x48000,
-        0x60000, 0x64000, 0x6f000, 0x70000, 0x7f000, 0xc2000, 0xc7000,
-        0xc8000, 0x130000, 0x802000
+        0x60000, 0x64000, 0x65000, 0x68000, 0x6f000, 0x70000, 0x7f000,
+        0xc2000, 0xc7000, 0xc8000, 0x100000, 0x130000, 0x800000, 0x801000, 0x802000
     };
     bool allowed = false;
     for (unsigned i = 0; i < sizeof(pages) / sizeof(pages[0]); ++i)

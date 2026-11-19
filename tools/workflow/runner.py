@@ -712,6 +712,8 @@ class Runner:
             if report['native'].get('well_cycle'):
                 platform = report['native']['rows']['intel-edp-platform'][0]
                 record['display_well_cycle_us'] = platform['end'] - platform['begin']
+            if report['native'].get('cycle_preflight'):
+                record['display_cycle_blockers'] = report['native']['cycle_preflight']['blockers']
             atomic(directory/'diagnostic.json', record)
             report.update(status=record['status'])
             atomic(directory/'report.json', report)

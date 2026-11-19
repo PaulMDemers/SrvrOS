@@ -16,6 +16,8 @@ SCHEMAS = {
     "intel-edp-platform": "v samples writes reason acquired released retained begin end",
     "intel-edp-platform-word": ("v phase bios driver kvmr debug fuse pll cdclk gate chicken "
                                "pps_status pps_ctl pps_on pps_off pps_div cpu_pwm cpu_duty pch_pwm pch_duty"),
+    "intel-edp-cycle-preflight": ("v complete hash blockers imr ier iir aux fitter audio "
+                                 "ddi_b ddi_c ddi_d ddi_e wm1 wm2 wm3"),
 }
 
 
@@ -89,6 +91,28 @@ def platform_result(rows, *, native):
     return True
 
 
+def cycle_preflight(rows, *, native):
+    entries = rows["intel-edp-cycle-preflight"]
+    if not entries:
+        return None
+    if len(entries) != 1 or not rows["intel-edp-platform"]:
+        raise ValueError("Missing eDP cycle platform evidence")
+    r = entries[0]
+    if (r["complete"] > 1 or r["blockers"] > 255 or
+            any(r[k] >= 1 << 32 for k in r if k != "hash")):
+        raise ValueError("Invalid eDP cycle preflight result")
+    if not native and any(r[k] for k in r if k != "v"):
+        raise ValueError("VM reached native eDP cycle preflight")
+    if r["complete"]:
+        tests = [r["imr"] >> 31, r["ier"] >> 31, r["iir"] >> 31, r["aux"] >> 31,
+                 r["fitter"] >> 31, r["audio"] & 0x444,
+                 (r["ddi_b"] | r["ddi_c"] | r["ddi_d"] | r["ddi_e"]) >> 31,
+                 (r["wm1"] | r["wm2"] | r["wm3"]) >> 31]
+        if not r["hash"] or r["blockers"] != sum(bool(test) << bit for bit, test in enumerate(tests)):
+            raise ValueError("eDP cycle blockers contradict the register values")
+    return r
+
+
 def result(text, *, native=True):
     rows = rows_of(text)
     summaries = rows[SUMMARY]
@@ -109,9 +133,10 @@ def result(text, *, native=True):
     summary = summaries[0]
     platform = rows["intel-edp-platform"]
     well_cycle = platform_result(rows, native=native)
+    preflight = cycle_preflight(rows, native=native)
     if (summary["pte_writes"] or summary["reset"] or
             any(summary[key] > 1 for key in ("complete", "same", "changed", "retained")) or
-            any(r["status"] > 2 or r["reason"] > (10 if platform else 9) or r["events"] > 4 or r["writes"] > 10 or
+            any(r["status"] > 2 or r["reason"] > (11 if preflight else 10 if platform else 9) or r["events"] > 4 or r["writes"] > 10 or
                 r["restored"] > 1 or r["retained"] > 1 for r in windows) or
             any(r[key] >= 1 << 32 for r in crc for key in ("frame", "value"))):
         raise ValueError("Impossible eDP outcome")
@@ -143,6 +168,8 @@ def result(text, *, native=True):
     if pattern and pattern[0]["repeat"] != repeat:
         raise ValueError("eDP repeat verdict contradicts the CRC")
     complete = changed and (not pattern or repeat)
+    if preflight is not None:
+        complete = complete and bool(preflight["complete"]) and preflight["hash"] == windows[-1]["hash"]
     retained = any(r["retained"] for r in windows)
     if platform and ((complete and (not well_cycle or platform[0]["reason"])) or
                      (platform[0]["retained"] and not windows[-1]["retained"])):
@@ -161,7 +188,8 @@ def result(text, *, native=True):
         if (b["count"], b["offset"], b["tiled"], b["fence_matches"]) != (1356, 0, 1, 1):
             raise ValueError("Unexpected eDP framebuffer geometry")
     return dict(version=1, complete=complete, native_complete=False, pattern_repeated=repeat,
-                well_cycle=well_cycle, diagnostic_complete=complete, retained=retained, rows=rows)
+                well_cycle=well_cycle, cycle_preflight=preflight, diagnostic_complete=complete,
+                retained=retained, rows=rows)
 
 
 def checkpoint(pre, text, native=False):

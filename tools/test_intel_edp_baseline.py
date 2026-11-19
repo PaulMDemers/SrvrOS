@@ -169,3 +169,15 @@ class EdpBaseline(unittest.TestCase):
         refused = ("intel-edp-platform: v=1 samples=0 writes=0 reason=0 acquired=0 "
                    "released=0 retained=0 begin=0 end=0\n")
         self.assertFalse(result(packet(False, patterned=True) + refused, native=False)["well_cycle"])
+
+        preflight = ("intel-edp-cycle-preflight: v=1 complete=1 hash=1 blockers=65 "
+                     "imr=0x80000000 ier=0 iir=0 aux=0 fitter=0 audio=0 "
+                     "ddi_b=0 ddi_c=0 ddi_d=0 ddi_e=0x80000000 wm1=0 wm2=0 wm3=0\n")
+        with patch("intel_edp_baseline.backing_result", return_value=backing):
+            data = result(text + preflight)
+            self.assertTrue(data["diagnostic_complete"])
+            self.assertEqual(data["cycle_preflight"]["blockers"], 65)
+            with self.assertRaises(ValueError):
+                result(text + preflight.replace("blockers=65", "blockers=0"))
+            with self.assertRaises(ValueError):
+                result(text + preflight.replace("hash=1", "hash=2"))

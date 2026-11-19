@@ -55,7 +55,7 @@ owner must enforce the 250 ms backlight-off delay before a later power-down.
    issued operation is uncertain, hold its original lifetime. The
    enclosing boot diagnostic owns terminal save and recovery.
 
-The joined fixture passes 24,471 cases and runs with fatal ASan/UBSan. It injects
+The joined fixture passes 24,485 cases and runs with fatal ASan/UBSan. It injects
 faults across register and source accesses, tests the wire and stage order,
 and checks that missing scanout keeps the backlight dark. The freestanding
 x86-64 object passes a 2 KiB stack-frame limit. AUX and link training have
@@ -174,6 +174,30 @@ with CPU PWM disabled. The reference CRC under the driver request was
 fixed-frame trial. The original backing remained intact, the request
 retired cleanly, and USB return verification passed. These observations
 cover the inherited display with the firmware request still asserted.
+
+### Display disable and restore rehearsal
+
+The new cycle core holds the original provider, framebuffer and CRC
+reference while it turns off the backlight, waits the panel's 250 ms
+backlight-off delay, and disables and latches the primary plane. It
+observes two new frame counters before disabling the transcoder, waits for
+its active bit to clear, parks DDI A and its transport, powers off the
+panel, and disconnects the port clock. The LCPLL, PCI function and GGTT
+remain running. It verifies the original backing while the pipe is dark.
+The existing source restore then trains the link and verifies two matching
+CRC windows before enabling the backlight. Any possibly issued shutdown
+write followed by failure retains the provider and backing. The host
+fixture exercises the actual disable and restore code and injects write
+failures, lost frame progress, backing drift and CRC mismatch.
+
+The native preflight tests the route-independent census without turning
+off the display. It brackets all 1,484 exact PTE reads with the original
+PCI/framebuffer endpoint and all 32 fences. Its receipt records the
+underrun interrupt mask, enable and status, AUX busy, panel fitter, display
+audio outputs, other DDI buffers and low-power watermarks. A blocker can
+coexist with a verified preflight receipt. It identifies preparation the
+native display-cycle owner must still do.
+[Intel Broadwell port disable sequence, p. 100](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf#page=114).
 
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy

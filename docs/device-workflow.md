@@ -195,6 +195,8 @@ CRC across reference, alternate and repeated reference frames. Its exact
 source-bound image runs both no-framebuffer VM checks.
 The final reference window checks an acquired then released driver
 display-well request while the firmware request keeps the well powered.
+It also verifies an independent translation census and records any observed
+blockers to a separate native display disable and restore trial.
 On the Air it saves before reaching live CRC control. A safely retired
 outcome saves and returns to Ubuntu. An uncertain lifetime keeps the lease
 and halts. Review a complete native receipt with `diagnose`. The receipt
