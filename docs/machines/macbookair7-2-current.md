@@ -33,6 +33,13 @@ for the powered display wells, restored CDCLK/LCPLL, and the original
 framebuffer translation lifetime. Main is `4016abf0`. The open Wi-Fi and
 WebCore work has no shared display-driver changes.
 
+The source adapter now joins LCPLL 1350 selection and PHY replay to the
+1440×900 timing, M/N, watermark, and original tiled primary programming.
+The same register sequence runs through PPS and AUX in the host fixture.
+Backlight permission requires advancing frames, a clean underrun latch,
+and independent fetch evidence. Native MMIO admission, the pre-reset PHY
+snapshot and the fetch observer remain pending. Ubuntu was kept running.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the

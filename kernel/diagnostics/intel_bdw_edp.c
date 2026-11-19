@@ -88,14 +88,17 @@ static bool read_reg(struct edp_attempt *a, uint32_t offset, uint32_t *value)
 {
     if (!check(a))
         return false;
-    bool read = a->io.read(a->io.context, offset, value);
-    return check(a) && (read || fail(a, BDW_EDP_IO));
+    if (!a->io.read(a->io.context, offset, value))
+        return fail(a, BDW_EDP_IO);
+    return check(a);
 }
 
 static bool wrote(struct edp_attempt *a, enum intel_gt_write result)
 {
     a->report->effects_possible |= result != GT_WRITE_NONE;
-    return check(a) && (result == GT_WRITE_DONE || fail(a, BDW_EDP_IO));
+    if (result != GT_WRITE_DONE)
+        return fail(a, BDW_EDP_IO);
+    return check(a);
 }
 
 static bool write_reg(struct edp_attempt *a, uint32_t offset, uint32_t value)
@@ -272,6 +275,8 @@ static bool recover(struct edp_attempt *a)
         !(r->caps[6] & 1u) || r->caps[14])
         return fail(a, BDW_EDP_CAPS);
 
+    if (!source(a, BDW_EDP_PREPARE_SOURCE))
+        return false;
     r->stage = BDW_EDP_POWER;
     const uint8_t d0 = 1;
     if (!dpcd(a, DP_SET_POWER, 0, &d0, 1) || !delay(a, 2000))
@@ -393,8 +398,9 @@ static bool scanout_live(struct edp_attempt *a, bool (*live)(void *))
 {
     if (!check(a))
         return false;
-    bool verified = live(a->io.context);
-    return check(a) && (verified || fail(a, BDW_EDP_SCANOUT_FAILED));
+    if (!live(a->io.context))
+        return fail(a, BDW_EDP_SCANOUT_FAILED);
+    return check(a);
 }
 
 enum bdw_edp_result intel_bdw_edp_panel_restore(const struct bdw_edp_panel_io *io,

@@ -5,6 +5,7 @@
 
 enum bdw_edp_stage {
     BDW_EDP_PROBE,
+    BDW_EDP_PREPARE_SOURCE,
     BDW_EDP_POWER,
     BDW_EDP_CONFIGURE,
     BDW_EDP_CLOCK_RECOVERY,
@@ -70,7 +71,9 @@ struct bdw_edp_report {
  * resource and original backing, including exclusion of competing AUX/PSR.
  * read/write are ordered DWORD accesses to the provider's admitted AUX A.
  *
- * source() admits and verifies each exact stage separately. For TPS1/TPS2
+ * source() admits and verifies each exact stage separately. PREPARE_SOURCE
+ * routes the link clock and loads the safe PHY translations with DDI off.
+ * For TPS1/TPS2
  * it programs source training and actual signal levels. IDLE emits idle
  * patterns. SCANOUT enables the prepared eDP transcoder and the original
  * primary backing with the source still sending idle. NORMAL selects normal

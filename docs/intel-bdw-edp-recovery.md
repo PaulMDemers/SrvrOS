@@ -22,6 +22,7 @@ The Ubuntu sample does not establish the complete inherited clock or backing.
 | Sync polarities | Negative H and V |
 | Receiver revision, maximum link-rate code, lane/framing byte | `11 0a 81` |
 | Active link-rate, lane/framing, training pattern | `0a 81 00` |
+| Active source PLL | LCPLL 1350, doubled on DDI A |
 | Lane 0 and alignment status | `07` and `01` |
 | Coding, downspread, alternate scrambler | 8b/10b, off, off |
 | Panel up, down and minimum cycle | 200 ms, 74 ms, 500 ms |
@@ -54,7 +55,7 @@ owner must enforce the 250 ms backlight-off delay before a later power-down.
    issued operation is uncertain, hold its original lifetime. The
    enclosing boot diagnostic owns terminal save and recovery.
 
-The fixture passes 1,158 cases, including fatal ASan/UBSan runs. It injects
+The joined fixture passes 4,902 cases, including fatal ASan/UBSan runs. It injects
 faults across register and source accesses, tests the wire and stage order,
 and checks that missing scanout keeps the backlight dark. The freestanding
 x86-64 object passes a 2 KiB stack-frame limit. AUX and link training have
@@ -62,12 +63,39 @@ independent 10 ms and 150 ms ceilings.
 The complete PPS and link sequence has a new 1.6 s ceiling for its physical
 panel delays. Existing GT, MMIO ownership and GGTT deadlines are unaffected.
 
-Remaining for the first hardware trial are the native source-clock and PHY
-provider, full timing/M:N and original-plane restore, independent frame and
-underrun readback, and an exact staged recovery with durable off-screen
-evidence. Qualify the original mapping and sound recovery before attempting
-a PCI reset-based GGTT takeover. A separate live memory-completion witness is
-required before even one GGTT store.
+## Source restore
+
+The joined fixture now runs the source register adapter through the actual
+PPS and AUX code. The adapter checks the reset state of the route, idle
+DDI A, a locked LCPLL, the live CDCLK encoding, and a clean sticky pipe-A
+underrun latch before it allows panel power. After panel power it selects
+LCPLL 1350 and replays nine PHY entries supplied by the board's pre-reset
+owner. Each AUX and source operation rechecks panel power. The source
+selects TPS1 before enabling the DDI buffer and waits at least 520 µs before
+starting sink training.
+
+While the trained link is idle the adapter sets the embedded transcoder
+timings, 64-symbol transfer unit, video and link M/N, and the pipe A
+watermarks for the observed 2.0 µs WM0 latency. The primary plane uses
+the original X-tiled XRGB8888 backing at GGTT offset zero and the captured
+6144-byte stride. A complete mapping pin includes the tiled row padding and
+128-PTE tail; the inherited color LUT is bypassed for the first recovery
+mode. Normal transport starts after the transcoder and plane are armed.
+
+Each live check requires at least two advancing frames with the configured
+route, plane base, stride and offset still in place, and no sticky FIFO
+underrun before or after an independent fetch proof. Offset zero is also
+the reset value of SURFLIVE, so that register cannot provide the proof.
+Ubuntu i915 exposes a primary-plane CRC source on this unit. Capturing and
+qualifying a matching native pre/post-reset frame signature is a candidate
+for the fetch proof.
+
+The remaining steps for the first hardware trial are capturing the native
+PHY words before reset, binding powered MMIO and the original GGTT lifetime
+to the restored clocks, implementing the frame proof and underrun latch
+owner, and staging off-screen evidence and Ubuntu recovery. Qualify display
+and sound recovery before a PCI reset-based GGTT takeover. A separate live
+memory-completion witness is required before even one GGTT store.
 
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
@@ -75,3 +103,9 @@ were checked against the i915 implementation. [Intel Broadwell PRM index](https:
 [i915 AUX](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_dp_aux.c) ·
 [i915 DDI](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_ddi.c) ·
 [i915 PPS](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pps.c).
+
+The source register sequence and watermark formula follow Broadwell Volume
+11, pp. 102–103 and 183–184. The PLL, timing and source-clock state were
+cross-checked with i915. [Intel Broadwell Display PRM](https://xorg.freedesktop.org/docs/intel/BDW/intel-gfx-prm-osrc-bdw-vol11-display_0.pdf) ·
+[i915 timing and M/N](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_display.c) ·
+[i915 CRC sources](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pipe_crc.c).

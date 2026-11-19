@@ -1,4 +1,5 @@
 #include <srvros/intel_bdw_edp.h>
+#include <srvros/intel_bdw_edp_source.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -55,6 +56,47 @@ struct fixture {
     uint32_t pp_control, pp_delay[3];
     unsigned pp_writes, live_checks;
     uint64_t cycle_until, power_requested, first_live;
+};
+
+enum source_fault {
+    SOURCE_GOOD, SOURCE_ACTIVE, SOURCE_PLL_UNLOCKED, SOURCE_CDCLK_WRONG,
+    SOURCE_LANE_CHANGED, SOURCE_STALE_UNDERRUN, SOURCE_MASKED, SOURCE_IRQ_ENABLED,
+    SOURCE_BAD_IMAGE, SOURCE_BAD_PHY, SOURCE_CLOCK_MISMATCH, SOURCE_WARMUP_SHORT,
+    SOURCE_UNDERRUN_DURING_VIDEO, SOURCE_CLOCK_STOPPED, SOURCE_INACTIVE,
+    SOURCE_WRONG_LIVE, SOURCE_UNPROVEN_FETCH, SOURCE_UNDERRUN_AFTER_PROOF,
+    SOURCE_CLOCK_LOST_AFTER_PROOF, SOURCE_PANEL_LOST, SOURCE_COUNTER_WRAP,
+};
+
+struct register_write {
+    uint32_t offset, value;
+};
+
+struct source_fixture {
+    struct fixture panel;
+    struct bdw_edp_source_image image;
+    enum source_fault fault;
+    uint32_t clock, transport, buffer, transcoder, primary, surface;
+    uint32_t stride, plane_offset;
+    struct register_write posted;
+    uint64_t buffer_enabled_at, normal_at;
+    unsigned step, proofs;
+};
+
+/* Source write order captured separately from the driver's register plan. */
+static const struct register_write source_suffix[] = {
+    {0x64040, 0x80040000}, {0x64000, 0x80010010},
+    {0x64040, 0x80040000}, {0x64000, 0x84010010},
+    {0x64040, 0x80040100}, {0x64000, 0x84010010},
+    {0x64040, 0x80040100}, {0x64000, 0x88010010},
+    {0x64040, 0x80040200},
+    {0x6001c, 0x059f0383}, {0x70030, 0x50},
+    {0x6f000, 0x063f059f}, {0x6f004, 0x063f059f}, {0x6f008, 0x05ef05cf},
+    {0x6f00c, 0x039d0383}, {0x6f010, 0x039d0383}, {0x6f014, 0x038c0386},
+    {0x6f030, 0x7e5ed0e5}, {0x6f034, 0x800000}, {0x6f040, 0x2a23f}, {0x6f044, 0x80000},
+    {0x6f410, 1}, {0x45100, 0xe0000}, {0x45270, 144},
+    {0x6f400, 0x82200000}, {0x7f008, 0x80000000},
+    {0x70188, 6144}, {0x701a4, 0}, {0x70180, 0x98000400}, {0x7019c, 0},
+    {0x64040, 0x80040300},
 };
 
 static bool event(struct fixture *f)
@@ -147,6 +189,7 @@ static void response(struct fixture *f, unsigned address, unsigned request,
                 f->rx[3] = 0x82;
             break;
         case 0x600:
+            assert(f->stage == BDW_EDP_PREPARE_SOURCE);
             f->last_change = f->time;
             f->d0 = true;
             break;
@@ -304,7 +347,7 @@ static enum intel_gt_write source(void *context, enum bdw_edp_stage stage,
     ++f->sources;
     if (!event(f))
         return f->uncertain ? GT_WRITE_UNCERTAIN : GT_WRITE_NONE;
-    assert(stage >= f->stage && stage >= BDW_EDP_CLOCK_RECOVERY && stage <= BDW_EDP_NORMAL);
+    assert(stage >= f->stage && stage >= BDW_EDP_PREPARE_SOURCE && stage <= BDW_EDP_NORMAL);
     assert(swing <= 2 && swing + emphasis <= 3);
     if (stage == BDW_EDP_IDLE) {
         assert(f->stage == BDW_EDP_EQUALIZE);
@@ -339,6 +382,241 @@ static bool live(void *context)
         assert(f->live_checks == 2 && f->time - f->first_live >= 210000);
     return f->fault != PANEL_FRAME_NOT_LIVE &&
            (f->fault != PANEL_FRAME_LOST || f->live_checks != 2);
+}
+
+static bool panel_register(uint32_t offset)
+{
+    return (offset >= PP_STATUS && offset <= PP_DIVISOR) ||
+           (offset >= CTL && offset <= DATA + 16);
+}
+
+static bool source_held(void *context, const struct bdw_edp_source_image *image)
+{
+    struct source_fixture *s = context;
+    assert(image->backing == &s->panel && image->epoch == s->image.epoch &&
+           image->mapped_bytes == s->image.mapped_bytes &&
+           image->cdclk_khz == s->image.cdclk_khz &&
+           image->ddi_lane_bits == s->image.ddi_lane_bits &&
+           memcmp(image->phy, s->image.phy, sizeof(image->phy)) == 0);
+    return held(&s->panel);
+}
+
+static bool source_read(void *context, uint32_t offset, uint32_t *word)
+{
+    struct source_fixture *s = context;
+    struct fixture *f = &s->panel;
+    if (panel_register(offset)) {
+        if (!read(f, offset, word))
+            return false;
+        if (offset == PP_STATUS && s->fault == SOURCE_PANEL_LOST && f->stage == BDW_EDP_EQUALIZE)
+            *word = 0;
+        return true;
+    }
+    if (!event(f))
+        return false;
+    switch (offset) {
+    case 0x130040:
+        *word = (s->fault == SOURCE_PLL_UNLOCKED ||
+                 (s->fault == SOURCE_CLOCK_LOST_AFTER_PROOF && s->proofs == 2)) ? 0 : 0x40000000u;
+        break;
+    case 0x42014: *word = 0; break;
+    case 0x46200: *word = s->fault == SOURCE_CDCLK_WRONG ? 449u + 1 : 449u; break;
+    case 0x46100: *word = s->clock; break;
+    case 0x64000:
+        *word = s->buffer;
+        if (!s->buffer_enabled_at || f->time - s->buffer_enabled_at < 518)
+            *word |= 0x80u;
+        if (s->fault == SOURCE_LANE_CHANGED)
+            *word ^= 0x10u;
+        break;
+    case 0x64040: *word = s->transport; break;
+    case 0x6f400:
+        *word = s->fault == SOURCE_ACTIVE ? 0x82200000u : 0;
+        if (s->posted.offset == offset)
+            *word = s->posted.value;
+        break;
+    case 0x7f008:
+        *word = s->transcoder;
+        if (s->normal_at && s->fault != SOURCE_INACTIVE)
+            *word |= 0x40000000u;
+        break;
+    case 0x70180: *word = s->primary; break;
+    case 0x70188: *word = s->stride; break;
+    case 0x701a4: *word = s->plane_offset; break;
+    case 0x7019c: *word = s->surface; break;
+    case 0x701ac: *word = s->fault == SOURCE_WRONG_LIVE ? 0x40000u : 0; break;
+    case 0x70040:
+        assert(f->normal && f->scanout);
+        *word = s->fault == SOURCE_CLOCK_STOPPED ? 0 : (uint32_t)((f->time - s->normal_at) / 16667);
+        if (s->fault == SOURCE_COUNTER_WRAP)
+            *word += UINT32_MAX - 1;
+        break;
+    case 0x44404: *word = s->fault == SOURCE_MASKED ? 0x80000000u : 0; break;
+    case 0x4440c: *word = s->fault == SOURCE_IRQ_ENABLED ? 0x80000000u : 0; break;
+    case 0x44408:
+        *word = (s->fault == SOURCE_STALE_UNDERRUN ||
+                 (s->fault == SOURCE_UNDERRUN_DURING_VIDEO && s->normal_at) ||
+                 (s->fault == SOURCE_UNDERRUN_AFTER_PROOF && s->proofs == 2)) ? 0x80000000u : 0;
+        break;
+    default:
+        assert(s->posted.offset == offset);
+        *word = s->posted.value;
+    }
+    return true;
+}
+
+static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t word)
+{
+    struct source_fixture *s = context;
+    struct fixture *f = &s->panel;
+    if (panel_register(offset)) {
+        if (offset == CTL && (word & BUSY) && f->stage == BDW_EDP_CLOCK_RECOVERY)
+            assert(f->time - s->buffer_enabled_at >= 519);
+        return write(f, offset, word);
+    }
+    if (!event(f))
+        return f->uncertain ? GT_WRITE_UNCERTAIN : GT_WRITE_NONE;
+    assert(panel_powered(f) && !f->backlight);
+    unsigned step = s->step++;
+    if (step == 0) {
+        assert(offset == 0x46100 && word == 0x20000000 && !s->transport);
+        s->clock = word;
+    } else if (step <= BDW_EDP_PHY_ENTRIES * 2) {
+        assert(!s->transport && !(s->buffer & 0x80000000u));
+        assert(offset == 0x64e00u + (step - 1) * 4);
+        assert(word == s->image.phy[(step - 1) / 2][(step - 1) % 2]);
+        if (step == BDW_EDP_PHY_ENTRIES * 2)
+            f->stage = BDW_EDP_PREPARE_SOURCE;
+    } else {
+        unsigned i = step - 1 - BDW_EDP_PHY_ENTRIES * 2;
+        assert(i < sizeof(source_suffix) / sizeof(source_suffix[0]));
+        assert(source_suffix[i].offset == offset && source_suffix[i].value == word);
+        switch (offset) {
+        case 0x64000:
+            if (!s->buffer_enabled_at)
+                s->buffer_enabled_at = f->time;
+            s->buffer = word;
+            break;
+        case 0x64040:
+            s->transport = word;
+            if (word == 0x80040000)
+                f->stage = BDW_EDP_CLOCK_RECOVERY;
+            else if (word == 0x80040100)
+                f->stage = BDW_EDP_EQUALIZE;
+            else if (word == 0x80040200) {
+                f->idle = true;
+                f->stage = BDW_EDP_IDLE;
+            } else {
+                assert(f->scanout && !f->config[2]);
+                f->stage = BDW_EDP_NORMAL;
+                f->normal = true;
+                s->normal_at = f->last_change = f->time;
+            }
+            break;
+        case 0x7f008: s->transcoder = word; break;
+        case 0x70180: s->primary = word; break;
+        case 0x70188: s->stride = word; break;
+        case 0x701a4: s->plane_offset = word; break;
+        case 0x7019c:
+            assert(f->idle && f->config[2] == 0x22 && s->transcoder && s->primary);
+            s->surface = word;
+            f->scanout = true;
+            f->stage = BDW_EDP_SCANOUT;
+            break;
+        }
+    }
+    s->posted.offset = offset;
+    s->posted.value = word;
+    return GT_WRITE_DONE;
+}
+
+static uint64_t source_now(void *context)
+{
+    return now(&((struct source_fixture *)context)->panel);
+}
+
+static void source_delay(void *context, uint32_t us)
+{
+    struct source_fixture *s = context;
+    wait(&s->panel, us == 520 && s->fault == SOURCE_WARMUP_SHORT ? 1 : us);
+}
+
+static bool source_frame_matches(void *context, const struct bdw_edp_source_image *image,
+                                 uint32_t first, uint32_t last)
+{
+    struct source_fixture *s = context;
+    assert(image->backing == &s->panel && last - first >= 2 && last - first <= 4);
+    ++s->proofs;
+    return live(&s->panel) && s->fault != SOURCE_UNPROVEN_FETCH;
+}
+
+static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_source_report *report)
+{
+    struct fixture *f = &s->panel;
+    f->panel = true;
+    f->time = 1;
+    f->cycle_until = 4000;
+    f->aux_setup = 0x240300e1u;
+    s->clock = 0xe0000000u;
+    s->buffer = 0x10010u;
+    s->image = (struct bdw_edp_source_image){
+        .backing = f, .epoch = 41, .mapped_bytes = 904ull * 6144 + 128ull * 4096,
+        .cdclk_khz = 450000, .ddi_lane_bits = 0x10010,
+    };
+    for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
+        s->image.phy[i][0] = 0x123456u + i;
+        s->image.phy[i][1] = 0x7000eu + i;
+    }
+    if (s->fault == SOURCE_BAD_IMAGE)
+        s->image.mapped_bytes -= 4096;
+    if (s->fault == SOURCE_BAD_PHY)
+        s->image.phy[8][1] |= 1u << 12;
+    if (s->fault == SOURCE_CLOCK_MISMATCH)
+        s->image.cdclk_khz = 337500;
+    const struct bdw_edp_source_io io = {
+        s, source_held, source_read, source_write, source_now, source_delay, source_frame_matches,
+    };
+    return intel_bdw_edp_source_restore(&io, &s->image, report);
+}
+
+static unsigned test_source(void)
+{
+    struct source_fixture good = {0};
+    struct bdw_edp_source_report report;
+    assert(run_source(&good, &report) == BDW_EDP_OK);
+    assert(report.panel.panel_stage == BDW_EDP_PANEL_READY && good.panel.backlight);
+    assert(good.proofs == 2 && report.verified_frames == 4);
+    assert(good.step == 1 + 2 * BDW_EDP_PHY_ENTRIES + sizeof(source_suffix) / sizeof(source_suffix[0]));
+    assert(report.source_writes == good.step);
+
+    const enum bdw_edp_source_error errors[] = {
+        BDW_EDP_SOURCE_RESET_STATE, BDW_EDP_SOURCE_CLOCK, BDW_EDP_SOURCE_CLOCK,
+        BDW_EDP_SOURCE_RESET_STATE, BDW_EDP_SOURCE_UNDERRUN, BDW_EDP_SOURCE_UNDERRUN,
+        BDW_EDP_SOURCE_UNDERRUN, BDW_EDP_SOURCE_IMAGE, BDW_EDP_SOURCE_IMAGE,
+        BDW_EDP_SOURCE_CLOCK, BDW_EDP_SOURCE_CLOCK, BDW_EDP_SOURCE_UNDERRUN,
+        BDW_EDP_SOURCE_CLOCK, BDW_EDP_SOURCE_FRAME, BDW_EDP_SOURCE_FRAME,
+        BDW_EDP_SOURCE_FRAME, BDW_EDP_SOURCE_UNDERRUN, BDW_EDP_SOURCE_CLOCK, BDW_EDP_SOURCE_PANEL,
+    };
+    for (unsigned i = 0; i < sizeof(errors) / sizeof(errors[0]); ++i) {
+        struct source_fixture f = {.fault = SOURCE_ACTIVE + i};
+        assert(run_source(&f, &report) != BDW_EDP_OK);
+        assert(report.source_error == errors[i] && !f.panel.backlight);
+        if (f.fault <= SOURCE_CLOCK_MISMATCH)
+            assert(f.step == 0 && f.panel.writes == 0 && !report.panel.effects_possible);
+    }
+    for (unsigned i = 1; i <= good.panel.events; ++i) {
+        struct source_fixture failed = {.panel.fail_at = i, .panel.uncertain = true};
+        assert(run_source(&failed, &report) != BDW_EDP_OK && failed.panel.events == i);
+        struct source_fixture lost = {.panel.lost_at = i};
+        assert(run_source(&lost, &report) == BDW_EDP_OWNERSHIP && lost.panel.events == i);
+        assert(report.source_error == BDW_EDP_SOURCE_OWNER);
+        if (i < good.panel.events - 1)
+            assert(!failed.panel.backlight && !lost.panel.backlight);
+    }
+    struct source_fixture wrap = {.fault = SOURCE_COUNTER_WRAP};
+    assert(run_source(&wrap, &report) == BDW_EDP_OK);
+    assert(report.verified_frames == 4 && wrap.panel.backlight);
+    return 2 + good.panel.events * 2 + sizeof(errors) / sizeof(errors[0]);
 }
 
 static enum bdw_edp_result run(struct fixture *f, struct bdw_edp_report *report, uint32_t cdclk)
@@ -464,5 +742,5 @@ int main(void)
     assert(lost_after_send.attempts == 1 && !lost_after_send.clears && report.effects_possible);
     printf("Broadwell eDP recovery: %zu cases (%u link injection points)\n",
            sizeof(clocks) / sizeof(clocks[0]) + good.events * 5 +
-           sizeof(expected) / sizeof(expected[0]) + 2 + test_panel(), good.events);
+           sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source(), good.events);
 }
