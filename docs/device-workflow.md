@@ -190,8 +190,9 @@ halts visibly in SrvrOS; safe saved/unmounted outcomes return automatically.
 ## Return, collect, review
 
 The isolated `--profile intel-edp-baseline-v1` trial checks Air7,2 inherited
-PHY, the complete primary/tail translation range and primary-plane CRC
-freshness. Its exact source-bound image runs both no-framebuffer VM checks.
+PHY, the complete primary/tail translation range and fresh primary-plane
+CRC across reference, alternate and repeated reference frames. Its exact
+source-bound image runs both no-framebuffer VM checks.
 On the Air it saves before reaching live CRC control. A safely retired
 outcome saves and returns to Ubuntu. An uncertain lifetime keeps the lease
 and halts. Review a complete native receipt with `diagnose`. The receipt

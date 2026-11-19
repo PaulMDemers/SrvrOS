@@ -7,8 +7,8 @@
 
 struct bdw_edp_source_image {
     const void *backing;
-    uint64_t epoch, mapped_bytes;
-    uint32_t cdclk_khz, ddi_lane_bits;
+    uint64_t epoch, mapped_bytes, backing_hash;
+    uint32_t cdclk_khz, ddi_lane_bits, reference_crc;
     uint32_t phy[BDW_EDP_PHY_ENTRIES][2];
 };
 
@@ -29,7 +29,9 @@ struct bdw_edp_source_report {
     struct bdw_edp_report panel;
     enum bdw_edp_source_error source_error;
     uint32_t offset, word, frame_first, frame_last;
-    unsigned source_writes, verified_frames;
+    uint32_t captured_crc[2];
+    unsigned source_writes, verified_frames, crc_checks;
+    bool crc_retained;
 };
 
 struct bdw_edp_source_io {
@@ -47,17 +49,17 @@ struct bdw_edp_source_io {
     enum intel_gt_write (*write)(void *, uint32_t, uint32_t);
     uint64_t (*now)(void *);
     void (*delay)(void *, uint32_t);
-    /* Verify actual fetch against the admitted displayed image using an
-     * independent hardware observation over these frames. In particular,
-     * a zero SURFLIVE and a running timing generator cannot supply this. */
-    bool (*frame_matches)(void *, const struct bdw_edp_source_image *,
-                          uint32_t first_frame, uint32_t last_frame);
+    /* Compute the live backing fingerprint with the same full PTE census
+     * used before reset. The owner also keeps the reference pixels intact
+     * across reset and excludes all framebuffer writers. */
+    bool (*backing_hash)(void *, const struct bdw_edp_source_image *, uint64_t *);
 };
 
 /* Host-testable source adapter for the fixed Air7,2 replay. The caller
- * supplies already-restored LCPLL/CDCLK and an original backing pin. It
- * retains the pin regardless of outcome. No reset, mapping or global clock
- * writes. The only intended native caller is a terminal recovery diagnostic. */
+ * supplies already-restored LCPLL/CDCLK, an original backing pin and the
+ * stable pre-reset primary CRC for the reference pixels. It retains the pin
+ * regardless of outcome. No reset, mapping or global clock writes. The only
+ * intended native caller is a terminal recovery diagnostic. */
 enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io *,
                                                 const struct bdw_edp_source_image *,
                                                 struct bdw_edp_source_report *);

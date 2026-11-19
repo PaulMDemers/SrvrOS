@@ -23,20 +23,23 @@ def cmdline():
                 if "cmdline:" in line)
 
 
-def packet(positive):
+def packet(positive, patterned=False):
     text = [BOOT + cmdline(), "intel-display-observe: preflight"]
-    for sample in range(2):
-        status, reason, events, writes, restored = (1, 0, 4, 8, 1) if positive else (0, 1-sample, 0, 0, 0)
+    for sample in range(3 if patterned else 2):
+        status, reason, events, writes, restored = (1, 0, 4, 8, 1) if positive else (0, int(sample == 0), 0, 0, 0)
         text.append(f"intel-edp-window: v=1 sample={sample} status={status} reason={reason} "
                     f"events={events} writes={writes} restored={restored} retained=0 "
                     f"hash={int(positive)} port={0x20000000 * positive} buf=0 tp=0 pll=0 cdclk=0")
         text.append(f"intel-edp-poll: v=1 sample={sample} iir={0x10000000 * positive}")
         for n in range(4):
             text.append(f"intel-edp-crc: v=1 sample={sample} event={n} "
-                        f"frame={n*positive} value={(0x1234 + sample)*positive}")
+                        f"frame={(n + sample*10 if patterned else n)*positive} "
+                        f"value={(0x1234 + sample%2)*positive}")
         for n in range(9):
             text.append(f"intel-edp-phy: v=1 sample={sample} entry={n} low={1*positive} high={2*positive}")
     value = int(positive)
+    if patterned:
+        text.append(f"intel-edp-pattern: v=1 repeat={value}")
     text.append(f"intel-edp-baseline: v=1 complete={value} same={value} changed={value} retained=0 pte_writes=0 reset=0")
     text.append("laptop-capture: completed=" + ("yes" if positive else "NO"))
     return "\n".join(text) + "\n"
@@ -103,11 +106,37 @@ class EdpBaseline(unittest.TestCase):
 
     def test_fatal_sanitizers(self):
         with tempfile.TemporaryDirectory(prefix="edp-baseline-") as tmp:
-            binary = str(Path(tmp) / "test")
-            subprocess.run([os.environ.get("HOST_CC", "cc"), "-std=c11", "-O1", "-g", "-UNDEBUG",
-                            "-Wall", "-Wextra", "-Werror", "-I", "kernel/include",
-                            "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-no-pie",
-                            "tools/test_intel_bdw_edp_baseline.c", "kernel/diagnostics/intel_bdw_edp_baseline.c",
-                            "-o", binary], cwd=ROOT, check=True, timeout=60)
-            subprocess.run([binary], cwd=ROOT, env={**os.environ, "ASAN_OPTIONS": "halt_on_error=1"},
-                           check=True, timeout=20)
+            for fixture, sources in [
+                ("baseline", ["intel_bdw_edp_baseline"]),
+                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source"]),
+            ]:
+                with self.subTest(fixture=fixture):
+                    binary = str(Path(tmp) / fixture)
+                    test_source = "tools/test_intel_bdw_edp" + ("_baseline" if fixture == "baseline" else "") + ".c"
+                    subprocess.run([os.environ.get("HOST_CC", "cc"), "-std=c11", "-O1", "-g", "-UNDEBUG",
+                                    "-Wall", "-Wextra", "-Werror", "-I", "kernel/include",
+                                    "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-no-pie",
+                                    test_source, *(f"kernel/diagnostics/{s}.c" for s in sources),
+                                    "-o", binary], cwd=ROOT, check=True, timeout=60)
+                    subprocess.run([binary], cwd=ROOT, env={**os.environ, "ASAN_OPTIONS": "halt_on_error=1"},
+                                   check=True, timeout=45)
+
+    def test_pattern_replay_must_be_fresh_and_match(self):
+        text = packet(True, patterned=True)
+        b = dict(observation_complete=True, summary=dict(count=1356, offset=0, tiled=1, fence_matches=1))
+        with patch("intel_edp_baseline.backing_result", return_value=b):
+            self.assertTrue(result(text)["pattern_repeated"])
+            for old, new in [
+                ("sample=2 event=0 frame=20", "sample=2 event=0 frame=12"),
+                ("sample=2 event=2 frame=22 value=4660", "sample=2 event=2 frame=22 value=4662"),
+                ("intel-edp-pattern: v=1 repeat=1", "intel-edp-pattern: v=1 repeat=0"),
+            ]:
+                with self.subTest(old=old), self.assertRaises(ValueError):
+                    result(text.replace(old, new))
+            wrong = (text.replace("frame=22 value=4660", "frame=22 value=4662")
+                     .replace("frame=23 value=4660", "frame=23 value=4662")
+                     .replace("repeat=1", "repeat=0")
+                     .replace("complete=1 same=1 changed=1", "complete=0 same=1 changed=1")
+                     .replace("completed=yes", "completed=NO"))
+            self.assertFalse(result(wrong)["diagnostic_complete"])
+        self.assertFalse(result(packet(False, patterned=True), native=False)["diagnostic_complete"])

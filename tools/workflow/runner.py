@@ -704,6 +704,11 @@ class Runner:
             record = dict(status='EDP_PHY_CRC_BASELINE_COMPLETE', source=manifest['source'],
                           release=state['release'], session=state['session'], native_acceptance=False,
                           physical_tearfree=False, return_integrity='PASS')
+            if report['native'].get('pattern_repeated'):
+                rows = report['native']['rows']
+                record['reference_crc'] = rows['intel-edp-crc'][2]['value']
+                record['alternate_crc'] = rows['intel-edp-crc'][6]['value']
+                record['backing_hash'] = rows['intel-edp-window'][0]['hash']
             atomic(directory/'diagnostic.json', record)
             report.update(status=record['status'])
             atomic(directory/'report.json', report)

@@ -1,4 +1,5 @@
 #include <srvros/intel_bdw_edp_source.h>
+#include <srvros/intel_bdw_edp_baseline.h>
 
 #define LCPLL_CTL 0x130040u
 #define LCPLL_LOCK (1u << 30)
@@ -189,7 +190,8 @@ static bool store(struct source_attempt *a, uint32_t offset, uint32_t value,
 
 static bool valid_image(const struct bdw_edp_source_image *image)
 {
-    if (!image || !image->backing || !image->epoch ||
+    if (!image || !image->backing || !image->epoch || !image->backing_hash ||
+        !image->reference_crc || image->reference_crc == UINT32_MAX ||
         image->mapped_bytes < PRI_MAPPED_BYTES || (image->mapped_bytes & 4095u) ||
         image->mapped_bytes > 256ull * 1024 * 1024 ||
         (image->ddi_lane_bits & ~DDI_LANE_CONFIG) ||
@@ -343,7 +345,10 @@ static bool scanout_matches(struct source_attempt *a)
 {
     return clock_ready(a) &&
            expect(a, PORT_CLOCK_A, UINT32_MAX, PORT_CLOCK_LCPLL_1350, BDW_EDP_SOURCE_FRAME) &&
+           expect(a, DDI_BUF_A, DDI_BUF_ENABLE | DDI_BUF_IDLE | DDI_LANE_CONFIG | DDI_BUF_WIDTH,
+                  DDI_BUF_ENABLE | a->image.ddi_lane_bits, BDW_EDP_SOURCE_FRAME) &&
            expect(a, DP_TP_A, UINT32_MAX, DP_TP_SST | DP_TP_NORMAL, BDW_EDP_SOURCE_FRAME) &&
+           expect(a, EDP_DDI, UINT32_MAX, EDP_DDI_SST_6BPC_A, BDW_EDP_SOURCE_FRAME) &&
            expect(a, EDP_CONF, TRANS_ENABLE | TRANS_ACTIVE, TRANS_ENABLE | TRANS_ACTIVE, BDW_EDP_SOURCE_FRAME) &&
            expect(a, PRI_A_CTL, UINT32_MAX, PRI_A_XRGB_TILED, BDW_EDP_SOURCE_FRAME) &&
            expect(a, PRI_A_STRIDE, UINT32_MAX, PRI_STRIDE_BYTES, BDW_EDP_SOURCE_FRAME) &&
@@ -351,6 +356,27 @@ static bool scanout_matches(struct source_attempt *a)
            expect(a, PRI_A_SURF, UINT32_MAX, 0, BDW_EDP_SOURCE_FRAME) &&
            expect(a, PRI_A_SURFLIVE, UINT32_MAX, 0, BDW_EDP_SOURCE_FRAME) &&
            underrun_clear(a);
+}
+
+static bool crc_snapshot(void *context, struct bdw_edp_baseline_sample *sample)
+{
+    struct source_attempt *a = context;
+    if (!scanout_matches(a) ||
+        !load(a, PORT_CLOCK_A, &sample->port) ||
+        !load(a, DDI_BUF_A, &sample->buffer) ||
+        !load(a, DP_TP_A, &sample->transport) ||
+        !load(a, LCPLL_CTL, &sample->lcpll) ||
+        !load(a, CDCLK_FREQ, &sample->cdclk))
+        return false;
+    for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
+        for (unsigned j = 0; j < 2; ++j) {
+            if (!load(a, DDI_PHY_A + 8 * i + 4 * j, &sample->phy[i][j]) ||
+                sample->phy[i][j] != a->image.phy[i][j])
+                return false;
+        }
+    }
+    return a->io.backing_hash(a->io.context, &a->image, &sample->backing_hash) &&
+           sample->backing_hash == a->image.backing_hash;
 }
 
 static bool read_live(void *context)
@@ -369,12 +395,20 @@ static bool read_live(void *context)
     a->report->frame_last = frame;
     if ((uint32_t)(frame - a->report->frame_first) > 4)
         return reject(a, BDW_EDP_SOURCE_FRAME);
-    if (!scanout_matches(a))
+    if (!scanout_matches(a) || a->report->crc_checks >= 2)
         return false;
 
-    if (!check(a))
-        return false;
-    if (!a->io.frame_matches(a->io.context, &a->image, a->report->frame_first, frame))
+    /* The fresh-frame wait above keeps its 60 ms bound. CRC runs under its
+     * own capture and retirement bounds and the enclosing PPS deadline. */
+    a->budget = 0;
+    const struct bdw_edp_baseline_io io = {
+        a, link_held, crc_snapshot, raw_read, raw_write, clock_now, delay,
+    };
+    struct bdw_edp_baseline_report crc;
+    bool captured = intel_bdw_edp_baseline(&io, &crc);
+    a->report->crc_retained |= crc.retained;
+    a->report->captured_crc[a->report->crc_checks++] = crc.crc[2];
+    if (!captured || crc.crc[2] != a->image.reference_crc)
         return reject(a, BDW_EDP_SOURCE_FRAME);
     if (!scanout_matches(a))
         return false;
@@ -391,7 +425,7 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
         return BDW_EDP_INVALID;
     *report = (struct bdw_edp_source_report){.panel.result = BDW_EDP_INVALID};
     if (!image || !io || !io->held || !io->read || !io->write ||
-        !io->now || !io->delay || !io->frame_matches) {
+        !io->now || !io->delay || !io->backing_hash) {
         report->source_error = BDW_EDP_SOURCE_IMAGE;
         return report->panel.result;
     }

@@ -264,19 +264,35 @@ bool intel_edp_baseline_probe(bool *retained)
     if (attempted || !retained)
         return false;
     attempted = true;
-    struct bdw_edp_baseline_report r[2] = {0};
-    console_write("intel-edp-baseline: frame A ===============================\n");
-    bool first = edp_try(&r[0]);
-    bool second = false;
-    if (first) {
-        console_write("intel-edp-baseline: frame B +++++ data +++++ data +++++\n"
-                      "intel-edp-baseline: frame B [::::::::] [::::::::] [::::::::]\n");
-        second = edp_try(&r[1]);
+    static const char *const pattern[] = {
+        "SrvrOS display check - reference frame\n"
+        "=====================================\n\n"
+        "Automatic test. If unchanged for 60 seconds, photograph and restart.\n",
+        "SrvrOS display check - alternate frame\n"
+        "+++++ data +++++ data +++++ data +++++\n"
+        "[::::::::] [::::::::] [::::::::]\n"
+        "Automatic test. If unchanged for 60 seconds, photograph and restart.\n",
+    };
+    const unsigned frames[] = {0, 1, 0};
+    struct bdw_edp_baseline_report r[3] = {0};
+    for (unsigned i = 0; i < 3; ++i) {
+        /* Start from identical glyph, cursor and margin state every time.
+         * edp_try drains presentation before it pins out other CPU writers. */
+        console_clear();
+        console_write(pattern[frames[i]]);
+        if (!edp_try(&r[i]))
+            break;
     }
-    *retained = r[0].retained || r[1].retained;
-    bool same = first && second && intel_bdw_edp_baseline_same(&r[0], &r[1]);
+    *retained = r[0].retained || r[1].retained || r[2].retained;
+    uint32_t first_gap = r[1].frame[0] - r[0].frame[3];
+    uint32_t last_gap = r[2].frame[0] - r[1].frame[3];
+    bool same = intel_bdw_edp_baseline_same(&r[0], &r[1]) &&
+                intel_bdw_edp_baseline_same(&r[0], &r[2]) &&
+                first_gap && first_gap < (1u << 31) && last_gap && last_gap < (1u << 31);
     bool changed = same && r[0].crc[2] != r[1].crc[2];
-    for (unsigned i = 0; i < 2; ++i) {
+    bool repeat = same && r[0].crc[2] == r[2].crc[2];
+    bool complete = changed && repeat;
+    for (unsigned i = 0; i < 3; ++i) {
         const struct bdw_edp_baseline_sample *s = &r[i].sample;
         console_printf("intel-edp-window: v=1 sample=%u status=%u reason=%u events=%u writes=%u restored=%u retained=%u hash=%x port=%x buf=%x tp=%x pll=%x cdclk=%x\n",
             (uint64_t)i, (uint64_t)r[i].status, (uint64_t)r[i].reason, (uint64_t)r[i].events, (uint64_t)r[i].writes,
@@ -291,7 +307,8 @@ bool intel_edp_baseline_probe(bool *retained)
             console_printf("intel-edp-phy: v=1 sample=%u entry=%u low=%x high=%x\n",
                 (uint64_t)i, (uint64_t)p, (uint64_t)s->phy[p][0], (uint64_t)s->phy[p][1]);
     }
+    console_printf("intel-edp-pattern: v=1 repeat=%u\n", (uint64_t)repeat);
     console_printf("intel-edp-baseline: v=1 complete=%u same=%u changed=%u retained=%u pte_writes=0 reset=0\n",
-        (uint64_t)changed, (uint64_t)same, (uint64_t)changed, (uint64_t)*retained);
-    return changed;
+        (uint64_t)complete, (uint64_t)same, (uint64_t)changed, (uint64_t)*retained);
+    return complete;
 }

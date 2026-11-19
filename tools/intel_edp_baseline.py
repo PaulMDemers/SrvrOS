@@ -12,6 +12,7 @@ SCHEMAS = {
     "intel-edp-poll": "v sample iir",
     "intel-edp-crc": "v sample event frame value",
     "intel-edp-phy": "v sample entry low high",
+    "intel-edp-pattern": "v repeat",
 }
 
 
@@ -51,13 +52,15 @@ def result(text, *, native=True):
     poll = rows["intel-edp-poll"]
     crc = rows["intel-edp-crc"]
     phy = rows["intel-edp-phy"]
-    if len(summaries) != 1 or [r["sample"] for r in windows] != [0, 1]:
+    pattern = rows["intel-edp-pattern"]
+    samples = list(range(3 if pattern else 2))
+    if len(summaries) != 1 or [r["sample"] for r in windows] != samples or len(pattern) > 1:
         raise ValueError("Missing eDP summary/windows")
-    if poll and ([r["sample"] for r in poll] != [0, 1] or any(r["iir"] >= 1 << 32 for r in poll)):
+    if ((pattern or poll) and [r["sample"] for r in poll] != samples) or any(r["iir"] >= 1 << 32 for r in poll):
         raise ValueError("Invalid eDP IRQ polling rows")
-    if [(r["sample"], r["event"]) for r in crc] != [(s, n) for s in (0, 1) for n in range(4)]:
+    if [(r["sample"], r["event"]) for r in crc] != [(s, n) for s in samples for n in range(4)]:
         raise ValueError("Missing eDP CRC rows")
-    if [(r["sample"], r["entry"]) for r in phy] != [(s, n) for s in (0, 1) for n in range(9)]:
+    if [(r["sample"], r["entry"]) for r in phy] != [(s, n) for s in samples for n in range(9)]:
         raise ValueError("Missing eDP PHY rows")
     summary = summaries[0]
     if (summary["pte_writes"] or summary["reset"] or
@@ -82,26 +85,34 @@ def result(text, *, native=True):
                     not row["high"] & 31 or row["high"] & ~0x001f001f):
                 raise ValueError("Invalid captured eDP PHY value")
 
-    same = (all(r["status"] == 1 for r in windows) and
-            all(windows[0][k] == windows[1][k] for k in ("hash", "port", "buf", "tp", "pll", "cdclk")) and
-            all((a["low"], a["high"]) == (b["low"], b["high"]) for a, b in zip(phy[:9], phy[9:])))
+    route = ("hash", "port", "buf", "tp", "pll", "cdclk")
+    phy_words = [(r["low"], r["high"]) for r in phy]
+    same = all(r["status"] == 1 and all(r[k] == windows[0][k] for k in route) and
+               phy_words[s*9:s*9+9] == phy_words[:9] for s, r in enumerate(windows))
+    if pattern:
+        same = same and all(0 < ((crc[s*4]["frame"] - crc[s*4-1]["frame"]) & 0xffffffff) < 1 << 31
+                            for s in (1, 2))
     changed = same and crc[2]["value"] != crc[6]["value"]
+    repeat = bool(pattern and same and crc[2]["value"] == crc[10]["value"])
+    if pattern and pattern[0]["repeat"] != repeat:
+        raise ValueError("eDP repeat verdict contradicts the CRC")
+    complete = changed and (not pattern or repeat)
     retained = any(r["retained"] for r in windows)
-    if (summary["same"], summary["changed"], summary["complete"], summary["retained"]) != (same, changed, changed, retained):
+    if (summary["same"], summary["changed"], summary["complete"], summary["retained"]) != (same, changed, complete, retained):
         raise ValueError("eDP summary contradicts the raw rows")
-    if ("laptop-capture: completed=yes" in text.splitlines()) != changed:
+    if ("laptop-capture: completed=yes" in text.splitlines()) != complete:
         raise ValueError("Incomplete eDP terminal record")
     if not native and any(r["writes"] or r["restored"] for r in windows):
         raise ValueError("VM eDP access reached CRC writes")
-    if changed:
+    if complete:
         backing = backing_result(text)
         if not native or not backing or not backing["observation_complete"]:
             raise ValueError("Missing native framebuffer observation")
         b = backing["summary"]
         if (b["count"], b["offset"], b["tiled"], b["fence_matches"]) != (1356, 0, 1, 1):
             raise ValueError("Unexpected eDP framebuffer geometry")
-    return dict(version=1, complete=changed, native_complete=False,
-                diagnostic_complete=changed, retained=retained, rows=rows)
+    return dict(version=1, complete=complete, native_complete=False, pattern_repeated=repeat,
+                diagnostic_complete=complete, retained=retained, rows=rows)
 
 
 def checkpoint(pre, text, native=False):

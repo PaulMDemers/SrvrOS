@@ -1,5 +1,6 @@
 #include <srvros/intel_bdw_edp.h>
 #include <srvros/intel_bdw_edp_source.h>
+#include <srvros/intel_bdw_edp_baseline.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -65,7 +66,12 @@ enum source_fault {
     SOURCE_UNDERRUN_DURING_VIDEO, SOURCE_CLOCK_STOPPED, SOURCE_INACTIVE,
     SOURCE_WRONG_LIVE, SOURCE_UNPROVEN_FETCH, SOURCE_UNDERRUN_AFTER_PROOF,
     SOURCE_CLOCK_LOST_AFTER_PROOF, SOURCE_PANEL_LOST, SOURCE_COUNTER_WRAP,
+    SOURCE_NO_CRC, SOURCE_CRC_RETAINED, SOURCE_BACKING_CHANGED, SOURCE_SECOND_CRC_WRONG,
+    SOURCE_DDI_LOST_DURING_CRC, SOURCE_NO_REFERENCE,
 };
+
+#define TEST_REFERENCE_CRC 0x5d3928e4u
+#define TEST_BACKING_HASH 0x012970c1aee06011ull
 
 struct register_write {
     uint32_t offset, value;
@@ -75,8 +81,10 @@ struct source_fixture {
     struct fixture panel;
     struct bdw_edp_source_image image;
     enum source_fault fault;
-    uint32_t clock, transport, buffer, transcoder, primary, surface;
+    uint32_t clock, transport, buffer, ddi, transcoder, primary, surface;
     uint32_t stride, plane_offset;
+    uint32_t crc_ctl, irq_mask, crc_frame;
+    bool crc_pending, crc_retired;
     struct register_write posted;
     uint64_t buffer_enabled_at, normal_at;
     unsigned step, proofs;
@@ -395,10 +403,12 @@ static bool source_held(void *context, const struct bdw_edp_source_image *image)
     struct source_fixture *s = context;
     assert(image->backing == &s->panel && image->epoch == s->image.epoch &&
            image->mapped_bytes == s->image.mapped_bytes &&
+           image->backing_hash == s->image.backing_hash &&
+           image->reference_crc == s->image.reference_crc &&
            image->cdclk_khz == s->image.cdclk_khz &&
            image->ddi_lane_bits == s->image.ddi_lane_bits &&
            memcmp(image->phy, s->image.phy, sizeof(image->phy)) == 0);
-    return held(&s->panel);
+    return !s->panel.faulted && held(&s->panel);
 }
 
 static bool source_read(void *context, uint32_t offset, uint32_t *word)
@@ -414,10 +424,17 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
     }
     if (!event(f))
         return false;
+    if (offset >= 0x64e00u && offset < 0x64e00u + 8 * BDW_EDP_PHY_ENTRIES) {
+        unsigned word_index = (offset - 0x64e00u) / 4;
+        unsigned writes = 1 + word_index;
+        assert(s->step >= writes + 1);
+        *word = s->image.phy[word_index / 2][word_index % 2];
+        return true;
+    }
     switch (offset) {
     case 0x130040:
         *word = (s->fault == SOURCE_PLL_UNLOCKED ||
-                 (s->fault == SOURCE_CLOCK_LOST_AFTER_PROOF && s->proofs == 2)) ? 0 : 0x40000000u;
+                 (s->fault == SOURCE_CLOCK_LOST_AFTER_PROOF && s->proofs == 2 && s->crc_retired)) ? 0 : 0x40000000u;
         break;
     case 0x42014: *word = 0; break;
     case 0x46200: *word = s->fault == SOURCE_CDCLK_WRONG ? 449u + 1 : 449u; break;
@@ -431,9 +448,9 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
         break;
     case 0x64040: *word = s->transport; break;
     case 0x6f400:
-        *word = s->fault == SOURCE_ACTIVE ? 0x82200000u : 0;
-        if (s->posted.offset == offset)
-            *word = s->posted.value;
+        *word = s->fault == SOURCE_ACTIVE ? 0x82200000u : s->ddi;
+        if (s->fault == SOURCE_DDI_LOST_DURING_CRC && s->crc_retired)
+            *word = 0;
         break;
     case 0x7f008:
         *word = s->transcoder;
@@ -451,13 +468,29 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
         if (s->fault == SOURCE_COUNTER_WRAP)
             *word += UINT32_MAX - 1;
         break;
-    case 0x44404: *word = s->fault == SOURCE_MASKED ? 0x80000000u : 0; break;
+    case BDW_EDP_CRC_CTL: *word = s->crc_ctl; break;
+    case BDW_EDP_CRC_RES:
+        assert(s->crc_pending);
+        *word = TEST_REFERENCE_CRC;
+        if (s->fault == SOURCE_UNPROVEN_FETCH || (s->fault == SOURCE_SECOND_CRC_WRONG && s->proofs == 2))
+            *word ^= 1;
+        break;
+    case 0x44404: *word = s->irq_mask | (s->fault == SOURCE_MASKED ? 0x80000000u : 0); break;
     case 0x4440c: *word = s->fault == SOURCE_IRQ_ENABLED ? 0x80000000u : 0; break;
-    case 0x44408:
+    case 0x44408: {
+        uint32_t frame = (uint32_t)((f->time - s->normal_at) / 16667);
+        if (s->crc_ctl && frame != s->crc_frame && s->fault != SOURCE_NO_CRC) {
+            s->crc_pending = true;
+            s->crc_frame = frame;
+        }
         *word = (s->fault == SOURCE_STALE_UNDERRUN ||
                  (s->fault == SOURCE_UNDERRUN_DURING_VIDEO && s->normal_at) ||
-                 (s->fault == SOURCE_UNDERRUN_AFTER_PROOF && s->proofs == 2)) ? 0x80000000u : 0;
+                 (s->fault == SOURCE_UNDERRUN_AFTER_PROOF && s->proofs == 2 && s->crc_retired))
+                ? 0x80000000u : 0;
+        if (s->crc_pending)
+            *word |= BDW_EDP_CRC_DONE;
         break;
+    }
     default:
         assert(s->posted.offset == offset);
         *word = s->posted.value;
@@ -477,6 +510,34 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
     if (!event(f))
         return f->uncertain ? GT_WRITE_UNCERTAIN : GT_WRITE_NONE;
     assert(panel_powered(f) && !f->backlight);
+    if (offset == BDW_EDP_PIPE_IMR) {
+        assert(!s->crc_ctl && ((s->irq_mask ^ word) & ~BDW_EDP_CRC_DONE) == 0);
+        s->irq_mask = word;
+        s->crc_retired = (word & BDW_EDP_CRC_DONE) != 0;
+        return GT_WRITE_DONE;
+    }
+    if (offset == BDW_EDP_CRC_CTL) {
+        assert(f->normal && f->scanout && s->irq_mask == BDW_EDP_CRC_ERROR);
+        assert(word == 0 || word == BDW_EDP_CRC_ENABLE);
+        if (word) {
+            ++s->proofs;
+            ++f->live_checks;
+            if (s->proofs == 1)
+                f->first_live = f->time;
+            else
+                assert(s->proofs == 2 && f->time - f->first_live >= 210000);
+            s->crc_frame = (uint32_t)((f->time - s->normal_at) / 16667);
+        }
+        if (!word && s->fault == SOURCE_CRC_RETAINED)
+            return GT_WRITE_UNCERTAIN;
+        s->crc_ctl = word;
+        return GT_WRITE_DONE;
+    }
+    if (offset == BDW_EDP_PIPE_IIR) {
+        assert(word == BDW_EDP_CRC_DONE && s->crc_pending);
+        s->crc_pending = false;
+        return GT_WRITE_DONE;
+    }
     unsigned step = s->step++;
     if (step == 0) {
         assert(offset == 0x46100 && word == 0x20000000 && !s->transport);
@@ -513,6 +574,7 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
                 s->normal_at = f->last_change = f->time;
             }
             break;
+        case 0x6f400: s->ddi = word; break;
         case 0x7f008: s->transcoder = word; break;
         case 0x70180: s->primary = word; break;
         case 0x70188: s->stride = word; break;
@@ -541,13 +603,15 @@ static void source_delay(void *context, uint32_t us)
     wait(&s->panel, us == 520 && s->fault == SOURCE_WARMUP_SHORT ? 1 : us);
 }
 
-static bool source_frame_matches(void *context, const struct bdw_edp_source_image *image,
-                                 uint32_t first, uint32_t last)
+static bool source_backing_hash(void *context, const struct bdw_edp_source_image *image,
+                                uint64_t *hash)
 {
     struct source_fixture *s = context;
-    assert(image->backing == &s->panel && last - first >= 2 && last - first <= 4);
-    ++s->proofs;
-    return live(&s->panel) && s->fault != SOURCE_UNPROVEN_FETCH;
+    assert(image->backing == &s->panel && s->panel.normal && !s->panel.backlight);
+    *hash = TEST_BACKING_HASH;
+    if (s->fault == SOURCE_BACKING_CHANGED && s->crc_retired)
+        *hash ^= 1;
+    return event(&s->panel);
 }
 
 static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_source_report *report)
@@ -559,8 +623,10 @@ static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_s
     f->aux_setup = 0x240300e1u;
     s->clock = 0xe0000000u;
     s->buffer = 0x10010u;
+    s->irq_mask = BDW_EDP_CRC_IRQS;
     s->image = (struct bdw_edp_source_image){
         .backing = f, .epoch = 41, .mapped_bytes = 904ull * 6144 + 128ull * 4096,
+        .backing_hash = TEST_BACKING_HASH, .reference_crc = TEST_REFERENCE_CRC,
         .cdclk_khz = 450000, .ddi_lane_bits = 0x10010,
     };
     for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
@@ -573,8 +639,10 @@ static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_s
         s->image.phy[8][1] |= 1u << 12;
     if (s->fault == SOURCE_CLOCK_MISMATCH)
         s->image.cdclk_khz = 337500;
+    if (s->fault == SOURCE_NO_REFERENCE)
+        s->image.reference_crc = 0;
     const struct bdw_edp_source_io io = {
-        s, source_held, source_read, source_write, source_now, source_delay, source_frame_matches,
+        s, source_held, source_read, source_write, source_now, source_delay, source_backing_hash,
     };
     return intel_bdw_edp_source_restore(&io, &s->image, report);
 }
@@ -586,6 +654,8 @@ static unsigned test_source(void)
     assert(run_source(&good, &report) == BDW_EDP_OK);
     assert(report.panel.panel_stage == BDW_EDP_PANEL_READY && good.panel.backlight);
     assert(good.proofs == 2 && report.verified_frames == 4);
+    assert(report.crc_checks == 2 && !report.crc_retained && good.crc_retired);
+    assert(report.captured_crc[0] == TEST_REFERENCE_CRC && report.captured_crc[1] == TEST_REFERENCE_CRC);
     assert(good.step == 1 + 2 * BDW_EDP_PHY_ENTRIES + sizeof(source_suffix) / sizeof(source_suffix[0]));
     assert(report.source_writes == good.step);
 
@@ -616,7 +686,17 @@ static unsigned test_source(void)
     struct source_fixture wrap = {.fault = SOURCE_COUNTER_WRAP};
     assert(run_source(&wrap, &report) == BDW_EDP_OK);
     assert(report.verified_frames == 4 && wrap.panel.backlight);
-    return 2 + good.panel.events * 2 + sizeof(errors) / sizeof(errors[0]);
+    for (enum source_fault fault = SOURCE_NO_CRC; fault <= SOURCE_NO_REFERENCE; ++fault) {
+        struct source_fixture f = {.fault = fault};
+        assert(run_source(&f, &report) != BDW_EDP_OK && !f.panel.backlight);
+        if (fault == SOURCE_NO_REFERENCE)
+            assert(!report.crc_checks && !f.panel.writes);
+        else
+            assert(report.crc_checks == (fault == SOURCE_SECOND_CRC_WRONG ? 2u : 1u));
+        assert(report.crc_retained == (fault == SOURCE_CRC_RETAINED || fault == SOURCE_BACKING_CHANGED ||
+                                       fault == SOURCE_DDI_LOST_DURING_CRC));
+    }
+    return 8 + good.panel.events * 2 + sizeof(errors) / sizeof(errors[0]);
 }
 
 static enum bdw_edp_result run(struct fixture *f, struct bdw_edp_report *report, uint32_t cdclk)

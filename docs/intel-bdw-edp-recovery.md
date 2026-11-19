@@ -84,11 +84,14 @@ mode. Normal transport starts after the transcoder and plane are armed.
 
 Each live check requires at least two advancing frames with the configured
 route, plane base, stride and offset still in place, and no sticky FIFO
-underrun before or after an independent fetch proof. Offset zero is also
-the reset value of SURFLIVE, so that register cannot provide the proof.
-Ubuntu i915 exposes a primary-plane CRC source on this unit. Capturing and
-qualifying a matching native pre/post-reset frame signature is a candidate
-for the fetch proof.
+underrun. The restore adapter then runs the primary-plane CRC capture used
+in the inherited trial, rechecks the replayed PHY and original full PTE
+census, and compares the stable result to the pre-reset reference. Both
+checks must match before backlight permission. The fresh-frame check keeps
+its 60 ms bound. CRC sampling and teardown keep their 200 ms and 65 ms
+bounds within the existing PPS deadline. The fixture exercises the actual
+CRC poll and teardown and refuses to light the panel on a missing or
+mismatched result, a changed backing, or uncertain retirement.
 
 ## Inherited display hardware trial
 
@@ -105,9 +108,10 @@ capture, and records the observed interrupt status in each window. Four
 fresh completions must cross distinct frame counters. The first two
 warm-up results are ignored and the next two must agree. Then the adapter
 disables CRC, waits for retirement, restores the exact local interrupt
-mask, and compares the PHY and backing again. A second window changes the
-console content through the regular renderer, keeping the same route
-and backing. Its stable CRC must differ from the first window.
+mask, and compares the PHY and backing again. The current recipe clears
+and renders the same fixed reference image before and after a distinct
+alternate image. All three windows must use the same route and backing,
+and the two reference CRCs must agree and differ from the alternate CRC.
 
 The trial changes only the CRC control and its local interrupt state.
 It grants no GGTT write access and leaves the PCI function untouched.
