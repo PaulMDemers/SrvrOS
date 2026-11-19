@@ -209,6 +209,16 @@ The sole shutdown blocker was the masked Pipe A FIFO underrun bit
 unmask that status bit for polling while interrupt delivery stays disabled,
 then restore the inherited mask. The panel stayed active during this trial.
 
+The separate `intel-edp-cycle-v1` boot profile keeps the final reference
+frame pinned and reacquires the driver-well request. The cycle opens only
+Pipe A's underrun mask bit and keeps IER disabled. It preserves the live
+PPS timing registers, PWM and the inherited gamma LUT selection. The raw
+receipt records the dark backing digest, two restored CRCs, all three
+mask values and well/lease retirement. A possible display write without
+verified recovery keeps the display lease pinned and saves diagnostics
+if the USB workspace is available. A safely retired outcome returns
+through the normal Ubuntu boot.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·

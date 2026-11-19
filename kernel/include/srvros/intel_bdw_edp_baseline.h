@@ -9,6 +9,7 @@
 #define BDW_EDP_PIPE_IMR 0x44404u
 #define BDW_EDP_PIPE_IIR 0x44408u
 #define BDW_EDP_PIPE_IER 0x4440cu
+#define BDW_EDP_FIFO_UNDERRUN (1u << 31)
 #define BDW_EDP_CRC_ENABLE 0x80000000u
 #define BDW_EDP_CRC_DONE 0x10000000u
 #define BDW_EDP_CRC_ERROR 0x20000000u
@@ -55,6 +56,6 @@ bool intel_bdw_edp_baseline_same(const struct bdw_edp_baseline_report *,
                                  const struct bdw_edp_baseline_report *);
 
 #ifdef SRVROS_INTEL_EDP_BASELINE
-bool intel_edp_baseline_probe(bool *retained);
+bool intel_edp_baseline_probe(bool *retained, bool display_cycle);
 #endif
 #endif

@@ -370,7 +370,7 @@ static bool panel_write(struct edp_attempt *a, uint32_t offset, uint32_t value)
     return posted == value || fail(a, BDW_EDP_PANEL_STATE);
 }
 
-static bool panel_power(struct edp_attempt *a)
+static bool panel_power(struct edp_attempt *a, bool keep_timings)
 {
     struct bdw_edp_report *r = a->report;
     if (!read_reg(a, PP_CONTROL, &r->panel_control))
@@ -384,9 +384,9 @@ static bool panel_power(struct edp_attempt *a)
      * minimum cycle (+1 encoding). Use software backlight timers, including
      * the enclosing owner's 250 ms T9 before any later power-off. */
     r->panel_stage = BDW_EDP_PANEL_DELAYS;
-    if (!panel_write(a, PP_ON_DELAYS, PP_ON_TIMING) ||
+    if (!keep_timings && (!panel_write(a, PP_ON_DELAYS, PP_ON_TIMING) ||
         !panel_write(a, PP_OFF_DELAYS, PP_OFF_TIMING) ||
-        !panel_write(a, PP_DIVISOR, PP_CYCLE_TIMING))
+        !panel_write(a, PP_DIVISOR, PP_CYCLE_TIMING)))
         return false;
 
     r->panel_stage = BDW_EDP_PANEL_POWERING;
@@ -416,7 +416,7 @@ enum bdw_edp_result intel_bdw_edp_panel_restore(const struct bdw_edp_panel_io *i
 
     bool (*live)(void *) = io->scanout_live;
     struct edp_attempt a;
-    if (!begin(&a, &io->link, cdclk_khz, report, io->panel_held) || !panel_power(&a))
+    if (!begin(&a, &io->link, cdclk_khz, report, io->panel_held) || !panel_power(&a, io->keep_timings))
         return report->result;
     report->panel_stage = BDW_EDP_PANEL_TRAINING;
     a.link_start = a.last;

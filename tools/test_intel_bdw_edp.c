@@ -53,7 +53,7 @@ struct fixture {
     unsigned aux_setup;
     bool faulted, uncertain, d0, idle, scanout, normal;
     enum bdw_edp_stage stage;
-    bool panel, backlight;
+    bool panel, backlight, keep_timings;
     uint32_t pp_control, pp_delay[3];
     unsigned pp_writes, live_checks;
     uint64_t cycle_until, power_requested, first_live;
@@ -89,8 +89,8 @@ struct source_fixture {
     uint64_t buffer_enabled_at, normal_at;
     unsigned step, proofs;
     uint64_t backlight_off_at, plane_off_at, trans_off_at, panel_off_at;
-    unsigned disable_step, fail_disable_write;
-    bool cycle, dark, lose_dark_backing;
+    unsigned disable_step, fail_disable_write, mask_writes;
+    bool cycle, dark, lose_dark_backing, fail_mask_close, uncertain_mask_open;
 };
 
 static const struct register_write disable_steps[] = {
@@ -306,7 +306,7 @@ static enum intel_gt_write write(void *context, uint32_t offset, uint32_t word)
     if (offset == PP_CONTROL) {
         assert(f->panel && f->time >= f->cycle_until);
         if (word == 3) {
-            assert(!f->pp_control && f->pp_writes == 3 && !f->requests);
+            assert(!f->pp_control && f->pp_writes == (f->keep_timings ? 0u : 3u) && !f->requests);
             f->power_requested = f->time;
         } else {
             assert(word == 7 && f->pp_control == 3 && !f->backlight && f->normal);
@@ -522,6 +522,17 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
 {
     struct source_fixture *s = context;
     struct fixture *f = &s->panel;
+    if (offset == BDW_EDP_PIPE_IMR && s->cycle &&
+        (s->irq_mask ^ word) == BDW_EDP_FIFO_UNDERRUN) {
+        assert(!s->crc_pending && !s->crc_ctl);
+        ++s->mask_writes;
+        if (s->mask_writes == 2 && s->fail_mask_close)
+            return GT_WRITE_UNCERTAIN;
+        s->irq_mask = word;
+        if (s->mask_writes == 1 && s->uncertain_mask_open)
+            return GT_WRITE_UNCERTAIN;
+        return GT_WRITE_DONE;
+    }
     if (s->cycle && !s->dark) {
         assert(s->disable_step < sizeof(disable_steps) / sizeof(disable_steps[0]));
         if (!event(f) || s->disable_step + 1 == s->fail_disable_write)
@@ -587,7 +598,8 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
         return GT_WRITE_DONE;
     }
     if (offset == BDW_EDP_CRC_CTL) {
-        assert(f->normal && f->scanout && s->irq_mask == BDW_EDP_CRC_ERROR);
+        assert(f->normal && f->scanout && !(s->irq_mask & (BDW_EDP_CRC_DONE | BDW_EDP_FIFO_UNDERRUN)) &&
+               (s->irq_mask & BDW_EDP_CRC_ERROR));
         assert(word == 0 || word == BDW_EDP_CRC_ENABLE);
         if (word) {
             ++s->proofs;
@@ -621,7 +633,10 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
     } else {
         unsigned i = step - 1 - BDW_EDP_PHY_ENTRIES * 2;
         assert(i < sizeof(source_suffix) / sizeof(source_suffix[0]));
-        assert(source_suffix[i].offset == offset && source_suffix[i].value == word);
+        uint32_t expected = source_suffix[i].value;
+        if (s->cycle && offset == 0x70180)
+            expected |= 1u << 30;
+        assert(source_suffix[i].offset == offset && expected == word);
         switch (offset) {
         case 0x64000:
             if (!s->buffer_enabled_at)
@@ -748,6 +763,8 @@ static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *rep
     const struct bdw_edp_baseline_report reference = setup_source(s);
     const struct bdw_edp_source_io io = source_io(s);
     s->cycle = true;
+    s->panel.keep_timings = true;
+    s->irq_mask = UINT32_MAX;
     s->panel.time = 300000;
     s->panel.power_requested = 1;
     s->panel.normal = s->panel.scanout = s->panel.backlight = true;
@@ -771,14 +788,29 @@ static unsigned test_cycle(void)
     assert(run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_COMPLETE && !r.retained);
     assert(r.shutdown.source_writes == writes && f.dark && f.panel.backlight);
     assert(r.restore.crc_checks == 2 && r.restore.captured_crc[1] == TEST_REFERENCE_CRC);
+    assert(r.mask_writes == 2 && r.mask_restored && f.mask_writes == 2 && f.irq_mask == UINT32_MAX);
+    assert(r.mask_before == UINT32_MAX && r.mask_live == 0x7fffffffu && r.mask_after == UINT32_MAX);
+    assert(r.dark_hash == TEST_BACKING_HASH && f.panel.pp_writes == 2 && f.primary == 0xd8000400u);
     for (unsigned i = 1; i <= writes; ++i) {
         f = (struct source_fixture){.fail_disable_write = i};
         assert(!run_cycle(&f, &r) && r.retained && r.shutdown.source_writes == i);
         assert(!r.restore.source_writes && !f.proofs && !f.dark);
+        assert(r.mask_restored && f.irq_mask == UINT32_MAX);
     }
     f = (struct source_fixture){.fault = SOURCE_MASKED};
     assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_ADMISSION);
     assert(!r.retained && f.panel.backlight && !r.shutdown.source_writes);
+    assert(r.mask_writes == 1 && r.mask_restored);
+    f = (struct source_fixture){.fault = SOURCE_STALE_UNDERRUN};
+    assert(!run_cycle(&f, &r) && !r.retained && !r.mask_writes && f.panel.backlight);
+    f = (struct source_fixture){.fault = SOURCE_IRQ_ENABLED};
+    assert(!run_cycle(&f, &r) && !r.retained && !r.mask_writes && f.panel.backlight);
+    f = (struct source_fixture){.uncertain_mask_open = true};
+    assert(!run_cycle(&f, &r) && !r.retained && r.mask_restored && r.mask_writes == 2);
+    assert(f.panel.backlight && !r.shutdown.source_writes && f.irq_mask == UINT32_MAX);
+    f = (struct source_fixture){.fail_mask_close = true};
+    assert(!run_cycle(&f, &r) && r.retained && !r.mask_restored && r.mask_writes == 2);
+    assert(r.stage == BDW_EDP_CYCLE_RESTORE && f.panel.backlight);
     f = (struct source_fixture){.fault = SOURCE_CLOCK_STOPPED};
     assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_PRIMARY && r.retained);
     assert(!f.panel.backlight && !r.restore.source_writes);
@@ -788,7 +820,7 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.fault = SOURCE_SECOND_CRC_WRONG};
     assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_RESTORE && r.retained);
     assert(f.dark && f.proofs == 2 && !f.panel.backlight);
-    return writes + 5;
+    return writes + 9;
 }
 
 static unsigned test_source(void)
@@ -854,7 +886,7 @@ static enum bdw_edp_result run(struct fixture *f, struct bdw_edp_report *report,
         f->cycle_until = 4000;
         if (f->fault == PANEL_ALREADY_LIT)
             f->pp_control = 7;
-        const struct bdw_edp_panel_io panel = {io, held, live};
+        const struct bdw_edp_panel_io panel = {.link = io, .panel_held = held, .scanout_live = live};
         return intel_bdw_edp_panel_restore(&panel, cdclk, report);
     }
     return intel_bdw_edp_recover(&io, cdclk, report);

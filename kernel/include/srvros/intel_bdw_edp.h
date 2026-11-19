@@ -101,6 +101,8 @@ struct bdw_edp_panel_io {
     /* Independently verify advancing frames and the live original primary
      * backing, with no underrun. Bound the observation in the provider. */
     bool (*scanout_live)(void *);
+    /* An isolated cycle leaves the admitted live PPS delays programmed. */
+    bool keep_timings;
 };
 
 /* Start from the panel sequencer's reset/off state. The exact source provider

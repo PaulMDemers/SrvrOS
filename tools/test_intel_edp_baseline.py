@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from hardware_boot import limine_config
+from hardware_boot import EDP_CONFIGS, limine_config
 from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
 from intel_edp_baseline import PREFIX, checkpoint, recipe, result
 
@@ -17,9 +17,9 @@ VOLUME = "01234567"
 BOOT = "laptop-capture: boot options="
 
 
-def cmdline():
+def cmdline(cycle=False):
     return next(line.partition("cmdline:")[2].strip() for line in
-                limine_config(RELEASE, PREFIX + "laptop-probe-" + VOLUME + "-auto-return").splitlines()
+                limine_config(RELEASE, EDP_CONFIGS[cycle] + "laptop-probe-" + VOLUME + "-auto-return").splitlines()
                 if "cmdline:" in line)
 
 
@@ -55,18 +55,20 @@ class EdpBaseline(unittest.TestCase):
                 path = root / "build" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
-            with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
-                    patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
-                release = boot.stage(intel_edp_baseline=True, laptop_probe_volume=VOLUME)
-            payload = stage / release
-            self.assertTrue(boot.verify(payload)["source_bound"])
-            self.assertEqual((payload / "srvros.elf").read_text(), "intel-edp-baseline/srvros.elf")
-            path = payload / "manifest.json"
-            manifest = json.loads(path.read_text())
-            del manifest["source_bound"]
-            path.write_text(json.dumps(manifest))
-            with self.assertRaises(ValueError):
-                boot.verify(payload)
+            for cycle in (False, True):
+                with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
+                        patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
+                    release = boot.stage(intel_edp_baseline=not cycle, intel_edp_cycle=cycle,
+                                         laptop_probe_volume=VOLUME)
+                payload = stage / release
+                self.assertTrue(boot.verify(payload)["source_bound"])
+                self.assertEqual((payload / "srvros.elf").read_text(), "intel-edp-baseline/srvros.elf")
+                path = payload / "manifest.json"
+                manifest = json.loads(path.read_text())
+                del manifest["source_bound"]
+                path.write_text(json.dumps(manifest))
+                with self.assertRaises(ValueError):
+                    boot.verify(payload)
 
     def test_exact_recipe_and_vm_refusal(self):
         version = PREFIX + "laptop-probe-" + VOLUME + "-auto-return"
@@ -181,3 +183,28 @@ class EdpBaseline(unittest.TestCase):
                 result(text + preflight.replace("blockers=65", "blockers=0"))
             with self.assertRaises(ValueError):
                 result(text + preflight.replace("hash=1", "hash=2"))
+            cycle_data = (
+                "intel-edp-cycle: v=1 attempted=1 complete=1 stage=8 shutdown_error=0 restore_error=0 "
+                "restore_result=0 offset=0xc7204 word=7 panel=6 aux=0 dark_hash=1 crc_checks=2 "
+                "crc0=4660 crc1=4660 mask_before=0xffffffff mask_live=0x7fffffff mask_after=0xffffffff "
+                "mask_writes=2 mask_restored=1 shutdown_writes=9 restore_writes=52 well_released=1 retired=1 retained=0\n"
+            )
+            native = (text.replace(cmdline(), cmdline(True)) +
+                      preflight.replace("blockers=65", "blockers=1").replace("ddi_e=0x80000000", "ddi_e=128")
+                      .replace("imr=0x80000000", "imr=0xffffffff") + cycle_data)
+            self.assertTrue(result(native, cycle=True)["diagnostic_complete"])
+            self.assertEqual(recipe(cmdline(True), cycle=True), dict(release=RELEASE, volume=VOLUME))
+            for wrong in (native.replace("crc1=4660", "crc1=4661"),
+                          native.replace("mask_after=0xffffffff", "mask_after=0x7fffffff"),
+                          native.replace("mask_live=0x7fffffff", "mask_live=0x7ffffffe"),
+                          native.replace("dark_hash=1", "dark_hash=0"),
+                          native.replace("retired=1 retained=0", "retired=0 retained=1")):
+                with self.assertRaises(ValueError):
+                    result(wrong, cycle=True)
+            with self.assertRaises(ValueError):
+                result(native)
+            refused_cycle = native.replace("completed=yes", "completed=NO").replace(
+                "attempted=1 complete=1 stage=8", "attempted=1 complete=0 stage=7").replace(
+                "well_released=1 retired=1 retained=0", "well_released=0 retired=0 retained=1")
+            self.assertTrue(result(refused_cycle, cycle=True)["retained"])
+            self.assertFalse(result(refused_cycle, cycle=True)["diagnostic_complete"])

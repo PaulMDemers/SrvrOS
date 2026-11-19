@@ -1008,11 +1008,15 @@ void kmain(void) {
             bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
 #ifdef SRVROS_INTEL_EDP_BASELINE
             if (cmdline_has_token(cmdline, "srvros.intel-edp-baseline=on")) {
-                extern bool intel_edp_baseline_probe(bool *retained);
-                console_write("intel-edp-baseline: automatic PHY/backing/CRC trial, silent, no input.\n"
-                              "intel-edp-baseline: saved outcomes return to Ubuntu. If unchanged 60s, photograph and restart manually.\n");
+                extern bool intel_edp_baseline_probe(bool *retained, bool display_cycle);
+                bool display_cycle = cmdline_has_token(cmdline, "srvros.intel-edp-cycle=on");
+                console_write(display_cycle
+                    ? "intel-edp-cycle: automatic display shutdown and restore, silent, volume 1%, no input.\n"
+                      "intel-edp-cycle: the screen goes dark. If still dark or unchanged after 60s, restart manually.\n"
+                    : "intel-edp-baseline: automatic PHY/backing/CRC trial, silent, no input.\n"
+                      "intel-edp-baseline: saved outcomes return to Ubuntu. If unchanged 60s, photograph and restart manually.\n");
                 if (started && workspace_log_pause()) {
-                    bool baseline_ok = intel_edp_baseline_probe(&edp_retained);
+                    bool baseline_ok = intel_edp_baseline_probe(&edp_retained, display_cycle);
                     sampled = sampled && cache_ok && baseline_ok;
                 } else {
                     console_write("intel-edp-baseline: checkpoint unavailable; no trial\n");

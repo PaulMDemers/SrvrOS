@@ -78,7 +78,8 @@ struct source_attempt {
     enum bdw_edp_stage stage;
     uint64_t last, phase_start;
     uint32_t budget;
-    bool require_panel;
+    bool require_panel, keep_timings;
+    uint32_t gamma;
 };
 
 static bool reject(struct source_attempt *a, enum bdw_edp_source_error error)
@@ -325,12 +326,12 @@ static bool configure_pipe(struct source_attempt *a)
         if (!store(a, mode[i].offset, mode[i].value, UINT32_MAX))
             return false;
     /* Enable the eDP transcoder, then arm plane A on the original mapping.
-     * Bypass the inherited gamma LUT, whose contents were lost to reset. */
+     * The gamma LUT survives an isolated cycle and is bypassed after reset. */
     return store(a, EDP_DDI, EDP_DDI_SST_6BPC_A, UINT32_MAX) &&
            store(a, EDP_CONF, TRANS_ENABLE, ~TRANS_ACTIVE) &&
            store(a, PRI_A_STRIDE, PRI_STRIDE_BYTES, UINT32_MAX) &&
            store(a, PRI_A_OFFSET, 0, UINT32_MAX) &&
-           store(a, PRI_A_CTL, PRI_A_XRGB_TILED, UINT32_MAX) &&
+           store(a, PRI_A_CTL, PRI_A_XRGB_TILED | a->gamma, UINT32_MAX) &&
            store(a, PRI_A_SURF, 0, UINT32_MAX);
 }
 
@@ -383,7 +384,7 @@ static bool scanout_matches(struct source_attempt *a)
            expect(a, DP_TP_A, UINT32_MAX, DP_TP_SST | DP_TP_NORMAL, BDW_EDP_SOURCE_FRAME) &&
            expect(a, EDP_DDI, UINT32_MAX, EDP_DDI_SST_6BPC_A, BDW_EDP_SOURCE_FRAME) &&
            expect(a, EDP_CONF, TRANS_ENABLE | TRANS_ACTIVE, TRANS_ENABLE | TRANS_ACTIVE, BDW_EDP_SOURCE_FRAME) &&
-           expect(a, PRI_A_CTL, UINT32_MAX, PRI_A_XRGB_TILED, BDW_EDP_SOURCE_FRAME) &&
+           expect(a, PRI_A_CTL, UINT32_MAX, PRI_A_XRGB_TILED | a->gamma, BDW_EDP_SOURCE_FRAME) &&
            expect(a, PRI_A_STRIDE, UINT32_MAX, PRI_STRIDE_BYTES, BDW_EDP_SOURCE_FRAME) &&
            expect(a, PRI_A_OFFSET, UINT32_MAX, 0, BDW_EDP_SOURCE_FRAME) &&
            expect(a, PRI_A_SURF, UINT32_MAX, 0, BDW_EDP_SOURCE_FRAME) &&
@@ -450,10 +451,11 @@ static bool read_live(void *context)
     return true;
 }
 
-enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io *io,
+static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
                                                 const struct bdw_edp_source_image *image,
                                                 const struct bdw_edp_baseline_report *reference,
-                                                struct bdw_edp_source_report *report)
+                                                struct bdw_edp_source_report *report,
+                                                bool keep_timings, uint32_t gamma)
 {
     if (!report)
         return BDW_EDP_INVALID;
@@ -464,7 +466,7 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
         return report->panel.result;
     }
 
-    struct source_attempt a = {.io = *io, .image = *image, .report = report};
+    struct source_attempt a = {.io = *io, .image = *image, .report = report, .gamma = gamma};
     if (!valid_image(&a.image) || !reference_matches(&a.image, reference)) {
         report->source_error = BDW_EDP_SOURCE_IMAGE;
         return report->panel.result;
@@ -479,11 +481,20 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
         .link = {&a, link_held, raw_read, raw_write, clock_now, delay, set_source},
         .panel_held = held,
         .scanout_live = read_live,
+        .keep_timings = keep_timings,
     };
     intel_bdw_edp_panel_restore(&panel, a.image.cdclk_khz, &report->panel);
     if (report->source_error == BDW_EDP_SOURCE_OWNER)
         report->panel.result = BDW_EDP_OWNERSHIP;
     return report->panel.result;
+}
+
+enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io *io,
+                                                const struct bdw_edp_source_image *image,
+                                                const struct bdw_edp_baseline_report *reference,
+                                                struct bdw_edp_source_report *report)
+{
+    return restore(io, image, reference, report, false, 0);
 }
 
 static bool backing_preserved(struct source_attempt *a)
@@ -530,11 +541,10 @@ static bool primary_off(struct source_attempt *a, uint32_t ctl)
            expect(a, PRI_A_CTL, UINT32_MAX, ctl & ~PRI_ENABLE, BDW_EDP_SOURCE_FRAME);
 }
 
-static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *r,
-                         const struct bdw_edp_baseline_report *reference)
+static bool active_path(struct source_attempt *a, const struct bdw_edp_baseline_report *reference,
+                        uint32_t *primary, uint32_t *buffer, uint32_t *transport)
 {
-    uint32_t primary, buffer, transport;
-    if (!start_phase(a, DISABLE_LIMIT_US) || !clock_ready(a) || !underrun_clear(a) ||
+    if (!start_phase(a, DISABLE_LIMIT_US) || !clock_ready(a) ||
         !backing_preserved(a) ||
         !expect(a, PORT_CLOCK_A, UINT32_MAX, PORT_CLOCK_LCPLL_1350, BDW_EDP_SOURCE_RESET_STATE) ||
         !expect(a, EDP_DDI, UINT32_MAX, EDP_DDI_SST_6BPC_A, BDW_EDP_SOURCE_RESET_STATE) ||
@@ -545,13 +555,55 @@ static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *
         !expect(a, PRI_A_SURFLIVE, UINT32_MAX, 0, BDW_EDP_SOURCE_RESET_STATE) ||
         !expect(a, PP_STATUS, PP_POWER_STABLE_MASK, PP_POWER_STABLE_ON, BDW_EDP_SOURCE_PANEL) ||
         !expect(a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL) ||
-        !load(a, PRI_A_CTL, &primary) || !load(a, DDI_BUF_A, &buffer) || !load(a, DP_TP_A, &transport))
+        !load(a, PRI_A_CTL, primary) || !load(a, DDI_BUF_A, buffer) || !load(a, DP_TP_A, transport))
         return false;
-    if ((primary & ~PRI_GAMMA_ENABLE) != PRI_A_XRGB_TILED ||
-        buffer != reference->sample.buffer || transport != reference->sample.transport ||
-        (transport & ~0x40u) != (DP_TP_SST | DP_TP_NORMAL))
-        return reject(a, BDW_EDP_SOURCE_RESET_STATE);
+    return ((*primary & ~PRI_GAMMA_ENABLE) == PRI_A_XRGB_TILED &&
+            *buffer == reference->sample.buffer && *transport == reference->sample.transport &&
+            (*transport & ~0x40u) == (DP_TP_SST | DP_TP_NORMAL)) ||
+           reject(a, BDW_EDP_SOURCE_RESET_STATE);
+}
 
+/* An all-masked IMR is valid. While we poll, IER stays disabled and IIR
+ * underrun is never acknowledged. Distinguish a possibly issued write
+ * from a refused write and require exact posted readback. */
+static bool fifo_mask(struct source_attempt *a, struct bdw_edp_cycle_report *r, bool closing)
+{
+    uint32_t before;
+    if (!check(a) || !a->io.read(a->io.context, PIPE_A_IMR, &before) || !check(a) ||
+        !expect(a, PIPE_A_IER, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN) ||
+        !expect(a, PIPE_A_IIR, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN))
+        return reject(a, BDW_EDP_SOURCE_UNDERRUN);
+    if (!closing)
+        r->mask_before = before;
+    else if (before != r->mask_live && before != r->mask_before)
+        return reject(a, BDW_EDP_SOURCE_UNDERRUN);
+
+    uint32_t target = closing ? r->mask_before : before & ~FIFO_UNDERRUN;
+    if (!closing)
+        r->mask_live = target;
+    if (target != before) {
+        if (!check(a))
+            return false;
+        enum intel_gt_write status = raw_write(a, PIPE_A_IMR, target);
+        if (status != GT_WRITE_NONE)
+            ++r->mask_writes;
+        if (status != GT_WRITE_DONE)
+            return reject(a, BDW_EDP_SOURCE_UNDERRUN);
+    }
+    uint32_t observed;
+    if (!check(a) || !a->io.read(a->io.context, PIPE_A_IMR, &observed) ||
+        observed != target || !check(a) ||
+        !expect(a, PIPE_A_IER, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN) ||
+        !expect(a, PIPE_A_IIR, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN))
+        return reject(a, BDW_EDP_SOURCE_UNDERRUN);
+    if (closing)
+        r->mask_after = observed;
+    return true;
+}
+
+static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *r,
+                         uint32_t primary, uint32_t buffer, uint32_t transport)
+{
     r->stage = BDW_EDP_CYCLE_BACKLIGHT;
     if (!store(a, PP_CONTROL, 7 & ~PP_BACKLIGHT, UINT32_MAX) ||
         !wait(a, BACKLIGHT_OFF_US) ||
@@ -577,7 +629,10 @@ static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *
         !store(a, PORT_CLOCK_A, PORT_CLOCK_NONE, UINT32_MAX))
         return false;
     r->stage = BDW_EDP_CYCLE_DARK;
-    return reset_state(a) && backing_preserved(a);
+    if (!reset_state(a) || !backing_preserved(a))
+        return false;
+    r->dark_hash = a->image.backing_hash;
+    return true;
 }
 
 bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
@@ -594,17 +649,25 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
         return false;
     }
     struct source_attempt a = {.io = *io, .image = *image, .report = &r->shutdown};
-    bool dark = disable_path(&a, r, reference);
-    r->retained = r->shutdown.source_writes != 0;
-    if (!dark)
+    uint32_t primary, buffer, transport;
+    if (!active_path(&a, reference, &primary, &buffer, &transport))
         return false;
 
-    r->stage = BDW_EDP_CYCLE_RESTORE;
-    if (intel_bdw_edp_source_restore(io, image, reference, &r->restore) != BDW_EDP_OK)
-        return false;
-    a.report = &r->restore;
-    if (!start_phase(&a, SOURCE_STAGE_US) || !scanout_matches(&a) || !backing_preserved(&a) ||
-        !expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL))
+    a.gamma = primary & PRI_GAMMA_ENABLE;
+    bool opened = fifo_mask(&a, r, false);
+    bool restored = false;
+    if (opened && disable_path(&a, r, primary, buffer, transport)) {
+        r->stage = BDW_EDP_CYCLE_RESTORE;
+        a.report = &r->restore;
+        restored = restore(io, image, reference, &r->restore, true, a.gamma) == BDW_EDP_OK &&
+                   start_phase(&a, SOURCE_STAGE_US) && scanout_matches(&a) && backing_preserved(&a) &&
+                   expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL);
+    }
+    if ((opened || r->mask_writes) && !r->restore.crc_retained)
+        r->mask_restored = start_phase(&a, SOURCE_STAGE_US) && fifo_mask(&a, r, true);
+    r->retained = (r->mask_writes && !r->mask_restored) ||
+                  (r->shutdown.source_writes && !restored);
+    if (!restored || !r->mask_restored)
         return false;
     r->retained = false;
     r->stage = BDW_EDP_CYCLE_COMPLETE;

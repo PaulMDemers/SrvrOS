@@ -4,6 +4,7 @@ import re
 from intel_display_backing import backing_result
 
 PROFILE = "intel-edp-baseline-v1"
+CYCLE_PROFILE = "intel-edp-cycle-v1"
 PREFIX = "ram-usb-v1-intel-edp-baseline-"
 SUMMARY = "intel-edp-baseline"
 SCHEMAS = {
@@ -18,15 +19,20 @@ SCHEMAS = {
                                "pps_status pps_ctl pps_on pps_off pps_div cpu_pwm cpu_duty pch_pwm pch_duty"),
     "intel-edp-cycle-preflight": ("v complete hash blockers imr ier iir aux fitter audio "
                                  "ddi_b ddi_c ddi_d ddi_e wm1 wm2 wm3"),
+    "intel-edp-cycle": ("v attempted complete stage shutdown_error restore_error restore_result offset word panel "
+                        "aux dark_hash crc_checks crc0 crc1 mask_before mask_live mask_after mask_writes "
+                        "mask_restored shutdown_writes restore_writes well_released retired retained"),
 }
 
 
-def recipe(command):
+def recipe(command, *, cycle=False):
     match = re.fullmatch(
         r"srvros.storage=ram srvros.workspace-volume=([0-9a-f]{8}) "
         r"srvros.desktop-release=([0-9a-f]{16}) srvros.capture=intel-display "
         r"srvros.intel-backing=read-only srvros.intel-cache=read-only "
-        r"srvros.intel-edp-baseline=on srvros.capture-failure=reboot", command)
+        r"srvros.intel-edp-baseline=on" +
+        (r" srvros.intel-edp-cycle=on" if cycle else "") +
+        r" srvros.capture-failure=reboot", command)
     if not match:
         raise ValueError("Invalid eDP baseline recipe")
     return dict(volume=match[1], release=match[2])
@@ -113,7 +119,44 @@ def cycle_preflight(rows, *, native):
     return r
 
 
-def result(text, *, native=True):
+def cycle_result(rows, *, native, baseline_complete, preflight):
+    entries = rows["intel-edp-cycle"]
+    if len(entries) != 1 or preflight is None:
+        raise ValueError("Missing native eDP cycle evidence")
+    c = entries[0]
+    flags = ("attempted", "complete", "mask_restored", "well_released", "retired", "retained")
+    if (any(c[k] > 1 for k in flags) or any(c[k] >= 1 << 32 for k in c if k != "dark_hash") or
+            c["stage"] > 8 or c["shutdown_error"] > 9 or c["restore_error"] > 9 or
+            c["restore_result"] > 12 or c["panel"] > 6 or c["crc_checks"] > 2 or
+            c["mask_writes"] > 2 or c["shutdown_writes"] > 9 or c["restore_writes"] > 128):
+        raise ValueError("Invalid native eDP cycle values")
+    if not native and any(c[k] for k in c if k != "v"):
+        raise ValueError("VM reached native eDP cycle access")
+    if (c["retired"] and c["retained"] or
+            (not c["attempted"] and any(c[k] for k in c if k not in ("v", "retired", "retained"))) or
+            (c["attempted"] and (not baseline_complete or not (c["well_released"] or c["retained"]))) or
+            (c["mask_writes"] and c["mask_before"] != preflight["imr"]) or
+            (c["mask_restored"] and c["mask_after"] != c["mask_before"])):
+        raise ValueError("Contradictory native eDP cycle lifetime")
+    finished = c["stage"] == 8 and c["retired"] and not c["retained"]
+    if c["complete"] != finished:
+        raise ValueError("Contradictory native eDP cycle completion")
+    if finished:
+        reference = rows["intel-edp-crc"][10]["value"]
+        if (not c["attempted"] or not c["well_released"] or
+                any(c[k] for k in ("shutdown_error", "restore_error", "restore_result")) or
+                c["panel"] != 6 or c["crc_checks"] != 2 or
+                (c["crc0"], c["crc1"]) != (reference, reference) or
+                c["dark_hash"] != preflight["hash"] or preflight["blockers"] != 1 or
+                preflight["ier"] or preflight["iir"] or
+                c["mask_writes"] != 2 or not c["mask_restored"] or
+                c["mask_live"] != c["mask_before"] & 0x7fffffff or
+                c["shutdown_writes"] != 9 or not c["restore_writes"]):
+            raise ValueError("Native eDP cycle lacks dark backing, CRC or mask restoration proof")
+    return c
+
+
+def result(text, *, native=True, cycle=False):
     rows = rows_of(text)
     summaries = rows[SUMMARY]
     windows = rows["intel-edp-window"]
@@ -176,6 +219,12 @@ def result(text, *, native=True):
         raise ValueError("eDP platform result contradicts the CRC")
     if (summary["same"], summary["changed"], summary["complete"], summary["retained"]) != (same, changed, complete, retained):
         raise ValueError("eDP summary contradicts the raw rows")
+    if cycle:
+        observed = cycle_result(rows, native=native, baseline_complete=complete, preflight=preflight)
+        retained = retained or bool(observed["retained"])
+        complete = bool(observed["complete"])
+    elif rows["intel-edp-cycle"]:
+        raise ValueError("Unexpected display-cycle evidence for baseline")
     if ("laptop-capture: completed=yes" in text.splitlines()) != complete:
         raise ValueError("Incomplete eDP terminal record")
     if not native and any(r["writes"] or r["restored"] for r in windows):
@@ -187,22 +236,27 @@ def result(text, *, native=True):
         b = backing["summary"]
         if (b["count"], b["offset"], b["tiled"], b["fence_matches"]) != (1356, 0, 1, 1):
             raise ValueError("Unexpected eDP framebuffer geometry")
-    return dict(version=1, complete=complete, native_complete=False, pattern_repeated=repeat,
-                well_cycle=well_cycle, cycle_preflight=preflight, diagnostic_complete=complete,
-                retained=retained, rows=rows)
+    if not cycle:
+        del rows["intel-edp-cycle"]  # Keep the original parser receipt shape.
+    report = dict(version=1, complete=complete, native_complete=False, pattern_repeated=repeat,
+                  well_cycle=well_cycle, cycle_preflight=preflight, diagnostic_complete=complete,
+                  retained=retained, rows=rows)
+    if cycle:
+        report["display_cycle"] = observed
+    return report
 
 
-def checkpoint(pre, text, native=False):
+def checkpoint(pre, text, native=False, *, cycle=False):
     boot = "laptop-capture: boot options="
     a = [line[len(boot):] for line in pre.splitlines() if line.startswith(boot)]
     b = [line[len(boot):] for line in text.splitlines() if line.startswith(boot)]
     if len(a) != 1 or a != b or any(rows_of(pre).values()):
         raise ValueError("Invalid eDP baseline preflight checkpoint")
-    recipe(a[0])
+    recipe(a[0], cycle=cycle)
     prefixes = ("intel-display-", "intel-backing-", "intel-cache-")
     original = [line for line in pre.splitlines() if line.startswith(prefixes)]
     terminal = [line for line in text.splitlines() if line.startswith(prefixes)]
     if not original or original != terminal:
         raise ValueError("Changed eDP baseline preflight evidence")
-    result(text, native=native)
+    result(text, native=native, cycle=cycle)
     return True

@@ -28,9 +28,16 @@ struct edp_adapter {
     struct bdw_edp_baseline_report *crc;
     struct edp_cycle_observation *cycle;
     unsigned mapped, smi, reason;
-    bool pinned, map_fault, platform, well_requested;
+    bool pinned, map_fault, platform, well_requested, run_cycle;
+    uint64_t cycle_epoch;
+    const struct bdw_edp_source_image *image;
 };
 static struct edp_adapter edp_session;
+
+struct edp_native_cycle {
+    struct bdw_edp_cycle_report report;
+    bool attempted, well_released, retired, retained;
+};
 
 static bool edp_smi_supported(void)
 {
@@ -87,7 +94,9 @@ static bool edp_map_all(struct edp_adapter *a)
             vmm_virt_to_phys_in_space(a->backing.common.cr3, va, &existing))
             return false;
         uint64_t flags = VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE;
-        if (page == 0x44000 || page == 0x60000 || (a->platform && page == 0x45000))
+        if (page == 0x44000 || page == 0x60000 || (a->platform && page == 0x45000) ||
+            (a->run_cycle && (page == 0x46000 || page == 0x64000 || page == 0x6f000 ||
+                              page == 0x70000 || page == 0x7f000 || page == 0xc7000)))
             flags |= VMM_PAGE_WRITABLE;
         if (!vmm_map_page_in_space(a->backing.common.cr3, va, physical, flags)) {
             a->map_fault = vmm_virt_to_phys_in_space(a->backing.common.cr3, va, &existing);
@@ -267,9 +276,8 @@ static bool edp_pinned_translations(struct edp_adapter *a, uint64_t *hash)
            trial_endpoint_same(&endpoint) && edp_held(a) && timer_monotonic_us() - begin < 100000u;
 }
 
-static bool edp_observe_cycle(struct edp_adapter *a)
+static bool edp_observe_cycle(struct edp_adapter *a, struct edp_cycle_observation *o)
 {
-    struct edp_cycle_observation *o = a->cycle;
     if (!edp_pinned_translations(a, &o->backing_hash) ||
         !edp_read(a, BDW_EDP_PIPE_IMR, &o->imr) ||
         !edp_read(a, BDW_EDP_PIPE_IER, &o->ier) ||
@@ -294,6 +302,90 @@ static bool edp_observe_cycle(struct edp_adapter *a)
                   ((!!(other_ddi >> 31)) << 6) | ((!!(wm >> 31)) << 7);
     o->complete = edp_held(a);
     return o->complete;
+}
+
+/* Only the known profile owns these global endpoints, kept live through
+ * the display-only cycle. PPS timing/PWM and clocks are read-only here. */
+static bool edp_cycle_platform(struct edp_adapter *a, bool driver)
+{
+    static const uint32_t regs[][2] = {
+        {0x45400, 0xc0000000}, {0x45408, 0x40000000}, {0x4540c, 0x40000000},
+        {0x130040, 0x4c000000}, {0x46200, 0x2a2}, {0xc2020, 0x1000}, {0xc2004, 0x24},
+        {0xc7208, 0x007d0834}, {0xc720c, 0x02e409c4}, {0xc7210, 0x0004af06},
+    };
+    for (unsigned i = 0; i < sizeof(regs) / sizeof(regs[0]); ++i)
+        if (!edp_expect(a, regs[i][0], UINT32_MAX, regs[i][1]))
+            return false;
+    uint32_t pwm;
+    return edp_expect(a, BDW_EDP_WELL_DRIVER, UINT32_MAX,
+                      BDW_EDP_WELL_ON | (driver ? BDW_EDP_WELL_REQUEST : 0)) &&
+           edp_expect(a, 0x48250, 1u << 31, 0) &&
+           edp_expect(a, 0xc8250, 0xc0000000u, 0xc0000000u) &&
+           edp_read(a, 0xc8254, &pwm) && (pwm >> 16) == 0x0ad9u &&
+           (pwm & 0xffffu) <= (pwm >> 16);
+}
+
+static bool edp_source_held(void *context, const struct bdw_edp_source_image *image)
+{
+    struct edp_adapter *a = context;
+    return a->run_cycle && a->well_requested && a->image && image->backing == &backing &&
+           image->epoch == a->cycle_epoch && image->backing_hash == a->image->backing_hash &&
+           image->reference_crc == a->image->reference_crc &&
+           edp_expect(a, BDW_EDP_WELL_DRIVER, UINT32_MAX, BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON) &&
+           edp_expect(a, 0x45400, UINT32_MAX, BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON);
+}
+
+static bool edp_source_backing(void *context, const struct bdw_edp_source_image *image,
+                               uint64_t *hash)
+{
+    return edp_source_held(context, image) && edp_pinned_translations(context, hash);
+}
+
+static enum intel_gt_write edp_source_write(void *context, uint32_t offset, uint32_t value)
+{
+    struct edp_adapter *a = context;
+    if (!a->image || !edp_source_held(a, a->image))
+        return GT_WRITE_NONE;
+    if (offset == BDW_EDP_CRC_CTL || offset == BDW_EDP_PIPE_IIR)
+        return edp_write(a, offset, value);
+    if (offset == BDW_EDP_PIPE_IMR) {
+        uint32_t before;
+        if (!edp_read(a, offset, &before))
+            return GT_WRITE_NONE;
+        if ((before ^ value) == BDW_EDP_CRC_DONE)
+            return edp_write(a, offset, value);
+        if ((before ^ value) != BDW_EDP_FIFO_UNDERRUN ||
+            (value & ~BDW_EDP_FIFO_UNDERRUN) != (a->cycle->imr & ~BDW_EDP_FIFO_UNDERRUN) ||
+            !edp_expect(a, BDW_EDP_PIPE_IER, UINT32_MAX, 0) ||
+            !edp_expect(a, BDW_EDP_PIPE_IIR, BDW_EDP_FIFO_UNDERRUN | BDW_EDP_CRC_IRQS, 0))
+            return GT_WRITE_NONE;
+    } else {
+        switch (offset) {
+        case 0x45100: case 0x45270: case 0x46100: case 0x6001c:
+        case 0x64000: case 0x64010: case 0x64014: case 0x64018:
+        case 0x6401c: case 0x64020: case 0x64024: case 0x64040:
+        case 0x6f000: case 0x6f004: case 0x6f008: case 0x6f00c:
+        case 0x6f010: case 0x6f014: case 0x6f030: case 0x6f034:
+        case 0x6f040: case 0x6f044: case 0x6f400: case 0x6f410:
+        case 0x70030: case 0x70180: case 0x70188: case 0x7019c: case 0x701a4:
+        case 0x7f008:
+            break;
+        case 0xc7204:
+            if (value != 0 && value != 3 && value != 7)
+                return GT_WRITE_NONE;
+            break;
+        default:
+            if (offset < 0x64e00 || offset >= 0x64e00 + 8 * BDW_EDP_PHY_ENTRIES ||
+                (offset & 3) || value != a->image->phy[(offset - 0x64e00) / 8][(offset / 4) % 2])
+                return GT_WRITE_NONE;
+            break;
+        }
+    }
+    volatile uint32_t *reg = edp_mmio(a, offset);
+    if (!reg || !edp_source_held(a, a->image))
+        return GT_WRITE_NONE;
+    *reg = value;
+    return GT_WRITE_DONE;
 }
 
 static bool edp_snapshot(void *context, struct bdw_edp_baseline_sample *s)
@@ -366,7 +458,7 @@ static enum intel_gt_write edp_well_request(void *context, bool enable)
 static bool edp_capture_crc(void *context, bool *retained)
 {
     struct edp_adapter *a = context;
-    if (a->cycle && !edp_observe_cycle(a)) {
+    if (a->cycle && !edp_observe_cycle(a, a->cycle)) {
         a->reason = 11;
         *retained = a->map_fault || trial_mapping_fault;
         return false;
@@ -379,8 +471,59 @@ static bool edp_capture_crc(void *context, bool *retained)
     return ok;
 }
 
+static bool edp_repeat(const struct bdw_edp_baseline_report r[3])
+{
+    uint32_t first_gap = r[1].frame[0] - r[0].frame[3];
+    uint32_t last_gap = r[2].frame[0] - r[1].frame[3];
+    return intel_bdw_edp_baseline_same(&r[0], &r[1]) &&
+           intel_bdw_edp_baseline_same(&r[0], &r[2]) &&
+           first_gap && first_gap < (1u << 31) && last_gap && last_gap < (1u << 31);
+}
+
+static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baseline_report *ref,
+                             struct edp_native_cycle *native)
+{
+    struct edp_cycle_observation current = {0};
+    uint32_t pwm;
+    if (!edp_cycle_platform(a, false) || !edp_read(a, 0xc8254, &pwm) ||
+        !edp_observe_cycle(a, &current) || current.backing_hash != ref->sample.backing_hash ||
+        current.blockers != 1 || a->cycle->blockers != 1 ||
+        current.imr != ref->original_mask || current.imr != a->cycle->imr ||
+        current.ier || current.iir || ref->sample.cdclk != 674u)
+        return false;
+    struct bdw_edp_source_image image = {
+        .backing = &backing, .epoch = now(a), .mapped_bytes = BDW_EDP_BACKING_PAGES * 4096ull,
+        .backing_hash = ref->sample.backing_hash, .reference_crc = ref->crc[2],
+        .cdclk_khz = 675000, .ddi_lane_bits = ref->sample.buffer & 0x10010u,
+    };
+    for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i)
+        for (unsigned j = 0; j < 2; ++j)
+            image.phy[i][j] = ref->sample.phy[i][j];
+    if (!image.epoch || edp_well_request(a, true) != GT_WRITE_DONE)
+        return false;
+    a->image = &image;
+    a->cycle_epoch = image.epoch;
+    native->attempted = true;
+    native->retained = true;
+    const struct bdw_edp_source_io io = {
+        a, edp_source_held, edp_read, edp_source_write, now, edp_pause, edp_source_backing,
+    };
+    bool ok = edp_cycle_platform(a, true) &&
+              intel_bdw_edp_source_cycle(&io, &image, ref, &native->report);
+    a->image = NULL;
+    if (!native->report.retained && !a->map_fault && !trial_mapping_fault &&
+        edp_cycle_platform(a, true) && edp_expect(a, 0xc8254, UINT32_MAX, pwm) &&
+        edp_well_request(a, false) == GT_WRITE_DONE && edp_cycle_platform(a, false) &&
+        edp_expect(a, 0xc8254, UINT32_MAX, pwm)) {
+        native->retained = false;
+        native->well_released = true;
+    }
+    return ok && native->well_released;
+}
+
 static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_report *platform,
-                    struct edp_cycle_observation *cycle)
+                    struct edp_cycle_observation *cycle,
+                    struct edp_native_cycle *native, struct bdw_edp_baseline_report *windows)
 {
     struct edp_adapter *a = &edp_session;
     *a = (struct edp_adapter){0};
@@ -397,6 +540,7 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
     a->platform = platform != NULL;
     a->crc = r;
     a->cycle = cycle;
+    a->run_cycle = native != NULL;
     bool ok = false;
     a->reason = 3;
     if (a->pinned && edp_map_all(a)) {
@@ -417,20 +561,31 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
             ok = edp_capture_crc(a, &r->retained);
         }
     }
+    if (ok && native && !r->retained && edp_repeat(windows) &&
+        windows[0].crc[2] == r->crc[2] && windows[1].crc[2] != r->crc[2])
+        edp_native_cycle(a, r, native);
     a->crc = NULL;
     a->cycle = NULL;
+    if (native && native->retained)
+        return false;
     bool retired = !r->retained && !a->map_fault && !trial_mapping_fault && edp_unmap_all(a);
     if (retired && a->pinned)
         retired = display_access_unpin(&a->lease);
-    if (!retired || !display_access_release(&a->lease, true))
-        r->retained = true;
+    if (!retired || !display_access_release(&a->lease, true)) {
+        if (native)
+            native->retained = true;
+        else
+            r->retained = true;
+    } else if (native) {
+        native->retired = true;
+    }
     if (r->retained)
         r->status = BDW_EDP_BASELINE_INCOMPLETE;
     r->reason = r->retained ? 9 : a->reason ? a->reason : ok ? 0 : 8;
     return ok && !r->retained;
 }
 
-bool intel_edp_baseline_probe(bool *retained)
+bool intel_edp_baseline_probe(bool *retained, bool display_cycle)
 {
     static bool attempted;
     if (attempted || !retained)
@@ -449,12 +604,14 @@ bool intel_edp_baseline_probe(bool *retained)
     struct bdw_edp_baseline_report r[3] = {0};
     struct bdw_edp_platform_report platform = {0};
     struct edp_cycle_observation cycle = {0};
+    struct edp_native_cycle native = {0};
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */
         console_clear();
         console_write(pattern[frames[i]]);
-        if (!edp_try(&r[i], i == 2 ? &platform : NULL, i == 2 ? &cycle : NULL))
+        if (!edp_try(&r[i], i == 2 ? &platform : NULL, i == 2 ? &cycle : NULL,
+                     i == 2 && display_cycle ? &native : NULL, r))
             break;
     }
     for (unsigned i = 0; i < platform.samples; ++i) {
@@ -475,12 +632,9 @@ bool intel_edp_baseline_probe(bool *retained)
         (uint64_t)cycle.fitter, (uint64_t)cycle.audio, (uint64_t)cycle.ddi[0],
         (uint64_t)cycle.ddi[1], (uint64_t)cycle.ddi[2], (uint64_t)cycle.ddi[3],
         (uint64_t)cycle.wm[0], (uint64_t)cycle.wm[1], (uint64_t)cycle.wm[2]);
-    *retained = r[0].retained || r[1].retained || r[2].retained;
-    uint32_t first_gap = r[1].frame[0] - r[0].frame[3];
-    uint32_t last_gap = r[2].frame[0] - r[1].frame[3];
-    bool same = intel_bdw_edp_baseline_same(&r[0], &r[1]) &&
-                intel_bdw_edp_baseline_same(&r[0], &r[2]) &&
-                first_gap && first_gap < (1u << 31) && last_gap && last_gap < (1u << 31);
+    bool baseline_retained = r[0].retained || r[1].retained || r[2].retained;
+    *retained = baseline_retained || native.retained;
+    bool same = edp_repeat(r);
     bool changed = same && r[0].crc[2] != r[1].crc[2];
     bool repeat = same && r[0].crc[2] == r[2].crc[2];
     bool complete = changed && repeat && cycle.complete &&
@@ -502,6 +656,21 @@ bool intel_edp_baseline_probe(bool *retained)
     }
     console_printf("intel-edp-pattern: v=1 repeat=%u\n", (uint64_t)repeat);
     console_printf("intel-edp-baseline: v=1 complete=%u same=%u changed=%u retained=%u pte_writes=0 reset=0\n",
-        (uint64_t)complete, (uint64_t)same, (uint64_t)changed, (uint64_t)*retained);
+        (uint64_t)complete, (uint64_t)same, (uint64_t)changed, (uint64_t)baseline_retained);
+    if (display_cycle) {
+        const struct bdw_edp_cycle_report *c = &native.report;
+        bool restored = complete && c->stage == BDW_EDP_CYCLE_COMPLETE && native.retired && !*retained;
+        console_printf("intel-edp-cycle: v=1 attempted=%u complete=%u stage=%u shutdown_error=%u restore_error=%u restore_result=%u offset=%x word=%x panel=%u aux=%x dark_hash=%x crc_checks=%u crc0=%x crc1=%x mask_before=%x mask_live=%x mask_after=%x mask_writes=%u mask_restored=%u shutdown_writes=%u restore_writes=%u well_released=%u retired=%u retained=%u\n",
+            (uint64_t)native.attempted, (uint64_t)restored, (uint64_t)c->stage,
+            (uint64_t)c->shutdown.source_error, (uint64_t)c->restore.source_error, (uint64_t)c->restore.panel.result,
+            (uint64_t)(c->stage >= BDW_EDP_CYCLE_RESTORE ? c->restore.offset : c->shutdown.offset),
+            (uint64_t)(c->stage >= BDW_EDP_CYCLE_RESTORE ? c->restore.word : c->shutdown.word),
+            (uint64_t)c->restore.panel.panel_stage, (uint64_t)c->restore.panel.aux_status, c->dark_hash,
+            (uint64_t)c->restore.crc_checks, (uint64_t)c->restore.captured_crc[0], (uint64_t)c->restore.captured_crc[1],
+            (uint64_t)c->mask_before, (uint64_t)c->mask_live, (uint64_t)c->mask_after, (uint64_t)c->mask_writes,
+            (uint64_t)c->mask_restored, (uint64_t)c->shutdown.source_writes, (uint64_t)c->restore.source_writes,
+            (uint64_t)native.well_released, (uint64_t)native.retired, (uint64_t)native.retained);
+        return restored;
+    }
     return complete;
 }

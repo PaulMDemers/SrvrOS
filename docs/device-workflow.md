@@ -203,6 +203,16 @@ and halts. Review a complete native receipt with `diagnose`. The receipt
 qualifies the inherited baseline, with post-reset restoration and ownership
 remaining separate. [Hardware trial contract](intel-bdw-edp-recovery.md#inherited-display-hardware-trial).
 
+The explicit `--profile intel-edp-cycle-v1` runs the native display-only
+shutdown and restore after the reference checks. It saves its checkpoint
+before the screen goes dark. Both restored primary CRCs must match the
+original, and the original interrupt mask and well request must be
+verified at retirement. The guest is silent at the 1% host volume
+setting and requires no input. A safe saved outcome returns to Ubuntu.
+If a retained failure leaves the screen dark for 60 seconds, restart
+manually. The collector treats a validated cycle as a diagnostic of the
+original display path. [Cycle contract](intel-bdw-edp-recovery.md#display-disable-and-restore-rehearsal).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the

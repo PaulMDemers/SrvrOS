@@ -44,6 +44,7 @@ struct bdw_edp_source_io {
      * one-pipe FIFO/DDB, and no competing pipe/plane, PSR, FBC, IPS or LP
      * watermark mode. It admits the sticky pipe-A underrun latch unmasked
      * in IMR and disabled in IER with no handler acknowledging events.
+     * For the isolated cycle only, the adapter manages the mask itself.
      * This guard must work with the panel either off or on. */
     bool (*held)(void *, const struct bdw_edp_source_image *);
     bool (*read)(void *, uint32_t, uint32_t *);
@@ -77,6 +78,10 @@ enum bdw_edp_cycle_stage {
 struct bdw_edp_cycle_report {
     enum bdw_edp_cycle_stage stage;
     struct bdw_edp_source_report shutdown, restore;
+    uint32_t mask_before, mask_live, mask_after;
+    uint64_t dark_hash;
+    unsigned mask_writes;
+    bool mask_restored;
     bool retained;
 };
 
@@ -84,7 +89,10 @@ struct bdw_edp_cycle_report {
  * The owner has already excluded all other display clients and proved
  * inactive VGA, display audio, PSR, FBC, IPS, panel fitter and other pipes.
  * The backing_hash callback must verify the original PTEs and fences with
- * the pipe and panel either on or off. No PCI, GT, LCPLL or GGTT writes.
+ * the pipe and panel either on or off. The owner admits the intact PPS
+ * delay programming and gamma LUT. Only the underrun IMR bit may change
+ * around the cycle, with its interrupt delivery disabled. No PCI, GT,
+ * LCPLL or GGTT writes.
  * Any failure after a possibly issued write keeps the original owner pinned. */
 bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *,
                                 const struct bdw_edp_source_image *,
