@@ -88,6 +88,15 @@ struct source_fixture {
     struct register_write posted;
     uint64_t buffer_enabled_at, normal_at;
     unsigned step, proofs;
+    uint64_t backlight_off_at, plane_off_at, trans_off_at, panel_off_at;
+    unsigned disable_step, fail_disable_write;
+    bool cycle, dark, lose_dark_backing;
+};
+
+static const struct register_write disable_steps[] = {
+    {PP_CONTROL, 3}, {0x70180, 0x58000400}, {0x7019c, 0}, {0x7f008, 0},
+    {0x6f400, 0x00200000}, {0x64000, 0x00010010}, {0x64040, 0x00040340},
+    {PP_CONTROL, 0}, {0x46100, 0xe0000000},
 };
 
 /* Source write order captured separately from the driver's register plan. */
@@ -416,6 +425,16 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
     struct source_fixture *s = context;
     struct fixture *f = &s->panel;
     if (panel_register(offset)) {
+        if (s->cycle && !s->dark) {
+            if (!event(f))
+                return false;
+            assert(offset == PP_CONTROL || offset == PP_STATUS);
+            *word = f->pp_control;
+            if (offset == PP_STATUS)
+                *word = !s->panel_off_at ? 0x80000008u :
+                        f->time - s->panel_off_at < 74000 ? 0xa000000bu : 0x08000000u;
+            return true;
+        }
         if (!read(f, offset, word))
             return false;
         if (offset == PP_STATUS && s->fault == SOURCE_PANEL_LOST && f->stage == BDW_EDP_EQUALIZE)
@@ -454,7 +473,8 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
         break;
     case 0x7f008:
         *word = s->transcoder;
-        if (s->normal_at && s->fault != SOURCE_INACTIVE)
+        if ((s->normal_at || (s->cycle && !s->dark && s->trans_off_at &&
+                             f->time - s->trans_off_at < 16000)) && s->fault != SOURCE_INACTIVE)
             *word |= 0x40000000u;
         break;
     case 0x70180: *word = s->primary; break;
@@ -502,6 +522,56 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
 {
     struct source_fixture *s = context;
     struct fixture *f = &s->panel;
+    if (s->cycle && !s->dark) {
+        assert(s->disable_step < sizeof(disable_steps) / sizeof(disable_steps[0]));
+        if (!event(f) || s->disable_step + 1 == s->fail_disable_write)
+            return GT_WRITE_UNCERTAIN;
+        const struct register_write *expected = &disable_steps[s->disable_step++];
+        assert(offset == expected->offset && word == expected->value);
+        switch (offset) {
+        case PP_CONTROL:
+            f->pp_control = word;
+            if (word) {
+                f->backlight = false;
+                s->backlight_off_at = f->time;
+            } else {
+                assert(!(s->buffer & 0x80000000u) && !(s->transport & 0x80000000u));
+                s->panel_off_at = f->time;
+            }
+            break;
+        case 0x70180:
+            assert(f->time - s->backlight_off_at >= 250000);
+            s->primary = word;
+            break;
+        case 0x7019c: s->plane_off_at = f->time; break;
+        case 0x7f008:
+            assert(f->time / 16667 - s->plane_off_at / 16667 >= 2);
+            s->transcoder = 0;
+            s->normal_at = 0;
+            f->normal = false;
+            f->scanout = false;
+            s->trans_off_at = f->time;
+            break;
+        case 0x6f400:
+            assert(f->time - s->trans_off_at >= 16000);
+            s->ddi = word;
+            break;
+        case 0x64000:
+            s->buffer = word;
+            s->buffer_enabled_at = 0;
+            break;
+        case 0x64040: s->transport = word; break;
+        case 0x46100:
+            assert(f->time - s->panel_off_at >= 74000);
+            s->clock = word;
+            f->power_requested = 0;
+            f->cycle_until = f->time + 500000;
+            s->dark = true;
+            break;
+        default: assert(0);
+        }
+        return GT_WRITE_DONE;
+    }
     if (panel_register(offset)) {
         if (offset == CTL && (word & BUSY) && f->stage == BDW_EDP_CLOCK_RECOVERY)
             assert(f->time - s->buffer_enabled_at >= 519);
@@ -540,10 +610,10 @@ static enum intel_gt_write source_write(void *context, uint32_t offset, uint32_t
     }
     unsigned step = s->step++;
     if (step == 0) {
-        assert(offset == 0x46100 && word == 0x20000000 && !s->transport);
+        assert(offset == 0x46100 && word == 0x20000000 && !(s->transport & 0x80000000u));
         s->clock = word;
     } else if (step <= BDW_EDP_PHY_ENTRIES * 2) {
-        assert(!s->transport && !(s->buffer & 0x80000000u));
+        assert(!(s->transport & 0x80000000u) && !(s->buffer & 0x80000000u));
         assert(offset == 0x64e00u + (step - 1) * 4);
         assert(word == s->image.phy[(step - 1) / 2][(step - 1) % 2]);
         if (step == BDW_EDP_PHY_ENTRIES * 2)
@@ -607,14 +677,17 @@ static bool source_backing_hash(void *context, const struct bdw_edp_source_image
                                 uint64_t *hash)
 {
     struct source_fixture *s = context;
-    assert(image->backing == &s->panel && s->panel.normal && !s->panel.backlight);
+    assert(image->backing == &s->panel);
+    assert(s->cycle || (s->panel.normal && !s->panel.backlight));
     *hash = TEST_BACKING_HASH;
     if (s->fault == SOURCE_BACKING_CHANGED && s->crc_retired)
+        *hash ^= 1;
+    if (s->lose_dark_backing && s->dark && !s->panel.power_requested)
         *hash ^= 1;
     return event(&s->panel);
 }
 
-static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_source_report *report)
+static struct bdw_edp_baseline_report setup_source(struct source_fixture *s)
 {
     struct fixture *f = &s->panel;
     f->panel = true;
@@ -641,12 +714,10 @@ static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_s
         s->image.cdclk_khz = 337500;
     if (s->fault == SOURCE_NO_REFERENCE)
         s->image.reference_crc = 0;
-    const struct bdw_edp_source_io io = {
-        s, source_held, source_read, source_write, source_now, source_delay, source_backing_hash,
-    };
     struct bdw_edp_baseline_report reference = {
         .status = BDW_EDP_BASELINE_OK,
-        .sample = {.port = 0x20000000u, .buffer = 0x80010010u, .backing_hash = TEST_BACKING_HASH},
+        .sample = {.port = 0x20000000u, .buffer = 0x80010010u, .transport = 0x80040340u,
+                   .backing_hash = TEST_BACKING_HASH},
         .frame = {100, 101, 102, 103},
         .crc = {0, 0, TEST_REFERENCE_CRC, TEST_REFERENCE_CRC},
         .poll_iir = BDW_EDP_CRC_DONE, .events = 4, .writes = 8, .restored = true,
@@ -654,8 +725,70 @@ static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_s
     memcpy(reference.sample.phy, s->image.phy, sizeof(reference.sample.phy));
     if (s->fault == SOURCE_REFERENCE_CHANGED)
         reference.sample.backing_hash ^= 1;
+    return reference;
+}
+
+static struct bdw_edp_source_io source_io(struct source_fixture *s)
+{
+    return (struct bdw_edp_source_io){
+        s, source_held, source_read, source_write, source_now, source_delay, source_backing_hash,
+    };
+}
+
+static enum bdw_edp_result run_source(struct source_fixture *s, struct bdw_edp_source_report *report)
+{
+    struct bdw_edp_baseline_report reference = setup_source(s);
+    const struct bdw_edp_source_io io = source_io(s);
     return intel_bdw_edp_source_restore(&io, &s->image,
         s->fault == SOURCE_NO_REFERENCE ? NULL : &reference, report);
+}
+
+static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *report)
+{
+    const struct bdw_edp_baseline_report reference = setup_source(s);
+    const struct bdw_edp_source_io io = source_io(s);
+    s->cycle = true;
+    s->panel.time = 300000;
+    s->panel.power_requested = 1;
+    s->panel.normal = s->panel.scanout = s->panel.backlight = true;
+    s->panel.pp_control = 7;
+    s->clock = reference.sample.port;
+    s->buffer = reference.sample.buffer;
+    s->transport = reference.sample.transport;
+    s->buffer_enabled_at = s->normal_at = 1;
+    s->ddi = 0x82200000u;
+    s->transcoder = 0x80000000u;
+    s->primary = 0xd8000400u;
+    s->stride = 6144;
+    return intel_bdw_edp_source_cycle(&io, &s->image, &reference, report);
+}
+
+static unsigned test_cycle(void)
+{
+    struct bdw_edp_cycle_report r;
+    struct source_fixture f = {0};
+    const unsigned writes = sizeof(disable_steps) / sizeof(disable_steps[0]);
+    assert(run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_COMPLETE && !r.retained);
+    assert(r.shutdown.source_writes == writes && f.dark && f.panel.backlight);
+    assert(r.restore.crc_checks == 2 && r.restore.captured_crc[1] == TEST_REFERENCE_CRC);
+    for (unsigned i = 1; i <= writes; ++i) {
+        f = (struct source_fixture){.fail_disable_write = i};
+        assert(!run_cycle(&f, &r) && r.retained && r.shutdown.source_writes == i);
+        assert(!r.restore.source_writes && !f.proofs && !f.dark);
+    }
+    f = (struct source_fixture){.fault = SOURCE_MASKED};
+    assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_ADMISSION);
+    assert(!r.retained && f.panel.backlight && !r.shutdown.source_writes);
+    f = (struct source_fixture){.fault = SOURCE_CLOCK_STOPPED};
+    assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_PRIMARY && r.retained);
+    assert(!f.panel.backlight && !r.restore.source_writes);
+    f = (struct source_fixture){.lose_dark_backing = true};
+    assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_DARK && r.retained);
+    assert(f.dark && !f.panel.backlight && !r.restore.source_writes);
+    f = (struct source_fixture){.fault = SOURCE_SECOND_CRC_WRONG};
+    assert(!run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_RESTORE && r.retained);
+    assert(f.dark && f.proofs == 2 && !f.panel.backlight);
+    return writes + 5;
 }
 
 static unsigned test_source(void)
@@ -833,5 +966,5 @@ int main(void)
     assert(lost_after_send.attempts == 1 && !lost_after_send.clears && report.effects_possible);
     printf("Broadwell eDP recovery: %zu cases (%u link injection points)\n",
            sizeof(clocks) / sizeof(clocks[0]) + good.events * 5 +
-           sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source(), good.events);
+           sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source() + test_cycle(), good.events);
 }

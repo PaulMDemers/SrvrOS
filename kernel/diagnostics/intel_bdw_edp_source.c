@@ -49,11 +49,20 @@
 #define PIPE_A_IER 0x4440cu
 #define FIFO_UNDERRUN (1u << 31)
 #define PP_STATUS 0xc7200u
+#define PP_CONTROL 0xc7204u
 #define PP_POWER_STABLE_MASK 0xb8000000u
 #define PP_POWER_STABLE_ON 0x80000000u
+#define PP_BACKLIGHT (1u << 2)
+#define PP_SEQUENCE_MASK 0xb000000fu
+#define PRI_GAMMA_ENABLE (1u << 30)
+#define PRI_ENABLE (1u << 31)
 
 #define SOURCE_STAGE_US 25000u
 #define FRAME_CHECK_US 60000u
+#define DISABLE_LIMIT_US 550000u
+#define DISABLE_TWO_FRAMES_US 34000u
+#define BACKLIGHT_OFF_US 250000u
+#define PANEL_OFF_US 100000u
 #define MODE_PAIR(high, low) ((((high) - 1u) << 16) | ((low) - 1u))
 #define PIXEL_KHZ 88890ull
 #define LINK_SYMBOL_KHZ 270000ull
@@ -475,4 +484,129 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
     if (report->source_error == BDW_EDP_SOURCE_OWNER)
         report->panel.result = BDW_EDP_OWNERSHIP;
     return report->panel.result;
+}
+
+static bool backing_preserved(struct source_attempt *a)
+{
+    uint64_t hash;
+    return check(a) && a->io.backing_hash(a->io.context, &a->image, &hash) && check(a) &&
+           (hash == a->image.backing_hash || reject(a, BDW_EDP_SOURCE_IMAGE));
+}
+
+static bool poll_value(struct source_attempt *a, uint32_t offset,
+                       uint32_t mask, uint32_t expected, uint32_t budget)
+{
+    if (!check(a))
+        return false;
+    uint64_t begin = a->last;
+    for (;;) {
+        uint32_t word;
+        if (!load(a, offset, &word))
+            return false;
+        if (a->last - begin >= budget)
+            return reject(a, BDW_EDP_SOURCE_CLOCK);
+        if ((word & mask) == expected)
+            return true;
+        if (!wait(a, 100))
+            return false;
+    }
+}
+
+static bool primary_off(struct source_attempt *a, uint32_t ctl)
+{
+    uint32_t initial, frame;
+    if (!store(a, PRI_A_CTL, ctl & ~PRI_ENABLE, 0) ||
+        !store(a, PRI_A_SURF, 0, UINT32_MAX) ||
+        !load(a, PIPE_A_FRAME, &initial))
+        return false;
+    uint64_t begin = a->last;
+    do {
+        if (!wait(a, 100) || !load(a, PIPE_A_FRAME, &frame))
+            return false;
+        if (a->last - begin >= DISABLE_TWO_FRAMES_US)
+            return reject(a, BDW_EDP_SOURCE_CLOCK);
+    } while ((uint32_t)(frame - initial) < 2);
+    return ((uint32_t)(frame - initial) <= 3 || reject(a, BDW_EDP_SOURCE_FRAME)) &&
+           expect(a, PRI_A_CTL, UINT32_MAX, ctl & ~PRI_ENABLE, BDW_EDP_SOURCE_FRAME);
+}
+
+static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *r,
+                         const struct bdw_edp_baseline_report *reference)
+{
+    uint32_t primary, buffer, transport;
+    if (!start_phase(a, DISABLE_LIMIT_US) || !clock_ready(a) || !underrun_clear(a) ||
+        !backing_preserved(a) ||
+        !expect(a, PORT_CLOCK_A, UINT32_MAX, PORT_CLOCK_LCPLL_1350, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, EDP_DDI, UINT32_MAX, EDP_DDI_SST_6BPC_A, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, EDP_CONF, UINT32_MAX, TRANS_ENABLE | TRANS_ACTIVE, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, PRI_A_STRIDE, UINT32_MAX, PRI_STRIDE_BYTES, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, PRI_A_OFFSET, UINT32_MAX, 0, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, PRI_A_SURF, UINT32_MAX, 0, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, PRI_A_SURFLIVE, UINT32_MAX, 0, BDW_EDP_SOURCE_RESET_STATE) ||
+        !expect(a, PP_STATUS, PP_POWER_STABLE_MASK, PP_POWER_STABLE_ON, BDW_EDP_SOURCE_PANEL) ||
+        !expect(a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL) ||
+        !load(a, PRI_A_CTL, &primary) || !load(a, DDI_BUF_A, &buffer) || !load(a, DP_TP_A, &transport))
+        return false;
+    if ((primary & ~PRI_GAMMA_ENABLE) != PRI_A_XRGB_TILED ||
+        buffer != reference->sample.buffer || transport != reference->sample.transport ||
+        (transport & ~0x40u) != (DP_TP_SST | DP_TP_NORMAL))
+        return reject(a, BDW_EDP_SOURCE_RESET_STATE);
+
+    r->stage = BDW_EDP_CYCLE_BACKLIGHT;
+    if (!store(a, PP_CONTROL, 7 & ~PP_BACKLIGHT, UINT32_MAX) ||
+        !wait(a, BACKLIGHT_OFF_US) ||
+        !expect(a, PP_CONTROL, UINT32_MAX, 3, BDW_EDP_SOURCE_PANEL))
+        return false;
+    r->stage = BDW_EDP_CYCLE_PRIMARY;
+    if (!primary_off(a, primary))
+        return false;
+    r->stage = BDW_EDP_CYCLE_TRANSCODER;
+    if (!store(a, EDP_CONF, 0, TRANS_ENABLE) ||
+        !poll_value(a, EDP_CONF, TRANS_ENABLE | TRANS_ACTIVE, 0, DISABLE_TWO_FRAMES_US) ||
+        !store(a, EDP_DDI, EDP_DDI_SST_6BPC_A & ~(TRANS_ENABLE | (7u << 24) | (7u << 28)),
+               UINT32_MAX))
+        return false;
+    r->stage = BDW_EDP_CYCLE_PORT;
+    if (!store(a, DDI_BUF_A, buffer & ~DDI_BUF_ENABLE, DDI_BUF_ENABLE) ||
+        !store(a, DP_TP_A, transport & ~DP_TP_ENABLE, DP_TP_ENABLE) ||
+        !poll_value(a, DDI_BUF_A, DDI_BUF_ENABLE | DDI_BUF_IDLE, DDI_BUF_IDLE, 1000u))
+        return false;
+    r->stage = BDW_EDP_CYCLE_PANEL;
+    if (!store(a, PP_CONTROL, 0, UINT32_MAX) ||
+        !poll_value(a, PP_STATUS, PP_SEQUENCE_MASK, 0, PANEL_OFF_US) ||
+        !store(a, PORT_CLOCK_A, PORT_CLOCK_NONE, UINT32_MAX))
+        return false;
+    r->stage = BDW_EDP_CYCLE_DARK;
+    return reset_state(a) && backing_preserved(a);
+}
+
+bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
+                                const struct bdw_edp_source_image *image,
+                                const struct bdw_edp_baseline_report *reference,
+                                struct bdw_edp_cycle_report *r)
+{
+    if (!r)
+        return false;
+    *r = (struct bdw_edp_cycle_report){0};
+    if (!io || !io->held || !io->read || !io->write || !io->now || !io->delay ||
+        !io->backing_hash || !valid_image(image) || !reference_matches(image, reference)) {
+        r->shutdown.source_error = BDW_EDP_SOURCE_IMAGE;
+        return false;
+    }
+    struct source_attempt a = {.io = *io, .image = *image, .report = &r->shutdown};
+    bool dark = disable_path(&a, r, reference);
+    r->retained = r->shutdown.source_writes != 0;
+    if (!dark)
+        return false;
+
+    r->stage = BDW_EDP_CYCLE_RESTORE;
+    if (intel_bdw_edp_source_restore(io, image, reference, &r->restore) != BDW_EDP_OK)
+        return false;
+    a.report = &r->restore;
+    if (!start_phase(&a, SOURCE_STAGE_US) || !scanout_matches(&a) || !backing_preserved(&a) ||
+        !expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL))
+        return false;
+    r->retained = false;
+    r->stage = BDW_EDP_CYCLE_COMPLETE;
+    return true;
 }

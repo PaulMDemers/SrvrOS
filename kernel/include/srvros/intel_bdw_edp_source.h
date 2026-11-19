@@ -68,4 +68,27 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
                                                 const struct bdw_edp_baseline_report *,
                                                 struct bdw_edp_source_report *);
 
+enum bdw_edp_cycle_stage {
+    BDW_EDP_CYCLE_ADMISSION, BDW_EDP_CYCLE_BACKLIGHT, BDW_EDP_CYCLE_PRIMARY,
+    BDW_EDP_CYCLE_TRANSCODER, BDW_EDP_CYCLE_PORT, BDW_EDP_CYCLE_PANEL,
+    BDW_EDP_CYCLE_DARK, BDW_EDP_CYCLE_RESTORE, BDW_EDP_CYCLE_COMPLETE,
+};
+
+struct bdw_edp_cycle_report {
+    enum bdw_edp_cycle_stage stage;
+    struct bdw_edp_source_report shutdown, restore;
+    bool retained;
+};
+
+/* Disable and restore the single inherited eDP path under one live owner.
+ * The owner has already excluded all other display clients and proved
+ * inactive VGA, display audio, PSR, FBC, IPS, panel fitter and other pipes.
+ * The backing_hash callback must verify the original PTEs and fences with
+ * the pipe and panel either on or off. No PCI, GT, LCPLL or GGTT writes.
+ * Any failure after a possibly issued write keeps the original owner pinned. */
+bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *,
+                                const struct bdw_edp_source_image *,
+                                const struct bdw_edp_baseline_report *,
+                                struct bdw_edp_cycle_report *);
+
 #endif
