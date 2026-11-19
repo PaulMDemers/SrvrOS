@@ -321,6 +321,18 @@ lighting the panel. This qualifies reestablishing the driver request under
 the firmware hold. Recovery from an actually unpowered well still needs
 its own initialization and qualification.
 
+On MacBookAir7,2, release `2d343940a84a3f33` completed the driver-well
+trial in session `session-000660a69c5f8f8a-00`. The release and reclaim
+took 35 µs with exact readback. The driver register changed from
+`0xc0000000` to `0x40000000` and back. The firmware register stayed
+`0xc0000000`, and the panel status stayed `0x08000001` across all three
+samples. The framebuffer copy matched byte for byte, all three PCI
+snapshots agreed, and both restored primary-plane CRCs matched
+`0xc2798333` before the backlight came on. The original mask, well
+request and display lease retired cleanly. The saved run returned to
+Ubuntu and passed the offline USB integrity check. The receipt records
+zero reset writes.
+
 The native AFCTL store depends on a live requester and memory-completion
 witness, a CPU-only reset hold while MMIO decode is unavailable, and a
 provider that can restore the actual clock, well and interrupt state
