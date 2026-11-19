@@ -74,6 +74,13 @@ Pro11,2 Wi-Fi and WebCore PRs have separate scopes. The remaining native
 checkpoint is continuous ownership of powered MMIO, clocks and the
 original framebuffer across reset.
 
+PR301's next checkpoint is the display platform provider. It will capture
+the exact Broadwell clock, display-well, panel sequencer and PWM state
+under the existing framebuffer pin. The native observation stays on the
+inherited display, while a host fixture exercises the transition from
+a pinned reference to the fixed-mode restore adapter. Main remains
+`4016abf0`, with separate Wi-Fi and WebCore scopes.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
