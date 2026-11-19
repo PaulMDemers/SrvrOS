@@ -97,6 +97,12 @@ the display lease. The display shutdown and CRC-checked restore still
 need a native trial.
 [Display-cycle preflight result](../intel-bdw-edp-recovery.md#display-disable-and-restore-rehearsal).
 
+PR301's next native trial owns the Pipe A underrun mask and the isolated
+eDP disable/restore path. It uses the live reference and framebuffer
+lease from the same boot and requires two restored CRC windows before
+lighting the panel. The boot recipe and collector will distinguish the
+cycle from the observer. Main is `4016abf0`; Wi-Fi and WebCore are separate.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
