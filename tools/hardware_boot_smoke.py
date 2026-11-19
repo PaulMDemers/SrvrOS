@@ -207,6 +207,8 @@ def main():
     parser.add_argument("--keyboard-fail", action="store_true", help="inject wrong keys before correct keys in the guided typing rehearsal")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
+    parser.add_argument("--probe-no-framebuffer", action="store_true",
+                        help="Remove QEMU's display adapter and verify the Intel capture's serial and USB recovery path")
     parser.add_argument("--probe-network", action="store_true", help="Attach ECM to v26 idle capture and require bounded network-worker activity")
     parser.add_argument("--console-check", action="store_true")
     parser.add_argument("--kernel-check", action="store_true")
@@ -254,6 +256,8 @@ def main():
     audio_listen=bool(probe and manifest["config_version"].startswith("ram-usb-v1-audio-listen-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     intel_display_capture=bool(probe and intel_probe_profile(manifest["config_version"]))
+    if args.probe_no_framebuffer and not intel_display_capture:
+        parser.error("--probe-no-framebuffer requires an Intel display capture stage")
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-","ram-usb-v3-storage-only-")))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
@@ -319,6 +323,8 @@ def main():
         # Explicit cache-only CPU observation in TCG; absent Intel GPU still
         # refuses native address binding and aggregate display acceptance.
         command += intel_probe_cpu_args(manifest["config_version"])
+        if args.probe_no_framebuffer:
+            command += ["-vga", "none"]
         if hfw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
@@ -402,6 +408,11 @@ def main():
                     print(f"hardware-grub-smoke: PASS ({release}); capacity refusal, no session created, clean unmount")
                     return
                 if args.probe_check:
+                    if args.probe_no_framebuffer:
+                        text = wait_for(serial, lambda s: re.search(r"(?m)^framebuffer:[^\n]*\n", s),
+                                        process, args.boot_wait)
+                        if "framebuffer: unavailable" not in text.splitlines():
+                            raise RuntimeError("Expected SrvrOS to boot without a framebuffer")
                     if args.probe_missing_workspace:
                         expect_return=auto_return and not intel_display_capture
                         text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if expect_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
@@ -411,6 +422,11 @@ def main():
                             time.sleep(2)
                             assert process.poll() is None and "laptop-capture: returning" not in text
                         assert "laptop-capture: saved=NO unmounted=NO" in text
+                        if args.probe_no_framebuffer:
+                            result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source/"manifest.json"),
+                                          framebuffer_unavailable=True, workspace_table=args.workspace_table,
+                                          saved=False, unmounted=False, halted_without_reset=True)
+                            (logs/"hardware-grub-result.json").write_text(json.dumps(result, indent=2) + "\n")
                         print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if expect_return else "halts without reboot"))
                         return
                     if keyboard_capture:
@@ -1039,7 +1055,8 @@ def main():
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
                         "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"intel_display_capture":intel_display_capture,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_only_capture":storage_only_capture,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
-                        "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
+                        "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending",
+                        **({"framebuffer_unavailable": True} if args.probe_no_framebuffer else {})},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
                     return

@@ -8,15 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Active scope — qualify the reset boundary and display-independent recovery
+## PCI reset needs independent display recovery
 
-On main `4016abf0`, PR301 will compare PCI AF FLR, PCI power reset and
-GT soft reset with the Broadwell display and PCI references and the
-Air7,2 observations. The work covers the exact reset domains, unanswered
-memory-completion guarantees, and the existing QEMU boot and return
-harness. The immediate checkpoint is to verify whether the diagnostic
-can persist its result and reset with no guest framebuffer. A live
-takeover still requires a documented memory and display lifecycle.
+The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
+display engines and audio codec. PR301 now checks that the exact Intel
+diagnostic can record a refused probe and reset in QEMU without a
+framebuffer. It also verifies a serial halt without a workspace and
+rejects a VM that unexpectedly has a framebuffer. Native eDP restoration
+and a positive memory-completion witness are still required before a
+reset-based GGTT takeover.
+[Reset decision](../intel-completion-prerequisites.md#reset-and-display-recovery-decision).
 
 ## Owned blitter completion observed on Ubuntu
 

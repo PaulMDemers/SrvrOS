@@ -145,6 +145,24 @@ work must add its own required sanitizer, weakening controls, preservation and
 image-isolation jobs before it can be treated as qualified. The initial profile
 is not a replacement for all project-wide release checks.
 
+### Intel recovery without a framebuffer
+
+Use the exact staged Intel capture to check serial logging, USB persistence
+and reset with the VM's display adapter removed. The harness requires the
+kernel's `framebuffer: unavailable` line before recording a result.
+
+```sh
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --release RELEASE \
+  --probe-check --probe-no-framebuffer --output-dir build/review/RELEASE-no-fb
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --release RELEASE \
+  --probe-check --probe-no-framebuffer --probe-missing-workspace \
+  --output-dir build/review/RELEASE-no-fb-no-workspace
+```
+
+The first case must save and unmount the disposable USB workspace and reset.
+The missing-workspace case must report the halt over serial and stay running
+until the harness detaches. Both are VM checks for a future display takeover.
+
 Add required checks with `new ... --plan /absolute/path/extra-jobs.json`.
 That JSON has `development` and/or `qualification` arrays of jobs with unique
 `name`, string-array `argv`, checkout-relative `inputs` globs, `outputs` globs,

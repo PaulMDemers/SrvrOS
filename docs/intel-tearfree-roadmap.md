@@ -694,3 +694,9 @@ now checks aliases between the selected PTE's original physical target and the
 complete sampled primary image and translation tail. Saved wires 10–12 confirm
 that physical separation. Keep the target reserved while a live owner proves
 firmware exclusion and interval-specific completion before the first write.
+
+The [reset boundary review](intel-completion-prerequisites.md#reset-and-display-recovery-decision)
+rules out PCI AF FLR for a trial that preserves the running display. A
+reset-based takeover would first need independent eDP and audio reinitialization.
+The exact diagnostic now has VM receipts for saving and resetting without a
+framebuffer and for halting over serial when its workspace is missing.

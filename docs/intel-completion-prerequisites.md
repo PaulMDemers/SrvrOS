@@ -89,6 +89,43 @@ now implements the downstream five-engine sequence and fault handling. It has
 no native provider/caller. Fresh pipeline/memory-retirement proofs remain
 mandatory; this observer and its old recipes still perform no TLB writes.
 
+### Reset and display recovery decision
+
+On the Air7,2, Linux reports `af_flr pm` for GPU `00:02.0`.
+Its PCI Advanced Features capability advertises both Transaction Pending and
+Function Level Reset. The GPU was in D0 with its 1440×900 eDP panel enabled
+during the read-only inventory. These observations establish capability and
+current state.
+
+| Path | Documented boundary | Implication for the first GGTT write |
+| --- | --- | --- |
+| GT full soft reset | `GDRST` bit 0 clears when the graphics reset completes. The captured run preserved the inherited display and translations. | The register documents reset completion. Outstanding memory, prefetch and cache completion still need a separate witness. |
+| Conventional PCI AF FLR | Intel specifies that resetting `00:02.0` resets both display engines, the display audio codec and much of the device configuration. AF Transactions Pending describes non-posted traffic. | A display-preserving trial cannot use this path. An independent takeover would require panel and audio restoration, plus explicit memory-retirement evidence. |
+| PCI D3hot to D0 | The processor datasheet describes internal initialization on this transition as optional. Linux lists a PM reset method when the No Soft Reset bit is clear. | Capability discovery supplies no Broadwell-specific proof of a completed drain or preservation of scanout. |
+
+[Intel Broadwell Registers, pp. 609–610](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789) ·
+[Intel Broadwell Display, p. 125](https://www.x.org/docs/intel/BDW/intel-gfx-prm-osrc-bdw-vol11-display_0.pdf) ·
+[Processor datasheet, §§3.2.30–3.2.34](https://cdrdv2-public.intel.com/330835/5th-gen-core-family-datasheet-vol-2.pdf) ·
+[Linux v6.12 PCI reset handling](https://github.com/torvalds/linux/blob/v6.12/drivers/pci/pci.c#L4303).
+
+For any reset-based takeover that clears the inherited display, qualify a
+separate recovery path first. Keep the inherited backing pinned until its
+readers are accounted for. The native display path needs to demonstrate
+ordered panel power and backlight sequencing, clocks and wells, eDP link
+training, and a restored pipe scanning the known-good mode. The saved
+pre-reset checkpoint and return path also need to work with the panel dark.
+Even after those recovery steps are ready, the first GGTT write requires
+independent requester exclusion and completion of outstanding memory work.
+
+Exact release `9b727e958b7591d3` passed two recovery rehearsals in QEMU
+without a guest framebuffer. With its workspace attached, the image refused
+native GPU access, saved its diagnostic, unmounted cleanly and requested reset.
+With the workspace missing, it halted and reported the failure over serial.
+An injected VGA device was rejected by the framebuffer check. These results
+cover boot and return without a framebuffer in QEMU. Native recovery after
+an in-flight display reset remains unqualified.
+[Rehearsal commands](device-workflow.md#intel-recovery-without-a-framebuffer).
+
 ## Engine and L3 acknowledgement trial
 
 The isolated wire12 image samples the five `MSG_IDLE` registers and
