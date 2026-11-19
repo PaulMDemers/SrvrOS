@@ -677,8 +677,10 @@ def main():
                             cycle = manifest["config_version"].startswith(boot.EDP_CONFIGS[1:])
                             flr = manifest["config_version"].startswith(boot.EDP_CONFIGS[2:])
                             dark_well = manifest["config_version"].startswith(boot.EDP_CONFIGS[3])
-                            assert checkpoint(pre, terminal, native=False, cycle=cycle, flr=flr, dark_well=dark_well)
-                            edp = result(terminal, native=False, cycle=cycle, flr=flr, dark_well=dark_well)
+                            pci_hold = manifest["config_version"].startswith(boot.EDP_CONFIGS[4])
+                            trial = dict(cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold)
+                            assert checkpoint(pre, terminal, native=False, **trial)
+                            edp = result(terminal, native=False, **trial)
                             assert not edp["complete"] and not edp["retained"]
                             (logs/'intel-edp-baseline-result.json').write_text(json.dumps(edp,indent=2)+"\n")
                         if 'srvros.intel-memory=' in text:

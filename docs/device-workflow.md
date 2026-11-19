@@ -228,6 +228,14 @@ same pixel, PCI and display restore checks. This guest is silent and
 returns after saving a safe result. If the panel stays dark for 60 seconds,
 restart manually. [Driver well recovery](intel-bdw-edp-recovery.md#pci-function-reset-preparation).
 
+The explicit `--profile intel-edp-pci-hold-v1` closes PCI decode after
+the panel is dark and bus mastering is inhibited. It checks the CPU RAM
+copy while decode is closed and compares the live backing with memory
+decode reopened before restoring bus mastering. It then verifies two
+original CRCs and returns after saving a safely retired outcome. The
+profile is silent at 1% host volume. If the screen stays dark for 60
+seconds, restart manually. [PCI decode hold](intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the

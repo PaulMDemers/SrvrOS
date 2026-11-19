@@ -6812,7 +6812,7 @@ test-intel-bdw-primary-flip: build/tests/intel-bdw-primary-flip$(HOST_EXE)
 test-core: test-intel-bdw-primary-flip
 
 # Fixed Broadwell eDP recovery, exercised without a native MMIO provider.
-BDW_EDP_HOST_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c kernel/diagnostics/intel_bdw_flr.c
+BDW_EDP_HOST_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c kernel/diagnostics/intel_bdw_flr.c kernel/diagnostics/intel_bdw_pci_hold.c
 build/tests/intel-bdw-edp$(HOST_EXE): tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BDW_EDP_HOST_SOURCES) -o $@
@@ -6843,7 +6843,10 @@ build/intel-edp-baseline/recovery.o: kernel/diagnostics/intel_bdw_edp.c $(KERNEL
 build/intel-edp-baseline/source.o: kernel/diagnostics/intel_bdw_edp_source.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
-build/intel-edp-baseline/srvros.elf: build/intel-edp-baseline/boot.o build/intel-edp-baseline/probe.o build/intel-edp-baseline/core.o build/intel-edp-baseline/platform.o build/intel-edp-baseline/recovery.o build/intel-edp-baseline/source.o $(INTEL_EDP_BASELINE_BASE) kernel/linker.ld
+build/intel-edp-baseline/pci-hold.o: kernel/diagnostics/intel_bdw_pci_hold.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
+build/intel-edp-baseline/srvros.elf: build/intel-edp-baseline/boot.o build/intel-edp-baseline/probe.o build/intel-edp-baseline/core.o build/intel-edp-baseline/platform.o build/intel-edp-baseline/recovery.o build/intel-edp-baseline/source.o build/intel-edp-baseline/pci-hold.o $(INTEL_EDP_BASELINE_BASE) kernel/linker.ld
 	$(LD) $(LDFLAGS) $(filter-out kernel/linker.ld,$^) -o $@
 build/tests/intel-bdw-edp-baseline$(HOST_EXE): tools/test_intel_bdw_edp_baseline.c $(INTEL_EDP_BASELINE_SOURCE) $(INTEL_EDP_PLATFORM_SOURCE) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)

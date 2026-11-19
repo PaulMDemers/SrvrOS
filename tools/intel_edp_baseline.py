@@ -7,6 +7,7 @@ PROFILE = "intel-edp-baseline-v1"
 CYCLE_PROFILE = "intel-edp-cycle-v1"
 FLR_PREFLIGHT_PROFILE = "intel-edp-flr-preflight-v1"
 DARK_WELL_PROFILE = "intel-edp-dark-well-v1"
+PCI_HOLD_PROFILE = "intel-edp-pci-hold-v1"
 PREFIX = "ram-usb-v1-intel-edp-baseline-"
 SUMMARY = "intel-edp-baseline"
 SCHEMAS = {
@@ -30,21 +31,25 @@ SCHEMAS = {
     "intel-edp-flr-config": "v phase index word",
     "intel-edp-dark-well": "v complete samples writes elapsed_us",
     "intel-edp-dark-well-word": "v phase bios driver pps",
+    "intel-edp-pci-hold": "v complete samples writes polls elapsed_us settle_us first_clear_us cpu_copy digest backing retained",
+    "intel-edp-pci-hold-word": "v phase command af",
 }
 FLR_ROWS = ("intel-edp-flr-preflight", "intel-edp-flr-pixels", "intel-edp-flr-config")
 WELL_ROWS = ("intel-edp-dark-well", "intel-edp-dark-well-word")
+HOLD_ROWS = ("intel-edp-pci-hold", "intel-edp-pci-hold-word")
 
 
-def recipe(command, *, cycle=False, flr=False, dark_well=False):
-    flr = flr or dark_well
+def recipe(command, *, cycle=False, flr=False, dark_well=False, pci_hold=False):
+    flr = flr or dark_well or pci_hold
     cycle = cycle or flr
+    subtest = "pci-hold" if pci_hold else "dark-well" if dark_well else "preflight"
     match = re.fullmatch(
         r"srvros.storage=ram srvros.workspace-volume=([0-9a-f]{8}) "
         r"srvros.desktop-release=([0-9a-f]{16}) srvros.capture=intel-display "
         r"srvros.intel-backing=read-only srvros.intel-cache=read-only "
         r"srvros.intel-edp-baseline=on" +
         (r" srvros.intel-edp-cycle=on" if cycle else "") +
-        (r" srvros.intel-edp-flr=" + ("dark-well" if dark_well else "preflight") if flr else "") +
+        (r" srvros.intel-edp-flr=" + subtest if flr else "") +
         r" srvros.capture-failure=reboot", command)
     if not match:
         raise ValueError("Invalid eDP baseline recipe")
@@ -213,7 +218,42 @@ def dark_well_result(rows, *, native, display):
     return s
 
 
-def flr_result(rows, *, native, display, well_complete=True):
+def pci_hold_result(rows, *, native, display):
+    summaries, samples = (rows[k] for k in HOLD_ROWS)
+    if len(summaries) != 1:
+        raise ValueError("Missing PCI decode hold summary")
+    s = summaries[0]
+    n = s["samples"]
+    if (n > 5 or [w["phase"] for w in samples] != list(range(n)) or
+            s["writes"] > 4 or not n - 1 <= s["writes"] <= n or s["polls"] > 99 or
+            not s["polls"] * 100 <= s["settle_us"] < 10000 or s["elapsed_us"] < s["settle_us"] or
+            s["first_clear_us"] > s["settle_us"] or
+            any(s[key] > 1 for key in ("cpu_copy", "backing", "complete", "retained")) or
+            (not native and any(v for k, v in s.items() if k != "v")) or
+            (n and display["stage"] < 6) or (s["retained"] and not display["retained"]) or
+            s["retained"] != bool(s["writes"] and not s["complete"])):
+        raise ValueError("Invalid PCI decode hold coverage")
+    expected = (7, 0x403, 0x400, 0x402, 7)
+    if n:
+        first = [r["word"] for r in rows["intel-edp-flr-config"] if r["phase"] == 0 and r["index"] == 3]
+        if first != [samples[0]["command"]] or first[0] >= 1 << 32 or first[0] & 0x10ffff != 0x100007:
+            raise ValueError("PCI decode hold is detached from the original configuration")
+        for w, command in zip(samples, expected):
+            if (w["command"] != (first[0] & 0xffff0000) | command or w["af"] not in (0, 0x100) or
+                    (w["phase"] and w["af"])):
+                raise ValueError("Invalid PCI command or AF status")
+    pixels = rows["intel-edp-flr-pixels"]
+    if ((n >= 2 and (s["polls"] < 2 or not 100 <= s["first_clear_us"] <= s["settle_us"] - 100)) or
+            (s["digest"] and n < 3) or
+            (s["cpu_copy"] and (n < 3 or not pixels or s["digest"] != pixels[0]["digest"])) or
+            (n >= 4 and not s["cpu_copy"]) or (s["backing"] and (n < 4 or len(pixels) < 2)) or
+            (n == 5 and (not s["backing"] or s["elapsed_us"] >= 2000000)) or
+            s["complete"] != (n == 5) or (display["complete"] and not s["complete"])):
+        raise ValueError("Contradictory PCI decode hold completion")
+    return s
+
+
+def flr_result(rows, *, native, display, handoff_complete=True):
     summaries, pixels, config = (rows[key] for key in FLR_ROWS)
     if len(summaries) != 1:
         raise ValueError("Missing eDP FLR preflight summary")
@@ -240,14 +280,14 @@ def flr_result(rows, *, native, display, well_complete=True):
                 (n and w != [r["word"] for r in config[:16]])):
             raise ValueError("eDP FLR config differs")
     complete = (display["complete"] and s["pixels"] == s["configs"] == 3 and
-                bool(s["released"]) and well_complete)
+                bool(s["released"]) and handoff_complete)
     if complete != s["complete"] or (s["released"] and not display["retired"]):
         raise ValueError("Contradictory eDP FLR preflight completion")
     return s
 
 
-def result(text, *, native=True, cycle=False, flr=False, dark_well=False):
-    flr = flr or dark_well
+def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_hold=False):
+    flr = flr or dark_well or pci_hold
     cycle = cycle or flr
     rows = rows_of(text)
     summaries = rows[SUMMARY]
@@ -324,9 +364,16 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False):
         for key in WELL_ROWS:
             if rows.pop(key):
                 raise ValueError("Unexpected dark well evidence")
+    if pci_hold:
+        hold = pci_hold_result(rows, native=native, display=observed)
+    else:
+        for key in HOLD_ROWS:
+            if rows.pop(key):
+                raise ValueError("Unexpected PCI decode hold evidence")
     if flr:
+        handoff = (not dark_well or bool(well["complete"])) and (not pci_hold or bool(hold["complete"]))
         flr_preflight = flr_result(rows, native=native, display=observed,
-                                   well_complete=not dark_well or bool(well["complete"]))
+                                   handoff_complete=handoff)
         complete = bool(flr_preflight["complete"])
     else:
         for key in FLR_ROWS:
@@ -358,20 +405,22 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False):
         report["flr_preflight"] = flr_preflight
     if dark_well:
         report["dark_well"] = well
+    if pci_hold:
+        report["pci_hold"] = hold
     return report
 
 
-def checkpoint(pre, text, native=False, *, cycle=False, flr=False, dark_well=False):
+def checkpoint(pre, text, native=False, *, cycle=False, flr=False, dark_well=False, pci_hold=False):
     boot = "laptop-capture: boot options="
     a = [line[len(boot):] for line in pre.splitlines() if line.startswith(boot)]
     b = [line[len(boot):] for line in text.splitlines() if line.startswith(boot)]
     if len(a) != 1 or a != b or any(rows_of(pre).values()):
         raise ValueError("Invalid eDP baseline preflight checkpoint")
-    recipe(a[0], cycle=cycle, flr=flr, dark_well=dark_well)
+    recipe(a[0], cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold)
     prefixes = ("intel-display-", "intel-backing-", "intel-cache-")
     original = [line for line in pre.splitlines() if line.startswith(prefixes)]
     terminal = [line for line in text.splitlines() if line.startswith(prefixes)]
     if not original or original != terminal:
         raise ValueError("Changed eDP baseline preflight evidence")
-    result(text, native=native, cycle=cycle, flr=flr, dark_well=dark_well)
+    result(text, native=native, cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold)
     return True

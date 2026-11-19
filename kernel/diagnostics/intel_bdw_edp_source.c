@@ -80,7 +80,7 @@ struct source_attempt {
     struct bdw_edp_source_report *report;
     enum bdw_edp_stage stage;
     uint64_t last, phase_start;
-    uint32_t budget;
+    uint32_t budget, cdclk_khz;
     bool require_panel, keep_timings;
     uint32_t gamma;
 };
@@ -250,7 +250,7 @@ static bool clock_ready(struct source_attempt *a)
         return false;
     uint32_t effective = fuse & FUSE_CDCLK_LIMIT ? 450000 : rate[(pll & LCPLL_FREQ_MASK) >> 26];
     return (((pll & (LCPLL_LOCK | LCPLL_BAD)) == LCPLL_LOCK &&
-             effective == a->image.cdclk_khz) || reject(a, BDW_EDP_SOURCE_CLOCK)) &&
+             effective == a->cdclk_khz) || reject(a, BDW_EDP_SOURCE_CLOCK)) &&
            expect(a, CDCLK_FREQ, UINT32_MAX, (effective + 500) / 1000 - 1, BDW_EDP_SOURCE_CLOCK);
 }
 
@@ -458,7 +458,7 @@ static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
                                                 const struct bdw_edp_source_image *image,
                                                 const struct bdw_edp_baseline_report *reference,
                                                 struct bdw_edp_source_report *report,
-                                                bool keep_timings, uint32_t gamma)
+                                                bool keep_timings, uint32_t gamma, uint32_t cdclk_khz)
 {
     if (!report)
         return BDW_EDP_INVALID;
@@ -469,7 +469,9 @@ static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
         return report->panel.result;
     }
 
-    struct source_attempt a = {.io = *io, .image = *image, .report = report, .gamma = gamma};
+    struct source_attempt a = {
+        .io = *io, .image = *image, .report = report, .gamma = gamma, .cdclk_khz = cdclk_khz,
+    };
     if (!valid_image(&a.image) || !reference_matches(&a.image, reference)) {
         report->source_error = BDW_EDP_SOURCE_IMAGE;
         return report->panel.result;
@@ -486,7 +488,7 @@ static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
         .scanout_live = read_live,
         .keep_timings = keep_timings,
     };
-    intel_bdw_edp_panel_restore(&panel, a.image.cdclk_khz, &report->panel);
+    intel_bdw_edp_panel_restore(&panel, a.cdclk_khz, &report->panel);
     if (report->source_error == BDW_EDP_SOURCE_OWNER)
         report->panel.result = BDW_EDP_OWNERSHIP;
     return report->panel.result;
@@ -497,7 +499,7 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
                                                 const struct bdw_edp_baseline_report *reference,
                                                 struct bdw_edp_source_report *report)
 {
-    return restore(io, image, reference, report, false, 0);
+    return restore(io, image, reference, report, false, 0, image ? image->cdclk_khz : 0);
 }
 
 static bool backing_preserved(struct source_attempt *a)
@@ -681,7 +683,9 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
         r->shutdown.source_error = BDW_EDP_SOURCE_IMAGE;
         return false;
     }
-    struct source_attempt a = {.io = *io, .image = *image, .report = &r->shutdown};
+    struct source_attempt a = {
+        .io = *io, .image = *image, .report = &r->shutdown, .cdclk_khz = image->cdclk_khz,
+    };
     uint32_t primary, buffer, transport;
     if (!active_path(&a, reference, &primary, &buffer, &transport))
         return false;
@@ -701,13 +705,23 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
         a.report = &r->restore;
         if (!keep) {
             a.gamma = 0;
-            if (!start_phase(&a, SOURCE_STAGE_US) || !clock_ready(&a) ||
+            uint32_t cdclk;
+            if (!start_phase(&a, SOURCE_STAGE_US) || !load(&a, CDCLK_FREQ, &cdclk)) {
+                r->retained = true;
+                return false;
+            }
+            /* A fixed 88.89 MHz Air7,2 mode fits the documented 450 MHz
+             * reset rate. Keep its original reference and 2.7 Gbit/s link.
+             * A known locked clock must already exist before panel writes. */
+            if (image->cdclk_khz == 675000 && cdclk == 449)
+                a.cdclk_khz = 450000;
+            if (!clock_ready(&a) ||
                 !backing_preserved(&a) || !fifo_mask(&a, r, FIFO_RESET_OPEN)) {
                 r->retained = true;
                 return false;
             }
         }
-        restored = restore(io, image, reference, &r->restore, keep, a.gamma) == BDW_EDP_OK &&
+        restored = restore(io, image, reference, &r->restore, keep, a.gamma, a.cdclk_khz) == BDW_EDP_OK &&
                    start_phase(&a, SOURCE_STAGE_US) && scanout_matches(&a) && backing_preserved(&a) &&
                    expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL);
     }

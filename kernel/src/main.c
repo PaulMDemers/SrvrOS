@@ -1011,18 +1011,23 @@ void kmain(void) {
             if (cmdline_has_token(cmdline, "srvros.intel-edp-baseline=on")) {
                 bool display_cycle = cmdline_has_token(cmdline, "srvros.intel-edp-cycle=on");
                 bool dark_well = display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=dark-well");
-                bool flr_preflight = dark_well || (display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=preflight"));
+                bool pci_hold = display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=pci-hold");
+                bool flr_preflight = dark_well || pci_hold ||
+                    (display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=preflight"));
                 if (flr_preflight)
                     console_write("intel-edp-flr: checking copied framebuffer and PCI state through a display-only cycle. No PCI reset.\n");
                 if (dark_well)
                     console_write("intel-edp-dark-well: release/reclaim driver well request while the panel is off.\n");
+                if (pci_hold)
+                    console_write("intel-edp-pci-hold: test PCI Command close/reopen with the original framebuffer saved; no reset.\n");
                 console_write(display_cycle
                     ? "intel-edp-cycle: automatic display shutdown and restore, silent, volume 1%, no input.\n"
                       "intel-edp-cycle: the screen goes dark. If still dark or unchanged after 60s, restart manually.\n"
                     : "intel-edp-baseline: automatic PHY/backing/CRC trial, silent, no input.\n"
                       "intel-edp-baseline: saved outcomes return to Ubuntu. If unchanged 60s, photograph and restart manually.\n");
                 if (started && workspace_log_pause()) {
-                    bool baseline_ok = intel_edp_baseline_probe(&edp_retained, display_cycle, flr_preflight, dark_well);
+                    bool baseline_ok = intel_edp_baseline_probe(&edp_retained, display_cycle, flr_preflight,
+                                                                dark_well, pci_hold);
                     sampled = sampled && cache_ok && baseline_ok;
                 } else {
                     console_write("intel-edp-baseline: checkpoint unavailable; no trial\n");

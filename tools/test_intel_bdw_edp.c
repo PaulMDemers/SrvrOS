@@ -2,6 +2,7 @@
 #include <srvros/intel_bdw_edp_source.h>
 #include <srvros/intel_bdw_edp_baseline.h>
 #include <srvros/intel_bdw_flr.h>
+#include <srvros/intel_bdw_pci_hold.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -460,10 +461,14 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
     switch (offset) {
     case 0x130040:
         *word = (s->fault == SOURCE_PLL_UNLOCKED ||
-                 (s->fault == SOURCE_CLOCK_LOST_AFTER_PROOF && s->proofs == 2 && s->crc_retired)) ? 0 : 0x40000000u;
+                 (s->fault == SOURCE_CLOCK_LOST_AFTER_PROOF && s->proofs == 2 && s->crc_retired)) ? 0 :
+                 (s->exercise_flr && (!s->function_reset || s->flr_fault == 9) ? 0x4c000000u : 0x40000000u);
         break;
     case 0x42014: *word = 0; break;
-    case 0x46200: *word = s->fault == SOURCE_CDCLK_WRONG ? 449u + 1 : 449u; break;
+    case 0x46200:
+        *word = s->exercise_flr && !s->function_reset ? 674u :
+                (s->fault == SOURCE_CDCLK_WRONG ? 450u : 449u);
+        break;
     case 0x46100: *word = s->clock; break;
     case 0x64000:
         *word = s->buffer;
@@ -726,7 +731,7 @@ static struct bdw_edp_baseline_report setup_source(struct source_fixture *s)
     s->image = (struct bdw_edp_source_image){
         .backing = f, .epoch = 41, .mapped_bytes = 904ull * 6144 + 128ull * 4096,
         .backing_hash = TEST_BACKING_HASH, .reference_crc = TEST_REFERENCE_CRC,
-        .cdclk_khz = 450000, .ddi_lane_bits = 0x10010,
+        .cdclk_khz = s->exercise_flr ? 675000u : 450000u, .ddi_lane_bits = 0x10010,
     };
     for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
         s->image.phy[i][0] = 0x123456u + i;
@@ -928,7 +933,7 @@ static unsigned test_cycle(void)
     assert(f.flr.stage == BDW_FLR_COMPLETE && !f.flr.retained);
     assert(f.primary == 0x98000400u && f.panel.pp_writes == 5 && f.proofs == 2);
     assert(r.mask_writes == 3 && r.mask_restored && f.irq_mask == UINT32_MAX);
-    for (unsigned fault = 1; fault <= 8; ++fault) {
+    for (unsigned fault = 1; fault <= 9; ++fault) {
         f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
         assert(!run_cycle(&f, &r) && r.retained);
         assert(r.stage == ((fault == 5 || fault >= 7) ? BDW_EDP_CYCLE_RESTORE : BDW_EDP_CYCLE_DARK));
@@ -936,7 +941,92 @@ static unsigned test_cycle(void)
         assert(f.flr.reset_issued == (fault != 1 && fault != 6));
         assert(f.flr.retained == (fault == 2 || fault == 3 || fault == 4));
     }
-    return writes + 19;
+    return writes + 20;
+}
+
+struct pci_hold_fixture {
+    uint64_t time;
+    unsigned command, stores, polls, fault;
+    bool copy, backing;
+};
+
+static bool hold_active(void *ctx)
+{
+    struct pci_hold_fixture *f = ctx;
+    return f->fault != 1;
+}
+
+static bool hold_sample(void *ctx, struct bdw_pci_hold_sample *sample)
+{
+    struct pci_hold_fixture *f = ctx;
+    *sample = (struct bdw_pci_hold_sample){.command = 0x900000u | f->command};
+    if (f->command == 0x403 && (++f->polls <= 3 || f->fault == 2))
+        sample->af = 0x100;
+    if (f->command == 0x400 && f->fault == 3)
+        sample->command |= 2;
+    if (f->command == 0x402 && f->fault == 4)
+        sample->af = 0x100;
+    return true;
+}
+
+static enum intel_gt_write hold_store(void *ctx, uint16_t before, uint16_t after)
+{
+    struct pci_hold_fixture *f = ctx;
+    static const uint16_t order[] = {7, 0x403, 0x400, 0x402, 7};
+    assert(f->stores < 4 && before == f->command &&
+           before == order[f->stores] && after == order[f->stores+1]);
+    assert(after != 7 || (f->copy && f->backing));
+    f->command = after;
+    ++f->stores;
+    return f->fault == 5 && after == 0x400 ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+
+static uint64_t hold_now(void *ctx)
+{
+    return ((struct pci_hold_fixture *)ctx)->time;
+}
+
+static void hold_delay(void *ctx, uint32_t us)
+{
+    struct pci_hold_fixture *f = ctx;
+    f->time += f->fault == 6 ? 0 : us;
+}
+
+static bool hold_copy(void *ctx)
+{
+    struct pci_hold_fixture *f = ctx;
+    assert(f->command == 0x400);
+    f->copy = f->fault != 7;
+    return f->copy;
+}
+
+static bool hold_backing(void *ctx)
+{
+    struct pci_hold_fixture *f = ctx;
+    assert(f->command == 0x402 && f->copy);
+    f->time += f->fault == 8 ? BDW_PCI_HOLD_LIMIT_US : 200000;
+    f->backing = f->fault != 9;
+    return f->backing;
+}
+
+static unsigned test_pci_hold(void)
+{
+    struct bdw_pci_hold_report report;
+    static const unsigned writes[] = {4, 0, 1, 2, 3, 2, 1, 2, 3, 3};
+    for (unsigned fault = 0; fault < sizeof(writes) / sizeof(writes[0]); ++fault) {
+        struct pci_hold_fixture f = {.command = 7, .time = 1, .fault = fault};
+        const struct bdw_pci_hold_io io = {
+            &f, hold_active, hold_sample, hold_store, hold_now, hold_delay, hold_copy, hold_backing,
+        };
+        assert(intel_bdw_pci_hold(&io, &report) == !fault);
+        assert(report.writes == f.stores && f.stores == writes[fault]);
+        assert(report.retained == (fault > 1));
+        if (!fault)
+            assert(report.complete && report.samples == 5 && report.polls == 5 &&
+                   report.first_clear_us == 400 && report.settle_us == 500 &&
+                   report.cpu_copy && report.backing && f.command == 7);
+    }
+    return sizeof(writes) / sizeof(writes[0]);
 }
 
 static unsigned test_source(void)
@@ -1114,5 +1204,6 @@ int main(void)
     assert(lost_after_send.attempts == 1 && !lost_after_send.clears && report.effects_possible);
     printf("Broadwell eDP recovery: %zu cases (%u link injection points)\n",
            sizeof(clocks) / sizeof(clocks[0]) + good.events * 5 +
-           sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source() + test_cycle(), good.events);
+           sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source() + test_cycle() +
+           test_pci_hold(), good.events);
 }

@@ -17,9 +17,10 @@ VOLUME = "01234567"
 BOOT = "laptop-capture: boot options="
 
 
-def cmdline(cycle=False, flr=False, dark_well=False):
+def cmdline(cycle=False, flr=False, dark_well=False, pci_hold=False):
+    profile = 4 if pci_hold else 3 if dark_well else 2 if flr else cycle
     return next(line.partition("cmdline:")[2].strip() for line in
-                limine_config(RELEASE, EDP_CONFIGS[3 if dark_well else 2 if flr else cycle] + "laptop-probe-" +
+                limine_config(RELEASE, EDP_CONFIGS[profile] + "laptop-probe-" +
                               VOLUME + "-auto-return").splitlines()
                 if "cmdline:" in line)
 
@@ -56,7 +57,8 @@ class EdpBaseline(unittest.TestCase):
                 path = root / "build" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
-            for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight", "intel_edp_dark_well"):
+            for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight",
+                         "intel_edp_dark_well", "intel_edp_pci_hold"):
                 with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
                         patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
                     release = boot.stage(laptop_probe_volume=VOLUME, **{mode: True})
@@ -110,7 +112,8 @@ class EdpBaseline(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="edp-baseline-") as tmp:
             for fixture, sources in [
                 ("baseline", ["intel_bdw_edp_baseline", "intel_bdw_edp_platform"]),
-                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source", "intel_bdw_flr"]),
+                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source",
+                             "intel_bdw_flr", "intel_bdw_pci_hold"]),
             ]:
                 with self.subTest(fixture=fixture):
                     binary = str(Path(tmp) / fixture)
@@ -255,3 +258,22 @@ class EdpBaseline(unittest.TestCase):
                           well.replace("samples=3 writes=2", "samples=1000000000000 writes=2")):
                 with self.assertRaises(ValueError):
                     result(wrong, dark_well=True)
+            hold = flr.replace(cmdline(flr=True), cmdline(pci_hold=True))
+            hold += ("intel-edp-pci-hold: v=1 complete=1 samples=5 writes=4 polls=2 "
+                     "elapsed_us=200000 settle_us=224 first_clear_us=112 cpu_copy=1 digest=17 backing=1 retained=0\n")
+            for phase, command in enumerate((7, 0x403, 0x400, 0x402, 7)):
+                hold += f"intel-edp-pci-hold-word: v=1 phase={phase} command={config[3] & 0xffff0000 | command} af=0\n"
+            self.assertEqual(recipe(cmdline(pci_hold=True), pci_hold=True), dict(release=RELEASE, volume=VOLUME))
+            self.assertTrue(result(hold, pci_hold=True)["pci_hold"]["complete"])
+            with self.assertRaises(ValueError):
+                result(hold, flr=True)
+            for wrong in (hold.replace(f"phase=2 command={config[3] & 0xffff0000 | 0x400}",
+                                       f"phase=2 command={config[3] & 0xffff0000 | 0x402}"),
+                          hold.replace("settle_us=224", "settle_us=123"),
+                          hold.replace("first_clear_us=112", "first_clear_us=210"),
+                          hold.replace("cpu_copy=1 digest=17", "cpu_copy=1 digest=18"),
+                          hold.replace("backing=1 retained=0", "backing=0 retained=0"),
+                          hold.replace("elapsed_us=200000", "elapsed_us=2000000"),
+                          hold.replace(" af=0\n", " af=0x100\n")):
+                with self.assertRaises(ValueError):
+                    result(wrong, pci_hold=True)

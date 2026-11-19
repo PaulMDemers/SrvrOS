@@ -1,5 +1,6 @@
 #include <srvros/intel_bdw_edp_baseline.h>
 #include <srvros/intel_bdw_edp_platform.h>
+#include <srvros/intel_bdw_pci_hold.h>
 #include <srvros/display_access.h>
 #include <srvros/display_present.h>
 
@@ -32,7 +33,9 @@ struct edp_flr_preflight {
     uint32_t pci[3][EDP_FLR_PCI_WORDS];
     unsigned pixel_samples, pci_samples;
     bool released;
-    bool exercise_well;
+    bool exercise_well, exercise_pci;
+    struct bdw_pci_hold_report pci_hold;
+    uint64_t ram_digest;
     struct {
         uint32_t bios, driver, pps;
     } well[3];
@@ -48,6 +51,7 @@ struct edp_adapter {
     struct edp_flr_preflight *flr;
     unsigned mapped, smi, reason;
     bool pinned, map_fault, platform, well_requested, run_cycle;
+    bool decode_closed, pci_backing_check;
     uint64_t cycle_epoch;
     const struct bdw_edp_source_image *image;
 };
@@ -128,7 +132,7 @@ static bool edp_map_all(struct edp_adapter *a)
 
 static volatile uint32_t *edp_mmio(struct edp_adapter *a, uint32_t offset)
 {
-    if ((offset & 3) || !edp_held(a))
+    if ((offset & 3) || a->decode_closed || !edp_held(a))
         return NULL;
     for (unsigned i = 0; i < a->mapped; ++i) {
         if (edp_pages[i] != (offset & ~4095u))
@@ -275,14 +279,26 @@ static bool edp_fences_preserved(struct edp_adapter *a)
     return edp_unmap_backing(a) && match && edp_held(a);
 }
 
+static bool edp_endpoint_same(struct edp_adapter *a, struct intel_backing_endpoint *endpoint)
+{
+    if (a->pci_backing_check) {
+        if (!a->flr || endpoint->identity.command != 0x402 ||
+            backing.sample[1].endpoint.identity.command != 7 || !edp_held(a))
+            return false;
+        /* All other independently observed endpoint fields still compare. */
+        endpoint->identity.command = 7;
+    }
+    return trial_endpoint_same(endpoint);
+}
+
 /* No route registers. This census can be used with the panel and pipe off
  * once a native display-cycle provider owns their entire lifetime. */
 static bool edp_pinned_translations(struct edp_adapter *a, uint64_t *hash)
 {
     struct intel_backing_endpoint endpoint;
     uint64_t begin = timer_monotonic_us();
-    if (!begin || !edp_range_valid() || !edp_held(a) ||
-        !backing_endpoint(&a->backing, &endpoint) || !trial_endpoint_same(&endpoint) ||
+    if (!begin || a->decode_closed || !edp_range_valid() || !edp_held(a) ||
+        !backing_endpoint(&a->backing, &endpoint) || !edp_endpoint_same(a, &endpoint) ||
         !edp_fences_preserved(a))
         return false;
     *hash = backing.sample[1].hash;
@@ -292,7 +308,7 @@ static bool edp_pinned_translations(struct edp_adapter *a, uint64_t *hash)
             return false;
     }
     return edp_fences_preserved(a) && backing_endpoint(&a->backing, &endpoint) &&
-           trial_endpoint_same(&endpoint) && edp_held(a) && timer_monotonic_us() - begin < 100000u;
+           edp_endpoint_same(a, &endpoint) && edp_held(a) && timer_monotonic_us() - begin < 100000u;
 }
 
 static bool edp_observe_cycle(struct edp_adapter *a, struct edp_cycle_observation *o)
@@ -487,12 +503,91 @@ static bool edp_flr_pixels(struct edp_adapter *a)
     return true;
 }
 
+static void edp_pause(void *context, uint32_t us);
+
+static bool edp_pci_hold_held(void *context)
+{
+    struct edp_adapter *a = context;
+    return a->flr && a->flr->exercise_pci && a->image && a->well_requested &&
+           !a->map_fault && !trial_mapping_fault && edp_held(a);
+}
+
+static bool edp_pci_hold_sample(void *context, struct bdw_pci_hold_sample *s)
+{
+    struct edp_adapter *a = context;
+    const struct pci_device *p = a->backing.common.gpu;
+    if (!edp_pci_hold_held(a) || p->bus || p->device != 2 || p->function ||
+        pci_read_config32(p, 0) != 0x16268086u || !edp_pci_hold_held(a))
+        return false;
+    s->command = pci_read_config32(p, 4);
+    s->af = pci_read_config32(p, 0xa8);
+    return edp_pci_hold_held(a);
+}
+
+static enum intel_gt_write edp_pci_hold_command(void *context, uint16_t before, uint16_t after)
+{
+    static const uint16_t commands[] = {7, 0x403, 0x400, 0x402, 7};
+    struct edp_adapter *a = context;
+    struct bdw_pci_hold_sample s;
+    if (!edp_pci_hold_held(a))
+        return GT_WRITE_NONE;
+    unsigned n = a->flr->pci_hold.writes;
+    const struct pci_device *p = a->backing.common.gpu;
+    if (n >= 4 || before != commands[n] || after != commands[n+1] ||
+        pci_read_config32(p, 0x90) != a->flr->pci[0][10] ||
+        pci_read_config32(p, 0xd4) != a->flr->pci[0][12] ||
+        !edp_pci_hold_sample(a, &s) || s.command != ((a->flr->pci[0][3] & 0xffff0000u) | before) ||
+        (n ? s.af != 0 : (s.af & ~0x100u)))
+        return GT_WRITE_NONE;
+    if (after == 0x400)
+        a->decode_closed = true;
+    pci_write_config16(p, 4, after);
+    return GT_WRITE_DONE;
+}
+
+static bool edp_pci_hold_copy(void *context)
+{
+    struct edp_adapter *a = context;
+    if (!edp_pci_hold_held(a) || !a->decode_closed || !a->flr->copy ||
+        a->flr->pixel_samples != 1)
+        return false;
+    const uint32_t *words = pmm_phys_to_virt(a->flr->copy);
+    uint64_t digest = 14695981039346656037ull;
+    for (unsigned i = 0; i < EDP_FRAME_BYTES / sizeof(*words); ++i)
+        digest = (digest ^ words[i]) * 1099511628211ull;
+    a->flr->ram_digest = digest;
+    return digest == a->flr->pixels[0] && edp_pci_hold_held(a);
+}
+
+static bool edp_pci_hold_backing(void *context)
+{
+    struct edp_adapter *a = context;
+    if (!a->decode_closed || !edp_pci_hold_held(a))
+        return false;
+    /* The caller has positively read back MEM on with BME still off. */
+    a->decode_closed = false;
+    a->pci_backing_check = true;
+    bool ok = edp_cycle_platform(a, true) && edp_flr_pixels(a);
+    a->pci_backing_check = false;
+    return ok;
+}
+
 static enum bdw_edp_dark_result edp_flr_dark(void *context, const struct bdw_edp_source_image *image)
 {
     struct edp_adapter *a = context;
-    if (!edp_source_held(a, image) ||
-        (a->flr->exercise_well && !edp_dark_well(a)) || !edp_flr_pixels(a))
+    if (!edp_source_held(a, image) || (a->flr->exercise_well && !edp_dark_well(a)))
         return BDW_EDP_DARK_REFUSED;
+    if (a->flr->exercise_pci) {
+        const struct bdw_pci_hold_io io = {
+            a, edp_pci_hold_held, edp_pci_hold_sample, edp_pci_hold_command, now, edp_pause,
+            edp_pci_hold_copy, edp_pci_hold_backing,
+        };
+        if (a->flr->pci_samples != 1 || (a->flr->pci[0][10] & 0x10000u) ||
+            !intel_bdw_pci_hold(&io, &a->flr->pci_hold))
+            return BDW_EDP_DARK_REFUSED;
+    } else if (!edp_flr_pixels(a)) {
+        return BDW_EDP_DARK_REFUSED;
+    }
     /* A read-only config refusal can still recover the original display. */
     (void)edp_flr_config(a);
     return BDW_EDP_DARK_UNCHANGED;
@@ -757,7 +852,8 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
     return ok && !r->retained;
 }
 
-bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight, bool dark_well)
+bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight,
+                             bool dark_well, bool pci_hold)
 {
     static bool attempted;
     if (attempted || !retained)
@@ -777,7 +873,7 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
     struct bdw_edp_platform_report platform = {0};
     struct edp_cycle_observation cycle = {0};
     struct edp_native_cycle native = {0};
-    struct edp_flr_preflight flr = {.exercise_well = dark_well};
+    struct edp_flr_preflight flr = {.exercise_well = dark_well, .exercise_pci = pci_hold};
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */
@@ -850,6 +946,17 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
             off->elapsed_us, (uint64_t)c->mask_error);
         if (flr_preflight) {
             bool ready = restored && flr.pixel_samples == 3 && flr.pci_samples == 3 && flr.released;
+            if (pci_hold) {
+                const struct bdw_pci_hold_report *p = &flr.pci_hold;
+                for (unsigned i = 0; i < p->samples; ++i)
+                    console_printf("intel-edp-pci-hold-word: v=1 phase=%u command=%x af=%x\n",
+                        (uint64_t)i, (uint64_t)p->sample[i].command, (uint64_t)p->sample[i].af);
+                console_printf("intel-edp-pci-hold: v=1 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
+                    (uint64_t)p->complete, (uint64_t)p->samples, (uint64_t)p->writes, (uint64_t)p->polls,
+                    p->elapsed_us, p->settle_us, p->first_clear_us, (uint64_t)p->cpu_copy, flr.ram_digest,
+                    (uint64_t)p->backing, (uint64_t)p->retained);
+                ready = ready && p->complete;
+            }
             if (dark_well) {
                 bool well_complete = flr.well_samples == 3 && flr.well_writes == 2 && flr.well_elapsed;
                 for (unsigned i = 0; i < flr.well_samples; ++i)

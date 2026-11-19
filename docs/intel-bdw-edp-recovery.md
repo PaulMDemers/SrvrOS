@@ -333,6 +333,32 @@ request and display lease retired cleanly. The saved run returned to
 Ubuntu and passed the offline USB integrity check. The receipt records
 zero reset writes.
 
+#### PCI decode hold and reset-default clock
+
+The `intel-edp-pci-hold-v1` recipe preserves the CPU display lease,
+driver-well request and framebuffer backup through an isolated PCI
+Command cycle. After the existing shutdown proves the primary, pipe,
+port and panel dark, it writes Command `0x0403` to inhibit bus mastering
+and INTx. It requires two AF Transactions Pending clear samples at least
+100 µs apart within 10 ms. It then writes `0x0400` and checks the
+backup using CPU-owned RAM only. It reopens memory decode at `0x0402`
+and compares the original translation/fences and every framebuffer word
+before restoring the original Command `0x0007`. The sequence and
+checks share a two-second bound. Successful readback permits the usual
+CRC-checked panel restore. An uncertain step keeps the owner and backup
+pinned. AF only describes non-posted transactions, leaving GPU
+pipeline, prefetch, posted writes, cache retirement and memory reuse
+outside the result. [Broadwell processor datasheet, §§3.2.3 and 3.2.30–3.2.31](https://cdrdv2-public.intel.com/330835/5th-gen-core-family-datasheet-vol-2.pdf#page=73).
+
+The post-reset host fixture now models a 675 MHz reference and a locked
+450 MHz reset clock. It tests the resulting 225 AUX divider, the original
+2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.
+It refuses an inconsistent LCPLL/CDCLK pair before writing to the
+display. The source adapter consumes an already-usable clock. The native
+decode trial leaves the inherited clock running and performs zero reset
+writes. Physical clock, well and PWM initialization after FLR still
+require a native provider. [Broadwell Display PRM, pp. 114–117](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf#page=128).
+
 The native AFCTL store depends on a live requester and memory-completion
 witness, a CPU-only reset hold while MMIO decode is unavailable, and a
 provider that can restore the actual clock, well and interrupt state
