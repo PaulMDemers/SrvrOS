@@ -130,3 +130,32 @@ Actual joined-core tests keep nonce completion separate from port issuance and
 retain backing on every partial/uncertain/late outcome. This still requires
 already owned initialized context/mappings; it cannot bootstrap their transfer
 or certify other engines, firmware or display readers. No native adapter exists.
+
+## Physical Ubuntu reference probe
+
+`tools/intel_bdw_bcs_host.c` uses the integrated GPU's Linux i915 render node.
+It requires Broadwell `8086:1626`, blitter support, a shared LLC and full
+per-process graphics translation. Each case creates a private context, batch
+and result page. i915 resolves both address relocations within that context.
+The positive case issues `MI_STORE_DATA_IMM` and then `MI_FLUSH_DW` with
+immediate QWord post-sync data on a separate cache line. Both halves of the
+marker are fresh and nonzero. The probe reads the prefaulted write-back
+mapping and checks the earlier value when it observes the marker, before it
+calls the userspace fence wait. After the bounded wait it checks the whole
+result region, including zero padding. The control ends after the first
+write and leaves the marker at zero.
+[Intel Broadwell PRM Volume 2a, pp. 834–837 and 915–917](https://cdrdv2-public.intel.com/v1/dl/getcontent/690783).
+
+```sh
+mkdir -p build/tests
+cc -std=c11 -O2 -Wall -Wextra -Werror tools/intel_bdw_bcs_host.c -o build/tests/intel-bdw-bcs-host
+timeout 15s build/tests/intel-bdw-bcs-host
+```
+
+On 2026-11-18, MacBookAir7,2 completed 20 positive cases and 10 controls.
+The host observed the marker after 0–135 µs of polling after the submit
+ioctl returned. A fatal ASan/UBSan build repeated one set successfully.
+The wait and other scheduling work in i915 can affect these times. The
+probe exercises private PPGTT addressing without requesting TLB invalidation.
+Native GGTT addressing, ring and status memory admission, firmware exclusion,
+and completion across other engines and display readers remain separate.

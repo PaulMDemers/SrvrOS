@@ -113,6 +113,12 @@ but has no native provider and requires already-owned ring/context/completion
 mappings. Neither an earlier receipt nor a positive fixture supplies this
 protocol's live prerequisite.
 
+The [physical Ubuntu reference probe](intel-bdw-bcs-flush.md#physical-ubuntu-reference-probe)
+observed a fresh blitter marker and the earlier private write before calling
+the i915 userspace fence wait. It exercised an i915-owned PPGTT and did not
+request invalidation. A native provider still needs separately admitted
+command mappings and retirement evidence.
+
 Then embed the operation inside that **same original** live owner, qualify
 native alias permissions and ordered accesses, and compose request completion
 with PTE publication and restoration. The existing transfer/publication cores
