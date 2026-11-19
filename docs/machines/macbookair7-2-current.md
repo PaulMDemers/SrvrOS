@@ -99,15 +99,16 @@ Release `f9ac1a127a36316f` physically verified the temporary underrun
 unmask and exact mask restoration in two sessions. Both stopped after
 the panel-off request, before the dark backing check or any restore
 writes. The inactive display remained leased and the USB reports
-survived. Native display restore is still pending. The next checkpoint
-is to preserve the panel sequencer's last raw sample and elapsed time
-before mask cleanup, then qualify its shutdown timing.
+survived.
 [Native cycle result](../intel-bdw-edp-recovery.md#first-native-display-cycle).
 
-PR301's retry is limited to the PPS shutdown wait and receipt in the
-Broadwell display diagnostic, its fixtures and collector. It uses the
-existing framebuffer lease and IRQ/CRC checks on main `4016abf0`.
-The Wi-Fi and WebCore PRs have separate scopes.
+Release `e3e5a1cc22c5e3a6` completed the isolated native shutdown and
+restore. The PPS reached panel-off in 324.117 ms with T12 still active.
+The full dark backing digest held and both restored primary CRCs matched
+the reference before the panel lit. The underrun mask, driver-well
+request and display lease retired cleanly. The single session returned
+to Ubuntu with verified USB integrity.
+[Panel-off timing retry](../intel-bdw-edp-recovery.md#panel-off-timing-retry).
 
 ## PCI reset needs independent display recovery
 
@@ -115,9 +116,11 @@ The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
 display engines and audio codec. PR301 now checks that the exact Intel
 diagnostic can record a refused probe and reset in QEMU without a
 framebuffer. It also verifies a serial halt without a workspace and
-rejects a VM that unexpectedly has a framebuffer. Native eDP restoration
-and a positive memory-completion witness are still required before a
-reset-based GGTT takeover.
+rejects a VM that unexpectedly has a framebuffer. The isolated native
+eDP cycle now passes. Carrying the display owner and original backing
+through PCI AF FLR, reestablishing the reset display resources, and an
+independent memory-completion witness remain open before reset-based
+GGTT takeover.
 [Reset decision](../intel-completion-prerequisites.md#reset-and-display-recovery-decision).
 
 ## Owned blitter completion observed on Ubuntu

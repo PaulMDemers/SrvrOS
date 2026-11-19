@@ -255,6 +255,17 @@ source-register failure survives the underrun mask cleanup, whose error
 is recorded separately. The host fixture verifies both completion with
 T12 active and a timed-out shutdown with retained ownership.
 
+Release `e3e5a1cc22c5e3a6` completed the isolated native cycle on
+MacBookAir7,2. The panel reached off in 324.117 ms after 3,078 poll
+samples. The last `PP_STATUS` was `0x08000001`, with panel power and
+sequencing progress clear and the T12 flag still set. The dark
+framebuffer digest remained `0x012970c1aee06011`. Both restored
+primary-plane CRC windows matched the original `0xc2798333` before
+the backlight was enabled. The inherited mask, driver-well request and
+display lease retired cleanly. The one-shot returned to Ubuntu and
+offline USB integrity passed. This result covers the display-only
+cycle with the original powered PCI function and translation backing.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·
