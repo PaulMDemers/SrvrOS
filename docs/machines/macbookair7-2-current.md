@@ -136,6 +136,12 @@ proof of requester and memory retirement and a provider that can
 reestablish the reset display resources. Wi-Fi and WebCore are separate.
 [PCI function reset preflight](../intel-bdw-edp-recovery.md#pci-function-reset-preparation).
 
+The next PR301 checkpoint covers restoration of the Pipe A mask from its
+reset state in the host fixture and a separate native trial of releasing
+and reclaiming the driver well request while scanout is off. It keeps the
+framebuffer pinned and the firmware well request asserted. A native AF
+reset still depends on independent requester and memory-retirement proof.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
