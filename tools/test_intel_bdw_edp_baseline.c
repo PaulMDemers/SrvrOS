@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 enum fault {
-    NO_FAULT, IRQ_LIVE, STALE_DONE, BUSY, WRONG_PHY, LOST_HOLD, NO_CRC,
+    NO_FAULT, COMPARE_MISMATCH, IRQ_LIVE, STALE_DONE, BUSY, WRONG_PHY, LOST_HOLD, NO_CRC,
     OLD_FRAME, BAD_CRC, CRC_ERROR, UNCERTAIN_MASK, BAD_RESTORE, LOST_BACKING,
     LOST_PHY, CLOCK_STOP, PIPE_UNDERRUN
 };
@@ -68,7 +68,7 @@ static enum intel_gt_write write(void *context, uint32_t reg, uint32_t word)
     ++f->writes;
     switch (reg) {
     case BDW_EDP_CRC_CTL:
-        assert((f->imr & BDW_EDP_CRC_IRQS) == 0 && !(f->ier & BDW_EDP_CRC_IRQS));
+        assert((f->imr & BDW_EDP_CRC_IRQS) == BDW_EDP_CRC_ERROR && !(f->ier & BDW_EDP_CRC_IRQS));
         assert(word == 0 || word == BDW_EDP_CRC_ENABLE);
         f->ctl = word;
         if (!word) {
@@ -78,13 +78,13 @@ static enum intel_gt_write write(void *context, uint32_t reg, uint32_t word)
         }
         break;
     case BDW_EDP_PIPE_IIR:
-        assert(word && !(word & ~BDW_EDP_CRC_IRQS));
+        assert(word == BDW_EDP_CRC_DONE);
         assert((f->iir & word) == word);
         f->iir &= ~word;
         ++f->ack;
         break;
     case BDW_EDP_PIPE_IMR:
-        assert(!f->ctl && ((f->imr ^ word) & ~BDW_EDP_CRC_IRQS) == 0);
+        assert(!f->ctl && ((f->imr ^ word) & ~BDW_EDP_CRC_DONE) == 0);
         f->imr = word;
         if (f->fault == UNCERTAIN_MASK && f->writes == 1)
             return GT_WRITE_UNCERTAIN;
@@ -110,9 +110,10 @@ static void wait(void *context, uint32_t us)
     if (f->fault != OLD_FRAME || f->after_close)
         ++f->frame;
     if (f->ctl == BDW_EDP_CRC_ENABLE && f->fault != NO_CRC) {
-        assert((f->imr & BDW_EDP_CRC_IRQS) == 0 && !(f->ier & BDW_EDP_CRC_IRQS));
         ++f->edges;
-        f->iir |= BDW_EDP_CRC_DONE;
+        f->iir |= BDW_EDP_CRC_DONE & ~f->imr;
+        if (f->fault == COMPARE_MISMATCH)
+            f->iir |= BDW_EDP_CRC_ERROR & ~f->imr;
         if (f->fault == CRC_ERROR)
             f->iir |= BDW_EDP_CRC_ERROR;
         if (f->fault == PIPE_UNDERRUN)
@@ -152,6 +153,11 @@ int main(void)
     ++b.sample.phy[1][1];
     assert(!intel_bdw_edp_baseline_same(&a, &b));
 
+    f = (struct fixture){.fault = COMPARE_MISMATCH};
+    assert(exercise(&f, &a));
+    assert(a.poll_iir == (BDW_EDP_CRC_DONE | 2u));
+    assert(f.ack == 4 && f.imr == 0xfffffffdu);
+
     for (enum fault i = IRQ_LIVE; i <= PIPE_UNDERRUN; ++i) {
         f = (struct fixture){.fault = i};
         assert(!exercise(&f, &a));
@@ -161,9 +167,14 @@ int main(void)
         if (i == LOST_HOLD || i == BAD_RESTORE || i == LOST_BACKING ||
             i == LOST_PHY || i == CLOCK_STOP)
             assert(a.retained);
-        if (i == NO_CRC || i == BAD_CRC || i == CRC_ERROR || i == OLD_FRAME ||
+        if (i == NO_CRC || i == BAD_CRC || i == OLD_FRAME ||
             i == UNCERTAIN_MASK || i == PIPE_UNDERRUN)
             assert(!a.retained && a.restored && !f.ctl && f.imr == 0xfffffffdu);
+        if (i == CRC_ERROR) {
+            assert(a.retained && !a.restored && !f.ctl && f.imr == 0xfffffffdu);
+            assert(a.poll_iir & BDW_EDP_CRC_ERROR);
+            assert(f.iir & BDW_EDP_CRC_ERROR);
+        }
         assert(f.iir & 2u);
     }
     puts("Broadwell eDP baseline: CRC frame freshness, PHY and lease revalidation, and exact rollback passed");

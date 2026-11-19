@@ -119,13 +119,13 @@ static enum intel_gt_write edp_write(void *context, uint32_t offset, uint32_t va
         if (value && value != BDW_EDP_CRC_ENABLE)
             return GT_WRITE_NONE;
     } else if (offset == BDW_EDP_PIPE_IIR) {
-        if (!value || (value & ~BDW_EDP_CRC_IRQS))
+        if (value != BDW_EDP_CRC_DONE)
             return GT_WRITE_NONE;
     } else if (offset != BDW_EDP_PIPE_IMR) {
         return GT_WRITE_NONE;
     }
     volatile uint32_t *word = edp_mmio(context, offset);
-    if (!word || (offset == BDW_EDP_PIPE_IMR && ((*word ^ value) & ~BDW_EDP_CRC_IRQS)))
+    if (!word || (offset == BDW_EDP_PIPE_IMR && ((*word ^ value) & ~BDW_EDP_CRC_DONE)))
         return GT_WRITE_NONE;
     if (!edp_held(context))
         return GT_WRITE_NONE;
@@ -282,6 +282,8 @@ bool intel_edp_baseline_probe(bool *retained)
             (uint64_t)i, (uint64_t)r[i].status, (uint64_t)r[i].reason, (uint64_t)r[i].events, (uint64_t)r[i].writes,
             (uint64_t)r[i].restored, (uint64_t)r[i].retained, s->backing_hash, (uint64_t)s->port,
             (uint64_t)s->buffer, (uint64_t)s->transport, (uint64_t)s->lcpll, (uint64_t)s->cdclk);
+        console_printf("intel-edp-poll: v=1 sample=%u iir=%x\n",
+            (uint64_t)i, (uint64_t)r[i].poll_iir);
         for (unsigned e = 0; e < BDW_EDP_CRC_FRAMES; ++e)
             console_printf("intel-edp-crc: v=1 sample=%u event=%u frame=%u value=%x\n",
                 (uint64_t)i, (uint64_t)e, (uint64_t)r[i].frame[e], (uint64_t)r[i].crc[e]);

@@ -92,7 +92,10 @@ static bool sample_crc(struct capture *c)
     for (unsigned i = 0; i < BDW_EDP_CRC_FRAMES; ++i) {
         uint32_t iir, first, last;
         for (;;) {
-            if (!read(c, BDW_EDP_PIPE_IIR, &iir) || (iir & (BDW_EDP_CRC_ERROR | PIPE_UNDERRUN)))
+            if (!read(c, BDW_EDP_PIPE_IIR, &iir))
+                return false;
+            r->poll_iir |= iir;
+            if (iir & (BDW_EDP_CRC_ERROR | PIPE_UNDERRUN))
                 return false;
             if (iir & BDW_EDP_CRC_DONE)
                 break;
@@ -118,7 +121,7 @@ static bool retire(struct capture *c)
 {
     uint32_t mask, ctl, begin, frame, pending, ier;
     uint32_t original = c->report->original_mask;
-    uint32_t temporary = original & ~BDW_EDP_CRC_IRQS;
+    uint32_t temporary = original & ~BDW_EDP_CRC_DONE;
     if (!start(c, RETIRE_US) ||
         !read(c, BDW_EDP_PIPE_IER, &ier) || (ier & BDW_EDP_CRC_IRQS) ||
         !read(c, BDW_EDP_PIPE_IMR, &mask) || (mask != original && mask != temporary) ||
@@ -135,9 +138,9 @@ static bool retire(struct capture *c)
         } while ((uint32_t)(frame - begin) < 2);
         if ((uint32_t)(frame - begin) > 4 || !read(c, BDW_EDP_PIPE_IIR, &pending))
             return false;
-        pending &= BDW_EDP_CRC_IRQS;
+        pending &= BDW_EDP_CRC_DONE;
         if ((pending && !write(c, BDW_EDP_PIPE_IIR, pending)) ||
-            !read(c, BDW_EDP_PIPE_IIR, &pending) || (pending & BDW_EDP_CRC_IRQS) ||
+            !read(c, BDW_EDP_PIPE_IIR, &pending) || (pending & BDW_EDP_CRC_DONE) ||
             !posted(c, BDW_EDP_PIPE_IMR, original))
             return false;
     }
@@ -165,7 +168,8 @@ bool intel_bdw_edp_baseline(const struct bdw_edp_baseline_io *io,
         return false;
 
     r->status = BDW_EDP_BASELINE_INCOMPLETE;
-    bool sampled = posted(&c, BDW_EDP_PIPE_IMR, r->original_mask & ~BDW_EDP_CRC_IRQS) &&
+    /* The primary tap needs only CRC-done. Leave the comparison error masked. */
+    bool sampled = posted(&c, BDW_EDP_PIPE_IMR, r->original_mask & ~BDW_EDP_CRC_DONE) &&
                    posted(&c, BDW_EDP_CRC_CTL, BDW_EDP_CRC_ENABLE) && sample_crc(&c);
     if (r->retained)
         r->restored = retire(&c);

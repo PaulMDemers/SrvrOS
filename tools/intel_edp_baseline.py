@@ -9,6 +9,7 @@ SUMMARY = "intel-edp-baseline"
 SCHEMAS = {
     SUMMARY: "v complete same changed retained pte_writes reset",
     "intel-edp-window": "v sample status reason events writes restored retained hash port buf tp pll cdclk",
+    "intel-edp-poll": "v sample iir",
     "intel-edp-crc": "v sample event frame value",
     "intel-edp-phy": "v sample entry low high",
 }
@@ -47,10 +48,13 @@ def result(text, *, native=True):
     rows = rows_of(text)
     summaries = rows[SUMMARY]
     windows = rows["intel-edp-window"]
+    poll = rows["intel-edp-poll"]
     crc = rows["intel-edp-crc"]
     phy = rows["intel-edp-phy"]
     if len(summaries) != 1 or [r["sample"] for r in windows] != [0, 1]:
         raise ValueError("Missing eDP summary/windows")
+    if poll and ([r["sample"] for r in poll] != [0, 1] or any(r["iir"] >= 1 << 32 for r in poll)):
+        raise ValueError("Invalid eDP IRQ polling rows")
     if [(r["sample"], r["event"]) for r in crc] != [(s, n) for s in (0, 1) for n in range(4)]:
         raise ValueError("Missing eDP CRC rows")
     if [(r["sample"], r["entry"]) for r in phy] != [(s, n) for s in (0, 1) for n in range(9)]:
@@ -71,6 +75,8 @@ def result(text, *, native=True):
                 not 0 < c[2]["value"] < 0xffffffff or c[2]["value"] != c[3]["value"] or
                 not all(1 <= ((b["frame"]-a["frame"]) & 0xffffffff) <= 2 for a, b in zip(c, c[1:]))):
             raise ValueError("Invalid completed eDP window")
+        if poll and poll[sample]["iir"] & 0xb0000000 != 0x10000000:
+            raise ValueError("Completed eDP capture lacks clean CRC-done")
         for row in phy[sample * 9:sample * 9 + 9]:
             if (not row["low"] & 0xffffff or row["low"] & ~0x80ffffff or
                     not row["high"] & 31 or row["high"] & ~0x001f001f):

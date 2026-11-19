@@ -99,7 +99,9 @@ clock/route registers, and runs the Broadwell primary-plane CRC tap. The
 adapter excludes PSR, FBC and IPS, checks the boot CPU's SMI count and
 keeps the pinned resources on uncertain retirement.
 
-CRC-done and error are locally latched with delivery disabled. Four
+Only CRC-done is locally unmasked, with interrupt delivery disabled. The
+probe leaves the CRC comparison-error event masked, as i915 does for
+capture, and records the observed interrupt status in each window. Four
 fresh completions must cross distinct frame counters. The first two
 warm-up results are ignored and the next two must agree. Then the adapter
 disables CRC, waits for retirement, restores the exact local interrupt
@@ -126,4 +128,5 @@ The source register sequence and watermark formula follow Broadwell Volume
 11, pp. 102–103 and 183–184. The PLL, timing and source-clock state were
 cross-checked with i915. [Intel Broadwell Display PRM](https://xorg.freedesktop.org/docs/intel/BDW/intel-gfx-prm-osrc-bdw-vol11-display_0.pdf) ·
 [i915 timing and M/N](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_display.c) ·
-[i915 CRC sources](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pipe_crc.c).
+[i915 CRC sources](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pipe_crc.c) ·
+[i915 CRC-done interrupt setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_irq.c).

@@ -30,7 +30,7 @@ struct bdw_edp_baseline_report {
     enum bdw_edp_baseline_status status;
     struct bdw_edp_baseline_sample sample;
     uint32_t frame[BDW_EDP_CRC_FRAMES], crc[BDW_EDP_CRC_FRAMES];
-    uint32_t original_mask;
+    uint32_t original_mask, poll_iir;
     unsigned events, writes, reason;
     bool restored, retained;
 };

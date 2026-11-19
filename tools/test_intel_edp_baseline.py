@@ -30,6 +30,7 @@ def packet(positive):
         text.append(f"intel-edp-window: v=1 sample={sample} status={status} reason={reason} "
                     f"events={events} writes={writes} restored={restored} retained=0 "
                     f"hash={int(positive)} port={0x20000000 * positive} buf=0 tp=0 pll=0 cdclk=0")
+        text.append(f"intel-edp-poll: v=1 sample={sample} iir={0x10000000 * positive}")
         for n in range(4):
             text.append(f"intel-edp-crc: v=1 sample={sample} event={n} "
                         f"frame={n*positive} value={(0x1234 + sample)*positive}")
@@ -86,11 +87,14 @@ class EdpBaseline(unittest.TestCase):
         b = dict(observation_complete=True, summary=dict(count=1356, offset=0, tiled=1, fence_matches=1))
         with patch("intel_edp_baseline.backing_result", return_value=b):
             self.assertTrue(result(text)["diagnostic_complete"])
+            older = "\n".join(line for line in text.splitlines() if not line.startswith("intel-edp-poll:"))
+            self.assertTrue(result(older)["diagnostic_complete"])
             for old, new in [
                 ("sample=1 event=3 frame=3 value=4661", "sample=1 event=3 frame=2 value=4661"),
                 ("sample=1 entry=5 low=1 high=2", "sample=1 entry=5 low=1 high=3"),
                 ("complete=1 same=1", "complete=0 same=1"),
                 ("pte_writes=0", "pte_writes=1"),
+                ("sample=1 iir=268435456", "sample=1 iir=805306368"),
             ]:
                 with self.subTest(old=old), self.assertRaises(ValueError):
                     result(text.replace(old, new))

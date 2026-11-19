@@ -49,6 +49,13 @@ exclusive CPU display lease, verified primary mappings, and independent
 CRC completion and retirement. Main remains `4016abf0`; Wi-Fi and WebCore
 have separate scopes.
 
+The first native trial, release `752c58ee0fb72b7e`, captured all nine DDI A
+PHY entries and verified the 1,356 visible PTEs and 128-entry fetch tail
+around the CRC window. The first window accepted zero CRC completions and
+restored its control state. It saved logs, unmounted, and returned to
+Ubuntu automatically. The retry unmasks only CRC-done and records the
+raw poll status. The reason for the original CRC failure remains unconfirmed.
+
 ## PCI reset needs independent display recovery
 
 The Air7,2 advertises PCI AF FLR, which Intel documents as resetting the
