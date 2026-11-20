@@ -31,11 +31,14 @@ still needs the same dark-display owner to control the remapper and account
 for remaining GPU pipeline, cache and prefetch work. The Wi-Fi and WebCore
 PRs have separate scopes.
 
-The current PR301 trial measures the two GT3 video engines' outstanding
-reference and prefetch reads in the existing held GT diagnostic. It depends
-on the Air's original GT borrow, inhibited bus master and validated UC
-aliases. The scope covers the GT flush producer, host fixture and collector.
-Physical qualification of these four sampled queues is pending.
+Release `8e5b856650ecf306` (source `240f0c8d`) completed the GT3 media
+counter diagnostic on this Air. All four reference and prefetch counters
+read zero at each of three checkpoints. The arbiter continued to allow
+requests and the engine and L3 flush acknowledgements stayed clear.
+The USB evidence and Ubuntu recovery checks passed. The next reset milestone
+is to exclude new GPU requests and verify outstanding writes and cache
+completion while the same owner holds the display off.
+[Media counter measurements](../intel-completion-prerequisites.md#macbookair72-media-counter-result)
 
 ## Native eDP recovery scope
 

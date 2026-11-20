@@ -258,6 +258,21 @@ zero and the reads are sequential. Establishing a function-reset drain
 still requires control of new requests and evidence for other clients,
 writes and caches in the same dark-display ownership interval.
 
+#### MacBookAir7,2 media counter result
+
+Source `240f0c8d`, release `8e5b856650ecf306`, saved session
+`session-000660b898e4a615-00`. Both video engines returned a raw zero in
+both registers before preparation, after all five engines reached Ready for
+Reset, and after maintenance. The three snapshots took 849, 848 and 856 µs.
+All 36 reads completed and all nine temporary aliases retired.
+
+At every checkpoint the arbiter still allowed requests (decoded mask
+`0x5f`), and the engine and L3 flush acknowledgements were clear. The zero
+counts therefore describe sampled queues only. The enclosing diagnostic
+took 462.976 ms under its wider timing policy. Preparation, GT and HDA
+exceeded their original timing limits. Raw log replay, offline USB integrity
+and the installed recovery checks passed. The workflow closed as `DIAGNOSED`.
+
 ## Automated trial
 
 ```sh
