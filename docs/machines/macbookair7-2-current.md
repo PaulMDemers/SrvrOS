@@ -48,6 +48,15 @@ the power manager's request under the dark-display hold. The Air's last
 physical result remains the three media observations above.
 [Reset ordering and dependencies](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
 
+As an Ubuntu reference, i915 reported RC6 enabled on this unit's
+`8086:1626`. Its GT0 residency counter advanced 679 ms over a 1.000 s
+interval. Upstream i915 has a software park operation for an initialized
+RC6 context. A candidate SrvrOS provider must account for that context,
+the GT wake held to read the acknowledgements and whether the block remains
+observable before PCI decode closes. Residency alone cannot establish any
+of those conditions.
+[i915 RC6 park](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L643-L668)
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
