@@ -8,15 +8,20 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
-## Current PCI reopen trial
+## Native display recovery after PCI decode reopens
 
-PR301 will run the shared display resource recovery on this Air while the panel
-is dark, PCI memory decode is open and bus mastering is inhibited. The trial
-will release and reacquire only the driver well request while BIOS keeps the well
-powered, then check the original translations, framebuffer bytes and both CRCs.
-Scope covers the isolated eDP PCI-hold adapter, receipt and local hardware
-workflow on main `4016abf0`. The Wi-Fi and WebCore PRs are independent.
-A function reset still requires a live witness for outstanding GPU traffic.
+Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
+Air. With bus mastering inhibited and BIOS keeping the well powered, the
+driver released and reacquired its display power request. The complete PCI
+hold took 197.912 ms. All 5,529,600 framebuffer bytes matched and the restored
+primary produced the reference CRC in both windows. The USB return passed
+offline verification. The run is closed.
+
+The next prerequisite for a PCI function reset is proving completion of
+outstanding GPU traffic in the same ownership lifetime. The native trial
+exercised the BIOS-powered well path. Cold-well recovery, post-reset display
+restoration and native tear-free scanout remain pending.
+[Hardware evidence](../intel-bdw-edp-recovery.md#native-resource-recovery-under-inhibited-pci-bus-mastering)
 
 ## Native eDP recovery scope
 

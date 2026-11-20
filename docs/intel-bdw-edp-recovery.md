@@ -412,7 +412,16 @@ readback `0xc0000000` and the original PLL, timer and panel clock gate.
 Each helper guard checks the original display lease, framebuffer backup,
 PCI identity, MMIO BAR, Command and AF status. Failure records the last phase
 and retains the PCI hold. Framebuffer verification follows recovery and both
-reference CRCs follow display restoration. Physical acceptance is pending.
+reference CRCs follow display restoration.
+
+Release `40de8de2891163f4`, session `session-000660b7ff7b4292-00`, passed all
+47 reopen checks on Air7,2. Checks 21 and 22 recorded the driver changing from
+`0x40000000` to `0xc0000000` at Command `0x0402`. The original 32 fences,
+1,484 translations and 5,529,600 framebuffer bytes matched. The PCI hold took
+197.912 ms and both restored CRCs matched `0xc2798333`. The interrupt mask and
+driver request were restored, the final log selected Ubuntu return, and offline
+USB integrity passed. This physically qualifies the BIOS-powered path. Cold-well
+startup, function reset and post-reset register repair remain pending.
 
 #### Backlight PWM recovery
 
