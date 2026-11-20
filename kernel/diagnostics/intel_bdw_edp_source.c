@@ -267,7 +267,9 @@ static bool panel_resources_ready(struct source_attempt *a)
     uint32_t pwm = a->image.pch_pwm_data;
     if ((pwm >> 16) != 0x0ad9u || (pwm & 0xffffu) > (pwm >> 16))
         return reject(a, BDW_EDP_SOURCE_IMAGE);
-    return expect(a, 0xc2020, UINT32_MAX, 0x1000, BDW_EDP_SOURCE_PANEL) &&
+    return expect(a, BDW_EDP_WELL_DRIVER, UINT32_MAX, BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON,
+                  BDW_EDP_SOURCE_PANEL) &&
+           expect(a, BDW_EDP_LP_CLOCK_GATE, UINT32_MAX, 0x1000, BDW_EDP_SOURCE_PANEL) &&
            expect(a, BDW_EDP_PPS_ON_DELAYS, UINT32_MAX, BDW_EDP_PPS_ON_AIR72, BDW_EDP_SOURCE_PANEL) &&
            expect(a, BDW_EDP_PPS_OFF_DELAYS, UINT32_MAX, BDW_EDP_PPS_OFF_AIR72, BDW_EDP_SOURCE_PANEL) &&
            expect(a, BDW_EDP_PPS_DIVISOR, UINT32_MAX, BDW_EDP_PPS_DIV_AIR72, BDW_EDP_SOURCE_PANEL) &&
@@ -724,17 +726,9 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
         a.report = &r->restore;
         if (reset) {
             a.gamma = 0;
-            uint32_t cdclk;
-            if (!start_phase(&a, SOURCE_STAGE_US) || !load(&a, CDCLK_FREQ, &cdclk)) {
-                r->retained = true;
-                return false;
-            }
-            /* A fixed 88.89 MHz Air7,2 mode fits the documented 450 MHz
-             * reset rate. Keep its original reference and 2.7 Gbit/s link.
-             * A known locked clock must already exist before panel writes. */
-            if (image->cdclk_khz == 675000 && cdclk == 449)
-                a.cdclk_khz = 450000;
-            if (!clock_ready(&a) || !panel_resources_ready(&a) ||
+            /* Device 2 FLR preserves LCPLL_CTL. Require the captured
+             * frequency and its timer encoding before any panel writes. */
+            if (!start_phase(&a, SOURCE_STAGE_US) || !clock_ready(&a) || !panel_resources_ready(&a) ||
                 !backing_preserved(&a) || !fifo_mask(&a, r, FIFO_RESET_OPEN)) {
                 r->retained = true;
                 return false;

@@ -751,7 +751,7 @@ static enum intel_gt_write edp_pps_write(void *context, uint32_t offset, uint32_
 
 static bool edp_rehearse_pps(struct edp_adapter *a)
 {
-    const struct bdw_edp_pps_io io = {a, edp_pps_held, edp_read, edp_pps_write, now, edp_pause};
+    const struct bdw_edp_dark_io io = {a, edp_pps_held, edp_read, edp_pps_write, now, edp_pause};
     return intel_bdw_edp_pps_restore(&io, a->flr->pps_image, true, &a->flr->pps);
 }
 

@@ -6,6 +6,9 @@
 #define BDW_EDP_WELL_DRIVER 0x45404u
 #define BDW_EDP_WELL_REQUEST 0x80000000u
 #define BDW_EDP_WELL_ON 0x40000000u
+#define BDW_EDP_LCPLL_CTL 0x130040u
+#define BDW_EDP_CDCLK_FREQ 0x46200u
+#define BDW_EDP_LP_CLOCK_GATE 0xc2020u
 
 enum bdw_edp_platform_word {
     BDW_EDP_PLAT_BIOS, BDW_EDP_PLAT_DRIVER, BDW_EDP_PLAT_KVMR, BDW_EDP_PLAT_DEBUG,
@@ -88,7 +91,7 @@ struct bdw_edp_pps_image {
     uint32_t on, off, divisor;
 };
 
-struct bdw_edp_pps_io {
+struct bdw_edp_dark_io {
     void *context;
     bool (*held)(void *);
     bool (*read)(void *, uint32_t, uint32_t *);
@@ -109,7 +112,27 @@ struct bdw_edp_pps_report {
  * restore the captured Air7,2 timing words from their LPT-LP reset state.
  * A rehearsal establishes that state by clearing only the two timing words
  * with all power requests off. Never clear the reference divider or T12. */
-bool intel_bdw_edp_pps_restore(const struct bdw_edp_pps_io *, struct bdw_edp_pps_image,
+bool intel_bdw_edp_pps_restore(const struct bdw_edp_dark_io *, struct bdw_edp_pps_image,
                                bool rehearse, struct bdw_edp_pps_report *);
+
+enum bdw_edp_reopen_phase {
+    BDW_EDP_REOPEN_ADMIT, BDW_EDP_REOPEN_WELL, BDW_EDP_REOPEN_CLOCK,
+    BDW_EDP_REOPEN_GATE, BDW_EDP_REOPEN_READY,
+};
+
+struct bdw_edp_reopen_report {
+    enum bdw_edp_reopen_phase phase;
+    uint32_t pll, driver_before, driver_after, cdclk_before, gate_before;
+    uint64_t elapsed_us;
+    unsigned writes;
+    bool retained;
+};
+
+/* Recover Air7,2's driver well request and display timing registers after
+ * memory decode reopens. The caller owns the dark route and original backing.
+ * Its IO lease guard must work with the well off and require the same PCI
+ * function with bus mastering inhibited. Never write LCPLL, BIOS, KVMR or debug
+ * well requests. On success keep the driver request through display restore. */
+bool intel_bdw_edp_reopen_resources(const struct bdw_edp_dark_io *, struct bdw_edp_reopen_report *);
 
 #endif

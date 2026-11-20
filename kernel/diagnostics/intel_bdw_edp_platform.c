@@ -220,7 +220,7 @@ bool intel_bdw_edp_pwm_restore(const struct bdw_edp_pwm_io *io, struct bdw_edp_p
 #define PPS_STATUS_NOT_OFF 0xf0000000u
 
 struct pps_attempt {
-    const struct bdw_edp_pps_io *io;
+    const struct bdw_edp_dark_io *io;
     struct bdw_edp_pps_report *report;
     uint64_t begin, last;
     unsigned limit;
@@ -307,7 +307,7 @@ static bool pps_equal(struct bdw_edp_pps_image a, struct bdw_edp_pps_image b)
     return a.on == b.on && a.off == b.off && a.divisor == b.divisor;
 }
 
-bool intel_bdw_edp_pps_restore(const struct bdw_edp_pps_io *io, struct bdw_edp_pps_image saved,
+bool intel_bdw_edp_pps_restore(const struct bdw_edp_dark_io *io, struct bdw_edp_pps_image saved,
                                bool rehearse, struct bdw_edp_pps_report *r)
 {
     if (!r)
@@ -337,6 +337,136 @@ bool intel_bdw_edp_pps_restore(const struct bdw_edp_pps_io *io, struct bdw_edp_p
         !pps_sample(&a, &r->after) || !pps_equal(r->after, saved) || !pps_idle(&a))
         return false;
     r->complete = true;
+    r->retained = false;
+    return true;
+}
+
+#define REOPEN_TOTAL_US 25000u
+#define REOPEN_WELL_US 1000u
+#define AIR72_PLL 0x4c000000u
+#define AIR72_FUSE 0x20100042u
+#define AIR72_CDCLK 674u
+#define CDCLK_DEFAULT 449u
+#define AIR72_LP_GATE 0x1000u
+#define WELL_OWNED (BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON)
+
+struct reopen_attempt {
+    const struct bdw_edp_dark_io *io;
+    struct bdw_edp_reopen_report *r;
+    uint64_t begin, last;
+};
+
+static bool reopen_tick(struct reopen_attempt *a)
+{
+    if (!a->io->held(a->io->context))
+        return false;
+    uint64_t now = a->io->now(a->io->context);
+    if (!now || now < a->last)
+        return false;
+    a->last = now;
+    a->r->elapsed_us = now - a->begin;
+    return a->r->elapsed_us < REOPEN_TOTAL_US;
+}
+
+static bool reopen_read(struct reopen_attempt *a, uint32_t reg, uint32_t *word)
+{
+    return reopen_tick(a) && a->io->read(a->io->context, reg, word) &&
+           *word != UINT32_MAX && reopen_tick(a);
+}
+
+static bool reopen_expect(struct reopen_attempt *a, uint32_t reg, uint32_t expected)
+{
+    uint32_t word;
+    return reopen_read(a, reg, &word) && word == expected;
+}
+
+static bool reopen_dark(struct reopen_attempt *a)
+{
+    uint32_t status;
+    return reopen_expect(a, 0xc7204, 0) && reopen_read(a, 0xc7200, &status) &&
+           !(status & PPS_STATUS_NOT_OFF);
+}
+
+static bool reopen_write(struct reopen_attempt *a, uint32_t reg, uint32_t word)
+{
+    uint32_t driver = reg == BDW_EDP_WELL_DRIVER ? a->r->driver_before : WELL_OWNED;
+    if (!reopen_expect(a, BDW_EDP_WELL_DRIVER, driver) ||
+        !reopen_expect(a, BDW_EDP_LCPLL_CTL, AIR72_PLL) || !reopen_dark(a))
+        return false;
+    enum intel_gt_write result = a->io->write(a->io->context, reg, word);
+    if (result != GT_WRITE_NONE) {
+        ++a->r->writes;
+        a->r->retained = true;
+    }
+    return result == GT_WRITE_DONE;
+}
+
+static bool reopen_foreign_requests_match(struct reopen_attempt *a, uint32_t bios_request)
+{
+    return reopen_expect(a, 0x45400, bios_request | BDW_EDP_WELL_ON) &&
+           reopen_expect(a, 0x45408, BDW_EDP_WELL_ON) &&
+           reopen_expect(a, 0x4540c, BDW_EDP_WELL_ON);
+}
+
+static bool reopen_well_ready(struct reopen_attempt *a, uint32_t bios_request)
+{
+    uint64_t start = a->last;
+    for (;;) {
+        uint32_t *driver = &a->r->driver_after;
+        if (!reopen_read(a, BDW_EDP_WELL_DRIVER, driver) || a->last - start >= REOPEN_WELL_US)
+            return false;
+        if (*driver == WELL_OWNED)
+            return reopen_foreign_requests_match(a, bios_request);
+        if (*driver != BDW_EDP_WELL_REQUEST)
+            return false;
+        uint64_t before = a->last;
+        a->io->delay(a->io->context, 10);
+        if (!reopen_tick(a) || a->last - before < 10)
+            return false;
+    }
+}
+
+bool intel_bdw_edp_reopen_resources(const struct bdw_edp_dark_io *io, struct bdw_edp_reopen_report *r)
+{
+    if (!r)
+        return false;
+    *r = (struct bdw_edp_reopen_report){0};
+    if (!io || !io->held || !io->read || !io->write || !io->now || !io->delay || !io->held(io->context))
+        return false;
+    uint64_t now = io->now(io->context);
+    if (!now)
+        return false;
+    struct reopen_attempt a = {.io = io, .r = r, .begin = now, .last = now};
+    uint32_t bios;
+    if (!reopen_read(&a, BDW_EDP_LCPLL_CTL, &r->pll) || r->pll != AIR72_PLL ||
+        !reopen_expect(&a, 0x42014, AIR72_FUSE) || !reopen_dark(&a) ||
+        !reopen_read(&a, 0x45400, &bios) || (bios != WELL_OWNED && bios != 0) ||
+        !reopen_read(&a, BDW_EDP_WELL_DRIVER, &r->driver_before) ||
+        r->driver_before != (bios & BDW_EDP_WELL_ON) ||
+        !reopen_expect(&a, 0x45408, r->driver_before) ||
+        !reopen_expect(&a, 0x4540c, r->driver_before))
+        return false;
+    r->phase = BDW_EDP_REOPEN_WELL;
+    if (!reopen_write(&a, BDW_EDP_WELL_DRIVER, BDW_EDP_WELL_REQUEST) ||
+        !reopen_well_ready(&a, bios & BDW_EDP_WELL_REQUEST))
+        return false;
+    r->phase = BDW_EDP_REOPEN_CLOCK;
+    if (!reopen_expect(&a, BDW_EDP_LCPLL_CTL, AIR72_PLL) ||
+        !reopen_read(&a, BDW_EDP_CDCLK_FREQ, &r->cdclk_before) ||
+        (r->cdclk_before != AIR72_CDCLK &&
+         (r->cdclk_before != CDCLK_DEFAULT || !reopen_write(&a, BDW_EDP_CDCLK_FREQ, AIR72_CDCLK))) ||
+        !reopen_expect(&a, BDW_EDP_CDCLK_FREQ, AIR72_CDCLK))
+        return false;
+    r->phase = BDW_EDP_REOPEN_GATE;
+    if (!reopen_read(&a, BDW_EDP_LP_CLOCK_GATE, &r->gate_before) ||
+        (r->gate_before != AIR72_LP_GATE &&
+         (r->gate_before != 0 || !reopen_write(&a, BDW_EDP_LP_CLOCK_GATE, AIR72_LP_GATE))) ||
+        !reopen_expect(&a, BDW_EDP_LP_CLOCK_GATE, AIR72_LP_GATE) ||
+        !reopen_expect(&a, BDW_EDP_LCPLL_CTL, AIR72_PLL) ||
+        !reopen_expect(&a, BDW_EDP_WELL_DRIVER, WELL_OWNED) ||
+        !reopen_foreign_requests_match(&a, bios & BDW_EDP_WELL_REQUEST) || !reopen_dark(&a))
+        return false;
+    r->phase = BDW_EDP_REOPEN_READY;
     r->retained = false;
     return true;
 }

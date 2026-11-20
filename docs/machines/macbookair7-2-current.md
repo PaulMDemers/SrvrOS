@@ -216,7 +216,11 @@ survive Device 2 FLR. The provider will require that exact locked
 state, own the original display exclusion with memory decode
 reopened, reacquire only the driver well request and restore the
 known timing encoding and LP clock gate before PPS/PWM recovery.
-Native requester retirement and a physical FLR remain separate.
+The joined fixture now exercises both a cold well with default timing
+registers and a firmware-powered well with its timing intact. It requires
+the original PLL and verifies the driver request and clock readbacks
+before PPS/PWM writes. Native requester retirement, an adapter for the
+reopened hardware resources, and a physical FLR remain open.
 Wi-Fi and WebCore have distinct scopes.
 
 ## Owned blitter completion observed on Ubuntu

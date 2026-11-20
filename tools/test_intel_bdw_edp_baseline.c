@@ -391,7 +391,7 @@ static void test_pps(void)
     const struct pps_fixture rehearsal = {.image = saved, .cycle_ends = 500000, .rehearse = true};
     struct pps_fixture f = reset;
     struct bdw_edp_pps_report r;
-    const struct bdw_edp_pps_io io = {&f, pps_held, pps_read, pps_write, pps_now, pps_delay};
+    const struct bdw_edp_dark_io io = {&f, pps_held, pps_read, pps_write, pps_now, pps_delay};
     assert(intel_bdw_edp_pps_restore(&io, saved, false, &r) && r.writes == 3);
     assert(r.initial_status == 0x08000001u && !r.idle_status && r.wait_us >= 499999 && r.samples == 3);
     f = rehearsal;

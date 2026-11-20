@@ -461,21 +461,36 @@ unmounted the USB workspace, and the laptop rebooted into Ubuntu.
 The collector closed as `EDP_DARK_PPS_COMPLETE` with offline USB integrity
 `PASS` and zero PCI reset writes.
 
-The post-reset host fixture now models a 675 MHz reference and a locked
-450 MHz reset clock. It tests the resulting 225 AUX divider, the original
-2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.
-It refuses an inconsistent LCPLL/CDCLK pair before writing to the
-display. The source adapter consumes an already-usable clock. The physical
-decode trial keeps the inherited clock running. Native initialization of
-the post-FLR clock, well and panel resources still requires a provider.
-[Broadwell Display PRM, pp. 114–117](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf#page=128).
+The Broadwell register reference specifies that Device 2 FLR preserves
+`LCPLL_CTL`. The modeled AF reset therefore preserves the Air's locked
+675 MHz selection. A distinct register, `CDCLK_FREQ`, supplies the
+timer encoding. If it reads the documented default 449 under the
+original locked PLL, the provider restores 674. The source requires the
+original clock and uses AUX divider 338 for the 2.7 Gbit/s eDP link.
+Actual values after native FLR remain unobserved.
+[Broadwell Register Reference, pp. 225, 927–929](https://cdrdv2.intel.com/v1/dl/getcontent/690789).
+
+The recovery helper runs with memory decode reopened, bus mastering
+inhibited and the original display and backing excluded from other
+users. It handles both an off display well with all requests clear and
+a well still powered by the original BIOS request. It sets only the
+driver request and waits for acknowledgement inside 1 ms. After
+confirming power, it repairs the timer encoding where required and
+restores the LP PPS clock-gate bit if clear. It compares readbacks and
+the original PLL and keeps the driver request through panel recovery.
+Unknown clock encodings, foreign requests, changed lock and uncertain
+stores stop the recovery before any panel power request. The helper
+implements no PLL, power-controller mailbox or firmware well writes.
+[i915 driver well request and readback](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_display_power_well.c) ·
+[Broadwell PPS clock-gate workaround, p. 1231](https://cdrdv2.intel.com/v1/dl/getcontent/690789).
 
 #### Joined PCI reset and panel recovery fixture
 
-The host fixture now runs AF reset and reopens memory decode with bus
-mastering inhibited, then uses the same PPS and PWM recovery routines
-used by the isolated native rehearsals. It starts T12 again at the reset
-store and models cleared delay and PWM timing words. The source requires
+The host fixture runs AF reset, reopens memory decode with bus
+mastering inhibited and restores the display well and clock registers.
+It uses the PPS and PWM recovery routines from the native rehearsals,
+starts T12 again at the reset store and models cleared delay and PWM
+timing words. The source requires
 the captured PWM word, the original PPS settings and the LP clock-gate
 workaround before rearming Pipe A and requesting power. It uses the
 restored timing words for the complete cycle and checks them and the

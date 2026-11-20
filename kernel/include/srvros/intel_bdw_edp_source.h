@@ -108,7 +108,7 @@ enum bdw_edp_dark_result {
 
 /* Runs under the same display and backing lease after shutdown. A recovered
  * reset must return with config/MMIO decoding reestablished, the original
- * backing verified, a locked original or reset-default CDCLK, the original
+ * backing verified, the original locked CDCLK, the original
  * PPS timing and PWM restored, and an owned all-masked Pipe A with IER and
  * IIR clear. The cycle verifies panel resources and re-arms underrun polling.
  * No register access follows a refused or uncertain handoff. */
