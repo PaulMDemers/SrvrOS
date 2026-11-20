@@ -350,6 +350,21 @@ pinned. AF only describes non-posted transactions, leaving GPU
 pipeline, prefetch, posted writes, cache retirement and memory reuse
 outside the result. [Broadwell processor datasheet, §§3.2.3 and 3.2.30–3.2.31](https://cdrdv2-public.intel.com/330835/5th-gen-core-family-datasheet-vol-2.pdf#page=73).
 
+Release `e897744dfc0800ec` stopped with the panel dark in Air7,2 session
+`session-000660a902d8ddfb-00`. Command readback reached
+`0x0007 → 0x0403 → 0x0400 → 0x0402`. AF Transactions Pending was
+clear at 103 and 205 µs after bus-master inhibition. The ordinary RAM
+copy digest still matched `0x7c16ae0a6bb7718d` while decode was closed.
+The first live validation after memory decode reopened did not complete.
+The timed hold ended at 2,873 µs, having recorded one pixel sample and no
+display restore operations. The receipt does not distinguish the
+platform check, translation and fence check, and first aperture
+comparison. SrvrOS kept bus mastering inhibited and retained the display
+lease and backup for the remainder of the run. Zero PCI reset writes
+were issued. The saved result passed offline USB integrity and the run
+was closed as a reviewed failure. A retry needs evidence identifying
+the first failing check after Command `0x0402`.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

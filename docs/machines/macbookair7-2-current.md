@@ -146,13 +146,15 @@ memory-retirement proof and recovery of any display resources that lose
 power or state.
 [Driver well recovery result](../intel-bdw-edp-recovery.md#pci-function-reset-preparation).
 
-The next PR301 checkpoint joins the dark display boundary to a reversible
-PCI Command hold and CPU-only access to the saved pixels. It will verify
-that GPU bus mastering can stay inhibited across decode close and reopen,
-and check the original backing before restoring the command word. The host
-restore fixture also covers the documented 450 MHz CDCLK reset default.
-This checkpoint measures non-posted PCI status. The scoped VT-d drain and
-private BCS work still leave whole-device memory completion open.
+Release `e897744dfc0800ec` verified PCI decode close and memory reopen
+with bus mastering inhibited and the panel dark. The CPU-owned copy
+retained its reference digest while decode was closed. The first live
+validation after reopen failed, so SrvrOS retained the display lease,
+left bus mastering inhibited, and halted before panel restore. The
+collected result passed offline USB integrity and was rejected as
+incomplete. The host restore fixture covers the documented 450 MHz
+CDCLK reset default. Native FLR and whole-device memory completion
+remain open. [Decode-hold trial](../intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
 ## Owned blitter completion observed on Ubuntu
 
