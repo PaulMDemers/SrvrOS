@@ -57,6 +57,13 @@ observable before PCI decode closes. Residency alone cannot establish any
 of those conditions.
 [i915 RC6 park](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L643-L668)
 
+The current Air7,2 trial will sample the GT core status, RC6 residency and
+forcewake acknowledgement twice during display shutdown, after PCI bus
+mastering is inhibited and before memory decode closes. PR301 owns the
+eDP adapter, PCI hold fixture and collector for this experiment. It depends
+on the accepted framebuffer and well recovery above. The samples describe
+power state only. GPU traffic exclusion still needs independent evidence.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
