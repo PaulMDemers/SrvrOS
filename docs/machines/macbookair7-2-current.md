@@ -55,6 +55,11 @@ can reserve them across publication, both flips and restoration, or receive
 that reservation from a preceding owner. The physical flip is pending.
 
 
+The next PR301 change covers reservation of the candidate interval among kernel
+scanout clients. It touches the shared GGTT transfer lifetime and the Air range
+adapter. The checkpoint is overlapping-owner refusal and retention through
+rollback and reader retirement under the same display exclusion.
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
