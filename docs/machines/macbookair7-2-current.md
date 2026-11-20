@@ -64,6 +64,13 @@ and display readers before it can promote this reservation and publish a second
 image.
 [Reservation lifetime](../scanout-transfer.md#reserving-the-second-framebuffer-interval)
 
+The exact staged kernel from `5134dc1e`, release `c75840e6674be3a6`, passed
+both QEMU boot paths. With the USB workspace it saved a version 10
+unsupported-device receipt and reset. Without the workspace it displayed
+the expected halt. The QEMU receipt records zero reservations and writes.
+The full 1,484-page flip, rollback, competing-owner and delayed-reader cases
+run in the host fixture. A physical flip remains pending.
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
