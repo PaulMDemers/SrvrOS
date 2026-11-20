@@ -8,6 +8,14 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Reset-free primary plane flip
+
+The current Air7,2 work on PR301 is to qualify a Pipe A surface change and
+return to the inherited surface using the same live display owner. The shared
+scope is the Broadwell primary flip core and its host fixture on main baseline
+`4016abf0`. Hardware staging depends on a writable, pinned second scanout
+mapping with the Air's exact geometry and reader exclusion.
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
