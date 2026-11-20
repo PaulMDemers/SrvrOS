@@ -143,6 +143,18 @@ stops at this failed first trial. See the unit handoff for immutable evidence,
 preservation checks and the next native handshake audit. No identical retry is
 scheduled and no handshake/radio/protocol timeout was widened.
 
+## November 20 cold WPA diagnostic
+
+Release `8751b516ca0eb6f8` completed the first WPA handshake before DHCP
+timed out waiting for an ACK after accepting an Offer and submitting a Request.
+The baseline and final captures reached empty after four and six reads. Both
+Discovers and the Request had unique, validated MAC ACK reports. The received
+Request matched the current transaction fields. There were zero DHCP ACK or NAK
+candidates and no parser rejections. A capture at the AP or DHCP server is
+needed to distinguish a missing server reply from a reply lost on the receive
+path. This run did not enter the second connection. The immutable evidence and
+preservation results are in the [unit record](machines/macbookpro11-2.md#current-handoff).
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)

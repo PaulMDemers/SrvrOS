@@ -1,11 +1,43 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-14. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-20. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Cold WPA diagnostic stopped at the first DHCP Request (November 20)
+
+Source `0656d0b7`, release `8751b516ca0eb6f8`, session
+`session-000660bbef6d9de7-00`. The only connection completed the four-way
+WPA handshake and accepted message 3 in 3.911 ms. It accepted a DHCP Offer and
+sent a Request, then finished the two-second DHCP window with zero DHCP ACK or
+NAK candidates and no parser rejections. A received frame matched the Request's
+current-transaction fields. The radio capture reached empty after six final
+reads and uniquely correlated MAC ACK reports for both Discovers and the
+Request. These observations establish local transmit and receive evidence.
+DHCP server receipt and reply remain unverified.
+
+The unused HTTP child and worker were retired, the keys were erased, the
+native stream closed, and the RF parent was restored. The trial never reached
+DNS, HTTP, or generation 2. The prior second-handshake failure remains open.
+Correlate the DHCP Request and any reply at the AP or DHCP server against the
+SrvrOS receive evidence before changing WPA policy or starting another cold
+reliability series.
+
+The source-frozen collector ran once. The incomplete protocol proof preserved
+the handshake, DHCP, packet, radio, and raw logs. The separate return review
+verified seven journal checkpoints, all 493 prior workspace files and metadata
+apart from the permitted marker access time, 74 other EFI files, both
+filesystem checks, and all nine recovery payloads. The installed release
+remains the diagnostic image and Ubuntu is unarmed. The sealed primary has
+1,659 files and index
+`3fd5e293ea27d750cc22282078bacc27935201ce3878f1571916ad90b87d4769`.
+The separate review index is
+`2be6e94f608f6a05b629c2e117d4e7ba0fc04bb72ad3fa2d3118ae8bc40b7571`.
+Preserve both records unchanged.
+
 
 ### Second-handshake audit and bounded outcome records (November 14)
 
