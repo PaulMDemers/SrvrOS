@@ -368,7 +368,7 @@ static unsigned aux_reads,aux_maps,aux_unmaps,aux_aliases;
 #ifdef SRVROS_INTEL_GT_FLUSH
 static unsigned flush_reads,flush_maps,flush_unmaps,flush_aliases;
 static bool flush_page(uint64_t pa) {
- return pa==0xc0008000 || pa==0xc0012000 || pa==0xc001c000;
+ return pa==0xc0008000 || pa==0xc0012000 || pa==0xc001c000 || pa==0xc0004000 || pa==0xc000a000;
 }
 #endif
 static bool intel_display_test_range_translate(uint64_t *physical) {
@@ -479,8 +479,8 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(flush_page(range_pa)) {
-  static const uint32_t expected[]={0x8000,0x8004,0x8010,0x8008,0x800c,0x8038,0x8028,0x8040,0x12870,0x12878,0x1c870,0x1c878};
-  unsigned i=flush_reads%12, n=gt_flush.samples;
+  static const uint32_t expected[]={0x8000,0x8004,0x8010,0x8008,0x800c,0x8038,0x8028,0x8040,0x12870,0x12878,0x1c870,0x1c878,0x40d0,0xa090,0xa094,0xa0b8};
+  unsigned i=flush_reads%(sizeof(expected)/sizeof(expected[0])), n=gt_flush.samples;
   assert(gt_flush_live() && offset==expected[i] && range_pa==0xc0000000ull+(offset&~4095u) && gpu_command==3);
   assert((n==0 && bwrites==0 && !pulses) || (n==1 && bwrites==5 && !pulses) ||
          (n==2 && pulses==2 && gt_memory.d.state==2 && gt_primary.complete));
@@ -492,10 +492,14 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
     /* Keep non-decoded bits in the raw receipt. */
     *out=i==6?(idle?0x20:0x7f):(idle?0x201:0x200);
   }
-  else {
+  else if(i<12) {
     *out=0x40004321u;
     if(bf("flush-busy",4*n+i-7))*out|=(i-7)<<16;
   }
+  else if(i==12)*out=n==1?0:0x5f;
+  else if(i==13)*out=n==2?0:0x90040000;
+  else if(i==14)*out=n==2?0x40000:0;
+  else *out=625;
   if(bf("flush-float",flush_reads))*out=UINT32_MAX;
   if(bf("flush-clock",flush_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
   if(bf("flush-window",flush_reads))ticks=gt_flush.begin[n]+BDW_BOOT_PHASE_US+1;
@@ -601,7 +605,7 @@ int main(int argc,char **argv) {
   assert(gt_primary.begin[1]<=gt_aux.begin[1] && gt_aux.end[1]<=gt_primary.end[1]);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-  assert(gt_flush.samples==3 && flush_reads==36 && flush_maps==9 && flush_aliases==9 && flush_unmaps==9);
+  assert(gt_flush.samples==3 && flush_reads==48 && flush_maps==15 && flush_aliases==15 && flush_unmaps==15);
   assert(!gt_flush.access.mapped && gt_flush.end[0]<gt_flush.begin[1] && gt_flush.end[1]<=r->begin);
   assert(gt_primary.end[1]<gt_flush.begin[2] && gt_flush.end[2]<gt_bootstrap_native.guard_begin);
 #endif

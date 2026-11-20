@@ -41,9 +41,14 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 4, "samples": 3, "reads": 36, "maps": 9, "retired": 9, "live": 0,
+                        "v": 5, "samples": 3, "reads": 48, "maps": 15, "retired": 15, "live": 0,
                     })
                     self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 3)
+                    power = flush["power_controls"]
+                    self.assertEqual([p["requested_clients"] for p in power], [0x5f, 0, 0x5f])
+                    self.assertEqual([p["sw_target"] for p in power], [0, 0, 4])
+                    self.assertEqual([p["rc6_enabled"] for p in power], [True, True, False])
+                    self.assertTrue(all(p["threshold_ticks"] == 625 for p in power))
                     idle = mode != "flush-quiet"
                     self.assertEqual(flush["gam"], [
                         dict(allowed=0x5f, idle=False), dict(allowed=0 if idle else 0x5f, idle=idle),
@@ -92,8 +97,8 @@ class FlushAcknowledgements(unittest.TestCase):
                 })
 
     def test_access_failures_retain_the_parent_and_report_the_attempt(self):
-        for mode, limit in (("flush-read", 36), ("flush-float", 36), ("flush-clock", 36), ("flush-window", 36),
-                            ("flush-map", 9), ("flush-map-retained", 9), ("flush-alias", 9), ("flush-unmap", 9)):
+        for mode, limit in (("flush-read", 48), ("flush-float", 48), ("flush-clock", 48), ("flush-window", 48),
+                            ("flush-map", 15), ("flush-map-retained", 15), ("flush-alias", 15), ("flush-unmap", 15)):
             for pos in range(1, limit + 1):
                 with self.subTest(mode=mode, position=pos):
                     result = bootstrap_result(observe(mode, pos))
@@ -101,7 +106,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(result["summary"]["commands"], 1)
                     self.assertFalse(result["summary"]["returned"])
                     summary = result["flush"]["summary"]
-                    self.assertEqual(summary["samples"], (pos - 1) // (12 if limit == 36 else 3))
+                    self.assertEqual(summary["samples"], (pos - 1) // (16 if limit == 48 else 5))
                     self.assertEqual(len(result["flush"]["gam"]), summary["samples"])
                     self.assertEqual(bool(summary["live"]), mode in ("flush-clock", "flush-map-retained", "flush-unmap"))
 
@@ -132,7 +137,12 @@ class FlushAcknowledgements(unittest.TestCase):
                     row.replace("authority=none", "authority=write")):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = text.replace("intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9",
+        media = text.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
+                             "intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9")
+        media = re.sub(r" gam_req=\S+ rc_control=\S+ rc_target=\S+ rc6_threshold=\S+", "", media)
+        media = media.replace("intel-flush-sample: v=4 ", "intel-flush-sample: v=3 ")
+        self.assertNotIn("power_controls", bootstrap_result(media)["flush"])
+        legacy = media.replace("intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9",
                               "intel-flush-summary: v=3 samples=3 reads=24 maps=3 retired=3")
         legacy = re.sub(r" vcs0_ref=\S+ vcs0_prefetch=\S+ vcs1_ref=\S+ vcs1_prefetch=\S+", "", legacy)
         legacy = legacy.replace("intel-flush-sample: v=3 ", "intel-flush-sample: v=2 ")
@@ -145,7 +155,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old = previous.replace(row, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
         self.assertNotIn("smi_guard", bootstrap_result(old)["flush"])
         for n, packet in enumerate(flush["samples"]):
-            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=3 n={n} "))
+            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=4 n={n} "))
             for bad in ("", sample + "\n" + sample, sample.replace(f"begin={packet['begin']}", "begin=1"),
                         sample.replace(f"end={packet['end']}", f"end={packet['begin'] + 10001}"),
                         sample.replace(" l3=", " unknown="),
@@ -157,9 +167,9 @@ class FlushAcknowledgements(unittest.TestCase):
                     bootstrap_result(text.replace(sample, bad))
         for before, after in (("intel-bootstrap-summary: v=12 ", "intel-bootstrap-summary: v=11 "),
                               ("authority=none\nintel-flush-sample", "authority=write\nintel-flush-sample"),
-                              ("samples=3 reads=36 maps=9 retired=9", "samples=3 reads=36 maps=9 retired=8"),
-                              ("samples=3 reads=36 maps=9 retired=9", "samples=3 reads=24 maps=9 retired=9"),
-                              ("intel-flush-summary: v=4 ", "intel-flush-summary: v=3 ")):
+                              ("samples=3 reads=48 maps=15 retired=15", "samples=3 reads=48 maps=15 retired=14"),
+                              ("samples=3 reads=48 maps=15 retired=15", "samples=3 reads=36 maps=15 retired=15"),
+                              ("intel-flush-summary: v=5 ", "intel-flush-summary: v=4 ")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(before, after))
@@ -202,6 +212,6 @@ class FlushAcknowledgements(unittest.TestCase):
             compile_fixture(TARGET, output=binary, declaration=(
                 cc, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
-            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 36),
+            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 48),
                               ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)

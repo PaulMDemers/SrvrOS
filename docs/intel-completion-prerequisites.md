@@ -241,6 +241,26 @@ under the wider diagnostic policy. Automatic Ubuntu return, offline USB
 integrity, exact log replay and recovery checks passed. The run closed as
 `DIAGNOSED` with zero PTE writes and zero managed pages.
 
+### Broadwell power controls during the GPU memory observations
+
+Version 5 records the power manager's memory request at `0x40d0` alongside
+the arbiter response. It reads `RC_CTRL0` at `0xa090`, `RC_CTRL1` at
+`0xa094` and the RC6 promotion threshold at `0xa0b8`. The collector reports
+hardware control, RC6 enable, timeout and evaluation modes separately. The
+three-bit software target is a request. The threshold is a 24-bit count in
+1.28 µs units. Both registers can retain values while hardware control is off.
+[Intel Broadwell register reference, pp. 589–592, 1300 and 1315–1317](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+Each sample reads 16 words through five guarded read-only mappings. The
+first precedes engine preparation, the second follows preparation, and the
+third follows the GT reset and primary-plane observation. All three run
+with the existing GT wake held. The separate dark-display sample records
+actual power state with wake released. These observations can distinguish
+disabled policy from a configured target and identify a reset-induced
+change. Context backing, exclusion of new requests and completion of
+outstanding memory traffic each require separate evidence.
+[Air7,2 dark-display samples](intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
+
 ### GT3 video memory request counters
 
 Version 4 samples both video engines under the same GT borrow and inhibited

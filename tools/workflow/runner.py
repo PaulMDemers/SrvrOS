@@ -791,6 +791,8 @@ class Runner:
                 record['smi_guard']=observed['smi_guard']
             if 'gam' in observed:
                 record['gam_samples']=observed['gam']
+            if 'power_controls' in observed:
+                record['gt_power_control_samples']=observed['power_controls']
             if 'media_outstanding' in observed:
                 record['media_outstanding_samples']=observed['media_outstanding']
         if native.get('diagnostic_arena'):

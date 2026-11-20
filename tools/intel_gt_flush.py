@@ -6,6 +6,7 @@ ENGINES = ("rcs", "vcs0", "vecs", "vcs1", "bcs")
 WORDS = (*ENGINES, "l3")
 GAM_WORDS = ("gam_go", "gam_eco")
 MEDIA_WORDS = ("vcs0_ref", "vcs0_prefetch", "vcs1_ref", "vcs1_prefetch")
+POWER_WORDS = ("gam_req", "rc_control", "rc_target", "rc6_threshold")
 GAM_GO_MASK = 0x5f  # RCS, VCS0, VCS1, VECS, BCS and WiDi (bit 6).
 
 SMI_PREFIX = "intel-smi-guard:"
@@ -50,16 +51,20 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     if len(rows) != 4 or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
     summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
-                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4))
+                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5))
     smi_rows = [line for line in text.splitlines() if line.startswith(SMI_PREFIX)]
     smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire)
-    media = summary["v"] == 4
+    power = summary["v"] >= 5
+    media = summary["v"] >= 4
     gam = summary["v"] >= 3
     words = (*WORDS, *GAM_WORDS) if gam else WORDS
     if media:
         words += MEDIA_WORDS
+    if power:
+        words += POWER_WORDS
     width = len(words)
-    pages = 3 if media else 1
+    offsets = (0, 8, 10, 12, 13, width) if power else (0, 8, 10, width) if media else (0, width)
+    pages = len(offsets) - 1
     count, reads, maps, retired, live = (summary[key] for key in ("samples", "reads", "maps", "retired", "live"))
     if (count > 3 or not count * width <= reads <= min(3, count + 1) * width
             or not count * pages <= retired <= maps <= min(3, count + 1) * pages
@@ -68,14 +73,13 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
         raise ValueError("GT flush accounting")
 
     if media:
-        # A second or third alias requires every read on the preceding page.
-        offsets = (0, 8, 10, width)
+        # Each later alias requires every read on the preceding pages.
         extra_maps = maps - count * pages
         extra_reads = reads - count * width
         if (maps - retired > 1 or
                 not offsets[max(0, extra_maps - 1)] <= extra_reads <= offsets[extra_maps]):
             raise ValueError("GT media page accounting")
-    sample_version = 3 if media else 2 if gam else 1
+    sample_version = 4 if power else 3 if media else 2 if gam else 1
     samples = [fields(row, "intel-flush-sample:", ("v", "n", "begin", "end", *words), words,
                       versions=(sample_version,))
                for row in rows[1:]]
@@ -120,6 +124,17 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
             if any(queues.values()) and (n + 1 != count or later_phase or parent["complete"] or not parent["failed"]):
                 raise ValueError("GT advanced past outstanding media requests")
         result["media_outstanding"] = current
+    if power:
+        result["power_controls"] = [
+            dict(hardware_control=bool(row["rc_control"] & (1 << 31)),
+                 rc6_enabled=bool(row["rc_control"] & (1 << 18)),
+                 timeout_mode=bool(row["rc_control"] & (1 << 28)),
+                 evaluation_mode=bool(row["rc_control"] & (1 << 27)),
+                 sw_target=(row["rc_target"] >> 16) & 7,
+                 threshold_ticks=row["rc6_threshold"] & 0xffffff,
+                 requested_clients=row["gam_req"] & GAM_GO_MASK)
+            for row in samples[:count]
+        ]
     if smi is not None:
         result["smi_guard"] = smi
     if gam:
