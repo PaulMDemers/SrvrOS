@@ -170,6 +170,12 @@ Ubuntu collected the session with verified USB integrity. The run
 closed as `DIAGNOSED` with zero retained state and zero PCI reset
 writes. [Decode-hold result](../intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
+PR301 on main `4016abf0` now isolates recovery of the PCH backlight
+PWM while the panel is off. The eDP recovery core will restore the
+captured period, duty and override state under the same lease, with a
+host reset fixture and a separate native dark-panel rehearsal. PCI
+reset and whole-GPU memory retirement remain separate prerequisites.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
