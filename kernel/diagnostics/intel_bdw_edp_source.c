@@ -1,5 +1,6 @@
 #include <srvros/intel_bdw_edp_source.h>
 #include <srvros/intel_bdw_edp_baseline.h>
+#include <srvros/intel_bdw_edp_platform.h>
 
 #define LCPLL_CTL 0x130040u
 #define LCPLL_LOCK (1u << 30)
@@ -81,7 +82,7 @@ struct source_attempt {
     enum bdw_edp_stage stage;
     uint64_t last, phase_start;
     uint32_t budget, cdclk_khz;
-    bool require_panel, keep_timings;
+    bool require_panel, check_panel_resources;
     uint32_t gamma;
 };
 
@@ -259,6 +260,21 @@ static bool underrun_clear(struct source_attempt *a)
     return expect(a, PIPE_A_IMR, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN) &&
            expect(a, PIPE_A_IER, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN) &&
            expect(a, PIPE_A_IIR, FIFO_UNDERRUN, 0, BDW_EDP_SOURCE_UNDERRUN);
+}
+
+static bool panel_resources_ready(struct source_attempt *a)
+{
+    uint32_t pwm = a->image.pch_pwm_data;
+    if ((pwm >> 16) != 0x0ad9u || (pwm & 0xffffu) > (pwm >> 16))
+        return reject(a, BDW_EDP_SOURCE_IMAGE);
+    return expect(a, 0xc2020, UINT32_MAX, 0x1000, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, BDW_EDP_PPS_ON_DELAYS, UINT32_MAX, BDW_EDP_PPS_ON_AIR72, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, BDW_EDP_PPS_OFF_DELAYS, UINT32_MAX, BDW_EDP_PPS_OFF_AIR72, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, BDW_EDP_PPS_DIVISOR, UINT32_MAX, BDW_EDP_PPS_DIV_AIR72, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, 0x48250, 1u << 31, 0, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, 0xc2004, UINT32_MAX, 0x24, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, BDW_EDP_PWM_CONTROL, UINT32_MAX, 0xc0000000, BDW_EDP_SOURCE_PANEL) &&
+           expect(a, BDW_EDP_PWM_DATA, UINT32_MAX, pwm, BDW_EDP_SOURCE_PANEL);
 }
 
 static bool reset_state(struct source_attempt *a)
@@ -447,7 +463,7 @@ static bool read_live(void *context)
     a->report->captured_crc[a->report->crc_checks++] = crc.crc[2];
     if (!captured || crc.crc[2] != a->image.reference_crc)
         return reject(a, BDW_EDP_SOURCE_FRAME);
-    if (!scanout_matches(a))
+    if (!scanout_matches(a) || (a->check_panel_resources && !panel_resources_ready(a)))
         return false;
     a->report->verified_frames += (uint32_t)(frame - a->report->frame_first);
     a->budget = 0;
@@ -458,7 +474,7 @@ static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
                                                 const struct bdw_edp_source_image *image,
                                                 const struct bdw_edp_baseline_report *reference,
                                                 struct bdw_edp_source_report *report,
-                                                bool keep_timings, uint32_t gamma, uint32_t cdclk_khz)
+                                                bool cycle, bool reset, uint32_t gamma, uint32_t cdclk_khz)
 {
     if (!report)
         return BDW_EDP_INVALID;
@@ -471,12 +487,14 @@ static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
 
     struct source_attempt a = {
         .io = *io, .image = *image, .report = report, .gamma = gamma, .cdclk_khz = cdclk_khz,
+        .check_panel_resources = reset,
     };
     if (!valid_image(&a.image) || !reference_matches(&a.image, reference)) {
         report->source_error = BDW_EDP_SOURCE_IMAGE;
         return report->panel.result;
     }
-    if (!start_phase(&a, SOURCE_STAGE_US) || !reset_state(&a)) {
+    if (!start_phase(&a, SOURCE_STAGE_US) || !reset_state(&a) ||
+        (a.check_panel_resources && !panel_resources_ready(&a))) {
         report->panel.result = report->source_error == BDW_EDP_SOURCE_OWNER
             ? BDW_EDP_OWNERSHIP : BDW_EDP_IO;
         return report->panel.result;
@@ -486,7 +504,7 @@ static enum bdw_edp_result restore(const struct bdw_edp_source_io *io,
         .link = {&a, link_held, raw_read, raw_write, clock_now, delay, set_source},
         .panel_held = held,
         .scanout_live = read_live,
-        .keep_timings = keep_timings,
+        .keep_timings = cycle,
     };
     intel_bdw_edp_panel_restore(&panel, a.cdclk_khz, &report->panel);
     if (report->source_error == BDW_EDP_SOURCE_OWNER)
@@ -499,7 +517,7 @@ enum bdw_edp_result intel_bdw_edp_source_restore(const struct bdw_edp_source_io 
                                                 const struct bdw_edp_baseline_report *reference,
                                                 struct bdw_edp_source_report *report)
 {
-    return restore(io, image, reference, report, false, 0, image ? image->cdclk_khz : 0);
+    return restore(io, image, reference, report, false, false, 0, image ? image->cdclk_khz : 0);
 }
 
 static bool backing_preserved(struct source_attempt *a)
@@ -687,7 +705,8 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
         .io = *io, .image = *image, .report = &r->shutdown, .cdclk_khz = image->cdclk_khz,
     };
     uint32_t primary, buffer, transport;
-    if (!active_path(&a, reference, &primary, &buffer, &transport))
+    if (!active_path(&a, reference, &primary, &buffer, &transport) ||
+        (image->pch_pwm_data && !panel_resources_ready(&a)))
         return false;
 
     a.gamma = primary & PRI_GAMMA_ENABLE;
@@ -700,10 +719,10 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
             r->retained = true;
             return false;
         }
-        bool keep = state == BDW_EDP_DARK_UNCHANGED;
+        bool reset = state == BDW_EDP_DARK_RESET_RECOVERED;
         r->stage = BDW_EDP_CYCLE_RESTORE;
         a.report = &r->restore;
-        if (!keep) {
+        if (reset) {
             a.gamma = 0;
             uint32_t cdclk;
             if (!start_phase(&a, SOURCE_STAGE_US) || !load(&a, CDCLK_FREQ, &cdclk)) {
@@ -715,13 +734,13 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
              * A known locked clock must already exist before panel writes. */
             if (image->cdclk_khz == 675000 && cdclk == 449)
                 a.cdclk_khz = 450000;
-            if (!clock_ready(&a) ||
+            if (!clock_ready(&a) || !panel_resources_ready(&a) ||
                 !backing_preserved(&a) || !fifo_mask(&a, r, FIFO_RESET_OPEN)) {
                 r->retained = true;
                 return false;
             }
         }
-        restored = restore(io, image, reference, &r->restore, keep, a.gamma, a.cdclk_khz) == BDW_EDP_OK &&
+        restored = restore(io, image, reference, &r->restore, true, reset, a.gamma, a.cdclk_khz) == BDW_EDP_OK &&
                    start_phase(&a, SOURCE_STAGE_US) && scanout_matches(&a) && backing_preserved(&a) &&
                    expect(&a, PP_CONTROL, UINT32_MAX, 7, BDW_EDP_SOURCE_PANEL);
     }

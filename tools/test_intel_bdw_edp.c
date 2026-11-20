@@ -1,5 +1,6 @@
 #include <srvros/intel_bdw_edp.h>
 #include <srvros/intel_bdw_edp_source.h>
+#include <srvros/intel_bdw_edp_platform.h>
 #include <srvros/intel_bdw_edp_baseline.h>
 #include <srvros/intel_bdw_flr.h>
 #include <srvros/intel_bdw_pci_hold.h>
@@ -74,6 +75,7 @@ enum source_fault {
 
 #define TEST_REFERENCE_CRC 0x5d3928e4u
 #define TEST_BACKING_HASH 0x012970c1aee06011ull
+#define TEST_PWM_DATA 0x0ad90184u
 
 struct register_write {
     uint32_t offset, value;
@@ -96,6 +98,9 @@ struct source_fixture {
     uint64_t flr_issued;
     uint32_t flr_config[64];
     struct bdw_flr_report flr;
+    struct bdw_edp_pps_report pps;
+    struct bdw_edp_pwm_report pwm;
+    struct bdw_edp_pwm_image live_pwm;
     bool exercise_flr, function_reset;
     unsigned disable_step, fail_disable_write, mask_writes;
     bool cycle, dark, lose_dark_backing, fail_mask_close, uncertain_mask_open;
@@ -424,6 +429,7 @@ static bool source_held(void *context, const struct bdw_edp_source_image *image)
            image->reference_crc == s->image.reference_crc &&
            image->cdclk_khz == s->image.cdclk_khz &&
            image->ddi_lane_bits == s->image.ddi_lane_bits &&
+           image->pch_pwm_data == s->image.pch_pwm_data &&
            memcmp(image->phy, s->image.phy, sizeof(image->phy)) == 0);
     return !s->panel.faulted && held(&s->panel);
 }
@@ -433,10 +439,9 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
     struct source_fixture *s = context;
     struct fixture *f = &s->panel;
     if (panel_register(offset)) {
-        if (s->cycle && !s->dark) {
+        if (s->cycle && !s->dark && (offset == PP_CONTROL || offset == PP_STATUS)) {
             if (!event(f))
                 return false;
-            assert(offset == PP_CONTROL || offset == PP_STATUS);
             *word = f->pp_control;
             if (offset == PP_STATUS)
                 *word = !s->panel_off_at ? 0x80000008u :
@@ -459,6 +464,15 @@ static bool source_read(void *context, uint32_t offset, uint32_t *word)
         return true;
     }
     switch (offset) {
+    case 0xc2020: *word = s->function_reset && s->flr_fault == 12 ? 0 : 0x1000; break;
+    case 0xc2004: *word = 0x24; break;
+    case 0x48250: *word = 0; break;
+    case BDW_EDP_PWM_CONTROL: *word = s->live_pwm.control; break;
+    case BDW_EDP_PWM_DATA:
+        *word = s->live_pwm.data;
+        if (s->flr_fault == 13 && s->proofs == 2 && s->crc_retired)
+            *word ^= 1u;
+        break;
     case 0x130040:
         *word = (s->fault == SOURCE_PLL_UNLOCKED ||
                  (s->fault == SOURCE_CLOCK_LOST_AFTER_PROOF && s->proofs == 2 && s->crc_retired)) ? 0 :
@@ -732,6 +746,7 @@ static struct bdw_edp_baseline_report setup_source(struct source_fixture *s)
         .backing = f, .epoch = 41, .mapped_bytes = 904ull * 6144 + 128ull * 4096,
         .backing_hash = TEST_BACKING_HASH, .reference_crc = TEST_REFERENCE_CRC,
         .cdclk_khz = s->exercise_flr ? 675000u : 450000u, .ddi_lane_bits = 0x10010,
+        .pch_pwm_data = s->exercise_flr && s->flr_fault != 14 ? TEST_PWM_DATA : 0,
     };
     for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
         s->image.phy[i][0] = 0x123456u + i;
@@ -812,6 +827,10 @@ static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned byt
         s->flr_config[0x2c / 4] = 0;
         s->flr_config[0x10 / 4] = 4;
         s->flr_config[0x18 / 4] = s->flr_fault == 3 ? 0xa000000c : 12;
+        s->panel.pp_delay[0] = 0;
+        s->panel.pp_delay[1] = 0;
+        s->panel.cycle_until = s->panel.time + 500000;
+        s->live_pwm = (struct bdw_edp_pwm_image){0};
         return s->flr_fault == 4 ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
     }
     assert(s->panel.time - s->flr_issued >= 102000);
@@ -824,10 +843,42 @@ static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned byt
     return GT_WRITE_DONE;
 }
 
+static bool resources_held(void *context)
+{
+    struct source_fixture *s = context;
+    return flr_held(s) && s->function_reset && (s->flr_config[1] & 0xffffu) == 0x0402;
+}
+
+static enum intel_gt_write resource_write(void *context, uint32_t offset, uint32_t word)
+{
+    struct source_fixture *s = context;
+    struct fixture *f = &s->panel;
+    assert(resources_held(s) && !f->pp_control && !f->power_requested);
+    switch (offset) {
+    case PP_ON_DELAYS: case PP_OFF_DELAYS: case PP_DIVISOR:
+        assert(f->time >= f->cycle_until);
+        f->pp_delay[(offset - PP_ON_DELAYS) / 4] = word ^ (s->flr_fault == 10);
+        break;
+    case BDW_EDP_PWM_CONTROL:
+        assert(s->pps.complete && !s->pps.retained);
+        s->live_pwm.control = word;
+        break;
+    case BDW_EDP_PWM_DATA:
+        assert(s->pps.complete && !s->pps.retained);
+        s->live_pwm.data = word ^ (s->flr_fault == 11);
+        break;
+    default:
+        assert(false);
+    }
+    return GT_WRITE_DONE;
+}
+
 static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp_source_image *image)
 {
     struct source_fixture *s = context;
     assert(image->backing_hash == TEST_BACKING_HASH && s->dark);
+    const struct bdw_edp_pps_image timings = {s->panel.pp_delay[0], s->panel.pp_delay[1], s->panel.pp_delay[2]};
+    const struct bdw_edp_pwm_image pwm = s->live_pwm;
     const struct bdw_flr_pci_image pci = {{0xc0000004, 0, 0xb000000c, 0}, 0x011b106b};
     s->flr_config[0] = 0x16268086;
     s->flr_config[1] = 0x00100400;
@@ -848,7 +899,13 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
         return BDW_EDP_DARK_REFUSED;
     s->function_reset = true;
     s->irq_mask = s->flr_fault == 7 ? 0x7fffffffu : UINT32_MAX;
-    s->panel.keep_timings = false;
+    if (s->flr_fault == 15)
+        return BDW_EDP_DARK_RESET_RECOVERED; /* Provider incorrectly claims platform readiness. */
+    const struct bdw_edp_pps_io pps_io = {s, resources_held, source_read, resource_write, source_now, source_delay};
+    const struct bdw_edp_pwm_io pwm_io = {s, resources_held, source_read, resource_write, source_now};
+    if (!intel_bdw_edp_pps_restore(&pps_io, timings, false, &s->pps) ||
+        !intel_bdw_edp_pwm_restore(&pwm_io, pwm, false, &s->pwm))
+        return BDW_EDP_DARK_REFUSED;
     return BDW_EDP_DARK_RESET_RECOVERED;
 }
 
@@ -860,6 +917,12 @@ static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *rep
     if (!s->panel_off_delay_us)
         s->panel_off_delay_us = 324000u;
     s->panel.keep_timings = true;
+    s->panel.pp_delay[0] = BDW_EDP_PPS_ON_AIR72;
+    s->panel.pp_delay[1] = BDW_EDP_PPS_OFF_AIR72;
+    s->panel.pp_delay[2] = BDW_EDP_PPS_DIV_AIR72;
+    s->live_pwm = (struct bdw_edp_pwm_image){0xc0000000u, TEST_PWM_DATA};
+    if (s->flr_fault == 16)
+        s->live_pwm.data ^= 1u;
     s->irq_mask = UINT32_MAX;
     s->panel.time = 300000;
     s->panel.power_requested = 1;
@@ -931,7 +994,9 @@ static unsigned test_cycle(void)
     assert(run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_COMPLETE && !r.retained);
     assert(f.flr.reset_issued && f.flr.ready_polls == 3 && f.flr_writes == 5);
     assert(f.flr.stage == BDW_FLR_COMPLETE && !f.flr.retained);
-    assert(f.primary == 0x98000400u && f.panel.pp_writes == 5 && f.proofs == 2);
+    assert(f.primary == 0x98000400u && f.panel.pp_writes == 2 && f.proofs == 2);
+    assert(f.pps.complete && f.pps.writes == 3 && f.pps.wait_us >= 390000 && !f.pps.retained);
+    assert(f.pwm.complete && f.pwm.writes == 3 && !f.pwm.retained);
     assert(r.mask_writes == 3 && r.mask_restored && f.irq_mask == UINT32_MAX);
     for (unsigned fault = 1; fault <= 9; ++fault) {
         f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
@@ -941,7 +1006,27 @@ static unsigned test_cycle(void)
         assert(f.flr.reset_issued == (fault != 1 && fault != 6));
         assert(f.flr.retained == (fault == 2 || fault == 3 || fault == 4));
     }
-    return writes + 20;
+    for (unsigned fault = 10; fault <= 15; ++fault) {
+        f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
+        assert(!run_cycle(&f, &r) && r.retained && !f.panel.backlight);
+        assert(r.stage == (fault <= 12 ? BDW_EDP_CYCLE_DARK : BDW_EDP_CYCLE_RESTORE));
+        if (fault <= 12 || fault >= 14)
+            assert(!f.panel.power_requested);
+        if (fault == 10)
+            assert(f.pps.retained && f.pps.writes == 1 && !f.pwm.writes);
+        if (fault == 11)
+            assert(f.pps.complete && f.pwm.retained && f.pwm.writes == 1);
+        if (fault == 12)
+            assert(!f.pps.writes && !f.pwm.writes);
+        if (fault == 13)
+            assert(f.proofs == 2 && r.restore.offset == BDW_EDP_PWM_DATA);
+        if (fault == 15)
+            assert(r.restore.offset == BDW_EDP_PPS_ON_DELAYS && !r.restore.source_writes);
+    }
+    f = (struct source_fixture){.exercise_flr = true, .flr_fault = 16};
+    assert(!run_cycle(&f, &r) && !r.retained && f.panel.backlight && !f.flr_writes);
+    assert(r.stage == BDW_EDP_CYCLE_ADMISSION && r.shutdown.offset == BDW_EDP_PWM_DATA);
+    return writes + 27;
 }
 
 struct pci_hold_fixture {

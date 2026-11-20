@@ -200,6 +200,13 @@ panel can light. A native AFCTL write still depends on independent
 GPU memory retirement and native recovery of all reset resources.
 The open Wi-Fi and WebCore PRs have distinct scopes.
 
+The joined host fixture now models AF reset, T12, PPS and PWM
+reprogramming, and both reference CRCs under the original owner.
+The source refuses panel power if the restored resources are missing
+or changed, and keeps the backlight dark on duty drift detected after
+the final CRC. Native hardware evidence covers the isolated rehearsals.
+[Joined fixture](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture).
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync

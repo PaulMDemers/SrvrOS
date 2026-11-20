@@ -465,10 +465,26 @@ The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.
 It refuses an inconsistent LCPLL/CDCLK pair before writing to the
-display. The source adapter consumes an already-usable clock. The native
-decode trial leaves the inherited clock running and performs zero reset
-writes. Physical clock, well and PWM initialization after FLR still
-require a native provider. [Broadwell Display PRM, pp. 114–117](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf#page=128).
+display. The source adapter consumes an already-usable clock. The physical
+decode trial keeps the inherited clock running. Native initialization of
+the post-FLR clock, well and panel resources still requires a provider.
+[Broadwell Display PRM, pp. 114–117](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf#page=128).
+
+#### Joined PCI reset and panel recovery fixture
+
+The host fixture now runs AF reset and reopens memory decode with bus
+mastering inhibited, then uses the same PPS and PWM recovery routines
+used by the isolated native rehearsals. It starts T12 again at the reset
+store and models cleared delay and PWM timing words. The source requires
+the captured PWM word, the original PPS settings and the LP clock-gate
+workaround before rearming Pipe A and requesting power. It uses the
+restored timing words for the complete cycle and checks them and the
+original PWM state again after each frame CRC. The fixture rejects a
+missing pre-reset PWM sample, a changed pre-reset duty, missing or failed
+resource recovery, and PWM drift during the last CRC. A failure after
+reset leaves the original display owner pinned and the backlight off.
+Existing native profiles exercise display-only recovery. No current
+profile has a native AFCTL writer.
 
 The native AFCTL store depends on a live requester and memory-completion
 witness, a CPU-only reset hold while MMIO decode is unavailable, and a

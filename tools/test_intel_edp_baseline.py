@@ -150,7 +150,7 @@ class EdpBaseline(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="edp-baseline-") as tmp:
             for fixture, sources in [
                 ("baseline", ["intel_bdw_edp_baseline", "intel_bdw_edp_platform"]),
-                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source",
+                ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source", "intel_bdw_edp_platform",
                              "intel_bdw_flr", "intel_bdw_pci_hold"]),
             ]:
                 with self.subTest(fixture=fixture):

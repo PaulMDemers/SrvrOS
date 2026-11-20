@@ -9,6 +9,7 @@ struct bdw_edp_source_image {
     const void *backing;
     uint64_t epoch, mapped_bytes, backing_hash;
     uint32_t cdclk_khz, ddi_lane_bits, reference_crc;
+    uint32_t pch_pwm_data; /* Required pre-reset sample for a reset-capable cycle. */
     uint32_t phy[BDW_EDP_PHY_ENTRIES][2];
 };
 
@@ -107,8 +108,9 @@ enum bdw_edp_dark_result {
 
 /* Runs under the same display and backing lease after shutdown. A recovered
  * reset must return with config/MMIO decoding reestablished, the original
- * backing verified, a locked original or reset-default CDCLK, PWM ready, and an owned all-masked Pipe A with
- * IER and IIR clear. The cycle re-arms underrun observation before restore.
+ * backing verified, a locked original or reset-default CDCLK, the original
+ * PPS timing and PWM restored, and an owned all-masked Pipe A with IER and
+ * IIR clear. The cycle verifies panel resources and re-arms underrun polling.
  * No register access follows a refused or uncertain handoff. */
 typedef enum bdw_edp_dark_result (*bdw_edp_dark_handoff)(
     void *, const struct bdw_edp_source_image *);
