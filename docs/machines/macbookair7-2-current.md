@@ -40,6 +40,13 @@ is to exclude new GPU requests and verify outstanding writes and cache
 completion while the same owner holds the display off.
 [Media counter measurements](../intel-completion-prerequisites.md#macbookair72-media-counter-result)
 
+PR301's next implementation covers the Broadwell PCI reset core and its
+dark-display recovery fixture. It will check the live request and response
+from the graphics memory arbiter, five engine acknowledgements, the L3
+acknowledgement and both video engines while MMIO is still accessible.
+The physical dependency is an exclusive provider for the GPU power
+manager's block request under the same display hold.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
