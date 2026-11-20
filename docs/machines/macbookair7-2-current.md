@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-19 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-20 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -178,6 +178,16 @@ The run saved and unmounted its USB workspace, returned to Ubuntu and
 closed as `DIAGNOSED` with offline USB integrity `PASS`. Native PCI
 function reset and whole-GPU memory retirement remain open.
 [Backlight PWM result](../intel-bdw-edp-recovery.md#backlight-pwm-recovery).
+
+### Panel power-sequencer recovery checkpoint
+
+PR301 on main `4016abf0` owns restoration of the Air7,2 panel timing words
+in the Broadwell eDP diagnostic, its isolated native trial and host/VM
+validation. The next check requires the original display lease, powered
+well, disabled route and elapsed T12 before programming the observed
+timings. The trial will verify the original framebuffer and both reference
+CRCs before lighting the panel. Native FLR and requester retirement remain
+separate. The open Wi-Fi and WebCore PRs have distinct scopes.
 
 ## Owned blitter completion observed on Ubuntu
 
