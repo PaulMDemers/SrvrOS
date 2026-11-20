@@ -207,6 +207,18 @@ or changed, and keeps the backlight dark on duty drift detected after
 the final CRC. Native hardware evidence covers the isolated rehearsals.
 [Joined fixture](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture).
 
+### Display power and clock recovery after decode reopen
+
+PR301 on main `4016abf0` owns the bounded Broadwell display-well
+and clock-register recovery in `kernel/diagnostics` and its joined
+host fixture. The Air's captured 675 MHz LCPLL selection should
+survive Device 2 FLR. The provider will require that exact locked
+state, own the original display exclusion with memory decode
+reopened, reacquire only the driver well request and restore the
+known timing encoding and LP clock gate before PPS/PWM recovery.
+Native requester retirement and a physical FLR remain separate.
+Wi-Fi and WebCore have distinct scopes.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
