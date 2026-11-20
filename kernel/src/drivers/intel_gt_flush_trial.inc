@@ -1,8 +1,9 @@
-/* Broadwell PRM volume 2c, pp. 403-405, 587-588, 805-814 and 859.
+/* Broadwell PRM volume 2c, pp. 403-405, 587-588, 805-814, 859, 994 and 1034.
  * The two GAM observations describe engine memory access, not completion. */
-enum { GT_FLUSH_ENGINES = 5, GT_FLUSH_WORDS = 8, GT_FLUSH_SAMPLES = 3 };
+enum { GT_FLUSH_ENGINES = 5, GT_FLUSH_WORDS = 12, GT_FLUSH_SAMPLES = 3 };
 static const uint32_t gt_flush_registers[GT_FLUSH_WORDS] = {
-    0x8000, 0x8004, 0x8010, 0x8008, 0x800c, 0x8038, 0x8028, 0x8040
+    0x8000, 0x8004, 0x8010, 0x8008, 0x800c, 0x8038, 0x8028, 0x8040,
+    0x12870, 0x12878, 0x1c870, 0x1c878
 };
 static struct {
     struct gt_display_access access;
@@ -36,26 +37,39 @@ static bool gt_flush_sample(unsigned n) {
         return false;
     struct gt_display_access *access = &gt_flush.access;
     gt_flush.begin[n] = gt_bootstrap_native.last;
-    if (!gt_held_read_alias(access, gt_flush_registers, gt_flush.raw[n], GT_FLUSH_WORDS,
-                            gt_flush_live, gt_flush_offset_allowed) ||
-        access->mapped || access->maps != n + 1 || access->retired != n + 1 ||
-        access->reads != GT_FLUSH_WORDS * (n + 1) ||
-        gt_bootstrap_native.last <= gt_flush.begin[n] ||
-        gt_bootstrap_native.last - gt_flush.begin[n] > BDW_BOOT_PHASE_US)
+    /* One guarded alias per MMIO page, inside the same observation window. */
+    static const unsigned group_ends[] = { 8, 10, GT_FLUSH_WORDS };
+    unsigned start = 0;
+    for (unsigned group = 0; group < 3; ++group) {
+        unsigned end = group_ends[group];
+        if (!gt_held_read_alias(access, gt_flush_registers + start, gt_flush.raw[n] + start,
+                                end - start, gt_flush_live, gt_flush_offset_allowed) ||
+            gt_bootstrap_native.last <= gt_flush.begin[n] ||
+            gt_bootstrap_native.last - gt_flush.begin[n] > BDW_BOOT_PHASE_US)
+            return false;
+        start = end;
+    }
+    if (access->mapped || access->maps != 3 * (n + 1) || access->retired != access->maps ||
+        access->reads != GT_FLUSH_WORDS * (n + 1))
         return false;
     gt_flush.end[n] = gt_bootstrap_native.last;
     ++gt_flush.samples;
+    /* Bits 23:16 are current requests. Capacity and latency are historical
+     * or configuration data and cannot establish completion. */
+    for (unsigned i = 8; i < GT_FLUSH_WORDS; ++i)
+        if (gt_flush.raw[n][i] & 0x00ff0000u) return false;
     return true;
 }
 
 static void gt_flush_report(void) {
-    console_printf("intel-flush-summary: v=3 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
+    console_printf("intel-flush-summary: v=4 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
         (uint64_t)gt_flush.access.retired, gt_flush.access.mapped);
     for (unsigned n = 0; n < GT_FLUSH_SAMPLES; ++n) {
         const uint32_t *w = gt_flush.raw[n];
-        console_printf("intel-flush-sample: v=2 n=%u begin=%u end=%u rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x l3=%x gam_go=%x gam_eco=%x\n",
+        console_printf("intel-flush-sample: v=3 n=%u begin=%u end=%u rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x l3=%x gam_go=%x gam_eco=%x vcs0_ref=%x vcs0_prefetch=%x vcs1_ref=%x vcs1_prefetch=%x\n",
             (uint64_t)n, gt_flush.begin[n], gt_flush.end[n], (uint64_t)w[0], (uint64_t)w[1],
-            (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4], (uint64_t)w[5], (uint64_t)w[6], (uint64_t)w[7]);
+            (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4], (uint64_t)w[5], (uint64_t)w[6], (uint64_t)w[7],
+            (uint64_t)w[8], (uint64_t)w[9], (uint64_t)w[10], (uint64_t)w[11]);
     }
 }

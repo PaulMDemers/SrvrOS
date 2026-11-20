@@ -241,6 +241,23 @@ under the wider diagnostic policy. Automatic Ubuntu return, offline USB
 integrity, exact log replay and recovery checks passed. The run closed as
 `DIAGNOSED` with zero PTE writes and zero managed pages.
 
+### GT3 video memory request counters
+
+Version 4 samples both video engines under the same GT borrow and inhibited
+PCI bus master as the arbitration observations. Each of the three phases
+reads `MFX_LAT_CT1` and `MFX_LAT_CT3` at 0x12870/0x12878 and
+0x1c870/0x1c878. Bits 23–16 count outstanding reference-picture reads and
+row-store/bitstream prefetch reads, respectively. The collector retains the
+four raw DWORDs and decodes only complete phases. A complete run has 36
+reads, nine retired read-only aliases and three observations of at most
+10 ms each. A nonzero count stops the trial before its next transition.
+[Intel Broadwell PRM Volume 2c, pp. 994 and 1034](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789).
+
+Each reading describes one queue at one instant. The registers default to
+zero and the reads are sequential. Establishing a function-reset drain
+still requires control of new requests and evidence for other clients,
+writes and caches in the same dark-display ownership interval.
+
 ## Automated trial
 
 ```sh

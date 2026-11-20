@@ -31,6 +31,12 @@ still needs the same dark-display owner to control the remapper and account
 for remaining GPU pipeline, cache and prefetch work. The Wi-Fi and WebCore
 PRs have separate scopes.
 
+The current PR301 trial measures the two GT3 video engines' outstanding
+reference and prefetch reads in the existing held GT diagnostic. It depends
+on the Air's original GT borrow, inhibited bus master and validated UC
+aliases. The scope covers the GT flush producer, host fixture and collector.
+Physical qualification of these four sampled queues is pending.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
