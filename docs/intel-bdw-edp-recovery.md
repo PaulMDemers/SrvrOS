@@ -374,6 +374,15 @@ first entry. Pixel mismatches identify the word index. The hold keeps
 its original Command sequence and deadlines. The decoder accepts older
 receipts and requires the ordered trace for new runs that reach reopen.
 
+Release `8f3ddab113407403` captured the first failure at fence-page
+mapping, offset `0x100000`, in Air7,2 session
+`session-000660ac8cb59311-00`. All fourteen platform reads and the
+endpoint comparison at `0x0402` passed. The cache preflight independently
+called the generic cache-page query, whose endpoint comparison allows
+only the original Command in this image. It therefore refused before
+mapping. The saved run passed offline USB integrity after the manual
+return. No reset or display restore ran.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

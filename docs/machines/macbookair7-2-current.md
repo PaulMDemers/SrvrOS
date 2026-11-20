@@ -156,11 +156,13 @@ incomplete. The host restore fixture covers the documented 450 MHz
 CDCLK reset default. Native FLR and whole-device memory completion
 remain open. [Decode-hold trial](../intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
-The PR301 retry on main `4016abf0` adds a bounded post-reopen receipt to
-the Air7,2 eDP diagnostic and collector. It records platform registers,
-endpoint checks, fence and translation progress, and framebuffer
-comparison progress under the existing hold. It preserves the original
-PCI Command sequence and refusal behavior.
+Release `8f3ddab113407403` traced the refusal to mapping the fence page
+at MMIO offset `0x100000`. The display lease, all fourteen platform
+registers, and the live PCI endpoint checks passed at Command `0x0402`.
+The run saved its diagnostic and halted before invoking reset. USB
+integrity passed after the manual return. PR301 on main `4016abf0` will
+carry the already-validated held PCI Command into the eDP cache
+admission and persist the capture's disposition before the final save.
 
 ## Owned blitter completion observed on Ubuntu
 
