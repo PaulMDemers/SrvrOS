@@ -423,6 +423,31 @@ driver request were restored, the final log selected Ubuntu return, and offline
 USB integrity passed. This physically qualifies the BIOS-powered path. Cold-well
 startup, function reset and post-reset register repair remain pending.
 
+#### GT power state during the dark PCI hold
+
+The version 4 PCI hold receipt adds two GT samples after AF Transaction
+Pending clears at Command `0x0403`. Each sample brackets read-only core
+status, RC6 residency and forcewake acknowledgement reads with PCI identity,
+Command and AF checks. The timestamps are microseconds from PCI hold entry.
+
+Release `c49a10f84b3db492` (source `efcf3ff7`) saved the following samples
+in Air7,2 session `session-000660b982e978ae-00`.
+
+| Sample | Begin–end (µs) | Core status | RC6 residency (ticks) | Forcewake ACK |
+| --- | --- | --- | --- | --- |
+| First | 212–215 | `0x40800000` | 1,594,584 | 0 |
+| Second | 2,216–2,219 | `0x40800000` | 1,594,584 | 0 |
+
+Both status reads decode to RC0 with the core on. The counter recorded zero
+additional ticks during the interval. The cause and duration of RC0 outside
+those samples remain open.
+[i915 core-state decoding](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_gt_pm_debugfs.c)
+
+The PCI hold took 199.954 ms including framebuffer verification. All 47
+reopen checks passed, all 5,529,600 bytes matched and both restored CRCs
+were `0xc2798333`. USB integrity passed offline. A function reset still
+requires evidence of request exclusion and completed GPU memory traffic.
+
 #### Backlight PWM recovery
 
 The `intel-edp-dark-pwm-v1` profile captures the inherited PCH PWM control
@@ -539,7 +564,7 @@ also runs at the reset store and throughout config-space recovery. The
 The host fixture models the GPM request and its register responses. It
 injects stale or missing acknowledgements, reopened clients, individual
 busy queues, elapsed deadlines and loss of ownership at AFCTL. The Air's
-most recent GPU diagnostic observed all six clients allowed. Replaying its
+GT3 media diagnostic observed all six clients allowed. Replaying its
 response words with a modeled block request prevents decode closure and reset. A native
 test of this path requires an exclusive request provider with a documented
 trigger and a way to observe the transaction under the dark-display hold.

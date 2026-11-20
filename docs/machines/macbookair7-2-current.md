@@ -44,8 +44,7 @@ PR301's host recovery fixture now exercises the request to block GPU
 memory traffic before PCI memory decode closes. Loss of an engine or L3
 acknowledgement, a busy video queue or a reopened arbiter blocks reset.
 A physical trial needs a native provider that can initiate and maintain
-the power manager's request under the dark-display hold. The Air's last
-physical result remains the three media observations above.
+the power manager's request under the dark-display hold.
 [Reset ordering and dependencies](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
 
 As an Ubuntu reference, i915 reported RC6 enabled on this unit's
@@ -63,12 +62,17 @@ held, and 753 ms in the second after release. Each interval followed a
 200 ms settling period. This motivates sampling with the guest's GT wake
 released.
 
-The current Air7,2 trial will sample the GT core status, RC6 residency and
-forcewake acknowledgement twice during display shutdown, after PCI bus
-mastering is inhibited and before memory decode closes. PR301 owns the
-eDP adapter, PCI hold fixture and collector for this experiment. It depends
-on the accepted framebuffer and well recovery above. The samples describe
-power state only. GPU traffic exclusion still needs independent evidence.
+Release `c49a10f84b3db492` (source `efcf3ff7`) completed the physical
+dark-display PCI hold. With bus mastering inhibited, both samples showed
+RC0 and a clear forcewake acknowledgement. The RC6 residency counter
+stayed at 1,594,584 ticks across the 2.004 ms between sample starts. All
+47 reopen checks passed, the framebuffer bytes matched, and both restored
+frames produced the reference CRC. Offline USB verification passed.
+
+The next dependency is to identify which GT power controls and context the
+boot firmware leaves enabled, and how SrvrOS can hold new requests off
+and observe engine and cache completion before closing PCI decode.
+[Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
 ## Native eDP recovery scope
 
