@@ -421,6 +421,16 @@ wrong PWM route, and after losing the lease or clock. The native profile
 leaves PCI decode and the display clock running. Physical function reset
 and whole-device memory retirement remain separate prerequisites.
 
+Release `a112eede6e6eb39c` passed the native rehearsal on Air7,2 in
+session `session-000660ad1e06b20d-00`. All five PWM stores and readbacks
+completed in 111 µs. The original control `0xc0000000` and period/duty
+`0x0ad90184` were restored exactly. Both primary-plane CRCs matched
+`0xc2798333` before backlight enable. All three PCI configuration
+snapshots and framebuffer digests matched across the cycle. The run
+released the display lease, saved its logs, unmounted the USB workspace
+and returned to Ubuntu. Collection reported offline USB integrity
+`PASS` and diagnosis `EDP_DARK_PWM_COMPLETE`, with zero PCI reset writes.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

@@ -170,11 +170,14 @@ Ubuntu collected the session with verified USB integrity. The run
 closed as `DIAGNOSED` with zero retained state and zero PCI reset
 writes. [Decode-hold result](../intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
-PR301 on main `4016abf0` now isolates recovery of the PCH backlight
-PWM while the panel is off. The eDP recovery core will restore the
-captured period, duty and override state under the same lease, with a
-host reset fixture and a separate native dark-panel rehearsal. PCI
-reset and whole-GPU memory retirement remain separate prerequisites.
+Release `a112eede6e6eb39c` passed the native dark-panel PWM rehearsal.
+It restored the captured period, duty and override with five verified
+stores in 111 µs, and both frame CRCs matched before backlight enable.
+PCI configuration and the framebuffer were preserved across the cycle.
+The run saved and unmounted its USB workspace, returned to Ubuntu and
+closed as `DIAGNOSED` with offline USB integrity `PASS`. Native PCI
+function reset and whole-GPU memory retirement remain open.
+[Backlight PWM result](../intel-bdw-edp-recovery.md#backlight-pwm-recovery).
 
 ## Owned blitter completion observed on Ubuntu
 
