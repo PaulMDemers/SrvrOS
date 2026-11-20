@@ -197,6 +197,22 @@ times to distinguish a missing USB receive from a group receive rejected by
 the parser. Version 1 remains readable. The next cold comparison needs both
 router interfaces and the matching SrvrOS journal and workspace results.
 
+## November 20 native broadcast receive result
+
+Release `0ebbeac7ef1fafa0` completed two native WPA2, DHCP, DNS and HTTP
+connection lifetimes. The source-bound USB receipt for each accepted Offer
+and ACK classified it as broadcast and recorded authenticated Ethernet
+delivery. On the first connection the intervals from Discover to Offer and
+Request to ACK, measured between USB completions, were 117.731 and 94.938 ms.
+On the second they were 86.722 and 91.449 ms. The initial and final radio
+snapshots terminated empty in both connections, and each Discover and Request
+had a uniquely correlated MAC ACK report.
+
+The 15-minute bridge and 5 GHz captures ended 67 seconds before SrvrOS began.
+The run verifies successful native broadcast reception. Paired AP evidence for
+the earlier intermittent failure remains open. The next paired trial needs a
+capture window that covers the entire cold boot. [Unit record](machines/macbookpro11-2.md#current-handoff)
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)

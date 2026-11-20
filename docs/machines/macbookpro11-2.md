@@ -7,6 +7,32 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Two native broadcast DHCP and HTTP lifetimes (November 20)
+
+Source `783f21fb`, release `0ebbeac7ef1fafa0`, session
+`session-000660bd9d79c4e4-00`, completed two fresh WPA2 connections at fixed
+channel 161/20 MHz. Each completed DHCP and DNS, sent a 4,159-byte HTTP request,
+read the exact 3,072-byte response body to EOF, and closed the connection.
+The RF parent was restored. The DHCP windows completed in 233.396 and
+202.500 ms with one Discover, Offer, Request and ACK in each. The USB receive
+records identified all four server replies as authenticated broadcast frames.
+Each Discover and Request had a uniquely bound MAC ACK report in an
+empty-terminated status capture.
+
+The 15-minute router captures at both the bridge and the 5 GHz interface ended
+at 18:28:18 EST, 67 seconds before the SrvrOS RTC seed. Both captures contained
+only the pcap header, leaving router-side correlation of the native exchanges
+unavailable. The earlier intermittent DHCP loss remains unresolved. A future
+paired trial needs a capture window that covers the entire cold boot.
+
+The source-frozen collector saved the run once. The independent review verified
+seven startup checkpoints, all 497 preexisting workspace files with the allowed
+marker access-time change, 76 other EFI files, and nine recovery payloads.
+Ubuntu is unarmed. The sealed 1,347-file primary index is
+`1ef728cf66d26848952abf6fbfd8074ab66bdc6a7f72373cfe5fd09e5c3abe39`.
+The separate review and router capture index is
+`98ad071ccce9c72536e56e1b592b3d407f9d6ecb492b7f20856493ce80d79f1b`.
+
 ### Broadcast Offer receive audit (November 20)
 
 Base `1307e33c`, with `origin/main` inspected at `4016abf0`. The two other
