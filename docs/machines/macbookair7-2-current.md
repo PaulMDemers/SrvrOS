@@ -23,6 +23,11 @@ OS-allocated alternative needs an owned GPU address interval and visible
 X-tiled backing before the native adapter can arm the first flip.
 [Trial contract and local coverage](../intel-bdw-primary-flip.md#reset-free-hardware-trial)
 
+The next PR301 work block connects OS-allocated X-tiled backing to the
+Broadwell GGTT encoder and the transferred GPU range. Shared scope is scanout
+mapping preparation, publication and restoration tests. Native use depends
+on the display owner transferring the interval for the duration of the flip.
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
