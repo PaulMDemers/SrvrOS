@@ -744,6 +744,8 @@ class Runner:
                 record['dark_well'] = report['native']['dark_well']
             if 'pci_hold' in report['native']:
                 record['pci_hold'] = report['native']['pci_hold']
+            if 'dark_rc6' in report['native']:
+                record['dark_rc6'] = report['native']['dark_rc6']
             if 'pwm' in report['native']:
                 record['pwm'] = report['native']['pwm']
             if 'pps' in report['native']:

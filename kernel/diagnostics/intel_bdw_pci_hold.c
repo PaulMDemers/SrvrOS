@@ -67,13 +67,33 @@ static bool wait_pending(struct hold_attempt *a)
     return false;
 }
 
+static bool observe_dark_rc6(struct hold_attempt *a)
+{
+    struct bdw_pci_hold_report *r = a->report;
+    for (unsigned i = 0; i < 2; ++i) {
+        struct bdw_pci_hold_sample pci;
+        if (i)
+            a->io->delay(a->io->context, BDW_PCI_RC6_INTERVAL_US);
+        if (!sample(a, 0x403, &pci) || pci.af)
+            return false;
+        struct bdw_pci_rc6_sample point = {.begin_us = r->elapsed_us};
+        if ((i && point.begin_us - r->rc6[0].end_us < BDW_PCI_RC6_INTERVAL_US) ||
+            !a->io->read_rc6(a->io->context, &point) ||
+            !sample(a, 0x403, &pci) || pci.af)
+            return false;
+        point.end_us = r->elapsed_us;
+        r->rc6[r->rc6_count++] = point;
+    }
+    return true;
+}
+
 bool intel_bdw_pci_hold(const struct bdw_pci_hold_io *io, struct bdw_pci_hold_report *report)
 {
     if (!report)
         return false;
     *report = (struct bdw_pci_hold_report){0};
     if (!io || !io->held || !io->sample || !io->command || !io->now ||
-        !io->delay || !io->cpu_copy || !io->backing)
+        !io->delay || !io->read_rc6 || !io->cpu_copy || !io->backing)
         return false;
     struct hold_attempt a = {.io = io, .report = report};
     struct bdw_pci_hold_sample s;
@@ -82,7 +102,7 @@ bool intel_bdw_pci_hold(const struct bdw_pci_hold_io *io, struct bdw_pci_hold_re
         return false;
     a.status = s.command & 0xffff0000u;
     record(&a, &s);
-    if (!store(&a, 7, 0x403) || !wait_pending(&a) ||
+    if (!store(&a, 7, 0x403) || !wait_pending(&a) || !observe_dark_rc6(&a) ||
         !store(&a, 0x403, 0x400) || !sample(&a, 0x400, &s) || s.af)
         return false;
     record(&a, &s);

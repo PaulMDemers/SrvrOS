@@ -35,6 +35,7 @@ SCHEMAS = {
     "intel-edp-dark-well-word": "v phase bios driver pps",
     "intel-edp-pci-hold": "v complete samples writes polls elapsed_us settle_us first_clear_us cpu_copy digest backing retained",
     "intel-edp-pci-hold-word": "v phase command af",
+    "intel-edp-rc6": "v seq begin_us end_us core residency wake_ack",
     "intel-edp-reopen": "v seq check at ok read got want",
     "intel-edp-pwm": "v complete retained writes elapsed_us before_ctl before_data after_ctl after_data",
     "intel-edp-pps": "v complete retained samples writes wait_us program_us initial_status idle_status",
@@ -76,7 +77,7 @@ def rows_of(text):
             if key in row or not re.fullmatch(r"0x[0-9a-fA-F]{1,16}|[0-9]{1,20}", value):
                 raise ValueError("Malformed eDP field")
             row[key] = int(value, 16 if value.startswith("0x") else 10)
-        versions = (1, 2, 3) if name == "intel-edp-pci-hold" else (1,)
+        versions = (1, 2, 3, 4) if name == "intel-edp-pci-hold" else (1,)
         if row.keys() != set(SCHEMAS[name].split()) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
             raise ValueError("Unsupported eDP row")
         rows[name].append(row)
@@ -240,7 +241,7 @@ def pci_reopen_result(rows, summary):
     fences = [(9, 0x100000), (10, 0), (11, 0x100000)]
     plan = [(1, 0), *((2, offset) for offset in platform), (3, 0), (4, 0), (5, 0),
             (6, 0), (7, 0), (8, 0), *fences]
-    if summary["v"] == 3:
+    if summary["v"] >= 3:
         plan[1 + len(platform):1 + len(platform)] = [(21, 0), (22, 4)]
     for first in (0, 512, 1024):
         page = 0x800000 + first * 8
@@ -284,6 +285,25 @@ def pci_reopen_result(rows, summary):
     if len(checks) not in (0, len(plan)):
         raise ValueError("Truncated PCI reopen receipt")
     return None
+
+
+def dark_rc6_result(points, hold):
+    if hold["v"] < 4:
+        if points:
+            raise ValueError("Unexpected legacy RC6 samples")
+        return None
+    if (len(points) > 2 or (points and hold["samples"] < 2) or
+            (hold["writes"] >= 2 and len(points) != 2)):
+        raise ValueError("Invalid dark RC6 sample coverage")
+    for i, p in enumerate(points):
+        if (p["seq"] != i or not hold["settle_us"] <= p["begin_us"] <= p["end_us"] <= hold["elapsed_us"]
+                or p["end_us"] >= 2000000 or (i and p["begin_us"] < points[0]["end_us"] + 2000)
+                or any(p[k] >= 1 << 32 for k in ("core", "residency", "wake_ack"))):
+            raise ValueError("Invalid dark RC6 sample")
+    observation = dict(samples=points)
+    if len(points) == 2:
+        observation["counter_delta_ticks_mod32"] = (points[1]["residency"] - points[0]["residency"]) & 0xffffffff
+    return observation
 
 
 def pci_hold_result(rows, *, native, display):
@@ -494,8 +514,11 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
     if pci_hold:
         hold = pci_hold_result(rows, native=native, display=observed)
         reopen_failure = pci_reopen_result(rows, hold)
+        dark_rc6 = dark_rc6_result(rows["intel-edp-rc6"], hold)
+        if dark_rc6 is None:
+            del rows["intel-edp-rc6"]
     else:
-        for key in (*HOLD_ROWS, "intel-edp-reopen"):
+        for key in (*HOLD_ROWS, "intel-edp-reopen", "intel-edp-rc6"):
             if rows.pop(key):
                 raise ValueError("Unexpected PCI decode hold evidence")
     if dark_pwm:
@@ -550,6 +573,8 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         report["pps"] = pps
     if pci_hold:
         report["pci_hold"] = hold
+        if dark_rc6 is not None:
+            report["dark_rc6"] = dark_rc6
         if hold["v"] >= 2:
             report["pci_reopen_failure"] = reopen_failure
         else:

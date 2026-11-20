@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from hardware_boot import EDP_CONFIGS, limine_config
 from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
-from intel_edp_baseline import PREFIX, checkpoint, pci_reopen_result, recipe, result, rows_of
+from intel_edp_baseline import PREFIX, checkpoint, dark_rc6_result, pci_reopen_result, recipe, result, rows_of
 
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = "1" * 16
@@ -48,6 +48,21 @@ def packet(positive, patterned=False):
 
 
 class EdpBaseline(unittest.TestCase):
+    def test_dark_rc6_receipt(self):
+        hold = dict(v=4, samples=5, writes=4, elapsed_us=204000, settle_us=250)
+        first = dict(seq=0, begin_us=260, end_us=270, core=0, residency=0xffffffff, wake_ack=0)
+        second = dict(first, seq=1, begin_us=2270, end_us=2280, residency=2)
+        pair = [first, second]
+        self.assertEqual(dark_rc6_result(pair, hold)["counter_delta_ticks_mod32"], 3)
+        for points, summary in ((pair, dict(hold, v=3)), (pair[:1], hold),
+                                (pair, dict(hold, samples=1)), (pair[::-1], hold),
+                                ([first, dict(second, begin_us=2269)], hold),
+                                ([first, dict(second, core=1 << 32)], hold)):
+            with self.assertRaises(ValueError):
+                dark_rc6_result(points, summary)
+        partial = dark_rc6_result(pair[:1], dict(hold, samples=2, writes=1))
+        self.assertEqual(partial, dict(samples=[first]))
+
     def test_pci_reopen_receipt_tracks_first_failure(self):
         def row(seq, check, at, ok, read=0, got=0, want=0):
             return (f"intel-edp-reopen: v=1 seq={seq} check={check} at={at} "

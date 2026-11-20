@@ -69,8 +69,10 @@ int main(int argc,char **argv) {
         assert(!intel_cache_probe_edp_uc_page(0xc0101000,0x101000,0xc0000000) && reads==20);
         assert(!intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xb0000000) && reads==20);
         assert(intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xc0000000) && reads==30);
+        assert(!intel_cache_probe_edp_uc_page(0xc0138000,0x139000,0xc0000000) && reads==30);
+        assert(intel_cache_probe_edp_uc_page(0xc0138000,0x138000,0xc0000000) && reads==40);
         scenario=3;
-        assert(!intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xc0000000) && reads==40);
+        assert(!intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xc0000000) && reads==50);
     }
     if(argc>1 && !strcmp(argv[1],"fresh-uc")) {
         assert(!intel_cache_probe_uc_page(0xc0812000) && reads==20);

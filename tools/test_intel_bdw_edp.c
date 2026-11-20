@@ -1376,6 +1376,20 @@ static void hold_delay(void *ctx, uint32_t us)
     f->time += f->fault == 6 ? 0 : us;
 }
 
+static bool hold_read_rc6(void *ctx, struct bdw_pci_rc6_sample *s)
+{
+    struct pci_hold_fixture *f = ctx;
+    assert(f->command == 0x403 && f->stores == 1 && f->polls >= 6);
+    if (f->fault == 10)
+        return false;
+    if (f->fault == 11)
+        f->time += BDW_PCI_HOLD_LIMIT_US;
+    if (f->fault == 12)
+        f->command = 7;
+    s->residency = (uint32_t)f->time;
+    return true;
+}
+
 static bool hold_copy(void *ctx)
 {
     struct pci_hold_fixture *f = ctx;
@@ -1396,17 +1410,18 @@ static bool hold_backing(void *ctx)
 static unsigned test_pci_hold(void)
 {
     struct bdw_pci_hold_report report;
-    static const unsigned writes[] = {4, 0, 1, 2, 3, 2, 1, 2, 3, 3};
+    static const unsigned writes[] = {4, 0, 1, 2, 3, 2, 1, 2, 3, 3, 1, 1, 1};
     for (unsigned fault = 0; fault < sizeof(writes) / sizeof(writes[0]); ++fault) {
         struct pci_hold_fixture f = {.command = 7, .time = 1, .fault = fault};
         const struct bdw_pci_hold_io io = {
-            &f, hold_active, hold_sample, hold_store, hold_now, hold_delay, hold_copy, hold_backing,
+            &f, hold_active, hold_sample, hold_store, hold_now, hold_delay, hold_read_rc6, hold_copy, hold_backing,
         };
         assert(intel_bdw_pci_hold(&io, &report) == !fault);
         assert(report.writes == f.stores && f.stores == writes[fault]);
         assert(report.retained == (fault > 1));
         if (!fault)
             assert(report.complete && report.samples == 5 && report.polls == 5 &&
+                   report.rc6_count == 2 && report.rc6[1].residency - report.rc6[0].residency == BDW_PCI_RC6_INTERVAL_US &&
                    report.first_clear_us == 400 && report.settle_us == 500 &&
                    report.cpu_copy && report.backing && f.command == 7);
     }

@@ -12,7 +12,7 @@
 static const uint32_t edp_pages[] = {
     0x41000, 0x43000, 0x44000, 0x45000, 0x46000, 0x60000,
     0x64000, 0x6f000, 0x70000, 0x7f000, 0x130000,
-    0x42000, 0x48000, 0x65000, 0x68000, 0xc2000, 0xc7000, 0xc8000
+    0x42000, 0x48000, 0x65000, 0x68000, 0xc2000, 0xc7000, 0xc8000, 0x138000
 };
 
 struct edp_cycle_observation {
@@ -150,6 +150,8 @@ static bool edp_unmap_all(struct edp_adapter *a)
 static bool edp_map_all(struct edp_adapter *a)
 {
     unsigned pages = a->platform ? sizeof(edp_pages) / sizeof(edp_pages[0]) : EDP_BASELINE_PAGES;
+    if (a->platform && !(a->flr && a->flr->exercise_pci))
+        --pages; /* The final, read-only RC6 page belongs to the PCI hold. */
     for (unsigned i = 0; i < pages; ++i) {
         uint32_t page = edp_pages[i];
         uint64_t va = EDP_VA + 4096ull * i;
@@ -637,6 +639,15 @@ static bool edp_pci_hold_sample(void *context, struct bdw_pci_hold_sample *s)
     return edp_pci_hold_held(a);
 }
 
+static bool edp_read_dark_rc6(void *context, struct bdw_pci_rc6_sample *s)
+{
+    struct edp_adapter *a = context;
+    return edp_pci_hold_held(a) &&
+           edp_read(a, 0x138060, &s->core_status) &&
+           edp_read(a, 0x138108, &s->residency) &&
+           edp_read(a, INTEL_GT_ACK, &s->wake_ack) && edp_pci_hold_held(a);
+}
+
 static enum intel_gt_write edp_pci_hold_command(void *context, uint16_t before, uint16_t after)
 {
     static const uint16_t commands[] = {7, 0x403, 0x400, 0x402, 7};
@@ -813,7 +824,7 @@ static enum bdw_edp_dark_result edp_flr_dark(void *context, const struct bdw_edp
     if (a->flr->exercise_pci) {
         const struct bdw_pci_hold_io io = {
             a, edp_pci_hold_held, edp_pci_hold_sample, edp_pci_hold_command, now, edp_pause,
-            edp_pci_hold_copy, edp_pci_hold_backing,
+            edp_read_dark_rc6, edp_pci_hold_copy, edp_pci_hold_backing,
         };
         if (a->flr->pci_samples != 1 || (a->flr->pci[0][10] & 0x10000u) ||
             !intel_bdw_pci_hold(&io, &a->flr->pci_hold))
@@ -1218,7 +1229,13 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                 for (unsigned i = 0; i < p->samples; ++i)
                     console_printf("intel-edp-pci-hold-word: v=1 phase=%u command=%x af=%x\n",
                         (uint64_t)i, (uint64_t)p->sample[i].command, (uint64_t)p->sample[i].af);
-                console_printf("intel-edp-pci-hold: v=3 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
+                for (unsigned i = 0; i < p->rc6_count; ++i) {
+                    const struct bdw_pci_rc6_sample *s = &p->rc6[i];
+                    console_printf("intel-edp-rc6: v=1 seq=%u begin_us=%u end_us=%u core=%x residency=%x wake_ack=%x\n",
+                        (uint64_t)i, s->begin_us, s->end_us, (uint64_t)s->core_status,
+                        (uint64_t)s->residency, (uint64_t)s->wake_ack);
+                }
+                console_printf("intel-edp-pci-hold: v=4 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
                     (uint64_t)p->complete, (uint64_t)p->samples, (uint64_t)p->writes, (uint64_t)p->polls,
                     p->elapsed_us, p->settle_us, p->first_clear_us, (uint64_t)p->cpu_copy, flr.ram_digest,
                     (uint64_t)p->backing, (uint64_t)p->retained);
