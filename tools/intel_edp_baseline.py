@@ -76,7 +76,7 @@ def rows_of(text):
             if key in row or not re.fullmatch(r"0x[0-9a-fA-F]{1,16}|[0-9]{1,20}", value):
                 raise ValueError("Malformed eDP field")
             row[key] = int(value, 16 if value.startswith("0x") else 10)
-        versions = (1, 2) if name == "intel-edp-pci-hold" else (1,)
+        versions = (1, 2, 3) if name == "intel-edp-pci-hold" else (1,)
         if row.keys() != set(SCHEMAS[name].split()) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
             raise ValueError("Unsupported eDP row")
         rows[name].append(row)
@@ -240,6 +240,8 @@ def pci_reopen_result(rows, summary):
     fences = [(9, 0x100000), (10, 0), (11, 0x100000)]
     plan = [(1, 0), *((2, offset) for offset in platform), (3, 0), (4, 0), (5, 0),
             (6, 0), (7, 0), (8, 0), *fences]
+    if summary["v"] == 3:
+        plan[1 + len(platform):1 + len(platform)] = [(21, 0), (22, 4)]
     for first in (0, 512, 1024):
         page = 0x800000 + first * 8
         plan.extend(((12, page), (13, first), (14, page)))
@@ -250,13 +252,18 @@ def pci_reopen_result(rows, summary):
         where = row["at"]
         allowed = (row["check"], where) == (check, at)
         if not row["ok"]:
-            if check == 10:
+            if check == 22:
+                allowed = row["check"] == 22 and where <= 4
+            elif check == 10:
                 allowed = row["check"] == check and where < 32
             elif check == 13:
                 allowed = row["check"] == check and at <= where < min(at + 512, 1484)
             elif check == 17:
                 allowed = ((row["check"] in (17, 18) and where < 1350) or
                            (row["check"] == 19 and where < 1382400))
+        elif check in (21, 22):
+            driver = 0x40000000 if check == 21 else 0xc0000000
+            allowed = allowed and row["read"] and row["got"] == row["want"] == driver
         elif check in (17, 18, 19):
             count = 1350 if check != 19 else 1382400
             allowed = allowed and row["read"] and row["got"] == row["want"] == count
@@ -270,6 +277,7 @@ def pci_reopen_result(rows, summary):
         "fence mapping", "fence contents", "fence unmap", "GGTT mapping", "PTE contents",
         "GGTT unmap", "translation close", "backing digest", "framebuffer page guard",
         "framebuffer page mapping", "framebuffer contents", "framebuffer close",
+        "release driver well", "recover display resources",
     )
     if checks and not checks[-1]["ok"]:
         return dict(checks[-1], name=check_names[checks[-1]["check"] - 1])
@@ -542,7 +550,7 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         report["pps"] = pps
     if pci_hold:
         report["pci_hold"] = hold
-        if hold["v"] == 2:
+        if hold["v"] >= 2:
             report["pci_reopen_failure"] = reopen_failure
         else:
             del rows["intel-edp-reopen"]

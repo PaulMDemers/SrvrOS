@@ -86,6 +86,23 @@ class EdpBaseline(unittest.TestCase):
                                     for i, (check, value) in enumerate(suffix, len(ordered)))
         self.assertIsNone(pci_reopen_result(rows_of(complete), dict(v=2, samples=5, backing=1)))
 
+        # New source requires both well transitions before it can read the frame.
+        v3 = dict(v=3, samples=5, backing=1)
+        lines = complete.splitlines(keepends=True)
+        start = next(i for i, line in enumerate(lines) if " check=3 " in line)
+        transitions = [row(start, 21, 0, 1, 1, 0x40000000, 0x40000000),
+                       row(start + 1, 22, 4, 1, 1, 0xc0000000, 0xc0000000)]
+        tail = [line.replace(f"seq={i} ", f"seq={i+2} ") for i, line in enumerate(lines[start:], start)]
+        prefix = "".join(lines[:start])
+        joined = prefix + "".join(transitions + tail)
+        self.assertIsNone(pci_reopen_result(rows_of(joined), v3))
+        for invalid in (complete, joined.replace("check=22 at=4", "check=22 at=2"),
+                        joined.replace("got=3221225472", "got=1073741824")):
+            with self.assertRaises(ValueError):
+                pci_reopen_result(rows_of(invalid), v3)
+        refused = prefix + transitions[0] + row(start+1, 22, 2, 0, 1, 0xc0000000, 0xc0000000)
+        self.assertEqual(pci_reopen_result(rows_of(refused), dict(v=3, samples=4, backing=0))["at"], 2)
+
     def test_stage_binds_exact_source_and_separate_image(self):
         boot = importlib.import_module("hardware_boot")
         with tempfile.TemporaryDirectory(prefix="edp-stage-") as tmp:

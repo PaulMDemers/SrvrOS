@@ -401,6 +401,19 @@ The final receipt selected return after save and unmount, showed zero
 retained state and zero PCI reset writes, and the next Ubuntu boot
 collected one session with offline USB integrity `PASS`.
 
+#### Native resource recovery under inhibited PCI bus mastering
+
+Version 3 of the PCI-hold receipt adds two ordered checks after platform
+readback at Command `0x0402`. While the panel is dark, the adapter releases
+the driver request, reads back `0x40000000`, and runs the shared resource
+recovery helper. BIOS keeps the well powered. The only permitted store in the
+helper reacquires the driver request. Success requires the ready phase, driver
+readback `0xc0000000` and the original PLL, timer and panel clock gate.
+Each helper guard checks the original display lease, framebuffer backup,
+PCI identity, MMIO BAR, Command and AF status. Failure records the last phase
+and retains the PCI hold. Framebuffer verification follows recovery and both
+reference CRCs follow display restoration. Physical acceptance is pending.
+
 #### Backlight PWM recovery
 
 The `intel-edp-dark-pwm-v1` profile captures the inherited PCH PWM control

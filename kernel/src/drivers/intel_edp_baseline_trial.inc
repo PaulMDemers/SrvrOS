@@ -51,7 +51,7 @@ enum edp_reopen_check {
     REOPEN_ENDPOINT_MATCH, REOPEN_FENCE_MAP, REOPEN_FENCES, REOPEN_FENCE_UNMAP,
     REOPEN_GGTT_MAP, REOPEN_PTES, REOPEN_GGTT_UNMAP, REOPEN_TRANSLATION_CLOSE,
     REOPEN_BACKING_HASH, REOPEN_FRAME_GUARD, REOPEN_FRAME_MAPPING, REOPEN_FRAME_WORDS,
-    REOPEN_FRAME_CLOSE,
+    REOPEN_FRAME_CLOSE, REOPEN_RELEASE_WELL, REOPEN_RECOVER_WELL,
 };
 
 struct edp_reopen_entry {
@@ -672,6 +672,52 @@ static bool edp_pci_hold_copy(void *context)
     return digest == a->flr->pixels[0] && edp_pci_hold_held(a);
 }
 
+/* The outer PCI hold and CPU backup span the temporary loss of the driver
+ * request. This guard must therefore be independent of edp_source_held(). */
+static bool edp_recovery_held(void *context)
+{
+    struct edp_adapter *a = context;
+    if (!a->pci_backing_check || a->decode_closed || !a->flr || !a->image ||
+        a->image->epoch != a->cycle_epoch || a->image->backing != &backing ||
+        a->map_fault || trial_mapping_fault || !edp_held(a))
+        return false;
+    const struct edp_flr_preflight *f = a->flr;
+    const struct bdw_pci_hold_report *h = &f->pci_hold;
+    const struct pci_device *p = a->backing.common.gpu;
+    return f->exercise_pci && f->pci_samples == 1 && f->copy && f->pixel_samples == 1 &&
+           h->cpu_copy && h->retained && h->samples == 4 && h->writes == 3 &&
+           !p->bus && p->device == 2 && !p->function &&
+           pci_read_config32(p, 0) == 0x16268086u &&
+           pci_read_config32(p, 4) == ((f->pci[0][3] & 0xffff0000u) | 0x402u) &&
+           pci_read_config32(p, 0x10) == f->pci[0][4] && pci_read_config32(p, 0x14) == f->pci[0][5] &&
+           pci_read_config32(p, 0xa8) == 0 && edp_held(a);
+}
+
+static enum intel_gt_write edp_recovery_write(void *context, uint32_t reg, uint32_t value)
+{
+    if (reg != BDW_EDP_WELL_DRIVER || value != BDW_EDP_WELL_REQUEST || !edp_recovery_held(context))
+        return GT_WRITE_NONE;
+    return edp_well_request(context, true);
+}
+
+static bool edp_recover_held_well(struct edp_adapter *a)
+{
+    uint32_t driver = 0;
+    bool released = edp_recovery_held(a) && edp_expect(a, 0xc7204, UINT32_MAX, 0) &&
+                    edp_expect(a, 0xc7200, 0xf0000000u, 0) &&
+                    edp_well_request(a, false) == GT_WRITE_DONE &&
+                    edp_recovery_held(a) && edp_read(a, BDW_EDP_WELL_DRIVER, &driver);
+    if (!edp_reopen_record(a, REOPEN_RELEASE_WELL, 0, released && driver == BDW_EDP_WELL_ON,
+                           released, driver, BDW_EDP_WELL_ON))
+        return false;
+    const struct bdw_edp_dark_io io = {a, edp_recovery_held, edp_read, edp_recovery_write, now, edp_pause};
+    struct bdw_edp_reopen_report r;
+    bool ok = intel_bdw_edp_reopen_resources(&io, &r) && r.writes == 1 &&
+              r.phase == BDW_EDP_REOPEN_READY && !r.retained && edp_recovery_held(a);
+    return edp_reopen_record(a, REOPEN_RECOVER_WELL, r.phase, ok, true, r.driver_after,
+                             BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON);
+}
+
 static bool edp_pci_hold_backing(void *context)
 {
     struct edp_adapter *a = context;
@@ -683,7 +729,7 @@ static bool edp_pci_hold_backing(void *context)
     /* The caller has positively read back MEM on with BME still off. */
     a->decode_closed = false;
     a->pci_backing_check = true;
-    bool ok = edp_cycle_platform(a, true) && edp_flr_pixels(a);
+    bool ok = edp_cycle_platform(a, true) && edp_recover_held_well(a) && edp_flr_pixels(a);
     a->pci_backing_check = false;
     a->trace_reopen = false;
     return ok;
@@ -1172,7 +1218,7 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                 for (unsigned i = 0; i < p->samples; ++i)
                     console_printf("intel-edp-pci-hold-word: v=1 phase=%u command=%x af=%x\n",
                         (uint64_t)i, (uint64_t)p->sample[i].command, (uint64_t)p->sample[i].af);
-                console_printf("intel-edp-pci-hold: v=2 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
+                console_printf("intel-edp-pci-hold: v=3 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
                     (uint64_t)p->complete, (uint64_t)p->samples, (uint64_t)p->writes, (uint64_t)p->polls,
                     p->elapsed_us, p->settle_us, p->first_clear_us, (uint64_t)p->cpu_copy, flr.ram_digest,
                     (uint64_t)p->backing, (uint64_t)p->retained);
