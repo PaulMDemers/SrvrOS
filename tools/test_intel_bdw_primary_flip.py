@@ -15,6 +15,7 @@ if os.name != 'nt':
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = 'kernel/diagnostics/intel_bdw_primary_flip.c'
+TRIAL = 'kernel/diagnostics/intel_bdw_flip_trial.c'
 TARGET = 'build/tests/intel-bdw-primary-flip'
 
 
@@ -28,6 +29,7 @@ class PrimaryFlip(unittest.TestCase):
         result = subprocess.run([str(ROOT / TARGET)], capture_output=True, text=True,
                                 check=True, timeout=45)
         self.assertIn('primary-flip PASS cases=', result.stdout)
+        self.assertIn('6 rollback scenarios and 7 joined CRC diagnostics', result.stdout)
         self.assertIn('hardware_flips=0 reader_retirement=0', result.stdout)
         print(result.stdout.strip(), flush=True)
 
@@ -64,6 +66,10 @@ class PrimaryFlip(unittest.TestCase):
             'overwrite-pending-flip': ('r->p.live[0]!=from || r->p.live[1]!=from', 'false'),
             'lost-post-store-readback': ('(posted&~8u)!=(uint32_t)r->binding.to_gpu', 'false'),
             'lost-programmed-surface-check': ('(r->p.programmed&~8u)!=(arming?from:to)', 'false'),
+            'repeat-return-with-fresh-source': ('|| forward->rollback ||', '|| false ||'),
+            'reverse-source-before-forward-latch': ('expected.admitted_at < forward->end', 'false'),
+            'reverse-sequence-replay': ('expected.sequence <= old->sequence', 'false'),
+            'independent-mapping-replaced': ('!binding_same(&expected, &reverse->binding)', 'false'),
             'lost-retention': ('r->retained=true;', 'r->retained=false;'),
         }
         with tempfile.TemporaryDirectory(prefix='primary-flip-controls-') as directory:
@@ -87,15 +93,17 @@ class PrimaryFlip(unittest.TestCase):
                                          'build/intel-bcs-context/srvros.elf'],
                                         cwd=ROOT, text=True, timeout=120)
         self.assertNotIn(CORE, plans)
+        self.assertNotIn(TRIAL, plans)
         plan = subprocess.check_output(['make', '-Bn', 'build/intel-command-memory/owner.o'],
                                        cwd=ROOT, text=True, timeout=120)
         command = next(shlex.split(line) for line in plan.splitlines()
                        if '-c kernel/diagnostics/intel_command_memory.c ' in line)
         with tempfile.TemporaryDirectory(prefix='primary-flip-frame-') as directory:
             args = [arg for arg in command if arg not in ('-MMD', '-MP')]
-            args[args.index('-c') + 1] = CORE
-            args[args.index('-o') + 1] = str(Path(directory) / 'flip.o')
-            subprocess.run(args, cwd=ROOT, check=True, capture_output=True, timeout=180)
+            for source in (CORE, TRIAL):
+                args[args.index('-c') + 1] = source
+                args[args.index('-o') + 1] = str(Path(directory) / (Path(source).stem + '.o'))
+                subprocess.run(args, cwd=ROOT, check=True, capture_output=True, timeout=180)
 
 
 if __name__ == '__main__':

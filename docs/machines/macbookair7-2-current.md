@@ -10,11 +10,18 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current Air7,2 work on PR301 is to qualify a Pipe A surface change and
-return to the inherited surface using the same live display owner. The shared
-scope is the Broadwell primary flip core and its host fixture on main baseline
-`4016abf0`. Hardware staging depends on a writable, pinned second scanout
-mapping with the Air's exact geometry and reader exclusion.
+PR301 on main baseline `4016abf0` now exercises a synchronous flip to a second
+surface and restores the original using the same display owner. The local
+fixture runs the plane and primary CRC cores together at the Air's captured
+geometry. It checks a distinct alternate CRC and exact restoration, including
+rollback after an incorrect alternate image. A timed-out or uncertain return
+retains both pins. Neither leg requires a PCI reset.
+
+The hardware boot remains pending. The native capture on release
+`42cdc13b60340ddd` found both 6 MiB candidate spans firmware-reserved. The
+OS-allocated alternative needs an owned GPU address interval and visible
+X-tiled backing before the native adapter can arm the first flip.
+[Trial contract and local coverage](../intel-bdw-primary-flip.md#reset-free-hardware-trial)
 
 ## Native display recovery after PCI decode reopens
 
@@ -626,7 +633,7 @@ required live ownership witness exists. A stable layout or CPU image is not that
 witness; native tear-free remains unaccepted.
 
 The [primary-A flip core](../intel-bdw-primary-flip.md) is host-qualified for
-10,000 cases/18 controls, bounded incremental polling and strict live-latch/reader
+10,000 single-leg cases plus rollback/CRC trials, bounded polling and live-latch/reader
 handling, but has no native caller. All broader bootstrap ownership obligations
 remain open. Ordinary desktop startup is unchanged; this exact terminal image
 has its own recipe-gated pre-init dispatch.

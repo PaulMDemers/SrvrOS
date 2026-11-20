@@ -292,7 +292,10 @@ static void invalid_inputs(void) {
   assert(!intel_bdw_primary_flip_begin(&result,&source,ops) && !m.events);++cases;
  }
 }
+void test_flip_rollback(void);
+
 int main(void) {
+ test_flip_rollback();
  positives();invalid_inputs();fault_matrix();changed_hardware();
  printf("primary-flip PASS cases=%u native=0 mappings=0 hardware_flips=0 reader_retirement=0\n",cases);
  return 0;

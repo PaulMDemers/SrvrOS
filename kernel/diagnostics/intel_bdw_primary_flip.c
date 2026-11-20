@@ -42,7 +42,7 @@ static bool progress_same(const struct bdw_flip_progress *a,const struct bdw_fli
  a->programmed==b->programmed && a->live[0]==b->live[0] && a->live[1]==b->live[1] && a->uncertain==b->uncertain;
 }
 static bool live(const struct intel_bdw_primary_flip *r) {
- return r->object==r && r->busy && !r->retained && !r->reason && !r->end && !r->clock_at && !r->clock_previous &&
+ return r->object==r && !r->rollback && r->busy && !r->retained && !r->reason && !r->end && !r->clock_at && !r->clock_previous &&
  (r->p.state==BDW_FLIP_ARMING || r->p.state==BDW_FLIP_PENDING) && valid(r->source) &&
  r->source->consumer==r && binding_same(&r->binding,&r->source->binding) && io_same(&r->io,&r->original_io);
 }
@@ -125,7 +125,7 @@ static bool observation(struct intel_bdw_primary_flip *r) {
  return true;
 }
 bool intel_bdw_primary_flip_begin(struct intel_bdw_primary_flip *r,struct bdw_flip_source *source,struct bdw_flip_io io) {
- if(!r || r->object || r->source || r->busy || r->retained || r->reason || r->end || r->clock_at || r->clock_previous ||
+ if(!r || r->object || r->rollback || r->source || r->busy || r->retained || r->reason || r->end || r->clock_at || r->clock_previous ||
  r->p.state || r->p.begin || r->p.last || r->p.proofs || r->p.reads || r->p.attempts || r->p.writes || r->p.polls ||
  r->p.frame || r->p.before_frame || r->p.after_frame || r->p.programmed || r->p.live[0] || r->p.live[1] || r->p.uncertain ||
  !valid(source) || source->consumer || io.ctx!=source->binding.provider || !io.ownership || !io.read || !io.write || !io.now ||
@@ -179,4 +179,44 @@ enum bdw_flip_status intel_bdw_primary_flip_poll(struct intel_bdw_primary_flip *
  } else if(r->p.polls==BDW_FLIP_POLLS){struct saved s=capture(r);fail(r,&s,BDW_FLIP_LIMIT);}
 done:
  r->busy=false;return r->retained?BDW_FLIP_FAILED:r->p.state==BDW_FLIP_LATCHED?BDW_FLIP_DONE:BDW_FLIP_WAIT;
+}
+
+bool intel_bdw_primary_flip_rollback(struct intel_bdw_primary_flip *forward,
+                                    struct intel_bdw_primary_flip *back,
+                                    struct bdw_flip_source *reverse)
+{
+    if (!forward || forward->object != forward || forward->rollback || forward->busy ||
+        forward->retained || forward->reason || forward->p.state != BDW_FLIP_LATCHED ||
+        !forward->end || forward->end != forward->p.last ||
+        !valid(forward->source) || forward->source->consumer != forward ||
+        !binding_same(&forward->binding, &forward->source->binding) ||
+        !io_same(&forward->io, &forward->original_io))
+        return false;
+
+    if (!back || !valid(reverse) || reverse->consumer ||
+        overlap(back, sizeof(*back), forward, sizeof(*forward)) ||
+        overlap(back, sizeof(*back), forward->source, sizeof(*forward->source)) ||
+        overlap(reverse, sizeof(*reverse), forward, sizeof(*forward)) ||
+        overlap(reverse, sizeof(*reverse), forward->source, sizeof(*forward->source)))
+        return false;
+
+    const struct bdw_flip_binding *old = &forward->binding;
+    struct bdw_flip_binding expected = *old;
+    expected.from_mapping = old->to_mapping;
+    expected.to_mapping = old->from_mapping;
+    expected.from_gpu = old->to_gpu;
+    expected.to_gpu = old->from_gpu;
+    expected.sequence = reverse->binding.sequence;
+    expected.admitted_at = reverse->binding.admitted_at;
+    if (expected.sequence <= old->sequence || expected.admitted_at < forward->end ||
+        !binding_same(&expected, &reverse->binding))
+        return false;
+
+    /* Reserve the return before entering provider callbacks. A started
+     * failure retains its source even for an indeterminate SURF write. */
+    forward->rollback = back;
+    bool pending = intel_bdw_primary_flip_begin(back, reverse, forward->original_io);
+    if (reverse->consumer != back)
+        forward->rollback = 0;
+    return pending;
 }

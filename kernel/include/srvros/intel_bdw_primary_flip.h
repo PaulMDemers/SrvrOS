@@ -53,7 +53,7 @@ struct bdw_flip_progress {
  bool uncertain;
 };
 struct intel_bdw_primary_flip {
- const struct intel_bdw_primary_flip *object;
+ const struct intel_bdw_primary_flip *object, *rollback;
  struct bdw_flip_source *source;
  struct bdw_flip_binding binding;
  struct bdw_flip_io io,original_io;
@@ -74,4 +74,11 @@ struct intel_bdw_primary_flip {
  * No native caller or image is enabled by this trusted-provider core. */
 bool intel_bdw_primary_flip_begin(struct intel_bdw_primary_flip *,struct bdw_flip_source *,struct bdw_flip_io);
 enum bdw_flip_status intel_bdw_primary_flip_poll(struct intel_bdw_primary_flip *);
+/* Arm a single return to the original scanout after a confirmed forward latch.
+ * The provider registers a fresh source for the reverse mapping pair under the
+ * uninterrupted original lease. Poll the return just like the forward flip.
+ * Both latches leave all-reader retirement to the owner. */
+bool intel_bdw_primary_flip_rollback(struct intel_bdw_primary_flip *forward,
+                                    struct intel_bdw_primary_flip *back,
+                                    struct bdw_flip_source *reverse);
 #endif

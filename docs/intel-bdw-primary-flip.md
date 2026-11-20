@@ -100,6 +100,39 @@ A future adapter must not call generic hardware `scanout_complete` or let the
 next render reuse the old front before independent reader retirement. Timeout
 or uncertainty retains both buffers and their address leases.
 
+## Reset-free hardware trial
+
+Broadwell can switch an enabled primary plane at vblank by programming its
+surface address. The first trial keeps format, tiling, pitch and dimensions
+fixed through both directions. Linux i915 uses the same surface register in
+its [primary plane update](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/i9xx_plane.c#L461-L472).
+
+The isolated `intel_bdw_flip_trial` takes a reference primary CRC with both
+images pinned, then asks the owner for a freshly timed forward request. It
+polls the live surface, captures the primary CRC again, and compares it with
+a caller-supplied alternate pattern CRC distinct from the reference. The
+return request reverses the two exact ranges and mapping leases while
+preserving root, owner, geometry and epoch. Its sequence must advance and its
+admission time must follow or equal the forward latch. Each leg has its own
+100 ms bound. Each CRC window uses the existing four-frame primary-tap
+protocol and checks the two settled frames.
+
+A clean capture with the wrong alternate image still allows one return and
+records a failed trial. An uncertain latch or incomplete CRC cleanup stops
+the sequence with the pins held. Final verification checks the inherited
+surface latch, PHY and backing snapshot, and the original primary CRC. The
+caller still owns retirement of both pins after the diagnostic.
+
+On Air7,2, the boot interface describes a single 1440 × 900 framebuffer.
+The [native census](intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result)
+observed two disjoint 6 MiB ranges outside the inherited fence, both in
+firmware-reserved memory. It found no transfer to the OS. Using OS-allocated
+RAM instead requires a live grant of GPU virtual addresses and publication of
+the RAM into the GGTT under that grant. The [mapping path](scanout-transfer.md)
+has host coverage. A hardware trial first needs an independently owned and
+visible second image in the active X-tiled format and a native plane/CRC
+adapter holding the display and both mappings across the trial.
+
 ## Qualification and remaining integration
 
 `make test-intel-bdw-primary-flip` exercises the actual C core against independent
@@ -110,7 +143,8 @@ ownership/visibility loss, every callback identity/progress mutation, every read
 failure, proof fields/bits, uncertain stores, all clock positions, exact/+1us
 endpoints, frozen polling and256th-poll outcomes.
 
-The10,000-case matrix passes fatal ASan/UBSan and18 runtime-detected compiled
+The 10,000-case matrix, six rollback scenarios and seven joined CRC trials
+run under fatal ASan/UBSan. The suite checks 22 runtime-detected compiled
 weakening controls. Actual native compiler flags pass the2KiB frame limit;
 ordinary and accepted CPU-context image plans exclude this core. An initial
 test candidate missed the removed posting-readback control. Requiring every
