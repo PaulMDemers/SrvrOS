@@ -23,6 +23,13 @@ exercised the BIOS-powered well path. Cold-well recovery, post-reset display
 restoration and native tear-free scanout remain pending.
 [Hardware evidence](../intel-bdw-edp-recovery.md#native-resource-recovery-under-inhibited-pci-bus-mastering)
 
+PR301's next step on main `4016abf0` is to join the existing graphics VT-d
+read/write drain and the PCI function reset core under one original requester
+hold. Scope covers the isolated reset core and its eDP integration fixture.
+The remapper covers requests it has already processed. The owner must still
+account for work inside the GPU and maintain exclusion through the reset.
+The Wi-Fi and WebCore PRs have separate scopes.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
