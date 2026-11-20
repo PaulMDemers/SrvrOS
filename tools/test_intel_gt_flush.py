@@ -28,7 +28,7 @@ def observe(mode, position=0, *, entry=None, binary=ROOT / TARGET):
 class FlushAcknowledgements(unittest.TestCase):
     def test_samples_and_timing_on_both_original_paths(self):
         for entry in (None, "disabled"):
-            for mode, expected in (("pass", [0, 31, 0]), ("flush-quiet", [0, 0, 0]), ("flush-stale", [31, 31, 31])):
+            for mode, expected in (("pass", [0, 31, 0, 0]), ("flush-quiet", [0, 0, 0, 0]), ("flush-stale", [31, 31, 31, 31])):
                 with self.subTest(entry=entry, mode=mode):
                     result = bootstrap_result(observe(mode, entry=entry))
                     self.assertEqual(result["version"], 12)
@@ -41,18 +41,18 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 5, "samples": 3, "reads": 48, "maps": 15, "retired": 15, "live": 0,
+                        "v": 6, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
                     })
-                    self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 3)
+                    self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 4)
                     power = flush["power_controls"]
-                    self.assertEqual([p["requested_clients"] for p in power], [0x5f, 0, 0x5f])
-                    self.assertEqual([p["sw_target"] for p in power], [0, 0, 4])
-                    self.assertEqual([p["rc6_enabled"] for p in power], [True, True, False])
+                    self.assertEqual([p["requested_clients"] for p in power], [0x5f, 0x5f if mode == "flush-quiet" else 0, 0x5f, 0x5f])
+                    self.assertEqual([p["sw_target"] for p in power], [0, 0, 4, 4])
+                    self.assertEqual([p["rc6_enabled"] for p in power], [True, True, False, False])
                     self.assertTrue(all(p["threshold_ticks"] == 625 for p in power))
                     idle = mode != "flush-quiet"
                     self.assertEqual(flush["gam"], [
                         dict(allowed=0x5f, idle=False), dict(allowed=0 if idle else 0x5f, idle=idle),
-                        dict(allowed=0x5f, idle=False),
+                        dict(allowed=0x5f, idle=False), dict(allowed=0x5f, idle=False),
                     ])
                     self.assertEqual(flush["samples"][1]["gam_go"], 0x20 if idle else 0x7f)
                     self.assertEqual(flush["samples"][1]["gam_eco"], 0x201 if idle else 0x200)
@@ -97,8 +97,8 @@ class FlushAcknowledgements(unittest.TestCase):
                 })
 
     def test_access_failures_retain_the_parent_and_report_the_attempt(self):
-        for mode, limit in (("flush-read", 48), ("flush-float", 48), ("flush-clock", 48), ("flush-window", 48),
-                            ("flush-map", 15), ("flush-map-retained", 15), ("flush-alias", 15), ("flush-unmap", 15)):
+        for mode, limit in (("flush-read", 100), ("flush-float", 100), ("flush-clock", 100), ("flush-window", 100),
+                            ("flush-map", 28), ("flush-map-retained", 28), ("flush-alias", 28), ("flush-unmap", 28)):
             for pos in range(1, limit + 1):
                 with self.subTest(mode=mode, position=pos):
                     result = bootstrap_result(observe(mode, pos))
@@ -106,12 +106,12 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(result["summary"]["commands"], 1)
                     self.assertFalse(result["summary"]["returned"])
                     summary = result["flush"]["summary"]
-                    self.assertEqual(summary["samples"], (pos - 1) // (16 if limit == 48 else 5))
+                    self.assertEqual(summary["samples"], (pos - 1) // (25 if limit == 100 else 7))
                     self.assertEqual(len(result["flush"]["gam"]), summary["samples"])
                     self.assertEqual(bool(summary["live"]), mode in ("flush-clock", "flush-map-retained", "flush-unmap"))
 
     def test_each_outstanding_counter_stops_the_current_phase(self):
-        for pos in range(12):
+        for pos in range(16):
             n, index = divmod(pos, 4)
             result = bootstrap_result(observe("flush-busy", pos + 1))
             self.assertFalse(result["complete"])
@@ -137,7 +137,12 @@ class FlushAcknowledgements(unittest.TestCase):
                     row.replace("authority=none", "authority=write")):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        media = text.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
+        old_power = re.sub(r"^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
+        old_power = re.sub(r" l3_close=.*", "", old_power)
+        old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")
+        old_power = old_power.replace("v=6 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
+        self.assertNotIn("request_trace", bootstrap_result(old_power)["flush"])
+        media = old_power.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
                              "intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9")
         media = re.sub(r" gam_req=\S+ rc_control=\S+ rc_target=\S+ rc6_threshold=\S+", "", media)
         media = media.replace("intel-flush-sample: v=4 ", "intel-flush-sample: v=3 ")
@@ -155,7 +160,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old = previous.replace(row, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
         self.assertNotIn("smi_guard", bootstrap_result(old)["flush"])
         for n, packet in enumerate(flush["samples"]):
-            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=4 n={n} "))
+            sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=5 n={n} "))
             for bad in ("", sample + "\n" + sample, sample.replace(f"begin={packet['begin']}", "begin=1"),
                         sample.replace(f"end={packet['end']}", f"end={packet['begin'] + 10001}"),
                         sample.replace(" l3=", " unknown="),
@@ -167,12 +172,46 @@ class FlushAcknowledgements(unittest.TestCase):
                     bootstrap_result(text.replace(sample, bad))
         for before, after in (("intel-bootstrap-summary: v=12 ", "intel-bootstrap-summary: v=11 "),
                               ("authority=none\nintel-flush-sample", "authority=write\nintel-flush-sample"),
-                              ("samples=3 reads=48 maps=15 retired=15", "samples=3 reads=48 maps=15 retired=14"),
-                              ("samples=3 reads=48 maps=15 retired=15", "samples=3 reads=36 maps=15 retired=15"),
-                              ("intel-flush-summary: v=5 ", "intel-flush-summary: v=4 ")):
+                              ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=100 maps=28 retired=27"),
+                              ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=99 maps=28 retired=28"),
+                              ("intel-flush-summary: v=6 ", "intel-flush-summary: v=5 ")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(before, after))
+
+    def test_reason_transition_bounds_and_blocked_flush_evidence(self):
+        text = observe("pass")
+        trace = bootstrap_result(text)["flush"]["request_trace"]
+        self.assertGreater(trace["summary"]["max_gap_us"], 0)
+        self.assertEqual([(c["asserted"], c["cleared"]) for c in trace["reason_changes"]], [(127, 0), (0, 127)])
+        self.assertEqual(trace["last_observed_reasons"], 0)
+        self.assertTrue(all(c["earliest_us"] < c["latest_us"] for c in trace["reason_changes"]))
+        self.assertEqual([w["sampled_block_and_flush"] for w in trace["windows"]], [False, True, False, False])
+        self.assertEqual(trace["maintenance"]["observed_open_clients"], 0x5f)
+        self.assertFalse(trace["maintenance"]["observed_block"])
+        sample = next(l for l in text.splitlines() if l.startswith("intel-flush-sample: v=5 n=1 "))
+        for old, new in (("req_close=0", "req_close=0x1"), ("go_close=0x20", "go_close=0x21"),
+                         ("rcs_close=0x20", "rcs_close=0x10"), ("eco_close=0x201", "eco_close=0x200"),
+                         ("l3_close=0x1", "l3_close=0x3")):
+            changed = text.replace(sample, sample.replace(old, new))
+            self.assertFalse(bootstrap_result(changed)["flush"]["request_trace"]["windows"][1]["sampled_block_and_flush"])
+        stale = bootstrap_result(observe("flush-stale"))["flush"]["request_trace"]
+        self.assertFalse(any(w["sampled_block_and_flush"] for w in stale["windows"]))
+        latched = bootstrap_result(observe("flush-latched"))["flush"]["request_trace"]
+        self.assertEqual(latched["last_observed_reasons"], 0x7f)
+        self.assertFalse(any(c["cleared"] for c in latched["reason_changes"]))
+        chatter = bootstrap_result(observe("flush-chatter"))["flush"]["request_trace"]
+        self.assertEqual(chatter["summary"]["spans"], 32)
+        self.assertGreater(chatter["summary"]["omitted"], 0)
+        self.assertIsNone(chatter["last_observed_reasons"])
+        self.assertFalse(any(w["observed_block"] for w in chatter["windows"]))
+        span = next(l for l in text.splitlines() if l.startswith("intel-gam-span: v=1 n=1 "))
+        for bad in ("", span + "\n" + span, span.replace("pulse=0", "pulse=2"),
+                    re.sub(r"first_end=\d+", "first_end=1", span)):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(span, bad))
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace("omitted=0 max_gap_us=", "omitted=1 max_gap_us="))
 
     def test_dedicated_stage_and_boot_recipe(self):
         for build in ("flush", "aux"):
@@ -212,6 +251,6 @@ class FlushAcknowledgements(unittest.TestCase):
             compile_fixture(TARGET, output=binary, declaration=(
                 cc, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
-            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 48),
+            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 100),
                               ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)

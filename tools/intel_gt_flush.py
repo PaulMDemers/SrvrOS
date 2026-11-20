@@ -48,12 +48,16 @@ def smi_guard_result(rows, version, parent, memory, retire):
 
 def flush_result(text, parent, reset, translation, primary, retire, memory):
     rows = [line for line in text.splitlines() if line.startswith("intel-flush-")]
-    if len(rows) != 4 or not rows[0].endswith(" authority=none"):
+    if not rows or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
     summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
-                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5))
+                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6))
     smi_rows = [line for line in text.splitlines() if line.startswith(SMI_PREFIX)]
     smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire)
+    traced = summary["v"] == 6
+    slots = 4 if traced else 3
+    if len(rows) != slots + 1:
+        raise ValueError("GT flush sample coverage")
     power = summary["v"] >= 5
     media = summary["v"] >= 4
     gam = summary["v"] >= 3
@@ -62,14 +66,18 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
         words += MEDIA_WORDS
     if power:
         words += POWER_WORDS
+    if traced:
+        words += ("l3_close", "go_close", *(key + "_close" for key in ENGINES), "eco_close", "req_close")
     width = len(words)
     offsets = (0, 8, 10, 12, 13, width) if power else (0, 8, 10, width) if media else (0, width)
+    if traced:
+        offsets = (0, 1, 9, 11, 13, 16, 24, width)
     pages = len(offsets) - 1
     count, reads, maps, retired, live = (summary[key] for key in ("samples", "reads", "maps", "retired", "live"))
-    if (count > 3 or not count * width <= reads <= min(3, count + 1) * width
-            or not count * pages <= retired <= maps <= min(3, count + 1) * pages
+    if (count > slots or not count * width <= reads <= min(slots, count + 1) * width
+            or not count * pages <= retired <= maps <= min(slots, count + 1) * pages
             or (maps != retired and not live)
-            or (live and count == 3) or reads > maps * width):
+            or (live and count == slots) or reads > maps * width):
         raise ValueError("GT flush accounting")
 
     if media:
@@ -79,18 +87,22 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
         if (maps - retired > 1 or
                 not offsets[max(0, extra_maps - 1)] <= extra_reads <= offsets[extra_maps]):
             raise ValueError("GT media page accounting")
-    sample_version = 4 if power else 3 if media else 2 if gam else 1
+    sample_version = 5 if traced else 4 if power else 3 if media else 2 if gam else 1
     samples = [fields(row, "intel-flush-sample:", ("v", "n", "begin", "end", *words), words,
                       versions=(sample_version,))
                for row in rows[1:]]
-    if [row["n"] for row in samples] != [0, 1, 2]:
+    if [row["n"] for row in samples] != list(range(slots)):
         raise ValueError("GT flush sample order")
     if ((parent["issued"] and count < 1) or (reset["begin"] and count < 2)
-            or (retire["guard_begin"] and count != 3) or (parent["complete"] and count != 3)):
+            or (traced and memory["begin"] and count < 3)
+            or (retire["guard_begin"] and count != slots) or (parent["complete"] and count != slots)):
         raise ValueError("GT flush parent skipped an observation")
 
     starts_after = (translation["end0"], samples[0]["end"], primary["end1"])
     ends_before = (samples[1]["begin"], reset["begin"], retire["guard_begin"])
+    if traced:
+        starts_after = (*starts_after[:2], reset["end"], primary["end1"])
+        ends_before = (*ends_before[:2], memory["begin"], retire["guard_begin"])
     for n, sample in enumerate(samples):
         values = [sample[key] for key in words]
         begin, end = sample["begin"], sample["end"]
@@ -106,7 +118,8 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
             raise ValueError("GT flush partial sample")
     if ((samples[0]["begin"] and parent["pci_samples"] < 2)
             or (samples[1]["begin"] and (parent["prepared"], parent["issued"]) != (5, 5))
-            or (samples[2]["begin"] and not primary["complete"])):
+            or (traced and samples[2]["begin"] and not reset["complete"])
+            or (samples[-1]["begin"] and not primary["complete"])):
         raise ValueError("GT flush phase admission")
 
     engine_ack = [sum((bool(row[key] & 32) << index) for index, key in enumerate(ENGINES))
@@ -120,7 +133,10 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     if media:
         current = [{key: (row[key] >> 16) & 0xff for key in MEDIA_WORDS} for row in samples[:count]]
         for n, queues in enumerate(current):
-            later_phase = (parent["issued"], reset["begin"], retire["guard_begin"])[n]
+            phases = [parent["issued"], reset["begin"]]
+            if traced:
+                phases.append(memory["begin"])
+            later_phase = (phases + [retire["guard_begin"]])[n]
             if any(queues.values()) and (n + 1 != count or later_phase or parent["complete"] or not parent["failed"]):
                 raise ValueError("GT advanced past outstanding media requests")
         result["media_outstanding"] = current
@@ -139,4 +155,81 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
         result["smi_guard"] = smi
     if gam:
         result["gam"] = gam_state
+    trace_rows = [line for line in text.splitlines() if line.startswith("intel-gam-")]
+    if traced:
+        result["request_trace"] = request_trace(trace_rows, parent, reset, samples[:count], memory)
+    elif trace_rows:
+        raise ValueError("Foreign GAM trace")
     return result
+
+
+def request_trace(rows, parent, reset, samples, memory):
+    if not rows:
+        raise ValueError("Missing GAM trace")
+    summary = fields(rows[0], "intel-gam-trace:", ("v", "reads", "spans", "omitted", "max_gap_us"))
+    size, reads, omitted, gap = (summary[k] for k in ("spans", "reads", "omitted", "max_gap_us"))
+    if (len(rows) != size + 1 or size > 32 or reads > parent["guards"] or (omitted and size != 32)
+            or bool(gap) != (reads > 1) or gap > parent["last"] - parent["begin"]):
+        raise ValueError("GAM trace coverage")
+    spans = []
+    changes = []
+    for i, line in enumerate(rows[1:]):
+        s = fields(line, "intel-gam-span:", ("v", "n", "pulse", "word", "count", "first_begin",
+                                            "first_end", "last_begin", "last_end"), ("word",))
+        a, b, c, d = (s[k] for k in ("first_begin", "first_end", "last_begin", "last_end"))
+        if (s["n"] != i or not s["count"] or s["word"] >= 0xffffffff or s["pulse"] > reset["reset_completed"]
+                or (s["pulse"] and (not reset["begin"] or a < reset["begin"]))
+                or (reset["end"] and s["pulse"] < reset["reset_completed"] and d > reset["end"])
+                or not parent["begin"] <= a <= b <= d <= parent["last"] or not a <= c <= d
+                or (s["count"] == 1 and (a, b) != (c, d))
+                or (s["count"] > 1 and (b > c or d - a > (s["count"] - 1) * gap))):
+            raise ValueError("GAM span fields or clock")
+        if spans:
+            prev = spans[-1]
+            if (prev["last_end"] > a or b - prev["last_begin"] > gap or s["pulse"] < prev["pulse"]
+                    or (prev["pulse"], prev["word"]) == (s["pulse"], s["word"])):
+                raise ValueError("GAM span order or gap")
+            old, new = (word >> 8 & 0xff for word in (prev["word"], s["word"]))
+            if old != new:
+                changes.append(dict(cleared=old & ~new, asserted=new & ~old,
+                                    earliest_us=prev["last_begin"], latest_us=b,
+                                    pulses_before=prev["pulse"], pulses_after=s["pulse"]))
+        spans.append(s)
+    if reads != sum(s["count"] for s in spans) + omitted:
+        raise ValueError("GAM trace count")
+    if parent["complete"] and not omitted and (
+            {s["pulse"] for s in spans} != {0, 1, 2} or spans[0]["first_begin"] > samples[0]["begin"]
+            or spans[-1]["last_end"] < samples[-1]["end"]):
+        raise ValueError("GAM trace missed reset or recovery")
+    windows = []
+    for i, row in enumerate(samples):
+        # Require an actual closed observation inside the packet. Any conflicting
+        # sampled permission within it rules out even a sampled block.
+        observed = [s for s in spans if s["last_end"] >= row["begin"] and s["first_begin"] <= row["end"]]
+        allowed = (row["gam_req"] | row["req_close"] | row["gam_go"] | row["go_close"]) & GAM_GO_MASK
+        trace_open = any(s["word"] & GAM_GO_MASK for s in observed)
+        closed = bool(observed) and not (allowed or trace_open or omitted)
+        ack = all(row[k] & 0x31 == 0x20 and row[k + "_close"] & 0x31 == 0x20 for k in ENGINES)
+        l3 = row["l3"] & 3 == 1 and row["l3_close"] & 3 == 1
+        idle = bool(row["gam_eco"] & row["eco_close"] & 1)
+        empty = all((row[k] & 0xff0000) == 0 for k in MEDIA_WORDS)
+        fresh = i > 0 and all(not samples[i - 1][k + "_close"] & 32 for k in ENGINES)
+        fresh = fresh and not samples[i - 1]["l3_close"] & 1
+        windows.append(dict(sample=i, observed_block=closed, fresh_flush_ack=bool(fresh and ack and l3),
+                            gam_idle=idle, media_empty=empty,
+                            sampled_block_and_flush=bool(closed and fresh and ack and l3 and idle and empty)))
+    maintenance = None
+    if len(samples) == 4 and memory["complete"]:
+        before, after = samples[2:]
+        # Packet 2 ends before the first maintenance write. Packet 3 starts
+        # after maintenance has finished. Include every intervening request sample.
+        interior = [s for s in spans if s["last_end"] >= before["end"] and s["first_begin"] <= after["begin"]]
+        open_mask = 0
+        for span in interior:
+            open_mask |= span["word"] & GAM_GO_MASK
+        blocked = bool(interior and windows[2]["observed_block"] and windows[3]["observed_block"] and not open_mask)
+        maintenance = dict(begin_us=memory["begin"], end_us=memory["end"], observed_open_clients=open_mask,
+                           observed_block=blocked, sampled_block_and_flush=blocked and windows[3]["sampled_block_and_flush"])
+    return dict(summary=summary, spans=spans, reason_changes=changes,
+                last_observed_reasons=(spans[-1]["word"] >> 8) & 0xff if spans and not omitted else None,
+                windows=windows, maintenance=maintenance)

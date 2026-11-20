@@ -793,6 +793,8 @@ class Runner:
                 record['gam_samples']=observed['gam']
             if 'power_controls' in observed:
                 record['gt_power_control_samples']=observed['power_controls']
+            if 'request_trace' in observed:
+                record['gt_request_trace']=observed['request_trace']
             if 'media_outstanding' in observed:
                 record['media_outstanding_samples']=observed['media_outstanding']
         if native.get('diagnostic_arena'):

@@ -206,6 +206,9 @@ static bool bootstrap_cost_end(unsigned i) {
  if(elapsed>bootstrap_cost.maximum[i])bootstrap_cost.maximum[i]=elapsed;
  bootstrap_cost.start=gt_bootstrap_native.last;bootstrap_cost.stage=i+1;return true;
 }
+#ifdef SRVROS_INTEL_GT_FLUSH
+static bool gt_trace_request(void);
+#endif
 static bool bootstrap_guard(void) {
  bootstrap_admission.active=false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -271,7 +274,12 @@ static bool bootstrap_guard(void) {
    if(words[i]!=value || !intel_pci_requester_prefix(words,i+1) || (i==8 && words[i]))return bootstrap_fail(16);
   }
  }
- return bootstrap_cost_end(4);
+ if(!bootstrap_cost_end(4))return false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ return gt_trace_request();
+#else
+ return true;
+#endif
 }
 static bool bootstrap_pci(unsigned n) {
  if(n!=gt_bootstrap_native.pci_samples || n>=4 || !bootstrap_guard())return false;
@@ -615,6 +623,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
   (struct bdw_boot_io){&gt_bootstrap_native,bootstrap_proof,bootstrap_read,bootstrap_write,bootstrap_epoch,
    bootstrap_preserved,bootstrap_now,bootstrap_pause}))goto fail;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!gt_flush_sample(2))goto fail;
+#endif
  if(!bootstrap_memory_open())goto fail;
 #endif
  if(!bootstrap_guard() || !intel_completion_observe(&gt_bootstrap_native.post,g,
@@ -635,7 +646,7 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(!gt_primary_capture())goto fail;
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!gt_flush_sample(2))goto fail;
+ if(!gt_flush_sample(3))goto fail;
 #endif
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_run() || !command_returned())goto fail;

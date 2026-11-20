@@ -372,3 +372,26 @@ missing-workspace halt; prior Intel/Haswell/VirtIO regressions pass. Conservativ
 saved-tail projection is60,192/65,536 bytes including1,536 allowance. Recovery,
 media and independent evidence are recorded there. No hardware completion or
 memory authority follows from these host/VM receipts.
+
+#### Timing reset reasons and checking the block during maintenance
+
+Flush summary version 6 adds an observation immediately after the second GT
+reset and epoch change, before memory maintenance starts. Each of the four
+packets reads the request, arbiter response, five engine states, L3 state and
+GAM idle on both sides of the media and power samples. All 100 register reads
+use read-only aliases. The collector compares the two packets surrounding the
+maintenance interval with the intervening request samples.
+
+While PCI bus mastering is inhibited, existing guard checks also sample
+`GO_GAM_REQ` through the verified wake mapping. The trace splits at raw-word
+changes and completed reset pulses. A change in bits 15:8 is timestamped from
+the start of the last read with the old value to the end of the first read
+with the new value. The report gives the largest gap between samples, the
+last observed bits and any overflow of the 32-span buffer. Sampling pauses
+during each reset pulse and ends before bus mastering is restored.
+
+The report distinguishes a sampled block and fresh engine/L3 acknowledgements
+from a quiet queue or a reason bit that stays set through the final read.
+The retained time bounds describe the observed transitions. Exclusive blocking
+of all future requests and authority to issue a native PCI function reset
+still require the display owner to control the request across the drain.
