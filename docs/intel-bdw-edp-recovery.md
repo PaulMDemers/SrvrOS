@@ -449,6 +449,18 @@ documented reset values with T12 active at entry and injects failures at
 each store and readback.
 [Broadwell Register Reference, pp. 1230–1236](https://cdrdv2.intel.com/v1/dl/getcontent/690789).
 
+Release `b97772bb1e3c7432` passed on Air7,2 in session
+`session-000660ae54e01a39-00`. Panel-off took 324.146 ms. The T12 wait
+took 501.202 ms against the 525 ms limit, and the status changed from
+`0x08000001` to `0`. Five verified stores took 111 µs. The on/off
+timings went to zero and back to `0x007d0834` and `0x02e409c4` while
+the divisor stayed `0x0004af06`. All three framebuffer digests and PCI
+snapshots matched. Both restored frame CRCs matched `0xc2798333` before
+the backlight returned. The display lease retired, the run saved and
+unmounted the USB workspace, and the laptop rebooted into Ubuntu.
+The collector closed as `EDP_DARK_PPS_COMPLETE` with offline USB integrity
+`PASS` and zero PCI reset writes.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

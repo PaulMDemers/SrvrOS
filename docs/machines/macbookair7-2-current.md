@@ -181,13 +181,13 @@ function reset and whole-GPU memory retirement remain open.
 
 ### Panel power-sequencer recovery checkpoint
 
-PR301 on main `4016abf0` owns restoration of the Air7,2 panel timing words
-in the Broadwell eDP diagnostic, its isolated native trial and host/VM
-validation. The next check requires the original display lease, powered
-well, disabled route and elapsed T12 before programming the observed
-timings. The trial will verify the original framebuffer and both reference
-CRCs before lighting the panel. Native FLR and requester retirement remain
-separate. The open Wi-Fi and WebCore PRs have distinct scopes.
+Release `b97772bb1e3c7432` passed the native panel timing rehearsal.
+After a 501.202 ms T12 wait, five verified stores took 111 µs and
+restored the original timing words. The framebuffer, PCI state and
+both reference CRCs matched. The run saved, unmounted and rebooted
+into Ubuntu, closing as `DIAGNOSED` with offline USB integrity `PASS`.
+Native PCI function reset and whole-GPU memory retirement remain open.
+[Panel timing result](../intel-bdw-edp-recovery.md#panel-power-sequencer-timing-recovery).
 
 ## Owned blitter completion observed on Ubuntu
 
