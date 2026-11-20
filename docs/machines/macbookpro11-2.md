@@ -7,6 +7,30 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Paired router capture ends before the first DHCP Request (November 20)
+
+Source `81944aaf` / release `1d35f764c0c440fe`, session
+`session-000660bc9e8fa801-00`, completed the first four-way WPA handshake.
+SrvrOS sent two Discovers and uniquely correlated a radio MAC ACK with each.
+The ASUS LAN bridge captured one Discover at 17:19:44.350539 EST and the
+server's broadcast Offer 292 µs later. SrvrOS logged zero Offers or inbound
+server DHCP candidates and sent no Request. The capture also shows Ubuntu
+completing a full DHCP exchange after return on the same adapter.
+
+The bridge capture proves server response at the bridge. To locate the loss,
+correlate the Offer with AP transmit evidence and the SrvrOS receive pipeline,
+including USB bulk IN, frame classification and group-key decryption. This run
+ended before the Request and leaves the preceding missing ACK and the second
+WPA handshake unresolved. No new hardware acceptance is recorded.
+
+The frozen collector ran once and saved the closed failure. The separate
+paired review verified seven startup checkpoints, 495 preexisting workspace
+files with the authorized marker access-time change, 75 other EFI files and
+nine recovery payloads. Ubuntu is unarmed. The sealed 1,351-file primary index
+is `17bb8012a16fae2b72d404fd8203076d9132ab6f6186b8b9e970a97a7ee23f72`.
+The separate review index with the bridge packet capture is
+`134cd1257cae951fcb463b03690ebe676246c45dc56060b48aa1303748b0fe5b`.
+
 ### Cold WPA diagnostic stopped at the first DHCP Request (November 20)
 
 Source `0656d0b7`, release `8751b516ca0eb6f8`, session

@@ -155,6 +155,21 @@ needed to distinguish a missing server reply from a reply lost on the receive
 path. This run did not enter the second connection. The immutable evidence and
 preservation results are in the [unit record](machines/macbookpro11-2.md#current-handoff).
 
+## November 20 paired bridge capture
+
+Release `1d35f764c0c440fe` completed the first WPA handshake and correlated
+two Discovers with unique MAC ACK reports. One Discover appeared at the ASUS
+LAN bridge, followed 292 µs later by a broadcast Offer. No Offer or inbound
+server DHCP candidate reached the SrvrOS DHCP parser. The bridge and SrvrOS
+both recorded zero Requests for this transaction. The same capture records
+Ubuntu completing all four DHCP messages with the same adapter after reboot.
+
+The Offer at the bridge establishes that the DHCP server replied in this run.
+Its over-the-air transmission and arrival at adapter bulk IN are unverified.
+The earlier run timed out later, after sending a Request, and still lacks
+paired server evidence. See the [unit handoff](machines/macbookpro11-2.md#current-handoff)
+for the sealed records.
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
