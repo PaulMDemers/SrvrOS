@@ -508,15 +508,43 @@ implements no PLL, power-controller mailbox or firmware well writes.
 
 #### Joined PCI reset and panel recovery fixture
 
-The host fixture now executes the graphics remapper's global read/write drain
-under the dark display's original requester hold. Before starting the drain,
-the reset core verifies PCI Command `0x0400`, AF status, interrupt controls,
-the subsystem and the saved BARs. It requires a fresh, registered drain
-object. It checks the drain clock against the parent clock, requires verified
-retirement of the temporary remapper mapping, and repeats the PCI checks before
-issuing AFCTL. The 100 ms configuration quiet interval begins after the reset
-write returns. An interval shortened by time spent inside the write fails
-before the first Vendor ID read.
+The reset core begins with the panel dark, PCI Command `0x0403`, MSI off and
+the original requester held. While GT MMIO is accessible, it reads the
+power manager's memory request (`GO_GAM_REQ`) and the arbiter response
+(`MSG_GO_GAM`). Both must initially allow all six documented clients.
+The five engine words must show Go and a clear flush acknowledgement.
+Both L3 acknowledgement bits must be clear. A registered provider then
+issues one block request. The core requires the request and response masks
+to reach zero, all five engines to acknowledge flush and block with Go
+clear and busy indicated, and a fresh L3 flush acknowledgement. It latches
+that L3 event under the exclusive request because GPM can clear it before
+the engines finish. An observed L3 unblock ends the attempt.
+
+With GAM idle, both video engines must report zero outstanding reference
+and prefetch reads. The core rechecks the engines, idle status, L3 unblock
+and both GAM words before closing decode. Acquisition, observation and
+decode closure share a 10 ms budget. A consumed descriptor cannot issue a
+second request after a partial failure. These are sufficient conditions for
+this experimental protocol. The provider also owns the other traffic paths
+and must keep new activity excluded throughout.
+[Intel Broadwell PRM Volume 2c, pp. 587–592, 805–814, 859, 994, 1034](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789)
+
+At Command `0x0400`, the core executes the graphics remapper's global
+read/write drain. It checks AF status, interrupt controls, the subsystem and
+the saved BARs, verifies the drain clock and retirement of the temporary
+mapping, and rechecks PCI state before AFCTL. The CPU-side ownership check
+also runs at the reset store and throughout config-space recovery. The
+100 ms quiet interval starts when the reset write returns.
+
+The host fixture models the GPM request and its register responses. It
+injects stale or missing acknowledgements, reopened clients, individual
+busy queues, elapsed deadlines and loss of ownership at AFCTL. The Air's
+most recent GPU diagnostic observed all six clients allowed. Replaying its
+response words with a modeled block request prevents decode closure and reset. A native
+test of this path requires an exclusive request provider with a documented
+trigger and a way to observe the transaction under the dark-display hold.
+The message response bits belong to the hardware protocol.
+[Native GT3 media observations](intel-completion-prerequisites.md#macbookair72-media-counter-result)
 
 Only requests already processed by the graphics remapper fall within the
 drain's scope. The physical provider still has to keep new requests excluded

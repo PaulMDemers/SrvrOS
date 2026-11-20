@@ -5,6 +5,9 @@
 #define AF_HEADER 0x03060013u
 #define PCI_INTX_DISABLE 0x400u
 #define PCI_MEMORY 2u
+#define PCI_IO 1u
+#define GT_BLOCK_US 10000u
+#define GAM_CLIENTS 0x5fu
 #define PCI_CAP_LIST (1u << 20)
 #define PCI_MSI_ENABLE (1u << 16)
 #define FLR_QUIET_US 100000u
@@ -13,17 +16,22 @@
 struct attempt {
     const struct bdw_flr_io *io;
     struct bdw_flr_report *report;
-    uint64_t issued, last;
+    const struct bdw_flr_pci_image *image;
+    const struct bdw_flr_drain *drain;
+    uint64_t issued, last, traffic_begin;
 };
 
 static bool check(struct attempt *a)
 {
-    if (!a->io->held(a->io->context))
+    if (a->drain->attempt != a->report || !a->io->held(a->io->context) ||
+        !a->io->admitted(a->io->context, a->image, a->drain))
         return false;
     uint64_t now = a->io->now(a->io->context);
-    if (!now || now < a->last)
+    if (!now || now == UINT64_MAX || now < a->last)
         return false;
     a->last = now;
+    if (a->traffic_begin && now - a->traffic_begin >= GT_BLOCK_US)
+        return false;
     if (!a->issued)
         return true;
     a->report->elapsed_us = now - a->issued;
@@ -60,6 +68,95 @@ static bool saved_resources(struct attempt *a, const struct bdw_flr_pci_image *s
         if (!expect(a, (uint8_t)(0x10 + 4*i), UINT32_MAX, saved->bar[i]))
             return false;
     return true;
+}
+
+/* Broadwell PRM 2c pp. 587-592, 805-814, 859, 994, 1034. Read these
+ * only while decode is open under the exclusive block provider. */
+static bool gt_word(struct attempt *a, uint32_t offset, uint32_t *word)
+{
+    *word = UINT32_MAX;
+    return check(a) && a->io->gt_read(a->io->context, offset, word) &&
+           *word != UINT32_MAX && check(a);
+}
+
+static bool gam(struct attempt *a, uint32_t allowed, bool *matches)
+{
+    uint32_t request, response;
+    if (!gt_word(a, 0x40d0, &request) || !gt_word(a, 0x8028, &response))
+        return false;
+    *matches = (request & GAM_CLIENTS) == allowed && (response & GAM_CLIENTS) == allowed;
+    /* An existing reset reason is foreign to this new transaction. */
+    if (allowed && (request & 0xff00u))
+        *matches = false;
+    return true;
+}
+
+static bool engines(struct attempt *a, bool blocked, bool *matches)
+{
+    static const uint32_t offsets[] = {0x8000, 0x8004, 0x8008, 0x800c, 0x8010};
+    /* With Go=0, the engine stays busy (bit 0 clear). Before the request
+     * its pipeline may be either idle or busy. */
+    uint32_t mask = blocked ? 0x31u : 0x30u;
+    uint32_t expected = blocked ? 0x20u : 0x10u;
+    *matches = true;
+    for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
+        uint32_t word;
+        if (!gt_word(a, offsets[i], &word))
+            return false;
+        if ((word & mask) != expected)
+            *matches = false;
+    }
+    return true;
+}
+
+static bool block_traffic(struct attempt *a)
+{
+    bool arbiter, pipelines;
+    uint32_t l3;
+    a->traffic_begin = a->last;
+    if (!gam(a, GAM_CLIENTS, &arbiter) || !arbiter || !engines(a, false, &pipelines) ||
+        !pipelines || !gt_word(a, 0x8038, &l3) || (l3 & 3u) || !check(a))
+        return false;
+    enum intel_gt_write issued = a->io->block(a->io->context);
+    if (issued != GT_WRITE_NONE) {
+        a->report->block_issued = true;
+        a->report->retained = true;
+    }
+    if (issued != GT_WRITE_DONE || !check(a))
+        return false;
+
+    for (unsigned i = 0; i < GT_ACCESS_POLL_CAP; ++i) {
+        uint32_t eco;
+        ++a->report->traffic_polls;
+        if (!gt_word(a, 0x8038, &l3) || !gam(a, 0, &arbiter) ||
+            !engines(a, true, &pipelines) || !gt_word(a, 0x8040, &eco))
+            return false;
+        /* GPM clears this acknowledgement when it samples it. Latch only
+         * a new edge during this original exclusive request. */
+        if (l3 & 2u) return false; /* L3 acknowledged an unblock. */
+        a->report->l3_ack |= (l3 & 1u) != 0;
+        if (arbiter && pipelines && a->report->l3_ack && (eco & 1u)) {
+            static const uint32_t queues[] = {0x12870, 0x12878, 0x1c870, 0x1c878};
+            for (unsigned q = 0; q < sizeof(queues) / sizeof(queues[0]); ++q) {
+                uint32_t word;
+                if (!gt_word(a, queues[q], &word) || (word & 0xff0000u))
+                    return false;
+            }
+            if (!engines(a, true, &pipelines) || !pipelines || !gt_word(a, 0x8040, &eco) ||
+                !(eco & 1u) || !gt_word(a, 0x8038, &l3) || (l3 & 2u) ||
+                !gam(a, 0, &arbiter) || !arbiter)
+                return false;
+            if (a->last <= a->traffic_begin)
+                return false;
+            a->report->traffic_blocked = true;
+            return true;
+        }
+        uint64_t before = a->last;
+        a->io->delay(a->io->context, 1);
+        if (!check(a) || a->last <= before)
+            return false;
+    }
+    return false;
 }
 
 static bool store(struct attempt *a, uint8_t offset, unsigned bytes, uint32_t value)
@@ -99,39 +196,43 @@ static bool wait_ready(struct attempt *a)
 }
 
 bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *image,
-                   const struct bdw_flr_drain *drain, struct bdw_flr_report *report)
+                   struct bdw_flr_drain *drain, struct bdw_flr_report *report)
 {
-    if (!report)
+    if (!report || !drain || drain->attempt)
         return false;
     *report = (struct bdw_flr_report){0};
-    if (!io || !image || !drain || !drain->source || !drain->result || !drain->retire_alias ||
+    if (!io || !image || !drain->source || !drain->result || !drain->retire_alias ||
         !io->held || !io->admitted || !io->read || !io->write ||
-        !io->now || !io->delay || (image->bar[0] & 0xffffffu) != 4 ||
+        !io->now || !io->delay || !io->gt_read || !io->block || (image->bar[0] & 0xffffffu) != 4 ||
         (image->bar[2] & 0xfffffffu) != 12 || image->subsystem != 0x011b106bu ||
         !image->bar[0] || !image->bar[2] || image->bar[1] || image->bar[3] ||
         image->bar[0] == 4 || image->bar[2] == 12)
         return false;
     const struct bdw_flr_pci_image saved = *image;
+    drain->attempt = report;
     const struct bdw_flr_drain child = *drain;
-    struct attempt a = {io, report, 0, 0};
-    if (!check(&a) || !io->admitted(io->context, &saved, &child) || !profile(&a, PCI_INTX_DISABLE) ||
-        !saved_resources(&a, &saved))
+    struct attempt a = {.io = io, .report = report, .image = &saved, .drain = drain};
+    if (child.source->consumer || child.result->object || !check(&a) ||
+        !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) || !saved_resources(&a, &saved) ||
+        !block_traffic(&a) || !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) ||
+        !store(&a, 4, 2, PCI_INTX_DISABLE))
+        return false;
+    a.traffic_begin = 0;
+    if (!profile(&a, PCI_INTX_DISABLE) || !saved_resources(&a, &saved))
         return false;
     /* A new drain belongs to this admission only. A completed object from
      * an earlier hold cannot execute twice. Keep decode and BME off until
      * all covered non-posted and remapped memory work has completed. */
-    if (!io->admitted(io->context, &saved, &child) || !check(&a))
+    if (!check(&a))
         return false;
-    if (!intel_vtd_drain_run(child.result, child.source, child.io)) {
-        report->retained = child.result->retained;
+    if (!intel_vtd_drain_run(child.result, child.source, child.io))
         return false;
-    }
     if (child.result->p.begin < a.last || !check(&a) || a.last < child.result->end ||
         !child.retire_alias(child.io.ctx, child.source, child.result)) {
         report->retained = true;
         return false;
     }
-    if (!check(&a) || !io->admitted(io->context, &saved, &child) || !saved_resources(&a, &saved) ||
+    if (!check(&a) || !saved_resources(&a, &saved) ||
         !profile(&a, PCI_INTX_DISABLE) ||
         !store(&a, 0xa8, 1, 1))
         return false;
@@ -160,7 +261,7 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
             return false;
     report->stage = BDW_FLR_REOPEN;
     if (!expect(&a, 0x2c, UINT32_MAX, saved.subsystem) ||
-        !io->admitted(io->context, &saved, &child) || !store(&a, 4, 2, PCI_INTX_DISABLE | PCI_MEMORY) ||
+        !store(&a, 4, 2, PCI_INTX_DISABLE | PCI_MEMORY) ||
         !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY))
         return false;
     report->stage = BDW_FLR_COMPLETE;

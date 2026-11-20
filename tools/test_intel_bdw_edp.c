@@ -78,6 +78,10 @@ enum flr_admission_fault {
     DRAIN_NEW_TRANSACTION, DRAIN_STALE_EPOCH, DRAIN_SOURCE_USED,
     DRAIN_BME_ENABLED, DRAIN_BAR_CHANGED, DRAIN_MSI_ENABLED,
     FLR_SHORT_QUIET, DRAIN_ALIAS_RETAINED,
+    GT_STALE_L3, GT_FOREIGN_RESET, GT_STALE_ENGINE, GT_BLOCK_UNCERTAIN, GT_REQUEST_OPEN, GT_RESPONSE_OPEN,
+    GT_ENGINE_OPEN, GT_ENGINE_IDLE, GT_ENGINE_UNFLUSHED, GT_NO_L3, GT_L3_UNBLOCK,
+    GT_ARBITER_BUSY, GT_MEDIA_BUSY, GT_REOPENED, GT_LATE_BLOCK, GT_FLOAT,
+    GT_LOST_AT_RESET, GT_CLOSE_UNCERTAIN, GT_BLOCK_CLOCK_FROZEN, GT_AIR_MEDIA_TRACE, GT_READ_FAILED, GT_BLOCK_REFUSED,
 };
 
 #define TEST_REFERENCE_CRC 0x5d3928e4u
@@ -105,9 +109,13 @@ struct source_fixture {
     uint64_t flr_issued;
     uint32_t flr_config[64];
     struct bdw_flr_report flr;
+    struct bdw_flr_drain flr_drain;
     struct intel_vtd_drain drain;
     struct intel_vtd_drain_source drain_source;
     unsigned drain_stores, drain_reads_after_store;
+    unsigned block_calls, decode_closes, media_reads, l3_reads;
+    bool lost_block_owner;
+    uint32_t gt_fault_offset;
     bool drain_alias_retired;
     struct bdw_edp_reopen_report reopen;
     struct bdw_edp_pps_report pps;
@@ -744,6 +752,8 @@ static void source_delay(void *context, uint32_t us)
     bool short_warmup = us == 520 && s->fault == SOURCE_WARMUP_SHORT;
     bool short_well_pause = us == 10 && s->flr_fault == 23;
     if (s->flr_fault == FLR_SHORT_QUIET && us == 100000u) us -= 5000u;
+    if (s->flr_fault == GT_BLOCK_CLOCK_FROZEN && s->block_calls && us == 1)
+        return;
     wait(&s->panel, short_warmup || short_well_pause ? 1 : us);
 }
 
@@ -832,9 +842,78 @@ static bool flr_admitted(void *context, const struct bdw_flr_pci_image *image,
 {
     struct source_fixture *s = context;
     assert(image->bar[0] == 0xc0000004 && image->bar[2] == 0xb000000c);
-    return s->flr_fault != 1 && child->result == &s->drain && child->source == &s->drain_source &&
+    return child == &s->flr_drain && child->attempt == &s->flr &&
+           !s->lost_block_owner && s->flr_fault != 1 && child->result == &s->drain && child->source == &s->drain_source &&
            child->source->binding.lifetime == &s->image && child->source->binding.epoch == s->image.epoch &&
            (s->flr_fault != DRAIN_OWNER_LOST || !s->drain.complete);
+}
+
+/* Modeled GPM transaction. L3 acknowledges only on the first poll and
+ * clears the bit before the five engines finish the handshake. */
+static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
+{
+    struct source_fixture *s = context;
+    assert(flr_held(s) && s->flr_config[1] == 0x100403 && !s->decode_closes);
+    bool block = s->block_calls != 0;
+    bool ready = block && s->l3_reads >= 2;
+    if (block && s->flr_fault == GT_READ_FAILED && offset == 0x8038) return false;
+    /* Replay the observed pre/held response words from Air release
+     * 8e5b856650ecf306. The request register was not in that recording.
+     * Leave it modeled, even granting the hypothetical request success. */
+    if (s->flr_fault == GT_AIR_MEDIA_TRACE) {
+        switch (offset) {
+        case 0x8028: *word = 0x7f; return true;
+        case 0x8000: *word = 0xc00010; return true;
+        case 0x8004: case 0x8008: *word = 0x10; return true;
+        case 0x800c: case 0x8010: *word = 0x1f; return true;
+        case 0x8038: *word = 0; return true;
+        case 0x8040: *word = 1; return true;
+        }
+    }
+    switch (offset) {
+    case 0x40d0: case 0x8028:
+        *word = block ? 0x20 : 0x7f;
+        if (!block && offset == 0x40d0 && s->flr_fault == GT_FOREIGN_RESET) *word |= 0x8000;
+        if (block && ((offset == 0x40d0 && s->flr_fault == GT_REQUEST_OPEN) ||
+            (offset == 0x8028 && (s->flr_fault == GT_RESPONSE_OPEN ||
+            (s->flr_fault == GT_REOPENED && s->media_reads == 4))))) *word |= 0x40;
+        break;
+    case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
+        *word = ready ? 0x20 : 0x10;
+        if (!block && s->flr_fault == GT_STALE_ENGINE) *word |= 0x20;
+        if (ready && offset == s->gt_fault_offset) {
+            if (s->flr_fault == GT_ENGINE_OPEN) *word |= 0x10;
+            if (s->flr_fault == GT_ENGINE_IDLE) *word |= 1;
+            if (s->flr_fault == GT_ENGINE_UNFLUSHED) *word &= ~0x20u;
+        }
+        break;
+    case 0x8038:
+        *word = block ? (++s->l3_reads == 1 && s->flr_fault != GT_NO_L3) : s->flr_fault == GT_STALE_L3;
+        if (block && s->flr_fault == GT_L3_UNBLOCK && s->media_reads == 4) *word = 2;
+        break;
+    case 0x8040:
+        *word = s->flr_fault != GT_ARBITER_BUSY;
+        break;
+    case 0x12870: case 0x12878: case 0x1c870: case 0x1c878:
+        assert(ready);
+        ++s->media_reads;
+        *word = 0x40001001u;
+        if (s->flr_fault == GT_MEDIA_BUSY && offset == s->gt_fault_offset) *word |= 1u << 16;
+        break;
+    default: assert(false); return false;
+    }
+    if (block && s->flr_fault == GT_FLOAT) *word = UINT32_MAX;
+    return true;
+}
+
+static enum intel_gt_write flr_gt_block(void *context)
+{
+    struct source_fixture *s = context;
+    assert(flr_held(s) && s->flr_config[1] == 0x100403 && !s->block_calls);
+    ++s->block_calls;
+    if (s->flr_fault == GT_LATE_BLOCK) s->panel.time += 10000;
+    if (s->flr_fault == GT_BLOCK_REFUSED) return GT_WRITE_NONE;
+    return s->flr_fault == GT_BLOCK_UNCERTAIN ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
 
 static bool drain_held(void *context, const struct intel_vtd_drain_source *source)
@@ -842,6 +921,7 @@ static bool drain_held(void *context, const struct intel_vtd_drain_source *sourc
     struct source_fixture *s = context;
     return flr_held(s) && !s->drain_alias_retired && source == &s->drain_source && source->consumer == &s->drain &&
            source->binding.lifetime == &s->image && source->binding.epoch == s->image.epoch &&
+           s->flr.traffic_blocked && !s->lost_block_owner && s->decode_closes == 1 &&
            !s->flr_writes && s->flr_config[1] == 0x100400;
 }
 
@@ -906,6 +986,8 @@ static bool flr_read(void *context, uint8_t offset, uint32_t *word)
         *word = UINT32_MAX;
     } else {
         *word = s->flr_config[offset / 4];
+        if (offset == 0xa8 && s->drain_alias_retired && !s->flr_issued && s->flr_fault == GT_LOST_AT_RESET)
+            s->lost_block_owner = true;
     }
     return true;
 }
@@ -913,6 +995,13 @@ static bool flr_read(void *context, uint8_t offset, uint32_t *word)
 static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned bytes, uint32_t word)
 {
     struct source_fixture *s = context;
+    if (offset == 4 && word == 0x400) {
+        assert(s->flr.traffic_blocked && s->block_calls == 1 && s->media_reads == 4);
+        assert(s->flr_config[1] == 0x100403 && bytes == 2 && !s->decode_closes);
+        ++s->decode_closes;
+        s->flr_config[1] = 0x100400;
+        return s->flr_fault == GT_CLOSE_UNCERTAIN ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+    }
     static const unsigned sequence[] = {0xa8, 0x2c, 0x10, 0x18, 4};
     assert(s->flr_writes < sizeof(sequence) / sizeof(sequence[0]));
     assert(offset == sequence[s->flr_writes++]);
@@ -1007,7 +1096,7 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
     const struct bdw_edp_pwm_image pwm = s->live_pwm;
     const struct bdw_flr_pci_image pci = {{0xc0000004, 0, 0xb000000c, 0}, 0x011b106b};
     s->flr_config[0] = 0x16268086;
-    s->flr_config[1] = 0x00100400;
+    s->flr_config[1] = 0x00100403;
     s->flr_config[2] = 0x03000009;
     s->flr_config[0x2c / 4] = pci.subsystem;
     s->flr_config[0x34 / 4] = 0x90;
@@ -1019,7 +1108,7 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
     for (unsigned i = 0; i < 4; ++i)
         s->flr_config[4 + i] = pci.bar[i];
     const struct bdw_flr_io io = {
-        s, flr_held, flr_admitted, flr_read, flr_write, source_now, source_delay,
+        s, flr_held, flr_admitted, flr_read, flr_write, source_now, source_delay, flr_gt_read, flr_gt_block,
     };
     /* The fixture registers the child to the same display epoch and requester
      * before handing off. The actual remapper core issues and polls its store. */
@@ -1033,11 +1122,22 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
     };
     if (s->flr_fault == DRAIN_STALE_EPOCH) ++s->drain_source.binding.epoch;
     if (s->flr_fault == DRAIN_SOURCE_USED) s->drain_source.consumer = &s->drain;
-    const struct bdw_flr_drain drain = {
-        &s->drain_source, &s->drain, {s, drain_held, drain_read, drain_write, source_now, drain_pause}, drain_retire_alias
+    s->flr_drain = (struct bdw_flr_drain){
+        .source = &s->drain_source, .result = &s->drain,
+        .io = {s, drain_held, drain_read, drain_write, source_now, drain_pause}, .retire_alias = drain_retire_alias
     };
-    if (!intel_bdw_flr(&io, &pci, &drain, &s->flr))
+    if (!intel_bdw_flr(&io, &pci, &s->flr_drain, &s->flr)) {
+        if (s->flr_fault == GT_BLOCK_UNCERTAIN) {
+            struct bdw_flr_report second = {0};
+            assert(!intel_bdw_flr(&io, &pci, &s->flr_drain, &s->flr));
+            assert(!intel_bdw_flr(&io, &pci, &s->flr_drain, &second));
+            assert(s->flr.retained && !second.block_issued && s->block_calls == 1);
+            struct bdw_flr_drain copy = s->flr_drain;
+            copy.attempt = NULL;
+            assert(!intel_bdw_flr(&io, &pci, &copy, &second) && s->block_calls == 1);
+        }
         return BDW_EDP_DARK_REFUSED;
+    }
     s->function_reset = true;
     s->irq_mask = s->flr_fault == 7 ? 0x7fffffffu : UINT32_MAX;
     if (s->flr_fault == 15)
@@ -1138,6 +1238,8 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.exercise_flr = true};
     assert(run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_COMPLETE && !r.retained);
     assert(f.flr.reset_issued && f.flr.ready_polls == 3 && f.flr_writes == 5);
+    assert(f.flr.block_issued && f.flr.traffic_blocked && f.flr.l3_ack && f.flr.traffic_polls == 2);
+    assert(f.flr.stores == 6 && f.media_reads == 4 && f.decode_closes == 1);
     assert(f.flr.stage == BDW_FLR_COMPLETE && !f.flr.retained);
     assert(f.reopen.phase == BDW_EDP_REOPEN_READY && f.reopen.writes == 3 && !f.reopen.retained);
     assert(!f.reopen.driver_before && f.reopen.driver_after == 0xc0000000u);
@@ -1193,7 +1295,7 @@ static unsigned test_cycle(void)
         assert(!run_cycle(&f, &r) && r.retained && !f.panel.backlight);
         assert(!f.flr.reset_issued && !f.flr_writes && r.stage == BDW_EDP_CYCLE_DARK);
         assert(f.drain_stores == (fault != DRAIN_STALE_EPOCH && fault != DRAIN_SOURCE_USED));
-        assert(f.flr.retained == (fault == DRAIN_WRITE_UNCERTAIN || fault == DRAIN_NO_GLOBAL_ACK || fault == DRAIN_BME_ENABLED));
+        assert(f.flr.retained == (fault != DRAIN_STALE_EPOCH && fault != DRAIN_SOURCE_USED));
         assert(f.drain.complete == (fault == DRAIN_OWNER_LOST || fault == DRAIN_NEW_TRANSACTION ||
                                     fault == DRAIN_BAR_CHANGED || fault == DRAIN_MSI_ENABLED));
     }
@@ -1203,7 +1305,27 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.exercise_flr = true, .flr_fault = DRAIN_ALIAS_RETAINED};
     assert(!run_cycle(&f, &r) && r.retained && !f.flr.reset_issued && !f.flr_writes);
     assert(f.drain.complete && !f.drain_alias_retired && f.flr.retained && !f.panel.backlight);
-    return writes + 48;
+    const uint32_t engines[] = {0x8000, 0x8004, 0x8008, 0x800c, 0x8010};
+    const uint32_t queues[] = {0x12870, 0x12878, 0x1c870, 0x1c878};
+    unsigned traffic_cases = 0;
+    for (unsigned fault = GT_STALE_L3; fault <= GT_BLOCK_REFUSED; ++fault) {
+        bool engine = fault >= GT_ENGINE_OPEN && fault <= GT_ENGINE_UNFLUSHED;
+        unsigned count = engine ? 5 : fault == GT_MEDIA_BUSY ? 4 : 1;
+        for (unsigned i = 0; i < count; ++i) {
+            f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
+            if (engine) f.gt_fault_offset = engines[i];
+            if (fault == GT_MEDIA_BUSY) f.gt_fault_offset = queues[i];
+            assert(!run_cycle(&f, &r) && r.retained && !f.panel.backlight);
+            assert(!f.flr.reset_issued && !f.flr_writes);
+            assert(f.decode_closes == (fault == GT_LOST_AT_RESET || fault == GT_CLOSE_UNCERTAIN));
+            assert(f.drain_stores == (fault == GT_LOST_AT_RESET));
+            assert(f.flr.retained == (fault > GT_STALE_ENGINE && fault != GT_BLOCK_REFUSED));
+            if (fault == GT_AIR_MEDIA_TRACE)
+                assert(f.block_calls == 1 && !f.flr.traffic_blocked && !f.flr.l3_ack);
+            ++traffic_cases;
+        }
+    }
+    return writes + 48 + traffic_cases;
 }
 
 struct pci_hold_fixture {

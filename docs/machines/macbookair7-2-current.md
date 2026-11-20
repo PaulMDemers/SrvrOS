@@ -40,12 +40,13 @@ is to exclude new GPU requests and verify outstanding writes and cache
 completion while the same owner holds the display off.
 [Media counter measurements](../intel-completion-prerequisites.md#macbookair72-media-counter-result)
 
-PR301's next implementation covers the Broadwell PCI reset core and its
-dark-display recovery fixture. It will check the live request and response
-from the graphics memory arbiter, five engine acknowledgements, the L3
-acknowledgement and both video engines while MMIO is still accessible.
-The physical dependency is an exclusive provider for the GPU power
-manager's block request under the same display hold.
+PR301's host recovery fixture now exercises the request to block GPU
+memory traffic before PCI memory decode closes. Loss of an engine or L3
+acknowledgement, a busy video queue or a reopened arbiter blocks reset.
+A physical trial needs a native provider that can initiate and maintain
+the power manager's request under the dark-display hold. The Air's last
+physical result remains the three media observations above.
+[Reset ordering and dependencies](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
 
 ## Native eDP recovery scope
 
