@@ -46,6 +46,15 @@ requires five hardware assurances. The source offers none, so the
 reset-free hardware flip remains pending.
 [Native range observation](../intel-bdw-primary-flip.md#native-reset-free-range-observation)
 
+The exact staged diagnostic from `748f615f`, release `a6262aa628bf2e85`,
+booted in QEMU. With the workspace attached it saved its unsupported-GPU
+result to exFAT and reset. The missing-workspace run halted. On the Air the
+cooperative EFI lease covers the boot GT requester. It does not transfer
+these mappings. The next implementation needs a native graphics owner that
+can reserve them across publication, both flips and restoration, or receive
+that reservation from a preceding owner. The physical flip is pending.
+
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
