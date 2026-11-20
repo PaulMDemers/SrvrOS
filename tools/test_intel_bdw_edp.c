@@ -73,6 +73,13 @@ enum source_fault {
     SOURCE_DDI_LOST_DURING_CRC, SOURCE_NO_REFERENCE, SOURCE_REFERENCE_CHANGED,
 };
 
+enum flr_admission_fault {
+    DRAIN_WRITE_UNCERTAIN = 26, DRAIN_NO_GLOBAL_ACK, DRAIN_OWNER_LOST,
+    DRAIN_NEW_TRANSACTION, DRAIN_STALE_EPOCH, DRAIN_SOURCE_USED,
+    DRAIN_BME_ENABLED, DRAIN_BAR_CHANGED, DRAIN_MSI_ENABLED,
+    FLR_SHORT_QUIET, DRAIN_ALIAS_RETAINED,
+};
+
 #define TEST_REFERENCE_CRC 0x5d3928e4u
 #define TEST_BACKING_HASH 0x012970c1aee06011ull
 #define TEST_PWM_DATA 0x0ad90184u
@@ -98,6 +105,10 @@ struct source_fixture {
     uint64_t flr_issued;
     uint32_t flr_config[64];
     struct bdw_flr_report flr;
+    struct intel_vtd_drain drain;
+    struct intel_vtd_drain_source drain_source;
+    unsigned drain_stores, drain_reads_after_store;
+    bool drain_alias_retired;
     struct bdw_edp_reopen_report reopen;
     struct bdw_edp_pps_report pps;
     struct bdw_edp_pwm_report pwm;
@@ -732,6 +743,7 @@ static void source_delay(void *context, uint32_t us)
     struct source_fixture *s = context;
     bool short_warmup = us == 520 && s->fault == SOURCE_WARMUP_SHORT;
     bool short_well_pause = us == 10 && s->flr_fault == 23;
+    if (s->flr_fault == FLR_SHORT_QUIET && us == 100000u) us -= 5000u;
     wait(&s->panel, short_warmup || short_well_pause ? 1 : us);
 }
 
@@ -815,11 +827,75 @@ static bool flr_held(void *context)
     return s->dark && held(&s->panel) && !s->panel.backlight;
 }
 
-static bool flr_admitted(void *context, const struct bdw_flr_pci_image *image)
+static bool flr_admitted(void *context, const struct bdw_flr_pci_image *image,
+                         const struct bdw_flr_drain *child)
 {
     struct source_fixture *s = context;
     assert(image->bar[0] == 0xc0000004 && image->bar[2] == 0xb000000c);
-    return s->flr_fault != 1;
+    return s->flr_fault != 1 && child->result == &s->drain && child->source == &s->drain_source &&
+           child->source->binding.lifetime == &s->image && child->source->binding.epoch == s->image.epoch &&
+           (s->flr_fault != DRAIN_OWNER_LOST || !s->drain.complete);
+}
+
+static bool drain_held(void *context, const struct intel_vtd_drain_source *source)
+{
+    struct source_fixture *s = context;
+    return flr_held(s) && !s->drain_alias_retired && source == &s->drain_source && source->consumer == &s->drain &&
+           source->binding.lifetime == &s->image && source->binding.epoch == s->image.epoch &&
+           !s->flr_writes && s->flr_config[1] == 0x100400;
+}
+
+static bool drain_read(void *context, uint32_t offset, uint32_t *word)
+{
+    struct source_fixture *s = context;
+    assert(drain_held(s, &s->drain_source));
+    switch (offset) {
+    case 0: *word = 0x10; break;
+    case 8: *word = (uint32_t)INTEL_VTD_DRAIN_CAP; break;
+    case 12: *word = INTEL_VTD_DRAIN_CAP >> 32; break;
+    case 16: *word = (uint32_t)INTEL_VTD_DRAIN_ECAP; break;
+    case 20: *word = INTEL_VTD_DRAIN_ECAP >> 32; break;
+    case 44: *word = 0x08000000; break;
+    case 28: case 32: case 36: case 40: case 52: case 0x508: *word = 0; break;
+    case 0x50c:
+        *word = 0x02000000;
+        if (s->drain_stores) {
+            ++s->drain_reads_after_store;
+            *word = s->drain_reads_after_store == 1 ? INTEL_VTD_DRAIN_REQUEST : 0x12030000;
+            if (s->flr_fault == DRAIN_NO_GLOBAL_ACK) *word = 0x10030000; /* no global acknowledgement */
+            if (s->flr_fault == DRAIN_NEW_TRANSACTION) s->flr_config[0xa8 / 4] = 0x100;
+            if (s->flr_fault == DRAIN_BAR_CHANGED) s->flr_config[0x10 / 4] = 0xd0000004;
+            if (s->flr_fault == DRAIN_MSI_ENABLED) s->flr_config[0x90 / 4] |= 1u << 16;
+            if (s->flr_fault == DRAIN_BME_ENABLED) s->flr_config[1] |= 4; /* requester escapes its hold */
+        }
+        break;
+    default: assert(false); return false;
+    }
+    return true;
+}
+
+static enum intel_gt_write drain_write(void *context, uint32_t offset, uint32_t word)
+{
+    struct source_fixture *s = context;
+    assert(drain_held(s, &s->drain_source) && !s->drain_stores);
+    assert(offset == 0x50c && word == INTEL_VTD_DRAIN_REQUEST);
+    ++s->drain_stores;
+    return s->flr_fault == DRAIN_WRITE_UNCERTAIN ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+
+static void drain_pause(void *context)
+{
+    source_delay(context, 1);
+}
+
+static bool drain_retire_alias(void *context, const struct intel_vtd_drain_source *source,
+                               const struct intel_vtd_drain *result)
+{
+    struct source_fixture *s = context;
+    assert(drain_held(s, source) && result == &s->drain && result->source == source);
+    assert(result->complete && !result->retained && result->p.final == 0x1203000000000000ull);
+    s->drain_alias_retired = s->flr_fault != DRAIN_ALIAS_RETAINED;
+    return s->drain_alias_retired;
 }
 
 static bool flr_read(void *context, uint8_t offset, uint32_t *word)
@@ -842,6 +918,9 @@ static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned byt
     assert(offset == sequence[s->flr_writes++]);
     if (offset == 0xa8) {
         assert(word == 1 && bytes == 1 && !s->flr_issued);
+        assert(s->drain_alias_retired && s->drain_stores == 1 && s->drain.complete && !s->drain.retained &&
+               s->drain.end <= s->panel.time && s->drain.source == &s->drain_source);
+        if (s->flr_fault == FLR_SHORT_QUIET) s->panel.time += 5000u;
         s->flr_issued = s->panel.time;
         s->flr_config[1] = 0x00100000;
         s->flr_config[0x2c / 4] = 0;
@@ -942,7 +1021,22 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
     const struct bdw_flr_io io = {
         s, flr_held, flr_admitted, flr_read, flr_write, source_now, source_delay,
     };
-    if (!intel_bdw_flr(&io, &pci, &s->flr))
+    /* The fixture registers the child to the same display epoch and requester
+     * before handing off. The actual remapper core issues and polls its store. */
+    s->drain_source = (struct intel_vtd_drain_source){
+        .object = &s->drain_source,
+        .binding = {.owner = s, .provider = s, .lifetime = image, .root = 0x1000,
+                    .epoch = image->epoch, .sequence = 1, .hash = INTEL_VTD_DRAIN_HASH,
+                    .unit = INTEL_VTD_DRAIN_UNIT, .vendor = 0x8086, .device = 0x1626,
+                    .prepare_begin = s->panel.time, .gt_begin = s->panel.time,
+                    .hda_begin = s->panel.time, .outer_begin = s->panel.time},
+    };
+    if (s->flr_fault == DRAIN_STALE_EPOCH) ++s->drain_source.binding.epoch;
+    if (s->flr_fault == DRAIN_SOURCE_USED) s->drain_source.consumer = &s->drain;
+    const struct bdw_flr_drain drain = {
+        &s->drain_source, &s->drain, {s, drain_held, drain_read, drain_write, source_now, drain_pause}, drain_retire_alias
+    };
+    if (!intel_bdw_flr(&io, &pci, &drain, &s->flr))
         return BDW_EDP_DARK_REFUSED;
     s->function_reset = true;
     s->irq_mask = s->flr_fault == 7 ? 0x7fffffffu : UINT32_MAX;
@@ -1094,7 +1188,22 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.exercise_flr = true, .flr_fault = 25};
     assert(!run_cycle(&f, &r) && r.retained && !f.panel.backlight && f.proofs == 2);
     assert(r.restore.offset == BDW_EDP_WELL_DRIVER);
-    return writes + 37;
+    for (unsigned fault = DRAIN_WRITE_UNCERTAIN; fault <= DRAIN_MSI_ENABLED; ++fault) {
+        f = (struct source_fixture){.exercise_flr = true, .flr_fault = fault};
+        assert(!run_cycle(&f, &r) && r.retained && !f.panel.backlight);
+        assert(!f.flr.reset_issued && !f.flr_writes && r.stage == BDW_EDP_CYCLE_DARK);
+        assert(f.drain_stores == (fault != DRAIN_STALE_EPOCH && fault != DRAIN_SOURCE_USED));
+        assert(f.flr.retained == (fault == DRAIN_WRITE_UNCERTAIN || fault == DRAIN_NO_GLOBAL_ACK || fault == DRAIN_BME_ENABLED));
+        assert(f.drain.complete == (fault == DRAIN_OWNER_LOST || fault == DRAIN_NEW_TRANSACTION ||
+                                    fault == DRAIN_BAR_CHANGED || fault == DRAIN_MSI_ENABLED));
+    }
+    f = (struct source_fixture){.exercise_flr = true, .flr_fault = FLR_SHORT_QUIET};
+    assert(!run_cycle(&f, &r) && r.retained && !f.panel.backlight);
+    assert(f.flr.reset_issued && f.flr.retained && !f.flr.ready_polls && f.flr_writes == 1);
+    f = (struct source_fixture){.exercise_flr = true, .flr_fault = DRAIN_ALIAS_RETAINED};
+    assert(!run_cycle(&f, &r) && r.retained && !f.flr.reset_issued && !f.flr_writes);
+    assert(f.drain.complete && !f.drain_alias_retired && f.flr.retained && !f.panel.backlight);
+    return writes + 48;
 }
 
 struct pci_hold_fixture {

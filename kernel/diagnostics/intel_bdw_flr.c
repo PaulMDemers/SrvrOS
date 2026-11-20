@@ -52,6 +52,16 @@ static bool profile(struct attempt *a, uint32_t command)
            expect(a, 0xa8, UINT32_MAX, 0);
 }
 
+static bool saved_resources(struct attempt *a, const struct bdw_flr_pci_image *saved)
+{
+    if (!expect(a, 0x2c, UINT32_MAX, saved->subsystem))
+        return false;
+    for (unsigned i = 0; i < 4; ++i)
+        if (!expect(a, (uint8_t)(0x10 + 4*i), UINT32_MAX, saved->bar[i]))
+            return false;
+    return true;
+}
+
 static bool store(struct attempt *a, uint8_t offset, unsigned bytes, uint32_t value)
 {
     if (!check(a))
@@ -69,8 +79,10 @@ static bool store(struct attempt *a, uint8_t offset, unsigned bytes, uint32_t va
 
 static bool wait_ready(struct attempt *a)
 {
+    /* Start the quiet interval after the configuration write returned. */
+    uint64_t begin = a->last;
     a->io->delay(a->io->context, FLR_QUIET_US);
-    if (!check(a) || a->report->elapsed_us < FLR_QUIET_US)
+    if (!check(a) || a->last - begin < FLR_QUIET_US)
         return false;
     for (;;) {
         uint32_t id;
@@ -87,28 +99,41 @@ static bool wait_ready(struct attempt *a)
 }
 
 bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *image,
-                   struct bdw_flr_report *report)
+                   const struct bdw_flr_drain *drain, struct bdw_flr_report *report)
 {
     if (!report)
         return false;
     *report = (struct bdw_flr_report){0};
-    if (!io || !image || !io->held || !io->admitted || !io->read || !io->write ||
+    if (!io || !image || !drain || !drain->source || !drain->result || !drain->retire_alias ||
+        !io->held || !io->admitted || !io->read || !io->write ||
         !io->now || !io->delay || (image->bar[0] & 0xffffffu) != 4 ||
         (image->bar[2] & 0xfffffffu) != 12 || image->subsystem != 0x011b106bu ||
         !image->bar[0] || !image->bar[2] || image->bar[1] || image->bar[3] ||
         image->bar[0] == 4 || image->bar[2] == 12)
         return false;
     const struct bdw_flr_pci_image saved = *image;
+    const struct bdw_flr_drain child = *drain;
     struct attempt a = {io, report, 0, 0};
-    if (!check(&a) || !io->admitted(io->context, &saved) || !profile(&a, PCI_INTX_DISABLE) ||
-        !expect(&a, 0x2c, UINT32_MAX, saved.subsystem))
+    if (!check(&a) || !io->admitted(io->context, &saved, &child) || !profile(&a, PCI_INTX_DISABLE) ||
+        !saved_resources(&a, &saved))
         return false;
-    for (unsigned i = 0; i < 4; ++i)
-        if (!expect(&a, (uint8_t)(0x10 + 4*i), UINT32_MAX, saved.bar[i]))
-            return false;
-    if (!io->admitted(io->context, &saved) ||
-        !expect(&a, 4, 0xffffu, PCI_INTX_DISABLE) ||
-        !expect(&a, 0xa8, UINT32_MAX, 0) || !store(&a, 0xa8, 1, 1))
+    /* A new drain belongs to this admission only. A completed object from
+     * an earlier hold cannot execute twice. Keep decode and BME off until
+     * all covered non-posted and remapped memory work has completed. */
+    if (!io->admitted(io->context, &saved, &child) || !check(&a))
+        return false;
+    if (!intel_vtd_drain_run(child.result, child.source, child.io)) {
+        report->retained = child.result->retained;
+        return false;
+    }
+    if (child.result->p.begin < a.last || !check(&a) || a.last < child.result->end ||
+        !child.retire_alias(child.io.ctx, child.source, child.result)) {
+        report->retained = true;
+        return false;
+    }
+    if (!check(&a) || !io->admitted(io->context, &saved, &child) || !saved_resources(&a, &saved) ||
+        !profile(&a, PCI_INTX_DISABLE) ||
+        !store(&a, 0xa8, 1, 1))
         return false;
     report->stage = BDW_FLR_WAIT;
     if (!wait_ready(&a))
@@ -135,7 +160,7 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
             return false;
     report->stage = BDW_FLR_REOPEN;
     if (!expect(&a, 0x2c, UINT32_MAX, saved.subsystem) ||
-        !io->admitted(io->context, &saved) || !store(&a, 4, 2, PCI_INTX_DISABLE | PCI_MEMORY) ||
+        !io->admitted(io->context, &saved, &child) || !store(&a, 4, 2, PCI_INTX_DISABLE | PCI_MEMORY) ||
         !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY))
         return false;
     report->stage = BDW_FLR_COMPLETE;

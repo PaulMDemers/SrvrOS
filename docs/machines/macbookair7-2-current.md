@@ -23,12 +23,13 @@ exercised the BIOS-powered well path. Cold-well recovery, post-reset display
 restoration and native tear-free scanout remain pending.
 [Hardware evidence](../intel-bdw-edp-recovery.md#native-resource-recovery-under-inhibited-pci-bus-mastering)
 
-PR301's next step on main `4016abf0` is to join the existing graphics VT-d
-read/write drain and the PCI function reset core under one original requester
-hold. Scope covers the isolated reset core and its eDP integration fixture.
-The remapper covers requests it has already processed. The owner must still
-account for work inside the GPU and maintain exclusion through the reset.
-The Wi-Fi and WebCore PRs have separate scopes.
+PR301 now joins the graphics VT-d read/write drain to the PCI function reset
+in the host recovery fixture on main `4016abf0`. The fixture checks loss of
+requester ownership, a missing drain acknowledgement, changes in the PCI
+configuration and failure to retire the remapper mapping. The native Air
+still needs the same dark-display owner to control the remapper and account
+for remaining GPU pipeline, cache and prefetch work. The Wi-Fi and WebCore
+PRs have separate scopes.
 
 ## Native eDP recovery scope
 

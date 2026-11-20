@@ -508,6 +508,23 @@ implements no PLL, power-controller mailbox or firmware well writes.
 
 #### Joined PCI reset and panel recovery fixture
 
+The host fixture now executes the graphics remapper's global read/write drain
+under the dark display's original requester hold. Before starting the drain,
+the reset core verifies PCI Command `0x0400`, AF status, interrupt controls,
+the subsystem and the saved BARs. It requires a fresh, registered drain
+object. It checks the drain clock against the parent clock, requires verified
+retirement of the temporary remapper mapping, and repeats the PCI checks before
+issuing AFCTL. The 100 ms configuration quiet interval begins after the reset
+write returns. An interval shortened by time spent inside the write fails
+before the first Vendor ID read.
+
+Only requests already processed by the graphics remapper fall within the
+drain's scope. The physical provider still has to keep new requests excluded
+and account for work inside the GPU and paths outside the remapper. A drain
+from an earlier diagnostic cannot be replayed. The fixture exercises the
+actual drain and reset code with modeled hardware and requester ownership.
+[Graphics remapper coverage](intel-vtd-drain.md#what-completion-would-establish)
+
 The host fixture runs AF reset, reopens memory decode with bus
 mastering inhibited and restores the display well and clock registers.
 It uses the PPS and PWM recovery routines from the native rehearsals,

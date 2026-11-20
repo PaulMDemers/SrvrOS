@@ -168,7 +168,7 @@ class EdpBaseline(unittest.TestCase):
             for fixture, sources in [
                 ("baseline", ["intel_bdw_edp_baseline", "intel_bdw_edp_platform"]),
                 ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source", "intel_bdw_edp_platform",
-                             "intel_bdw_flr", "intel_bdw_pci_hold"]),
+                             "intel_bdw_flr", "intel_vtd_drain", "intel_bdw_pci_hold"]),
             ]:
                 with self.subTest(fixture=fixture):
                     binary = str(Path(tmp) / fixture)
