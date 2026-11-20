@@ -308,7 +308,7 @@ static void radio_native_failure(void){
  puts("xhci-http-reconnect5: PASS radio read/control/ownership/clock refusal retains native context;no further FIFO read/Stop/reuse/second generation;acceptance=0");
 }
 int main(int argc,char **argv){
- trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<60);
+ trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<62);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
@@ -325,13 +325,14 @@ int main(int argc,char **argv){
  if(trial_case==24 || trial_case==25 || trial_case==27 || trial_case==28 || trial_case==30 || (trial_case>=32 && trial_case<=35))stream_test_outer_capture=http5_test_RF_parent;
  if((trial_case>=38 && trial_case<=43) || (trial_case>=49 && trial_case<=52))stream_test_outer_capture=http5_test_RF_parent;
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
- if(trial_case>=56)stream_test_outer_capture=trial_case==59?http5_test_RF_parent:handoff_rf_parent;
+ if(trial_case>=56)stream_test_outer_capture=trial_case>=59?http5_test_RF_parent:handoff_rf_parent;
  http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=(trial_case==2 || trial_case==16 || trial_case==17)?53:trial_case==12?56:trial_case==13?58:trial_case==14?59:trial_case==24?61:trial_case==25?60:trial_case>=32 && trial_case<=35?62+trial_case-32:0;
  if(trial_case==38 || (trial_case>=41 && trial_case<=46))connection_dhcp_fault=62;
  if(trial_case==39)connection_dhcp_fault=65;
  if(trial_case>=6 && trial_case<12)reconnect_case_id=trial_case+13;
- if(trial_case>=56)reconnect_case_id=25+trial_case-56;
+ if(trial_case>=56 && trial_case<=59)reconnect_case_id=25+trial_case-56;
+ if(trial_case>=60)connection_dhcp_fault=trial_case==60?70:71;
  batch_trace=((argc==2 || argc==19) && !strcmp(argv[1],"--trace")) || (argc==3 && !strcmp(argv[1],"--trace-case"));
  if(batch_trace)puts("http-reconnect5-host: modeled_usb=1 modeled_scheduler=1 modeled_child=1 acceptance=0");
  if(setjmp(held_run)){
@@ -368,6 +369,39 @@ int main(int argc,char **argv){
  assert(!xhci_wifi_capture_reconnect5_probe() && !xhci_wifi_http5_prepare() && !xhci_wifi_capture_stack5_probe());
  bool good=xhci_wifi_capture_http_reconnect5();
  bool complete=xhci_wifi_http_reconnect5_finish_capture(good);
+ if(trial_case>=60){
+  bool valid=trial_case==60;
+  assert(good==valid && complete==valid && wifi_http_reconnect5.parent_complete);
+  assert(wifi_http_reconnect5.connections==(valid?2u:0u) && child_done==(valid?2u:0u));
+  for(unsigned g=0;g<(valid?2u:1u);g++){
+   const struct wifi_stream5_state *s=&wifi_stream5_slots[g];
+   const struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
+   const struct net_dhcp_observation *o=&p->bootstrap.dhcp_observation;
+   unsigned delivered=0,rejected=0;
+   for(unsigned i=0;i<s->record_count;i++){
+    const struct wifi_stream5_record *r=&s->records[i];
+    if(!r->direction)continue;
+    if(r->reason==MT76_DATA5_OK && r->packet.role==5 && r->packet.message==2){
+     assert(r->target==MT76_DATA5_TARGET_BROADCAST && r->started_us<=r->finished_us);delivered++;
+    }
+    if(r->reason==MT76_DATA5_CCMP && r->frame==MT76_DATA5_PROTECTED_FROMDS){
+     assert(r->target==MT76_DATA5_TARGET_BROADCAST && r->started_us<=r->finished_us);rejected++;
+    }
+   }
+   assert(s->exchange.keys_erased && s->retired && s->connection_closed && s->restored);
+   assert(p->result.quiescent && p->result.child_retired && p->result.provider_drained);
+   if(valid){
+    assert(delivered==1 && !rejected && o->accepted_offer==1 && o->requests==1 && o->accepted_ack==1);
+    assert(p->result.dhcp && p->result.dns && p->result.complete);
+   }else{
+    assert(!delivered && rejected==2 && o->discovers==2 && !o->offers && !o->requests && !o->frames);
+    assert(p->result.reason==HTTP_NET_DHCP_FAILED && !p->result.go && !p->result.dhcp);
+   }
+  }
+  assert(valid || (wifi_http_reconnect5.failure_closed && !wifi_http_reconnect5.probe[1].self));
+  printf("xhci-http-reconnect5: broadcast GTK DHCP Offer %s through native USB/CCMP path; exact retirement passed\n",valid?"accepted":"bad MIC rejected");
+  return 0;
+ }
  if((trial_case>=44 && trial_case<=47) || (trial_case>=53 && trial_case<=55)){radio_native_failure();return 0;}
  if(trial_case>=38 && trial_case<=43){
   const struct dhcp_radio5 *r=&wifi_stream5_slots[0].data_radio;

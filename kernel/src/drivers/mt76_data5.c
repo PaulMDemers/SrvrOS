@@ -34,7 +34,7 @@ done:scrub(s,sizeof *s);return result;
 }
 /* Classify only inside independently checked USB/DMA/MPDU spans. This
  * never changes the strict parser's gates or exposes payload/header values. */
-static void metadata(const uint8_t *usb,size_t n,struct mt76_data5_rx_result *r){
+static void metadata(const uint8_t *usb,size_t n,const struct wpa2_ccmp *k,struct mt76_data5_rx_result *r){
  if(!usb || n<36 || n>4096)return;
  unsigned dma=le16(usb);if(dma<32 || (dma&3) || dma>n-4)return;
  const uint8_t *wi=usb+4;uint32_t info=le32(wi);
@@ -53,7 +53,17 @@ static void metadata(const uint8_t *usb,size_t n,struct mt76_data5_rx_result *r)
  }
  if(type==4 && length>=10){r->frame=MT76_DATA5_CONTROL;return;}
  if(type!=8 || length<24){r->frame=MT76_DATA5_OTHER;return;}
- if(fc&0x4000){r->frame=(base==0x4208 || base==0x4288)?MT76_DATA5_PROTECTED_FROMDS:MT76_DATA5_PROTECTED_OTHER;return;}
+ if(fc&0x4000){
+  r->frame=(base==0x4208 || base==0x4288)?MT76_DATA5_PROTECTED_FROMDS:MT76_DATA5_PROTECTED_OTHER;
+  if(r->frame==MT76_DATA5_PROTECTED_FROMDS && (base!=0x4288 || length>=26)){
+   static const uint8_t broadcast[6]={255,255,255,255,255,255};
+   const uint8_t *receiver=h+4;
+   if(!equal(h+10,k->peer.aa,6))r->target=MT76_DATA5_TARGET_OTHER_AP;
+   else if(receiver[0]&1)r->target=equal(receiver,broadcast,6)?MT76_DATA5_TARGET_BROADCAST:MT76_DATA5_TARGET_MULTICAST;
+   else r->target=equal(receiver,k->peer.spa,6)?MT76_DATA5_TARGET_STATION:MT76_DATA5_TARGET_OTHER_STATION;
+  }
+  return;
+ }
  r->frame=MT76_DATA5_UNPROTECTED_DATA;
  if(base!=0x0208 && base!=0x0288)return;
  size_t header=base==0x0288?26:24;
@@ -80,7 +90,7 @@ static size_t receive(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t 
  enum mt76_data5_rx_reason *reason=&report->reason;
  *reason=MT76_DATA5_ADMISSION;
  if(!admission(s,k,g,usb,n,out,cap,MT76_DATA5_ETH_MAX))return 0;
- scrub(out,cap);scrub(s,sizeof *s);size_t result=0;metadata(usb,n,report);
+ scrub(out,cap);scrub(s,sizeof *s);size_t result=0;metadata(usb,n,k,report);
  *reason=MT76_DATA5_SPAN;
  if(!usb || n<36+24+16+8 || n>4096)goto done;
  unsigned dma=le16(usb);if(!dma || (dma&3) || dma>n-4 || dma<32)goto done;

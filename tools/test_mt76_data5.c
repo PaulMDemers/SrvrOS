@@ -88,6 +88,7 @@ int main(void){
   size=usb_rx(usb,packet,count,pad);usb[6]|=4;keys=base;
   struct mt76_data5_rx_result a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
   assert(a.bytes==n && a.reason==MT76_DATA5_OK && a.flags==1024 && a.audit==4);zero(&scratch,sizeof scratch);
+  assert(a.target==(group?MT76_DATA5_TARGET_BROADCAST:MT76_DATA5_TARGET_STATION));
   struct wpa2_ccmp used=keys;a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
   assert(!a.bytes && a.audit==3 && !memcmp(&keys,&used,sizeof keys));zero(out,sizeof out);
   usb[6]&=~4u;assert(!mt76_data5_rx(&scratch,&keys,9,usb,size,out,sizeof out) && !memcmp(&keys,&used,sizeof keys));usb[6]|=4;
@@ -111,7 +112,12 @@ int main(void){
  keys=base;memcpy(bad,usb,size);bad[10]=0;bad[11]=0;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_SHAPE);
  keys=base;memcpy(bad,usb,size);put16(bad+36,0x80);r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_FRAME);
  keys=base;memcpy(bad,usb,size);bad[58]|=1;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_HEADER);
- keys=base;memcpy(bad,usb,size);bad[46]^=2;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_PEER);
+ keys=base;memcpy(bad,usb,size);bad[46]^=2;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);
+ assert(!r.bytes && r.reason==MT76_DATA5_PEER && r.target==MT76_DATA5_TARGET_OTHER_AP);
+ memcpy(bad,usb,size);bad[40]^=2;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);
+ assert(!r.bytes && r.reason==MT76_DATA5_PEER && r.target==MT76_DATA5_TARGET_OTHER_STATION);
+ memcpy(bad,usb,size);bad[40]|=1;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);
+ assert(!r.bytes && r.reason==MT76_DATA5_CCMP && r.target==MT76_DATA5_TARGET_MULTICAST);
  keys=base;memcpy(bad,usb,size);bad[36+sizeof ccmp_rx-1]^=1;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_CCMP);
  zero(&scratch,sizeof scratch);zero(out,sizeof out);assert(keys.rx_pairwise[16]==0);
  size=usb_rx(usb,ccmp_rx,sizeof ccmp_rx,true);

@@ -170,6 +170,33 @@ The earlier run timed out later, after sending a Request, and still lacks
 paired server evidence. See the [unit handoff](machines/macbookpro11-2.md#current-handoff)
 for the sealed records.
 
+## Broadcast Offer control and USB receive observations
+
+With Ubuntu connected through the same adapter on channel 161, one test
+Discover produced a broadcast Offer. Its matched transaction appeared at the
+bridge and 5 GHz interface `eth7`, then at the Linux client 171.155 ms after
+the `eth7` observation. Both `eth7` and the client recorded a valid UDP
+checksum. The bridge recorded an unfinished transmit checksum. The control
+verifies that `eth7` exposes the Offer on the software transmit path. Its
+capture timestamp does not establish the time of over-the-air transmission.
+
+The paired SrvrOS failure had 62 parsed USB receives, including two protected
+frames delivered after CCMP and zero recorded CCMP rejections. Neither
+protected frame was a server DHCP candidate. The native fixture exercises a
+broadcast GTK Offer with the same USB, CCMP and DHCP code. It expects a valid
+Offer to lead to Request, ACK, DNS and HTTP, and two bad-MIC Offers to leave
+DHCP without a Request and close the native lifetime safely.
+
+Version 2 of `wifi-encrypted5-rx` records the existing monotonic USB post and
+completion times and a structural `target` category. The category is 0 when
+unknown, 1 for another AP, 2 for another station of the expected AP, 3 for
+this station, 4 for multicast and 5 for broadcast. The MAC addresses and frame
+payload stay out of the log. The category alone provides no authentication
+proof. A decoder can use it together with parser outcomes and the existing TX
+times to distinguish a missing USB receive from a group receive rejected by
+the parser. Version 1 remains readable. The next cold comparison needs both
+router interfaces and the matching SrvrOS journal and workspace results.
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)

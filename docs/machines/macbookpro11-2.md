@@ -12,10 +12,16 @@ Dated sections retain the bring-up history.
 Base `1307e33c`, with `origin/main` inspected at `4016abf0`. The two other
 open shared PRs cover Intel GPU ownership and WebCore dependencies. Work is
 scoped to the Pro11,2 native HTTP fixture and a private, station-filtered
-capture at the router bridge and 5 GHz interface. Exercise a broadcast Offer
-using the GTK on the native receive path, including bad-MIC rejection. Keep
-the installed firmware, protocol deadlines and hardware settings intact during
-the Ubuntu controls. A software interface capture proves driver delivery only.
+capture at the router bridge and 5 GHz interface, plus anonymous target and
+existing USB timestamp fields in the encrypted receive observer. The Ubuntu
+control captured the same broadcast Offer on the bridge, 5 GHz interface and
+client. The checksum was valid at the 5 GHz interface and at the client. The
+control is archived locally with index
+`631bfa262e5d9e633f304386ebb4ae581c8b3cc13338fa226e1609078f5b88ca`.
+The native HTTP fixture exercises the same GTK path with valid and bad-MIC
+Offers. The installed firmware, protocol deadlines and AP settings were kept
+intact. New physical evidence needs a dual-interface router capture and the
+matched SrvrOS receive records. See the [receive observer](../wifi-dhcp-radio5.md#broadcast-offer-control-and-usb-receive-observations).
 
 ### Paired router capture ends before the first DHCP Request (November 20)
 

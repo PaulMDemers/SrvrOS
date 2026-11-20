@@ -1,8 +1,9 @@
 """Anonymous native data-path observations; never workload/radio acceptance.
 
 TX receipts describe submitted intent and completed USB transport, not an AP
-ACK. RX frame/flags/audit are structural diagnostics. Only delivered Ethernet
-has passed the existing authenticated parser. Trailing bytes do not prove USB
+ACK. RX frame/flags/audit/target are structural diagnostics. Version 2 also
+records the existing USB publication and completion times. Only delivered
+Ethernet has passed the authenticated parser. Trailing bytes do not prove USB
 aggregation. No receipt changes parser admission, keys, replay or deadlines.
 """
 from wifi_survey5_log import fields
@@ -11,6 +12,7 @@ from wifi_held_log import require
 SUMMARY='version epoch tx rx records keys_erased retired observation_only'.split()
 TX='index ticket token pn bytes mpdu rate ack wcid cc residue started_us finished_us radio_delivery_proved'.split()
 RX='index ticket token bytes reason flags frame audit span dma mpdu trailing ethernet ethertype'.split()
+RX_V2=RX+'target started_us finished_us'.split()
 PREFIXES=('wifi-encrypted5:', 'wifi-encrypted5-tx:', 'wifi-encrypted5-rx:')
 
 def observe(log):
@@ -23,18 +25,22 @@ def observe(log):
     epochs=[]
     for j,(start,s) in enumerate(summaries):
         end=summaries[j+1][0] if j+1<len(summaries) else len(lines)
-        require(list(s)==SUMMARY and s['version']==s['observation_only']==1 and
+        require(list(s)==SUMMARY and s['version'] in (1,2) and s['version']==summaries[0][1]['version'] and
+                s['observation_only']==1 and
                 s['epoch']==j+1 and 0<=s['tx']<=80 and 0<=s['rx']<=252 and
                 s['tx']+s['rx']<=s['records']<=332 and
                 s['keys_erased'] in (0,1) and s['retired'] in (0,1),'encrypted summary schema/bounds')
-        tx=[];rx=[];indices=[];tickets=set();pn=0
+        tx=[];rx=[];indices=[];tickets=set();pn=0;last_completion=0
         for _,row in [(i,x) for i,x in owned if start<i<end]:
             transmit=row.startswith(PREFIXES[1]);d=fields(row,'wifi-encrypted5-tx' if transmit else 'wifi-encrypted5-rx')
-            require(list(d)==(TX if transmit else RX) and
+            require(list(d)==(TX if transmit else RX_V2 if s['version']==2 else RX) and
                     0<=d['index']<s['records'] and d['ticket']>0 and d['token']>0 and
                     d['ticket'] not in tickets and (not indices or d['index']>indices[-1]),'encrypted record schema/identity/order')
             require(all(0<=v<2**64 for v in d.values()),'encrypted integer overflow')
             tickets.add(d['ticket']);indices.append(d['index'])
+            if s['version']==2:
+                require(max(d['started_us'],last_completion)<=d['finished_us'],'invalid USB transfer timing')
+                last_completion=d['finished_us']
             if transmit:
                 require(pn<d['pn']<2**48 and 64<=d['bytes']<=1580 and
                         40<=d['mpdu']<=d['bytes']-24 and d['rate']<=65535 and
@@ -54,6 +60,9 @@ def observe(log):
                 if d['reason']==9:
                     require(14<=d['ethernet']<=1514 and d['ethertype'] in (0x800,0x806),'missing authenticated Ethernet type')
                 else:require(d['ethernet']==d['ethertype']==0,'rejected RX claims Ethernet delivery')
+                if s['version']==2:
+                    require(d['target']<=5 and (not d['target'] or (d['frame']==12 and d['span'])) and
+                            (d['reason']!=9 or d['target'] in (3,4,5)),'invalid protected RX target')
                 rx.append(d)
         require(len(tx)==s['tx'] and len(rx)==s['rx'],'missing/duplicate encrypted records')
         # Independently bind the new TX scalars to the existing retained native

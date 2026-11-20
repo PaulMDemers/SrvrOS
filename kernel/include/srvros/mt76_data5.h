@@ -37,7 +37,12 @@ enum mt76_data5_frame {
  MT76_DATA5_PROTECTED_OTHER,MT76_DATA5_OTHER
 };
 enum mt76_data5_audit {MT76_DATA5_AUDIT_NONE,MT76_DATA5_AUDIT_HEADER,MT76_DATA5_AUDIT_PEER,MT76_DATA5_AUDIT_CCMP,MT76_DATA5_AUDIT_VERIFIED};
-struct mt76_data5_rx_result {size_t bytes;enum mt76_data5_rx_reason reason;unsigned flags;enum mt76_data5_frame frame;enum mt76_data5_audit audit;};
+/* Observed protected FromDS header only, without MAC addresses or keys. */
+enum mt76_data5_target {
+ MT76_DATA5_TARGET_UNKNOWN,MT76_DATA5_TARGET_OTHER_AP,MT76_DATA5_TARGET_OTHER_STATION,
+ MT76_DATA5_TARGET_STATION,MT76_DATA5_TARGET_MULTICAST,MT76_DATA5_TARGET_BROADCAST
+};
+struct mt76_data5_rx_result {size_t bytes;enum mt76_data5_rx_reason reason;unsigned flags;enum mt76_data5_frame frame;enum mt76_data5_audit audit;enum mt76_data5_target target;};
 struct mt76_data5_rx_result mt76_data5_rx_report(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,
  const uint8_t *usb,size_t,uint8_t *ethernet,size_t capacity);
 size_t mt76_data5_rx(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,

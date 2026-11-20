@@ -1,16 +1,16 @@
-import subprocess,unittest
+import re,subprocess,unittest
 from pathlib import Path
 from wifi_encrypted5_log import observe
 BINARY=str(Path('build/tests/xhci-http-reconnect5-host').resolve())
 class Tests(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
-  cls.logs={case:subprocess.check_output([BINARY,'--trace-case',str(case)],text=True) for case in (0,2,12,14,16,17)}
+  cls.logs={case:subprocess.check_output([BINARY,'--trace-case',str(case)],text=True) for case in (0,2,12,14,16,17,60,61)}
  def test_actual_native_success_and_closed_failures(self):
   for case,log in self.logs.items():
    with self.subTest(case=case):
     r=observe(log);self.assertTrue(r['present']);self.assertFalse(r['native_accepted']);self.assertFalse(r['radio_or_AP_delivery_proved'])
-    self.assertEqual(len(r['epochs']),2 if case==0 else 1)
+    self.assertEqual(len(r['epochs']),2 if case in (0,60) else 1)
     for e in r['epochs']:
      self.assertEqual(e['summary']['keys_erased'],1);self.assertEqual(e['summary']['retired'],1)
      self.assertTrue(e['tx'])
@@ -40,10 +40,10 @@ class Tests(unittest.TestCase):
   tx=next(x for x in rows if x.startswith('wifi-encrypted5-tx:'))
   ok=next(x for x in rows if x.startswith('wifi-encrypted5-rx:') and ' reason=9 ' in x)
   rejected=next(x for x in rows if x.startswith('wifi-encrypted5-rx:') and ' reason=7 ' in x)
-  import re
   changes=[(tx,'pn',0),(tx,'mpdu',0),(tx,'started_us',2**64-1),
            (ok,'flags',4096),(ok,'frame',15),(ok,'audit',5),(ok,'span',0),
            (ok,'dma',4096),(ok,'trailing',4096),(ok,'ethernet',0),
+           (ok,'target',6),(ok,'target',2),(ok,'finished_us',0),
            (rejected,'ethertype',2054),(rejected,'ethernet',54)]
   for row,key,value in changes:
    bad=re.sub(r'(?<![a-z_])'+key+r'=[0-9]+',key+'='+str(value),row)
@@ -51,5 +51,22 @@ class Tests(unittest.TestCase):
   for prefix in ('wifi-encrypted5-tx:', 'wifi-encrypted5-rx:'):
    row=next(x for x in rows if x.startswith(prefix))
    with self.assertRaises(ValueError):observe(log.replace(row,re.sub(r'index=[0-9]+','index=01',row),1))
+ def test_broadcast_target_is_distinct_from_authentication(self):
+  for case,reasons in ((60,[9]),(61,[7,7])):
+   for epoch in observe(self.logs[case])['epochs']:
+    group=[row for row in epoch['rx'] if row['target']==5]
+    self.assertEqual([row['reason'] for row in group],reasons)
+    self.assertTrue(all(row['started_us']<=row['finished_us'] for row in group))
+ def test_version_one_capture_remains_readable(self):
+  rows=[]
+  for row in self.logs[2].splitlines():
+   if row.startswith('wifi-encrypted5:'):
+    row=row.replace('version=2','version=1',1)
+   if row.startswith('wifi-encrypted5-rx:'):
+    row=row.split(' target=',1)[0]
+   rows.append(row)
+  legacy=observe('\n'.join(rows))['epochs'][0]
+  self.assertNotIn('target',legacy['rx'][0])
+  self.assertEqual(legacy['summary']['version'],1)
  def test_absent_not_success(self):self.assertEqual(observe(''),dict(present=False,native_accepted=False))
 if __name__=='__main__':unittest.main()
