@@ -7,6 +7,16 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Broadcast Offer receive audit (November 20)
+
+Base `1307e33c`, with `origin/main` inspected at `4016abf0`. The two other
+open shared PRs cover Intel GPU ownership and WebCore dependencies. Work is
+scoped to the Pro11,2 native HTTP fixture and a private, station-filtered
+capture at the router bridge and 5 GHz interface. Exercise a broadcast Offer
+using the GTK on the native receive path, including bad-MIC rejection. Keep
+the installed firmware, protocol deadlines and hardware settings intact during
+the Ubuntu controls. A software interface capture proves driver delivery only.
+
 ### Paired router capture ends before the first DHCP Request (November 20)
 
 Source `81944aaf` / release `1d35f764c0c440fe`, session
