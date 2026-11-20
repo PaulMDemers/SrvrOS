@@ -383,6 +383,14 @@ only the original Command in this image. It therefore refused before
 mapping. The saved run passed offline USB integrity after the manual
 return. No reset or display restore ran.
 
+The held eDP path now revalidates the full PCI endpoint under the original
+display lease before every fence or GGTT mapping. Only Command `0x0402`
+is accepted during the verified hold. The cache provider then checks
+that exact BAR page against the existing allowlist and a fresh matching
+PAT/MTRR snapshot. The final log also records whether the eDP trial
+needs to halt with ownership retained or can return after saving and
+unmounting. The native return still depends on a successful full check.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

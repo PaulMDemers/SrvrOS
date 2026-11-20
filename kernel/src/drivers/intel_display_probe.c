@@ -539,19 +539,22 @@ bool intel_scanout_trial_revalidate(void) {
     return trial_revalidate_capture(NULL);
 }
 
-bool intel_scanout_trial_cache_pages(uint64_t pages[3]) {
-    struct backing_adapter a;struct scanout_profile p;struct intel_backing_endpoint e;
-    if(!pages || !intel_scanout_trial_profile(&p) || !trial_adapter(&a) ||
-       !backing_endpoint(&a,&e) || !trial_endpoint_same(&e) ||
-       backing.sample[1].fence[0]!=0x021ff02f00000001ull)return false;
+static bool trial_cache_pages(const struct intel_backing_endpoint *e,uint64_t pages[3]) {
+    if(backing.sample[1].fence[0]!=0x021ff02f00000001ull)return false;
     for(unsigned i=1;i<32;i++)if(backing.sample[1].fence[i])return false;
     /* First page beyond the FULL observed34MiB fence, not just visible pixels.
      * These are hypothetical memory-type queries. Nothing maps/reads that slot
      * or imports it as managed. BAR/aperture ownership is still unestablished. */
     pages[0]=result.mmio_base+0x101000;
     pages[1]=result.mmio_base+0x800000+(0x2200000/4096)*8;
-    pages[2]=(e.identity.bar[2]&~15ull)+0x2200000;
+    pages[2]=(e->identity.bar[2]&~15ull)+0x2200000;
     return true;
+}
+
+bool intel_scanout_trial_cache_pages(uint64_t pages[3]) {
+    struct backing_adapter a;struct scanout_profile p;struct intel_backing_endpoint e;
+    return pages && intel_scanout_trial_profile(&p) && trial_adapter(&a) &&
+           backing_endpoint(&a,&e) && trial_endpoint_same(&e) && trial_cache_pages(&e,pages);
 }
 
 #ifdef SRVROS_INTEL_EDP_BASELINE

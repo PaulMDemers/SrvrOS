@@ -4,8 +4,6 @@
 #include <srvros/display_access.h>
 #include <srvros/display_present.h>
 
-extern bool intel_cache_probe_edp_uc_page(uint64_t physical, uint32_t offset);
-
 #define EDP_VA (CAPTURE_VA + 0x180000)
 #define EDP_RENDERED_PTES (BDW_EDP_BACKING_PAGES - 128u)
 #define EDP_LEASE 0x454450435243ull
@@ -76,6 +74,8 @@ struct edp_adapter {
     bool trace_reopen;
 };
 static struct edp_adapter edp_session;
+
+static bool edp_cache_page(struct edp_adapter *a, uint64_t physical, uint32_t offset);
 
 static bool edp_reopen_record(struct edp_adapter *a, enum edp_reopen_check check,
                               uint32_t index, bool ok, bool sampled,
@@ -151,7 +151,7 @@ static bool edp_map_all(struct edp_adapter *a)
         uint64_t va = EDP_VA + 4096ull * i;
         uint64_t physical = result.mmio_base + page, existing;
         if (!edp_held(a) || !backing_range_reserved(physical, 4096) ||
-            !intel_cache_probe_edp_uc_page(physical, page) ||
+            !edp_cache_page(a, physical, page) ||
             vmm_virt_to_phys_in_space(a->backing.common.cr3, va, &existing))
             return false;
         uint64_t flags = VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE;
@@ -233,7 +233,7 @@ static bool edp_read_pair(struct edp_adapter *a, uint32_t offset, uint64_t *pair
 
 static bool edp_map_backing(struct edp_adapter *a, uint32_t page)
 {
-    if (!edp_held(a) || !intel_cache_probe_edp_uc_page(result.mmio_base + page, page))
+    if (!edp_held(a) || !edp_cache_page(a, result.mmio_base + page, page))
         return false;
     if (backing_map(&a->backing, page))
         return true;
@@ -327,6 +327,36 @@ static bool edp_fences_preserved(struct edp_adapter *a)
     return match && edp_reopen_ok(a, REOPEN_FENCE_UNMAP, 0x100000u, unmapped && edp_held(a));
 }
 
+static bool edp_held_endpoint_same(struct edp_adapter *a, struct intel_backing_endpoint *endpoint)
+{
+    if (!a->flr || !a->pci_backing_check || a->decode_closed)
+        return false;
+    const struct bdw_pci_hold_report *hold = &a->flr->pci_hold;
+    if (!hold->retained || hold->samples != 4 || hold->writes != 3 || !hold->cpu_copy ||
+        endpoint->identity.command != 0x402 || backing.sample[1].endpoint.identity.command != 7 ||
+        !edp_held(a))
+        return false;
+    /* Check the complete endpoint after accounting for the one owned change. */
+    endpoint->identity.command = 7;
+    return trial_endpoint_same(endpoint);
+}
+
+static bool edp_cache_page(struct edp_adapter *a, uint64_t physical, uint32_t offset)
+{
+    uint64_t pages[3];
+    if (a->pci_backing_check) {
+        struct intel_backing_endpoint endpoint;
+        struct scanout_profile profile;
+        if (!intel_scanout_trial_profile(&profile) || !backing_endpoint(&a->backing, &endpoint) ||
+            !edp_held_endpoint_same(a, &endpoint) || !trial_cache_pages(&endpoint, pages))
+            return false;
+    } else if (!intel_scanout_trial_cache_pages(pages)) {
+        return false;
+    }
+    return pages[0] >= 0x101000 &&
+           intel_cache_probe_edp_uc_page(physical, offset, pages[0] - 0x101000) && edp_held(a);
+}
+
 static bool edp_endpoint_same(struct edp_adapter *a, struct intel_backing_endpoint *endpoint,
                               unsigned phase)
 {
@@ -334,10 +364,7 @@ static bool edp_endpoint_same(struct edp_adapter *a, struct intel_backing_endpoi
         if (!edp_reopen_record(a, REOPEN_ENDPOINT_COMMAND, phase, endpoint->identity.command == 0x402,
                                true, endpoint->identity.command, 0x402))
             return false;
-        if (!a->flr || backing.sample[1].endpoint.identity.command != 7 || !edp_held(a))
-            return edp_reopen_ok(a, REOPEN_ENDPOINT_MATCH, phase, false);
-        /* All other independently observed endpoint fields still compare. */
-        endpoint->identity.command = 7;
+        return edp_reopen_ok(a, REOPEN_ENDPOINT_MATCH, phase, edp_held_endpoint_same(a, endpoint));
     }
     return edp_reopen_ok(a, REOPEN_ENDPOINT_MATCH, phase, trial_endpoint_same(endpoint));
 }

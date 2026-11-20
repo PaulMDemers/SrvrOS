@@ -10,5 +10,7 @@ bool intel_scanout_trial_clock(struct intel_scanout_clock *);
 bool intel_scanout_trial_revalidate(void);
 /* Proposed CPU cache-query pages only; no mapping/managed-range authority. */
 bool intel_scanout_trial_cache_pages(uint64_t pages[3]);
+/* The eDP adapter supplies its freshly validated BAR and retains mapping ownership. */
+bool intel_cache_probe_edp_uc_page(uint64_t physical, uint32_t offset, uint64_t mmio_base);
 bool intel_scanout_lifetime_trial(struct limine_framebuffer *,bool fixture);
 #endif

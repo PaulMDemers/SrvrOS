@@ -49,7 +49,7 @@ int main(int argc,char **argv) {
         const char *names[]={"native-model","cpu-only","refused","changed","preserve-failed"};
         for(unsigned i=0;i<5;i++)if(!strcmp(argv[1],names[i]))scenario=i;
     }
-    gt_mtrr_uc=argc>1 && (!strcmp(argv[1],"fresh-uc") || !strcmp(argv[1],"wake-uc") || !strcmp(argv[1],"engine-uc") || !strcmp(argv[1],"reader-uc") || !strcmp(argv[1],"reset-uc") || !strcmp(argv[1],"completion-uc") || !strcmp(argv[1],"hda-uc"));
+    gt_mtrr_uc=argc>1 && (!strcmp(argv[1],"fresh-uc") || !strcmp(argv[1],"wake-uc") || !strcmp(argv[1],"engine-uc") || !strcmp(argv[1],"reader-uc") || !strcmp(argv[1],"reset-uc") || !strcmp(argv[1],"completion-uc") || !strcmp(argv[1],"hda-uc") || !strcmp(argv[1],"edp-uc"));
     intel_cache_probe_boot();intel_cache_probe_boot();
     assert(!intel_cache_probe_uc_page(0xc0811000));
     bool ok=intel_cache_probe_report();assert(ok==(scenario==0));
@@ -61,6 +61,17 @@ int main(int argc,char **argv) {
         puts("cache-context: PASS fresh full equality/refusal; no ownership grant");return 0;
     }
     assert(reads==(scenario==2?0:20));
+    if(argc>1 && !strcmp(argv[1],"edp-uc")) {
+        /* The generic endpoint is unavailable during the PCI hold; the eDP
+         * owner supplies the BAR it validated in that lifetime. */
+        scenario=1;
+        assert(!intel_cache_probe_uc_page(0xc0811000) && reads==20);
+        assert(!intel_cache_probe_edp_uc_page(0xc0101000,0x101000,0xc0000000) && reads==20);
+        assert(!intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xb0000000) && reads==20);
+        assert(intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xc0000000) && reads==30);
+        scenario=3;
+        assert(!intel_cache_probe_edp_uc_page(0xc0100000,0x100000,0xc0000000) && reads==40);
+    }
     if(argc>1 && !strcmp(argv[1],"fresh-uc")) {
         assert(!intel_cache_probe_uc_page(0xc0812000) && reads==20);
         assert(intel_cache_probe_uc_page(0xc0811000) && reads==30);

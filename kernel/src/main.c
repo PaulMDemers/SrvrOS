@@ -1254,6 +1254,11 @@ void kmain(void) {
             thermal_print_status();smc_print_status();audio_print_status();
         }
         console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
+#ifdef SRVROS_INTEL_EDP_BASELINE
+        if (cmdline_has_token(cmdline, "srvros.intel-edp-baseline=on"))
+            console_printf("intel-edp-disposition: %s\n",
+                edp_retained ? "halt-retained-state" : "return-if-logs-saved-and-unmounted");
+#endif
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
