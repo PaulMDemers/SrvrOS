@@ -42,6 +42,10 @@ struct scanout_transfer {
     uint32_t state,error;
     bool busy,pinned;
 };
+/* Check a proposed interval and its declared rights before acquiring resources.
+ * TRANSFER_OK still requires the live provider checks in scanout_transfer_open. */
+enum scanout_transfer_error scanout_transfer_admission(const struct scanout_transfer_manifest *);
+
 /* Zero-init/address-sealed. Reuse only after clean CLOSED, with a fresh epoch.
  * Missing assurances/any open obligation refuses before provider or arena.
  * Captures inputs and pins CPU exclusion before validation. Clean read-only

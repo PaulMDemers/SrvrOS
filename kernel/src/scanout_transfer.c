@@ -13,6 +13,14 @@ static bool geometry(const struct scanout_transfer_manifest *m) {
         m->first<m->aperture_bytes/4096 && m->pages<=m->aperture_bytes/4096-m->first &&
         !(m->assurances&~HANDOFF_ALL) && m->original;
 }
+enum scanout_transfer_error scanout_transfer_admission(const struct scanout_transfer_manifest *m) {
+    if (!geometry(m))
+        return TRANSFER_INPUT;
+    if (m->assurances != HANDOFF_ALL || m->obligations)
+        return TRANSFER_ASSURANCE;
+    return TRANSFER_OK;
+}
+
 static bool auth(const struct scanout_transfer *t,const struct scanout_transfer_token *token) {
     return t && token && t->object==t && !t->busy && t->epoch && t->owner &&
         token->object==t && token->epoch==t->epoch && token->owner==t->owner &&
@@ -73,7 +81,8 @@ bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_po
     const struct scanout_transfer_manifest *input,struct scanout_transfer_io io,
     struct scanout_transfer_token *out) {
     if(!t || (t->object && t->object!=t) || t->busy || t->pinned ||
-       (t->state!=TRANSFER_EMPTY && t->state!=TRANSFER_CLOSED) || !geometry(input) ||
+       (t->state!=TRANSFER_EMPTY && t->state!=TRANSFER_CLOSED) ||
+       scanout_transfer_admission(input)!=TRANSFER_OK ||
        !io.revalidate || !io.now || !exclusion ||
        overlap(pool,sizeof(*pool),t,sizeof(*t)) || overlap(spaces,sizeof(*spaces),t,sizeof(*t)) ||
        overlap(out,sizeof(*out),t,sizeof(*t)) || overlap(input->original,(uint64_t)input->pages*8,t,sizeof(*t)) ||
@@ -88,7 +97,6 @@ bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_po
      * The complete raw vector lives in the original object, not on the stack. */
     struct scanout_transfer_manifest m=*input;
     struct display_access_token token=*exclusion;
-    if(m.assurances!=HANDOFF_ALL || m.obligations)return false;
     if(!display_access_held(&token))return false;
     t->object=t;t->busy=true;t->state=TRANSFER_CAPTURING;t->error=TRANSFER_OK;
     t->epoch=++pool->epoch;t->owner=token.owner;t->arena_epoch=0;

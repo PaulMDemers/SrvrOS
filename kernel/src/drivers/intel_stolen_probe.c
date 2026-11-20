@@ -6,11 +6,13 @@ bool intel_stolen_probe_retained(void) {return false;}
 #else
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/intel_reader_audit.h>
+#include <srvros/intel_completion_audit.h>
 #include <srvros/intel_pci_requester.h>
 #include <srvros/intel_handoff.h>
 #include <limine.h>
 extern volatile struct limine_memmap_request memmap_request;
-#include <srvros/scanout_handoff.h>
+#include <srvros/scanout_transfer.h>
+#include <srvros/scanout_memory.h>
 #include <srvros/intel_boot_claim.h>
 #include <srvros/x86_cache.h>
 #include <srvros/pci.h>
@@ -56,6 +58,11 @@ static struct {
   uint32_t readers[42];
   unsigned config_reads[2],reader_reads;
  } handoff;
+ struct {
+  uint64_t epoch,digest;
+  unsigned first,pages,checked,fences,missing;
+  bool selected,verified;
+ } range;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -118,7 +125,7 @@ static bool checkpoint(unsigned step) {
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }
-bool intel_stolen_probe_recipe(const char *s) {
+static bool parse_recipe(const char *s,bool *range) {
  static const char *const fixed[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only",
  "srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-stolen=read-only","srvros.capture-failure=reboot"};
  unsigned seen=0,tokens=0;
@@ -141,10 +148,17 @@ bool intel_stolen_probe_recipe(const char *s) {
     if(valid)bit=1u<<(7+i);
    }
   }
-  if(!bit || (seen&bit) || ++tokens>9)return false;
+  static const char exact_range[]="srvros.intel-scanout=range-observation";
+  if(len==sizeof(exact_range)-1 && equal_bytes(start,exact_range,len))bit=512;
+  if(!bit || (seen&bit) || ++tokens>10)return false;
   seen|=bit;
  }
- return tokens==9 && seen==511;
+ if(!((tokens==9 && seen==511) || (tokens==10 && seen==1023)))return false;
+ if(range)*range=(seen&512)!=0;
+ return true;
+}
+bool intel_stolen_probe_recipe(const char *s) {
+ return parse_recipe(s,NULL);
 }
 static bool tick(uint64_t begin) {
  uint64_t at=timer_monotonic_us();
@@ -174,6 +188,7 @@ static bool identity(void) {
  return ok || refuse(9);
 }
 static bool allowed(uint32_t page) {
+ if(page==0x100000 && stolen.range.selected && stolen.guard.checked && !stolen.guard.closed)return true;
  if(page==0x108000 || page==0x43000 || page==0x6f000 ||
     page==0x70000 || page==0x71000 || page==0x72000)return true;
  if(!stolen.plan.range[0].pages)return false;
@@ -489,10 +504,72 @@ static bool handoff_readers(void) {
  return true;
 }
 
+/* Read the complete original translation interval for an OS-backed X-tiled
+ * surface. The source is usable only inside this display/VMM guard. The
+ * inherited 16-entry observation is the anchor, never the range length. */
+static bool range_pair(uint32_t offset,uint64_t *value) {
+ uint32_t hi,lo,again;
+ if(!load(offset+4,&hi) || !load(offset,&lo) || !load(offset+4,&again))return false;
+ if(hi!=again)return refuse(20);
+ *value=((uint64_t)hi<<32)|lo;
+ return true;
+}
+
+static bool range_fences(void) {
+ for(unsigned i=0;i<32;i++) {
+  uint64_t raw;
+  if(!tick(stolen.begin[1]) || !range_pair(0x100000u+8*i,&raw))return false;
+  if(raw!=(i==0?0x021ff02f00000001ull:0))return refuse(32);
+  ++stolen.range.fences;
+ }
+ return true;
+}
+
+static bool observe_scanout_range(void) {
+ const struct bdw_stolen_range *candidate=&stolen.layout.plan.range[1];
+ if(!stolen.layout.classified || !stolen.guard.checked || stolen.guard.closed ||
+    !stolen.guard.owner.epoch || !stolen.exclusion.epoch || !identity() ||
+    !sole_root() || !intel_window_handoff_revalidate(&stolen.source))return refuse(32);
+ /* Profile admission above fixes width, height and stride. X tiling rounds
+  * rows to eight. The 128 tail translations must also have recoverable PTEs. */
+ struct scanout_memory_layout image;
+ if(!scanout_memory_layout(stolen.profile.width,stolen.profile.height,stolen.profile.pitch,true,&image))return refuse(32);
+ uint32_t pages=image.pages+128;
+ if(candidate->gpu!=(uint64_t)stolen.source.first*4096 ||
+    candidate->gpu<stolen.source.fence_end || pages>candidate->pages ||
+    pages>SCANOUT_TRANSFER_PAGES || pages>stolen.count[0][1] || pages>stolen.count[1][1])return refuse(32);
+ /* This source does not implement firmware/engine/DMA/reader/cache transfer.
+  * Keep the complete original vector private to the current observation. */
+ const struct scanout_transfer_manifest interval={
+  .mmio=stolen.source.mmio,.aperture=stolen.source.aperture,.aperture_bytes=stolen.source.aperture_bytes,
+  .fence_begin=stolen.source.fence_begin,.fence_end=stolen.source.fence_end,
+  .first=stolen.source.first,.pages=pages,.original=stolen.pte[1][1],
+  .source_epoch=stolen.exclusion.epoch,.assurances=stolen.source.assurances,.obligations=INTEL_COMPLETION_OPEN};
+ stolen.range.epoch=interval.source_epoch;stolen.range.first=interval.first;stolen.range.pages=interval.pages;
+ stolen.range.digest=14695981039346656037ull;
+ if(!range_fences())return false;
+ for(unsigned i=0;i<interval.pages;i++) {
+  uint64_t raw;
+  if((i%64==0 && !tick(stolen.begin[1])) ||
+     !range_pair(0x800000u+(interval.first+i)*8,&raw))return false;
+  if(raw!=interval.original[i] || raw!=stolen.pte[0][1][i])return refuse(32);
+  stolen.range.digest=hash_word(stolen.range.digest,raw);++stolen.range.checked;
+ }
+ if(!range_fences() || !unmap() || !identity() || !sole_root() ||
+    !intel_window_handoff_revalidate(&stolen.source) || !tick(stolen.begin[1]))return refuse(32);
+ /* Ask the same admission function used by the mapping transaction. Any
+  * other outcome conflicts with this read-only source and its open obligations. */
+ if(scanout_transfer_admission(&interval)!=TRANSFER_ASSURANCE)return refuse(32);
+ stolen.range.missing=HANDOFF_ALL & ~interval.assurances;
+ stolen.range.verified=true;
+ return true;
+}
+
 static bool observe_handoff(void) {
  if(!tick(stolen.begin[1]))return false;
  stolen.handoff.begin=stolen.last;
- if(!handoff_config(0) || !handoff_readers() || !unmap() || !handoff_config(1) ||
+ if(!handoff_config(0) || !handoff_readers() || !unmap() ||
+    (stolen.range.selected && !observe_scanout_range()) || !handoff_config(1) ||
     !tick(stolen.begin[1]))return false;
  if(stolen.last<=stolen.handoff.begin)return refuse(31);
  stolen.handoff.end=stolen.last;
@@ -541,8 +618,8 @@ bool intel_stolen_probe_retained(void){return stolen.uncertain || (stolen.acquir
 bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
- console_write("intel-stolen: wire8 hardware ownership gate under maintained CPU mapping exclusion; two bounded2s passes, no input, no GPU writes or allocation grant\n");
- if(!intel_stolen_probe_recipe(cmdline)){refuse(1);goto report;}
+ console_write("intel-stolen: hardware ownership gate under maintained CPU mapping exclusion; two bounded2s passes, no input, no GPU writes or allocation grant\n");
+ if(!parse_recipe(cmdline,&stolen.range.selected)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
  if(!checkpoint(1))goto report;
@@ -589,8 +666,8 @@ cleanup:
  if(!stolen.released){stolen.uncertain=true;stolen.reason|=8;refuse(23);}
 report:
  trace(14,1);
- console_printf("intel-stolen-summary: v=8 reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
- (uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
+ console_printf("intel-stolen-summary: v=%u reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
+ (uint64_t)(stolen.range.selected?9:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
@@ -647,6 +724,10 @@ report:
   console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
+ if(stolen.range.selected)
+  console_printf("intel-stolen-range: v=1 epoch=%u slot=%u pages=%u checked=%u fences=%u hash=%x verified=%u missing=%u assurances=0 obligations=255 writes=0\n",
+   stolen.range.epoch,(uint64_t)stolen.range.first,(uint64_t)stolen.range.pages,(uint64_t)stolen.range.checked,
+   (uint64_t)stolen.range.fences,stolen.range.digest,(uint64_t)stolen.range.verified,(uint64_t)stolen.range.missing);
  console_printf("intel-stolen-hardware-gate: v=1 begin=%u end=%u firmware_transfer=0 first_unmet=%s writes=0\n",
   stolen.handoff.begin,stolen.handoff.end,stolen.handoff.end?"firmware-transfer":
   stolen.cpu.observed && !stolen.cpu.admitted?"cpu-backing":"unresolved");

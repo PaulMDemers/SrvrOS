@@ -174,3 +174,22 @@ Next supply the genuine mapping/visibility owner and native ordered register
 adapter, bind old-reader retirement to the existing [buffer lifetime](scanout-buffer-lifetime.md),
 then qualify full-buffer flips, inherited restoration and desktop presentation.
 Host/QEMU success cannot accept the native provider or visible tear-free behavior.
+
+
+### Native reset-free range observation
+
+The isolated Air7,2 census accepts the additional boot token
+`srvros.intel-scanout=range-observation`. Its version 9 report identifies
+the exact GPU interval for the second X-tiled image, including the 128 tail
+entries. The driver holds the display exclusion and VMM reservation guard
+while it checks all 32 hardware fences, rereads the 1,484 original entries,
+and checks all 32 fences again. Each entry must match both earlier complete
+samples. This runs within the original two-second census budget.
+
+The collector checks the entry count, digest and fence counts independently.
+The source submits the observed interval to the same admission check used by
+the GGTT transfer. The Air boot source currently supplies zero hardware
+assurances. A verified observation therefore leaves the GPU range with its
+original owner. A reset-free flip requires a native owner that can exclude
+firmware and competing readers, maintain engine, DMA and cache ownership,
+publish the OS pages and retire them after the return flip.

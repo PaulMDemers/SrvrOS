@@ -221,8 +221,15 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    if(model.mode==34 && stolen.phase==2 && p==1 && w==9)*out=0x2400000;
    return true;
   }
+  if(offset>=0x100000 && offset<0x100100) {
+   assert(model.guard_live && model.pinned && stolen.range.selected);
+   uint64_t raw=(offset<0x100008)?0x021ff02f00000001ull:0;
+   if(model.mode==50 && stolen.range.fences==63)raw=1;
+   *out=(offset&4)?(uint32_t)(raw>>32):(uint32_t)raw;return true;
+  }
   assert(offset>=0x800000 && offset<0x817000 && !(offset&3));
   uint64_t pte=0x8c001001ull+((offset-0x800000)/8)*4096ull;
+  if(model.mode==51 && model.guard_live && (offset-0x800000)/8==8704+1483)pte^=4096;
   if(model.mode==5 && (offset-0x800000)/8==9000)pte^=4096;
   *out=(offset&4)?(uint32_t)(pte>>32):(uint32_t)pte;
   if(model.mode==6 && offset==0x80000c && stolen.reads[0][0]==3)*out^=1;
@@ -279,6 +286,22 @@ int main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--guard-close-refusal-report")) {reset();model.which=GUARD_CLOSE;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--guard-unpin-refusal-report")) {reset();model.which=UNPIN;model.at=1;model.report=true;return intel_stolen_probe_report(command)?1:0;}
  if(argc==2 && !strcmp(argv[1],"--report")) {reset();model.report=true;return intel_stolen_probe_report(command)?0:1;}
+ char range_command[512];
+ snprintf(range_command,sizeof(range_command),"%s srvros.intel-scanout=range-observation",command);
+ if(argc==2 && (!strcmp(argv[1],"--range-report") || !strcmp(argv[1],"--range-tail-refusal"))) {
+  reset();model.report=true;
+  bool fail_tail=!strcmp(argv[1],"--range-tail-refusal");
+  if(fail_tail)model.mode=51;
+  return intel_stolen_probe_report(range_command)==fail_tail;
+ }
+ for(unsigned mode=49;mode<=51;mode++) {
+  reset();model.mode=mode;bool matched=mode==49;
+  assert(intel_stolen_probe_report(range_command)==matched);
+  assert(stolen.range.verified==matched && stolen.range.pages==1484 && stolen.range.first==8704);
+  assert(stolen.range.checked==(mode==51?1483u:1484u));
+  assert(stolen.range.fences==(mode==50?63u:mode==51?32u:64u));
+  assert(stolen.fail==(matched?0u:32u) && !model.mapped && !model.held && !model.guard_live);++model.cases;
+ }
  positive();
  for(unsigned i=0;i<78;i++) {
   reset();model.mode=33;model.at=i;

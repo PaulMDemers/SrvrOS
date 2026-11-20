@@ -27,7 +27,7 @@ EDP_CONFIGS = ("ram-usb-v1-intel-edp-baseline-", "ram-usb-v1-intel-edp-cycle-", 
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-intel-stolen|2-intel-stolen|3-intel-stolen|4-intel-stolen|5-intel-stolen|6-intel-stolen|7-intel-stolen|8-intel-stolen|9-intel-stolen|1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-gt-bootstrap(?:-(?:seconds|practical|memory|arena|context|range|primary|aux|flush))?|1-intel-command-ownership|1-intel-command-memory|1-intel-ggtt-invalidate|2-intel-ggtt-invalidate|3-intel-ggtt-invalidate|1-intel-vtd-drain|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-edp-baseline|1-intel-edp-cycle|1-intel-edp-flr-preflight|1-intel-edp-dark-well|1-intel-edp-pci-hold|1-intel-edp-dark-pwm|1-intel-edp-dark-pps|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-intel-stolen|2-intel-stolen|3-intel-stolen|4-intel-stolen|5-intel-stolen|6-intel-stolen|7-intel-stolen|8-intel-stolen|9-intel-stolen|10-intel-stolen|1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-gt-bootstrap(?:-(?:seconds|practical|memory|arena|context|range|primary|aux|flush))?|1-intel-command-ownership|1-intel-command-memory|1-intel-ggtt-invalidate|2-intel-ggtt-invalidate|3-intel-ggtt-invalidate|1-intel-vtd-drain|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-edp-baseline|1-intel-edp-cycle|1-intel-edp-flr-preflight|1-intel-edp-dark-well|1-intel-edp-pci-hold|1-intel-edp-dark-pwm|1-intel-edp-dark-pps|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82|1-capture-write-air61|1-capture-write-air72)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -48,6 +48,9 @@ def release_id(hashes, version=CONFIG_VERSION, *, source=None):
 
 
 def limine_config(release, version=CONFIG_VERSION):
+    if version.startswith("ram-usb-v10-intel-stolen-"):
+        base=limine_config(release,version.replace("ram-usb-v10-intel-stolen-","ram-usb-v9-intel-stolen-",1))
+        return base.replace("srvros.intel-stolen=read-only","srvros.intel-stolen=read-only srvros.intel-scanout=range-observation")
     if version.startswith("ram-usb-v9-intel-stolen-"):
         return limine_config(release,version.replace("ram-usb-v9-intel-stolen-","ram-usb-v8-intel-stolen-",1))
     if version.startswith("ram-usb-v8-intel-stolen-"):
@@ -412,6 +415,8 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
                 any(v for k, v in locals().copy().items() if k not in allowed and k != "allowed")):
             raise ValueError("eDP baseline requires its own silent automatic workspace profile")
     if intel_stolen_capture:
+        if intel_stolen_capture is not True and intel_stolen_capture!="scanout-range":
+            raise ValueError("Unknown stolen census mode")
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_stolen_capture","laptop_probe_volume","repeat","desktop_scale"}):
             raise ValueError("Stolen census requires its own read-only automatic workspace profile")
         intel_window_capture=True
@@ -733,7 +738,9 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         elif intel_nonzero_source:version=f"ram-usb-v1-intel-nonzero-source-laptop-probe-{laptop_probe_volume}"
         elif intel_nonzero_reset:version=f"ram-usb-v1-intel-nonzero-reset-laptop-probe-{laptop_probe_volume}"
         if intel_entry_requester:version=f"ram-usb-v1-intel-entry-requester-laptop-probe-{laptop_probe_volume}"
-        if intel_stolen_capture:version=f"ram-usb-v9-intel-stolen-laptop-probe-{laptop_probe_volume}"
+        if intel_stolen_capture:
+            revision=10 if intel_stolen_capture=="scanout-range" else 9
+            version=f"ram-usb-v{revision}-intel-stolen-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
@@ -1038,6 +1045,8 @@ def main():
     capture.add_argument("--intel-nonzero-reset",action="store_true",help="Original enabled entry then maintained nonzero-geometry BCS8 reset/preservation")
     capture.add_argument("--intel-entry-requester",action="store_true",help="Original state-aware entry/reset then bounded original-claim requester restoration")
     capture.add_argument("--intel-ring-reset",action="store_true",help="Live state-aware entry then unchanged zero-geometry reset under original owner")
+    capture.add_argument("--intel-scanout-range",dest="intel_stolen_capture",action="store_const",const="scanout-range",
+                         help="Reread the exact second-surface GGTT range and its fences under display exclusion")
     capture.add_argument("--intel-stolen-capture",action="store_true",help="Read-only full inherited/candidate GTT census; no allocation or GPU write grant")
     capture.add_argument("--intel-bcs-context",action="store_true",help="Private CPU context image across original full-GT lifetime; no GPU mapping/submission; wire8")
     capture.add_argument("--intel-gt-arena",action="store_true",help="Private CPU command arena bound to original full-GT memory lifetime; wire7")

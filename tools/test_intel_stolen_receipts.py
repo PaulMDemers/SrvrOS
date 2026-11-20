@@ -69,6 +69,31 @@ class Receipts(unittest.TestCase):
         cls.prefix=cls.preinit+subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe'),'fresh-uc'],text=True)+'\n'.join(lines)+'\n'
         cls.late=re.sub(r'\b(begin|end)=(\d+)',lambda m:m[1]+'='+str(int(m[2])+1000000 if int(m[2]) else 0),cls.text)
         cls.command=next(l.split('cmdline:',1)[1].strip() for l in boot.limine_config('0123456789abcdef','ram-usb-v9-intel-stolen-laptop-probe-37d8c5d0-auto-return').splitlines() if 'cmdline:' in l)
+    def test_guarded_scanout_range_and_last_tail_entry(self):
+        def report(option):
+            return subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),option],text=True)
+        config=boot.limine_config('0123456789abcdef','ram-usb-v10-intel-stolen-laptop-probe-37d8c5d0-auto-return')
+        cmd=next(line.split('cmdline:',1)[1].strip() for line in config.splitlines() if 'cmdline:' in line)
+        self.assertIn('srvros.intel-scanout=range-observation',cmd.split())
+        self.assertEqual(stolen_recipe(cmd),stolen_recipe(self.command))
+        raw=report('--range-report')
+        result=stolen_result(raw,required_version=9)
+        self.assertTrue(result['complete'])
+        self.assertFalse(result['managed_range'] or result['hardware_ownership'] or result['physical_tearfree'])
+        receipt=result['scanout_range']
+        self.assertEqual([receipt[k] for k in ('slot','pages','checked','fences','verified','missing')],[8704,1484,1484,64,1,31])
+        refusal=stolen_result(report('--range-tail-refusal'),required_version=9)
+        self.assertFalse(refusal['complete'])
+        self.assertEqual((refusal['failure_stage'],refusal['scanout_range']['checked']),('scanout-range',1483))
+        line=next(line for line in raw.splitlines() if line.startswith('intel-stolen-range:'))
+        for bad in ('',line+'\n'+line,line.replace('fences=64','fences=63'),
+                    line.replace('missing=31','missing=0'),line.replace('obligations=255','obligations=0'),
+                    line.replace('checked=1484','checked=1483'),re.sub(r'hash=\S+','hash=0',line)):
+            with self.subTest(bad=bad),self.assertRaises(ValueError):
+                stolen_result(raw.replace(line,bad),required_version=9)
+        with self.assertRaises(ValueError):
+            stolen_result(raw,required_version=8)
+
     def test_actual_complete_adapter_stream_and_native_binding(self):
         p=stolen_result(self.text)
         self.assertTrue(p['complete'] and p['diagnostic_complete'])
