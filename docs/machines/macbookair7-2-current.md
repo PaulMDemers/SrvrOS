@@ -156,6 +156,12 @@ incomplete. The host restore fixture covers the documented 450 MHz
 CDCLK reset default. Native FLR and whole-device memory completion
 remain open. [Decode-hold trial](../intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
+The PR301 retry on main `4016abf0` adds a bounded post-reopen receipt to
+the Air7,2 eDP diagnostic and collector. It records platform registers,
+endpoint checks, fence and translation progress, and framebuffer
+comparison progress under the existing hold. It preserves the original
+PCI Command sequence and refusal behavior.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
