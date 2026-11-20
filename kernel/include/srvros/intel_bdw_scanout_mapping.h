@@ -13,4 +13,18 @@ bool intel_bdw_scanout_prepare(struct scanout_memory *, const struct scanout_mem
                               struct scanout_transfer *, const struct scanout_transfer_token *,
                               struct scanout_publish_pool *, struct scanout_publish_io);
 
+/* Air7,2 one-page diagnostic. The caller holds the original display, a live
+ * GPU transfer and a private page whose DMA address equals its physical address.
+ * The returned mapping must never be armed as a display surface. */
+bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct scanout_memory_token *,
+                                        struct scanout_transfer *, const struct scanout_transfer_token *,
+                                        struct scanout_publish_pool *, struct scanout_publish_io);
+/* Called only inside the publisher's write callback. The device owner must
+ * pin its original CPU root and its exclusive UC register alias across the
+ * callback. A successful store includes raw posting readback. The separate
+ * flush and reader callbacks remain mandatory for publication and reuse. */
+bool intel_bdw_scanout_store_test_page(struct scanout_memory *, const struct scanout_memory_token *,
+                                      struct scanout_transfer *, const struct scanout_transfer_token *,
+                                      uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
+
 #endif

@@ -71,11 +71,24 @@ the expected halt. The QEMU receipt records zero reservations and writes.
 The full 1,484-page flip, rollback, competing-owner and delayed-reader cases
 run in the host fixture. A physical flip remains pending.
 
-PR301's next checkpoint is a reversible one-page GGTT mapping under a live
-range transfer. The scope is Broadwell mapping preparation, the single-entry
-MMIO store and its local qualification. The private page and original display
-must remain pinned through restoration. An Ubuntu i915 private-page reference
-can exercise the physical aperture while that driver owns the device.
+The Broadwell one-page publisher now exercises its aligned 64-bit store and
+exact restoration in the host fixture at GGTT index 8,704. A simulated stale
+device translation after a successful store keeps the range and RAM pinned.
+The fixture restores both the captured Air entry `0x8e201001` and an
+original with a nonzero upper word. All 63 transfer cases passed under fatal
+ASan/UBSan. The write primitive
+compiled with the freestanding kernel flags and is absent from the ordinary
+kernel and read-only range diagnostic.
+
+On this Air under Ubuntu kernel `7.0.0-43-generic`, i915 bound one 4 KiB
+page at GPU offset `0x554000`. All 1,024 words matched an independent GEM
+read after both changing and restoring them. The trace recorded the matching
+unbind. This confirms the physical aperture works under i915 ownership.
+SrvrOS still needs a native owner to exclude prior GPU users and maintain
+completed translation invalidation and reader retirement. The next native
+trial publishes and restores one entry with the original display pinned.
+The 1,484-page flip follows that qualification.
+[One-page implementation and Ubuntu reference](../scanout-transfer.md#broadwell-one-page-checkpoint)
 
 ## Native display recovery after PCI decode reopens
 

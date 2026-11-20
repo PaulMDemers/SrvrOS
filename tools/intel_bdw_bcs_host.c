@@ -195,8 +195,54 @@ static void exercise(bool write_marker, uint64_t data, uint64_t marker)
         puts("Control verified earlier write with an untouched marker");
 }
 
-int main(void)
+/* Exercise both views of one driver-owned page. mmap_offset names a GEM
+ * mapping for this FD, not a reported hardware GGTT address or physical PTE. */
+static void aperture_page(void)
 {
+    int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
+    if (fd < 0) { perror("open integrated GPU"); exit(EXIT_FAILURE); }
+    if (parameter(fd, I915_PARAM_CHIPSET_ID) != 0x1626) {
+        fputs("Requires the Broadwell 0x1626 render device\n", stderr);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t handle = create_page(fd);
+    uint32_t original[PRIVATE_PAGE_BYTES / sizeof(uint32_t)], observed[sizeof(original)/sizeof(*original)];
+    for (unsigned i=0; i<sizeof(original)/sizeof(*original); ++i)
+        original[i] = 0x9e3779b9u * (i+1);
+    struct drm_i915_gem_pwrite upload = {.handle=handle, .size=sizeof(original), .data_ptr=(uintptr_t)original};
+    call(fd, DRM_IOCTL_I915_GEM_PWRITE, &upload, "initialize private page");
+    struct drm_i915_gem_mmap_offset mapping = {.handle=handle, .flags=I915_MMAP_OFFSET_GTT};
+    call(fd, DRM_IOCTL_I915_GEM_MMAP_OFFSET, &mapping, "get GGTT aperture mapping");
+    volatile uint32_t *gtt = mmap(NULL, sizeof(original), PROT_READ|PROT_WRITE, MAP_SHARED, fd, mapping.offset);
+    if (gtt == MAP_FAILED) { perror("mmap GGTT aperture"); exit(EXIT_FAILURE); }
+    struct drm_i915_gem_set_domain domain = {.handle=handle, .read_domains=I915_GEM_DOMAIN_GTT,
+                                             .write_domain=I915_GEM_DOMAIN_GTT};
+    struct drm_i915_gem_pread read = {.handle=handle, .size=sizeof(observed), .data_ptr=(uintptr_t)observed};
+    for (unsigned pass=0; pass<2; ++pass) {
+        call(fd, DRM_IOCTL_I915_GEM_SET_DOMAIN, &domain, "enter GGTT domain");
+        for (unsigned i=0; i<sizeof(original)/sizeof(*original); ++i) {
+            uint32_t expected = pass ? ~original[i] : original[i];
+            if (gtt[i] != expected) { fprintf(stderr,"GGTT mismatch pass %u word %u\n",pass,i); exit(EXIT_FAILURE); }
+            gtt[i] = ~expected;
+        }
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+        call(fd, DRM_IOCTL_I915_GEM_PREAD, &read, "read independent GEM view");
+        for (unsigned i=0; i<sizeof(original)/sizeof(*original); ++i)
+            if (observed[i] != (pass ? original[i] : ~original[i])) {
+                fprintf(stderr,"GEM mismatch pass %u word %u\n",pass,i); exit(EXIT_FAILURE);
+            }
+    }
+    if (munmap((void *)gtt,sizeof(original))) { perror("unmap GGTT"); exit(EXIT_FAILURE); }
+    struct drm_gem_close drop = {.handle=handle};
+    call(fd, DRM_IOCTL_GEM_CLOSE, &drop, "release private page");
+    close(fd);
+    puts("i915 aperture page PASS: 4096 bytes, changed and restored, GEM readback verified");
+}
+
+int main(int argc, char **argv)
+{
+    if (argc==2 && !strcmp(argv[1],"--aperture-page")) { aperture_page(); return EXIT_SUCCESS; }
+    if (argc!=1) { fputs("usage: intel-bdw-bcs-host [--aperture-page]\n",stderr); return EXIT_FAILURE; }
     uint64_t nonce[2];
     if (getrandom(nonce, sizeof(nonce), GRND_NONBLOCK) != (ssize_t)sizeof(nonce) ||
         !(uint32_t)nonce[0] || !(uint32_t)nonce[1] ||

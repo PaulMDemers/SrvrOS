@@ -139,3 +139,37 @@ provider/transfer-clock/arena activity. Its separate v32 profile now accepts one
 check/close lifetime, with full source/RAM/root retirement on `f638ae7c`.
 This supplies no positive interval assurance; enabled entry and real hardware
 transfer remain unaccepted. See the [native result](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted).
+
+### Broadwell one-page checkpoint
+
+The Air7,2 diagnostic store targets GGTT index 8,704, the first entry after
+the 34 MiB inherited fence. Its input is one private linear RAM page below
+4 GiB. The preliminary interval reservation must be promoted by the live
+hardware owner before preparation. Publication and restore check the transfer,
+child lease, saved entry, CPU mapping and original publication deadline. Under
+the pinned root, the register must use a supervisor-only, writable, NX, 4 KiB
+uncacheable mapping. The store compares the current 64-bit word immediately
+before replacement and reads it back. The generic publisher then requires a
+separate translation flush. On restoration it also requires retirement of the
+readers before returning the private page.
+
+`make test-scanout-transfer` runs this store against an aligned register
+image. It checks both neighboring entries, independent cached translation
+state, changes to the PTE during admission, alias and cache failures, and a
+deadline expiring during either page-table walk. Failed translation
+invalidation after the store retains the backing even when raw readback
+matches. The boot image and read-only range observer do not call this store.
+
+To exercise the physical aperture on the Air from Ubuntu:
+
+```sh
+cc -std=c11 -O2 -Wall -Wextra -Werror tools/intel_bdw_bcs_host.c -o /tmp/air-i915-page
+timeout 15s /tmp/air-i915-page --aperture-page
+```
+
+This uses i915's private GEM object and GTT mmap interface. The CPU changes
+and restores every word through the aperture, and GEM reads verify both
+patterns. The driver chooses the GPU address and manages cache transitions.
+The SrvrOS trial still needs independent evidence for ownership of its own
+candidate interval, invalidation, and exact restoration.
+[Air7,2 result](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)

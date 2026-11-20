@@ -8,10 +8,14 @@ MODES = """normal missing invalid failed-open clock-open stuck-open deadline-ope
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close
 clock-close changed-close full-buffers linear-tail partial-write pending-readers reuse
-capacity last-aperture-page one-page partial-restore lost-mapped-owner other-pin
+capacity last-aperture-page one-page one-page-air partial-restore lost-mapped-owner other-pin
 one-page-before-change one-page-apply-change one-page-restore-snapshot one-page-restore-clock
 linear-tail-original-change tiled-tail tiled-tail-partial tiled-tail-no-owner tiled-tail-invalid-original
 tiled-tail-high-ram tiled-flip tiled-flip-wrong-pixels
+pte-store-late-alias pte-store-restore-late-alias pte-store-deadline pte-store-restore-deadline
+pte-store-late-deadline pte-store-restore-late-deadline pte-store-cache pte-store-alias
+pte-store-foreign pte-store-restore-cache pte-store-restore-alias pte-store-restore-foreign
+pte-store-invalidate pte-store-restore-invalidate
 reservation-clean reservation-fault reservation-stale-original""".split()
 
 class TransferTests(unittest.TestCase):
