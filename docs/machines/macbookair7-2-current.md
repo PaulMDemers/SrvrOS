@@ -38,6 +38,11 @@ zero ownership assurances. A native test needs a live transfer covering the
 whole second surface, plus the ordered publication and display adapters.
 [Private scanout mapping](../intel-bdw-primary-flip.md#private-backing-in-a-transferred-interval)
 
+The current PR301 work block binds the complete second-surface GGTT vector
+to the native, reset-free display exclusion. Scope is the Air7,2 census,
+transfer admission and its collector. The source must retain its original
+PTEs through retirement and distinguish an observed range from a hardware grant.
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
