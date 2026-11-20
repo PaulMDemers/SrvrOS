@@ -5699,7 +5699,7 @@ test-core: test-scanout-transfer
 test-scanout-transfer: build/tests/scanout-transfer$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_scanout_transfer.py
 PRIMARY_FLIP_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_flip.c kernel/diagnostics/intel_bdw_flip_trial.c kernel/diagnostics/intel_bdw_edp_baseline.c tools/test_intel_bdw_flip_rollback.c
-SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
+SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/src/scanout_handoff.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
 build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c $(SCANOUT_TRANSFER_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(SCANOUT_TRANSFER_HOST_SOURCES) -o $@
@@ -7340,7 +7340,7 @@ build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-STOLEN_ADAPTER_HOST_SOURCES := kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
+STOLEN_ADAPTER_HOST_SOURCES := kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
 build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -Wl,--gc-sections -o $@

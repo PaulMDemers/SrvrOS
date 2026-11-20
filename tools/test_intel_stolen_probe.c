@@ -20,7 +20,8 @@ enum fault {PROFILE=1,SNAPSHOT,REVALIDATE,CLEAN,SYNC,ACQUIRE,HELD,ROOT,CLAIM,PCI
 static struct {
  unsigned calls[FAULT_COUNT],which,at,cases,reads,maps,unmaps;
  uint64_t physical,clock;
- bool mapped,held,report,pinned,guard_live;
+ unsigned pinned;
+ bool mapped,held,report,guard_live;
  unsigned mode,deferred,tag_queries;
 } model;
 static struct pci_device devices[2]={{.device=0},{.device=2}};
@@ -84,14 +85,14 @@ bool display_access_acquire(uint64_t owner,struct display_access_token *t) {
 bool display_access_held(const struct display_access_token *t) {assert(t==&stolen.exclusion);return model.held && !fault(HELD);}
 bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped && !model.pinned && !model.guard_live);if(fault(RELEASE))return false;model.held=false;return true;}
 bool display_access_pin(const struct display_access_token *t) {
- assert(t==&stolen.exclusion && model.held && !model.pinned);
+ assert(t && t->epoch==stolen.exclusion.epoch && t->owner==stolen.exclusion.owner && model.held);
  if(fault(PIN))return false;
- model.pinned=true;return true;
+ ++model.pinned;return true;
 }
 bool display_access_unpin(const struct display_access_token *t) {
- assert(t==&stolen.exclusion && model.held && model.pinned && !model.guard_live);
+ assert(t && t->epoch==stolen.exclusion.epoch && t->owner==stolen.exclusion.owner && model.held && model.pinned && !model.guard_live);
  if(fault(UNPIN))return false;
- model.pinned=false;return true;
+ --model.pinned;return true;
 }
 bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
  const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
@@ -301,6 +302,7 @@ int main(int argc,char **argv) {
   assert(stolen.range.verified==matched && stolen.range.pages==1484 && stolen.range.first==8704);
   assert(stolen.range.checked==(mode==51?1483u:1484u));
   assert(stolen.range.fences==(mode==50?63u:mode==51?32u:64u));
+  assert(stolen.range.token.epoch && stolen.range.transfer.state==TRANSFER_CLOSED && !model.pinned);
   assert(stolen.range.closing_readers==(mode==53?41u:mode==49 || mode==52?42u:0u));
   assert(stolen.fail==(matched?0u:32u) && !model.mapped && !model.held && !model.guard_live);++model.cases;
  }

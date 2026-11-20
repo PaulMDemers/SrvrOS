@@ -71,6 +71,97 @@ static void opened(void) {
     assert(transfer.state==TRANSFER_ACTIVE && transfer.pinned && model.calls[TRANSFER_ADMIT]==1);
     assert(transfer.manifest.original==transfer.original && !display_access_release(&transfer.exclusion,true));
 }
+/* Separate pool and object, as used by an independent kernel client. */
+static struct scanout_transfer contender;
+static struct scanout_transfer_pool contender_pool;
+static struct scanout_handoff small;
+static struct scanout_space_pool small_pool;
+static unsigned small_checks;
+static bool check_small(void *ctx,const struct scanout_handoff_snapshot *s) {
+    assert(ctx==&small && s->original[0]==table[s->first]);
+    ++small_checks;
+    return true;
+}
+static uint32_t open_small(unsigned first) {
+    struct scanout_handoff_snapshot s={.mmio=manifest.mmio,.aperture=manifest.aperture,
+        .aperture_bytes=manifest.aperture_bytes,.fence_end=manifest.fence_end,.first=first,
+        .pages=1,.assurances=HANDOFF_ALL,.original={table[first]}};
+    return scanout_handoff_open(&small,&small_pool,&exclusion,&s,(struct scanout_handoff_io){&small,check_small});
+}
+static void expect_small_conflict(void) {
+    unsigned before=small_checks;
+    assert(open_small(manifest.first+manifest.pages-1)==HANDOFF_SPACE && small_checks==before);
+}
+
+static void expect_conflict(struct scanout_transfer_manifest request)
+{
+    struct scanout_transfer_token untouched={0};
+    uint64_t epoch=contender_pool.epoch;
+    assert(!scanout_transfer_reserve(&contender,&contender_pool,&exclusion,&request,&untouched));
+    assert(!scanout_transfer_open(&contender,&contender_pool,&spaces,&exclusion,&request,provider(),&untouched));
+    assert(!untouched.object && contender_pool.epoch==epoch);
+}
+
+static bool reserve_then_activate(void)
+{
+    struct scanout_transfer_manifest observed=manifest;
+    observed.assurances=0;observed.obligations=255;
+    assert(scanout_transfer_reserve(&transfer,&pool,&exclusion,&observed,&token));
+    assert(transfer.state==TRANSFER_RESERVED && transfer.pinned && !transfer.arena_epoch);
+    expect_conflict(manifest);
+    expect_small_conflict();
+    assert(!scanout_transfer_activate(&transfer,&token,&spaces,&observed,provider()));
+    assert(!model.calls[TRANSFER_ADMIT] && !transfer.space.object && !display_access_release(&exclusion,true));
+    return scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider());
+}
+
+static void reservation_cases(const char *mode)
+{
+    assert(!open_small(manifest.first+manifest.pages-1));
+    expect_conflict(manifest);
+    assert(scanout_handoff_close(&small,(struct scanout_handoff_io){&small,check_small}));
+    assert(scanout_transfer_reserve(&transfer,&pool,&exclusion,&manifest,&token));
+    struct scanout_transfer_manifest other=manifest;
+    other.pages=1;other.first+=manifest.pages-1;
+    expect_conflict(other);
+    other.mmio+=4096;expect_conflict(other);
+    other.aperture+=4096;expect_conflict(other);
+    other=manifest;other.aperture+=4096;expect_conflict(other);
+    struct scanout_transfer_token stale=token;
+    ++stale.epoch;
+    uint64_t raw;
+    assert(!scanout_transfer_original(&transfer,&token,manifest.first,&raw));
+    assert(!scanout_transfer_check(&transfer,&token) && !scanout_transfer_close(&transfer,&stale));
+    assert(!scanout_transfer_activate(&transfer,&stale,&spaces,&manifest,provider()));
+    assert(!scanout_transfer_activate(&transfer,&token,(struct scanout_space_pool *)(void *)&pool,
+                                      &manifest,provider()));
+    other=manifest;++other.source_epoch;
+    assert(!scanout_transfer_activate(&transfer,&token,&spaces,&other,provider()));
+    other=manifest;other.first+=other.pages;
+    struct scanout_transfer_token adjacent;
+    assert(scanout_transfer_reserve(&contender,&contender_pool,&exclusion,&other,&adjacent));
+    assert(scanout_transfer_close(&contender,&adjacent));
+    if(!strcmp(mode,"reservation-stale-original")) {
+        input[manifest.pages-1]^=1;
+        assert(!scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider()));
+        assert(transfer.state==TRANSFER_CLOSED && !transfer.pinned && !model.calls[TRANSFER_ADMIT]);
+    } else {
+        assert(scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider()));
+        expect_conflict(manifest);
+        expect_small_conflict();
+        model.fail=!strcmp(mode,"reservation-fault");
+        if(model.fail) {
+            assert(!scanout_transfer_close(&transfer,&token));
+            expect_conflict(manifest);
+            expect_small_conflict();
+            assert(transfer.state==TRANSFER_FAULT && !display_access_release(&exclusion,true));
+            return;
+        }
+        assert(scanout_transfer_close(&transfer,&token));
+    }
+    assert(scanout_transfer_reserve(&contender,&contender_pool,&exclusion,&manifest,&adjacent));
+    assert(scanout_transfer_close(&contender,&adjacent) && display_access_release(&exclusion,true));
+}
 static uint64_t allocate(void *ctx,uint32_t pages) {
     assert(ctx==&model && pages==model.memory_pages);model.allocations++;
     uint64_t p=model.physical;model.physical+=(uint64_t)pages*4096;return p;
@@ -181,8 +272,12 @@ static void mapped_flip(bool corrupt)
     model.pending=true;
     assert(test_flip_on_published_surface(&a,display_mapping_held,scan_crc,image_crc(0,true)) == !corrupt);
     assert(!scanout_memory_close(&a,&at) && !model.releases && model.writes==1484);
+    expect_conflict(manifest);
+    expect_small_conflict();
     model.pending=false;
     assert(scanout_memory_close(&a,&at) && model.releases==1 && model.writes==2968);
+    expect_conflict(manifest);
+    expect_small_conflict();
     for(unsigned i=0;i<manifest.pages;++i)assert(table[model.first+i]==input[i]);
 }
 static void close_clean(void) {
@@ -197,6 +292,9 @@ static void close_clean(void) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];setup();
+    if(!strncmp(mode,"reservation-",12)) {
+        reservation_cases(mode);puts("PASS competing reservations, promotion and original-owner return");return 0;
+    }
     bool linear_tail=!strcmp(mode,"linear-tail");
     bool tiled_tail=!strcmp(mode,"tiled-tail") || !strcmp(mode,"tiled-tail-partial") ||
                     !strcmp(mode,"tiled-tail-no-owner") || !strcmp(mode,"tiled-tail-invalid-original") || !strcmp(mode,"tiled-tail-high-ram");
@@ -264,7 +362,7 @@ int main(int argc,char **argv) {
     if(!strcmp(mode,"poison-open"))model.poison=true;
     if(!strcmp(mode,"input-mutation"))model.mutate=true;
     if(!strcmp(mode,"reentry"))model.reenter=true;
-    bool ok=scanout_transfer_open(&transfer,&pool,&spaces,&exclusion,&manifest,provider(),&token);
+    bool ok=flip ? reserve_then_activate() : scanout_transfer_open(&transfer,&pool,&spaces,&exclusion,&manifest,provider(),&token);
     if(!strcmp(mode,"poison-open")) {
         assert(!ok && transfer.state==TRANSFER_FAULT && transfer.pinned && transfer.error==TRANSFER_EXCLUSION);
         assert(!display_access_allowed() && !display_access_release(&transfer.exclusion,true));puts("PASS poisoned open stays pinned");return 0;

@@ -34,6 +34,7 @@ struct scanout_handoff {
     /* Zero-init, CPU0 serialized and address-sealed. Copies cannot retire the
      * original exclusion pin. Providers must not mutate this object directly. */
     const struct scanout_handoff *object;
+    struct scanout_interval interval;
     struct scanout_space space;
     struct display_access_token exclusion;
     struct scanout_handoff_snapshot snapshot;

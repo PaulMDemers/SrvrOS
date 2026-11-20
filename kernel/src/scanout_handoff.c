@@ -19,8 +19,13 @@ uint32_t scanout_handoff_open(struct scanout_handoff *h,struct scanout_space_poo
      * pin covers validation itself, and busy rejects nested opens/closes. */
     const struct scanout_handoff_snapshot captured=*s;
     const struct display_access_token token=*t;
+    if(!scanout_interval_claim(&h->interval,captured.mmio,captured.aperture,captured.aperture_bytes,
+                               captured.fence_end,(struct scanout_space_range){captured.first,captured.pages}))
+        return HANDOFF_SPACE;
     h->object=h;h->busy=true;h->snapshot=captured;h->exclusion=token;h->provider=io;
-    if(!display_access_pin(&token)){h->busy=false;return HANDOFF_EXCLUSION;}
+    if(!display_access_pin(&token)){
+        scanout_interval_release(&h->interval);h->busy=false;return HANDOFF_EXCLUSION;
+    }
     h->pinned=true;
     uint32_t error=HANDOFF_SNAPSHOT;
     /* No populated entry is freed or overwritten here. The provider must
@@ -36,7 +41,7 @@ uint32_t scanout_handoff_open(struct scanout_handoff *h,struct scanout_space_poo
     }
     /* Validation is read-only. A clean failure can return its pin, but a lost
      * exclusion cannot be repaired or made reusable by clearing software flags. */
-    if(display_access_unpin(&token))h->pinned=false;
+    if(display_access_unpin(&token)){scanout_interval_release(&h->interval);h->pinned=false;}
     else error=HANDOFF_EXCLUSION;
     h->busy=false;return error;
 }
@@ -53,5 +58,6 @@ bool scanout_handoff_close(struct scanout_handoff *h,struct scanout_handoff_io i
     const struct display_access_token token=h->exclusion;
     bool clean=io.revalidate(io.context,&captured) && display_access_held(&token);
     if(!clean || !display_access_unpin(&token)){h->busy=false;return false;}
+    scanout_interval_release(&h->interval);
     h->pinned=false;h->active=false;h->busy=false;return true;
 }

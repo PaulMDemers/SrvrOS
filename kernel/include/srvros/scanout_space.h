@@ -17,6 +17,16 @@
 enum scanout_space_state {SPACE_EMPTY, SPACE_ACTIVE, SPACE_CLOSING, SPACE_CLOSED, SPACE_FAULT};
 enum scanout_space_use {SPACE_UNUSED, SPACE_RESERVED, SPACE_EXPOSED, SPACE_RETIRED, SPACE_QUARANTINED};
 struct scanout_space_range {uint32_t first, pages;}; /* Half-open page intervals. */
+/* Both handoff APIs reserve from the same GPU address space. Callers serialize
+ * on the boot CPU and retain the node until the display pin can be returned. */
+struct scanout_interval {
+    uint64_t mmio, aperture, aperture_bytes, fence_end;
+    struct scanout_space_range pages;
+    struct scanout_interval *next;
+};
+bool scanout_interval_claim(struct scanout_interval *, uint64_t mmio, uint64_t aperture,
+                            uint64_t aperture_bytes, uint64_t fence_end, struct scanout_space_range);
+void scanout_interval_release(struct scanout_interval *);
 struct scanout_space_entry {uint64_t serial; uint32_t first, pages, use;};
 struct scanout_space {
     const struct scanout_space *object;

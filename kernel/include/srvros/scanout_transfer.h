@@ -8,7 +8,7 @@
  * Own this large object in static/heap storage, never a kernel stack. */
 #define SCANOUT_TRANSFER_PAGES 4096u
 #define SCANOUT_TRANSFER_DEADLINE_US 100000u
-enum scanout_transfer_state {TRANSFER_EMPTY,TRANSFER_CAPTURING,TRANSFER_ACTIVE,TRANSFER_CLOSING,TRANSFER_CLOSED,TRANSFER_FAULT};
+enum scanout_transfer_state {TRANSFER_EMPTY,TRANSFER_CAPTURING,TRANSFER_ACTIVE,TRANSFER_CLOSING,TRANSFER_CLOSED,TRANSFER_FAULT,TRANSFER_RESERVED};
 enum scanout_transfer_error {TRANSFER_OK,TRANSFER_INPUT,TRANSFER_ASSURANCE,TRANSFER_EXCLUSION,TRANSFER_CLOCK,TRANSFER_PROVIDER,TRANSFER_SPACE};
 enum scanout_transfer_phase {TRANSFER_ADMIT,TRANSFER_LIVE,TRANSFER_RETIRE};
 struct scanout_transfer_manifest {
@@ -33,6 +33,9 @@ struct scanout_transfer;
 struct scanout_transfer_token {const struct scanout_transfer *object;uint64_t epoch,owner;};
 struct scanout_transfer {
     const struct scanout_transfer *object;
+    struct scanout_transfer_manifest reservation; /* Original source geometry for conflict checks. */
+    struct scanout_interval interval;
+    const struct scanout_transfer_pool *reservation_pool;
     uint64_t epoch,owner,arena_epoch,begin_us,last_us;
     struct display_access_token exclusion;
     struct scanout_transfer_manifest manifest;
@@ -46,6 +49,18 @@ struct scanout_transfer {
  * TRANSFER_OK still requires the live provider checks in scanout_transfer_open. */
 enum scanout_transfer_error scanout_transfer_admission(const struct scanout_transfer_manifest *);
 
+/* Reserve the interval among participating GGTT transfers before a device
+ * grant exists. Copies the complete original vector and pins this display
+ * exclusion. RESERVED permits cancellation via close, but no child leases.
+ * Object storage must stay valid until clean closure, including on faults. */
+bool scanout_transfer_reserve(struct scanout_transfer *,struct scanout_transfer_pool *,
+    const struct display_access_token *,const struct scanout_transfer_manifest *,
+    struct scanout_transfer_token *);
+/* Promote this exact reservation in place. Rechecks the original vector and
+ * live provider under the ordinary admission deadline. Missing rights or a
+ * mismatched source refuse before starting admission and leave it reserved. */
+bool scanout_transfer_activate(struct scanout_transfer *,const struct scanout_transfer_token *,
+    struct scanout_space_pool *,const struct scanout_transfer_manifest *,struct scanout_transfer_io);
 /* Zero-init/address-sealed. Reuse only after clean CLOSED, with a fresh epoch.
  * Missing assurances/any open obligation refuses before provider or arena.
  * Captures inputs and pins CPU exclusion before validation. Clean read-only

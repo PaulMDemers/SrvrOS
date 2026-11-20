@@ -3,6 +3,37 @@
 static bool range_valid(struct scanout_space_range r, uint32_t pages) {
     return r.pages && r.first < pages && r.pages <= pages - r.first;
 }
+static struct scanout_interval *intervals;
+
+bool scanout_interval_claim(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
+                            uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
+    if (!node || !mmio || !aperture || !bytes || bytes > SCANOUT_SPACE_PAGES * 4096ull ||
+        ((mmio | aperture | bytes | fence_end) & 4095) || aperture > UINT64_MAX - bytes ||
+        !fence_end || fence_end > bytes || pages.first < fence_end / 4096 ||
+        !range_valid(pages, (uint32_t)(bytes / 4096))) return false;
+    for (struct scanout_interval *held = intervals; held; held = held->next) {
+        if (held == node) return false;
+        bool distinct_apertures = aperture + bytes <= held->aperture ||
+                                  held->aperture + held->aperture_bytes <= aperture;
+        if (held->mmio != mmio && distinct_apertures) continue;
+        if (held->mmio != mmio || held->aperture != aperture || held->aperture_bytes != bytes ||
+            held->fence_end != fence_end || (pages.first < held->pages.first + held->pages.pages &&
+            held->pages.first < pages.first + pages.pages)) return false;
+    }
+    *node = (struct scanout_interval){mmio, aperture, bytes, fence_end, pages, intervals};
+    intervals = node;
+    return true;
+}
+
+void scanout_interval_release(struct scanout_interval *node) {
+    struct scanout_interval **link = &intervals;
+    while (*link && *link != node) link = &(*link)->next;
+    if (*link) {
+        *link = node->next;
+        node->next = 0;
+    }
+}
+
 static bool ranges_valid(const struct scanout_space_range *r, uint32_t count, uint32_t pages) {
     if (count > SCANOUT_SPACE_RANGES || (count && !r)) return false;
     for (uint32_t i = 0; i < count; i++) if (!range_valid(r[i], pages)) return false;

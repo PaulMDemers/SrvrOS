@@ -11,7 +11,7 @@ static bool geometry(const struct scanout_transfer_manifest *m) {
         !(m->fence_end&4095) && m->fence_end<=m->aperture_bytes && m->source_epoch &&
         m->pages && m->pages<=SCANOUT_TRANSFER_PAGES && m->first>=m->fence_end/4096 &&
         m->first<m->aperture_bytes/4096 && m->pages<=m->aperture_bytes/4096-m->first &&
-        !(m->assurances&~HANDOFF_ALL) && m->original;
+        !(m->assurances&~HANDOFF_ALL) && m->original && !((uintptr_t)m->original % _Alignof(uint64_t));
 }
 enum scanout_transfer_error scanout_transfer_admission(const struct scanout_transfer_manifest *m) {
     if (!geometry(m))
@@ -21,13 +21,31 @@ enum scanout_transfer_error scanout_transfer_admission(const struct scanout_tran
     return TRANSFER_OK;
 }
 
+static bool same_aperture(const struct scanout_transfer_manifest *a,
+                          const struct scanout_transfer_manifest *b) {
+    return a->mmio==b->mmio && a->aperture==b->aperture &&
+           a->aperture_bytes==b->aperture_bytes && a->fence_begin==b->fence_begin &&
+           a->fence_end==b->fence_end;
+}
+
+static bool same_range(const struct scanout_transfer_manifest *a,const struct scanout_transfer_manifest *b) {
+    return same_aperture(a,b) && a->first==b->first && a->pages==b->pages && a->source_epoch==b->source_epoch;
+}
+
+static bool drop_range(struct scanout_transfer *t) {
+    if(!display_access_unpin(&t->exclusion))return false;
+    scanout_interval_release(&t->interval);
+    t->pinned=false;
+    return true;
+}
+
 static bool auth(const struct scanout_transfer *t,const struct scanout_transfer_token *token) {
     return t && token && t->object==t && !t->busy && t->epoch && t->owner &&
         token->object==t && token->epoch==t->epoch && token->owner==t->owner &&
         (t->state==TRANSFER_ACTIVE || t->state==TRANSFER_CLOSING);
 }
 static bool parent(const struct scanout_transfer *t) {
-    return t->pinned && t->manifest.original==t->original && display_access_held(&t->exclusion);
+    return t->pinned && same_range(&t->manifest,&t->reservation) && t->manifest.original==t->original && display_access_held(&t->exclusion);
 }
 static bool arena(const struct scanout_transfer *t) {
     return t->space.object==&t->space && t->space.epoch==t->arena_epoch &&
@@ -71,40 +89,60 @@ static bool unwind(struct scanout_transfer *t) {
        (t->space.state!=SPACE_CLOSED && !scanout_space_close(&t->space,t->owner,t->arena_epoch)) ||
        t->space.state!=SPACE_CLOSED))return fault(t);
     if(t->pinned) {
-        if(!display_access_unpin(&t->exclusion)){t->error=TRANSFER_EXCLUSION;return fault(t);}
-        t->pinned=false;
+        if(!drop_range(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
     }
     t->state=TRANSFER_CLOSED;t->busy=false;return false;
 }
-bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
-    struct scanout_space_pool *spaces,const struct display_access_token *exclusion,
-    const struct scanout_transfer_manifest *input,struct scanout_transfer_io io,
+static bool reserve_range(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
+    const struct display_access_token *exclusion,const struct scanout_transfer_manifest *input,
     struct scanout_transfer_token *out) {
     if(!t || (t->object && t->object!=t) || t->busy || t->pinned ||
-       (t->state!=TRANSFER_EMPTY && t->state!=TRANSFER_CLOSED) ||
-       scanout_transfer_admission(input)!=TRANSFER_OK ||
-       !io.revalidate || !io.now || !exclusion ||
-       overlap(pool,sizeof(*pool),t,sizeof(*t)) || overlap(spaces,sizeof(*spaces),t,sizeof(*t)) ||
-       overlap(out,sizeof(*out),t,sizeof(*t)) || overlap(input->original,(uint64_t)input->pages*8,t,sizeof(*t)) ||
+       (t->state!=TRANSFER_EMPTY && t->state!=TRANSFER_CLOSED) || !geometry(input) ||
+       !exclusion || overlap(pool,sizeof(*pool),t,sizeof(*t)) ||
+       overlap(out,sizeof(*out),t,sizeof(*t)) ||
+       overlap(input->original,(uint64_t)input->pages*8,t,sizeof(*t)) ||
        overlap(input->original,(uint64_t)input->pages*8,pool,sizeof(*pool)) ||
-       overlap(input->original,(uint64_t)input->pages*8,spaces,sizeof(*spaces)) ||
        overlap(input->original,(uint64_t)input->pages*8,out,sizeof(*out)) ||
        overlap(input->original,(uint64_t)input->pages*8,exclusion,sizeof(*exclusion)) ||
-       overlap(pool,sizeof(*pool),spaces,sizeof(*spaces)) || overlap(out,sizeof(*out),pool,sizeof(*pool)) ||
-       overlap(out,sizeof(*out),spaces,sizeof(*spaces)) ||
+       overlap(out,sizeof(*out),pool,sizeof(*pool)) ||
+       overlap(out,sizeof(*out),exclusion,sizeof(*exclusion)) ||
+       overlap(pool,sizeof(*pool),exclusion,sizeof(*exclusion)) ||
        pool->epoch==UINT64_MAX || pool->epoch<t->epoch)return false;
-    /* The small descriptor/token are copied before changing owned storage.
-     * The complete raw vector lives in the original object, not on the stack. */
     struct scanout_transfer_manifest m=*input;
     struct display_access_token token=*exclusion;
-    if(!display_access_held(&token))return false;
-    t->object=t;t->busy=true;t->state=TRANSFER_CAPTURING;t->error=TRANSFER_OK;
+    if(!scanout_interval_claim(&t->interval,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,
+                               (struct scanout_space_range){m.first,m.pages}))return false;
+    if(!display_access_pin(&token)){scanout_interval_release(&t->interval);return false;}
+    t->object=t;t->busy=true;t->pinned=true;t->state=TRANSFER_RESERVED;t->error=TRANSFER_OK;
     t->epoch=++pool->epoch;t->owner=token.owner;t->arena_epoch=0;
-    t->exclusion=token;t->io=io;t->manifest=m;t->manifest.original=t->original;
-    if(!display_access_pin(&token)){t->error=TRANSFER_EXCLUSION;return unwind(t);}
-    t->pinned=true;
+    t->exclusion=token;t->manifest=m;t->manifest.original=t->original;
+    t->reservation=t->manifest;
+    t->reservation_pool=pool;
+    return true;
+}
+
+bool scanout_transfer_reserve(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
+    const struct display_access_token *exclusion,const struct scanout_transfer_manifest *input,
+    struct scanout_transfer_token *out) {
+    if(!geometry(input))return false;
+    const uint64_t *entries=input->original;
+    if(!reserve_range(t,pool,exclusion,input,out))return false;
+    for(uint32_t i=0;i<t->manifest.pages;i++)t->original[i]=entries[i];
+    t->busy=false;
+    *out=(struct scanout_transfer_token){t,t->epoch,t->owner};
+    return true;
+}
+
+static bool start_transfer(struct scanout_transfer *t,struct scanout_space_pool *spaces,
+    struct scanout_transfer_manifest m,struct scanout_transfer_io io,bool check_original) {
+    t->state=TRANSFER_CAPTURING;t->busy=true;t->io=io;
+    t->manifest.assurances=m.assurances;t->manifest.obligations=m.obligations;
     if(!start(t))return unwind(t);
-    for(uint32_t i=0;i<m.pages;i++)t->original[i]=m.original[i];
+    for(uint32_t i=0;i<m.pages;i++) {
+        if(check_original) {
+            if(t->original[i]!=m.original[i]){t->error=TRANSFER_PROVIDER;return unwind(t);}
+        } else t->original[i]=m.original[i];
+    }
     if(!validate(t,TRANSFER_ADMIT))return unwind(t);
     struct scanout_space_range managed={m.first,m.pages},protected={0,(uint32_t)(m.fence_end/4096)};
     if(!scanout_space_open_transferred(&t->space,spaces,t->owner,(uint32_t)(m.aperture_bytes/4096),managed,protected,t->original)) {
@@ -115,7 +153,37 @@ bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_po
         if(t->error==TRANSFER_OK)t->error=TRANSFER_EXCLUSION;
         return unwind(t);
     }
-    t->state=TRANSFER_ACTIVE;t->busy=false;*out=(struct scanout_transfer_token){t,t->epoch,t->owner};return true;
+    t->state=TRANSFER_ACTIVE;t->busy=false;return true;
+}
+
+static bool reserved(const struct scanout_transfer *t,const struct scanout_transfer_token *token) {
+    return t && token && t->object==t && token->object==t && token->epoch==t->epoch &&
+           token->owner==t->owner && t->pinned && !t->arena_epoch && t->state==TRANSFER_RESERVED && !t->busy;
+}
+
+bool scanout_transfer_activate(struct scanout_transfer *t,const struct scanout_transfer_token *token,
+    struct scanout_space_pool *spaces,const struct scanout_transfer_manifest *m,struct scanout_transfer_io io) {
+    if(!reserved(t,token) || scanout_transfer_admission(m)!=TRANSFER_OK || !io.now || !io.revalidate ||
+       !same_range(&t->reservation,m) || overlap(spaces,sizeof(*spaces),t,sizeof(*t)) ||
+       overlap(spaces,sizeof(*spaces),t->reservation_pool,sizeof(*t->reservation_pool)) ||
+       overlap(spaces,sizeof(*spaces),token,sizeof(*token)) ||
+       overlap(m->original,(uint64_t)m->pages*8,spaces,sizeof(*spaces)) ||
+       (m->original!=t->original && overlap(m->original,(uint64_t)m->pages*8,t,sizeof(*t))))return false;
+    if(!parent(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
+    return start_transfer(t,spaces,*m,io,true);
+}
+
+bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
+    struct scanout_space_pool *spaces,const struct display_access_token *exclusion,
+    const struct scanout_transfer_manifest *input,struct scanout_transfer_io io,
+    struct scanout_transfer_token *out) {
+    if(scanout_transfer_admission(input)!=TRANSFER_OK || !io.revalidate || !io.now ||
+       overlap(spaces,sizeof(*spaces),t,sizeof(*t)) || overlap(pool,sizeof(*pool),spaces,sizeof(*spaces)) ||
+       overlap(input->original,(uint64_t)input->pages*8,spaces,sizeof(*spaces)) ||
+       overlap(out,sizeof(*out),spaces,sizeof(*spaces)))return false;
+    struct scanout_transfer_manifest m=*input;
+    if(!reserve_range(t,pool,exclusion,&m,out) || !start_transfer(t,spaces,m,io,false))return false;
+    *out=(struct scanout_transfer_token){t,t->epoch,t->owner};return true;
 }
 bool scanout_transfer_check(struct scanout_transfer *t,const struct scanout_transfer_token *token) {
     if(!auth(t,token))return false;
@@ -155,6 +223,10 @@ bool scanout_transfer_original(const struct scanout_transfer *t,const struct sca
     *out=t->original[index-t->manifest.first];return true;
 }
 bool scanout_transfer_close(struct scanout_transfer *t,const struct scanout_transfer_token *token) {
+    if(reserved(t,token)) {
+        if(!drop_range(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
+        t->state=TRANSFER_CLOSED;return true;
+    }
     if(!auth(t,token))return false;
     t->busy=true;t->state=TRANSFER_CLOSING;
     if(!parent(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
@@ -165,6 +237,6 @@ bool scanout_transfer_close(struct scanout_transfer *t,const struct scanout_tran
     if(t->space.state!=SPACE_CLOSED){t->busy=false;return false;}
     if(!start(t) || !validate(t,TRANSFER_RETIRE))return fault(t);
     if(!arena(t) || t->space.state!=SPACE_CLOSED){t->error=TRANSFER_SPACE;return fault(t);}
-    if(!display_access_unpin(&t->exclusion)){t->error=TRANSFER_EXCLUSION;return fault(t);}
-    t->pinned=false;t->state=TRANSFER_CLOSED;t->busy=false;return true;
+    if(!drop_range(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
+    t->state=TRANSFER_CLOSED;t->busy=false;return true;
 }

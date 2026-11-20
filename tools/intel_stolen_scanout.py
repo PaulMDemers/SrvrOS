@@ -274,17 +274,18 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in (2,3,4,5,6,7,8,9) else ''
-        if kind=='summary' and version in (3,4,5,6,7,8,9):extra+=' preflight'
-        if kind=='summary' and version in (4,5,6,7,8,9):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in (5,6,7,8,9):extra+=' reader_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in ((1,2,3,4,5,6,7,8,9) if kind=='summary' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,11) else ''
+        if kind=='summary' and version in range(3,11):extra+=' preflight'
+        if kind=='summary' and version in range(4,11):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in range(5,11):extra+=' reader_reads'
+        if kind=='range' and version==2:extra+=' reservation returned'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,11) if kind=='summary' else (1,2) if kind=='range' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
         raise ValueError('missing/duplicate/unordered stolen rows')
     s=rows['summary'][0];wire=s['v']
-    if len(rows['range'])!=int(wire==9) or (wire==8 and s['fail']>31):
+    if len(rows['range'])!=int(wire>=9) or (wire==8 and s['fail']>31):
         raise ValueError('stolen range receipt version')
     if wire<9:rows.pop('range')
     if wire<8:
@@ -352,8 +353,17 @@ def stolen_result(text,*,native=False,required_version=None):
         result['root_observation']=dict(phase=s['root_phase'],reason=s['root_reason'],detail=s['root_detail'],condition=names[s['root_reason']])
     if hardware is not None:result['hardware_gate']=hardware
     range_reads=0
-    if wire==9:
+    if wire>=9:
         r=rows['range'][0]
+        if r['v']!=(2 if wire==10 else 1):
+            raise ValueError('scanout reservation wire mismatch')
+        if wire==10:
+            if r['returned']>1 or (r['reservation'] and not r['epoch']) or (r['returned'] and not r['reservation']):
+                raise ValueError('scanout reservation lifetime')
+            if (r['fences'] or r['verified']) and not r['reservation']:
+                raise ValueError('observed before scanout reservation')
+            if r['reservation'] and not r['returned'] and not s['retained']:
+                raise ValueError('lost scanout reservation')
         if (r['writes'],r['assurances'],r['obligations'])!=(0,0,255) or r['verified']>1:
             raise ValueError('scanout range authority')
         if r['epoch']:
@@ -469,7 +479,7 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
     command=lines[0].split('=',1)[1]
     stolen_recipe(command)
-    if ('srvros.intel-scanout=range-observation' in command.split())!=(result['version']==9):
+    if ('srvros.intel-scanout=range-observation' in command.split())!=(result['version']>=9):
         raise ValueError('stolen range recipe/version mismatch')
     prefixes=('intel-display-','intel-backing-','intel-cache-','intel-window-')
     before=[l for l in preflight.splitlines() if l.startswith(prefixes)]

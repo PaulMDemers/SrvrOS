@@ -55,10 +55,14 @@ can reserve them across publication, both flips and restoration, or receive
 that reservation from a preceding owner. The physical flip is pending.
 
 
-The next PR301 change covers reservation of the candidate interval among kernel
-scanout clients. It touches the shared GGTT transfer lifetime and the Air range
-adapter. The checkpoint is overlapping-owner refusal and retention through
-rollback and reader retirement under the same display exclusion.
+The native range adapter now reserves all 1,484 candidate translations across
+both kernel handoff APIs before it checks them against hardware. Version 10
+records the reservation generation and clean return. A conflicting reservation
+cannot enter while a flip, rollback or reader retirement holds the pages. The
+native source still needs control of the firmware mappings, GPU traffic, caches
+and display readers before it can promote this reservation and publish a second
+image.
+[Reservation lifetime](../scanout-transfer.md#reserving-the-second-framebuffer-interval)
 
 ## Native display recovery after PCI decode reopens
 

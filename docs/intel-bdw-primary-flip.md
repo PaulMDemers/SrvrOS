@@ -195,3 +195,11 @@ assurances. A verified observation therefore leaves the GPU range with its
 original owner. A reset-free flip requires a native owner that can exclude
 firmware and competing readers, maintain engine, DMA and cache ownership,
 publish the OS pages and retire them after the return flip.
+
+
+Version 10 reserves the same interval across the kernel's two GGTT handoff
+paths before rereading the full original vector. The range receipt records the
+reservation generation and whether cleanup returned it. The native source still
+offers zero hardware assurances. In the local fixture, a provider holding the
+required rights promotes that same reservation and keeps it through both flips
+and the original mapping's retirement.

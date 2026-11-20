@@ -106,19 +106,29 @@ broken deadline control exposed an initially conditional-only refusal fixture;
 failure cases now require refusal explicitly, copied-owner tests rebind the
 copied graph, and recovered provider/clock state cannot retry terminal faults.
 All controls are detected after rerunning qualification; initial receipts are
-retained. The implementation's stack frame stays below2,048bytes. No current
-native image links this API and no physical range grant follows from these tests.
+retained. The implementation's stack frame stays below2,048bytes. The Air range diagnostic now links the reservation API.
 
-The [Air7,2 record](machines/macbookair7-2.md) accepts the separate private backing
-trial. The native provider still observes only16 candidate entries and supplies
-zero hardware assurances. The next implementation must maintain a real
-exclusive interval and capture its complete native vector, with original
-physical allocations retained. It must then bind generation-specific encoding,
-write/posting/invalidation and every reader's retirement before a one-page GPU
-store. See the [managed-memory plan](intel-managed-memory-plan.md) and
-[tear-free roadmap](intel-tearfree-roadmap.md). No new hardware trial is warranted
-by this software contract alone.
+### Reserving the second framebuffer interval
 
+Both the 16-entry handoff and the full-frame transfer register their half-open
+GPU page intervals before calling a provider. Independent epoch pools cannot
+admit an overlapping range on the same aperture. A conflicting BAR or inherited
+fence description also refuses. Adjacent ranges can coexist.
+
+A native caller can reserve before obtaining hardware rights. The reservation
+pins the display exclusion and retains an immutable copy of every original
+entry. Promotion requires the same reservation token, source epoch, range,
+original entries and a fresh provider admission. Only then can a child reserve
+pages for publication. Clean close releases the interval after the last reader,
+original translations, provider and exclusion pin have all been accounted for.
+A lost owner keeps the range reserved. These transactions run serialized on the
+boot CPU.
+
+On Air7,2 the adapter exercises the reservation and its clean return. It still
+requires an independent transfer from the owner of the GPU mappings before it
+can publish new translations. The local flip fixture exercises the full lifetime,
+including rollback and conflicts with both handoff APIs during retirement.
+[Air7,2 status](machines/macbookair7-2-current.md)
 
 The [original-source bridge](intel-startup-transfer.md) now supplies the
 provider-facing registration between this owner and the original live source,
