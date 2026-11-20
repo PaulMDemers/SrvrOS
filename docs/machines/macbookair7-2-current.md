@@ -84,6 +84,13 @@ cache completion. Power controls sampled under wake and the earlier passive
 observations cover different hardware lifetimes.
 [Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
+PR301 will track the GAM request during already-guarded reads with PCI bus
+mastering inhibited, skipping in-flight GT reset stores. The flush diagnostic
+will bracket engine, L3 and media observations with the request and arbiter
+response. The Air adapter and collector will retain transition intervals,
+coverage and unresolved outcomes before the original owner returns. The
+checkpoint is a source-bound VM pair followed by an automated Air7,2 run.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
