@@ -78,18 +78,20 @@ reset reasons `0x7f00`. A host replay of that sample stopped before requesting
 a fresh block. The physical diagnostic closed with verified USB evidence.
 [Native samples and reset-guard replay](../intel-completion-prerequisites.md#air72-inherited-rc6-controls-and-reset-reasons)
 
-The next dependency is to establish when the reset reasons clear and how
-the display owner can keep new requests excluded while checking engine and
-cache completion. Power controls sampled under wake and the earlier passive
-observations cover different hardware lifetimes.
-[Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
+Release `78276fdd559a38cd` (source `814eb242`) traced the request through
+both GT reset pulses. The seven reason bits first appeared across pulse one,
+within a 724 µs interval, and were still set at the last read 171.4 ms later.
+All six client permission bits were set in every one of 1,077 guarded reads.
+The four engine/cache packets showed no flush acknowledgement. The 83.615 ms
+maintenance interval therefore ran with sampled permissions open. The result
+closed as `DIAGNOSED` after USB integrity and Ubuntu recovery verification.
+[Physical trace and coverage](../intel-completion-prerequisites.md#air72-two-pulse-request-trace)
 
-PR301 will track the GAM request during already-guarded reads with PCI bus
-mastering inhibited, skipping in-flight GT reset stores. The flush diagnostic
-will bracket engine, L3 and media observations with the request and arbiter
-response. The Air adapter and collector will retain transition intervals,
-coverage and unresolved outcomes before the original owner returns. The
-checkpoint is a source-bound VM pair followed by an automated Air7,2 run.
+The next dependency is a native mechanism for the display owner to request
+and hold a traffic block across the drain. To locate any later reason-bit
+clearing, a follow-up observation needs to span wake release with a documented
+register-access path and an independently held display/requester guard.
+[Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
 ## Native eDP recovery scope
 

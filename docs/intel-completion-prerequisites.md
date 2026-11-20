@@ -395,3 +395,30 @@ from a quiet queue or a reason bit that stays set through the final read.
 The retained time bounds describe the observed transitions. Exclusive blocking
 of all future requests and authority to issue a native PCI function reset
 still require the display owner to control the request across the drain.
+
+#### Air7,2 two-pulse request trace
+
+Release `78276fdd559a38cd` (source `814eb242`) saved
+`session-000660ba79e6f52e-00`. All 1,077 guarded reads fit in three spans.
+Times below are microseconds on the guest monotonic clock.
+
+| Completed reset pulses | Reads | First read began | Last read ended | Raw GAM request |
+| --- | ---: | ---: | ---: | --- |
+| 0 | 265 | 3,746,356 | 3,787,975 | `0x00ff` |
+| 1 | 2 | 3,788,697 | 3,788,841 | `0x7fff` |
+| 2 | 810 | 3,789,562 | 3,960,130 | `0x7fff` |
+
+Bits 14:8 first asserted between 3,787,974 and 3,788,698 µs, across the
+first pulse. They were still asserted at the final read, at least 171.431 ms
+after the first observation. The largest interval between the start of one
+read and the end of the next was 17.635 ms. Transient changes inside those
+gaps or after the final sample remain unresolved.
+
+Every sampled request allowed all six documented clients (`0x5f`). The four
+packets also read an arbiter response of `0x7f` at both ends. Across the
+83.615 ms memory-maintenance interval, the trace continued to show permission.
+The five engine flush-and-block acknowledgements and the L3 acknowledgement
+were clear at both ends of each packet. GAM reported idle and all four media
+counters were zero. This leaves the request-block and GPU-write/cache-drain
+prerequisites for PCI reset open. All 100 packet reads completed, all 28
+aliases retired, and the USB evidence passed offline integrity checks.
