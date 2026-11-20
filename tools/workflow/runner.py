@@ -46,11 +46,12 @@ from intel_edp_baseline import PROFILE as EDP_BASELINE, CYCLE_PROFILE as EDP_CYC
 from intel_edp_baseline import DARK_WELL_PROFILE as EDP_DARK_WELL, FLR_PREFLIGHT_PROFILE as EDP_FLR
 from intel_edp_baseline import PCI_HOLD_PROFILE as EDP_PCI_HOLD
 from intel_edp_baseline import DARK_PWM_PROFILE as EDP_DARK_PWM
+from intel_edp_baseline import DARK_PPS_PROFILE as EDP_DARK_PPS
 
-EDP_PROFILES = (EDP_BASELINE, EDP_CYCLE, EDP_FLR, EDP_DARK_WELL, EDP_PCI_HOLD, EDP_DARK_PWM)
+EDP_PROFILES = (EDP_BASELINE, EDP_CYCLE, EDP_FLR, EDP_DARK_WELL, EDP_PCI_HOLD, EDP_DARK_PWM, EDP_DARK_PPS)
 
 PROFILES = {EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle', EDP_FLR:'--intel-edp-flr-preflight',
-            EDP_DARK_WELL:'--intel-edp-dark-well', EDP_PCI_HOLD:'--intel-edp-pci-hold', EDP_DARK_PWM:'--intel-edp-dark-pwm','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
+            EDP_DARK_WELL:'--intel-edp-dark-well', EDP_PCI_HOLD:'--intel-edp-pci-hold', EDP_DARK_PWM:'--intel-edp-dark-pwm', EDP_DARK_PPS:'--intel-edp-dark-pps','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
 
@@ -59,7 +60,8 @@ def trial_parsers(name):
         from functools import partial
         from intel_edp_baseline import recipe, result, checkpoint
         return tuple(partial(parser, cycle=name != EDP_BASELINE, flr=name == EDP_FLR, dark_well=name == EDP_DARK_WELL,
-                             pci_hold=name == EDP_PCI_HOLD, dark_pwm=name == EDP_DARK_PWM)
+                             pci_hold=name == EDP_PCI_HOLD, dark_pwm=name == EDP_DARK_PWM,
+                             dark_pps=name == EDP_DARK_PPS)
                      for parser in (recipe, result, checkpoint))
     def exact_bootstrap(text,version):
         from intel_gt_bootstrap import bootstrap_result
@@ -717,7 +719,8 @@ class Runner:
                              EDP_FLR: 'EDP_FLR_PREFLIGHT_COMPLETE',
                              EDP_DARK_WELL: 'EDP_DARK_WELL_COMPLETE',
                              EDP_PCI_HOLD: 'EDP_PCI_HOLD_COMPLETE',
-                             EDP_DARK_PWM: 'EDP_DARK_PWM_COMPLETE'}[manifest['profile']]
+                             EDP_DARK_PWM: 'EDP_DARK_PWM_COMPLETE',
+                             EDP_DARK_PPS: 'EDP_DARK_PPS_COMPLETE'}[manifest['profile']]
             record = dict(status=result_status, source=manifest['source'],
                           release=state['release'], session=state['session'], native_acceptance=False,
                           physical_tearfree=False, return_integrity='PASS')
@@ -743,6 +746,8 @@ class Runner:
                 record['pci_hold'] = report['native']['pci_hold']
             if 'pwm' in report['native']:
                 record['pwm'] = report['native']['pwm']
+            if 'pps' in report['native']:
+                record['pps'] = report['native']['pps']
             atomic(directory/'diagnostic.json', record)
             report.update(status=record['status'])
             atomic(directory/'report.json', report)
@@ -751,7 +756,8 @@ class Runner:
                       EDP_FLR: 'framebuffer copy and PCI state verified across dark handoff',
                       EDP_DARK_WELL: 'display well request reclaimed at the dark handoff',
                       EDP_PCI_HOLD: 'PCI decode cycled with the framebuffer and backing pinned',
-                      EDP_DARK_PWM: 'original PWM restored with the panel off'}[manifest['profile']]
+                      EDP_DARK_PWM: 'original PWM restored with the panel off',
+                      EDP_DARK_PPS: 'original panel timings restored after T12'}[manifest['profile']]
             self.finish(directory, state, 'DIAGNOSED', status=status, diagnostic_sha256=sha(directory/'diagnostic.json'))
             return record
         native=report['native'];s=native['summary'];b=native['binding'];w=native['entry']['wake']['summary']

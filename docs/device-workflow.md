@@ -242,6 +242,14 @@ both display CRCs. It is silent at 1% host volume and returns after saving
 a safely retired result. If the panel stays dark for 60 seconds, restart
 manually. [Backlight PWM recovery](intel-bdw-edp-recovery.md#backlight-pwm-recovery).
 
+The explicit `--profile intel-edp-dark-pps-v1` waits for panel T12 to
+expire before restoring and verifying the original panel timing words.
+It keeps the panel dark until the framebuffer and both original CRCs
+verify. The guest is silent at 1% host volume and returns to Ubuntu
+after saving a safely retired result. If the panel stays dark for
+60 seconds, restart manually.
+[Panel timing recovery](intel-bdw-edp-recovery.md#panel-power-sequencer-timing-recovery).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the

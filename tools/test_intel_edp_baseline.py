@@ -17,8 +17,8 @@ VOLUME = "01234567"
 BOOT = "laptop-capture: boot options="
 
 
-def cmdline(cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False):
-    profile = 5 if dark_pwm else 4 if pci_hold else 3 if dark_well else 2 if flr else cycle
+def cmdline(cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False, dark_pps=False):
+    profile = 6 if dark_pps else 5 if dark_pwm else 4 if pci_hold else 3 if dark_well else 2 if flr else cycle
     return next(line.partition("cmdline:")[2].strip() for line in
                 limine_config(RELEASE, EDP_CONFIGS[profile] + "laptop-probe-" +
                               VOLUME + "-auto-return").splitlines()
@@ -96,7 +96,7 @@ class EdpBaseline(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
             for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight",
-                         "intel_edp_dark_well", "intel_edp_pci_hold", "intel_edp_dark_pwm"):
+                         "intel_edp_dark_well", "intel_edp_pci_hold", "intel_edp_dark_pwm", "intel_edp_dark_pps"):
                 with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
                         patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
                     release = boot.stage(laptop_probe_volume=VOLUME, **{mode: True})
@@ -288,6 +288,26 @@ class EdpBaseline(unittest.TestCase):
                           pwm.replace("pch_pwm=0xc0000000", "pch_pwm=0x80000000")):
                 with self.assertRaises(ValueError):
                     result(wrong, dark_pwm=True)
+            pps = flr.replace(cmdline(flr=True), cmdline(dark_pps=True))
+            pps = pps.replace("pps_on=1 pps_off=1 pps_div=1",
+                              "pps_on=0x007d0834 pps_off=0x02e409c4 pps_div=0x0004af06")
+            timing = ("intel-edp-pps: v=1 complete=1 retained=0 samples=3 writes=5 wait_us=301241 "
+                      "program_us=126 initial_status=0x08000001 idle_status=0\n")
+            for phase in range(3):
+                on, off = ("0x007d0834", "0x02e409c4") if phase != 1 else ("0", "0")
+                timing += f"intel-edp-pps-word: v=1 phase={phase} on={on} off={off} div=0x0004af06\n"
+            self.assertEqual(recipe(cmdline(dark_pps=True), dark_pps=True),
+                             dict(release=RELEASE, volume=VOLUME))
+            self.assertTrue(result(pps + timing, dark_pps=True)["pps"]["complete"])
+            for wrong in (timing.replace("idle_status=0", "idle_status=0x08000001"),
+                          timing.replace("wait_us=301241", "wait_us=525000"),
+                          timing.replace("program_us=126", "program_us=25000"),
+                          timing.replace("phase=1 on=0 off=0", "phase=1 on=1 off=0"),
+                          timing.replace("phase=2 on=0x007d0834", "phase=2 on=0x007d0835")):
+                with self.assertRaises(ValueError):
+                    result(pps + wrong, dark_pps=True)
+            with self.assertRaises(ValueError):
+                result(pps + timing, flr=True)
             for changed in (flr.replace("phase=1 digest=17", "phase=1 digest=18"),
                             flr.replace(f"phase=1 index=4 word={config[4]}", "phase=1 index=4 word=4"),
                             flr.replace("bytes=5529600 released=1 reset=0", "bytes=5529600 released=1 reset=1")):

@@ -431,6 +431,24 @@ released the display lease, saved its logs, unmounted the USB workspace
 and returned to Ubuntu. Collection reported offline USB integrity
 `PASS` and diagnosis `EDP_DARK_PWM_COMPLETE`, with zero PCI reset writes.
 
+#### Panel power-sequencer timing recovery
+
+The `intel-edp-dark-pps-v1` profile captures the original Air7,2 timing
+words. With the original display lease and driver well held, it completes
+the usual display shutdown, then waits up to 525 ms for the panel's 500 ms
+T12 cycle delay to finish. The panel power, backlight and VDD override
+requests must be clear and the LP clock-gate workaround must stay set.
+The rehearsal clears the on- and off-delay registers to their documented
+reset values and verifies both readbacks. It leaves the LP reference
+divider and nonzero T12 encoding in place. It then writes back all three
+captured timing words within 25 ms and verifies exact readback before
+any panel power request. The usual pinned framebuffer and both reference
+CRCs still gate backlight enable. The trial leaves PCI, LCPLL and PWM
+running and issues no function reset. The host fixture also tests the
+documented reset values with T12 active at entry and injects failures at
+each store and readback.
+[Broadwell Register Reference, pp. 1230–1236](https://cdrdv2.intel.com/v1/dl/getcontent/690789).
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

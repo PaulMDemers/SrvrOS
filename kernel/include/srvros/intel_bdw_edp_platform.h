@@ -77,4 +77,39 @@ struct bdw_edp_pwm_report {
 bool intel_bdw_edp_pwm_restore(const struct bdw_edp_pwm_io *, struct bdw_edp_pwm_image,
                                 bool rehearse, struct bdw_edp_pwm_report *);
 
+#define BDW_EDP_PPS_ON_DELAYS 0xc7208u
+#define BDW_EDP_PPS_OFF_DELAYS 0xc720cu
+#define BDW_EDP_PPS_DIVISOR 0xc7210u
+#define BDW_EDP_PPS_ON_AIR72 0x007d0834u
+#define BDW_EDP_PPS_OFF_AIR72 0x02e409c4u
+#define BDW_EDP_PPS_DIV_AIR72 0x0004af06u
+
+struct bdw_edp_pps_image {
+    uint32_t on, off, divisor;
+};
+
+struct bdw_edp_pps_io {
+    void *context;
+    bool (*held)(void *);
+    bool (*read)(void *, uint32_t, uint32_t *);
+    enum intel_gt_write (*write)(void *, uint32_t, uint32_t);
+    uint64_t (*now)(void *);
+    void (*delay)(void *, uint32_t);
+};
+
+struct bdw_edp_pps_report {
+    struct bdw_edp_pps_image before, reset, after;
+    uint32_t initial_status, idle_status;
+    uint64_t wait_us, program_us;
+    unsigned samples, writes;
+    bool complete, retained;
+};
+
+/* With the original display owner and route disabled, wait for T12, then
+ * restore the captured Air7,2 timing words from their LPT-LP reset state.
+ * A rehearsal establishes that state by clearing only the two timing words
+ * with all power requests off. Never clear the reference divider or T12. */
+bool intel_bdw_edp_pps_restore(const struct bdw_edp_pps_io *, struct bdw_edp_pps_image,
+                               bool rehearse, struct bdw_edp_pps_report *);
+
 #endif

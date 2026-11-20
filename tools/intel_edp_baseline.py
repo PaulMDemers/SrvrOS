@@ -9,6 +9,7 @@ FLR_PREFLIGHT_PROFILE = "intel-edp-flr-preflight-v1"
 DARK_WELL_PROFILE = "intel-edp-dark-well-v1"
 PCI_HOLD_PROFILE = "intel-edp-pci-hold-v1"
 DARK_PWM_PROFILE = "intel-edp-dark-pwm-v1"
+DARK_PPS_PROFILE = "intel-edp-dark-pps-v1"
 PREFIX = "ram-usb-v1-intel-edp-baseline-"
 SUMMARY = "intel-edp-baseline"
 SCHEMAS = {
@@ -36,16 +37,19 @@ SCHEMAS = {
     "intel-edp-pci-hold-word": "v phase command af",
     "intel-edp-reopen": "v seq check at ok read got want",
     "intel-edp-pwm": "v complete retained writes elapsed_us before_ctl before_data after_ctl after_data",
+    "intel-edp-pps": "v complete retained samples writes wait_us program_us initial_status idle_status",
+    "intel-edp-pps-word": "v phase on off div",
 }
 FLR_ROWS = ("intel-edp-flr-preflight", "intel-edp-flr-pixels", "intel-edp-flr-config")
 WELL_ROWS = ("intel-edp-dark-well", "intel-edp-dark-well-word")
 HOLD_ROWS = ("intel-edp-pci-hold", "intel-edp-pci-hold-word")
+PPS_ROWS = ("intel-edp-pps", "intel-edp-pps-word")
 
 
-def recipe(command, *, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False):
-    flr = flr or dark_well or pci_hold or dark_pwm
+def recipe(command, *, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False, dark_pps=False):
+    flr = flr or dark_well or pci_hold or dark_pwm or dark_pps
     cycle = cycle or flr
-    subtest = ("dark-pwm" if dark_pwm else "pci-hold" if pci_hold else
+    subtest = ("dark-pps" if dark_pps else "dark-pwm" if dark_pwm else "pci-hold" if pci_hold else
                "dark-well" if dark_well else "preflight")
     match = re.fullmatch(
         r"srvros.storage=ram srvros.workspace-volume=([0-9a-f]{8}) "
@@ -366,8 +370,43 @@ def pwm_result(rows, *, native, display):
     return pwm
 
 
-def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False):
-    flr = flr or dark_well or pci_hold or dark_pwm
+def pps_result(rows, *, native, display, panel_off):
+    summaries, samples = (rows[key] for key in PPS_ROWS)
+    if len(summaries) != 1:
+        raise ValueError("Missing eDP panel timing summary")
+    s = summaries[0]
+    writes = s["writes"]
+    if (s["samples"] > 3 or [w["phase"] for w in samples] != list(range(s["samples"])) or
+            writes > 5 or (writes and not samples) or (len(samples) >= 2 and writes < 2) or
+            (len(samples) == 3 and writes != 5) or
+            any(s[k] > 1 for k in ("complete", "retained")) or
+            s["retained"] != bool(writes and not s["complete"]) or
+            (s["retained"] and not display["retained"]) or
+            (display["complete"] and not s["complete"]) or
+            (any(s[key] for key in ("samples", "writes", "wait_us", "program_us", "initial_status", "idle_status"))
+             and (not native or display["stage"] < 6)) or
+            any(w[k] >= 1 << 32 for w in samples for k in ("on", "off", "div")) or
+            any(s[k] >= 1 << 32 for k in ("initial_status", "idle_status"))):
+        raise ValueError("Invalid eDP panel timing coverage")
+    if s["complete"]:
+        platform = rows["intel-edp-platform-word"]
+        if not platform:
+            raise ValueError("Missing inherited panel timings")
+        original = tuple(platform[0][k] for k in ("pps_on", "pps_off", "pps_div"))
+        observed = [tuple(w[k] for k in ("on", "off", "div")) for w in samples]
+        if (original != (0x007d0834, 0x02e409c4, 0x0004af06) or
+                observed != [original, (0, 0, original[2]), original] or writes != 5 or
+                s["wait_us"] >= 525000 or not 0 < s["program_us"] < 25000 or
+                s["initial_status"] & 0xf0000000 or s["idle_status"] & 0xf8000000 or
+                not panel_off or panel_off["outcome"] != 3 or
+                (s["initial_status"] & 0x08000000 and
+                 (s["wait_us"] < 1000 or not panel_off["last"] & 0x08000000))):
+            raise ValueError("Panel timings did not restore after T12")
+    return s
+
+
+def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False, dark_pps=False):
+    flr = flr or dark_well or pci_hold or dark_pwm or dark_pps
     cycle = cycle or flr
     rows = rows_of(text)
     summaries = rows[SUMMARY]
@@ -455,9 +494,15 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         pwm = pwm_result(rows, native=native, display=observed)
     elif rows.pop("intel-edp-pwm"):
         raise ValueError("Unexpected eDP PWM evidence")
+    if dark_pps:
+        pps = pps_result(rows, native=native, display=observed, panel_off=panel_off)
+    else:
+        for key in PPS_ROWS:
+            if rows.pop(key):
+                raise ValueError("Unexpected eDP panel timing evidence")
     if flr:
         handoff = (not dark_well or bool(well["complete"])) and (not pci_hold or bool(hold["complete"]))
-        handoff = handoff and (not dark_pwm or bool(pwm["complete"]))
+        handoff = handoff and (not dark_pwm or bool(pwm["complete"])) and (not dark_pps or bool(pps["complete"]))
         flr_preflight = flr_result(rows, native=native, display=observed,
                                    handoff_complete=handoff)
         complete = bool(flr_preflight["complete"])
@@ -493,6 +538,8 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         report["dark_well"] = well
     if dark_pwm:
         report["pwm"] = pwm
+    if dark_pps:
+        report["pps"] = pps
     if pci_hold:
         report["pci_hold"] = hold
         if hold["v"] == 2:
@@ -502,13 +549,14 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
     return report
 
 
-def checkpoint(pre, text, native=False, *, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False):
+def checkpoint(pre, text, native=False, *, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False,
+               dark_pps=False):
     boot = "laptop-capture: boot options="
     a = [line[len(boot):] for line in pre.splitlines() if line.startswith(boot)]
     b = [line[len(boot):] for line in text.splitlines() if line.startswith(boot)]
     if len(a) != 1 or a != b or any(rows_of(pre).values()):
         raise ValueError("Invalid eDP baseline preflight checkpoint")
-    mode = dict(cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold, dark_pwm=dark_pwm)
+    mode = dict(cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold, dark_pwm=dark_pwm, dark_pps=dark_pps)
     recipe(a[0], **mode)
     prefixes = ("intel-display-", "intel-backing-", "intel-cache-")
     original = [line for line in pre.splitlines() if line.startswith(prefixes)]

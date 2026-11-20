@@ -31,10 +31,12 @@ struct edp_flr_preflight {
     uint32_t pci[3][EDP_FLR_PCI_WORDS];
     unsigned pixel_samples, pci_samples;
     bool released;
-    bool exercise_well, exercise_pci, exercise_pwm;
+    bool exercise_well, exercise_pci, exercise_pwm, exercise_pps;
     struct bdw_pci_hold_report pci_hold;
     struct bdw_edp_pwm_image pwm_image;
     struct bdw_edp_pwm_report pwm;
+    struct bdw_edp_pps_image pps_image;
+    struct bdw_edp_pps_report pps;
     uint64_t ram_digest;
     struct {
         uint32_t bios, driver, pps;
@@ -442,7 +444,8 @@ static bool edp_cycle_platform(struct edp_adapter *a, bool driver)
     static const uint32_t regs[][2] = {
         {0x45400, 0xc0000000}, {0x45408, 0x40000000}, {0x4540c, 0x40000000},
         {0x130040, 0x4c000000}, {0x46200, 0x2a2}, {0xc2020, 0x1000}, {0xc2004, 0x24},
-        {0xc7208, 0x007d0834}, {0xc720c, 0x02e409c4}, {0xc7210, 0x0004af06},
+        {BDW_EDP_PPS_ON_DELAYS, BDW_EDP_PPS_ON_AIR72}, {BDW_EDP_PPS_OFF_DELAYS, BDW_EDP_PPS_OFF_AIR72},
+        {BDW_EDP_PPS_DIVISOR, BDW_EDP_PPS_DIV_AIR72},
     };
     for (unsigned i = 0; i < sizeof(regs) / sizeof(regs[0]); ++i)
         if (!edp_platform_word(a, regs[i][0], UINT32_MAX, regs[i][1]))
@@ -719,12 +722,47 @@ static bool edp_rehearse_pwm(struct edp_adapter *a)
     return intel_bdw_edp_pwm_restore(&io, a->flr->pwm_image, true, &a->flr->pwm);
 }
 
+static bool edp_pps_held(void *context)
+{
+    struct edp_adapter *a = context;
+    return a->flr && a->flr->exercise_pps && a->image && edp_source_held(a, a->image);
+}
+
+static enum intel_gt_write edp_pps_write(void *context, uint32_t offset, uint32_t value)
+{
+    struct edp_adapter *a = context;
+    const uint32_t regs[] = {
+        BDW_EDP_PPS_ON_DELAYS, BDW_EDP_PPS_OFF_DELAYS,
+        BDW_EDP_PPS_ON_DELAYS, BDW_EDP_PPS_OFF_DELAYS, BDW_EDP_PPS_DIVISOR,
+    };
+    const uint32_t values[] = {0, 0, BDW_EDP_PPS_ON_AIR72, BDW_EDP_PPS_OFF_AIR72, BDW_EDP_PPS_DIV_AIR72};
+    if (!edp_pps_held(a))
+        return GT_WRITE_NONE;
+    unsigned n = a->flr->pps.writes;
+    if (n >= sizeof(regs) / sizeof(regs[0]) || offset != regs[n] || value != values[n])
+        return GT_WRITE_NONE;
+    volatile uint32_t *word = edp_mmio(a, offset);
+    if (!word || !edp_expect(a, 0xc7204, UINT32_MAX, 0) ||
+        !edp_expect(a, 0xc7200, 0xf8000000u, 0) || !edp_pps_held(a))
+        return GT_WRITE_NONE;
+    *word = value;
+    return GT_WRITE_DONE;
+}
+
+static bool edp_rehearse_pps(struct edp_adapter *a)
+{
+    const struct bdw_edp_pps_io io = {a, edp_pps_held, edp_read, edp_pps_write, now, edp_pause};
+    return intel_bdw_edp_pps_restore(&io, a->flr->pps_image, true, &a->flr->pps);
+}
+
 static enum bdw_edp_dark_result edp_flr_dark(void *context, const struct bdw_edp_source_image *image)
 {
     struct edp_adapter *a = context;
     if (!edp_source_held(a, image) || (a->flr->exercise_well && !edp_dark_well(a)))
         return BDW_EDP_DARK_REFUSED;
     if (a->flr->exercise_pwm && !edp_rehearse_pwm(a))
+        return BDW_EDP_DARK_REFUSED;
+    if (a->flr->exercise_pps && !edp_rehearse_pps(a))
         return BDW_EDP_DARK_REFUSED;
     if (a->flr->exercise_pci) {
         const struct bdw_pci_hold_io io = {
@@ -897,6 +935,13 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
         if (!edp_read(a, BDW_EDP_PWM_CONTROL, &a->flr->pwm_image.control))
             return false;
     }
+    if (a->flr && a->flr->exercise_pps) {
+        struct bdw_edp_pps_image *saved = &a->flr->pps_image;
+        if (!edp_read(a, BDW_EDP_PPS_ON_DELAYS, &saved->on) ||
+            !edp_read(a, BDW_EDP_PPS_OFF_DELAYS, &saved->off) ||
+            !edp_read(a, BDW_EDP_PPS_DIVISOR, &saved->divisor))
+            return false;
+    }
     struct bdw_edp_source_image image = {
         .backing = &backing, .epoch = now(a), .mapped_bytes = BDW_EDP_BACKING_PAGES * 4096ull,
         .backing_hash = ref->sample.backing_hash, .reference_crc = ref->crc[2],
@@ -1007,7 +1052,7 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
 }
 
 bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight,
-                             bool dark_well, bool pci_hold, bool dark_pwm)
+                             bool dark_well, bool pci_hold, bool dark_pwm, bool dark_pps)
 {
     static bool attempted;
     if (attempted || !retained)
@@ -1028,7 +1073,8 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
     struct edp_cycle_observation cycle = {0};
     struct edp_native_cycle native = {0};
     struct edp_flr_preflight flr = {
-        .exercise_well = dark_well, .exercise_pci = pci_hold, .exercise_pwm = dark_pwm,
+        .exercise_well = dark_well, .exercise_pci = pci_hold,
+        .exercise_pwm = dark_pwm, .exercise_pps = dark_pps,
     };
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
@@ -1108,6 +1154,17 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                     (uint64_t)p->complete, (uint64_t)p->retained, (uint64_t)p->writes, p->elapsed_us,
                     (uint64_t)p->before.control, (uint64_t)p->before.data,
                     (uint64_t)p->after.control, (uint64_t)p->after.data);
+                ready = ready && p->complete;
+            }
+            if (dark_pps) {
+                const struct bdw_edp_pps_report *p = &flr.pps;
+                const struct bdw_edp_pps_image *images[] = {&p->before, &p->reset, &p->after};
+                for (unsigned i = 0; i < p->samples; ++i)
+                    console_printf("intel-edp-pps-word: v=1 phase=%u on=%x off=%x div=%x\n",
+                        (uint64_t)i, (uint64_t)images[i]->on, (uint64_t)images[i]->off, (uint64_t)images[i]->divisor);
+                console_printf("intel-edp-pps: v=1 complete=%u retained=%u samples=%u writes=%u wait_us=%u program_us=%u initial_status=%x idle_status=%x\n",
+                    (uint64_t)p->complete, (uint64_t)p->retained, (uint64_t)p->samples, (uint64_t)p->writes, p->wait_us, p->program_us,
+                    (uint64_t)p->initial_status, (uint64_t)p->idle_status);
                 ready = ready && p->complete;
             }
             if (pci_hold) {

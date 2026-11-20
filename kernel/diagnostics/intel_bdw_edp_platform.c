@@ -213,3 +213,130 @@ bool intel_bdw_edp_pwm_restore(const struct bdw_edp_pwm_io *io, struct bdw_edp_p
     r->retained = false;
     return true;
 }
+
+#define PPS_WAIT_US 525000u
+#define PPS_PROGRAM_US 25000u
+#define PPS_CYCLE_ACTIVE (1u << 27)
+#define PPS_STATUS_NOT_OFF 0xf0000000u
+
+struct pps_attempt {
+    const struct bdw_edp_pps_io *io;
+    struct bdw_edp_pps_report *report;
+    uint64_t begin, last;
+    unsigned limit;
+};
+
+static bool pps_tick(struct pps_attempt *a)
+{
+    if (!a->io->held(a->io->context))
+        return false;
+    uint64_t now = a->io->now(a->io->context);
+    if (!now || now < a->last)
+        return false;
+    if (!a->begin)
+        a->begin = now;
+    a->last = now;
+    if (a->limit == PPS_WAIT_US)
+        a->report->wait_us = now - a->begin;
+    else
+        a->report->program_us = now - a->begin;
+    return now - a->begin < a->limit;
+}
+
+static bool pps_read(struct pps_attempt *a, uint32_t offset, uint32_t *value)
+{
+    return pps_tick(a) && a->io->read(a->io->context, offset, value) && pps_tick(a);
+}
+
+static bool pps_status(struct pps_attempt *a, uint32_t *status)
+{
+    uint32_t control, gate;
+    return pps_read(a, 0xc7204, &control) && !control &&
+           pps_read(a, 0xc2020, &gate) && gate == 0x1000u &&
+           pps_read(a, 0xc7200, status) &&
+           !(*status & PPS_STATUS_NOT_OFF);
+}
+
+static bool pps_idle(struct pps_attempt *a)
+{
+    uint32_t status;
+    return pps_status(a, &status) && !(status & PPS_CYCLE_ACTIVE);
+}
+
+static bool pps_wait_idle(struct pps_attempt *a)
+{
+    uint32_t status;
+    if (!pps_status(a, &status))
+        return false;
+    a->report->initial_status = status;
+    while (status & PPS_CYCLE_ACTIVE) {
+        uint64_t before = a->last;
+        a->io->delay(a->io->context, 1000);
+        if (!pps_tick(a) || a->last - before < 1000 || !pps_status(a, &status))
+            return false;
+    }
+    a->report->idle_status = status;
+    return true;
+}
+
+static bool pps_sample(struct pps_attempt *a, struct bdw_edp_pps_image *image)
+{
+    if (!pps_read(a, BDW_EDP_PPS_ON_DELAYS, &image->on) ||
+        !pps_read(a, BDW_EDP_PPS_OFF_DELAYS, &image->off) ||
+        !pps_read(a, BDW_EDP_PPS_DIVISOR, &image->divisor))
+        return false;
+    ++a->report->samples;
+    return true;
+}
+
+static bool pps_store(struct pps_attempt *a, uint32_t offset, uint32_t value)
+{
+    if (!pps_idle(a))
+        return false;
+    enum intel_gt_write result = a->io->write(a->io->context, offset, value);
+    if (result != GT_WRITE_NONE) {
+        ++a->report->writes;
+        a->report->retained = true;
+    }
+    uint32_t posted;
+    return result == GT_WRITE_DONE && pps_read(a, offset, &posted) && posted == value;
+}
+
+static bool pps_equal(struct bdw_edp_pps_image a, struct bdw_edp_pps_image b)
+{
+    return a.on == b.on && a.off == b.off && a.divisor == b.divisor;
+}
+
+bool intel_bdw_edp_pps_restore(const struct bdw_edp_pps_io *io, struct bdw_edp_pps_image saved,
+                               bool rehearse, struct bdw_edp_pps_report *r)
+{
+    if (!r)
+        return false;
+    *r = (struct bdw_edp_pps_report){0};
+    const struct bdw_edp_pps_image original = {
+        BDW_EDP_PPS_ON_AIR72, BDW_EDP_PPS_OFF_AIR72, BDW_EDP_PPS_DIV_AIR72,
+    };
+    const struct bdw_edp_pps_image reset = {.divisor = BDW_EDP_PPS_DIV_AIR72};
+    if (!io || !io->held || !io->read || !io->write || !io->now || !io->delay ||
+        !pps_equal(saved, original))
+        return false;
+    struct pps_attempt a = {.io = io, .report = r, .limit = PPS_WAIT_US};
+    if (!pps_wait_idle(&a))
+        return false;
+    a.begin = a.last;
+    a.limit = PPS_PROGRAM_US;
+    if (!pps_sample(&a, &r->before) || !pps_equal(r->before, rehearse ? saved : reset))
+        return false;
+    if (rehearse && (!pps_store(&a, BDW_EDP_PPS_ON_DELAYS, 0) ||
+                     !pps_store(&a, BDW_EDP_PPS_OFF_DELAYS, 0)))
+        return false;
+    if (!pps_sample(&a, &r->reset) || !pps_equal(r->reset, reset) ||
+        !pps_store(&a, BDW_EDP_PPS_ON_DELAYS, saved.on) ||
+        !pps_store(&a, BDW_EDP_PPS_OFF_DELAYS, saved.off) ||
+        !pps_store(&a, BDW_EDP_PPS_DIVISOR, saved.divisor) ||
+        !pps_sample(&a, &r->after) || !pps_equal(r->after, saved) || !pps_idle(&a))
+        return false;
+    r->complete = true;
+    r->retained = false;
+    return true;
+}

@@ -327,6 +327,102 @@ static void test_pwm(void)
     assert(report.retained && report.writes == 1 && report.elapsed_us >= 25000);
 }
 
+struct pps_fixture {
+    struct bdw_edp_pps_image image;
+    uint64_t time, cycle_ends;
+    unsigned writes, uncertain, bad_readback, lose_after;
+    bool rehearse, panel_on, missing_gate, stalled_delay, late_write;
+};
+
+static bool pps_held(void *context)
+{
+    const struct pps_fixture *f = context;
+    return !f->lose_after || f->writes < f->lose_after;
+}
+
+static uint64_t pps_now(void *context)
+{
+    return ++((struct pps_fixture *)context)->time;
+}
+
+static void pps_delay(void *context, uint32_t us)
+{
+    struct pps_fixture *f = context;
+    if (!f->stalled_delay)
+        f->time += us;
+}
+
+static bool pps_read(void *context, uint32_t offset, uint32_t *value)
+{
+    const struct pps_fixture *f = context;
+    switch (offset) {
+    case 0xc7204: *value = f->panel_on ? 7 : 0; break;
+    case 0xc7200: *value = f->time < f->cycle_ends ? 0x08000001u : 0; break;
+    case 0xc2020: *value = f->missing_gate ? 0 : 0x1000; break;
+    case BDW_EDP_PPS_ON_DELAYS: *value = f->image.on; break;
+    case BDW_EDP_PPS_OFF_DELAYS: *value = f->image.off; break;
+    case BDW_EDP_PPS_DIVISOR: *value = f->image.divisor; break;
+    default: assert(false);
+    }
+    return true;
+}
+
+static enum intel_gt_write pps_write(void *context, uint32_t offset, uint32_t value)
+{
+    struct pps_fixture *f = context;
+    const uint32_t regs[] = {BDW_EDP_PPS_ON_DELAYS, BDW_EDP_PPS_OFF_DELAYS,
+                             BDW_EDP_PPS_ON_DELAYS, BDW_EDP_PPS_OFF_DELAYS, BDW_EDP_PPS_DIVISOR};
+    const uint32_t values[] = {0, 0, 0x007d0834, 0x02e409c4, 0x0004af06};
+    unsigned step = f->writes + (f->rehearse ? 0 : 2);
+    assert(!f->panel_on && f->time >= f->cycle_ends && step < 5 &&
+           offset == regs[step] && value == values[step]);
+    uint32_t *words[] = {&f->image.on, &f->image.off, &f->image.on, &f->image.off, &f->image.divisor};
+    ++f->writes;
+    *words[step] = value ^ (f->writes == f->bad_readback ? 1u : 0);
+    if (f->late_write)
+        f->time += 25000;
+    return f->writes == f->uncertain ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+
+static void test_pps(void)
+{
+    const struct bdw_edp_pps_image saved = {0x007d0834, 0x02e409c4, 0x0004af06};
+    const struct pps_fixture reset = {.image.divisor = saved.divisor, .cycle_ends = 500000};
+    const struct pps_fixture rehearsal = {.image = saved, .cycle_ends = 500000, .rehearse = true};
+    struct pps_fixture f = reset;
+    struct bdw_edp_pps_report r;
+    const struct bdw_edp_pps_io io = {&f, pps_held, pps_read, pps_write, pps_now, pps_delay};
+    assert(intel_bdw_edp_pps_restore(&io, saved, false, &r) && r.writes == 3);
+    assert(r.initial_status == 0x08000001u && !r.idle_status && r.wait_us >= 499999 && r.samples == 3);
+    f = rehearsal;
+    assert(intel_bdw_edp_pps_restore(&io, saved, true, &r) && r.complete && !r.retained && r.writes == 5);
+    assert(!r.reset.on && !r.reset.off && r.reset.divisor == saved.divisor);
+    assert(r.after.on == saved.on && r.after.off == saved.off && r.after.divisor == saved.divisor);
+    for (unsigned i = 1; i <= 5; ++i) {
+        f = rehearsal;
+        f.uncertain = i;
+        assert(!intel_bdw_edp_pps_restore(&io, saved, true, &r) && r.retained && r.writes == i);
+        f = rehearsal;
+        f.bad_readback = i;
+        assert(!intel_bdw_edp_pps_restore(&io, saved, true, &r) && r.retained && r.writes == i);
+        f = rehearsal;
+        f.lose_after = i;
+        assert(!intel_bdw_edp_pps_restore(&io, saved, true, &r) && r.retained && r.writes == i);
+    }
+    const struct pps_fixture refused[] = {
+        {.panel_on = true}, {.missing_gate = true}, {.cycle_ends = 600000},
+        {.cycle_ends = 500000, .stalled_delay = true}, {.image.divisor = 0x00186906},
+    };
+    for (unsigned i = 0; i < sizeof(refused) / sizeof(refused[0]); ++i) {
+        f = refused[i];
+        assert(!intel_bdw_edp_pps_restore(&io, saved, false, &r) && !r.retained && !r.writes);
+    }
+    f = reset;
+    f.late_write = true;
+    assert(!intel_bdw_edp_pps_restore(&io, saved, false, &r));
+    assert(r.retained && r.writes == 1 && r.program_us >= 25000);
+}
+
 int main(void)
 {
     struct fixture f = {0};
@@ -367,6 +463,7 @@ int main(void)
     }
     test_platform();
     test_pwm();
+    test_pps();
     puts("Broadwell eDP baseline: CRC freshness, PHY, display-well request and exact rollback passed");
     return 0;
 }
