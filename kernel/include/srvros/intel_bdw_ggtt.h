@@ -7,6 +7,11 @@ struct intel_bdw_ggtt_page {
  uint32_t index,mmio_offset;
 };
 
+/* Plan one absolute GGTT index in the full captured interval. Check the
+ * entire interval against the aperture and inherited fence before indexing. */
+bool intel_bdw_ggtt_plan_entry(const struct scanout_transfer_manifest *,
+                               uint32_t index, uint64_t physical, struct intel_bdw_ggtt_page *);
+
 /* Pure one-page encoding for private, aligned addresses below 4 GiB.
  * It retains the exact original word and rejects the protected fence.
  * The caller still needs live ownership, RAM/cache admission and completion. */

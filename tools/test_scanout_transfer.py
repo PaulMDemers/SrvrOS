@@ -10,7 +10,8 @@ input-mutation reentry source-live clock-live poison-live regress-live failed-cl
 clock-close changed-close full-buffers linear-tail partial-write pending-readers reuse
 capacity last-aperture-page one-page partial-restore lost-mapped-owner other-pin
 one-page-before-change one-page-apply-change one-page-restore-snapshot one-page-restore-clock
-linear-tail-original-change""".split()
+linear-tail-original-change tiled-tail tiled-tail-partial tiled-tail-no-owner tiled-tail-invalid-original
+tiled-tail-high-ram tiled-flip tiled-flip-wrong-pixels""".split()
 
 class TransferTests(unittest.TestCase):
     def test_actual_core(self):

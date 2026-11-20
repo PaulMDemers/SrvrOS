@@ -5698,9 +5698,11 @@ build/tests/scanout-memory$(HOST_EXE): tools/test_scanout_memory.c kernel/src/sc
 test-core: test-scanout-transfer
 test-scanout-transfer: build/tests/scanout-transfer$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_scanout_transfer.py
-build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
+PRIMARY_FLIP_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_flip.c kernel/diagnostics/intel_bdw_flip_trial.c kernel/diagnostics/intel_bdw_edp_baseline.c tools/test_intel_bdw_flip_rollback.c
+SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
+build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c $(SCANOUT_TRANSFER_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(SCANOUT_TRANSFER_HOST_SOURCES) -o $@
 .PHONY: test-scanout-memory
 test-core: test-scanout-memory
 test-scanout-memory: build/tests/scanout-memory$(HOST_EXE)
@@ -6802,7 +6804,6 @@ test-intel-bdw-primary-range: build/tests/intel-bdw-primary-range$(HOST_EXE)
 test-core: test-intel-bdw-primary-range
 
 # Synchronous primary-A arm/live-latch protocol; no native image or writer.
-PRIMARY_FLIP_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_flip.c kernel/diagnostics/intel_bdw_flip_trial.c kernel/diagnostics/intel_bdw_edp_baseline.c tools/test_intel_bdw_flip_rollback.c
 build/tests/intel-bdw-primary-flip$(HOST_EXE): tools/test_intel_bdw_primary_flip.c $(PRIMARY_FLIP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(PRIMARY_FLIP_HOST_SOURCES) -o $@

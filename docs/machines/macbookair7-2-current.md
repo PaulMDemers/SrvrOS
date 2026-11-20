@@ -23,10 +23,20 @@ OS-allocated alternative needs an owned GPU address interval and visible
 X-tiled backing before the native adapter can arm the first flip.
 [Trial contract and local coverage](../intel-bdw-primary-flip.md#reset-free-hardware-trial)
 
-The next PR301 work block connects OS-allocated X-tiled backing to the
-Broadwell GGTT encoder and the transferred GPU range. Shared scope is scanout
-mapping preparation, publication and restoration tests. Native use depends
-on the display owner transferring the interval for the duration of the flip.
+PR301 now takes OS-allocated X-tiled backing through Broadwell GGTT encoding,
+publication, a synchronous flip, rollback and mapping retirement in the local
+fixture. At 6144 bytes per row the padded image occupies 1,356 pages. The
+128-page translation tail brings the lease to 1,484 pages. A one-pixel fault
+in the back buffer fails the image check and the original still returns.
+
+The latest physical session `session-000660ba79e6f52e-00` records firmware
+framebuffer memory at `0xb0000000` with length 5,529,600 bytes (1,350 pages).
+That is exactly one 1440 × 900 image at this pitch. The same fields match
+in all 128 saved exit logs containing this endpoint in the latest collection.
+The native source transfer currently describes one GGTT entry and supplies
+zero ownership assurances. A native test needs a live transfer covering the
+whole second surface, plus the ordered publication and display adapters.
+[Private scanout mapping](../intel-bdw-primary-flip.md#private-backing-in-a-transferred-interval)
 
 ## Native display recovery after PCI decode reopens
 

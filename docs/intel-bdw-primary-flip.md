@@ -133,6 +133,25 @@ has host coverage. A hardware trial first needs an independently owned and
 visible second image in the active X-tiled format and a native plane/CRC
 adapter holding the display and both mappings across the trial.
 
+## Private backing in a transferred interval
+
+`intel_bdw_scanout_prepare` accepts a live transfer and an OS-allocated
+surface backed by low 32-bit physical pages. It reserves a 256 KiB-aligned
+GPU address and encodes every image and tail page against the transfer's
+original entries. The existing publication transaction checks those originals,
+writes and verifies the new entries, then restores the originals after the
+provider confirms reader retirement. The provider must maintain real device
+ownership, ordered MMIO and translation completion throughout.
+
+`make test-scanout-transfer` joins that path to the round-trip diagnostic.
+At the captured Air geometry the fixture initializes 904 padded X-tiled rows
+plus the 128-entry tail. The simulated primary tap fetches the visible pixels
+through published entries and compares their checksum with an independently
+generated reference. It catches a corrupted pixel, verifies the return flip,
+and holds the range and RAM while reader retirement is pending. The fixture
+uses software CRC-32 and models X tiling without address swizzling. The
+physical trial must use the actual pixel layout and Pipe A CRC tap.
+
 ## Qualification and remaining integration
 
 `make test-intel-bdw-primary-flip` exercises the actual C core against independent

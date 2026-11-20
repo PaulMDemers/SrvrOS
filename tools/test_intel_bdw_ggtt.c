@@ -3,7 +3,44 @@
 #include <string.h>
 #include <srvros/intel_bdw_ggtt.h>
 
+static void full_interval(void)
+{
+    uint64_t originals[1484];
+    for (uint32_t i = 0; i < 1484; ++i)
+        originals[i] = 0x100000001ull + (uint64_t)i * 4096;
+    struct scanout_transfer_manifest m = {
+        .first = 8704, .pages = 1484, .aperture_bytes = 0x10000000,
+        .fence_end = 0x2200000, .original = originals
+    };
+    struct intel_bdw_ggtt_page entry;
+    for (uint32_t i = 0; i < m.pages; ++i) {
+        uint64_t physical = 0x1000000 + (uint64_t)i * 4096;
+        assert(intel_bdw_ggtt_plan_entry(&m, m.first+i, physical, &entry));
+        assert(entry.original == originals[i] && entry.replacement == (physical|1));
+        assert(entry.gpu_address == 0x2200000 + (uint64_t)i*4096);
+        assert(entry.mmio_offset == 0x811000 + i*8 && entry.index == m.first+i);
+    }
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first-1, 4096, &entry));
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first+m.pages, 4096, &entry));
+    uint64_t end = 4096ull * (m.first + m.pages);
+    m.aperture_bytes = end-1;
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first, 4096, &entry));
+    m.aperture_bytes = end;
+    ++m.fence_end;
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first+1, 4096, &entry));
+    --m.fence_end;
+    originals[m.pages-1] = UINT64_MAX;
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first+m.pages-1, 4096, &entry));
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first, 4096, (void *)&originals[1]));
+    m.original = (const uint64_t *)(UINTPTR_MAX - 7);
+    assert(!intel_bdw_ggtt_plan_entry(&m, m.first, 4096, &entry));
+    m.original = originals;
+    m.first = UINT32_MAX-1;
+    assert(!intel_bdw_ggtt_plan_entry(&m, UINT32_MAX, 4096, &entry));
+}
+
 int main(void) {
+ full_interval();
  uint64_t original=0x123456788e201001ull;
  struct scanout_transfer_manifest manifest={
   .aperture_bytes=0x10000000,.fence_end=0x2200000,

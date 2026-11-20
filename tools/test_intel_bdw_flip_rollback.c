@@ -1,6 +1,7 @@
 /* Exercise the actual surface and CRC protocols on one simulated Pipe A. */
 #include <srvros/intel_bdw_flip_trial.h>
 #include <srvros/intel_bdw_primary_flip.h>
+#include <srvros/scanout_memory.h>
 #include <assert.h>
 #include <stdio.h>
 
@@ -16,11 +17,16 @@ struct panel {
     struct intel_bdw_primary_flip *registered[2];
     bool bad_restore, freeze_return, keep_crc_enabled;
     int lease[2], owner;
+    const void *mapping[2];
+    uint32_t alternate;
+    uint32_t (*scan_crc)(uint32_t);
+    bool (*mapping_held)(void);
 };
 
 static bool held(void *ctx)
 {
-    return ((struct panel *)ctx)->owned;
+    struct panel *p = ctx;
+    return p->owned && (!p->mapping_held || p->mapping_held());
 }
 
 static uint64_t now(void *ctx)
@@ -34,7 +40,10 @@ static void edge(struct panel *p)
     if (!p->freeze_return || p->arms != 2)
         p->live = p->queued;
     if (p->crc_ctl && !(p->mask & BDW_EDP_CRC_DONE)) {
-        p->crc = p->live == SECOND && !p->wrong_image ? SECOND_CRC : ORIGINAL_CRC;
+        if (p->scan_crc)
+            p->crc = p->scan_crc(p->live);
+        else
+            p->crc = p->live == p->alternate && !p->wrong_image ? SECOND_CRC : ORIGINAL_CRC;
         if (p->bad_restore && p->arms == 2)
             ++p->crc;
         p->interrupts |= BDW_EDP_CRC_DONE;
@@ -53,7 +62,7 @@ static void delay(void *ctx, uint32_t us)
 static bool snapshot(void *ctx, struct bdw_edp_baseline_sample *sample)
 {
     struct panel *p = ctx;
-    *sample = (struct bdw_edp_baseline_sample){.backing_hash = p->live == SECOND ? 2u : 1u};
+    *sample = (struct bdw_edp_baseline_sample){.backing_hash = p->live == p->alternate ? 2u : 1u};
     for (unsigned i = 0; i < BDW_EDP_PHY_ENTRIES; ++i) {
         sample->phy[i][0] = 1;
         sample->phy[i][1] = 1;
@@ -67,8 +76,8 @@ static bool proof(void *ctx, const struct bdw_flip_source *s, struct bdw_flip_pr
     unsigned i = s == &p->source[1];
     if (!held(p) || s != &p->source[i] || s->consumer != p->registered[i])
         return false;
-    *out = (struct bdw_flip_proof){s, &p->owner, p, &p->lease, &p->lease[i],
-        &p->lease[1-i], 0x1000, 9, i + 1, p->time, BDW_FLIP_REQUIRED, s->consumer->p.state};
+    *out = (struct bdw_flip_proof){s, &p->owner, p, &p->lease, p->mapping[i],
+        p->mapping[1-i], 0x1000, 9, i + 1, p->time, BDW_FLIP_REQUIRED, s->consumer->p.state};
     return true;
 }
 
@@ -100,7 +109,7 @@ static enum intel_gt_write write_reg(void *ctx, uint32_t reg, uint32_t word)
     assert(held(p));
     switch (reg) {
     case 0x7019c:
-        assert(p->arms < 2 && word == (p->arms == 0 ? SECOND : 0));
+        assert(p->arms < 2 && word == (p->arms == 0 ? p->alternate : 0));
         p->queued = word;
         if (++p->arms == 2 && p->uncertain_return)
             return GT_WRITE_UNCERTAIN;
@@ -118,7 +127,9 @@ static enum intel_gt_write write_reg(void *ctx, uint32_t reg, uint32_t word)
 
 static void init(struct panel *p)
 {
-    *p = (struct panel){.time = 1, .mask = UINT32_MAX, .owned = true};
+    *p = (struct panel){.time = 1, .mask = UINT32_MAX, .owned = true, .alternate = SECOND};
+    p->mapping[0] = &p->lease[0];
+    p->mapping[1] = &p->lease[1];
     for (unsigned i = 0; i < 2; ++i) {
         p->registered[i] = &p->flip[i];
         p->source[i].object = &p->source[i];
@@ -264,4 +275,35 @@ void test_flip_rollback(void)
         trial(s);
     diagnostic();
     puts("reset-free round trip: 6 rollback scenarios and 7 joined CRC diagnostics");
+}
+
+/* Called from the transfer fixture after real memory publication. Model the
+ * tap from the emulated GGTT and RAM; the restoration uses the same mapping. */
+bool test_flip_on_published_surface(const struct scanout_memory *memory, bool (*mapping_held)(void),
+                                    uint32_t (*scan_crc)(uint32_t), uint32_t expected)
+{
+    struct panel p;
+    init(&p);
+    struct bdw_flip_trial record = {0};
+    p.registered[0] = &record.forward;
+    p.registered[1] = &record.back;
+    p.alternate = memory->range.first * 4096u;
+    p.mapping[1] = &memory->range;
+    p.mapping_held = mapping_held;
+    p.scan_crc = scan_crc;
+    for (unsigned i = 0; i < 2; ++i) {
+        struct bdw_flip_binding *b = &p.source[i].binding;
+        b->from_mapping = p.mapping[i];
+        b->to_mapping = p.mapping[1-i];
+        b->from_gpu = i ? p.alternate : 0;
+        b->to_gpu = i ? 0 : p.alternate;
+        b->mapped_bytes = (uint64_t)memory->range.pages * 4096;
+    }
+    const struct bdw_flip_trial_io io = {
+        {&p, proof, read_reg, write_reg, now},
+        {&p, held, snapshot, read_reg, write_reg, now, delay}, admit
+    };
+    bool passed = intel_bdw_flip_trial(&record, &io, expected);
+    assert(record.original_restored && p.arms == 2 && !p.live && !p.queued);
+    return passed;
 }
