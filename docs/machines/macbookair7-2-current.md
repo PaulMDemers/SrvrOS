@@ -93,6 +93,11 @@ clearing, a follow-up observation needs to span wake release with a documented
 register-access path and an independently held display/requester guard.
 [Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
+PR301 is qualifying the display owner's traffic-block request on Broadwell.
+The work covers the PCI reset guard, loss of acknowledgements during acquisition,
+and the native power-manager interface. A physical reset requires a maintained
+request through decode closure and a fresh graphics remapper drain.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
