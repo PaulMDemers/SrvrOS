@@ -1129,10 +1129,12 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
     struct bdw_edp_platform_report platform = {0};
     struct edp_cycle_observation cycle = {0};
     struct edp_native_cycle native = {0};
-    struct edp_flr_preflight flr = {
-        .exercise_well = dark_well, .exercise_pci = pci_hold,
-        .exercise_pwm = dark_pwm, .exercise_pps = dark_pps,
-    };
+    /* This one-shot report remains available after a retained hold. */
+    static struct edp_flr_preflight flr;
+    flr.exercise_well = dark_well;
+    flr.exercise_pci = pci_hold;
+    flr.exercise_pwm = dark_pwm;
+    flr.exercise_pps = dark_pps;
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */

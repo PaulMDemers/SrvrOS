@@ -57,6 +57,12 @@ observable before PCI decode closes. Residency alone cannot establish any
 of those conditions.
 [i915 RC6 park](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L643-L668)
 
+A second Ubuntu comparison measured 764 ms of RC6 residency over one
+second before opening i915's forcewake handle, 0 ms while the handle was
+held, and 753 ms in the second after release. Each interval followed a
+200 ms settling period. This motivates sampling with the guest's GT wake
+released.
+
 The current Air7,2 trial will sample the GT core status, RC6 residency and
 forcewake acknowledgement twice during display shutdown, after PCI bus
 mastering is inhibited and before memory decode closes. PR301 owns the
