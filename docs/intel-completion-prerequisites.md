@@ -261,6 +261,34 @@ change. Context backing, exclusion of new requests and completion of
 outstanding memory traffic each require separate evidence.
 [Air7,2 dark-display samples](intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
+#### Air7,2 inherited RC6 controls and reset reasons
+
+Release `9eb54abb15203e80` (source `4888fb6d`) saved
+`session-000660b9f65af921-00`. All 48 reads completed under forcewake and all
+15 aliases retired. The three samples reported `RC_CTRL0=0x90040000`,
+`RC_CTRL1=0x00040000` and `RC6_THRESHOLD=625`. Hardware RC6 and timeout mode
+were enabled, the software target was RC6, and the promotion timer was 800 µs.
+
+| Checkpoint | GAM request | GAM response | Allowed client mask | Engine flush ACK mask | L3 flush ACK |
+| --- | --- | --- | --- | --- | --- |
+| Before engine preparation | `0x00ff` | `0x7f` | `0x5f` | 0 | 0 |
+| After engine preparation | `0x00ff` | `0x7f` | `0x5f` | 0 | 0 |
+| After GT reset | `0x7fff` | `0x7f` | `0x5f` | 0 | 0 |
+
+The post-reset request added `0x7f00` in the reset-reason field while the
+six client permission bits stayed set. GAM reported idle and all four media
+counters were zero in each sample. These measurements do not establish how
+long the reason bits persisted or whether the clients were blocked between
+samples. The USB evidence passed offline verification.
+
+A host replay held each captured set of register values fixed for one modeled
+PCI reset attempt. With either pre-reset sample, the guard invoked the modeled
+block provider once and failed to observe a block. With the post-reset sample,
+the existing reason bits stopped the attempt before that call. All three
+attempts kept memory decode open and issued zero remapper drains and zero PCI
+reset writes. The physical run closed as `DIAGNOSED` under its wider timing
+budget.
+
 ### GT3 video memory request counters
 
 Version 4 samples both video engines under the same GT borrow and inhibited

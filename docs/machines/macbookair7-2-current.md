@@ -69,16 +69,20 @@ stayed at 1,594,584 ticks across the 2.004 ms between sample starts. All
 47 reopen checks passed, the framebuffer bytes matched, and both restored
 frames produced the reference CRC. Offline USB verification passed.
 
-The next dependency is to identify which GT power controls and context the
-boot firmware leaves enabled, and how SrvrOS can hold new requests off
-and observe engine and cache completion before closing PCI decode.
-[Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
+Release `9eb54abb15203e80` (source `4888fb6d`) confirmed that the inherited
+policy already enables RC6, selects timeout mode and targets RC6 with an
+800 µs promotion timer. The controls matched before engine preparation,
+after preparation and after GT reset. All six memory clients retained
+permission in those snapshots. After GT reset the power manager also reported
+reset reasons `0x7f00`. A host replay of that sample stopped before requesting
+a fresh block. The physical diagnostic closed with verified USB evidence.
+[Native samples and reset-guard replay](../intel-completion-prerequisites.md#air72-inherited-rc6-controls-and-reset-reasons)
 
-The next PR301 diagnostic will read the inherited Broadwell RC control,
-software target, timeout threshold and power manager's GAM request alongside
-the existing engine, media and arbiter samples. It uses the Air7,2 GT wake
-lease, adapter fixtures and USB collector. The checkpoint is a source-bound
-comparison before engine preparation, after preparation and after GT reset.
+The next dependency is to establish when the reset reasons clear and how
+the display owner can keep new requests excluded while checking engine and
+cache completion. Power controls sampled under wake and the earlier passive
+observations cover different hardware lifetimes.
+[Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
 ## Native eDP recovery scope
 
