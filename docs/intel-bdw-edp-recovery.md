@@ -365,6 +365,15 @@ were issued. The saved result passed offline USB integrity and the run
 was closed as a reviewed failure. A retry needs evidence identifying
 the first failing check after Command `0x0402`.
 
+The retry records the post-reopen check sequence in ordinary RAM and
+emits it with the saved terminal receipt. It identifies the first
+failing platform register by offset and observed value, then records
+endpoint validation, fence and GGTT mapping and checks, and framebuffer
+page and word comparison progress. Fence or PTE mismatches identify the
+first entry. Pixel mismatches identify the word index. The hold keeps
+its original Command sequence and deadlines. The decoder accepts older
+receipts and requires the ordered trace for new runs that reach reopen.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

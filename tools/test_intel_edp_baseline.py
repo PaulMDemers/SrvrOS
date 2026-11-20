@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from hardware_boot import EDP_CONFIGS, limine_config
 from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
-from intel_edp_baseline import PREFIX, checkpoint, recipe, result
+from intel_edp_baseline import PREFIX, checkpoint, pci_reopen_result, recipe, result, rows_of
 
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = "1" * 16
@@ -48,6 +48,44 @@ def packet(positive, patterned=False):
 
 
 class EdpBaseline(unittest.TestCase):
+    def test_pci_reopen_receipt_tracks_first_failure(self):
+        def row(seq, check, at, ok, read=0, got=0, want=0):
+            return (f"intel-edp-reopen: v=1 seq={seq} check={check} at={at} "
+                    f"ok={ok} read={read} got={got} want={want}\n")
+
+        owner = row(0, 1, 0, 1)
+        mismatch = row(1, 2, 0x45400, 0, 1, 0xffffffff, 0xc0000000)
+        summary = dict(v=2, samples=4, backing=0)
+        failure = pci_reopen_result(rows_of(owner + mismatch), summary)
+        self.assertEqual((failure["name"], failure["at"], failure["got"]),
+                         ("platform register", 0x45400, 0xffffffff))
+        self.assertIsNone(pci_reopen_result(rows_of(""), dict(v=2, samples=3, backing=0)))
+        for bad in ("", owner, owner + mismatch + row(2, 2, 0x45408, 1),
+                    owner + mismatch.replace("seq=1", "seq=8")):
+            with self.assertRaises(ValueError):
+                pci_reopen_result(rows_of(bad), summary)
+
+        ordered = [(1, 0)]
+        ordered.extend((2, reg) for reg in (0x45400, 0x45408, 0x4540c, 0x130040, 0x46200, 0xc2020,
+                                           0xc2004, 0xc7208, 0xc720c, 0xc7210, 0x45404, 0x48250, 0xc8250, 0xc8254))
+        ordered.extend((k, 0) for k in range(3, 9))
+        fences = [(9, 0x100000), (10, 0), (11, 0x100000)]
+        ordered.extend(fences)
+        for i, page in enumerate((0x800000, 0x801000, 0x802000)):
+            ordered.extend(((12, page), (13, i * 512), (14, page)))
+        ordered.extend((*fences, (6, 1), (7, 1), (8, 1), (15, 0), (16, 0)))
+        prefix = "".join(row(i, check, at, 1) for i, (check, at) in enumerate(ordered))
+        failed_pixel = prefix + row(len(ordered), 19, 1382399, 0)
+        self.assertEqual(pci_reopen_result(rows_of(failed_pixel), summary)["name"], "framebuffer contents")
+        for bad in (failed_pixel.replace("at=1382399", "at=1382400"),
+                    failed_pixel.replace("check=19", "check=18")):
+            with self.assertRaises(ValueError):
+                pci_reopen_result(rows_of(bad), summary)
+        suffix = ((17, 1350), (18, 1350), (19, 1382400), (20, 42))
+        complete = prefix + "".join(row(i, check, 0, 1, 1, value, value)
+                                    for i, (check, value) in enumerate(suffix, len(ordered)))
+        self.assertIsNone(pci_reopen_result(rows_of(complete), dict(v=2, samples=5, backing=1)))
+
     def test_stage_binds_exact_source_and_separate_image(self):
         boot = importlib.import_module("hardware_boot")
         with tempfile.TemporaryDirectory(prefix="edp-stage-") as tmp:

@@ -33,6 +33,7 @@ SCHEMAS = {
     "intel-edp-dark-well-word": "v phase bios driver pps",
     "intel-edp-pci-hold": "v complete samples writes polls elapsed_us settle_us first_clear_us cpu_copy digest backing retained",
     "intel-edp-pci-hold-word": "v phase command af",
+    "intel-edp-reopen": "v seq check at ok read got want",
 }
 FLR_ROWS = ("intel-edp-flr-preflight", "intel-edp-flr-pixels", "intel-edp-flr-config")
 WELL_ROWS = ("intel-edp-dark-well", "intel-edp-dark-well-word")
@@ -68,7 +69,8 @@ def rows_of(text):
             if key in row or not re.fullmatch(r"0x[0-9a-fA-F]{1,16}|[0-9]{1,20}", value):
                 raise ValueError("Malformed eDP field")
             row[key] = int(value, 16 if value.startswith("0x") else 10)
-        if row.keys() != set(SCHEMAS[name].split()) or row["v"] != 1 or any(v >= 1 << 64 for v in row.values()):
+        versions = (1, 2) if name == "intel-edp-pci-hold" else (1,)
+        if row.keys() != set(SCHEMAS[name].split()) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
             raise ValueError("Unsupported eDP row")
         rows[name].append(row)
     return rows
@@ -216,6 +218,57 @@ def dark_well_result(rows, *, native, display):
                 w["pps"] >= 1 << 32 or w["pps"] & 0xb0000000):
             raise ValueError("Display well or panel power changed unexpectedly")
     return s
+
+
+def pci_reopen_result(rows, summary):
+    checks = rows["intel-edp-reopen"]
+    if summary["v"] == 1:
+        if checks:
+            raise ValueError("Unexpected legacy PCI reopen receipt")
+        return None
+    if bool(checks) != (summary["samples"] >= 4):
+        raise ValueError("Missing or premature PCI reopen receipt")
+    platform = (0x45400, 0x45408, 0x4540c, 0x130040, 0x46200, 0xc2020, 0xc2004,
+                0xc7208, 0xc720c, 0xc7210, 0x45404, 0x48250, 0xc8250, 0xc8254)
+    fences = [(9, 0x100000), (10, 0), (11, 0x100000)]
+    plan = [(1, 0), *((2, offset) for offset in platform), (3, 0), (4, 0), (5, 0),
+            (6, 0), (7, 0), (8, 0), *fences]
+    for first in (0, 512, 1024):
+        page = 0x800000 + first * 8
+        plan.extend(((12, page), (13, first), (14, page)))
+    plan.extend((*fences, (6, 1), (7, 1), (8, 1), (15, 0), (16, 0), (17, 0), (18, 0), (19, 0), (20, 0)))
+    if len(checks) > len(plan) or (summary["backing"] and len(checks) != len(plan)):
+        raise ValueError("Invalid PCI reopen receipt coverage")
+    for seq, (row, (check, at)) in enumerate(zip(checks, plan)):
+        where = row["at"]
+        allowed = (row["check"], where) == (check, at)
+        if not row["ok"]:
+            if check == 10:
+                allowed = row["check"] == check and where < 32
+            elif check == 13:
+                allowed = row["check"] == check and at <= where < min(at + 512, 1484)
+            elif check == 17:
+                allowed = ((row["check"] in (17, 18) and where < 1350) or
+                           (row["check"] == 19 and where < 1382400))
+        elif check in (17, 18, 19):
+            count = 1350 if check != 19 else 1382400
+            allowed = allowed and row["read"] and row["got"] == row["want"] == count
+        if (not allowed or row["seq"] != seq or row["ok"] > 1 or row["read"] > 1 or
+                (not row["read"] and row["got"]) or
+                (not row["ok"] and (seq != len(checks) - 1 or summary["backing"]))):
+            raise ValueError("Invalid PCI reopen check")
+    check_names = (
+        "display lease", "platform register", "framebuffer setup", "display source ownership",
+        "translation admission", "live endpoint read", "endpoint PCI Command", "endpoint match",
+        "fence mapping", "fence contents", "fence unmap", "GGTT mapping", "PTE contents",
+        "GGTT unmap", "translation close", "backing digest", "framebuffer page guard",
+        "framebuffer page mapping", "framebuffer contents", "framebuffer close",
+    )
+    if checks and not checks[-1]["ok"]:
+        return dict(checks[-1], name=check_names[checks[-1]["check"] - 1])
+    if len(checks) not in (0, len(plan)):
+        raise ValueError("Truncated PCI reopen receipt")
+    return None
 
 
 def pci_hold_result(rows, *, native, display):
@@ -366,8 +419,9 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
                 raise ValueError("Unexpected dark well evidence")
     if pci_hold:
         hold = pci_hold_result(rows, native=native, display=observed)
+        reopen_failure = pci_reopen_result(rows, hold)
     else:
-        for key in HOLD_ROWS:
+        for key in (*HOLD_ROWS, "intel-edp-reopen"):
             if rows.pop(key):
                 raise ValueError("Unexpected PCI decode hold evidence")
     if flr:
@@ -407,6 +461,10 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         report["dark_well"] = well
     if pci_hold:
         report["pci_hold"] = hold
+        if hold["v"] == 2:
+            report["pci_reopen_failure"] = reopen_failure
+        else:
+            del rows["intel-edp-reopen"]
     return report
 
 

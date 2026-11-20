@@ -43,6 +43,21 @@ struct edp_flr_preflight {
     uint64_t well_begin, well_elapsed;
 };
 
+enum edp_reopen_check {
+    REOPEN_OWNER = 1, REOPEN_PLATFORM, REOPEN_FRAME_SETUP, REOPEN_SOURCE,
+    REOPEN_TRANSLATION_ADMISSION, REOPEN_ENDPOINT_READ, REOPEN_ENDPOINT_COMMAND,
+    REOPEN_ENDPOINT_MATCH, REOPEN_FENCE_MAP, REOPEN_FENCES, REOPEN_FENCE_UNMAP,
+    REOPEN_GGTT_MAP, REOPEN_PTES, REOPEN_GGTT_UNMAP, REOPEN_TRANSLATION_CLOSE,
+    REOPEN_BACKING_HASH, REOPEN_FRAME_GUARD, REOPEN_FRAME_MAPPING, REOPEN_FRAME_WORDS,
+    REOPEN_FRAME_CLOSE,
+};
+
+struct edp_reopen_entry {
+    uint64_t observed, expected;
+    uint32_t check, index;
+    bool ok, sampled;
+};
+
 struct edp_adapter {
     struct backing_adapter backing;
     struct display_access_token lease;
@@ -54,8 +69,31 @@ struct edp_adapter {
     bool decode_closed, pci_backing_check;
     uint64_t cycle_epoch;
     const struct bdw_edp_source_image *image;
+    /* Buffered while the display lease is held. Emitted from ordinary RAM
+     * after leaving the PCI hold, including on a retained failure. */
+    struct edp_reopen_entry reopen[48];
+    unsigned reopen_count;
+    bool trace_reopen;
 };
 static struct edp_adapter edp_session;
+
+static bool edp_reopen_record(struct edp_adapter *a, enum edp_reopen_check check,
+                              uint32_t index, bool ok, bool sampled,
+                              uint64_t observed, uint64_t expected)
+{
+    if (a->trace_reopen && a->reopen_count < sizeof(a->reopen) / sizeof(a->reopen[0]))
+        a->reopen[a->reopen_count++] = (struct edp_reopen_entry){
+            .check = check, .index = index, .ok = ok, .sampled = sampled,
+            .observed = observed, .expected = expected,
+        };
+    return ok;
+}
+
+static bool edp_reopen_ok(struct edp_adapter *a, enum edp_reopen_check check,
+                          uint32_t index, bool ok)
+{
+    return edp_reopen_record(a, check, index, ok, false, 0, 0);
+}
 
 struct edp_native_cycle {
     struct bdw_edp_cycle_report report;
@@ -223,14 +261,16 @@ static bool edp_range_valid(void)
 static bool edp_pte_page(struct edp_adapter *a, unsigned first, unsigned end, uint64_t *digest)
 {
     uint32_t page = (0x800000u + first * 8u) & ~4095u;
-    if (!edp_map_backing(a, page))
+    if (!edp_reopen_ok(a, REOPEN_GGTT_MAP, page, edp_map_backing(a, page)))
         return false;
     bool match = true;
     for (unsigned i = first; i < end; ++i) {
-        uint64_t value;
-        if (!edp_read_pair(a, 0x800000u + i * 8u, &value) ||
-            value != backing.pte[0] + i * 4096ull ||
-            (i < EDP_RENDERED_PTES && value != backing.pte[i])) {
+        uint64_t value = 0, expected = backing.pte[0] + i * 4096ull;
+        bool sampled = edp_read_pair(a, 0x800000u + i * 8u, &value);
+        if (!sampled || value != expected || (i < EDP_RENDERED_PTES && value != backing.pte[i])) {
+            if (sampled && value == expected)
+                expected = backing.pte[i];
+            edp_reopen_record(a, REOPEN_PTES, i, false, sampled, value, expected);
             match = false;
             break;
         }
@@ -239,7 +279,10 @@ static bool edp_pte_page(struct edp_adapter *a, unsigned first, unsigned end, ui
             *digest = (*digest ^ (value >> 32)) * 1099511628211ull;
         }
     }
-    return edp_unmap_backing(a) && match && edp_held(a);
+    if (match)
+        edp_reopen_record(a, REOPEN_PTES, first, true, true, end - first, end - first);
+    bool unmapped = edp_unmap_backing(a);
+    return match && edp_reopen_ok(a, REOPEN_GGTT_UNMAP, page, unmapped && edp_held(a));
 }
 
 static bool edp_check_backing(struct edp_adapter *a, uint64_t *hash)
@@ -266,39 +309,54 @@ static bool edp_check_backing(struct edp_adapter *a, uint64_t *hash)
 
 static bool edp_fences_preserved(struct edp_adapter *a)
 {
-    if (!edp_map_backing(a, 0x100000u))
+    if (!edp_reopen_ok(a, REOPEN_FENCE_MAP, 0x100000u, edp_map_backing(a, 0x100000u)))
         return false;
     bool match = true;
     for (unsigned i = 0; i < INTEL_BACKING_FENCES; ++i) {
-        uint64_t value;
-        if (!edp_read_pair(a, 0x100000u + 8 * i, &value) || value != backing.sample[1].fence[i]) {
+        uint64_t value = 0, expected = backing.sample[1].fence[i];
+        bool sampled = edp_read_pair(a, 0x100000u + 8 * i, &value);
+        if (!sampled || value != expected) {
+            edp_reopen_record(a, REOPEN_FENCES, i, false, sampled, value, expected);
             match = false;
             break;
         }
     }
-    return edp_unmap_backing(a) && match && edp_held(a);
+    if (match)
+        edp_reopen_record(a, REOPEN_FENCES, 0, true, true, INTEL_BACKING_FENCES, INTEL_BACKING_FENCES);
+    bool unmapped = edp_unmap_backing(a);
+    return match && edp_reopen_ok(a, REOPEN_FENCE_UNMAP, 0x100000u, unmapped && edp_held(a));
 }
 
-static bool edp_endpoint_same(struct edp_adapter *a, struct intel_backing_endpoint *endpoint)
+static bool edp_endpoint_same(struct edp_adapter *a, struct intel_backing_endpoint *endpoint,
+                              unsigned phase)
 {
     if (a->pci_backing_check) {
-        if (!a->flr || endpoint->identity.command != 0x402 ||
-            backing.sample[1].endpoint.identity.command != 7 || !edp_held(a))
+        if (!edp_reopen_record(a, REOPEN_ENDPOINT_COMMAND, phase, endpoint->identity.command == 0x402,
+                               true, endpoint->identity.command, 0x402))
             return false;
+        if (!a->flr || backing.sample[1].endpoint.identity.command != 7 || !edp_held(a))
+            return edp_reopen_ok(a, REOPEN_ENDPOINT_MATCH, phase, false);
         /* All other independently observed endpoint fields still compare. */
         endpoint->identity.command = 7;
     }
-    return trial_endpoint_same(endpoint);
+    return edp_reopen_ok(a, REOPEN_ENDPOINT_MATCH, phase, trial_endpoint_same(endpoint));
+}
+
+static bool edp_check_endpoint(struct edp_adapter *a, unsigned phase)
+{
+    struct intel_backing_endpoint endpoint;
+    return edp_reopen_ok(a, REOPEN_ENDPOINT_READ, phase, backing_endpoint(&a->backing, &endpoint)) &&
+           edp_endpoint_same(a, &endpoint, phase);
 }
 
 /* No route registers. This census can be used with the panel and pipe off
  * once a native display-cycle provider owns their entire lifetime. */
 static bool edp_pinned_translations(struct edp_adapter *a, uint64_t *hash)
 {
-    struct intel_backing_endpoint endpoint;
     uint64_t begin = timer_monotonic_us();
-    if (!begin || a->decode_closed || !edp_range_valid() || !edp_held(a) ||
-        !backing_endpoint(&a->backing, &endpoint) || !edp_endpoint_same(a, &endpoint) ||
+    if (!edp_reopen_ok(a, REOPEN_TRANSLATION_ADMISSION, 0,
+                       begin && !a->decode_closed && edp_range_valid() && edp_held(a)) ||
+        !edp_check_endpoint(a, 0) ||
         !edp_fences_preserved(a))
         return false;
     *hash = backing.sample[1].hash;
@@ -307,8 +365,8 @@ static bool edp_pinned_translations(struct edp_adapter *a, uint64_t *hash)
         if (!edp_pte_page(a, i, end, hash))
             return false;
     }
-    return edp_fences_preserved(a) && backing_endpoint(&a->backing, &endpoint) &&
-           edp_endpoint_same(a, &endpoint) && edp_held(a) && timer_monotonic_us() - begin < 100000u;
+    return edp_fences_preserved(a) && edp_check_endpoint(a, 1) &&
+           edp_reopen_ok(a, REOPEN_TRANSLATION_CLOSE, 0, edp_held(a) && timer_monotonic_us() - begin < 100000u);
 }
 
 static bool edp_observe_cycle(struct edp_adapter *a, struct edp_cycle_observation *o)
@@ -341,6 +399,14 @@ static bool edp_observe_cycle(struct edp_adapter *a, struct edp_cycle_observatio
 
 /* Only the known profile owns these global endpoints, kept live through
  * the display-only cycle. PPS timing/PWM and clocks are read-only here. */
+static bool edp_platform_word(struct edp_adapter *a, uint32_t offset, uint32_t mask, uint32_t expected)
+{
+    uint32_t value = 0;
+    bool sampled = edp_read(a, offset, &value);
+    return edp_reopen_record(a, REOPEN_PLATFORM, offset, sampled && (value & mask) == expected,
+                             sampled, value, expected);
+}
+
 static bool edp_cycle_platform(struct edp_adapter *a, bool driver)
 {
     static const uint32_t regs[][2] = {
@@ -349,15 +415,18 @@ static bool edp_cycle_platform(struct edp_adapter *a, bool driver)
         {0xc7208, 0x007d0834}, {0xc720c, 0x02e409c4}, {0xc7210, 0x0004af06},
     };
     for (unsigned i = 0; i < sizeof(regs) / sizeof(regs[0]); ++i)
-        if (!edp_expect(a, regs[i][0], UINT32_MAX, regs[i][1]))
+        if (!edp_platform_word(a, regs[i][0], UINT32_MAX, regs[i][1]))
             return false;
-    uint32_t pwm;
-    return edp_expect(a, BDW_EDP_WELL_DRIVER, UINT32_MAX,
-                      BDW_EDP_WELL_ON | (driver ? BDW_EDP_WELL_REQUEST : 0)) &&
-           edp_expect(a, 0x48250, 1u << 31, 0) &&
-           edp_expect(a, 0xc8250, 0xc0000000u, 0xc0000000u) &&
-           edp_read(a, 0xc8254, &pwm) && (pwm >> 16) == 0x0ad9u &&
-           (pwm & 0xffffu) <= (pwm >> 16);
+    if (!edp_platform_word(a, BDW_EDP_WELL_DRIVER, UINT32_MAX,
+                           BDW_EDP_WELL_ON | (driver ? BDW_EDP_WELL_REQUEST : 0)) ||
+        !edp_platform_word(a, 0x48250, 1u << 31, 0) ||
+        !edp_platform_word(a, 0xc8250, 0xc0000000u, 0xc0000000u))
+        return false;
+    uint32_t pwm = 0;
+    bool sampled = edp_read(a, 0xc8254, &pwm);
+    return edp_reopen_record(a, REOPEN_PLATFORM, 0xc8254,
+                             sampled && (pwm >> 16) == 0x0ad9u && (pwm & 0xffffu) <= (pwm >> 16),
+                             sampled, pwm, 0x0ad90000u);
 }
 
 static bool edp_source_held(void *context, const struct bdw_edp_source_image *image)
@@ -373,7 +442,8 @@ static bool edp_source_held(void *context, const struct bdw_edp_source_image *im
 static bool edp_source_backing(void *context, const struct bdw_edp_source_image *image,
                                uint64_t *hash)
 {
-    return edp_source_held(context, image) && edp_pinned_translations(context, hash);
+    return edp_reopen_ok(context, REOPEN_SOURCE, 0, edp_source_held(context, image)) &&
+           edp_pinned_translations(context, hash);
 }
 
 static enum intel_gt_write edp_well_request(void *context, bool enable);
@@ -459,9 +529,11 @@ static bool edp_flr_pixels(struct edp_adapter *a)
     struct edp_flr_preflight *f = a->flr;
     unsigned n = f->pixel_samples;
     uint64_t va = (uint64_t)a->backing.fb->address, hash, begin = now(a);
-    if (n >= 3 || !begin || (va & 4095u) || (result.fb.physical & 4095u) ||
-        (va > UINT64_MAX - EDP_FRAME_BYTES) ||
-        !edp_source_backing(a, a->image, &hash) || hash != a->image->backing_hash)
+    if (!edp_reopen_ok(a, REOPEN_FRAME_SETUP, 0, n < 3 && begin && !(va & 4095u) &&
+                       !(result.fb.physical & 4095u) && va <= UINT64_MAX - EDP_FRAME_BYTES) ||
+        !edp_source_backing(a, a->image, &hash) ||
+        !edp_reopen_record(a, REOPEN_BACKING_HASH, 0, hash == a->image->backing_hash, true,
+                           hash, a->image->backing_hash))
         return false;
     if (!f->copy) {
         f->copy = pmm_alloc_frames(EDP_FRAME_PAGES);
@@ -474,11 +546,14 @@ static bool edp_flr_pixels(struct edp_adapter *a)
     /* Fence completed CPU aperture stores before copying the reference. */
     __asm__ volatile("mfence" ::: "memory");
     for (unsigned page = 0; page < EDP_FRAME_PAGES; ++page) {
-        uint64_t physical, source = va + 4096ull * page;
-        if (!edp_source_held(a, a->image) || now(a) - begin >= EDP_FRAME_DEADLINE_US ||
-            !vmm_virt_to_phys_in_space(a->backing.common.cr3, source, &physical) ||
-            physical != result.fb.physical + 4096ull * page)
-            return false;
+        uint64_t physical = 0, source = va + 4096ull * page;
+        uint64_t expected = result.fb.physical + 4096ull * page;
+        if (!edp_source_held(a, a->image) || now(a) - begin >= EDP_FRAME_DEADLINE_US)
+            return edp_reopen_ok(a, REOPEN_FRAME_GUARD, page, false);
+        bool mapped = vmm_virt_to_phys_in_space(a->backing.common.cr3, source, &physical);
+        if (!mapped || physical != expected)
+            return edp_reopen_record(a, REOPEN_FRAME_MAPPING, page, false, mapped,
+                                     mapped ? physical : 0, expected);
         volatile const uint32_t *words = (volatile const uint32_t *)source;
         for (unsigned i = 0; i < 1024; ++i) {
             uint32_t word = words[i];
@@ -488,14 +563,19 @@ static bool edp_flr_pixels(struct edp_adapter *a)
             if (!n)
                 *copy = word;
             else if (*copy != word)
-                return false;
+                return edp_reopen_ok(a, REOPEN_FRAME_WORDS, page * 1024 + i, false);
             ++copy;
             pixels = (pixels ^ word) * 1099511628211ull;
         }
     }
+    edp_reopen_record(a, REOPEN_FRAME_GUARD, 0, true, true, EDP_FRAME_PAGES, EDP_FRAME_PAGES);
+    edp_reopen_record(a, REOPEN_FRAME_MAPPING, 0, true, true, EDP_FRAME_PAGES, EDP_FRAME_PAGES);
+    edp_reopen_record(a, REOPEN_FRAME_WORDS, 0, true, true, EDP_FRAME_BYTES / 4, EDP_FRAME_BYTES / 4);
     uint64_t done = now(a);
-    if (!variation || !pixels || done <= begin || done - begin >= EDP_FRAME_DEADLINE_US ||
-        (n && pixels != f->pixels[0]) || !edp_source_held(a, a->image))
+    if (!edp_reopen_record(a, REOPEN_FRAME_CLOSE, 0,
+                           variation && pixels && done > begin && done - begin < EDP_FRAME_DEADLINE_US &&
+                           (!n || pixels == f->pixels[0]) && edp_source_held(a, a->image),
+                           true, pixels, n ? f->pixels[0] : pixels))
         return false;
     f->pixels[n] = pixels;
     f->elapsed[n] = done - begin;
@@ -562,13 +642,17 @@ static bool edp_pci_hold_copy(void *context)
 static bool edp_pci_hold_backing(void *context)
 {
     struct edp_adapter *a = context;
-    if (!a->decode_closed || !edp_pci_hold_held(a))
+    a->trace_reopen = true;
+    if (!edp_reopen_ok(a, REOPEN_OWNER, 0, a->decode_closed && edp_pci_hold_held(a))) {
+        a->trace_reopen = false;
         return false;
+    }
     /* The caller has positively read back MEM on with BME still off. */
     a->decode_closed = false;
     a->pci_backing_check = true;
     bool ok = edp_cycle_platform(a, true) && edp_flr_pixels(a);
     a->pci_backing_check = false;
+    a->trace_reopen = false;
     return ok;
 }
 
@@ -951,10 +1035,16 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                 for (unsigned i = 0; i < p->samples; ++i)
                     console_printf("intel-edp-pci-hold-word: v=1 phase=%u command=%x af=%x\n",
                         (uint64_t)i, (uint64_t)p->sample[i].command, (uint64_t)p->sample[i].af);
-                console_printf("intel-edp-pci-hold: v=1 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
+                console_printf("intel-edp-pci-hold: v=2 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
                     (uint64_t)p->complete, (uint64_t)p->samples, (uint64_t)p->writes, (uint64_t)p->polls,
                     p->elapsed_us, p->settle_us, p->first_clear_us, (uint64_t)p->cpu_copy, flr.ram_digest,
                     (uint64_t)p->backing, (uint64_t)p->retained);
+                for (unsigned i = 0; i < edp_session.reopen_count; ++i) {
+                    const struct edp_reopen_entry *e = &edp_session.reopen[i];
+                    console_printf("intel-edp-reopen: v=1 seq=%u check=%u at=%u ok=%u read=%u got=%u want=%u\n",
+                        (uint64_t)i, (uint64_t)e->check, (uint64_t)e->index,
+                        (uint64_t)e->ok, (uint64_t)e->sampled, e->observed, e->expected);
+                }
                 ready = ready && p->complete;
             }
             if (dark_well) {
