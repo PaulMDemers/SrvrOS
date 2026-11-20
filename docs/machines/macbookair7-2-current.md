@@ -189,6 +189,17 @@ into Ubuntu, closing as `DIAGNOSED` with offline USB integrity `PASS`.
 Native PCI function reset and whole-GPU memory retirement remain open.
 [Panel timing result](../intel-bdw-edp-recovery.md#panel-power-sequencer-timing-recovery).
 
+### Joined PCI reset recovery checkpoint
+
+PR301 on main `4016abf0` owns joining the verified PPS and PWM
+recovery to the modeled Air7,2 PCI reset and eDP source cycle. Work
+covers the Broadwell recovery core and its host fixture. The same
+display owner and PCI memory decode must survive into resource
+verification, and captured timings and duty must agree before the
+panel can light. A native AFCTL write still depends on independent
+GPU memory retirement and native recovery of all reset resources.
+The open Wi-Fi and WebCore PRs have distinct scopes.
+
 ## Owned blitter completion observed on Ubuntu
 
 On the Air7,2 Broadwell GPU, the i915 probe observed 20 fresh 64-bit post-sync
