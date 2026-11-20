@@ -160,9 +160,15 @@ Release `8f3ddab113407403` traced the refusal to mapping the fence page
 at MMIO offset `0x100000`. The display lease, all fourteen platform
 registers, and the live PCI endpoint checks passed at Command `0x0402`.
 The run saved its diagnostic and halted before invoking reset. USB
-integrity passed after the manual return. PR301 on main `4016abf0` will
-carry the already-validated held PCI Command into the eDP cache
-admission and persist the capture's disposition before the final save.
+integrity passed after the manual return.
+
+Release `c05862653e0d1140` passed the PCI decode hold with cache
+admission bound to the original display lease and verified Command
+`0x0402`. All 45 reopen checks passed. Both restored CRCs matched
+before backlight. The run selected return after save and unmount, and
+Ubuntu collected the session with verified USB integrity. The run
+closed as `DIAGNOSED` with zero retained state and zero PCI reset
+writes. [Decode-hold result](../intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
 ## Owned blitter completion observed on Ubuntu
 

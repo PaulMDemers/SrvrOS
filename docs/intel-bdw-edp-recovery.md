@@ -391,6 +391,16 @@ PAT/MTRR snapshot. The final log also records whether the eDP trial
 needs to halt with ownership retained or can return after saving and
 unmounting. The native return still depends on a successful full check.
 
+Release `c05862653e0d1140` completed the decode hold in Air7,2 session
+`session-000660acdda71ab0-00`. All 45 post-reopen checks passed,
+including all 32 fence registers, 1,484 translations and 5,529,600
+framebuffer bytes while bus mastering remained inhibited. The four
+Command stores and their readbacks took 197.831 ms including verification.
+Both restored CRCs matched `0xc2798333` before the backlight came on.
+The final receipt selected return after save and unmount, showed zero
+retained state and zero PCI reset writes, and the next Ubuntu boot
+collected one session with offline USB integrity `PASS`.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.
