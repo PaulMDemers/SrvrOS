@@ -87,7 +87,8 @@ class Receipts(unittest.TestCase):
         self.assertEqual((refusal['failure_stage'],refusal['scanout_range']['checked']),('scanout-range',1483))
         line=next(line for line in raw.splitlines() if line.startswith('intel-stolen-range:'))
         for bad in ('',line+'\n'+line,line.replace('fences=64','fences=63'),
-                    line.replace('missing=31','missing=0'),line.replace('obligations=255','obligations=0'),
+                    line.replace('missing=31','missing=0'),line.replace('closing_readers=42','closing_readers=41'),
+                    line.replace('obligations=255','obligations=0'),
                     line.replace('checked=1484','checked=1483'),re.sub(r'hash=\S+','hash=0',line)):
             with self.subTest(bad=bad),self.assertRaises(ValueError):
                 stolen_result(raw.replace(line,bad),required_version=9)

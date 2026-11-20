@@ -7,7 +7,7 @@ SCHEMAS={
     'run':'v sample range gpu bytes pages count reads first last hash bad_index bad_value',
     'reader':'v sample pipe count '+ ' '.join('w'+str(i) for i in range(13)),
     'policy':'v sample range index physical pages queried ok mtrr pat effective checks',
-    'range':'v epoch slot pages checked fences hash verified missing assurances obligations writes',
+    'range':'v epoch slot pages checked fences closing_readers hash verified missing assurances obligations writes',
     'hardware-gate':'v begin end firmware_transfer first_unmet writes',
     'hardware-config':'v sample count '+' '.join(f'w{i}' for i in range(11)),
     'hardware-readers':'v count '+' '.join(f'w{i}' for i in range(42)),
@@ -358,20 +358,22 @@ def stolen_result(text,*,native=False,required_version=None):
             raise ValueError('scanout range authority')
         if r['epoch']:
             v=rows['run'][4]
-            if (r['slot'],r['pages'])!=(8704,1484) or r['checked']>1484 or r['fences']>64 or not rows['guard'][0]['checked'] or rows['hardware-readers'][0]['count']!=42:
+            if (r['slot'],r['pages'])!=(8704,1484) or r['checked']>1484 or r['fences']>64 or r['closing_readers']>42 or not rows['guard'][0]['checked'] or rows['hardware-readers'][0]['count']!=42:
                 raise ValueError('scanout range geometry or guard')
-            if (r['checked'] and r['fences']<32) or (r['fences']>32 and r['checked']!=1484):
+            if (r['checked'] and r['fences']<32) or (r['fences']>32 and r['checked']!=1484) or (r['closing_readers'] and r['fences']!=64):
                 raise ValueError('scanout range read order')
             if r['hash']!=_hash(v['first'],r['checked']):
                 raise ValueError('scanout range original entries')
-        elif any(r[k] for k in ('slot','pages','checked','fences','verified','hash')):
+        elif any(r[k] for k in ('slot','pages','checked','fences','closing_readers','verified','hash')):
             raise ValueError('scanout range before source')
-        if r['missing']!=(31 if r['verified'] else 0) or (r['verified'] and (r['checked'],r['fences'])!=(1484,64)):
+        if r['missing']!=(31 if r['verified'] else 0) or (r['verified'] and (r['checked'],r['fences'],r['closing_readers'])!=(1484,64,42)):
             raise ValueError('incomplete scanout range')
+        if r['verified'] and dict(rows['hardware-config'][0],sample=1)!=rows['hardware-config'][1]:
+            raise ValueError('changed scanout requester or firmware endpoint')
         if hardware['observation_complete'] and not r['verified']:
             raise ValueError('missing scanout range observation')
         result['scanout_range']=r
-        range_reads=3*(r['fences']+r['checked'])
+        range_reads=3*(r['fences']+r['checked'])+r['closing_readers']
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -401,7 +403,7 @@ def stolen_result(text,*,native=False,required_version=None):
     entries=sum(size//4096 for _,size in spans)
     if wire>=5:maps+=6
     held_maps=5 if hardware and hardware['observation_complete'] else 0
-    maps+=held_maps+(5 if range_reads else 0)
+    maps+=held_maps+(10 if range_reads else 0)
     if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+range_reads+s.get('reader_reads',0)+(42 if held_maps else 0),2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]

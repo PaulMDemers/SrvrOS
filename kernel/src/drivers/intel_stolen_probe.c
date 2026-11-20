@@ -60,7 +60,7 @@ static struct {
  } handoff;
  struct {
   uint64_t epoch,digest;
-  unsigned first,pages,checked,fences,missing;
+  unsigned first,pages,checked,fences,closing_readers,missing;
   bool selected,verified;
  } range;
  const struct pci_device *gpu,*host;
@@ -488,7 +488,7 @@ static bool handoff_config(unsigned sample) {
  return true;
 }
 
-static bool handoff_readers(void) {
+static bool handoff_readers(bool closing) {
  const uint32_t auxiliary[]={0x43208,0x6f800,0x6f840};
  for(unsigned i=0;i<42;i++) {
   if(!tick(stolen.begin[1]))return false;
@@ -498,8 +498,13 @@ static bool handoff_readers(void) {
   uint32_t raw;
   if(!load(offset,&raw))return false;
   if(raw==UINT32_MAX)return refuse(31);
-  stolen.handoff.readers[i]=raw;
-  ++stolen.handoff.reader_reads;
+  if(closing) {
+   if(raw!=stolen.handoff.readers[i])return refuse(32);
+   ++stolen.range.closing_readers;
+  } else {
+   stolen.handoff.readers[i]=raw;
+   ++stolen.handoff.reader_reads;
+  }
  }
  return true;
 }
@@ -555,8 +560,10 @@ static bool observe_scanout_range(void) {
   if(raw!=interval.original[i] || raw!=stolen.pte[0][1][i])return refuse(32);
   stolen.range.digest=hash_word(stolen.range.digest,raw);++stolen.range.checked;
  }
- if(!range_fences() || !unmap() || !identity() || !sole_root() ||
-    !intel_window_handoff_revalidate(&stolen.source) || !tick(stolen.begin[1]))return refuse(32);
+ if(!range_fences() || !unmap() || !handoff_readers(true) || !unmap() ||
+    !handoff_config(1) || !equal_bytes(stolen.handoff.config[0],stolen.handoff.config[1],sizeof(stolen.handoff.config[0])) ||
+    !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source) ||
+    !tick(stolen.begin[1]))return refuse(32);
  /* Ask the same admission function used by the mapping transaction. Any
   * other outcome conflicts with this read-only source and its open obligations. */
  if(scanout_transfer_admission(&interval)!=TRANSFER_ASSURANCE)return refuse(32);
@@ -568,8 +575,8 @@ static bool observe_scanout_range(void) {
 static bool observe_handoff(void) {
  if(!tick(stolen.begin[1]))return false;
  stolen.handoff.begin=stolen.last;
- if(!handoff_config(0) || !handoff_readers() || !unmap() ||
-    (stolen.range.selected && !observe_scanout_range()) || !handoff_config(1) ||
+ if(!handoff_config(0) || !handoff_readers(false) || !unmap() ||
+    !(stolen.range.selected ? observe_scanout_range() : handoff_config(1)) ||
     !tick(stolen.begin[1]))return false;
  if(stolen.last<=stolen.handoff.begin)return refuse(31);
  stolen.handoff.end=stolen.last;
@@ -725,9 +732,9 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.range.selected)
-  console_printf("intel-stolen-range: v=1 epoch=%u slot=%u pages=%u checked=%u fences=%u hash=%x verified=%u missing=%u assurances=0 obligations=255 writes=0\n",
+  console_printf("intel-stolen-range: v=1 epoch=%u slot=%u pages=%u checked=%u fences=%u closing_readers=%u hash=%x verified=%u missing=%u assurances=0 obligations=255 writes=0\n",
    stolen.range.epoch,(uint64_t)stolen.range.first,(uint64_t)stolen.range.pages,(uint64_t)stolen.range.checked,
-   (uint64_t)stolen.range.fences,stolen.range.digest,(uint64_t)stolen.range.verified,(uint64_t)stolen.range.missing);
+   (uint64_t)stolen.range.fences,(uint64_t)stolen.range.closing_readers,stolen.range.digest,(uint64_t)stolen.range.verified,(uint64_t)stolen.range.missing);
  console_printf("intel-stolen-hardware-gate: v=1 begin=%u end=%u firmware_transfer=0 first_unmet=%s writes=0\n",
   stolen.handoff.begin,stolen.handoff.end,stolen.handoff.end?"firmware-transfer":
   stolen.cpu.observed && !stolen.cpu.admitted?"cpu-backing":"unresolved");

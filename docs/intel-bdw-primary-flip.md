@@ -183,7 +183,9 @@ The isolated Air7,2 census accepts the additional boot token
 the exact GPU interval for the second X-tiled image, including the 128 tail
 entries. The driver holds the display exclusion and VMM reservation guard
 while it checks all 32 hardware fences, rereads the 1,484 original entries,
-and checks all 32 fences again. Each entry must match both earlier complete
+and checks all 32 fences again. The 42 display-reader words, PCI requester
+state and firmware endpoint must agree before and after that interval.
+Each entry must match both earlier complete
 samples. This runs within the original two-second census budget.
 
 The collector checks the entry count, digest and fence counts independently.

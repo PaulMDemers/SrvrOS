@@ -156,7 +156,7 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
  case 0xd0:return 0x02a401;
  case 0xa4:return 0x03060013;
  case 0xa8:return model.mode==44 && stolen.handoff.config_reads[0]==11?0x100:0;
- case 0xfc:return 0x8ad03190;
+ case 0xfc:return (model.mode==52 && stolen.range.fences==64)?0x8ad04190:0x8ad03190;
  case 0xe8:return 0x8000;
  case 0x10:return 0xc0000004;
  case 0x14:return 0;
@@ -211,6 +211,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  case 0x6f800:*out=0x00100001;return true;
  case 0x6f840:*out=0;return true;
  default: {
+  if(model.mode==53 && stolen.range.fences==64 && offset==0x722bc){*out=4096;return true;}
   if(offset>=0x70000 && offset<0x73000) {
    unsigned p=(offset-0x70000)/0x1000,w=0;
    const unsigned offsets[]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x080,0x084,0x0ac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
@@ -294,12 +295,13 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- for(unsigned mode=49;mode<=51;mode++) {
+ for(unsigned mode=49;mode<=53;mode++) {
   reset();model.mode=mode;bool matched=mode==49;
   assert(intel_stolen_probe_report(range_command)==matched);
   assert(stolen.range.verified==matched && stolen.range.pages==1484 && stolen.range.first==8704);
   assert(stolen.range.checked==(mode==51?1483u:1484u));
   assert(stolen.range.fences==(mode==50?63u:mode==51?32u:64u));
+  assert(stolen.range.closing_readers==(mode==53?41u:mode==49 || mode==52?42u:0u));
   assert(stolen.fail==(matched?0u:32u) && !model.mapped && !model.held && !model.guard_live);++model.cases;
  }
  positive();
