@@ -8,6 +8,16 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Current PCI reopen trial
+
+PR301 will run the shared display resource recovery on this Air while the panel
+is dark, PCI memory decode is open and bus mastering is inhibited. The trial
+will release and reacquire only the driver well request while BIOS keeps the well
+powered, then check the original translations, framebuffer bytes and both CRCs.
+Scope covers the isolated eDP PCI-hold adapter, receipt and local hardware
+workflow on main `4016abf0`. The Wi-Fi and WebCore PRs are independent.
+A function reset still requires a live witness for outstanding GPU traffic.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
