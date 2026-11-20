@@ -71,6 +71,12 @@ the expected halt. The QEMU receipt records zero reservations and writes.
 The full 1,484-page flip, rollback, competing-owner and delayed-reader cases
 run in the host fixture. A physical flip remains pending.
 
+PR301's next checkpoint is a reversible one-page GGTT mapping under a live
+range transfer. The scope is Broadwell mapping preparation, the single-entry
+MMIO store and its local qualification. The private page and original display
+must remain pinned through restoration. An Ubuntu i915 private-page reference
+can exercise the physical aperture while that driver owns the device.
+
 ## Native display recovery after PCI decode reopens
 
 Release `40de8de2891163f4` (source `7e227182`) passed all 47 checks on this
