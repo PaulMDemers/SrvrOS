@@ -93,10 +93,14 @@ clearing, a follow-up observation needs to span wake release with a documented
 register-access path and an independently held display/requester guard.
 [Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
-PR301 is qualifying the display owner's traffic-block request on Broadwell.
-The work covers the PCI reset guard, loss of acknowledgements during acquisition,
-and the native power-manager interface. A physical reset requires a maintained
-request through decode closure and a fresh graphics remapper drain.
+PR301 now binds the modeled block to the display owner's original reset
+attempt. An observed client reopening or loss of an engine acknowledgement
+invalidates the transaction before decode closure. On this Air, an Ubuntu
+i915 trace recorded 60 park calls before obtaining the forcewake handle,
+zero during the hold and 49 after release. The engine and L3 message registers
+used for verification are in the render-forcewake range. The native PCI reset
+trial still needs an independently observable, maintained block.
+[Owner checks and Ubuntu trace](../intel-bdw-edp-recovery.md#display-owner-block-lifetime)
 
 ## Native eDP recovery scope
 

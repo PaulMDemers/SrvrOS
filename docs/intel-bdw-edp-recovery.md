@@ -616,3 +616,48 @@ cross-checked with i915. [Intel Broadwell Display PRM](https://xorg.freedesktop.
 [i915 timing and M/N](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_display.c) ·
 [i915 CRC sources](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pipe_crc.c) ·
 [i915 CRC-done interrupt setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_irq.c).
+
+### Display owner block lifetime
+
+In PR301 the provider receives the original reset-attempt object when it
+issues its request. Its CPU-side ownership check must identify that same
+request and display epoch through PCI decode closure, the remapper drain,
+the reset store and decode recovery. An uncertain issuance consumes the
+attempt. Before closing decode the core rejects any observed reversal in
+the six request bits or six response bits, loss of an engine flush
+acknowledgement, a previously blocked engine resuming, an L3 unblock or
+a foreign FLR preparation. The final PCI profile check precedes the final
+queue, engine, idle, L3 and arbiter reads.
+
+The active trigger in the recovery test is modeled. On Broadwell,
+`GO_GAM_REQ` carries GPM's request to the arbiter. `MSG_GO_GAM`, the
+five engine messages and the L3 message report hardware state. Intel
+describes the GPM as the originator and the L3 events as self-clearing.
+The register descriptions do not establish a CPU protocol for acquiring
+and holding ownership by overwriting the message bits.
+[Intel Broadwell register reference, pp. 587–592, 805–814, 859](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+A second candidate is i915's software RC6 park request. Linux v6.12 issues
+it after enabling RC6 on the initialized GT. On Broadwell, i915 uses the
+render-forcewake domain to read offsets below `0x40000`, including the
+request, five engine messages and L3 acknowledgement. Wake acquisition changes
+the power-state conditions under which those observations would be made.
+[i915 software park](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L692-L718)
+· [Register ranges](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L1231-L1233)
+· [Gen8 range selection](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L2448-L2452)
+
+The Air7,2 Ubuntu kernel `7.0.0-43-generic` produced the following trace
+in three 1.5-second intervals. A private ftrace instance counted i915
+function entries while sysfs supplied the GT0 RC6 residency counter.
+
+| Interval | Park calls | Unpark calls | RC6 residency gained |
+| --- | ---: | ---: | ---: |
+| Before forcewake | 60 | 61 | 1,075 ms |
+| Forcewake held | 0 | 0 | 0 ms |
+| After release | 49 | 48 | 1,145 ms |
+
+This trace tests the wake dependency on the Ubuntu driver. It supplies no
+engine or L3 completion receipt for SrvrOS. Enabling the native reset still
+requires a hardware block that survives the acknowledgement reads and remains
+under the original owner after decode closes, or an independently readable
+record of the handshakes under that same hold.

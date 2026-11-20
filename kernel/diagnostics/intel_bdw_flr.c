@@ -19,12 +19,14 @@ struct attempt {
     const struct bdw_flr_pci_image *image;
     const struct bdw_flr_drain *drain;
     uint64_t issued, last, traffic_begin;
+    uint32_t request_closed, response_closed, engine_ack, engine_go_closed, engine_blocked;
 };
 
 static bool check(struct attempt *a)
 {
     if (a->drain->attempt != a->report || !a->io->held(a->io->context) ||
-        !a->io->admitted(a->io->context, a->image, a->drain))
+        !a->io->admitted(a->io->context, a->image, a->drain) ||
+        (a->report->block_issued && !a->io->block_held(a->io->context, a->report)))
         return false;
     uint64_t now = a->io->now(a->io->context);
     if (!now || now == UINT64_MAX || now < a->last)
@@ -85,6 +87,16 @@ static bool gam(struct attempt *a, uint32_t allowed, bool *matches)
     if (!gt_word(a, 0x40d0, &request) || !gt_word(a, 0x8028, &response))
         return false;
     *matches = (request & GAM_CLIENTS) == allowed && (response & GAM_CLIENTS) == allowed;
+    if (!allowed) {
+        /* Each sampled client can close asynchronously. Reopening one
+         * invalidates the accumulated evidence, even while others are open. */
+        /* Bit 15 requests preparation for a PCI FLR, which this owner has
+         * not issued. It cannot belong to the pre-reset traffic block. */
+        if ((request & (a->request_closed | 0x8000u)) || (response & a->response_closed))
+            return false;
+        a->request_closed |= ~request & GAM_CLIENTS;
+        a->response_closed |= ~response & GAM_CLIENTS;
+    }
     /* An existing reset reason is foreign to this new transaction. */
     if (allowed && (request & 0xff00u))
         *matches = false;
@@ -103,8 +115,18 @@ static bool engines(struct attempt *a, bool blocked, bool *matches)
         uint32_t word;
         if (!gt_word(a, offsets[i], &word))
             return false;
-        if ((word & mask) != expected)
-            *matches = false;
+        bool ready = (word & mask) == expected;
+        if (blocked) {
+            uint32_t engine = 1u << i;
+            if (((a->engine_ack & engine) && !(word & 0x20u)) ||
+                ((a->engine_go_closed & engine) && (word & 0x10u)) ||
+                ((a->engine_blocked & engine) && !ready))
+                return false;
+            if (word & 0x20u) a->engine_ack |= engine;
+            if (!(word & 0x10u)) a->engine_go_closed |= engine;
+            if (ready) a->engine_blocked |= engine;
+        }
+        if (!ready) *matches = false;
     }
     return true;
 }
@@ -117,7 +139,7 @@ static bool block_traffic(struct attempt *a)
     if (!gam(a, GAM_CLIENTS, &arbiter) || !arbiter || !engines(a, false, &pipelines) ||
         !pipelines || !gt_word(a, 0x8038, &l3) || (l3 & 3u) || !check(a))
         return false;
-    enum intel_gt_write issued = a->io->block(a->io->context);
+    enum intel_gt_write issued = a->io->block(a->io->context, a->report);
     if (issued != GT_WRITE_NONE) {
         a->report->block_issued = true;
         a->report->retained = true;
@@ -137,6 +159,9 @@ static bool block_traffic(struct attempt *a)
         a->report->l3_ack |= (l3 & 1u) != 0;
         if (arbiter && pipelines && a->report->l3_ack && (eco & 1u)) {
             static const uint32_t queues[] = {0x12870, 0x12878, 0x1c870, 0x1c878};
+            /* Keep the closing hardware observations on the MMIO side of
+             * the last config check, immediately before the decode store. */
+            if (!profile(a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO)) return false;
             for (unsigned q = 0; q < sizeof(queues) / sizeof(queues[0]); ++q) {
                 uint32_t word;
                 if (!gt_word(a, queues[q], &word) || (word & 0xff0000u))
@@ -203,7 +228,7 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
     *report = (struct bdw_flr_report){0};
     if (!io || !image || !drain->source || !drain->result || !drain->retire_alias ||
         !io->held || !io->admitted || !io->read || !io->write ||
-        !io->now || !io->delay || !io->gt_read || !io->block || (image->bar[0] & 0xffffffu) != 4 ||
+        !io->now || !io->delay || !io->gt_read || !io->block || !io->block_held || (image->bar[0] & 0xffffffu) != 4 ||
         (image->bar[2] & 0xfffffffu) != 12 || image->subsystem != 0x011b106bu ||
         !image->bar[0] || !image->bar[2] || image->bar[1] || image->bar[3] ||
         image->bar[0] == 4 || image->bar[2] == 12)
@@ -214,7 +239,7 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
     struct attempt a = {.io = io, .report = report, .image = &saved, .drain = drain};
     if (child.source->consumer || child.result->object || !check(&a) ||
         !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) || !saved_resources(&a, &saved) ||
-        !block_traffic(&a) || !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) ||
+        !block_traffic(&a) ||
         !store(&a, 4, 2, PCI_INTX_DISABLE))
         return false;
     a.traffic_begin = 0;

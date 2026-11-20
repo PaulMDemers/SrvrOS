@@ -55,7 +55,11 @@ struct bdw_flr_io {
      * closure and drain, then through reset even if GT state is cleared.
      * No CPU message-register writes. */
     bool (*gt_read)(void *, uint32_t offset, uint32_t *);
-    enum intel_gt_write (*block)(void *);
+    enum intel_gt_write (*block)(void *, const struct bdw_flr_report *);
+    /* The provider registered this exact request under the live display epoch.
+     * This CPU-only check remains usable with PCI decode closed. Use it
+     * inside the remapper guard and immediately before protected stores too. */
+    bool (*block_held)(void *, const struct bdw_flr_report *);
 };
 
 /* Start with Command 0x403, MSI disabled and the display dark. Observe the
