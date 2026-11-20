@@ -17,8 +17,8 @@ VOLUME = "01234567"
 BOOT = "laptop-capture: boot options="
 
 
-def cmdline(cycle=False, flr=False, dark_well=False, pci_hold=False):
-    profile = 4 if pci_hold else 3 if dark_well else 2 if flr else cycle
+def cmdline(cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False):
+    profile = 5 if dark_pwm else 4 if pci_hold else 3 if dark_well else 2 if flr else cycle
     return next(line.partition("cmdline:")[2].strip() for line in
                 limine_config(RELEASE, EDP_CONFIGS[profile] + "laptop-probe-" +
                               VOLUME + "-auto-return").splitlines()
@@ -96,7 +96,7 @@ class EdpBaseline(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
             for mode in ("intel_edp_baseline", "intel_edp_cycle", "intel_edp_flr_preflight",
-                         "intel_edp_dark_well", "intel_edp_pci_hold"):
+                         "intel_edp_dark_well", "intel_edp_pci_hold", "intel_edp_dark_pwm"):
                 with patch.object(boot, "ROOT", root), patch.object(boot, "STAGE", stage), \
                         patch.object(boot.subprocess, "check_output", side_effect=["a" * 40, ""]):
                     release = boot.stage(laptop_probe_volume=VOLUME, **{mode: True})
@@ -275,6 +275,19 @@ class EdpBaseline(unittest.TestCase):
                 for index, word in enumerate(config):
                     flr += f"intel-edp-flr-config: v=1 phase={phase} index={index} word={word}\n"
             self.assertTrue(result(flr, cycle=True, flr=True)["diagnostic_complete"])
+            pwm = flr.replace(cmdline(flr=True), cmdline(dark_pwm=True))
+            pwm = pwm.replace("pch_pwm=0x80000000", "pch_pwm=0xc0000000")
+            pwm += ("intel-edp-pwm: v=1 complete=1 retained=0 writes=5 elapsed_us=120 "
+                    "before_ctl=0xc0000000 before_data=0x0ad90184 after_ctl=0xc0000000 after_data=0x0ad90184\n")
+            self.assertEqual(recipe(cmdline(dark_pwm=True), dark_pwm=True),
+                             dict(release=RELEASE, volume=VOLUME))
+            self.assertTrue(result(pwm, dark_pwm=True)["pwm"]["complete"])
+            for wrong in (pwm.replace("after_data=0x0ad90184", "after_data=0x0ad90000"),
+                          pwm.replace("writes=5 elapsed_us=120", "writes=4 elapsed_us=120"),
+                          pwm.replace("elapsed_us=120 before_ctl", "elapsed_us=25000 before_ctl"),
+                          pwm.replace("pch_pwm=0xc0000000", "pch_pwm=0x80000000")):
+                with self.assertRaises(ValueError):
+                    result(wrong, dark_pwm=True)
             for changed in (flr.replace("phase=1 digest=17", "phase=1 digest=18"),
                             flr.replace(f"phase=1 index=4 word={config[4]}", "phase=1 index=4 word=4"),
                             flr.replace("bytes=5529600 released=1 reset=0", "bytes=5529600 released=1 reset=1")):

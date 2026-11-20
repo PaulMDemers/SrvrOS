@@ -243,6 +243,90 @@ static void test_platform(void)
     assert(!platform_run(&f, &r) && r.retained && f.requested && r.writes == 1);
 }
 
+struct pwm_fixture {
+    struct bdw_edp_pwm_image pwm;
+    uint64_t time;
+    unsigned writes, uncertain, failed_readback;
+    bool lit, unsafe_route, frozen, rehearse, expired, lost;
+};
+
+static bool pwm_held(void *context)
+{
+    return !((struct pwm_fixture *)context)->lost;
+}
+
+static uint64_t pwm_now(void *context)
+{
+    struct pwm_fixture *f = context;
+    return f->frozen ? 0 : ++f->time;
+}
+
+static bool pwm_read(void *context, uint32_t offset, uint32_t *value)
+{
+    struct pwm_fixture *f = context;
+    switch (offset) {
+    case 0xc7204: *value = f->lit ? 7 : 0; break;
+    case 0xc7200: *value = f->lit ? 0x80000008u : 0x08000001u; break;
+    case 0x48250: *value = f->unsafe_route ? 0x80000000u : 0; break;
+    case 0xc2004: *value = 0x24; break;
+    case BDW_EDP_PWM_CONTROL: *value = f->pwm.control; break;
+    case BDW_EDP_PWM_DATA: *value = f->pwm.data; break;
+    default: assert(false);
+    }
+    return true;
+}
+
+static enum intel_gt_write pwm_write(void *context, uint32_t offset, uint32_t value)
+{
+    struct pwm_fixture *f = context;
+    const uint32_t regs[] = {BDW_EDP_PWM_DATA, BDW_EDP_PWM_CONTROL, BDW_EDP_PWM_DATA,
+                            BDW_EDP_PWM_CONTROL, BDW_EDP_PWM_DATA};
+    const uint32_t values[] = {0x0ad90000, 0x40000000, 0x0ad90000, 0xc0000000, 0x0ad90184};
+    unsigned n = f->writes + (f->rehearse ? 0 : 2);
+    assert(!f->lit && !f->unsafe_route && n < 5 && regs[n] == offset && values[n] == value);
+    ++f->writes;
+    uint32_t *word = offset == BDW_EDP_PWM_CONTROL ? &f->pwm.control : &f->pwm.data;
+    *word = value ^ (f->writes == f->failed_readback ? 1u : 0);
+    if (f->expired)
+        f->time += 25000;
+    return f->writes == f->uncertain ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+
+static void test_pwm(void)
+{
+    const struct bdw_edp_pwm_image target = {0xc0000000u, 0x0ad90184u};
+    struct bdw_edp_pwm_report report;
+    struct pwm_fixture f = {.time = 1};
+    const struct bdw_edp_pwm_io io = {&f, pwm_held, pwm_read, pwm_write, pwm_now};
+    assert(intel_bdw_edp_pwm_restore(&io, target, false, &report) && report.writes == 3);
+    assert(report.before.control == 0 && report.before.data == 0);
+    f = (struct pwm_fixture){.pwm = target, .time = 1, .rehearse = true};
+    assert(intel_bdw_edp_pwm_restore(&io, target, true, &report) && report.writes == 5);
+    assert(report.complete && !report.retained &&
+           report.after.control == target.control && report.after.data == target.data);
+    for (unsigned i = 1; i <= 5; ++i) {
+        f = (struct pwm_fixture){.pwm = target, .time = 1, .rehearse = true, .uncertain = i};
+        assert(!intel_bdw_edp_pwm_restore(&io, target, true, &report));
+        assert(report.retained && report.writes == i && !report.complete);
+        f = (struct pwm_fixture){.pwm = target, .time = 1, .rehearse = true, .failed_readback = i};
+        assert(!intel_bdw_edp_pwm_restore(&io, target, true, &report));
+        assert(report.retained && report.writes == i && !report.complete);
+    }
+    const struct pwm_fixture refused[] = {
+        {.time = 1, .lit = true}, {.time = 1, .unsafe_route = true},
+        {.time = 1, .frozen = true}, {.time = 1, .lost = true},
+        {.time = 1, .pwm = {0x40000000, 0x0ad80001}},
+    };
+    for (unsigned i = 0; i < sizeof(refused) / sizeof(refused[0]); ++i) {
+        f = refused[i];
+        assert(!intel_bdw_edp_pwm_restore(&io, target, false, &report));
+        assert(!report.retained && !report.writes);
+    }
+    f = (struct pwm_fixture){.time = 1, .expired = true};
+    assert(!intel_bdw_edp_pwm_restore(&io, target, false, &report));
+    assert(report.retained && report.writes == 1 && report.elapsed_us >= 25000);
+}
+
 int main(void)
 {
     struct fixture f = {0};
@@ -282,6 +366,7 @@ int main(void)
         assert(f.iir & 2u);
     }
     test_platform();
+    test_pwm();
     puts("Broadwell eDP baseline: CRC freshness, PHY, display-well request and exact rollback passed");
     return 0;
 }

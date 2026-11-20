@@ -401,6 +401,26 @@ The final receipt selected return after save and unmount, showed zero
 retained state and zero PCI reset writes, and the next Ubuntu boot
 collected one session with offline USB integrity `PASS`.
 
+#### Backlight PWM recovery
+
+The `intel-edp-dark-pwm-v1` profile captures the inherited PCH PWM control
+and duty before shutdown. With the panel off, CPU PWM disabled and the
+original display lease held, it zeros duty and disables PCH PWM. The
+recovery writes the original period with zero duty, enables the original
+override, then restores the captured duty. Every store requires exact
+readback. The current profile verifies but leaves the PCH granularity
+setting in place. The original framebuffer and two matching CRCs still
+have to pass before lighting the panel.
+[Broadwell Display PRM, backlight enabling sequence, p. 154](https://cdrdv2-public.intel.com/690828/intel-gfx-prm-osrc-bdw-vol-11-display.pdf) ·
+[Linux i915 Lynx Point backlight initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_backlight.c).
+
+The host fixture tests recovery from disabled, zeroed PWM registers and
+the native rehearsal sequence. It injects uncertain stores and bad
+readbacks at each write and checks refusal with the panel on, with the
+wrong PWM route, and after losing the lease or clock. The native profile
+leaves PCI decode and the display clock running. Physical function reset
+and whole-device memory retirement remain separate prerequisites.
+
 The post-reset host fixture now models a 675 MHz reference and a locked
 450 MHz reset clock. It tests the resulting 225 AUX divider, the original
 2.7 Gbit/s link, and both matching primary-plane CRCs before backlight.

@@ -48,4 +48,33 @@ struct bdw_edp_platform_io {
 bool intel_bdw_edp_platform_trial(const struct bdw_edp_platform_io *,
                                   struct bdw_edp_platform_report *);
 
+#define BDW_EDP_PWM_CONTROL 0xc8250u
+#define BDW_EDP_PWM_DATA 0xc8254u
+
+struct bdw_edp_pwm_image {
+    uint32_t control, data;
+};
+
+struct bdw_edp_pwm_io {
+    void *context;
+    bool (*held)(void *);
+    bool (*read)(void *, uint32_t, uint32_t *);
+    enum intel_gt_write (*write)(void *, uint32_t, uint32_t);
+    uint64_t (*now)(void *);
+};
+
+struct bdw_edp_pwm_report {
+    struct bdw_edp_pwm_image before, after;
+    uint64_t elapsed_us;
+    unsigned writes;
+    bool complete, retained;
+};
+
+/* Restore the captured Air7,2 PWM from disabled state at a dark, owned
+ * panel. The rehearsal first zeros duty while enabled and disables PWM.
+ * The caller owns the live display lease and separately verifies backing,
+ * link and CRC before requesting panel backlight. */
+bool intel_bdw_edp_pwm_restore(const struct bdw_edp_pwm_io *, struct bdw_edp_pwm_image,
+                                bool rehearse, struct bdw_edp_pwm_report *);
+
 #endif

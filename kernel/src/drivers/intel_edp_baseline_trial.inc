@@ -31,8 +31,10 @@ struct edp_flr_preflight {
     uint32_t pci[3][EDP_FLR_PCI_WORDS];
     unsigned pixel_samples, pci_samples;
     bool released;
-    bool exercise_well, exercise_pci;
+    bool exercise_well, exercise_pci, exercise_pwm;
     struct bdw_pci_hold_report pci_hold;
+    struct bdw_edp_pwm_image pwm_image;
+    struct bdw_edp_pwm_report pwm;
     uint64_t ram_digest;
     struct {
         uint32_t bios, driver, pps;
@@ -157,7 +159,8 @@ static bool edp_map_all(struct edp_adapter *a)
         uint64_t flags = VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE;
         if (page == 0x44000 || page == 0x60000 || (a->platform && page == 0x45000) ||
             (a->run_cycle && (page == 0x46000 || page == 0x64000 || page == 0x6f000 ||
-                              page == 0x70000 || page == 0x7f000 || page == 0xc7000)))
+                              page == 0x70000 || page == 0x7f000 || page == 0xc7000)) ||
+            (a->flr && a->flr->exercise_pwm && page == 0xc8000))
             flags |= VMM_PAGE_WRITABLE;
         if (!vmm_map_page_in_space(a->backing.common.cr3, va, physical, flags)) {
             a->map_fault = vmm_virt_to_phys_in_space(a->backing.common.cr3, va, &existing);
@@ -683,10 +686,45 @@ static bool edp_pci_hold_backing(void *context)
     return ok;
 }
 
+static bool edp_pwm_held(void *context)
+{
+    struct edp_adapter *a = context;
+    return a->flr && a->flr->exercise_pwm && a->image && edp_source_held(a, a->image);
+}
+
+static enum intel_gt_write edp_pwm_write(void *context, uint32_t offset, uint32_t value)
+{
+    struct edp_adapter *a = context;
+    static const uint32_t registers[] = {
+        BDW_EDP_PWM_DATA, BDW_EDP_PWM_CONTROL, BDW_EDP_PWM_DATA, BDW_EDP_PWM_CONTROL, BDW_EDP_PWM_DATA
+    };
+    if (!edp_pwm_held(a))
+        return GT_WRITE_NONE;
+    const struct bdw_edp_pwm_image *saved = &a->flr->pwm_image;
+    const uint32_t period = saved->data & 0xffff0000u;
+    const uint32_t values[] = {period, 0x40000000u, period, saved->control, saved->data};
+    unsigned n = a->flr->pwm.writes;
+    if (n >= sizeof(registers) / sizeof(registers[0]) || registers[n] != offset || values[n] != value)
+        return GT_WRITE_NONE;
+    volatile uint32_t *word = edp_mmio(a, offset);
+    if (!word || !edp_pwm_held(a))
+        return GT_WRITE_NONE;
+    *word = value;
+    return GT_WRITE_DONE;
+}
+
+static bool edp_rehearse_pwm(struct edp_adapter *a)
+{
+    const struct bdw_edp_pwm_io io = {a, edp_pwm_held, edp_read, edp_pwm_write, now};
+    return intel_bdw_edp_pwm_restore(&io, a->flr->pwm_image, true, &a->flr->pwm);
+}
+
 static enum bdw_edp_dark_result edp_flr_dark(void *context, const struct bdw_edp_source_image *image)
 {
     struct edp_adapter *a = context;
     if (!edp_source_held(a, image) || (a->flr->exercise_well && !edp_dark_well(a)))
+        return BDW_EDP_DARK_REFUSED;
+    if (a->flr->exercise_pwm && !edp_rehearse_pwm(a))
         return BDW_EDP_DARK_REFUSED;
     if (a->flr->exercise_pci) {
         const struct bdw_pci_hold_io io = {
@@ -854,6 +892,11 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
         current.imr != ref->original_mask || current.imr != a->cycle->imr ||
         current.ier || current.iir || ref->sample.cdclk != 674u)
         return false;
+    if (a->flr && a->flr->exercise_pwm) {
+        a->flr->pwm_image.data = pwm;
+        if (!edp_read(a, BDW_EDP_PWM_CONTROL, &a->flr->pwm_image.control))
+            return false;
+    }
     struct bdw_edp_source_image image = {
         .backing = &backing, .epoch = now(a), .mapped_bytes = BDW_EDP_BACKING_PAGES * 4096ull,
         .backing_hash = ref->sample.backing_hash, .reference_crc = ref->crc[2],
@@ -964,7 +1007,7 @@ static bool edp_try(struct bdw_edp_baseline_report *r, struct bdw_edp_platform_r
 }
 
 bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight,
-                             bool dark_well, bool pci_hold)
+                             bool dark_well, bool pci_hold, bool dark_pwm)
 {
     static bool attempted;
     if (attempted || !retained)
@@ -984,7 +1027,9 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
     struct bdw_edp_platform_report platform = {0};
     struct edp_cycle_observation cycle = {0};
     struct edp_native_cycle native = {0};
-    struct edp_flr_preflight flr = {.exercise_well = dark_well, .exercise_pci = pci_hold};
+    struct edp_flr_preflight flr = {
+        .exercise_well = dark_well, .exercise_pci = pci_hold, .exercise_pwm = dark_pwm,
+    };
     for (unsigned i = 0; i < 3; ++i) {
         /* Start from identical glyph, cursor and margin state every time.
          * edp_try drains presentation before it pins out other CPU writers. */
@@ -1057,6 +1102,14 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
             off->elapsed_us, (uint64_t)c->mask_error);
         if (flr_preflight) {
             bool ready = restored && flr.pixel_samples == 3 && flr.pci_samples == 3 && flr.released;
+            if (dark_pwm) {
+                const struct bdw_edp_pwm_report *p = &flr.pwm;
+                console_printf("intel-edp-pwm: v=1 complete=%u retained=%u writes=%u elapsed_us=%u before_ctl=%x before_data=%x after_ctl=%x after_data=%x\n",
+                    (uint64_t)p->complete, (uint64_t)p->retained, (uint64_t)p->writes, p->elapsed_us,
+                    (uint64_t)p->before.control, (uint64_t)p->before.data,
+                    (uint64_t)p->after.control, (uint64_t)p->after.data);
+                ready = ready && p->complete;
+            }
             if (pci_hold) {
                 const struct bdw_pci_hold_report *p = &flr.pci_hold;
                 for (unsigned i = 0; i < p->samples; ++i)

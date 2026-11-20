@@ -678,7 +678,8 @@ def main():
                             flr = manifest["config_version"].startswith(boot.EDP_CONFIGS[2:])
                             dark_well = manifest["config_version"].startswith(boot.EDP_CONFIGS[3])
                             pci_hold = manifest["config_version"].startswith(boot.EDP_CONFIGS[4])
-                            trial = dict(cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold)
+                            dark_pwm = manifest["config_version"].startswith(boot.EDP_CONFIGS[5])
+                            trial = dict(cycle=cycle, flr=flr, dark_well=dark_well, pci_hold=pci_hold, dark_pwm=dark_pwm)
                             assert checkpoint(pre, terminal, native=False, **trial)
                             edp = result(terminal, native=False, **trial)
                             assert not edp["complete"] and not edp["retained"]

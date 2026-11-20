@@ -236,6 +236,12 @@ original CRCs and returns after saving a safely retired outcome. The
 profile is silent at 1% host volume. If the screen stays dark for 60
 seconds, restart manually. [PCI decode hold](intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
 
+The explicit `--profile intel-edp-dark-pwm-v1` tests recovery of the
+original backlight PWM with the panel off, then checks the framebuffer and
+both display CRCs. It is silent at 1% host volume and returns after saving
+a safely retired result. If the panel stays dark for 60 seconds, restart
+manually. [Backlight PWM recovery](intel-bdw-edp-recovery.md#backlight-pwm-recovery).
+
 The v49 census and historical progress-enabled v48 frozen contract add `stolen-progress.log` to
 its three original raw logs. The collector preserves and parses its pending
 operation history before refusing a missing exit snapshot. See the
