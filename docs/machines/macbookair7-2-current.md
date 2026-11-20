@@ -74,6 +74,12 @@ boot firmware leaves enabled, and how SrvrOS can hold new requests off
 and observe engine and cache completion before closing PCI decode.
 [Dark-display samples and recovery](../intel-bdw-edp-recovery.md#gt-power-state-during-the-dark-pci-hold)
 
+The next PR301 diagnostic will read the inherited Broadwell RC control,
+software target, timeout threshold and power manager's GAM request alongside
+the existing engine, media and arbiter samples. It uses the Air7,2 GT wake
+lease, adapter fixtures and USB collector. The checkpoint is a source-bound
+comparison before engine preparation, after preparation and after GT reset.
+
 ## Native eDP recovery scope
 
 PR301 owns the Broadwell port-A AUX transport and fixed-mode eDP link
