@@ -7,6 +7,8 @@
 #include <srvros/wifi_abi.h>
 long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *);
 long srv_wifi_select(const struct srv_wifi_select *);
+long srv_wifi_connect(const struct srv_wifi_select *);
+long srv_wifi_disconnect(const struct srv_wifi_select *);
 #include <srvros/thermal_abi.h>
 #include <srvros/smc_abi.h>
 #include <srvros/scheduler_abi.h>

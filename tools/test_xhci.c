@@ -727,13 +727,18 @@ uint64_t timer_monotonic_us(void) {
     return test_time;
 }
 static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign,stop_on_wait;
+static bool test_io_gate_allowed;
+static void (*test_storage_wait_hook)(struct xhci_device *);
 static unsigned wait_calls,bulk_wakes;
 uint64_t timer_ticks(void) { return test_time/10000; }
 bool scheduler_io_busy(void) { return test_io_foreign; }
 bool scheduler_io_active(void) { return test_io_active; }
 bool scheduler_io_yield(void) { return false; }
-bool scheduler_io_begin(void) { return false; }
-void scheduler_io_end(void) { abort(); }
+bool scheduler_io_begin(void) {
+    if(!test_io_gate_allowed || test_io_active)return false;
+    return test_io_active=true;
+}
+void scheduler_io_end(void) { assert(test_io_gate_allowed && test_io_active);test_io_active=false; }
 bool timer_reference_ready(void) { return false; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
@@ -754,6 +759,7 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
         dispatch_transfer_event(&key);wait_keyboard=false;
     }
     test_time=deadline*10000+service_pause;service_pause=0;
+    if(test_storage_wait_hook)test_storage_wait_hook(d);
     (void)timer_monotonic_us();poll_hid_events_once();
     if(d->bulk_done)test_time+=resume_delay;
     return true;

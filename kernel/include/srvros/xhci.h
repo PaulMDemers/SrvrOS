@@ -148,6 +148,11 @@ struct mt76_net5;
 bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context);
 /* Explicit Event Data transport with the same bounded workload contract. */
 bool xhci_wifi_capture_stack5_paired(bool (*exercise)(void *,struct mt76_net5 *),void *context);
+/* Runs one explicit desktop connection on the verified 5 GHz peer. The
+ * caller starts the desktop via begin and reports its lifetime via running.
+ * A returned success proves the desktop connection and its complete close. */
+bool xhci_wifi_capture_desktop5(void *context,bool (*begin)(void *),bool (*running)(void *));
+bool xhci_wifi_desktop5_return_safe(void);
 /* Explicit v137 production DHCP/DNS/64 exact ICMP workload and saved receipts. */
 bool xhci_wifi_capture_stack5_probe(void);
 /* Explicit two fresh native connection lifetimes under one adapter parent. */

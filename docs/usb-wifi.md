@@ -22,6 +22,20 @@ live reattach,authentication/network TX or IP. Ordinary startup leaves diagnosti
 radio operations disabled. Dated milestones below must not reinstate withdrawn
 2.4GHz model assumptions or transfer acceptance between sources.
 
+## Attended 5 GHz desktop connection
+
+The explicit v150 profile adds `--wifi-desktop-owner` to the automatic v138
+cleanup-stack workspace recipe. It opens the desktop only after the native
+driver verifies the fixed channel 161 peer. System's Connect and Disconnect
+controls request work from the native owner. A resident network worker handles
+ordinary traffic after WPA and DHCP, including during an isolated USB storage
+bulk transfer. Help opens the checklist automatically.
+
+The profile supports one association per boot. Safe disconnect withdraws
+IPv4 and proves endpoint, key and provider retirement. The current unit
+handoff tracks native validation and the remaining reconnect and reattach
+work. [MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
+
 ## Calibration response-loss tracing (November 11)
 
 The explicit fixed5GHz calibration path now emits `wifi-mcu-loss-summary` and

@@ -2379,8 +2379,9 @@ int main(int argc,char **argv) {
     int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
     int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
     int wifi_trial=argc==2 && !strcmp(argv[1],"--wifi-trial");
+    int wifi_managed_trial=argc==2 && !strcmp(argv[1],"--wifi-managed-trial");
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
-    int hardware_trial=wifi_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
+    int hardware_trial=wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
@@ -2400,7 +2401,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((wifi_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((wifi_trial || wifi_managed_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { ui_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -2463,6 +2464,7 @@ int main(int argc,char **argv) {
     s.capture_owner=&capture_worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
+    else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,"wifi-managed-trial");
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");

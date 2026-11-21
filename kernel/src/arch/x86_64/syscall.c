@@ -3136,12 +3136,14 @@ static int64_t syscall_net_list(uint64_t index, struct srv_net_info *info) {
     return copy_net_struct_to_user(info, &copy, sizeof(copy)) ? next : -1;
 }
 
-/* Cache-only operations: never initiate scans, RF/USB transfers or a join. */
+/* Cache and queued operations only. The native owner runs RF/USB and IP. */
 static int64_t syscall_wifi(uint64_t op,uint64_t owner,void *user) {
-    if(op==SRV_WIFI_SELECT) {
+    if(op==SRV_WIFI_SELECT || op==SRV_WIFI_CONNECT || op==SRV_WIFI_DISCONNECT) {
         struct srv_wifi_select request;
         if(owner || !copy_from_user(&request,user,sizeof request))return SRV_WIFI_INVALID;
-        uint64_t flags=irq_save();int result=wifi_service_select(&request);irq_restore(flags);return result;
+        uint64_t flags=irq_save();
+        int result=op==SRV_WIFI_SELECT?wifi_service_select(&request):wifi_service_request((unsigned)op,&request);
+        irq_restore(flags);return result;
     }
     if(op!=SRV_WIFI_SNAPSHOT || !abi_user_struct_size(user,sizeof(struct srv_wifi_snapshot),SRV_WIFI_VERSION))return SRV_WIFI_INVALID;
     struct srv_wifi_snapshot *copy=kmalloc(sizeof *copy);if(!copy)return SRV_WIFI_UNAVAILABLE;

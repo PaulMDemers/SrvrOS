@@ -21,6 +21,16 @@ int wifi_service_snapshot(uint64_t,struct srv_wifi_snapshot *);
 /* Trial UI admission only; does not accept discovery or authorize RF work. */
 bool wifi_service_trial_ready(int,const struct srv_wifi_snapshot *,bool allow_empty);
 int wifi_service_select(const struct srv_wifi_select *);
+/* A native owner may publish its already validated fixed-channel peer. The
+ * syscall only queues an operation. Only the original owner can consume and
+ * finish it after its actual RF/IP lifecycle reaches the corresponding state. */
+struct mt76_peer5;
+struct wifi_service_command { uint64_t serial; unsigned operation; };
+uint64_t wifi_service_publish_connection(const struct wifi_service_provider *,const struct mt76_peer5 *);
+int wifi_service_request(unsigned operation,const struct srv_wifi_select *);
+bool wifi_service_take(uint64_t,void *,struct wifi_service_command *);
+bool wifi_service_finish(uint64_t,void *,const struct wifi_service_command *,bool success);
+void wifi_service_seal_connection(uint64_t,void *,bool success);
 struct wifi_service_counts { uint64_t published,reads,selected,stale,refused,removed; };
 /* Anonymous boot-lifetime totals, saturating; same serialized CPU0 contract. */
 void wifi_service_counts(struct wifi_service_counts *);

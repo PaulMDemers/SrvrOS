@@ -221,8 +221,10 @@ bool net_bounded_probe_disconnect(struct net_bounded_probe *probe);
 /* Transfer a DHCP-configured scope to the normal kernel worker. The worker
  * outlives client tasks and parks on stop. Keep the original scope object and
  * device alive until stop succeeds. Stop refuses while TCP/UDP have borrowers;
- * hardware/key teardown is exclusively the caller's responsibility afterward. */
-bool net_bounded_connection_start_worker(struct net_bounded_probe *probe);
+ * hardware/key teardown is exclusively the caller's responsibility afterward.
+ * A provider can opt into I/O-gate service with a nonblocking admission check
+ * that is also safe to call with interrupts disabled. */
+bool net_bounded_connection_start_worker(struct net_bounded_probe *probe,bool (*io_safe)(void));
 bool net_bounded_connection_stop_worker(struct net_bounded_probe *probe);
 bool net_bounded_probe_current(struct net_bounded_probe *probe);
 bool net_bounded_probe_poll(struct net_bounded_probe *probe);

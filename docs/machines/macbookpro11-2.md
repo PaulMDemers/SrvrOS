@@ -15,6 +15,21 @@ handling, the resident worker and connection requests from System. PR #301
 covers GPU ownership and PR #379 covers WebCore. Qualify the production code
 with controller and scheduler fixtures before arming a physical trial.
 
+The attended v150 profile exposes the verified fixed channel 161 peer in
+System. Connect starts WPA and DHCP, then hands the configured interface to a
+kernel worker that survives client exits and the earlier diagnostic traffic
+limits. The worker can run during an independently addressed USB storage bulk
+transfer. Controller commands and unproven DMA isolation exclude that service
+turn. Disconnect waits for socket and transmit borrowers, withdraws IPv4, and
+retires the WPA, USB endpoint and provider owners before System reports the
+session closed. Help opens the connect, network, USB file and exit checklist.
+
+The profile covers one association in a desktop session. DHCP lease renewal,
+WPA rekey, reconnect from System and adapter reinsertion remain open. An
+adapter loss that prevents proving DMA retirement retains ownership and
+blocks automatic workspace writes and return. The installed recovery payload
+is independent of this trial.
+
 ### Persistent 5 GHz and desktop controls
 
 Descriptor reuse work starts from `47cc3a33` with `origin/main` at `4016abf0`.

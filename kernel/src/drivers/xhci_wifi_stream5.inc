@@ -45,9 +45,10 @@ struct wifi_stream5_state {
  struct {uint32_t ext[2][17],fifo[2][17];unsigned count[2];bool attempted[2],empty[2],complete[2];} auth_radio;
  struct xhci_trb stops[2];uint32_t snapshots[10][2][8];
  uint64_t completion_cookie[2];
- struct wifi_stream5_record records[WIFI_STREAM5_RX+WIFI_STREAM5_TX];unsigned record_count,rx_record;
- uint64_t posts[2],completions[2];unsigned tx_kind;unsigned slot;unsigned wraps[2],phase,commands,stop_dci,stop_events[2],rx_residue,cached_type,cached_size,data_sends,data_received,data_after_txwrap,data_after_rxwrap,drained;
- bool paired,connection_mode,connection_closed,stack_mode,defer_m1_duplicate,discover_retry,attempted,active,failed,toggle_synced,pending[2],stop_was_pending[2],ready_rx,cached_present,data_active,closed,restored,retired,events_empty,parent_complete,complete;
+ struct wifi_stream5_record records[WIFI_STREAM5_RX+WIFI_STREAM5_TX+2];unsigned record_count,rx_record;
+ uint64_t posts[2],completions[2],data_sends,data_received,data_after_txwrap,data_after_rxwrap;
+ unsigned tx_kind,slot,wraps[2],phase,commands,stop_dci,stop_events[2],rx_residue,cached_type,cached_size,drained;
+ bool paired,resident,connection_mode,connection_closed,stack_mode,defer_m1_duplicate,discover_retry,attempted,active,failed,toggle_synced,pending[2],stop_was_pending[2],ready_rx,cached_present,data_active,closed,restored,retired,events_empty,parent_complete,complete;
 };
 /* A connection is never reset/reused. The bounded reconnect owner may select
  * one fresh second context after the first connection's exact close proof. */
@@ -62,6 +63,10 @@ static struct wifi_stream5_state *wifi_stream5_current=&wifi_stream5_slots[0];
 static unsigned wifi_stream5_positions(void){return wifi_stream5.paired?WIFI_STREAM5_PAIRED_SLOTS:wifi_stream5.connection_mode?127u:63u;}
 static unsigned wifi_stream5_stride(void){return wifi_stream5.paired?MT76_DMA5_PAIRED_STRIDE:16u;}
 static unsigned wifi_stream5_link_index(void){return wifi_stream5_positions()*wifi_stream5_stride()/16u;}
+static bool wifi_stream5_credit(unsigned dir,unsigned reserve){
+ uint64_t limit=wifi_stream5.resident?WIFI_STREAM5_COOKIE_MAX:(dir?WIFI_STREAM5_RX:WIFI_STREAM5_TX);
+ return wifi_stream5.posts[dir]<limit-reserve;
+}
 static void wifi_stream5_link(struct xhci_trb *ring,uint64_t phys,bool cycle){
  ring[wifi_stream5_link_index()]=(struct xhci_trb){.parameter_low=(uint32_t)phys,.parameter_high=phys>>32,
   .control=(XHCI_TRB_TYPE_LINK<<10)|(1u<<1)|(cycle?1u:0u)};
@@ -167,8 +172,32 @@ static bool wifi_stream5_context(void){
  }
  return true;
 }
+/* A disk bulk waiter can yield with its DMA live. On the paired data path it
+ * owns a different device and never publishes a controller command. Both
+ * consumers still dispatch via the single IRQ-serialized event ring. */
+static bool wifi_stream5_storage_shared(void){
+ const struct xhci_device *disk=xhci.storage_sync_owner;
+ if(!wifi_stream5.resident || !wifi_stream5.paired || !wifi_stream5.data_active || xhci.sync_users!=1 ||
+    xhci.command_pending || !disk || disk==wifi_stream5.d || !disk->slot_id ||
+    disk->slot_id==wifi_stream5.slot || !disk->present || disk->removed ||
+    disk->retiring || disk->bulk_failed || !(disk->bulk_pending || disk->bulk_done))return false;
+ const struct xhci_bulk_endpoint *ep=disk->bulk_ep[0].dci==disk->bulk_dci?&disk->bulk_ep[0]:&disk->bulk_ep[1];
+ if(!ep->dci || ep->dci!=disk->bulk_dci || !ep->ring_phys || !disk->bulk_buffer_phys ||
+    (ep->ring_phys&4095) || (disk->bulk_buffer_phys&4095) ||
+    disk->bulk_trb<ep->ring_phys || disk->bulk_trb-ep->ring_phys>=4096 ||
+    (disk->bulk_trb&15))return false;
+ for(unsigned dir=0;dir<2;dir++){
+  if(ep->ring_phys==wifi_stream5.physical[dir] || disk->bulk_buffer_phys==wifi_stream5.physical[dir])return false;
+  for(unsigned p=0;p<4;p++)if(ep->ring_phys==wifi_stream5.pages[dir][p] ||
+                             disk->bulk_buffer_phys==wifi_stream5.pages[dir][p])return false;
+ }
+ return true;
+}
 static bool wifi_stream5_owned(void *c,bool cleanup){
- (void)cleanup;bool good=c==&wifi_stream5 && wifi_stream5_base() && wifi_stream5_context() && !xhci.sync_users && !wifi_stream5.d->control_pending && !wifi_stream5.d->firmware.pending && !wifi_stream5.d->firmware.mcu.pending && !strict_control.device;
+ bool good=c==&wifi_stream5 && wifi_stream5_base() && wifi_stream5_context() &&
+  (!xhci.sync_users || (!cleanup && wifi_stream5_storage_shared())) &&
+  !wifi_stream5.d->control_pending && !wifi_stream5.d->firmware.pending &&
+  !wifi_stream5.d->firmware.mcu.pending && !strict_control.device;
  if(good && xhci.command_pending)good=wifi_fence5_native.bound && wifi_fence5_native.round && !wifi_fence5_native.failed && wifi_fence5_native.dma==&wifi_stream5.dma;
  return good;
 }
@@ -225,8 +254,14 @@ static bool wifi_stream5_event(struct xhci_device *d,const struct xhci_trb *e){
    wifi_stream5.shadow[dir][index].control==((XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|(dir?XHCI_TRB_ISP:0)|l->cycle);
   uint64_t finished=good?timer_monotonic_us():0;
   if(good)good=mt76_dma5_complete(&wifi_stream5.dma,l,cc,res,finished);
-  if(good){uint64_t started=wifi_stream5.dma.pages[dir][l->index].started;unsigned i=wifi_stream5.record_count;if(i>=WIFI_STREAM5_RX+WIFI_STREAM5_TX)good=false;else{
-    wifi_stream5.records[i]=(struct wifi_stream5_record){.started_us=started,.finished_us=finished,.event=*e,.ticket=l->ticket,.token=l->token,.pn=wifi_stream5.data_pn,.direction=dir,.kind=dir?0:wifi_stream5.tx_kind,.page=l->index,.cycle=l->cycle,.bytes=l->length-res};wifi_stream5.record_count++;
+  if(good){uint64_t started=wifi_stream5.dma.pages[dir][l->index].started;unsigned i=wifi_stream5.record_count;
+   if(i<WIFI_STREAM5_RX+WIFI_STREAM5_TX)wifi_stream5.record_count++;
+   else if(wifi_stream5.resident)i+=dir;
+   else good=false;
+   if(good){
+    /* Keep the diagnostic prefix. Later transfers reuse one receipt per
+     * direction so RX classification cannot race the next TX completion. */
+    wifi_stream5.records[i]=(struct wifi_stream5_record){.started_us=started,.finished_us=finished,.event=*e,.ticket=l->ticket,.token=l->token,.pn=wifi_stream5.data_pn,.direction=dir,.kind=dir?0:wifi_stream5.tx_kind,.page=l->index,.cycle=l->cycle,.bytes=l->length-res};
     if(!dir && wifi_stream5.tx_kind==WIFI_STREAM5_DATA_TX && l->length>=24){
      const uint8_t *b=wifi_stream5.buffer[0][l->index];struct wifi_stream5_record *r=&wifi_stream5.records[i];
      r->rate=b[6]|((unsigned)b[7]<<8);r->ack=b[8]&1;r->wcid=b[9];r->mpdu=b[10]|((unsigned)b[11]<<8);r->packet=wifi_stream5.tx_packet;
@@ -305,12 +340,13 @@ static bool wifi_stream5_fences(void){
  return true;
 }
 static bool wifi_stream5_publish(unsigned dir,const uint8_t *packet,unsigned length){
- if(!wifi_stream5_owned(&wifi_stream5,false) || dir>1 || wifi_stream5.pending[dir] || (wifi_stream5.dma.cursor[dir]==wifi_stream5_positions() && !wifi_stream5_fences()) || (dir && (wifi_stream5.ready_rx || wifi_stream5.cached_present)) || wifi_stream5.posts[dir]>=(dir?WIFI_STREAM5_RX:WIFI_STREAM5_TX))return false;
+ if(!wifi_stream5_owned(&wifi_stream5,false) || dir>1 || wifi_stream5.pending[dir] || (wifi_stream5.dma.cursor[dir]==wifi_stream5_positions() && !wifi_stream5_fences()) || (dir && (wifi_stream5.ready_rx || wifi_stream5.cached_present)) || !wifi_stream5_credit(dir,0))return false;
  uint64_t f=event_irq_save();
  bool good=true;
  if(wifi_stream5.paired && wifi_stream5.dma.cursor[dir]==wifi_stream5_positions()){
   good=wifi_stream5.enqueue[dir]==wifi_stream5_positions() && mt76_dma5_cycle_pairs(&wifi_stream5.dma,dir);
-  if(good){wifi_stream5.cycle[dir]=wifi_stream5.dma.cycle[dir];wifi_stream5.enqueue[dir]=0;wifi_stream5.wraps[dir]++;}
+  if(good){wifi_stream5.cycle[dir]=wifi_stream5.dma.cycle[dir];wifi_stream5.enqueue[dir]=0;
+   if(wifi_stream5.wraps[dir]<UINT32_MAX)wifi_stream5.wraps[dir]++;}
  }
  struct mt76_dma5_lease *l=&wifi_stream5.lease[dir];
  good=good && mt76_dma5_prepare(&wifi_stream5.dma,dir,wifi_stream5.posts[dir]+1,length,timer_monotonic_us(),l);

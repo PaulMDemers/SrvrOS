@@ -230,6 +230,7 @@ static const uint8_t *local_mac;
 static bool initialized;
 static bool worker_started;
 static bool normal_worker_allocated,normal_worker_connection;
+static bool (*normal_worker_io_safe)(void);
 static struct scheduler_wait_queue normal_worker_wait;
 /* Explicit one-shot probe worker: thread/stack are prepared before a live key.
  * Its private parked thread and identity tombstone are retained until reboot.
@@ -2584,7 +2585,7 @@ void net_timer_tick(void) {
         }
         return;
     }
-    if (!initialized || !worker_started) return;
+    if (!initialized || !worker_started || (normal_worker_io_safe && !normal_worker_io_safe())) return;
     uint64_t now=timer_ticks();
     net_tcp_maintain(now);
     if (now-rx_last_recovery_tick<NET_RX_RECOVERY_TICKS) return;
@@ -2597,6 +2598,10 @@ void net_timer_tick(void) {
 static bool normal_worker_ready(void *arg) {
     (void)arg;
     return worker_started;
+}
+
+static bool normal_worker_io_ready(void *arg) {
+    return normal_worker_ready(arg) && normal_worker_io_safe && normal_worker_io_safe();
 }
 
 static void net_worker(void *arg) {
@@ -2614,7 +2619,7 @@ static void net_worker(void *arg) {
              * whole bounded production poll with the shutdown transaction. */
             uint64_t flags=bounded_connection_lock();
             bool live=worker_started && bounded_connection.active && bounded_connection.resident;
-            received=live?net_device_poll(32,false):0;
+            received=live && (!normal_worker_io_safe || normal_worker_io_safe())?net_device_poll(32,false):0;
             bounded_connection_unlock(flags);
             if(!live)continue;
         } else received=probe_worker_device_poll(32,false);
@@ -2667,11 +2672,14 @@ bool net_init_bounded_probe(void) {
     return initialized;
 }
 
-static bool allocate_normal_worker(bool connection) {
-    if(normal_worker_allocated)return normal_worker_connection==connection;
+static bool allocate_normal_worker(bool connection,bool (*io_safe)(void)) {
+    if(normal_worker_allocated)return normal_worker_connection==connection && normal_worker_io_safe==io_safe;
     normal_worker_connection=connection;
-    normal_worker_allocated=scheduler_spawn("net-poll",net_worker,NULL);
-    if(!normal_worker_allocated)normal_worker_connection=false;
+    normal_worker_io_safe=io_safe;
+    normal_worker_allocated=io_safe?
+        scheduler_spawn_io_service("net-wifi",net_worker,NULL,normal_worker_io_ready):
+        scheduler_spawn("net-poll",net_worker,NULL);
+    if(!normal_worker_allocated){normal_worker_connection=false;normal_worker_io_safe=NULL;}
     return normal_worker_allocated;
 }
 
@@ -2690,7 +2698,7 @@ bool net_start_worker(void) {
         return true;
     }
 
-    if(!allocate_normal_worker(false))return false;
+    if(!allocate_normal_worker(false,NULL))return false;
     resume_normal_worker();
     return true;
 }
@@ -3106,7 +3114,7 @@ static void bounded_connection_deconfigure(void) {
     bounded_connection.active=false;bounded_connection.scope_identity=0;bounded_connection.resident=false;
 }
 
-bool net_bounded_connection_start_worker(struct net_bounded_probe *p) {
+bool net_bounded_connection_start_worker(struct net_bounded_probe *p,bool (*io_safe)(void)) {
     uint64_t flags=bounded_connection_lock();
     bool good=false;
     if(!p || p->identity!=(uintptr_t)p || !p->connection_scope || p->closed || p->failed ||
@@ -3114,7 +3122,7 @@ bool net_bounded_connection_start_worker(struct net_bounded_probe *p) {
        !bounded_connection.active || bounded_connection.failed || bounded_connection.resident ||
        !dhcp_configured || !local_ip || worker_started || probe_worker.attempted ||
        !probe_worker_table_empty() || !bounded_connection_adapter() ||
-       !net_bounded_probe_current(p) || !allocate_normal_worker(true))goto done;
+       !net_bounded_probe_current(p) || !allocate_normal_worker(true,io_safe))goto done;
     bounded_connection.resident=true;
     if(!net_bounded_probe_finish(p)) {
         bounded_connection.resident=false;

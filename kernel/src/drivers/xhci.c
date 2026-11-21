@@ -705,6 +705,7 @@ struct xhci_state {
     bool stopping,stopped,controller_owned,reclaiming,reclaimed,worker_retired,bus_master_disabled;
     uint64_t poll_users,diagnostic_users,reclaimed_frames,scratchpad_array_phys,scratchpad_array_pages;
     uint64_t sync_users,stop_events,hub_poll_cursor;
+    struct xhci_device *storage_sync_owner;
     const char *stage;
     const char *handoff;
     uint16_t scratchpad_count;
@@ -3607,7 +3608,9 @@ static bool storage_bulk_ready(void *context) {
 static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t length,uint32_t *actual) {
     struct xhci_device *d=context;
     if(device_removed(d) || d->bulk_failed || d->bulk_pending || !length || length>PMM_FRAME_SIZE || xhci.sync_users==UINT64_MAX) return false;
+    bool tracked=!xhci.sync_users && !xhci.storage_sync_owner;
     xhci.sync_users++;
+    if(tracked)xhci.storage_sync_owner=d;
     d->bulk_timing=(struct usb_bulk_timing){0};
     d->bulk_timed=usb_storage_timing_enabled();
     struct xhci_bulk_endpoint *ep=&d->bulk_ep[in?1:0];
@@ -3642,6 +3645,7 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
             d->bulk_reason="completed";
             *actual=length-d->bulk_remaining;
             if(in) copy_bytes(buffer,d->bulk_buffer,*actual);
+            if(tracked)xhci.storage_sync_owner=NULL;
             xhci.sync_users--;return true;
         }
         if((spins&255)==0) {
@@ -3675,6 +3679,7 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
     if(storage_timing_device==d)storage_timing_device=NULL;
     /* Never reuse the buffer/rings: a timed-out DMA may still be active. */
     d->bulk_elapsed_us=timer_monotonic_us()-start; d->bulk_spins=spins;
+    if(tracked)xhci.storage_sync_owner=NULL;
     xhci.sync_users--;
     d->bulk_failed=true; d->stage="storage-quarantined";
     quarantine_unsafe_tt(d);
