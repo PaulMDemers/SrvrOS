@@ -7,6 +7,19 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Persistent 5 GHz and desktop controls
+
+Starting from `00bae497`, with `origin/main` inspected at `4016abf0`, continue
+the Edimax 5 GHz path on this unit. First qualify a connection lifetime whose
+traffic service stays active independently of a client workload and whose
+disconnect still closes the network stack before releasing key and USB
+ownership. Then wire System's Wi-Fi controls to that owner, check physical
+removal and reinsertion, and run repeated link and traffic checks. The initial
+scope is the native MT7610 stream/provider, network worker and host fixtures.
+Desktop controls will follow in the System app and its Wi-Fi ABI. PR #19 owns
+this device branch. PR #301 covers Intel GPU ownership and PR #379 covers
+WebCore dependencies. Demers2.4 is deferred.
+
 ### Demers2.4 hardware prerequisite (November 20)
 
 The router reports Demers2.4 active on channel 8 with WPA2-Personal. The only
