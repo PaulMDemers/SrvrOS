@@ -37,7 +37,7 @@ class ReservedGuard(unittest.TestCase):
             'lost-conflict-gate':(vmm,'if(kind==RESERVED_MAP) {','if(false && kind==RESERVED_MAP) {'),
             'physical-bits-in-flags':(vmm,'if((kind==RESERVED_MAP || kind==RESERVED_PROTECT) && (flags&PAGE_MASK))','if(false && (kind==RESERVED_MAP || kind==RESERVED_PROTECT) && (flags&PAGE_MASK))'),
             'allowed-new-root':(vmm,'kind==RESERVED_ROOT ||','false ||'),
-            'lost-map-barrier':(vmm,'if(!reserved_mutation_enter(RESERVED_MAP,address_space,physical_address,flags))return false;','if(!reserved_mutation_enter(RESERVED_REMOVE,address_space,physical_address,flags))return false;'),
+            'lost-map-barrier':(vmm,'if(!reserved_mutation_enter(RESERVED_MAP,address_space,virtual_address,physical_address,flags))return false;','if(!reserved_mutation_enter(RESERVED_REMOVE,address_space,virtual_address,physical_address,flags))return false;'),
             'lost-inflight-admission':(core,'if(reserved_guard.owner || __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))','if(reserved_guard.owner)'),
             'skipped-whole-root':(core,'if(!vmm_diagnostic_kernel_physical_unmapped','result=(struct vmm_alias_inventory){.tables=9,.entries=4608};if(false && !vmm_diagnostic_kernel_physical_unmapped'),
             'skipped-tags':(core,'if(!pmm_frame_has_tag(','if(false && !pmm_frame_has_tag('),

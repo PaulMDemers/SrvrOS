@@ -35,6 +35,16 @@ bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t 
 bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
     return child && borrower==child && vmm_reserved_guard_io_page_held(g,root,page);
 }
+bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,
+ uint64_t reg,uint64_t alias,const void *child) {
+    return reg==manifest.mmio+0x811000 && alias==(uintptr_t)&table[8704] &&
+           strcmp(page_failure,"register-alias") && vmm_reserved_guard_pin_io_page(g,root,page,child);
+}
+bool vmm_reserved_guard_register_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,
+ uint64_t reg,uint64_t alias,const void *child) {
+    return reg==manifest.mmio+0x811000 && alias==(uintptr_t)&table[8704] &&
+           strcmp(page_failure,"register-alias") && vmm_reserved_guard_io_page_pinned(g,root,page,child);
+}
 bool vmm_reserved_guard_unpin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
     if (!vmm_reserved_guard_io_page_pinned(g,root,page,child)) return false;
     borrower=NULL;
@@ -281,9 +291,10 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
     return true;
 }
 static unsigned traffic_reads;
+static bool block_revoked;
 static uint64_t held_block(const struct scanout_transfer *t) {
     assert(t==&transfer);
-    if (!strcmp(page_failure,"no-block") || (!strcmp(page_failure,"lost-block") && traffic_reads>=6)) return 0;
+    if (block_revoked || !strcmp(page_failure,"no-block") || (!strcmp(page_failure,"lost-block") && traffic_reads>=6)) return 0;
     return !strcmp(page_failure,"new-block") ? 2 : 1;
 }
 static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32_t *word) {
@@ -328,7 +339,12 @@ static bool flush_test_page(void *ctx) {
     if(strcmp(page_failure,"invalidate"))cached_translation=table[8704];
     return cached_translation==expected;
 }
-static bool readers(void *ctx) {assert(ctx==&model);return !model.pending;}
+static bool readers(void *ctx) {
+    assert(ctx==&model);
+    if(!strcmp(page_failure,"retirement-block") && a.publication.state==PUB_RESTORING)
+        block_revoked=true;
+    return !model.pending;
+}
 static struct scanout_memory_binding binding(void) {
     return (struct scanout_memory_binding){&model,encode,{&model,guard,read_entry,write_entry,flush,readers,now}};
 }
@@ -572,10 +588,11 @@ int main(int argc,char **argv) {
         if (!strcmp(page_failure,"guard-epoch")) ++cpu_guard.epoch;
         uint64_t previous=table[8704];
         assert(restoring ? !scanout_memory_close(&a,&at) : !scanout_memory_apply(&a,&at));
-        bool written=!strcmp(page_failure,"invalidate");
+        bool retired_fault=!strcmp(page_failure,"retirement-block");
+        bool written=!strcmp(page_failure,"invalidate") || retired_fault;
         if(written)assert(table[8704]==(restoring?input[0]:a.entries[0]));
         else assert(table[8704]==(previous^(!strcmp(page_failure,"foreign")?(1ull<<36):0)));
-        assert(cached_translation==previous);
+        assert(cached_translation==(retired_fault?input[0]:previous));
         assert(a.state==MEM_FAULT && !model.releases && model.writes==(unsigned)restoring+written);
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
         assert(!intel_bdw_scanout_retire_test_page(&a,&at));

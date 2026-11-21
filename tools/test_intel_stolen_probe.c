@@ -105,10 +105,10 @@ bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
  if(fault(GUARD_BEGIN)){d->walk.reason=VMM_ALIAS_MODE;return false;}
  model.guard_live=true;*out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
 }
-bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root,
+bool vmm_reserved_guard_begin_register_window(struct vmm_reserved_guard *g,uint64_t root,
  const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
- unsigned ranges,uint64_t page,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
- assert(stolen.range.selected && page==0xb2200000);
+ unsigned ranges,uint64_t page,uint64_t backing,uint64_t reg,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ assert(stolen.range.selected && page==0xb2200000 && backing==0x8b811000 && reg==stolen.source.mmio+0x811000);
  if(model.mode==55) {
   d->walk.reason=VMM_ALIAS_PRESENT;d->physical=page;d->bytes=0x200000;
   return false;

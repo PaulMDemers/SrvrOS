@@ -33,6 +33,7 @@ static bool fail(struct scanout_publication *p,unsigned reason) {
 static bool tick(struct scanout_publication *p) {
     uint64_t now=p->io.now(p->io.ctx);
     if(!now || now<p->last_us || now-p->phase_us>SCANOUT_PUBLISH_DEADLINE_US)return fail(p,PUB_CLOCK);
+    if(p->hold_live && !p->hold_live(p))return fail(p,PUB_GUARD);
     p->last_us=now;return true;
 }
 static bool guard(struct scanout_publication *p,bool active) {
@@ -102,7 +103,7 @@ bool scanout_publish_prepare(struct scanout_publication *p,struct scanout_publis
        (input<end && base<input+pages*sizeof(*entries)) || (output<end && base<output+sizeof(*out)))return false;
     if(!range_valid(owner,space,range,pages,SPACE_RESERVED,true))return false;
     struct scanout_publish_io callbacks=*io;struct scanout_space_token lease=*range;
-    p->object=p;p->epoch=++pool->epoch;p->owner=owner;p->space=space;p->range=lease;p->io=callbacks;
+    p->object=p;p->epoch=++pool->epoch;p->owner=owner;p->space=space;p->range=lease;p->io=callbacks;p->hold_live=0;
     p->state=PUB_PREPARING;p->error=PUB_OK;p->pages=pages;p->reads=p->writes=p->flushes=0;
     p->busy=false;p->exposed=false;p->last_us=p->phase_us=0;
     for(uint32_t i=0;i<pages;i++)p->after[i]=entries[i];

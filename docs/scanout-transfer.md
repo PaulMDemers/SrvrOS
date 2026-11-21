@@ -207,3 +207,14 @@ start and finish under the original block. The same generation must survive
 translation restoration and reader retirement before releasing the aperture
 pin. A native firmware/graphics lender and block provider are still required
 to run this writer on the Air.
+
+The Air's register-window guard derives three addresses from the captured
+BARs and locked GGTT layout. It denies CPU mappings of the aperture page
+and the physical table page. Before the first store, a whole-root reverse
+walk verifies that the MMIO register page has precisely one alias with
+the required permissions. While pinned, the public VMM operations refuse
+other mappings of that page and removal, replacement or protection changes
+at its virtual address. Unrelated register windows can still be used for
+drain checks. On rollback, losing the block during the last reader callback
+quarantines the mapping and retains the private RAM even if the original
+entry has already been restored.

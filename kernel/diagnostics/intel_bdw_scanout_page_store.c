@@ -14,11 +14,20 @@
 static struct page_borrow {
     const struct scanout_publication *publication;
     const struct vmm_reserved_guard *guard;
-    uint64_t epoch, guard_epoch, root, aperture, alias;
+    uint64_t epoch, guard_epoch, root, aperture, alias, reg;
     const struct scanout_transfer *transfer;
     struct intel_bdw_scanout_traffic traffic;
     uint64_t block_epoch;
 } borrow;
+
+static bool page_hold_live(const struct scanout_publication *p)
+{
+    return borrow.publication == p && borrow.epoch == p->epoch &&
+           borrow.guard_epoch == borrow.guard->epoch &&
+           borrow.traffic.held_epoch(borrow.transfer) == borrow.block_epoch &&
+           vmm_reserved_guard_register_pinned(borrow.guard, borrow.root, borrow.aperture,
+                                              borrow.reg, borrow.alias, &borrow);
+}
 
 bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const struct scanout_memory_token *token)
 {
@@ -26,8 +35,7 @@ bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const str
         token->owner != m->owner || m->busy || m->state != MEM_RELEASED ||
         borrow.publication != &m->publication || borrow.epoch != m->publication.epoch ||
         m->publication.state != PUB_RETIRED || m->publication.busy ||
-        borrow.guard_epoch != borrow.guard->epoch ||
-        borrow.traffic.held_epoch(borrow.transfer) != borrow.block_epoch ||
+        !page_hold_live(&m->publication) ||
         !vmm_reserved_guard_unpin_io_page(borrow.guard, borrow.root, borrow.aperture, &borrow)) return false;
     borrow = (struct page_borrow){0};
     return true;
@@ -93,7 +101,7 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     if (!root || !alias || (alias & 4095) || !store_active(m, token, t, index) ||
         !scanout_transfer_original(t, grant, index, &original)) return false;
 
-    const struct scanout_publication *p = &m->publication;
+    struct scanout_publication *p = &m->publication;
     bool restore = p->state == PUB_RESTORING;
     struct intel_bdw_ggtt_page entry;
     if (!intel_bdw_ggtt_plan_entry(&t->manifest, index, m->physical, &entry) ||
@@ -111,9 +119,23 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     if (!traffic.held_epoch || !traffic.read || !scanout_transfer_check(t, grant)) return false;
     struct traffic_check check={t,traffic,traffic.held_epoch(t)};
     if (!check.epoch || (restore && (borrow.transfer!=t || borrow.block_epoch!=check.epoch ||
-        borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read)) ||
-        !intel_bdw_traffic_still_blocked(&check,read_blocked) || !mapped_register(root, alias, physical)) return false;
-    if (traffic.held_epoch(t)!=check.epoch) return false;
+        borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read))) return false;
+    uint64_t offset = (uint64_t)index * 4096;
+    if (t->manifest.aperture > UINT64_MAX - offset || !cpu_guard) return false;
+    uint64_t aperture = t->manifest.aperture + offset;
+    if (restore) {
+        if (borrow.publication != p || borrow.epoch != p->epoch || borrow.guard != cpu_guard ||
+            borrow.guard_epoch != cpu_guard->epoch || borrow.root != root || borrow.alias != alias ||
+            borrow.aperture != aperture || !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow))
+            return false;
+    } else {
+        if (p->hold_live || borrow.publication || !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
+        borrow = (struct page_borrow){p, cpu_guard, p->epoch, cpu_guard->epoch, root, aperture, alias,physical,t,traffic,check.epoch};
+        p->hold_live=page_hold_live;
+    }
+    if (!intel_bdw_traffic_still_blocked(&check,read_blocked) || !mapped_register(root, alias, physical)) return false;
+    if (traffic.held_epoch(t)!=check.epoch ||
+        !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
     uint64_t now = t->io.now(t->io.ctx);
     if (!store_active(m, token, t, index) ||
         !scanout_transfer_original(t, grant, index, &fresh) || fresh != original ||
@@ -126,20 +148,8 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
 
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */
-    uint64_t offset = (uint64_t)index * 4096;
-    if (t->manifest.aperture > UINT64_MAX - offset || !cpu_guard) return false;
-    uint64_t aperture = t->manifest.aperture + offset;
-    if (restore) {
-        if (borrow.publication != p || borrow.epoch != p->epoch || borrow.guard != cpu_guard ||
-            borrow.guard_epoch != cpu_guard->epoch || borrow.root != root || borrow.alias != alias ||
-            borrow.aperture != aperture || !vmm_reserved_guard_io_page_pinned(cpu_guard, root, aperture, &borrow))
-            return false;
-    } else {
-        if (borrow.publication || !vmm_reserved_guard_pin_io_page(cpu_guard, root, aperture, &borrow)) return false;
-        borrow = (struct page_borrow){p, cpu_guard, p->epoch, cpu_guard->epoch, root, aperture, alias,t,traffic,check.epoch};
-    }
     volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
-    if (*reg != (restore ? entry.replacement : original)) return false;
+    if (p->hold_live != page_hold_live || !page_hold_live(p) || *reg != (restore ? entry.replacement : original)) return false;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
     *reg = value;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);

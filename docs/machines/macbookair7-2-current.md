@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-20 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-21 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -42,6 +42,28 @@ physical write needs a native graphics owner that can transfer this slot
 with the boot scanout pinned and keep new requests blocked through both
 writes, translation invalidation and reader retirement. The automated
 replacement and rollback are pending.
+
+On November 21 the native range adapter began excluding the physical GGTT
+table page along with the CPU aperture. The writer pins the only writable
+MMIO alias for slot 8704. Its original traffic block and alias must survive
+the final reader-retirement callback before memory can be reused.
+
+Under Ubuntu's i915 on this unit, a 40 MiB private GEM object occupied GGTT
+`[0x01200000, 0x03a00000)`. Its page at offset `0x01000000` was slot
+8704. A private blitter request wrote data and a post-sync marker on that
+page. After GEM wait, both the independent GEM read and the aperture view
+matched. All 1,024 words also matched after a CPU write and restoration.
+The i915 trace showed a single binding through verification, followed by
+the matching unbind. The internal panel was enabled before and after.
+This verifies the exact address and one blitter request under Linux. Native
+SrvrOS still needs a device-wide drain with the original panel active.
+
+Broadwell's render `MI_MODE` programming notes rule out using STOP_RING
+as a reversible pause during an inherited batch. Resuming can use the
+wrong memory access type. The next driver step is to retire inherited
+submission and bring up an owned command context for explicit completion
+fences. A completion on one engine still leaves the other engines, caches
+and GPU readers to account for. [Intel Broadwell register reference, p. 1322](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf#page=1364)
 
 Release `f3961550b358c858` (source `7e3af989`, session
 `session-000660c0d078f7b5-00`) completed the one-page reservation trial.

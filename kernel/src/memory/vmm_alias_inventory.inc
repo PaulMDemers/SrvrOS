@@ -28,8 +28,10 @@ static bool alias_inventory_ram(const struct vmm_alias_ram *ram,unsigned count,u
  for(unsigned i=0;i<count;i++)if(pa>=ram[i].base && pa+bytes<=ram[i].base+ram[i].length)return true;
  return false;
 }
+enum alias_target { ALIAS_PRIVATE, ALIAS_ABSENT, ALIAS_REGISTER };
 static bool alias_inventory_walk(uint64_t root,const struct vmm_alias_span *spans,unsigned count,unsigned bits,
- const struct vmm_alias_ram *ram,unsigned ram_count,struct vmm_alias_inventory *out,struct vmm_alias_detail *d,bool absent,struct vmm_unmapped_detail *conflict) {
+ const struct vmm_alias_ram *ram,unsigned ram_count,struct vmm_alias_inventory *out,struct vmm_alias_detail *d,enum alias_target target,struct vmm_unmapped_detail *conflict) {
+ bool absent=target==ALIAS_ABSENT;
  struct vmm_alias_inventory result={0};struct vmm_alias_span expected[VMM_ALIAS_SPANS];
  bool found=false;struct vmm_unmapped_detail first={0};
  if(d)*d=(struct vmm_alias_detail){0};
@@ -47,7 +49,7 @@ static bool alias_inventory_walk(uint64_t root,const struct vmm_alias_span *span
      (!absent && ((q->virtual_base&4095) || q->virtual_base>UINT64_MAX-(uint64_t)(q->pages-1)*4096 || !is_canonical(q->virtual_base) ||
      !is_canonical(q->virtual_base+(uint64_t)(q->pages-1)*4096) ||
      (q->virtual_base>>47)!=((q->virtual_base+(uint64_t)(q->pages-1)*4096)>>47))))return alias_inventory_fail(d,VMM_ALIAS_INPUT,0);
-  if(!absent && !alias_inventory_ram(ram,ram_count,q->physical,(uint64_t)q->pages*4096))return alias_inventory_fail(d,VMM_ALIAS_RAM,0);
+  if(target==ALIAS_PRIVATE && !alias_inventory_ram(ram,ram_count,q->physical,(uint64_t)q->pages*4096))return alias_inventory_fail(d,VMM_ALIAS_RAM,0);
   for(unsigned j=0;j<i;j++) {
    const struct vmm_alias_span *p=&expected[j];
    if((q->physical<p->physical+(uint64_t)p->pages*4096 && p->physical<q->physical+(uint64_t)q->pages*4096) ||
@@ -106,6 +108,12 @@ static bool alias_inventory_walk(uint64_t root,const struct vmm_alias_span *span
     first=(struct vmm_unmapped_detail){.prefix=result,.virtual_base=va,.physical=physical,.bytes=size,.entry=entry,.span=i};
     first.walk.level=level;found=true;goto finish;
    }
+   /* The single device register must be a supervisor-only, writable, NX
+    * 4K leaf with PAT index 2. Check the leaf itself as well as effective
+    * permissions so a later sibling map cannot expose it to user mode. */
+   if(target==ALIAS_REGISTER && (level!=4 || (entry & (VMM_PAGE_WRITABLE | VMM_PAGE_USER |
+      VMM_PAGE_NO_EXECUTE | 0x98u))!=(VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE | 0x10u)))
+    return alias_inventory_fail(d,VMM_ALIAS_FOREIGN,level);
    if(va+(lo-physical)!=q->virtual_base+(lo-q->physical))return alias_inventory_fail(d,VMM_ALIAS_FOREIGN,level);
    uint64_t pages=(end-lo)/4096;
    if(pages>q->pages-result.pages[i])return alias_inventory_fail(d,VMM_ALIAS_COVERAGE,level);
@@ -133,7 +141,7 @@ finish:
 
 bool vmm_diagnostic_unique_kernel_aliases(uint64_t root,const struct vmm_alias_span *spans,unsigned count,unsigned bits,
  const struct vmm_alias_ram *ram,unsigned ram_count,struct vmm_alias_inventory *out,struct vmm_alias_detail *d) {
- return alias_inventory_walk(root,spans,count,bits,ram,ram_count,out,d,false,NULL);
+ return alias_inventory_walk(root,spans,count,bits,ram,ram_count,out,d,ALIAS_PRIVATE,NULL);
 }
 bool vmm_diagnostic_kernel_physical_unmapped(uint64_t root,const struct vmm_physical_span *spans,unsigned count,unsigned bits,
  const struct vmm_alias_ram *ram,unsigned ram_count,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
@@ -144,7 +152,7 @@ bool vmm_diagnostic_kernel_physical_unmapped(uint64_t root,const struct vmm_phys
   return false;
  }
  for(unsigned i=0;i<count;i++)query[i]=(struct vmm_alias_span){.physical=spans[i].physical,.pages=spans[i].pages};
- bool ok=alias_inventory_walk(root,query,count,bits,ram,ram_count,out,&detail,true,d);
+ bool ok=alias_inventory_walk(root,query,count,bits,ram,ram_count,out,&detail,ALIAS_ABSENT,d);
  if(d)d->walk=detail;
  return ok;
 }

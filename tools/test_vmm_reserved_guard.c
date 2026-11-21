@@ -35,6 +35,10 @@ static void vmm_reserved_switch_hook(void) {
  assert(d.walk.reason==VMM_ALIAS_BUSY && !other.object && reserved_mutations);++checks;
 }
 bool pmm_frame_has_tag(uint64_t physical,enum pmm_frame_tag tag) {
+ if(physical==0x8b811000) {
+  assert(tag==PMM_FRAME_RESERVED);
+  return bad_tag!=UINT32_MAX;
+ }
  assert(tag==PMM_FRAME_RESERVED && physical==pa+(tags%3072)*4096ull);++tags;
  if(hook==2 && !recursive) {
   recursive=true;struct vmm_unmapped_detail d;struct vmm_alias_inventory inv;
@@ -67,6 +71,53 @@ static void refused_map(unsigned route,uint64_t physical,uint64_t flags) {
  assert(!ok && read==table_reads && catalog==kernel_mapping_count && !reserved_mutations);
  for(unsigned i=0;i<9;i++)assert(!memcmp(saved[i],t[i],4096));
  ++checks;
+}
+static void register_window(void) {
+ const uint64_t aperture=0xb2200000, backing=0x8b811000, reg=0xc0811000;
+ const uint64_t flags=VMM_PAGE_PRESENT|VMM_PAGE_WRITABLE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
+ int writer,other_writer;
+ setup();
+ bad_tag=UINT32_MAX;
+ assert(!vmm_reserved_guard_begin_register_window(&guard,root,pair,2,52,&ram[1],1,
+                                                  aperture,backing,reg,&result,&why));
+ assert(why.walk.reason==VMM_ALIAS_PMM_RESERVED);
+ setup();
+ t[3][7]=backing|3;
+ assert(!vmm_reserved_guard_begin_register_window(&guard,root,pair,2,52,&ram[1],1,
+                                                  aperture,backing,reg,&result,&why));
+ assert(why.walk.reason==VMM_ALIAS_PRESENT);
+ setup();
+ assert(vmm_reserved_guard_begin_register_window(&guard,root,pair,2,52,&ram[1],1,
+                                                 aperture,backing,reg,&result,&why));
+ assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&writer));
+ t[3][0]=reg|flags;
+ t[3][8]=reg|flags; /* Even an otherwise identical second leaf is foreign. */
+ assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&writer));
+ t[3][8]=0;
+ const uint64_t bad_flags[]={VMM_PAGE_USER,VMM_PAGE_NO_EXECUTE,VMM_PAGE_WRITABLE,
+                             VMM_PAGE_CACHE_DISABLE,VMM_PAGE_WRITE_THROUGH,0x80};
+ for(unsigned i=0;i<sizeof(bad_flags)/sizeof(bad_flags[0]);i++) {
+  t[3][0]^=bad_flags[i];
+  assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&writer));
+  t[3][0]^=bad_flags[i];
+ }
+ assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg+4096,va,&writer));
+ assert(vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&writer));
+ assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&other_writer));
+ assert(!vmm_reserved_guard_register_pinned(&guard,root,aperture,reg,va,&other_writer));
+ assert(!vmm_reserved_guard_close(&guard,&result,&why));
+ for(unsigned route=0;route<3;route++)refused_map(route,reg+4096,3);
+ assert(!vmm_map_page(va+4096,reg,flags));
+ assert(!vmm_map_page_in_space(root,va+4096,backing,flags));
+ assert(!vmm_ensure_page_in_space(root,va+4096,aperture,flags));
+ assert(!vmm_unmap_page(va,NULL) && !vmm_protect_page_in_space(root,va,3));
+ assert(vmm_map_page_in_space(root,va+4096,reg+4096,flags));
+ assert(vmm_unmap_page_in_space(root,va+4096,NULL));
+ assert(t[3][0]==(reg|flags));
+ assert(vmm_reserved_guard_register_pinned(&guard,root,aperture,reg,va,&writer));
+ assert(vmm_reserved_guard_unpin_io_page(&guard,root,aperture,&writer));
+ assert(vmm_unmap_page(va,NULL));
+ assert(vmm_reserved_guard_close(&guard,&result,&why));
 }
 int main(int argc,char **argv) {
  (void)argv;
@@ -140,6 +191,7 @@ int main(int argc,char **argv) {
   if(corrupt){assert(why.walk.reason==VMM_ALIAS_PRESENT);reset_fault();}
   else assert(vmm_map_page_in_space(root,va+4096,aperture,3));
  }
+ register_window();
  /* Every reserved page is actually queried on admission. */
  for(unsigned page=1;page<=3072;page++) {
   setup();bad_tag=page;memset(&result,0xa5,sizeof(result));struct vmm_alias_inventory saved=result;

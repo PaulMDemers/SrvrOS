@@ -18,10 +18,10 @@ pte-store-foreign pte-store-restore-cache pte-store-restore-alias pte-store-rest
 pte-store-invalidate pte-store-restore-invalidate
 reservation-clean reservation-removed reservation-promote-clock reservation-promote-provider reservation-fault reservation-stale-original boot-framebuffer one-page-no-boot-fence pte-store-aperture pte-store-restore-aperture pte-store-restore-guard-epoch""".split()
 
-for failure in ("no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
+for failure in ("register-alias", "no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
                 "gam-request", "gam-response"):
     MODES.extend((f"pte-store-{failure}", f"pte-store-restore-{failure}"))
-MODES.append("pte-store-restore-new-block")
+MODES.extend(("pte-store-restore-new-block", "pte-store-restore-retirement-block"))
 
 class TransferTests(unittest.TestCase):
     def test_actual_core(self):

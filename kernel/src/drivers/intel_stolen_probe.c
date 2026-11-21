@@ -466,10 +466,15 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
  bool ok;
  if(phase==0 && stolen.range.selected) {
   uint64_t offset=(uint64_t)stolen.source.first*4096;
-  ok=offset==stolen.source.fence_end && offset<=stolen.source.aperture_bytes-4096 &&
+  uint64_t table_offset=((uint64_t)stolen.source.first*8) & ~4095ull;
+  const struct bdw_stolen_plan *plan=&stolen.layout.plan;
+  ok=stolen.layout.classified && plan->gtt_end>plan->gtt_begin &&
+     table_offset<plan->gtt_end-plan->gtt_begin && stolen.source.mmio<=UINT64_MAX-0x800000-table_offset &&
+     offset==stolen.source.fence_end && offset<=stolen.source.aperture_bytes-4096 &&
      stolen.source.aperture<=UINT64_MAX-offset &&
-     vmm_reserved_guard_begin_io_page(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
-       stolen.cpu.ram,stolen.cpu.ram_count,stolen.source.aperture+offset,&stolen.guard.inventory[0],&stolen.guard.detail);
+     vmm_reserved_guard_begin_register_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
+       stolen.cpu.ram,stolen.cpu.ram_count,stolen.source.aperture+offset,
+       plan->gtt_begin+table_offset,stolen.source.mmio+0x800000+table_offset,&stolen.guard.inventory[0],&stolen.guard.detail);
   if(!ok && stolen.guard.detail.walk.reason==VMM_ALIAS_PRESENT) {
    const struct vmm_unmapped_detail *d=&stolen.guard.detail;
    uint64_t page=stolen.source.aperture+offset;

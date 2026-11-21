@@ -131,6 +131,17 @@ bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *,uint64_t root,
  const struct vmm_physical_span *,unsigned count,unsigned bits,
  const struct vmm_alias_ram *,unsigned ram_count,uint64_t io_page,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+/* Keep the aperture and the RAM page storing its translation inaccessible.
+ * The driver supplies the decoded register BAR page and locked table backing. */
+bool vmm_reserved_guard_begin_register_window(struct vmm_reserved_guard *,uint64_t root,
+ const struct vmm_physical_span *,unsigned count,unsigned bits,const struct vmm_alias_ram *,unsigned ram_count,
+ uint64_t aperture,uint64_t backing,uint64_t reg,struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+/* Adopt the only writable MMIO alias. The VMM freezes its VA and rejects
+ * other mappings of its PA until this child retires. No device store occurs. */
+bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *,uint64_t root,uint64_t aperture,
+ uint64_t reg,uint64_t alias,const void *child);
+bool vmm_reserved_guard_register_pinned(const struct vmm_reserved_guard *,uint64_t root,uint64_t aperture,
+ uint64_t reg,uint64_t alias,const void *child);
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *,uint64_t root,uint64_t io_page);
 /* CPU0 with interrupts disabled. A child pins this exact root and aperture
  * page until it returns the borrow. A parent close is retryable while pinned. */

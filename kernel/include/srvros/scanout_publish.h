@@ -32,6 +32,10 @@ struct scanout_publication {
     struct scanout_space *space;
     struct scanout_space_token range;
     struct scanout_publish_io io;
+    /* A device writer may attach its pinned CPU-side ownership check on the
+     * first exposed store. Every subsequent I/O boundary, including the
+     * last reader callback, requires that same publication to retain it. */
+    bool (*hold_live)(const struct scanout_publication *);
     uint32_t state,error,pages,reads,writes,flushes;
     bool busy,exposed;
     uint64_t before[SCANOUT_PUBLISH_PAGES],after[SCANOUT_PUBLISH_PAGES];
