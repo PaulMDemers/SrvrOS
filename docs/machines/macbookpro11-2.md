@@ -7,6 +7,14 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Desktop connection owner and shared USB storage
+
+Work starts at `3f77a8dd` with `origin/main` at `4016abf0`. PR #19 owns the
+MT7610 and System Wi-Fi changes. The scope includes shared xHCI completion
+handling, the resident worker and connection requests from System. PR #301
+covers GPU ownership and PR #379 covers WebCore. Qualify the production code
+with controller and scheduler fixtures before arming a physical trial.
+
 ### Persistent 5 GHz and desktop controls
 
 Descriptor reuse work starts from `47cc3a33` with `origin/main` at `4016abf0`.
