@@ -48,6 +48,21 @@ Missing or malformed companions refuse; absence is not success. A future
 source-frozen hardware collector must save this observation before full-protocol
 success checks. Its `native_accepted` field is always false.
 
+## November 20 first-connection refusal
+
+Release `d34e89fd74d5318a` repeated the preceding successful runtime with a
+fresh journal. The first connection accepted AUTH, association and M1. After
+the M2 USB submission, stage 3 recorded `result=9`, `kind=1`, `reject=7`, and
+one present response 15.326 ms after starting the M3 wait. This confirms the
+native abort on an M1 key-info pattern. The record supplies no equality proof
+against the accepted M1 and no M2 radio-delivery proof. M3/M4, key activation,
+DHCP and the second connection were never reached. The unused child and
+worker retired, and the independent journal confirmed save and unmount.
+Preserve this as a first-connection refusal distinct from a timeout or a
+bad-MIC M3. [Unit record](machines/macbookpro11-2.md#current-handoff)
+
+## Native fixture coverage
+
 The actual native xHCI/HTTP fixtures model only the AP, HCD, scheduler and child
 process. Cases56–58 complete the first production encrypted HTTP lifetime, then
 exercise second-connection M3 silence, a duplicate valid M1 or a bad-MIC M3.

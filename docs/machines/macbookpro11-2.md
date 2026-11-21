@@ -9,13 +9,33 @@ Dated sections retain the bring-up history.
 
 ### Cold repeat with extended router capture (November 20)
 
-Repeat the accepted fixed channel 161/20 MHz diagnostic with identical kernel,
-firmware, credentials and runtime contents and a fresh startup journal. The
-router-only observer will run on both interfaces for up to one hour with the
-same station filter and packet cap. Preserve and review the previous native
-result before staging. The new run will compare the DHCP transaction across
-the bridge, the 5 GHz interface and the SrvrOS USB receive records. Main
-`4016abf0` was rechecked. This comparison changes the local capture workflow.
+Runtime `783f21fb`, stage source `700d4a63`, release `d34e89fd74d5318a`,
+session `session-000660bfcde103a2-00`, repeated the fixed channel 161/20 MHz
+profile with an identical kernel and runtime and a fresh startup journal.
+The first connection completed open authentication and association, accepted
+WPA message 1, and completed USB submission of message 2. It then refused an
+EAPOL frame with message 1 key-info flags while waiting for message 3, at
+15.326 ms into its 1.5-second wait. The log establishes the flags and the
+local refusal. It leaves the frame's identity and message 2 radio delivery
+unverified. SrvrOS installed no keys and never started DHCP or the second
+connection. It retired the unused HTTP child and worker, and the final record
+reported incomplete RF parent restoration. [WPA response observations](../wifi-handshake5-observation.md#november-20-first-connection-refusal)
+
+The station-filtered DHCP captures on the bridge and 5 GHz interface expired
+at 20:50:15 EST. The SrvrOS RTC seed was 21:06:07 EST, 15 minutes 52 seconds
+later. Both taps exported valid empty files. A future paired capture needs to
+span the actual power-on, and the WPA exchange needs evidence beyond these
+DHCP-only taps. The prior successful native run remains independently accepted
+within its original bounds.
+
+The source-frozen collector ran once and closed this repeat as failed. The
+independent review verified all seven startup checkpoints, clean
+save/unmount, 499 preexisting workspace files with the authorized marker
+access-time change, 77 other EFI files, and nine recovery payloads. Ubuntu is
+unarmed. The sealed 1,354-file primary index is
+`65ca1ff362dad0140e80319eb7ba40acfa3b9e8bb331691ebc8a2feb8ba88c00`.
+The separate review and router capture index is
+`3fdb7b4eec4dd97283dd7331201b3e7d4de29f9aea7e861e84a1c250261ed3a8`.
 
 ### Two native broadcast DHCP and HTTP lifetimes (November 20)
 
