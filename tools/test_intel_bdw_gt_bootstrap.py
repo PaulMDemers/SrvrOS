@@ -1,5 +1,6 @@
 """Full-GT reset/fence protocol against an independent device model; host only."""
 import os
+import re
 from pathlib import Path
 import resource
 import shlex
@@ -101,9 +102,20 @@ class Bootstrap(unittest.TestCase):
                 args=[a for a in command if a not in ('-MMD','-MP') and not a.startswith('-DSRVROS_INTEL_')]
                 args[args.index('-c')+1]=CORE;args[args.index('-o')+1]=str(Path(directory)/f'{i}.o')
                 subprocess.run([*args,*extra],cwd=ROOT,check=True,timeout=180)
-        callers=[str(p.relative_to(ROOT/'kernel/src')) for p in (ROOT/'kernel/src').rglob('*')
-                 if p.suffix in ('.c','.inc','.h') and 'intel_bdw_gt_bootstrap' in p.read_text()]
-        self.assertEqual(callers,['drivers/intel_gt_bootstrap_trial.inc'])
+        # The traffic observer borrows a const reset-state pointer. Even an
+        # address taken for an indirect call must stay in the bootstrap adapter.
+        source=ROOT/'kernel/src'
+        entry_points=('intel_bdw_gt_bootstrap_run','intel_bdw_gt_bootstrap_write_ready')
+        users={name:set() for name in entry_points}
+        for path in source.rglob('*'):
+            if path.suffix not in ('.c','.inc','.h'):
+                continue
+            symbols=set(re.findall(r'\bintel_bdw_gt_bootstrap_\w+\b',path.read_text()))
+            for name in entry_points:
+                if name in symbols:
+                    users[name].add(str(path.relative_to(source)))
+        for name in entry_points:
+            self.assertEqual(users[name],{'drivers/intel_gt_bootstrap_trial.inc'},name)
         wake=(ROOT/'kernel/src/drivers/intel_gt_wake.inc').read_text()
         self.assertIn('#ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE',wake)
         self.assertIn('#include SRVROS_INTEL_GT_BOOTSTRAP_ADAPTER_FILE',wake)
@@ -112,7 +124,17 @@ class Bootstrap(unittest.TestCase):
         self.assertIn('-Wframe-larger-than=2048 -c '+CORE,selected)
         lines=[l for l in (ROOT/'Makefile').read_text().splitlines() if CORE in l]
         self.assertTrue(lines)
-        self.assertTrue(all(l.startswith(('build/tests/intel-bdw-gt-bootstrap','build/tests/intel-gt-bootstrap-adapter$(HOST_EXE):','build/intel-gt-bootstrap/bootstrap.o:','build/intel-gt-seconds/bootstrap.o:','build/intel-gt-practical/bootstrap.o:','build/intel-gt-memory/bootstrap.o:','build/intel-gt-arena/bootstrap.o:','build/intel-bcs-context/bootstrap.o:','build/tests/intel-gt-arena-adapter$(HOST_EXE):','build/tests/intel-bcs-context-adapter$(HOST_EXE):','build/tests/intel-gt-memory-adapter$(HOST_EXE):','build/tests/intel-gt-practical-adapter$(HOST_EXE):','build/tests/intel-gt-seconds-adapter$(HOST_EXE):')) or '$(HOST_CC)' in l for l in lines))
+        variants=('gt-bootstrap','gt-seconds','gt-practical','gt-memory','gt-arena','bcs-context')
+        targets={f'build/intel-{v}/bootstrap.o' for v in variants}
+        fixtures=(*variants,'gt-range','gt-primary','gt-aux','gt-flush')
+        targets.update(f'build/tests/intel-{v}-adapter$(HOST_EXE)' for v in fixtures)
+        targets.update(('build/tests/intel-bdw-gt-bootstrap$(HOST_EXE)',
+                        'build/tests/intel-bdw-gt-bootstrap-policy$(HOST_EXE)'))
+        for line in lines:
+            if line.startswith('\t'):
+                self.assertIn('$(HOST_CC)',line)
+            else:
+                self.assertTrue(set(line.split(':',1)[0].split())<=targets,line)
         native=subprocess.check_output(['make','-Bn','--','build/kernel/srvros.elf',
             'build/intel-bcs-reset/srvros.elf','build/intel-source-audit/srvros.elf',
             'build/intel-vtd-drain/srvros.elf','build/intel-command-memory/srvros.elf',
