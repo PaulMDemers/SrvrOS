@@ -48,7 +48,7 @@ static bool mapped_register(uint64_t root, uint64_t alias, uint64_t physical)
 
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct scanout_memory_token *token,
                                       struct scanout_transfer *t, const struct scanout_transfer_token *grant,
-                                      uint64_t root, uint64_t alias, uint32_t index, uint64_t value)
+                                      const struct vmm_reserved_guard *cpu_guard, uint64_t root, uint64_t alias, uint32_t index, uint64_t value)
 {
     uint64_t original;
     if (!root || !alias || (alias & 4095) || !store_active(m, token, t, index) ||
@@ -82,6 +82,9 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
 
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */
+    uint64_t offset = (uint64_t)index * 4096;
+    if (t->manifest.aperture > UINT64_MAX - offset ||
+        !vmm_reserved_guard_io_page_held(cpu_guard, root, t->manifest.aperture + offset)) return false;
     volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
     if (*reg != (restore ? entry.replacement : original)) return false;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);

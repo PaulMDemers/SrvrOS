@@ -410,7 +410,7 @@ bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t p
 static uint32_t reserved_mutations;
 static struct {
  struct vmm_reserved_guard *owner;
- uint64_t root,epoch,cr4,efer;
+ uint64_t root,epoch,cr4,efer,io_page;
  unsigned state,count,bits,ram_count;
  struct vmm_physical_span spans[VMM_ALIAS_SPANS];
  struct vmm_alias_ram ram[VMM_ALIAS_RAM_LIMIT];
@@ -427,6 +427,7 @@ static bool reserved_mutation_enter(enum reserved_mutation kind,uint64_t root,ui
  if((kind==RESERVED_MAP || kind==RESERVED_PROTECT) && (flags&PAGE_MASK))goto refuse;
  if(kind==RESERVED_MAP) {
   if((physical&~PAGE_MASK) || (physical&4095) || physical>=(1ull<<reserved_guard.bits))goto refuse;
+  if(physical && physical==reserved_guard.io_page)goto refuse;
   for(unsigned i=0;i<reserved_guard.count;i++)
    if(physical>=reserved_guard.spans[i].physical &&
       physical<reserved_guard.spans[i].physical+(uint64_t)reserved_guard.spans[i].pages*4096)goto refuse;

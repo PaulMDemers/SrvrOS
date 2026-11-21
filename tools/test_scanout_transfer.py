@@ -16,7 +16,7 @@ pte-store-late-alias pte-store-restore-late-alias pte-store-deadline pte-store-r
 pte-store-late-deadline pte-store-restore-late-deadline pte-store-cache pte-store-alias
 pte-store-foreign pte-store-restore-cache pte-store-restore-alias pte-store-restore-foreign
 pte-store-invalidate pte-store-restore-invalidate
-reservation-clean reservation-fault reservation-stale-original boot-framebuffer one-page-no-boot-fence""".split()
+reservation-clean reservation-fault reservation-stale-original boot-framebuffer one-page-no-boot-fence pte-store-aperture pte-store-restore-aperture""".split()
 
 class TransferTests(unittest.TestCase):
     def test_actual_core(self):

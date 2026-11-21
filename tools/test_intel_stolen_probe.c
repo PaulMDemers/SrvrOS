@@ -105,6 +105,19 @@ bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
  if(fault(GUARD_BEGIN)){d->walk.reason=VMM_ALIAS_MODE;return false;}
  model.guard_live=true;*out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
 }
+bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root,
+ const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
+ unsigned ranges,uint64_t page,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ assert(stolen.range.selected && page==0xb2200000);
+ if(model.mode==55) {
+  d->walk.reason=VMM_ALIAS_PRESENT;d->physical=page;d->bytes=0x200000;
+  return false;
+ }
+ return vmm_reserved_guard_begin(g,root,pair,count,bits,ram,ranges,out,d);
+}
+bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+ return model.guard_live && g==&stolen.guard.owner && root==stolen.root && page==0xb2200000;
+}
 bool vmm_reserved_guard_check(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
  assert(g==&stolen.guard.owner && g->object==g && model.guard_live && model.pinned && out==&stolen.guard.inventory[1] && d==&stolen.guard.detail);
  if(fault(GUARD_CHECK)){d->walk.reason=VMM_ALIAS_MODE;return false;}
@@ -207,6 +220,10 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  if(fault(READ))return false;
  ++model.reads;
  switch(offset) {
+ case 0x70040:
+  assert(stolen.range.selected && model.guard_live && model.held);
+  *out=(model.mode==54 || !stolen.range.fences)?100:101;
+  return true;
  case 0x1082c0:*out=0x8ff00007;return true;
  case 0x43208:*out=model.mode==45 && model.guard_live?UINT32_MAX:0;return true;
  case 0x6f800:*out=0x00100001;return true;
@@ -310,6 +327,13 @@ int main(int argc,char **argv) {
   assert(stolen.range.closing_readers==(mode==53?41u:mode==49 || mode==52?42u:0u));
   assert(stolen.fail==(matched?0u:32u) && !model.mapped && !model.held && !model.guard_live);++model.cases;
  }
+ reset();model.mode=55;
+ assert(!intel_stolen_probe_report(range_command) && stolen.fail==30 && stolen.range.aperture_alias);
+ assert(!stolen.range.epoch && !model.guard_live && !model.held);
+ reset();model.mode=54;
+ assert(!intel_stolen_probe_report(range_command) && stolen.fail==32 && !stolen.range.verified);
+ assert(stolen.range.frame_reads==4097 && stolen.range.transfer.state==TRANSFER_CLOSED);
+ assert(!model.held && !model.guard_live);
  positive();
  for(unsigned i=0;i<78;i++) {
   reset();model.mode=33;model.at=i;

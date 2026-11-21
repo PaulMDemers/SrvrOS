@@ -24,6 +24,12 @@ static bool reserved_guard_observe(struct vmm_alias_inventory *out,struct vmm_un
     return reserved_guard_fail(d,VMM_ALIAS_PMM_RESERVED);
  if(!vmm_diagnostic_kernel_physical_unmapped(reserved_guard.root,reserved_guard.spans,
     reserved_guard.count,reserved_guard.bits,reserved_guard.ram,reserved_guard.ram_count,&result,d))return false;
+ if(reserved_guard.io_page) {
+  struct vmm_physical_span page={reserved_guard.io_page,1};
+  struct vmm_alias_inventory io_walk;
+  if(!vmm_diagnostic_kernel_physical_unmapped(reserved_guard.root,&page,1,reserved_guard.bits,
+      reserved_guard.ram,reserved_guard.ram_count,&io_walk,d))return false;
+ }
  if(!reserved_guard_identity(reserved_guard.owner))return reserved_guard_fail(d,VMM_ALIAS_GUARD);
  if(alias_inventory_cr4()!=reserved_guard.cr4 || alias_inventory_efer()!=reserved_guard.efer)
   return reserved_guard_fail(d,VMM_ALIAS_MODE);
@@ -33,9 +39,9 @@ static bool reserved_guard_observe(struct vmm_alias_inventory *out,struct vmm_un
   return reserved_guard_fail(d,VMM_ALIAS_ROOT);
  *out=result;return true;
 }
-bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
+static bool reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
  const struct vmm_physical_span *spans,unsigned count,unsigned bits,
- const struct vmm_alias_ram *ram,unsigned ram_count,
+ const struct vmm_alias_ram *ram,unsigned ram_count,uint64_t io_page,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
  if(d)*d=(struct vmm_unmapped_detail){0};
  if(!g || g->object || g->epoch || !out || !spans || !count || count>VMM_ALIAS_SPANS ||
@@ -44,9 +50,12 @@ bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
  if(reserved_guard.owner || __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))return reserved_guard_fail(d,VMM_ALIAS_BUSY);
  if(reserved_guard_flags()&512)return reserved_guard_fail(d,VMM_ALIAS_ROOT);
  uint64_t limit=1ull<<bits;
+ if((io_page&4095) || io_page>=limit)return reserved_guard_fail(d,VMM_ALIAS_INPUT);
  for(unsigned i=0;i<count;i++) {
   if(!spans[i].pages || spans[i].pages>4096 || (spans[i].physical&4095) ||
      spans[i].physical>=limit || (uint64_t)spans[i].pages*4096>limit-spans[i].physical)
+   return reserved_guard_fail(d,VMM_ALIAS_INPUT);
+  if(io_page && io_page>=spans[i].physical && io_page-spans[i].physical<(uint64_t)spans[i].pages*4096)
    return reserved_guard_fail(d,VMM_ALIAS_INPUT);
   for(unsigned j=0;j<i;j++)if(spans[i].physical<spans[j].physical+(uint64_t)spans[j].pages*4096 &&
       spans[j].physical<spans[i].physical+(uint64_t)spans[i].pages*4096)return reserved_guard_fail(d,VMM_ALIAS_INPUT);
@@ -56,6 +65,7 @@ bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
   * admission or recursive check may pass through a partially validated owner. */
  reserved_guard.owner=g;reserved_guard.state=VMM_GUARD_PREPARING;
  reserved_guard.epoch=++reserved_epoch;g->object=g;g->epoch=reserved_guard.epoch;
+ reserved_guard.io_page=io_page;
  reserved_guard.root=root;reserved_guard.count=count;reserved_guard.bits=bits;reserved_guard.ram_count=ram_count;
  for(unsigned i=0;i<count;i++)reserved_guard.spans[i]=spans[i];
  for(unsigned i=0;i<ram_count;i++)reserved_guard.ram[i]=ram[i];
@@ -66,6 +76,23 @@ bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
   reserved_guard.owner=NULL;reserved_guard.state=VMM_GUARD_EMPTY;return false;
  }
  reserved_guard.state=VMM_GUARD_ACTIVE;return true;
+}
+bool vmm_reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
+ const struct vmm_physical_span *spans,unsigned count,unsigned bits,
+ const struct vmm_alias_ram *ram,unsigned ram_count,
+ struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ return reserved_guard_begin(g,root,spans,count,bits,ram,ram_count,0,out,d);
+}
+bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root,
+ const struct vmm_physical_span *spans,unsigned count,unsigned bits,
+ const struct vmm_alias_ram *ram,unsigned ram_count,uint64_t io_page,
+ struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ if(!io_page)return reserved_guard_fail(d,VMM_ALIAS_INPUT);
+ return reserved_guard_begin(g,root,spans,count,bits,ram,ram_count,io_page,out,d);
+}
+bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+ return page && reserved_guard_identity(g) && reserved_guard.state==VMM_GUARD_ACTIVE &&
+        reserved_guard.io_page==page && reserved_guard.root==root && read_cr3()==root;
 }
 static bool reserved_guard_validate(struct vmm_reserved_guard *g,bool close,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {

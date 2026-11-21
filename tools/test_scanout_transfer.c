@@ -21,6 +21,11 @@ static struct scanout_memory_token at,bt;
 static uint64_t input[SCANOUT_TRANSFER_PAGES];
 static _Alignas(4096) uint64_t table[SCANOUT_SPACE_PAGES];
 static const char *page_failure = "";
+static struct vmm_reserved_guard cpu_guard;
+bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+    return g==&cpu_guard && root==4096 && page==manifest.aperture+8704ull*4096 &&
+           strcmp(page_failure,"aperture");
+}
 static unsigned store_alias_walks;
 static uint64_t cached_translation;
 static struct {
@@ -242,7 +247,7 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
 static bool write_test_page(void *ctx,uint32_t index,uint64_t value) {
     assert(ctx==&model);
     store_alias_walks=0;
-    bool ok=intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,4096,
+    bool ok=intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,&cpu_guard,4096,
                                              (uintptr_t)&table[8704],index,value);
     if(ok)++model.writes;
     return ok;
@@ -499,7 +504,7 @@ int main(int argc,char **argv) {
     assert(!display_access_release(&transfer.exclusion,true));
     if(store_failure) {
         assert(prepare_memory(&a,&at,0));
-        assert(!intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,4096,(uintptr_t)&table[8704],8704,a.entries[0]));
+        assert(!intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,&cpu_guard,4096,(uintptr_t)&table[8704],8704,a.entries[0]));
         bool restoring=!strncmp(mode+10,"restore-",8);
         if(restoring)assert(scanout_memory_apply(&a,&at));
         page_failure=mode+10+(restoring?8:0);

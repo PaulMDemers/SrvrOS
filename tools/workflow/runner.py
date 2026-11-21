@@ -41,6 +41,15 @@ def code_inputs(repo):
     return [pattern for pattern in INPUTS if glob.glob(str(Path(repo) / pattern), recursive=True)]
 
 
+SCANOUT_APERTURE = 'intel-scanout-aperture-v1'
+STOLEN_WIRES = {
+    'intel-stolen-v47': 1, 'intel-stolen-v48': 2, 'intel-stolen-v49': 3,
+    'intel-stolen-v50': 4, 'intel-stolen-v51': 4, 'intel-stolen-v52': 5,
+    'intel-stolen-v53': 6, 'intel-stolen-v54': 7, 'intel-stolen-v55': 8,
+    SCANOUT_APERTURE: 12,
+}
+STOLEN_PREINIT = set(STOLEN_WIRES) - {'intel-stolen-v47', 'intel-stolen-v48', 'intel-stolen-v49', 'intel-stolen-v50'}
+STOLEN_PROGRESS = set(STOLEN_WIRES) - {'intel-stolen-v47'}
 GT_DISPLAY_WIRES = {'intel-gt-range-v56': 9, 'intel-gt-primary-v57': 10, 'intel-gt-aux-v58': 11, 'intel-gt-flush-v59': 12}
 from intel_edp_baseline import PROFILE as EDP_BASELINE, CYCLE_PROFILE as EDP_CYCLE
 from intel_edp_baseline import DARK_WELL_PROFILE as EDP_DARK_WELL, FLR_PREFLIGHT_PROFILE as EDP_FLR
@@ -50,7 +59,7 @@ from intel_edp_baseline import DARK_PPS_PROFILE as EDP_DARK_PPS
 
 EDP_PROFILES = (EDP_BASELINE, EDP_CYCLE, EDP_FLR, EDP_DARK_WELL, EDP_PCI_HOLD, EDP_DARK_PWM, EDP_DARK_PPS)
 
-PROFILES = {EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle', EDP_FLR:'--intel-edp-flr-preflight',
+PROFILES = {SCANOUT_APERTURE:'--intel-scanout-range', EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle', EDP_FLR:'--intel-edp-flr-preflight',
             EDP_DARK_WELL:'--intel-edp-dark-well', EDP_PCI_HOLD:'--intel-edp-pci-hold', EDP_DARK_PWM:'--intel-edp-dark-pwm', EDP_DARK_PPS:'--intel-edp-dark-pps','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
@@ -68,16 +77,16 @@ def trial_parsers(name):
         result=bootstrap_result(text,native=True)
         if not result or result['version']!=version:raise ValueError('Full-GT profile requires exact wire'+str(version))
         return result
-    if name in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):
+    if name in STOLEN_WIRES:
         from intel_stolen_scanout import stolen_recipe,stolen_result,verify_stolen_checkpoint
-        wire=8 if name=='intel-stolen-v55' else 7 if name=='intel-stolen-v54' else 6 if name=='intel-stolen-v53' else 5 if name=='intel-stolen-v52' else 4 if name in ('intel-stolen-v50','intel-stolen-v51') else 3 if name=='intel-stolen-v49' else 2 if name=='intel-stolen-v48' else 1
+        wire=STOLEN_WIRES[name]
         def result(text):
-            if name in ('intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):
+            if name in STOLEN_PREINIT:
                 from intel_stolen_scanout import verify_stolen_preinit
                 verify_stolen_preinit(text)
             return stolen_result(text,native=True,required_version=wire)
         def checkpoint(pre,text,**kw):
-            if name in ('intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):
+            if name in STOLEN_PREINIT:
                 from intel_stolen_scanout import verify_stolen_preinit
                 verify_stolen_preinit(pre);verify_stolen_preinit(text)
             return verify_stolen_checkpoint(pre,text,required_version=wire,**kw)
@@ -118,9 +127,9 @@ def profile(repo, name='intel-source-audit-v35'):
     if name in EDP_PROFILES:
         from workflow.edp_baseline import jobs
         return jobs(dependencies)
-    if name in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):
+    if name in STOLEN_WIRES:
         from workflow.stolen_scanout import jobs
-        return jobs(dependencies)
+        return jobs(dependencies, aperture=(name==SCANOUT_APERTURE))
     if name in GT_DISPLAY_WIRES:
         from workflow.gt_range import jobs
         return jobs(dependencies, primary=GT_DISPLAY_WIRES[name]>=10, aux=GT_DISPLAY_WIRES[name]>=11, flush=GT_DISPLAY_WIRES[name]==12)
@@ -331,7 +340,7 @@ class Runner:
         if trial_profile in ('intel-vtd-drain-v36','intel-ggtt-invalidate-v36','intel-command-memory-v37','intel-command-ownership-v38','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
             from intel_vtd_native import _table
             _table((self.repo / VTD_FIXTURE).read_bytes())
-        if trial_profile in ('intel-stolen-v55','intel-stolen-v54','intel-stolen-v53','intel-stolen-v52','intel-stolen-v51','intel-stolen-v50','intel-stolen-v49','intel-stolen-v48','intel-stolen-v47','intel-gt-bootstrap-v39','intel-gt-bootstrap-v40','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59') and config['model'] != 'MacBookAir7,2':
+        if trial_profile in (*STOLEN_WIRES,'intel-gt-bootstrap-v39','intel-gt-bootstrap-v40','intel-gt-bootstrap-v41','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59') and config['model'] != 'MacBookAir7,2':
             raise ValueError('Full-GT bootstrap requires this independently captured Air7,2 profile')
         jobs = jobs or profile(self.repo, trial_profile)
         for level in ('development', 'qualification'):
@@ -350,14 +359,14 @@ class Runner:
             inputs.append(VTD_FIXTURE)
         if trial_profile in GT_DISPLAY_WIRES:
             inputs.extend([VTD_FIXTURE, 'build/device-fixtures/macbookair7-2-dsdt.bin'])
-        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=GT_DISPLAY_WIRES[trial_profile] if trial_profile in GT_DISPLAY_WIRES else 8 if trial_profile=='intel-stolen-v55' else 7 if trial_profile=='intel-stolen-v54' else 6 if trial_profile=='intel-stolen-v53' else 5 if trial_profile=='intel-stolen-v52' else 4 if trial_profile in ('intel-stolen-v50','intel-stolen-v51') else 3 if trial_profile=='intel-stolen-v49' else 2 if trial_profile=='intel-stolen-v48' else 1 if trial_profile=='intel-stolen-v47' else 8 if trial_profile=='intel-bcs-context-v46' else 7 if trial_profile=='intel-gt-arena-v45' else 6 if trial_profile=='intel-gt-memory-v44' else 5 if trial_profile=='intel-gt-practical-v43' else 4 if trial_profile=='intel-gt-seconds-v42' else 3 if trial_profile=='intel-gt-bootstrap-v41' else 2 if trial_profile=='intel-gt-bootstrap-v40' else 1 if trial_profile=='intel-gt-bootstrap-v39' else 6 if trial_profile=='intel-command-ownership-v38' else 5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
+        manifest = dict(schema=1, unit=config, profile=trial_profile, wire_version=GT_DISPLAY_WIRES[trial_profile] if trial_profile in GT_DISPLAY_WIRES else STOLEN_WIRES[trial_profile] if trial_profile in STOLEN_WIRES else 8 if trial_profile=='intel-bcs-context-v46' else 7 if trial_profile=='intel-gt-arena-v45' else 6 if trial_profile=='intel-gt-memory-v44' else 5 if trial_profile=='intel-gt-practical-v43' else 4 if trial_profile=='intel-gt-seconds-v42' else 3 if trial_profile=='intel-gt-bootstrap-v41' else 2 if trial_profile=='intel-gt-bootstrap-v40' else 1 if trial_profile=='intel-gt-bootstrap-v39' else 6 if trial_profile=='intel-command-ownership-v38' else 5 if trial_profile=='intel-command-memory-v37' else 4 if trial_profile=='intel-ggtt-invalidate-v36' else 3 if trial_profile=='intel-vtd-drain-v36' else None, question=question,
                         expected=expected, source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                         branch=command(['git', 'branch', '--show-current'], self.repo),
                         submodules=command(['git', 'submodule', 'status', '--recursive'], self.repo),
                         inputs=inputs, input_hashes=files(self.repo, inputs),
                         jobs=jobs, created_utc=now(),
                         hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
-        if trial_profile in ('intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):manifest['stolen_progress_version']=1
+        if trial_profile in STOLEN_PREINIT:manifest['stolen_progress_version']=1
         self.frozen(manifest)
         directory = self.store / 'runs' / name
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', name):
@@ -479,7 +488,9 @@ class Runner:
         payload = verify(stage, release)
         if payload['git_head'] != manifest['source'] or payload['git_dirty']:
             raise ValueError('Staged payload is not the frozen source')
-        if (manifest['profile'] in GT_DISPLAY_WIRES or manifest['profile'] in EDP_PROFILES) and payload.get('source_bound') is not True:
+        if manifest['profile']==SCANOUT_APERTURE and not payload['config_version'].startswith('ram-usb-v13-intel-stolen-'):
+            raise ValueError('Expected the aperture exclusion payload')
+        if (manifest['profile'] in GT_DISPLAY_WIRES or manifest['profile'] in EDP_PROFILES or manifest['profile']==SCANOUT_APERTURE) and payload.get('source_bound') is not True:
             raise ValueError('Range payload release does not bind the frozen source')
         if payload.get('stolen_progress_version')!=manifest.get('stolen_progress_version'):
             raise ValueError('Staged progress contract differs from frozen manifest')
@@ -608,7 +619,7 @@ class Runner:
             logs = directory / 'returned' / ('raw-' + session)
             progress_name='stolen-progress.log'
             if progress_name in after.get('raw',{}).get(session,{}):
-                if manifest['profile'] not in ('intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53') or manifest.get('stolen_progress_version')!=1:
+                if manifest['profile'] not in STOLEN_PROGRESS or manifest.get('stolen_progress_version')!=1:
                     raise ValueError('Unexpected progress journal for frozen profile')
                 from intel_stolen_scanout import stolen_progress
                 progress=stolen_progress((logs/progress_name).read_text(),state['recipe'])
@@ -639,7 +650,7 @@ class Runner:
             if manifest.get('wire_version') is not None and native.get('version') != manifest['wire_version']:
                 raise ValueError('Native receipt differs from frozen wire version')
             native_complete = bool(native['complete'] and native['native_complete'])
-            diagnostic_complete = bool(((manifest['profile'] in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53') and native.get('diagnostic_stolen')) or (manifest['profile']=='intel-bcs-context-v46' and native.get('diagnostic_context')) or (manifest['profile']=='intel-gt-arena-v45' and native.get('diagnostic_arena')) or (manifest['profile']=='intel-gt-memory-v44' and native.get('diagnostic_memory')) or (manifest['profile']=='intel-gt-range-v56' and native.get('diagnostic_range')) or (manifest['profile']=='intel-gt-primary-v57' and native.get('diagnostic_primary')) or (manifest['profile']=='intel-gt-aux-v58' and native.get('diagnostic_aux')) or (manifest['profile']=='intel-gt-flush-v59' and native.get('diagnostic_flush')) or (manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds')) or (manifest['profile']=='intel-gt-practical-v43' and native.get('diagnostic_practical'))) and native.get('diagnostic_complete'))
+            diagnostic_complete = bool(((manifest['profile'] in STOLEN_WIRES and native.get('diagnostic_stolen')) or (manifest['profile']=='intel-bcs-context-v46' and native.get('diagnostic_context')) or (manifest['profile']=='intel-gt-arena-v45' and native.get('diagnostic_arena')) or (manifest['profile']=='intel-gt-memory-v44' and native.get('diagnostic_memory')) or (manifest['profile']=='intel-gt-range-v56' and native.get('diagnostic_range')) or (manifest['profile']=='intel-gt-primary-v57' and native.get('diagnostic_primary')) or (manifest['profile']=='intel-gt-aux-v58' and native.get('diagnostic_aux')) or (manifest['profile']=='intel-gt-flush-v59' and native.get('diagnostic_flush')) or (manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds')) or (manifest['profile']=='intel-gt-practical-v43' and native.get('diagnostic_practical'))) and native.get('diagnostic_complete'))
             if manifest['profile'] in EDP_PROFILES:
                 diagnostic_complete = native['diagnostic_complete']
             self.guard(manifest, state, installed=True, armed=False)
@@ -648,8 +659,8 @@ class Runner:
                           raw_manifest=after['raw'][session], native=native, offline_integrity='PASS',
                           native_acceptance=False, physical_tearfree=False)
             atomic(directory / 'report.json', report)
-            status='review read-only census; native ownership withheld' if manifest['profile'] in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53') and diagnostic_complete else 'review wide-policy diagnostic; original timing acceptance withheld' if diagnostic_complete else 'review full retirement and scope before acceptance' if native_complete else 'incomplete native chain; review retained failure'
-            if manifest['profile'] in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53') and not diagnostic_complete:
+            status='review read-only census; native ownership withheld' if manifest['profile'] in STOLEN_WIRES and diagnostic_complete else 'review wide-policy diagnostic; original timing acceptance withheld' if diagnostic_complete else 'review full retirement and scope before acceptance' if native_complete else 'incomplete native chain; review retained failure'
+            if manifest['profile'] in STOLEN_WIRES and not diagnostic_complete:
                 status='census refused at '+native['failure_stage']+'; incomplete, no ownership acceptance'
                 report['failure_stage']=native['failure_stage'];atomic(directory/'report.json',report)
             if manifest['profile'] in EDP_PROFILES and diagnostic_complete:
@@ -670,7 +681,7 @@ class Runner:
             self.finish(directory, state, 'REJECTED', status='reviewed failure; raw evidence retained')
             return
         report = json.loads((directory / 'report.json').read_text())
-        if manifest['profile'] in ('intel-stolen-v55','intel-stolen-v54','intel-stolen-v53','intel-stolen-v52','intel-stolen-v51','intel-stolen-v50','intel-stolen-v49','intel-stolen-v48','intel-stolen-v47','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
+        if manifest['profile'] in (*STOLEN_WIRES,'intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
             raise ValueError('Diagnostic profiles cannot grant native ownership; use diagnose')
         if not report.get('native_complete', report.get('native', {}).get('native_complete', False)):
             raise ValueError('Incomplete native chain cannot be accepted')
@@ -689,7 +700,7 @@ class Runner:
 
     def diagnose(self,run):
         directory,manifest,state=self.load(run)
-        if state['phase']!='COLLECTED' or manifest['profile'] not in (*EDP_PROFILES,'intel-stolen-v55','intel-stolen-v54','intel-stolen-v53','intel-stolen-v52','intel-stolen-v51','intel-stolen-v50','intel-stolen-v49','intel-stolen-v48','intel-stolen-v47','intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
+        if state['phase']!='COLLECTED' or manifest['profile'] not in (*EDP_PROFILES,*STOLEN_WIRES,'intel-gt-seconds-v42','intel-gt-practical-v43','intel-gt-memory-v44','intel-gt-arena-v45','intel-bcs-context-v46','intel-gt-range-v56','intel-gt-primary-v57','intel-gt-aux-v58','intel-gt-flush-v59'):
             raise ValueError('Only collected explicit diagnostics may be diagnosed')
         report=json.loads((directory/'report.json').read_text())
         if not report.get('diagnostic_complete') or report.get('native_acceptance') or report.get('offline_integrity')!='PASS':
@@ -703,7 +714,7 @@ class Runner:
         if not checkpoint(pre,text,native=True) or parse(text)!=report['native']:raise ValueError('Diagnostic proof changed')
         if (report['source'],report['release'],report['session'])!=(manifest['source'],state['release'],state['session']):raise ValueError('Diagnostic provenance changed')
         self.guard(manifest,state,installed=True,armed=False)
-        if manifest['profile'] in ('intel-stolen-v47','intel-stolen-v48','intel-stolen-v49','intel-stolen-v50','intel-stolen-v51','intel-stolen-v52','intel-stolen-v55','intel-stolen-v54','intel-stolen-v53'):
+        if manifest['profile'] in STOLEN_WIRES:
             record=dict(status='READ_ONLY_LAYOUT_DIAGNOSTIC_COMPLETE',source=manifest['source'],release=state['release'],session=state['session'],
                         elapsed_us=[f['end']-f['begin'] for f in report['native']['rows']['facts']],
                         native_acceptance=False,hardware_ownership=False,physical_tearfree=False,return_integrity='PASS')

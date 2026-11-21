@@ -107,6 +107,28 @@ int main(int argc,char **argv) {
  assert(begin(&guard));assert(vmm_reserved_guard_close(&guard,&result,&why));
  setup();hook=3;vmm_switch_address_space(root+4096);hook=0;vmm_switch_address_space(root);
  assert(!other.object && !reserved_guard.owner && !reserved_mutations);
+ /* BAR2 provides a second CPU route to the GGTT slot, disjoint from the
+  * old stolen pages. Exercise an existing alias, live mutations and close. */
+ const uint64_t aperture=0xb2200000;
+ setup();t[3][0]=aperture|3;
+ assert(!vmm_reserved_guard_begin_io_page(&guard,root,pair,2,52,&ram[1],1,aperture,&result,&why));
+ assert(why.walk.reason==VMM_ALIAS_PRESENT && !reserved_guard.owner);
+ for(unsigned corrupt=0;corrupt<2;corrupt++) {
+  setup();
+  assert(vmm_reserved_guard_begin_io_page(&guard,root,pair,2,52,&ram[1],1,aperture,&result,&why));
+  assert(vmm_reserved_guard_io_page_held(&guard,root,aperture));
+  assert(!vmm_reserved_guard_io_page_held(&other,root,aperture));
+  assert(!vmm_reserved_guard_io_page_held(&guard,root+4096,aperture));
+  assert(!vmm_reserved_guard_io_page_held(&guard,root,aperture+4096));
+  for(unsigned route=0;route<3;route++)refused_map(route,aperture,3);
+  assert(vmm_map_page_in_space(root,va,aperture-4096,3));
+  assert(vmm_reserved_guard_check(&guard,&result,&why));
+  if(corrupt)t[3][0]=aperture|3;
+  assert(vmm_reserved_guard_close(&guard,&result,&why)==!corrupt);
+  assert(!vmm_reserved_guard_io_page_held(&guard,root,aperture));
+  if(corrupt){assert(why.walk.reason==VMM_ALIAS_PRESENT);reset_fault();}
+  else assert(vmm_map_page_in_space(root,va+4096,aperture,3));
+ }
  /* Every reserved page is actually queried on admission. */
  for(unsigned page=1;page<=3072;page++) {
   setup();bad_tag=page;memset(&result,0xa5,sizeof(result));struct vmm_alias_inventory saved=result;

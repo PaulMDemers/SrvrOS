@@ -269,18 +269,19 @@ def stolen_result(text,*,native=False,required_version=None):
             k,sep,value=token.partition('=')
             if not sep or k in row:raise ValueError('duplicate stolen field')
             if k in ('ownership','authority','first_unmet'):row[k]=value;continue
-            hexadecimal=k in HEX and not ((kind=='run' and k=='gpu') or (kind=='cpu-span' and k=='reserved'))
+            hexadecimal=(k in HEX or k=='aperture_page') and not ((kind=='run' and k=='gpu') or (kind=='cpu-span' and k=='reserved'))
             if not re.fullmatch(r'(?:0|0x[0-9a-fA-F]{1,16})' if hexadecimal else r'[0-9]{1,20}',value):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,12) else ''
-        if kind=='summary' and version in range(3,12):extra+=' preflight'
-        if kind=='summary' and version in range(4,12):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in range(5,12):extra+=' reader_reads'
-        if kind=='range' and version in (2,3):extra+=' reservation returned'
-        if kind=='range' and version==3:extra+=' protected_pages'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,12) if kind=='summary' else (1,2,3) if kind=='range' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,13) else ''
+        if kind=='summary' and version in range(3,13):extra+=' preflight'
+        if kind=='summary' and version in range(4,13):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in range(5,13):extra+=' reader_reads'
+        if kind=='range' and version in (2,3,4):extra+=' reservation returned'
+        if kind=='range' and version in (3,4):extra+=' protected_pages'
+        if kind=='range' and version==4:extra+=' aperture_page aperture_alias frame0 frame1 frame_reads'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,13) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
@@ -358,7 +359,19 @@ def stolen_result(text,*,native=False,required_version=None):
         r=rows['range'][0]
         if r['v']!=wire-8:
             raise ValueError('scanout reservation wire mismatch')
-        if wire==11:
+        if wire>=12:
+            if r['frame_reads']>4097 or max(r['frame0'],r['frame1'])>0xffffffff:
+                raise ValueError('invalid primary frame counter')
+            if r['verified'] and (r['frame_reads']<2 or not 1<=((r['frame1']-r['frame0']) & 0xffffffff)<=240):
+                raise ValueError('original primary did not advance')
+            if r['aperture_alias'] not in (0,1) or (r['aperture_alias'] and
+                (rows['guard'][0]['reason']!=12 or rows['guard'][0]['acquired'] or r['aperture_page'])):
+                raise ValueError('inconsistent aperture alias refusal')
+            page=r['aperture_page']
+            if (page>=(1<<39) or (page and (page & 0xfffffff)!=0x2200000) or (r['protected_pages'] and not page)
+                or (page and not rows['guard'][0]['checked'])):
+                raise ValueError('candidate aperture page exclusion')
+        if wire>=11:
             protected=r['protected_pages']
             if protected not in (0,8704) or (r['epoch'] and not protected) or (protected and not rows['guard'][0]['checked']):
                 raise ValueError('inherited framebuffer protection')
@@ -388,7 +401,7 @@ def stolen_result(text,*,native=False,required_version=None):
         if hardware['observation_complete'] and not r['verified']:
             raise ValueError('missing scanout range observation')
         result['scanout_range']=r
-        range_reads=3*(r['fences']+r['checked'])+r['closing_readers']
+        range_reads=3*(r['fences']+r['checked'])+r['closing_readers']+r.get('frame_reads',0)
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -447,6 +460,8 @@ def stolen_result(text,*,native=False,required_version=None):
         from intel_display_backing import backing_result
         window=native_window_result(text);display=capture_result(text);backing=backing_result(text)
         if not window or not window['native_observation_complete'] or not display:raise ValueError('stolen native prerequisites')
+        if wire>=12 and rows['range'][0]['aperture_page']!=window['summary']['aperture_base']+a['fence_end']:
+            raise ValueError('excluded page differs from the native PCI aperture')
         for e in backing['rows']['endpoint']:
             if any((e[k]&65535 if k=='ggc' else e[k])!=a[k] for k in ('host','ggc','bdsm','bgsm','tolud')):
                 raise ValueError('stolen changed PCI source bounds')

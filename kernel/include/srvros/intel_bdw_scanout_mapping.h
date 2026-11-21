@@ -23,8 +23,9 @@ bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct s
  * pin its original CPU root and its exclusive UC register alias across the
  * callback. A successful store includes raw posting readback. The separate
  * flush and reader callbacks remain mandatory for publication and reuse. */
+struct vmm_reserved_guard;
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *, const struct scanout_memory_token *,
                                       struct scanout_transfer *, const struct scanout_transfer_token *,
-                                      uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
+                                      const struct vmm_reserved_guard *, uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
 
 #endif

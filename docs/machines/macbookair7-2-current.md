@@ -10,6 +10,17 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+Current Air7,2 work on PR301 covers exclusive access to the first candidate
+GGTT slot during publication and rollback, with the inherited panel scanning
+out. The VMM and Intel scanout adapter share this scope. The CPU aperture
+address and original stolen RAM are distinct paths to the same slot. Native
+GPU admission also depends on the firmware, engine, DMA, cache and reader
+handoff. The aperture diagnostic holds the candidate CPU address across two
+advancing primary-A frame counts and checks the inherited surface addresses.
+It saves the aperture address and both frame counts. A live firmware/GT
+range transfer is still required before publishing or restoring a PTE.
+The hardware target is a single reversible mapping at 1% volume.
+
 The range diagnostic now registers the entire inherited 34 MiB fence for the
 rest of the boot. Both kernel handoff APIs reject a conflicting framebuffer
 description even after the candidate lease closes. The one-page publisher

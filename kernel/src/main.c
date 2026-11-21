@@ -1045,6 +1045,8 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-stolen=read-only")) {
                 console_write("intel-stolen: automatic read-only layout census; silent, no input. Saved/unmounted outcomes return to Ubuntu.\n"
                     "intel-stolen: unchanged60s means photograph and restart manually; no GPU write or memory grant.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-scanout=range-observation"))
+                    console_write("intel-scanout: checking CPU aperture exclusion during active scanout. No GPU mapping change.\n");
                 bool checkpoint=started && workspace_log_pause();
                 bool stolen_ok=checkpoint && intel_stolen_probe_report(cmdline);sampled=sampled && stolen_ok;
                 if(!checkpoint)console_write("intel-stolen: checkpoint failed; census refused\n");

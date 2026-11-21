@@ -124,6 +124,14 @@ bool vmm_reserved_guard_begin(struct vmm_reserved_guard *,uint64_t root,
  const struct vmm_physical_span *,unsigned count,unsigned physical_bits,
  const struct vmm_alias_ram *,unsigned ram_count,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+/* Also exclude the CPU-visible device aperture page for this guard's full
+ * lifetime. The device owner supplies its decoded BAR address. The MMIO page
+ * is checked for aliases separately from the PMM-tagged backing spans. */
+bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *,uint64_t root,
+ const struct vmm_physical_span *,unsigned count,unsigned bits,
+ const struct vmm_alias_ram *,unsigned ram_count,uint64_t io_page,
+ struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *,uint64_t root,uint64_t io_page);
 bool vmm_reserved_guard_check(struct vmm_reserved_guard *,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
 bool vmm_reserved_guard_close(struct vmm_reserved_guard *,

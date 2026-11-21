@@ -72,36 +72,44 @@ class Receipts(unittest.TestCase):
     def test_guarded_scanout_range_and_last_tail_entry(self):
         def report(option):
             return subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),option],text=True)
-        config=boot.limine_config('0123456789abcdef','ram-usb-v12-intel-stolen-laptop-probe-37d8c5d0-auto-return')
+        config=boot.limine_config('0123456789abcdef','ram-usb-v13-intel-stolen-laptop-probe-37d8c5d0-auto-return')
         cmd=next(line.split('cmdline:',1)[1].strip() for line in config.splitlines() if 'cmdline:' in line)
         self.assertIn('srvros.intel-scanout=range-observation',cmd.split())
         self.assertEqual(stolen_recipe(cmd),stolen_recipe(self.command))
         raw=report('--range-report')
-        result=stolen_result(raw,required_version=11)
+        result=stolen_result(raw,required_version=12)
+        self.assertEqual(trial_parsers('intel-scanout-aperture-v1')[0](cmd),stolen_recipe(cmd))
+        jobs=profile(ROOT,'intel-scanout-aperture-v1')
+        self.assertIn('test_scanout_transfer',next(j['argv'] for j in jobs['qualification'] if j['name']=='census-qualification'))
         self.assertTrue(result['complete'])
         self.assertFalse(result['managed_range'] or result['hardware_ownership'] or result['physical_tearfree'])
         receipt=result['scanout_range']
         self.assertEqual(receipt['protected_pages'],8704)
-        historical=raw.replace('summary: v=11 ', 'summary: v=10 ').replace(
+        self.assertEqual(receipt['aperture_page'],0xb2200000)
+        wire11=re.sub(r'range: v=4 aperture_page=\S+ aperture_alias=\d+ frame0=\d+ frame1=\d+ frame_reads=\d+ ', 'range: v=3 ', raw.replace('summary: v=12 ', 'summary: v=11 '))
+        # Earlier wire versions made no frame counter reads.
+        wire11=re.sub(r'alias_checks=(\d+)',lambda m:'alias_checks='+str(int(m[1])-receipt['frame_reads']),wire11,count=1)
+        self.assertNotIn('aperture_page',stolen_result(wire11,required_version=11)['scanout_range'])
+        historical=wire11.replace('summary: v=11 ', 'summary: v=10 ').replace(
             'range: v=3 protected_pages=8704 ', 'range: v=2 ')
         self.assertNotIn('protected_pages',stolen_result(historical,required_version=10)['scanout_range'])
         with self.assertRaises(ValueError):
-            stolen_result(historical,required_version=11)
+            stolen_result(historical,required_version=12)
         self.assertGreater(receipt['reservation'],0)
         self.assertEqual(receipt['returned'],1)
         self.assertEqual([receipt[k] for k in ('slot','pages','checked','fences','verified','missing')],[8704,1484,1484,64,1,31])
-        refusal=stolen_result(report('--range-tail-refusal'),required_version=11)
+        refusal=stolen_result(report('--range-tail-refusal'),required_version=12)
         self.assertFalse(refusal['complete'])
         self.assertEqual((refusal['failure_stage'],refusal['scanout_range']['checked']),('scanout-range',1483))
         line=next(line for line in raw.splitlines() if line.startswith('intel-stolen-range:'))
-        for bad in ('',line.replace('protected_pages=8704','protected_pages=0'),
+        for bad in ('',line.replace('frame1=101','frame1=100'),re.sub(r'aperture_page=\S+', 'aperture_page=0',line),line.replace('protected_pages=8704','protected_pages=0'),
                     line.replace('protected_pages=8704','protected_pages=8703'),line+'\n'+line,line.replace('fences=64','fences=63'),
                     line.replace('returned=1','returned=0'),line.replace('reservation=1','reservation=0'),
                     line.replace('missing=31','missing=0'),line.replace('closing_readers=42','closing_readers=41'),
                     line.replace('obligations=255','obligations=0'),
                     line.replace('checked=1484','checked=1483'),re.sub(r'hash=\S+','hash=0',line)):
             with self.subTest(bad=bad),self.assertRaises(ValueError):
-                stolen_result(raw.replace(line,bad),required_version=11)
+                stolen_result(raw.replace(line,bad),required_version=12)
         with self.assertRaises(ValueError):
             stolen_result(raw,required_version=8)
 
@@ -540,7 +548,7 @@ class Receipts(unittest.TestCase):
                 release=boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture='scanout-range')
             manifest=boot.verify(stage/release)
             self.assertTrue(manifest['source_bound'])
-            self.assertTrue(manifest['config_version'].startswith('ram-usb-v12-intel-stolen-'))
+            self.assertTrue(manifest['config_version'].startswith('ram-usb-v13-intel-stolen-'))
             for changes in ({'git_head':'b'*40},{'source_bound':False}):
                 (stage/release/'manifest.json').write_text(json.dumps(dict(manifest,**changes)))
                 with self.assertRaises(ValueError):boot.verify(stage/release)
