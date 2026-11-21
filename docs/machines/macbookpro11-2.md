@@ -9,6 +9,12 @@ Dated sections retain the bring-up history.
 
 ### Persistent 5 GHz and desktop controls
 
+Descriptor reuse work starts from `47cc3a33` with `origin/main` at `4016abf0`.
+It covers the MT7610 DMA ledger, the production xHCI stream and its native
+fixtures. First prove independent TX/RX wrap and terminal Stop in the existing
+bounded production IP workload. The persistent worker and System will consume
+that transport after the bounded reuse path passes. PR #19 owns this scope.
+
 Starting from `00bae497`, with `origin/main` inspected at `4016abf0`, continue
 the Edimax 5 GHz path on this unit. First qualify a connection lifetime whose
 traffic service stays active independently of a client workload and whose
