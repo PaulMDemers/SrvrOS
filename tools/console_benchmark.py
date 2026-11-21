@@ -28,7 +28,8 @@ def main():
             binary = temporary / variant
             command = [args.cc, '-std=c11', '-O2', '-ffunction-sections', '-fdata-sections',
                        '-Ishared/include', '-Ikernel/include', '-Ibuild/limine-protocol/include',
-                       '-I' + directory, 'tools/benchmark_console.c', '-Wl,--gc-sections', '-o', str(binary)]
+                       '-I' + directory, 'tools/benchmark_console.c', 'kernel/src/display_access.c',
+                       '-Wl,--gc-sections', '-o', str(binary)]
             if variant == 'baseline':
                 command.append('-DSRVROS_BENCH_BASELINE')
             subprocess.run(command, cwd=ROOT, check=True)

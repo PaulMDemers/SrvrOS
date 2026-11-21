@@ -28,8 +28,27 @@ bool x86_cache_equal(const struct x86_cache_snapshot *,const struct x86_cache_sn
  * remains untouched on refusal, including undefined variable-MTRR overlaps. */
 bool x86_cache_page(const struct x86_cache_snapshot *,uint64_t physical,unsigned pat_index,
                     unsigned *mtrr_type,unsigned *pat_type,unsigned *effective_type);
+/* Pure hypothetical uniform policy over 1..4096 complete pages. Checks every
+ * enabled variable-MTRR boundary, including interior holes; never assumes the
+ * endpoints describe the interior. Outputs are untouched on refusal. This is
+ * neither an actual-alias walk nor a coherence, mapping or GPU ownership grant. */
+bool x86_cache_range(const struct x86_cache_snapshot *,uint64_t physical,uint32_t pages,
+                    unsigned pat_index,unsigned *mtrr_type,unsigned *pat_type,
+                    unsigned *effective_type,unsigned *checks);
 void intel_cache_probe_boot(void);
 bool intel_cache_probe_report(void);
 /* Fresh recheck against completed native observation; not mapping authority. */
 bool intel_cache_probe_uc_page(uint64_t physical);
+/* Fresh complete CPU0 context equality only; no DMA/cache/mapping grant. */
+bool intel_cache_probe_context(struct x86_cache_snapshot *);
+/* Only the separate BDW request/ACK observation pages; fresh CPU context. */
+bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset);
+bool intel_cache_probe_firmware_wb_page(uint64_t physical);
+/* Exact display-HDA first page only; no widening of GPU observer gates. */
+bool intel_cache_probe_hda_uc_page(uint64_t physical);
+bool intel_cache_probe_reset_uc_page(uint64_t,uint32_t);
+bool intel_cache_probe_completion_uc_page(uint64_t,uint32_t);
+bool intel_cache_probe_reader_uc_page(uint64_t,uint32_t);
+bool intel_cache_probe_engine_uc_page(uint64_t,uint32_t);
+bool intel_cache_probe_wake_uc_page(uint64_t physical,uint32_t offset);
 #endif

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <srvros/backlight.h>
+#include <srvros/display_access.h>
 static uint32_t regs[3];static unsigned reads,writes;static int broken;
 static uint32_t read_reg(void *ctx,unsigned reg) { assert(ctx==regs && reg<3);reads++;return regs[reg]; }
 static void write_duty(void *ctx,uint32_t value) { assert(ctx==regs);writes++;if(!broken) regs[2]=value; }
@@ -36,6 +37,9 @@ int main(void) {
     assert(backlight_percent(0)==-1 && !reads && !writes);
     ready();assert(backlight_bind((struct backlight_io){regs,read_reg,write_duty}));
     assert(!backlight_bind_profile((struct backlight_io){regs,read_reg,write_duty},BACKLIGHT_PRO11_2));
+    ready();struct display_access_token t;assert(display_access_acquire(1,&t));
+    unsigned r=reads,w0=writes;assert(backlight_percent(10)==-1 && backlight_percent(0)==-1);
+    assert(reads==r && writes==w0 && display_access_release(&t,true));
     exercise();profile=BACKLIGHT_AIR6_1;exercise();
     ready();regs[2]=(2777u<<16)|1228;unsigned before=writes;assert(backlight_percent(0)==44 && writes==before);
     regs[2]=(1953u<<16)|1228;assert(!backlight_bind_profile((struct backlight_io){regs,read_reg,write_duty},BACKLIGHT_AIR6_1));

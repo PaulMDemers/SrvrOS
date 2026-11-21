@@ -1,0 +1,43 @@
+#ifdef SRVROS_INTEL_GPU_HOLD
+#define BOOT_RECIPE_CHECK intel_gt_boot_gpu_hold_recipe
+#define BOOT_TOKENS 22
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+#define BOOT_RECIPE_CHECK intel_gt_boot_joint_admit_recipe
+#define BOOT_TOKENS 22
+#elif defined(SRVROS_INTEL_JOINT)
+#define BOOT_RECIPE_CHECK intel_gt_boot_joint_recipe
+#define BOOT_TOKENS 21
+#else
+#define BOOT_RECIPE_CHECK intel_gt_boot_rehold_recipe
+#define BOOT_TOKENS 20
+#endif
+#define BOOT_SYSTEM_INIT_FIXTURE_ONLY
+#include "test_boot_system_init.c"
+#undef BOOT_SYSTEM_INIT_FIXTURE_ONLY
+int main(void) {
+ const char *recipe="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot srvros.intel-engines=read-only srvros.intel-completion=read-only srvros.intel-takeover=preflight srvros.intel-engines-prepare=request-cancel srvros.intel-held-requester=read-only srvros.intel-bcs-reset=held-blitter-only srvros.intel-interval=read-only srvros.intel-rehold=request-cancel"
+#ifdef SRVROS_INTEL_JOINT
+ " srvros.intel-joint=hda-claim"
+#endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+ " srvros.intel-gpu-requester=hold"
+#endif
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+ " srvros.intel-admission=disabled-bcs-v1"
+#endif
+ ;
+ assert(BOOT_RECIPE_CHECK(recipe) && !intel_gt_boot_held_reset_recipe(recipe));reset();
+ assert(!boot_system_init(recipe,true) && deferred==1 && !spawns && !waits && !clocks);
+ char bad[3000];unsigned tokens=0;
+ for(const char *start=recipe;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof bad,"%.*s%s",(int)(start-recipe),recipe,*end?end+1:end);
+  assert(!BOOT_RECIPE_CHECK(bad));normal(bad);
+  snprintf(bad,sizeof bad,"%s %.*s",recipe,(int)(end-start),start);
+  assert(!BOOT_RECIPE_CHECK(bad));normal(bad);
+  tokens++;start=*end?end+1:end;
+ }
+ assert(tokens==BOOT_TOKENS);normal(NULL);normal("");normal("srvros.desktop=session");
+ snprintf(bad,sizeof bad,"%s unknown=yes",recipe);assert(!BOOT_RECIPE_CHECK(bad));normal(bad);
+ puts("boot-rehold: PASS exact20-token preinit isolation, old/missing/duplicate/foreign recipes and ordinary readiness");
+}

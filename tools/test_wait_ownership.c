@@ -3,6 +3,8 @@
 #include <string.h>
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
+/* These fixtures have no live owned scope; cancellation must stay unused. */
+void net_process_wake(struct process *p) { (void)p;assert(0); }
 static struct process *caller;
 static unsigned wakes;
 void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==&process_wait_queue);wakes++; }

@@ -4,8 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 static uint64_t test_cr3;
+#ifdef SRVROS_VMM_ALIAS_INVENTORY_TEST
+static uint64_t test_cr4=1ull<<5;
+#endif
 static unsigned switches;
 static uint64_t test_rflags, test_efer=1ull<<11;
+static uint32_t test_physical_bits=52;
 static uint32_t test_maxext=0x80000001u, test_nx=1u<<20;
 static unsigned cpuid_calls, efer_calls, table_reads;
 static uint64_t vmm_test_rflags(void) { return test_rflags; }
@@ -15,12 +19,30 @@ static void vmm_test_cpuid(uint32_t leaf,uint32_t *eax,uint32_t *ebx,uint32_t *e
     cpuid_calls++; *eax=*ebx=*ecx=*edx=0;
     if(leaf==0x80000000u) *eax=test_maxext;
     if(leaf==0x80000001u) *edx=test_nx;
+    if(leaf==0x80000008u) *eax=test_physical_bits;
 }
-static uint64_t vmm_test_efer(void) { efer_calls++; return test_efer; }
-static void vmm_test_write_cr3(uint64_t value) { test_cr3=value;switches++; }
+static uint64_t vmm_test_efer(void) {
+ efer_calls++;
+#ifdef SRVROS_VMM_UNMAPPED_CONTEXT_TEST
+ vmm_unmapped_efer_hook();
+#endif
+ return test_efer;
+}
+static void vmm_test_write_cr3(uint64_t value) {
+#ifdef SRVROS_VMM_RESERVED_TEST
+ vmm_reserved_switch_hook();
+#endif
+ test_cr3=value;switches++;
+}
 static uint64_t vmm_test_cr3(void) { return test_cr3; }
+#ifdef SRVROS_VMM_ALIAS_INVENTORY_TEST
+static uint64_t vmm_test_cr4(void) { return test_cr4; }
+#endif
 #define SRVROS_VMM_HOST_TEST
-#include "../kernel/src/memory/vmm.c"
+#ifndef SRVROS_VMM_SOURCE_FILE
+#define SRVROS_VMM_SOURCE_FILE "../kernel/src/memory/vmm.c"
+#endif
+#include SRVROS_VMM_SOURCE_FILE
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t minimum,enum pmm_frame_tag tag) {
     (void)n;(void)minimum;(void)tag;assert(0 && "unexpected page-table allocation");return 0;
 }
@@ -31,7 +53,14 @@ void pmm_free_frame(uint64_t frame) {
     assert(test_cr3==kernel_cr3 && retire_count<3);
     retired[retire_count++]=frame;
 }
-void *pmm_phys_to_virt(uint64_t address) { table_reads++; return (void *)(uintptr_t)address; }
+void *pmm_phys_to_virt(uint64_t address) { table_reads++;
+#ifdef SRVROS_VMM_RESERVED_TEST
+    vmm_reserved_lookup_hook();
+#endif
+#ifdef SRVROS_VMM_RANGE_TEST
+    range_lookup_hook();
+#endif
+    return (void *)(uintptr_t)address; }
 
 static uint64_t *exec_tables[4];
 static void exec_check(uint64_t address,uint64_t root,bool expected)
@@ -190,4 +219,5 @@ int main(void) {
     vmm_destroy_address_space(0);vmm_destroy_address_space(kernel_cr3);
     assert(switches==1 && retire_count==3);
     free(pt); free(pd); free(pdpt); free(pml4);
+    return 0;
 }

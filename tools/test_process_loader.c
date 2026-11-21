@@ -8,6 +8,8 @@
 #include <setjmp.h>
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
+/* These fixtures have no live owned scope; cancellation must stay unused. */
+void net_process_wake(struct process *p) { (void)p;assert(0); }
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
 bool exfat_write_file_retryable(const char *p,const uint8_t *d,uint64_t n,bool *r) {(void)p;(void)d;(void)n;(void)r;assert(0);return false;}
 int64_t net_close(uint64_t h) {(void)h;assert(0);return -1;}

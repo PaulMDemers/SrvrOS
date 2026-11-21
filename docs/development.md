@@ -144,3 +144,20 @@ prior Node runtime milestones are not reproduced by this setup pass.
 
 See [the October 2026 review](project-review-2026-10-16.md) for the physical
 hardware findings and validation results.
+
+## Managing native-agent build storage
+
+Old hardware stages and fault-injection binaries can accumulate far beyond the
+current build size. Retire only generated duplicates whose complete files/hashes
+match a retained copy outside `build`; keep source, scripts, logs, small receipt
+files and current/recovery payloads. Save a per-file or per-payload restore ledger
+with original path, retained path and hashes, and back that ledger up outside
+`build`. Older reproduction scripts may require restoring intentionally pruned
+binaries or stages before execution. Dated equality receipts describe their
+original checkpoint, not the continued existence of pruned local duplicates.
+
+On the reference Air, the November9 cleanup retains full current/recovery/GUI/
+accepted payloads and all evidence while removing29 duplicate generated payloads
+and547 old binary copies, reclaiming about26GiB. Its ignored cleanup checkpoint
+and independent restore ledgers are recorded in the machine record. No flash-drive
+content or retained independent raw-evidence directory is deleted by that cleanup.

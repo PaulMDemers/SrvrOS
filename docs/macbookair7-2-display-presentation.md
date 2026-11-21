@@ -61,3 +61,195 @@ existing UI/lifetime bounds rather than relax them to accommodate a driver.
 
 No physical test is armed by this plan. Prepare a source-bound run record,
 independent payload/recovery and exact-stage rehearsal before any next reboot.
+
+## First observation implementation
+
+The opt-in `srvros.capture=intel-display` path runs immediately after PCI
+inventory, before normal Intel initialization and userspace. It uses the existing
+exact Air7,2 DSDT matcher plus GPU `8086:1626` rev09, subsystem `106b:011b`,
+PCH `8086:9cc3`, existing memory decode and a validated read-only D0 snapshot.
+It never enables a device or transitions its power state. Ordinary boot retains
+its current behavior; the diagnostic skips the old Intel stub's PCI writes.
+
+The first MMIO prefix is bounded to2MiB and BAR0 must meet the captured16MiB
+alignment and39-bit address limit. Firmware memory-map overlaps with RAM or the
+framebuffer refuse admission. The address-map reference is Intel's
+[Mobile 5th Generation datasheet, section3.2.10](https://cdrdv2-public.intel.com/332379/mobile-5th-gen-core-family-datasheet-vol-2.pdf).
+The read allowlist uses the pinned Linux
+[i9xx plane](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/i9xx_plane_regs.h)
+and [display register](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_regs.h)
+definitions. Intel's [Broadwell manual index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html)
+is the architecture reference. The capture accesses no AUX, forcewake, W1C
+status, GTT PTE or framebuffer contents.
+
+Nine temporary kernel-address-space pages have no writable, user or executable
+permission and never enter the global mapping registry. Only translations
+created by this attempt are removed; an existing mapping refuses and is left
+alone. Page-table storage retains the kernel address space's normal lifetime.
+Partial mappings are cleaned up; uncertain cleanup is retained and reported.
+There is one attempt per boot and no runtime API for repeating it.
+
+Two snapshots contain58 allowlisted reads each, bracketed by four power-well
+registers. Their separation targets20ms with a finite counter fallback and a
+100ms clock bound. PCI identity/access is revalidated before each snapshot and
+afterward. Only scanline/frame counters may differ; changed power/control/access
+state refuses a complete observation. These are non-atomic observations, not a
+proof excluding firmware activity. Raw source dimensions, plane/stride/surface,
+DDI/transcoder/timing and cursor fields are preserved. A numerical linear
+surface relation is explicitly separate from unknown GGTT backing and ownership.
+
+```sh
+make -j2 all test-intel-display-capture
+python3 tools/hardware_boot.py stage --laptop-probe-volume VOLUME_SERIAL \
+  --intel-display-capture
+# Verify the reported release and run this immediately in the same checkout:
+python3 tools/hardware_boot_smoke.py --probe-check
+python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace
+```
+
+The exact-stage Q35 check must refuse the unmatched GPU before display MMIO,
+save the full refusal receipt, unmount and reset. A missing workspace must halt
+with save/unmount failure instead of resetting past lost evidence. The stager
+rejects combined firmware experiments and attended failure-hold overrides.
+Successful observations and handled refusals both return automatically after
+successful save/unmount; refusal remains a failed native observation. No tester
+input is needed for this diagnostic. Use the normal recovery/run-record/install
+sequence before a physical boot.
+
+The existing native desktop collector exposes `intel_display_capture` and flags
+missing, refused, malformed or incomplete reports. It validates versioned rows,
+identities, fixed read counts, bounded timing, stable controls/well endpoints and
+mapping retirement. Match the new session/release to its staged manifest before
+accepting the observation. Neither decoder acceptance nor VM fixtures establish
+native flip support or visible tear-free scanout.
+
+## First native observation (2026-11-03)
+
+Air7,2 release `c60576b371caaab4`, compiled source `5c8c0569`, saved a complete
+version1 observation in `session-00065f6627117de5-00` and returned automatically.
+Both samples contain58 reads; their durations are12us and8us and their starts
+are20084us apart. PCI identity/access, well endpoints and all non-counter fields
+are stable. All9 temporary pages are retired, retained mask0, capture writes0.
+This accepts the bounded read-only diagnostic on this unit.
+
+Inherited framebuffer: physical `0xb0000000`, 1440×900, pitch6144, 32-bit BGRX.
+PipeA reports source `0x059f0383`, control `0xd8000400`, stride `0x1800`, surface/
+offset/live0 and disabled cursor. Its scanline changes856→120 and frame count
+724→726. PipesB/C have zero plane control. The eDP transcoder reports htotal
+`0x063f059f`, vtotal/vblank `0x039d0383`, DDI `0x82200000`, config `0xc0000000`.
+Preserve these as raw inherited observations; Linux's reference state remains
+separate. The capture reports active-plane mask1 and linear-relation mask0.
+
+Next checkpoint: decode the captured format/layout and independently establish
+the inherited GGTT/backing, aperture and stolen-memory bounds using a bounded
+read-only extension. Refuse unsupported or ambiguous state. Only then design
+exclusive buffer ownership, inactive scanout allocation and vblank flips with
+retirement/restore proofs. This snapshot accepts none of those later milestones.
+Raw reports and return-integrity evidence remain in ignored
+`build/air-intel-observe-native-20261103/returned/` and independent reviewed storage.
+
+## Bounded backing readout implementation
+
+The separate `--intel-backing-capture` staging profile retains the version1
+inherited capture and adds `srvros.intel-backing=read-only`. It is default-off,
+uses the ordinary kernel, rejects mixed experiments and keeps automatic return
+conditional on saved logs and clean unmount. Q35 must refuse before any MMIO.
+
+This first extension admits only the exact previously captured Broadwell profile,
+primaryA BGRX888, zero origin/rotation, synchronous linear or X-tiled layout,
+matching source/stride/live surface and an aligned256MiB CPU aperture. For X
+layout, the observed storage extent includes complete8-row tiles. It refuses
+more than1536 PTEs rather than enlarging the logger's64KiB retention limit. The
+Air's padded extent is5554176 bytes/1356 pages, versus5529600 visible bytes.
+The native receipt below confirms this padded extent on the reference unit.
+
+Read-only host bridge `8086:1604` and GPU snapshots preserve GGC, BDSM, BGSM and
+TOLUD. Admission requires matching GGC/BDSM mirrors, supported nonzero GMS/GGMS,
+disjoint bounded stolen-data/table intervals and full16MiB BAR0 exclusion from
+non-reserved firmware ranges. No destructive BAR sizing occurs. The inherited
+framebuffer CPU translation is walked page by page in the kernel CR3, with one
+unambiguous enclosing reserved/framebuffer firmware entry. This is a translation
+observation, not a reservation or a pin.
+
+The access reference is Intel's
+[Broadwell Memory Views, pp7,15,44–45](https://cdrdv2-public.intel.com/690798/intel-gfx-prm-osrc-bdw-vol-05-memory-views.pdf),
+with the pinned Linux
+[GGTT implementation](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/gt/intel_ggtt.c)
+and [fence implementation](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/gt/intel_ggtt_fencing.c).
+Read32 fence pairs at `0x100000`, and only the selected primary extent's8-byte
+GGTT entries through BAR0+8MiB. Each pair uses high/low/high reads. No backing address or pixel/aperture data is dereferenced. No PTE, fence, AUX,
+power-policy or display-control write occurs. One temporary supervisor/read-only/NX/uncached page is reused;
+retirement failure stops reuse and remains explicit.
+
+Two finite traversals compare every raw PTE bit, fence and PCI/translation
+endpoint, bracketed by the original route and well values. Each traversal and
+inter-traversal gap has a100ms clock bound; fixed PTE/page/map caps also bound a
+frozen-clock path. There is no wait for a whole frame and no claim of an atomic
+snapshot. The report retains one complete stable raw PTE vector in canonical
+base64 chunks, all32 raw fences, per-traversal hashes/counts/times and endpoints.
+The host decoder recomputes the extent, raw-vector hash, present/stolen counts,
+contiguity, unique covering X-fence relationship and the stolen range's
+firmware classification. Observation completion is
+separate from a recognized backing relationship. Neither grants allocation,
+exclusive ownership, freedom from firmware activity, flip readiness or physical
+tear-free acceptance. Unsupported PTE/address/fence relationships remain unknown.
+
+```sh
+make -j2 all test-intel-display-capture test-intel-display-backing
+python3 tools/hardware_boot.py stage --laptop-probe-volume VOLUME_SERIAL \
+  --intel-backing-capture
+python3 tools/hardware_boot_smoke.py --probe-check
+python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace
+```
+
+Collect the matching new native boot/exit logs, independently decode
+`intel_display_backing`, verify full-vector retention, then perform ordinary
+file-preservation/offline integrity/recovery checks before accepting this readout.
+The previously accepted version1 observation remains separate evidence.
+
+## Native backing observation (2026-11-03)
+
+Source `10966846`, release `3a3b2f00b9ff7eca`, session
+`session-00065f66d0e1ad3c-00` completes the bounded readout and returns
+automatically. The39211-byte saved exit log contains the complete raw vector and
+both endpoint records. Each traversal reads4280 words and1356 PTEs, taking825us
+and822us; all entries match bit for bit. The host independently recomputes hash
+`0x7f0b9ad930cbe611`, counts, contiguity and fence/layout relationships. All22
+temporary backing mappings retire with retained0 and writes0.
+
+Host/GPU GGC `0x02c1` and BDSM `0x8c000001` agree. Captured stolen data is
+`[0x8c000000,0x90000000)` (64MiB); BGSM `0x8b800001` describes the separate8MiB
+table interval below it. Firmware reserves `[0x8b000000,0x90000000)`; this does
+not make its unobserved allocations available to the kernel. All observed PTEs
+are present, mapping consecutive pages from `0x8c001000` through `0x8c54c000`.
+Raw first/last entries are `0x8c001001`/`0x8c54c001`. No backing data is read.
+
+The CPU aperture starts at `0xb0000000`. Its visible5529600 bytes have1350
+contiguous CPU pages in a framebuffer-classified firmware entry. X-tile padding
+extends the GPU-visible storage span to5554176 bytes/1356 pages. Fence0 raw
+`0x021ff02f00000001` uniquely matches X layout and pitch6144, covering graphics
+offsets `[0,0x02200000)` (34MiB). Preserve that full fence and any other firmware
+users; neither the padding nor the rest of its range is proven free.
+
+Prior-file preservation, both copied log hashes, offline fsck/allocation/writable/
+headroom and consumed one-shot/default/recovery checks pass. USB is remounted and
+no new test is armed. Raw evidence is retained locally and in independent reviewed
+storage. This accepts read-only observation of the backing relationship on this
+unit. PMM/GGTT allocation authority, DMA-translation authority, exclusion of later
+firmware activity, buffer pinning, exclusive ownership and flip completion still
+require their own contracts and tests before display writes.
+
+## Buffer lifetime implementation checkpoint
+
+The [scanout lifetime contract](scanout-buffer-lifetime.md) defines the new pure
+owner, private RAM lifetime, pre-publication pin, matching completion and
+cancel/drain/restore/quarantine rules. Its first source-bound hardware trial is
+shadow-only, paced by read-only native frame-counter observations and followed
+by full backing revalidation. It does not authorize a GGTT allocator, physical
+flip completion or desktop backend. The existing inherited fence remains intact.
+
+The subsequent [address reservation mechanism](native-scanout-reservations.md)
+now passes host/VM checks on source `96b5cc0e`. It protects explicit inherited
+intervals and retains exposed ranges until independently proven retirement;
+no native caller supplies managed space. DMA-remapping state, padded tiled
+layout, firmware exclusion and route/restore authority remain the next audit.
