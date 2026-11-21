@@ -178,6 +178,6 @@ static bool wifi_survey5_cleanup_only(void){
   (wifi_cal5.discovery_status==MT76_DISC5_UNAVAILABLE || wifi_cal5.discovery_status==MT76_DISC5_AMBIGUOUS ||
    wifi_cal5.discovery_status==MT76_DISC5_CONFLICT || wifi_cal5.discovery_status==MT76_DISC5_SECURITY) &&
   wifi_discovery5_owned(&wifi_cal5,&wifi_cal5.window) &&
-  wifi_http_reconnect5_unattempted() &&
+  (wifi_http_reconnect5_unattempted() || wifi_desktop5_unattempted()) &&
   !wifi_power5.attempted && !wifi_handoff5.attempted && !wifi_join5.attempted;
 }

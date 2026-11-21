@@ -45,7 +45,7 @@ class MainDispatchTests(unittest.TestCase):
             declarations.append(match.group())
         stubs='\n'.join('static bool '+name+'(void){calls++;chosen="'+name+'";return capture_ok;}' for name in names)
         program='\n'.join(('#include <stdbool.h>','#include <stddef.h>','#include <stdint.h>',
-            function(source,'char_is_separator'),function(source,'cmdline_has_token'),function(source,'cmdline_tokens_unique'),function(source,'wifi_reconnect5_recipe'),function(source,'wifi_early5_recipe'),
+            function(source,'char_is_separator'),function(source,'cmdline_has_token'),function(source,'cmdline_tokens_unique'),function(source,'wifi_connection5_recipe'),function(source,'wifi_reconnect5_recipe'),function(source,'wifi_early5_recipe'),
             'static unsigned calls,setup_calls,last_reconnect_attempted,last_network_probe,quiesces;static const char *chosen;static bool capture_ok;',stubs,
             'static bool wifi_desktop_launch(void *d){return d!=NULL;}',
             'static bool wifi_desktop_running(void *d){return d!=NULL;}',
@@ -140,11 +140,19 @@ class MainDispatchTests(unittest.TestCase):
         self.assertEqual(self.dispatch(recipe+' srvros.wifi-http5=1'),(False,'none',0))
 
     def test_desktop_owner_is_explicit_and_requires_workspace_io_isolation(self):
-        recipe=self.recipe(150)
+        recipe=self.recipe(151)
         self.assertEqual(self.dispatch(recipe),(True,'xhci_wifi_capture_desktop5',1))
         self.assertEqual(self.library.dispatch_network_probe(),1)
         self.assertEqual(self.dispatch(recipe,parked=False),(False,'none',0))
-        for token in ('srvros.wifi-cal5-cleanup=1','srvros.trackpad=gestures','srvros.wifi-stack5=1'):
+        self.assertEqual(self.library.dispatch_setup_calls(),1)
+        self.assertEqual(self.dispatch(recipe),(True,'xhci_wifi_capture_desktop5',1))
+        self.assertEqual(self.library.dispatch_setup_calls(),4)
+        self.assertEqual(self.dispatch(self.recipe(150)),(False,'none',0))
+        for extra in ('srvros.wifi-reconnect5=1','srvros.wifi-reconnect5-http=1','srvros.startup-diagnostic=1',
+                      'srvros.wifi-early5=1','srvros.wifi-cal5-prime=1'):
+            self.assertEqual(self.dispatch(recipe+' '+extra),(False,'none',0))
+        for token in ('srvros.wifi-cal5-cleanup=1','srvros.trackpad=gestures','srvros.wifi-stack5=1',
+                      'srvros.wifi-cal5-prime=1','srvros.wifi-survey5=1','srvros.wifi-first-auth5=1','srvros.startup-journal=1'):
             self.assertEqual(self.dispatch(recipe.replace(token,'')),(False,'none',0))
 
     def test_prime_recipe_and_order(self):

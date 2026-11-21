@@ -145,8 +145,18 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
         with self.assertRaises(ValueError):boot.stage(wifi_desktop_owner=True)
 
+    def test_desktop_owner_keeps_the_accepted_connection_prerequisites(self):
+        version='ram-usb-wifi-fw-v151-laptop-probe-12345678-auto-return'
+        release='0123456789abcdef'
+        parent=boot.limine_config(release,version.replace('v151-','v149-'))
+        config=boot.limine_config(release,version)
+        self.assertEqual(config,parent.replace(' srvros.wifi-reconnect5=1 srvros.wifi-reconnect5-http=1',
+            ' srvros.wifi-desktop-owner=1 srvros.trackpad=gestures'))
+        with self.assertRaises(ValueError):boot.limine_config(release,version.replace('-auto-return',''))
+
     def test_desktop_owner_stage_complete_parent(self):
-        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,desktop_owner=True)
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,
+            desktop_owner=True,prime=True,survey=True,first_auth=True,journal="desktop")
 
     def test_reconnect5_profile(self):
         version='ram-usb-wifi-fw-v140-laptop-probe-12345678-auto-return'
@@ -311,15 +321,15 @@ class InstallTests(unittest.TestCase):
         names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5','wifi_stream5','wifi_stream5_dhcp','wifi_stack5','wifi_http5','wifi_reconnect5','wifi_http_reconnect5','wifi_desktop_owner'}
         nodes=[n for n in main.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.If) and isinstance(n.test,ast.Name) and n.test.id in ('wifi_nop5','wifi_stream5'))]
         code=compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec')
-        for version in (128,130,134,135,136,137,138,139,140,142,143,147,150):
+        for version in (128,130,134,135,136,137,138,139,140,142,143,147,150,151):
             config=boot.limine_config('0123456789abcdef',f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return')
             (self.root/'limine.conf').write_text(config)
             env={'probe':True,'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'},'source':self.root}
             exec(code,env)
             self.assertTrue(env['wifi_capture'] and env['wifi_firmware'] and env['wifi_5ghz_prereq'])
-            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138,139,140,142,143,147,150))
-            self.assertEqual(env['wifi_stack5'],version in (137,138,139,140,142,143,147,150))
-            self.assertEqual(env['wifi_desktop_owner'],version==150)
+            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138,139,140,142,143,147,150,151))
+            self.assertEqual(env['wifi_stack5'],version in (137,138,139,140,142,143,147,150,151))
+            self.assertEqual(env['wifi_desktop_owner'],version in (150,151))
             self.assertEqual(env['wifi_http5'],version==139)
             self.assertEqual(env['wifi_reconnect5'],version in (140,142,143,147))
             self.assertEqual(env['wifi_http_reconnect5'],version in (143,147))
@@ -537,7 +547,7 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(**args)
             add.assert_called_once()
             manifest=boot.verify(self.stage/release)
-        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{150 if desktop_owner else 149 if first_auth else 148 if survey else 147 if prime else 143 if http_reconnect else 142 if journal=='reconnect' else 141 if journal=='startup' else 140 if reconnect else 139 if http else 138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
+        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{151 if desktop_owner else 149 if first_auth else 148 if survey else 147 if prime else 143 if http_reconnect else 142 if journal=='reconnect' else 141 if journal=='startup' else 140 if reconnect else 139 if http else 138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
         self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
         if survey:self.assertIn('srvros.wifi-survey5=1',(self.stage/release/'limine.conf').read_text())
         if handoff:self.assertIn('srvros.wifi-handoff5=1',(self.stage/release/'limine.conf').read_text())
@@ -551,7 +561,7 @@ class InstallTests(unittest.TestCase):
             import startup_journal as j
             self.assertEqual(j.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
             config=(self.stage/release/'limine.conf').read_text()
-            self.assertEqual('srvros.startup-journal=1' in config,journal=='reconnect')
+            self.assertEqual('srvros.startup-journal=1' in config,journal in ('reconnect','desktop'))
             self.assertEqual('srvros.startup-diagnostic=1' in config,journal=='startup')
         for missing in (('wifi_eapol5','wifi_wpa5_pmk') if stream else ())+(('wifi_tx5_owner',) if nop else ())+(('wifi_data5',) if provider else ())+(('wifi_wpa5',) if data else ())+(('wifi_join5',) if eapol else ())+(('wifi_tx5_owner',) if join else ())+ (('wifi_peer5',) if tx else ())+ (('wifi_handoff5',) if peer else ())+ (('wifi_power5',) if handoff else ())+('wifi_discovery5','wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
             with self.subTest(missing=missing),self.assertRaises(ValueError):boot.stage(**dict(args,**{missing:False}))

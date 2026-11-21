@@ -51,7 +51,8 @@ def run(args):
     refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
-    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-','ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-'))
+    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-','ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-','ram-usb-wifi-fw-v151-'))
+    desktop_owner = manifest['config_version'].startswith('ram-usb-wifi-fw-v151-')
     early_compare = manifest['config_version'].startswith(('ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-'))
     http_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-'))
     full_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-'))
@@ -132,7 +133,7 @@ def run(args):
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
                 marker = ('neither persistent destination admitted' if args.mode == 'both-refused' else
-                          'laptop-capture: returning to Ubuntu' if full_reconnect or early_compare else 'Startup diagnostic complete.')
+                          'laptop-capture: returning to Ubuntu' if full_reconnect or early_compare or desktop_owner else 'Startup diagnostic complete.')
                 text = wait_for(serial, lambda s: marker in s, process, 100)
                 if args.mode == 'both-refused':
                     assert process.poll() is None
@@ -169,6 +170,10 @@ def run(args):
             elif http_reconnect:verify_http_reconnect5_absent_radio(text,require_prepare=args.mode in ('present','journal-refused','dirty-state'))
             else:verify_reconnect5_absent_radio(text)
             assert 'wifi-journal-summary: version=1 sampled=0' in text
+        if desktop_owner and args.mode != 'both-refused':
+            assert 'wifi-journal-summary: version=1 sampled=0' in text
+            assert 'wifi-desktop5-capture: complete=0 launched=0' in text
+            assert 'wifi-http-reconnect5-prepare:' not in text and 'deskd:' not in text
         checked = verify_sparse_changes(internal, seeds, (offset+512, offset+journal.FILE_BYTES))
         if not missing:
             with stick.open('rb') as stream:

@@ -339,12 +339,22 @@ static bool wifi_early5_recipe(const char *cmdline) {
     return true;
 }
 
-static bool wifi_reconnect5_recipe(const char *cmdline) {
+static bool wifi_connection5_recipe(const char *cmdline,bool desktop) {
+    const bool reconnect=cmdline_has_token(cmdline,"srvros.wifi-reconnect5=1");
+    const bool http=cmdline_has_token(cmdline,"srvros.wifi-reconnect5-http=1");
+    const bool prime=cmdline_has_token(cmdline,"srvros.wifi-cal5-prime=1");
+    const bool survey=cmdline_has_token(cmdline,"srvros.wifi-survey5=1");
+    const bool journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
+    const bool desktop_owner=cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1");
+    if(desktop){
+        if(!desktop_owner || reconnect || http || !prime || !survey || !journal ||
+           !cmdline_has_token(cmdline,"srvros.wifi-first-auth5=1") ||
+           !cmdline_has_token(cmdline,"srvros.trackpad=gestures") ||
+           cmdline_has_token(cmdline,"srvros.startup-diagnostic=1"))return false;
+    }else if(!reconnect || desktop_owner)return false;
     if(cmdline_has_token(cmdline,"srvros.wifi-first-auth5=1") &&
-       !cmdline_has_token(cmdline,"srvros.wifi-survey5=1"))return false;
-    if(cmdline_has_token(cmdline,"srvros.wifi-survey5=1") &&
-       (!cmdline_has_token(cmdline,"srvros.wifi-cal5-prime=1") ||
-        !cmdline_has_token(cmdline,"srvros.wifi-reconnect5-http=1")))return false;
+       !survey)return false;
+    if(survey && (!prime || (!desktop && !http)))return false;
     static const char *const required[]={
         "srvros.storage=ram","srvros.capture=wifi-firmware","srvros.usb-wifi=probe",
         "srvros.wifi-mac-startup=1","srvros.wifi-mcu-probe=1","srvros.wifi-radio-reset=1",
@@ -372,15 +382,12 @@ static bool wifi_reconnect5_recipe(const char *cmdline) {
         "srvros.wifi-power5=1","srvros.wifi-handoff5=1","srvros.wifi-peer5=1",
         "srvros.wifi-tx5-owner=1","srvros.wifi-join5=1","srvros.wifi-eapol5=1",
         "srvros.wifi-stream5=1","srvros.wifi-stack5=1","srvros.capture-failure=reboot",
-        "srvros.wifi-reconnect5=1",
     };
     if(!cmdline_tokens_unique(cmdline))return false;
     for(size_t i=0;i<sizeof required/sizeof required[0];i++)
         if(!cmdline_has_token(cmdline,required[i]))return false;
     if(cmdline_has_token(cmdline,"srvros.http-child-preflight=1"))return false;
-    if(cmdline_has_token(cmdline,"srvros.wifi-cal5-prime=1") &&
-       (!cmdline_has_token(cmdline,"srvros.wifi-reconnect5-http=1") ||
-        !cmdline_has_token(cmdline,"srvros.startup-journal=1")))return false;
+    if(prime && ((!desktop && !http) || !journal))return false;
     for(const char *p=cmdline;*p;) {
         while(*p && char_is_separator(*p))p++;
         if(!*p)break;
@@ -397,23 +404,24 @@ static bool wifi_reconnect5_recipe(const char *cmdline) {
                 const char *a=p,*b=required[i];while(a<end && *b && *a==*b){a++;b++;}
                 if(a==end && !*b)match=true;
             }
-            const char optional[]="srvros.wifi-reconnect5-http=1";
-            const char *a=p,*b=optional;while(a<end && *b && *a==*b){a++;b++;}
-            if(a==end && !*b)match=true;
-            const char prime[]="srvros.wifi-cal5-prime=1";
-            a=p;b=prime;while(a<end && *b && *a==*b){a++;b++;}
-            if(a==end && !*b)match=true;
-            const char survey[]="srvros.wifi-survey5=1";
-            a=p;b=survey;while(a<end && *b && *a==*b){a++;b++;}
-            if(a==end && !*b)match=true;
-            const char first_auth[]="srvros.wifi-first-auth5=1";
-            a=p;b=first_auth;while(a<end && *b && *a==*b){a++;b++;}
-            if(a==end && !*b)match=true;
+            const char *const optional[]={
+                desktop?"srvros.wifi-desktop-owner=1":"srvros.wifi-reconnect5=1",
+                "srvros.wifi-reconnect5-http=1","srvros.wifi-cal5-prime=1",
+                "srvros.wifi-survey5=1","srvros.wifi-first-auth5=1"
+            };
+            for(size_t i=0;i<sizeof optional/sizeof optional[0];i++) {
+                const char *a=p,*b=optional[i];while(a<end && *b && *a==*b){a++;b++;}
+                if(a==end && !*b)match=true;
+            }
             if(!match)return false;
         }
         p=end;
     }
     return true;
+}
+
+static bool wifi_reconnect5_recipe(const char *cmdline) {
+    return wifi_connection5_recipe(cmdline,false);
 }
 
 static const char *kernel_cmdline(void) {
@@ -838,7 +846,8 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
-    if(startup_journal_requested && (!(wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline)) ||
+    if(startup_journal_requested && (!(wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
+                                       wifi_connection5_recipe(cmdline,true)) ||
         (startup_diagnostic && reconnect_journal)))halt_forever();
     boot_verbose = boot_debug_requested(cmdline);
     bool a1466_capture = boot_a1466_capture_requested(cmdline);
@@ -960,9 +969,12 @@ void kmain(void) {
     pci_init();
     if(startup_journal_requested) {
         boot_set_framebuffer_quiet(false);
-        boot_status(reconnect_journal?
-            "Wi-Fi calibration and two-connection trial: independent checkpoints; no input required\n":
-            "Startup diagnostic: saving independent internal-disk checkpoints; no input required\n");
+        if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
+            boot_status("Demers5 desktop trial: calibrating. The desktop will open Help when ready.\n");
+        else
+            boot_status(reconnect_journal?
+                "Wi-Fi calibration and two-connection trial: independent checkpoints; no input required\n":
+                "Startup diagnostic: saving independent internal-disk checkpoints; no input required\n");
         startup_journal_admitted=ahci_init() && startup_journal_open();
         if(!startup_journal_admitted)
             console_write("Startup journal unavailable. Trying USB workspace logging to preserve the admission details.\n");
@@ -1100,9 +1112,7 @@ void kmain(void) {
         !cmdline_has_token(cmdline,"srvros.wifi-stream5-dhcp=1");
     bool wifi_desktop_owner_requested=cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1");
     bool wifi_desktop_owner_trial=wifi_desktop_owner_requested && wifi_stack5_trial &&
-        cmdline_has_token(cmdline,"srvros.wifi-cal5-cleanup=1") &&
-        cmdline_has_token(cmdline,"srvros.trackpad=gestures") &&
-        !wifi_reconnect5_requested && !wifi_http5_requested && !http_child_trial;
+        wifi_connection5_recipe(cmdline,true);
     struct wifi_desktop_capture wifi_desktop={0};
     if(http_child_trial)console_write("http-child-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_http_reconnect5_requested)console_write("wifi-http-reconnect5-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
@@ -1370,11 +1380,14 @@ void kmain(void) {
                     sampled=wifi_stack5_trial && return_on_failure && !wifi_desktop_trial &&
                         cmdline_has_token(cmdline,"srvros.wifi-cal5=1") && xhci_wifi_cal5_cleanup_enable();
                 if(sampled && cmdline_has_token(cmdline,"srvros.wifi-cal5-prime=1"))
-                    sampled=wifi_http_reconnect5_trial && stream_logger_parked && xhci_wifi_cal5_prime_enable();
+                    sampled=(wifi_http_reconnect5_trial || wifi_desktop_owner_trial) &&
+                        stream_logger_parked && xhci_wifi_cal5_prime_enable();
                 if(sampled && cmdline_has_token(cmdline,"srvros.wifi-survey5=1"))
-                    sampled=wifi_http_reconnect5_trial && stream_logger_parked && cmdline_has_token(cmdline,"srvros.wifi-cal5-prime=1") && xhci_wifi_cal5_survey_enable();
+                    sampled=(wifi_http_reconnect5_trial || wifi_desktop_owner_trial) && stream_logger_parked &&
+                        cmdline_has_token(cmdline,"srvros.wifi-cal5-prime=1") && xhci_wifi_cal5_survey_enable();
                 if(sampled && cmdline_has_token(cmdline,"srvros.wifi-first-auth5=1"))
-                    sampled=wifi_http_reconnect5_trial && stream_logger_parked && cmdline_has_token(cmdline,"srvros.wifi-survey5=1") && xhci_wifi_join5_radio_enable();
+                    sampled=(wifi_http_reconnect5_trial || wifi_desktop_owner_trial) && stream_logger_parked &&
+                        cmdline_has_token(cmdline,"srvros.wifi-survey5=1") && xhci_wifi_join5_radio_enable();
                 if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-table=1"))
                     sampled=(!wifi_desktop_owner_requested || wifi_desktop_owner_trial) && (!wifi_early5_requested || wifi_early5_trial) && (!wifi_rx_compare5_requested || wifi_rx_compare5_parked) && (!wifi_http_reconnect5_requested || wifi_http_reconnect5_trial) && (!cmdline_has_token(cmdline,"srvros.wifi-stack5=1") || (wifi_stack5_trial && !cmdline_has_token(cmdline,"srvros.wifi-stream5-dhcp=1"))) && (!wifi_reconnect5_requested || wifi_reconnect5_trial) && (!cmdline_has_token(cmdline,"srvros.wifi-nop5=1") || (nop_logger_parked && cmdline_has_token(cmdline,"srvros.wifi-tx5-owner=1") && return_on_failure && !wifi_desktop_trial && !cmdline_has_token(cmdline,"srvros.wifi-join5=1") && !cmdline_has_token(cmdline,"srvros.wifi-eapol5=1") && !cmdline_has_token(cmdline,"srvros.wifi-wpa5=1") && !cmdline_has_token(cmdline,"srvros.wifi-data5=1") && !cmdline_has_token(cmdline,"srvros.wifi-provider5=1") && !cmdline_has_token(cmdline,"srvros.wifi-reuse5=1"))) && (!cmdline_has_token(cmdline,"srvros.wifi-stream5-dhcp=1") || cmdline_has_token(cmdline,"srvros.wifi-stream5=1")) && (!cmdline_has_token(cmdline,"srvros.wifi-stream5=1") || (stream_logger_parked && return_on_failure && !wifi_desktop_trial && cmdline_has_token(cmdline,"srvros.wifi-eapol5=1") && !cmdline_has_token(cmdline,"srvros.wifi-wpa5=1") && !cmdline_has_token(cmdline,"srvros.wifi-data5=1") && !cmdline_has_token(cmdline,"srvros.wifi-provider5=1") && !cmdline_has_token(cmdline,"srvros.wifi-reuse5=1") && !cmdline_has_token(cmdline,"srvros.wifi-nop5=1"))) && (!cmdline_has_token(cmdline,"srvros.wifi-reuse5=1") || (wifi_provider_trial && cmdline_has_token(cmdline,"srvros.wifi-provider5=1"))) && (!cmdline_has_token(cmdline,"srvros.wifi-provider5=1") || wifi_provider_trial) && (!cmdline_has_token(cmdline,"srvros.wifi-data5=1") || (cmdline_has_token(cmdline,"srvros.wifi-wpa5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-wpa5=1") || (cmdline_has_token(cmdline,"srvros.wifi-eapol5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-eapol5=1") || (cmdline_has_token(cmdline,"srvros.wifi-join5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-join5=1") || (cmdline_has_token(cmdline,"srvros.wifi-tx5-owner=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-tx5-owner=1") || (cmdline_has_token(cmdline,"srvros.wifi-peer5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-peer5=1") || (cmdline_has_token(cmdline,"srvros.wifi-handoff5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-handoff5=1") || (cmdline_has_token(cmdline,"srvros.wifi-power5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-power5=1") || (cmdline_has_token(cmdline,"srvros.wifi-discovery5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-discovery5=1") || (cmdline_has_token(cmdline,"srvros.wifi-cal5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-cal5=1") || (cmdline_has_token(cmdline,"srvros.wifi-channel-vco5=1") && return_on_failure && !wifi_desktop_trial)) && (!cmdline_has_token(cmdline,"srvros.wifi-channel-vco5=1") || cmdline_has_token(cmdline,"srvros.wifi-vco5=1")) && (!cmdline_has_token(cmdline,"srvros.wifi-vco5=1") || cmdline_has_token(cmdline,"srvros.wifi-dac5=1")) && (!cmdline_has_token(cmdline,"srvros.wifi-dac5=1") || cmdline_has_token(cmdline,"srvros.wifi-trim5-channel=1")) && (!cmdline_has_token(cmdline,"srvros.wifi-trim5-channel=1") || cmdline_has_token(cmdline,"srvros.wifi-held-channel=1")) && (!cmdline_has_token(cmdline,"srvros.wifi-held-channel=1") || (wifi_5ghz_prereq && cmdline_has_token(cmdline,"srvros.wifi-5ghz-band=1") && cmdline_has_token(cmdline,"srvros.wifi-5ghz-channel=1") && cmdline_has_token(cmdline,"srvros.wifi-a20-cycle=1") && cmdline_has_token(cmdline,"srvros.wifi-frontend=1") && cmdline_has_token(cmdline,"srvros.wifi-pa5-cycle=1") && cmdline_has_token(cmdline,"srvros.wifi-bbp5-cycle=1"))) && (wifi_5ghz_prereq?(return_on_failure && !wifi_desktop_trial && (cmdline_has_token(cmdline,"srvros.wifi-5ghz-channel=1")?(cmdline_has_token(cmdline,"srvros.wifi-5ghz-band=1") && (cmdline_has_token(cmdline,"srvros.wifi-a20-cycle=1")?(!cmdline_has_token(cmdline,"srvros.wifi-a20-inventory=1") && (cmdline_has_token(cmdline,"srvros.wifi-frontend=1")?(cmdline_has_token(cmdline,"srvros.wifi-pa5-cycle=1")?(cmdline_has_token(cmdline,"srvros.wifi-bbp5-cycle=1")?(cmdline_has_token(cmdline,"srvros.wifi-held-channel=1")?(cmdline_has_token(cmdline,"srvros.wifi-trim5-channel=1")?(cmdline_has_token(cmdline,"srvros.wifi-dac5=1")?(cmdline_has_token(cmdline,"srvros.wifi-vco5=1")?(cmdline_has_token(cmdline,"srvros.wifi-channel-vco5=1")?(cmdline_has_token(cmdline,"srvros.wifi-cal5=1")?(cmdline_has_token(cmdline,"srvros.wifi-discovery5=1")?(cmdline_has_token(cmdline,"srvros.wifi-power5=1")?(cmdline_has_token(cmdline,"srvros.wifi-handoff5=1")?(cmdline_has_token(cmdline,"srvros.wifi-peer5=1")?(cmdline_has_token(cmdline,"srvros.wifi-data5=1")?(wifi_provider_trial?(cmdline_has_token(cmdline,"srvros.wifi-reuse5=1")?xhci_wifi_capture_reuse5():xhci_wifi_capture_provider5()):xhci_wifi_capture_data5()):cmdline_has_token(cmdline,"srvros.wifi-stream5=1")?(cmdline_has_token(cmdline,"srvros.wifi-stack5=1")?(wifi_reconnect5_trial?(wifi_reconnect5_capture_attempted=true,wifi_http_reconnect5_trial?xhci_wifi_capture_http_reconnect5():xhci_wifi_capture_reconnect5_probe()):wifi_http5_trial?xhci_wifi_capture_http5():(wifi_desktop_owner_trial?xhci_wifi_capture_desktop5(&wifi_desktop,wifi_desktop_launch,wifi_desktop_running):xhci_wifi_capture_stack5_probe())):cmdline_has_token(cmdline,"srvros.wifi-stream5-dhcp=1")?xhci_wifi_capture_stream5_dhcp():xhci_wifi_capture_stream5()):cmdline_has_token(cmdline,"srvros.wifi-wpa5=1")?xhci_wifi_capture_wpa5():cmdline_has_token(cmdline,"srvros.wifi-eapol5=1")?xhci_wifi_capture_eapol5():cmdline_has_token(cmdline,"srvros.wifi-join5=1")?xhci_wifi_capture_join5():cmdline_has_token(cmdline,"srvros.wifi-tx5-owner=1")?(cmdline_has_token(cmdline,"srvros.wifi-nop5=1")?xhci_wifi_capture_nop5():xhci_wifi_capture_tx5()):xhci_wifi_capture_peer5()):xhci_wifi_capture_handoff5()):xhci_wifi_capture_power5()):xhci_wifi_capture_discovery5()):(wifi_early5_trial?(cmdline_has_token(cmdline,"srvros.wifi-early5-timing=early")?xhci_wifi_capture_rx_compare5_early():cmdline_has_token(cmdline,"srvros.wifi-early5-timing=late")?xhci_wifi_capture_rx_compare5_late():xhci_wifi_capture_early5()):xhci_wifi_capture_cal5())):xhci_wifi_capture_channel_vco5()):xhci_wifi_capture_vco5()):xhci_wifi_capture_dac5()):xhci_wifi_capture_trim5_channel()):xhci_wifi_capture_held_channel()):xhci_wifi_capture_bbp5_cycle()):xhci_wifi_capture_pa5_cycle()):xhci_wifi_capture_frontend()):xhci_wifi_capture_a20_cycle())):cmdline_has_token(cmdline,"srvros.wifi-a20-inventory=1")?xhci_wifi_capture_a20_inventory():xhci_wifi_capture_5ghz_channel())):cmdline_has_token(cmdline,"srvros.wifi-5ghz-band=1")?xhci_wifi_capture_5ghz_band():xhci_wifi_capture_5ghz_prereq())):wifi_channel_diagnosis?(wifi_desktop_trial && wifi_log_isolation && return_on_failure && cmdline_has_token(cmdline,"srvros.wifi-desktop-empty=1") && cmdline_has_token(cmdline,"srvros.trackpad=gestures") && cmdline_has_token(cmdline,"srvros.wifi-scan-batch=1") && xhci_wifi_capture_scan_channel_diagnosis()):cmdline_has_token(cmdline,"srvros.wifi-scan-batch=1")?xhci_wifi_capture_scan_batch():cmdline_has_token(cmdline,"srvros.wifi-scan-retry=1")?xhci_wifi_capture_scan_retry():cmdline_has_token(cmdline,"srvros.wifi-scan=1")?xhci_wifi_capture_scan():cmdline_has_token(cmdline,"srvros.wifi-channel-receive=1")?xhci_wifi_capture_channel_receive():cmdline_has_token(cmdline,"srvros.wifi-channel-tune=1")?xhci_wifi_capture_channel_tune():cmdline_has_token(cmdline,"srvros.wifi-channel-preview=1")?xhci_wifi_capture_channel_preview():cmdline_has_token(cmdline,"srvros.wifi-discovery=1")?xhci_wifi_capture_discovery():cmdline_has_token(cmdline,"srvros.wifi-window-long=1")?xhci_wifi_capture_window_long():cmdline_has_token(cmdline,"srvros.wifi-window=1")?xhci_wifi_capture_window():cmdline_has_token(cmdline,"srvros.wifi-passive=1")?xhci_wifi_capture_passive():cmdline_has_token(cmdline,"srvros.wifi-poweron=1")?xhci_wifi_capture_poweron():cmdline_has_token(cmdline,"srvros.wifi-cal-probe=1")?xhci_wifi_capture_cal_probe():cmdline_has_token(cmdline,"srvros.wifi-mac-cycle=1")?xhci_wifi_capture_mac_cycle():cmdline_has_token(cmdline,"srvros.wifi-rx-lifecycle=1")?xhci_wifi_capture_rx_lifecycle():cmdline_has_token(cmdline,"srvros.wifi-agc-state=1")?xhci_wifi_capture_agc_state():cmdline_has_token(cmdline,"srvros.wifi-post-vco=1")?xhci_wifi_capture_post_vco():cmdline_has_token(cmdline,"srvros.wifi-channel-bbp=1")?xhci_wifi_capture_channel_bbp():cmdline_has_token(cmdline,"srvros.wifi-gain=1")?xhci_wifi_capture_gain():cmdline_has_token(cmdline,"srvros.wifi-post=1")?xhci_wifi_capture_post():cmdline_has_token(cmdline,"srvros.wifi-synth1=1")?xhci_wifi_capture_synth1():cmdline_has_token(cmdline,"srvros.wifi-band2g=1")?xhci_wifi_capture_band2g():cmdline_has_token(cmdline,"srvros.wifi-channel-probe=1")?xhci_wifi_capture_channel_probe():cmdline_has_token(cmdline,"srvros.wifi-bbp20=1")?xhci_wifi_capture_bbp20():cmdline_has_token(cmdline,"srvros.wifi-bw-observe=1")?xhci_wifi_capture_bw_observe():cmdline_has_token(cmdline,"srvros.wifi-usb-cycle=1")?xhci_wifi_capture_usb_cycle():cmdline_has_token(cmdline,"srvros.wifi-vco-ready=1")?xhci_wifi_capture_vco_ready():cmdline_has_token(cmdline,"srvros.wifi-channel-observe=1")?xhci_wifi_capture_channel_observe():cmdline_has_token(cmdline,"srvros.wifi-channel-state=1")?xhci_wifi_capture_channel_state():cmdline_has_token(cmdline,"srvros.wifi-path=1")?xhci_wifi_capture_path():cmdline_has_token(cmdline,"srvros.wifi-rf-wait=1")?xhci_wifi_capture_rf_wait():cmdline_has_token(cmdline,"srvros.wifi-rf-cal=1")?xhci_wifi_capture_rf_cal():cmdline_has_token(cmdline,"srvros.wifi-rf-trim=1")?xhci_wifi_capture_rf_trim():cmdline_has_token(cmdline,"srvros.wifi-rf-g20=1")?xhci_wifi_capture_rf_g20():cmdline_has_token(cmdline,"srvros.wifi-rf-vga=1")?xhci_wifi_capture_rf_vga():cmdline_has_token(cmdline,"srvros.wifi-rf-bank6=1")?xhci_wifi_capture_rf_bank6():cmdline_has_token(cmdline,"srvros.wifi-rf-bank5=1")?xhci_wifi_capture_rf_bank5():cmdline_has_token(cmdline,"srvros.wifi-rf-table=1")?xhci_wifi_capture_rf_table():cmdline_has_token(cmdline,"srvros.wifi-rf-state=1")?xhci_wifi_capture_rf_state():cmdline_has_token(cmdline,"srvros.wifi-rf-write=1")?xhci_wifi_capture_rf_write():cmdline_has_token(cmdline,"srvros.wifi-rf-csr=1")?xhci_wifi_capture_rf_csr():cmdline_has_token(cmdline,"srvros.wifi-rf-six=1")?xhci_wifi_capture_rf_six():cmdline_has_token(cmdline,"srvros.wifi-rf-central=1")?xhci_wifi_capture_rf_central():cmdline_has_token(cmdline,"srvros.wifi-rf-probe=1")?xhci_wifi_capture_rf_probe():cmdline_has_token(cmdline,"srvros.wifi-ant-init=1")?xhci_wifi_capture_ant_init():cmdline_has_token(cmdline,"srvros.wifi-ant-snapshot=1")?xhci_wifi_capture_ant_snapshot():cmdline_has_token(cmdline,"srvros.wifi-mac-board=1")?xhci_wifi_capture_mac_board():cmdline_has_token(cmdline,"srvros.wifi-mac-address-validate=1")?xhci_wifi_capture_mac_address_validate():cmdline_has_token(cmdline,"srvros.wifi-mac-address=1")?xhci_wifi_capture_mac_address():cmdline_has_token(cmdline,"srvros.wifi-efuse-map=1")?xhci_wifi_capture_efuse_map():cmdline_has_token(cmdline,"srvros.wifi-mac-fixed=1")?xhci_wifi_capture_mac_fixed():cmdline_has_token(cmdline,"srvros.wifi-mac-tail=1")?xhci_wifi_capture_mac_tail():cmdline_has_token(cmdline,"srvros.wifi-wcid=1")?xhci_wifi_capture_wcid():cmdline_has_token(cmdline,"srvros.wifi-skey=1")?xhci_wifi_capture_skey():cmdline_has_token(cmdline,"srvros.wifi-dcoc=1")?xhci_wifi_capture_dcoc():cmdline_has_token(cmdline,"srvros.wifi-bbp-switch=1")?xhci_wifi_capture_bbp_switch():cmdline_has_token(cmdline,"srvros.wifi-bbp-after-mac=1")?xhci_wifi_capture_bbp_after_mac():cmdline_has_token(cmdline,"srvros.wifi-mac-ampdu=1")?xhci_wifi_capture_mac_ampdu():cmdline_has_token(cmdline,"srvros.wifi-mac-fce-validate=1")?xhci_wifi_capture_mac_fce_validate():cmdline_has_token(cmdline,"srvros.wifi-mac-fce-observe=1")?xhci_wifi_capture_mac_fce():cmdline_has_token(cmdline,"srvros.wifi-mac-buffer=1")?xhci_wifi_capture_mac_buffer():cmdline_has_token(cmdline,"srvros.wifi-mac-vht=1")?xhci_wifi_capture_mac_vht():cmdline_has_token(cmdline,"srvros.wifi-mac-beacon=1")?xhci_wifi_capture_mac_beacon():cmdline_has_token(cmdline,"srvros.wifi-mac-txsw=1")?xhci_wifi_capture_mac_txsw():cmdline_has_token(cmdline,"srvros.wifi-mac-contention=1")?xhci_wifi_capture_mac_contention():cmdline_has_token(cmdline,"srvros.wifi-mac-protect=1")?xhci_wifi_capture_mac_protect():cmdline_has_token(cmdline,"srvros.wifi-mac-policy-validate=1")?xhci_wifi_capture_mac_policy_validate():cmdline_has_token(cmdline,"srvros.wifi-mac-policy-observe=1")?xhci_wifi_capture_mac_policy_observe():cmdline_has_token(cmdline,"srvros.wifi-mac-policy=1")?xhci_wifi_capture_mac_policy():cmdline_has_token(cmdline,"srvros.wifi-mac-route=1")?xhci_wifi_capture_mac_route():cmdline_has_token(cmdline,"srvros.wifi-mac-raw=1")?xhci_wifi_capture_mac_raw():cmdline_has_token(cmdline,"srvros.wifi-mac-snapshot=1")?xhci_wifi_capture_mac_snapshot():xhci_wifi_capture_bbp_table());
                 else if(sampled && cmdline_has_token(cmdline,"srvros.wifi-clock-pair=1"))

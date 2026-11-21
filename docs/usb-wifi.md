@@ -24,12 +24,15 @@ radio operations disabled. Dated milestones below must not reinstate withdrawn
 
 ## Attended 5 GHz desktop connection
 
-The explicit v150 profile adds `--wifi-desktop-owner` to the automatic v138
-cleanup-stack workspace recipe. It opens the desktop only after the native
-driver verifies the fixed channel 161 peer. System's Connect and Disconnect
+The explicit v151 profile uses `--wifi-desktop-owner` with the v149 early
+receive, calibration priming, bounded discovery and first-AUTH observation
+steps. A fresh startup journal preserves checkpoints independently of USB.
+The desktop opens after the native driver verifies the fixed channel 161
+peer. System's Connect and Disconnect
 controls request work from the native owner. A resident network worker handles
 ordinary traffic after WPA and DHCP, including during an isolated USB storage
-bulk transfer. Help opens the checklist automatically.
+bulk transfer. Help opens the checklist automatically. Exit desktop saves the
+workspace logs and returns to Ubuntu after safe retirement.
 
 The profile supports one association per boot. Safe disconnect withdraws
 IPv4 and proves endpoint, key and provider retirement. The current unit

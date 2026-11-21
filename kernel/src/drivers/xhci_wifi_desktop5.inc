@@ -13,6 +13,11 @@ static struct {
  bool requested,gate,started,connected,return_safe;
 } wifi_desktop5;
 
+static bool wifi_desktop5_unattempted(void){
+ return wifi_desktop5.requested && !wifi_desktop5.owner && !wifi_desktop5.started &&
+  !wifi_stream5.attempted && !wifi_stack5_net.identity;
+}
+
 static bool wifi_desktop5_present(void *context){
  struct xhci_device *d=wifi_desktop5.device;
  return context==&wifi_desktop5 && d && d->present && !d->removed && !d->retiring &&

@@ -62,18 +62,22 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
  early5_mac=0;early5_filter=0x17f97;early5_txop=0x583f;
  prime5_test_fault=prime5_test_commands=prime5_test_stops=prime5_test_new_posts=0;
  survey5_mode=mode;
+ memset(&wifi_desktop5,0,sizeof wifi_desktop5);
  assert(!xhci_wifi_cal5_survey_enable());assert(xhci_wifi_cal5_cleanup_enable());
  assert(xhci_wifi_cal5_prime_enable());
  if(mode!=20)assert(xhci_wifi_cal5_survey_enable());
  else assert(!wifi_survey5.enabled);
  if(mode!=20){assert(!xhci_wifi_cal5_survey_enable());}wifi_discovery5_requested=true;
  survey5_test_drop_command=false;
+ bool desktop_absent=mode==21;
  bool absent=mode==1 || mode==2 || mode==3 || mode==4 || mode==11 || mode==12 || mode==14 || mode==20;
- if(absent){
-  /* The child/scheduler allocation is modeled here; its real abort is covered
-   * separately by the native HTTP supervisor fixtures. No child is published. */
-  wifi_http_reconnect5_reserved=wifi_http_reconnect5.requested=wifi_http_reconnect5.attempted=wifi_http_reconnect5.prepared=true;
-  wifi_http_reconnect5.probe[0].self=(uintptr_t)&wifi_http_reconnect5.probe[0];
+ if(desktop_absent){
+  survey5_mode=1;
+  wifi_desktop5.requested=true;
+  wifi_power5_requested=true;
+ }else if(absent){
+  /* Discovery runs after admission and before child/worker allocation. */
+  wifi_http_reconnect5_reserved=wifi_http_reconnect5.requested=wifi_http_reconnect5.attempted=wifi_http_reconnect5.admitted=true;
   wifi_power5_requested=true;
  }
  if(limit)fail_after=pool_used+50+limit-1;
@@ -93,6 +97,8 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
   if(mode==3)assert(wifi_survey5.reason==1 && !wifi_cal5.window.completions && wifi_cal5.window.attempts==1);
   if(mode==4)assert(wifi_survey5.reason==1 && wifi_cal5.window.completions==3 && wifi_cal5.window.attempts==4);
   if(absent)assert(!wifi_http_reconnect5.complete && !wifi_http_reconnect5.connections && wifi_http_reconnect5_unattempted());
+  if(desktop_absent)assert(wifi_desktop5_unattempted() && !wifi_power5.attempted &&
+   !wifi_survey5.selected && wifi_survey5.window==15 && !wifi_http_reconnect5_reserved);
   if(mode==19){
    uint8_t *p=(uint8_t *)wifi_survey5.prior[0].owner.plan.buffer[0];
    p[0]^=1;assert(!wifi_survey5_held());p[0]^=1;
@@ -105,5 +111,6 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
 static void test_wifi_survey5(void){
  for(unsigned mode=0;mode<=20;mode++)survey5_whole_native(mode,0);
  for(unsigned limit=1;limit<=17;limit++)survey5_whole_native(0,limit);
- puts("xhci-wifi-survey5: PASS38 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases; legacy eight-frame refusal reproduced; modeled HCD/RF, no physical acceptance");
+ survey5_whole_native(21,0);
+ puts("xhci-wifi-survey5: PASS39 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases, including desktop missing-target cleanup; modeled HCD/RF");
 }

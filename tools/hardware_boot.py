@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-(?:wifi-fw-v(?:[1-9]|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147|148|149|150)|wifi-cal-v1|v(?:1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69))-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-(?:wifi-fw-v(?:[1-9]|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147|148|149|150|151)|wifi-cal-v1|v(?:1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69))-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82|1-capture-write-air61|1-capture-write-air72)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
@@ -41,6 +41,11 @@ def release_id(hashes, version=CONFIG_VERSION):
 
 
 def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=False):
+    if version.startswith("ram-usb-wifi-fw-v151-"):
+        base=limine_config(release,version.replace("v151-","v149-",1),
+                           legacy_wifi_calibration=legacy_wifi_calibration)
+        return base.replace(" srvros.wifi-reconnect5=1 srvros.wifi-reconnect5-http=1",
+                            " srvros.wifi-desktop-owner=1 srvros.trackpad=gestures")
     if version.startswith("ram-usb-wifi-fw-v150-"):
         return limine_config(release,version.replace("v150-","v138-",1),
             legacy_wifi_calibration=legacy_wifi_calibration).replace(
@@ -578,7 +583,7 @@ def verify(directory, expected_release=None):
     if version.startswith("ram-usb-wifi-fw-v134-"):
         from wifi_firmware_package import verify_initramfs as verify_firmware
         verify_firmware(directory / "initramfs.tar")
-    if version.startswith(("ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v141-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-")):
+    if version.startswith(("ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v141-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-")):
         from wifi_firmware_package import verify_initramfs as verify_firmware
         verify_firmware(directory / "initramfs.tar")
         from wifi_wpa5_credentials import verify_initramfs as verify_private_pmk
@@ -588,7 +593,7 @@ def verify(directory, expected_release=None):
         verify_firmware(directory / "initramfs.tar")
         from wifi_wpa5_credentials import verify_initramfs as verify_no_pmk
         verify_no_pmk(directory / "initramfs.tar",False)
-    if version.startswith(("ram-usb-wifi-fw-v141-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v144-","ram-usb-wifi-fw-v145-","ram-usb-wifi-fw-v146-")):
+    if version.startswith(("ram-usb-wifi-fw-v141-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v144-","ram-usb-wifi-fw-v145-","ram-usb-wifi-fw-v146-","ram-usb-wifi-fw-v151-")):
         from startup_journal import verify_initramfs as verify_startup_journal
         verify_startup_journal(directory / "initramfs.tar")
     return manifest
@@ -618,19 +623,20 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Early RX requires separate automatic journaled calibration without network or credentials")
     if wifi_first_auth5 and not wifi_survey5:
         raise ValueError("First AUTH trace requires the full survey HTTP profile")
-    if wifi_survey5 and not (wifi_cal5_prime and wifi_reconnect5_http):
+    if wifi_survey5 and not (wifi_cal5_prime and (wifi_reconnect5_http or wifi_desktop_owner)):
         raise ValueError("Discovery continuation requires the primed journaled HTTP reconnect profile")
-    if wifi_cal5_prime and not wifi_reconnect5_http:
+    if wifi_cal5_prime and not (wifi_reconnect5_http or wifi_desktop_owner):
         raise ValueError("Calibration priming requires the journaled HTTP reconnect profile")
     if wifi_reconnect5_http and not (wifi_reconnect5_journal and startup_journal and wifi_reconnect5):
         raise ValueError("HTTP reconnect requires explicit journaled two-connection stage")
     if wifi_reconnect5_journal and not (startup_journal and wifi_reconnect5):
         raise ValueError("Journaled reconnect requires its descriptor and complete reconnect profile")
-    if startup_journal and not (wifi_reconnect5 or wifi_early5):
+    if startup_journal and not (wifi_reconnect5 or wifi_early5 or wifi_desktop_owner):
         raise ValueError("Startup journal requires the explicit reconnect startup diagnostic")
     if wifi_reconnect5 and (not wifi_stack5 or not wifi_cal5_cleanup or wifi_http5 or wifi_stream5_dhcp or hold_on_failure or wifi_desktop_trial):
         raise ValueError("Reconnect requires the separate automatic cleanup stack profile without HTTP or DHCP-stream mode")
-    if wifi_desktop_owner and (not wifi_stack5 or not wifi_cal5_cleanup or wifi_http5 or
+    if wifi_desktop_owner and (not (wifi_stack5 and wifi_cal5_cleanup and wifi_cal5_prime and
+            wifi_survey5 and wifi_first_auth5 and startup_journal) or wifi_http5 or
             wifi_reconnect5 or wifi_desktop_trial or hold_on_failure or not wifi_firmware_package or not laptop_probe_volume):
         raise ValueError("Desktop Wi-Fi owner requires the automatic cleanup stack workspace profile")
     if wifi_http5 and (not wifi_cal5_cleanup or not wifi_stack5):raise ValueError("Native HTTP requires the complete cleanup production stack profile")
@@ -930,7 +936,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if storage_wait_capture: version=f"ram-usb-v1-storage-wait-laptop-probe-{laptop_probe_volume}"
         if wifi_calibration: version=f"ram-usb-wifi-cal-v1-laptop-probe-{laptop_probe_volume}"
         if wifi_desktop_owner:
-            version=f"ram-usb-wifi-fw-v150-laptop-probe-{laptop_probe_volume}"
+            version=f"ram-usb-wifi-fw-v151-laptop-probe-{laptop_probe_volume}"
         elif wifi_firmware_package: version=f"ram-usb-wifi-fw-v{149 if wifi_first_auth5 else 148 if wifi_survey5 else 147 if wifi_cal5_prime else 146 if wifi_early5_timing == "late" else 145 if wifi_early5_timing == "early" else 144 if wifi_early5 else 143 if wifi_reconnect5_http else 142 if wifi_reconnect5_journal else 141 if startup_journal else 140 if wifi_reconnect5 else 139 if wifi_http5 else 138 if wifi_cal5_cleanup else 137 if wifi_stack5 else 136 if wifi_stream5_dhcp else 135 if wifi_stream5 else 134 if wifi_nop5 else 133 if wifi_reuse5 else 132 if wifi_provider5 else 131 if wifi_data5 else 130 if wifi_wpa5 else 128 if wifi_eapol5 else 127 if wifi_join5 else 126 if wifi_tx5_owner else 125 if wifi_peer5 else 124 if wifi_handoff5 else 123 if wifi_power5 else 122 if wifi_discovery5 else 121 if wifi_cal5 else 120 if wifi_channel_vco5 else 119 if wifi_vco5 else 118 if wifi_dac5 else 117 if wifi_trim5_channel else 116 if wifi_held_channel else 115 if wifi_bbp5_cycle else 114 if wifi_pa5_cycle else 113 if wifi_frontend else 112 if wifi_a20_cycle else 111 if wifi_a20_inventory else 110 if wifi_5ghz_channel else 109 if wifi_5ghz_band else 108 if wifi_5ghz_prereq else 107 if wifi_channel_diagnosis else 106 if wifi_desktop_empty else 105 if wifi_desktop_input else 104 if wifi_log_isolation else 103 if wifi_desktop_trial else 102 if wifi_scan_batch else 101 if wifi_scan_retry else 100 if wifi_scan else 99 if wifi_channel_receive else 98 if wifi_channel_tune else 97 if wifi_channel_preview else 96 if wifi_discovery else 95 if wifi_window_long else 94 if wifi_window else 93 if wifi_passive else 92 if wifi_poweron else 91 if wifi_cal_probe else 90 if wifi_mac_cycle else 89 if wifi_rx_lifecycle else 88 if wifi_agc_state else 87 if wifi_post_vco else 86 if wifi_channel_bbp else 85 if wifi_gain else 84 if wifi_post else 83 if wifi_synth1 else 82 if wifi_band2g else 81 if wifi_channel_probe else 80 if wifi_bbp20 else 79 if wifi_bw_observe else 78 if wifi_usb_cycle else 77 if wifi_vco_ready else 76 if wifi_channel_observe else 75 if wifi_channel_state else 74 if wifi_path else 73 if wifi_rf_wait else 72 if wifi_rf_cal else 71 if wifi_rf_trim else 70 if wifi_rf_g20 else 69 if wifi_rf_vga else 68 if wifi_rf_bank6 else 67 if wifi_rf_bank5 else 66 if wifi_rf_table else 65 if wifi_rf_state else 64 if wifi_rf_write else 63 if wifi_rf_csr else 62 if wifi_rf_six else 61 if wifi_rf_central else 60 if wifi_rf_probe else 59 if wifi_ant_init else 58 if wifi_ant_snapshot else 57 if wifi_mac_board else 56 if wifi_mac_address_validate else 55 if wifi_mac_address else 54 if wifi_efuse_map else 53 if wifi_mac_fixed else 52 if wifi_mac_tail else 51 if wifi_wcid else 50 if wifi_skey else 49 if wifi_dcoc else 48 if wifi_bbp_switch else 47 if wifi_bbp_after_mac else 46 if wifi_mac_ampdu else 45 if wifi_mac_fce_validate else 44 if wifi_mac_fce_observe else 43 if wifi_mac_buffer else 42 if wifi_mac_vht else 41 if wifi_mac_beacon else 40 if wifi_mac_txsw else 39 if wifi_mac_contention else 38 if wifi_mac_protect else 37 if wifi_mac_policy_validate else 36 if wifi_mac_policy_observe else 35 if wifi_mac_policy else 34 if wifi_mac_route else 33 if wifi_mac_raw else 32 if wifi_mac_snapshot else 31 if wifi_bbp_table else 30 if wifi_clock_pair else 29 if wifi_clock_direct else 28 if wifi_clock else 27 if wifi_txbe_direct else 26 if wifi_txbe_access else 25 if wifi_txbe_second else 24 if wifi_txbe_first else 23 if wifi_txbe_observe else 22 if wifi_txbe_next else 21 if wifi_txbe_start else 20 if wifi_rxc_tail else 19 if wifi_rxc_start else 18 if wifi_agc_tail else 17 if wifi_agc_next else 16 if wifi_agc_more else 15 if wifi_compact else 14 if wifi_bbp_batch else 13 if wifi_bbp_agc else 12 if wifi_bbp_front else 11 if wifi_bbp_core else 10 if wifi_bbp_ready else 9 if wifi_mac_format else 8 if wifi_mac_basics else 7 if wifi_timing_probe else 6 if wifi_pair_probe else 5 if wifi_write_probe else 4 if wifi_radio_reset else 3 if wifi_mcu_probe else 2 if wifi_mac_startup else 1}-laptop-probe-{laptop_probe_volume}"
         if storage_only_capture: version=f"ram-usb-v{3 if storage_metadata_trace else 2 if storage_command_trace else 1}-storage-only-laptop-probe-{laptop_probe_volume}"
 
@@ -1395,12 +1401,13 @@ def main():
     if args.wifi_early5_timing is not None and (args.action!="stage" or not args.wifi_early5):parser.error("RX timing comparison requires stage and explicit early-RX owner")
     if args.wifi_early5 and (args.action!="stage" or not args.wifi_cal5 or args.startup_journal is None or args.hold_on_failure or args.wifi_desktop_trial):parser.error("Early RX requires automatic journaled calibration stage")
     if args.wifi_first_auth5 and (args.action != "stage" or not args.wifi_survey5):parser.error("First AUTH trace requires survey HTTP profile")
-    if args.wifi_survey5 and not (args.wifi_cal5_prime and args.wifi_reconnect5_http):parser.error("Discovery continuation requires primed HTTP reconnect")
-    if args.wifi_cal5_prime and not args.wifi_reconnect5_http:parser.error("Calibration priming requires HTTP reconnect")
+    if args.wifi_survey5 and not (args.wifi_cal5_prime and (args.wifi_reconnect5_http or args.wifi_desktop_owner)):parser.error("Discovery continuation requires a primed connection profile")
+    if args.wifi_cal5_prime and not (args.wifi_reconnect5_http or args.wifi_desktop_owner):parser.error("Calibration priming requires a primed connection profile")
     if args.wifi_reconnect5_http and not (args.wifi_reconnect5_journal and args.wifi_reconnect5 and args.startup_journal is not None):parser.error("HTTP reconnect requires journaled reconnect and an independent descriptor")
     if args.wifi_reconnect5_journal and (args.action!="stage" or not args.wifi_reconnect5 or args.startup_journal is None):parser.error("Journaled reconnect requires stage, reconnect and an independent descriptor")
     if args.wifi_reconnect5 and (args.action!="stage" or not args.wifi_stack5 or not args.wifi_cal5_cleanup or args.wifi_http5 or args.wifi_stream5_dhcp or args.hold_on_failure or args.wifi_desktop_trial):parser.error("Reconnect requires separate automatic cleanup stack stage without HTTP or DHCP-stream mode")
-    if args.wifi_desktop_owner and (args.action!="stage" or not args.wifi_stack5 or not args.wifi_cal5_cleanup or
+    if args.wifi_desktop_owner and (args.action!="stage" or not (args.wifi_stack5 and args.wifi_cal5_cleanup and
+            args.wifi_cal5_prime and args.wifi_survey5 and args.wifi_first_auth5 and args.startup_journal) or
             args.wifi_http5 or args.wifi_reconnect5 or args.wifi_desktop_trial or args.hold_on_failure or
             not args.wifi_firmware_package or not args.laptop_probe_volume):
         parser.error("Desktop Wi-Fi owner requires the automatic cleanup stack workspace stage")

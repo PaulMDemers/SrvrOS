@@ -25,6 +25,7 @@ static bool wifi_survey5_alias(uint64_t);
 static bool wifi_survey5_held(void);
 static bool wifi_survey5_event(const struct xhci_trb *);
 static bool wifi_http_reconnect5_unattempted(void);
+static bool wifi_desktop5_unattempted(void);
 static bool wifi_cal5_cleanup_alias(uint64_t physical){
  if(!physical)return false;
  if(wifi_prime5_alias(physical))return true;

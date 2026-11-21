@@ -133,3 +133,9 @@ authentication, encrypted data and two independently retired connection lifetime
 require their own complete native evidence. Exact-stage VMs exercise the full
 orchestration with an absent radio, including destination refusals, without
 claiming physical Wi-Fi results.
+
+The attended v151 desktop profile uses the same journal admission and seven
+checkpoints. It reuses v149 calibration and discovery before the desktop owns
+the connection. A completed exit saves workspace logs when the drive is
+available. A hold with uncertain Wi-Fi ownership preserves the earlier
+journal checkpoints.

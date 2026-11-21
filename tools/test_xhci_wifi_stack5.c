@@ -584,6 +584,14 @@ static void desktop_case(bool removed){
  assert(!test_io_active && !xhci.storage_sync_owner);
  puts("xhci desktop Wi-Fi: PASS System request lifecycle, paced USB storage and Wi-Fi overlap, traffic beyond diagnostic limits, exact disconnect; modeled hardware and scheduler");
 }
+#ifndef SRVROS_XHCI_HTTP5_HOST_TEST
+bool survey5_test_RF_parent(bool (*)(void),bool);
+static void desktop_rf_case(void){
+ stream_test_outer_capture=survey5_test_RF_parent;
+ desktop_case(false);
+ puts("xhci desktop Wi-Fi: PASS held channel-161 RF owner through desktop data, USB storage, disconnect and exact RF inverse");
+}
+#endif
 static void probe_size_projection(void){
  probe_setup(10);assert(xhci_wifi_capture_stack5_probe());batch_trace=true;fputs("wifi-stack5-size-projection: synthetic=1 acceptance=0\n",stdout);
  wifi_stream5.record_count=WIFI_STREAM5_TX+WIFI_STREAM5_RX;wifi_stream5.completions[1]=WIFI_STREAM5_RX;
@@ -911,6 +919,9 @@ static void connection_dhcp_receipt(unsigned fault){
 int STACK5_TEST_MAIN(int argc,char **argv){
  if(argc==2 && !strcmp(argv[1],"--desktop-case")){desktop_case(false);return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-removed")){desktop_case(true);return 0;}
+#ifndef SRVROS_XHCI_HTTP5_HOST_TEST
+ if(argc==2 && !strcmp(argv[1],"--desktop-rf")){desktop_rf_case();return 0;}
+#endif
  if(argc==3 && !strcmp(argv[1],"--paired-case")){paired_case((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if(argc==3 && !strcmp(argv[1],"--trace-connection-dhcp")){batch_trace=true;connection_dhcp_receipt((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if((argc==2 || argc==19) && !strcmp(argv[1],"--trace-reconnect")){
