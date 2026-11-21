@@ -70,6 +70,18 @@ original bytes. The installed recovery, durable archives and 36 unrelated EFI
 files verified after return. Local evidence is under
 `build/bringup/wifi-desktop-owner-cold/return-evidence`.
 
+The v151 follow-up, source `ec704caa` and release `b6f83b196772a69e`, uses the
+v149 early receive, calibration priming, survey and first-AUTH observation.
+The native-code fixtures passed 75 early-receive cases, 77 priming cases and 39
+survey cases, including full RF restoration when the desktop target is absent.
+The desktop fixture carried the held channel-161 RF owner through encrypted
+traffic, a USB storage read, Disconnect and RF restoration with modeled
+hardware. The exact image passed GPT workspace save and reset, plus the journal
+rehearsals for both destinations, missing USB, journal refusal and dual refusal.
+The native result remains pending. The private stage, journal binding,
+pre-boot workspace baseline and run record are under
+`build/bringup/wifi-desktop-owner-primed`.
+
 ### Persistent 5 GHz and desktop controls
 
 Descriptor reuse work starts from `47cc3a33` with `origin/main` at `4016abf0`.
