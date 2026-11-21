@@ -7,6 +7,16 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Cold repeat with extended router capture (November 20)
+
+Repeat the accepted fixed channel 161/20 MHz diagnostic with identical kernel,
+firmware, credentials and runtime contents and a fresh startup journal. The
+router-only observer will run on both interfaces for up to one hour with the
+same station filter and packet cap. Preserve and review the previous native
+result before staging. The new run will compare the DHCP transaction across
+the bridge, the 5 GHz interface and the SrvrOS USB receive records. Main
+`4016abf0` was rechecked. This comparison changes the local capture workflow.
+
 ### Two native broadcast DHCP and HTTP lifetimes (November 20)
 
 Source `783f21fb`, release `0ebbeac7ef1fafa0`, session
