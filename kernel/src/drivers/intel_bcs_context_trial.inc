@@ -1,6 +1,8 @@
 /* Isolated CPU image lifetime only: prospective addresses stay UNMAPPED. */
 #include <srvros/intel_bdw_bcs_context.h>
 #include <srvros/scanout_space.h>
+#include "intel_alias_ram.inc"
+static struct intel_alias_ram_catalog context_ram;
 /* Slot zero in the observed window is the transaction target. The four
  * following slots can be reserved by software before any GGTT edit. */
 static const struct scanout_space_range command_slots = { INTEL_WINDOW_FIRST + 1, 4 };
@@ -9,7 +11,8 @@ static struct {
  struct scanout_interval slots;
  uint64_t original[5];
  bool reserved, released;
- unsigned pte_reads;
+ unsigned pte_reads, sealed, reopened, alias_checks, traffic_samples;
+ uint32_t traffic[2][5];
  uint64_t physical,root,descriptor,begin,end,erase_begin,erase_end;
  unsigned initialized,verified,held,erased,fault;
 } bcs_context_native;
@@ -64,7 +67,7 @@ static bool bcs_context_check(unsigned expected) {
 static bool bcs_context_reserve(void) {
  if(bcs_context_native.initialized || bcs_context_native.begin || bcs_context_native.fault)return false;
  bcs_context_native.begin=timer_monotonic_us();
- if(!bcs_context_native.begin || !command_slot_vector(true))return false;
+ if(!bcs_context_native.begin || !intel_alias_ram_prepare(&context_ram,memmap_request.response) || !command_slot_vector(true))return false;
  uint64_t flags=wake_irq_save();
  bool reserved=scanout_interval_claim(&bcs_context_native.slots,result.mmio_base,
   window_result.aperture_base,window_result.aperture_bytes,window_result.endpoint.fence_end,command_slots);
@@ -87,21 +90,105 @@ static bool bcs_context_initialize(void) {
  bcs_context_native.end=timer_monotonic_us();
  return bcs_context_native.end>=bcs_context_native.begin && bcs_context_check(0);
 }
+/* The five pages contain both the legacy ring controls and execlist ports.
+ * This lease covers the diagnostic kernel VAs. It supplies no DMA/cache ACK.
+ * CPU0 remains under the parent's interrupt exclusion across both samples. */
+static bool context_wp(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_context_wp();
+#else
+ uint64_t cr0;
+ __asm__ volatile("mov %%cr0,%0" : "=r"(cr0) : : "memory");
+ return (cr0 & (1ull<<16)) != 0;
+#endif
+}
+
+static bool context_engine_alias(unsigned slot,bool writable)
+{
+ struct vmm_alias_observation alias;
+ struct vmm_range_observation range;
+ uint64_t physical=result.mmio_base+wake_pages[slot];
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ bool ok=intel_display_test_bootstrap_alias(slot,physical,&alias,&range);
+#else
+ bool ok=vmm_diagnostic_kernel_alias(gt_bootstrap_native.root,WAKE_VA+4096*slot,
+    physical,1,gt_bootstrap_native.cache.cpu.physical_bits,&alias,&range);
+#endif
+ return ok && alias.pages==1 && alias.leaves==1 && alias.leaf_sizes==1 &&
+        alias.pat_index==2 && alias.writable==(unsigned)writable && !alias.user && alias.no_execute==1;
+}
+
+static bool context_engine_permissions(bool writable)
+{
+ unsigned *mask=&gt_bootstrap_native.engine_ro_mask;
+ if(*mask!=(writable?31u:0u) || !context_wp() || !gt_bootstrap_native.post_bound ||
+    !command_context_live() || !command_slots_held())return false;
+ for(unsigned n=0;n<INTEL_ENGINE_COUNT;++n){
+  unsigned engine=writable?INTEL_ENGINE_COUNT-1-n:n,bit=1u<<engine,slot=3+engine;
+  if(!bootstrap_tick() || !command_context_live() || !gt_bootstrap_native.a->mapped[slot] ||
+     !context_engine_alias(slot,!writable) || !context_wp())return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  bool ok=intel_display_test_context_protect(slot,writable);
+#else
+  uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE;
+  if(writable)flags|=VMM_PAGE_WRITABLE;
+  bool ok=vmm_protect_page_in_space(gt_bootstrap_native.root,WAKE_VA+4096*slot,flags);
+#endif
+  if(!ok)return false;
+  /* Record each successful change even if later verification fails. */
+  if(writable){*mask &= ~bit;++bcs_context_native.reopened;}
+  else {*mask |= bit;++bcs_context_native.sealed;}
+  if(!context_engine_alias(slot,writable) || !bootstrap_tick())return false;
+ }
+ return context_wp() && command_context_live();
+}
+
+/* Reject any second CPU mapping, including large leaves or direct-map
+ * aliases. The existing walker accepts up to two physical spans per pass. */
+static bool context_submission_excluded(void)
+{
+ if(gt_bootstrap_native.engine_ro_mask!=31 || !context_wp() || !context_ram.ready)return false;
+ for(unsigned first=0;first<INTEL_ENGINE_COUNT;first+=VMM_ALIAS_SPANS){
+  struct vmm_alias_span spans[VMM_ALIAS_SPANS];
+  unsigned count=INTEL_ENGINE_COUNT-first;
+  if(count>VMM_ALIAS_SPANS)count=VMM_ALIAS_SPANS;
+  for(unsigned i=0;i<count;++i){
+   unsigned slot=3+first+i;
+   spans[i]=(struct vmm_alias_span){WAKE_VA+4096*slot,result.mmio_base+wake_pages[slot],1};
+  }
+  if(!command_context_live() || !bootstrap_tick())return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  bool unique=intel_display_test_context_aliases(spans,count);
+#else
+  bool unique=vmm_diagnostic_readonly_register_aliases(gt_bootstrap_native.root,spans,count,
+    gt_bootstrap_native.cache.cpu.physical_bits,context_ram.ranges,context_ram.count);
+#endif
+  if(!unique)return false;
+  ++bcs_context_native.alias_checks;
+ }
+ return bootstrap_tick() && command_context_live() && context_wp();
+}
+static bool command_requester_held(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ uint32_t command=intel_display_test_bootstrap_config(4);
+#else
+ uint32_t command=pci_read_config32(gt_bootstrap_native.a->fw.gt.a.common.gpu,4);
+#endif
+ return (command&0xffff)==3 && command==(gt_bootstrap_native.pci[0][1]&~4u);
+}
 /* The parent has just checked all UC aliases. Keep PCI memory decode on and
  * bus mastering off for every read, within its original clock budget. */
 static bool command_slots_sample(void)
 {
+ if(gt_bootstrap_native.engine_ro_mask!=31 || !context_wp())return false;
  for(unsigned i=0;i<=command_slots.pages;++i){
   uint32_t words[3];
   for(unsigned j=0;j<3;++j){
    if(!command_context_live() || !bootstrap_tick() || !command_slots_held() ||
       wake_pages[13]!=INTEL_WINDOW_PAGE || !completion_mapping(gt_bootstrap_native.a,13))return false;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
-   uint32_t command=intel_display_test_bootstrap_config(4);
-#else
-   uint32_t command=pci_read_config32(gt_bootstrap_native.a->fw.gt.a.common.gpu,4);
-#endif
-   if((command&0xffff)!=3 || command!=(gt_bootstrap_native.pci[0][1]&~4u))return false;
+   if(!command_requester_held())return false;
    uint32_t offset=8*i+(j==1?0:4);
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
    if(!intel_display_test_context_pte(offset,&words[j]))return false;
@@ -112,12 +199,42 @@ static bool command_slots_sample(void)
   }
   if(words[0]!=words[2] || (((uint64_t)words[2]<<32)|words[1])!=bcs_context_native.original[i])return false;
  }
- return bootstrap_tick() && command_context_live() && command_slots_held();
+ return bootstrap_tick() && command_context_live() && command_slots_held() && context_wp();
+}
+/* Observe GO_GAM_REQ and the two video engines' reference/prefetch queues
+ * through the existing UC aliases. Even two idle samples are not a grant. */
+static bool context_traffic_sample(unsigned pass)
+{
+ static const struct {unsigned slot,reg;} regs[]={
+  {8,0x40d0},{4,0x12870},{4,0x12878},{6,0x1c870},{6,0x1c878}
+ };
+ if(pass>=2 || pass!=bcs_context_native.traffic_samples ||
+    bcs_context_native.pte_reads!=(pass?30u:0u) || gt_bootstrap_native.engine_ro_mask!=31 ||
+    !context_wp() || !command_requester_held() || !engine_requesters(gt_bootstrap_native.a))return false;
+ for(unsigned i=0;i<5;++i){
+  unsigned slot=regs[i].slot,reg=regs[i].reg;
+  if(!command_context_live() || !bootstrap_tick() || !command_slots_held() ||
+     !gt_bootstrap_native.a->mapped[slot] || wake_pages[slot]!=(reg&~4095u) ||
+     !context_engine_alias(slot,false))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  uint32_t word=intel_display_test_context_traffic(reg);
+#else
+  uint32_t word=*(volatile const uint32_t *)(WAKE_VA+4096*slot+(reg&4095u));
+#endif
+  if(word==UINT32_MAX)return false;
+  bcs_context_native.traffic[pass][i]=word;
+ }
+ if(!command_context_live() || !bootstrap_tick() || !context_wp() ||
+    !command_requester_held() || !engine_requesters(gt_bootstrap_native.a))return false;
+ ++bcs_context_native.traffic_samples;
+ return true;
 }
 static bool bcs_context_held(void) {
  unsigned expected=bcs_context_native.held+1;
  if(expected>2 || !bcs_context_check(expected) || bcs_context_native.held+1!=expected)return false;
- if(!command_slots_sample()){
+ if((expected==1 && !context_engine_permissions(false)) || !context_submission_excluded() ||
+    (expected==1 && !context_traffic_sample(0)) || !command_slots_sample() ||
+    (expected==2 && (!context_traffic_sample(1) || !context_engine_permissions(true)))){
   bcs_context_native.fault=1;
   return false;
  }
@@ -142,7 +259,13 @@ static bool bcs_context_erase(void) {
  return held;
 }
 static void bcs_context_report(void) {
- console_printf("intel-bcs-context: v=2 pte_reads=%u reserved=%u released=%u initialized=%u verified=%u held=%u erased=%u fault=%u physical=%x root=%x descriptor=%x begin=%u end=%u erase_begin=%u erase_end=%u ring=%x context=%x completion=%x aperture=%u fence_begin=%u fence_end=%u nonce=%x id=%u vendor=%x device=%x mapped=0 submissions=0 ownership=0\n",
+ for(unsigned n=0;n<bcs_context_native.traffic_samples;++n){
+  const uint32_t *w=bcs_context_native.traffic[n];
+  console_printf("intel-context-traffic: v=1 sample=%u request=%x vcs0_refs=%x vcs0_prefetch=%x vcs1_refs=%x vcs1_prefetch=%x\n",
+   (uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4]);
+ }
+ console_printf("intel-bcs-context: v=3 traffic_samples=%u alias_checks=%u sealed=%u reopened=%u ro_mask=%u pte_reads=%u reserved=%u released=%u initialized=%u verified=%u held=%u erased=%u fault=%u physical=%x root=%x descriptor=%x begin=%u end=%u erase_begin=%u erase_end=%u ring=%x context=%x completion=%x aperture=%u fence_begin=%u fence_end=%u nonce=%x id=%u vendor=%x device=%x mapped=0 submissions=0 ownership=0\n",
+ (uint64_t)bcs_context_native.traffic_samples,(uint64_t)bcs_context_native.alias_checks,(uint64_t)bcs_context_native.sealed,(uint64_t)bcs_context_native.reopened,(uint64_t)gt_bootstrap_native.engine_ro_mask,
  (uint64_t)bcs_context_native.pte_reads,(uint64_t)bcs_context_native.reserved,(uint64_t)bcs_context_native.released,
  (uint64_t)bcs_context_native.initialized,(uint64_t)bcs_context_native.verified,(uint64_t)bcs_context_native.held,
  (uint64_t)bcs_context_native.erased,(uint64_t)bcs_context_native.fault,bcs_context_native.physical,bcs_context_native.root,

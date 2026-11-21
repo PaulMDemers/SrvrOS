@@ -7,6 +7,26 @@ It preserves the four-page arena and its independent cleanup contract. It does
 not map the proposed GPU addresses, install an executable context, submit a list
 or certify native DMA/cache/display-reader ownership.
 
+## CPU submission access during the two held samples
+
+In context receipt version 3, the reset owner revokes CPU writes to the five
+command-streamer MMIO pages before the first held GGTT sample. CPU0 checks
+CR0.WP, the original address space, and the effective supervisor, NX and
+uncached mapping for each page. At both sample boundaries the VMM walks the
+kernel page tables to check that each physical register page has exactly one
+4 KiB read-only alias. PCI bus mastering stays disabled while the driver reads
+slot 8704 and the four adjacent reserved slots. Two hardware snapshots bracket
+these reads. Each records GO_GAM_REQ and the raw reference and prefetch
+counters for both video engines. The receiver preserves all five register
+values per sample, including open requests and nonzero counters. It restores CPU write access
+in reverse order after the second sample.
+
+The completed receipt has `sealed=5 reopened=5 ro_mask=0 alias_checks=6`
+and `pte_reads=30`. A partial transition retains the reservation and records
+the successful prefix. Older receipt versions remain readable. Replacing
+slot 8704 still requires a hardware owner that can exclude firmware and other
+GPU readers and witness fresh engine and L3 drain acknowledgements.
+
 ## Audited format
 
 Intel's [Broadwell PRM Volume3](https://cdrdv2-public.intel.com/690792/intel-gfx-prm-osrc-bdw-vol-03-gpu-overview.pdf),

@@ -30,11 +30,32 @@ static bool check(void){
  else assert(!memcmp(&result,&old,sizeof(old)) && detail.reason);
  return ok;
 }
+static bool check_readonly_registers(void){
+ return vmm_diagnostic_readonly_register_aliases(root,spans,2,52,ram,2);
+}
+static void readonly_register_cases(void){
+ layout();
+ const uint64_t flags=VMM_PAGE_PRESENT|VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE;
+ for(unsigned i=0;i<2;i++){
+  spans[i]=(struct vmm_alias_span){va+4096*i,0xc0002000+0x10000*i,1};
+  t[3][i]=spans[i].physical|flags;
+ }
+ assert(check_readonly_registers());
+ const uint64_t changes[]={VMM_PAGE_WRITABLE,VMM_PAGE_USER,VMM_PAGE_NO_EXECUTE,
+                           VMM_PAGE_CACHE_DISABLE,8,128,VMM_PAGE_PRESENT};
+ for(unsigned i=0;i<sizeof(changes)/sizeof(changes[0]);i++){
+  t[3][1]^=changes[i];assert(!check_readonly_registers());t[3][1]^=changes[i];
+ }
+ t[3][2]=t[3][1];assert(!check_readonly_registers());t[3][2]=0;
+ t[2][1]=0xc0000000|flags|128;assert(!check_readonly_registers());t[2][1]=0;
+ assert(check_readonly_registers());test_cr3^=4096;assert(!check_readonly_registers());
+}
 #ifndef SRVROS_VMM_ALIAS_FIXTURE_MAIN
 #define SRVROS_VMM_ALIAS_FIXTURE_MAIN main
 #endif
 int SRVROS_VMM_ALIAS_FIXTURE_MAIN(void){
  for(unsigned i=0;i<260;i++){t[i]=aligned_alloc(4096,4096);assert(t[i]);}
+ readonly_register_cases();
  layout();assert(check() && result.tables==9 && result.leaves==3072 && result.matches[0]==1356 && result.matches[1]==1356);
  /* Every foreign leaf, including both endpoints and partial overlap. */
  for(unsigned n=0;n<2712;n++){

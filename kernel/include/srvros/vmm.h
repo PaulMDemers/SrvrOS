@@ -79,6 +79,10 @@ enum vmm_alias_reason {VMM_ALIAS_INPUT=1,VMM_ALIAS_ROOT,VMM_ALIAS_MODE,
  VMM_ALIAS_RAM,VMM_ALIAS_TABLE,VMM_ALIAS_CYCLE,VMM_ALIAS_LIMIT,
  VMM_ALIAS_RESERVED,VMM_ALIAS_FOREIGN,VMM_ALIAS_COVERAGE,VMM_ALIAS_TABLE_BACKING};
 struct vmm_alias_detail {uint32_t reason,level;struct vmm_range_observation root;};
+/* Require exact, unique read-only supervisor NX UC-index-2 register leaves
+ * in the sole boot root. Caller holds CPU0 and checks CR0.WP and effective UC. */
+bool vmm_diagnostic_readonly_register_aliases(uint64_t root,const struct vmm_alias_span *,
+ unsigned count,unsigned bits,const struct vmm_alias_ram *,unsigned ram_count);
 bool vmm_diagnostic_unique_kernel_aliases(uint64_t root,
  const struct vmm_alias_span *,unsigned count,unsigned physical_bits,
  const struct vmm_alias_ram *,unsigned ram_count,

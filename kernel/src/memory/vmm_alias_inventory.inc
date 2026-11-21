@@ -28,7 +28,7 @@ static bool alias_inventory_ram(const struct vmm_alias_ram *ram,unsigned count,u
  for(unsigned i=0;i<count;i++)if(pa>=ram[i].base && pa+bytes<=ram[i].base+ram[i].length)return true;
  return false;
 }
-enum alias_target { ALIAS_PRIVATE, ALIAS_ABSENT, ALIAS_REGISTER };
+enum alias_target { ALIAS_PRIVATE, ALIAS_ABSENT, ALIAS_REGISTER, ALIAS_REGISTER_RO };
 static bool alias_inventory_walk(uint64_t root,const struct vmm_alias_span *spans,unsigned count,unsigned bits,
  const struct vmm_alias_ram *ram,unsigned ram_count,struct vmm_alias_inventory *out,struct vmm_alias_detail *d,enum alias_target target,struct vmm_unmapped_detail *conflict) {
  bool absent=target==ALIAS_ABSENT;
@@ -108,11 +108,13 @@ static bool alias_inventory_walk(uint64_t root,const struct vmm_alias_span *span
     first=(struct vmm_unmapped_detail){.prefix=result,.virtual_base=va,.physical=physical,.bytes=size,.entry=entry,.span=i};
     first.walk.level=level;found=true;goto finish;
    }
-   /* The single device register must be a supervisor-only, writable, NX
+   /* Each device register must have the requested write permission on a supervisor-only, NX
     * 4K leaf with PAT index 2. Check the leaf itself as well as effective
     * permissions so a later sibling map cannot expose it to user mode. */
-   if(target==ALIAS_REGISTER && (level!=4 || (entry & (VMM_PAGE_WRITABLE | VMM_PAGE_USER |
-      VMM_PAGE_NO_EXECUTE | 0x98u))!=(VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE | 0x10u)))
+   uint64_t reg_flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE;
+   if(target==ALIAS_REGISTER)reg_flags|=VMM_PAGE_WRITABLE;
+   if((target==ALIAS_REGISTER || target==ALIAS_REGISTER_RO) && (level!=4 ||
+      (entry & (VMM_PAGE_WRITABLE | VMM_PAGE_USER | VMM_PAGE_NO_EXECUTE | 0x98u))!=reg_flags))
     return alias_inventory_fail(d,VMM_ALIAS_FOREIGN,level);
    if(va+(lo-physical)!=q->virtual_base+(lo-q->physical))return alias_inventory_fail(d,VMM_ALIAS_FOREIGN,level);
    uint64_t pages=(end-lo)/4096;
@@ -137,6 +139,12 @@ finish:
   return alias_inventory_fail(d,VMM_ALIAS_PRESENT,first.walk.level);
  }
  *out=result;return true;
+}
+
+bool vmm_diagnostic_readonly_register_aliases(uint64_t root,const struct vmm_alias_span *spans,
+ unsigned count,unsigned bits,const struct vmm_alias_ram *ram,unsigned ram_count) {
+ struct vmm_alias_inventory inventory;
+ return alias_inventory_walk(root,spans,count,bits,ram,ram_count,&inventory,NULL,ALIAS_REGISTER_RO,NULL);
 }
 
 bool vmm_diagnostic_unique_kernel_aliases(uint64_t root,const struct vmm_alias_span *spans,unsigned count,unsigned bits,

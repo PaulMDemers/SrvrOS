@@ -6,22 +6,12 @@ static struct x86_cache_snapshot source_clean_context;
 static bool source_clean_ready;
 static bool source_clean_retired=true;
 static bool source_clean_bound(bool);
-static struct {struct vmm_alias_ram ranges[VMM_ALIAS_RAM_LIMIT];unsigned count;bool ready;} source_audit_ram;
+#include "intel_alias_ram.inc"
+static struct intel_alias_ram_catalog source_audit_ram;
 static bool source_audit_ram_prepare(void) {
- source_audit_ram=(__typeof__(source_audit_ram)){0};source_audit_native.inventory_reason=VMM_ALIAS_RAM;
- const struct limine_memmap_response *m=memmap_request.response;
- if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
- for(uint64_t i=0;i<m->entry_count;i++) {
-  const struct limine_memmap_entry *e=m->entries[i];
-  if(!e || !e->length || e->base>UINT64_MAX-e->length)return false;
-  if(e->type!=LIMINE_MEMMAP_USABLE && e->type!=LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type!=LIMINE_MEMMAP_EXECUTABLE_AND_MODULES)continue;
-  if(source_audit_ram.count==VMM_ALIAS_RAM_LIMIT)return false;
-  unsigned at=source_audit_ram.count++;
-  while(at && source_audit_ram.ranges[at-1].base>e->base){source_audit_ram.ranges[at]=source_audit_ram.ranges[at-1];--at;}
-  source_audit_ram.ranges[at]=(struct vmm_alias_ram){e->base,e->length};
- }
- for(unsigned i=1;i<source_audit_ram.count;i++)if(source_audit_ram.ranges[i].base<source_audit_ram.ranges[i-1].base+source_audit_ram.ranges[i-1].length)return false;
- source_audit_ram.ready=source_audit_ram.count!=0;if(source_audit_ram.ready)source_audit_native.inventory_reason=0;return source_audit_ram.ready;
+ bool ok=intel_alias_ram_prepare(&source_audit_ram,memmap_request.response);
+ source_audit_native.inventory_reason=ok?0:VMM_ALIAS_RAM;
+ return ok;
 }
 static bool source_audit_fail(unsigned reason) {
  source_audit_native.reason|=reason;source_audit_native.state=3;return false;

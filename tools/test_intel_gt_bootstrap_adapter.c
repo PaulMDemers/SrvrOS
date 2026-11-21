@@ -44,6 +44,12 @@ static bool intel_display_test_command_alias(uint64_t,uint64_t,uint64_t,struct v
 static volatile uint64_t *intel_display_test_command_pointer(void);
 static void intel_display_test_command_preserved(void);
 #ifdef SRVROS_INTEL_BCS_CONTEXT
+static unsigned model_engine_ro;
+struct vmm_alias_span;
+static bool intel_display_test_context_aliases(const struct vmm_alias_span *,unsigned);
+static bool intel_display_test_context_protect(unsigned,bool);
+static bool intel_display_test_context_wp(void);
+static uint32_t intel_display_test_context_traffic(unsigned);
 static void intel_display_test_context_boundary(void);
 static bool intel_display_test_context_pte(uint32_t,uint32_t *);
 #endif
@@ -172,6 +178,9 @@ static bool intel_display_test_bootstrap_alias(unsigned i,uint64_t physical,stru
  if(gt_bootstrap_native.root!=0x1000)return false;
  if(!vmm_virt_to_phys_in_space(0x1000,WAKE_VA+4096*i,&actual) || actual!=physical || bf("walk",balias))return false;
  bool writable=i==0 || (i>=3 && i<=7) || i==9 || i==14;
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ if(i>=3 && i<=7 && (model_engine_ro & (1u<<(i-3))))writable=false;
+#endif
  *out=(struct vmm_alias_observation){1,1,2,writable,0,1,1};*range=(struct vmm_range_observation){0};
  if(bf("user-alias",balias))out->user=1;
  if(bf("exec-alias",balias))out->no_execute=0;
@@ -345,8 +354,42 @@ static __attribute__((noinline)) void bootstrap_churn_stack(void) {
 #ifdef SRVROS_INTEL_GT_ARENA
 #include "test_intel_gt_arena_model.inc"
 #ifdef SRVROS_INTEL_BCS_CONTEXT
+static uint32_t intel_display_test_context_traffic(unsigned reg){
+ static unsigned calls;
+ static const unsigned offsets[]={0x40d0,0x12870,0x12878,0x1c870,0x1c878};
+ assert(model_engine_ro==31 && wake_irq && gpu_command==3 && calls<10);
+ unsigned i=calls%5;assert(reg==offsets[i]);
+ assert(bcs_context_native.pte_reads==(calls<5?0u:30u));
+ if(cf("context-traffic",++calls))return UINT32_MAX;
+ return i?(0x01000000u*i+0x00010000u*(calls/6)):0x805fu;
+}
+static bool intel_display_test_context_wp(void){
+ static unsigned calls;
+ return !cf("context-wp",++calls);
+}
+static bool intel_display_test_context_protect(unsigned slot,bool writable){
+ static unsigned calls;
+ assert(slot>=3 && slot<=7 && wake_irq && gpu_command==3);
+ unsigned bit=1u<<(slot-3);
+ assert(((model_engine_ro&bit)!=0)==writable);
+ ++calls;
+ if(cf("context-protect",calls))return false;
+ if(cf("context-protect-noop",calls))return true;
+ if(writable)model_engine_ro &= ~bit;else model_engine_ro |= bit;
+ return true;
+}
+static bool intel_display_test_context_aliases(const struct vmm_alias_span *spans,unsigned count){
+ unsigned n=bcs_context_native.alias_checks,first=(n%3)*2;
+ assert(model_engine_ro==31 && count==(first==4?1u:2u));
+ for(unsigned i=0;i<count;++i){
+  unsigned slot=3+first+i;
+  assert(spans[i].pages==1 && spans[i].physical==result.mmio_base+wake_pages[slot] &&
+         spans[i].virtual_base==WAKE_VA+4096*slot);
+ }
+ return !cf("context-foreign-alias",n+1);
+}
 static bool intel_display_test_context_pte(uint32_t offset,uint32_t *value){
- assert(offset<40 && !(offset&3) && wake_irq && gpu_command==3);
+ assert(offset<40 && !(offset&3) && wake_irq && gpu_command==3 && model_engine_ro==31);
  uint64_t entry=0x180000001ull+(offset/8)*4096;
  *value=(uint32_t)(entry>>((offset&4)*8));
  unsigned n=bcs_context_native.pte_reads+1;

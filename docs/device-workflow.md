@@ -15,7 +15,9 @@ The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe
 and exact wire8. It retains all42 v45 slots and adds context image/model slots.
 Initialization, both original held checks, post-retirement verification/erase
-and original arena cleanup must agree. Both exact-stage VM paths remain
+and original arena cleanup must agree. The version 3 context receipt also
+requires the five submission mappings to close and reopen, six successful
+alias walks and two traffic samples bracketing 30 GGTT reads. Both exact-stage VM paths remain
 mandatory. It is silent/automatic and closes only as a diagnostic; no GPU
 mapping, context execution or DMA/cache/reader ownership acceptance follows.
 The raw-copy96KiB bound recognizes wire8 with wake37; unknown wires retain64KiB.

@@ -18,6 +18,9 @@ static struct {
  uint64_t maintain_begin,maintain_end,maintain_phase;
  unsigned maintain_before,maintain_after,maintained;
  unsigned closing;
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ unsigned engine_ro_mask;
+#endif
  uint32_t state,reason,issued,prepared,prepare_polls[5],prepare_first[5],prepare_final[5];
  uint32_t pci[4][9],pci_counts[4],pci_samples,pci_reads,command_writes,guards,alias_checks,cache_checks;
  uint32_t native_reads,native_writes,epoch_calls;
@@ -242,6 +245,9 @@ static bool bootstrap_guard(void) {
 #endif
   ++gt_bootstrap_native.alias_checks;
   bool writable=i==0 || (i>=3 && i<=7) || i==9 || i==14;
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+  if (i>=3 && i<=7 && (gt_bootstrap_native.engine_ro_mask & (1u<<(i-3)))) writable=false;
+#endif
   if(!gt_bootstrap_native.a->mapped[i] || !ok || alias.pages!=1 || alias.leaves!=1 || alias.pat_index!=2 ||
    alias.writable!=(unsigned)writable || alias.user || !alias.no_execute || alias.leaf_sizes!=1 ||
    !x86_cache_page(&cache,physical,alias.pat_index,&m,&p,&e) || m || e)return bootstrap_fail(8);

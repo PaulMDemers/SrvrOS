@@ -16,6 +16,16 @@ isolated context-image driver, the shared GPU interval registry as a caller,
 and the corresponding collector. The original panel remains on its inherited
 surface. Native command submission depends on a separate hardware grant.
 
+The current command-memory trial also covers revoking CPU write access to
+the five mapped command-streamer register pages after the GT reset. This
+depends on the reset owner's original epoch, unchanged PCI requester, CPU
+write protection, and the VMM's kernel-page protection and TLB invalidation. The driver
+checks the sole CPU alias for every engine page at both held samples. This
+permission transition awaits native qualification. The same run will record
+the GPU arbiter request and both video engines’ outstanding requests before
+and after the 30 GGTT reads. The physical traffic
+capture below remains the baseline for the GPU itself.
+
 Current Air7,2 work on PR301 covers exclusive access to the first candidate
 GGTT slot during publication and rollback, with the inherited panel scanning
 out. The VMM and Intel scanout adapter share this scope. The CPU aperture
