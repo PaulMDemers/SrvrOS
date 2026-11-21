@@ -203,3 +203,10 @@ reservation generation and whether cleanup returned it. The native source still
 offers zero hardware assurances. In the local fixture, a provider holding the
 required rights promotes that same reservation and keeps it through both flips
 and the original mapping's retirement.
+
+Version 12 also excludes CPU access through BAR2 to the first candidate
+page, checks the original primary surface addresses, and records two frame
+counts from Pipe A. On the Air, the guard covered `0xb2200000` while the
+frame counter advanced. The next write-capable trial needs a device owner
+that keeps the slot exclusive from the first PTE store through restoration
+and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)

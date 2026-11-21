@@ -19,7 +19,17 @@ handoff. The aperture diagnostic holds the candidate CPU address across two
 advancing primary-A frame counts and checks the inherited surface addresses.
 It saves the aperture address and both frame counts. A live firmware/GT
 range transfer is still required before publishing or restoring a PTE.
-The hardware target is a single reversible mapping at 1% volume.
+The next hardware target is a single reversible mapping at 1% volume.
+
+Release `88b98be2420eb2dc` (source `0eaf94b3`, session
+`session-000660c05d0472e9-00`) completed the aperture diagnostic on this Air.
+The CPU guard excluded BAR2 page `0xb2200000` for slot 8704 and closed
+cleanly after 66.552 ms. Pipe A advanced from frame 1095 to 1096 on the
+inherited surface. All 1,484 candidate translations matched and the
+reservation returned. The USB integrity and Ubuntu recovery checks passed.
+The first unmet condition was `firmware-transfer`. The GPU page table
+received zero writes. Single-page replacement and rollback still await
+a live device owner.
 
 The range diagnostic now registers the entire inherited 34 MiB fence for the
 rest of the boot. Both kernel handoff APIs reject a conflicting framebuffer
@@ -40,7 +50,7 @@ geometry. It checks a distinct alternate CRC and exact restoration, including
 rollback after an incorrect alternate image. A timed-out or uncertain return
 retains both pins. Neither leg requires a PCI reset.
 
-The hardware boot remains pending. The native capture on release
+The physical flip trial remains pending. The native capture on release
 `42cdc13b60340ddd` found both 6 MiB candidate spans firmware-reserved. The
 OS-allocated alternative needs an owned GPU address interval and visible
 X-tiled backing before the native adapter can arm the first flip.
@@ -52,7 +62,7 @@ fixture. At 6144 bytes per row the padded image occupies 1,356 pages. The
 128-page translation tail brings the lease to 1,484 pages. A one-pixel fault
 in the back buffer fails the image check and the original still returns.
 
-The latest physical session `session-000660ba79e6f52e-00` records firmware
+The earlier physical session `session-000660ba79e6f52e-00` records firmware
 framebuffer memory at `0xb0000000` with length 5,529,600 bytes (1,350 pages).
 That is exactly one 1440 × 900 image at this pitch. The same fields match
 in all 128 saved exit logs containing this endpoint in the latest collection.
