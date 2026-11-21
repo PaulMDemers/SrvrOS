@@ -7,6 +7,27 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Demers2.4 hardware prerequisite (November 20)
+
+The router reports Demers2.4 active on channel 8 with WPA2-Personal. The only
+USB Wi-Fi device attached is the Edimax EW-7711MAC `7392:a711`/`0100`, whose
+assembled radio supports 5 GHz. The internal Broadcom BCM4360 `14e4:43a0` is
+dual-band and has no SrvrOS driver. Linux lists 2.4 GHz channels for the
+Edimax's generic PHY, but its scan cache shows only Demers5 of the two targets.
+The existing SrvrOS band gate and install refusal still apply. Ubuntu remains
+the default with an empty one-shot entry. [Edimax datasheet](https://www.edimax.com/edimax/mw/cufiles/files/download/datasheet/EW-7711MAC_Datasheet_English.pdf)
+
+Once a 2.4 GHz-capable USB adapter is attached, capture its identity, endpoint
+descriptors and Linux band behavior before adapting the native driver. Prefer
+a dual-band MT7610U board to reuse the existing USB and firmware work. The
+qualification target is two fresh Demers2.4 lifetimes in one native boot,
+with discovery, WPA2, DHCP, DNS, exact HTTP body and EOF, and clean disconnect
+in each. Reuse the source-bound startup journal and workspace collector for
+automatic save and return. This inventory pass inspected `origin/main`
+`4016abf0` and PRs #19, #301 and #379. It changed no shared driver or boot code.
+Local adapter identification, receive, reconnect decoder, boot installer and
+dispatch checks passed. Native Demers2.4 testing is pending the adapter.
+
 ### Paired router and native Wi-Fi result (November 20)
 
 Source `07a85b02`, release `dc564d9c6a94ce9b`, session
