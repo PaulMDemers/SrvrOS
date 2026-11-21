@@ -290,31 +290,80 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
         model.time+=SCANOUT_PUBLISH_DEADLINE_US+1;
     return true;
 }
-static unsigned traffic_reads;
-static bool block_revoked;
-static uint64_t held_block(const struct scanout_transfer *t) {
-    assert(t==&transfer);
-    if (block_revoked || !strcmp(page_failure,"no-block") || (!strcmp(page_failure,"lost-block") && traffic_reads>=6)) return 0;
+static unsigned traffic_reads,block_requests,block_releases,l3_reads;
+static bool block_revoked,block_active,retire_reentered;
+static uint64_t held_block(const struct scanout_transfer *t,const struct scanout_publication *p) {
+    assert(t==&transfer && p==&a.publication);
+    if (p->state==PUB_RETIRED && !strcmp(page_failure,"reenter") && !retire_reentered) {
+        retire_reentered=true;
+        assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+    }
+    if (!block_active || block_revoked || !strcmp(page_failure,"no-block") ||
+        (!strcmp(page_failure,"lost-block") && traffic_reads>=6)) return 0;
     return !strcmp(page_failure,"new-block") ? 2 : 1;
+}
+static enum intel_gt_write request_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t *epoch) {
+    assert(t==&transfer && p==&a.publication && borrower && !block_active && !block_requests);
+    assert(table[8704]==input[0] && p->state==PUB_WRITING);
+    if (!strcmp(page_failure,"frozen-request")) model.stuck=true;
+    ++block_requests;
+    block_active=true;
+    *epoch=1;
+    return !strcmp(page_failure,"uncertain-request") ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+static enum intel_gt_write release_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch) {
+    assert(t==&transfer && p==&a.publication && borrower && block_active && !block_releases);
+    assert(epoch==1 && p->state==PUB_RETIRED && table[8704]==input[0] && cached_translation==input[0]);
+    if (!strcmp(page_failure,"frozen-release")) model.stuck=true;
+    ++block_releases;
+    block_active=!strcmp(page_failure,"still-held");
+    return !strcmp(page_failure,"uncertain-release") ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
 static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32_t *word) {
     assert(t==&transfer);
     ++traffic_reads;
+    if (block_releases && !strcmp(page_failure,"read-failed")) return false;
     switch(offset) {
+    case 0x9120: *word=(!strcmp(page_failure,"slice-mask")?1u:3u)<<25; break;
+    case 0x70180:
+        *word=!strcmp(page_failure,"plane-off")?0:1u<<31; break;
+    case 0x7019c: case 0x701ac:
+        *word=0x00100000;
+        if (block_active && !strcmp(page_failure,"plane-moved")) *word+=4096;
+        if (offset==0x7019c && !strcmp(page_failure,"queued-flip")) *word+=4096;
+        if (block_releases && !strcmp(page_failure,"display-changed")) *word+=4096;
+        break;
     case 0x12870: case 0x12878: case 0x1c870: case 0x1c878:
         *word=!strcmp(page_failure,"media-busy") ? 0x10000 : 0; break;
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
-        *word=!strcmp(page_failure,"engine-go") ? 0x10 : 0x20; break;
+        /* The last engine closes only after L3's one-shot ACK disappears. */
+        *word=(!block_active || !strcmp(page_failure,"engine-go") ||
+               (offset==0x8010 && l3_reads==1)) ? 0x10 : 0x20;
+        if (block_releases && offset==0x8010 && !strcmp(page_failure,"engine-stuck")) *word=0x20;
+        break;
     case 0x8040: *word=strcmp(page_failure,"gam-busy")!=0; break;
-    case 0x8038: *word=!strcmp(page_failure,"l3-unblock") ? 2 : 0; break;
-    case 0x40d0: *word=!strcmp(page_failure,"gam-request") ? 0x7fff : 0; break;
-    case 0x8028: *word=!strcmp(page_failure,"gam-response") ? 0x7f : 0; break;
+    case 0x8038:
+        if(!block_active){*word=!strcmp(page_failure,"stale-l3");break;}
+        ++l3_reads;
+        *word=!strcmp(page_failure,"l3-unblock")?2:(l3_reads==1 && strcmp(page_failure,"missing-l3"));
+        break;
+    case 0x40d0: *word=(!block_active && !strcmp(page_failure,"air-post-reset")) ? 0x7fff :
+        ((!block_active || !strcmp(page_failure,"gam-request")) ? 0x5f : 0); break;
+    case 0x8028: *word=(!block_active || !strcmp(page_failure,"gam-response")) ? 0x5f : 0; break;
     default: assert(0); return false;
     }
     return true;
 }
-static const struct intel_bdw_scanout_traffic traffic_io={held_block,traffic_word};
-
+static bool l3_policy(const struct scanout_transfer *t,uint32_t words[2]) {
+    assert(t==&transfer && borrower);
+    words[0]=!strcmp(page_failure,"l3-slice0")?16:0;
+    words[1]=!strcmp(page_failure,"l3-slice1")?16:0;
+    return strcmp(page_failure,"l3-steering")!=0;
+}
+static const struct intel_bdw_scanout_traffic traffic_io={
+    .held_epoch=held_block,.read=traffic_word,.read_l3_flush_policy=l3_policy,
+    .request=request_block,.release=release_block
+};
 static bool write_test_page(void *ctx,uint32_t index,uint64_t value) {
     assert(ctx==&model);
     store_alias_walks=0;
@@ -473,7 +522,8 @@ int main(int argc,char **argv) {
     bool full_tail=linear_tail || tiled_tail;
     bool tail_changed=!strcmp(mode,"linear-tail-original-change");
     bool captured_page=!strcmp(mode,"one-page-air");
-    bool single_page=captured_page || !strcmp(mode,"one-page");
+    bool unblock=!strncmp(mode,"unblock-",8);
+    bool single_page=captured_page || unblock || !strcmp(mode,"one-page");
     if(captured_page)input[0]=table[8704]=0x8e201001ull;
     bool before_changed=!strcmp(mode,"one-page-before-change");
     bool apply_changed=!strcmp(mode,"one-page-apply-change");
@@ -597,6 +647,10 @@ int main(int argc,char **argv) {
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
         assert(!intel_bdw_scanout_retire_test_page(&a,&at));
         if (restoring || written) assert(borrower);
+        if (!strcmp(page_failure,"air-post-reset") || !strcmp(page_failure,"stale-l3"))
+            assert(!block_requests);
+        if (!strcmp(page_failure,"missing-l3") || !strcmp(page_failure,"uncertain-request"))
+            assert(block_requests==1 && !block_releases && borrower);
         puts("PASS hardware access refusal retains page");return 0;
     }
     if(before_changed || apply_changed || tail_changed) {
@@ -662,7 +716,21 @@ int main(int argc,char **argv) {
         assert(table[8703]==left && table[8705]==right);
         assert(!scanout_transfer_close(&transfer,&token) && !model.calls[TRANSFER_RETIRE]);
         assert(scanout_memory_close(&a,&at) && model.releases==1 && table[8704]==input[0]);
+        assert(!scanout_transfer_close(&transfer,&token) && !block_releases);
+        assert(block_requests==1 && l3_reads>=2);
+        page_failure=unblock?mode+8:"reenter";
+        if (unblock) {
+            assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+            assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+            assert(block_releases==(unsigned)(strcmp(page_failure,"l3-steering")!=0));
+            assert(borrower && transfer.device_publication==&a.publication && transfer.pinned);
+            assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
+            assert(cached_translation==input[0] && table[8704]==input[0]);
+            assert(table[8703]==left && table[8705]==right && model.writes==2 && model.flushes==2);
+            puts("PASS failed unblock retains the original publication and exclusion");return 0;
+        }
         assert(borrower && intel_bdw_scanout_retire_test_page(&a,&at) && !borrower);
+        assert(retire_reentered && block_releases==1 && !transfer.device_publication);
         assert(!intel_bdw_scanout_retire_test_page(&a,&at));
         assert(cached_translation==input[0]);
         assert(table[8703]==left && table[8705]==right);

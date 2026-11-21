@@ -32,6 +32,32 @@ native ownership step is to acquire and hold a GPU-side traffic block with
 Pipe A active, witness fresh engine and L3 acknowledgements, and keep that
 block through replacement and rollback of slot 8704.
 
+The one-page writer on PR301 now samples an open arbiter before asking
+for a block, then witnesses the five engine flush acknowledgements and a
+fresh L3 flush acknowledgement under that request. It checks the cache
+flush policy on both enabled slices, keeps the same block through both
+stores and translation retirement, and verifies that requests reopen
+before returning the register and display exclusion. Host tests cover a
+delayed fifth engine, a lost block during rollback, a pending plane flip
+and an uncertain release. Both programmed and live plane addresses must
+match the original enabled plane through the final unblock.
+
+Ubuntu's i915 topology query on this unit returned slice mask `0x03`
+with eDP enabled before and after the query. The SrvrOS hardware test still
+needs a driver operation that acquires and holds the block with Pipe A
+active. The latest physical packet still permits all six clients. The
+one-page replacement and rollback have only run in the host fixture.
+
+On this Air under Ubuntu, one private i915 context submitted two batches
+to each of RCS, BCS, VCS0, VCS1 and VECS. The first batch on each engine
+flushed and wrote a distinct completion marker. One unsignalled fence
+held all five successor batches while the CPU checked the five markers.
+After release all five successors wrote their own markers. The eDP
+connector was enabled before and after. This provides a hardware reference
+for explicit per-engine barriers once SrvrOS owns submission. It covers
+the private queues only. Device-wide admission and L3 coverage under
+the same owner remain open.
+
 Current Air7,2 work on PR301 covers exclusive access to the first candidate
 GGTT slot during publication and rollback, with the inherited panel scanning
 out. The VMM and Intel scanout adapter share this scope. The CPU aperture

@@ -15,30 +15,28 @@ static struct page_borrow {
     const struct scanout_publication *publication;
     const struct vmm_reserved_guard *guard;
     uint64_t epoch, guard_epoch, root, aperture, alias, reg;
-    const struct scanout_transfer *transfer;
+    struct scanout_transfer *transfer;
     struct intel_bdw_scanout_traffic traffic;
-    uint64_t block_epoch;
+    uint64_t block_epoch, transfer_epoch;
+    uint32_t plane_control, live_surface;
+    bool plane_sampled, drained, retiring;
 } borrow;
 
-static bool page_hold_live(const struct scanout_publication *p)
+static bool page_pinned(const struct scanout_publication *p)
 {
-    return borrow.publication == p && borrow.epoch == p->epoch &&
+    return p && borrow.publication == p && borrow.epoch == p->epoch &&
+           borrow.transfer->device_publication == p && borrow.transfer->pinned &&
+           borrow.transfer->epoch == borrow.transfer_epoch &&
+           display_access_held(&borrow.transfer->exclusion) &&
            borrow.guard_epoch == borrow.guard->epoch &&
-           borrow.traffic.held_epoch(borrow.transfer) == borrow.block_epoch &&
            vmm_reserved_guard_register_pinned(borrow.guard, borrow.root, borrow.aperture,
                                               borrow.reg, borrow.alias, &borrow);
 }
 
-bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const struct scanout_memory_token *token)
+static bool page_hold_live(const struct scanout_publication *p)
 {
-    if (!m || !token || m->object != m || token->object != m || token->epoch != m->epoch ||
-        token->owner != m->owner || m->busy || m->state != MEM_RELEASED ||
-        borrow.publication != &m->publication || borrow.epoch != m->publication.epoch ||
-        m->publication.state != PUB_RETIRED || m->publication.busy ||
-        !page_hold_live(&m->publication) ||
-        !vmm_reserved_guard_unpin_io_page(borrow.guard, borrow.root, borrow.aperture, &borrow)) return false;
-    borrow = (struct page_borrow){0};
-    return true;
+    return page_pinned(p) && borrow.drained &&
+           borrow.block_epoch && borrow.traffic.held_epoch(borrow.transfer,p) == borrow.block_epoch;
 }
 
 static bool store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
@@ -80,17 +78,111 @@ static bool mapped_register(uint64_t root, uint64_t alias, uint64_t physical)
 }
 
 struct traffic_check {
-    const struct scanout_transfer *transfer;
-    struct intel_bdw_scanout_traffic io;
-    uint64_t epoch;
+    uint64_t begin, last, epoch;
 };
 
-static bool read_blocked(void *ctx,uint32_t offset,uint32_t *word)
+static bool traffic_live(struct traffic_check *check)
 {
-    const struct traffic_check *check=ctx;
-    return check->io.held_epoch(check->transfer)==check->epoch &&
-           check->io.read(check->transfer,offset,word) &&
-           check->io.held_epoch(check->transfer)==check->epoch;
+    if (!page_pinned(borrow.publication) ||
+        borrow.traffic.held_epoch(borrow.transfer,borrow.publication)!=check->epoch) return false;
+    uint64_t now=borrow.transfer->io.now(borrow.transfer->io.ctx);
+    if (!now || now==UINT64_MAX || now<check->last ||
+        (borrow.publication->busy && (now<borrow.publication->phase_us ||
+         now-borrow.publication->phase_us>SCANOUT_PUBLISH_DEADLINE_US)) ||
+        now-check->begin>=BDW_TRAFFIC_BLOCK_US) return false;
+    check->last=now;
+    return page_pinned(borrow.publication) &&
+           borrow.traffic.held_epoch(borrow.transfer,borrow.publication)==check->epoch;
+}
+
+static bool read_traffic(void *ctx,uint32_t offset,uint32_t *word)
+{
+    struct traffic_check *check=ctx;
+    return traffic_live(check) && borrow.traffic.read(borrow.transfer,offset,word) &&
+           *word!=UINT32_MAX && traffic_live(check);
+}
+
+static bool l3_flush_covers_all_lines(struct traffic_check *check)
+{
+    uint32_t fuse, policy[2] = {UINT32_MAX, UINT32_MAX};
+    /* FUSE2[27:25] identifies the native instances. SCRATCH1[4] restricts
+     * a PM flush to coherent lines; a receipt must cover both types. */
+    return read_traffic(check, 0x9120, &fuse) && ((fuse >> 25) & 7u) == 3u &&
+           borrow.traffic.read_l3_flush_policy(borrow.transfer, policy) &&
+           !((policy[0] | policy[1]) & (1u << 4)) && traffic_live(check);
+}
+
+/* Keep both the queued scanout and the actual scanout on the inherited
+ * surface. SURF bit 3 records the previous flip source, not an address. */
+static bool original_plane(struct traffic_check *check)
+{
+    uint32_t control, programmed, live;
+    if (!read_traffic(check,0x70180,&control) || !(control & (1u<<31)) ||
+        !read_traffic(check,0x7019c,&programmed) || !read_traffic(check,0x701ac,&live) ||
+        (live & 4095u) || (programmed & ~8u)!=live || live>=borrow.transfer->manifest.fence_end)
+        return false;
+    if (borrow.plane_sampled)
+        return control==borrow.plane_control && live==borrow.live_surface;
+    borrow.plane_control=control;
+    borrow.live_surface=live;
+    borrow.plane_sampled=true;
+    return true;
+}
+
+static bool acquire_traffic(struct traffic_check *check)
+{
+    struct bdw_traffic_sample sample={.ctx=check,.read=read_traffic};
+    if (!original_plane(check) || !l3_flush_covers_all_lines(check) ||
+        !intel_bdw_traffic_open(&sample) || !traffic_live(check) ||
+        *(volatile const uint64_t *)(uintptr_t)borrow.alias!=borrow.publication->before[0]) return false;
+    uint64_t requested_at = check->last, epoch = 0;
+    enum intel_gt_write issued=borrow.traffic.request(borrow.transfer,borrow.publication,&epoch);
+    if (issued!=GT_WRITE_DONE || !epoch) return false;
+    borrow.block_epoch=check->epoch=epoch;
+    for (unsigned n=0;n<GT_ACCESS_POLL_CAP;++n) {
+        bool drained;
+        if (!intel_bdw_traffic_poll(&sample,&drained)) return false;
+        if (drained && check->last > requested_at) return true;
+    }
+    return false;
+}
+
+bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const struct scanout_memory_token *token)
+{
+    if (!m || !token || m->object!=m || token->object!=m || token->epoch!=m->epoch ||
+        token->owner!=m->owner || m->busy || m->state!=MEM_RELEASED ||
+        m->publication.state!=PUB_RETIRED || m->publication.busy ||
+        borrow.retiring || borrow.publication!=&m->publication) return false;
+    /* Provider calls can reenter. Consume this retirement before consulting
+     * the hold or clock, including when either callback reports uncertainty. */
+    borrow.retiring=true;
+    if (!page_hold_live(&m->publication)) return false;
+    uint64_t now=borrow.transfer->io.now(borrow.transfer->io.ctx);
+    struct traffic_check check={now,now,borrow.block_epoch};
+    if (!now || now < m->publication.last_us || !original_plane(&check) ||
+        !l3_flush_covers_all_lines(&check) || !intel_bdw_traffic_still_blocked(&check, read_traffic) ||
+        !traffic_live(&check)) return false;
+    uint64_t released_at = check.last;
+    if (borrow.traffic.release(borrow.transfer,borrow.publication,borrow.block_epoch)!=GT_WRITE_DONE)
+        return false;
+    check.epoch=0;
+    struct bdw_traffic_sample sample={.ctx=&check,.read=read_traffic};
+    for (unsigned n=0;n<GT_ACCESS_POLL_CAP;++n) {
+        /* A failed read or owner check is terminal. An asynchronous release
+         * may take time to reach all six clients and five engines. */
+        bool arbiter, pipelines;
+        uint32_t l3;
+        if (!bdw_traffic_gam(&sample,BDW_GAM_CLIENTS,&arbiter) ||
+            !bdw_traffic_engines(&sample,false,&pipelines) || !read_traffic(&check,0x8038,&l3))
+            return false;
+        if (!arbiter || !pipelines || (l3 & 1u) || check.last == released_at) continue;
+        if (!original_plane(&check) || !traffic_live(&check) || !vmm_reserved_guard_unpin_io_page(
+                borrow.guard,borrow.root,borrow.aperture,&borrow)) return false;
+        borrow.transfer->device_publication=NULL;
+        borrow=(struct page_borrow){0};
+        return true;
+    }
+    return false;
 }
 
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct scanout_memory_token *token,
@@ -116,10 +208,12 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     /* Charge the alias and cache checks to the original publication deadline.
      * Recheck the operation and saved owner after the last provider callback. */
     uint64_t fresh;
-    if (!traffic.held_epoch || !traffic.read || !scanout_transfer_check(t, grant)) return false;
-    struct traffic_check check={t,traffic,traffic.held_epoch(t)};
-    if (!check.epoch || (restore && (borrow.transfer!=t || borrow.block_epoch!=check.epoch ||
-        borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read))) return false;
+    if (!traffic.held_epoch || !traffic.read || !traffic.request || !traffic.release || !traffic.read_l3_flush_policy ||
+        !scanout_transfer_check(t,grant)) return false;
+    if (restore && (borrow.transfer!=t || !page_hold_live(p) ||
+        borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read ||
+        borrow.traffic.request!=traffic.request || borrow.traffic.release!=traffic.release ||
+        borrow.traffic.read_l3_flush_policy!=traffic.read_l3_flush_policy)) return false;
     uint64_t offset = (uint64_t)index * 4096;
     if (t->manifest.aperture > UINT64_MAX - offset || !cpu_guard) return false;
     uint64_t aperture = t->manifest.aperture + offset;
@@ -129,12 +223,22 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
             borrow.aperture != aperture || !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow))
             return false;
     } else {
-        if (p->hold_live || borrow.publication || !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
-        borrow = (struct page_borrow){p, cpu_guard, p->epoch, cpu_guard->epoch, root, aperture, alias,physical,t,traffic,check.epoch};
+        if (p->hold_live || borrow.publication || t->device_publication || !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
+        borrow = (struct page_borrow){.publication=p,.guard=cpu_guard,.epoch=p->epoch,.guard_epoch=cpu_guard->epoch,
+            .root=root,.aperture=aperture,.alias=alias,.reg=physical,.transfer=t,.traffic=traffic,.transfer_epoch=t->epoch};
+        t->device_publication=p;
         p->hold_live=page_hold_live;
     }
-    if (!intel_bdw_traffic_still_blocked(&check,read_blocked) || !mapped_register(root, alias, physical)) return false;
-    if (traffic.held_epoch(t)!=check.epoch ||
+    uint64_t start=t->io.now(t->io.ctx);
+    if (!start || start<t->last_us || start<p->phase_us || start-p->phase_us>SCANOUT_PUBLISH_DEADLINE_US)
+        return false;
+    struct traffic_check check={start,start,borrow.block_epoch};
+    if (!restore && !acquire_traffic(&check)) return false;
+    if (!original_plane(&check) || !l3_flush_covers_all_lines(&check) ||
+        !intel_bdw_traffic_still_blocked(&check, read_traffic) || !mapped_register(root, alias, physical))
+        return false;
+    borrow.drained=true;
+    if (!traffic_live(&check) ||
         !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
     uint64_t now = t->io.now(t->io.ctx);
     if (!store_active(m, token, t, index) ||
@@ -143,8 +247,8 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
         restore != (p->state == PUB_RESTORING) || p->before[0] != original || p->after[0] != entry.replacement ||
         !scanout_space_verify_original(m->space, &p->range, 0, original) ||
         value != (restore ? original : entry.replacement) || t->last_us < p->last_us ||
-        t->last_us < p->phase_us || now < t->last_us ||
-        now - p->phase_us > SCANOUT_PUBLISH_DEADLINE_US) return false;
+        t->last_us < p->phase_us || now < t->last_us || now<check.last ||
+        now - p->phase_us > SCANOUT_PUBLISH_DEADLINE_US || now-check.begin >= BDW_TRAFFIC_BLOCK_US) return false;
 
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */

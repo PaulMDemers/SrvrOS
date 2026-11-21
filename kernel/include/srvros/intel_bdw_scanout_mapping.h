@@ -2,6 +2,7 @@
 #define SRVROS_INTEL_BDW_SCANOUT_MAPPING_H
 
 #include <srvros/scanout_memory.h>
+#include <srvros/intel_gt_access.h>
 #include <srvros/scanout_transfer.h>
 
 /* Prepare an OS-owned BGRX surface inside an already transferred interval.
@@ -24,14 +25,17 @@ bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct s
  * callback. A successful store includes raw posting readback. The separate
  * flush and reader callbacks remain mandatory for publication and reuse. */
 struct vmm_reserved_guard;
-/* held_epoch returns a nonzero generation only while this transfer's own GPM
- * block is continuously held and its fresh engine/L3 flush acknowledgements
- * have been verified. It checks the owner's CPU-side state without MMIO or
- * waiting. The lender retains it through restored translation and
- * reader retirement. read uses that same transfer's bounded guarded MMIO. */
+/* request acquires the hardware block for this publication exactly once.
+ * held_epoch checks the same registered request using CPU state. Zero means
+ * no block. read is bounded, guarded MMIO under the original display owner.
+ * release is permitted only after restoration, invalidation and retirement. */
 struct intel_bdw_scanout_traffic {
-    uint64_t (*held_epoch)(const struct scanout_transfer *);
+    uint64_t (*held_epoch)(const struct scanout_transfer *,const struct scanout_publication *);
     bool (*read)(const struct scanout_transfer *,uint32_t offset,uint32_t *);
+    /* Read low SCRATCH1 (0xb11c) for slices 0 and 1 in that order. If steering is used, own it and restore it. */
+    bool (*read_l3_flush_policy)(const struct scanout_transfer *, uint32_t words[2]);
+    enum intel_gt_write (*request)(const struct scanout_transfer *,const struct scanout_publication *,uint64_t *epoch);
+    enum intel_gt_write (*release)(const struct scanout_transfer *,const struct scanout_publication *,uint64_t epoch);
 };
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *, const struct scanout_memory_token *,
                                       struct scanout_transfer *, const struct scanout_transfer_token *,

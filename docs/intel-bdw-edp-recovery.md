@@ -661,3 +661,25 @@ engine or L3 completion receipt for SrvrOS. Enabling the native reset still
 requires a hardware block that survives the acknowledgement reads and remains
 under the original owner after decode closes, or an independently readable
 record of the handshakes under that same hold.
+
+### Reset-free use of the same traffic checks
+
+The slot 8704 writer witnesses an initially open arbiter, issues one
+request for the original publication, and polls the engine, GAM and L3
+messages under that request. A one-shot L3 acknowledgement can arrive
+while the final engine is still draining. The writer also checks the
+power-manager flush policy for both enabled slices. Bit 4 of `SCRATCH1`
+at `0xb11c` limits a PM flush to coherent lines when set. The test
+requires a flush covering coherent and noncoherent lines.
+[Intel Broadwell register reference, pp. 589–592 and 1390](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+The writer samples the enabled primary plane and its programmed and
+live addresses before requesting the block. It checks them against that
+snapshot before each store, before releasing the block, and again after
+requests reopen. The same request must cover PTE replacement, invalidation,
+restoration and retirement of readers. Returning the register alias and display
+exclusion requires a confirmed release and reopened client and engine
+messages. An uncertain release consumes the attempt and retains the
+reservation. The host fixture exercises these transitions. The native
+Air7,2 still needs a source of the request that can hold it while the
+original panel scans and the driver reads the acknowledgements.

@@ -246,7 +246,7 @@ bool scanout_transfer_close(struct scanout_transfer *t,const struct scanout_tran
         if(!drop_range(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
         t->state=TRANSFER_CLOSED;return true;
     }
-    if(!auth(t,token))return false;
+    if(!auth(t,token) || t->device_publication)return false;
     t->busy=true;t->state=TRANSFER_CLOSING;
     if(!parent(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
     if(!arena(t)){t->error=TRANSFER_SPACE;return fault(t);}

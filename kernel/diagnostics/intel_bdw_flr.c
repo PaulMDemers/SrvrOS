@@ -7,8 +7,6 @@
 #define PCI_INTX_DISABLE 0x400u
 #define PCI_MEMORY 2u
 #define PCI_IO 1u
-#define GT_BLOCK_US 10000u
-#define GAM_CLIENTS 0x5fu
 #define PCI_CAP_LIST (1u << 20)
 #define PCI_MSI_ENABLE (1u << 16)
 #define FLR_QUIET_US 100000u
@@ -20,7 +18,6 @@ struct attempt {
     const struct bdw_flr_pci_image *image;
     const struct bdw_flr_drain *drain;
     uint64_t issued, last, traffic_begin;
-    uint32_t request_closed, response_closed, engine_ack, engine_go_closed, engine_blocked;
 };
 
 static bool check(struct attempt *a)
@@ -33,7 +30,7 @@ static bool check(struct attempt *a)
     if (!now || now == UINT64_MAX || now < a->last)
         return false;
     a->last = now;
-    if (a->traffic_begin && now - a->traffic_begin >= GT_BLOCK_US)
+    if (a->traffic_begin && now - a->traffic_begin >= BDW_TRAFFIC_BLOCK_US)
         return false;
     if (!a->issued)
         return true;
@@ -87,64 +84,11 @@ static bool held_gt_word(void *ctx,uint32_t offset,uint32_t *word)
     return gt_word(ctx,offset,word);
 }
 
-static bool gam(struct attempt *a, uint32_t allowed, bool *matches)
-{
-    uint32_t request, response;
-    if (!gt_word(a, 0x40d0, &request) || !gt_word(a, 0x8028, &response))
-        return false;
-    *matches = (request & GAM_CLIENTS) == allowed && (response & GAM_CLIENTS) == allowed;
-    if (!allowed) {
-        /* Each sampled client can close asynchronously. Reopening one
-         * invalidates the accumulated evidence, even while others are open. */
-        /* Bit 15 requests preparation for a PCI FLR, which this owner has
-         * not issued. It cannot belong to the pre-reset traffic block. */
-        if ((request & (a->request_closed | 0x8000u)) || (response & a->response_closed))
-            return false;
-        a->request_closed |= ~request & GAM_CLIENTS;
-        a->response_closed |= ~response & GAM_CLIENTS;
-    }
-    /* An existing reset reason is foreign to this new transaction. */
-    if (allowed && (request & 0xff00u))
-        *matches = false;
-    return true;
-}
-
-static bool engines(struct attempt *a, bool blocked, bool *matches)
-{
-    static const uint32_t offsets[] = {0x8000, 0x8004, 0x8008, 0x800c, 0x8010};
-    /* With Go=0, the engine stays busy (bit 0 clear). Before the request
-     * its pipeline may be either idle or busy. */
-    uint32_t mask = blocked ? 0x31u : 0x30u;
-    uint32_t expected = blocked ? 0x20u : 0x10u;
-    *matches = true;
-    for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
-        uint32_t word;
-        if (!gt_word(a, offsets[i], &word))
-            return false;
-        bool ready = (word & mask) == expected;
-        if (blocked) {
-            uint32_t engine = 1u << i;
-            if (((a->engine_ack & engine) && !(word & 0x20u)) ||
-                ((a->engine_go_closed & engine) && (word & 0x10u)) ||
-                ((a->engine_blocked & engine) && !ready))
-                return false;
-            if (word & 0x20u) a->engine_ack |= engine;
-            if (!(word & 0x10u)) a->engine_go_closed |= engine;
-            if (ready) a->engine_blocked |= engine;
-        }
-        if (!ready) *matches = false;
-    }
-    return true;
-}
-
 static bool block_traffic(struct attempt *a)
 {
-    bool arbiter, pipelines;
-    uint32_t l3;
+    struct bdw_traffic_sample sample = {.ctx=a, .read=held_gt_word};
     a->traffic_begin = a->last;
-    if (!gam(a, GAM_CLIENTS, &arbiter) || !arbiter || !engines(a, false, &pipelines) ||
-        !pipelines || !gt_word(a, 0x8038, &l3) || (l3 & 3u) || !check(a))
-        return false;
+    if (!intel_bdw_traffic_open(&sample) || !check(a)) return false;
     enum intel_gt_write issued = a->io->block(a->io->context, a->report);
     if (issued != GT_WRITE_NONE) {
         a->report->block_issued = true;
@@ -154,16 +98,11 @@ static bool block_traffic(struct attempt *a)
         return false;
 
     for (unsigned i = 0; i < GT_ACCESS_POLL_CAP; ++i) {
-        uint32_t eco;
+        bool drained;
         ++a->report->traffic_polls;
-        if (!gt_word(a, 0x8038, &l3) || !gam(a, 0, &arbiter) ||
-            !engines(a, true, &pipelines) || !gt_word(a, 0x8040, &eco))
-            return false;
-        /* GPM clears this acknowledgement when it samples it. Latch only
-         * a new edge during this original exclusive request. */
-        if (l3 & 2u) return false; /* L3 acknowledged an unblock. */
-        a->report->l3_ack |= (l3 & 1u) != 0;
-        if (arbiter && pipelines && a->report->l3_ack && (eco & 1u)) {
+        if (!intel_bdw_traffic_poll(&sample,&drained)) return false;
+        a->report->l3_ack = sample.l3_ack;
+        if (drained) {
             if (!profile(a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) ||
                 !intel_bdw_traffic_still_blocked(a,held_gt_word)) return false;
             if (a->last <= a->traffic_begin)

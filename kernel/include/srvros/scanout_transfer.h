@@ -30,9 +30,12 @@ struct scanout_transfer_io {
 };
 struct scanout_transfer_pool {uint64_t epoch;};
 struct scanout_transfer;
+struct scanout_publication;
 struct scanout_transfer_token {const struct scanout_transfer *object;uint64_t epoch,owner;};
 struct scanout_transfer {
     const struct scanout_transfer *object;
+    /* Device hold spanning restored translation, reader retirement and unblock. */
+    const struct scanout_publication *device_publication;
     struct scanout_transfer_manifest reservation; /* Original source geometry for conflict checks. */
     struct scanout_interval interval;
     const struct scanout_transfer_pool *reservation_pool;
