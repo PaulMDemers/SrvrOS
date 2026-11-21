@@ -30,6 +30,20 @@ adapter loss that prevents proving DMA retirement retains ownership and
 blocks automatic workspace writes and return. The installed recovery payload
 is independent of this trial.
 
+Source `1b1c1326` passed the production xHCI, WPA, DHCP and resident-worker test
+with a modeled controller, access point and scheduler. It exchanged 181 exact
+encrypted UDP echoes over more than 20 seconds of modeled time, serviced
+Wi-Fi during a 512-byte USB bulk read, excluded an aliased DMA page and a
+controller command, and retired the connection on Disconnect. An injected
+adapter loss retained the unproven DMA and provider. System, syscall, Wi-Fi
+service, scheduler, paired-ring and existing HTTP reconnect checks passed.
+
+The v150 VM-only release `f963f756a2be2c51` uses a synthetic credential. Exact
+image checks saved diagnostics to the GPT workspace and returned automatically
+with the radio absent. The same image returned automatically when the workspace
+was missing. Ubuntu remains the active default and the EFI one-shot entry is
+clear. The laptop has yet to run this desktop profile with its physical adapter.
+
 ### Persistent 5 GHz and desktop controls
 
 Descriptor reuse work starts from `47cc3a33` with `origin/main` at `4016abf0`.
