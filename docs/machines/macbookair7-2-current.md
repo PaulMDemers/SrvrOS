@@ -22,6 +22,27 @@ range transfer is still required before publishing or restoring a PTE.
 Current implementation work binds the aperture exclusion to the same one-page
 publication through restoration, translation completion and reader retirement.
 This depends on the VMM guard and the Broadwell page-store adapter.
+On PR301 the GT range and flush trials hold the same reservation object the
+one-page publisher can promote. The display exclusion stays pinned across
+promotion. Both page-table writes require a single continuously held traffic
+block and fresh closing checks. This path has passed host qualification.
+
+On this Air, the GGTT table page containing slot 8704 (`0x8b811000`) and
+its inherited backing page (`0x8e201000`) both fall in the EFI runtime
+descriptor `[0x8b000000, 0x90000000)`, type `EfiReservedMemoryType`.
+This classifies the physical memory. Authority to reassign the GPU address
+must come from the graphics owner. The captured IGPU methods and OpRegion
+driver-ready flags provide no identified per-slot loan. [UEFI memory map](https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html#memory-allocation-services) · [i915 OpRegion driver notification](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_opregion.c#L1109-L1144)
+
+Replaying the four native traffic packets from release `78276fdd559a38cd`
+through the page writer's closing check refused each at the render engine
+(`0x8000`). Media counters were empty, all six request permissions were
+open, and the engine and L3 flush acknowledgements were absent. The next
+physical write needs a native graphics owner that can transfer this slot
+with the boot scanout pinned and keep new requests blocked through both
+writes, translation invalidation and reader retirement. The automated
+replacement and rollback are pending.
+
 Release `f3961550b358c858` (source `7e3af989`, session
 `session-000660c0d078f7b5-00`) completed the one-page reservation trial.
 The GT requester held slot 8704 across the GT-only reset, rechecked it while

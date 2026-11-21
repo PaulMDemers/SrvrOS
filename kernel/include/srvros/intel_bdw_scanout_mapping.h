@@ -24,9 +24,18 @@ bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct s
  * callback. A successful store includes raw posting readback. The separate
  * flush and reader callbacks remain mandatory for publication and reuse. */
 struct vmm_reserved_guard;
+/* held_epoch returns a nonzero generation only while this transfer's own GPM
+ * block is continuously held and its fresh engine/L3 flush acknowledgements
+ * have been verified. It checks the owner's CPU-side state without MMIO or
+ * waiting. The lender retains it through restored translation and
+ * reader retirement. read uses that same transfer's bounded guarded MMIO. */
+struct intel_bdw_scanout_traffic {
+    uint64_t (*held_epoch)(const struct scanout_transfer *);
+    bool (*read)(const struct scanout_transfer *,uint32_t offset,uint32_t *);
+};
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *, const struct scanout_memory_token *,
                                       struct scanout_transfer *, const struct scanout_transfer_token *,
-                                      const struct vmm_reserved_guard *, uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
+                                      struct intel_bdw_scanout_traffic, const struct vmm_reserved_guard *, uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
 
 /* Return the CPU aperture pin after scanout_memory_close retired this exact
  * publication. Until then, including on uncertain writes, parent close fails. */

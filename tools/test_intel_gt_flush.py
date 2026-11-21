@@ -32,6 +32,7 @@ class FlushAcknowledgements(unittest.TestCase):
                 with self.subTest(entry=entry, mode=mode):
                     result = bootstrap_result(observe(mode, entry=entry))
                     self.assertEqual(result["version"], 12)
+                    self.assertEqual(result["range"]["slot"]["returned"], 1)
                     self.assertTrue(result["complete"])
                     self.assertFalse(result["hardware_ownership"])
                     self.assertEqual(result["summary"]["obligations"], 255)
@@ -41,7 +42,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 6, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
+                        "v": 7, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
                     })
                     self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 4)
                     power = flush["power_controls"]
@@ -103,6 +104,8 @@ class FlushAcknowledgements(unittest.TestCase):
                 with self.subTest(mode=mode, position=pos):
                     result = bootstrap_result(observe(mode, pos))
                     self.assertFalse(result["complete"])
+                    self.assertEqual(result["range"]["slot"]["reserved"], 1)
+                    self.assertEqual(result["range"]["slot"]["returned"], 0)
                     self.assertEqual(result["summary"]["commands"], 1)
                     self.assertFalse(result["summary"]["returned"])
                     summary = result["flush"]["summary"]
@@ -140,7 +143,9 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
         old_power = re.sub(r" l3_close=.*", "", old_power)
         old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")
-        old_power = old_power.replace("v=6 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
+        old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
+        old_power = old_power.replace("intel-range-summary: v=2 ", "intel-range-summary: v=1 ")
+        old_power = old_power.replace("v=7 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
         self.assertNotIn("request_trace", bootstrap_result(old_power)["flush"])
         media = old_power.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
                              "intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9")
@@ -174,7 +179,7 @@ class FlushAcknowledgements(unittest.TestCase):
                               ("authority=none\nintel-flush-sample", "authority=write\nintel-flush-sample"),
                               ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=100 maps=28 retired=27"),
                               ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=99 maps=28 retired=28"),
-                              ("intel-flush-summary: v=6 ", "intel-flush-summary: v=5 ")):
+                              ("intel-flush-summary: v=7 ", "intel-flush-summary: v=6 ")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(before, after))

@@ -51,10 +51,12 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     if not rows or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
     summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
-                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6))
+                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6, 7))
     smi_rows = [line for line in text.splitlines() if line.startswith(SMI_PREFIX)]
     smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire)
-    traced = summary["v"] == 6
+    traced = summary["v"] >= 6
+    if (summary["v"] >= 7) != (translation["v"] == 2):
+        raise ValueError("GT flush and slot reservation receipt versions disagree")
     slots = 4 if traced else 3
     if len(rows) != slots + 1:
         raise ValueError("GT flush sample coverage")

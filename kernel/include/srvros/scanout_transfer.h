@@ -56,9 +56,14 @@ enum scanout_transfer_error scanout_transfer_admission(const struct scanout_tran
 bool scanout_transfer_reserve(struct scanout_transfer *,struct scanout_transfer_pool *,
     const struct display_access_token *,const struct scanout_transfer_manifest *,
     struct scanout_transfer_token *);
+/* Test the live reservation and the lender's fresh originals. No arena or
+ * publication rights are issued by this check. */
+bool scanout_transfer_reservation_matches(const struct scanout_transfer *,const struct scanout_transfer_token *,
+                                         const struct scanout_transfer_manifest *);
 /* Promote this exact reservation in place. Rechecks the original vector and
  * live provider under the ordinary admission deadline. Missing rights or a
- * mismatched source refuse before starting admission and leave it reserved. */
+ * mismatched source refuse before starting admission and leave it reserved.
+ * Failure after a live provider or clock call retains the reservation in FAULT. */
 bool scanout_transfer_activate(struct scanout_transfer *,const struct scanout_transfer_token *,
     struct scanout_space_pool *,const struct scanout_transfer_manifest *,struct scanout_transfer_io);
 /* Zero-init/address-sealed. Reuse only after clean CLOSED, with a fresh epoch.

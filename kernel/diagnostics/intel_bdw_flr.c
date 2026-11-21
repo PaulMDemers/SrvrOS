@@ -1,4 +1,5 @@
 #include <srvros/intel_bdw_flr.h>
+#include <srvros/intel_bdw_traffic.h>
 
 #define IGD_ID 0x16268086u
 #define IGD_CLASS 0x03000009u
@@ -81,6 +82,11 @@ static bool gt_word(struct attempt *a, uint32_t offset, uint32_t *word)
            *word != UINT32_MAX && check(a);
 }
 
+static bool held_gt_word(void *ctx,uint32_t offset,uint32_t *word)
+{
+    return gt_word(ctx,offset,word);
+}
+
 static bool gam(struct attempt *a, uint32_t allowed, bool *matches)
 {
     uint32_t request, response;
@@ -158,19 +164,8 @@ static bool block_traffic(struct attempt *a)
         if (l3 & 2u) return false; /* L3 acknowledged an unblock. */
         a->report->l3_ack |= (l3 & 1u) != 0;
         if (arbiter && pipelines && a->report->l3_ack && (eco & 1u)) {
-            static const uint32_t queues[] = {0x12870, 0x12878, 0x1c870, 0x1c878};
-            /* Keep the closing hardware observations on the MMIO side of
-             * the last config check, immediately before the decode store. */
-            if (!profile(a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO)) return false;
-            for (unsigned q = 0; q < sizeof(queues) / sizeof(queues[0]); ++q) {
-                uint32_t word;
-                if (!gt_word(a, queues[q], &word) || (word & 0xff0000u))
-                    return false;
-            }
-            if (!engines(a, true, &pipelines) || !pipelines || !gt_word(a, 0x8040, &eco) ||
-                !(eco & 1u) || !gt_word(a, 0x8038, &l3) || (l3 & 2u) ||
-                !gam(a, 0, &arbiter) || !arbiter)
-                return false;
+            if (!profile(a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) ||
+                !intel_bdw_traffic_still_blocked(a,held_gt_word)) return false;
             if (a->last <= a->traffic_begin)
                 return false;
             a->report->traffic_blocked = true;

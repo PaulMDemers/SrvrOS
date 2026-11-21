@@ -72,7 +72,7 @@ static bool gt_flush_offset_allowed(uint32_t offset) {
 }
 
 static bool gt_flush_live(void) {
-    if (!bootstrap_parent() || !wake_irq_off() || gt_range.mapped ||
+    if (!bootstrap_parent() || !wake_irq_off() || !gt_slot_live() || gt_range.mapped ||
         vmm_current_address_space() != gt_bootstrap_native.root ||
         gt_bootstrap_native.command_writes != 1 || gt_bootstrap_native.pci_samples != 2)
         return false;
@@ -128,7 +128,7 @@ static void gt_flush_report(void) {
             (uint64_t)i, (uint64_t)s->pulse, (uint64_t)s->word, (uint64_t)s->count,
             s->first_begin, s->first_end, s->last_begin, s->last_end);
     }
-    console_printf("intel-flush-summary: v=6 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
+    console_printf("intel-flush-summary: v=7 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
         (uint64_t)gt_flush.access.retired, gt_flush.access.mapped);
     for (unsigned n = 0; n < GT_FLUSH_SAMPLES; ++n) {

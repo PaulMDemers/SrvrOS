@@ -190,7 +190,20 @@ The Broadwell test writer pins the CPU aperture exclusion immediately before
 its first store. Restoration checks the original guard, root, register alias
 and publication epoch. Release follows successful memory close, which includes
 restored-entry readback, translation completion and reader retirement. A failed
-return leaves the pin held. The GT range trial separately reserves the same
-slot in the kernel interval registry across its bus-master inhibit and GT reset.
-Its version 2 range report carries a slot receipt. Version 1 archives predate
-that reservation. Neither trial supplies firmware or DMA authority for a write.
+return leaves the pin held. The GT requester now uses the publisher's transfer
+object to reserve this slot before inhibiting PCI bus mastering. The original
+token, entry and outer display exclusion identify the reservation on both sides
+of the GT reset. A lender can promote the same object in place. An early
+original-entry mismatch leaves it reserved. A lost owner or failure during
+external validation retains the exclusion in the faulted transfer. Version 2
+range reports carry a slot receipt. Version 1 archives predate that reservation.
+
+The Broadwell test writer takes a traffic provider with a live block generation
+and guarded MMIO reader. The provider must have witnessed fresh engine and L3
+acknowledgements while holding the block. Immediately before **each** store,
+the writer checks all four media counters, all five engine states, GAM idle,
+L3 unblock and the arbiter request/response permissions. Each MMIO read must
+start and finish under the original block. The same generation must survive
+translation restoration and reader retirement before releasing the aperture
+pin. A native firmware/graphics lender and block provider are still required
+to run this writer on the Air.

@@ -146,6 +146,14 @@ static void reservation_cases(const char *mode)
     expect_conflict(manifest);
     assert(scanout_handoff_close(&small,(struct scanout_handoff_io){&small,check_small}));
     assert(scanout_transfer_reserve(&transfer,&pool,&exclusion,&manifest,&token));
+    assert(scanout_transfer_reservation_matches(&transfer,&token,&manifest));
+    if(!strcmp(mode,"reservation-removed")) {
+        scanout_interval_release(&transfer.interval);
+        assert(!scanout_transfer_reservation_matches(&transfer,&token,&manifest));
+        assert(!scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider()));
+        assert(transfer.pinned && transfer.state==TRANSFER_FAULT && !display_access_release(&exclusion,true));
+        return;
+    }
     struct scanout_transfer_manifest other=manifest;
     other.pages=1;other.first+=manifest.pages-1;
     expect_conflict(other);
@@ -157,6 +165,7 @@ static void reservation_cases(const char *mode)
     uint64_t raw;
     assert(!scanout_transfer_original(&transfer,&token,manifest.first,&raw));
     assert(!scanout_transfer_check(&transfer,&token) && !scanout_transfer_close(&transfer,&stale));
+    assert(!scanout_transfer_reservation_matches(&transfer,&stale,&manifest));
     assert(!scanout_transfer_activate(&transfer,&stale,&spaces,&manifest,provider()));
     assert(!scanout_transfer_activate(&transfer,&token,(struct scanout_space_pool *)(void *)&pool,
                                       &manifest,provider()));
@@ -166,10 +175,23 @@ static void reservation_cases(const char *mode)
     struct scanout_transfer_token adjacent;
     assert(scanout_transfer_reserve(&contender,&contender_pool,&exclusion,&other,&adjacent));
     assert(scanout_transfer_close(&contender,&adjacent));
+    if(!strcmp(mode,"reservation-promote-clock") || !strcmp(mode,"reservation-promote-provider")) {
+        model.clock_fail=!strcmp(mode,"reservation-promote-clock");
+        model.fail=!model.clock_fail;
+        assert(!scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider()));
+        assert(transfer.state==TRANSFER_FAULT && transfer.pinned && !model.writes);
+        expect_conflict(manifest);
+        expect_small_conflict();
+        assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
+        return;
+    }
     if(!strcmp(mode,"reservation-stale-original")) {
         input[manifest.pages-1]^=1;
+        assert(!scanout_transfer_reservation_matches(&transfer,&token,&manifest));
         assert(!scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider()));
-        assert(transfer.state==TRANSFER_CLOSED && !transfer.pinned && !model.calls[TRANSFER_ADMIT]);
+        assert(transfer.state==TRANSFER_RESERVED && transfer.pinned && !model.calls[TRANSFER_ADMIT]);
+        expect_conflict(manifest);
+        assert(scanout_transfer_close(&transfer,&token));
     } else {
         assert(scanout_transfer_activate(&transfer,&token,&spaces,&manifest,provider()));
         expect_conflict(manifest);
@@ -258,10 +280,35 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
         model.time+=SCANOUT_PUBLISH_DEADLINE_US+1;
     return true;
 }
+static unsigned traffic_reads;
+static uint64_t held_block(const struct scanout_transfer *t) {
+    assert(t==&transfer);
+    if (!strcmp(page_failure,"no-block") || (!strcmp(page_failure,"lost-block") && traffic_reads>=6)) return 0;
+    return !strcmp(page_failure,"new-block") ? 2 : 1;
+}
+static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32_t *word) {
+    assert(t==&transfer);
+    ++traffic_reads;
+    switch(offset) {
+    case 0x12870: case 0x12878: case 0x1c870: case 0x1c878:
+        *word=!strcmp(page_failure,"media-busy") ? 0x10000 : 0; break;
+    case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
+        *word=!strcmp(page_failure,"engine-go") ? 0x10 : 0x20; break;
+    case 0x8040: *word=strcmp(page_failure,"gam-busy")!=0; break;
+    case 0x8038: *word=!strcmp(page_failure,"l3-unblock") ? 2 : 0; break;
+    case 0x40d0: *word=!strcmp(page_failure,"gam-request") ? 0x7fff : 0; break;
+    case 0x8028: *word=!strcmp(page_failure,"gam-response") ? 0x7f : 0; break;
+    default: assert(0); return false;
+    }
+    return true;
+}
+static const struct intel_bdw_scanout_traffic traffic_io={held_block,traffic_word};
+
 static bool write_test_page(void *ctx,uint32_t index,uint64_t value) {
     assert(ctx==&model);
     store_alias_walks=0;
-    bool ok=intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,&cpu_guard,4096,
+    traffic_reads=0;
+    bool ok=intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,traffic_io,&cpu_guard,4096,
                                              (uintptr_t)&table[8704],index,value);
     if(ok)++model.writes;
     return ok;
@@ -518,7 +565,7 @@ int main(int argc,char **argv) {
     assert(!display_access_release(&transfer.exclusion,true));
     if(store_failure) {
         assert(prepare_memory(&a,&at,0));
-        assert(!intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,&cpu_guard,4096,(uintptr_t)&table[8704],8704,a.entries[0]));
+        assert(!intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,traffic_io,&cpu_guard,4096,(uintptr_t)&table[8704],8704,a.entries[0]));
         bool restoring=!strncmp(mode+10,"restore-",8);
         if(restoring)assert(scanout_memory_apply(&a,&at));
         page_failure=mode+10+(restoring?8:0);

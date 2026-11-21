@@ -3,6 +3,7 @@
 #include <srvros/intel_ggtt_window.h>
 #include <srvros/intel_bdw_scanout_mapping.h>
 #include <srvros/vmm.h>
+#include <srvros/intel_bdw_traffic.h>
 #include <srvros/x86_cache.h>
 
 /* Only the first PTE beyond the captured 34 MiB fence. Its register is the
@@ -14,6 +15,9 @@ static struct page_borrow {
     const struct scanout_publication *publication;
     const struct vmm_reserved_guard *guard;
     uint64_t epoch, guard_epoch, root, aperture, alias;
+    const struct scanout_transfer *transfer;
+    struct intel_bdw_scanout_traffic traffic;
+    uint64_t block_epoch;
 } borrow;
 
 bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const struct scanout_memory_token *token)
@@ -23,6 +27,7 @@ bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const str
         borrow.publication != &m->publication || borrow.epoch != m->publication.epoch ||
         m->publication.state != PUB_RETIRED || m->publication.busy ||
         borrow.guard_epoch != borrow.guard->epoch ||
+        borrow.traffic.held_epoch(borrow.transfer) != borrow.block_epoch ||
         !vmm_reserved_guard_unpin_io_page(borrow.guard, borrow.root, borrow.aperture, &borrow)) return false;
     borrow = (struct page_borrow){0};
     return true;
@@ -66,9 +71,23 @@ static bool mapped_register(uint64_t root, uint64_t alias, uint64_t physical)
            a.writable == 1 && !a.user && a.no_execute == 1;
 }
 
+struct traffic_check {
+    const struct scanout_transfer *transfer;
+    struct intel_bdw_scanout_traffic io;
+    uint64_t epoch;
+};
+
+static bool read_blocked(void *ctx,uint32_t offset,uint32_t *word)
+{
+    const struct traffic_check *check=ctx;
+    return check->io.held_epoch(check->transfer)==check->epoch &&
+           check->io.read(check->transfer,offset,word) &&
+           check->io.held_epoch(check->transfer)==check->epoch;
+}
+
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct scanout_memory_token *token,
                                       struct scanout_transfer *t, const struct scanout_transfer_token *grant,
-                                      const struct vmm_reserved_guard *cpu_guard, uint64_t root, uint64_t alias, uint32_t index, uint64_t value)
+                                      struct intel_bdw_scanout_traffic traffic, const struct vmm_reserved_guard *cpu_guard, uint64_t root, uint64_t alias, uint32_t index, uint64_t value)
 {
     uint64_t original;
     if (!root || !alias || (alias & 4095) || !store_active(m, token, t, index) ||
@@ -89,7 +108,12 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     /* Charge the alias and cache checks to the original publication deadline.
      * Recheck the operation and saved owner after the last provider callback. */
     uint64_t fresh;
-    if (!scanout_transfer_check(t, grant) || !mapped_register(root, alias, physical)) return false;
+    if (!traffic.held_epoch || !traffic.read || !scanout_transfer_check(t, grant)) return false;
+    struct traffic_check check={t,traffic,traffic.held_epoch(t)};
+    if (!check.epoch || (restore && (borrow.transfer!=t || borrow.block_epoch!=check.epoch ||
+        borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read)) ||
+        !intel_bdw_traffic_still_blocked(&check,read_blocked) || !mapped_register(root, alias, physical)) return false;
+    if (traffic.held_epoch(t)!=check.epoch) return false;
     uint64_t now = t->io.now(t->io.ctx);
     if (!store_active(m, token, t, index) ||
         !scanout_transfer_original(t, grant, index, &fresh) || fresh != original ||
@@ -112,7 +136,7 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
             return false;
     } else {
         if (borrow.publication || !vmm_reserved_guard_pin_io_page(cpu_guard, root, aperture, &borrow)) return false;
-        borrow = (struct page_borrow){p, cpu_guard, p->epoch, cpu_guard->epoch, root, aperture, alias};
+        borrow = (struct page_borrow){p, cpu_guard, p->epoch, cpu_guard->epoch, root, aperture, alias,t,traffic,check.epoch};
     }
     volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
     if (*reg != (restore ? entry.replacement : original)) return false;

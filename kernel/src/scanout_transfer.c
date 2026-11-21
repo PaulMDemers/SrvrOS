@@ -32,8 +32,14 @@ static bool same_range(const struct scanout_transfer_manifest *a,const struct sc
     return same_aperture(a,b) && a->first==b->first && a->pages==b->pages && a->source_epoch==b->source_epoch;
 }
 
+static bool interval_held(const struct scanout_transfer *t) {
+    const struct scanout_transfer_manifest *r=&t->reservation;
+    return scanout_interval_held(&t->interval,r->mmio,r->aperture,r->aperture_bytes,
+                                 r->fence_end,(struct scanout_space_range){r->first,r->pages});
+}
+
 static bool drop_range(struct scanout_transfer *t) {
-    if(!display_access_unpin(&t->exclusion))return false;
+    if(!interval_held(t) || !display_access_unpin(&t->exclusion))return false;
     scanout_interval_release(&t->interval);
     t->pinned=false;
     return true;
@@ -45,7 +51,7 @@ static bool auth(const struct scanout_transfer *t,const struct scanout_transfer_
         (t->state==TRANSFER_ACTIVE || t->state==TRANSFER_CLOSING);
 }
 static bool parent(const struct scanout_transfer *t) {
-    return t->pinned && same_range(&t->manifest,&t->reservation) && t->manifest.original==t->original && display_access_held(&t->exclusion);
+    return t->pinned && same_range(&t->manifest,&t->reservation) && t->manifest.original==t->original && display_access_held(&t->exclusion) && interval_held(t);
 }
 static bool arena(const struct scanout_transfer *t) {
     return t->space.object==&t->space && t->space.epoch==t->arena_epoch &&
@@ -137,21 +143,21 @@ static bool start_transfer(struct scanout_transfer *t,struct scanout_space_pool 
     struct scanout_transfer_manifest m,struct scanout_transfer_io io,bool check_original) {
     t->state=TRANSFER_CAPTURING;t->busy=true;t->io=io;
     t->manifest.assurances=m.assurances;t->manifest.obligations=m.obligations;
-    if(!start(t))return unwind(t);
+    if(!start(t))return false;
     for(uint32_t i=0;i<m.pages;i++) {
         if(check_original) {
-            if(t->original[i]!=m.original[i]){t->error=TRANSFER_PROVIDER;return unwind(t);}
+            if(t->original[i]!=m.original[i]){t->error=TRANSFER_PROVIDER;return false;}
         } else t->original[i]=m.original[i];
     }
-    if(!validate(t,TRANSFER_ADMIT))return unwind(t);
+    if(!validate(t,TRANSFER_ADMIT))return false;
     struct scanout_space_range managed={m.first,m.pages},protected={0,(uint32_t)(m.fence_end/4096)};
     if(!scanout_space_open_transferred(&t->space,spaces,t->owner,(uint32_t)(m.aperture_bytes/4096),managed,protected,t->original)) {
-        t->error=TRANSFER_SPACE;return unwind(t);
+        t->error=TRANSFER_SPACE;return false;
     }
     t->arena_epoch=t->space.epoch;
     if(!tick(t) || !parent(t)) {
         if(t->error==TRANSFER_OK)t->error=TRANSFER_EXCLUSION;
-        return unwind(t);
+        return false;
     }
     t->state=TRANSFER_ACTIVE;t->busy=false;return true;
 }
@@ -159,6 +165,14 @@ static bool start_transfer(struct scanout_transfer *t,struct scanout_space_pool 
 static bool reserved(const struct scanout_transfer *t,const struct scanout_transfer_token *token) {
     return t && token && t->object==t && token->object==t && token->epoch==t->epoch &&
            token->owner==t->owner && t->pinned && !t->arena_epoch && t->state==TRANSFER_RESERVED && !t->busy;
+}
+
+bool scanout_transfer_reservation_matches(const struct scanout_transfer *t,const struct scanout_transfer_token *token,
+    const struct scanout_transfer_manifest *source) {
+    if(!reserved(t,token) || !parent(t) || !geometry(source) || !same_range(&t->reservation,source))return false;
+    for(unsigned i=0;i<source->pages;i++)
+        if(source->original[i]!=t->original[i])return false;
+    return true;
 }
 
 bool scanout_transfer_activate(struct scanout_transfer *t,const struct scanout_transfer_token *token,
@@ -170,7 +184,11 @@ bool scanout_transfer_activate(struct scanout_transfer *t,const struct scanout_t
        overlap(m->original,(uint64_t)m->pages*8,spaces,sizeof(*spaces)) ||
        (m->original!=t->original && overlap(m->original,(uint64_t)m->pages*8,t,sizeof(*t))))return false;
     if(!parent(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
-    return start_transfer(t,spaces,*m,io,true);
+    if(!scanout_transfer_reservation_matches(t,token,m))return false;
+    /* An existing lender still owns this exclusion. Once external checks
+     * begin, uncertainty must retain it until recovery. */
+    if(!start_transfer(t,spaces,*m,io,true))return fault(t);
+    return true;
 }
 
 bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
@@ -182,7 +200,8 @@ bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_po
        overlap(input->original,(uint64_t)input->pages*8,spaces,sizeof(*spaces)) ||
        overlap(out,sizeof(*out),spaces,sizeof(*spaces)))return false;
     struct scanout_transfer_manifest m=*input;
-    if(!reserve_range(t,pool,exclusion,&m,out) || !start_transfer(t,spaces,m,io,false))return false;
+    if(!reserve_range(t,pool,exclusion,&m,out))return false;
+    if(!start_transfer(t,spaces,m,io,false))return unwind(t);
     *out=(struct scanout_transfer_token){t,t->epoch,t->owner};return true;
 }
 bool scanout_transfer_check(struct scanout_transfer *t,const struct scanout_transfer_token *token) {

@@ -375,6 +375,11 @@ memory authority follows from these host/VM receipts.
 
 #### Timing reset reasons and checking the block during maintenance
 
+Version 7 of the flush summary binds the four packets to the requester's
+slot-8704 reservation. The diagnostic checks the live reservation on each
+guarded read. The collector requires the version 2 slot receipt for this
+format. Earlier reports retain their original meaning.
+
 Flush summary version 6 adds an observation immediately after the second GT
 reset and epoch change, before memory maintenance starts. Each of the four
 packets reads the request, arbiter response, five engine states, L3 state and

@@ -113,26 +113,39 @@ static bool gt_range_batch(unsigned phase,uint32_t first,unsigned count) {
 #ifdef SRVROS_INTEL_GT_SLOT
 /* The original GT requester owns this software slot reservation across the
  * bus-master inhibit, reset and post-reset sampling. Keep it on every fault. */
-static struct scanout_interval gt_slot;
+#include <srvros/scanout_transfer.h>
+static struct scanout_transfer gt_slot;
+static struct scanout_transfer_pool gt_slot_pool;
+static struct scanout_transfer_token gt_slot_token;
 static bool gt_slot_reserved,gt_slot_checked,gt_slot_returned;
 
+static struct scanout_transfer_manifest gt_slot_source(unsigned sample) {
+ return (struct scanout_transfer_manifest){
+  .mmio=result.mmio_base,.aperture=window_result.aperture_base,.aperture_bytes=window_result.aperture_bytes,
+  .fence_end=window_result.endpoint.fence_end,.first=GT_RANGE_CANDIDATE,.pages=1,
+  .original=&gt_range.words[sample][GT_RANGE_TAIL],.source_epoch=gt_bootstrap_native.g->exclusion.epoch,
+  .obligations=INTEL_COMPLETION_OPEN
+ };
+}
+
 static bool gt_slot_live(void) {
- return scanout_interval_held(&gt_slot,result.mmio_base,window_result.aperture_base,
-   window_result.aperture_bytes,window_result.endpoint.fence_end,(struct scanout_space_range){GT_RANGE_CANDIDATE,1});
+ if(!gt_bootstrap_native.g)return false;
+ struct scanout_transfer_manifest source=gt_slot_source(gt_slot_checked?1:0);
+ return scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source);
 }
 
 static bool gt_slot_boundary(unsigned phase) {
- uint64_t mmio=result.mmio_base, aperture=window_result.aperture_base;
- uint64_t bytes=window_result.aperture_bytes, fence=window_result.endpoint.fence_end;
- struct scanout_space_range page={GT_RANGE_CANDIDATE,1};
- if(fence!=(uint64_t)page.first*4096 || !gt_range_live(phase) ||
-    !scanout_interval_protect_boot_framebuffer(mmio,aperture,bytes,fence))return false;
+ if(phase>1 || !gt_range_live(phase))return false;
+ struct scanout_transfer_manifest source=gt_slot_source(phase);
+ if(source.fence_end!=(uint64_t)source.first*4096 ||
+    !scanout_interval_protect_boot_framebuffer(source.mmio,source.aperture,source.aperture_bytes,source.fence_end))
+  return false;
  if(!phase) {
-  if(gt_slot_reserved || !scanout_interval_claim(&gt_slot,mmio,aperture,bytes,fence,page))return false;
+  if(gt_slot_reserved || !scanout_transfer_reserve(&gt_slot,&gt_slot_pool,&gt_bootstrap_native.g->exclusion,
+                                                   &source,&gt_slot_token))return false;
   gt_slot_reserved=true;
- } else if(!gt_slot_reserved || gt_slot_returned ||
-           gt_range.words[1][GT_RANGE_TAIL]!=gt_range.words[0][GT_RANGE_TAIL])return false;
- if(!gt_slot_live())return false;
+ }
+ if(!scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source))return false;
  if(phase)gt_slot_checked=true;
  return true;
 }
@@ -140,7 +153,7 @@ static bool gt_slot_boundary(unsigned phase) {
 static bool gt_slot_return(void) {
  if(!gt_slot_reserved || !gt_slot_checked || gt_slot_returned || !gt_slot_live() || !gt_range_post_memory() ||
     !bootstrap_guard() || !bootstrap_tick())return false;
- scanout_interval_release(&gt_slot);
+ if(!scanout_transfer_close(&gt_slot,&gt_slot_token))return false;
  gt_slot_returned=true;
  return true;
 }

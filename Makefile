@@ -7153,9 +7153,9 @@ build/intel-gt-range/boot.o: kernel/src/drivers/intel_gt_boot.c $(ZIG) $(KERNEL_
 	$(CC) $(CFLAGS) $(INTEL_GT_RANGE_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 build/intel-gt-range/srvros.elf: $(INTEL_GT_MEMORY_HEAD) build/intel-gt-range/probe.o $(INTEL_GT_MEMORY_OWNER) build/intel-gt-range/boot.o $(INTEL_GT_MEMORY_BASE) kernel/linker.ld
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
-build/tests/intel-gt-range-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c kernel/src/scanout_space.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS)
+build/tests/intel-gt-range-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) $(INTEL_GT_RANGE_FLAGS) -DSRVROS_INTEL_GT_SLOT -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/scanout_space.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c -o $@
+	$(HOST_CC) $(INTEL_GT_RANGE_FLAGS) -DSRVROS_INTEL_GT_SLOT -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c -o $@
 build/tests/intel-gt-range-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_GT_RANGE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
@@ -7167,7 +7167,7 @@ test-core: test-intel-gt-range
 # Isolated live primary geometry after the original post-reset memory child.
 INTEL_GT_PRIMARY_FLAGS := $(INTEL_GT_RANGE_FLAGS) -DSRVROS_INTEL_GT_PRIMARY
 INTEL_GT_AUX_FLAGS := $(INTEL_GT_PRIMARY_FLAGS) -DSRVROS_INTEL_GT_AUX
-INTEL_GT_FLUSH_FLAGS := $(INTEL_GT_AUX_FLAGS) -DSRVROS_INTEL_GT_FLUSH
+INTEL_GT_FLUSH_FLAGS := $(INTEL_GT_AUX_FLAGS) -DSRVROS_INTEL_GT_FLUSH -DSRVROS_INTEL_GT_SLOT
 build/intel-gt-primary/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_GT_PRIMARY_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
@@ -7181,10 +7181,12 @@ build/intel-gt-primary/srvros.elf: $(INTEL_GT_MEMORY_HEAD) build/intel-gt-primar
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
 build/tests/intel-gt-primary-adapter$(HOST_EXE): private GT_DISPLAY_TEST_FLAGS := $(INTEL_GT_PRIMARY_FLAGS)
 build/tests/intel-gt-aux-adapter$(HOST_EXE): private GT_DISPLAY_TEST_FLAGS := $(INTEL_GT_AUX_FLAGS)
+build/tests/intel-gt-flush-adapter$(HOST_EXE): private GT_SLOT_TEST_SOURCES := kernel/src/scanout_space.c kernel/src/scanout_transfer.c
 build/tests/intel-gt-flush-adapter$(HOST_EXE): private GT_DISPLAY_TEST_FLAGS := $(INTEL_GT_FLUSH_FLAGS)
 build/tests/intel-gt-primary-adapter$(HOST_EXE) build/tests/intel-gt-aux-adapter$(HOST_EXE) build/tests/intel-gt-flush-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) $(GT_DISPLAY_TEST_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) -o $@
+	$(HOST_CC) $(GT_DISPLAY_TEST_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(GT_SLOT_TEST_SOURCES) kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) -o $@
+build/tests/intel-gt-flush-adapter$(HOST_EXE): kernel/src/scanout_space.c kernel/src/scanout_transfer.c
 build/tests/intel-gt-primary-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_GT_PRIMARY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
