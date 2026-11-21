@@ -42,7 +42,27 @@ The v150 VM-only release `f963f756a2be2c51` uses a synthetic credential. Exact
 image checks saved diagnostics to the GPT workspace and returned automatically
 with the radio absent. The same image returned automatically when the workspace
 was missing. Ubuntu remains the active default and the EFI one-shot entry is
-clear. The laptop has yet to run this desktop profile with its physical adapter.
+clear.
+
+The Demers5 cold trial on November 21 used source `0c2870f0`, release
+`80754d9e394e3591` and session `session-000660cdca505cfa-00`. SrvrOS saved
+matching boot and exit logs and returned to Ubuntu. The desktop did not open.
+Four calibration commands received exact MCU replies. The fifth, RXDCOC,
+completed USB OUT but had no matching USB IN completion or response bytes in
+the 1.5-second observation. Connect, Disconnect and connected USB file
+operations remain untested on hardware.
+
+The desktop profile inherited v138 calibration. The accepted v149 Demers5
+run used the early receive queue and calibration priming, completed RXDCOC
+in 711 microseconds and continued through discovery and association. The
+boot recipes differ, so the evidence does not isolate the physical cause
+of the missing reply. The next desktop candidate should preserve the
+accepted priming and discovery path without launching the bounded HTTP test.
+
+The exFAT check passed, and all 499 preexisting workspace files kept their
+original bytes. The installed recovery, durable archives and 36 unrelated EFI
+files verified after return. Local evidence is under
+`build/bringup/wifi-desktop-owner-cold/return-evidence`.
 
 ### Persistent 5 GHz and desktop controls
 
