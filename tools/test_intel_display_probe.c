@@ -786,6 +786,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     if(off>=0x1000000 && off<=0x1000024){mmio_reads++;*value=off;return true;}
     if(window_mode && off>=INTEL_WINDOW_PAGE && off<INTEL_WINDOW_PAGE+128) {
         unsigned i=(off-INTEL_WINDOW_PAGE)/8;uint64_t entry=i?0x180000000ull+i*4096+1:0;
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+        if(!i)entry=0x180000001ull;
+#endif
         if(handoff_drift && i==15)entry^=4096;
         *value=(uint32_t)(entry>>((off&4)?32:0));mmio_reads++;return true;
     }

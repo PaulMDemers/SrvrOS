@@ -58,6 +58,26 @@ and the original complete arena receipt. Older profiles refuse wire8 and foreign
 context records. Unqualified wire8 logs can use the existing96KiB raw-copy bound
 only with the original wake37 marker; that read allowance does not accept them.
 
+The version 2 context record uses GGTT slots 8705–8708. The former version
+placed the ring in slot 8704, which is now the target of the one-entry rollback
+trial. The new layout reserves four disjoint GPU addresses in the software
+interval registry. Both captured PTE vectors must distinguish the target,
+the four command pages, and the private CPU backing. At both post-reset
+arena checks the driver reads all five actual entries through the existing
+read-only UC window, with PCI bus mastering disabled. Each QWord requires a
+matching high/low/high read. After checking and erasing the CPU image, the
+driver returns the reservation. Older version 1 reports remain readable.
+
+These addresses still translate to inherited memory. The private hardware
+status page requires snoopable storage. The driver must acquire the four
+slots and install the private RAM mappings before it can submit the blitter
+context. Its own completion command cannot establish that initial grant.
+The address reservation and the logged 30 reads are software exclusion and
+translation evidence only. This placement is for the one-page trial. A full
+surface starting at 8704 spans these four slots. Retire the temporary context
+before reserving that surface, or place a longer-lived ring outside both
+framebuffers.
+
 Local validation decodes each LRI block independently, compares the actual
 completion packet, corrupts every arena DWORD, rejects invalid/overlapping
 inputs and runs compiled layout/address-mode/extent weakening controls and fatal

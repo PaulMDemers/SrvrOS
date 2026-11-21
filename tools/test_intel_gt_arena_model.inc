@@ -51,7 +51,14 @@ static bool intel_display_test_command_alias(uint64_t root,uint64_t va,uint64_t 
  if(cf("command-large",cm_alias))out->leaf_sizes=2;
  return !cf("command-alias",cm_alias);
 }
-static volatile uint64_t *intel_display_test_command_pointer(void){return command_ram;}
+static volatile uint64_t *intel_display_test_command_pointer(void){
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ static unsigned calls;
+ if(cf("context-initial-alias",++calls))
+  window_result.sample[0].entry[4]=window_result.sample[1].entry[4]=command_native.owner.physical|1;
+#endif
+ return command_ram;
+}
 static void intel_display_test_command_preserved(void) {if(cf("command-content",1))command_ram[2047]=1;}
 static uint64_t intel_display_test_command_dma(void){return 61+(command_allocated?4:0);}
 static bool intel_display_test_command_retire(void){
@@ -124,6 +131,10 @@ static int arena_fixture_verify(int code) {
  } else {
   assert(hit && (intel_gt_wake_retained() || (!command_allocated && !o->object && !gt_bootstrap_native.object)));
   if(cm_hit){
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+   if(!strcmp(bootstrap_mode,"context-initial-alias"))
+    for(unsigned i=0;i<2048;++i)assert(command_ram[i]==0xa5a5a5a5a5a5a5a5ull);
+#endif
    assert(cm_frees==cm_effects[0] && cm_map==cm_effects[1] && cm_unmap==cm_effects[2]);
    assert(bcommands==cm_effects[3] && bwrites==cm_effects[4] && memory_writes==cm_effects[5]);
    if(!strcmp(bootstrap_mode,"command-cache-parent-epoch"))assert(cm_alias==cm_effects[6]);

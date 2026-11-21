@@ -141,6 +141,10 @@ static bool command_initialize(void *ctx,uint64_t va,uint32_t bytes) {
  if(ctx!=&command_native || va!=COMMAND_NATIVE_VA || bytes!=16384 || o->maps!=4 || o->memory.state!=MEM_RAM ||
  !o->memory.cpu_serial || !command_backing(ctx,o->physical,4))return false;
  volatile uint64_t *ram=command_pointer();if(!ram)return false;
+#ifdef SRVROS_INTEL_BCS_CONTEXT
+ /* Reject any inherited translation into these four pages before zeroing RAM. */
+ if(!bcs_context_reserve())return false;
+#endif
  for(unsigned i=0;i<2048;i++)ram[i]=0;
  __asm__ volatile("mfence":::"memory");
  for(unsigned i=0;i<2048;i++)if(ram[i])return false;

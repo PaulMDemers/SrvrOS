@@ -45,6 +45,7 @@ static volatile uint64_t *intel_display_test_command_pointer(void);
 static void intel_display_test_command_preserved(void);
 #ifdef SRVROS_INTEL_BCS_CONTEXT
 static void intel_display_test_context_boundary(void);
+static bool intel_display_test_context_pte(uint32_t,uint32_t *);
 #endif
 
 static uint64_t intel_display_test_command_clock(void);
@@ -344,6 +345,14 @@ static __attribute__((noinline)) void bootstrap_churn_stack(void) {
 #ifdef SRVROS_INTEL_GT_ARENA
 #include "test_intel_gt_arena_model.inc"
 #ifdef SRVROS_INTEL_BCS_CONTEXT
+static bool intel_display_test_context_pte(uint32_t offset,uint32_t *value){
+ assert(offset<40 && !(offset&3) && wake_irq && gpu_command==3);
+ uint64_t entry=0x180000001ull+(offset/8)*4096;
+ *value=(uint32_t)(entry>>((offset&4)*8));
+ unsigned n=bcs_context_native.pte_reads+1;
+ if(cf("context-live-drift",n))*value^=1;
+ return !cf("context-live-read",n);
+}
 static unsigned context_boundaries;
 static void intel_display_test_context_boundary(void) {
  ++context_boundaries;
@@ -355,6 +364,18 @@ static void intel_display_test_context_boundary(void) {
  if(cf("context-physical",context_boundaries))bcs_context_native.physical+=4096;
  if(cf("context-root",context_boundaries))bcs_context_native.root+=4096;
  if(cf("context-descriptor",context_boundaries))bcs_context_native.descriptor^=1;
+ struct scanout_interval competing;
+ assert(!scanout_interval_claim(&competing,result.mmio_base,window_result.aperture_base,
+  window_result.aperture_bytes,window_result.endpoint.fence_end,command_slots));
+ assert(scanout_interval_claim(&competing,result.mmio_base,window_result.aperture_base,
+  window_result.aperture_bytes,window_result.endpoint.fence_end,(struct scanout_space_range){INTEL_WINDOW_FIRST,1}));
+ scanout_interval_release(&competing);
+ if(cf("context-target-alias",context_boundaries))
+  window_result.sample[0].entry[4]=window_result.sample[1].entry[4]=window_result.sample[0].entry[0];
+ if(cf("context-pte-drift",context_boundaries))window_result.sample[1].entry[2]^=4096;
+ if(cf("context-cpu-alias",context_boundaries))
+  window_result.sample[0].entry[3]=window_result.sample[1].entry[3]=command_native.owner.physical|1;
+ if(cf("context-lost-slots",context_boundaries))scanout_interval_release(&bcs_context_native.slots);
  if(cf("context-count",context_boundaries))bcs_context_native.verified++;
 }
 #endif

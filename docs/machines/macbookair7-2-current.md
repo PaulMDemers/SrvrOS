@@ -10,6 +10,12 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+The current bootstrap task on PR301 is to keep the private blitter ring,
+context and completion address independent of slot 8704. It touches the
+isolated context-image driver, the shared GPU interval registry as a caller,
+and the corresponding collector. The original panel remains on its inherited
+surface. Native command submission depends on a separate hardware grant.
+
 Current Air7,2 work on PR301 covers exclusive access to the first candidate
 GGTT slot during publication and rollback, with the inherited panel scanning
 out. The VMM and Intel scanout adapter share this scope. The CPU aperture
@@ -57,6 +63,19 @@ The i915 trace showed a single binding through verification, followed by
 the matching unbind. The internal panel was enabled before and after.
 This verifies the exact address and one blitter request under Linux. Native
 SrvrOS still needs a device-wide drain with the original panel active.
+
+The independent CPU context layout reserves slots 8705–8708 and rechecks
+them along with 8704 under the post-reset arena hold. Saved native windows
+from November 17 and 20 both put these five pages at physical addresses
+`0x8e201000` through `0x8e205000`. The new reservation and held reads have
+host qualification. Under Ubuntu on November 21, i915 submitted a private
+batch to each physical engine (render, copy, two video engines, and video
+enhance). All five individual sync-file fences signaled success, with the
+panel enabled before and after. Those batches used per-process addresses
+from `0x04000000` to `0x04040000`. Their completion does not cover work left
+by firmware at SrvrOS boot. The remaining prerequisite is an independent
+native graphics-address-space takeover that can install the snoopable
+command backing with inherited submission excluded.
 
 Broadwell's render `MI_MODE` programming notes rule out using STOP_RING
 as a reversible pause during an inherited batch. Resuming can use the

@@ -25,18 +25,31 @@ class NativeContext(unittest.TestCase):
    import hardware_desktop as desktop
    self.assertFalse(desktop.needs_attention(next(l for l in text.splitlines() if l.startswith('intel-bootstrap-summary:'))))
    c=p['context']['summary'];a=p['arena']['summary']
+   self.assertTrue(p['context']['independent_layout'])
+   self.assertEqual((c['reserved'],c['released'],c['ring']//4096),(1,1,8705))
    self.assertEqual((c['initialized'],c['verified'],c['held'],c['erased']),(1,4,2,1))
    self.assertEqual(c['physical'],a['physical']);self.assertEqual((a['allocated'],a['released']),(4,4))
    self.assertLessEqual(p['entry']['wake']['summary']['end_us'],c['erase_begin'])
  def test_each_image_boundary_keeps_all_original_ram_on_corruption(self):
   cases=0
   for disabled in (False,True):
-   for mode in ('content','ring','hwsp','completion','config','physical','root','descriptor','count'):
+   for mode in ('content','ring','hwsp','completion','config','physical','root','descriptor','count','target-alias','pte-drift','cpu-alias','lost-slots'):
     for n in range(1,5):
      text=run('context-'+mode,n,exe=EXE,disabled=disabled)
      try:self.assertFalse(bootstrap_result(text)['complete'])
      except ValueError:pass
      cases+=1
+  text=run('context-initial-alias',1,exe=EXE)
+  self.assertIn('reserved=0 released=0 initialized=0',text)
+  for mode in ('context-live-read','context-live-drift'):
+   for n in range(1,31):
+    text=run(mode,n,exe=EXE)
+    line=next(row for row in text.splitlines() if row.startswith('intel-bcs-context:'))
+    self.assertIn('reserved=1 released=0 initialized=1',line)
+    self.assertIn('erased=0 fault=1',line)
+    count=n-1 if mode=='context-live-read' else 3*((n+2)//3)
+    self.assertIn(f'pte_reads={count} ',line)
+    self.assertIn('mapped=0 submissions=0 ownership=0',line)
   print('Original context retained-prefix cases',cases,flush=True)
  def test_existing_original_arena_faults_with_initialized_image(self):
   import test_intel_gt_arena as original
@@ -48,7 +61,7 @@ class NativeContext(unittest.TestCase):
   self.assertEqual(trial_parsers('intel-bcs-context-v46')[1](text)['version'],8)
   with self.assertRaises(ValueError):trial_parsers('intel-gt-arena-v45')[1](text)
   line=next(l for l in text.splitlines() if l.startswith('intel-bcs-context:'))
-  for key in ('v','initialized','verified','held','erased','fault','physical','root','descriptor','ring','context','completion','aperture','fence_begin','fence_end','nonce','id','vendor','device','mapped','submissions','ownership'):
+  for key in ('v','initialized','verified','held','erased','fault','physical','root','descriptor','ring','context','completion','aperture','fence_begin','fence_end','nonce','id','vendor','device','mapped','submissions','ownership','reserved','released','pte_reads'):
    value=p['context']['summary'][key];changed=hex(value^1) if key in ('physical','root','descriptor','ring','context','completion','nonce','vendor','device') else str(value^1)
    bad=re.sub(r'\b'+key+r'=[^ ]+',key+'='+changed,line)
    with self.assertRaises(ValueError,msg=key):bootstrap_result(text.replace(line,bad),native=True)

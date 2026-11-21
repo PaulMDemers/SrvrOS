@@ -10,6 +10,8 @@
 static struct intel_command_memory cpu;
 static struct intel_command_mapping mapping,copy;
 static struct scanout_transfer transfer;
+static struct scanout_interval target;
+enum { target_slot = 8704, command_first = target_slot + 1 };
 static struct scanout_transfer_pool transfers;
 static struct scanout_space_pool spaces;
 static struct display_access_token exclusion;
@@ -22,7 +24,8 @@ static struct {
  const char *mode;unsigned at,events,clocks,ownership,reads,attempts,writes,completions,readers,pauses,children,pending,domain,bit;
  uint64_t time,limit;bool active,hit,allocated,retired;
 } m;
-static unsigned index_for(uint32_t offset){assert(offset>=0x811000 && offset<0x811020 && !(offset&7));return (offset-0x811000)/8;}
+static unsigned index_for(uint32_t offset){const uint32_t base=0x800000+8*command_first;
+ assert(offset>=base && offset<base+32 && !(offset&7));return (offset-base)/8;}
 static bool mode(const char *s){return !strcmp(m.mode,s);}
 static bool fault(const char *s,unsigned n){bool hit=mode(s) && n==m.at;if(hit)m.hit=true;return hit;}
 static void hook(void) {
@@ -83,7 +86,7 @@ static bool transferred(void *ctx,const struct scanout_transfer_manifest *p,enum
 }
 static bool ownership(void *ctx,const struct intel_command_mapping *r,enum command_map_phase phase,struct command_map_proof *p){
  assert(ctx==&m && r==&mapping && phase==mapping.phase);hook();++m.ownership;
- *p=(struct command_map_proof){r,&cpu,&transfer,0x1000,1,0x1000000,m.time,8704,4,COMMAND_MAP_REQUIRED};
+ *p=(struct command_map_proof){r,&cpu,&transfer,0x1000,1,0x1000000,m.time,command_first,4,COMMAND_MAP_REQUIRED};
  if(fault("proof-source",m.ownership))p->object=&copy;
  if(fault("proof-cpu",m.ownership))p->cpu=NULL;
  if(fault("proof-transfer",m.ownership))p->transfer=NULL;
@@ -125,7 +128,7 @@ static bool use(void *ctx,struct intel_command_mapping *r){
  assert(!intel_command_memory_consumer_begin(&cpu,&other) && !intel_command_memory_consumer_end(&cpu,&other));
  assert(!intel_command_mapping_run(r,&cpu,&transfer,&token,io(),use,&m));
  copy=*r;assert(!intel_command_mapping_page(&copy,0,&m.time,&m.limit));copy.object=NULL;assert(!intel_command_mapping_run(&copy,&cpu,&transfer,&token,io(),use,&m));
- for(unsigned i=0;i<4;i++){uint64_t ga,pa;assert(intel_command_mapping_page(r,i,&ga,&pa));assert(ga==(8704ull+i)*4096 && pa==0x1000000ull+4096*i);}
+ for(unsigned i=0;i<4;i++){uint64_t ga,pa;assert(intel_command_mapping_page(r,i,&ga,&pa));assert(ga==(uint64_t)(command_first+i)*4096 && pa==0x1000000ull+4096*i);}
  uint64_t ga,pa;assert(!intel_command_mapping_page(r,4,&ga,&pa));assert(!intel_command_mapping_page(r,0,&r->physical,&pa));assert(!intel_command_mapping_page(r,0,&cpu.physical,&pa));assert(!intel_command_mapping_page(r,0,&transfer.original[0],&pa));assert(!intel_command_mapping_page(r,0,&ga,&ga));
  if(mode("parent-close"))assert(!scanout_transfer_close(&transfer,&token));
  return !fault("child-false",m.children);
@@ -151,7 +154,9 @@ static void setup(void){
  if(mode("late"))m.time=lease.prepare+220000;
  const uint64_t origins[]={lease.prepare,lease.gt,lease.hda,lease.outer},caps[]={INTEL_DIAGNOSTIC_PREPARE_US,INTEL_DIAGNOSTIC_GT_TOTAL_US,INTEL_DIAGNOSTIC_HDA_US,INTEL_DIAGNOSTIC_OUTER_US};m.limit=origins[m.domain]+caps[m.domain];
  assert(display_access_acquire(9,&exclusion));
- struct scanout_transfer_manifest manifest={.mmio=0xc0000000,.aperture=0xb0000000,.aperture_bytes=0x10000000,.fence_end=0x2200000,.source_epoch=1,.first=8704,.pages=4,.assurances=HANDOFF_ALL,.original=original};
+ struct scanout_transfer_manifest manifest={.mmio=0xc0000000,.aperture=0xb0000000,.aperture_bytes=0x10000000,.fence_end=0x2200000,.source_epoch=1,.first=command_first,.pages=4,.assurances=HANDOFF_ALL,.original=original};
+ assert(scanout_interval_claim(&target,manifest.mmio,manifest.aperture,manifest.aperture_bytes,manifest.fence_end,
+  (struct scanout_space_range){target_slot,1}));
  assert(scanout_transfer_open(&transfer,&transfers,&spaces,&exclusion,&manifest,(struct scanout_transfer_io){&m,transferred,now},&token));
 }
 static int run_case(int argc,char **argv){
@@ -179,6 +184,8 @@ static int run_case(int argc,char **argv){
  }
  m.active=true;bool ok=intel_command_mapping_run(&mapping,&cpu,&transfer,&token,provider,use,&m);
  bool normal=mode("report") || mode("reenter") || mode("parent-close") || (mode("pending") && m.pending<COMMAND_MAP_POLLS) || mode("clock-limit") || (mode("late") && INTEL_DIAGNOSTIC_PREPARE_US==250000);
+ assert(scanout_interval_held(&target,0xc0000000,0xb0000000,0x10000000,0x2200000,
+  (struct scanout_space_range){target_slot,1}));
  if(normal){
   assert(ok && mapping.complete && !mapping.retained && !mapping.busy && !mapping.registered && mapping.state==COMMAND_MAP_CLOSED);
   assert(mapping.attempts==8 && mapping.writes==8 && m.attempts==8 && m.writes==8 && m.completions==2 && mapping.completions==2 && m.children==1);
@@ -188,7 +195,7 @@ static int run_case(int argc,char **argv){
   assert(intel_command_memory_returned(&cpu) && !display_access_release(&exclusion,true));
   assert(transfer.io.now==now && transfer.io.ctx==&m && transfer.io.revalidate==transferred);
   m.active=false;assert(scanout_transfer_close(&transfer,&token) && display_access_release(&exclusion,true));
-  m.retired=true;assert(intel_command_memory_close(&cpu) && !m.allocated);
+  m.retired=true;assert(intel_command_memory_close(&cpu) && !m.allocated);scanout_interval_release(&target);
  }else{
   assert(!ok && !mapping.complete && mapping.retained && mapping.registered && mapping.state==COMMAND_MAP_FAULT && !mapping.busy);
   assert(m.allocated && !intel_command_memory_close(&cpu) && !display_access_release(&exclusion,true));
