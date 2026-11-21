@@ -213,6 +213,22 @@ The run verifies successful native broadcast reception. Paired AP evidence for
 the earlier intermittent failure remains open. The next paired trial needs a
 capture window that covers the entire cold boot. [Unit record](machines/macbookpro11-2.md#current-handoff)
 
+## November 20 paired router and native success
+
+Release `dc564d9c6a94ce9b` completed two fresh WPA2, DHCP, DNS and HTTP
+lifetimes on Demers5 at fixed channel 161/20 MHz. Both router interfaces
+recorded both complete DHCP exchanges. Each Offer and ACK was broadcast over
+Ethernet and IPv4 and had a valid UDP checksum at the 5 GHz interface. The
+5 GHz capture saw the Offers 382 and 362 µs after the matching Discovers and
+the ACKs 633 and 622 µs after the matching Requests. These are intervals at
+the router's software interface. The independent USB receipts show all four
+broadcast replies accepted after CCMP, and each Discover and Request had a
+uniquely bound MAC ACK report. The review also matched a separate Ubuntu DHCP
+exchange after recovery.
+
+The complete paired capture establishes working broadcast delivery in these
+two lifetimes. The earlier intermittent loss remains unresolved. [Unit record](machines/macbookpro11-2.md#paired-router-and-native-wi-fi-result-november-20)
+
 ## Reference
 
 Linux v7.0's [MT76x02 MAC implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)

@@ -7,16 +7,37 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
-### WPA message 1 duplicate while waiting for message 3
+### Paired router and native Wi-Fi result (November 20)
 
-Audit the first-connection refusal on runtime `783f21fb` against `origin/main`
-`4016abf0`. Scope the change to the native HTTP reconnect owner, the WPA
-response loop, its saved decoder and the native fixtures. Verify whether an
-exact copy of the accepted M1 can be skipped once while the original M3 wait
-continues. Preserve strict validation of M3, the original wait and poll limits,
-and the current transmit and key-install counts. This tests a queued duplicate
-followed by a valid M3 and distinguishes it from a lost M2. The previous
-physical capture records only the M1 key flags.
+Source `07a85b02`, release `dc564d9c6a94ce9b`, session
+`session-000660c06f972725-00`, completed two fresh WPA2 connections on Demers5
+at fixed channel 161/20 MHz. Each completed DHCP and DNS, sent a 4,159-byte HTTP
+request, and read the exact 3,072-byte body to EOF. Both connections retired
+their native endpoints and providers, erased keys, and restored the RF parent.
+The two backend contexts remain retained by design.
+
+The four-hour router capture covered shutdown, power-on and Ubuntu recovery.
+The bridge and 5 GHz interface each recorded both full SrvrOS DHCP exchanges.
+Both Requests reached the router, which sent broadcast ACKs. The USB records
+show authenticated reception of both Offers and both ACKs. The DHCP exchanges
+took 202.073 and 180.745 ms in SrvrOS. A separately matched Ubuntu DHCP exchange
+provides a positive control. [DHCP capture details](../wifi-dhcp-radio5.md#november-20-paired-router-and-native-success)
+
+The source adds one exact-duplicate M1 deferral during the original M3 wait.
+The modeled native path covered the deferral and kept strict M3 validation.
+Both hardware handshakes accepted the first response in their M3 wait, with
+`ignored=0`. Physical reproduction of the duplicate remains open, as does the
+cause of earlier intermittent DHCP loss. This result accepts two bounded
+lifetimes on the tested profile. Persistent connection, desktop controls,
+adapter reattach and 2.4 GHz remain open.
+
+The collector ran once. Independent review verified all seven startup
+checkpoints, clean save/unmount, 501 prior workspace files with the authorized
+marker access-time change, 78 other EFI files, and nine recovery payloads.
+Ubuntu is unarmed. The sealed 1,357-file primary index is
+`27beeff07f6de6ce8890fbb196d7c292ea2118e5211f3cc93da5dc5f69235570`.
+The separate review and router capture index is
+`093d07ae0f2972bd0b08122701b64ca44def064d14444818b7a16ba149b07cd6`.
 
 ### Cold repeat with extended router capture (November 20)
 
