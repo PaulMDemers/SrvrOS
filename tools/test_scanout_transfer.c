@@ -26,6 +26,20 @@ bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t
     return g==&cpu_guard && root==4096 && page==manifest.aperture+8704ull*4096 &&
            strcmp(page_failure,"aperture");
 }
+static const void *borrower;
+bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
+    if (!child || borrower || !vmm_reserved_guard_io_page_held(g,root,page)) return false;
+    borrower=child;
+    return true;
+}
+bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
+    return child && borrower==child && vmm_reserved_guard_io_page_held(g,root,page);
+}
+bool vmm_reserved_guard_unpin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
+    if (!vmm_reserved_guard_io_page_pinned(g,root,page,child)) return false;
+    borrower=NULL;
+    return true;
+}
 static unsigned store_alias_walks;
 static uint64_t cached_translation;
 static struct {
@@ -508,6 +522,7 @@ int main(int argc,char **argv) {
         bool restoring=!strncmp(mode+10,"restore-",8);
         if(restoring)assert(scanout_memory_apply(&a,&at));
         page_failure=mode+10+(restoring?8:0);
+        if (!strcmp(page_failure,"guard-epoch")) ++cpu_guard.epoch;
         uint64_t previous=table[8704];
         assert(restoring ? !scanout_memory_close(&a,&at) : !scanout_memory_apply(&a,&at));
         bool written=!strcmp(page_failure,"invalidate");
@@ -516,6 +531,8 @@ int main(int argc,char **argv) {
         assert(cached_translation==previous);
         assert(a.state==MEM_FAULT && !model.releases && model.writes==(unsigned)restoring+written);
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
+        assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+        if (restoring || written) assert(borrower);
         puts("PASS hardware access refusal retains page");return 0;
     }
     if(before_changed || apply_changed || tail_changed) {
@@ -576,10 +593,13 @@ int main(int argc,char **argv) {
         assert(prepare_memory(&a,&at,0));assert(a.range.first==8704 && a.range.pages==1);
         uint64_t left=table[8703],right=table[8705];
         assert(scanout_memory_apply(&a,&at));assert(table[8704]==(a.physical|1));
+        assert(borrower && !intel_bdw_scanout_retire_test_page(&a,&at));
         assert(cached_translation==table[8704]);
         assert(table[8703]==left && table[8705]==right);
         assert(!scanout_transfer_close(&transfer,&token) && !model.calls[TRANSFER_RETIRE]);
         assert(scanout_memory_close(&a,&at) && model.releases==1 && table[8704]==input[0]);
+        assert(borrower && intel_bdw_scanout_retire_test_page(&a,&at) && !borrower);
+        assert(!intel_bdw_scanout_retire_test_page(&a,&at));
         assert(cached_translation==input[0]);
         assert(table[8703]==left && table[8705]==right);
         assert(model.writes==2 && model.flushes==2);

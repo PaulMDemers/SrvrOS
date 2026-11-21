@@ -92,7 +92,21 @@ bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  return page && reserved_guard_identity(g) && reserved_guard.state==VMM_GUARD_ACTIVE &&
-        reserved_guard.io_page==page && reserved_guard.root==root && read_cr3()==root;
+        reserved_guard.io_page==page && reserved_guard.root==root &&
+        !(reserved_guard_flags()&512) && read_cr3()==root;
+}
+bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
+ if(!child || reserved_guard.io_borrower || !vmm_reserved_guard_io_page_held(g,root,page))return false;
+ reserved_guard.io_borrower=child;
+ return true;
+}
+bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
+ return child && reserved_guard.io_borrower==child && vmm_reserved_guard_io_page_held(g,root,page);
+}
+bool vmm_reserved_guard_unpin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
+ if(!vmm_reserved_guard_io_page_pinned(g,root,page,child))return false;
+ reserved_guard.io_borrower=NULL;
+ return true;
 }
 static bool reserved_guard_validate(struct vmm_reserved_guard *g,bool close,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
@@ -101,7 +115,7 @@ static bool reserved_guard_validate(struct vmm_reserved_guard *g,bool close,
   if(g && reserved_guard.owner==g)reserved_guard.state=VMM_GUARD_FAULT;
   return reserved_guard_fail(d,VMM_ALIAS_GUARD);
  }
- if(reserved_guard.state!=VMM_GUARD_ACTIVE || __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))
+ if(reserved_guard.state!=VMM_GUARD_ACTIVE || (close && reserved_guard.io_borrower) || __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))
   return reserved_guard_fail(d,VMM_ALIAS_BUSY);
  reserved_guard.state=VMM_GUARD_CHECKING;
  if(!reserved_guard_observe(out,d)) {reserved_guard.state=VMM_GUARD_FAULT;return false;}

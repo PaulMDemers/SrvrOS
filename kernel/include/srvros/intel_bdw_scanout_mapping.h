@@ -28,4 +28,8 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *, const struct sca
                                       struct scanout_transfer *, const struct scanout_transfer_token *,
                                       const struct vmm_reserved_guard *, uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
 
+/* Return the CPU aperture pin after scanout_memory_close retired this exact
+ * publication. Until then, including on uncertain writes, parent close fails. */
+bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *,const struct scanout_memory_token *);
+
 #endif

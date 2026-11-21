@@ -150,11 +150,17 @@ class Range(unittest.TestCase):
         self.assertFalse(result["hardware_ownership"])
         [before, after] = result["range"]["vectors"]
         self.assertEqual(before, after)
+        self.assertEqual(result["range"]["slot"], dict(v=1, reserved=1, rechecked=1, returned=1,
+                                                       candidate=8704, pages=1, pte_writes=0))
         lines = raw.splitlines()
+        slot = next(line for line in lines if line.startswith("intel-slot-summary:"))
         vectors = [line for line in lines if line.startswith("intel-range-vector:")]
         summary = next(line for line in lines if line.startswith("intel-range-summary:"))
         changed = base64.b64encode(struct.pack("<129Q", *after[:-1], after[-1] ^ (1 << 44))).decode("ascii")
         faults = (
+            raw.replace(slot, ""), raw.replace(slot,slot+"\n"+slot),
+            raw.replace(slot,slot.replace("returned=1","returned=0")),
+            raw.replace(slot,slot.replace("pte_writes=0","pte_writes=1")),
             raw.replace(vectors[1], vectors[0]),
             raw.replace(vectors[1], ""),
             raw.replace(vectors[1], vectors[1] + "\n" + vectors[1]),

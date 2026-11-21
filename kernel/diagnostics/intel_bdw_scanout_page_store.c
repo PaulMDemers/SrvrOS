@@ -8,6 +8,26 @@
 /* Only the first PTE beyond the captured 34 MiB fence. Its register is the
  * first QWord in the one 4 KiB modification page audited by the cache probe. */
 
+/* CPU0 only. Keep the original publication, guard and register alias together
+ * across both stores and the publisher's final device-reader retirement. */
+static struct page_borrow {
+    const struct scanout_publication *publication;
+    const struct vmm_reserved_guard *guard;
+    uint64_t epoch, guard_epoch, root, aperture, alias;
+} borrow;
+
+bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const struct scanout_memory_token *token)
+{
+    if (!m || !token || m->object != m || token->object != m || token->epoch != m->epoch ||
+        token->owner != m->owner || m->busy || m->state != MEM_RELEASED ||
+        borrow.publication != &m->publication || borrow.epoch != m->publication.epoch ||
+        m->publication.state != PUB_RETIRED || m->publication.busy ||
+        borrow.guard_epoch != borrow.guard->epoch ||
+        !vmm_reserved_guard_unpin_io_page(borrow.guard, borrow.root, borrow.aperture, &borrow)) return false;
+    borrow = (struct page_borrow){0};
+    return true;
+}
+
 static bool store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
                          const struct scanout_transfer *t, uint32_t index)
 {
@@ -83,8 +103,17 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */
     uint64_t offset = (uint64_t)index * 4096;
-    if (t->manifest.aperture > UINT64_MAX - offset ||
-        !vmm_reserved_guard_io_page_held(cpu_guard, root, t->manifest.aperture + offset)) return false;
+    if (t->manifest.aperture > UINT64_MAX - offset || !cpu_guard) return false;
+    uint64_t aperture = t->manifest.aperture + offset;
+    if (restore) {
+        if (borrow.publication != p || borrow.epoch != p->epoch || borrow.guard != cpu_guard ||
+            borrow.guard_epoch != cpu_guard->epoch || borrow.root != root || borrow.alias != alias ||
+            borrow.aperture != aperture || !vmm_reserved_guard_io_page_pinned(cpu_guard, root, aperture, &borrow))
+            return false;
+    } else {
+        if (borrow.publication || !vmm_reserved_guard_pin_io_page(cpu_guard, root, aperture, &borrow)) return false;
+        borrow = (struct page_borrow){p, cpu_guard, p->epoch, cpu_guard->epoch, root, aperture, alias};
+    }
     volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
     if (*reg != (restore ? entry.replacement : original)) return false;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);

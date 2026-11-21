@@ -33,6 +33,8 @@ bool scanout_interval_boot_framebuffer_matches(uint64_t mmio, uint64_t aperture,
                                               uint64_t aperture_bytes, uint64_t fence_end);
 bool scanout_interval_claim(struct scanout_interval *, uint64_t mmio, uint64_t aperture,
                             uint64_t aperture_bytes, uint64_t fence_end, struct scanout_space_range);
+bool scanout_interval_held(const struct scanout_interval *,uint64_t mmio,uint64_t aperture,
+                           uint64_t bytes,uint64_t fence_end,struct scanout_space_range);
 void scanout_interval_release(struct scanout_interval *);
 struct scanout_space_entry {uint64_t serial; uint32_t first, pages, use;};
 struct scanout_space {

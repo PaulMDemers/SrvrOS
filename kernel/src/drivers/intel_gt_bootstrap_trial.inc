@@ -651,7 +651,11 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_ARENA
  if(!command_run() || !command_returned())goto fail;
 #endif
- if(!bootstrap_pci(2) || !bootstrap_command(7) || !bootstrap_pci(3))goto fail;
+ if(!bootstrap_pci(2))goto fail;
+#ifdef SRVROS_INTEL_GT_SLOT
+ if(!gt_slot_return())goto fail;
+#endif
+ if(!bootstrap_command(7) || !bootstrap_pci(3))goto fail;
  gt_bootstrap_native.guard_begin=gt_bootstrap_native.last;
  if(!bootstrap_guard() || !engine_guard(a) || !bootstrap_tick() || gt_bootstrap_native.reset.registered ||
   gt_bootstrap_native.reset.retained || !gt_bootstrap_native.full_after)goto fail;

@@ -15,7 +15,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",),
+        ("live",), versions=(1, 2),
     )
     phase = summary["phase"]
     maps, retired, live = (summary[k] for k in ("maps", "retired", "live"))
@@ -65,4 +65,16 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
         raise ValueError("GGTT range preservation")
     if owner_complete and phase != 2:
         raise ValueError("GGTT range parent returned early")
-    return dict(summary=summary, vectors=[list(vector) for vector in vectors])
+    result = dict(summary=summary, vectors=[list(vector) for vector in vectors])
+    slots = [line for line in text.splitlines() if line.startswith("intel-slot-summary:")]
+    if len(slots) != int(summary["v"] == 2):
+        raise ValueError("GGTT slot receipt coverage")
+    if slots:
+        slot = fields(slots[0], "intel-slot-summary:", "v reserved rechecked returned candidate pages pte_writes".split())
+        if ((slot["candidate"], slot["pages"], slot["pte_writes"]) != (8704, 1, 0)
+                or not 0 <= slot["returned"] <= slot["rechecked"] <= slot["reserved"] <= 1
+                or (phase >= 1 and not slot["reserved"]) or (phase == 2 and not slot["rechecked"])
+                or (owner_complete and not slot["returned"])):
+            raise ValueError("GGTT slot reservation lifetime")
+        result["slot"] = slot
+    return result

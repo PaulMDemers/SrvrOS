@@ -132,6 +132,11 @@ bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *,uint64_t root,
  const struct vmm_alias_ram *,unsigned ram_count,uint64_t io_page,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *,uint64_t root,uint64_t io_page);
+/* CPU0 with interrupts disabled. A child pins this exact root and aperture
+ * page until it returns the borrow. A parent close is retryable while pinned. */
+bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,const void *child);
+bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,const void *child);
+bool vmm_reserved_guard_unpin_io_page(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,const void *child);
 bool vmm_reserved_guard_check(struct vmm_reserved_guard *,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
 bool vmm_reserved_guard_close(struct vmm_reserved_guard *,

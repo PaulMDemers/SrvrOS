@@ -54,6 +54,15 @@ bool scanout_interval_claim(struct scanout_interval *node, uint64_t mmio, uint64
            register_interval(node, mmio, aperture, bytes, fence_end, pages);
 }
 
+bool scanout_interval_held(const struct scanout_interval *node,uint64_t mmio,uint64_t aperture,
+                           uint64_t bytes,uint64_t fence_end,struct scanout_space_range pages) {
+    for (const struct scanout_interval *held = intervals; held; held = held->next)
+        if (held == node)
+            return held->mmio == mmio && held->aperture == aperture && held->aperture_bytes == bytes &&
+                   held->fence_end == fence_end && held->pages.first == pages.first && held->pages.pages == pages.pages;
+    return false;
+}
+
 void scanout_interval_release(struct scanout_interval *node) {
     struct scanout_interval **link = &intervals;
     while (*link && *link != node) link = &(*link)->next;

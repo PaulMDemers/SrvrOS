@@ -413,6 +413,14 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  return true;
 }
 static bool intel_display_test_range_map(uint64_t physical) {
+#ifdef SRVROS_INTEL_GT_SLOT
+ if(gt_range.completed) {
+  assert(gpu_command==3 && gt_slot_live());
+  struct scanout_interval competing={0};
+  assert(!scanout_interval_claim(&competing,result.mmio_base,window_result.aperture_base,
+    window_result.aperture_bytes,window_result.endpoint.fence_end,(struct scanout_space_range){GT_RANGE_CANDIDATE,1}));
+ }
+#endif
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(flush_page(physical)) {
   assert(gt_flush_live() && !range_pa && wake_irq && gpu_command==3);
@@ -598,6 +606,9 @@ int main(int argc,char **argv) {
   assert(bootstrap_memory_returned() && memory_writes==2 && memory_maps==2 && memory_unmaps==2);
 #endif
 #ifdef SRVROS_INTEL_GT_RANGE
+#ifdef SRVROS_INTEL_GT_SLOT
+  assert(gt_slot_reserved && gt_slot_checked && gt_slot_returned && !gt_slot_live());
+#endif
   assert(gt_range.completed==2 && gt_range.maps==4 && gt_range.retired==4 && !gt_range.mapped && !range_pa);
   assert(gt_range.reads==774 && range_reads==774 && range_maps==4 && range_unmaps==4);
   assert(gt_range.begin[0]<gt_range.end[0] && gt_range.end[0]<r->begin &&

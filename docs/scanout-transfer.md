@@ -183,3 +183,14 @@ patterns. The driver chooses the GPU address and manages cache transitions.
 The SrvrOS trial still needs independent evidence for ownership of its own
 candidate interval, invalidation, and exact restoration.
 [Air7,2 result](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
+
+### One-page aperture lifetime on MacBookAir7,2
+
+The Broadwell test writer pins the CPU aperture exclusion immediately before
+its first store. Restoration checks the original guard, root, register alias
+and publication epoch. Release follows successful memory close, which includes
+restored-entry readback, translation completion and reader retirement. A failed
+return leaves the pin held. The GT range trial separately reserves the same
+slot in the kernel interval registry across its bus-master inhibit and GT reset.
+Its version 2 range report carries a slot receipt. Version 1 archives predate
+that reservation. Neither trial supplies firmware or DMA authority for a write.

@@ -110,6 +110,41 @@ static bool gt_range_batch(unsigned phase,uint32_t first,unsigned count) {
  gt_range.mapped=0;++gt_range.retired;
  return bootstrap_guard() && ok;
 }
+#ifdef SRVROS_INTEL_GT_SLOT
+/* The original GT requester owns this software slot reservation across the
+ * bus-master inhibit, reset and post-reset sampling. Keep it on every fault. */
+static struct scanout_interval gt_slot;
+static bool gt_slot_reserved,gt_slot_checked,gt_slot_returned;
+
+static bool gt_slot_live(void) {
+ return scanout_interval_held(&gt_slot,result.mmio_base,window_result.aperture_base,
+   window_result.aperture_bytes,window_result.endpoint.fence_end,(struct scanout_space_range){GT_RANGE_CANDIDATE,1});
+}
+
+static bool gt_slot_boundary(unsigned phase) {
+ uint64_t mmio=result.mmio_base, aperture=window_result.aperture_base;
+ uint64_t bytes=window_result.aperture_bytes, fence=window_result.endpoint.fence_end;
+ struct scanout_space_range page={GT_RANGE_CANDIDATE,1};
+ if(fence!=(uint64_t)page.first*4096 || !gt_range_live(phase) ||
+    !scanout_interval_protect_boot_framebuffer(mmio,aperture,bytes,fence))return false;
+ if(!phase) {
+  if(gt_slot_reserved || !scanout_interval_claim(&gt_slot,mmio,aperture,bytes,fence,page))return false;
+  gt_slot_reserved=true;
+ } else if(!gt_slot_reserved || gt_slot_returned ||
+           gt_range.words[1][GT_RANGE_TAIL]!=gt_range.words[0][GT_RANGE_TAIL])return false;
+ if(!gt_slot_live())return false;
+ if(phase)gt_slot_checked=true;
+ return true;
+}
+
+static bool gt_slot_return(void) {
+ if(!gt_slot_reserved || !gt_slot_checked || gt_slot_returned || !gt_slot_live() || !gt_range_post_memory() ||
+    !bootstrap_guard() || !bootstrap_tick())return false;
+ scanout_interval_release(&gt_slot);
+ gt_slot_returned=true;
+ return true;
+}
+#endif
 static bool gt_range_capture(unsigned phase) {
  if(phase>1 || !gt_range_live(phase) ||
   backing.offset || backing.count!=GT_RANGE_FIRST || !backing.tiled ||
@@ -122,16 +157,28 @@ static bool gt_range_capture(unsigned phase) {
  if(!gt_range_batch(phase,GT_RANGE_FIRST,GT_RANGE_TAIL) ||
   !gt_range_batch(phase,GT_RANGE_CANDIDATE,1) || gt_range.count[phase]!=GT_RANGE_WORDS ||
   gt_bootstrap_native.last<=gt_range.begin[phase])return false;
+#ifdef SRVROS_INTEL_GT_SLOT
+ if(!gt_slot_boundary(phase) || !bootstrap_tick())return false;
+#endif
  gt_range.end[phase]=gt_bootstrap_native.last;
  ++gt_range.completed;
  return true;
 }
 static void gt_range_report(void) {
- console_printf("intel-range-summary: v=1 complete=%u phase=%u maps=%u retired=%u live=%x reads=%u tail=%u candidate=%u begin0=%u end0=%u begin1=%u end1=%u words0=%u words1=%u authority=none\n",
-  (uint64_t)(gt_range.completed==2),(uint64_t)gt_range.completed,(uint64_t)gt_range.maps,(uint64_t)gt_range.retired,gt_range.mapped,
+#ifdef SRVROS_INTEL_GT_SLOT
+ const unsigned version=2;
+#else
+ const unsigned version=1;
+#endif
+ console_printf("intel-range-summary: v=%u complete=%u phase=%u maps=%u retired=%u live=%x reads=%u tail=%u candidate=%u begin0=%u end0=%u begin1=%u end1=%u words0=%u words1=%u authority=none\n",
+  (uint64_t)version,(uint64_t)(gt_range.completed==2),(uint64_t)gt_range.completed,(uint64_t)gt_range.maps,(uint64_t)gt_range.retired,gt_range.mapped,
   (uint64_t)gt_range.reads,(uint64_t)GT_RANGE_TAIL,(uint64_t)GT_RANGE_CANDIDATE,
   gt_range.begin[0],gt_range.end[0],gt_range.begin[1],gt_range.end[1],
   (uint64_t)gt_range.count[0],(uint64_t)gt_range.count[1]);
+#ifdef SRVROS_INTEL_GT_SLOT
+ console_printf("intel-slot-summary: v=1 reserved=%u rechecked=%u returned=%u candidate=%u pages=1 pte_writes=0\n",
+  (uint64_t)gt_slot_reserved,(uint64_t)gt_slot_checked,(uint64_t)gt_slot_returned,(uint64_t)GT_RANGE_CANDIDATE);
+#endif
  static char encoded[(GT_RANGE_WORDS*8+2)/3*4+1];
  for(unsigned sample=0;sample<2;sample++) {
   entry_requester_base64((const uint8_t *)gt_range.words[sample],gt_range.count[sample]*8,encoded);

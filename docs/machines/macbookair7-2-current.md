@@ -19,7 +19,17 @@ handoff. The aperture diagnostic holds the candidate CPU address across two
 advancing primary-A frame counts and checks the inherited surface addresses.
 It saves the aperture address and both frame counts. A live firmware/GT
 range transfer is still required before publishing or restoring a PTE.
-The next hardware target is a single reversible mapping at 1% volume.
+Current implementation work binds the aperture exclusion to the same one-page
+publication through restoration, translation completion and reader retirement.
+This depends on the VMM guard and the Broadwell page-store adapter.
+The next unattended trial runs at 1% volume. The GT requester reserves slot
+8704 before disabling PCI bus mastering, holds it across the GT-only reset,
+and compares its original translation after reset while bus mastering remains
+disabled. The trial returns the reservation before restoring PCI command 7.
+The original 34 MiB display fence stays reserved. The saved slot receipt
+records acquisition, post-reset verification and return. This step qualifies
+exclusion among SrvrOS mapping clients. A hardware memory drain and a
+firmware range handoff are still prerequisites for writing the replacement.
 
 Release `88b98be2420eb2dc` (source `0eaf94b3`, session
 `session-000660c05d0472e9-00`) completed the aperture diagnostic on this Air.

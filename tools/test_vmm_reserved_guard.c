@@ -120,6 +120,17 @@ int main(int argc,char **argv) {
   assert(!vmm_reserved_guard_io_page_held(&other,root,aperture));
   assert(!vmm_reserved_guard_io_page_held(&guard,root+4096,aperture));
   assert(!vmm_reserved_guard_io_page_held(&guard,root,aperture+4096));
+  int writer,other_writer;
+  assert(vmm_reserved_guard_pin_io_page(&guard,root,aperture,&writer));
+  assert(!vmm_reserved_guard_pin_io_page(&guard,root,aperture,&other_writer));
+  assert(!vmm_reserved_guard_close(&guard,&result,&why) && why.walk.reason==VMM_ALIAS_BUSY);
+  assert(vmm_reserved_guard_io_page_pinned(&guard,root,aperture,&writer));
+  assert(!vmm_reserved_guard_unpin_io_page(&guard,root,aperture+4096,&writer));
+  assert(!vmm_reserved_guard_unpin_io_page(&guard,root,aperture,&other_writer));
+  refused_map(0,aperture,3);
+  assert(vmm_reserved_guard_check(&guard,&result,&why));
+  assert(vmm_reserved_guard_unpin_io_page(&guard,root,aperture,&writer));
+  assert(!vmm_reserved_guard_io_page_pinned(&guard,root,aperture,&writer));
   for(unsigned route=0;route<3;route++)refused_map(route,aperture,3);
   assert(vmm_map_page_in_space(root,va,aperture-4096,3));
   assert(vmm_reserved_guard_check(&guard,&result,&why));

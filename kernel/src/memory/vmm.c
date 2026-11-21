@@ -410,6 +410,7 @@ bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t p
 static uint32_t reserved_mutations;
 static struct {
  struct vmm_reserved_guard *owner;
+ const void *io_borrower;
  uint64_t root,epoch,cr4,efer,io_page;
  unsigned state,count,bits,ram_count;
  struct vmm_physical_span spans[VMM_ALIAS_SPANS];
