@@ -89,7 +89,8 @@ class Seconds(unittest.TestCase):
             (directory/'report.json').write_text(json.dumps(report));state=dict(phase='COLLECTED',release=report['release'],session='fixture');manifest=dict(profile='intel-gt-seconds-v42',source='source')
             runner=object.__new__(Runner);runner.load=lambda run:(directory,manifest,state);runner.guard=lambda *a,**k:None
             closed=[];runner.finish=lambda *a,**k:closed.append((a,k))
-            with self.assertRaisesRegex(ValueError,'cannot be accepted'):runner.close('fixture',proof=directory/'nonexistent')
+            with self.assertRaisesRegex(ValueError,'Diagnostic profiles cannot grant native ownership'):runner.close('fixture',proof=directory/'nonexistent')
+            self.assertEqual(closed,[])
             result=runner.diagnose('fixture');self.assertFalse(result['native_acceptance'] or result['original_timing_acceptance']);self.assertFalse(result['within_original']['prepare']);self.assertEqual(closed[0][0][2],'DIAGNOSED')
             (raw/'exit.log').write_text(text+'drift')
             with self.assertRaisesRegex(ValueError,'raw changed'):runner.diagnose('fixture')
