@@ -22,14 +22,17 @@ range transfer is still required before publishing or restoring a PTE.
 Current implementation work binds the aperture exclusion to the same one-page
 publication through restoration, translation completion and reader retirement.
 This depends on the VMM guard and the Broadwell page-store adapter.
-The next unattended trial runs at 1% volume. The GT requester reserves slot
-8704 before disabling PCI bus mastering, holds it across the GT-only reset,
-and compares its original translation after reset while bus mastering remains
-disabled. The trial returns the reservation before restoring PCI command 7.
-The original 34 MiB display fence stays reserved. The saved slot receipt
-records acquisition, post-reset verification and return. This step qualifies
-exclusion among SrvrOS mapping clients. A hardware memory drain and a
-firmware range handoff are still prerequisites for writing the replacement.
+Release `f3961550b358c858` (source `7e3af989`, session
+`session-000660c0d078f7b5-00`) completed the one-page reservation trial.
+The GT requester held slot 8704 across the GT-only reset, rechecked it while
+PCI bus mastering was disabled, and returned it before bus mastering resumed.
+All 129 sampled translations matched, including the slot's original
+`0x8e201001` entry. The programmed display state was preserved, the trial
+issued zero GPU page-table writes, and offline USB integrity passed.
+Preparation took 221.213 ms under the 250 ms diagnostic limit. The original
+preparation, GT and HDA timing limits remain unqualified. The next mapping
+step requires a live handoff from the firmware owner and proof that outstanding
+GPU accesses have drained before replacing and restoring the entry.
 
 Release `88b98be2420eb2dc` (source `0eaf94b3`, session
 `session-000660c05d0472e9-00`) completed the aperture diagnostic on this Air.
