@@ -9,6 +9,12 @@ Dated sections retain the bring-up history.
 
 ### Desktop connection owner and shared USB storage
 
+Follow-up scope at `722bddcc` with `origin/main` at `4016abf0`: use the
+accepted v149 Demers5 early receive, priming, discovery and journal setup
+with the resident desktop owner. PR #19 covers Wi-Fi and USB ownership.
+PR #301 and #379 remain separate. The qualification target is the composed
+native path and an exact journaled image before the next cold boot.
+
 Work starts at `3f77a8dd` with `origin/main` at `4016abf0`. PR #19 owns the
 MT7610 and System Wi-Fi changes. The scope includes shared xHCI completion
 handling, the resident worker and connection requests from System. PR #301
