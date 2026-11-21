@@ -100,6 +100,7 @@ static bool wifi_http_reconnect5_window(void){
   console_printf("wifi-http-reconnect5-prepare: version=2 generation=%u prepared=%u retained=1\n",(uint64_t)g+1,(uint64_t)wifi_http_reconnect5.prepared);
   if(!wifi_http_reconnect5.prepared)return false;
   wifi_stream5.connection_mode=wifi_stream5.stack_mode=true;
+  wifi_stream5.defer_m1_duplicate=true;
   wifi_stack5.selected=true;wifi_stack5.exercise=wifi_http_reconnect5_exercise;wifi_stack5.context=p;
   console_printf("wifi-http-reconnect5-begin: version=1 generation=%u adapter_parent_held=1\n",(uint64_t)g+1);
 #ifdef SRVROS_XHCI_STACK5_TEST

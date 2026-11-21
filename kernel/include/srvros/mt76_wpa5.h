@@ -55,6 +55,9 @@ bool mt76_wpa5_run(struct mt76_wpa5 *,const struct mt76_peer5 *,const uint8_t pm
 struct mt76_wpa5_data {
  void *context;
  enum mt76_join5_send (*run)(void *,struct wpa2_ccmp *,uint64_t,const struct mt76_peer5 *);
+ /* The HTTP reconnect owner may skip one byte-equivalent accepted M1 during
+  * the existing M3 wait. This never emits another M2 or changes key state. */
+ bool defer_m1_duplicate;
 };
 bool mt76_wpa5_run_data(struct mt76_wpa5 *,const struct mt76_peer5 *,const uint8_t pmk[32],const struct mt76_wpa5_io *,const struct mt76_wpa5_data *);
 #endif

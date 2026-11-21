@@ -1,5 +1,6 @@
 #include <srvros/mt76_wpa5.h>
 #include <srvros/mt76_eapol5.h>
+#include <srvros/sha256.h>
 static void scrub(void *p,size_t n){volatile uint8_t *v=p;while(n--)*v++=0;}
 static bool zero(const void *p,size_t n){const uint8_t *v=p;unsigned any=0;while(n--)any|=*v++;return !any;}
 static bool overlap(const void *a,size_t an,const void *b,size_t bn){uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;return x<=y?y-x<an:x-y<bn;}
@@ -32,7 +33,13 @@ static bool transmit(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct
  }
  return result==MT76_JOIN5_SENT && !s->unsafe;
 }
-static bool response(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct mt76_wpa5_io *io,enum mt76_wpa5_rx type,bool auth){
+static bool matches_m1(const uint8_t *reply,size_t n,const uint8_t digest[32]){
+ if(n!=99 && n!=121)return false;
+ uint8_t received[32];sha256_digest(reply,n,received);
+ bool matched=equal(received,digest,sizeof received);
+ scrub(received,sizeof received);return matched;
+}
+static bool response(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct mt76_wpa5_io *io,enum mt76_wpa5_rx type,bool auth,uint8_t *m1_digest){
  uint64_t start=io->now(io->context),previous=start;
  unsigned stage=type==MT76_WPA5_MANAGEMENT?(auth?0:1):(s->m1_matched?3:2);
  struct mt76_wpa5_response *r=&s->responses[stage];r->start=r->last=start;
@@ -51,12 +58,18 @@ static bool response(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct
   if(present){
    r->present++;
    if(type==MT76_WPA5_EAPOL){
-    if(n>=7){unsigned info=(unsigned)s->reply[5]*256+s->reply[6];r->kind=info==0x008a?1:info==0x13ca?2:3;}else r->kind=3;
-    bool ok=wpa2_hs_receive(&s->handshake,s->generation,p->peer.bssid,p->peer.station,s->reply,n);
-    r->reject=(unsigned)s->handshake.last_rx;r->result=ok?MT76_WPA5_RESPONSE_OK:MT76_WPA5_RESPONSE_REJECTED;
-    scrub(s->reply,sizeof s->reply);return ok;
-   }
-   if(n<24 || (s->reply[0]&0xfc)!=(auth?0xb0:0x10) || !equal(s->reply+4,p->peer.station,6) || !equal(s->reply+10,p->peer.bssid,6) || !equal(s->reply+16,p->peer.bssid,6)){s->ignored++;r->ignored++;}
+    unsigned info=n>=7?(unsigned)s->reply[5]*256+s->reply[6]:0;
+    unsigned kind=info==0x008a?1:info==0x13ca?2:3;
+    if(stage==3 && m1_digest && !r->ignored && kind==1 && matches_m1(s->reply,n,m1_digest)){
+     s->ignored++;r->ignored++;
+    }else{
+     bool ok=wpa2_hs_receive(&s->handshake,s->generation,p->peer.bssid,p->peer.station,s->reply,n);
+     if(ok && stage==2 && m1_digest)sha256_digest(s->reply,n,m1_digest);
+     r->kind=kind;r->reject=(unsigned)s->handshake.last_rx;
+     r->result=ok?MT76_WPA5_RESPONSE_OK:MT76_WPA5_RESPONSE_REJECTED;
+     scrub(s->reply,sizeof s->reply);return ok;
+    }
+   }else if(n<24 || (s->reply[0]&0xfc)!=(auth?0xb0:0x10) || !equal(s->reply+4,p->peer.station,6) || !equal(s->reply+10,p->peer.bssid,6) || !equal(s->reply+16,p->peer.bssid,6)){s->ignored++;r->ignored++;}
    else{
     struct mt76_mgmt5_response reply={0};enum mt76_mgmt5_status status=mt76_mgmt5_response(&p->peer,auth?MT76_MGMT5_AUTH:MT76_MGMT5_ASSOC,s->reply,n,&reply);
     s->status=reply.status;if(!auth)s->aid=reply.aid;scrub(s->reply,sizeof s->reply);
@@ -85,13 +98,16 @@ static bool run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk
   ok=wpa2_hs_start(&s->handshake,&hp,pmk,s->snonce,s->generation);scrub(&hp,sizeof hp);
  }
  scrub(s->snonce,sizeof s->snonce);
+ uint8_t m1_digest[32]={0};
+ uint8_t *duplicate_check=data && data->defer_m1_duplicate?m1_digest:NULL;
  if(ok){s->auth_sent=transmit(s,p,io,MT76_WPA5_AUTH);ok=s->auth_sent;}
- if(ok){s->auth_matched=response(s,p,io,MT76_WPA5_MANAGEMENT,true);ok=s->auth_matched;}
+ if(ok){s->auth_matched=response(s,p,io,MT76_WPA5_MANAGEMENT,true,NULL);ok=s->auth_matched;}
  if(ok){s->assoc_sent=transmit(s,p,io,MT76_WPA5_ASSOC);ok=s->assoc_sent;}
- if(ok){s->assoc_matched=response(s,p,io,MT76_WPA5_MANAGEMENT,false);ok=s->assoc_matched;}
- if(ok){s->m1_matched=response(s,p,io,MT76_WPA5_EAPOL,false);ok=s->m1_matched;}
+ if(ok){s->assoc_matched=response(s,p,io,MT76_WPA5_MANAGEMENT,false,NULL);ok=s->assoc_matched;}
+ if(ok){s->m1_matched=response(s,p,io,MT76_WPA5_EAPOL,false,duplicate_check);ok=s->m1_matched;}
  if(ok){s->m2_sent=transmit(s,p,io,MT76_WPA5_M2);ok=s->m2_sent;}
- if(ok){s->m3_mic=response(s,p,io,MT76_WPA5_EAPOL,false);ok=s->m3_mic;}
+ if(ok){s->m3_mic=response(s,p,io,MT76_WPA5_EAPOL,false,duplicate_check);ok=s->m3_mic;}
+ scrub(m1_digest,sizeof m1_digest);
  if(ok){
   struct wpa2_hs_keys export={0};ok=owned(s,io,false) && wpa2_hs_take_keys(&s->handshake,s->generation,&export);
   if(ok){s->keys_installed=wpa2_ccmp_install(&s->keys,&s->handshake,&export);ok=s->keys_installed;}

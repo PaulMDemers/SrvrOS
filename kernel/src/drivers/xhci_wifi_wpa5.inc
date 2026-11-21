@@ -393,7 +393,7 @@ static void wifi_data5_report(void){
 static bool wifi_wpa5_inspection(void *c,uint32_t alc,uint32_t ibi){
  if(c!=&wifi_wpa5 || alc!=wifi_power5.cycle.chosen[0] || ibi!=UINT32_MAX || !wifi_wpa5_owned(c,false))return false;
  const struct mt76_wpa5_io io={c,wifi_wpa5_owned,wifi_wpa5_nonce,wifi_wpa5_send,wifi_wpa5_poll,wifi_wpa5_delay,wifi_wpa5_now};
- const struct mt76_wpa5_data data={c,wifi_data5_window};
+ const struct mt76_wpa5_data data={.context=c,.run=wifi_data5_window};
  uint64_t start=timer_monotonic_us();bool complete=wifi_wpa5.data_mode?mt76_wpa5_run_data(&wifi_wpa5.exchange,&wifi_wpa5.peer,wifi_wpa5.pmk,&io,&data):mt76_wpa5_run(&wifi_wpa5.exchange,&wifi_wpa5.peer,wifi_wpa5.pmk,&io);uint64_t end=timer_monotonic_us();
  zero_bytes(wifi_wpa5.pmk,sizeof wifi_wpa5.pmk);
  wifi_wpa5.forward_completed=wifi_wpa5.rx_copied;

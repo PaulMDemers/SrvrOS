@@ -39,7 +39,7 @@ struct wifi_stream5_state {
  struct xhci_trb stops[2];uint32_t snapshots[10][2][8];
  struct wifi_stream5_record records[WIFI_STREAM5_RX+WIFI_STREAM5_TX];unsigned record_count,rx_record;
  uint64_t posts[2],completions[2];unsigned tx_kind;unsigned slot;unsigned wraps[2],phase,commands,stop_dci,stop_events[2],rx_residue,cached_type,cached_size,data_sends,data_received,data_after_txwrap,data_after_rxwrap,drained;
- bool connection_mode,connection_closed,stack_mode,discover_retry,attempted,active,failed,toggle_synced,pending[2],stop_was_pending[2],ready_rx,cached_present,data_active,closed,restored,retired,events_empty,parent_complete,complete;
+ bool connection_mode,connection_closed,stack_mode,defer_m1_duplicate,discover_retry,attempted,active,failed,toggle_synced,pending[2],stop_was_pending[2],ready_rx,cached_present,data_active,closed,restored,retired,events_empty,parent_complete,complete;
 };
 /* A connection is never reset/reused. The bounded reconnect owner may select
  * one fresh second context after the first connection's exact close proof. */
@@ -396,7 +396,9 @@ static bool wifi_stream5_write(void *c,uint32_t a,uint32_t v,bool cleanup){retur
 static bool wifi_stream5_mac_delay(void *c,unsigned us,bool cleanup){return us<=10000 && (!cleanup || wifi_stream5_drain()) && wifi_stream5_owned(c,cleanup) && wifi_stream5_delay_us(us);}
 static bool wifi_stream5_inspection(void *c,uint32_t alc,uint32_t ibi){
  if(c!=&wifi_stream5 || alc!=wifi_power5.cycle.chosen[0] || ibi!=UINT32_MAX || !wifi_stream5_owned(c,false))return false;
- const struct mt76_wpa5_io io={c,wifi_stream5_owned,wifi_stream5_nonce,wifi_stream5_send,wifi_stream5_poll,wifi_stream5_delay,wifi_stream5_now};const struct mt76_wpa5_data data={c,wifi_stream5_window};
+ const struct mt76_wpa5_io io={c,wifi_stream5_owned,wifi_stream5_nonce,wifi_stream5_send,wifi_stream5_poll,wifi_stream5_delay,wifi_stream5_now};
+ const struct mt76_wpa5_data data={.context=c,.run=wifi_stream5_window,
+  .defer_m1_duplicate=wifi_stream5.defer_m1_duplicate};
  bool good=wifi_stream5_auth_radio(0) && mt76_wpa5_run_data(&wifi_stream5.exchange,&wifi_stream5.peer,wifi_stream5.pmk,&io,&data);
  /* A timed-out AUTH never reaches the ASSOC callback. Observe its unchanged
   * unsuccessful transaction before MAC teardown. */
@@ -592,7 +594,8 @@ static unsigned wifi_stream5_emit(void){
  const struct mt76_wpa5 *s=&wifi_stream5.exchange;console_printf("wifi-stream5-keys: auth=%u assoc=%u m1=%u m2=%u m3=%u m4=%u activated=%u erased=%u leave=%u unsafe=%u installs=%u pn=%u\n",(uint64_t)s->auth_matched,(uint64_t)s->assoc_matched,(uint64_t)s->m1_matched,(uint64_t)s->m2_sent,(uint64_t)s->m3_mic,(uint64_t)s->m4_sent,(uint64_t)s->keys_activated,(uint64_t)s->keys_erased,(uint64_t)s->leave_sent,(uint64_t)s->unsafe,s->handshake.install_handoffs,wifi_stream5.data_pn);
  if(s->attempted){
   unsigned count=0;for(unsigned i=0;i<4;i++)if(s->responses[i].result)count++;
-  console_printf("wifi-handshake5: version=1 epoch=%u responses=%u observation_only=1\n",wifi_stream5.epoch,(uint64_t)count);
+  console_printf("wifi-handshake5: version=%u epoch=%u responses=%u observation_only=1\n",
+   (uint64_t)(wifi_stream5.defer_m1_duplicate?2:1),wifi_stream5.epoch,(uint64_t)count);
   for(unsigned i=0;i<4;i++){const struct mt76_wpa5_response *r=&s->responses[i];if(r->result)
    console_printf("wifi-handshake5-response: stage=%u result=%u polls=%u present=%u ignored=%u kind=%u reject=%u start_us=%u last_us=%u\n",(uint64_t)i,(uint64_t)r->result,(uint64_t)r->polls,(uint64_t)r->present,(uint64_t)r->ignored,(uint64_t)r->kind,(uint64_t)r->reject,r->start,r->last);
   }

@@ -54,7 +54,7 @@ static struct {
  uint64_t tx_pn,rx_pn,ack_release;unsigned ack_noise;unsigned arp,tcp,udp,icmp,dhcp,dns,case_id;
  uint32_t server_seq,client_ack,dhcp_xid;unsigned response_offset;
  bool quiet,bad_mic,wrong_event,drop_tx,closed;
- bool frozen,provider_loss,wrong_payload;unsigned arp_replies,arp_noise_left,background_left;uint64_t held_ticket;
+ bool frozen,provider_loss,wrong_payload;unsigned arp_replies,arp_noise_left,background_left,m1_repeats;uint64_t held_ticket;
  uint8_t deferred_dns[1514];size_t deferred_dns_size;
 } ap;
 static bool http_reconnect_peer,http_reconnect_peer_no_fin;
@@ -294,12 +294,17 @@ static void stack_test_progress(void){
   unsigned page=wifi_stream5.lease[1].index;
   bool m3=sim.response==4 && !wifi_stream5.pending[0] && wifi_stream5.pending[1];
   bool m3_noise=m3 && ap.case_id==69 && reconnect_m3_noise;
+  bool first_repeat=ap.case_id>=72 && ap.case_id<=75 && reconnect_hook_count==1;
+  bool repeat_m1=m3 && (ap.case_id==67 || first_repeat) && ap.m1_repeats<(ap.case_id==75?2u:1u);
   if(m3 && ap.case_id==66)sim.response=0; /* no M3 reaches native RX */
-  if(m3 && ap.case_id==67)sim.response=3; /* duplicate valid M1, not M3 */
+  if(repeat_m1){sim.response=3;ap.m1_repeats++;}
   if(m3_noise){sim.response=6;reconnect_m3_noise--;}
-  if(ap.case_id==66 && wifi_stream5.exchange.m2_sent)test_time+=1000;
+  if((ap.case_id==66 || ap.case_id==67) && wifi_stream5.exchange.m2_sent)test_time+=1000;
   stream_test_progress();
   if(m3 && ap.case_id==68)wifi_stream5.buffer[1][page][36+32+81]^=1;
+  if(repeat_m1 && ap.case_id==73)wifi_stream5.buffer[1][page][36+32+16]^=1; /* replay counter */
+  if(repeat_m1 && ap.case_id==74)wifi_stream5.buffer[1][page][36+32+17]^=1; /* ANonce */
+  if(repeat_m1 && first_repeat)sim.response=4;
   if(m3_noise)sim.response=4;
 
   if(negative)stream_le16(wifi_stream5.buffer[1][page]+36+(ap.case_id==22?28:24),ap.case_id==22?13:1);

@@ -17,7 +17,8 @@ def observe(text):
     at=0;epochs=[]
     while at<len(owned):
         s=canonical_decimal(owned[at],PREFIX,SUMMARY);at+=1;j=len(epochs)
-        need(j<2 and s['version']==1 and s['epoch']==j+1 and 0<=s['responses']<=4 and s['observation_only']==1,'handshake summary bounds')
+        need(j<2 and s['version'] in (1,2) and (not epochs or s['version']==epochs[0]['summary']['version']) and
+             s['epoch']==j+1 and 0<=s['responses']<=4 and s['observation_only']==1,'handshake summary bounds')
         need(j<len(keys),'missing handshake key companion');k=keys[j];rows=[]
         for stage in range(s['responses']):
             need(at<len(owned),'truncated handshake observation')
@@ -35,10 +36,11 @@ def observe(text):
                 need(r['kind']==r['reject']==0,'management claims EAPOL category')
                 if r['result'] in (1,9):need(r['present']==r['ignored']+1,'management response count')
             else:
-                need(r['ignored']==0 and r['present']<=1,'one-shot EAPOL response count')
-                if r['result']==1:need(r['present']==1 and r['kind']==(1 if stage==2 else 2) and r['reject']==1,'accepted EAPOL category differs')
-                elif r['result']==9:need(r['present']==1 and r['kind']>0 and 2<=r['reject']<=13,'missing EAPOL rejection category')
-                else:need(r['present']==r['kind']==r['reject']==0,'non-protocol refusal claims EAPOL result')
+                need(r['ignored']<=int(stage==3 and s['version']==2),'duplicate M1 allowance exceeded')
+                terminal=r['present']-r['ignored']
+                if r['result']==1:need(terminal==1 and r['kind']==(1 if stage==2 else 2) and r['reject']==1,'accepted EAPOL category differs')
+                elif r['result']==9:need(terminal==1 and r['kind']>0 and 2<=r['reject']<=13,'missing EAPOL rejection category')
+                else:need(terminal==r['kind']==r['reject']==0,'non-protocol refusal claims EAPOL result')
             rows.append(r)
         accepted=lambda i:len(rows)>i and rows[i]['result']==1
         need(all(k[name]==int(accepted(i)) for i,name in enumerate(('auth','assoc','m1','m3'))),'handshake/key result differs')
@@ -47,4 +49,7 @@ def observe(text):
         need(not k['activated'] or (k['m4'] and k['m2']),'activated without four-way completion')
         epochs.append(dict(summary=s,responses=rows,key_observation=k))
     need(len(epochs)==len(keys),'missing handshake epoch')
-    return dict(present=True,epochs=epochs,native_accepted=False,radio_or_AP_delivery_proved=False,scope='Existing one-shot response clocks and categorical refusal only; no packet/nonce/replay/key bytes, retries, acceptance or retirement authority')
+    return dict(present=True,epochs=epochs,native_accepted=False,radio_or_AP_delivery_proved=False,scope=(
+        'Existing response clocks, categorical refusal and one exact M1 duplicate count; no extra transmission, acceptance or retirement authority'
+        if epochs[0]['summary']['version']==2 else
+        'Existing one-shot response clocks and categorical refusal only; no packet/nonce/replay/key bytes, retries, acceptance or retirement authority'))

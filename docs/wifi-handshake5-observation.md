@@ -48,6 +48,23 @@ Missing or malformed companions refuse; absence is not success. A future
 source-frozen hardware collector must save this observation before full-protocol
 success checks. Its `native_accepted` field is always false.
 
+## Exact M1 duplicate during HTTP reconnect
+
+The HTTP reconnect profile can skip one exact copy of the M1 accepted for the
+current association while waiting for M3. It fingerprints the normalized
+EAPOL bytes with SHA-256 after M1 validation. The fingerprint stays local to
+the handshake wait and is cleared on all exits. The duplicate consumes the
+existing poll budget and the original 1.5-second deadline remains in force.
+The replay counter, nonce, EAPOL version and any key data must all match for
+the duplicate to qualify. SrvrOS still sends one M2 and requires a valid M3
+before key installation. A second duplicate or changed M1 goes through the
+original rejection path. The other WPA profiles retain the original policy.
+
+The profile emits `wifi-handshake5` version 2. During stage 3, `ignored=1`
+records that the exact duplicate was skipped. `kind` and `reject` describe
+only the terminal response, and remain zero if the wait times out after the
+duplicate. The historical version 1 parser rules remain available.
+
 ## November 20 first-connection refusal
 
 Release `d34e89fd74d5318a` repeated the preceding successful runtime with a
@@ -65,11 +82,14 @@ bad-MIC M3. [Unit record](machines/macbookpro11-2.md#current-handoff)
 
 The actual native xHCI/HTTP fixtures model only the AP, HCD, scheduler and child
 process. Cases56–58 complete the first production encrypted HTTP lifetime, then
-exercise second-connection M3 silence, a duplicate valid M1 or a bad-MIC M3.
+exercise second-connection M3 silence, one exact M1 followed by silence, or a
+bad-MIC M3.
 They must not activate keys, start second DHCP, alter the closed first context,
 claim full provider/RF retirement or reuse an uncertain native owner. Original
 endpoint Stop/restoration and unused child/worker cleanup still apply. Case59
 supplies eight unrelated frames before valid M3 and requires both original
-HTTP lifetimes and full named cleanup to pass. Host/sanitizer tests and saved
-observer results do not accept native hardware or identify the physical M3
-failure; an exactly qualified source/image/capture is required next.
+HTTP lifetimes and full named cleanup to pass. Cases62–65 exercise a first
+connection with one exact duplicate followed by valid M3, a changed replay
+counter, a changed ANonce, and two exact duplicates. They check that the
+original M2 transmit count, key-install boundary, and native cleanup still
+hold. Hardware validation is still pending.

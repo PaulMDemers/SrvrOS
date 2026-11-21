@@ -67,7 +67,7 @@ static enum mt76_join5_send data_window(void *c,struct wpa2_ccmp *k,uint64_t g,c
  if(data_bad_phase==4)s.keys.phase=WPA2_CCMP_EMPTY;
  return data_result;
 }
-static const struct mt76_wpa5_data extension={&fake,data_window};
+static const struct mt76_wpa5_data extension={.context=&fake,.run=data_window};
 static void setup(void){
  memset(&s,0,sizeof s);memset(&fake,0,sizeof fake);fake.time=1000;
  use_data=data_lost=false;data_bad_phase=0;data_calls=0;data_result=MT76_JOIN5_SENT;
