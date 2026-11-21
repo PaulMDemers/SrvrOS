@@ -299,6 +299,10 @@ int main(int argc,char **argv) {
  for(unsigned mode=49;mode<=53;mode++) {
   reset();model.mode=mode;bool matched=mode==49;
   assert(intel_stolen_probe_report(range_command)==matched);
+  assert(stolen.range.protected_pages==8704);
+  struct scanout_interval conflict;
+  assert(!scanout_interval_claim(&conflict,0xc0000000,0xb0000000,0x10000000,0x21ff000,
+                                 (struct scanout_space_range){8703,1}));
   assert(stolen.range.verified==matched && stolen.range.pages==1484 && stolen.range.first==8704);
   assert(stolen.range.checked==(mode==51?1483u:1484u));
   assert(stolen.range.fences==(mode==50?63u:mode==51?32u:64u));

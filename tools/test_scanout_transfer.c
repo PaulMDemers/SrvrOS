@@ -168,6 +168,41 @@ static void reservation_cases(const char *mode)
     assert(scanout_transfer_reserve(&contender,&contender_pool,&exclusion,&manifest,&adjacent));
     assert(scanout_transfer_close(&contender,&adjacent) && display_access_release(&exclusion,true));
 }
+static void boot_framebuffer_case(void)
+{
+    uint64_t mmio=manifest.mmio, base=manifest.aperture, bytes=manifest.aperture_bytes;
+    uint64_t fence=manifest.fence_end;
+    struct scanout_transfer_manifest short_fence=manifest;
+    short_fence.fence_end-=4096;
+    short_fence.first--;
+    short_fence.pages=1;
+    /* Pre-existing inconsistent owners prevent registration, without eviction. */
+    struct scanout_transfer_token old;
+    assert(scanout_transfer_reserve(&contender,&contender_pool,&exclusion,&short_fence,&old));
+    assert(!scanout_interval_protect_boot_framebuffer(mmio,base,bytes,fence));
+    assert(scanout_transfer_close(&contender,&old));
+    assert(scanout_interval_protect_boot_framebuffer(mmio,base,bytes,fence));
+    assert(!scanout_interval_protect_boot_framebuffer(mmio,base,bytes,fence-4096));
+    assert(!scanout_interval_protect_boot_framebuffer(mmio,base+4096,bytes,fence));
+
+    for(unsigned cycle=0;cycle<2;cycle++) {
+        assert(scanout_interval_protect_boot_framebuffer(mmio,base,bytes,fence));
+        expect_conflict(short_fence);
+        manifest.fence_end=short_fence.fence_end;
+        unsigned before=small_checks;
+        assert(open_small(short_fence.first)==HANDOFF_SPACE && before==small_checks);
+        manifest.fence_end=fence;
+        assert(scanout_transfer_reserve(&transfer,&pool,&exclusion,&manifest,&token));
+        assert(scanout_transfer_close(&transfer,&token));
+        assert(!open_small(manifest.first));
+        assert(scanout_handoff_close(&small,(struct scanout_handoff_io){&small,check_small}));
+    }
+    struct scanout_interval independent;
+    assert(scanout_interval_claim(&independent,0xd0000000,0x80000000,bytes,4096,
+                                  (struct scanout_space_range){1,1}));
+    scanout_interval_release(&independent);
+    assert(display_access_release(&exclusion,true));
+}
 static uint64_t allocate(void *ctx,uint32_t pages) {
     assert(ctx==&model && pages==model.memory_pages);model.allocations++;
     uint64_t p=model.physical;model.physical+=(uint64_t)pages*4096;return p;
@@ -342,6 +377,9 @@ static void close_clean(void) {
 }
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];setup();
+    if(!strcmp(mode,"boot-framebuffer")) {
+        boot_framebuffer_case();puts("PASS inherited frame survives child return");return 0;
+    }
     if(!strncmp(mode,"reservation-",12)) {
         reservation_cases(mode);puts("PASS competing reservations, promotion and original-owner return");return 0;
     }
@@ -367,8 +405,12 @@ int main(int argc,char **argv) {
     }
     if(!strcmp(mode,"other-pin")){assert(display_access_pin(&exclusion));model.other_pin=true;}
     bool store_failure=!strncmp(mode,"pte-store-",10);
-    if(store_failure || single_page || before_changed || apply_changed || restore_changed || late_restore_changed)
+    bool missing_fence=!strcmp(mode,"one-page-no-boot-fence");
+    if(store_failure || single_page || missing_fence || before_changed || apply_changed || restore_changed || late_restore_changed) {
         model.memory_pages=model.pages=manifest.pages=1;
+        if(!missing_fence)assert(scanout_interval_protect_boot_framebuffer(manifest.mmio,manifest.aperture,
+                                                                          manifest.aperture_bytes,manifest.fence_end));
+    }
     if(!strcmp(mode,"capacity") || !strcmp(mode,"last-aperture-page")) {
         model.pages=manifest.pages=SCANOUT_TRANSFER_PAGES;
         if(!strcmp(mode,"last-aperture-page"))model.first=manifest.first=SCANOUT_SPACE_PAGES-SCANOUT_TRANSFER_PAGES;
@@ -432,6 +474,17 @@ int main(int argc,char **argv) {
         assert(display_access_release(&exclusion,true));puts("PASS read-only admission unwind");return 0;
     }
     assert(ok && transfer.state==TRANSFER_ACTIVE && transfer.pinned && model.calls[TRANSFER_ADMIT]==1);
+    if(missing_fence) {
+        assert(!prepare_memory(&a,&at,0) && a.state==MEM_RAM && !a.range.object && !model.reads);
+        /* Even if the generic publisher dispatches the native callback, that
+         * callback needs the independent registration before it touches a PTE. */
+        struct scanout_memory_binding generic=binding();
+        generic.publication.write=write_test_page;
+        assert(scanout_memory_prepare(&a,&at,&transfer.space,&publications,1,generic));
+        assert(!scanout_memory_apply(&a,&at) && !store_alias_walks && !model.writes && !model.releases);
+        assert(table[8704]==input[0] && a.state==MEM_FAULT);
+        puts("PASS missing boot fence prevents native access");return 0;
+    }
     uint64_t value=0;assert(scanout_transfer_original(&transfer,&token,model.first+model.pages-1,&value) && value==table[model.first+model.pages-1]);
     assert(!scanout_transfer_original(&transfer,&token,model.first+model.pages,&value));
     assert(!scanout_transfer_original(&transfer,&token,model.first-1,&value));

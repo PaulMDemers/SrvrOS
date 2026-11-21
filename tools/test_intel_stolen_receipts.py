@@ -72,29 +72,36 @@ class Receipts(unittest.TestCase):
     def test_guarded_scanout_range_and_last_tail_entry(self):
         def report(option):
             return subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),option],text=True)
-        config=boot.limine_config('0123456789abcdef','ram-usb-v11-intel-stolen-laptop-probe-37d8c5d0-auto-return')
+        config=boot.limine_config('0123456789abcdef','ram-usb-v12-intel-stolen-laptop-probe-37d8c5d0-auto-return')
         cmd=next(line.split('cmdline:',1)[1].strip() for line in config.splitlines() if 'cmdline:' in line)
         self.assertIn('srvros.intel-scanout=range-observation',cmd.split())
         self.assertEqual(stolen_recipe(cmd),stolen_recipe(self.command))
         raw=report('--range-report')
-        result=stolen_result(raw,required_version=10)
+        result=stolen_result(raw,required_version=11)
         self.assertTrue(result['complete'])
         self.assertFalse(result['managed_range'] or result['hardware_ownership'] or result['physical_tearfree'])
         receipt=result['scanout_range']
+        self.assertEqual(receipt['protected_pages'],8704)
+        historical=raw.replace('summary: v=11 ', 'summary: v=10 ').replace(
+            'range: v=3 protected_pages=8704 ', 'range: v=2 ')
+        self.assertNotIn('protected_pages',stolen_result(historical,required_version=10)['scanout_range'])
+        with self.assertRaises(ValueError):
+            stolen_result(historical,required_version=11)
         self.assertGreater(receipt['reservation'],0)
         self.assertEqual(receipt['returned'],1)
         self.assertEqual([receipt[k] for k in ('slot','pages','checked','fences','verified','missing')],[8704,1484,1484,64,1,31])
-        refusal=stolen_result(report('--range-tail-refusal'),required_version=10)
+        refusal=stolen_result(report('--range-tail-refusal'),required_version=11)
         self.assertFalse(refusal['complete'])
         self.assertEqual((refusal['failure_stage'],refusal['scanout_range']['checked']),('scanout-range',1483))
         line=next(line for line in raw.splitlines() if line.startswith('intel-stolen-range:'))
-        for bad in ('',line+'\n'+line,line.replace('fences=64','fences=63'),
+        for bad in ('',line.replace('protected_pages=8704','protected_pages=0'),
+                    line.replace('protected_pages=8704','protected_pages=8703'),line+'\n'+line,line.replace('fences=64','fences=63'),
                     line.replace('returned=1','returned=0'),line.replace('reservation=1','reservation=0'),
                     line.replace('missing=31','missing=0'),line.replace('closing_readers=42','closing_readers=41'),
                     line.replace('obligations=255','obligations=0'),
                     line.replace('checked=1484','checked=1483'),re.sub(r'hash=\S+','hash=0',line)):
             with self.subTest(bad=bad),self.assertRaises(ValueError):
-                stolen_result(raw.replace(line,bad),required_version=10)
+                stolen_result(raw.replace(line,bad),required_version=11)
         with self.assertRaises(ValueError):
             stolen_result(raw,required_version=8)
 

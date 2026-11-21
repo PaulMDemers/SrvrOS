@@ -10,9 +10,12 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current PR301 work covers registration of the inherited primary framebuffer
-in the shared GGTT interval registry. It depends on the Air's verified fence
-and endpoint and should protect them even between second-buffer reservations.
+The range diagnostic now registers the entire inherited 34 MiB fence for the
+rest of the boot. Both kernel handoff APIs reject a conflicting framebuffer
+description even after the candidate lease closes. The one-page publisher
+checks this independent registration before preparing or writing the mapping.
+The version 11 receipt records the number of protected pages. GPU ownership
+of the second range and a physical page flip remain pending.
 
 PR301 on main baseline `4016abf0` now exercises a synchronous flip to a second
 surface and restores the original using the same display owner. The local

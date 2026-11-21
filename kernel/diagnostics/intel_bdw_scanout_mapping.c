@@ -49,8 +49,11 @@ static bool prepare(struct scanout_memory *m, const struct scanout_memory_token 
         return false;
 
     if (single_page) {
+        const struct scanout_transfer_manifest *s = &transfer->manifest;
         if (m->layout.pages != 1 || m->layout.tiled || m->backing_pages != 1 ||
-            transfer->manifest.first != INTEL_WINDOW_FIRST) return false;
+            s->first != INTEL_WINDOW_FIRST ||
+            !scanout_interval_boot_framebuffer_matches(s->mmio,s->aperture,s->aperture_bytes,s->fence_end))
+            return false;
     } else if (m->backing_pages < 128 || m->layout.pages != m->backing_pages - 128) {
         return false;
     }

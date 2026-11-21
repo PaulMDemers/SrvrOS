@@ -274,12 +274,13 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,11) else ''
-        if kind=='summary' and version in range(3,11):extra+=' preflight'
-        if kind=='summary' and version in range(4,11):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in range(5,11):extra+=' reader_reads'
-        if kind=='range' and version==2:extra+=' reservation returned'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,11) if kind=='summary' else (1,2) if kind=='range' else (1,)):raise ValueError('stolen schema')
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,12) else ''
+        if kind=='summary' and version in range(3,12):extra+=' preflight'
+        if kind=='summary' and version in range(4,12):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in range(5,12):extra+=' reader_reads'
+        if kind=='range' and version in (2,3):extra+=' reservation returned'
+        if kind=='range' and version==3:extra+=' protected_pages'
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,12) if kind=='summary' else (1,2,3) if kind=='range' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
@@ -355,9 +356,13 @@ def stolen_result(text,*,native=False,required_version=None):
     range_reads=0
     if wire>=9:
         r=rows['range'][0]
-        if r['v']!=(2 if wire==10 else 1):
+        if r['v']!=wire-8:
             raise ValueError('scanout reservation wire mismatch')
-        if wire==10:
+        if wire==11:
+            protected=r['protected_pages']
+            if protected not in (0,8704) or (r['epoch'] and not protected) or (protected and not rows['guard'][0]['checked']):
+                raise ValueError('inherited framebuffer protection')
+        if wire>=10:
             if r['returned']>1 or (r['reservation'] and not r['epoch']) or (r['returned'] and not r['reservation']):
                 raise ValueError('scanout reservation lifetime')
             if (r['fences'] or r['verified']) and not r['reservation']:

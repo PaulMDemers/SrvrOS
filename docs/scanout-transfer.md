@@ -153,6 +153,16 @@ before replacement and reads it back. The generic publisher then requires a
 separate translation flush. On restoration it also requires retirement of the
 readers before returning the private page.
 
+The range diagnostic registers the verified boot framebuffer's entire fence
+before reserving a candidate. This registration lasts for the boot. Both
+handoff APIs may reserve adjacent pages with matching aperture and fence
+geometry. An earlier conflicting lease prevents registration, and a later
+caller cannot shorten the fence after the last candidate lease returns.
+The Broadwell page writer checks the registered geometry independently of
+the candidate's transfer manifest. The version 11 diagnostic records 8,704
+protected pages on successful registration. Older receipts cover only the
+checks implemented in their release.
+
 `make test-scanout-transfer` runs this store against an aligned register
 image. It checks both neighboring entries, independent cached translation
 state, changes to the PTE during admission, alias and cache failures, and a

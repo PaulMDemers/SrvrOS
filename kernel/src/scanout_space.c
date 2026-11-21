@@ -4,25 +4,54 @@ static bool range_valid(struct scanout_space_range r, uint32_t pages) {
     return r.pages && r.first < pages && r.pages <= pages - r.first;
 }
 static struct scanout_interval *intervals;
+static struct scanout_interval boot_framebuffer;
+
+static bool compatible(const struct scanout_interval *a, const struct scanout_interval *b) {
+    bool separate = a->aperture + a->aperture_bytes <= b->aperture ||
+                    b->aperture + b->aperture_bytes <= a->aperture;
+    if (a->mmio != b->mmio) return separate;
+    return a->aperture == b->aperture && a->aperture_bytes == b->aperture_bytes &&
+           a->fence_end == b->fence_end && (a->pages.first + a->pages.pages <= b->pages.first ||
+                                             b->pages.first + b->pages.pages <= a->pages.first);
+}
+
+static bool register_interval(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
+                              uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
+    if (!node || !mmio || !aperture || !bytes || bytes > SCANOUT_SPACE_PAGES * 4096ull ||
+        ((mmio | aperture | bytes | fence_end) & 4095) || aperture > UINT64_MAX - bytes ||
+        !fence_end || fence_end > bytes ||
+        !range_valid(pages, (uint32_t)(bytes / 4096))) return false;
+    struct scanout_interval candidate = {mmio, aperture, bytes, fence_end, pages, 0};
+    if (boot_framebuffer.mmio && !compatible(&candidate, &boot_framebuffer)) return false;
+    for (struct scanout_interval *held = intervals; held; held = held->next)
+        if (held == node || !compatible(&candidate, held)) return false;
+    *node = candidate;
+    /* Only child leases participate in the releasable list. */
+    if (node != &boot_framebuffer) {
+        node->next = intervals;
+        intervals = node;
+    }
+    return true;
+}
+
+bool scanout_interval_boot_framebuffer_matches(uint64_t mmio, uint64_t aperture,
+                                              uint64_t bytes, uint64_t fence_end) {
+    return mmio && mmio == boot_framebuffer.mmio && aperture == boot_framebuffer.aperture &&
+           bytes == boot_framebuffer.aperture_bytes && fence_end == boot_framebuffer.fence_end;
+}
+
+bool scanout_interval_protect_boot_framebuffer(uint64_t mmio, uint64_t aperture,
+                                              uint64_t bytes, uint64_t fence_end) {
+    if (boot_framebuffer.mmio)
+        return scanout_interval_boot_framebuffer_matches(mmio, aperture, bytes, fence_end);
+    return register_interval(&boot_framebuffer, mmio, aperture, bytes, fence_end,
+                             (struct scanout_space_range){0, (uint32_t)(fence_end / 4096)});
+}
 
 bool scanout_interval_claim(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
                             uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
-    if (!node || !mmio || !aperture || !bytes || bytes > SCANOUT_SPACE_PAGES * 4096ull ||
-        ((mmio | aperture | bytes | fence_end) & 4095) || aperture > UINT64_MAX - bytes ||
-        !fence_end || fence_end > bytes || pages.first < fence_end / 4096 ||
-        !range_valid(pages, (uint32_t)(bytes / 4096))) return false;
-    for (struct scanout_interval *held = intervals; held; held = held->next) {
-        if (held == node) return false;
-        bool distinct_apertures = aperture + bytes <= held->aperture ||
-                                  held->aperture + held->aperture_bytes <= aperture;
-        if (held->mmio != mmio && distinct_apertures) continue;
-        if (held->mmio != mmio || held->aperture != aperture || held->aperture_bytes != bytes ||
-            held->fence_end != fence_end || (pages.first < held->pages.first + held->pages.pages &&
-            held->pages.first < pages.first + pages.pages)) return false;
-    }
-    *node = (struct scanout_interval){mmio, aperture, bytes, fence_end, pages, intervals};
-    intervals = node;
-    return true;
+    return pages.first >= fence_end / 4096 &&
+           register_interval(node, mmio, aperture, bytes, fence_end, pages);
 }
 
 void scanout_interval_release(struct scanout_interval *node) {

@@ -19,6 +19,10 @@ static bool store_active(const struct scanout_memory *m, const struct scanout_me
         t->manifest.first != index || t->manifest.fence_end != (uint64_t)index * 4096 ||
         t->manifest.assurances != HANDOFF_ALL || t->manifest.obligations) return false;
 
+    const struct scanout_transfer_manifest *s = &t->manifest;
+    if (!scanout_interval_boot_framebuffer_matches(s->mmio,s->aperture,s->aperture_bytes,s->fence_end))
+        return false;
+
     const struct scanout_publication *p = &m->publication;
     bool restore = p->state == PUB_RESTORING;
     if (!p->busy || !p->exposed || p->object != p || p->pages != 1 || p->space != m->space ||

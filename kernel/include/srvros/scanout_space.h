@@ -24,6 +24,13 @@ struct scanout_interval {
     struct scanout_space_range pages;
     struct scanout_interval *next;
 };
+/* Register the verified inherited display fence [0, fence_end) for the boot.
+ * Matching registration is idempotent. No candidate lease or write authority
+ * follows. Closing a child never releases or resizes the original fence. */
+bool scanout_interval_protect_boot_framebuffer(uint64_t mmio, uint64_t aperture,
+                                              uint64_t aperture_bytes, uint64_t fence_end);
+bool scanout_interval_boot_framebuffer_matches(uint64_t mmio, uint64_t aperture,
+                                              uint64_t aperture_bytes, uint64_t fence_end);
 bool scanout_interval_claim(struct scanout_interval *, uint64_t mmio, uint64_t aperture,
                             uint64_t aperture_bytes, uint64_t fence_end, struct scanout_space_range);
 void scanout_interval_release(struct scanout_interval *);
