@@ -99,17 +99,28 @@ static bool read_traffic(void *ctx,uint32_t offset,uint32_t *word)
 {
     struct traffic_check *check=ctx;
     return traffic_live(check) && borrow.traffic.read(borrow.transfer,offset,word) &&
-           *word!=UINT32_MAX && traffic_live(check);
+           *word!=UINT32_MAX &&
+           /* Every reported reset reason is foreign to a reset-free store. */
+           (offset != 0x40d0 || !(*word & 0xff00u)) && traffic_live(check);
 }
 
 static bool l3_flush_covers_all_lines(struct traffic_check *check)
 {
-    uint32_t fuse, policy[2] = {UINT32_MAX, UINT32_MAX};
-    /* FUSE2[27:25] identifies the native instances. SCRATCH1[4] restricts
-     * a PM flush to coherent lines; a receipt must cover both types. */
-    return read_traffic(check, 0x9120, &fuse) && ((fuse >> 25) & 7u) == 3u &&
-           borrow.traffic.read_l3_flush_policy(borrow.transfer, policy) &&
-           !((policy[0] | policy[1]) & (1u << 4)) && traffic_live(check);
+    uint32_t fuse;
+    if (!read_traffic(check, 0x9120, &fuse) || ((fuse >> 25) & 7u) != 3u)
+        return false;
+    /* Broadwell GT3 has four L3 banks per slice. Each bank has its own
+     * SCRATCH1[4], which can narrow a PM flush to coherent lines. */
+    for (unsigned slice = 0; slice < 2; ++slice) {
+        for (unsigned bank = 0; bank < 4; ++bank) {
+            uint32_t policy = UINT32_MAX;
+            if (!traffic_live(check) ||
+                !borrow.traffic.read_l3_flush_policy(borrow.transfer, slice, bank, &policy) ||
+                (policy & (1u << 4)) || !traffic_live(check))
+                return false;
+        }
+    }
+    return true;
 }
 
 /* Keep both the queued scanout and the actual scanout on the inherited

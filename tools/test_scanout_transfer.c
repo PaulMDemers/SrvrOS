@@ -324,6 +324,14 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     ++traffic_reads;
     if (block_releases && !strcmp(page_failure,"read-failed")) return false;
     switch(offset) {
+    case 0x8014:
+        *word = block_active ? 0 : 0x10;
+        if (block_active && !strcmp(page_failure,"widi-open")) *word = 0x10;
+        if (block_active && (!strcmp(page_failure,"widi-idle") ||
+            (!strcmp(page_failure,"widi-early-ack") && l3_reads==1))) *word = 1;
+        if (block_active && !strcmp(page_failure,"widi-reopened") && l3_reads==2) *word = 0x10;
+        if (block_releases && !strcmp(page_failure,"widi-stuck")) *word = 0;
+        break;
     case 0x9120: *word=(!strcmp(page_failure,"slice-mask")?1u:3u)<<25; break;
     case 0x70180:
         *word=!strcmp(page_failure,"plane-off")?0:1u<<31; break;
@@ -348,16 +356,24 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         *word=!strcmp(page_failure,"l3-unblock")?2:(l3_reads==1 && strcmp(page_failure,"missing-l3"));
         break;
     case 0x40d0: *word=(!block_active && !strcmp(page_failure,"air-post-reset")) ? 0x7fff :
-        ((!block_active || !strcmp(page_failure,"gam-request")) ? 0x5f : 0); break;
+        ((!block_active || !strcmp(page_failure,"gam-request")) ? 0x5f : 0);
+        if (block_active && !strcmp(page_failure,"engine-reset-reason")) *word |= 1u << 11;
+        break;
     case 0x8028: *word=(!block_active || !strcmp(page_failure,"gam-response")) ? 0x5f : 0; break;
     default: assert(0); return false;
     }
     return true;
 }
-static bool l3_policy(const struct scanout_transfer *t,uint32_t words[2]) {
-    assert(t==&transfer && borrower);
-    words[0]=!strcmp(page_failure,"l3-slice0")?16:0;
-    words[1]=!strcmp(page_failure,"l3-slice1")?16:0;
+static bool l3_policy(const struct scanout_transfer *t, unsigned slice, unsigned bank, uint32_t *word) {
+    assert(t==&transfer && borrower && slice<2 && bank<4);
+    char narrow[32], missing[32];
+    snprintf(narrow,sizeof(narrow),"l3-narrow-%u-%u",slice,bank);
+    snprintf(missing,sizeof(missing),"l3-missing-%u-%u",slice,bank);
+    /* A failed reader may report success without supplying its word. */
+    if (!strcmp(page_failure,missing)) return true;
+    *word = !strcmp(page_failure,narrow) ? 16u : 0u;
+    if (block_active && bank==3 && slice==1 && !strcmp(page_failure,"changed-policy"))
+        *word = 16u;
     return strcmp(page_failure,"l3-steering")!=0;
 }
 static const struct intel_bdw_scanout_traffic traffic_io={
@@ -649,7 +665,8 @@ int main(int argc,char **argv) {
         if (restoring || written) assert(borrower);
         if (!strcmp(page_failure,"air-post-reset") || !strcmp(page_failure,"stale-l3"))
             assert(!block_requests);
-        if (!strcmp(page_failure,"missing-l3") || !strcmp(page_failure,"uncertain-request"))
+        if (!strcmp(page_failure,"missing-l3") || !strcmp(page_failure,"uncertain-request") ||
+            !strcmp(page_failure,"changed-policy") || !strcmp(page_failure,"widi-reopened"))
             assert(block_requests==1 && !block_releases && borrower);
         puts("PASS hardware access refusal retains page");return 0;
     }
@@ -722,7 +739,7 @@ int main(int argc,char **argv) {
         if (unblock) {
             assert(!intel_bdw_scanout_retire_test_page(&a,&at));
             assert(!intel_bdw_scanout_retire_test_page(&a,&at));
-            assert(block_releases==(unsigned)(strcmp(page_failure,"l3-steering")!=0));
+            assert(block_releases==(unsigned)(strncmp(page_failure,"l3-",3)!=0 && strcmp(page_failure,"engine-reset-reason")!=0));
             assert(borrower && transfer.device_publication==&a.publication && transfer.pinned);
             assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
             assert(cached_translation==input[0] && table[8704]==input[0]);

@@ -10,7 +10,11 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current bootstrap task on PR301 is to keep the private blitter ring,
+The current PR301 scope covers per-bank L3 policy in the slot writer and
+per-engine completion packets shared with the Ubuntu hardware reference.
+It depends on exclusive native admission for any GGTT publication.
+
+The bootstrap task on PR301 is to keep the private blitter ring,
 context and completion address independent of slot 8704. It touches the
 isolated context-image driver, the shared GPU interval registry as a caller,
 and the corresponding collector. The original panel remains on its inherited
@@ -35,7 +39,7 @@ block through replacement and rollback of slot 8704.
 The one-page writer on PR301 now samples an open arbiter before asking
 for a block, then witnesses the five engine flush acknowledgements and a
 fresh L3 flush acknowledgement under that request. It checks the cache
-flush policy on both enabled slices, keeps the same block through both
+flush policy on all four banks in each of the two enabled slices, keeps the same block through both
 stores and translation retirement, and verifies that requests reopen
 before returning the register and display exclusion. Host tests cover a
 delayed fifth engine, a lost block during rollback, a pending plane flip
@@ -57,6 +61,24 @@ connector was enabled before and after. This provides a hardware reference
 for explicit per-engine barriers once SrvrOS owns submission. It covers
 the private queues only. Device-wide admission and L3 coverage under
 the same owner remain open.
+
+Three subsequent Ubuntu trials executed the SrvrOS private-address barrier
+encoder on all five engines. The CPU observed an earlier GPU write on a
+separate cache line when each fresh post-sync marker arrived. The five
+successors still had zero payloads, zero markers and pending fences as the
+internal panel advanced a frame on CRTC 52. Releasing the gate let each
+successor write and signal. The result covers 30 private submissions.
+Two on-device negative controls also failed as expected. Omitting the
+successor dependency exposed early execution, and changing the payload
+exposed an incorrect earlier write despite a valid post-sync marker.
+
+Separately, with i915 holding forcewake, the Air read `GO_GAM_REQ=0xff`,
+`MSG_GO_GAM=0x7f`, `MSG_IDLE_WIN=0x1f`, L3 message `0`, and
+`FUSE2=0x46000280`. WiDi was idle with GO acknowledged open, and both
+slices were enabled. The reset-free writer now requires WiDi to
+acknowledge closure and rejects a new reset reason before either PTE
+store. The physical SrvrOS slot trial is pending a native request owner
+and verified per-bank policy access. [Engine trial](../intel-bdw-bcs-flush.md#five-engine-private-queue-test)
 
 Current Air7,2 work on PR301 covers exclusive access to the first candidate
 GGTT slot during publication and rollback, with the inherited panel scanning

@@ -9,6 +9,36 @@ bool intel_bdw_bcs_flush_packet(uint64_t address,uint64_t nonce,uint32_t out[BCS
  out[3]=(uint32_t)nonce;out[4]=(uint32_t)(nonce>>32);out[5]=0;
  return true;
 }
+/* Gen8 explicit command barriers for a private 32-bit per-process GPU
+ * address. Do not use these packets with the GGTT-only bootstrap context. */
+bool intel_bdw_ppgtt_barrier(enum bdw_barrier_engine engine, uint64_t address, uint64_t marker,
+                             uint32_t packet[BCS_FLUSH_DWORDS])
+{
+    if (!packet || (unsigned)engine >= BDW_BARRIER_ENGINES || !marker || marker == UINT64_MAX ||
+        !address || address >= (1ull << 32) || (address & 63u))
+        return false;
+
+    if (engine == BDW_BARRIER_RCS) {
+        /* PIPE_CONTROL: CS stall, QWord post-sync, render target, depth and
+         * DC cache flush, plus generic flush enable. No global-address bit. */
+        packet[0] = 0x7a000004u;
+        packet[1] = (1u<<20) | (1u<<14) | (1u<<12) | (1u<<7) | (1u<<5) | 1u;
+        packet[2] = (uint32_t)address;
+        packet[3] = 0;
+        packet[4] = (uint32_t)marker;
+        packet[5] = (uint32_t)(marker >> 32);
+    } else {
+        /* MI_FLUSH_DW, post-sync immediate QWord, direct PPGTT address,
+         * followed by MI_NOOP. This barrier does not invalidate translations. */
+        packet[0] = 0x13004003u;
+        packet[1] = (uint32_t)address;
+        packet[2] = 0;
+        packet[3] = (uint32_t)marker;
+        packet[4] = (uint32_t)(marker >> 32);
+        packet[5] = 0;
+    }
+    return true;
+}
 static bool binding_same(const struct bcs_flush_binding *a,const struct bcs_flush_binding *b) {
  return a->owner==b->owner && a->provider==b->provider && a->lifetime==b->lifetime && a->context==b->context &&
  a->epoch==b->epoch && a->sequence==b->sequence && a->root==b->root && a->nonce==b->nonce &&

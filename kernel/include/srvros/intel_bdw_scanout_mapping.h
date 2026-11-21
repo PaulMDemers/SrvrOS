@@ -32,8 +32,11 @@ struct vmm_reserved_guard;
 struct intel_bdw_scanout_traffic {
     uint64_t (*held_epoch)(const struct scanout_transfer *,const struct scanout_publication *);
     bool (*read)(const struct scanout_transfer *,uint32_t offset,uint32_t *);
-    /* Read low SCRATCH1 (0xb11c) for slices 0 and 1 in that order. If steering is used, own it and restore it. */
-    bool (*read_l3_flush_policy)(const struct scanout_transfer *, uint32_t words[2]);
+    /* Read low SCRATCH1 for this physical bank in this enabled slice.
+     * Own and verify its steering through the read, then restore it.
+     * A powered-off or unaddressable instance cannot supply a sample. */
+    bool (*read_l3_flush_policy)(const struct scanout_transfer *, unsigned slice,
+                                 unsigned bank, uint32_t *word);
     enum intel_gt_write (*request)(const struct scanout_transfer *,const struct scanout_publication *,uint64_t *epoch);
     enum intel_gt_write (*release)(const struct scanout_transfer *,const struct scanout_publication *,uint64_t epoch);
 };

@@ -86,6 +86,15 @@ struct intel_bdw_bcs_flush {
  * destination bit5 workaround. No MMIO, native grant or ring publication. */
 bool intel_bdw_bcs_flush_packet(uint64_t completion_gpu,uint64_t nonce,
                               uint32_t out[BCS_FLUSH_DWORDS]);
+enum bdw_barrier_engine {
+    BDW_BARRIER_RCS, BDW_BARRIER_BCS, BDW_BARRIER_VCS0, BDW_BARRIER_VCS1,
+    BDW_BARRIER_VECS, BDW_BARRIER_ENGINES
+};
+/* Completion of preceding work on this engine under an owned private PPGTT.
+ * Requires separately owned mappings and scheduling. Never a device-wide hold. */
+bool intel_bdw_ppgtt_barrier(enum bdw_barrier_engine, uint64_t address, uint64_t marker,
+                             uint32_t packet[BCS_FLUSH_DWORDS]);
+
 /* Pure command/completion protocol. Original clocks never restart, including
  * the 10ms submit-through-completion interval. Unknown state is terminal and
  * retains ALL original backing; no rollback, unmap, retry or free callback.

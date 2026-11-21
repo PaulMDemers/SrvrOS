@@ -875,6 +875,7 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
         }
     }
     switch (offset) {
+    case 0x8014: *word = ready ? 0 : 0x10; break;
     case 0x40d0: case 0x8028:
         *word = block ? 0x20 : 0x7f;
         if (!block && offset == 0x40d0 && s->flr_fault == GT_FOREIGN_RESET) *word |= 0x8000;

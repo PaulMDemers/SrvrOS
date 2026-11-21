@@ -18,14 +18,20 @@ pte-store-foreign pte-store-restore-cache pte-store-restore-alias pte-store-rest
 pte-store-invalidate pte-store-restore-invalidate
 reservation-clean reservation-removed reservation-promote-clock reservation-promote-provider reservation-fault reservation-stale-original boot-framebuffer one-page-no-boot-fence pte-store-aperture pte-store-restore-aperture pte-store-restore-guard-epoch""".split()
 
-for failure in ("slice-mask","plane-off","plane-moved","queued-flip","l3-slice0","l3-slice1","l3-steering","register-alias", "no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
+for failure in ("widi-open", "widi-idle", "slice-mask","plane-off","plane-moved","queued-flip","engine-reset-reason","l3-steering","register-alias", "no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
                 "gam-request", "gam-response"):
     MODES.extend((f"pte-store-{failure}", f"pte-store-restore-{failure}"))
-MODES.extend(("pte-store-air-post-reset","pte-store-stale-l3","pte-store-missing-l3",
+MODES.extend(("pte-store-widi-early-ack", "pte-store-changed-policy", "pte-store-widi-reopened","pte-store-air-post-reset","pte-store-stale-l3","pte-store-missing-l3",
               "pte-store-frozen-request","pte-store-uncertain-request","pte-store-restore-new-block", "pte-store-restore-retirement-block"))
 
 MODES.extend(f"unblock-{failure}" for failure in
-             ("uncertain-release", "still-held", "read-failed", "frozen-release", "engine-stuck", "l3-steering", "display-changed"))
+             ("uncertain-release", "widi-stuck", "still-held", "read-failed", "frozen-release", "engine-stuck", "l3-steering", "display-changed"))
+
+for phase in ("pte-store-", "pte-store-restore-", "unblock-"):
+    for slice_id in range(2):
+        for bank in range(4):
+            MODES.extend((f"{phase}l3-narrow-{slice_id}-{bank}", f"{phase}l3-missing-{slice_id}-{bank}"))
+MODES.append("unblock-engine-reset-reason")
 
 class TransferTests(unittest.TestCase):
     def test_actual_core(self):

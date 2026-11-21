@@ -243,8 +243,29 @@ static void boundaries(unsigned clocks) {
   else {passed();assert(result.end==end);}
  }
 }
+static void private_barrier_cases(void)
+{
+    const uint32_t addr=0xfffff040, lo=0x89abcdef, hi=0x12345678;
+    const uint64_t marker=(uint64_t)hi<<32 | lo;
+    const uint32_t render[]={0x7a000004,0x1050a1,addr,0,lo,hi};
+    const uint32_t other[]={0x13004003,addr,0,lo,hi,0};
+    uint32_t out[6];
+    for (unsigned engine=0; engine<BDW_BARRIER_ENGINES; ++engine) {
+        assert(intel_bdw_ppgtt_barrier(engine,addr,marker,out));
+        assert(!memcmp(out,engine==BDW_BARRIER_RCS?render:other,sizeof(out)));
+    }
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_ENGINES,addr,marker,out));
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,addr,0,out));
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,addr,UINT64_MAX,out));
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,0,marker,out));
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,addr+8,marker,out));
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,1ull<<32,marker,out));
+    assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,addr,marker,NULL));
+    assert(!memcmp(out,other,sizeof(out)));
+}
+
 int main(void) {
- codec();input_cases();setup(NORMAL,0,0);passed();
+ private_barrier_cases();codec();input_cases();setup(NORMAL,0,0);passed();
  unsigned events=model.events,clocks=model.clocks,proofs=model.proofs,reads=model.reads;
  for(unsigned f=0;f<21;f++)for(unsigned at=1;at<=events;at++){
   setup(SOURCE_DRIFT,at,f);failed();assert(model.hit && model.events==at);

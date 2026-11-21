@@ -39,24 +39,29 @@ static inline bool bdw_traffic_gam(struct bdw_traffic_sample *a, uint32_t allowe
 
 static inline bool bdw_traffic_engines(struct bdw_traffic_sample *a, bool blocked, bool *matches)
 {
-    static const uint32_t offsets[] = {0x8000, 0x8004, 0x8008, 0x800c, 0x8010};
+    static const uint32_t offsets[] = {0x8000, 0x8004, 0x8008, 0x800c, 0x8010, 0x8014};
     /* With Go=0, the engine stays busy (bit 0 clear). Before the request
      * its pipeline may be either idle or busy. */
-    uint32_t mask = blocked ? 0x31u : 0x30u;
-    uint32_t expected = blocked ? 0x20u : 0x10u;
+    /* WiDi has its own GO acknowledgement and busy indication. Bit 5
+     * is reserved there; only the five command streamers acknowledge flush. */
     *matches = true;
     for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
         uint32_t word;
         if (!a->read(a->ctx, offsets[i], &word))
             return false;
-        bool ready = (word & mask) == expected;
+        uint32_t flush = offsets[i] == 0x8014 ? 0u : 0x20u;
+        /* WiDi must become busy before acknowledging GO=0, and can only
+         * report idle again after GO=1. Later polls cannot repair a violation. */
+        if (offsets[i] == 0x8014 && (word & 0x11u) == 1u) return false;
+        uint32_t mask = 0x10u | flush | (blocked ? 1u : 0u);
+        bool ready = (word & mask) == (blocked ? flush : 0x10u);
         if (blocked) {
             uint32_t engine = 1u << i;
             if (((a->engine_ack & engine) && !(word & 0x20u)) ||
                 ((a->engine_go_closed & engine) && (word & 0x10u)) ||
                 ((a->engine_blocked & engine) && !ready))
                 return false;
-            if (word & 0x20u) a->engine_ack |= engine;
+            if (word & flush) a->engine_ack |= engine;
             if (!(word & 0x10u)) a->engine_go_closed |= engine;
             if (ready) a->engine_blocked |= engine;
         }
@@ -99,6 +104,7 @@ static inline bool intel_bdw_traffic_still_blocked(void *ctx, bool (*read)(void 
         /* Flush acknowledged and GO clear on all five engines. */
         {0x8000, 0x31, 0x20}, {0x8004, 0x31, 0x20}, {0x8008, 0x31, 0x20},
         {0x800c, 0x31, 0x20}, {0x8010, 0x31, 0x20},
+        {0x8014, 0x11, 0}, /* WiDi GO acknowledged closed, pipe reports busy. */
         /* GAM idle, no L3 unblock, no new requests or grants. */
         {0x8040, 1, 1}, {0x8038, 2, 0}, {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0}
     };

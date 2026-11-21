@@ -159,3 +159,34 @@ The wait and other scheduling work in i915 can affect these times. The
 probe exercises private PPGTT addressing without requesting TLB invalidation.
 Native GGTT addressing, ring and status memory admission, firmware exclusion,
 and completion across other engines and display readers remain separate.
+
+## Five-engine private queue test
+
+The Linux comparator uses the SrvrOS Gen8 packet encoder with private
+32-bit GPU addresses. i915 pins the result and batch pages at the specified
+addresses. The command stream needs no relocation. RCS uses `PIPE_CONTROL`
+with CS stall, render target, depth and DC flush plus a post-sync QWord.
+BCS, VCS0, VCS1 and VECS use `MI_FLUSH_DW` with a post-sync QWord.
+The native GGTT blitter trial uses a separate packet with TLB invalidation.
+[Linux Gen8 command emission](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/gen8_engine_cs.c)
+
+Build on the Air's Ubuntu installation. The privileged shell opens a fresh
+software timeline. The render user runs the probe and opens the DRM devices.
+
+```sh
+mkdir -p build/tests
+cc -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include \
+  tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_bcs_flush.c \
+  -o build/tests/intel-bdw-engine-drain-host
+sudo sh -c 'exec 3<>/sys/kernel/debug/sync/sw_sync; exec setpriv --reuid="$SUDO_UID" --regid="$SUDO_GID" --init-groups timeout 20 "$1" 3' sh "$PWD/build/tests/intel-bdw-engine-drain-host"
+```
+
+Each engine writes data and then its marker on a second cache line. The
+CPU checks those private mappings before waiting on the completion fence
+and verifies the results with an independent GEM read. Each successor
+waits on the same software fence. The internal panel must advance on
+its original CRTC while all five successors remain pending with both
+locations untouched. After release the CPU verifies all successor data
+and markers. This exercises private work scheduled by i915. Native
+global admission, a power-manager L3 flush and slot ownership still
+require independent evidence.

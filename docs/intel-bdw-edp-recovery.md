@@ -668,10 +668,19 @@ The slot 8704 writer witnesses an initially open arbiter, issues one
 request for the original publication, and polls the engine, GAM and L3
 messages under that request. A one-shot L3 acknowledgement can arrive
 while the final engine is still draining. The writer also checks the
-power-manager flush policy for both enabled slices. Bit 4 of `SCRATCH1`
-at `0xb11c` limits a PM flush to coherent lines when set. The test
-requires a flush covering coherent and noncoherent lines.
-[Intel Broadwell register reference, pp. 589–592 and 1390](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+power-manager flush policy for every bank in both enabled slices. Volume
+13 identifies the register range as replicated per bank and slice, and the
+Broadwell GT3 has eight L3 banks. Each addressed read must succeed under
+the same owner and restore any borrowed steering. [Intel Broadwell MMIO,
+p. 3](https://cdrdv2-public.intel.com/690867/intel-gfx-prm-osrc-bdw-vol-13-mmio.pdf#page=7)
+· [Mesa Broadwell GT3 configuration](https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa/+/b1c3e36fe322a7330d60d4f70c37b64aff33d723/src/intel/dev/intel_device_info.c)
+
+Bit 4 of `SCRATCH1` at `0xb11c` limits a power-manager flush to coherent
+lines when set. The slot writer requires coverage of coherent and
+noncoherent lines. WiDi has its own GO acknowledgement in `MSG_IDLE_WIN`
+and must report busy throughout the block. The five command engines
+additionally acknowledge flush. [Intel Broadwell register reference,
+pp. 815–816 and 1390](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
 The writer samples the enabled primary plane and its programmed and
 live addresses before requesting the block. It checks them against that
