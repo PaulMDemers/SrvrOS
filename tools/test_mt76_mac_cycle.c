@@ -56,6 +56,34 @@ static uint64_t now(void *p){return ((struct fixture *)p)->now;}
 static struct fixture fresh(void){return (struct fixture){.filter=0x17f97,.txop=0x10583f};}
 static bool run(struct fixture *f){const struct mt76_mac_cycle_io io={f,owned,read_word,write_word,delay,now,NULL};return mt76_mac_cycle_run(&f->state,&io);}
 static void no_replay(struct fixture *f){unsigned n=f->calls;struct mt76_mac_cycle s=f->state;assert(!run(f) && f->calls==n && !memcmp(&s,&f->state,sizeof(s)));}
+static void test_split_lifetime(void){
+    struct fixture f=fresh();
+    struct mt76_mac_cycle_io io={&f,owned,read_word,write_word,delay,now,NULL};
+    assert(mt76_mac_cycle_open(&f.state,&io));
+    assert(f.mac==12 && f.state.session_active && f.state.snapshot_complete && !f.cleanup_calls);
+    struct mt76_mac_cycle moved=f.state;
+    assert(!mt76_mac_cycle_close(&moved,true) && !f.cleanup_calls);
+    unsigned opened_calls=f.calls;
+    f.now+=30000000;
+    no_replay(&f);
+    assert(f.calls==opened_calls && f.mac==12);
+    assert(mt76_mac_cycle_close(&f.state,true));
+    assert(f.mac==0 && f.state.mac_disabled && f.state.tx_drained && f.state.rx_drained);
+    assert(f.filter==0x17f97 && f.txop==0x10583f && !f.state.session_io.context);
+    assert(!mt76_mac_cycle_close(&f.state,true));
+
+    f=fresh();
+    assert(mt76_mac_cycle_open(&f.state,&io));
+    assert(!mt76_mac_cycle_close(&f.state,false));
+    assert(f.mac==0 && f.state.filter_restored && f.state.txop_restored);
+    assert(!f.state.session_active && !f.state.session_identity);
+
+    f=fresh();
+    f.fail=6;
+    assert(!mt76_mac_cycle_open(&f.state,&io));
+    assert(f.state.attempted && !f.state.session_active && f.cleanup_calls && f.mac==0);
+    assert(!mt76_mac_cycle_close(&f.state,true));
+}
 int main(void){
     struct fixture base=fresh();assert(run(&base));
     assert(base.state.started && base.state.snapshot_complete && base.state.ibi9==UINT32_MAX);
@@ -96,5 +124,6 @@ int main(void){
     assert(!f.state.filter_restored && !f.state.txop_restored);no_replay(&f);
     struct mt76_mac_cycle_io io={&f,owned,read_word,write_word,delay,now,NULL};
     assert(!mt76_mac_cycle_run(NULL,&io) && !mt76_mac_cycle_run(&f.state,NULL));
+    test_split_lifetime();
     printf("mt76 MAC cycle: PASS %u operations,%u reads,%u writes; every callback failure/cancellation,busy queues,clock/wait failure,all-ones,no replay; synthetic only\n",base.state.operations,base.state.reads,base.state.writes);
 }

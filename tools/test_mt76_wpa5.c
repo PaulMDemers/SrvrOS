@@ -58,6 +58,7 @@ static enum mt76_join5_send data_window(void *c,struct wpa2_ccmp *k,uint64_t g,c
  assert(s.m4_sent && s.keys_activated && !s.keys_erased && !s.leave_sent && fake.sends==4 && k->phase==WPA2_CCMP_ACTIVE && s.handshake.phase==WPA2_HS_COMPLETE);
  data_calls++;assert(data_calls==1);
  assert(!mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,(void *)&s));
+ assert(!mt76_wpa5_disconnect(&s,g,MT76_JOIN5_SENT));
  uint8_t h[24]={8,1},plain[8]={0xaa,0xaa,3,0,0,0,8,0},out[64];memcpy(h+4,hs_aa,6);memcpy(h+10,hs_spa,6);memcpy(h+16,hs_aa,6);
  assert(wpa2_ccmp_seal(k,g,h,plain,sizeof plain,out,sizeof out)==48 && k->tx_pn==1);
  if(data_lost)fake.lost=true;
@@ -65,6 +66,7 @@ static enum mt76_join5_send data_window(void *c,struct wpa2_ccmp *k,uint64_t g,c
  if(data_bad_phase==2)s.handshake.phase=WPA2_HS_EMPTY;
  if(data_bad_phase==3)s.keys.phase=WPA2_CCMP_CLOSED;
  if(data_bad_phase==4)s.keys.phase=WPA2_CCMP_EMPTY;
+ if(data_bad_phase==5)s.generation++;
  return data_result;
 }
 static const struct mt76_wpa5_data extension={.context=&fake,.run=data_window};
@@ -82,6 +84,45 @@ static bool run(void){
  zero(s.keys.tk,16);zero(s.keys.gtk,16);zero(s.keys.scratch,sizeof s.keys.scratch);
  assert(!s.handshake.keys_may_live && s.keys_erased && s.sends==fake.sends);
  return ok;
+}
+static void test_split_lifetime(void){
+ setup();
+ struct mt76_wpa5_io connection_io=io;
+ assert(mt76_wpa5_connect(&s,&peer,hs_pmk,&connection_io,false));
+ assert(s.session_active && s.keys.phase==WPA2_CCMP_ACTIVE && !s.keys_erased);
+ assert(fake.sends==4 && !s.leave_sent);
+ zero(s.handshake.pmk,sizeof s.handshake.pmk);
+ zero(s.handshake.ptk,sizeof s.handshake.ptk);
+ zero(s.handshake.gtk,sizeof s.handshake.gtk);
+ zero(s.reply,sizeof s.reply);
+
+ struct mt76_wpa5 moved=s;
+ assert(!mt76_wpa5_disconnect(&moved,9,MT76_JOIN5_SENT));
+ memset(&moved,0,sizeof moved);
+ assert(!mt76_wpa5_disconnect(&s,8,MT76_JOIN5_SENT));
+ assert(!mt76_wpa5_connect(&s,&peer,hs_pmk,&io,false));
+ assert(s.session_active && !s.leave_sent && fake.sends==4);
+ memset(&connection_io,0,sizeof connection_io);
+
+ uint8_t header[24]={8,1},plain[8]={0xaa,0xaa,3,0,0,0,8,0},out[64];
+ memcpy(header+4,hs_aa,6);memcpy(header+10,hs_spa,6);memcpy(header+16,hs_aa,6);
+ assert(wpa2_ccmp_seal(&s.keys,9,header,plain,sizeof plain,out,sizeof out)==48);
+ fake.time+=30000000;
+ assert(wpa2_ccmp_seal(&s.keys,9,header,plain,sizeof plain,out,sizeof out)==48 && s.keys.tx_pn==2);
+ assert(mt76_wpa5_disconnect(&s,9,MT76_JOIN5_SENT));
+ assert(!s.session_active && s.keys_erased && s.leave_sent && fake.sends==5);
+ assert(!mt76_wpa5_disconnect(&s,9,MT76_JOIN5_SENT) && fake.sends==5);
+ zero(&s.session_peer,sizeof s.session_peer);
+ zero(&s.session_io,sizeof s.session_io);
+
+ setup();fake.mutate=1;
+ assert(!mt76_wpa5_connect(&s,&peer,hs_pmk,&io,false));
+ assert(!s.session_active && !s.session_identity && s.keys_erased && s.leave_sent);
+ setup();
+ assert(mt76_wpa5_connect(&s,&peer,hs_pmk,&io,false));
+ fake.lost=true;
+ assert(!mt76_wpa5_disconnect(&s,9,MT76_JOIN5_UNCERTAIN));
+ assert(!s.session_active && s.keys_erased && !s.leave_sent && fake.sends==4);
 }
 int main(void){
  setup();assert(run() && s.m1_matched && s.m2_sent && s.m3_mic && s.keys_installed && s.m4_sent && s.keys_activated && s.leave_sent && s.aid==34 && fake.sends==5 && fake.nonce_calls==1 && fake.polls==4);
@@ -123,9 +164,10 @@ int main(void){
  setup();use_data=true;data_result=MT76_JOIN5_UNCERTAIN;assert(!run() && data_calls==1 && s.unsafe && !s.leave_sent && s.keys_erased);
  setup();use_data=true;data_lost=true;assert(!run() && data_calls==1 && s.unsafe && !s.leave_sent && s.keys_erased);
  setup();use_data=true;data_result=(enum mt76_join5_send)99;assert(!run() && s.unsafe && !s.leave_sent);
- for(unsigned n=1;n<=4;n++){setup();use_data=true;data_bad_phase=n;assert(!run() && s.unsafe && !s.leave_sent && s.keys_erased);}
+ for(unsigned n=1;n<=5;n++){setup();use_data=true;data_bad_phase=n;assert(!run() && s.unsafe && !s.leave_sent && s.keys_erased);}
  setup();assert(!mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,NULL) && !s.attempted);
  struct mt76_wpa5_data bad_extension=extension;bad_extension.context=&s;
  assert(!mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,&bad_extension) && !s.attempted);
+ test_split_lifetime();
  printf("mt76-wpa5: PASS synthetic AUTH/ASSOC/M1/M2/M3/M4/leave,unique software install/activation/erasure,%u ownership boundaries,all five send refusals/uncertainties,all M3 byte corruptions,nonce/clock/deadline/poll/alias refusals;no native or encrypted data acceptance\n",checks);
 }

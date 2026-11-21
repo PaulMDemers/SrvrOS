@@ -85,9 +85,10 @@ static bool rx_drain(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io
     }
     s->failed=true;return false;
 }
-bool mt76_mac_cycle_run(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io) {
-    if(!s || !io || !io->owned || !io->read || !io->write || !io->delay || !io->now || s->attempted)return false;
-    *s=(struct mt76_mac_cycle){.attempted=true};
+static bool admitted(const struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io) {
+    return s && io && io->owned && io->read && io->write && io->delay && io->now && !s->attempted;
+}
+static bool start(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io) {
     bool ok=guards(s,io,false) && read_word(s,io,0x1400,&s->filter,false,false) && s->filter==0x17f97 &&
             read_word(s,io,0x1340,&s->txop,false,false);
     if(ok)ok=put(s,io,0x1004,4,false) && poll_clear(s,io,0x208,10,200000,false) &&
@@ -98,9 +99,16 @@ bool mt76_mac_cycle_run(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io 
         ok=exact(s,io,0x2000,0xf000f200,false) &&
            read_word(s,io,0x13b0,&s->tx_alc,false,false) && read_word(s,io,0x2124,&s->ibi9,false,true);
         s->snapshot_complete=ok;
-        if(ok && io->inspect)ok=io->inspect(io->context,s->tx_alc,s->ibi9);
-        if(ok){uint64_t start=io->now(io->context);ok=delay(s,io,10000,false);uint64_t end=io->now(io->context);
-            s->hold_us=end>=start?end-start:0;ok=ok && s->hold_us>=10000;}
+    }
+    return ok;
+}
+static bool finish(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io,bool ok) {
+    if(ok) {
+        uint64_t began=io->now(io->context);
+        ok=delay(s,io,10000,false);
+        uint64_t ended=io->now(io->context);
+        s->hold_us=ended>=began?ended-began:0;
+        ok=ok && s->hold_us>=10000;
     }
     /* Once MAC may have changed, forward cancellation never skips teardown.
      * Each independent cleanup step is attempted despite earlier failures. */
@@ -118,4 +126,32 @@ bool mt76_mac_cycle_run(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io 
     s->complete=ok && !s->failed && io->owned(io->context,false);
     if(!s->complete)s->failed=true;
     return s->complete;
+}
+bool mt76_mac_cycle_run(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io) {
+    if(!admitted(s,io))return false;
+    *s=(struct mt76_mac_cycle){.attempted=true};
+    bool ok=start(s,io);
+    if(ok && io->inspect)ok=io->inspect(io->context,s->tx_alc,s->ibi9);
+    return finish(s,io,ok);
+}
+bool mt76_mac_cycle_open(struct mt76_mac_cycle *s,const struct mt76_mac_cycle_io *io) {
+    if(!s || !io || (uintptr_t)io-(uintptr_t)s<sizeof *s ||
+       (uintptr_t)s-(uintptr_t)io<sizeof *io || !admitted(s,io))return false;
+    *s=(struct mt76_mac_cycle){.attempted=true,.session_identity=(uintptr_t)s,.session_io=*io};
+    if(start(s,&s->session_io)){
+        s->session_active=true;
+        return true;
+    }
+    (void)finish(s,&s->session_io,false);
+    s->session_io=(struct mt76_mac_cycle_io){0};
+    s->session_identity=0;
+    return false;
+}
+bool mt76_mac_cycle_close(struct mt76_mac_cycle *s,bool workload_ok) {
+    if(!s || s->session_identity!=(uintptr_t)s || !s->session_active)return false;
+    s->session_active=false;
+    bool ok=finish(s,&s->session_io,workload_ok);
+    s->session_io=(struct mt76_mac_cycle_io){0};
+    s->session_identity=0;
+    return ok;
 }

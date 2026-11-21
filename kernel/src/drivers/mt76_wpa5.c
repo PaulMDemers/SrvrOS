@@ -81,13 +81,8 @@ static bool response(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct
  }
  r->result=MT76_WPA5_RESPONSE_LIMIT;return false;
 }
-static bool run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],const struct mt76_wpa5_io *io,const struct mt76_wpa5_data *data){
- if(!s || !p || !pmk || !io || !io->owned || !io->nonce || !io->send || !io->poll || !io->delay || !io->now ||
- overlap(s,sizeof *s,p,sizeof *p) || overlap(s,sizeof *s,pmk,32) || overlap(s,sizeof *s,io,sizeof *io) || (io->context && overlap(s,sizeof *s,io->context,1)) || !zero(s,sizeof *s) ||
- !p->attempted || !p->complete || !p->generation || !p->observations || p->observations>8 || !(p->peer.basic_rates&1) || (p->peer.basic_rates&~p->rates) || p->peer.rsn_size>64 ||
- (data && (!data->run || overlap(s,sizeof *s,data,sizeof *data) || (data->context && overlap(s,sizeof *s,data->context,1)))))return false;
- /* Validate copied peer and codec before consuming a lifetime or entropy. */
- uint8_t check[124]={0};size_t valid=mt76_mgmt5_usb_request(&p->peer,MT76_MGMT5_AUTH,4,false,check,sizeof check);scrub(check,sizeof check);if(!valid)return false;
+static bool handshake(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],
+                      const struct mt76_wpa5_io *io,bool defer_m1_duplicate){
  s->attempted=true;s->generation=p->generation;
  bool ok=owned(s,io,false);
  if(ok)ok=io->nonce(io->context,s->snonce) && owned(s,io,false);
@@ -99,7 +94,7 @@ static bool run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk
  }
  scrub(s->snonce,sizeof s->snonce);
  uint8_t m1_digest[32]={0};
- uint8_t *duplicate_check=data && data->defer_m1_duplicate?m1_digest:NULL;
+ uint8_t *duplicate_check=defer_m1_duplicate?m1_digest:NULL;
  if(ok){s->auth_sent=transmit(s,p,io,MT76_WPA5_AUTH);ok=s->auth_sent;}
  if(ok){s->auth_matched=response(s,p,io,MT76_WPA5_MANAGEMENT,true,NULL);ok=s->auth_matched;}
  if(ok){s->assoc_sent=transmit(s,p,io,MT76_WPA5_ASSOC);ok=s->assoc_sent;}
@@ -116,14 +111,10 @@ static bool run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk
  }
  if(ok){s->m4_sent=transmit(s,p,io,MT76_WPA5_M4);ok=s->m4_sent;}
  if(ok){s->keys_activated=owned(s,io,false) && wpa2_ccmp_activate(&s->keys,&s->handshake);ok=s->keys_activated;}
- if(ok && data){
-  enum mt76_join5_send result=MT76_JOIN5_UNCERTAIN;
-  if(owned(s,io,false))result=data->run(data->context,&s->keys,s->generation,p);
-  if(result!=MT76_JOIN5_SENT && result!=MT76_JOIN5_REFUSED)s->unsafe=true;
-  if(s->keys.phase!=WPA2_CCMP_ACTIVE || s->keys.generation!=s->generation ||
-   s->handshake.phase!=WPA2_HS_COMPLETE || s->handshake.generation!=s->generation || s->handshake.key_owner!=(uintptr_t)&s->keys)s->unsafe=true;
-  ok=result==MT76_JOIN5_SENT && owned(s,io,false) && !s->unsafe;
- }
+ return ok;
+}
+static bool finish(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const struct mt76_wpa5_io *io,
+                   bool data,bool ok){
  /* Software erasure is independent of uncertain DMA. DMA must be retained
   * externally;none of these keys were published in a hardware key table. */
  if(s->keys.phase!=WPA2_CCMP_EMPTY)s->keys_erased=wpa2_ccmp_retire(&s->keys,s->generation) && wpa2_ccmp_erased(&s->keys,s->generation);
@@ -149,5 +140,71 @@ static bool run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk
  scrub(s->reply,sizeof s->reply);scrub(s->packet,sizeof s->packet);scrub(s->eapol,sizeof s->eapol);scrub(s->snonce,sizeof s->snonce);
  s->complete=ok && !s->unsafe && s->keys_activated && s->leave_sent && owned(s,io,true);return s->complete;
 }
-bool mt76_wpa5_run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],const struct mt76_wpa5_io *io){return run(s,p,pmk,io,0);}
-bool mt76_wpa5_run_data(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],const struct mt76_wpa5_io *io,const struct mt76_wpa5_data *data){return data && run(s,p,pmk,io,data);}
+static bool admissible(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],
+                       const struct mt76_wpa5_io *io){
+ if(!s || !p || !pmk || !io || !io->owned || !io->nonce || !io->send || !io->poll || !io->delay || !io->now ||
+    overlap(s,sizeof *s,p,sizeof *p) || overlap(s,sizeof *s,pmk,32) || overlap(s,sizeof *s,io,sizeof *io) ||
+    (io->context && overlap(s,sizeof *s,io->context,1)) || !zero(s,sizeof *s) ||
+    !p->attempted || !p->complete || !p->generation || !p->observations || p->observations>8 ||
+    !(p->peer.basic_rates&1) || (p->peer.basic_rates&~p->rates) || p->peer.rsn_size>64)return false;
+ uint8_t check[124]={0};
+ size_t valid=mt76_mgmt5_usb_request(&p->peer,MT76_MGMT5_AUTH,4,false,check,sizeof check);
+ scrub(check,sizeof check);
+ return valid!=0;
+}
+static void clear_session(struct mt76_wpa5 *s){
+ scrub(&s->session_io,sizeof s->session_io);
+ scrub(&s->session_peer,sizeof s->session_peer);
+ s->session_identity=0;
+ s->session_busy=false;
+}
+bool mt76_wpa5_connect(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],
+                       const struct mt76_wpa5_io *io,bool defer_m1_duplicate){
+ if(!admissible(s,p,pmk,io))return false;
+ s->session_identity=(uintptr_t)s;
+ s->session_io=*io;
+ s->session_peer=*p;
+ if(handshake(s,&s->session_peer,pmk,&s->session_io,defer_m1_duplicate)){
+  s->session_active=true;
+  return true;
+ }
+ (void)finish(s,&s->session_peer,&s->session_io,true,false);
+ clear_session(s);
+ return false;
+}
+static bool finish_session(struct mt76_wpa5 *s,uint64_t generation,enum mt76_join5_send result){
+ s->session_active=false;
+ if((result!=MT76_JOIN5_SENT && result!=MT76_JOIN5_REFUSED) ||
+    s->generation!=generation || s->keys.phase!=WPA2_CCMP_ACTIVE || s->keys.generation!=generation ||
+    s->handshake.phase!=WPA2_HS_COMPLETE || s->handshake.generation!=generation ||
+    s->handshake.key_owner!=(uintptr_t)&s->keys)s->unsafe=true;
+ s->generation=generation;
+ bool ok=result==MT76_JOIN5_SENT && owned(s,&s->session_io,false);
+ ok=finish(s,&s->session_peer,&s->session_io,true,ok);
+ clear_session(s);
+ return ok;
+}
+bool mt76_wpa5_disconnect(struct mt76_wpa5 *s,uint64_t generation,enum mt76_join5_send result){
+ if(!s || s->session_identity!=(uintptr_t)s || !s->session_active || s->session_busy ||
+    !generation || generation!=s->session_peer.generation)return false;
+ return finish_session(s,generation,result);
+}
+bool mt76_wpa5_run(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],
+                   const struct mt76_wpa5_io *io){
+ if(!admissible(s,p,pmk,io))return false;
+ return finish(s,p,io,false,handshake(s,p,pmk,io,false));
+}
+bool mt76_wpa5_run_data(struct mt76_wpa5 *s,const struct mt76_peer5 *p,const uint8_t pmk[32],
+                        const struct mt76_wpa5_io *io,const struct mt76_wpa5_data *data){
+ if(!s || !data || !data->run || overlap(s,sizeof *s,data,sizeof *data) ||
+    (data->context && overlap(s,sizeof *s,data->context,1)) ||
+    !mt76_wpa5_connect(s,p,pmk,io,data->defer_m1_duplicate))return false;
+ enum mt76_join5_send result=MT76_JOIN5_UNCERTAIN;
+ uint64_t generation=s->generation;
+ if(owned(s,&s->session_io,false)){
+  s->session_busy=true;
+  result=data->run(data->context,&s->keys,generation,p);
+  s->session_busy=false;
+ }
+ return finish_session(s,generation,result);
+}

@@ -20,6 +20,46 @@ Desktop controls will follow in the System app and its Wi-Fi ABI. PR #19 owns
 this device branch. PR #301 covers Intel GPU ownership and PR #379 covers
 WebCore dependencies. Demers2.4 is deferred.
 
+The WPA and MAC owners now have explicit open and close operations. The
+native stream requires both owners to be live before encrypted traffic can
+run. WPA retains its original active keys across the open lifetime, clears
+them on close, and suppresses leave if ownership is uncertain. MAC close
+keeps the original TX/RX drain and register restoration. Existing bounded
+diagnostics still exercise this path with their original deadlines and
+transfer limits.
+
+The kernel build, MAC and WPA host tests with ASan/UBSan, all 66 production
+HTTP path cases with modeled USB and scheduler, and the saved-log decoder
+checks passed. Ubuntu is still the default and no hardware trial is armed.
+
+The remaining transport work is to recycle USB descriptors safely during a
+long-lived connection, including when TX needs space and the posted RX is
+idle. The worker also needs to run independently of the HTTP supervisor and
+own IP configuration for the full connection. System still shows cached
+discovery results while those pieces are being implemented. Physical removal,
+reinsertion and reliability validation follow the desktop connection work.
+Long-running validation also needs DHCP lease renewal and WPA group rekey
+coverage. The current bootstrap obtains one lease and the WPA handshake
+erases its key-confirmation and key-encryption material after M4.
+
+For sustained USB data, evaluate independently cycled TX and RX transfer rings
+with one final Event Data TRB per transfer descriptor. That gives the completion
+an identity independent of the reused ring address. The first tests must
+exercise short bulk IN and its actual-length field, TX wrap with a quiet posted
+RX, cancellation, stale completions, and concurrent keyboard/workspace I/O.
+Stop notifications still need their own endpoint and dequeue proof. Ubuntu
+reports xHCI version 1.0 on this unit. Verify Event Data handling on that
+controller before relying on it in an ordinary connection.
+[Intel xHCI specification, sections 4.9.2 and 4.10.1.1.1](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+
+Normal boot seals network-provider selection before System opens. The Wi-Fi
+driver therefore needs to register its adapter before `net_init`, then bind a
+fresh association to that stable provider on Connect. System can submit a
+request tied to the adapter ID and scan generation, with radio and DHCP work
+performed by the service thread. A removed adapter invalidates that identity
+and its pending UI requests. Reinsert must prove that the previous controller
+slot and network callbacks are retired before binding a fresh association.
+
 ### Demers2.4 hardware prerequisite (November 20)
 
 The router reports Demers2.4 active on channel 8 with WPA2-Personal. The only

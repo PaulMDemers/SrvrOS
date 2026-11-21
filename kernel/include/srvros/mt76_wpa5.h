@@ -39,7 +39,26 @@ struct mt76_wpa5 {
  struct wpa2_handshake handshake;struct wpa2_ccmp keys;
  struct mt76_wpa5_response responses[4];
  uint8_t reply[4096],packet[184],eapol[121],snonce[32];
+ /* Active association. The original nonmoving owner retains these bindings
+  * until terminal key erasure and leave. No PMK pointer is retained. */
+ uintptr_t session_identity;
+ bool session_active,session_busy;
+ struct mt76_peer5 session_peer;
+ struct mt76_wpa5_io session_io;
 };
+/* CPU0 owner only. Connect activates the original CCMP keys and returns
+ * without sending leave. Invalid admission leaves the zero object alone;
+ * an admitted handshake failure performs the same terminal cleanup as the
+ * one-shot path. The copied peer and IO stay private to the owner. The IO
+ * context must remain valid through disconnect, even on hardware failure. */
+bool mt76_wpa5_connect(struct mt76_wpa5 *,const struct mt76_peer5 *,
+ const uint8_t pmk[32],const struct mt76_wpa5_io *,bool defer_m1_duplicate);
+/* The owner must first close all software key borrowers and DMA publication
+ * callbacks. A matching disconnect consumes the association exactly once,
+ * even when it returns false. REFUSED allows leave after erasure. UNCERTAIN
+ * erases software keys but prohibits leave and hardware reuse. A mismatched
+ * generation, moved object or reentry cannot consume the association. */
+bool mt76_wpa5_disconnect(struct mt76_wpa5 *,uint64_t generation,enum mt76_join5_send);
 /* Caller retains PMK ownership and scrubs its own temporary copy. Inputs and
  * IO/context cannot overlap output. Invalid/replayed admission is unchanged;
  * every admitted outcome scrubs local secret/packet scratch. Uncertain DMA

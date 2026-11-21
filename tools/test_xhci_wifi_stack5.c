@@ -261,6 +261,7 @@ static void stack_test_progress(void){
  if(wifi_stream5.connection_mode && wifi_stream5.data_active){
   unsigned g=wifi_stream5_current==&wifi_stream5_slots[1];
   if(!reconnect_keys_seen[g]){
+   assert(wifi_stream5.mac.session_active && wifi_stream5.exchange.session_active);
    assert(wifi_stream5.exchange.keys.phase==WPA2_CCMP_ACTIVE && !wifi_stream5.exchange.keys.tx_pn && !wifi_stream5.data_pn);
    assert(wifi_stream5.exchange.keys.generation==wifi_stream5.epoch);
    if(g)assert(memcmp(reconnect_first_tk,wifi_stream5.exchange.keys.tk,16));

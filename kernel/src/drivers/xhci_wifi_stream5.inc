@@ -289,7 +289,17 @@ static uint64_t wifi_stream5_now(void *c){
 static bool wifi_stream5_nonce(void *c,uint8_t out[32]){return c==&wifi_stream5 && out==wifi_stream5.exchange.snonce && wifi_stream5_owned(c,false) && wifi_stream5_entropy(out);}
 static bool wifi_stream5_data_owned(void *c){
  struct mt76_wpa5 *s=&wifi_stream5.exchange;const struct wpa2_ccmp *k=&s->keys;
- return c==&wifi_stream5 && wifi_stream5.data_active && !wifi_stream5.closed && s->keys_activated && k->phase==WPA2_CCMP_ACTIVE && k->generation==wifi_stream5.epoch && k->tx_pn==wifi_stream5.data_pn && s->handshake.phase==WPA2_HS_COMPLETE && s->handshake.generation==wifi_stream5.epoch && s->handshake.key_owner==(uintptr_t)k && s->handshake.emissions==2 && s->handshake.install_handoffs==1 && s->handshake.keys_may_live && !s->handshake.unsafe && k->peer.rsne_size==wifi_stream5.peer.peer.rsn_size && k->peer.rsne_size<=64 && wifi_handoff5_equal(k->peer.aa,wifi_stream5.peer.peer.bssid,6) && wifi_handoff5_equal(k->peer.spa,wifi_stream5.peer.peer.station,6) && wifi_handoff5_equal(k->peer.rsne,wifi_stream5.peer.peer.rsn,k->peer.rsne_size) && wifi_stream5_owned(c,false);
+ return c==&wifi_stream5 && wifi_stream5.data_active && !wifi_stream5.closed &&
+  wifi_stream5.mac.session_identity==(uintptr_t)&wifi_stream5.mac && wifi_stream5.mac.session_active &&
+  s->session_identity==(uintptr_t)s && s->session_active && s->keys_activated &&
+  k->phase==WPA2_CCMP_ACTIVE && k->generation==wifi_stream5.epoch && k->tx_pn==wifi_stream5.data_pn &&
+  s->handshake.phase==WPA2_HS_COMPLETE && s->handshake.generation==wifi_stream5.epoch &&
+  s->handshake.key_owner==(uintptr_t)k && s->handshake.emissions==2 && s->handshake.install_handoffs==1 &&
+  s->handshake.keys_may_live && !s->handshake.unsafe &&
+  k->peer.rsne_size==wifi_stream5.peer.peer.rsn_size && k->peer.rsne_size<=64 &&
+  wifi_handoff5_equal(k->peer.aa,wifi_stream5.peer.peer.bssid,6) &&
+  wifi_handoff5_equal(k->peer.spa,wifi_stream5.peer.peer.station,6) &&
+  wifi_handoff5_equal(k->peer.rsne,wifi_stream5.peer.peer.rsn,k->peer.rsne_size) && wifi_stream5_owned(c,false);
 }
 static enum mt76_join5_send wifi_stream5_data_send(void *c,const uint8_t *frame,size_t length){
  struct mt76_stream5_probe *p=&wifi_stream5.probe;struct wpa2_ccmp *k=&wifi_stream5.exchange.keys;
@@ -495,7 +505,12 @@ static bool wifi_stream5_inspect(void){
  if(!wifi_fence5_bind(d,&wifi_stream5.dma,wifi_stream5.epoch,&wifi_stream5,wifi_stream5_fence_owned))return wifi_stream5_fail();
  wifi_stream5.phase=3;
  if(!wifi_stream5_post())return false;
- const struct mt76_mac_cycle_io io={&wifi_stream5,wifi_stream5_owned,wifi_stream5_read,wifi_stream5_write,wifi_stream5_mac_delay,wifi_stream5_now,wifi_stream5_inspection};bool exchanged=mt76_mac_cycle_run(&wifi_stream5.mac,&io);
+ const struct mt76_mac_cycle_io io={&wifi_stream5,wifi_stream5_owned,wifi_stream5_read,wifi_stream5_write,wifi_stream5_mac_delay,wifi_stream5_now,NULL};
+ bool exchanged=mt76_mac_cycle_open(&wifi_stream5.mac,&io);
+ if(exchanged){
+  bool workload=wifi_stream5_inspection(&wifi_stream5,wifi_stream5.mac.tx_alc,wifi_stream5.mac.ibi9);
+  exchanged=mt76_mac_cycle_close(&wifi_stream5.mac,workload);
+ }
  bool good=!wifi_stream5.failed && wifi_stream5.exchange.keys_erased && wifi_stream5.mac.mac_disabled && wifi_stream5.mac.tx_drained && wifi_stream5.mac.rx_drained && wifi_stream5.mac.filter_restored && wifi_stream5.mac.txop_restored && wifi_stream5_owned(&wifi_stream5,true);
  if(good)good=wifi_stream5_data_radio(1);
  if(good)good=wifi_stream5_command(15,9,0,4);
