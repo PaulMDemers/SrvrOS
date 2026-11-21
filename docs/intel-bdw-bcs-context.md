@@ -27,6 +27,12 @@ the successful prefix. Older receipt versions remain readable. Replacing
 slot 8704 still requires a hardware owner that can exclude firmware and other
 GPU readers and witness fresh engine and L3 drain acknowledgements.
 
+On the Air7,2, release `9a8fbc4f973644df` completed this interval with
+all five mappings restored. Both samples had `GO_GAM_REQ=0x7fff` and
+zero reference and prefetch counters on both video engines. The six client
+permissions were open at both boundaries. The original entries in slots
+8704–8708 matched on each read. See the [unit record](machines/macbookair7-2-current.md).
+
 ## Audited format
 
 Intel's [Broadwell PRM Volume3](https://cdrdv2-public.intel.com/690792/intel-gfx-prm-osrc-bdw-vol-03-gpu-overview.pdf),

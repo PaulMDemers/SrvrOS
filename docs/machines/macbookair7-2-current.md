@@ -16,15 +16,21 @@ isolated context-image driver, the shared GPU interval registry as a caller,
 and the corresponding collector. The original panel remains on its inherited
 surface. Native command submission depends on a separate hardware grant.
 
-The current command-memory trial also covers revoking CPU write access to
-the five mapped command-streamer register pages after the GT reset. This
-depends on the reset owner's original epoch, unchanged PCI requester, CPU
-write protection, and the VMM's kernel-page protection and TLB invalidation. The driver
-checks the sole CPU alias for every engine page at both held samples. This
-permission transition awaits native qualification. The same run will record
-the GPU arbiter request and both video engines’ outstanding requests before
-and after the 30 GGTT reads. The physical traffic
-capture below remains the baseline for the GPU itself.
+Release `9a8fbc4f973644df` (source `fa41b54e`, session
+`session-000660c464c6780d-00`) verified the CPU submission block on this
+Air after the GT reset. The driver made all five command-streamer register
+pages read-only, completed six alias walks and restored all five mappings
+after 30 GGTT reads covering slots 8704–8708. Both samples returned
+`GO_GAM_REQ=0x00007fff`, with all six client-permission bits set
+(`0x005f`). The two video engines each reported zero outstanding reference
+and prefetch reads at both samples. The display register samples matched,
+the driver issued zero GPU page-table writes, and the return and offline
+USB integrity checks passed.
+
+CPU submission exclusion is physically verified for this interval. The next
+native ownership step is to acquire and hold a GPU-side traffic block with
+Pipe A active, witness fresh engine and L3 acknowledgements, and keep that
+block through replacement and rollback of slot 8704.
 
 Current Air7,2 work on PR301 covers exclusive access to the first candidate
 GGTT slot during publication and rollback, with the inherited panel scanning
@@ -77,8 +83,8 @@ SrvrOS still needs a device-wide drain with the original panel active.
 The independent CPU context layout reserves slots 8705–8708 and rechecks
 them along with 8704 under the post-reset arena hold. Saved native windows
 from November 17 and 20 both put these five pages at physical addresses
-`0x8e201000` through `0x8e205000`. The new reservation and held reads have
-host qualification. Under Ubuntu on November 21, i915 submitted a private
+`0x8e201000` through `0x8e205000`. Release `9a8fbc4f973644df` verified the reservation and
+held reads on this Air. Under Ubuntu on November 21, i915 submitted a private
 batch to each physical engine (render, copy, two video engines, and video
 enhance). All five individual sync-file fences signaled success, with the
 panel enabled before and after. Those batches used per-process addresses
