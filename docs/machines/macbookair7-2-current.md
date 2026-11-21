@@ -10,6 +10,10 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+The current PR301 work covers registration of the inherited primary framebuffer
+in the shared GGTT interval registry. It depends on the Air's verified fence
+and endpoint and should protect them even between second-buffer reservations.
+
 PR301 on main baseline `4016abf0` now exercises a synchronous flip to a second
 surface and restores the original using the same display owner. The local
 fixture runs the plane and primary CRC cores together at the Air's captured
