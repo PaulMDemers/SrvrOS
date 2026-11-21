@@ -7,6 +7,17 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### WPA message 1 duplicate while waiting for message 3
+
+Audit the first-connection refusal on runtime `783f21fb` against `origin/main`
+`4016abf0`. Scope the change to the native HTTP reconnect owner, the WPA
+response loop, its saved decoder and the native fixtures. Verify whether an
+exact copy of the accepted M1 can be skipped once while the original M3 wait
+continues. Preserve strict validation of M3, the original wait and poll limits,
+and the current transmit and key-install counts. This tests a queued duplicate
+followed by a valid M3 and distinguishes it from a lost M2. The previous
+physical capture records only the M1 key flags.
+
 ### Cold repeat with extended router capture (November 20)
 
 Runtime `783f21fb`, stage source `700d4a63`, release `d34e89fd74d5318a`,
