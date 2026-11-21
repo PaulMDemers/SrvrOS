@@ -146,6 +146,8 @@ bool xhci_wifi_capture_stream5_dhcp(void);
  * with queue/TX idle;all key/hardware/parent/ledger proof precedes detach. */
 struct mt76_net5;
 bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context);
+/* Explicit Event Data transport with the same bounded workload contract. */
+bool xhci_wifi_capture_stack5_paired(bool (*exercise)(void *,struct mt76_net5 *),void *context);
 /* Explicit v137 production DHCP/DNS/64 exact ICMP workload and saved receipts. */
 bool xhci_wifi_capture_stack5_probe(void);
 /* Explicit two fresh native connection lifetimes under one adapter parent. */

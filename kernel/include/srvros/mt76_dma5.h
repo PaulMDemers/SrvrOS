@@ -7,6 +7,7 @@
 #define MT76_DMA5_TRBS 255u
 #define MT76_DMA5_BYTES 4096u
 #define MT76_DMA5_TIMEOUT_US 750000u
+#define MT76_DMA5_PAIRED_STRIDE 32u
 enum mt76_dma5_direction { MT76_DMA5_TX, MT76_DMA5_RX };
 enum mt76_dma5_state { MT76_DMA5_EMPTY, MT76_DMA5_RUNNING, MT76_DMA5_CLOSING, MT76_DMA5_FAULT, MT76_DMA5_RETIRED };
 enum mt76_dma5_page_state { MT76_DMA5_FREE, MT76_DMA5_PREPARED, MT76_DMA5_DEVICE, MT76_DMA5_COMPLETE, MT76_DMA5_BORROWED };
@@ -30,7 +31,7 @@ struct mt76_dma5 {
  struct mt76_dma5_page pages[2][MT76_DMA5_PAGES];
  uint64_t prepared,published,completed,borrowed,released,cancelled,wraps,faults;
  struct mt76_dma5_noop_lease noop;enum mt76_dma5_page_state noop_state;
- uint64_t noop_started,noop_prepared,noop_published,noop_completed,noop_cancelled;bool noop_only;
+ uint64_t noop_started,noop_prepared,noop_published,noop_completed,noop_cancelled;bool noop_only,paired;
 };
 /* These are external proofs,not requests to stop/reset hardware. The native
  * binding must collect all fields from its independent checked owner. Wrap
@@ -42,6 +43,11 @@ struct mt76_dma5_retirement {uint64_t epoch;bool keys_erased,mac_disabled,tx_sto
 /* Native rings may be smaller than the standalone255-position fixture. */
 bool mt76_dma5_init_ring(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],const uint64_t pages[2][MT76_DMA5_PAGES],unsigned positions,uint64_t now);
 bool mt76_dma5_init(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],const uint64_t pages[2][MT76_DMA5_PAGES],uint64_t now);
+/* Paired slots hold a Normal and final Event Data TRB. The native owner must
+ * authenticate the latter's cookie and consume the completion before reuse. */
+bool mt76_dma5_init_paired_ring(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],
+ const uint64_t pages[2][MT76_DMA5_PAGES],unsigned positions,uint64_t now);
+bool mt76_dma5_cycle_pairs(struct mt76_dma5 *,unsigned direction);
 /* Explicit bufferless mode retains only the real TX descriptor ring,no dummy
  * RX ring/data pages. Data prepare/acquire remain unavailable in this mode. */
 bool mt76_dma5_init_noop_ring(struct mt76_dma5 *,uint64_t epoch,uint64_t tx_ring,unsigned positions,uint64_t now);

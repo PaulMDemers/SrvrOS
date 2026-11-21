@@ -1,7 +1,7 @@
 #include <srvros/mt76_dma5.h>
 static bool overlap(const void *a,size_t an,const void *b,size_t bn){uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;return x<=y?y-x<an:x-y<bn;}
 static bool zero(const void *p,size_t n){const uint8_t *v=p;unsigned x=0;while(n--)x|=*v++;return !x;}
-static bool valid(const struct mt76_dma5 *s){return s && s->identity==(uintptr_t)s && s->epoch && s->state>=MT76_DMA5_RUNNING && s->state<=MT76_DMA5_RETIRED && s->positions>=2 && s->positions<=MT76_DMA5_TRBS && s->cursor[0]<=s->positions && s->cursor[1]<=s->positions && s->cycle[0]<=1 && s->cycle[1]<=1 && s->next_page[0]<MT76_DMA5_PAGES && s->next_page[1]<MT76_DMA5_PAGES && s->noop_state<=MT76_DMA5_DEVICE;}
+static bool valid(const struct mt76_dma5 *s){return s && s->identity==(uintptr_t)s && s->epoch && s->state>=MT76_DMA5_RUNNING && s->state<=MT76_DMA5_RETIRED && s->positions>=2 && s->positions<=MT76_DMA5_TRBS && (!s->paired || (!s->noop_only && s->positions<=MT76_DMA5_TRBS/2)) && s->cursor[0]<=s->positions && s->cursor[1]<=s->positions && s->cycle[0]<=1 && s->cycle[1]<=1 && s->next_page[0]<MT76_DMA5_PAGES && s->next_page[1]<MT76_DMA5_PAGES && s->noop_state<=MT76_DMA5_DEVICE;}
 static bool live(const struct mt76_dma5 *s){return valid(s) && (s->state==MT76_DMA5_RUNNING || s->state==MT76_DMA5_CLOSING);}
 static bool equal(const struct mt76_dma5_lease *a,const struct mt76_dma5_lease *b){return a->epoch==b->epoch && a->ticket==b->ticket && a->token==b->token && a->page==b->page && a->trb==b->trb && a->direction==b->direction && a->index==b->index && a->length==b->length && a->received==b->received && a->cycle==b->cycle;}
 static struct mt76_dma5_page *match(struct mt76_dma5 *s,const struct mt76_dma5_lease *l){
@@ -27,6 +27,19 @@ bool mt76_dma5_init_ring(struct mt76_dma5 *s,uint64_t epoch,const uint64_t rings
  s->identity=(uintptr_t)s;s->positions=positions;s->epoch=epoch;s->last_us=now;s->state=MT76_DMA5_RUNNING;
  for(unsigned d=0;d<2;d++){s->ring[d]=rings[d];s->cycle[d]=1;for(unsigned i=0;i<MT76_DMA5_PAGES;i++)s->pages[d][i].lease.page=pages[d][i];}return true;
 }
+bool mt76_dma5_init_paired_ring(struct mt76_dma5 *s,uint64_t epoch,const uint64_t rings[2],
+ const uint64_t pages[2][MT76_DMA5_PAGES],unsigned positions,uint64_t now){
+ if(positions>MT76_DMA5_TRBS/2 || !mt76_dma5_init_ring(s,epoch,rings,pages,positions,now))return false;
+ s->paired=true;
+ return true;
+}
+bool mt76_dma5_cycle_pairs(struct mt76_dma5 *s,unsigned d){
+ if(!valid(s) || !s->paired || s->state!=MT76_DMA5_RUNNING || d>1 || s->cursor[d]!=s->positions)return false;
+ for(unsigned i=0;i<MT76_DMA5_PAGES;i++)if(s->pages[d][i].state!=MT76_DMA5_FREE)return false;
+ s->cursor[d]=0;
+ s->cycle[d]^=1;
+ return true;
+}
 bool mt76_dma5_prepare(struct mt76_dma5 *s,unsigned d,uint64_t token,unsigned length,uint64_t now,struct mt76_dma5_lease *out){
  if(!valid(s) || s->state!=MT76_DMA5_RUNNING || s->noop_only || (d==MT76_DMA5_TX && s->noop_state!=MT76_DMA5_FREE) || d>1 || !out || overlap(s,sizeof *s,out,sizeof *out) || !token || token<=s->last_token[d] || !length || length>MT76_DMA5_BYTES)return false;
  if(!mt76_dma5_tick(s,now))return false;
@@ -35,7 +48,8 @@ bool mt76_dma5_prepare(struct mt76_dma5 *s,unsigned d,uint64_t token,unsigned le
  for(unsigned i=0;i<MT76_DMA5_PAGES;i++)if(s->pages[d][i].state==MT76_DMA5_PREPARED || s->pages[d][i].state==MT76_DMA5_DEVICE)return false;
  for(unsigned k=0;k<MT76_DMA5_PAGES;k++){
   unsigned i=(s->next_page[d]+k)%MT76_DMA5_PAGES;struct mt76_dma5_page *p=&s->pages[d][i];if(p->state!=MT76_DMA5_FREE)continue;
-  p->lease=(struct mt76_dma5_lease){.epoch=s->epoch,.ticket=++s->next_ticket,.token=token,.page=p->lease.page,.trb=s->ring[d]+16*s->cursor[d],.direction=d,.index=i,.length=length,.cycle=s->cycle[d]};
+  unsigned stride=s->paired?MT76_DMA5_PAIRED_STRIDE:16u;
+  p->lease=(struct mt76_dma5_lease){.epoch=s->epoch,.ticket=++s->next_ticket,.token=token,.page=p->lease.page,.trb=s->ring[d]+stride*s->cursor[d],.direction=d,.index=i,.length=length,.cycle=s->cycle[d]};
   p->state=MT76_DMA5_PREPARED;s->last_token[d]=token;s->next_page[d]=(i+1)%MT76_DMA5_PAGES;s->prepared++;*out=p->lease;return true;
  }return false;
 }
@@ -67,7 +81,7 @@ bool mt76_dma5_release(struct mt76_dma5 *s,const struct mt76_dma5_lease *l){
 }
 bool mt76_dma5_close(struct mt76_dma5 *s,uint64_t epoch){if(!valid(s) || epoch!=s->epoch || s->state==MT76_DMA5_RETIRED)return false;if(s->state==MT76_DMA5_RUNNING)s->state=MT76_DMA5_CLOSING;return true;}
 bool mt76_dma5_wrap(struct mt76_dma5 *s,const struct mt76_dma5_fence *f){
- if(!valid(s) || s->state!=MT76_DMA5_RUNNING || !f || overlap(s,sizeof *s,f,sizeof *f) || f->epoch!=s->epoch || f->direction>1 || !f->sequence || f->sequence<=s->last_fence || !f->stopped || !f->events_drained || !f->dequeue_set)return false;
+ if(!valid(s) || s->paired || s->state!=MT76_DMA5_RUNNING || !f || overlap(s,sizeof *s,f,sizeof *f) || f->epoch!=s->epoch || f->direction>1 || !f->sequence || f->sequence<=s->last_fence || !f->stopped || !f->events_drained || !f->dequeue_set)return false;
  unsigned d=f->direction;if((s->noop_only && d!=MT76_DMA5_TX) || (d==MT76_DMA5_TX && s->noop_state!=MT76_DMA5_FREE))return false;
  if(s->cursor[d]!=s->positions || f->dequeue!=(s->ring[d]|(s->cycle[d]^1u)))return false;
  for(unsigned i=0;i<MT76_DMA5_PAGES;i++)if(s->pages[d][i].state!=MT76_DMA5_FREE)return false;
@@ -88,7 +102,7 @@ bool mt76_dma5_init_noop_ring(struct mt76_dma5 *s,uint64_t epoch,uint64_t ring,u
 static bool noop_equal(const struct mt76_dma5_noop_lease *a,const struct mt76_dma5_noop_lease *b){return a->epoch==b->epoch && a->ticket==b->ticket && a->token==b->token && a->trb==b->trb && a->cycle==b->cycle;}
 static bool noop_match(struct mt76_dma5 *s,const struct mt76_dma5_noop_lease *l){return valid(s) && l && !overlap(s,sizeof *s,l,sizeof *l) && noop_equal(&s->noop,l);}
 bool mt76_dma5_noop_prepare(struct mt76_dma5 *s,uint64_t token,uint64_t now,struct mt76_dma5_noop_lease *out){
- if(!valid(s) || s->state!=MT76_DMA5_RUNNING || !out || overlap(s,sizeof *s,out,sizeof *out) || !token || token<=s->last_token[0] || s->noop_state!=MT76_DMA5_FREE || s->cursor[0]==s->positions)return false;
+ if(!valid(s) || s->paired || s->state!=MT76_DMA5_RUNNING || !out || overlap(s,sizeof *s,out,sizeof *out) || !token || token<=s->last_token[0] || s->noop_state!=MT76_DMA5_FREE || s->cursor[0]==s->positions)return false;
  if(!mt76_dma5_tick(s,now))return false;
  for(unsigned i=0;i<MT76_DMA5_PAGES;i++)if(s->pages[0][i].state==MT76_DMA5_PREPARED || s->pages[0][i].state==MT76_DMA5_DEVICE)return false;
  if(s->next_ticket==UINT64_MAX){mt76_dma5_fault(s);return false;}

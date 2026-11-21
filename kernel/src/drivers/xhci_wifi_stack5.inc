@@ -24,9 +24,10 @@ static bool wifi_stack5_clock(void){uint64_t now=timer_monotonic_us();if(now<wif
 static bool wifi_stack5_ready(void *c,uint64_t epoch){
  /* The last posted RX is still usable. Freezing TX merely because posting
   * advanced its cursor to63 can prevent the request which would complete it. */
- bool rx_available=wifi_stream5.dma.cursor[1]<wifi_stream5_positions() ||
+ bool rx_available=wifi_stream5.paired || wifi_stream5.dma.cursor[1]<wifi_stream5_positions() ||
   (wifi_stream5.dma.cursor[1]==wifi_stream5_positions() && wifi_stream5.pending[1] && !wifi_stream5.ready_rx);
- return !wifi_stack5.terminal_handoff && wifi_stack5_owned(c,epoch) && !wifi_stack5.boundary && !wifi_fence5_native.round && !wifi_stream5.pending[0] && !wifi_stack5.tx_token && wifi_stream5.dma.cursor[0]<wifi_stream5_positions() && rx_available && wifi_stream5.posts[0]<WIFI_STREAM5_TX-1 && wifi_stream5.posts[1]<WIFI_STREAM5_RX-8;
+ bool tx_available=wifi_stream5.paired || wifi_stream5.dma.cursor[0]<wifi_stream5_positions();
+ return !wifi_stack5.terminal_handoff && wifi_stack5_owned(c,epoch) && !wifi_stack5.boundary && !wifi_fence5_native.round && !wifi_stream5.pending[0] && !wifi_stack5.tx_token && tx_available && rx_available && wifi_stream5.posts[0]<WIFI_STREAM5_TX-1 && wifi_stream5.posts[1]<WIFI_STREAM5_RX-8;
 }
 static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t epoch,uint64_t token,const uint8_t *frame,uint16_t length){
  struct mt76_net5 *p=&wifi_stack5_net;struct wpa2_ccmp *k=&wifi_stream5.exchange.keys;
@@ -61,8 +62,8 @@ static bool wifi_stack5_service(void *c,uint64_t epoch){
  /* Posting RX63 does not complete RX63. Keep ordinary TX working until that
   * original receive completes; a terminal HTTP owner may instead hand it to
   * the outer exact Stop cleanup without wrapping an otherwise idle ring. */
- bool boundary=wifi_stream5.dma.cursor[0]==wifi_stream5_positions() ||
-  (wifi_stream5.dma.cursor[1]==wifi_stream5_positions() && !wifi_stream5.pending[1]);
+ bool boundary=!wifi_stream5.paired && (wifi_stream5.dma.cursor[0]==wifi_stream5_positions() ||
+  (wifi_stream5.dma.cursor[1]==wifi_stream5_positions() && !wifi_stream5.pending[1]));
  if(boundary && !wifi_stack5.boundary){wifi_stack5.boundary=true;wifi_stack5.boundary_start=wifi_stack5.last;}
  if(wifi_stack5.boundary){
   if(wifi_stack5.last-wifi_stack5.boundary_start>=MT76_DMA5_TIMEOUT_US)return wifi_stack5_fault();
@@ -131,15 +132,21 @@ static void wifi_stack5_emit(void){
 }
 /* Caller supplies a bounded production exercise,initializing net.c only after
  * provider attachment. It must return with queue/TX callbacks idle. */
-bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context){
+static bool capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context,bool paired){
  if(!exercise || wifi_http_reconnect5_reserved || wifi_stack5.selected || wifi_stream5.attempted || wifi_stream5.stack_mode)return false;
- wifi_stack5.selected=true;wifi_stack5.context=context;wifi_stack5.exercise=exercise;wifi_stream5.stack_mode=true;
+ wifi_stack5.selected=true;wifi_stack5.context=context;wifi_stack5.exercise=exercise;wifi_stream5.stack_mode=true;wifi_stream5.paired=paired;
  bool good=wifi_stream5_capture(false);
  if(wifi_stack5_net.attached && wifi_stack5_retirement(&wifi_stream5,wifi_stream5.epoch))wifi_stack5.detached=mt76_net5_finish_detach(&wifi_stack5_net,wifi_stream5.epoch);
  if(wifi_stack5_net.identity)wifi_stack5.retired=mt76_net5_retire(&wifi_stack5_net);
  wifi_stack5.exercise=NULL;wifi_stack5.context=NULL;
  console_printf("wifi-stack5-final: complete=%u detached=%u provider_retired=%u retained=1 backend_retired=0\n",(uint64_t)(good && wifi_stack5.detached && wifi_stack5.retired),(uint64_t)wifi_stack5.detached,(uint64_t)wifi_stack5.retired);
  return good && wifi_stack5.detached && wifi_stack5.retired;
+}
+bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context){
+ return capture_stack5(exercise,context,false);
+}
+bool xhci_wifi_capture_stack5_paired(bool (*exercise)(void *,struct mt76_net5 *),void *context){
+ return capture_stack5(exercise,context,true);
 }
 static struct mt76_stack5_probe wifi_stack5_probe_result;
 static bool wifi_stack5_probe_current(void *c,uint64_t epoch){

@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-20. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -10,10 +10,39 @@ Dated sections retain the bring-up history.
 ### Persistent 5 GHz and desktop controls
 
 Descriptor reuse work starts from `47cc3a33` with `origin/main` at `4016abf0`.
-It covers the MT7610 DMA ledger, the production xHCI stream and its native
-fixtures. First prove independent TX/RX wrap and terminal Stop in the existing
-bounded production IP workload. The persistent worker and System will consume
-that transport after the bounded reuse path passes. PR #19 owns this scope.
+The opt-in stream uses independent 15-slot TX and RX rings, with a Normal TRB
+and a final Event Data TRB per slot. A boot-unique cookie and the actual-byte
+completion field authorize release. The driver still requires separate Stop,
+dequeue and ownership proof for retirement. In the production-path fixture,
+the modeled controller walks the published TRBs and supplies completions. Four
+wraps per direction pass with DHCP, DNS, 52 exact UDP echoes and TCP/HTTP. The
+same path rejects a stale cookie on a reused slot, a foreign slot and incorrect
+receive lengths. No controller reset or intermediate endpoint Stop is needed
+to wrap in that fixture.
+
+The normal network worker can now take over a DHCP-configured connection from
+the guarded bootstrap. It remains independent of an HTTP process and parks when
+the connection owner withdraws IPv4. A stop request with outstanding network
+borrowers refuses before releasing ownership. The hardware and key teardown
+remain with the native owner. PR #19 owns this transport and worker scope.
+The production-path fixture hands DHCP to the resident worker and exchanges 22
+exact UDP echoes across a 250-turn quiet interval. It verifies stop refusal
+while a socket is open, IPv4 withdrawal on stop, and a parked worker with no
+further provider poll before exact native retirement. The USB controller,
+access point and scheduler are modeled in this test.
+The kernel build, the six production-path cases for paired rings and the
+resident worker, all 66 existing HTTP reconnect cases, and the DMA, bootstrap,
+Wi-Fi service and syscall regressions passed. Sanitizer runs passed for ring
+wrap, stale completion and resident-worker retirement.
+
+The Event Data experiment retains the existing 15-second and packet limits.
+Ordinary boot still uses the established path and System still displays cached
+scan results. The desktop needs a native connection owner that drives this
+worker outside the bounded capture, handles cancellation and publishes link
+state. That owner also needs to defer work safely when the USB workspace uses
+the shared controller's synchronous command path. The Mac's xHCI 1.0 controller
+still needs physical Event Data and Stop qualification. There is no armed
+hardware trial for this source.
 
 Starting from `00bae497`, with `origin/main` inspected at `4016abf0`, continue
 the Edimax 5 GHz path on this unit. First qualify a connection lifetime whose

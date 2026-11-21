@@ -218,6 +218,12 @@ bool net_bounded_probe_init_connection(struct net_bounded_probe *probe,
     const struct net_bounded_probe_io *io,const struct net_device_ops *provider,
     uint64_t epoch,uint64_t deadline_us);
 bool net_bounded_probe_disconnect(struct net_bounded_probe *probe);
+/* Transfer a DHCP-configured scope to the normal kernel worker. The worker
+ * outlives client tasks and parks on stop. Keep the original scope object and
+ * device alive until stop succeeds. Stop refuses while TCP/UDP have borrowers;
+ * hardware/key teardown is exclusively the caller's responsibility afterward. */
+bool net_bounded_connection_start_worker(struct net_bounded_probe *probe);
+bool net_bounded_connection_stop_worker(struct net_bounded_probe *probe);
 bool net_bounded_probe_current(struct net_bounded_probe *probe);
 bool net_bounded_probe_poll(struct net_bounded_probe *probe);
 /* Prewarm exact target's next-hop MAC inside the same bounded owner/window.

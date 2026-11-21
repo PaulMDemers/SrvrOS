@@ -38,6 +38,7 @@ static bool stack_test_nonce(uint8_t out[32]){return stack5_peer_nonce(out);}
 static bool stack_test_message3(uint8_t *out,size_t cap,size_t *size){return stack5_peer_message3(out,cap,size);}
 #include <sys/wait.h>
 #include <unistd.h>
+#include <setjmp.h>
 void *kmalloc(size_t n){return malloc(n);}
 void kfree(void *p){free(p);}
 static unsigned stack_process;
@@ -47,8 +48,31 @@ bool process_signal_pending_current(void){return false;}
 void process_file_poll_wake(void){}
 uint64_t scheduler_current_thread_id(void){return 1;}
 void scheduler_yield(void){test_time+=10000;}
-bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a,uint64_t end){(void)q;(void)fn;(void)a;(void)end;test_time+=10000;return false;}
-bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a){(void)q;(void)fn;(void)a;assert(0);return false;}
+static scheduler_thread_fn resident_thread;
+static jmp_buf resident_wait;
+static bool in_resident,resident_parked;
+#ifndef SRVROS_XHCI_HTTP5_HOST_TEST
+bool scheduler_spawn(const char *name,scheduler_thread_fn entry,void *arg){
+ assert(!strcmp(name,"net-poll") && entry && !arg && !resident_thread);
+ resident_thread=entry;
+ return true;
+}
+#endif
+bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a,uint64_t end){
+ (void)q;(void)fn;(void)a;(void)end;test_time+=10000;
+ if(in_resident)longjmp(resident_wait,1);
+ return false;
+}
+bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a){
+ (void)q;assert(in_resident && !fn(a));resident_parked=true;
+ longjmp(resident_wait,1);
+}
+static void resident_turn(void){
+ assert(resident_thread && !in_resident);
+ in_resident=true;
+ if(!setjmp(resident_wait)){resident_thread(NULL);assert(0);}
+ in_resident=false;
+}
 static struct {
  uint8_t response[8][1600];size_t length[8];unsigned head,count;
  uint64_t tx_pn,rx_pn,ack_release;unsigned ack_noise;unsigned arp,tcp,udp,icmp,dhcp,dns,case_id;
@@ -320,6 +344,7 @@ static void stack_test_progress(void){
   uint8_t eth[1514];size_t n=0;uint64_t pn=0;assert(stack5_peer_open(wifi_stream5.buffer[0][l->index],l->length,eth,sizeof eth,&n,&pn));assert(pn==++ap.tx_pn);ap_packet(eth,n);
   if(ap.case_id==58 && ap.dhcp){ap.held_ticket=l->ticket;return;}
   if(ap.case_id==15 && ap.icmp==64){ap.held_ticket=l->ticket;return;}
+  if(wifi_stream5.paired){struct xhci_trb e;stream_test_paired_event(0,l->length,&e);stream_enqueue(&e,0);return;}
   uint64_t q=wifi_stream5.physical[0]+16*wifi_stream5.enqueue[0];context_write32(wifi_stream5.d->output_context,8,0,1);context_write32(wifi_stream5.d->output_context,8,2,q|wifi_stream5.cycle[0]);context_write32(wifi_stream5.d->output_context,8,3,q>>32);
   struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=1u<<24,.control=(32u<<10)|(8u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(ap.wrong_event)e.parameter_low+=16;stream_enqueue(&e,0);if(ap.case_id==9)stream_enqueue(&e,1);return;
  }
@@ -331,6 +356,7 @@ static void stack_test_progress(void){
   else if(wifi_stream5.connection_mode && reconnect_noise() && ap.background_left){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.background_left--;}
   else if(ap.count){bytes=stream_wrap(ap.response[ap.head],(unsigned)ap.length[ap.head]);ap.head=(ap.head+1)%8;ap.count--;if(wifi_stream5.connection_mode && reconnect_noise())ap.background_left=reconnect_noise();}
   else if(!ap.quiet && wifi_stack5.boundary){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);}
+  if(bytes && wifi_stream5.paired){struct xhci_trb e;stream_test_paired_event(1,bytes,&e);stream_enqueue(&e,0);return;}
   if(bytes){struct mt76_dma5_lease *l=&wifi_stream5.lease[1];uint64_t q=wifi_stream5.posts[1]%wifi_stream5_positions()?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+wifi_stream5_positions()*16;unsigned cycle=wifi_stream5.posts[1]%wifi_stream5_positions()?(unsigned)wifi_stream5.cycle[1]:l->cycle;context_write32(wifi_stream5.d->output_context,9,0,1);context_write32(wifi_stream5.d->output_context,9,2,q|cycle);context_write32(wifi_stream5.d->output_context,9,3,q>>32);struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(ap.provider_loss)wifi_stream5.d->removed=true;stream_enqueue(&e,0);return;}
  }
  if(xhci.command_pending && wifi_fence5_native.round)stream_test_progress();
@@ -360,7 +386,7 @@ static bool stack_exercise(void *context,struct mt76_net5 *p){
  for(unsigned i=0;i<52;i++){
   for(unsigned j=0;j<sizeof payload;j++)payload[j]=(uint8_t)(i+73*j);
   assert(net_udp_sendto_mode((uint64_t)udp,ap_ip,9000,payload,sizeof payload,true)==sizeof payload);
-  if(!stack_poll_until_idle(p,2000)){assert(ap.quiet || ap.bad_mic);return false;}
+  if(!stack_poll_until_idle(p,2000)){assert(ap.quiet || ap.bad_mic || paired_fault);return false;}
   uint32_t ip=0;uint16_t port=0;int64_t n=net_udp_recvfrom((uint64_t)udp,out,sizeof out,&ip,&port,true);if(n<0)return false;
   assert(n==sizeof payload && ip==ap_ip && port==9000 && !memcmp(out,payload,sizeof out));
  }
@@ -370,7 +396,8 @@ static bool stack_exercise(void *context,struct mt76_net5 *p){
  uint8_t bytes[4096];int64_t n=net_read((uint64_t)tcp,(char *)bytes,sizeof bytes,true);assert(n==sizeof stack_header-1+3072 && !memcmp(bytes,stack_header,sizeof stack_header-1));for(unsigned i=0;i<3072;i++)assert(bytes[sizeof stack_header-1+i]==(uint8_t)('A'+i%26));
  if(!stack_poll_until_idle(p,2000))return false;
  assert(!net_close((uint64_t)tcp));if(!stack_poll_until_idle(p,2000))return false;assert(ap.closed);
- assert(wifi_stream5.wraps[0]==1 && wifi_stream5.wraps[1]>=1 && p->received && p->submitted==p->completed && wifi_stream5.dma.borrowed==wifi_stream5.dma.released);
+ assert(wifi_stream5.wraps[0]>=1 && wifi_stream5.wraps[1]>=1 && p->received && p->submitted==p->completed && wifi_stream5.dma.borrowed==wifi_stream5.dma.released);
+ if(!wifi_stream5.paired)assert(wifi_stream5.wraps[0]==1);
  return true;
 }
 static void stack_case(unsigned which){
@@ -380,6 +407,85 @@ static void stack_case(unsigned which){
  assert(wifi_stream5.exchange.keys_erased && !wifi_stream5.exchange.handshake.keys_may_live);reset_test();
 }
 static void probe_setup(unsigned which){stream_setup();memset(&wifi_stack5,0,sizeof wifi_stack5);memset(&wifi_stack5_net,0,sizeof wifi_stack5_net);memset(&wifi_stack5_probe_result,0,sizeof wifi_stack5_probe_result);memset(&ap,0,sizeof ap);ap.case_id=which;}
+static bool resident_exercise(void *context,struct mt76_net5 *p){
+ assert(context==&ap && p==&wifi_stack5_net);
+ struct net_bounded_probe scope={0};
+ const struct net_bounded_probe_io io={&wifi_stream5,wifi_stack5_probe_current,wifi_stack5_probe_retry};
+ uint64_t deadline=wifi_stack5.start+WIFI_STACK5_TOTAL_US;
+ assert(net_bounded_probe_init_connection(&scope,&io,&p->ops,p->epoch,deadline));
+ assert(!net_bounded_connection_start_worker(&scope) && !resident_thread);
+ assert(net_dhcp_request_bounded(&scope)>0);
+ assert(net_bounded_connection_start_worker(&scope) && scope.closed && resident_thread);
+ assert(!net_bounded_connection_start_worker(&scope));
+ int64_t udp=net_udp_open();
+ assert(udp>0 && !net_bounded_connection_stop_worker(&scope));
+ uint8_t payload[256],reply[sizeof payload];
+ for(unsigned i=0;i<22;i++){
+  memset(payload,(int)i,sizeof payload);
+  int64_t sent=net_udp_sendto_mode((uint64_t)udp,ap_ip,9000,payload,sizeof payload,true);
+  if(i==0 && sent==SRV_ERR_AGAIN){
+   /* The first normal socket can queue ARP. Only the resident worker polls
+    * the native provider while the client yields and retries. */
+   for(unsigned j=0;j<8;j++)resident_turn();
+   sent=net_udp_sendto_mode((uint64_t)udp,ap_ip,9000,payload,sizeof payload,true);
+  }
+  assert(sent==sizeof payload);
+  unsigned expected=ap.udp+1;
+  for(unsigned j=0;j<20 && (ap.udp!=expected || p->pending || p->count || ap.count);j++)resident_turn();
+  resident_turn();
+  uint32_t remote=0;
+  uint16_t port=0;
+  assert(net_udp_recvfrom((uint64_t)udp,reply,sizeof reply,&remote,&port,true)==sizeof reply);
+  assert(!memcmp(payload,reply,sizeof reply) && remote==ap_ip && port==9000);
+  if(i==10){
+   /* No client or HTTP supervisor drives USB during this quiet interval. */
+   uint64_t services=wifi_stack5.services;
+   for(unsigned j=0;j<250;j++)resident_turn();
+   assert(wifi_stack5.services>services && !wifi_stream5.failed);
+  }
+ }
+ assert(!net_close((uint64_t)udp) && !p->pending && !p->count);
+ assert(net_bounded_connection_stop_worker(&scope) && scope.disconnected);
+ assert(!net_bounded_connection_stop_worker(&scope));
+ uint64_t services=wifi_stack5.services;
+ resident_turn();
+ assert(resident_parked && wifi_stack5.services==services);
+ struct srv_net_status_info status;
+ assert(!net_status_info(&status) && !status.dhcp_configured && !status.local_ip);
+ return true;
+}
+static void paired_case(unsigned fault){
+ assert(fault<=5);
+ probe_setup(0);
+ if(fault==5){
+  ap.quiet=true;
+  assert(xhci_wifi_capture_stack5_paired(resident_exercise,&ap));
+  assert(resident_parked && wifi_stream5.retired && wifi_stack5.retired && wifi_stack5.detached);
+  assert(wifi_stream5.wraps[0] && wifi_stream5.wraps[1] && ap.udp==22);
+  puts("xhci paired Wi-Fi: PASS resident production worker after DHCP, traffic across idle, IP withdrawal, parked worker and native retirement");
+  return;
+ }
+ paired_fault=fault;
+ ap.quiet=true;
+ assert(xhci_wifi_capture_stack5_paired(stack_exercise,&ap)==!fault);
+ assert(!wifi_fence5_native.bound && !wifi_stream5.dma.wraps);
+ if(fault){
+  const struct xhci_trb *event=&wifi_stream5.fault_event;
+  assert(wifi_stream5.failed && wifi_stream5.active && !wifi_stream5.retired &&
+         !wifi_stack5.detached && wifi_stream5.fault_event_valid && (event->control&4));
+  if(fault==1){
+   assert((event->parameter_low|((uint64_t)event->parameter_high<<32))==paired_first_tx_cookie);
+   assert(wifi_stream5.wraps[0]==1 && wifi_stream5.pending[0] && wifi_stream5.completions[0]==15);
+  }else assert(wifi_stream5.pending[1] && !wifi_stream5.ready_rx);
+ }else {
+  assert(wifi_stream5.wraps[0]>=4 && wifi_stream5.wraps[1]>=3 && paired_tx_with_rx_pending);
+  assert(wifi_stream5.commands==6 && wifi_stream5.stop_events[0]==1 && wifi_stream5.stop_events[1]==1);
+  assert(ap.dhcp==2 && ap.dns==1 && ap.udp==52 && ap.closed && wifi_stream5.exchange.keys_erased);
+  assert(wifi_stream5.retired && wifi_stack5.detached && wifi_stack5.retired);
+ }
+ printf("xhci paired Wi-Fi: PASS case%u TX wraps=%u RX wraps=%u TX reuse with pending RX=%u; modeled controller, physical acceptance=0\n",
+        fault,wifi_stream5.wraps[0],wifi_stream5.wraps[1],paired_tx_with_rx_pending);
+}
 static void probe_size_projection(void){
  probe_setup(10);assert(xhci_wifi_capture_stack5_probe());batch_trace=true;fputs("wifi-stack5-size-projection: synthetic=1 acceptance=0\n",stdout);
  wifi_stream5.record_count=WIFI_STREAM5_TX+WIFI_STREAM5_RX;wifi_stream5.completions[1]=WIFI_STREAM5_RX;
@@ -705,6 +811,7 @@ static void connection_dhcp_receipt(unsigned fault){
 #define STACK5_TEST_MAIN main
 #endif
 int STACK5_TEST_MAIN(int argc,char **argv){
+ if(argc==3 && !strcmp(argv[1],"--paired-case")){paired_case((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if(argc==3 && !strcmp(argv[1],"--trace-connection-dhcp")){batch_trace=true;connection_dhcp_receipt((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if((argc==2 || argc==19) && !strcmp(argv[1],"--trace-reconnect")){
   if(argc==19){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;}

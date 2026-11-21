@@ -295,11 +295,56 @@ if(sim.fault==22 && !m1){h[32+82]^=1;}
  return stream_wrap(h,n);
 }
 static void stream_enqueue(const struct xhci_trb *e,unsigned offset){unsigned i=(unsigned)xhci.event_dequeue+offset;bool cycle=xhci.event_cycle;if(i>=XHCI_EVENT_TRB_COUNT){i-=XHCI_EVENT_TRB_COUNT;cycle=!cycle;}xhci.event_ring[i]=*e;xhci.event_ring[i].control=(e->control&~1u)|(cycle?1:0);}
+static unsigned paired_fault,paired_tx_with_rx_pending;
+static uint64_t paired_first_tx_cookie;
+static uint64_t stream_test_dequeue(unsigned dci){
+ return context_read32(wifi_stream5.d->output_context,dci,2)|
+  ((uint64_t)context_read32(wifi_stream5.d->output_context,dci,3)<<32);
+}
+/* Model the controller walking the actual device-visible words, including
+ * the owned Link, independent of the driver's producer cursor and cookie. */
+static void stream_test_paired_event(unsigned dir,unsigned actual,struct xhci_trb *event){
+ unsigned dci=8+dir;
+ uint64_t base=wifi_stream5.physical[dir],dequeue=stream_test_dequeue(dci);
+ assert((dequeue&~15ull)>=base);
+ unsigned index=(unsigned)(((dequeue&~15ull)-base)/16),cycle=dequeue&1;
+ const struct xhci_trb *ring=wifi_stream5.ring[dir];
+ assert(index<=30);
+ if(ring[index].control>>10==6){
+  assert(index==30 && ring[index].control==(6u<<10|2u|cycle));
+  assert((ring[index].parameter_low|((uint64_t)ring[index].parameter_high<<32))==base);
+  index=0;
+  cycle^=1;
+ }
+ assert(index<30 && !(index&1));
+ assert(ring[index].control==(1u<<10|16u|cycle));
+ assert(ring[index+1].control==(7u<<10|32u|cycle) && !ring[index+1].status);
+ assert(ring[index].status>=actual &&
+        (ring[index].parameter_low|((uint64_t)ring[index].parameter_high<<32))==wifi_stream5.lease[dir].page);
+ uint64_t cookie=ring[index+1].parameter_low|((uint64_t)ring[index+1].parameter_high<<32);
+ unsigned cc=ring[index].status==actual?1:13;
+ if(!dir && !paired_first_tx_cookie)paired_first_tx_cookie=cookie;
+ if(!dir && !index && !cycle && wifi_stream5.pending[1])paired_tx_with_rx_pending++;
+ if(!dir && !index && !cycle && paired_fault==1)cookie=paired_first_tx_cookie;
+ if(dir && paired_fault==2 && wifi_stream5.data_active)actual=4097;
+ if(dir && paired_fault==4 && wifi_stream5.data_active){cc=1;actual=0;}
+ uint64_t next=(base+16*(index+2))|cycle;
+ context_write32(wifi_stream5.d->output_context,dci,0,1);
+ context_write32(wifi_stream5.d->output_context,dci,2,next);
+ context_write32(wifi_stream5.d->output_context,dci,3,next>>32);
+ *event=(struct xhci_trb){.parameter_low=cookie,.parameter_high=cookie>>32,.status=cc<<24|actual,
+  .control=(32u<<10)|(1u<<2)|(dci<<16)|((uint32_t)wifi_stream5.slot<<24)};
+ if(dir && paired_fault==3 && wifi_stream5.data_active)event->control^=1u<<24;
+}
 static bool stream_test_command(const struct xhci_trb *t,unsigned type,uint64_t *slot){
  struct xhci_device *d=wifi_stream5.d;unsigned i=(unsigned)xhci.command_enqueue,dci=(t->control>>16)&31;assert(i<63);struct xhci_trb shadow=*t;shadow.control|=xhci.command_cycle?1:0;xhci.command_ring[i]=shadow;xhci.command_enqueue++;*slot=d->slot_id;
  if(type==12){if(context_read32(d->input_context,0,0)&(1u<<8))context_write32(d->output_context,8,0,0);else{for(unsigned j=0;j<8;j++)context_write32(d->output_context,8,j,context_read32(d->input_context,9,j));context_write32(d->output_context,8,0,1);}}
  else if(type==16){uint64_t q=t->parameter_low|((uint64_t)t->parameter_high<<32);context_write32(d->output_context,dci,2,q);context_write32(d->output_context,dci,3,q>>32);}
- else{assert(type==15);unsigned dir=dci==9;uint64_t ptr=wifi_stream5.pending[dir]?wifi_stream5.lease[dir].trb:wifi_stream5.physical[dir]+16*wifi_stream5.enqueue[dir];unsigned cycle=wifi_stream5.pending[dir]?wifi_stream5.lease[dir].cycle:(unsigned)wifi_stream5.cycle[dir],cc=wifi_stream5.pending[dir]?26:27,res=wifi_stream5.pending[dir]?4096:0;struct xhci_trb stop={.parameter_low=ptr,.parameter_high=ptr>>32,.status=(cc<<24)|res,.control=(32u<<10)|(dci<<16)|((uint32_t)wifi_stream5.slot<<24)};dispatch_transfer_event(&stop);/* Final context publication follows the raw Stop event. */uint64_t deq=ptr|cycle;unsigned state=3;
+ else{assert(type==15);unsigned dir=dci==9;uint64_t ptr=wifi_stream5.pending[dir]?wifi_stream5.lease[dir].trb:wifi_stream5.physical[dir]+16*wifi_stream5.enqueue[dir];unsigned cycle=wifi_stream5.pending[dir]?wifi_stream5.lease[dir].cycle:(unsigned)wifi_stream5.cycle[dir],cc=wifi_stream5.pending[dir]?26:27,res=wifi_stream5.pending[dir]?4096:0;
+  if(wifi_stream5.paired && !wifi_stream5.pending[dir]){
+   uint64_t current=stream_test_dequeue(dci);ptr=current&~15ull;cycle=current&1;
+  }
+  struct xhci_trb stop={.parameter_low=ptr,.parameter_high=ptr>>32,.status=(cc<<24)|res,.control=(32u<<10)|(dci<<16)|((uint32_t)wifi_stream5.slot<<24)};dispatch_transfer_event(&stop);/* Final context publication follows the raw Stop event. */uint64_t deq=ptr|cycle;unsigned state=3;
   if(dci==sim.fault_at){if(sim.fault==36)state=1;if(sim.fault==37)deq^=1;if(sim.fault==38)deq+=16;if(sim.fault==39)deq|=2;}
   context_write32(d->output_context,dci,0,state);context_write32(d->output_context,dci,2,deq);context_write32(d->output_context,dci,3,deq>>32);}
  xhci.command_events++;xhci.last_completion_code=1;xhci.last_slot_id=*slot;xhci.last_command_pointer=xhci.command_ring_phys+16*i;xhci.last_expected_command_pointer=xhci.last_command_pointer;
@@ -310,6 +355,7 @@ static void stream_test_progress(void){
   if(sim.tx_seen<=4){sim.response=sim.tx_seen==1?1:sim.tx_seen==2?2:sim.tx_seen==3?4:0;}
   else if(wifi_stream5.data_active){unsigned i=wifi_stream5.data_sends;assert(i<stream_oracle_count());assert(l->length==stream_oracle_tx_size(i));assert(!memcmp(wifi_stream5.buffer[0][l->index],stream_oracle_tx(i),l->length));sim.response=(sim.no_offer || !stream_oracle_rx_size(i))?0:5;sim.index=i;sim.noise_left=sim.noise;}
   struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=1u<<24,.control=(32u<<10)|(8u<<16)|((uint32_t)wifi_stream5.slot<<24)};
+  if(wifi_stream5.paired){stream_test_paired_event(0,l->length,&e);stream_enqueue(&e,0);return;}
   if(sim.fault && sim.tx_seen==sim.fault_at)switch(sim.fault){case 1:e.parameter_low+=16;break;case 2:e.control|=4;break;case 3:e.status|=1;break;case 4:e.control^=1u<<24;break;case 5:wifi_stream5.dma.epoch++;break;case 6:wifi_stream5.ring[0][0].status^=1;break;case 7:sim.tx_seen--;return;default:break;}
   uint64_t q=wifi_stream5.physical[0]+16*wifi_stream5.enqueue[0];context_write32(wifi_stream5.d->output_context,8,0,1);context_write32(wifi_stream5.d->output_context,8,2,q|wifi_stream5.cycle[0]);context_write32(wifi_stream5.d->output_context,8,3,q>>32);stream_enqueue(&e,0);return;
  }
@@ -317,7 +363,7 @@ static void stream_test_progress(void){
   if(sim.dhcp_mode && wifi_stream5.data_active && wifi_stream5.data_sends && !sim.response)test_time+=sim.ambient?30000:250000;
   if(!sim.response && sim.ambient && wifi_stream5.data_active && wifi_stream5.data_sends){sim.ambient--;sim.response=6;}
   if(!sim.response && wifi_stream5.exchange.assoc_matched && !sim.m1)sim.response=3;
-  if(sim.response){struct mt76_dma5_lease *l=&wifi_stream5.lease[1];unsigned bytes;if((sim.response==5 && sim.noise_left) || sim.response==6){uint8_t beacon[24]={0x80};if(sim.response==6)sim.response=0;else sim.noise_left--;bytes=stream_wrap(beacon,sizeof beacon);}else{bytes=stream_reply();sim.response=0;}sim.rx_seen++;uint64_t q=wifi_stream5.posts[1]%wifi_stream5_positions()?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+wifi_stream5_positions()*16;unsigned cycle=wifi_stream5.posts[1]%wifi_stream5_positions()?(unsigned)wifi_stream5.cycle[1]:l->cycle;context_write32(wifi_stream5.d->output_context,9,0,1);context_write32(wifi_stream5.d->output_context,9,2,q|cycle);context_write32(wifi_stream5.d->output_context,9,3,q>>32);struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(sim.rx_seen==sim.fault_at)switch(sim.fault){case 31:e.parameter_low+=16;break;case 32:e.control^=1u<<24;break;case 33:e.control|=4;break;case 34:e.status=2u<<24;break;case 35:e.status=(13u<<24)|4097;break;default:break;}stream_enqueue(&e,0);return;}
+  if(sim.response){struct mt76_dma5_lease *l=&wifi_stream5.lease[1];unsigned bytes;if((sim.response==5 && sim.noise_left) || sim.response==6){uint8_t beacon[24]={0x80};if(sim.response==6)sim.response=0;else sim.noise_left--;bytes=stream_wrap(beacon,sizeof beacon);}else{bytes=stream_reply();sim.response=0;}sim.rx_seen++;if(wifi_stream5.paired){struct xhci_trb e;stream_test_paired_event(1,bytes,&e);stream_enqueue(&e,0);return;}uint64_t q=wifi_stream5.posts[1]%wifi_stream5_positions()?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+wifi_stream5_positions()*16;unsigned cycle=wifi_stream5.posts[1]%wifi_stream5_positions()?(unsigned)wifi_stream5.cycle[1]:l->cycle;context_write32(wifi_stream5.d->output_context,9,0,1);context_write32(wifi_stream5.d->output_context,9,2,q|cycle);context_write32(wifi_stream5.d->output_context,9,3,q>>32);struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(sim.rx_seen==sim.fault_at)switch(sim.fault){case 31:e.parameter_low+=16;break;case 32:e.control^=1u<<24;break;case 33:e.control|=4;break;case 34:e.status=2u<<24;break;case 35:e.status=(13u<<24)|4097;break;default:break;}stream_enqueue(&e,0);return;}
  }
  if(xhci.command_pending && wifi_fence5_native.round){struct wifi_fence5_native_command *r=&wifi_fence5_native.commands[wifi_fence5_native.count-1];unsigned n=0;context_write32(wifi_stream5.d->output_context,r->id.dci,0,3);
   if(r->id.type==15){unsigned dir=r->id.dci==9;uint64_t ptr=wifi_stream5.physical[dir]+(sim.link?wifi_stream5_positions()*16:0),deq=ptr|(sim.link?wifi_stream5.dma.cycle[dir]:(wifi_stream5.dma.cycle[dir]^1));if(sim.fault==40)deq^=1;if(sim.fault==41){ptr=wifi_stream5.physical[dir]+63*16;deq=ptr|wifi_stream5.dma.cycle[dir];}context_write32(wifi_stream5.d->output_context,r->id.dci,2,deq);context_write32(wifi_stream5.d->output_context,r->id.dci,3,deq>>32);struct xhci_trb e={.parameter_low=ptr,.parameter_high=ptr>>32,.status=27u<<24,.control=(32u<<10)|(r->id.dci<<16)|((uint32_t)wifi_stream5.slot<<24)};stream_enqueue(&e,n++);}else{context_write32(wifi_stream5.d->output_context,r->id.dci,2,r->id.dequeue);context_write32(wifi_stream5.d->output_context,r->id.dci,3,r->id.dequeue>>32);}
