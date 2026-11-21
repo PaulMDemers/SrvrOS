@@ -17,6 +17,11 @@ checks this independent registration before preparing or writing the mapping.
 The version 11 receipt records the number of protected pages. GPU ownership
 of the second range and a physical page flip remain pending.
 
+Source `aef29e75` passed 65 transfer cases and the 336-case native adapter
+fixture under fatal ASan/UBSan. Release `b05a2ddf2ec897ad` booted in QEMU,
+recorded zero protected pages and zero writes on the unsupported GPU, saved
+the report to exFAT and reset. The same image halted on missing workspace.
+
 PR301 on main baseline `4016abf0` now exercises a synchronous flip to a second
 surface and restores the original using the same display owner. The local
 fixture runs the plane and primary CRC cores together at the Air's captured

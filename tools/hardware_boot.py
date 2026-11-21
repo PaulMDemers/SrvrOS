@@ -394,7 +394,7 @@ def verify(directory, expected_release=None):
         raise ValueError("Unknown boot configuration version")
     source = None
     if version.startswith((*EDP_CONFIGS, "ram-usb-v12-intel-stolen-")) and manifest.get("source_bound") is not True:
-        raise ValueError("Missing eDP payload source binding")
+        raise ValueError("Missing boot payload source binding")
     if "source_bound" in manifest:
         if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v12-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
             raise ValueError("Unexpected boot payload source binding")
