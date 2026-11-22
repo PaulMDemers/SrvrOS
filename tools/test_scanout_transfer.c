@@ -388,6 +388,8 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         if (!strcmp(page_failure,"pre-store-widi") && ggtt_phase==1) *word=0x10;
         if (!strcmp(page_failure,"sa-store-widi") && ggtt_phase==1 &&
             table[8704]!=cached_translation) *word=0x10;
+        if (block_active && !strcmp(page_failure,"sa-post-widi") &&
+            ggtt_posts==a.publication.writes) *word=0x10;
         if (block_active && !strcmp(page_failure,"widi-open")) *word = 0x10;
         if (block_active && (!strcmp(page_failure,"widi-idle") ||
             (!strcmp(page_failure,"widi-early-ack") && l3_reads==1))) *word = 1;
@@ -816,7 +818,8 @@ int main(int argc,char **argv) {
         if (unblock) {
             assert(!intel_bdw_scanout_retire_test_page(&a,&at));
             assert(!intel_bdw_scanout_retire_test_page(&a,&at));
-            assert(block_releases==(unsigned)(strncmp(page_failure,"l3-",3)!=0 && strcmp(page_failure,"engine-reset-reason")!=0));
+            assert(block_releases==(unsigned)(strncmp(page_failure,"l3-",3)!=0 && strcmp(page_failure,"engine-reset-reason")!=0 &&
+                                               strcmp(page_failure,"widi-open")!=0));
             assert(borrower && transfer.device_publication==&a.publication && transfer.pinned);
             assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
             assert(cached_translation==input[0] && table[8704]==input[0]);
