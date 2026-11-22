@@ -177,7 +177,7 @@ def main():
         if args.resolver:
             dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
             unit = ROOT / 'tools/test_glib_resolver_guest.c'
-            for path in (dns_peer, unit):
+            for path in (dns_peer, unit, ROOT / 'tools/test_glib_dns_expand.h'):
                 receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
             obj = output / 'resolver.o'
             resolver = output / 'resolver.elf'

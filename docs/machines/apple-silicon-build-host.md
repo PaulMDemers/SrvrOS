@@ -186,6 +186,17 @@ probe, and both processes stopped. Kernel, init and probe bytes were verified
 by reading the boot ISO. The VM window was returned to integration.
 See the [resolver receipt](../assets/evidence/gio-res-query/receipt.json).
 
+## GIO DNS decoding — November 22, 2026
+
+The browser topic extends the tested PR #511 SDK with the DNS wire declarations
+and bounded name expansion used by GLib 2.90.1. The scope is the public
+nameser and resolver headers, userspace decoder, and resolver guest probe.
+Kernel networking and the DNS exchange use the verified baseline. Four
+fixture runs passed in the private diskless Q35 guest and the window was
+returned to integration. The GIO resolver object compiles. The first static
+GLib/GIO build failure is missing `ELOOP` in `gfileutils.c`. See the
+[wire decoder receipt](../assets/evidence/gio-dns-wire/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

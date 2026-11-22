@@ -587,6 +587,20 @@ yield `TRY_AGAIN`. A matched truncated response yields `TRY_AGAIN` with
 supports UDP only and uses the existing three receive budgets of two seconds
 each. See the [GIO resolver verification](browser-glib-prereq.md#gio-raw-resolver-query).
 
+`<arpa/nameser.h>` also exposes the 12-byte wire header, the NS, SOA, MX, TXT
+and SRV type constants, and `GETSHORT` / `GETLONG` for byte cursors. The header
+exposes raw network-order flags and counts. Callers check that enough bytes
+remain before advancing a cursor.
+
+`dn_expand()` in `<resolv.h>` expands a name within caller-provided packet
+bounds, preserves case and escapes label bytes for DNS presentation. It
+returns the original encoded length, so a compression pointer counts as two
+bytes. The root expands to an empty string. Malformed encodings and insufficient
+output space return `-1` with the destination untouched. Encoded names are
+limited to 255 bytes after expansion. Compression pointers must refer
+backward to names beyond the DNS header. Full-packet validation in
+`res_query()` checks the label boundaries separately.
+
 ARP waits resolve their captured target from the bounded cache, so overlapping
 lookups cannot consume each other's completion. Only ARP request/reply opcodes
 update that cache. Native DNS permits one active query across ARP and all retries;
