@@ -7,6 +7,14 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Same-boot Demers5 desktop reconnect
+
+Work starts at `8b38e6eb` with `origin/main` at `4016abf0`. PR #19 covers
+the native Wi-Fi owner, System controls and reconnect fixture. PR #301 and
+#379 remain separate. The first follow-up qualifies two desktop connections
+with fresh WPA and DHCP state while USB storage stays mounted. Live adapter
+reinsertion and cold reliability follow the two-connection trial.
+
 ### Desktop connection owner and shared USB storage
 
 Follow-up scope at `722bddcc` with `origin/main` at `4016abf0`: use the
