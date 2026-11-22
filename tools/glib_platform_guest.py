@@ -125,7 +125,8 @@ def run_guest(image, output, receipt, probes, dns_peer=None):
             observed = json.loads(stats.read_text())
             if (peer_exit or observed['queries'] != expected or observed['invalid_frames'] or
                 observed['rejected_queries'] or observed['dns_responses'] != 30 or
-                observed['deliberate_mismatch_replies'] != 4):
+                observed['deliberate_mismatch_replies'] != 4 or
+                observed['deliberate_malformed_replies'] != 2):
                 raise RuntimeError(f'unexpected DNS fixture traffic: {observed}')
             receipt['dns_peer_queries'] = observed['queries']
 

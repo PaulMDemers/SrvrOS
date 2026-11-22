@@ -89,8 +89,9 @@ def dns_reply(query, question, kind, transaction_id=None):
         return struct.pack('!HHHHHH', ident, flags, 1, 1, 0, 1) + question + answer + additional
     rdata = None
     record_type = 16
-    if kind in ('good', 'mismatch', 'malformed'):
-        text = b'srvros valid after malformed' if kind == 'malformed' else b'srvros resolver fixture'
+    if kind in ('good', 'mismatch', 'malformed', 'wrong-id'):
+        text = {'malformed': b'srvros valid after malformed',
+                'wrong-id': b'wrong transaction'}.get(kind, b'srvros resolver fixture')
         rdata = bytes((len(text),)) + text
     elif kind == 'large':
         rdata = b''.join(bytes((220,)) + bytes((ord('a') + i,)) * 220 for i in range(5))
@@ -171,7 +172,7 @@ def frame_replies(frame, stats):
     responses = []
     if case == 'mismatch':
         # A wrong-ID response and a wrong-question response precede the valid one.
-        responses.append(dns_reply(query, question, case, transaction_id=ident ^ 1))
+        responses.append(dns_reply(query, question, 'wrong-id', transaction_id=ident ^ 1))
         wrong = bytes((5,)) + b'wrong' + question[1 + len('mismatch'):]
         responses.append(dns_reply(query, wrong, case))
         stats['deliberate_mismatch_replies'] += 2
