@@ -12,6 +12,7 @@ static uint64_t process_test_rflags(void);
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_CAPTURE_WRITE_CLOCK_HOST_TEST
 #include "../kernel/src/process.c"
+#include "test_process_isolation_stubs.inc"
 
 static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture,namespace_fixture;
 static unsigned deletes;

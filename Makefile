@@ -5548,6 +5548,12 @@ build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_dri
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_export_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
+# Diagnostic helper injected only into disposable local-isolation test images.
+build/userspace/test_local_isolation.elf: tools/test_local_isolation.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p $(@D)
+	$(CC) $(USER_CFLAGS) -c $< -o build/userspace/test_local_isolation.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/test_local_isolation.o $(USER_LIB_OBJ) -o $@
+
 # Diagnostic helper injected only into disposable less-test images.
 build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/src/terminal.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
 	mkdir -p build/userspace/less-probe
@@ -6278,6 +6284,10 @@ test-core: test-capture-write-timing
 
 # The real process host fixture includes this private timing implementation.
 build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h
+build/tests/process-output-host$(HOST_EXE) build/tests/process-loader-host$(HOST_EXE) \
+build/tests/process-service-host$(HOST_EXE) build/tests/process-spawn-failure-host$(HOST_EXE) \
+build/tests/process-image-lifecycle-host$(HOST_EXE) build/tests/process-private-spawn-host$(HOST_EXE) \
+build/tests/file-stream-process-host$(HOST_EXE): tools/test_process_isolation_stubs.inc
 
 .PHONY: test-vfs-metadata-restore test-exfat-metadata-restore
 test-core: test-vfs-metadata-restore test-exfat-metadata-restore

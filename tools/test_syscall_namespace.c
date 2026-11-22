@@ -64,10 +64,10 @@ int main(void) {
         SYS_CHMOD,SYS_UTIME,SYS_UNLINK,SYS_MKDIR,SYS_MKDIR_MODE,SYS_RMDIR,SYS_RENAME,SYS_FILE_CHANGE,SYS_PATH_CONTEXT,SYS_DIRECTORY};
     for(unsigned i=0;i<sizeof(selected)/sizeof(*selected);i++) {
         struct isr_frame frame={.rax=selected[i]};
-        assert(namespace_syscall(selected[i]) && !syscall_io_safe(&frame));
+        assert(namespace_syscall(&frame) && !syscall_io_safe(&frame));
     }
     static const uint64_t unselected[]={SYS_EXEC,SYS_SPAWN,SYS_FORK,SYS_CLOSE,SYS_READ,SYS_WRITE,SYS_POLL};
-    for(unsigned i=0;i<sizeof(unselected)/sizeof(*unselected);i++) assert(!namespace_syscall(unselected[i]));
+    for(unsigned i=0;i<sizeof(unselected)/sizeof(*unselected);i++) { struct isr_frame frame={.rax=unselected[i]}; assert(!namespace_syscall(&frame)); }
     struct isr_frame prelude={.rax=SYS_POLL};assert(syscall_io_safe(&prelude));
     puts("syscall-namespace: PASS list bounds, validation, projected identity and syscall admission");
     return 0;

@@ -78,6 +78,7 @@ bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *s
 void vfs_note_read(const struct vfs_node *node);
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data);
 void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback);
+void vfs_set_access_guard(bool (*guard)(const char *path));
 bool vfs_update_file_size(const char *path, uint64_t size);
 bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out);
 bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata);
@@ -94,6 +95,11 @@ struct vfs_metadata_restore {
 bool vfs_restore_metadata(const char *prefix,
     const struct vfs_metadata_restore *entries, uint64_t count);
 
+/* Canonical absolute paths only. Caller holds syscall namespace admission across
+ * check and operation. Ancestors require search; uid 0 bypasses mode bits. */
+int64_t vfs_check_access(const char *canonical_path,uint64_t uid,uint64_t gid,unsigned access);
+int64_t vfs_check_parent_access(const char *canonical_path,uint64_t uid,uint64_t gid,unsigned access);
+bool vfs_chown(const char *path,uint64_t uid,uint64_t gid);
 bool vfs_chmod(const char *path, uint64_t mode);
 void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime);
 bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime);

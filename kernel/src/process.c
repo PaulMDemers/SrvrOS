@@ -249,6 +249,7 @@ struct process {
     uint64_t child_user_us,child_system_us,child_peak_bytes,peak_mapped_bytes;
     struct srv_rlimit fsize_limit;
     uint64_t creation_mask;
+    struct process_credentials credentials;
     char cwd[PROCESS_PATH_MAX];
     char cwd_storage[PROCESS_PATH_MAX];
     uint64_t process_group;
@@ -1516,7 +1517,7 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     process->active=true;process->detached=detached;process->pid=pid;
     process->lifetime=token;
     process->parent_pid=process_pid(parent);
-    if(parent) { process->creation_mask=parent->creation_mask;process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
+    if(parent) { process->credentials=parent->credentials;process->creation_mask=parent->creation_mask;process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
         copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd);
         copy_process_path(process->cwd_storage,sizeof(process->cwd_storage),parent->cwd_storage); }
     process->usr1_action.mode=(process->signal_ignore_mask&(1ull<<SRV_SIGNAL_USR1)) ?
@@ -2461,6 +2462,8 @@ static int64_t load_elf_image_checked(const char *path,struct process *process,u
     if(result>=0) result=current?process_path_context_for(current,SRV_PATH_RESOLVE,path,logical,sizeof(logical)):
         (copy_process_path(logical,sizeof(logical),path)?0:SRV_ERR_NAMETOOLONG);
     if(result>=0) result=vfs_namespace_system_path(logical,storage,sizeof(storage));
+    if(result>=0 && current && current->credentials.uid)
+        result=vfs_check_access(storage,current->credentials.uid,current->credentials.gid,1);
     if(result>=0) result=load_elf_image_checked_impl(storage,process,stack_top,entry_out);
     process_service_end(scope);
     process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
@@ -4178,6 +4181,12 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
         if(!path) return SRV_ERR_FAULT;
         if(!path[0]) return SRV_ERR_NOENT;
         if(!copy_process_path(resolved,sizeof(resolved),path[0]=='/'?"/":process->cwd)) return SRV_ERR_NAMETOOLONG;
+        if(process->credentials.uid) {
+            char storage[PROCESS_PATH_MAX];
+            int64_t error=vfs_namespace_system_path(resolved,storage,sizeof(storage));
+            if(error>=0) error=vfs_check_access(storage,process->credentials.uid,process->credentials.gid,1);
+            if(error<0) return error;
+        }
         uint64_t length=0;while(resolved[length]) length++;
         uint64_t at=0;
         while(path[at]) {
@@ -4206,6 +4215,10 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
                 if(!node && operation==SRV_PATH_RESOLVE_DIRECTORY && !path[next]) continue;
                 if(!node) return SRV_ERR_NOENT;
                 if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+                if(process->credentials.uid) {
+                    error=vfs_check_access(storage,process->credentials.uid,process->credentials.gid,1);
+                    if(error<0) return error;
+                }
             }
         }
         if(operation==SRV_PATH_CHDIR) {
@@ -4215,6 +4228,10 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
             const struct vfs_node *node=vfs_lookup(storage);
             if(!node) return SRV_ERR_NOENT;
             if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+            if(process->credentials.uid) {
+                error=vfs_check_access(storage,process->credentials.uid,process->credentials.gid,1);
+                if(error<0) return error;
+            }
             copy_process_path(process->cwd,sizeof(process->cwd),resolved);
             copy_process_path(process->cwd_storage,sizeof(process->cwd_storage),storage);
             return 0;
@@ -4251,6 +4268,36 @@ bool process_has_open_vfs_prefix(const char *prefix) {
 
 struct process *process_current(void) {
     return (struct process *)scheduler_current_user_context();
+}
+
+struct process_credentials process_get_credentials(const struct process *process) {
+    return process ? process->credentials : (struct process_credentials){0,0};
+}
+
+int64_t process_drop_credentials(uint64_t uid, uint64_t gid) {
+    uint64_t irq=process_irq_save();
+    struct process *p=process_current();
+    int64_t result=SRV_ERR_PERM;
+    if(!p || p->credentials.uid || !uid || !gid) goto done;
+    result=SRV_ERR_BUSY;
+    /* The designated reaper must retain its privilege while it owns orphan
+     * collection; an irreversible drop must not retain that authority. */
+    if(p->pid==system_reaper_pid || process_current_user_thread() ||
+       process_signal_records_active(p) || p->owned_user_scope ||
+       p->pending_signals || p->main_pending_signals) goto done;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(p->user_threads[i].used) goto done;
+    for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++)
+        if(p->mmap_regions[i].used && !p->mmap_regions[i].anonymous) goto done;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(p->files[i].used &&
+        (i>2 || p->files[i].type!=PROCESS_FILE_STDIO || p->files[i].handle!=i)) goto done;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_STREAM_PROCESS_HOST_TEST)
+    if(file_stream_owned(p->stream_instance)) goto done;
+#endif
+    p->credentials=(struct process_credentials){uid,gid};
+    result=0;
+done:
+    process_irq_restore(irq);
+    return result;
 }
 
 static struct process_user_thread *process_find_user_thread(struct process *process, uint64_t tid) {
@@ -5736,6 +5783,14 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
     if(result<0) { process_service_end(scope);return result; }
     result=vfs_namespace_system_path(logical,storage,sizeof(storage));
     if(result<0) { process_service_end(scope);return result; }
+    if(process && process->credentials.uid) {
+        const struct vfs_node *node=vfs_lookup(storage);
+        unsigned access=((flags&SRV_OPEN_READ)?4:0)|((flags&SRV_OPEN_WRITE)?2:0);
+        if(node) result=vfs_check_access(storage,process->credentials.uid,process->credentials.gid,access);
+        else if(flags&SRV_OPEN_CREATE) result=vfs_check_parent_access(storage,process->credentials.uid,process->credentials.gid,3);
+        else result=SRV_ERR_NOENT;
+        if(result<0) { process_service_end(scope);return result; }
+    }
     if(process_stream_busy(storage,false)) { process_service_end(scope);return SRV_ERR_BUSY; }
     if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write_raw(process,storage,flags);
     else {
@@ -5766,6 +5821,7 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
 }
 
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags) {
+    if(process && process->credentials.uid) return process_file_open_flags(process,path,flags);
     struct process_service_scope scope=process_service_begin();
 #if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
     if(!scope.held) { process_service_end(scope);return SRV_ERR_IO; }
@@ -5836,7 +5892,10 @@ static int64_t process_file_open_write_raw(struct process *process, const char *
     }
     uint64_t mode=(flags&SRV_OPEN_PERMISSIONS)?
         ((flags&SRV_OPEN_MODE_MASK)>>SRV_OPEN_MODE_SHIFT)&~process->creation_mask:UINT64_MAX;
-    if(ensure_empty && !exfat_write_file_mode(path,NULL,0,mode)) {
+    if(process->credentials.uid && mode!=UINT64_MAX) mode&=0777;
+    if(ensure_empty && !(process->credentials.uid && !exists ?
+        exfat_write_file_owned(path,NULL,0,mode,process->credentials.uid,process->credentials.gid) :
+        exfat_write_file_mode(path,NULL,0,mode))) {
         (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_IO;
     }
     if(ensure_empty) {

@@ -4,6 +4,7 @@
 #include <srvros/vfs.h>
 #include <srvros/heap.h>
 #include <srvros/syscall_numbers.h>
+#include <srvros/path_limits.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -76,6 +77,7 @@ static char boot_directories[VFS_BOOT_DIRECTORIES][VFS_BOOT_PATH];
 static unsigned boot_directory_count;
 static uint64_t next_inode = 1;
 static vfs_metadata_changed_fn metadata_changed_callback;
+static bool (*access_guard)(const char *path);
 static vfs_retire_fn retire_callback;
 void vfs_set_retire_callback(vfs_retire_fn callback) { retire_callback = callback; }
 
@@ -340,6 +342,7 @@ static void vfs_init_impl(void) {
     next_inode = 1;
     boot_directory_count = 0;
     metadata_changed_callback = NULL;
+    access_guard = NULL;
     for(uint64_t i=1;i<node_capacity/VFS_NODE_BLOCK;i++) {
         kfree(node_blocks[i]);node_blocks[i]=NULL;
     }
@@ -375,6 +378,53 @@ const struct vfs_node *vfs_lookup(const char *path) {
     return mutable_lookup(path);
 }
 
+/* Caller holds namespace admission for the entire check and ensuing operation. */
+static int64_t check_access(const char *path, uint64_t uid, uint64_t gid,
+    unsigned access, bool parent) {
+    if (!path || path[0] != '/' || (access & ~7u)) return SRV_ERR_INVAL;
+    char prefix[SRV_PATH_MAX];
+    uint64_t len=0;
+    while (path[len]) {
+        if (len+1 >= sizeof(prefix)) return SRV_ERR_INVAL;
+        prefix[len]=path[len]; len++;
+    }
+    prefix[len]='\0';
+    if (!len || (len>1 && prefix[len-1]=='/')) return SRV_ERR_INVAL;
+    for (uint64_t i=1;i<len;i++) {
+        if ((prefix[i]=='/' && prefix[i-1]=='/') ||
+            (prefix[i]=='.' && (i==1 || prefix[i-1]=='/') &&
+             (prefix[i+1]=='/' || prefix[i+1]=='\0' ||
+              (prefix[i+1]=='.' && (prefix[i+2]=='/' || prefix[i+2]=='\0')))))
+            return SRV_ERR_INVAL;
+    }
+    if(uid && access_guard && !access_guard(path)) return SRV_ERR_ACCES;
+    if (parent && len>1) {
+        while (len>1 && prefix[len-1]!='/') len--;
+        len = len>1 ? len-1 : 1;
+        prefix[len]='\0';
+    }
+    for (uint64_t end=1;;) {
+        char saved=prefix[end]; prefix[end]='\0';
+        const struct vfs_node *node=vfs_lookup(prefix);
+        prefix[end]=saved;
+        if (!node) return SRV_ERR_NOENT;
+        bool leaf=end==len;
+        if ((!leaf || parent) && node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+        unsigned requested=leaf ? access : 1u;
+        unsigned shift=uid==node->metadata.uid ? 6 : gid==node->metadata.gid ? 3 : 0;
+        if (uid && (((node->metadata.mode >> shift) & requested) != requested)) return SRV_ERR_ACCES;
+        if (leaf) return 0;
+        end++;
+        while (end<len && prefix[end]!='/') end++;
+    }
+}
+int64_t vfs_check_access(const char *path,uint64_t uid,uint64_t gid,unsigned access) {
+    return check_access(path,uid,gid,access,false);
+}
+int64_t vfs_check_parent_access(const char *path,uint64_t uid,uint64_t gid,unsigned access) {
+    return check_access(path,uid,gid,access,true);
+}
+
 static void vfs_note_read_impl(const struct vfs_node *node) {
     if(node && node->used)((struct vfs_node *)node)->metadata.atime=metadata_time();
 }
@@ -399,6 +449,10 @@ void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
 
 void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback) {
     metadata_changed_callback = callback;
+}
+
+void vfs_set_access_guard(bool (*guard)(const char *path)) {
+    access_guard=guard;
 }
 
 static bool notify_metadata_changed(const struct vfs_node *node) {
@@ -513,6 +567,15 @@ static bool vfs_chmod_impl(const char *path, uint64_t mode) {
     return false;
 }
 
+static bool vfs_chown_impl(const char *path, uint64_t uid, uint64_t gid) {
+    struct vfs_node *node=mutable_lookup(path);
+    if (!node) return false;
+    struct vfs_metadata before=node->metadata;
+    node->metadata.uid=uid; node->metadata.gid=gid; node->metadata.ctime=metadata_time();
+    if (notify_metadata_changed(node)) return true;
+    node->metadata=before; return false;
+}
+
 void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime) {
     if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return;
     uint64_t now=metadata_time();
@@ -625,6 +688,11 @@ bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
     vfs_view_write_end(flags);return result;
 }
 
+bool vfs_chown(const char *path,uint64_t uid,uint64_t gid) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_chown_impl(path,uid,gid);
+    vfs_view_write_end(flags); return result;
+}
 bool vfs_chmod(const char *path, uint64_t mode) {
     uint64_t flags=vfs_view_write_begin();
     bool result=vfs_chmod_impl(path,mode);

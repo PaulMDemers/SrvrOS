@@ -5,6 +5,7 @@
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe,startup_killed,kill_on_wait,invalidate_on_wait;
 static bool exec_test,exec_private,trace_on;
+static struct process_credentials credentials;
 static unsigned trace_fcntls,trace_entries,trace_requests;
 static unsigned exec_attempts,exec_spawns,exec_refreshes;
 static const char *exec_user_path,*exec_user_arg,*exec_user_env;
@@ -31,6 +32,10 @@ bool process_file_nonblocking(struct process *p,uint64_t fd) { struct process_fi
 bool scheduler_io_busy(void) { return busy; }
 void scheduler_io_set_user_safe(bool value) { user_safe=value; }
 struct process *process_current(void) { return (struct process *)1; }
+struct process_credentials process_get_credentials(const struct process *p) {
+    assert(p==process_current());
+    return credentials;
+}
 bool process_fd_is_console(struct process *p,uint64_t fd,bool input) {
     assert(p==(struct process *)1);
     if(fd==10) return false;
@@ -263,6 +268,9 @@ static void exec_syscall_contract(void) {
         .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
     unsigned waits_before=close_waits;
     busy=user_safe=exec_private=true;
+    credentials=(struct process_credentials){.uid=1001,.gid=1001};
+    assert(syscall_exec(&request,0)==SRV_ERR_PERM && !exec_attempts && close_waits==waits_before);
+    credentials=(struct process_credentials){0};
     assert(syscall_exec(&request,0)==77 && busy && user_safe && exec_attempts==1 && !exec_spawns && !exec_refreshes && close_waits==waits_before);
     exec_private=false;
     assert(syscall_exec(&request,0)==88 && !busy && !user_safe && exec_attempts==2 && exec_spawns==1 && exec_refreshes==1 && close_waits==waits_before+1);
