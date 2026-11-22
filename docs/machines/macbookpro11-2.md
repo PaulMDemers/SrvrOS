@@ -17,6 +17,23 @@ The replacement needs a separate xHCI record, fresh DMA, firmware,
 calibration and network ownership. Start at the orderly Disconnect boundary
 proven by v152, then qualify recovery from removal during an active connection.
 
+The first v153 trial uses source `bdf96977` and release `ee0da91f4afcbecc`.
+After the single Demers5 connection has cleanly disconnected, it waits for
+physical removal on the captured root port. An exact Disable Slot completion
+retires the old slot. Its DMA remains pinned. After insertion, a fresh record
+and buffers handle USB addressing, Edimax identity and firmware endpoint
+configuration. Help opens the attended checklist and Exit desktop saves the
+results. This trial ends at USB recovery. Fresh firmware and network
+association after reinsert remain the next implementation step.
+
+The native-path fixtures passed clean Disconnect, two instances of the same
+controller slot number with distinct allocations, stale completion refusal,
+wrong-device and failed-reset handling, and a USB workspace bulk transfer
+after reattachment on the modeled controller. The exact image passed the
+GPT workspace save/reset check and all four independent journal rehearsals.
+Physical run records are under
+`build/bringup/wifi-root-reattach5`.
+
 ### Same-boot Demers5 desktop reconnect
 
 Work starts at `8b38e6eb` with `origin/main` at `4016abf0`. PR #19 covers
