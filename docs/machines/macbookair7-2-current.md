@@ -28,10 +28,29 @@ traffic block. MGSR acknowledges a blocked **register FIFO**. The clock
 arbitration messages report exchanges between hardware units.
 [Register definitions, pp. 469, 546, 587–593, 1042](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
+The Air can access its global translation table while the render engine is
+parked. Under Ubuntu, 330 of 600 one-millisecond intervals bracketed reads
+of slot 8704 with RC6 at both ends, forcewake clear, advancing RC6 residency,
+a stable PTE and the same live panel surface. In 57 intervals the engine
+started in RC6 and ended outside it.
+
+In a second experiment, a Linux process mapped 30 newly allocated private
+GEM pages through the aperture. The i915 trace recorded one GGTT insertion
+and one invalidation in each first-page fault. In 28 cases both power samples
+showed RC6, forcewake was clear, residency advanced and the programmed and
+live panel surfaces matched throughout the sampled endpoints. The median
+interval in those 28 cases was 42 µs. i915 chose the locations. This gives
+SrvrOS a way to observe translation-table access and render sleep together.
+The native writer still needs to prevent a wake during the update and to
+witness the engine and L3 handshakes. On Broadwell, i915 uses render forcewake
+to read the handshake registers. [i915 register access](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L1229-L1234)
+
 With the display-audio controller awake under Ubuntu runtime PM, nine
 samples across three more runs returned codec `0x80862808` and wireless
 audio control `0x540`. Audio output to wireless memory was disabled at
-all nine boundaries. WiDi GO remained open during the queue holds. The
+all nine boundaries. The well read zero when Ubuntu suspended the
+display-audio controller, returned to `0xc0000000` on resume and read zero
+again after autosuspend. WiDi GO remained open during the queue holds. The
 SrvrOS submission diagnostic now verifies the powered codec around each
 wireless audio control read and excludes its MMIO page during the loan.
 The CPU guard now excludes the five engine submission pages, the three
