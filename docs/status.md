@@ -13,11 +13,12 @@ complete with runtime and SrvrUI owner review. A CPU/SHM rendering path exists
 in the pinned source; missing GLib dependencies, shared-memory/IPC, combined
 wait policy and frame completion/cancellation remain explicit implementation
 gates. No full target configure, engine build or rendered page is claimed.
-GLib 2.90.1 now computes its poll constants from the SrvrOS SDK and detects
-the pinned GNU libiconv 1.19 target archive. The normal SDK guest passed
-the native wait and conversion checks twice each. The next static GLib
-configure dependency is PCRE2 8-bit. See the
-[GLib probe record](browser-glib-prereq.md).
+The GLib 2.90.1 cross-configure computes the SrvrOS poll constants,
+configures bundled GVDB, and detects GNU libiconv 1.19, PCRE2 10.49,
+libffi 3.8.0 and zlib 1.4. It configures the internal proxy-libintl 0.5
+fallback. The normal guest passed all six probes twice. Configure stops
+at GIO's `C_IN` compile check because the SDK lacks `<arpa/nameser.h>`.
+See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
 open and draft under its own acceptance ledger.
@@ -29,7 +30,10 @@ bundle admission and restoration into a fresh offline installation. Two EFI
 boots verified the restored identity, local binding, preferences and exact bytes
 of all three selected documents, including a 16 MiB file. A separate v1 restore
 boot passed. The current-main refresh reproduced the proof inputs byte for byte.
-Offline export and export-publication recovery still use canonical v1.
+Profiles, the guest CLI and offline tools now use streaming v2 for every
+portable bundle. Offline export requires a publication directory so it can
+reconcile an interrupted attempt. See the
+[v2-only qualification](assets/evidence/portable-v2-only/manifest.json).
 See the [installation guide](disk-installation.md) and
 [qualification manifest](assets/screenshots/installation-stream-restore-manifest.json).
 

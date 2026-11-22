@@ -1,5 +1,56 @@
 # Apple Silicon macOS build host
 
+## V2-only portable profiles
+
+The current follow-up to OS #504 consolidates Profiles, the guest command, the
+host codec and offline installation tooling on the v2 wire format. The scope
+includes the matching Apps pin and v2 recovery at every current entry point.
+Keep prior qualification receipts attributable to their original commits.
+Authentication and permission enforcement remain separate.
+
+The matched current-main proof at `de748bb0` with Apps pin `1531a154` passes
+both the offline export-to-reboot round trip and the graphical export, import
+interruption, and chooser recovery workflow. The independent byte audit
+verified seven archived exFAT snapshots. See the
+[v2-only qualification](../assets/evidence/portable-v2-only/manifest.json).
+
+Merge review brought the four GCC guard fixes already in the tested Apps source
+into [Apps #13](https://github.com/PaulMDemers/SrvrApps/pull/13). OS pins
+`13c0d502`, which contains the reviewed Apps head `9d07ee28` and has the same
+complete application tree as the qualified pin `1531a154`.
+
+## Original opt-in offline v2 profile export proof
+
+On `device/apple-silicon/offline-export-v2`, source `d5476ffd` uses the merged
+OS #502 restore path and the OS #367 wire format. The matched `d4b09b4d`
+runtime artifact hashes, source tree IDs and submodule pins match the disposable
+proof. The export driver was built from the new source. Default v1 bytes match
+the canonical fixture. Host checks cover all eight publication checkpoints.
+
+A real v2 export stopped at `written` and reported a private `prepared` attempt.
+A fresh reconciliation process published it. Two EFI boots of the restored
+installation preserved all three documents, including a 16 MiB file, with the
+new local binding and distinct machine preferences. An independent audit
+compared exact bytes across A, the export, and B before and after both boots.
+Used-image inspection attempted zero source writes and flushes. Both owned
+guests stopped. See the
+[qualification manifest](../assets/evidence/offline-profile-v2-export/manifest.json).
+Authentication and permission enforcement remain separate.
+
+## Preview JPEG orientation — November 22, 2026
+
+The isolated `app/preview-exif` candidate `41c33fec` uses SrvrApps
+`778998d0` for the matching Help update. The host regression reproduced
+the original mirror pixel mismatch and now passes all eight orientations in
+both EXIF byte orders, including fallback for invalid metadata. Focused
+desktop checks, ASan/UBSan and the ordinary image build pass.
+
+A disposable 1280×800 QEMU guest passed the Preview stress smoke, including
+cancellation and reopen at the maximum pixel count, compact layout, and
+opening from Files. Exact displayed RGB comparisons passed for rotation,
+mirroring, and invalid-orientation fallback. The acceptance receipt is under
+`.local/app-proof/preview-exif/` in the isolated checkout.
+
 ## Offline streaming-v2 installation restore — November 22, 2026
 
 Installation checkout `SrvrOS-installation-stream-v2` starts from integrated
@@ -52,6 +103,38 @@ runner. The tested scope is native SDK prerequisites and host GLib behavior.
 Target GLib and the GUI integration remain gated on the dependency and wait
 work described in the probe record. The build and VM slot was returned to
 integration for the CLI queue.
+
+## GLib PCRE2 and libffi dependencies — November 22, 2026
+
+The browser topic starts from OS main `28eb6291` plus the verified PCRE2
+commit `9172c3d9`. It uses the same SDK, normal kernel and Limine bytes as
+the original prerequisite probe. Static PCRE2 10.49 and libffi 3.8.0 pass
+in the diskless x86-64 guest. Both libffi probes cover call and callback
+ABI, legacy raw callbacks, thread publication and 128-slot exhaustion
+and reuse. The fixture's exact ELF has RX stubs and RW/NX dispatch data.
+All eight runs exit 0, QEMU stops, and the browser VM window is returned
+to integration. The PCRE2/libffi changes are limited to browser build
+recipes, fixtures and the libffi source patch. Target GLib configure
+reaches zlib. See the [GLib prerequisite record](../browser-glib-prereq.md).
+
+## GLib zlib dependency — November 22, 2026
+
+The browser topic starts at main `7373d4d5` and uses the same matched SDK
+and normal boot inputs. Browser-local zlib 1.4 passes the checksum, streaming
+gzip and pipe I/O probe twice in a diskless x86-64 guest. All ten fixture
+runs exit 0. The guest stops and the VM window is returned to integration.
+GLib detects the target zlib package and stops at the `intl` fallback.
+See the [zlib receipt](../assets/evidence/glib-zlib/receipt.json).
+
+## GLib proxy-libintl fallback — November 22, 2026
+
+The combined topic uses the zlib change rebased onto OS main `288886bd`
+and retains the verified SDK and normal guest boot inputs. Meson builds the
+exact proxy-libintl 0.5 wrap source with `STUB_ONLY` for the target probe.
+The guest checks message, plural and domain behavior. All twelve fixture
+runs exit 0. The guest stops and the VM window returns to integration.
+GLib selects the internal fallback and stops at GIO's `C_IN` header
+check. See the [proxy-libintl receipt](../assets/evidence/glib-proxy-intl/receipt.json).
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 

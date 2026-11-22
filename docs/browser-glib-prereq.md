@@ -2,14 +2,22 @@
 
 November 22, 2026. The original target configure stopped at GLib's
 `sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
-the missing `iconv` dependency. The follow-up adds a SrvrOS poll fallback
-and a target GNU libiconv provider. The next target dependency is PCRE2
-8-bit.
+the missing `iconv` dependency. GLib now configures through the SrvrOS
+poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib and
+proxy-libintl. GIO's next required check is the `C_IN` resolver declaration.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
 `73e55463`, and SrvrUI `3a695ce5`. The [WebCore audit](browser-webcore-audit.md)
 retains its original source attribution.
+The PCRE2 run starts from main `c477c26e` (PR #379) and reuses the same
+SDK and guest boot inputs, verified by hash.
+The libffi run starts from the PCRE2 topic at `9172c3d9` with those same
+SDK and guest boot inputs.
+The zlib run starts from main `7373d4d5` (PR #505), with those boot inputs
+and SDK verified again by hash.
+The combined run uses the rebased zlib commit `5d3d49be` on main
+`288886bd`, with the same verified SDK and boot bytes.
 
 ## Source pin and dependencies
 
@@ -25,17 +33,17 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | --- | --- |
 | POSIX threads and atomics | The diagnostic configure links its thread and atomic checks against the SDK. |
 | `iconv` | Mandatory for this target. Meson detects the static GNU libiconv 1.19 provider from an isolated target prefix. |
-| PCRE2 8-bit | Minimum 10.32. Upstream wrap specifies 10.46 plus a hashed Meson wrapper. |
-| GVDB | Upstream subproject pinned to `2b42fc75f09dbe1cd1057580b5782b08f2dcb400`. |
-| libffi | Minimum 3.0.0. Upstream wrap specifies 3.5.2 plus a hashed Meson wrapper. |
-| zlib | Source exists at the OS ports pin. GLib target package/export still needs a real link check. |
-| `intl` | GLib tries libc/system gettext and then its proxy-libintl wrap. `-Dnls=disabled` alone does not remove this lookup. |
+| PCRE2 8-bit | Minimum 10.32. The SrvrOS build uses 10.49, and Meson finds it through the target-only pkg-config directory. |
+| GVDB | The pinned GLib release already contains the subproject, and Meson configures it offline. The wrap names `2b42fc75f09dbe1cd1057580b5782b08f2dcb400`. |
+| libffi | Minimum 3.0.0. Meson finds the target static 3.8.0 provider. |
+| zlib | Meson finds the browser target's static 1.4 provider. |
+| `intl` | GLib configures the pinned proxy-libintl 0.5 wrap as an internal dependency, with `-Dnls=disabled`. |
+| GIO resolver headers | Both `C_IN` compile probes fail because the SDK lacks `<arpa/nameser.h>`. |
 
-The original header diagnostic reached `iconv`. The follow-up reached
-PCRE2 8-bit, which Meson could find neither in the target packages nor as a
-local subproject. The remaining rows describe the pinned source's graph.
-The target profile uses an empty pkg-config directory and disables Meson
-wrap downloads.
+The target profile searches only the staged PCRE2, libffi and zlib pkg-config
+directories and disables Meson wrap downloads. The `intl` lookup uses the
+verified local wrap source. The optional standalone `m` lookup returns absent,
+and the atomic link check passes.
 [Pinned Meson source](https://github.com/GNOME/glib/blob/2.90.1/meson.build).
 
 ## Target poll and iconv
@@ -67,6 +75,94 @@ python3 tools/browser_glib_iconv.py --iconv-archive /path/to/libiconv-1.19.tar.g
 python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv
 ```
 
+## Target PCRE2
+
+The port pins PCRE2 **10.49** from the upstream release, with SHA-256
+`53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384`.
+The build uses only the static 8-bit library with Unicode enabled and JIT
+disabled. The target prefix contains the archive, generated header and
+pkg-config metadata, and upstream `LICENCE.md` (BSD-3-Clause with the PCRE2
+exception). Meson searches only that package directory for target packages
+and keeps wrap downloads disabled.
+[PCRE2 10.49 release](https://github.com/PCRE2Project/pcre2/releases/tag/pcre2-10.49).
+
+```sh
+python3 tools/browser_glib_iconv.py --iconv-archive /path/to/libiconv-1.19.tar.gz \
+  --glib-archive /path/to/glib-2.90.1.tar.xz \
+  --pcre2-archive /path/to/pcre2-10.49.tar.bz2 --meson /path/to/meson
+python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
+  --pcre2-prefix /path/to/run/target-pcre2
+```
+
+## Target libffi
+
+The static x86-64 port pins **libffi 3.8.0** with SHA-256
+`7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4`.
+The target prefix contains the generated public headers, archive, pkg-config
+metadata and upstream license. GObject's generic marshaller uses direct FFI
+calls. GIRepository also needs callable closures even with GIR generation
+disabled.
+[libffi 3.8.0 release](https://github.com/libffi/libffi/releases/tag/v3.8.0).
+
+The [SrvrOS patch](../tools/libffi-srvros-closures.patch) reuses libffi's
+x86-64 calling conventions and closure entry points. It allocates up to 128
+simultaneous closures per process. Fixed executable stubs are linked into
+text, and the dispatch slots and closure objects stay in writable data.
+Callers must publish a prepared entry before using it across threads and
+finish all calls before rebinding or freeing it. Allocation returns null
+when all slots are occupied.
+
+```sh
+python3 tools/browser_glib_iconv.py --iconv-archive /path/to/libiconv-1.19.tar.gz \
+  --glib-archive /path/to/glib-2.90.1.tar.xz \
+  --pcre2-archive /path/to/pcre2-10.49.tar.bz2 \
+  --libffi-archive /path/to/libffi-3.8.0.tar.gz --meson /path/to/meson
+python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
+  --pcre2-prefix /path/to/run/target-pcre2 --libffi-prefix /path/to/run/target-libffi
+```
+
+## Target zlib
+
+The browser build pins **zlib 1.4** with SHA-256
+`02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584`.
+This release includes upstream compression and gzip security fixes. The
+shared SrvrPorts checkout still supplies zlib 1.3.2 to its existing consumers.
+The browser recipe uses upstream `configure --static` with the SrvrOS C
+wrapper and builds the compression and gzip objects into `libz.a`. It stages
+both public headers, the generated target `zlib.pc` and the upstream license.
+[zlib 1.4 release](https://github.com/madler/zlib/releases/tag/v1.4).
+
+```sh
+python3 tools/browser_glib_iconv.py --iconv-archive /path/to/libiconv-1.19.tar.gz \
+  --glib-archive /path/to/glib-2.90.1.tar.xz \
+  --pcre2-archive /path/to/pcre2-10.49.tar.bz2 \
+  --libffi-archive /path/to/libffi-3.8.0.tar.gz \
+  --zlib-archive /path/to/zlib-1.4.tar.gz --meson /path/to/meson
+python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
+  --pcre2-prefix /path/to/run/target-pcre2 --libffi-prefix /path/to/run/target-libffi \
+  --zlib-prefix /path/to/run/target-zlib
+```
+
+## Target proxy-libintl
+
+GLib's own wrap pins **proxy-libintl 0.5** with SHA-256
+`f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303`.
+The recipe places the checked source in GLib's subprojects directory and lets
+Meson select its internal `intl` dependency with wrap downloads disabled.
+An independent Meson build of the same directory supplies the static archive,
+header and upstream license for the guest probe. The upstream `STUB_ONLY`
+configuration implements message passthrough, singular/plural selection and
+basic domain behavior. The tag is 0.5 and the Meson project reports version 1.
+Upstream `setup()` uses an unsynchronized initialization flag, and
+`textdomain()` stores mutable process-wide state. The serial guest probe
+establishes the fallback behavior. Concurrent first use and domain mutation
+need separate GLib integration checks.
+[Pinned proxy-libintl source archive](https://github.com/frida/proxy-libintl/archive/refs/tags/0.5.tar.gz).
+
+Add `--proxy-intl-archive /path/to/proxy-libintl-0.5.tar.gz` to the full
+zlib configure command above. Add `--proxy-intl-prefix
+/path/to/run/target-proxy-intl` to the corresponding guest command.
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
@@ -80,6 +176,19 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv
   constants and found target `iconv` using the staged header and archive.
   The first unresolved dependency was `libpcre2-8`. Meson exited at that
   dependency before any GLib library build.
+- **Configure with PCRE2.** Meson resolved all six target poll constants,
+  detected iconv and PCRE2 10.49, and configured the bundled GVDB sources.
+  It stopped at the required libffi lookup before building GLib.
+- **Configure with libffi.** Meson detected libffi 3.8.0 from the staged
+  target package and stopped at zlib.
+- **Configure with zlib.** Meson detected zlib 1.4 from the isolated target
+  package and continued to `intl`. Both builtin and system checks failed,
+  then Meson stopped at the proxy-libintl fallback because wrap downloads
+  were disabled.
+- **Configure with proxy-libintl.** Meson selected its internal `intl`
+  dependency and continued into GIO. Both public-header probes for `C_IN`
+  failed with a missing `<arpa/nameser.h>`. Meson stopped before producing
+  the complete GLib build graph.
 - **Normal SrvrOS guest.** The native fixture links strictly against the same
   SDK. Both runs passed in one diskless, no-NIC, one-CPU Q35/TCG guest. The
   fixture verifies nonblocking close-on-exec pipes, two pthread wakes, draining
@@ -97,6 +206,33 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv
   exited 0 and returned to the monitor, and the guest stopped. Relinking
   against the final recipe's archive produced exactly the booted runtime
   ELF bytes after the standard packaging step.
+- **Target regular expressions.** The static PCRE2 fixture verified the
+  reported version, 8-bit-only width, Unicode support and disabled JIT.
+  It exercised named and numeric Unicode capture offsets, no match, invalid
+  UTF-8, a malformed pattern and the match-limit result. Two executions
+  each of PCRE2, iconv and the native wait fixture returned exit 0 and the
+  monitor prompt. The guest stopped. A relink using the isolated pkg-config
+  flags produced the exact PCRE2 executable bytes extracted from the boot ISO.
+- **Target foreign calls and callbacks.** The libffi probe covered register
+  spill, variadic promotions, a mixed aggregate return, System V and Win64
+  callbacks, legacy raw and Java-raw callbacks, thread publication, slot
+  exhaustion and reuse. All four fixtures passed twice in the same normal
+  guest, which stopped after eight zero exits. Relinking with the target
+  pkg-config flags reproduced the boot ISO's libffi probe bytes. The ELF
+  places all 128 stubs in a read-execute segment and all dispatch slots in
+  non-executable writable data.
+- **Target compression.** The zlib fixture verified the header and runtime
+  versions, known CRC32 and Adler32 vectors, one-shot compression, chunked
+  gzip streaming, corrupt and truncated stream errors, and blocking gzip
+  file APIs over a pipe. All five fixtures passed twice. The guest stopped
+  after ten zero exits. A relink with the target pkg-config flags reproduced
+  the exact zlib probe bytes extracted from the boot ISO.
+- **Target translation fallback.** The proxy-libintl fixture exercised
+  single-threaded identity and context passthrough, singular/plural selection,
+  default and replaced text domains, and the upstream binding and codeset
+  behavior. All six fixtures passed twice. The diskless guest stopped after
+  twelve zero exits. Relinking with the verified static archive reproduced
+  the exact proxy-libintl probe bytes extracted from the boot ISO.
 - **Host GLib.** Homebrew's GLib 2.90.1 passed an independent real
   `GMainContext` test using acquire, prepare, query, poll, check, and dispatch.
   One owner processed a worker-attached source and a timer. The quiet wait
@@ -105,8 +241,12 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv
   within the SrvrOS guest awaits target library bring-up.
   [GLib main-loop API](https://docs.gtk.org/glib/main-loop.html).
 
-The [original receipt](assets/evidence/glib-prereq/receipt.json) and
-[poll and iconv receipt](assets/evidence/glib-iconv/receipt.json) record
+The [original receipt](assets/evidence/glib-prereq/receipt.json),
+[poll and iconv receipt](assets/evidence/glib-iconv/receipt.json),
+[PCRE2 receipt](assets/evidence/glib-pcre2/receipt.json),
+[libffi receipt](assets/evidence/glib-libffi/receipt.json),
+[zlib receipt](assets/evidence/glib-zlib/receipt.json), and
+[proxy-libintl receipt](assets/evidence/glib-proxy-intl/receipt.json) record
 configuration outcomes, matched inputs and result hashes. The first strict
 one-step Zig compile/link rejected an unused driver option. Separate strict
 compilation and the normal SDK linker invocation resolved it. The test and
@@ -197,5 +337,7 @@ For the diagnostic, copy that source and replace `sys/poll.h` with `poll.h`
 only in the `has_syspoll` check and the adjacent constants-test include in
 `meson.build`. Use that copy and a new output directory with the same flags.
 
-The next concrete dependency task is a pinned target PCRE2 8-bit build
-and a fresh isolated GLib configure against it.
+The next concrete configure task is to review GIO's resolver header and
+API requirements with the SrvrOS networking owner. The first failed check
+requires a public declaration of `C_IN` through `<arpa/nameser.h>`.
+GIO's subsequent `res_query` link probe is visible in the pinned source.

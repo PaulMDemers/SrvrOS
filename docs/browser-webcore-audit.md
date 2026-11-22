@@ -4,8 +4,11 @@ November 5, 2026. Status: source/configuration audit and owner design review com
 implementation remains unqualified behind the explicit gates below.
 
 November 22 follow-up. The pinned GLib configure now detects the SDK poll
-constants and a static GNU libiconv provider, then stops at PCRE2 8-bit. The
-normal guest verified the native wait primitives and character conversion.
+constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
+Configure processes bundled GVDB and proxy-libintl, then stops at GIO's
+resolver header check for `C_IN`. The normal guest verified native wait,
+character conversion, Unicode matching, foreign calls and callbacks,
+gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.
 See the [GLib prerequisite results](browser-glib-prereq.md).
 

@@ -386,12 +386,12 @@ def run(args, storage):
         base_volume = ROOT / 'build/srvros.exfat'
         machine_a, machine_b = d.machine_preferences(4, -300), d.machine_preferences(2, 60)
         source_first = out / 'source-first.exfat'
-        storage.call(2 * base_volume.stat().st_size, profile_image.provision, base_volume,
+        storage.call(2 * base_volume.stat().st_size, d.provision_fixture, base_volume,
                      source_first, d.make_bundle(), A, 'local_a', 1001, 1001, driver, machine_a)
         alternative = d.make_bundle()
         alternative['profile'] = {'id': ALT_ID, 'display_name': 'Alternative profile'}
         source = out / 'source.exfat'
-        storage.call(2 * source_first.stat().st_size, profile_image.provision, source_first,
+        storage.call(2 * source_first.stat().st_size, d.provision_fixture, source_first,
                      source, alternative, ALT, 'alternative', 1002, 1002, driver)
         # B initially has no profile; import must consume A's actual guest export.
         target = out / 'destination.exfat'
@@ -427,7 +427,7 @@ def run(args, storage):
         boot(disks['a'], disks['transport'], out, 'a-export', args, 'export')
         exported = allocation(disks['transport'], out, 'transport-export').read('transfer.json')
         (out / 'guest-export.json').write_bytes(exported)
-        bundle = profile_bundle.decode_json(exported); payloads = profile_bundle.validate_bundle(bundle)
+        bundle, payloads = d.decode_fixture_bundle(exported)
         if (bundle['profile']['id'] != d.ID or payloads.get('Documents/migration.txt') != d.EDITED or
             payloads.get('Documents/binary.dat') != d.BINARY or
             bundle['preferences'] != dict(d.make_bundle()['preferences'], theme_style=1)):

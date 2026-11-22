@@ -1,41 +1,36 @@
 # Portable profiles: migration and desktop integration
 
-Larger-document migration is implemented and qualified in
-[Apps #11](https://github.com/PaulMDemers/SrvrApps/pull/11) and
-[OS #367](https://github.com/PaulMDemers/SrvrOS/pull/367). Profiles automatically
-keeps v1 for selections within its existing limits and uses streaming v2 for
-larger selections: **16 MiB per document, 64 MiB combined, and 64 selected files**.
-The filename extension does not choose the format. Review identifies the
-streaming-reader requirement before confirmation. Default legacy CLI export,
-v1 bundle bytes/caps, creation, chooser and session-switching behavior remain
-compatible.
+Portable bundles use the [streaming v2 format](portable-profile-streaming.md)
+for every selection, including small files and empty bundles. The limits are
+16 MiB per document, 64 MiB combined, and 64 selected files. A bundle carries
+the stable profile UUID, display name, allowed desktop preferences, and the
+selected `Documents` files. The destination assigns its own home and local
+binding. Authentication and permission enforcement remain separate.
 
-The source-matched proof at `0e2bac73` passes **31 serial disposable guest
-lifetimes** across independent A/B installations and owned probes. It covers
-bidirectional guest/host interoperability, actual v1 import/export, 13 malformed
-input refusals, changed-input and existing-output refusal, partial-export
-preservation, all seven interrupted-import recovery checkpoints, low-space
-recovery, remembered B restart, Text/Preview readback and a 640×480 graphical
-workflow. Actual boundary transfer uses **four 16 MiB documents**, not one
-64 MiB document. Independent content, rendered and archive reviews pass.
-The [evidence manifest](assets/screenshots/profile-stream-manifest.json) and
-[independent review](assets/screenshots/profile-stream-review.json) retain exact
-source, pins, hashes, limits and backup attribution.
+Use `Profiles` or the guest `profile` CLI to export, review, import and recover.
+The CLI commands are `preview-export`, `export-reviewed`, and `export`. Use
+`preview-import` and `import-reviewed` to bind confirmation to the exact bundle
+bytes, or `import` for a direct transfer. The default bundle extension is
+`.srvrprofile`. The reader checks the contents, and refuses old v1 JSON bundles.
 
-V2 payload I/O uses 64 KiB buffers through the opt-in bounded runtime path.
-Native engine allocation remains below 1 MiB. Guest `srv_usage(SELF)` mapped
-high-water is 2,396,160 bytes for the small/16 MiB/64 MiB previews and actual
-64 MiB export, and 2,461,696 bytes for actual import: 65,536 bytes growth from the
-small workload. Mapped high-water is not an exact heap or kernel-memory measure;
-[the streaming contract](portable-profile-streaming.md) records native backend
-allocation and separate preregistered ceilings.
+[Offline export](disk-installation.md#recoverable-offline-export-publication)
+also produces v2. Give it a new output path and a publication directory; use
+`inspect-export` and `reconcile-export` after interruption. The
+[fresh installation workflow](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+restores a v2 bundle into a separately provisioned image.
 
-Guest commands, Profiles import/export/recovery, the host portable-fixture
-codec and [fresh offline installation restore](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
-support both formats. Canonical offline installation profile export and export
-recovery use v1. Authentication,
-credential handling, permission enforcement, login, cloud roaming and multi-user
-security isolation remain separate.
+The [v2-only qualification](assets/evidence/portable-v2-only/manifest.json) verifies the graphical export of a
+small v2 bundle, interrupted import and chooser recovery, and reopening the
+profile after reboot. It also verifies offline publication recovery and exact
+restoration of a 16 MiB file and two smaller files across two EFI boots.
+
+The original [OS #367](https://github.com/PaulMDemers/SrvrOS/pull/367) and
+[Apps #11](https://github.com/PaulMDemers/SrvrApps/pull/11) qualification included
+31 disposable guest lifetimes, seven interrupted-import checkpoints, low-space
+recovery, and an actual 64 MiB transfer using four 16 MiB files. The
+[evidence manifest](assets/screenshots/profile-stream-manifest.json) records
+the exact historical source and separate native allocation and guest mapped
+memory measurements. The transfer path uses 64 KiB payload buffers.
 
 Earlier session ending and profile switching without reboot were delivered in
 [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9) (`c3ad11b1`) and
@@ -79,10 +74,9 @@ validation, explicit portable settings, collision refusal, staged import/recover
 and two independent fixture round trips are implemented and host-verified. No
 guest account activation or security enforcement is claimed.
 
-## Contract v1
+## Original v1 bundle design (historical)
 
-The normative validator is [profile_bundle.py](../tools/profile_bundle.py).
-A bundle is bounded UTF-8 JSON, with precisely these fields (this empty-document
+The first milestone accepted a bounded UTF-8 JSON bundle with these fields (this empty-document
 example is valid):
 
 ```json
@@ -1283,7 +1277,7 @@ location and verified member count. This milestone adds no physical-media,
 arbitrary power-loss, authentication or permission-enforcement acceptance.
 
 
-## Larger-document migration — verified workflow
+## Larger-document migration — original mixed-format proof
 
 Profiles chooses a bundle format from the selected files. Selections within the
 existing v1 limits still produce v1 JSON, including when the suggested filename

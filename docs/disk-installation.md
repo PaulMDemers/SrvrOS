@@ -4,7 +4,7 @@
 
 Use `installation_image.py prepare` and `apply` to restore a selected portable
 bundle into a new identity-bound installation from a clean offline exFAT
-template. `prepare` detects the bundle format from its contents. Supply the
+template. `prepare` checks the v2 stream header and payload hashes. Supply the
 profile UUID you expect, plus the destination HOME, alias, UID and GID.
 
 ```sh
@@ -35,7 +35,7 @@ An ordinary filename under `Documents` can contain the text `.profile-import`.
 Malformed or changed bundles, incorrect expected UUIDs, existing destinations,
 and insufficient space prevent publication. If `apply` fails before a verified
 publication record exists, keep that stage for inspection and use a new stage
-for another attempt. Canonical offline export and export reconciliation use v1.
+for another attempt. Offline export uses the publication workflow below.
 
 The [proof manifest](assets/screenshots/installation-stream-restore-manifest.json)
 records two fresh-B boots, exact readback of a 16 MiB document and two smaller
@@ -44,15 +44,14 @@ and base template passed the preservation checks.
 
 ## Recoverable offline export publication
 
-The opt-in host recovery flow records an admitted export before writing its
-portable payload. It can finish publication after process interruption or an
+Offline export records an admitted v2 bundle before writing its portable payload. It can finish publication after process interruption or an
 uncertain write/sync/link/unlink/close result. The source remains an offline
 installation; returning to the console or switching profiles does not make a
-running guest image safe for host export. Ordinary `export-profile` without a
-publication directory retains its existing one-shot behavior.
+running guest image safe for host export. Supply a new output path and a new
+publication directory for every export.
 
 ```sh
-python3 tools/installation_image.py export-profile STAGE /absolute/new-profile.json \
+python3 tools/installation_image.py export-profile STAGE /absolute/new-profile.srvrprofile \
   --publication-dir /absolute/new-export-attempt \
   --profile-id 12345678-1234-4234-8234-123456789abc --home /fat/home/local-a \
   --document Documents/migration.txt --document Documents/binary.dat \
@@ -61,6 +60,17 @@ python3 tools/installation_image.py export-profile STAGE /absolute/new-profile.j
 python3 tools/installation_image.py inspect-export /absolute/new-export-attempt
 python3 tools/installation_image.py reconcile-export /absolute/new-export-attempt
 ```
+
+The [streaming format](portable-profile-streaming.md) supports up to 64 files,
+16 MiB per document and 64 MiB total. Native payload reads and host copies use
+at most 64 KiB per chunk. Allow host temporary storage for the native frames and
+bundle construction, plus space for the owned publication file. Export opens
+the admitted source read-only, verifies that it stayed unchanged, and records
+the full bundle SHA-256 before publication.
+
+The [offline v2 export proof](assets/evidence/offline-profile-v2-export/manifest.json)
+records a real export interruption and reconciliation, then exact restoration of
+all three selected documents across two EFI boots of a fresh installation.
 
 Choose a new private record directory outside the installation stage, on the
 same host filesystem as the output. The host must support exclusive creation,
@@ -71,7 +81,7 @@ No existing output or record directory is replaced or retroactively adopted.
 | Observed state | Meaning | Next action |
 | --- | --- | --- |
 | `incomplete` | Durable intent exists, but the owned private bundle is partial | Preserve it; choose a new record/output for another export |
-| `prepared` | Complete canonical v1 bytes match the recorded private inode/hash | Explicit reconciliation can sync and exclusively publish them |
+| `prepared` | Complete bundle bytes match the recorded private inode and hash | Explicit reconciliation can sync and exclusively publish them |
 | `visible-uncertain` | Exact owned output exists; synchronization/acknowledgment is unfinished | Inspect, then reconcile the recorded attempt |
 | `complete` | Output and completion record match | Reconciliation may be repeated to check all sync barriers without rewriting bytes |
 | `refused` | Torn, changed, foreign, busy or ambiguous state | Preserve every artifact and correct the identified condition; no repair is inferred |
@@ -83,10 +93,9 @@ A failed reconciliation can still have made progress; inspect the retained
 attempt before choosing the next action. A visible completion record is an
 observed integrity record, not proof against arbitrary power loss.
 
-The private `srvros-export-publication-v1` record is separate from the portable
-bundle format and from installation `publication.json`/`ready.json`. It binds the
-record directory, stable lock inode, original output parent, candidate inode,
-exact canonical v1 size/hash, selected profile/preferences/document metadata,
+The private `srvros-export-publication-v2` record binds the record directory, stable
+lock inode, original output parent, candidate inode, exact bundle size and
+SHA-256, selected profile/preferences/document metadata,
 and historical source stage/plan/image hashes/home. `intent.json` and its checksum
 are immutable. `bundle.partial` is the only recorded temporary payload name;
 `complete.json` is an exclusive final acknowledgment. Unknown entries refuse.
@@ -102,9 +111,10 @@ the historical source is still available; it says nothing about current source
 health or authentication. Cooperative ownership and offline use remain required.
 
 Source admission, original v1 baseline identity (or retained v2 `profile.exfat`),
-pending creation/import refusal, v1 codec bounds and fresh-install destination
-binding rules remain unchanged. Recovery supports canonical portable v1 only;
-future streaming bundle versions require separate host/native qualification.
+pending creation/import refusal, and fresh-install destination binding rules
+continue to apply. Recovery checks the recorded format, size and
+full SHA-256, and verifies the exact profile, preferences and document metadata.
+V2 recovery reads and verifies the framed payload in bounded chunks.
 Keep original source/baseline paths/device/inodes and the host evidence volume
 mounted through review. Restored copies are historical evidence, not adopted
 publication authority.

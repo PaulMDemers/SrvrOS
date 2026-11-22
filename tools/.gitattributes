@@ -1,0 +1,2 @@
+# The libffi patch retains upstream tabbed and final blank context lines.
+libffi-srvros-closures.patch whitespace=-space-before-tab,-blank-at-eof

@@ -22,7 +22,7 @@ from installation_io_faults import snapshot
 from installation_io_smoke import Storage, MIB
 from pack_runtime_elf import runtime_elf
 from profile_desktop_smoke import (ROOT, ID, BINARY, EDITED, boot, data_image, digest,
-    machine_preferences, make_bundle, outside_data, partitions, save_json, verified_build)
+    machine_preferences, make_bundle, outside_data, partitions, save_json, write_fixture_bundle, verified_build)
 from profile_installation_smoke import clone, seed_volume
 from uefi_usb_smoke import default_ovmf_path
 import installation_image as image
@@ -103,8 +103,8 @@ def run(args, storage):
         prefs = machine_preferences(4, -300)
         storage.call(2*originals['exfat'].stat().st_size, seed_volume, originals['exfat'],
                      paths['exfat'], prefs, paths['profile_driver'], out)
-        paths['bundle'] = private/'bundle.json'
-        profile_bundle.publish_bundle(paths['bundle'], make_bundle())
+        paths['bundle'] = private/'bundle.srvrprofile'
+        write_fixture_bundle(paths['bundle'], make_bundle())
         hashes = {k:image.digest(v) for k,v in paths.items()}
         receipt['private_inputs'] = hashes
         save_json(receipt_path, receipt)

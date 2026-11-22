@@ -16,11 +16,12 @@ import tempfile
 from exfat_test_image import ExfatFixture
 from pack_runtime_elf import runtime_elf
 from profile_desktop_smoke import (ROOT, ID, BINARY, EDITED, boot, data_image,
-    digest, machine_preferences, make_bundle, outside_data, partitions, save_json,
+    digest, machine_preferences, make_bundle, outside_data, partitions, save_json, write_fixture_bundle,
     verified_build)
 from uefi_usb_smoke import default_ovmf_path
 import installation_image
 import profile_bundle
+import profile_stream
 import source_provenance
 
 
@@ -95,7 +96,7 @@ def main():
         save_json(receipt_path, receipt)
         original = make_bundle()
         bundle_path = out / 'bundle-a.json'
-        profile_bundle.publish_bundle(bundle_path, original)
+        write_fixture_bundle(bundle_path, original)
         for label, home, alias, uid, gid, speed, offset in (
                 ('a', '/fat/home/local-a', 'local_a', 1001, 1001, 4, -300),
                 ('b', '/fat/home/local-b', 'local_b', 2050, 2051, 2, 60)):
@@ -103,10 +104,9 @@ def main():
             volume = out / f'base-{label}.exfat'
             seed_volume(inputs['exfat'], volume, prefs, inputs['driver'], out)
             base_hash = installation_image.digest(volume)
-            bundle = profile_bundle.decode_json(bundle_path.read_bytes())
             store = out / f'store-{label}'
             profile_bundle.init_store(store)
-            local = profile_bundle.import_bundle(store, bundle, alias, uid, gid)
+            local = profile_stream.import_bundle(store, bundle_path, alias, uid, gid)
             stage = out / f'target-{label}'
             plan = installation_image.prepare(stage, inputs['kernel'], inputs['bootx64'], volume,
                 inputs['init'], identity_bound=True, profile_bundle=bundle_path,
@@ -190,9 +190,8 @@ def main():
                     for relative, data in (('Documents/migration.txt', document), ('Documents/binary.dat', binary),
                                            (profile_bundle.PREF_PATH, portable)):
                         (host_home / relative).write_bytes(data)
-                    exported = profile_bundle.export_bundle(store, ID, ['Documents/migration.txt', 'Documents/binary.dat'])
-                    bundle_path = out / 'export-a.json'
-                    profile_bundle.publish_bundle(bundle_path, exported)
+                    bundle_path = out / 'export-a.srvrprofile'
+                    profile_stream.export_bundle(store, ID, ['Documents/migration.txt', 'Documents/binary.dat'], bundle_path)
                     receipt['export_sha256'] = installation_image.digest(bundle_path)
                     save_json(receipt_path, receipt)
             if installation_image.digest(volume) != base_hash or installation_image.digest(inputs['exfat']) != receipt['inputs']['exfat']['sha256']:

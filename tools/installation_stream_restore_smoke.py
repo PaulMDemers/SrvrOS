@@ -21,6 +21,7 @@ import profile_create_smoke as create
 import profile_desktop_smoke as desktop
 import profile_installation_smoke as install
 import profile_stream as stream
+import profile_stream_fixture
 import profile_transfer_smoke as transfer
 import source_provenance
 from installation_export_recovery_smoke import readback, stamp
@@ -43,24 +44,10 @@ def make_stream(path):
     portable = desktop.make_bundle()
     docs = [('Documents/migration.txt', create.TEXT),
             ('Documents/binary.profile-import.dat', create.BINARY),
-            ('Documents/large.bin', bytes(range(256)) * (CHUNK // 256))]
-    sizes = [len(create.TEXT), len(create.BINARY), stream.MAX_FILE]
-    metadata = []
-    for (name, block), size in zip(docs, sizes):
-        digest = hashlib.sha256()
-        for offset in range(0, size, CHUNK):
-            digest.update(block[:min(CHUNK, size - offset)])
-        metadata.append({'path': name, 'size': size, 'sha256': digest.hexdigest()})
-    manifest = {'format': bundle.FORMAT, 'schema_version': 2,
-                'profile': portable['profile'], 'preferences': portable['preferences'],
-                'documents': metadata}
-    encoded = bundle.encode_json(manifest)
-    require(len(encoded) <= stream.MAX_MANIFEST, 'manifest too large')
-    with path.open('xb') as output:
-        output.write(stream.HEADER.pack(stream.MAGIC, len(encoded), 0) + encoded)
-        for (_, block), size in zip(docs, sizes):
-            for offset in range(0, size, CHUNK):
-                output.write(block[:min(CHUNK, size - offset)])
+            ('Documents/large.bin', bytes(range(256)) * (stream.MAX_FILE // 256))]
+    manifest = profile_stream_fixture.write_stream(
+        path, portable['profile'], portable['preferences'], docs)
+    require(path.stat().st_size <= stream.MAX_BUNDLE, 'bundle too large')
     return manifest
 
 

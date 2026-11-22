@@ -1,4 +1,3 @@
-import base64
 import binascii
 import hashlib
 import json
@@ -12,6 +11,8 @@ import uuid
 
 import installation_image as install
 import profile_bundle as profiles
+import profile_stream as stream
+import profile_stream_fixture as stream_fixture
 from test_installation_image import exfat_fixture
 
 
@@ -92,12 +93,13 @@ class ProfileInstallationTests(unittest.TestCase):
         self.driver.chmod(0o755)
         self.bundle_path = self.root / 'profile.json'
         content = b'portable document'
-        self.bundle = {'format': profiles.FORMAT, 'schema_version': 1,
+        self.bundle = {'format': profiles.FORMAT, 'schema_version': 2,
                        'profile': {'id': str(uuid.uuid4()), 'display_name': 'A'}, 'preferences': {},
                        'documents': [{'path': 'Documents/test.txt', 'size': len(content),
-                                      'sha256': hashlib.sha256(content).hexdigest(),
-                                      'data_base64': base64.b64encode(content).decode()}]}
-        self.bundle_path.write_bytes(profiles.encode_json(self.bundle))
+                                      'sha256': hashlib.sha256(content).hexdigest()}]}
+        stream_fixture.write_stream(self.bundle_path, self.bundle['profile'], self.bundle['preferences'],
+                                    [('Documents/test.txt', content)])
+        self.document = content
         self.options = dict(identity_bound=True, profile_bundle=self.bundle_path,
                             profile_home='/fat/home/alice', profile_alias='alice',
                             profile_uid=1001, profile_gid=1001, profile_driver=self.driver)
@@ -114,13 +116,17 @@ class ProfileInstallationTests(unittest.TestCase):
                 self.prepare(**changes)
             self.assertFalse(self.target.exists())
         self.bundle['documents'][0]['path'] = 'Documents/' + 'a' * 60 + '/' + 'b' * 60 + '/x'
-        self.bundle_path.write_bytes(profiles.encode_json(self.bundle))
+        invalid = json.dumps(self.bundle, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
+        self.bundle_path.write_bytes(stream.HEADER.pack(stream.MAGIC, len(invalid), 0) + invalid + self.document)
         with self.assertRaises(ValueError):
             self.prepare()
         self.assertFalse(self.target.exists())
 
     def test_reject_malformed_truncated_and_tampered_bundle(self):
-        for data in (b'{', b'{}', profiles.encode_json(dict(self.bundle, documents=[dict(self.bundle['documents'][0], sha256='0'*64)]))):
+        bad = json.dumps(dict(self.bundle, documents=[dict(self.bundle['documents'][0], sha256='0' * 64)]),
+                         sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
+        for data in (b'{', b'{}',
+                     stream.HEADER.pack(stream.MAGIC, len(bad), 0) + bad + self.document):
             self.bundle_path.write_bytes(data)
             with self.assertRaises(ValueError):
                 self.prepare()
@@ -136,7 +142,9 @@ class ProfileInstallationTests(unittest.TestCase):
         # Bundle contents differ while preserving valid schema.
         original_bundle = self.bundle_path.read_bytes()
         self.bundle['profile']['display_name'] = 'Changed'
-        self.bundle_path.write_bytes(profiles.encode_json(self.bundle))
+        self.bundle_path.unlink()
+        stream_fixture.write_stream(self.bundle_path, self.bundle['profile'], self.bundle['preferences'],
+                                    [('Documents/test.txt', self.document)])
         with self.assertRaises(ValueError):
             install.apply(self.target)
         self.bundle_path.write_bytes(original_bundle)
@@ -154,7 +162,7 @@ class ProfileInstallationTests(unittest.TestCase):
             install.apply(self.target)
         self.assertFalse((self.target / 'image.img').exists())
 
-    def test_profile_plan_cannot_be_downgraded_to_legacy_version(self):
+    def test_profile_plan_cannot_be_downgraded_from_v2(self):
         plan = self.prepare()
         self.assertEqual(plan['version'], 2)
         plan['version'] = 1
