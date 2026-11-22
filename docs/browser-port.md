@@ -1,5 +1,10 @@
 # SrvrOS no-JIT JavaScriptCore checkpoint
 
+The user resumed a WebCore dependency/configuration and software-backend design
+audit on November 5. See [the audit](browser-webcore-audit.md) for pinned source
+findings, runtime prerequisites and the proposed next slice. It adds no WebCore
+compile/render or production-runtime acceptance.
+
 The bounded experimental target is complete: real threaded signal/register
 contexts, WTF suspension/retirement and memory-footprint checks, all four GC-root
 modes, and actual `jsc -e 'print(42)'` pass with exit0. The initialization abort
