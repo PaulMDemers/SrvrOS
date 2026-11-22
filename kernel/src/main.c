@@ -227,6 +227,18 @@ static enum local_auth_boot local_auth_boot_mode(const char *cmdline) {
     return LOCAL_AUTH_INVALID;
 }
 
+static bool trusted_local_signin(void) {
+    static const char *const parents[] = {"/", "/fat", "/fat/bin"};
+    for (size_t i = 0; i < sizeof(parents) / sizeof(parents[0]); i++) {
+        const struct vfs_node *node = vfs_lookup(parents[i]);
+        if (!node || node->type != VFS_NODE_DIRECTORY || node->metadata.uid != 0 ||
+            (node->metadata.mode & 0022)) return false;
+    }
+    const struct vfs_node *program = vfs_lookup("/fat/bin/local-signin");
+    return program && program->type == VFS_NODE_FILE && program->metadata.uid == 0 &&
+        program->metadata.gid == 0 && (program->metadata.mode & 07777) == 0755;
+}
+
 /* Exact new probe recipes reject duplicate tokens before capture admission. */
 static bool cmdline_tokens_unique(const char *text) {
     if (!text) return false;
@@ -1215,7 +1227,8 @@ void kmain(void) {
     if (auth_mode == LOCAL_AUTH_SIGNIN || auth_mode == LOCAL_AUTH_INVALID) {
         boot_set_framebuffer_quiet(false);
         console_clear();
-        if (auth_mode == LOCAL_AUTH_SIGNIN && installed == INSTALLED_ROOT_SELECTED && timer_running) {
+        if (auth_mode == LOCAL_AUTH_SIGNIN && installed == INSTALLED_ROOT_SELECTED &&
+            timer_running && trusted_local_signin()) {
             console_write("local-auth: console sign-in\n");
             (void)process_run_elf("/fat/bin/local-signin");
         }

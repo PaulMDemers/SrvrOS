@@ -135,7 +135,9 @@ class VM:
             self.proc = subprocess.Popen(cmd, stdout=self.log, stderr=self.log)
             self.serial = connect_serial(port, 20); self.serial.settimeout(.2)
             self.qmp = QMP(qmp_path)
-            self.wait(b'srv> ' if self.mode == 'recovery' else b'Login: ', self.args.boot_wait)
+            prompt = {'recovery': b'srv> ', 'local': b'Login: ',
+                      'blocked': b'local-auth: sign-in unavailable.'}
+            self.wait(prompt[self.mode], self.args.boot_wait)
             if b'installed-root: selected device=ahci0p2 format=exfat-v1 role=system' not in self.output:
                 raise RuntimeError('installed identity-selected root missing')
             if b'trying initramfs fallback' in self.output:
@@ -146,6 +148,10 @@ class VM:
             if self.mode == 'local':
                 if b'local-auth: console sign-in' not in self.output or b'srv> ' in self.output:
                     raise RuntimeError('local mode did not start restricted sign-in')
+            if self.mode == 'blocked':
+                if any(marker in self.output for marker in
+                       (b'local-auth: console sign-in', b'Login: ', b'srv> ')):
+                    raise RuntimeError('unsafe launch path was exposed')
             return self
         except BaseException:
             self.__exit__(*__import__('sys').exc_info()); raise
@@ -220,7 +226,7 @@ class VM:
         if self.proc.returncode: raise RuntimeError(f'{self.label}: VM shutdown failed')
         if any(secret in self.output for secret in SECRETS):
             raise RuntimeError(f'{self.label}: password echoed to serial')
-        if self.mode == 'local' and b'srv> ' in self.output:
+        if self.mode != 'recovery' and b'srv> ' in self.output:
             raise RuntimeError('privileged prompt exposed in local mode')
 
     def __exit__(self, typ, value, tb):
@@ -340,6 +346,26 @@ def main():
             vm.attempt('beta', PASSWORDS['beta'])
             vm.finish()
         receipt['cases'].append({'damaged_store': 'PASS'})
+        previous = None
+        for label, path in (('writable-program', '/fat/bin/local-signin'), ('writable-parent', '/fat/bin')):
+            before_swap = region_hash(target, *data)
+            copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap:
+                raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, label + '-setup', args, 'recovery') as vm:
+                if previous:
+                    vm.command('/fat/bin/chmod 755 ' + previous)
+                vm.command('/fat/bin/chmod 777 ' + path)
+                vm.finish()
+            before_swap = region_hash(target, *data)
+            local_mode()
+            if region_hash(target, *data) != before_swap:
+                raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, label, args, 'blocked') as vm:
+                vm.finish()
+            receipt['cases'].append({label: 'PASS'})
+            previous = path
+            save()
         receipt.update(status='PASS', final_disk_sha256=installation.digest(target),
                        limitations=['disposable QEMU only', 'no physical or power-loss qualification'])
     except Exception as error:
