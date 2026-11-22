@@ -46,6 +46,17 @@ cycles, ping and DNS on both connections, one successful HTTP client exit,
 and one USB file save. Live adapter reinsertion is the next milestone.
 [MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
 
+The v153 `--wifi-desktop-reattach` trial opens Help and runs the same
+primed single-connection owner as v151. After System reports Disconnected,
+unplug only Wi-Fi for five seconds, then reconnect it to the same port.
+SrvrOS verifies removal, disables the original slot and retains its DMA
+allocations. It then debounces the insertion and enumerates the matching
+Edimax with fresh USB contexts and an independently configured firmware
+endpoint. System's Devices page can show the new USB record. Help asks for
+a workspace Text save and reopen before Exit desktop. This trial verifies
+USB reattachment. Fresh firmware, calibration, association and network
+traffic after reattachment are the next stage.
+
 ## Calibration response-loss tracing (November 11)
 
 The explicit fixed5GHz calibration path now emits `wifi-mcu-loss-summary` and

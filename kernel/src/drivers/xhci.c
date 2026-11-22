@@ -608,7 +608,7 @@ struct xhci_device {
     bool addressed;
     bool configured;
     bool removed,control_pending,control_failed;
-    bool retiring,slot_disabled;
+    bool retiring,slot_disabled,wifi_replaced;
     bool control_short,control_recovery_attempted,hub_status_pending;
     uint8_t control_completion,control_td_count,hub_poll_port;
     uint64_t control_td[3],retired_ep0_ring_phys,hub_status_since;
@@ -1244,12 +1244,12 @@ static uint32_t portsc_neutral(uint32_t state) {
     return state & (XHCI_PORTSC_RO | XHCI_PORTSC_RWS);
 }
 
-static bool reset_port(uint64_t index) {
+static bool reset_port_mode(uint64_t index,bool replacement) {
     struct xhci_port_state *port = &xhci.ports[index];
     uint64_t offset = port_offset(index);
     uint32_t state = op_read32(offset);
     port->reset_result = "disconnected";
-    if ((state & XHCI_PORTSC_CCS) == 0) {
+    if ((state & XHCI_PORTSC_CCS) == 0 || (replacement && (state & XHCI_PORTSC_CSC))) {
         port->portsc = state;
         return false;
     }
@@ -1264,7 +1264,7 @@ static bool reset_port(uint64_t index) {
     port->reset_result = "reset-timeout";
     for (uint32_t elapsed = 0; elapsed <= 500; elapsed++) {
         state = op_read32(offset);
-        if ((state & XHCI_PORTSC_CCS) == 0) {
+        if ((state & XHCI_PORTSC_CCS) == 0 || (replacement && (state & XHCI_PORTSC_CSC))) {
             port->reset_result = "disconnected";
             break;
         }
@@ -1288,7 +1288,7 @@ static bool reset_port(uint64_t index) {
     }
     port->portsc = op_read32(offset);
     if ((port->portsc & (XHCI_PORTSC_CCS | XHCI_PORTSC_PED)) !=
-        (XHCI_PORTSC_CCS | XHCI_PORTSC_PED)) {
+        (XHCI_PORTSC_CCS | XHCI_PORTSC_PED) || (replacement && (port->portsc & XHCI_PORTSC_CSC))) {
         if (complete) port->reset_result = "lost-after-reset";
         complete = false;
     }
@@ -1300,6 +1300,8 @@ static bool reset_port(uint64_t index) {
     }
     return complete;
 }
+
+static bool reset_port(uint64_t index) {return reset_port_mode(index,false);}
 
 static void reset_connected_ports(void) {
     uint64_t count = xhci.port_count < XHCI_MAX_PORTS ? xhci.port_count : XHCI_MAX_PORTS;
@@ -1315,8 +1317,7 @@ static void reset_connected_ports(void) {
             (state & XHCI_PORTSC_CSC));
     }
     /* HCRST may reconnect USB2 devices asynchronously. Observe for a full
-     * second, requiring 100 ms of stable connection before reset. This is
-     * boot discovery only; runtime hotplug is not implemented. */
+     * second, requiring 100 ms of stable connection before reset. */
     for (uint32_t sample = 0; sample < 100; sample++) {
         if (!wait_microframes(80)) {
             for (uint64_t i = 0; i < count; i++) {
@@ -1978,7 +1979,8 @@ static int wifi_read_identity(void *context, const uint8_t wire[8], uint8_t data
     return actual;
 }
 
-static bool probe_wifi(struct xhci_device *device, size_t config_size) {
+static bool probe_wifi(struct xhci_device *device, size_t config_size,
+                       const struct mt76_identity *expected) {
     if (!wifi_probe_enabled || device->vendor_id != 0x7392 || device->product_id != 0xa711 ||
         device->device_bcd != 0x0100 || device->speed != 3 || device->ep0_max_packet != 64 ||
         device->configuration_count != 1 ||
@@ -1986,6 +1988,8 @@ static bool probe_wifi(struct xhci_device *device, size_t config_size) {
     device->wifi_probe_attempted = true;
     device->stage = "wifi-identity";
     device->wifi_probe_ok = mt76_probe_identity(wifi_read_identity, device, &device->wifi_identity);
+    if (expected && (device->wifi_identity.asic != expected->asic ||
+                     device->wifi_identity.mac != expected->mac)) device->wifi_probe_ok = false;
     console_printf("xhci-wifi: identity=%s asic=%x mac=%x quarantined=%u (not a network provider)\n",
         device->wifi_probe_ok ? "read" : "failed", (uint64_t)device->wifi_identity.asic,
         (uint64_t)device->wifi_identity.mac, (uint64_t)device->ep0_quarantined);
@@ -3012,11 +3016,14 @@ bool xhci_retire_slot(uint8_t slot) {
     uint64_t flags=event_irq_save(),kernel=vmm_kernel_address_space();
     if(!slot || !kernel || vmm_current_address_space()!=kernel || !xhci.operational ||
        xhci.stopping || !xhci.controller_owned) {event_irq_restore(flags);return false;}
-    struct xhci_device *root=NULL;
-    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
-        if(xhci.devices[i].present && xhci.devices[i].slot_id==slot) {root=&xhci.devices[i];break;}
-    if(!root) {event_irq_restore(flags);return false;}
-    if(root->slot_disabled) {event_irq_restore(flags);return true;}
+    struct xhci_device *root=device_by_slot(slot);
+    if(!root) {
+        bool retained=false;
+        for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
+            if(xhci.devices[i].present && xhci.devices[i].slot_disabled &&
+               xhci.devices[i].slot_id==slot) {retained=true;break;}
+        event_irq_restore(flags);return retained;
+    }
     bool selected[XHCI_MAX_DEVICES]={false};
     selected[root-xhci.devices]=true;
     /* Close the whole subtree before yielding to any provider callback. */
@@ -3024,7 +3031,7 @@ bool xhci_retire_slot(uint8_t slot) {
         bool changed=false;
         for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(selected[i])
             for(unsigned j=0;j<XHCI_MAX_DEVICES;j++)
-                if(!selected[j] && xhci.devices[j].present &&
+                if(!selected[j] && xhci.devices[j].present && !xhci.devices[j].slot_disabled &&
                    xhci.devices[j].parent_slot_id==xhci.devices[i].slot_id) {
                     selected[j]=true;changed=true;
                 }
@@ -3748,7 +3755,7 @@ static bool update_ep0_packet(struct xhci_device *device) {
     return true;
 }
 
-static bool enumerate_device(struct xhci_device *device) {
+static bool read_device_descriptors(struct xhci_device *device,uint16_t *config_length) {
     if (device == 0) {
         return false;
     }
@@ -3797,6 +3804,13 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
 
+    *config_length=total_length;
+    return true;
+}
+
+static bool enumerate_device(struct xhci_device *device) {
+    uint16_t total_length=0;
+    if(!read_device_descriptors(device,&total_length))return false;
     device->stage = "select-interface";
     uint8_t configuration = 0;
     if (!parse_hid_input_config(device, total_length, &configuration)) {
@@ -3804,7 +3818,7 @@ static bool enumerate_device(struct xhci_device *device) {
         bool hub_like =
             device->device_class == USB_CLASS_HUB ||
             device->first_interface_class == USB_CLASS_HUB;
-        if (!hub_like && probe_wifi(device, total_length)) return true;
+        if (!hub_like && probe_wifi(device,total_length,NULL)) return true;
         if (!hub_like && network_enabled && enumerate_network(device,total_length)) return true;
         if (hub_like) {
             xhci.hubs_seen++;
@@ -3895,6 +3909,129 @@ static bool enumerate_port(uint64_t port_index) {
         .slot_type = root_port_slot_type((uint8_t)(port_index + 1)),
     };
     return enumerate_device(device);
+}
+
+enum wifi_root_reattach_phase {
+    WIFI_ROOT_WAIT_REMOVAL,WIFI_ROOT_DISABLE_SLOT,WIFI_ROOT_WAIT_INSERTION,
+    WIFI_ROOT_READY,WIFI_ROOT_FAILED,
+};
+
+struct wifi_root_reattach {
+    struct xhci_device *previous,*replacement;
+    enum wifi_root_reattach_phase phase;
+    uint64_t stable_at;
+    bool stable;
+};
+
+/* Called by the Wi-Fi owner after all of its software users have retired.
+ * A single root-port replacement gets a fresh record. The retired record and
+ * its DMA addresses remain reserved even if the controller returns its ID. */
+static bool wifi_root_reattach_begin(struct wifi_root_reattach *trial,struct xhci_device *old) {
+    if(trial->previous || !old || !old->slot_id || old->slot_disabled || device_by_slot(old->slot_id)!=old ||
+       old->parent_slot_id || old->hub_port_id || old->route_string || old->hub_ports ||
+       !old->port_id || old->port_id>xhci.port_count || old->port_id>XHCI_MAX_PORTS ||
+       old->speed!=3 || !old->addressed || !old->wifi_probe_ok || old->control_pending || old->control_failed ||
+       old->ep0_quarantined || old->network || old->storage.block || old->hid_keyboard || old->hid_mouse ||
+       mt76_probe_bands(old->vendor_id,old->product_id,old->device_bcd)!=MT76_BAND_5GHZ)return false;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        const struct xhci_device *d=&xhci.devices[i];
+        if(d!=old && d->present && !d->slot_disabled &&
+           (d->port_id==old->port_id || d->parent_slot_id==old->slot_id))return false;
+    }
+    trial->previous=old;
+    trial->phase=WIFI_ROOT_WAIT_REMOVAL;
+    return true;
+}
+
+static bool wifi_root_reattach_enumerate(struct wifi_root_reattach *trial,uint64_t index) {
+    const struct xhci_device *old=trial->previous;
+    if(!reset_port_mode(index,true) || port_speed(xhci.ports[index].portsc)!=old->speed)return false;
+    struct xhci_device *device=allocate_device_record();
+    if(!device)return false;
+    *device=(struct xhci_device){.present=true,.port_id=old->port_id,.speed=old->speed,
+        .ep0_max_packet=default_ep0_packet_for_speed(old->speed),.slot_type=root_port_slot_type(old->port_id)};
+    trial->replacement=device;
+    uint16_t length=0;
+    if(!read_device_descriptors(device,&length) ||
+       !probe_wifi(device,length,&old->wifi_identity) || !device->wifi_probe_ok ||
+       (wifi_firmware_enabled && !device->firmware.configured) || device_removed(device))return false;
+    device->stage="wifi-root-reattached";
+    return true;
+}
+
+static enum wifi_root_reattach_phase wifi_root_reattach_step(struct wifi_root_reattach *trial) {
+    uint64_t flags=event_irq_save();
+    struct xhci_device *old=trial->previous;
+    if(!old || trial->phase>=WIFI_ROOT_READY)goto done;
+    if(!xhci.operational || !xhci.controller_owned || xhci.stopping || !xhci.dcbaa ||
+       xhci.command_failed || firmware_command_failed)goto failed;
+    uint64_t index=old->port_id-1;
+    uint64_t offset=port_offset(index);
+    uint32_t state=op_read32(offset);
+    if(state==UINT32_MAX)goto failed;
+    if(trial->phase==WIFI_ROOT_WAIT_REMOVAL) {
+        if(state&XHCI_PORTSC_CCS)goto done;
+        if(!device_removed(old))goto done;
+        trial->phase=WIFI_ROOT_DISABLE_SLOT;
+        console_printf("wifi-root-reattach: removed=1 port=%u slot=%u\n",(uint64_t)old->port_id,(uint64_t)old->slot_id);
+    }
+    if(xhci.sync_users || xhci.poll_users || xhci.diagnostic_users || xhci.command_pending ||
+       strict_control.device || scheduler_io_active())goto done;
+    if(trial->phase==WIFI_ROOT_DISABLE_SLOT) {
+        if(!scheduler_io_begin())goto done;
+        bool disabled=xhci_retire_slot(old->slot_id);
+        scheduler_io_end();
+        if(!disabled || !old->slot_disabled || xhci.dcbaa[old->slot_id])goto failed;
+        old->wifi_replaced=true;
+        trial->phase=WIFI_ROOT_WAIT_INSERTION;
+        console_printf("wifi-root-reattach: disabled=1 port=%u slot=%u\n",(uint64_t)old->port_id,(uint64_t)old->slot_id);
+        goto done;
+    }
+    if(state&XHCI_PORTSC_CSC) {
+        op_write32(offset,portsc_neutral(state)|XHCI_PORTSC_CSC);
+        trial->stable=false;
+        goto done;
+    }
+    if(!(state&XHCI_PORTSC_CCS)) {
+        trial->stable=false;
+        goto done;
+    }
+    uint64_t now=timer_monotonic_us();
+    if(!trial->stable) {
+        trial->stable_at=now;
+        trial->stable=true;
+        goto done;
+    }
+    if(now<trial->stable_at)goto failed;
+    if(now-trial->stable_at<100000)goto done;
+    if(!scheduler_io_begin())goto done;
+    /* Drain completions published before Disable Slot before admitting any
+     * command that can bring the slot ID back into use. */
+    struct xhci_trb event;
+    unsigned drained=0;
+    while(drained<XHCI_EVENT_TRB_COUNT && poll_event(&event)) {
+        dispatch_transfer_event(&event);
+        drained++;
+    }
+    if(drained==XHCI_EVENT_TRB_COUNT) {scheduler_io_end();goto done;}
+    state=op_read32(offset);
+    if((state&(XHCI_PORTSC_CCS|XHCI_PORTSC_CSC))!=XHCI_PORTSC_CCS) {
+        scheduler_io_end();trial->stable=false;goto done;
+    }
+    bool ready=wifi_root_reattach_enumerate(trial,index);
+    scheduler_io_end();
+    if(!ready)goto failed;
+    trial->phase=WIFI_ROOT_READY;
+    console_printf("wifi-root-reattach: enumerated=1 port=%u old_slot=%u slot=%u\n",
+        (uint64_t)old->port_id,(uint64_t)old->slot_id,(uint64_t)trial->replacement->slot_id);
+    goto done;
+failed:
+    trial->phase=WIFI_ROOT_FAILED;
+    console_printf("wifi-root-reattach: failed=1 port=%u old_disabled=%u new_record=%u\n",
+        (uint64_t)old->port_id,(uint64_t)old->slot_disabled,(uint64_t)(trial->replacement!=NULL));
+done:
+    event_irq_restore(flags);
+    return trial->phase;
 }
 
 static void enumerate_connected_ports(void) {
@@ -4337,7 +4474,7 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
     uint64_t flags=event_irq_save();
     for(uint64_t i=index;i<XHCI_MAX_DEVICES;i++) {
         const struct xhci_device *d=&xhci.devices[i];
-        if(!d->present) continue;
+        if(!d->present || d->wifi_replaced) continue;
         unsigned bound=SRV_DEVICE_PRESENT;
         if(d->configured) bound|=SRV_DEVICE_CONFIGURED;
         if(d->interrupt_ready && d->hid_keyboard) bound|=SRV_DEVICE_KEYBOARD;

@@ -233,4 +233,28 @@ bool xhci_wifi_capture_desktop5(void *context,bool (*begin)(void *),bool (*runni
 bool xhci_wifi_capture_desktop_reconnect5(void *context,bool (*begin)(void *),bool (*running)(void *)){
  return wifi_desktop5_capture(context,begin,running,true);
 }
+
+/* One transport rehearsal, after the original RF and network owners have
+ * returned. The replacement proves USB identity and firmware EP configuration. */
+bool xhci_wifi_capture_desktop_reattach5(void *context,bool (*begin)(void *),bool (*running)(void *)){
+ bool connected=wifi_desktop5_capture(context,begin,running,false);
+ struct wifi_root_reattach trial={0};
+ bool admitted=connected && wifi_desktop5.return_safe && wifi_stack5.retired &&
+  wifi_desktop5.disconnect.serial && running(context) &&
+  wifi_root_reattach_begin(&trial,wifi_desktop5.device);
+ if(admitted) {
+  console_write("wifi-root-reattach: waiting for Wi-Fi unplug and reinsert; workspace stays mounted\n");
+  while(running(context)) {
+   enum wifi_root_reattach_phase phase=wifi_root_reattach_step(&trial);
+   if(phase>=WIFI_ROOT_READY)break;
+   wifi_desktop5_turn();
+  }
+ }
+ bool complete=trial.phase==WIFI_ROOT_READY;
+ console_printf("wifi-root-reattach-final: version=1 complete=%u phase=%u old_retired=%u new_identity=%u firmware_ep=%u network_reconnected=0\n",
+  (uint64_t)complete,(uint64_t)trial.phase,(uint64_t)(trial.previous && trial.previous->slot_disabled),
+  (uint64_t)(trial.replacement && trial.replacement->wifi_probe_ok),
+  (uint64_t)(trial.replacement && trial.replacement->firmware.configured));
+ return complete;
+}
 bool xhci_wifi_desktop5_return_safe(void){return wifi_desktop5.return_safe;}

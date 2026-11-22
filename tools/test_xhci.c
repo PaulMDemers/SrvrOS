@@ -1555,7 +1555,7 @@ static void test_wifi_probe(void) {
         if (fault == 6) buffer[18+2] ^= 1;
         if (fault == 7) d.ep0_max_packet = 8;
         if (fault == 8) d.configuration_count = 2;
-        assert(probe_wifi(&d,74) == (fault == 0 || fault >= 9));
+        assert(probe_wifi(&d,74,NULL) == (fault == 0 || fault >= 9));
         assert(wifi_doorbells == (fault == 0 || fault == 9 ? 2u : fault == 10 ? 1u : 0u));
         assert(d.ep0_quarantined == (fault == 10));
         if (fault) assert(!d.wifi_identity.asic && !d.wifi_identity.mac);
@@ -7536,6 +7536,124 @@ static void test_slot_retirement(void) {
     assert(!address_device(&xhci.devices[1]) && xhci.command_failed && dcbaa[1]==0xabcdef);
     puts("xhci-slot: PASS subtree admission, provider drain, leaf-first disable, timeout/identity refusal and retained tombstones");
 }
+
+static unsigned root_reattach_fault,root_reattach_controls,root_reattach_commands;
+static void root_reattach_model(uint64_t offset,uint32_t value) {
+    struct xhci_device *old=&xhci.devices[0],*d=&xhci.devices[2];
+    unsigned at=xhci.event_dequeue,cycle=xhci.event_cycle;
+    if(offset==xhci.db_base && !value) {
+        uint64_t index=(xhci.command_enqueue+XHCI_TRB_COUNT-2)%(XHCI_TRB_COUNT-1);
+        const struct xhci_trb *cmd=&xhci.command_ring[index];
+        unsigned type=(cmd->control>>10)&63;
+        unsigned slot=1;
+        const unsigned order[]={XHCI_TRB_TYPE_DISABLE_SLOT,XHCI_TRB_TYPE_ENABLE_SLOT,
+            XHCI_TRB_TYPE_ADDRESS_DEVICE,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT};
+        assert(test_io_active && root_reattach_commands<sizeof order/sizeof order[0]);
+        assert(type==order[root_reattach_commands++]);
+        if(type==XHCI_TRB_TYPE_DISABLE_SLOT && root_reattach_fault==1)slot=3;
+        if(type==XHCI_TRB_TYPE_ENABLE_SLOT)assert(old->slot_disabled && !xhci.dcbaa[1] && d->present);
+        if(type==XHCI_TRB_TYPE_ADDRESS_DEVICE)assert(xhci.dcbaa[1]==d->output_context_phys);
+        uint64_t ptr=xhci.command_ring_phys+index*sizeof(*cmd);
+        xhci.event_ring[at]=(struct xhci_trb){.parameter_low=ptr,.parameter_high=ptr>>32,
+            .status=1u<<24,.control=cycle|(XHCI_TRB_TYPE_COMMAND_COMPLETION<<10)|(slot<<24)};
+    }
+    if(offset!=xhci.db_base+4 || value!=1)return;
+    assert(d==device_by_slot(1) && d->control_pending && old->slot_disabled && test_io_active);
+    bool strict=strict_control.device==d;
+    struct xhci_trb *setup=(struct xhci_trb *)(uintptr_t)(strict?strict_control.setup:d->control_td[0]);
+    unsigned request=(setup->parameter_low>>8)&255,length=setup->parameter_high>>16;
+    uint64_t ptr=strict?strict_control.status:d->control_td[d->control_td_count-1];
+    if(request==USB_REQ_GET_DESCRIPTOR) {
+        unsigned descriptor=setup->parameter_low>>24;
+        static const uint8_t device[]={18,1,0,2,0,0,0,64,0x92,0x73,0x11,0xa7,0,1,0,0,0,1};
+        static const uint8_t config[]={9,2,74,0,1,1,0,0x80,100,9,4,0,0,8,255,2,255,0,
+            7,5,0x84,2,0,2,1,7,5,0x85,2,0,2,1,7,5,8,2,0,2,1,7,5,4,2,0,2,1,
+            7,5,5,2,0,2,1,7,5,6,2,0,2,1,7,5,7,2,0,2,1,7,5,9,2,0,2,1};
+        assert((descriptor==1 && (length==8 || length==18)) ||
+               (descriptor==2 && (length==9 || length==74)));
+        memcpy(d->descriptor_buffer,descriptor==1?device:config,length);
+        if(descriptor==1 && length==18 && root_reattach_fault==3)d->descriptor_buffer[10]++;
+    }else if(request==7) {
+        assert(length==4 && (setup->parameter_low&255)==0xc0);
+        uint32_t identity=(setup->parameter_high&0xffff)?0x76502000:0x76100002;
+        if(root_reattach_fault==2)identity++;
+        for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=identity>>(i*8);
+    }else assert(request==USB_REQ_SET_CONFIGURATION && !length);
+    if(!root_reattach_controls++) {
+        uint64_t stale=old->ep0_ring_phys+32;
+        xhci.event_ring[at]=(struct xhci_trb){.parameter_low=stale,.parameter_high=stale>>32,
+            .status=1u<<24,.control=cycle|(XHCI_TRB_TYPE_TRANSFER_EVENT<<10)|(1u<<16)|(1u<<24)};
+        if(++at==XHCI_EVENT_TRB_COUNT){at=0;cycle=!cycle;}
+    }
+    xhci.event_ring[at]=(struct xhci_trb){.parameter_low=ptr,.parameter_high=ptr>>32,
+        .status=1u<<24,.control=cycle|(XHCI_TRB_TYPE_TRANSFER_EVENT<<10)|(1u<<16)|(1u<<24)};
+}
+
+static void test_wifi_root_reattach(void) {
+    for(unsigned fault=0;fault<5;fault++) {
+        stop_fixture();
+        static uint64_t dcbaa[256];memset(dcbaa,0,sizeof dcbaa);xhci.dcbaa=dcbaa;
+        xhci.max_slots=8;xhci.port_count=2;
+        struct xhci_device *old=&xhci.devices[0],*disk=&xhci.devices[1];
+        *old=(struct xhci_device){.present=true,.addressed=true,.slot_id=1,.port_id=1,.speed=3,
+            .wifi_probe_attempted=true,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .vendor_id=0x7392,.product_id=0xa711,.device_bcd=0x0100};
+        assert(allocate_device_runtime(old));
+        dcbaa[1]=old->output_context_phys;
+        memset(old->ep0_ring,0x5a,PMM_FRAME_SIZE);
+        *disk=(struct xhci_device){.present=true,.configured=true,.slot_id=2,.port_id=2};
+        static struct block_device storage;
+        disk->storage.block=&storage;dcbaa[2]=0x100000;
+        port_model.active=port_model.connected=true;
+        port_model.state=(3u<<10)|XHCI_PORTSC_PP|XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+        *(uint32_t *)(registers+port_offset(1))=(4u<<10)|XHCI_PORTSC_PP|XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+        root_reattach_fault=fault;root_reattach_controls=root_reattach_commands=0;
+        native_boundary_mmio_hook=root_reattach_model;
+        wifi_probe_enabled=wifi_firmware_enabled=test_io_gate_allowed=true;
+        struct wifi_root_reattach trial={0};
+        assert(!wifi_root_reattach_begin(&trial,disk));
+        old->parent_slot_id=2;assert(!wifi_root_reattach_begin(&trial,old));old->parent_slot_id=0;
+        assert(wifi_root_reattach_begin(&trial,old));
+        assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_REMOVAL && !root_reattach_commands);
+        port_model.state&=~(XHCI_PORTSC_CCS|XHCI_PORTSC_PED);
+        port_model.state|=XHCI_PORTSC_CSC;
+        test_io_active=true;xhci.sync_users=1;xhci.storage_sync_owner=disk;
+        assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_DISABLE_SLOT && old->removed && !root_reattach_commands);
+        test_io_active=false;xhci.sync_users=0;xhci.storage_sync_owner=NULL;
+        if(fault==1) {
+            assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_FAILED && xhci.command_failed);
+            assert(!old->slot_disabled && dcbaa[1]==old->output_context_phys && !trial.replacement);
+        }else {
+            assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION && old->slot_disabled && !dcbaa[1]);
+            assert(!device_by_slot(1) && !enumerate_port(0));
+            assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION); /* Ack unplug CSC. */
+            port_model.state|=XHCI_PORTSC_CCS|XHCI_PORTSC_CSC;
+            assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION && !trial.stable);
+            assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION && trial.stable);
+            assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION && !port_model.resets);
+            test_time+=100000;
+            if(fault==4)port_model.never_complete=true;
+            assert(wifi_root_reattach_step(&trial)==(fault?WIFI_ROOT_FAILED:WIFI_ROOT_READY));
+            if(fault==4)assert(!trial.replacement && !dcbaa[1] && root_reattach_commands==1);
+            else {
+                struct xhci_device *fresh=trial.replacement;
+                assert(fresh==&xhci.devices[2] && device_by_slot(1)==fresh && fresh->slot_id==old->slot_id);
+                assert(dcbaa[1]==fresh->output_context_phys && fresh->output_context_phys!=old->output_context_phys);
+                assert(fresh->ep0_ring_phys!=old->ep0_ring_phys && fresh->descriptor_buffer_phys!=old->descriptor_buffer_phys);
+                assert(fresh->firmware.configured==!fault && fresh->wifi_probe_ok==!fault);
+                assert(root_reattach_commands==(fault?3u:4u) && root_reattach_controls==(fault==3?4u:fault==2?6u:7u));
+                if(!fault) {
+                    native_boundary_mmio_hook=NULL;disable_auto=true;
+                    assert(xhci_retire_slot(1) && fresh->slot_disabled && !dcbaa[1]);
+                }
+            }
+        }
+        assert(!freed && !test_io_active && dcbaa[2]==0x100000 && !disk->removed && disk->storage.block==&storage);
+        for(unsigned i=0;i<PMM_FRAME_SIZE;i++)assert(((uint8_t *)old->ep0_ring)[i]==0x5a);
+    }
+    wifi_probe_enabled=wifi_firmware_enabled=test_io_gate_allowed=false;
+    puts("xhci Wi-Fi root reattach: PASS Disable Slot, fresh records and buffers, reused slot ID, stale EP0 completion, storage exclusion, and replacement refusal");
+}
 static void test_start_reset_boundaries(void) {
     stop_fixture();halt_after=0;start_status_model=true;
     static uint64_t dcbaa[256];static struct xhci_erst_entry erst;
@@ -7806,8 +7924,9 @@ static void test_repeated_init(void) {
     puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
 }
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-root-reattach")){test_wifi_root_reattach();return 0;}
     if(argc==2 && !strcmp(argv[1],"--integration-lifecycle")){
-        test_repeated_init();test_failed_init_restart();test_terminal_stop();test_slot_retirement();
+        test_repeated_init();test_failed_init_restart();test_terminal_stop();test_slot_retirement();test_wifi_root_reattach();
         test_hub_route_depth();test_nested_tt();test_shared_tt_cleanup();test_hid_cancellation();
         test_short_hid_recovery();test_class_recovery_refusal();test_interrupt_recovery();test_ep0_recovery();
         test_hub_changes();test_start_reset_boundaries();test_backing_reclaim();test_retired_event_drain();
@@ -7953,6 +8072,7 @@ int main(int argc, char **argv) {
     test_failed_init_restart();
     test_terminal_stop();
     test_slot_retirement();
+    test_wifi_root_reattach();
     test_hub_route_depth();
     test_nested_tt();
     test_shared_tt_cleanup();
