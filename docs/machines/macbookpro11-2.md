@@ -52,6 +52,17 @@ disabled and no replacement slot has been allocated. The [Linux USB hub
 reset path](https://code.googlesource.com/linux/torvalds/linux/%2B/d97ae6474ca0411bb8c2696e5764ec946dba43d0/drivers/usb/core/hub.c#2840)
 also waits for the connection to settle and retries a USB2 connection change.
 
+The retry uses source `95d6bfcd` and release `0ea8bac8aaaf6ce3`. The
+native tests force a connection change during the first reset and a
+transient full-speed result in separate cases. Both retry without allocating
+a slot until the high-speed port is stable. The desktop composition verifies
+the clean first disconnect, successful replacement and an ensuing USB bulk
+transfer. A controller that remains stuck in reset and one that never
+enables the port both fail within the recorded bounds.
+The exact retry image passed the GPT workspace rehearsal and four
+journal recovery cases. It is installed with the accepted v152 recovery
+entry. The retry run record is under `build/bringup/wifi-root-reset-retry`.
+
 ### Same-boot Demers5 desktop reconnect
 
 Work starts at `8b38e6eb` with `origin/main` at `4016abf0`. PR #19 covers
