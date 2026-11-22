@@ -948,9 +948,14 @@ def main():
                         shot=re.search(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",text)[1]
                         if args.retina_fractional:
                             offset = len(text)
-                            shortcut("alt-tab")
+                            shortcut("ctrl-w")
+                            wait_for(serial,lambda s:"exited role=text failure=0" in s[offset:],process,30)
                             wait_for(serial,lambda s:f"deskd: focused pid={settings_pid} " in s[offset:],process,20)
-                            select_scale(175,2,"keep")
+                            try:
+                                select_scale(175,2,"keep")
+                            except RuntimeError:
+                                ui.call("screendump", {"filename": str(logs/"retina-restore-failure.ppm")})
+                                raise
                         for keys in ("f10","end","ret"): shortcut(keys)
                         if retina_desktop:
                             marker = "retina-trial: saved=1 USB unmounted=yes; returning to Ubuntu"
