@@ -16,10 +16,29 @@ HD-audio input path and per-bank L3 policy have separate effects on this
 handoff. Three reads with the Ubuntu i915 driver found `FUSE_STRAP=0x20100042`
 (WiDi video fused off) and `TRANS_WD_FUNC_CTL=0`, while GT WiDi GO remained
 open. On the separate display-audio controller at 00:03.0, two GET_HVV
-reads on codec 0x80862808 returned 3 (WiDi audio input disabled). Native
-audio exclusion across the loan remains open. The submission-guard v3
-trial checks the video fuse and looks for space for driver command pages
-above the mappable aperture. See the [device trial guide](../device-workflow.md).
+reads on codec 0x80862808 returned 3 (WiDi audio input disabled).
+The Ubuntu comparison also observed the fuse set and GET_HVV equal to 3
+at all six checks across an i915-owned replacement and rollback. All five
+private queues resumed and the 1,024 original words matched. Native audio
+exclusion and coherent flushing across all active L3 banks remain open.
+
+SrvrOS release `a3b6a5ce1f663e68` (source `f63cecfd`, session
+`session-000660d549554360-00`) confirmed the same video-disable fuse at
+both boundaries of the slot 8704 loan. Wireless video capture stayed
+disabled. Both reads of slot 8704 returned `0x8e201001`. The driver
+returned the loan with zero PTE writes, and the original Pipe A frame
+counter advanced from 1101 to 1102. Ubuntu collected the report and the
+offline exFAT check passed.
+
+All 32 entries in each GPU-only window starting at slots `0x10000`,
+`0x80000` and `0xffe00` were nonzero. This run claimed no command pages.
+The occupancy masks do not identify the backing or its owner. Further
+work should establish which inherited allocations must be pinned and how
+the native submission owner can take over a command interval while those
+allocations remain live. i915 uses its address allocator to distinguish
+reserved ranges from holes when initializing the GGTT.
+[Linux GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
+· [SrvrOS trial guide](../device-workflow.md).
 
 On November 21 the Air ran the SrvrOS command encoder on five i915-owned
 hardware queues. Each engine drained its preceding batch and parked. Only
