@@ -238,6 +238,7 @@ def main():
             pc = out / 'empty-pkgconfig'
             pc.mkdir()
             pc_dirs.append(str(pc))
+        iconv_c_args = ['-I' + str(prefix / 'include')]
         cross = out / 'srvros.ini'
         cross.write_text(f'''[binaries]
 c = {str(compiler)!r}
@@ -255,7 +256,7 @@ needs_exe_wrapper = true
 pkg_config_libdir = {pc_dirs!r}
 
 [built-in options]
-c_args = [{'-I' + str(prefix / 'include')!r}]
+c_args = {iconv_c_args!r}
 c_link_args = [{'-L' + str(prefix / 'lib')!r}]
 ''')
         if args.proxy_intl_archive:
@@ -266,7 +267,12 @@ c_link_args = [{'-L' + str(prefix / 'lib')!r}]
             receipt['proxy_intl_sha256'] = {str(path.relative_to(out)): digest(path)
                                           for path in sorted(proxy_prefix.rglob('*')) if path.is_file()}
             print(f'Target proxy-libintl prefix: {proxy_prefix}', flush=True)
+        # Zig's freestanding limits.h does not include the SDK's POSIX limits.
+        # Supply the SDK header to GLib's C build, where hostname limits are used.
+        glib_c_args = [*iconv_c_args, '-include', str(sdk / 'include/limits.h')]
+        receipt['glib_c_args'] = glib_c_args
         meson_args = [meson, 'setup', out / 'glib-build', glib, '--cross-file', cross,
+                      f'-Dc_args={glib_c_args!r}',
                       '--wrap-mode=nodownload', '--default-library=static', '-Dtests=false',
                       '-Dintrospection=disabled', '-Dnls=disabled', '-Dlibmount=disabled',
                       '-Dselinux=disabled', '-Dxattr=false', '-Dsysprof=disabled']
