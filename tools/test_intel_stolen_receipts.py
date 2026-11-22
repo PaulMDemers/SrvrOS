@@ -588,14 +588,15 @@ class Receipts(unittest.TestCase):
             self.assertEqual((root/'build/hardware-boot'/release/'srvros.elf').read_text(),'intel-stolen/srvros.elf')
             stage=root/'build/hardware-boot'
             head='a'*40
-            with patch.object(boot,'ROOT',root),patch.object(boot,'STAGE',stage),patch.object(boot.subprocess,'check_output',side_effect=[head,'']):
-                release=boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture='scanout-range')
-            manifest=boot.verify(stage/release)
-            self.assertTrue(manifest['source_bound'])
-            self.assertTrue(manifest['config_version'].startswith('ram-usb-v13-intel-stolen-'))
-            for changes in ({'git_head':'b'*40},{'source_bound':False}):
-                (stage/release/'manifest.json').write_text(json.dumps(dict(manifest,**changes)))
-                with self.assertRaises(ValueError):boot.verify(stage/release)
+            for mode, revision in (('scanout-range',13),('private-range',14),('firmware-import',15)):
+                with patch.object(boot,'ROOT',root),patch.object(boot,'STAGE',stage),patch.object(boot.subprocess,'check_output',side_effect=[head,'']):
+                    release=boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=mode)
+                manifest=boot.verify(stage/release)
+                self.assertTrue(manifest['source_bound'])
+                self.assertTrue(manifest['config_version'].startswith(f'ram-usb-v{revision}-intel-stolen-'))
+                for changes in ({'git_head':'b'*40},{'source_bound':False}):
+                    (stage/release/'manifest.json').write_text(json.dumps(dict(manifest,**changes)))
+                    with self.assertRaises(ValueError):boot.verify(stage/release)
         for extra in ({'intel_bcs_context':True},{'intel_window_capture':True},{'intel_gt_bootstrap':True},{'hold_on_failure':True},{'desktop_audio':True}):
             with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=True,**extra)
         plan=profile(ROOT,'intel-stolen-v55');self.assertEqual(len(plan['qualification']),4)
