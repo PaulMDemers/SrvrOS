@@ -18,6 +18,8 @@
     } \
 } while (0)
 
+#include "test_glib_dns_expand.h"
+
 static unsigned be16(const unsigned char *p) { return ((unsigned)p[0] << 8) | p[1]; }
 
 /* Validate the response envelope and locate a single uncompressed-question,
@@ -125,12 +127,16 @@ static int service_answer(void) {
         be16(answer + p + 2) == 1 && be16(answer + p + 4) == C_IN &&
         be16(answer + p + 10) == 4 && answer[p + 12] == 192 && answer[p + 13] == 0 &&
         answer[p + 14] == 2 && answer[p + 15] == 123);
+    char expanded[64];
+    CHECK("service-expand", dn_expand(answer, answer + n, answer + p, expanded, sizeof(expanded)) == 2 &&
+        strcmp(expanded, "host.srvros.test") == 0);
     return 0;
 }
 
 int main(void) {
     printf("glib-resolver: start\n");
-    if (check_txt("good.srvros.test", "srvros resolver fixture") ||
+    if (check_dns_expand() ||
+        check_txt("good.srvros.test", "srvros resolver fixture") ||
         check_txt("mismatch.srvros.test", "srvros resolver fixture") ||
         check_txt("malformed.srvros.test", "srvros valid after malformed") ||
         large_answer() || service_answer() ||
