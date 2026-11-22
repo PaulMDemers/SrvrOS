@@ -20763,3 +20763,11 @@ on-disk handoff selected `retina-fractional-proof-2.txt` because the
 original proof already exists. A repeat attended run requires delivery of
 the saved checklist with that filename. The workspace was unmounted and
 the candidate remains unarmed.
+
+### Host tooling for comparing native trials (November 22)
+
+Build a read-only comparison of archived returns on PR #516 (`93d804e6`,
+integration main `a055fc26`). Scope covers the host trial CLI, receipt
+comparison, focused tests and usage guide. Replay the two Pro Wi-Fi active
+removal trials through the existing session matcher and check the traffic,
+retirement, storage and recovery findings against their individual receipts.
