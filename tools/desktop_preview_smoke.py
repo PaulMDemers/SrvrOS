@@ -146,8 +146,11 @@ def main():
                     wait(b"deskd: retired pid=");qmp.key("esc")
                     wait(b"deskview: action=2");shot("preview-canceled")
                     open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
-                    click(width//2-150,height-50);type_text("Preview remained responsive.")
-                    wait(b"loaded path=/fat/pictures/Maximum.png width=4096 height=1024",90)
+                    load_progress=consumed
+                    shortcut("meta_l-spc");wait(b"launcher opened");type_text("Text window");qmp.key("ret");wait(b"launcher window=")
+                    type_text("Preview remained responsive.")
+                    consumed=load_progress
+                    wait_all([b"launcher window=",b"loaded path=/fat/pictures/Maximum.png width=4096 height=1024"],90)
                     shortcut("ctrl-l");type_text("/fat/preview-input-proof.txt");shortcut("ctrl-s")
                     wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text("Maximum.png");qmp.key("ret");wait(b"launcher window=")
@@ -182,7 +185,8 @@ def main():
                 qmp.key("0");wait(b"fit=1");shot("preview-compact")
                 shortcut("ctrl-w");wait(b"deskview: exited failure=0")
                 # Files associates the image extension with Preview.
-                click(width//2-250,height-50);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
+                shortcut("meta_l-spc");wait(b"launcher opened");type_text("Files new app");qmp.key("ret")
+                wait(b"launcher application=1");wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
                 shortcut("ctrl-l");type_text("/fat/pictures");qmp.key("ret");wait(b"file-result role=files op=3 status=0")
                 qmp.key("home");qmp.key("down");qmp.key("ret")
                 wait(b"deskview: starting");wait(b"loaded path=/fat/pictures/Landscape.png width=1600 height=1000");shot("preview-files-launch")
