@@ -26,8 +26,9 @@ providers in the normal guest. Host GLib dispatches wakes and timers. Target
 GLib configures through its pinned internal `intl` fallback and the SDK's
 `C_IN` and `res_query()` checks. It generates the static build graph.
 GIO's resolver object compiles and the target DNS decoder passes in the
-guest. The static build first stops on the `ELOOP` declaration in GLib's
-`O_NOFOLLOW` handling. Static GLib compilation and integrated main-context
+guest. GLib's file-utilities object compiles with the SDK's `ELOOP`
+declaration. The static build first stops on `_POSIX_HOST_NAME_MAX` in
+the hostname utilities. Static GLib compilation and integrated main-context
 wait follow. Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026

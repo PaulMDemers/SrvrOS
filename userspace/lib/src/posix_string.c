@@ -289,6 +289,8 @@ char *strerror(int error) {
         return "invalid argument";
     case 38:
         return "not implemented";
+    case ELOOP:
+        return "too many symbolic links";
     case EOVERFLOW:
         return "value too large";
     default:

@@ -197,6 +197,17 @@ returned to integration. The GIO resolver object compiles. The first static
 GLib/GIO build failure is missing `ELOOP` in `gfileutils.c`. See the
 [wire decoder receipt](../assets/evidence/gio-dns-wire/receipt.json).
 
+## GLib file open policy — November 22, 2026
+
+The browser topic starts from merged PR #515. The scope is the SDK
+`ELOOP` declaration and the existing link-free `O_NOFOLLOW` contract for
+initramfs and exFAT. The filesystem owner approved the contract. Two
+file-policy and two platform probes exited 0 with an initramfs archive-link
+fixture and private exFAT workspace. QEMU stopped and the window returned
+to integration. GLib's `gfileutils.c` object compiles. The first static build
+failure is `_POSIX_HOST_NAME_MAX` in `ghostutils.c`. See the
+[file-policy receipt](../assets/evidence/glib-file-policy/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

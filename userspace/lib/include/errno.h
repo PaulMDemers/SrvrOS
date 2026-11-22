@@ -39,6 +39,7 @@
 #define EILSEQ 84
 #define ENOSYS 38
 #define ENOTEMPTY 39
+#define ELOOP 40
 #define EINPROGRESS 115
 #define EALREADY 114
 #define ENAMETOOLONG 36
