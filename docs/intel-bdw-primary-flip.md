@@ -229,7 +229,7 @@ and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-curr
    live driver's allocation. A zero PTE alone supplies no reader guarantee.
 3. **Bind one private RAM page and roll back.** Pin the RAM, publish its PTE
    inside that interval, invalidate the translation, verify visibility, then
-   restore the exact zero entry. Release RAM only after translation and
+   restore the exact original entry. Release RAM only after translation and
    reader retirement. Keep the boot plane live throughout.
 4. **Flip the complete surface and integrate desktop presentation.** Repeat
    the binding for the X-tiled image and fetch padding, verify distinct
@@ -237,7 +237,15 @@ and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-curr
    use that lifetime for the compositor. Physical acceptance requires
    repeated flips, rollback and retirement on the internal panel.
 
-This path leaves the populated firmware entry at slot 8704 intact. Its first
-hardware question is whether a suitably sized zero range actually exists in
-the inherited GGTT. If the aperture is populated throughout, identify the
-binding owner and use an explicit takeover or another addressable region.
+The Air7,2 completed step 1 on release `5d1fa7400ba472cc`. The entire
+eligible region had nonzero entries. Step 2 now requires an explicit takeover. Import the inherited plane, fence and firmware
+reservations into the driver's address-space allocator, identify and quiesce
+the clients of the interval selected for reuse, and retain its original
+translations through rollback.
+Repeating the empty-entry search on the same aperture will not supply that
+ownership. Upstream i915 determines unused intervals from its allocation
+records during GGTT initialization. [Linux i915 GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
+
+The Linux framebuffer offsets in the [Air7,2 hardware record](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
+give a comparison for the allocator. Firmware handoff and the size of the live
+boot fence must be established afresh in SrvrOS before reusing addresses.

@@ -10,11 +10,26 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current PR301 objective is to reserve an independent GPU virtual interval
-for a driver-allocated second surface. The native range probe, shared interval
-registry and result collector are in scope. The first trial preserves the
-inherited fence and classifies firmware PTEs before allocating a software
-lease. Binding RAM and retiring hardware readers are separate milestones.
+Release `5d1fa7400ba472cc` (source `bccf2409`, session
+`session-000660d30f73afdb-00`) completed the independent-range diagnostic.
+All 53,760 entries in slots 11,776 through 65,535 (46–256 MiB) contained
+nonzero values. The search thus exhausted the tested aperture with zero
+private pages claimed. The receipt counts nonzero entries without identifying
+their target pages or owners.
+
+The original Pipe A frame counter advanced from 1165 to 1168. The diagnostic
+rechecked all 1,484 entries of the older candidate at slot 8704 and released
+its software reservation. All 179 temporary CPU mappings retired, all 42
+closing reader observations matched, GPU writes were zero, and the offline
+exFAT integrity check passed after the return to Ubuntu.
+
+For comparison, Ubuntu i915 on this unit reported the console framebuffer
+pinned at GGTT offset zero. Two 6 MiB desktop surfaces appeared at offsets
+`0x01080000` and `0x01680000`, inside the 34 MiB fence SrvrOS currently
+preserves. These are allocations under Linux's ownership. The next PR301
+milestone is to establish the SrvrOS graphics address-space owner, keep the
+inherited display and its dependencies pinned, then bind and restore a single
+private page under that owner. [Implementation sequence](../intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
 Release `e6fb694136606470` (source `9771e874`, session
 `000660d2bf57904a-00`) returned to Ubuntu with intact USB evidence.
