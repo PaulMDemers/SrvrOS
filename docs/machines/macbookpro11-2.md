@@ -7,6 +7,18 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Demers5 network recovery after replug
+
+Work starts at `0b73c05d` with `origin/main` at `4016abf0`. PR #19 owns
+the Edimax firmware, RF and desktop provider changes. PR #301 and #379
+remain separate. Build on the accepted v153 clean Disconnect and same-port
+USB reattachment. Keep the original slot and DMA retired, reload the
+pinned firmware into the replacement, and run a fresh calibration,
+discovery and association. The new System owner must publish the second
+connection independently. The same boot must record DHCP and bidirectional
+data on Demers5, preserve the mounted workspace and save results before
+returning to Ubuntu.
+
 ### Demers5 USB reattachment
 
 Work starts at `6b298cdd` with `origin/main` at `4016abf0`. PR #19 owns
