@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; one cold Demers5 desktop connection, network checks, USB file saving and safe disconnect accepted on v151; same-session reconnect, reattach and repeated reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -78,9 +78,27 @@ The desktop fixture carried the held channel-161 RF owner through encrypted
 traffic, a USB storage read, Disconnect and RF restoration with modeled
 hardware. The exact image passed GPT workspace save and reset, plus the journal
 rehearsals for both destinations, missing USB, journal refusal and dual refusal.
-The native result remains pending. The private stage, journal binding,
-pre-boot workspace baseline and run record are under
+The private stage, journal binding, pre-boot workspace baseline and run record are under
 `build/bringup/wifi-desktop-owner-primed`.
+
+Cold session `session-000660d21ce4ecee-00` on November 21 passed one physical
+Demers5 desktop association and disconnect on that release. RXDCOC returned
+in 465 microseconds, priming completed, and discovery selected Demers5 in
+the first window. System's Connect brought up WPA and DHCP. Network Utility
+completed a gateway Ping and a DNS lookup, Text saved a new USB workspace
+file, and another gateway Ping completed before Disconnect. The saved file
+survived reboot. The guest log has a successful Text write and no positive
+reopen receipt.
+
+The resident data window ran for 71.1 seconds with 14 encrypted TX and 106
+delivered RX frames, one TX ring wrap and 192 RX ring wraps. Disconnect
+retired the endpoints and provider, erased the keys, and restored the RF
+parent. Exit desktop returned to Ubuntu. Both workspace logs, all seven
+independent journal checkpoints, clean exFAT, all 501 prior files and
+36 unrelated EFI files verified. The candidate and matching return evidence
+have a verified durable copy under `/var/local/srvros-recovery/macbookpro11-2`.
+This accepts one cold desktop connection with USB file saving. Same-session
+reconnect, physical reinsertion and repeated reliability remain open.
 
 ### Persistent 5 GHz and desktop controls
 
