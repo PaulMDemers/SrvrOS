@@ -4280,7 +4280,10 @@ int64_t process_drop_credentials(uint64_t uid, uint64_t gid) {
     int64_t result=SRV_ERR_PERM;
     if(!p || p->credentials.uid || !uid || !gid) goto done;
     result=SRV_ERR_BUSY;
-    if(process_current_user_thread() || process_signal_records_active(p) || p->owned_user_scope ||
+    /* The designated reaper must retain its privilege while it owns orphan
+     * collection; an irreversible drop must not retain that authority. */
+    if(p->pid==system_reaper_pid || process_current_user_thread() ||
+       process_signal_records_active(p) || p->owned_user_scope ||
        p->pending_signals || p->main_pending_signals) goto done;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(p->user_threads[i].used) goto done;
     for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++)
