@@ -102,6 +102,7 @@ class StolenProbe(unittest.TestCase):
         controls={
             'lost-reader-census':('!readers(n)', '(false && !readers(n))'),
             'lost-candidate-policy':('!candidate_policy(n)', '(false && !candidate_policy(n))'),
+            'unmasked-aperture-query':('flags=intel_stolen_test_irq_save();','flags=0;'),
             'skipped-native-guard-begin':('!cpu_guard_operation(0,pair)','false'),
             'skipped-native-guard-check':('!cpu_guard_operation(1,pair)','false'),
             'skipped-native-guard-close':('!cpu_guard_operation(2,pair)','false'),
@@ -133,10 +134,12 @@ class StolenProbe(unittest.TestCase):
             'lost-preflight-cache-admission':('if(!policy(stolen.source.mmio+0x108000) || !tick(stolen.begin[n]))return false;','if(!tick(stolen.begin[n]))return false;'),
             'lost-progress-alias-exclusion':('stolen.mapped || stolen.uncertain','false'),
         }
+        repeated={'lost-source-bracket':3, 'lost-CPU-root-census':2,
+                  'lost-sole-root-admission':9, 'lost-fresh-cache':4}
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),2 if name in ('lost-source-bracket','lost-CPU-root-census') else 9 if name=='lost-sole-root-admission' else 4 if name=='lost-fresh-cache' else 1)
+                    self.assertEqual(original.count(old),repeated.get(name,1))
                     source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
                     p=subprocess.run([str(binary)],capture_output=True,timeout=120)
