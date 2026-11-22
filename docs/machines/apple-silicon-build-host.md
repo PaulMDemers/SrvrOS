@@ -19,6 +19,12 @@ exFAT filesystems passed the guest allocation checks on each boot. Restricted
 storage access requires the clean installed volume and its metadata. The
 isolated execution path uses a trusted launcher and a limited syscall set.
 
+[SrvrOS #509](https://github.com/PaulMDemers/SrvrOS/pull/509) review added a
+guard against credential drops by the designated system reaper. Host tests
+verified that the reaper retains its credentials and ordinary children can
+still drop theirs. The clean runtime at `948a5332` passed both EFI boots and
+the focused host checks on the same main baseline.
+
 To reproduce on this host, build with
 `sh tools/macos/build.sh -j2 all build/userspace/test_local_isolation.elf`.
 Run `python3 tools/local_isolation_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
