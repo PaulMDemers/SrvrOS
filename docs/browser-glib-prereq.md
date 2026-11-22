@@ -207,8 +207,17 @@ The targeted command
 `ninja -C /path/to/glib-build gio/libgio-2.0.a.p/gthreadedresolver.c.o`
 fails first at `dn_expand()` and also reports missing `GETSHORT`, `GETLONG`,
 `HEADER` and record constants. Target GLib libraries remain unbuilt.
+
+`python3 tools/glib_platform_guest.py --resolver` passed twice in the
+diskless Q35 guest using the restored SDK, kernel, init and Limine inputs.
+The private Ethernet peer saw 24 queries and sent 30 replies. The native
+fixture checked raw TXT and SRV replies, compressed names, short-buffer sizing,
+rejection of unrelated or malformed replies, DNS error mapping, thread-local
+`h_errno` and the existing IPv4 `getaddrinfo()` path. Both platform probes also
+returned exit 0, and QEMU and its DNS peer stopped. Readback from the boot ISO
+matched the restored kernel and the packed init and probe ELFs.
 The [resolver receipt](assets/evidence/gio-res-query/receipt.json) records
-the matched SDK and configure inputs.
+the configure and guest evidence.
 
 ## Verification
 
