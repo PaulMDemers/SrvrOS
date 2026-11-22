@@ -23,11 +23,13 @@ production capability change is in scope.
 The November 22 [GLib prerequisite probe](browser-glib-prereq.md) verifies
 native wait primitives and the iconv, PCRE2, libffi, zlib and proxy-libintl
 providers in the normal guest. Host GLib dispatches wakes and timers. Target
-GLib configures through its pinned internal `intl` fallback and stops at
-GIO's `C_IN` compile check. Resolver header and API requirements need
-networking owner review before the next target configure run. Static GLib
-compilation and integrated main-context wait follow. Shared-memory and IPC
-design remains with its runtime owner.
+GLib configures through its pinned internal `intl` fallback and the SDK's
+`C_IN` and `res_query()` checks. It generates the static build graph.
+GIO's resolver object compiles and the target DNS decoder passes in the
+guest. GLib's file-utilities object compiles with the SDK's `ELOOP`
+declaration. The static build first stops on `_POSIX_HOST_NAME_MAX` in
+the hostname utilities. Static GLib compilation and integrated main-context
+wait follow. Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
 

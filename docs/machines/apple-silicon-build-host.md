@@ -206,6 +206,47 @@ runs exit 0. The guest stops and the VM window returns to integration.
 GLib selects the internal fallback and stops at GIO's `C_IN` header
 check. See the [proxy-libintl receipt](../assets/evidence/glib-proxy-intl/receipt.json).
 
+## GIO resolver header — November 22, 2026
+
+Main `e186c911` supplies the verified dependency set. The browser topic
+exports `<arpa/nameser.h>` with `C_IN = 1`. The rebuilt SDK passes strict
+target C and C++ checks, and its runtime inputs match the prior hashes.
+The rerun passes GIO's primary `C_IN` compile check and stops at
+`res_query()`. The VM window stays available. See the
+[GIO header receipt](../assets/evidence/gio-nameser/receipt.json).
+
+## GIO resolver guest — November 22, 2026
+
+PR #511 at `c7c06f15` restored 161 SDK and boot files from the verified
+browser checkpoint and matched the pinned Zig binary. One diskless,
+single-CPU Q35 guest passed both platform and both resolver runs. The private
+DNS peer handled 24 queries. The guest returned to its monitor after each
+probe, and both processes stopped. Kernel, init and probe bytes were verified
+by reading the boot ISO. The VM window was returned to integration.
+See the [resolver receipt](../assets/evidence/gio-res-query/receipt.json).
+
+## GIO DNS decoding — November 22, 2026
+
+The browser topic extends the tested PR #511 SDK with the DNS wire declarations
+and bounded name expansion used by GLib 2.90.1. The scope is the public
+nameser and resolver headers, userspace decoder, and resolver guest probe.
+Kernel networking and the DNS exchange use the verified baseline. Four
+fixture runs passed in the private diskless Q35 guest and the window was
+returned to integration. The GIO resolver object compiles. The first static
+GLib/GIO build failure is missing `ELOOP` in `gfileutils.c`. See the
+[wire decoder receipt](../assets/evidence/gio-dns-wire/receipt.json).
+
+## GLib file open policy — November 22, 2026
+
+The browser topic starts from merged PR #515. The scope is the SDK
+`ELOOP` declaration and the existing link-free `O_NOFOLLOW` contract for
+initramfs and exFAT. The filesystem owner approved the contract. Two
+file-policy and two platform probes exited 0 with an initramfs archive-link
+fixture and private exFAT workspace. QEMU stopped and the window returned
+to integration. GLib's `gfileutils.c` object compiles. The first static build
+failure is `_POSIX_HOST_NAME_MAX` in `ghostutils.c`. See the
+[file-policy receipt](../assets/evidence/glib-file-policy/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
@@ -6279,3 +6320,51 @@ Ports9 merged at `89f22a967415297cc6af9229c2bee950932b4aee`; its tree equals rev
 `eb8468df24044d63626a0c0f76b90f024dffc244`. The OS pin now names that actual
 merge commit. Relative to the qualified af1421b port implementation, only
 PORT.md documentation changed; this pin promotion adds no runtime code.
+
+### GNU Grep queue resumption, November 22, 2026
+
+The user resumed the bounded CLI queue. Separate `SrvrOS-ports-grep` at OS
+`b275e57d` owns the GNU Grep 3.12 source, port-local SDK build and guest fixtures.
+`ggrep` preserves existing compact `grep` callers and adds single-file or finite
+stdin search with fixed strings, genuine BRE and ERE, C locale, count/quiet
+and explicit admission limits. GNU's direct release signature and SHA-256
+were verified against the published signer fingerprint. The compiler/guest
+window follows the browser owner's release. No protected checkout or VM was
+used. The OS pin's Pro checkpoint logging call needs owner coordination before
+using a new Ports main pin. This is separate from the Grep port.
+
+GNU Grep qualified on clean `0241ba87` with composite Ports `9fdd187`.
+The 19 GNU reference cases, 14 refusals, five disposable guests, Terminal
+walkthrough, 498-command CLI and ports regressions pass. Two clean component
+rebuilds match the same SDK objects and native tests record five PASS and one
+SKIP. The heap, interrupt and evidence scope is recorded in
+[the Grep receipt](../assets/evidence/ggrep/receipt.json). Exact tested source,
+boot payload and prior failed receipts are retained outside build cleanup.
+
+Ports #15 merged `f96d91c3` with its reviewed tree verified. OS #503 stays
+draft on the qualified composite until the Pro checkpoint logging owner
+approves its separate landing path. The candidate keeps the OS-main logging
+behavior. Current main `28eb6291` is reconciled with host-only incoming changes.
+All Grep guests stopped. The integration checkout and review VM were untouched.
+
+### Grep pin reconciliation, November 22, 2026
+
+Ports #16 proposes the checkpoint logging line already deployed in OS pin
+`276eb1b`. The exact source file matches the deployed one, and the only other
+change relative to the prior qualified composite is Grep port documentation.
+Integration agreed with the separate review path. The owner review request is
+posted on Pro bringup PR19. Owner disposition is pending.
+
+The rebased OS candidate `b69f84cb` on actual main `b95bc096` with proposed
+Ports `9d42e0f` passes the clean matched build, two Grep boots, ports regression,
+Terminal functional and expert review, and all 498 CLI commands with clean
+filesystem checks. The [pin receipt](../assets/evidence/ggrep/pin-receipt.json)
+records artifact hashes and scope. A verified archive outside build retains
+403 entries. The four older raw guest disk copies were retired after matching
+readback from the earlier qualification archive. All owned guest and build
+processes stopped. The integration checkout and review VM are untouched.
+Integration approved landing OS #503 with Ports `9d42e0f` on the durable
+`pins/srvros-503-ggrep` ref. A fresh independent OS clone initialized the exact
+Ports gitlink and fetched the dedicated ref. Ports #16 remains open for owner
+review of promotion to Ports main. The archive was retired during cleanup.
+Compact evidence and manifests survive. Start sha256sum after OS delivery.

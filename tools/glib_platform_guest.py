@@ -2,6 +2,7 @@
 """Run native GLib prerequisite probes in a disposable SrvrOS guest."""
 
 import argparse
+from contextlib import ExitStack
 import hashlib
 import io
 import json
@@ -10,6 +11,7 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -27,6 +29,8 @@ PCRE2_MARKER = b'glib-pcre2: ok'
 LIBFFI_MARKER = b'glib-libffi: ok'
 ZLIB_MARKER = b'glib-zlib: ok'
 PROXY_INTL_MARKER = b'glib-proxy-intl: ok'
+RESOLVER_MARKER = b'glib-resolver: ok'
+FILE_POLICY_MARKER = b'glib-file-policy: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -35,17 +39,39 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run_guest(image, output, receipt, probes):
-    with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp:
+def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None):
+    with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp, ExitStack() as stack:
         uart = str(Path(temp) / 'serial')
         argv = ['qemu-system-x86_64', '-name', 'SrvrOS GLib prerequisite probe',
                 '-machine', 'q35', '-accel', 'tcg,thread=single', '-cpu', 'qemu64',
                 '-smp', '1', '-m', '512M', '-cdrom', str(image), '-boot', 'd',
-                '-display', 'none', '-nic', 'none', '-serial',
+                '-display', 'none', '-serial',
                 f'unix:{uart},server=on,wait=off', '-monitor', 'none', '-no-reboot']
+        pass_fds = ()
+        if dns_peer:
+            a, b = socket.socketpair()
+            stack.enter_context(a)
+            stack.enter_context(b)
+            stats = output / 'dns-peer.json'
+            peer_argv = [sys.executable, dns_peer, '--fd', str(a.fileno()), '--stats', stats]
+            peer = stack.enter_context(subprocess.Popen(peer_argv, pass_fds=(a.fileno(),)))
+            stack.callback(peer.terminate)
+            a.close()
+            pass_fds = (b.fileno(),)
+            argv += ['-netdev', f'socket,id=fixture,fd={b.fileno()}', '-device', 'e1000,netdev=fixture']
+        else:
+            argv += ['-nic', 'none']
+        if workspace:
+            argv += ['-drive', f'if=none,id=workspace,file={workspace},format=raw',
+                     '-device', 'ich9-ahci,id=workspace-ahci',
+                     '-device', 'ide-hd,drive=workspace,bus=workspace-ahci.0']
         receipt['qemu_argv'] = argv
         with (output / 'qemu.log').open('wb') as log, (output / 'serial.log').open('wb') as serial:
-            process = subprocess.Popen(argv, stdout=log, stderr=log)
+            try:
+                process = subprocess.Popen(argv, stdout=log, stderr=log, pass_fds=pass_fds)
+            finally:
+                if dns_peer:
+                    b.close()
             try:
                 with socket.socket(socket.AF_UNIX) as connection:
                     deadline = time.monotonic() + 10
@@ -89,6 +115,26 @@ def run_guest(image, output, receipt, probes):
                         process.kill()
                         process.wait(timeout=5)
                 receipt['guest_stopped'] = process.poll() is not None
+                if dns_peer:
+                    try:
+                        peer_exit = peer.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        peer.kill()
+                        peer_exit = peer.wait(timeout=5)
+                    receipt['dns_peer_exit'] = peer_exit
+                    if stats.is_file():
+                        receipt['dns_peer_sha256'] = digest(stats)
+        if dns_peer:
+            expected = dict.fromkeys(('good', 'large', 'missing', 'nodata', 'temporary',
+                                      'truncated', 'mismatch', 'legacy', 'malformed', 'service'), 2)
+            expected.update(large=4, missing=4)
+            observed = json.loads(stats.read_text())
+            if (peer_exit or observed['queries'] != expected or observed['invalid_frames'] or
+                observed['rejected_queries'] or observed['dns_responses'] != 30 or
+                observed['deliberate_mismatch_replies'] != 4 or
+                observed['deliberate_malformed_replies'] != 2):
+                raise RuntimeError(f'unexpected DNS fixture traffic: {observed}')
+            receipt['dns_peer_queries'] = observed['queries']
 
 
 def main():
@@ -98,6 +144,8 @@ def main():
     parser.add_argument('--libffi-prefix', type=Path, help='target libffi prefix from browser_glib_iconv.py')
     parser.add_argument('--zlib-prefix', type=Path, help='target zlib prefix from browser_glib_iconv.py')
     parser.add_argument('--proxy-intl-prefix', type=Path, help='target proxy-libintl prefix from browser_glib_iconv.py')
+    parser.add_argument('--resolver', action='store_true', help='test the SDK resolver against a private DNS peer')
+    parser.add_argument('--file-policy', action='store_true', help='test no-follow opens in initramfs and private exFAT')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -105,7 +153,8 @@ def main():
     output = Path(tempfile.mkdtemp(prefix='guest-', dir=base))
     print(f'GLib prerequisite evidence: {output}', flush=True)
     receipt = {'result': 'failed', 'guest_stopped': False,
-               'scope': 'native SrvrOS prerequisites in a normal diskless guest'}
+               'scope': ('native SrvrOS prerequisites with a disposable exFAT disk'
+                         if args.file_policy else 'native SrvrOS prerequisites in a normal diskless guest')}
     try:
         compiler = ROOT / 'ports/srvros/webkit/cc'
         source = ROOT / 'tools/test_glib_platform_guest.c'
@@ -131,6 +180,39 @@ def main():
         receipt['payload_sha256'] = digest(elf)
         payloads = {'glib-platform': elf}
         probes = {'glib-platform': (MARKER, GUI_MARKER)}
+        dns_peer = None
+        workspace = None
+        if args.resolver:
+            dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
+            unit = ROOT / 'tools/test_glib_resolver_guest.c'
+            for path in (dns_peer, unit, ROOT / 'tools/test_glib_dns_expand.h'):
+                receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
+            obj = output / 'resolver.o'
+            resolver = output / 'resolver.elf'
+            subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
+                            '-c', unit, '-o', obj], cwd=ROOT, check=True, timeout=60)
+            subprocess.run([compiler, obj, '-o', resolver], cwd=ROOT, check=True, timeout=60)
+            payloads['glib-resolver'] = resolver
+            probes['glib-resolver'] = (RESOLVER_MARKER,)
+            receipt['resolver_payload_sha256'] = digest(resolver)
+        if args.file_policy:
+            unit = ROOT / 'tools/test_glib_file_policy_guest.c'
+            generator = ROOT / 'tools/mk_exfat_image.py'
+            for path in (unit, generator, ROOT / 'tools/audio_fixture.py'):
+                receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
+            obj = output / 'file-policy.o'
+            payload = output / 'file-policy.elf'
+            subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
+                            '-c', unit, '-o', obj], cwd=ROOT, check=True, timeout=60)
+            subprocess.run([compiler, obj, '-o', payload], cwd=ROOT, check=True, timeout=60)
+            payloads['glib-file-policy'] = payload
+            probes['glib-file-policy'] = (FILE_POLICY_MARKER,)
+            receipt['file_policy_payload_sha256'] = digest(payload)
+            workspace = output / 'workspace.exfat'
+            with (output / 'workspace.log').open('wb') as log:
+                subprocess.run([sys.executable, generator, workspace], cwd=ROOT, check=True,
+                               timeout=60, stdout=log, stderr=log)
+            receipt['workspace_before_sha256'] = digest(workspace)
         dependencies = [
             ('iconv', args.iconv_prefix, ('iconv.h',), 'libiconv.a', ICONV_MARKER),
             ('pcre2', args.pcre2_prefix, ('pcre2.h',), 'libpcre2-8.a', PCRE2_MARKER),
@@ -174,6 +256,14 @@ def main():
                 entry = tarfile.TarInfo(name)
                 entry.mode, entry.size = 0o755, len(data)
                 archive.addfile(entry, io.BytesIO(data))
+            if args.file_policy:
+                data = b'sentinel\n'
+                entry = tarfile.TarInfo('nofollow-target')
+                entry.mode, entry.size = 0o644, len(data)
+                archive.addfile(entry, io.BytesIO(data))
+                entry = tarfile.TarInfo('nofollow-link')
+                entry.type, entry.linkname = tarfile.SYMTYPE, 'nofollow-target'
+                archive.addfile(entry)
         image = output / 'guest.iso'
         with (output / 'image.log').open('wb') as log:
             subprocess.run(['xorriso', '-as', 'mkisofs', '-R', '-r', '-J', '-b',
@@ -183,7 +273,7 @@ def main():
             subprocess.run([limine / 'limine', 'bios-install', image], check=True,
                            timeout=30, stdout=log, stderr=log)
         receipt['image_sha256'] = digest(image)
-        run_guest(image, output, receipt, probes)
+        run_guest(image, output, receipt, probes, dns_peer, workspace)
         receipt['result'] = 'passed'
     except Exception as error:
         receipt['error'] = str(error)
@@ -191,6 +281,8 @@ def main():
     finally:
         if (output / 'serial.log').is_file():
             receipt['serial_sha256'] = digest(output / 'serial.log')
+        if (output / 'workspace.exfat').is_file():
+            receipt['workspace_after_sha256'] = digest(output / 'workspace.exfat')
         (output / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('GLib platform guest passed')
 

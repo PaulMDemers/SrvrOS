@@ -18,6 +18,20 @@
 #define NI_NAMEREQD 0x08
 #define NI_DGRAM 0x10
 
+#define HOST_NOT_FOUND 1
+#define TRY_AGAIN 2
+#define NO_RECOVERY 3
+#define NO_DATA 4
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int *__srvros_h_errno_location(void);
+#ifdef __cplusplus
+}
+#endif
+#define h_errno (*__srvros_h_errno_location())
+
 struct addrinfo {
     int ai_flags;
     int ai_family;

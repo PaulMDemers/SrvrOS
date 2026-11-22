@@ -51,6 +51,13 @@ Large vectored transfers may return a 256 KiB prefix; callers must handle short
 I/O. These are implementation limits, not claims that every optional POSIX
 facility is supported.
 
+`open()`, `openat()` and spawn open actions accept `O_NOFOLLOW` in the
+current link-free VFS. Initramfs skips archive link entries, and exFAT
+registers regular files and directories. An omitted archive link yields
+`ENOENT` with either ordinary or no-follow open. The SDK exports `ELOOP`
+and its error text. A link-capable backend must enforce `O_NOFOLLOW` during
+kernel open admission, before creation or truncation.
+
 ## Deliberate exclusions
 
 The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)
@@ -569,6 +576,37 @@ ICMP echo requests and replies require a valid checksum
 and code zero before responding or completing a pending ping. See the
 [datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
 
+
+The SDK exports the DNS Internet class macro `C_IN` with value 1 through
+`<arpa/nameser.h>`. `res_query()` in `<resolv.h>` sends a single Internet-class
+question for an absolute name over IPv4 UDP. It validates the server endpoint,
+transaction ID, question and record boundaries before returning a complete
+wire reply of up to 1,472 bytes. If the caller buffer is too small, the return
+value gives the required size and the buffer is untouched. The SDK recognizes
+compression boundaries in question and owner names and in NS, CNAME, PTR,
+DNAME, SOA, MX and SRV record data. Other record data is opaque, so a pointer
+into an embedded name in that data can be rejected.
+
+`h_errno` is thread-local. NXDOMAIN yields `HOST_NOT_FOUND`. A successful DNS
+status with zero answers yields `NO_DATA`. SERVFAIL and transport failure
+yield `TRY_AGAIN`. A matched truncated response yields `TRY_AGAIN` with
+`EMSGSIZE`. Invalid arguments yield `NO_RECOVERY` with `EINVAL`. The query
+supports UDP only and uses the existing three receive budgets of two seconds
+each. See the [GIO resolver verification](browser-glib-prereq.md#gio-raw-resolver-query).
+
+`<arpa/nameser.h>` also exposes the 12-byte wire header, the NS, SOA, MX, TXT
+and SRV type constants, and `GETSHORT` / `GETLONG` for byte cursors. The header
+exposes raw network-order flags and counts. Callers check that enough bytes
+remain before advancing a cursor.
+
+`dn_expand()` in `<resolv.h>` expands a name within caller-provided packet
+bounds, preserves case and escapes label bytes for DNS presentation. It
+returns the original encoded length, so a compression pointer counts as two
+bytes. The root expands to an empty string. Malformed encodings and insufficient
+output space return `-1` with the destination untouched. Encoded names are
+limited to 255 bytes after expansion. Compression pointers must refer
+backward to names beyond the DNS header. Full-packet validation in
+`res_query()` checks the label boundaries separately.
 
 ARP waits resolve their captured target from the bounded cache, so overlapping
 lookups cannot consume each other's completion. Only ARP request/reply opcodes
