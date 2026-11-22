@@ -38,6 +38,7 @@ enum desk_display_operation { DESK_DISPLAY_QUERY, DESK_DISPLAY_APPLY, DESK_DISPL
 enum desk_display_result { DESK_DISPLAY_OK, DESK_DISPLAY_UNSUPPORTED, DESK_DISPLAY_INVALID, DESK_DISPLAY_BUSY, DESK_DISPLAY_FAILED };
 #define DESK_DISPLAY_CAP_MODE_SET 1u
 #define DESK_DISPLAY_CAP_SCALE 2u
+#define DESK_DISPLAY_CAP_FRACTIONAL_SCALE 4u
 #define DESK_DISPLAY_IDLE 0u
 #define DESK_DISPLAY_TRIAL 1u
 #define DESK_DISPLAY_MODES 7u
@@ -48,7 +49,8 @@ struct desk_display_state {
 };
 _Static_assert(sizeof(struct desk_display_state)==84,"display state wire layout");
 /* DISPLAY requests use nonzero serial, value=operation. APPLY carries requested
- * physical width/height and x=scale (1 or 2); KEEP/REVERT carry trial token in
+ * physical width/height and x=scale (1, 2, or a fractional percentage);
+ * KEEP/REVERT carry trial token in
  * generation. DISPLAY_STATE echoes serial (zero for unsolicited updates),
  * generation=trial token, value=result and text=actual desk_display_state.
  * Mode candidates and capability bits are authoritative, not synthetic.

@@ -67,6 +67,20 @@ The exact image and hardware evidence are archived under
 `evidence-fd2656fd31386cc9`. Ubuntu's default and the recovery image
 were verified after collecting the session.
 
+The rolling-logger trial used `f4dd4bd8`, release `5e87320cf984a090`, and
+session `session-000660e389e6bf61-00`. The saved `exit.log` starts
+with the newest 65,536 bytes after 101,191 bytes of logging. The separate
+boot snapshot records firmware 2× and the exit records startup 2×
+and a confirmed Settings change to 1×. The Text file survived and the
+operator confirmed a clean automatic return to Ubuntu.
+The exact image and checked evidence are archived as `5e87320cf984a090`
+and `evidence-5e87320cf984a090` in the unit's recovery directory.
+
+Fractional scaling extends the desktop output transform, Settings,
+and persisted display preferences with 1.25×, 1.5× and 1.75×. Clients
+continue to use SrvrUI's existing 1× and 2× rasters. The compositor
+resamples fractional output independently of app buffer density.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold

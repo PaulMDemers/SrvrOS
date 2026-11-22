@@ -187,6 +187,13 @@ int main(void) {
     assert(!display_selection_fits(&t) && !t.buttons[20].enabled);
     t.display_width=1280;t.display_height=960;tool_layout(&t);
     assert(display_selection_fits(&t) && t.buttons[20].enabled);
+    t.display.capabilities|=DESK_DISPLAY_CAP_FRACTIONAL_SCALE;
+    t.display_scale=1;tool_layout(&t);
+    const unsigned choices[]={DESK_SCALE_125,DESK_SCALE_150,DESK_SCALE_175,2,1};
+    for(unsigned i=0;i<sizeof(choices)/sizeof(*choices);i++) {
+        tool_settings_action(&t,(struct desk_action){SETTINGS_DISPLAY_SCALE,DESK_WIDGET_ACTIVATED});
+        assert(t.display_scale==choices[i]);
+    }
     t.window.server=42;tool_settings_tick(&t);
     assert(t.brightness_pending && brightness_sent.value==0);
     struct desk_packet bp=brightness_sent;bp.value=14;tool_settings_brightness(&t,&bp);

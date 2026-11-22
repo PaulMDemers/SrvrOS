@@ -39,6 +39,7 @@ struct present_frame {
     unsigned scale;
     uint64_t physical_width,physical_height;
     struct loop_render_record *timing;
+    uint32_t *fractional_band;
 };
 static void compose_frame_rect(void *context,struct desk_rect rect) {
     struct present_frame *f=context;
@@ -49,10 +50,18 @@ static void compose_frame_rect(void *context,struct desk_rect rect) {
 static int upload_frame_rect(void *context,struct desk_rect r) {
     struct present_frame *f=context;struct desk_canvas *c=f->canvas;
     uint64_t begin=f->timing?(uint64_t)srv_monotonic_us():0;
-    struct desk_rect p=desk_canvas_physical_rect(c,r);
-    if((uint64_t)p.x+p.w>f->physical_width)p.w=f->physical_width-p.x;
-    if((uint64_t)p.y+p.h>f->physical_height)p.h=f->physical_height-p.y;
-    int result=blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
+    struct desk_rect p=desktop_output_rect(r,f->scale,f->physical_width,f->physical_height);
+    if(!p.w || !p.h)return 0;
+    int result=0;
+    if(desk_scale_fractional(f->scale)) {
+        if(!f->fractional_band)return -1;
+        for(int y=p.y;y<p.y+p.h;y+=DESKTOP_OUTPUT_BAND_ROWS) {
+            struct desk_rect band={p.x,y,p.w,p.y+p.h-y};
+            if(band.h>DESKTOP_OUTPUT_BAND_ROWS)band.h=DESKTOP_OUTPUT_BAND_ROWS;
+            desktop_fractional_band(c,band,f->scale,f->fractional_band);
+            if(blitrect(band.x,band.y,band.w,band.h,f->fractional_band,band.w))result=-1;
+        }
+    } else result=blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
     if(f->timing)render_record_rect(f->timing,1,begin,(uint64_t)srv_monotonic_us(),(uint64_t)p.w*p.h);
     return result;
 }
@@ -176,8 +185,9 @@ struct child_chunk { struct child_chunk *next;size_t bytes;struct child_record r
 struct display_window_backup { uint64_t identity;struct desk_rect frame,restore;int maximized; };
 struct display_runtime {
     struct desk_canvas *canvas,previous_canvas;struct gfx_info *info,previous_info;
+    uint32_t *fractional_band;
     struct display_window_backup *windows;size_t windows_bytes;int window_count;
-    uint64_t token,deadline,owner;unsigned previous_scale;
+    uint64_t token,deadline,owner;unsigned scale,previous_scale;
     int trial,startup,abort,changed,fatal,restore_done,explicit_scale;
 };
 struct session {
@@ -245,6 +255,7 @@ struct session {
 };
 
 static unsigned session_scale(const struct session *s) {return s->scale?s->scale:1;}
+static unsigned session_output_scale(const struct session *s) {return s->display.scale?s->display.scale:session_scale(s);}
 
 #define session_client(s,i) ((i)<DESKD_WINDOWS?&(s)->clients[(i)]:&(s)->records[(i)]->client)
 #define session_cache(s,i) ((i)<DESKD_WINDOWS?(s)->cache[(i)]:(s)->records[(i)]->cache)
@@ -3228,10 +3239,11 @@ int main(int argc,char **argv) {
          * the registry scratch order for all damage rectangles. */
         int inline_order[DESKD_WINDOWS];int *frame_order=s.scene.order?s.scene.order:inline_order;
         if(s.damage.count) desktop_stack(&s.scene,frame_order);
-        struct present_frame frame={&canvas,&s.scene,frame_order,scale,info.width,info.height,render};
+        unsigned output_scale=session_output_scale(&s);
+        struct present_frame frame={&canvas,&s.scene,frame_order,output_scale,info.width,info.height,render,s.display.fractional_band};
         const struct desktop_present_ops present_ops={compose_frame_rect,upload_frame_rect};
         if(render)render_record_mark(render,1,(uint64_t)srv_monotonic_us());
-        if(desktop_present(&s.damage,scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
+        if(desktop_present(&s.damage,output_scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
         if(render)render_record_mark(render,2,(uint64_t)srv_monotonic_us());
         if(!failed && s.damage.count && fenced_present && gfx_present()!=0) {
             ui_puts("deskd: gfx-present frame failed\n");failed=1;
@@ -3630,10 +3642,11 @@ int main(int argc,char **argv) {
         (unsigned long long)s.cache_bytes,retained,(unsigned long long)s.cache_reuses);
     if(s.trace)desk_log("deskd: cache peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu windows=%u\n",(unsigned long long)s.cache_peak,(unsigned long long)s.cache_bytes,(unsigned long long)DESKD_CACHE_BUDGET,session_capacity(&s));
     display_cleanup(&s);
+    desk_pixels_free(s.display.fractional_band,DESKTOP_OUTPUT_WIDTH_MAX,DESKTOP_OUTPUT_BAND_ROWS);
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);
     desk_pixels_free(pixels,width*scale,height*scale); gfx_console_mute(0);
-    if(retina_trial)desk_log("retina-desktop: startup_scale=%u final_scale=%u\n",startup_scale,scale);
+    if(retina_trial)desk_log("retina-desktop: startup_scale=%u final_scale=%u\n",startup_scale,session_output_scale(&s));
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

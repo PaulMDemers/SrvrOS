@@ -100,8 +100,8 @@ cover both integer scales, cancellation and retained document content.
 
 ## Display scale
 
-Settings → Display selects 1× or 2× scale and, on QEMU's VirtIO GPU, a supported
-resolution. Apply starts a 15-second trial. Keep saves the choice; Revert, timeout,
+Settings → Display offers 1×, 1.25×, 1.5×, 1.75× and 2× and, on QEMU's VirtIO GPU,
+a supported resolution. Apply starts a 15-second trial. Keep saves the choice. Revert, timeout,
 closing Settings or a failed client resize restores the previous display and
 window placement. Settings reports persistence separately, so a session-only
 change is not presented as saved. Confirmed preferences are restored on the next
@@ -123,9 +123,10 @@ higher-density raster use integer enlargement. Cache and surface quotas count
 physical bytes, so the same logical window consumes four times the pixel memory
 at 2×. Fenced VirtIO presentation remains active after a successful switch.
 
-A display requires at least 640×480 logical pixels, making 1280×960 the minimum
-physical size for 2×. Fractional scale and automatic DPI inference are not
-implemented. QEMU offers the inherited mode plus bounded presets through
+A display requires at least 640×480 logical pixels. For fractional output,
+the compositor renders with 2× assets and box-filters each damaged region
+to the physical framebuffer. Settings can save a fractional choice using
+the same Keep and Revert workflow. QEMU offers the inherited mode plus bounded presets through
 2880×1800; these are guest-supported modes, not an EDID monitor catalog. Other
 display drivers expose their current resolution and disable resolution changes.
 Scale can still change when the current framebuffer is large enough. See

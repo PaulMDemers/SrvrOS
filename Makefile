@@ -5154,7 +5154,7 @@ build/tests/render-widget-theme$(HOST_EXE): tools/render_widget_theme.c $(HOST_D
 test-desktop: test-desktop-presentation
 test-desktop-presentation: build/tests/desktop-presentation-host$(HOST_EXE)
 	./$<
-build/tests/desktop-presentation-host$(HOST_EXE): tools/test_desktop_presentation.c userspace/deskd/presentation.h userspace/widgets/include/srvros/desk_render.h
+build/tests/desktop-presentation-host$(HOST_EXE): tools/test_desktop_presentation.c userspace/deskd/presentation.h shared/include/srvros/desktop_scale.h userspace/widgets/include/srvros/desk_render.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
 

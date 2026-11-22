@@ -26,11 +26,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--boot-wait', type=int, default=120)
+    parser.add_argument('--scale', type=int, choices=(2, 125, 150, 175), default=2)
     args = parser.parse_args()
     if not 10 <= args.boot_wait <= 240:
         parser.error('--boot-wait must be between 10 and 240')
     root = Path(__file__).resolve().parents[1]
-    out = root / 'build/review/desktop-display'
+    scale_choice = args.scale
+    out = root / ('build/review/desktop-display' if scale_choice == 2 else f'build/review/desktop-display-{scale_choice}')
     out.mkdir(parents=True, exist_ok=True)
     (out / 'result.json').unlink(missing_ok=True)
     manifest = out / 'source-manifest.json'
@@ -149,9 +151,10 @@ def main():
                     click(8 + 1 + x, 52 + 44 + local_y)
 
                 def applied(w, h, scale, restore):
-                    marker = f'deskd: display-applied physical={w}x{h} logical={(w+scale-1)//scale}x{(h+scale-1)//scale} scale={scale} restore={restore}'.encode()
+                    percent = scale * 100 if scale in (1, 2) else scale
+                    logical[:] = [(w*100+percent-1)//percent, (h*100+percent-1)//percent]
+                    marker = f'deskd: display-applied physical={w}x{h} logical={logical[0]}x{logical[1]} scale={scale} restore={restore}'.encode()
                     wait(marker, 45)
-                    logical[:] = [(w+scale-1)//scale, (h+scale-1)//scale]
 
                 def desktop_exit():
                     shortcut('f10'); shortcut('end'); shortcut('ret')
@@ -185,10 +188,12 @@ def main():
                 # Index zero is inherited1440x900, then deduplicated presets
                 # 1024x768,1280x800,1920x1080.
                 for _ in range(3): display_button('mode')
-                display_button('scale'); display_button('apply')
-                applied(1920, 1080, 2, 0); shot('trial-1920x1080-2x', (1920, 1080))
+                for _ in range((125, 150, 175, 2).index(scale_choice) + 1):
+                    display_button('scale')
+                display_button('apply')
+                applied(1920, 1080, scale_choice, 0); shot('trial-1920x1080', (1920, 1080))
                 scroll_bottom(); display_button('keep')
-                wait(b'deskd: display-kept scale=2 resolution=1920x1080')
+                wait(f'deskd: display-kept scale={scale_choice} resolution=1920x1080'.encode())
                 wait(b'status=1 ', 60)
                 # Keep Settings open while returning to the original Text window.
                 click(logical[0]//2 - 150, logical[1]-50); shortcut('ctrl-c')
@@ -202,13 +207,13 @@ def main():
                 # Reopen Settings via its taskbar, and try the next candidate.
                 click(logical[0]//2 + 150, logical[1]-50); scroll_bottom()
                 display_button('mode'); display_button('apply')
-                applied(2560, 1440, 2, 0); shot('timeout-trial', (2560, 1440))
+                applied(2560, 1440, scale_choice, 0); shot('timeout-trial', (2560, 1440))
                 trial_start = len(output)
                 qmp.call('input-send-event', {'events': [{'type': 'key', 'data': {
                     'down': True, 'key': {'type': 'qcode', 'data': 'alt'}}}]})
                 qmp.key('tab'); wait(b'deskd: switcher selected=')
                 shot('switcher-during-trial', (2560, 1440))
-                applied(1920, 1080, 2, 1); wait(b'deskd: display-reverted', 30)
+                applied(1920, 1080, scale_choice, 1); wait(b'deskd: display-reverted', 30)
                 qmp.call('input-send-event', {'events': [{'type': 'key', 'data': {
                     'down': False, 'key': {'type': 'qcode', 'data': 'alt'}}}]})
                 drain()
@@ -216,15 +221,15 @@ def main():
                     raise AssertionError('rollback did not cancel switcher and restore Settings focus')
                 shot('timeout-reverted', (1920, 1080))
                 scroll_bottom(); display_button('mode'); display_button('apply')
-                applied(2560, 1440, 2, 0)
+                applied(2560, 1440, scale_choice, 0)
                 scroll_bottom(); display_button('revert')
-                applied(1920, 1080, 2, 1); wait(b'deskd: display-reverted')
+                applied(1920, 1080, scale_choice, 1); wait(b'deskd: display-reverted')
                 shot('explicit-revert', (1920, 1080))
                 scroll_bottom(); display_button('mode'); display_button('apply')
-                applied(2560, 1440, 2, 0)
+                applied(2560, 1440, scale_choice, 0)
                 # Closing the owner must revert even before its deadline.
                 click(logical[0]-28, 72)
-                applied(1920, 1080, 2, 1); wait(b'deskd: display-reverted')
+                applied(1920, 1080, scale_choice, 1); wait(b'deskd: display-reverted')
                 shot('owner-close-reverted', (1920, 1080))
                 desktop_exit()
                 document_start = len(output)
@@ -238,10 +243,10 @@ def main():
                 if not match:
                     raise AssertionError(f'document bytes differ: {readback!r}')
                 serial.sendall(b'cat /fat/home/desktop.conf\n')
-                wait(b'display_scale=2\r\ndisplay_width=1920\r\ndisplay_height=1080\r\n'); wait(b'srv> ')
+                wait(f'display_scale={scale_choice}\r\ndisplay_width=1920\r\ndisplay_height=1080\r\n'.encode()); wait(b'srv> ')
                 logical[:] = [1440, 900]
                 serial.sendall(b'run /fat/bin/deskd --apps-trace\n')
-                applied(1920, 1080, 2, 0)
+                applied(1920, 1080, scale_choice, 0)
                 shot('restored-after-restart', (1920, 1080))
                 desktop_exit()
                 log = output.decode(errors='replace')
