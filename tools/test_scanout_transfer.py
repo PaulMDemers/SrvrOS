@@ -21,7 +21,8 @@ reservation-clean reservation-removed reservation-promote-clock reservation-prom
 for failure in ("widi-open", "widi-idle", "slice-mask","plane-off","plane-moved","queued-flip","engine-reset-reason","l3-steering","register-alias", "no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
                 "gam-request", "gam-response"):
     MODES.extend((f"pte-store-{failure}", f"pte-store-restore-{failure}"))
-MODES.extend(("pte-store-widi-early-ack", "pte-store-changed-policy", "pte-store-widi-reopened","pte-store-air-post-reset","pte-store-stale-l3","pte-store-missing-l3",
+MODES.extend(f"pte-store-engine-early-ack-{i}" for i in range(5))
+MODES.extend(("pte-store-unfilled-l3", "pte-store-widi-early-ack", "pte-store-changed-policy", "pte-store-widi-reopened","pte-store-air-post-reset","pte-store-stale-l3","pte-store-missing-l3",
               "pte-store-frozen-request","pte-store-uncertain-request","pte-store-restore-new-block", "pte-store-restore-retirement-block"))
 
 MODES.extend(f"unblock-{failure}" for failure in

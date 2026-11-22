@@ -692,3 +692,19 @@ messages. An uncertain release consumes the attempt and retains the
 reservation. The host fixture exercises these transitions. The native
 Air7,2 still needs a source of the request that can hold it while the
 original panel scans and the driver reads the acknowledgements.
+
+With forcewake held on the Ubuntu Air7,2, the CPD policy sampled as locked
+with GAM GO messaging disabled on three reads. The register controls whether
+a power transition sends the messages. It does not initiate the transition.
+The version 4 context diagnostic samples the same policy under SrvrOS.
+[Air7,2 measurements](intel-bdw-bcs-context.md#widi-submission-coverage)
+
+A different integration path would give the native driver ownership of a new
+GGTT interval and every submission that can reference it. Linux i915 on
+Gen8 reserves the initial scanout during rebinding, writes PTEs for driver
+allocations and invalidates the GGTT. That sequence assumes an initialized
+driver and allocator. Slot 8704 on this Air still contains a firmware entry.
+Adopting this approach would require a handoff that accounts for inherited
+readers before importing any interval into the allocator.
+[i915 initial plane reservation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_plane_initial.c#L196-L230)
+· [Gen8 GGTT binding](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L405-L422)

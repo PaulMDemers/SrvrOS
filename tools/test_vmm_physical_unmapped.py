@@ -41,7 +41,7 @@ class PhysicalUnmapped(unittest.TestCase):
             'conflict-published-before-guard':('first.walk.level=level;found=true;goto finish;', 'first.walk.level=level;found=true;if(conflict)*conflict=first;goto finish;'),
             'conflict-leaf-corrupted':('.bytes=size,.entry=entry,.span=i', '.bytes=size,.entry=entry^2,.span=i'),
             'output-modified-on-refusal':('if(found) {', 'if(found) {\n  *out=result;'),
-            'reserved-targets-refused-as-nonRAM':('if(!absent && !alias_inventory_ram(ram,ram_count,q->physical,', 'if(!alias_inventory_ram(ram,ram_count,q->physical,'),
+            'reserved-targets-refused-as-nonRAM':('if(target==ALIAS_PRIVATE && !alias_inventory_ram(ram,ram_count,q->physical,', 'if(!alias_inventory_ram(ram,ram_count,q->physical,'),
             'target-table-followed':('if(physical>=expected[i].physical && physical<expected[i].physical+(uint64_t)expected[i].pages*4096)', 'if(false && physical>=expected[i].physical && physical<expected[i].physical+(uint64_t)expected[i].pages*4096)'),
         }
         with tempfile.TemporaryDirectory(prefix='physical-unmapped-controls-') as d:

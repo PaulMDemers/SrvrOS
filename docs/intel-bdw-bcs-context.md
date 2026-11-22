@@ -152,3 +152,29 @@ no command was submitted and all255 GPU obligations remain. Actual executable
 context/mode/cache/workaround policy, GPU ownership, enabled entry for this source,
 repeatability and tear-free scanout remain unaccepted. See the [current unit
 record](machines/macbookair7-2-current.md) for the remaining bootstrap boundary.
+
+## WiDi submission coverage
+
+At each of the two held checks, the version 4 context diagnostic walks the
+sole CPU page-table root for BAR0 page `0x14000`. Any mapping of that page,
+including a large direct-map leaf, ends the trial before the next GGTT read.
+The report records each successful walk in `widi_unmapped`. Two are required
+for completion. The five engine register pages stay read-only during both
+walks. Earlier reports retain their original coverage.
+
+Intel lists both the CPU and the display proxy as writers of the WiDi video
+and audio tail pointers on that page. The walk covers the CPU only. The slot
+writer still requires the WiDi client to acknowledge the same traffic block
+as the five command engines while the original display runs.
+[Intel Broadwell MMIO, p. 2](https://cdrdv2-public.intel.com/690867/intel-gfx-prm-osrc-bdw-vol-13-mmio.pdf#page=6)
+
+Version 4 also records `MISC_CTRL0` at both traffic samples through the
+existing UC register alias. On this Air under Ubuntu, three read-only samples
+about 50 ms apart returned `0xc5280000` with i915 forcewake held and eDP
+enabled before and after. Bit 31 locks the power-management policy and bit 25
+is clear, disabling GAM GO messaging on CPD entry/exit in this configuration. The GAM
+request and response were `0xff` and `0x7f`, WiDi returned `0x1f`, and L3
+returned zero throughout. A SrvrOS sample is still needed to identify its
+inherited policy. This register configures a transition and supplies no
+software request to enter or hold it.
+[Intel Broadwell register reference, pp. 606–607](https://cdrdv2.intel.com/v1/dl/getcontent/690789)

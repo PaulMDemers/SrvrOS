@@ -50,9 +50,9 @@ static inline bool bdw_traffic_engines(struct bdw_traffic_sample *a, bool blocke
         if (!a->read(a->ctx, offsets[i], &word))
             return false;
         uint32_t flush = offsets[i] == 0x8014 ? 0u : 0x20u;
-        /* WiDi must become busy before acknowledging GO=0, and can only
-         * report idle again after GO=1. Later polls cannot repair a violation. */
-        if (offsets[i] == 0x8014 && (word & 0x11u) == 1u) return false;
+        /* Every client must be busy before it acknowledges GO=0. An
+         * out-of-order acknowledgement invalidates the current request. */
+        if ((word & 0x11u) == 1u) return false;
         uint32_t mask = 0x10u | flush | (blocked ? 1u : 0u);
         bool ready = (word & mask) == (blocked ? flush : 0x10u);
         if (blocked) {

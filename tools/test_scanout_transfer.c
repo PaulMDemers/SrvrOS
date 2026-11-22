@@ -323,6 +323,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     assert(t==&transfer);
     ++traffic_reads;
     if (block_releases && !strcmp(page_failure,"read-failed")) return false;
+    if (offset==0x8038 && !strcmp(page_failure,"unfilled-l3")) return true;
     switch(offset) {
     case 0x8014:
         *word = block_active ? 0 : 0x10;
@@ -343,12 +344,16 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x12870: case 0x12878: case 0x1c870: case 0x1c878:
         *word=!strcmp(page_failure,"media-busy") ? 0x10000 : 0; break;
-    case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
+    case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010: {
         /* The last engine closes only after L3's one-shot ACK disappears. */
         *word=(!block_active || !strcmp(page_failure,"engine-go") ||
                (offset==0x8010 && l3_reads==1)) ? 0x10 : 0x20;
+        char early_ack[32];
+        snprintf(early_ack,sizeof(early_ack),"engine-early-ack-%u",(offset-0x8000)/4);
+        if (block_active && l3_reads==1 && !strcmp(page_failure,early_ack)) *word=0x21;
         if (block_releases && offset==0x8010 && !strcmp(page_failure,"engine-stuck")) *word=0x20;
         break;
+    }
     case 0x8040: *word=strcmp(page_failure,"gam-busy")!=0; break;
     case 0x8038:
         if(!block_active){*word=!strcmp(page_failure,"stale-l3");break;}

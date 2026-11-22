@@ -98,6 +98,7 @@ static bool traffic_live(struct traffic_check *check)
 static bool read_traffic(void *ctx,uint32_t offset,uint32_t *word)
 {
     struct traffic_check *check=ctx;
+    *word=UINT32_MAX;
     return traffic_live(check) && borrow.traffic.read(borrow.transfer,offset,word) &&
            *word!=UINT32_MAX &&
            /* Every reported reset reason is foreign to a reset-free store. */

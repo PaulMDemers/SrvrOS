@@ -5,19 +5,24 @@ HEX='physical root descriptor ring context completion nonce vendor device'.split
 def context_result(text,arena,parent_complete):
     lines=[l for l in text.splitlines() if l.startswith('intel-bcs-context:')]
     if len(lines)!=1:raise ValueError('Context image receipt coverage')
-    protected = 'v=3' in lines[0].split()
+    widi = 'v=4' in lines[0].split()
+    protected = widi or 'v=3' in lines[0].split()
     independent = protected or 'v=2' in lines[0].split()
     keys = KEYS + ['pte_reads', 'reserved', 'released'] if independent else KEYS
     if protected:
         keys=keys+['sealed','reopened','ro_mask','alias_checks','traffic_samples']
-    version=3 if protected else 2 if independent else 1
+    if widi:
+        keys=keys+['widi_unmapped']
+    version=4 if widi else 3 if protected else 2 if independent else 1
     c=fields(lines[0],'intel-bcs-context:',keys,HEX,versions=(version,))
     registers=['request','vcs0_refs','vcs0_prefetch','vcs1_refs','vcs1_prefetch']
+    if widi:
+        registers.append('misc_ctrl0')
     traffic=[]
     for line in text.splitlines():
         if not line.startswith('intel-context-traffic:'):
             continue
-        row=fields(line,'intel-context-traffic:', ['v','sample',*registers],registers)
+        row=fields(line,'intel-context-traffic:', ['v','sample',*registers],registers,versions=(2 if widi else 1,))
         if row['sample']!=len(traffic) or any(row[k]>=0xffffffff for k in registers):
             raise ValueError('Invalid context traffic sample')
         traffic.append(row)
@@ -35,6 +40,13 @@ def context_result(text,arena,parent_complete):
                 (c['pte_reads'] and c['alias_checks']<3) or
                 (c['pte_reads']>15 and c['alias_checks']!=6)):
             raise ValueError('Context engine write exclusion prefix')
+    if widi:
+        walks=c['widi_unmapped']
+        if (not 0<=walks<=2 or not 3*walks<=c['alias_checks']<=3*(walks+1)
+                or (c['alias_checks']>3 and (c['pte_reads']<15 or c['held']<1))
+                or c['pte_reads']>15*walks
+                or len(traffic)>walks):
+            raise ValueError('WiDi CPU alias coverage')
     if independent and not (0 <= c['released'] <= c['erased'] <= c['initialized'] <= c['reserved'] <= 1):
         raise ValueError('Context address reservation lifetime')
     if any(c[k]>1 for k in ('initialized','erased','fault')) or c['verified']>4 or c['held']>2 or c['erased']>c['initialized'] or any(c[k] for k in ('mapped','submissions','ownership')):

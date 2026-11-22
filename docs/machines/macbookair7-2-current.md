@@ -10,7 +10,14 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current PR301 scope covers per-bank L3 policy in the slot writer and
+The version 4 context diagnostic checks the CPU path to the wireless-display
+(WiDi) queue tail registers while inspecting slot 8704. It requires their
+register page to be absent at both held boundaries. Local qualification also
+injects a premature block acknowledgement on each of the five command engines.
+The display proxy can write the WiDi queues independently of the CPU. The
+physical result below used version 3. [Diagnostic coverage](../intel-bdw-bcs-context.md#widi-submission-coverage)
+
+PR301 also covers per-bank L3 policy in the slot writer and
 per-engine completion packets shared with the Ubuntu hardware reference.
 It depends on exclusive native admission for any GGTT publication.
 
@@ -31,8 +38,9 @@ and prefetch reads at both samples. The display register samples matched,
 the driver issued zero GPU page-table writes, and the return and offline
 USB integrity checks passed.
 
-CPU submission exclusion is physically verified for this interval. The next
-native ownership step is to acquire and hold a GPU-side traffic block with
+That run physically verified CPU write exclusion on the five command-streamer
+pages. WiDi CPU mapping coverage still awaits a native version 4 report.
+The next native ownership step is to acquire and hold a GPU-side traffic block with
 Pipe A active, witness fresh engine and L3 acknowledgements, and keep that
 block through replacement and rollback of slot 8704.
 

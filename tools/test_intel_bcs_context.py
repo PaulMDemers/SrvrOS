@@ -53,7 +53,7 @@ class NativeContext(unittest.TestCase):
   print('Original context retained-prefix cases',cases,flush=True)
  def test_submission_permissions_fail_closed_at_every_boundary(self):
   for mode,last in (('context-protect',10),('context-protect-noop',10),
-                    ('context-foreign-alias',6),('context-traffic',10),('context-wp',26)):
+                    ('context-foreign-alias',6),('context-widi-alias',2),('context-traffic',12),('context-wp',26)):
    for n in range(1,last+1):
     with self.subTest(mode=mode,n=n):
      text=run(mode,n,exe=EXE)
@@ -64,8 +64,12 @@ class NativeContext(unittest.TestCase):
      if mode.startswith('context-protect'):
       self.assertEqual(int(values['pte_reads']),0 if n<=5 else 30)
      elif mode=='context-traffic':
-      self.assertEqual(int(values['pte_reads']),0 if n<=5 else 30)
-      self.assertEqual(int(values['traffic_samples']),int(n>5))
+      self.assertEqual(int(values['pte_reads']),0 if n<=6 else 30)
+      self.assertEqual(int(values['traffic_samples']),int(n>6))
+     elif mode=='context-widi-alias':
+      self.assertEqual(int(values['pte_reads']),15*(n-1))
+      self.assertEqual(int(values['widi_unmapped']),n-1)
+      self.assertEqual(int(values['alias_checks']),3*n)
      elif mode=='context-foreign-alias':
       self.assertEqual(int(values['pte_reads']),0 if n<=3 else 15)
  def test_existing_original_arena_faults_with_initialized_image(self):
@@ -78,10 +82,14 @@ class NativeContext(unittest.TestCase):
   self.assertEqual(trial_parsers('intel-bcs-context-v46')[1](text)['version'],8)
   with self.assertRaises(ValueError):trial_parsers('intel-gt-arena-v45')[1](text)
   line=next(l for l in text.splitlines() if l.startswith('intel-bcs-context:'))
-  old=re.sub(r' (traffic_samples|alias_checks|sealed|reopened|ro_mask)=\d+', '', line).replace('v=3','v=2')
+  prev=re.sub(r' widi_unmapped=\d+','',line).replace('v=4','v=3')
+  legacy_v3=re.sub(r'(?m)^(intel-context-traffic:) v=2 (.*) misc_ctrl0=\S+$',r'\1 v=1 \2',text.replace(line,prev))
+  self.assertTrue(bootstrap_result(legacy_v3,native=True)['context']['complete'])
+  old=re.sub(r' (traffic_samples|alias_checks|sealed|reopened|ro_mask)=\d+', '', prev).replace('v=3','v=2')
   old_text=re.sub(r'(?m)^intel-context-traffic:.*\n','',text.replace(line,old))
   legacy=bootstrap_result(old_text,native=True)['context']
   traffic=p['context']['traffic']
+  self.assertEqual([r['misc_ctrl0'] for r in traffic],[0xc5280000]*2)
   self.assertEqual([r['request'] for r in traffic],[0x805f,0x805f])
   self.assertEqual([r['vcs1_prefetch'] for r in traffic],[0x4000000,0x4010000])
   rows=[l for l in text.splitlines() if l.startswith('intel-context-traffic:')]
@@ -91,7 +99,7 @@ class NativeContext(unittest.TestCase):
    with self.assertRaises(ValueError):bootstrap_result(bad,native=True)
   self.assertTrue(legacy['complete'])
   self.assertNotIn('sealed',legacy['summary'])
-  for key in ('v','initialized','verified','held','erased','fault','physical','root','descriptor','ring','context','completion','aperture','fence_begin','fence_end','nonce','id','vendor','device','mapped','submissions','ownership','reserved','released','pte_reads','sealed','reopened','alias_checks','ro_mask','traffic_samples'):
+  for key in ('v','initialized','verified','held','erased','fault','physical','root','descriptor','ring','context','completion','aperture','fence_begin','fence_end','nonce','id','vendor','device','mapped','submissions','ownership','reserved','released','pte_reads','sealed','reopened','alias_checks','ro_mask','traffic_samples','widi_unmapped'):
    value=p['context']['summary'][key];changed=hex(value^1) if key in ('physical','root','descriptor','ring','context','completion','nonce','vendor','device') else str(value^1)
    bad=re.sub(r'\b'+key+r'=[^ ]+',key+'='+changed,line)
    with self.assertRaises(ValueError,msg=key):bootstrap_result(text.replace(line,bad),native=True)

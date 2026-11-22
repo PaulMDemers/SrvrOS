@@ -48,6 +48,7 @@ static unsigned model_engine_ro;
 struct vmm_alias_span;
 static bool intel_display_test_context_aliases(const struct vmm_alias_span *,unsigned);
 static bool intel_display_test_context_protect(unsigned,bool);
+static bool intel_display_test_context_widi_absent(uint64_t);
 static bool intel_display_test_context_wp(void);
 static uint32_t intel_display_test_context_traffic(unsigned);
 static void intel_display_test_context_boundary(void);
@@ -356,12 +357,13 @@ static __attribute__((noinline)) void bootstrap_churn_stack(void) {
 #ifdef SRVROS_INTEL_BCS_CONTEXT
 static uint32_t intel_display_test_context_traffic(unsigned reg){
  static unsigned calls;
- static const unsigned offsets[]={0x40d0,0x12870,0x12878,0x1c870,0x1c878};
- assert(model_engine_ro==31 && wake_irq && gpu_command==3 && calls<10);
- unsigned i=calls%5;assert(reg==offsets[i]);
- assert(bcs_context_native.pte_reads==(calls<5?0u:30u));
+ static const unsigned offsets[]={0x40d0,0x12870,0x12878,0x1c870,0x1c878,0xa180};
+ assert(model_engine_ro==31 && wake_irq && gpu_command==3 && calls<12);
+ unsigned i=calls%6;assert(reg==offsets[i]);
+ assert(bcs_context_native.pte_reads==(calls<6?0u:30u));
  if(cf("context-traffic",++calls))return UINT32_MAX;
- return i?(0x01000000u*i+0x00010000u*(calls/6)):0x805fu;
+ if(reg==0xa180)return 0xc5280000;
+ return i?(0x01000000u*i+0x00010000u*((calls-1)/6)):0x805fu;
 }
 static bool intel_display_test_context_wp(void){
  static unsigned calls;
@@ -387,6 +389,12 @@ static bool intel_display_test_context_aliases(const struct vmm_alias_span *span
          spans[i].virtual_base==WAKE_VA+4096*slot);
  }
  return !cf("context-foreign-alias",n+1);
+}
+static bool intel_display_test_context_widi_absent(uint64_t physical){
+ unsigned pass=bcs_context_native.widi_unmapped;
+ assert(pass<2 && physical==result.mmio_base+0x14000 && wake_irq && model_engine_ro==31);
+ assert(bcs_context_native.alias_checks==3*(pass+1) && bcs_context_native.pte_reads==15*pass);
+ return !cf("context-widi-alias",pass+1);
 }
 static bool intel_display_test_context_pte(uint32_t offset,uint32_t *value){
  assert(offset<40 && !(offset&3) && wake_irq && gpu_command==3 && model_engine_ro==31);
