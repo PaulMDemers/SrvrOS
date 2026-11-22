@@ -102,7 +102,8 @@ class StolenProbe(unittest.TestCase):
         controls={
             'lost-reader-census':('!readers(n)', '(false && !readers(n))'),
             'lost-candidate-policy':('!candidate_policy(n)', '(false && !candidate_policy(n))'),
-            'unmasked-aperture-query':('\n flags=intel_stolen_test_irq_save();','\n flags=0;'),
+            'unmasked-aperture-query':('flags=intel_stolen_test_irq_save();','flags=0;'),
+            'unmasked-reader-extension':('flags=intel_stolen_test_irq_save();','flags=0;'),
             'skipped-native-guard-begin':('!cpu_guard_operation(0,pair)','false'),
             'skipped-native-guard-check':('!cpu_guard_operation(1,pair)','false'),
             'skipped-native-guard-close':('!cpu_guard_operation(2,pair)','false'),
@@ -134,15 +135,26 @@ class StolenProbe(unittest.TestCase):
             'lost-preflight-cache-admission':('if(!policy(stolen.source.mmio+0x108000) || !tick(stolen.begin[n]))return false;','if(!tick(stolen.begin[n]))return false;'),
             'lost-progress-alias-exclusion':('stolen.mapped || stolen.uncertain','false'),
         }
+        functions={'unmasked-aperture-query':'aperture_guard_held',
+                   'unmasked-reader-extension':'hold_inactive_pipes'}
         repeated={'lost-source-bracket':3, 'lost-CPU-root-census':2,
                   'lost-sole-root-admission':9, 'lost-fresh-cache':4}
         with tempfile.TemporaryDirectory(prefix='stolen-adapter-controls-') as d:
             for name,(old,new) in controls.items():
                 with self.subTest(control=name):
-                    self.assertEqual(original.count(old),repeated.get(name,1))
-                    source=Path(d)/(name+'.c');source.write_text(original.replace(old,new));binary=Path(d)/name
+                    start=0
+                    end=len(original)
+                    if name in functions:
+                        start=original.index('static bool '+functions[name]+'(void) {')
+                        end=original.index('\n}',start)
+                    body=original[start:end]
+                    self.assertEqual(body.count(old),repeated.get(name,1))
+                    source=Path(d)/(name+'.c')
+                    source.write_text(original[:start]+body.replace(old,new)+original[end:])
+                    binary=Path(d)/name
                     compile_fixture(TARGET,output=binary,declaration=(cc,[*flags,'-Wno-unused-function','-Wno-unused-variable','-DSRVROS_STOLEN_ADAPTER_FILE="'+str(source)+'"'],sources))
-                    p=subprocess.run([str(binary)],capture_output=True,timeout=120)
+                    args=['--firmware-import'] if name=='unmasked-reader-extension' else []
+                    p=subprocess.run([str(binary),*args],capture_output=True,timeout=120)
                     self.assertNotEqual(p.returncode,0,'Undetected control '+name)
     def test_native_frames_and_no_default_hardware_body(self):
         plan=subprocess.check_output(['make','-Bn','build/intel-stolen/probe.o'],cwd=ROOT,text=True,timeout=120)
