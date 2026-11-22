@@ -97,6 +97,37 @@ void console_printf(const char *fmt,...) {
     total++;
 }
 void console_write(const char *text) { (void)text;total++; }
+static void test_wifi_replug_continuation(void) {
+    const uint64_t prefix=2147990;
+    for(unsigned scenario=0;scenario<5;scenario++){
+        count=0;snapshot_bytes=8;
+        assert(workspace_log_start_cal5_capture());
+        assert(workspace_log_quiesce(5000));
+        snapshot_bytes=prefix;
+        if(scenario==4)sync_ok=false;
+        assert(workspace_log_wifi_replug_checkpoint()==(scenario!=4));
+        sync_ok=true;
+        assert(wifi_replug_saved_prefix==(scenario==4?0:prefix));
+        struct item *initial=find(path);
+        assert(initial && strstr(path,"/session-a.log") && initial->node.size==prefix);
+        if(scenario!=4)assert(!workspace_log_wifi_replug_checkpoint());
+        snapshot_bytes=scenario==0?prefix+400:scenario==1?4262934:
+            scenario==2?prefix+BOOTLOG_CAL5_CAPTURE_CAPACITY:
+            scenario==3?prefix+BOOTLOG_CAL5_CAPTURE_CAPACITY+1:4262934;
+        unsigned expected_writes=writes+(scenario<3);
+        assert(workspace_log_stop()==(scenario<3));
+        assert(writes==expected_writes && !wifi_replug_saved_prefix);
+        if(scenario<3){
+            struct item *tail=find(path);
+            assert(tail && strstr(path,"/exit.log") && tail->node.size==snapshot_bytes-prefix);
+            for(uint64_t i=0;i<tail->node.size;i++)assert(tail->bytes[i]==(prefix+i)%251);
+        }
+        for(uint64_t i=0;i<initial->node.size;i++)assert(initial->bytes[i]==i%251);
+    }
+    count=0;snapshot_bytes=8;
+    puts("workspace-log: PASS replug segments across the observed wrap, exact boundary, and no save across a gap or uncommitted prefix");
+}
+
 static void test_sidecar_retention(void) {
     /* The Wi-Fi capture profile reserves a larger backing array. Ordinary
      * logging and sidecar sampling must retain their original 64 KiB limit. */
@@ -325,6 +356,7 @@ count=0;snapshot_bytes=8;
     assert(ticks==capture_start+1500 && due==ticks+1000 && !ready(NULL));
     save_tick_delay=0;io_ok=false;ticks=due;periodic_attempt();assert(!healthy && !enabled && !busy);io_ok=true;
     assert(periodic_deadline(UINT64_MAX-100,UINT64_MAX-1)==UINT64_MAX);
+    test_wifi_replug_continuation();
     puts("workspace-log-cadence: PASS original1000ticks/64KiB/two-slot bounds, delayed-write drift prevented, overrun skips catch-up, failure stops");
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }

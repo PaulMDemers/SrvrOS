@@ -527,8 +527,17 @@ static bool desktop_model_removed;
 static unsigned desktop_data_windows;
 static uint64_t desktop_first_generation;
 static uint32_t desktop_dhcp_ids[2];
+static void desktop_assert_wifi_binding(struct xhci_device *device,bool active){
+ struct srv_device_info info;
+ uint64_t index=(uint64_t)(device-xhci.devices);
+ assert(xhci_device_snapshot(index,&info)==(int64_t)index+1);
+ assert(info.device==device->slot_id && info.vendor_id==0x7392 && info.product_id==0xa711);
+ assert(((info.flags&SRV_DEVICE_WIFI)!=0)==active && !(info.flags&SRV_DEVICE_NETWORK));
+}
+
 static bool desktop_begin(void *context){
  assert(context==&ap && !wifi_stream5.attempted);
+ desktop_assert_wifi_binding(wifi_cal5.d,true);
  struct srv_wifi_snapshot s;
  assert(wifi_service_snapshot(0,&s)==SRV_WIFI_OK && s.owner && s.generation && s.count==1);
  assert(s.flags==(SRV_WIFI_READY|SRV_WIFI_CONTROL) && s.row[0].channel==161);
@@ -556,6 +565,7 @@ static bool desktop_running(void *context){
  }
  if(!wifi_desktop5.connected || ap.closed)return true;
  assert(wifi_stream5.resident && wifi_stream5.exchange.session_active && !wifi_desktop5.gate);
+ desktop_assert_wifi_binding(wifi_stream5.d,true);
  struct srv_wifi_snapshot s;
  assert(wifi_service_snapshot(wifi_desktop5.owner,&s)==0 && (s.flags&SRV_WIFI_CONNECTED));
  if(desktop_model_removed){wifi_stream5.d->removed=true;return true;}
@@ -712,6 +722,7 @@ static bool desktop_replug_checkpoint(void){
  assert(xhci.devices[0].slot_disabled && xhci.devices[2].firmware.configured);
  assert(!wifi_desktop5.gate && !test_io_active && !wifi_stack5_net.attached);
  assert(wifi_desktop5.scopes[0].disconnected && wifi_desktop5.data_verified[0]);
+ desktop_assert_wifi_binding(&xhci.devices[2],false);
  return true;
 }
 
@@ -790,6 +801,7 @@ static bool desktop_replug_running(void *context){
   assert(wifi_service_snapshot(desktop_old_owner,&view)==SRV_WIFI_STALE);
   assert(wifi_service_snapshot(0,&view)==SRV_WIFI_OK && view.owner!=desktop_old_owner);
   assert(view.generation==2 && view.count==1 && view.row[0].channel==161 && !wifi_desktop5.gate);
+  desktop_assert_wifi_binding(&xhci.devices[2],true);
   struct srv_wifi_select req={SRV_WIFI_VERSION,sizeof req,view.owner,view.generation,0,0};
   assert(wifi_service_request(SRV_WIFI_CONNECT,&req)==SRV_WIFI_OK);
   desktop_replug_queued=true;
@@ -826,7 +838,8 @@ static void desktop_replug_case(void){
  assert(wifi_stack5_net.state==MT76_NET5_RETIRED && wifi_stack5_net.registry_drained &&
         !net_device_selected_is(&wifi_stack5_net.ops) && !net_device_poll(1,false));
  assert(xhci.devices[0].slot_disabled && xhci.devices[2].firmware.ready);
- puts("xhci desktop Wi-Fi: PASS native disconnect, same-slot re-enumeration, fresh radio ownership and WPA, DHCP, ping, DNS, UDP and shared USB storage on both lifetimes");
+ desktop_assert_wifi_binding(&xhci.devices[2],false);
+ puts("xhci desktop Wi-Fi: PASS native disconnect, same-slot re-enumeration, fresh radio ownership and WPA, DHCP, ping, DNS, UDP and shared USB storage on both lifetimes, with exact driver inventory binding");
 }
 
 static void desktop_case(bool removed){

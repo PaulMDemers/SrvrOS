@@ -63,8 +63,11 @@ checkpoint. The replacement gets fresh firmware, calibration, discovery,
 and a new System Wi-Fi selection. Connect to Demers5 again within the
 same boot. On each connection the kernel verifies DHCP, a gateway
 ping and a DNS reply through the resident worker. The second Disconnect
-retires the provider. Exit desktop saves the final log and returns to
-Ubuntu once ownership is safe. The procedure covers the Edimax USB
+retires the provider. System lists the managed adapter as USB Wi-Fi
+with Driver active while that owner is live. Exit desktop saves
+`exit.log` and returns to Ubuntu once ownership is safe. For this
+profile, `session-a.log` holds the initial portion of the run and
+`exit.log` continues at its exact end after re-enumeration. The procedure covers the Edimax USB
 adapter after an orderly disconnect. Physical acceptance depends on
 the MacBookPro11,2 run evidence.
 

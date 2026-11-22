@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically. One cold Demers5 desktop connection and USB save passed on v151. Two fresh desktop connections and safe disconnects in a single cold boot with ping and DNS on both passed on v152. The v153 retry verifies live USB re-enumeration and the System device list after a clean Disconnect. Network recovery after replug, removal while connected and repeated cold reliability remain open.**
+Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically. One cold Demers5 desktop connection and USB save passed on v151. Two fresh desktop connections and safe disconnects in a single cold boot with ping and DNS on both passed on v152. The v153 retry verifies live USB re-enumeration and the System device list after a clean Disconnect. The v154 retry verified recovery and traffic after replug. The Devices label, complete saved logs, removal while connected, and repeated cold reliability remain open.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -47,7 +47,27 @@ discovery generation. The calibration fixture now reaches the real
 power stage on the replacement bank. The focused power fixture covers
 both valid generations, stale and unexpected generation refusal, and
 exact register restoration. Post-replug association and traffic remain
-pending physical acceptance.
+pending physical acceptance in that candidate.
+
+The power-guard retry used source `cd2058ff`, release
+`df815a5226b67e5d`, and session `session-000660d4f144b003-00`.
+The workspace checkpoint confirms the first DHCP, ping and DNS checks
+and the slot 1 to slot 9 re-enumeration. The independent EFI journal
+confirms two completed connections and passing post-replug traffic.
+The user also verified ping. Exit desktop safely retired the second
+connection. The trial recorded one explicit Disconnect, so the
+two-Disconnect checklist remained incomplete. The accumulated capture
+grew to 4,262,501 bytes before final snapshot, exceeding the 4 MiB
+ring. `session-a.log` and the independent journal survived, the USB
+workspace was clean, and all 514 prior files matched.
+
+System showed No active driver because the USB Devices enumeration
+reported Ethernet bindings and omitted the managed Wi-Fi owner. The
+retry adds a Wi-Fi binding flag for the live native owner and labels it
+USB Wi-Fi in System. The final log now continues at the exact byte
+boundary of the committed `session-a.log`. The logger rejects a missing
+range between files. Next physical validation checks the live Devices
+label, both explicit Disconnect actions and both complete log segments.
 
 ### Demers5 USB reattachment
 

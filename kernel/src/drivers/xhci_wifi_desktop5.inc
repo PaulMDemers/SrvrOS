@@ -13,7 +13,7 @@ static struct {
  uint64_t epochs[2],tokens[2];
  unsigned connections,disconnects;
  bool requested,reconnect,replug,gate,started,connected,return_safe;
- bool data_verified[2];
+ bool data_verified[2],driver_bound;
 } wifi_desktop5;
 
 static bool wifi_desktop5_unattempted(void){
@@ -26,6 +26,12 @@ static bool wifi_desktop5_present(void *context){
  struct xhci_device *d=wifi_desktop5.device;
  return context==&wifi_desktop5 && d && d->present && !d->removed && !d->retiring &&
   !d->slot_disabled && xhci.operational && !xhci.stopping;
+}
+/* xhci_device_snapshot reads this while holding the event IRQ lock. */
+static bool wifi_desktop5_driver_bound(const struct xhci_device *d){
+ return d==wifi_desktop5.device && wifi_desktop5.driver_bound &&
+  !d->ep0_quarantined && !d->control_failed && !wifi_stream5.failed &&
+  wifi_desktop5_present(&wifi_desktop5);
 }
 static bool wifi_desktop5_due(void *context){return timer_ticks()>=*(const uint64_t *)context;}
 static void wifi_desktop5_turn(void){
@@ -176,6 +182,7 @@ static bool wifi_desktop5_window(void){
  const struct wifi_service_provider ops={&wifi_desktop5,"Edimax USB Wi-Fi",wifi_desktop5_present};
  uint64_t flags=event_irq_save();
  wifi_desktop5.owner=wifi_service_publish_connection(&ops,&wifi_join5.peer);
+ wifi_desktop5.driver_bound=wifi_desktop5.owner!=0;
  event_irq_restore(flags);
  if(!wifi_desktop5.owner)return false;
  if(wifi_radio5_bank)wifi_desktop5_gate_end();
@@ -251,6 +258,7 @@ static bool wifi_desktop5_run(void *context,bool (*begin)(void *),bool (*running
  if(wifi_desktop5.disconnect.serial)
   (void)wifi_service_finish(wifi_desktop5.owner,&wifi_desktop5,&wifi_desktop5.disconnect,good);
  wifi_service_seal_connection(wifi_desktop5.owner,&wifi_desktop5,good);
+ wifi_desktop5.driver_bound=false;
  event_irq_restore(flags);
  console_printf("wifi-desktop5-final: started=%u connected=%u requested_disconnect=%u retired=%u return_safe=%u\n",
   (uint64_t)wifi_desktop5.started,(uint64_t)wifi_desktop5.connected,(uint64_t)(wifi_desktop5.disconnect.serial!=0),

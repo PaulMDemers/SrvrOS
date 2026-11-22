@@ -4512,6 +4512,8 @@ void xhci_print_boot_diagnostic(void) {
 }
 
 
+static bool wifi_desktop5_driver_bound(const struct xhci_device *d);
+
 int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
     if(!out) return -1;
     uint64_t flags=event_irq_save();
@@ -4526,6 +4528,7 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
         if(d->storage.block) bound|=SRV_DEVICE_STORAGE;
         if(d->hub_ports) bound|=SRV_DEVICE_HUB;
         if(d->network && d->network->ready) bound|=SRV_DEVICE_NETWORK;
+        if(wifi_desktop5_driver_bound(d)) bound|=SRV_DEVICE_WIFI;
         if(d->ep0_quarantined || d->removed || d->control_failed || d->interrupt_failed || d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
         *out=(struct srv_device_info){.version=SRV_DEVICE_VERSION,.size=sizeof(*out),.bus_kind=SRV_DEVICE_USB,
             .index=i,.vendor_id=d->vendor_id,.product_id=d->product_id,.revision=d->device_bcd,

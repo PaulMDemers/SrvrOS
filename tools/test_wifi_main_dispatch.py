@@ -52,7 +52,7 @@ class MainDispatchTests(unittest.TestCase):
             'static bool xhci_wifi_capture_desktop5(void *d,bool (*launch)(void *),bool (*running)(void *)){calls++;chosen="xhci_wifi_capture_desktop5";return capture_ok && launch(d) && running(d);}',
             'static bool xhci_wifi_capture_desktop_reconnect5(void *d,bool (*launch)(void *),bool (*running)(void *)){calls++;chosen="xhci_wifi_capture_desktop_reconnect5";return capture_ok && launch(d) && running(d);}',
             'static bool xhci_wifi_capture_desktop_reattach5(void *d,bool (*launch)(void *),bool (*running)(void *)){calls++;chosen="xhci_wifi_capture_desktop_reattach5";return capture_ok && launch(d) && running(d);}',
-            'static bool workspace_log_pause(void){return true;}',
+            'static bool workspace_log_wifi_replug_checkpoint(void){return true;}',
             'static bool xhci_wifi_capture_desktop_replug5(void *d,bool (*launch)(void *),bool (*running)(void *),bool (*checkpoint)(void)){calls++;chosen="xhci_wifi_capture_desktop_replug5";return capture_ok && launch(d) && running(d) && checkpoint();}',
             'static bool logger_ok;static bool workspace_log_quiesce(uint64_t ms){if(ms!=5000)return false;quiesces++;return logger_ok;}',
             'static void console_printf(const char *f,...){(void)f;}',
