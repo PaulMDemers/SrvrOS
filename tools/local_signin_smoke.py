@@ -151,16 +151,13 @@ def sidecar_variant(data, variant):
             name_hash = ((((name_hash & 1) << 15) | (name_hash >> 1)) + byte) & 0xffff
         struct.pack_into('<H', entry, 36, name_hash)
     elif variant == 'incomplete':
-        rows = old.splitlines(keepends=True)
-        remainder = (len(old) - 1) % fs.cluster + 1
-        candidates = [line for line in rows[1:] if line.startswith(b'/fat/home/local-alpha\t') and len(line) < remainder]
-        if not candidates:
-            candidates = [line for line in rows[1:] if line.startswith(b'/fat/') and len(line) < remainder]
-        if not candidates: raise RuntimeError('no record can be removed without changing allocation')
-        removed = candidates[0]
-        new = old.replace(removed, b'', 1)
-        if not new.startswith(b'SRVROSMETA1\n') or not new.endswith(b'\n') or len(new) >= len(old):
-            raise RuntimeError('invalid incomplete fixture')
+        records = [line for line in old.splitlines(keepends=True)
+                   if line.startswith(b'/fat/bin/local-signin\t')]
+        if len(records) != 1:
+            raise RuntimeError('fixture does not contain one sign-in executable record')
+        # Blank lines are legal and keep the file's length and allocation fixed.
+        removed = records[0]
+        new = old.replace(removed, b'\n' * len(removed), 1)
         first_data = struct.unpack_from('<I', entry, 52)[0]
         contiguous = bool(entry[33] & 2)
         cluster = first_data
@@ -169,8 +166,6 @@ def sidecar_variant(data, variant):
             offset = fs.offset(cluster)
             fs.data[offset:offset + len(piece)] = piece
             cluster = cluster + 1 if contiguous else fs.u32(fs.fat + cluster * 4)
-        struct.pack_into('<Q', entry, 40, len(new))
-        struct.pack_into('<Q', entry, 56, len(new))
     else:
         raise ValueError('unknown sidecar variant')
     checksum = 0
