@@ -17,14 +17,20 @@ SrvrOS under Q35 with an explicit model grant for slot 12291. It restored
 both tested originals exactly, waited for readers and retained backing
 after a failed rollback invalidation. The existing Air census found
 nonzero entries throughout the eligible CPU-visible aperture. The cold-boot
-driver still lacks a grant for any of them. This round used the VM only.
+driver still lacks a hardware write grant for any of them.
 [Mapping, hardware prerequisites and QEMU reproduction](../intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
-The next native firmware-import trial reserves slot 12291 under the same
-display exclusion as the slot 8704 loan. It checks the original translation,
-the two neighbours and competing allocations at both ends of that loan.
-The collector compares the backing address with the classified firmware
-buffers. The run is unattended, with a 1% host volume and Ubuntu recovery.
+Release `ec94f04d158f8a13` (source `34d5123f`, session
+`session-000660e530bf89ae-00`) reserved and returned slot 12291 on the Air.
+Both samples read the same three PTEs at slots 12290–12292,
+`0x8f003001`, `0x8f004001`, `0x8f005001`. They point into graphics-reserved
+RAM beyond all three measured display buffers. Their addresses fit the same
+linear mapping as slot 8704, whose original entry stayed `0x8e201001`.
+The allocator refused both competing claims to slot 12291. Pipe A kept its
+original surface and advanced from frame 1111 to 1112. All 80 temporary
+mappings retired, and the returned USB report passed offline integrity checks.
+The remaining requirement for a native replacement is exclusive control of
+GPU access to that address through both translation invalidations.
 
 ## Reset-free primary plane flip
 

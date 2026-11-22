@@ -255,9 +255,12 @@ grant, an outstanding reader, owner loss, plane movement and failed rollback
 invalidation. The guest serial transcript is in
 `build/tests/scanout-guest/serial.log`.
 
-The native cold-boot provider still needs to identify an exclusive range
-outside the firmware import and retain control of its readers through both
-invalidations. Native hardware acceptance requires that provider, a fresh
+The native reservation trial on release `ec94f04d158f8a13` held slot 12291
+across two samples while Pipe A advanced. Its original PTE mapped physical
+page `0x8f004000` in graphics-reserved RAM beyond both imported surfaces.
+The cold-boot provider still needs to exclude GPU readers of that address
+and retain the exclusion through replacement, restoration and both
+translation invalidations. Native hardware acceptance requires that provider, a fresh
 same-boot grant and a completed rollback on the Air.
 Upstream i915 determines unused intervals from its allocation
 records during GGTT initialization. [Linux i915 GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
