@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Build the pinned SrvrOS iconv provider and run one target GLib configure."""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import tarfile
+import tempfile
+
+from browser_storage import StorageGuard
+from signal_public_guest import sdk_headers
+
+ROOT = Path(__file__).resolve().parents[1]
+ICONV = 'libiconv-1.19'
+GLIB = 'glib-2.90.1'
+PINS = {
+    ICONV: ('https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz',
+            '88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6'),
+    GLIB: ('https://download.gnome.org/sources/glib/2.90/glib-2.90.1.tar.xz',
+           '93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396'),
+}
+
+
+def digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def extract_archive(path, name, run):
+    if digest(path) != PINS[name][1]:
+        raise ValueError(f'{name} archive checksum mismatch')
+    with tarfile.open(path) as archive:
+        archive.extractall(run, filter='data')
+    return run / name
+
+
+def run_logged(args, cwd, env, log, timeout, *, check=True):
+    with log.open('xb') as stream:
+        return subprocess.run(args, cwd=cwd, env=env, stdout=stream, stderr=stream,
+                              timeout=timeout, check=check).returncode
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--iconv-archive', type=Path, required=True)
+    parser.add_argument('--glib-archive', type=Path, required=True)
+    parser.add_argument('--meson', type=Path, required=True)
+    args = parser.parse_args()
+    base = ROOT / 'build/browser-glib-iconv'
+    base.mkdir(parents=True, exist_ok=True)
+    StorageGuard(base).preflight()
+    out = Path(tempfile.mkdtemp(prefix='run-', dir=base))
+    print(f'GLib/iconv evidence: {out}', flush=True)
+
+    compiler = ROOT / 'ports/srvros/webkit/cc'
+    zig = ROOT / 'build/tooling/zig/zig'
+    sdk = ROOT / 'build/sysroot/srvros'
+    patch = ROOT / 'tools/glib-srvros-poll.patch'
+    meson = args.meson.resolve()
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(('PKG_CONFIG', 'MESON', 'ac_cv_', 'gl_cv_', 'ZIG_'))
+           and key not in ('CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS',
+                           'LIBS', 'CPATH', 'C_INCLUDE_PATH', 'LIBRARY_PATH', 'SDKROOT',
+                           'CONFIG_SITE', 'MAKEFLAGS', 'MFLAGS')}
+    env.update({'CONFIG_SITE': '/dev/null', 'LC_ALL': 'C', 'PYTHONUNBUFFERED': '1'})
+    receipt = {'result': 'failed', 'pins': PINS}
+    try:
+        receipt['source'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        receipt['inputs_sha256'] = {str(path.relative_to(ROOT)): digest(path) for path in (
+            Path(__file__), compiler, compiler.with_name('compiler.py'), zig, patch,
+            sdk / 'lib/libsrvros.a', sdk / 'lib/crt0.o', sdk / 'lib/app.ld')}
+        receipt['sdk_headers_sha256'] = sdk_headers(sdk)
+        applied_patch = out / patch.name
+        shutil.copyfile(patch, applied_patch)
+        if digest(applied_patch) != receipt['inputs_sha256'][str(patch.relative_to(ROOT))]:
+            raise RuntimeError('GLib patch changed while recording inputs')
+        receipt['meson'] = subprocess.check_output([meson, '--version'], env=env, text=True, timeout=15).strip()
+        iconv = extract_archive(args.iconv_archive.resolve(), ICONV, out)
+        glib = extract_archive(args.glib_archive.resolve(), GLIB, out)
+        build = out / 'iconv-build'
+        build.mkdir()
+        # This is the generic target accepted by GNU config.sub. The compiler
+        # still links executable checks with the actual SrvrOS CRT and libc.
+        host_cpu = {'arm64': 'aarch64'}.get(platform.machine(), platform.machine())
+        build_triplet = f'{host_cpu}-apple-darwin' if platform.system() == 'Darwin' else f'{host_cpu}-pc-linux-gnu'
+        tools = dict(env, CC=str(compiler), CFLAGS='-O2', AR=f'{zig} ar', RANLIB=f'{zig} ranlib')
+        # These SDK calls link, but do not provide the multibyte locale
+        # semantics required by libiconv's WCHAR_T fallback.
+        tools.update(ac_cv_func_mbrtowc='no', ac_cv_func_wcrtomb='no')
+        configure = [iconv / 'configure', f'--build={build_triplet}', '--host=x86_64-unknown-none',
+                     '--disable-shared', '--enable-static', '--disable-nls', '--prefix=/srvros-iconv']
+        run_logged(configure, build, tools, out / 'iconv-configure.log', 300)
+        make = shutil.which('gmake') or shutil.which('make')
+        run_logged([make, '-j2', 'lib/localcharset.h'], build, tools, out / 'iconv-charset.log', 120)
+        run_logged([make, '-j2', '-C', 'lib'], build, tools, out / 'iconv-build.log', 120)
+
+        prefix = out / 'target-iconv'
+        for kind, source in [('include', build / 'include/iconv.h.inst'),
+                             ('lib', build / 'lib/.libs/libiconv.a'),
+                             ('share', iconv / 'COPYING.LIB')]:
+            target = prefix / kind / source.name.removesuffix('.inst')
+            target.parent.mkdir(parents=True)
+            shutil.copyfile(source, target)
+        receipt['provider_sha256'] = {str(path.relative_to(out)): digest(path)
+                                      for path in sorted(prefix.rglob('*')) if path.is_file()}
+
+        run_logged(['patch', '--batch', '-p0', '-i', applied_patch], glib, env, out / 'glib-patch.log', 15)
+        pc = out / 'empty-pkgconfig'
+        pc.mkdir()
+        cross = out / 'srvros.ini'
+        cross.write_text(f'''[binaries]
+c = {str(compiler)!r}
+ar = [{str(zig)!r}, 'ar']
+pkg-config = {shutil.which('pkg-config')!r}
+
+[host_machine]
+system = 'srvros'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[properties]
+needs_exe_wrapper = true
+pkg_config_libdir = [{str(pc)!r}]
+
+[built-in options]
+c_args = [{'-I' + str(prefix / 'include')!r}]
+c_link_args = [{'-L' + str(prefix / 'lib')!r}]
+''')
+        meson_args = [meson, 'setup', out / 'glib-build', glib, '--cross-file', cross,
+                      '--wrap-mode=nodownload', '--default-library=static', '-Dtests=false',
+                      '-Dintrospection=disabled', '-Dnls=disabled', '-Dlibmount=disabled',
+                      '-Dselinux=disabled', '-Dxattr=false', '-Dsysprof=disabled']
+        status = run_logged(meson_args, out, env, out / 'glib-configure.log', 300, check=False)
+        receipt.update(result='configured' if status == 0 else 'configure stopped', glib_exit=status)
+        print(f'Target iconv prefix: {prefix}\nGLib configure exit {status}')
+        return status
+    except Exception as error:
+        receipt['error'] = str(error)
+        raise
+    finally:
+        logs = sorted(out.glob('*.log'))
+        meson_log = out / 'glib-build/meson-logs/meson-log.txt'
+        if meson_log.is_file():
+            logs.append(meson_log)
+        receipt['logs_sha256'] = {str(log.relative_to(out)): digest(log) for log in logs}
+        (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

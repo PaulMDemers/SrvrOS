@@ -1,0 +1,175 @@
+{
+  "scope": "target poll configure and native conversion on the normal SrvrOS kernel",
+  "os_main": "b275e57d3053d8b5294ba2dfbfbe586a87e07450",
+  "ports": "276eb1b05206a0da2efe832a8d96a26d3b1e663b",
+  "libiconv_signature": {
+    "fingerprint": "E0FFBD975397F77A32AB76ECB6301D9E1BBEAC08",
+    "detached_signature": "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz.sig",
+    "keyring": "https://savannah.gnu.org/project/memberlist-gpgkeys.php?group=libiconv&download=1"
+  },
+  "configure": {
+    "result": "configure stopped",
+    "pins": {
+      "libiconv-1.19": [
+        "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz",
+        "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6"
+      ],
+      "glib-2.90.1": [
+        "https://download.gnome.org/sources/glib/2.90/glib-2.90.1.tar.xz",
+        "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396"
+      ]
+    },
+    "source": "a6096f31905d37b39b431ba5cf0691b36d5adceb",
+    "inputs_sha256": {
+      "tools/browser_glib_iconv.py": "5f70d88b011bc1d5aa27dc39f7d564fcac85db0cdcadb7bda6061e271027a73f",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "build/sysroot/srvros/lib/libsrvros.a": "a29884690f650a1393c7d1126b89f75b1fe513266d32c13ac19aff1e2f16e205",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912"
+    },
+    "sdk_headers_sha256": "d4d2d2e539f673d86771afd1cf33c0819ef39a79ea834ee4fbe7255bc4100386",
+    "meson": "1.10.2",
+    "provider_sha256": {
+      "target-iconv/include/iconv.h": "e9268746d5d234395604d3fe3abdf3038134340a2e29fc120a8bb411acfd419c",
+      "target-iconv/lib/libiconv.a": "eceedd2bc4b60d54ab84dbb3c23e8ce24650df4cc4b3f212b245714a93562e28",
+      "target-iconv/share/COPYING.LIB": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "glib_exit": 1,
+    "logs_sha256": {
+      "glib-configure.log": "27e8713e789bb693d2db493be5f224c9dae201cbfb1bf5d0bab6c5e62318d891",
+      "glib-patch.log": "f04feee6fb5e00437a44750ecd530cd845916c8aa6ae9520e2c5cdb9e7e2fd25",
+      "iconv-build.log": "70f2400b8232ffd3e845540b657062a9cdae46e1bd80645aa224505febd7c1dc",
+      "iconv-charset.log": "5a2c639d2a610259e2eb1647973c8f897db735ff0d4113a3135e95fe0ad44d82",
+      "iconv-configure.log": "73eaed80240b862c3e110b7540d3e57621809312f928188412dc5dad80751a8c",
+      "glib-build/meson-logs/meson-log.txt": "7a0e618ec6e7b67455e3bba98274d79981277fc77baad70c0ec7cea94391b430"
+    },
+    "evidence": [
+      "Has header \"sys/poll.h\" : NO",
+      "Has header \"poll.h\" : YES (cached)",
+      "Computing int of \"POLLIN\" : 1",
+      "Computing int of \"POLLOUT\" : 4",
+      "Computing int of \"POLLPRI\" : 2",
+      "Computing int of \"POLLERR\" : 8",
+      "Computing int of \"POLLHUP\" : 16",
+      "Computing int of \"POLLNVAL\" : 32",
+      "Run-time dependency threads found: YES",
+      "Run-time dependency iconv found: YES",
+      "Run-time dependency libpcre2-8 found: NO (tried pkgconfig and cmake)",
+      "Run-time dependency libpcre2-8 found: NO (tried pkgconfig and cmake)",
+      "glib-2.90.1/meson.build:2284:10: ERROR: Automatic wrap-based subproject downloading is disabled"
+    ],
+    "next_missing_dependency": "libpcre2-8"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "a6096f31905d37b39b431ba5cf0691b36d5adceb",
+    "sdk_headers_sha256": "d4d2d2e539f673d86771afd1cf33c0819ef39a79ea834ee4fbe7255bc4100386",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "8e2627a88173c7ef8d467c23ec21ecf87d4d1de12675c4fdc324680c061ef8dd",
+      "tools/test_glib_platform_guest.c": "dd02effe60f1661b4c04072ac45709726add18656ae299693b6d8a08a358035b",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "95fe7b2f6b6402cc06aae3c379fe68996cbde0a9ea136ffaf9b8469a90879396",
+      "build/userspace/init.elf": "24c0db54869dd6567e17f21813ef9371e0520c9ceb1617fc93e48cf426d98064",
+      "build/sysroot/srvros/lib/libsrvros.a": "a29884690f650a1393c7d1126b89f75b1fe513266d32c13ac19aff1e2f16e205",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "736befeaa8cb735399447e9cd56713dc289c4b95ed8fde6ffff2712838471174",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_iconv_guest.c": "9d2758d8d8a9eefa8070437d54cebd6cc3fd57732da9915957b9dfcdb22f2ace"
+    },
+    "payload_sha256": "631f2574820be2a512b37dbb9bcde8b171b4ab789a650b6279fa2cc8026635bd",
+    "iconv_provider_sha256": {
+      "include/iconv.h": "e9268746d5d234395604d3fe3abdf3038134340a2e29fc120a8bb411acfd419c",
+      "lib/libiconv.a": "f2803838f19921f71ded53b7778c9849eeb90b672b89ec2290503645a34c1336"
+    },
+    "iconv_payload_sha256": "ed408a8dd63d63e4f344d6c46cab4e89331c16479facafd7b1c4e660fb3fafa8",
+    "image_sha256": "1ab9e89b3c52a6026f074b85b7e88223e6cac962bc54e10734e1c1834c6aeedc",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "<guest.iso>",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-nic",
+      "none",
+      "-serial",
+      "unix:<private UART>,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-iconv",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-iconv",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "e0ecde0fac4318600dac06b63609daff2a0434988a4daad64991d27025e35ea8",
+    "serial_evidence": [
+      "gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit",
+      "glib-platform: ok",
+      "run: pid=3 exited status=0",
+      "gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit",
+      "glib-platform: ok",
+      "run: pid=5 exited status=0",
+      "glib-iconv: ok",
+      "run: pid=7 exited status=0",
+      "glib-iconv: ok",
+      "run: pid=8 exited status=0"
+    ]
+  },
+  "exact_runtime_match": {
+    "scope": "Archive debug data varies between build paths. The archives match after stripping debug data. The final recipe relink matches the executable extracted from the boot ISO initramfs after runtime_elf packaging.",
+    "both_archives_stripped_sha256": "230f42dc47cb634c3ddf049879182ae1a43b67f0c797e95eabc513fb548fa179",
+    "final_unpacked_relink_sha256": "e6795237d56185dea5b8e379499f21ed4c67060fc7ab4912444f6a70cd26116a",
+    "booted_initramfs_sha256": "fa9e8fd2ad26176427299a0cb33b6838aa67a21bdfedb8d584bce26c6a7458aa",
+    "matched_runtime_elf_sha256": "3f03e4eadf48c20eeca1c845ab30499e7dfec667e44f02445e1bee70f1625f13",
+    "matched_runtime_elf_size": 977280
+  }
+}

@@ -1,9 +1,26 @@
 # Current status
 
-Updated 2026-11-04. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-22. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
+
+## Current browser audit
+
+The user resumed browser work after the completed closeout. The source-backed
+[WebCore dependency and software-backend audit](browser-webcore-audit.md) is
+complete with runtime and SrvrUI owner review. A CPU/SHM rendering path exists
+in the pinned source; missing GLib dependencies, shared-memory/IPC, combined
+wait policy and frame completion/cancellation remain explicit implementation
+gates. No full target configure, engine build or rendered page is claimed.
+GLib 2.90.1 now computes its poll constants from the SrvrOS SDK and detects
+the pinned GNU libiconv 1.19 target archive. The normal SDK guest passed
+the native wait and conversion checks twice each. The next static GLib
+configure dependency is PCRE2 8-bit. See the
+[GLib probe record](browser-glib-prereq.md).
+
+The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
+open and draft under its own acceptance ledger.
 
 ## Final local integration and workspace reset
 
@@ -31,12 +48,12 @@ the workspace are preserved. Historical local paths and retention statements
 below describe earlier checkpoints and do not promise post-reset availability.
 Hosted Actions remain disabled; verification uses the recorded local checks.
 
-Physical-device PRs #301 and #19 remain separate unfinished work with remote
-source preserved. #301 has a bounded native read-only GGTT survey, with no managed
-mapping or page-flip authority. #19 now places Wi-Fi at syscall 169, preserving
+At the November 4 workspace cleanup, physical-device PRs #301 and #19 were
+separate unfinished work with remote source preserved. At that checkpoint, #301 had a bounded native read-only GGTT survey, with no managed
+mapping or page-flip authority. #19 placed Wi-Fi at syscall 169, preserving
 signals 164–167 and profile streaming 168; corrected physical power and combined
-integration qualification remain pending. Neither PR is silently accepted or
-merged by this workspace cleanup.
+integration qualification were pending. The workspace cleanup did not merge
+or qualify either PR.
 
 ## November 4 integration closeout
 
@@ -65,9 +82,9 @@ installation admission or export; that later work is deferred. See the
 
 The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
 completed delivery and explicit exceptions. Physical-device PRs #301 and #19 retain separate owners and
-acceptance ledgers. They are not silently included in this closeout. #301 retains its current-main
-integration gate. #19 has moved its former syscall 164 proposal to 169, but
-remains draft with unfinished integration and native qualification. Profile
+acceptance ledgers. At that closeout, #301 retained its current-main integration
+gate and #19 was still draft. #19 had moved its former syscall 164 proposal to
+169, with integration and native qualification pending at that point. Profile
 streaming uses 168 and signals reserve 164–167. Local chat tools
 cannot reach those physical-device owners; no new device trial is scheduled here.
 
@@ -195,7 +212,7 @@ lifetime and crash recovery remain under audit.
 | Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback completed on hardware with zero reported underruns; prompted headphone/speaker controls reported successful in the v58 trial |
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
-| Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
+| Wi-Fi / Bluetooth / NVMe | Merged Pro MT7610 work has bounded native WPA2/CCMP, DHCP/DNS and HTTP qualification on the tested 5 GHz setup. Bluetooth and NVMe remain open. [PR #19](https://github.com/PaulMDemers/SrvrOS/pull/19) |
 | POSIX / ports | [Portable C profile](posix-supported-profile.md): thread-local errno/TLS, shared files/descriptors, positional/vectored I/O, ordered spawn, bounded fork, readiness/time and stream contracts implemented with host/VM regressions; not full POSIX, Linux or Node compatibility |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 

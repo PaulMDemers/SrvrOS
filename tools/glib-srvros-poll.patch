@@ -1,0 +1,25 @@
+--- meson.build
++++ meson.build
+@@ -1992,4 +1992,8 @@
+ has_syspoll = cc.has_header('sys/poll.h')
+ has_systypes = cc.has_header('sys/types.h')
++has_srvros_poll = false
++if host_system == 'srvros' and has_systypes and not has_syspoll
++  has_srvros_poll = cc.has_header('poll.h')
++endif
+ if has_syspoll
+   glibconfig_conf.set('GLIB_HAVE_SYS_POLL_H', true)
+@@ -2000,4 +2004,8 @@
+   poll_includes = '''
+       #include<sys/poll.h>
++      #include<sys/types.h>'''
++elif has_srvros_poll
++  poll_includes = '''
++      #include<poll.h>
+       #include<sys/types.h>'''
+ elif has_winsock2
+@@ -2021,3 +2029,3 @@
+-if has_syspoll and has_systypes
++if (has_syspoll and has_systypes) or has_srvros_poll
+   foreach d : poll_defines
+     val = cc.compute_int(d[0], prefix: poll_includes, guess: d[2])

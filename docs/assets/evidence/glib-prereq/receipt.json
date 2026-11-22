@@ -1,0 +1,138 @@
+{
+  "scope": "complete prerequisite probe. Static GLib target configure remains blocked.",
+  "os_main": "b275e57d3053d8b5294ba2dfbfbe586a87e07450",
+  "ports": "276eb1b05206a0da2efe832a8d96a26d3b1e663b",
+  "pin": {
+    "version": "2.90.1",
+    "url": "https://download.gnome.org/sources/glib/2.90/glib-2.90.1.tar.xz",
+    "sha256": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+    "size": 5871112
+  },
+  "upstream_sha256": {
+    "COPYING": "fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb",
+    "meson.build": "d90db9abad41861a57434939227d0fd855a7263cfef8c0b0bae6ceff72e41035",
+    "glib/gwakeup.c": "95c72c24a0a51491ebb388a1772ee207d540038fbb548f6290dd0f33ced186d2",
+    "subprojects/pcre2.wrap": "a790b22a6f8e2c21404fec9795209d6d0fb760fe40981adc332d3222dfe4553f",
+    "subprojects/libffi.wrap": "1d56093bbe4d8158295c1be7b0fd62a9818b5e7d771ab55e3e0c057b10e9e99b",
+    "subprojects/gvdb.wrap": "d669f93cb531a04d719dcc5b790838452c918eea0a6134ae2bf17b470eb7838c",
+    "subprojects/proxy-libintl.wrap": "ca5a4e2734f8f82ed211d9c3e62560ebe68670533902f42aad961313029b0c46"
+  },
+  "configure": {
+    "meson": "1.10.2",
+    "system": "srvros",
+    "cpu": "x86_64",
+    "original_result": "expected configure stop at missing sys/poll.h",
+    "original_log_sha256": "9fe0634aae1e1e67b7ee58c3fc282cbf52ac0aa3105c5f6f988e77512e2a9cc4",
+    "original_evidence": [
+      "Checking for function \"pipe2\" : YES ",
+      "Checking for function \"poll\" : YES ",
+      "Checking if \"eventfd(2) system call\" links: YES ",
+      "Checking if \"ppoll(2) system call\" links: YES ",
+      "Checking if \"dlopen() and dlsym() in system libraries\" links: YES ",
+      "Has header \"sys/poll.h\" : NO ",
+      "glib-2.90.1/meson.build:2009:2: ERROR: Problem encountered: FIX POLL* defines"
+    ],
+    "diagnostic_result": "expected configure stop at missing iconv provider",
+    "diagnostic_delta": "Two sys/poll.h occurrences in the Meson poll constants check switched to poll.h. No feature checks were preseeded.",
+    "diagnostic_meson_sha256": "f80ff0b722d0f189a5e97db6f9518e41d10086ac594eba4f968c47a1077a56e6",
+    "diagnostic_log_sha256": "9349c60a33f5eca2cfb3bcba8a4619cde1c9d93001d1b2ab3bcad9a80c4c6acb",
+    "diagnostic_evidence": [
+      "Computing int of \"POLLIN\" : 1",
+      "Computing int of \"POLLOUT\" : 4",
+      "Computing int of \"POLLPRI\" : 2",
+      "Computing int of \"POLLERR\" : 8",
+      "Computing int of \"POLLHUP\" : 16",
+      "Computing int of \"POLLNVAL\" : 32",
+      "Run-time dependency threads found: YES",
+      "Run-time dependency iconv found: NO (tried builtin and system)",
+      "glib-2.90.1-poll-diagnostic/meson.build:2250:13: ERROR: Dependency \"iconv\" not found, tried builtin and system"
+    ]
+  },
+  "host": {
+    "result": "glib-main-context-host: 2.90.1 quiet_us=83462 cycles=2 sleeping=2 wake+timer ok",
+    "fixture_sha256": "7a179cd7f2b3e3eda2afb08a54a98a52558ba3e4d4cc7088cdf568123cba0de5",
+    "log_sha256": "a18d9256baccd529f5ed94216a7ce11c2748d6404c8f95750ac2207cace2f7d1"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "14edc87bd21090d966502dc7fd85e34cc5cc4259",
+    "sdk_headers_sha256": "d4d2d2e539f673d86771afd1cf33c0819ef39a79ea834ee4fbe7255bc4100386",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "bf5f4c6282bae9ac0236f4486eb209b8fd1a5ae6525b4a3feb8f5575e3529dc6",
+      "tools/test_glib_platform_guest.c": "dd02effe60f1661b4c04072ac45709726add18656ae299693b6d8a08a358035b",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "95fe7b2f6b6402cc06aae3c379fe68996cbde0a9ea136ffaf9b8469a90879396",
+      "build/userspace/init.elf": "24c0db54869dd6567e17f21813ef9371e0520c9ceb1617fc93e48cf426d98064",
+      "build/sysroot/srvros/lib/libsrvros.a": "a29884690f650a1393c7d1126b89f75b1fe513266d32c13ac19aff1e2f16e205",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "736befeaa8cb735399447e9cd56713dc289c4b95ed8fde6ffff2712838471174",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2"
+    },
+    "payload_sha256": "631f2574820be2a512b37dbb9bcde8b171b4ab789a650b6279fa2cc8026635bd",
+    "image_sha256": "ddbaf5ac65493ef88a69a714f97e75a90718d9aa1d615210b2de6b0b29a2fd2c",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "$SRVROS_ROOT/build/browser-glib-prereq/guest-0av4lnzi/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-nic",
+      "none",
+      "-serial",
+      "unix:$PRIVATE_UART,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot"
+    ],
+    "tests": [
+      {
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "721b84a0dfded2615154b8b6d73c2f56475f7c58690c6fe3d55d9786b8e10a16",
+    "serial_completion_lines": [
+      "glib-platform: start",
+      "gui-wait-capture: probe result=0 ready=16 epoch=0 peer=4",
+      "gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit",
+      "glib-platform: ok",
+      "run: pid=3 exited status=0",
+      "glib-platform: start",
+      "gui-wait-capture: probe result=0 ready=16 epoch=0 peer=6",
+      "gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit",
+      "glib-platform: ok",
+      "run: pid=5 exited status=0"
+    ],
+    "original_receipt_sha256": "1aaadc072a1789dc01a3a558c4aef03941b635def7abb773f72177fda6b3ca4f"
+  }
+}
