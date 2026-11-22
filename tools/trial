@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+"""Collect the return from one recorded SrvrOS desktop or laptop-probe trial."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+sys.dont_write_bytecode = True
+import hardware_boot as boot
+import hardware_desktop as desktop
+import hardware_test as host
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def directory(path):
+    require(not path.is_symlink() and path.is_dir(), f"Missing or unsafe directory: {path}")
+    return path
+
+
+def read_file(path, limit):
+    require(not path.is_symlink() and path.is_file(), f"Missing or unsafe file: {path}")
+    with path.open("rb") as stream:
+        data = stream.read(limit + 1)
+    require(len(data) <= limit, f"File exceeds collection bound: {path}")
+    return data
+
+
+def record(path):
+    value = json.loads(read_file(path, 16 * 1024**2))
+    require(isinstance(value, dict), f"Expected an object in {path}")
+    return value
+
+
+def prior_sessions(run_dir, run, volume):
+    baseline = {}
+    path = run_dir / "workspace-before.json"
+    if path.exists() or path.is_symlink():
+        baseline = record(path)
+        require(host.volume_id(baseline["uuid"]) == volume, "Workspace baseline UUID mismatch")
+    sessions = baseline.get("sessions", run.get("prior_sessions"))
+    require(isinstance(sessions, list) and all(isinstance(name, str) and
+            desktop.SESSION.fullmatch(name) for name in sessions), "Missing or invalid pre-boot session list")
+    if "prior_sessions" in run:
+        require(set(sessions) == set(run["prior_sessions"]), "Conflicting pre-boot session lists")
+    return baseline, set(sessions)
+
+
+def archive_logs(run_dir, volume):
+    evidence = run_dir / "return-evidence"
+    if evidence.exists():
+        return directory(evidence) / "sessions"
+    collections = list(directory(run_dir / "collection").glob("collection-*"))
+    require(len(collections) == 1, "Expected one legacy collection for this run")
+    logs = directory(collections[0])
+    index = record(logs / "collection.json")
+    require(index["format"] == "srvros-desktop-collection-v1" and
+            host.volume_id(index["volume"]) == volume, "Archived collection identity mismatch")
+    expected = {row["session"] for row in index["sessions"]}
+    require(expected == {p.name for p in logs.iterdir() if desktop.SESSION.fullmatch(p.name)},
+            "Legacy collection is missing or has extra session folders")
+    return logs
+
+
+def match_session(logs, prior, release):
+    matches, unresolved, others = [], [], []
+    for folder in sorted(directory(logs).iterdir()):
+        if not desktop.SESSION.fullmatch(folder.name) or folder.name in prior:
+            continue
+        path = directory(folder) / "boot.log"
+        releases = []
+        if path.exists() or path.is_symlink():
+            raw = read_file(path, desktop.CAL5_LOG_BYTES)
+            releases = desktop.session_releases(raw.decode("utf-8", "replace"))
+        if releases == [release]:
+            matches.append(folder.name)
+        elif len(releases) != 1:
+            unresolved.append(folder.name)
+        else:
+            others.append(folder.name)
+    if len(matches) > 1 or (matches and unresolved):
+        status = "ambiguous"
+    elif unresolved:
+        status = "missing_boot_identity"
+    elif matches:
+        status = "matched"
+    else:
+        status = "no_matching_session"
+    return {"status": status, "matches": matches, "unidentified": unresolved, "other_releases": others}
+
+
+def snapshot_footer(raw, name):
+    pattern = (rb"^workspace-log: snapshot=" + re.escape(name.encode()) +
+               rb" monotonic_us=([0-9]{1,20}) total_before=([0-9]{1,20}) tail_limit=([0-9]{1,10})\n\Z")
+    match = re.search(pattern, raw, re.M)
+    if match:
+        stamp, total, limit = map(int, match.groups())
+        return stamp, total + len(match.group()), limit
+
+
+def replug_prefix(data):
+    """Verify the full first segment and its native handoff to the exit suffix."""
+    prefix = data.get("session-a.log", b"")
+    footer = snapshot_footer(prefix, "session-a.log")
+    suffix = data.get("exit.log", b"")
+    if footer and footer[1] == len(prefix) and footer[2] == desktop.CAL5_LOG_BYTES:
+        durable = f"workspace-log: durable snapshot=session-a.log monotonic_us={footer[0]}".encode()
+        handoff = f"workspace-log: Wi-Fi replug continuation session-a.log bytes={len(prefix)}".encode()
+        if suffix.startswith(durable + b"\n") and handoff in suffix.splitlines():
+            return prefix
+    return b""
+
+
+def snapshots(folder, release):
+    data = {}
+    names = (*desktop.FILES, "ecam.log", "window.log", *(f"checkpoint-{i:02x}.log" for i in range(32)))
+    for name in names:
+        path = folder / name
+        if not (path.exists() or path.is_symlink()):
+            continue
+        limit = desktop.CAL5_LOG_BYTES if name in desktop.FILES else desktop.MAX_LOG_BYTES
+        raw = read_file(path, limit)
+        text = raw.decode("utf-8", "replace")
+        identities = desktop.session_releases(text)
+        require(not identities or identities == [release], f"Conflicting release in {name}")
+        data[name] = raw
+    require(desktop.session_releases(data["boot.log"].decode("utf-8", "replace")) == [release],
+            "Boot identity changed during collection")
+    prefix = replug_prefix(data)
+    for name, raw in data.items():
+        if len(raw) > desktop.MAX_LOG_BYTES:
+            identity = prefix if name == "exit.log" and prefix else raw
+            desktop.check_large_radio_identity(identity.decode(), release, len(raw) > desktop.RADIO_LOG_BYTES)
+    return data
+
+
+def exit_snapshot(data):
+    raw = data.get("exit.log", b"")
+    if not raw:
+        return "missing"
+    footer = snapshot_footer(raw, "exit.log")
+    if footer:
+        _, end, limit = footer
+        prefix = replug_prefix(data)
+        if prefix and end == len(prefix) + len(raw) and len(raw) <= limit:
+            return "verified_continuation"
+        if not prefix and len(raw) == min(end, limit):
+            return "verified"
+    return "incomplete"
+
+
+def workspace_changes(workspace, baseline):
+    files = baseline.get("files")
+    if files is None:
+        return None
+    changed, missing = [], []
+    require(isinstance(files, dict), "Invalid workspace file list")
+    for name, entry in files.items():
+        require(isinstance(entry, dict), "Invalid workspace fingerprint")
+        parts = name.split("/")
+        require(all(part not in ("", ".", "..") for part in parts), "Invalid path in workspace baseline")
+        path = workspace
+        for part in parts:
+            path = path / part
+            require(not path.is_symlink(), f"Symlink in workspace baseline path: {name}")
+        size = entry.get("bytes", entry.get("size"))
+        require(type(size) is int and size >= 0 and re.fullmatch("[0-9a-f]{64}", entry["sha256"]),
+                "Invalid file fingerprint in workspace baseline")
+        if not path.exists():
+            missing.append(name)
+        elif not path.is_file() or path.stat().st_size != size or boot.digest(path) != entry["sha256"]:
+            changed.append(name)
+    return {"prior_files": len(files), "changed": sorted(changed), "missing": sorted(missing)}
+
+
+def recovery_checks(run):
+    checks = {}
+    try:
+        host.check_ubuntu_default(Path("/etc/default/grub").read_text(), boot.GRUB_CFG.read_text())
+        checks["ubuntu_default"] = "verified"
+    except (OSError, ValueError, RuntimeError) as exc:
+        checks["ubuntu_default"] = str(exc)
+    previous = run.get("installed_recovery") or run.get("recovery_release")
+    if not previous or not run.get("recovery_archive"):
+        checks["installed_recovery"] = "no recovery archive binding in record"
+        return checks
+    try:
+        require(boot.RELEASE_RE.fullmatch(previous), "Invalid recovery release")
+        state = record(boot.BASE / "state.json")
+        require(state["current"] == run["release"] and state["previous"] == previous,
+                "Installed release pair differs from run")
+        require(boot.verify(boot.BASE / previous, previous) ==
+                boot.verify(Path(run["recovery_archive"]) / previous, previous), "Recovery archive differs")
+        checks["installed_recovery"] = "verified"
+    except (OSError, ValueError, KeyError, RuntimeError) as exc:
+        checks["installed_recovery"] = str(exc)
+    return checks
+
+
+def reported_checks(run_dir, run, volume, session):
+    """Keep earlier recipe measurements separate from facts observed in this invocation."""
+    evidence = run_dir / "return-evidence"
+    path = evidence / "result.json"
+    result = {}
+    if path.exists():
+        receipt = record(path)
+        require((receipt.get("session"), receipt.get("source"), receipt.get("release")) ==
+                (session, run["source"], run["release"]), "Archived result identity mismatch")
+    elif run.get("session") == session and isinstance(run.get("result"), dict):
+        receipt = run["result"]
+    else:
+        receipt = {}
+    if receipt:
+        result["recipe"] = {k: v for k, v in receipt.items() if type(v) in (int, bool) or
+                            k in ("verdict", "changed", "missing", "screenshots")}
+    path = evidence / "comparison.json"
+    if path.exists():
+        comparison = record(path)
+        require(comparison["release"] == run["release"] and host.volume_id(comparison["uuid"]) == volume
+                and comparison["new_sessions"] == [session], "Archived comparison identity mismatch")
+        result["comparison"] = {k: comparison[k] for k in ("changed", "missing", "fsck_return",
+                                "ubuntu_default_verified", "recovery_verified") if k in comparison}
+    return result
+
+
+def collect(run_dir, archive):
+    run = record(directory(run_dir) / "run.json")
+    release = run["release"]
+    require(isinstance(release, str) and boot.RELEASE_RE.fullmatch(release), "Invalid run release")
+    volume = host.volume_id(run["workspace_uuid"])
+    baseline, prior = prior_sessions(run_dir, run, volume)
+    report = {"format": "srvros-trial-return-v1", "source": run["source"], "release": release,
+              "model": run["model"], "workspace_uuid": volume, "mode": "archive" if archive else "live"}
+    report["hardware_acceptance"] = "requires_recipe_evidence"
+    if archive:
+        logs = archive_logs(run_dir, volume)
+    else:
+        require(Path("/sys/class/dmi/id/product_name").read_text().strip() == run["model"], "Host model mismatch")
+        before = run.get("prior_boot_id") or run.get("origin_boot_id")
+        now = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        require(now != before, "Still in the pre-trial Ubuntu boot")
+        report["changed_host_boot"] = True if before else None
+        workspace = directory(host.volume_mount(volume) / "srvros-work")
+        require(read_file(workspace / ".workspace", 100) == f"SRVROS-WORKSPACE-V1 {volume}\n".encode(),
+                "Workspace marker mismatch")
+        report["workspace_changes"] = workspace_changes(workspace, baseline)
+        report["recovery"] = recovery_checks(run)
+        logs = workspace / "Logs"
+    match = match_session(logs, prior, release)
+    report["session_match"] = match
+    if match["status"] != "matched":
+        return report, {}, False
+    session, = match["matches"]
+    recorded = run.get("return_session") or run.get("session")
+    require(not recorded or recorded == session, "Matched session differs from recorded return")
+    data = snapshots(logs / session, release)
+    report["session"] = session
+    report["snapshots"] = {name: {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+                           for name, raw in data.items()}
+    markers = run.get("expected_receipts", [])
+    require(isinstance(markers, list) and all(isinstance(m, str) and m for m in markers),
+            "Invalid expected receipt list")
+    prefixes = {m.encode() for m in markers if m.endswith(":")}
+    found = set()
+    if prefixes:
+        for raw in data.values():
+            for line in raw.splitlines():
+                key, separator, _ = line.partition(b":")
+                if separator and key + separator in prefixes:
+                    found.add(key + separator)
+    report["observed_receipts"] = {m: bool(data.get(m)) if m in desktop.FILES else m.encode() in found
+                                   for m in markers}
+    report["exit_snapshot"] = exit_snapshot(data)
+    footer = snapshot_footer(data.get("exit.log", b""), "exit.log")
+    if footer:
+        _, end, limit = footer
+        report["exit_log_end_bytes"] = end
+        report["exit_log_tail_limit"] = limit
+    report["attention_counts"] = {
+        name: sum(desktop.needs_attention(line) for line in raw.decode("utf-8", "replace").splitlines())
+        for name, raw in data.items()
+    }
+    if archive:
+        report["previously_reported"] = reported_checks(run_dir, run, volume, session)
+    return report, data, report["exit_snapshot"].startswith("verified") and all(report["observed_receipts"].values())
+
+
+def save(report, data):
+    parent = boot.ROOT / "build/trial-collections"
+    parent.mkdir(parents=True, exist_ok=True)
+    destination = Path(tempfile.mkdtemp(prefix=report["release"] + "-", dir=parent))
+    try:
+        for name, raw in data.items():
+            (destination / name).write_bytes(raw)
+        (destination / "return.json").write_text(json.dumps(report, indent=2) + "\n")
+    except BaseException:
+        shutil.rmtree(destination)
+        raise
+    return destination
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    cmd = parser.add_subparsers(dest="command", required=True).add_parser("collect")
+    cmd.add_argument("run", type=Path, metavar="RUN", help="trial directory containing run.json")
+    cmd.add_argument("--archive", action="store_true", help="replay the run's archived session evidence")
+    cmd.add_argument("--save", action="store_true", help="save report and matched logs under build/trial-collections")
+    args = parser.parse_args()
+    try:
+        report, data, complete = collect(args.run, args.archive)
+        if args.save:
+            report["saved_to"] = str(save(report, data))
+        print(json.dumps(report, indent=2))
+        return 0 if complete else 1
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "collection_error", "error": str(exc)}))
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

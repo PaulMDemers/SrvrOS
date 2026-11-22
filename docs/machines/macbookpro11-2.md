@@ -20723,3 +20723,8 @@ covers session identification, workspace comparison and return reporting.
 It depends on the existing USB UUID resolver, boot-option parser and
 pre-boot run records. Its qualification uses archived Pro returns and
 host fixtures. PR #501 owns the separate Retina payload and physical trial.
+
+Archived replay matched the v155 active-removal return, the 64 KiB
+rolling Retina exit and the two-file v154 replug exit. It retained the
+Retina retry's periodic evidence with the final snapshot missing, and
+reported no new matching session for the older cold-readiness return.
