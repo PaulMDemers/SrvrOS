@@ -249,6 +249,34 @@ This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
 
+### Qualify a Retina candidate
+
+With the Retina kernel, initramfs and Limine EFI loader already built,
+run the fractional-display and missing-workspace rehearsals together:
+
+```sh
+tools/trial qualify retina --uuid "$SRVROS_USB_UUID"
+```
+
+The command stages the built inputs once into a private directory. Both
+QEMU cases must report the same release and staged manifest hash. The
+present case attaches a disposable GPT workspace and exercises fractional
+scaling, Text, screenshot and clean return. The missing case boots without
+the workspace and checks that the guest skips the desktop and returns.
+The command saves `qualification.json`, both case results and their logs
+under a unique `build/trial-qualifications/retina-*` directory. Exit 0
+means both rehearsals passed. Inspect the receipt and per-case logs on a
+failure. Each invocation has its own staging selector and output paths.
+
+Omit `--uuid` for a VM-only UUID. To qualify another built checkout, pass
+`--source-root PATH`; its staging code and smoke harness must support the
+Retina recipe. The manifest records the Git checkout at staging time and
+hashes of the actual payload. Source revisions alone cannot identify when
+existing build outputs were compiled. Use `--stage-parent PATH` to store the
+payload on a separate filesystem; using tmpfs makes that copy temporary.
+The receipt and VM evidence stay in the invoking checkout. This command
+runs VMs only. The existing device workflow owns install and native tests.
+
 ### Attended movement, dock and keyboard trial (Air7,2)
 
 The explicit navigation profile opens the complete **Window navigation trial**

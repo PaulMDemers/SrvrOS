@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Collect the return from one recorded SrvrOS desktop or laptop-probe trial."""
+"""Qualify a staged SrvrOS image or collect the return from a native trial."""
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -309,11 +310,29 @@ def save(report, data):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    cmd = parser.add_subparsers(dest="command", required=True).add_parser("collect")
+    commands = parser.add_subparsers(dest="command", required=True)
+    cmd = commands.add_parser("qualify", help="stage one release and rehearse it with and without a workspace")
+    cmd.add_argument("recipe", choices=["retina"])
+    cmd.add_argument("--source-root", type=Path, default=boot.ROOT, help="built checkout containing the Retina recipe")
+    cmd.add_argument("--uuid", default="5352-5452", help="workspace UUID to encode (default is a disposable VM UUID)")
+    cmd.add_argument("--stage-parent", type=Path, help="place the private stage on a separate filesystem")
+    default_qemu = shutil.which("kvm") if os.access("/dev/kvm", os.R_OK | os.W_OK) else None
+    cmd.add_argument("--qemu", default=default_qemu or "qemu-system-x86_64",
+                     help="QEMU executable (default uses kvm when available)")
+    cmd = commands.add_parser("collect")
     cmd.add_argument("run", type=Path, metavar="RUN", help="trial directory containing run.json")
     cmd.add_argument("--archive", action="store_true", help="replay the run's archived session evidence")
     cmd.add_argument("--save", action="store_true", help="save report and matched logs under build/trial-collections")
     args = parser.parse_args()
+    if args.command == "qualify":
+        import trial_qualify
+        try:
+            path, passed = trial_qualify.qualify(args.source_root, host.volume_id(args.uuid),
+                        boot.ROOT / "build/trial-qualifications", args.stage_parent, args.qemu)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps({"receipt": str(path), "status": "passed" if passed else "failed"}))
+        return 0 if passed else 1
     try:
         report, data, complete = collect(args.run, args.archive)
         if args.save:
