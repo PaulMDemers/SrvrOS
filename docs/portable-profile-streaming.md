@@ -76,8 +76,9 @@ New tools/profile_stream.py host codec/fixture CLI supports stream v2 and reads
 v1 via unchanged profile_bundle helpers. No changes to profile_bundle.py v1
 constants/functions, installation_{export,image,inspection}, profile_image native
 driver. The new runtime dependency changes filesystem implementation only for
-the opt-in I/O path and conflict guards described below. Native installer/offline exporter remain v1-only failclosed;
-installation owner's srvros-export-publication-v1 is PRIVATE metadata, unrelated
+the opt-in I/O path and conflict guards described below. PR367 left native
+installation and offline export at v1. The installation owner's
+`srvros-export-publication-v1` is private metadata, unrelated
 to this portable schema. V2 host fixture import validates all input before new
 stage, streams only into its owned stage, no replacement, existing host recovery.
 
@@ -216,6 +217,7 @@ high-water peaks are 2,396,160 bytes for the small/16 MiB/64 MiB previews and
 64 MiB export, and 2,461,696 bytes for import: 65,536 bytes growth. Complete
 transfer/recovery, exact content and 96 compressed-image readbacks pass in the
 31-guest disposable proof. The 64 MiB boundary consists of four 16 MiB files.
-Canonical offline installation export/recovery stays v1-only; offline v2 remains
-deferred. External runtime-owner peer acceptance and Linux exfatprogs conformance
+Canonical offline installation export and export recovery use v1. The separate
+[offline restore workflow](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+consumes v2 when provisioning a fresh image. External runtime-owner peer acceptance and Linux exfatprogs conformance
 are not claimed by this local native/guest qualification.

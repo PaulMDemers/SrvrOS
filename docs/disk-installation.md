@@ -1,5 +1,47 @@
 # Disk installation and recovery
 
+## Restore a streaming-v2 bundle into a fresh image
+
+Use `installation_image.py prepare` and `apply` to restore a selected portable
+bundle into a new identity-bound installation from a clean offline exFAT
+template. `prepare` detects the bundle format from its contents. Supply the
+profile UUID you expect, plus the destination HOME, alias, UID and GID.
+
+```sh
+python3 tools/installation_image.py prepare B-STAGE \
+  --kernel build/kernel/srvros.elf --bootx64 build/limine-binary/BOOTX64.EFI \
+  --init build/userspace/init.elf --exfat build/srvros.exfat --identity-bound \
+  --profile-bundle /absolute/path/selected.srvrprofile \
+  --profile-expected-id 12345678-1234-4234-8234-123456789abc \
+  --profile-home /fat/home/local-b --profile-alias local-b \
+  --profile-uid 2050 --profile-gid 2051 --profile-driver build/tests/profile-image-driver
+python3 tools/installation_image.py apply B-STAGE
+```
+
+The [v2 contract](portable-profile-streaming.md) bounds selections to 64 files,
+16 MiB per file and 64 MiB total. Use a template with free exFAT allocation for
+the files, new directories and the filesystem's metadata reserve. Plan validation
+pins the bundle's device, inode, size and full hash. The adapter copies one
+document at a time, checks its hash, and uses the native exFAT stream backend
+to write, sync and read it back in chunks. GPT/ESP assembly retains the existing
+image-sized allocations. Before the image can publish, the installer rechecks
+the source and verifies the assembled disk and provisioned data partition.
+The native writer reserves the VFS identities of `/` and `/init`, matching
+installed boot before exFAT sidecar metadata is restored.
+
+V2 requires a fresh template with clean allocation, the installed root
+directories and no existing portable profile or pending profile scratch.
+An ordinary filename under `Documents` can contain the text `.profile-import`.
+Malformed or changed bundles, incorrect expected UUIDs, existing destinations,
+and insufficient space prevent publication. If `apply` fails before a verified
+publication record exists, keep that stage for inspection and use a new stage
+for another attempt. Canonical offline export and export reconciliation use v1.
+
+The [proof manifest](assets/screenshots/installation-stream-restore-manifest.json)
+records two fresh-B boots, exact readback of a 16 MiB document and two smaller
+documents, and read-only inspection after reboot. The retained synthetic bundle
+and base template passed the preservation checks.
+
 ## Recoverable offline export publication
 
 The opt-in host recovery flow records an admitted export before writing its
@@ -145,7 +187,7 @@ retain exact attribution; raw evidence survives at
 `.local/installation-evidence/guest-created-volume/export-publication-review/proof-apgpwd4j/`.
 Older proof receipts remain historical. No physical power-loss claim is added.
 
-Next proposed bounded installation milestone: **offline streaming-v2 bundle
+The proposed follow-up at this review was **offline streaming-v2 bundle
 admission and fresh-install restoration/reboot**. Admit an explicitly selected
 larger-document bundle and restore it into a separately provisioned B with new
 local bindings. Keep existing v1 behavior, used-image admission and
@@ -160,8 +202,9 @@ fresh-volume capacity. Ordinary FD limits must not be raised to substitute for
 bounded I/O. Reuse current clean GPT/namespace/allocation/original-baseline and
 pending-state refusal, stable UUID versus local HOME/alias/UID/GID binding,
 exclusive installation publication, and checked file/directory sync semantics.
-PR367 remains draft and unqualified at this review; native consumer passes alone
-do not satisfy its runtime dependency. V1 codec constants/helpers stay intact.
+PR367 was still draft during this review. It subsequently merged as `3ab8a6f`
+after native backend and matched guest qualification. See the current offline
+restore instructions above.
 
 Acceptance: selected larger documents within frozen bounds, exact metadata and
 bytes after two B boots, distinct local binding and machine settings, bounded

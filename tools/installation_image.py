@@ -25,6 +25,7 @@ from types import SimpleNamespace
 import mk_usb_image as usb
 import profile_bundle as profiles
 import profile_image
+import profile_stream
 
 ESP_MIB = 384
 CONFIG = (b'timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n'
@@ -121,34 +122,54 @@ def identity_config(partition_guid):
         f"    cmdline: srvros.virtio=on srvros.root={partition_guid} srvros.root-format=exfat-v1 srvros.root-role=system\n".encode("ascii"))
 
 
-def load_profile(path, home, alias, uid, gid):
-    bundle = profiles.decode_json(profiles.read_regular(path))
-    metadata, _, _ = profile_image.validate_request(bundle, home, alias, uid, gid)
-    return bundle, metadata
+def profile_source(bundle):
+    device, inode, size = bundle.stamp[:3]
+    return {'path': str(bundle.path), 'device': device, 'inode': inode, 'size': size,
+            'sha256': bundle.sha256}
+
+
+def profile_metadata(bundle, home, alias, uid, gid):
+    if bundle.legacy:
+        metadata, _, _ = profile_image.validate_request(bundle.metadata, home, alias, uid, gid)
+    else:
+        documents = (entry['path'] for entry in bundle.metadata['documents'])
+        metadata, _, _ = profile_image.profile_layout(bundle.metadata, documents, home, alias, uid, gid)
+    return metadata
+
+
+def load_profile(record, home, alias, uid, gid):
+    with profile_stream.open_bundle(record['path']) as bundle:
+        if profile_source(bundle) != record:
+            raise ValueError('profile bundle changed since it was recorded')
+        return bundle.metadata, profile_metadata(bundle, home, alias, uid, gid)
 
 
 def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False,
             profile_bundle=None, profile_home=None, profile_alias=None, profile_uid=None,
-            profile_gid=None, profile_driver=None):
+            profile_gid=None, profile_driver=None, profile_expected_id=None):
     target = checked_path(staging_dir)
     options = (profile_bundle, profile_home, profile_alias, profile_uid, profile_gid, profile_driver)
     if any(value is not None for value in options) and (not identity_bound or any(value is None for value in options)):
         raise ValueError('profile requires identity-bound mode and all profile options')
+    if profile_expected_id is not None:
+        profiles.profile_id(profile_expected_id)
+        if profile_bundle is None:
+            raise ValueError('expected profile identity requires a bundle')
     profile = None
     if profile_bundle is not None:
-        _, profile = load_profile(profile_bundle, profile_home, profile_alias, profile_uid, profile_gid)
         if Path(checked_path(exfat)).stat().st_nlink != 1:
             raise ValueError('profile source exFAT must have a single link')
     sources = {name: source(value) for name, value in
                [('kernel', kernel), ('bootx64', bootx64), ('exfat', exfat), ('init', init)]}
-    if profile is not None:
-        sources['profile_bundle'] = source(profile_bundle)
+    if profile_bundle is not None:
+        with profile_stream.open_bundle(profile_bundle) as bundle:
+            sources['profile_bundle'] = profile_source(bundle)
+            profile = profile_metadata(bundle, profile_home, profile_alias, profile_uid, profile_gid)
         sources['profile_driver'] = source(profile_driver)
         if not os.access(sources['profile_driver']['path'], os.X_OK):
             raise ValueError('profile driver is not executable')
-        _, current = load_profile(sources['profile_bundle']['path'], profile_home, profile_alias, profile_uid, profile_gid)
-        if current != profile or source(sources['profile_bundle']['path']) != sources['profile_bundle']:
-            raise ValueError('profile bundle changed during preparation')
+        if profile_expected_id is not None and profile['profile_id'] != profile_expected_id:
+            raise ValueError('bundle profile identity differs from expected profile identity')
     validate_exfat(sources['exfat']['path'], sources['exfat']['size'])
     for name in ('kernel', 'init'):
         with open(sources[name]['path'], 'rb') as f:
@@ -312,8 +333,8 @@ def validate_plan(target):
             raise ValueError('invalid identity-bound plan')
     elif 'gpt' in plan or 'config' in plan:
         raise ValueError('unexpected root selection fields')
-    for item in plan['sources'].values():
-        if source(item['path']) != item:
+    for name, item in plan['sources'].items():
+        if name != 'profile_bundle' and source(item['path']) != item:
             raise ValueError('source changed since prepare')
     profile = plan.get('profile')
     if (plan['version'] == 2) != (profile is not None):
@@ -322,7 +343,7 @@ def validate_plan(target):
     if profile is not None:
         if not selection or set(profile) != {'profile_id', 'home', 'alias', 'uid', 'gid'}:
             raise ValueError('invalid profile plan')
-        bundle, current = load_profile(plan['sources']['profile_bundle']['path'], profile['home'],
+        bundle, current = load_profile(plan['sources']['profile_bundle'], profile['home'],
                                        profile['alias'], profile['uid'], profile['gid'])
         if current != profile or not os.access(plan['sources']['profile_driver']['path'], os.X_OK):
             raise ValueError('profile plan or driver changed')
@@ -401,8 +422,16 @@ def _apply(target, checkpoint):
     checkpoint('provisioning-started')
     if profile is not None:
         provisioned = target / 'profile.exfat'
-        result = profile_image.provision(exfat_path, provisioned, bundle, profile['home'],
-            profile['alias'], profile['uid'], profile['gid'], plan['sources']['profile_driver']['path'])
+        binding = (profile['home'], profile['alias'], profile['uid'], profile['gid'])
+        driver = plan['sources']['profile_driver']['path']
+        if bundle['schema_version'] == 2:
+            record = plan['sources']['profile_bundle']
+            with profile_stream.open_bundle(record['path']) as opened:
+                if profile_source(opened) != record:
+                    raise ValueError('profile bundle changed before provisioning')
+                result = profile_image.provision_stream(exfat_path, provisioned, opened, *binding, driver)
+        else:
+            result = profile_image.provision(exfat_path, provisioned, bundle, *binding, driver)
         if (result['profile_id'] != profile['profile_id'] or result['home'] != profile['home'] or
             any(result[key] != profile[key] for key in ('alias', 'uid', 'gid'))):
             raise ValueError('profile provision result mismatch')
@@ -428,8 +457,13 @@ def _apply(target, checkpoint):
     sync_dir(target)
     checkpoint('assembled')
     gpt = verify_image(temp, plan, (target / 'bootstrap.tar').read_bytes())
-    for item in plan['sources'].values():
-        if source(item['path']) != item:
+    for name, item in plan['sources'].items():
+        if name == 'profile_bundle':
+            with profile_stream.open_bundle(item['path']) as opened:
+                actual = profile_source(opened)
+        else:
+            actual = source(item['path'])
+        if actual != item:
             raise ValueError('source changed during build')
     if data_digest(temp, plan['layout']) != exfat_hash or digest(exfat_path) != exfat_hash:
         raise ValueError('image exFAT verification failed')
@@ -629,7 +663,7 @@ def main():
     for name in ('kernel', 'bootx64', 'exfat', 'init'):
         prep.add_argument('--' + name, required=True)
     prep.add_argument('--identity-bound', action='store_true')
-    for name in ('bundle', 'home', 'alias', 'driver'):
+    for name in ('bundle', 'home', 'alias', 'driver', 'expected-id'):
         prep.add_argument('--profile-' + name)
     for name in ('uid', 'gid'):
         prep.add_argument('--profile-' + name, type=int)
@@ -668,7 +702,8 @@ def main():
             result = prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init,
                 identity_bound=args.identity_bound, profile_bundle=args.profile_bundle,
                 profile_home=args.profile_home, profile_alias=args.profile_alias, profile_uid=args.profile_uid,
-                profile_gid=args.profile_gid, profile_driver=args.profile_driver)
+                profile_gid=args.profile_gid, profile_driver=args.profile_driver,
+                profile_expected_id=args.profile_expected_id)
         elif args.action == 'apply':
             def checkpoint(name):
                 if name == args.interrupt_after:
