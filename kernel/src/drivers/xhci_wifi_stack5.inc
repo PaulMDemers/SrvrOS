@@ -8,6 +8,7 @@ struct wifi_stack5_state {
  uint64_t start,last,boundary_start,tx_token,tx_ticket,tx_completion,services,icmp_count,icmp_pn;
  unsigned icmp_sequence;
  uint64_t terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;
+ bool removed_slot_disabled;
  bool selected,running,exercise_complete,boundary,failed,detached,retired,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;
 };
 static struct wifi_stack5_state wifi_stack5_slots[2];
@@ -103,6 +104,14 @@ static bool wifi_stack5_receive(void *c,uint64_t epoch,uint8_t *out,size_t cap,s
  return true;
 }
 static bool wifi_stack5_retirement(void *c,uint64_t epoch){
+ if(wifi_stack5.removed_slot_disabled){
+  const struct xhci_device *d=wifi_stream5.d;
+  return c==&wifi_stream5 && d && epoch==wifi_stream5.epoch && !wifi_stack5.running &&
+   !wifi_stream5.active && wifi_stream5.closed && !wifi_stream5.data_active &&
+   d->removed && d->slot_disabled && xhci.dcbaa && !xhci.dcbaa[d->slot_id] &&
+   wifi_stream5.exchange.keys_erased && wpa2_ccmp_erased(&wifi_stream5.exchange.keys,epoch) &&
+   !wifi_stream5.exchange.session_active && !wifi_stream5.exchange.handshake.keys_may_live;
+ }
  return c==&wifi_stream5 && epoch==wifi_stream5.epoch && !wifi_stack5.running && !wifi_stack5.tx_token && !wifi_stream5.active && !wifi_stream5.pending[0] && !wifi_stream5.pending[1] && !wifi_stream5.loan.ticket && wifi_stream5.exchange.keys_erased && wpa2_ccmp_erased(&wifi_stream5.exchange.keys,epoch) && !wifi_stream5.exchange.handshake.keys_may_live && wifi_stream5.restored && (wifi_stream5.parent_complete || (wifi_stream5.connection_mode && wifi_stream5.connection_closed)) && wifi_stream5.events_empty && wifi_stream5.retired && wifi_stream5.dma.state==MT76_DMA5_RETIRED;
 }
 static enum mt76_join5_send wifi_stack5_window(void *c,struct wpa2_ccmp *keys,uint64_t epoch,const struct mt76_peer5 *peer){

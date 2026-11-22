@@ -74,6 +74,16 @@ explicit disconnects, both log segments and automatic return to Ubuntu.
 This acceptance covers the Edimax USB adapter after an orderly disconnect.
 [MacBookPro11,2 run record](machines/macbookpro11-2.md#demers5-network-recovery-after-replug)
 
+The v155 `--wifi-desktop-active-remove` trial runs DHCP, gateway ping,
+DNS and 60 paced gateway probes through the resident worker. After System
+reports Connected, remove only the Wi-Fi adapter and leave it out until
+Ubuntu returns. SrvrOS requires proof of physical root-port loss, stops
+the network worker, erases the software keys and checks exact Disable Slot
+completion before retiring the provider. The slot's DMA stays retained.
+Help asks the operator to check that the desktop and workspace still work,
+then Exit desktop saves the logs. Repeated cold qualification uses this
+profile with a freshly verified journal for each run.
+
 ## Calibration response-loss tracing (November 11)
 
 The explicit fixed5GHz calibration path now emits `wifi-mcu-loss-summary` and

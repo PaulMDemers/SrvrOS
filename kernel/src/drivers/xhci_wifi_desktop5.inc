@@ -14,6 +14,7 @@ static struct {
  unsigned connections,disconnects;
  bool requested,reconnect,replug,gate,started,connected,return_safe;
  bool data_verified[2],driver_bound;
+ bool active_remove,endurance_passed,removed;
 } wifi_desktop5;
 
 static bool wifi_desktop5_unattempted(void){
@@ -72,6 +73,40 @@ static bool wifi_desktop5_verify_data(uint64_t epoch){
   epoch,(uint64_t)dhcp,(uint64_t)ping,(uint64_t)dns);
  return ping && dns;
 }
+/* This trial uses the ordinary resident worker. Verify paced traffic before
+ * the desktop invites physical removal. */
+static bool wifi_desktop5_endurance(void){
+ struct srv_net_status_info status;
+ if(net_status_info(&status)!=0 || !status.router_ip)return false;
+ uint64_t start=timer_ticks();
+ unsigned replies=0;
+ for(unsigned i=0;i<60;i++){
+  while(timer_ticks()-start<(uint64_t)i*100){
+   if(!wifi_desktop5_present(&wifi_desktop5) ||
+      !wifi_desktop5.running(wifi_desktop5.context) ||
+      wifi_stack5_net.state!=MT76_NET5_UP)goto done;
+   wifi_desktop5_turn();
+  }
+  if(net_ping(status.router_ip,(uint16_t)(0x5400u+i),100,NULL)!=0)break;
+  replies++;
+ }
+done:
+ console_printf("wifi-desktop-active-remove5-traffic: version=1 replies=%u required=60 elapsed_ticks=%u\n",
+  (uint64_t)replies,timer_ticks()-start);
+ return replies==60;
+}
+/* A wedged provider or corrupt event does not authorize disabling a device.
+ * Require direct evidence that this exact, pinned high-speed root slot left. */
+static bool wifi_desktop5_root_absent(void){
+ struct xhci_device *d=wifi_stream5.d;
+ if(!d || d!=wifi_desktop5.device || !d->present || !d->addressed || d->slot_disabled ||
+    !d->slot_id || d->slot_id!=wifi_stream5.slot || device_by_slot(d->slot_id)!=d ||
+    !d->port_id || d->port_id>xhci.port_count || d->parent_slot_id || d->hub_port_id ||
+    d->route_string || d->hub_ports || d->speed!=3 || !d->wifi_probe_ok ||
+    !xhci.operational || !xhci.controller_owned || xhci.stopping)return false;
+ uint32_t state=op_read32(port_offset(d->port_id-1));
+ return state!=UINT32_MAX && !(state&XHCI_PORTSC_CCS);
+}
 static bool wifi_desktop5_data(void *context,struct mt76_net5 *provider){
  if(context!=&wifi_desktop5 || provider!=&wifi_stack5_net || !wifi_desktop5.gate)return false;
  wifi_desktop5_gate_end();
@@ -84,14 +119,20 @@ static bool wifi_desktop5_data(void *context,struct mt76_net5 *provider){
   net_bounded_probe_init_connection(scope,io,&provider->ops,provider->epoch,now+WIFI_STACK5_TOTAL_US) &&
   net_dhcp_request_bounded(scope)>0 && net_bounded_connection_start_worker(scope,wifi_desktop5_io_safe);
  if(!live && scope->identity && !scope->closed)(void)net_bounded_probe_finish(scope);
- if(live && wifi_desktop5.replug)wifi_desktop5.data_verified[slot]=wifi_desktop5_verify_data(provider->epoch);
+ if(live && (wifi_desktop5.replug || wifi_desktop5.active_remove))
+  wifi_desktop5.data_verified[slot]=wifi_desktop5_verify_data(provider->epoch);
+ if(live && wifi_desktop5.active_remove && wifi_desktop5.data_verified[slot])
+  wifi_desktop5.endurance_passed=wifi_desktop5_endurance();
  uint64_t flags=event_irq_save();
  bool published=wifi_service_finish(wifi_desktop5.owner,&wifi_desktop5,&wifi_desktop5.connect,live);
  wifi_desktop5.connected=live && published;
  event_irq_restore(flags);
  for(;;){
+  flags=event_irq_save();
+  bool physically_absent=wifi_desktop5.active_remove && wifi_desktop5_root_absent();
+  event_irq_restore(flags);
   bool lost=live && (provider->state!=MT76_NET5_UP || !wifi_desktop5_present(&wifi_desktop5) ||
-                     wifi_stream5.failed);
+                     wifi_stream5.failed || physically_absent);
   if(live && !lost){
    if(!wifi_desktop5.disconnect.serial)(void)wifi_desktop5_take(&wifi_desktop5.disconnect);
    if(published && !wifi_desktop5.disconnect.serial && wifi_desktop5.running(wifi_desktop5.context)){
@@ -105,7 +146,15 @@ static bool wifi_desktop5_data(void *context,struct mt76_net5 *provider){
                 !wifi_stream5.pending[0] && !wifi_stream5.ready_rx && !wifi_stream5.loan.ticket;
    /* A lost controller/provider cannot establish quiet retirement. Retain
     * the worker scope and all native ownership, and leave the gate held. */
-   if(lost)(void)wifi_stack5_fault();
+   if(lost){
+    if(wifi_desktop5.active_remove && wifi_desktop5_root_absent() &&
+       net_bounded_connection_stop_worker(scope) && device_removed(wifi_stream5.d)){
+     wifi_desktop5.removed=true;
+     console_printf("wifi-desktop-active-remove5-loss: version=1 slot=%u pending_tx=%u pending_rx=%u worker_stopped=1\n",
+      (uint64_t)wifi_stream5.slot,(uint64_t)wifi_stream5.pending[0],(uint64_t)wifi_stream5.pending[1]);
+    }
+    (void)wifi_stack5_fault(); /* Makes the WPA unwind erase locally without a Leave. */
+   }
    bool stopped=!lost && (!live || (drained && net_bounded_connection_stop_worker(scope)));
    event_irq_restore(flags);
    if(lost)return false;
@@ -219,6 +268,28 @@ static bool wifi_desktop5_window(void){
  return true;
 }
 
+static bool wifi_desktop5_finish_removed(void){
+ struct xhci_device *d=wifi_stream5.d;
+ uint64_t flags=event_irq_save();
+ bool erased=wifi_stream5.exchange.keys_erased &&
+  wpa2_ccmp_erased(&wifi_stream5.exchange.keys,wifi_stream5.epoch) &&
+  !wifi_stream5.exchange.session_active && !wifi_stream5.exchange.handshake.keys_may_live;
+ bool disabled=erased && wifi_desktop5.gate && wifi_desktop5_root_absent() &&
+  wifi_desktop5.scopes[0].disconnected && !wifi_stack5.running && !wifi_stream5.data_active &&
+  !xhci.command_failed && !firmware_command_failed && !strict_control.device &&
+  xhci.dcbaa && xhci_retire_slot(d->slot_id) && d->slot_disabled && !xhci.dcbaa[d->slot_id];
+ if(disabled){
+  wifi_stream5.active=false;
+  /* Retain all old DMA and callback context. The confirmed Disable Slot
+   * makes it safe to drop only the network registry's reference. */
+  wifi_stack5.removed_slot_disabled=true;
+  wifi_stack5.retired=mt76_net5_retire(&wifi_stack5_net);
+ }
+ event_irq_restore(flags);
+ console_printf("wifi-desktop-active-remove5-close: version=1 disabled=%u keys_erased=%u provider_retired=%u dma_retained=1\n",
+  (uint64_t)disabled,(uint64_t)erased,(uint64_t)wifi_stack5.retired);
+ return disabled && wifi_stack5.retired;
+}
 static bool wifi_desktop5_run(void *context,bool (*begin)(void *),bool (*running)(void *)){
  wifi_desktop5.context=context;wifi_desktop5.begin=begin;wifi_desktop5.running=running;
  wifi_desktop5_setup_stream();
@@ -231,7 +302,11 @@ static bool wifi_desktop5_run(void *context,bool (*begin)(void *),bool (*running
 #endif
  wifi_join5_after=NULL;
  bool good=false;
- if(wifi_desktop5.replug){
+ if(wifi_desktop5.removed){
+  wifi_desktop5.return_safe=wifi_desktop5_finish_removed();
+  good=wifi_desktop5.return_safe && wifi_desktop5.connected &&
+   wifi_desktop5.data_verified[0] && wifi_desktop5.endurance_passed;
+ }else if(wifi_desktop5.replug){
   wifi_desktop5.return_safe=parent && (!wifi_stream5.attempted ||
    (wifi_stream5.connection_closed && wifi_stack5.detached));
   good=wifi_desktop5.return_safe && wifi_stream5.attempted && wifi_desktop5.connected;
@@ -269,17 +344,19 @@ static bool wifi_desktop5_run(void *context,bool (*begin)(void *),bool (*running
  zero_bytes(wifi_stream5.pmk,sizeof wifi_stream5.pmk);
  return good;
 }
-static bool wifi_desktop5_capture(void *context,bool (*begin)(void *),bool (*running)(void *),bool reconnect,bool replug){
+static bool wifi_desktop5_capture(void *context,bool (*begin)(void *),bool (*running)(void *),
+                                  bool reconnect,bool replug,bool active_remove){
  if(!context || !begin || !running || wifi_desktop5.requested || wifi_stack5.selected ||
     wifi_stream5.attempted || wifi_join5_after || wifi_http_reconnect5_reserved)return false;
  wifi_desktop5.requested=true;wifi_desktop5.reconnect=reconnect;wifi_desktop5.replug=replug;
+ wifi_desktop5.active_remove=active_remove;
  return wifi_desktop5_run(context,begin,running);
 }
 bool xhci_wifi_capture_desktop5(void *context,bool (*begin)(void *),bool (*running)(void *)){
- return wifi_desktop5_capture(context,begin,running,false,false);
+ return wifi_desktop5_capture(context,begin,running,false,false,false);
 }
 bool xhci_wifi_capture_desktop_reconnect5(void *context,bool (*begin)(void *),bool (*running)(void *)){
- return wifi_desktop5_capture(context,begin,running,true,false);
+ return wifi_desktop5_capture(context,begin,running,true,false,false);
 }
 
 static bool wifi_desktop5_wait_replacement(struct wifi_root_reattach *trial,void *context,
@@ -304,7 +381,7 @@ static bool wifi_desktop5_wait_replacement(struct wifi_root_reattach *trial,void
 }
 bool xhci_wifi_capture_desktop_reattach5(void *context,bool (*begin)(void *),bool (*running)(void *)){
  struct wifi_root_reattach trial={0};
- bool connected=wifi_desktop5_capture(context,begin,running,false,false);
+ bool connected=wifi_desktop5_capture(context,begin,running,false,false,false);
  return wifi_desktop5_wait_replacement(&trial,context,running,connected);
 }
 
@@ -367,7 +444,7 @@ static bool wifi_desktop5_reload(const struct wifi_root_reattach *trial){
 bool xhci_wifi_capture_desktop_replug5(void *context,bool (*begin)(void *),bool (*running)(void *),
                                       bool (*checkpoint)(void)){
  if(!checkpoint)return false;
- bool connected=wifi_desktop5_capture(context,begin,running,false,true);
+ bool connected=wifi_desktop5_capture(context,begin,running,false,true,false);
  struct wifi_root_reattach trial={0};
  bool replaced=wifi_desktop5_wait_replacement(&trial,context,running,connected);
  bool good=false;
@@ -393,5 +470,12 @@ bool xhci_wifi_capture_desktop_replug5(void *context,bool (*begin)(void *),bool 
   (uint64_t)good,(uint64_t)replaced,(uint64_t)wifi_desktop5.connections,(uint64_t)wifi_desktop5.disconnects,
   (uint64_t)wifi_desktop5.data_verified[1],(uint64_t)retired,(uint64_t)wifi_desktop5.return_safe);
  return good;
+}
+bool xhci_wifi_capture_desktop_active_remove5(void *context,bool (*begin)(void *),bool (*running)(void *)){
+ bool completed=wifi_desktop5_capture(context,begin,running,false,false,true) && wifi_desktop5.removed;
+ console_printf("wifi-desktop-active-remove5-final: version=1 complete=%u removed=%u sustained=%u return_safe=%u\n",
+  (uint64_t)completed,(uint64_t)wifi_desktop5.removed,(uint64_t)wifi_desktop5.endurance_passed,
+  (uint64_t)wifi_desktop5.return_safe);
+ return completed;
 }
 bool xhci_wifi_desktop5_return_safe(void){return wifi_desktop5.return_safe;}

@@ -17,6 +17,17 @@ the workspace mounted. Publish native ownership, transport and recovery
 proofs, then qualify the exact merged candidate before landing PR #19.
 Battery, headphones, trackpad latency and 2.4 GHz remain deferred.
 
+The branch merged fetched main at `d92d0b1d`. The VFS conflict retained
+the Pro's validated sidecar restoration and main's directory metadata
+admission wrappers. The v155 trial runs 60 paced gateway probes through
+the resident worker before the operator pulls the adapter. Once physical
+root-port loss is verified, it stops the worker and erases local keys.
+Only an exact Disable Slot completion permits provider retirement and
+ordinary desktop exit. The old DMA stays retained. The operator leaves
+Wi-Fi unplugged until Ubuntu returns. This trial covers terminal active
+removal. The accepted v154 profile covers same-boot replug after an
+orderly disconnect. Record two independent cold v155 passes before merge.
+
 
 ### Demers5 network recovery after replug
 

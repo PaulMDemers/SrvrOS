@@ -842,6 +842,58 @@ static void desktop_replug_case(void){
  puts("xhci desktop Wi-Fi: PASS native disconnect, same-slot re-enumeration, fresh radio ownership and WPA, DHCP, ping, DNS, UDP and shared USB storage on both lifetimes, with exact driver inventory binding");
 }
 
+static unsigned desktop_active_remove_fault;
+static bool desktop_active_remove_injected;
+static bool desktop_active_remove_running(void *context){
+ assert(context==&ap);
+ if(!wifi_desktop5.connected || desktop_active_remove_injected)return true;
+ assert(wifi_desktop5.endurance_passed && ap.icmp==61 && ap.dns==1 && ap.dhcp==2);
+ assert(wifi_stack5_net.state==MT76_NET5_UP && wifi_stream5.pending[1]);
+ desktop_assert_wifi_binding(wifi_stream5.d,true);
+ desktop_active_remove_injected=true;
+ native_boundary_mmio_hook=root_reattach_model;
+ if(desktop_active_remove_fault==2)wifi_stream5.d->removed=true;
+ else {
+  port_model.state&=~(XHCI_PORTSC_CCS|XHCI_PORTSC_PED);
+  port_model.state|=XHCI_PORTSC_CSC;
+ }
+ return true;
+}
+static void desktop_active_remove_case(unsigned fault){
+ desktop_reattach_setup();
+ desktop_timer_running=desktop_replug_wait_service=true;
+ desktop_active_remove_fault=fault;
+ root_reattach_fault=fault==1;
+ bool completed=xhci_wifi_capture_desktop_active_remove5(&ap,desktop_begin,desktop_active_remove_running);
+ assert(desktop_active_remove_injected && wifi_desktop5.endurance_passed && !freed);
+ assert(wifi_stream5.exchange.keys_erased && !wifi_stream5.exchange.leave_sent);
+ if(fault){
+  assert(!completed && !xhci_wifi_desktop5_return_safe() && test_io_active && !xhci.devices[0].slot_disabled);
+  assert(root_reattach_commands==(fault==1?1u:0u) && !wifi_stack5.retired);
+  return;
+ }
+ assert(completed && xhci_wifi_desktop5_return_safe() && !test_io_active && root_reattach_commands==1);
+ assert(xhci.devices[0].slot_disabled && !xhci.dcbaa[1] && wifi_stack5.retired &&
+        wifi_stack5_net.registry_drained && !net_device_selected_is(&wifi_stack5_net.ops));
+ assert(wifi_desktop5.scopes[0].disconnected && !resident_eligible(NULL));
+ struct srv_net_status_info status;
+ assert(!net_status_info(&status) && !status.local_ip && !status.dhcp_configured);
+ desktop_assert_wifi_binding(&xhci.devices[0],false);
+ struct xhci_device *disk=&xhci.devices[1];
+ void *ring,*bounce;
+ *disk=(struct xhci_device){.present=true,.slot_id=2};
+ assert(alloc_frame_zero(&disk->bulk_ep[1].ring_phys,&ring) && alloc_frame_zero(&disk->bulk_buffer_phys,&bounce));
+ disk->bulk_ep[1].ring=ring;disk->bulk_ep[1].dci=3;disk->bulk_ep[1].cycle=true;
+ disk->bulk_buffer=bounce;memset(bounce,0x5a,4096);
+ uint8_t data[512];uint32_t actual=0;
+ native_boundary_mmio_hook=NULL;
+ test_io_active=true;complete_device=disk;complete_at=test_time+1;
+ assert(storage_bulk_transfer(disk,true,data,sizeof data,&actual) && actual==sizeof data);
+ test_io_active=false;
+ assert(!xhci.storage_sync_owner && !disk->bulk_failed && data[0]==0x5a && data[511]==0x5a);
+ puts("xhci desktop Wi-Fi: PASS 60 paced gateway replies, live USB removal, exact Disable Slot, key/registry retirement, and shared storage");
+}
+
 static void desktop_case(bool removed){
  probe_setup(0);test_io_gate_allowed=true;desktop_model_removed=removed;
  bool done=xhci_wifi_capture_desktop5(&ap,desktop_begin,desktop_running);
@@ -1197,6 +1249,10 @@ int STACK5_TEST_MAIN(int argc,char **argv){
  if(argc==2 && !strcmp(argv[1],"--desktop-case")){desktop_case(false);return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-removed")){desktop_case(true);return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-reconnect")){desktop_reconnect_case();return 0;}
+ if(argc==3 && !strcmp(argv[1],"--desktop-active-remove")){
+  unsigned fault=(unsigned)strtoul(argv[2],NULL,0);assert(fault<=2);
+  desktop_active_remove_case(fault);return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"--desktop-replug")){desktop_replug_case();return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-reattach")){desktop_reattach_case();return 0;}
 #ifndef SRVROS_XHCI_HTTP5_HOST_TEST
