@@ -37,6 +37,20 @@ guests stopped. See the
 [qualification manifest](../assets/evidence/offline-profile-v2-export/manifest.json).
 Authentication and permission enforcement remain separate.
 
+## Preview JPEG orientation — November 22, 2026
+
+The isolated `app/preview-exif` candidate `41c33fec` uses SrvrApps
+`778998d0` for the matching Help update. The host regression reproduced
+the original mirror pixel mismatch and now passes all eight orientations in
+both EXIF byte orders, including fallback for invalid metadata. Focused
+desktop checks, ASan/UBSan and the ordinary image build pass.
+
+A disposable 1280×800 QEMU guest passed the Preview stress smoke, including
+cancellation and reopen at the maximum pixel count, compact layout, and
+opening from Files. Exact displayed RGB comparisons passed for rotation,
+mirroring, and invalid-orientation fallback. The acceptance receipt is under
+`.local/app-proof/preview-exif/` in the isolated checkout.
+
 ## Offline streaming-v2 installation restore — November 22, 2026
 
 Installation checkout `SrvrOS-installation-stream-v2` starts from integrated
