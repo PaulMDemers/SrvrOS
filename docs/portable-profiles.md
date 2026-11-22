@@ -30,10 +30,10 @@ small workload. Mapped high-water is not an exact heap or kernel-memory measure;
 [the streaming contract](portable-profile-streaming.md) records native backend
 allocation and separate preregistered ceilings.
 
-Guest commands, Profiles import/export/recovery and the host portable-fixture
-codec support both formats. **Canonical offline installation profile
-export/recovery remains v1-only; offline v2 admission/export is deferred.** The
-host v2 fixture codec does not extend the installation tools. Authentication,
+Guest commands, Profiles import/export/recovery, the host portable-fixture
+codec and [fresh offline installation restore](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+support both formats. Canonical offline installation profile export and export
+recovery use v1. Authentication,
 credential handling, permission enforcement, login, cloud roaming and multi-user
 security isolation remain separate.
 

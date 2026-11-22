@@ -216,6 +216,7 @@ high-water peaks are 2,396,160 bytes for the small/16 MiB/64 MiB previews and
 64 MiB export, and 2,461,696 bytes for import: 65,536 bytes growth. Complete
 transfer/recovery, exact content and 96 compressed-image readbacks pass in the
 31-guest disposable proof. The 64 MiB boundary consists of four 16 MiB files.
-Canonical offline installation export/recovery stays v1-only; offline v2 remains
-deferred. External runtime-owner peer acceptance and Linux exfatprogs conformance
+Canonical offline installation export and export recovery use v1. The separate
+[offline restore workflow](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+consumes v2 when provisioning a fresh image. External runtime-owner peer acceptance and Linux exfatprogs conformance
 are not claimed by this local native/guest qualification.

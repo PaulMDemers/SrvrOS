@@ -1,5 +1,16 @@
 # Apple Silicon macOS build host
 
+## Offline streaming-v2 installation restore — November 22, 2026
+
+Installation checkout `SrvrOS-installation-stream-v2` starts from integrated
+main `b275e57d`, which includes the qualified [PR367](https://github.com/PaulMDemers/SrvrOS/pull/367)
+stream codec and bounded exFAT runtime. This milestone owns host plan admission,
+the native private-image adapter and a fresh-installed reboot proof. It uses a
+new synthetic bundle and new disposable images. The WebCore checkout, previous
+installation evidence and other tasks' guests remain outside the work scope.
+The [installation guide](../disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+documents the operator flow and refusal boundaries.
+
 ## Final integration and source-only workspace reset — November 4, 2026
 
 The local closeout includes the experimental no-JIT milestone through Ports #9
