@@ -1,0 +1,54 @@
+{
+  "archive_entries_readback_verified": 403,
+  "archive_retention": "Bulk archive retired during cleanup after compact test receipts, logs, screenshots and hashes were preserved.",
+  "archive_sha256": "ea04534d7829b4a2bd34d4830dad405b77b39cb9214725d6918e2e1e5a271ea9",
+  "battery_runtime_sha256": "ba94ffeaa56a17455805c4360249229a9c99bc7f83d7bb7bc81281cb66d432f4",
+  "boot_artifacts_sha256": {
+    "build/initramfs.tar": "4d8260fde95e28271a8c23a5d8d4d9e4314a90862e7438f4bbddbef90dfd0156",
+    "build/kernel/srvros.elf": "0740efad707a4d4312be5b57a94817c846882d1e1785272d9fc86fa68ef79c23",
+    "build/srvros-x86_64.iso": "98ffb281665c05654eeedfb0365671a1bfe8ad0c6591a0d77d5e5979e6ad93d8",
+    "build/srvros.exfat": "ef4aab72c57a8998129706cd113cd65c3f421dcebd143111d0ac851875e9507f",
+    "build/userspace/ggrep-diagnostic.elf": "04c60ad4cbd99e98c9105d47e21a6b11179284cb0effdd622347eba8b97f3efd",
+    "build/userspace/ggrep.elf": "762499ea205a0444e0b2ecc601b9682c4637c57a91100d7f4ab5864e5ecd644d",
+    "build/userspace/test_grep_probe.elf": "46e80a5abd1be85a8c7414e7d8fd9277c8f97ef270b07a681428569d046129a6"
+  },
+  "covered_profile": {
+    "mapped_heap_high_water_bytes": 368640,
+    "reference_cases": 19,
+    "refusals": 14
+  },
+  "durable_pin_ref": "refs/heads/pins/srvros-503-ggrep",
+  "evidence_sha256": {
+    "cli": "4aa0e77ca4701de1a03265fc07dfcdb782fee7d84c1b0cc9c441a78410678fd0",
+    "grep": "dee66d94c172bdcaa6f8b08e90f3d2752c8a7dac4051fd6020edb02cb8fdab37",
+    "ports": "e08d57e606892392b0e0d020a615a9c90adb716796970a066ac5afdb99029e29",
+    "terminal": "7e7f2f2b7dc83cb43305ba6d41e5e22a1b3ac93b961b575f5b5e0b2f2e747be6",
+    "terminal_expert": "56e7a7dfde4770619849e6cb93927d8353b82e2b50b02bc17a9591da5174fb59"
+  },
+  "existing_os_port_pin": "276eb1b05206a0da2efe832a8d96a26d3b1e663b",
+  "grep_run": "build/review/grep/20261122-172839-m6j_2hu9",
+  "guest_checks": {
+    "cli_commands": 498,
+    "filesystem": "clean on Grep, CLI and ports guests",
+    "grep_boots": 2,
+    "ports": "PASS",
+    "terminal_functional_and_expert": "PASS"
+  },
+  "merge": "Integration approved OS #503 on the exact qualified commit via the dedicated ref. Ports #16 remains open for Pro owner review of promotion to Ports main.",
+  "owner_review": "Pending, requested on OS #19 and tracked in Ports #16",
+  "pin_fetch_verification": {
+    "checked_out_pin_and_ref_tip": "9d42e0f5702453490de8b7e80f40c64a82fcfd6d",
+    "checked_out_ports_tree": "3f358c74db204698c7516a6efdadbe9a7c7145b4",
+    "method": "Fresh independent remote shallow clone and normal git submodule update for ports, followed by an explicit fetch of the durable ref.",
+    "os_branch_head": "c3cd6948c96a921197f91bfcfea1b6b9efabf74b",
+    "status": "PASS"
+  },
+  "port_candidate": "9d42e0f5702453490de8b7e80f40c64a82fcfd6d",
+  "port_tree": "3f358c74db204698c7516a6efdadbe9a7c7145b4",
+  "scope": "Fresh matched proposed-pin qualification. Mapped heap is scoped to SDK arena. No new physical device or Pro logging acceptance.",
+  "source_unchanged_after_guest": true,
+  "status": "PASS scoped proposed-pin qualification",
+  "terminal_run": "build/review/grep-terminal/proof-hp1xhecu",
+  "tested_os_main": "b95bc096d636178af394d1ef6b97d708cc9f9b42",
+  "tested_source": "b69f84cb89654a6ae46c9c3b1f3906ac9b26c2c7"
+}

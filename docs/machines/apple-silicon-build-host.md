@@ -6240,3 +6240,51 @@ Ports9 merged at `89f22a967415297cc6af9229c2bee950932b4aee`; its tree equals rev
 `eb8468df24044d63626a0c0f76b90f024dffc244`. The OS pin now names that actual
 merge commit. Relative to the qualified af1421b port implementation, only
 PORT.md documentation changed; this pin promotion adds no runtime code.
+
+### GNU Grep queue resumption, November 22, 2026
+
+The user resumed the bounded CLI queue. Separate `SrvrOS-ports-grep` at OS
+`b275e57d` owns the GNU Grep 3.12 source, port-local SDK build and guest fixtures.
+`ggrep` preserves existing compact `grep` callers and adds single-file or finite
+stdin search with fixed strings, genuine BRE and ERE, C locale, count/quiet
+and explicit admission limits. GNU's direct release signature and SHA-256
+were verified against the published signer fingerprint. The compiler/guest
+window follows the browser owner's release. No protected checkout or VM was
+used. The OS pin's Pro checkpoint logging call needs owner coordination before
+using a new Ports main pin. This is separate from the Grep port.
+
+GNU Grep qualified on clean `0241ba87` with composite Ports `9fdd187`.
+The 19 GNU reference cases, 14 refusals, five disposable guests, Terminal
+walkthrough, 498-command CLI and ports regressions pass. Two clean component
+rebuilds match the same SDK objects and native tests record five PASS and one
+SKIP. The heap, interrupt and evidence scope is recorded in
+[the Grep receipt](../assets/evidence/ggrep/receipt.json). Exact tested source,
+boot payload and prior failed receipts are retained outside build cleanup.
+
+Ports #15 merged `f96d91c3` with its reviewed tree verified. OS #503 stays
+draft on the qualified composite until the Pro checkpoint logging owner
+approves its separate landing path. The candidate keeps the OS-main logging
+behavior. Current main `28eb6291` is reconciled with host-only incoming changes.
+All Grep guests stopped. The integration checkout and review VM were untouched.
+
+### Grep pin reconciliation, November 22, 2026
+
+Ports #16 proposes the checkpoint logging line already deployed in OS pin
+`276eb1b`. The exact source file matches the deployed one, and the only other
+change relative to the prior qualified composite is Grep port documentation.
+Integration agreed with the separate review path. The owner review request is
+posted on Pro bringup PR19. Owner disposition is pending.
+
+The rebased OS candidate `b69f84cb` on actual main `b95bc096` with proposed
+Ports `9d42e0f` passes the clean matched build, two Grep boots, ports regression,
+Terminal functional and expert review, and all 498 CLI commands with clean
+filesystem checks. The [pin receipt](../assets/evidence/ggrep/pin-receipt.json)
+records artifact hashes and scope. A verified archive outside build retains
+403 entries. The four older raw guest disk copies were retired after matching
+readback from the earlier qualification archive. All owned guest and build
+processes stopped. The integration checkout and review VM are untouched.
+Integration approved landing OS #503 with Ports `9d42e0f` on the durable
+`pins/srvros-503-ggrep` ref. A fresh independent OS clone initialized the exact
+Ports gitlink and fetched the dedicated ref. Ports #16 remains open for owner
+review of promotion to Ports main. The archive was retired during cleanup.
+Compact evidence and manifests survive. Start sha256sum after OS delivery.
