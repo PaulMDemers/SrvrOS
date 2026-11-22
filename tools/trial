@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify a staged SrvrOS image or collect the return from a native trial."""
+"""Qualify, prepare, collect and compare native SrvrOS trials."""
 import argparse
 import hashlib
 import json
@@ -239,6 +239,26 @@ def reported_checks(run_dir, run, volume, session):
     return result
 
 
+def snapshot_fingerprints(data):
+    return {name: {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+            for name, raw in data.items()}
+
+
+def observed_receipts(markers, data):
+    require(isinstance(markers, list) and all(isinstance(m, str) and m for m in markers),
+            "Invalid expected receipt list")
+    prefixes = {m.encode() for m in markers if m.endswith(":")}
+    found = set()
+    if prefixes:
+        for raw in data.values():
+            for line in raw.splitlines():
+                key, separator, _ = line.partition(b":")
+                if separator and key + separator in prefixes:
+                    found.add(key + separator)
+    return {m: bool(data.get(m)) if m in desktop.FILES else m.encode() in found
+            for m in markers}
+
+
 def collect(run_dir, archive):
     run = record(directory(run_dir) / "run.json")
     release = run["release"]
@@ -271,21 +291,8 @@ def collect(run_dir, archive):
     require(not recorded or recorded == session, "Matched session differs from recorded return")
     data = snapshots(logs / session, release)
     report["session"] = session
-    report["snapshots"] = {name: {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
-                           for name, raw in data.items()}
-    markers = run.get("expected_receipts", [])
-    require(isinstance(markers, list) and all(isinstance(m, str) and m for m in markers),
-            "Invalid expected receipt list")
-    prefixes = {m.encode() for m in markers if m.endswith(":")}
-    found = set()
-    if prefixes:
-        for raw in data.values():
-            for line in raw.splitlines():
-                key, separator, _ = line.partition(b":")
-                if separator and key + separator in prefixes:
-                    found.add(key + separator)
-    report["observed_receipts"] = {m: bool(data.get(m)) if m in desktop.FILES else m.encode() in found
-                                   for m in markers}
+    report["snapshots"] = snapshot_fingerprints(data)
+    report["observed_receipts"] = observed_receipts(run.get("expected_receipts", []), data)
     report["exit_snapshot"] = exit_snapshot(data)
     footer = snapshot_footer(data.get("exit.log", b""), "exit.log")
     if footer:
@@ -315,6 +322,59 @@ def save(report, data):
     return destination
 
 
+def comparison_input(path):
+    from trial_compare import observations
+
+    path = path.absolute()
+    if path.is_file() and path.name == "return.json":
+        path = path.parent
+    directory(path)
+    saved = path / "return.json"
+    expected = None
+    if saved.is_file():
+        report = record(saved)
+        require(report.get("format") == "srvros-trial-return-v1", "Unknown saved return format")
+        release = report["release"]
+        require(isinstance(release, str) and boot.RELEASE_RE.fullmatch(release), "Invalid saved release")
+        match = report["session_match"]
+        require(isinstance(match, dict) and match.get("status") in
+                ("matched", "ambiguous", "missing_boot_identity", "no_matching_session"), "Invalid saved match status")
+        data = {}
+        complete = False
+        if match["status"] == "matched":
+            session = report["session"]
+            require(desktop.SESSION.fullmatch(session) and match["matches"] == [session], "Invalid saved session match")
+            data = snapshots(path, release)
+            require(snapshot_fingerprints(data) == report["snapshots"], f"Saved snapshot fingerprint mismatch in {path}")
+            exit_status = exit_snapshot(data)
+            require(exit_status == report["exit_snapshot"], "Saved exit framing differs from replay")
+            observed = observed_receipts(list(report["observed_receipts"]), data)
+            require(observed == report["observed_receipts"], "Saved receipt presence differs from replay")
+            complete = exit_status.startswith("verified") and all(observed.values())
+        else:
+            require(not any(key in report for key in ("session", "snapshots", "previously_reported", "observed_receipts")),
+                    "Unmatched saved return contains session observations")
+        record_path = recipe_path = comparison_path = saved
+        logs = path
+    else:
+        report, data, complete = collect(path, True)
+        record_path = path / "run.json"
+        run = record(record_path)
+        expected = run.get("expected_gateway_replies")
+        logs = archive_logs(path, report["workspace_uuid"])
+        if report.get("session"):
+            logs = logs / report["session"]
+        recipe_path = path / "return-evidence/result.json"
+        if not recipe_path.exists():
+            recipe_path = record_path
+        comparison_path = path / "return-evidence/comparison.json"
+    identity = {key: report[key] for key in ("release", "source", "model", "workspace_uuid")}
+    identity.update(record=str(record_path), session=report.get("session"), session_match=report["session_match"]["status"],
+                    complete_log_capture=complete)
+    return {"identity": identity, "complete": complete,
+            "observations": observations(report, data, record_path, logs, recipe_path, comparison_path, expected)}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -331,6 +391,10 @@ def main():
     cmd.add_argument("--recovery-release", required=True, help="accepted previous release for this unit")
     cmd.add_argument("--recovery-archive", required=True, type=Path, help="directory containing the accepted backup")
     cmd.add_argument("--sudo", action="store_true", help="use existing sudo authorization for read-only host inspection")
+    cmd = commands.add_parser("compare", help="compare two archived trials or saved return bundles")
+    cmd.add_argument("run_a", type=Path)
+    cmd.add_argument("run_b", type=Path)
+    cmd.add_argument("--json", action="store_true", help="emit machine-readable observations and evidence paths")
     cmd = commands.add_parser("collect")
     cmd.add_argument("run", type=Path, metavar="RUN", help="trial directory containing run.json")
     cmd.add_argument("--archive", action="store_true", help="replay the run's archived session evidence")
@@ -346,6 +410,11 @@ def main():
         print(json.dumps({"receipt": str(path), "status": "passed" if passed else "failed"}))
         return 0 if passed else 1
     try:
+        if args.command == "compare":
+            import trial_compare
+            result = trial_compare.align(comparison_input(args.run_a), comparison_input(args.run_b))
+            print(json.dumps(result, indent=2) if args.json else trial_compare.markdown(result))
+            return 0 if result["complete_log_capture"] else 1
         if args.command == "prepare-return":
             import trial_prepare
             artifact, run = trial_prepare.prepare(args.receipt, args.recovery_release, args.recovery_archive,
@@ -358,7 +427,7 @@ def main():
         print(json.dumps(report, indent=2))
         return 0 if complete else 1
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as exc:
-        print(json.dumps({"status": "preflight_error" if args.command == "prepare-return" else "collection_error", "error": str(exc)}))
+        print(json.dumps({"status": {"prepare-return": "preflight_error", "compare": "comparison_error"}.get(args.command, "collection_error"), "error": str(exc)}))
         return 2
 
 

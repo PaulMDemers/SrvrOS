@@ -20763,3 +20763,26 @@ on-disk handoff selected `retina-fractional-proof-2.txt` because the
 original proof already exists. A repeat attended run requires delivery of
 the saved checklist with that filename. The workspace was unmounted and
 the candidate remains unarmed.
+
+### Host tooling for comparing native trials (November 22)
+
+Build a read-only comparison of archived returns on PR #516 (`93d804e6`,
+integration main `a055fc26`). Scope covers the host trial CLI, receipt
+comparison, focused tests and usage guide. Replay the two Pro Wi-Fi active
+removal trials through the existing session matcher and check the traffic,
+retirement, storage and recovery findings against their individual receipts.
+
+Replay of `d2a184d5d4a8e199` and `fdf4c549cecbbe87` finds the first
+difference after DHCP, gateway ping and DNS. Before removal the first
+recorded 18 of 60 required replies, and the repeat recorded 60 of 60.
+Both exit logs record the worker stopped, slot disabled, keys erased,
+provider retired and safe return. Both workspace comparisons report
+no changed or missing prior files and verified Ubuntu default and recovery.
+The repeat also compared identically through its saved collection bundle.
+These findings reuse the archived physical evidence.
+
+Integration scope for PRs #513, #514, #516 and #519 starts from main
+`0273ba64` and comparison head `12b3234f`. Validate the combined host
+commands with focused tests and the complete Wi-Fi, partial Retina and
+missing-session archives. Compare both collectors on the next planned
+native return, using the same volume, pre-boot baseline and session.

@@ -10,7 +10,10 @@ pre-boot session list or `workspace-before.json`.
 
 From the SrvrOS checkout, run `tools/trial collect RUN --save` for a
 returned desktop or laptop-probe session on a mounted USB workspace.
-Use `tools/trial collect RUN --archive` to replay saved evidence.
+Use `tools/trial collect RUN --archive` to replay saved evidence. When
+asked how two returns differ, use `tools/trial compare RUN_A RUN_B` with
+archived runs or saved collection bundles. Follow the per-check evidence
+links for the first difference and the cleanup and recovery results.
 For an unattended filesystem-confidence batch use its own collector in
 `tools/hardware_test.py`. The [device guide](../../../docs/ubuntu-device-agent-setup.md#7-test-return-and-collect)
 describes both routes and the exit codes.
