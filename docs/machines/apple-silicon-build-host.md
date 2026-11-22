@@ -112,6 +112,16 @@ runs exit 0. The guest stops and the VM window is returned to integration.
 GLib detects the target zlib package and stops at the `intl` fallback.
 See the [zlib receipt](../assets/evidence/glib-zlib/receipt.json).
 
+## GLib proxy-libintl fallback — November 22, 2026
+
+The combined topic uses the zlib change rebased onto OS main `288886bd`
+and retains the verified SDK and normal guest boot inputs. Meson builds the
+exact proxy-libintl 0.5 wrap source with `STUB_ONLY` for the target probe.
+The guest checks message, plural and domain behavior. All twelve fixture
+runs exit 0. The guest stops and the VM window returns to integration.
+GLib selects the internal fallback and stops at GIO's `C_IN` header
+check. See the [proxy-libintl receipt](../assets/evidence/glib-proxy-intl/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
