@@ -21,12 +21,20 @@ At slot 8704 it verified blitter completion and restored all 1,024 words.
 The matching GGTT unbind followed verification. The eDP panel stayed enabled.
 The register trace did not report an individual MMIO write.
 
-The next SrvrOS trial blocks the WD capture programming page along with the
-six submission pages. It samples WD surface, tail configuration and frame
-counters before and after the loan. A change refuses the trial. Identical
-samples on an inactive or power-gated bank are compatible with zero reads.
-This check leaves outstanding firmware, engine and L3 work to the native
-traffic provider.
+Release `2bb7163ce847d9f5` (source `22163267`, session
+`session-000660d49023a911-00`) excluded CPU mappings of seven register
+pages throughout the slot 8704 loan and return. These cover the five command
+engines, the WiDi queue and the wireless-display capture registers. The
+capture surface, tail configuration and status read `0`, `0x10` and `0`
+at both ends of the loan. Pipe A advanced from frame 1083 to 1084 on the
+original framebuffer. Both PTE reads returned `0x8e201001`, and all three
+competing claims were refused. All 78 temporary mappings retired. Ubuntu
+collected the matching report and the offline exFAT check passed.
+
+The trial issued zero GPU page-table writes. Before replacing slot 8704,
+the native display driver still needs to hold off new device-side requests
+and observe fresh engine and L3 flush acknowledgements under that hold.
+The capture register samples alone cannot establish that drain.
 
 Release `d407fda266aee3db` (source `eafdd4d3`, session
 `session-000660d42be2ac76-00`) kept all five command-streamer register
