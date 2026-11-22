@@ -7,7 +7,18 @@ Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
 
-## Current checkpoint (November 13)
+## Current checkpoint (November 21)
+
+Release `cf20824eddefc734` passed the cold, attended Demers5 test
+with an orderly disconnect, same-port USB replug and a fresh connection.
+Both WPA associations, DHCP leases, gateway pings, DNS lookups and
+explicit disconnects were verified. System showed the active USB Wi-Fi
+driver, both log segments were saved, and SrvrOS returned to Ubuntu.
+Removal during an active connection and repeated cold reliability are
+separate remaining tests.
+[MacBookPro11,2 run record](macbookpro11-2.md#demers5-network-recovery-after-replug)
+
+## November 13 checkpoint
 
 The diagnostic9e0e5988/1988 run is collected once and CLOSED FAILED before
 handoff admission. First authentication/key activation and DHCP Offer acceptance

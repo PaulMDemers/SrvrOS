@@ -67,9 +67,12 @@ retires the provider. System lists the managed adapter as USB Wi-Fi
 with Driver active while that owner is live. Exit desktop saves
 `exit.log` and returns to Ubuntu once ownership is safe. For this
 profile, `session-a.log` holds the initial portion of the run and
-`exit.log` continues at its exact end after re-enumeration. The procedure covers the Edimax USB
-adapter after an orderly disconnect. Physical acceptance depends on
-the MacBookPro11,2 run evidence.
+`exit.log` continues at its exact end after re-enumeration. The
+MacBookPro11,2 cold run on release `cf20824eddefc734` passed the
+Devices label, two WPA connections with DHCP, gateway ping and DNS, two
+explicit disconnects, both log segments and automatic return to Ubuntu.
+This acceptance covers the Edimax USB adapter after an orderly disconnect.
+[MacBookPro11,2 run record](machines/macbookpro11-2.md#demers5-network-recovery-after-replug)
 
 ## Calibration response-loss tracing (November 11)
 

@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically. One cold Demers5 desktop connection and USB save passed on v151. Two fresh desktop connections and safe disconnects in a single cold boot with ping and DNS on both passed on v152. The v153 retry verifies live USB re-enumeration and the System device list after a clean Disconnect. The v154 retry verified recovery and traffic after replug. The Devices label, complete saved logs, removal while connected, and repeated cold reliability remain open.**
+Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically. One cold Demers5 desktop connection and USB save passed on v151. Two fresh desktop connections and safe disconnects in a single cold boot with ping and DNS on both passed on v152. The v153 retry verifies live USB re-enumeration and the System device list after a clean Disconnect. The final v154 run verified same-boot Demers5 recovery after an orderly Disconnect and USB replug, including the Devices label, traffic on both connections, both disconnects and automatic log saving. Removal while connected and repeated cold reliability remain open.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -68,6 +68,22 @@ USB Wi-Fi in System. The final log now continues at the exact byte
 boundary of the committed `session-a.log`. The logger rejects a missing
 range between files. Next physical validation checks the live Devices
 label, both explicit Disconnect actions and both complete log segments.
+
+The final cold validation used source `79071313`, release
+`cf20824eddefc734`, and session `session-000660d52d3b34ff-00`.
+It passed two fresh WPA associations, DHCP, gateway ICMP and DNS on
+both connections, and two explicit disconnects with key and provider
+retirement. Same-port replug disabled slot 1, enumerated slot 9, and
+completed fresh firmware, calibration, Demers5 selection and transmit
+power setup for generation 2. The operator reported the corrected
+Devices-label trial worked. `session-a.log` and `exit.log` share the
+verified 2,143,899-byte boundary, and the independent journal confirms
+save, unmount and automatic return to Ubuntu. The USB filesystem was
+clean and all 516 prior files matched. There is no Text save/reopen
+receipt in this run. The accepted image and hashed evidence are archived
+under `/var/local/srvros-recovery/macbookpro11-2` as `cf20824eddefc734`
+and `evidence-cf20824eddefc734`. Ubuntu is the default and the one-shot
+entry has been consumed.
 
 ### Demers5 USB reattachment
 
