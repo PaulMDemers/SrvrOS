@@ -1,9 +1,11 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* One-shot fixed161 management transport. No key/data provider authority.
  * Independent owner replaces,never weakens,the historical stopped-RX gates.
  * Every DMA page survives failure and terminal restoration until reset. */
 #include <srvros/mt76_join5.h>
 #include <srvros/mt76_eapol5.h>
-static struct {bool requested,active,attempted,complete;unsigned polls,frames,matches;}wifi_eapol5;
+static struct {bool requested,active,attempted,complete;unsigned polls,frames,matches;}wifi_eapol5_banks[WIFI_RADIO5_BANKS];
+#define wifi_eapol5 (wifi_eapol5_banks[wifi_radio5_bank])
 static bool (*wifi_join5_after)(void);
 #define WIFI_JOIN5_RX 48
 static struct {
@@ -24,7 +26,8 @@ static struct {
  uint32_t cleanup_last[3];unsigned cleanup_reads;
  bool cleanup_enabled,cleanup_started,cleanup_needed,cleanup_frozen,cleanup_control_active;
  bool eapol_required,attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
-}wifi_join5;
+}wifi_join5_banks[WIFI_RADIO5_BANKS];
+#define wifi_join5 (wifi_join5_banks[wifi_radio5_bank])
 bool xhci_wifi_join5_radio_enable(void){
  if(wifi_join5.radio_enabled || wifi_join5.attempted)return false;
  wifi_join5.radio_enabled=true;return true;

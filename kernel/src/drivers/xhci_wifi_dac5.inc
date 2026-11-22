@@ -1,6 +1,8 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Explicit common DAC child. Never included by ordinary device enumeration. */
 #include <srvros/mt76_dac5.h>
-static struct {struct xhci_device *d;struct mt76_dac5 state;unsigned submitted;bool active;} wifi_dac5;
+static struct {struct xhci_device *d;struct mt76_dac5 state;unsigned submitted;bool active;} wifi_dac5_banks[WIFI_RADIO5_BANKS];
+#define wifi_dac5 (wifi_dac5_banks[wifi_radio5_bank])
 static bool wifi_dac5_parent(struct xhci_device *d){
     const struct mt76_trim_fields *f=&wifi_trim5.fields;const struct mt76_efuse_map_gate *g=&wifi_trim5.gate;
     return wifi_dac5_requested && d && d==wifi_trim5.d && !wifi_trim5.active && !wifi_trim5.fields_active && wifi_trim5_parent(d) &&

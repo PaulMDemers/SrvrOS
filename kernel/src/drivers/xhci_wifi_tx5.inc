@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 static bool (*wifi_tx5_nop_child)(void);
 /* Dedicated OUT04/DCI8 ownership preview. Empty ring only,no TD/doorbell or
  * MAC start. Configure -> stopped -> disabled;shared input bytes restored.
@@ -9,7 +10,8 @@ static struct {
  uint32_t other[4][8];
  unsigned phase,commands,controls,stop_events;
  bool attempted,active,failed,semantic,configured,stopped,disabled,input_restored,stopping;
-}wifi_tx5;
+}wifi_tx5_banks[WIFI_RADIO5_BANKS];
+#define wifi_tx5 (wifi_tx5_banks[wifi_radio5_bank])
 static bool wifi_tx5_fail(void){wifi_tx5.failed=true;return wifi_tx5.d?wifi_mcu_fail(wifi_tx5.d):false;}
 static bool wifi_tx5_owned(void){
  struct xhci_device *d=wifi_tx5.d;

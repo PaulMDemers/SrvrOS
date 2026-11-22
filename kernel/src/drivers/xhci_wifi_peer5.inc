@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 #include <srvros/mt76_peer5.h>
 static bool wifi_tx5_requested;
 static bool wifi_tx5_inspect(void);
@@ -7,7 +8,8 @@ static struct {
  struct mt76_peer5 binding;
  unsigned controls;
  bool attempted,active,failed;
-} wifi_peer5;
+} wifi_peer5_banks[WIFI_RADIO5_BANKS];
+#define wifi_peer5 (wifi_peer5_banks[wifi_radio5_bank])
 static bool wifi_peer5_owned(void *c,const struct mt76_rx_window *w){
  struct xhci_device *d=wifi_cal5.d;
  return c==&wifi_peer5 && w==&wifi_cal5.window && wifi_peer5_requested && wifi_peer5.active && !wifi_peer5.failed &&

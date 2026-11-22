@@ -19,6 +19,17 @@ connection independently. The same boot must record DHCP and bidirectional
 data on Demers5, preserve the mounted workspace and save results before
 returning to Ubuntu.
 
+The v154 profile runs one attended Demers5 association before and one
+after USB replug. It keeps the detached network registry available for
+a new connection epoch and allocates separate firmware, calibration,
+discovery and stream ownership for the replacement. Help opens the
+same-session checklist. The kernel checks DHCP, gateway ICMP and DNS
+through the worker on both associations. The workspace checkpoint
+`session-a.log` records retirement and re-enumeration before firmware
+reload. `exit.log` records the second connection and final retirement.
+The bound startup journal remains available independently of USB.
+This profile is pending physical acceptance.
+
 ### Demers5 USB reattachment
 
 Work starts at `6b298cdd` with `origin/main` at `4016abf0`. PR #19 owns

@@ -1,6 +1,8 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Fixed selected-channel lifetime after the complete common VCO parent. */
 #include <srvros/mt76_channel_vco5.h>
-static struct {struct xhci_device *d;struct mt76_channel_vco5 state;unsigned submitted,delays;bool active;} wifi_channel_vco5;
+static struct {struct xhci_device *d;struct mt76_channel_vco5 state;unsigned submitted,delays;bool active;} wifi_channel_vco5_banks[WIFI_RADIO5_BANKS];
+#define wifi_channel_vco5 (wifi_channel_vco5_banks[wifi_radio5_bank])
 static bool wifi_cal5_inspect(void *);
 static bool wifi_channel_vco5_parent(struct xhci_device *d){
  return wifi_channel_vco5_requested && d && d==wifi_vco5.d && !wifi_vco5.active && wifi_vco5_parent(d) && mt76_vco5_valid(&wifi_vco5.state) && wifi_vco5.submitted==105 && wifi_vco5.delays==6;

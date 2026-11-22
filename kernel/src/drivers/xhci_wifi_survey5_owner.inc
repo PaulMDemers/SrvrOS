@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Explicit connection discovery continuation. Legacy eight-page profiles stay
  * unchanged. Every previous DMA allocation survives; only a proved stopped
  * endpoint can move to a fresh ring, preserving its USB toggle state. */
@@ -10,7 +11,8 @@ static struct {
   struct wifi_cal5_state owner,guard;
   uint8_t ring[4096],pages[8][4096];
  } prior[WIFI_SURVEY5_WINDOWS-1];
-} wifi_survey5;
+} wifi_survey5_banks[WIFI_RADIO5_BANKS];
+#define wifi_survey5 (wifi_survey5_banks[wifi_radio5_bank])
 static bool wifi_survey5_fail(unsigned reason){
  if(!wifi_survey5.fault)wifi_survey5.fault=reason;
  wifi_survey5.failed=wifi_cal5.failed=true;

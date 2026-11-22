@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 #include <srvros/mt76_power5_cycle.h>
 /* Explicit one-shot power-only child. No MAC enable,endpoint creation or OUT
  * network frame. The selected RF/calibration parent remains held throughout. */
@@ -14,7 +15,8 @@ static struct {
  unsigned step,snapshot_mask,modified_mask,restored_mask,cleanup_phase,cleanup_steps;
  int cleanup_index;
  bool attempted,active,fields_active,inspected,failed,forward_failed,cleanup_started,cleanup_done;
-} wifi_power5;
+} wifi_power5_banks[WIFI_RADIO5_BANKS];
+#define wifi_power5 (wifi_power5_banks[wifi_radio5_bank])
 static bool wifi_power5_parent(void){
  struct xhci_device *d=wifi_power5.d;
  return wifi_power5_requested && wifi_discovery5_requested && d && d==wifi_cal5.d && !xhci.sync_users &&

@@ -1,6 +1,8 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Fixed common VCO observation; trigger clearance is not RF-lock acceptance. */
 #include <srvros/mt76_vco5.h>
-static struct {struct xhci_device *d;struct mt76_vco5 state;unsigned submitted,delays;bool active;} wifi_vco5;
+static struct {struct xhci_device *d;struct mt76_vco5 state;unsigned submitted,delays;bool active;} wifi_vco5_banks[WIFI_RADIO5_BANKS];
+#define wifi_vco5 (wifi_vco5_banks[wifi_radio5_bank])
 static bool wifi_vco5_parent(struct xhci_device *d){
     return wifi_vco5_requested && d && d==wifi_dac5.d && !wifi_dac5.active && wifi_dac5_parent(d) &&
         mt76_dac5_valid(&wifi_dac5.state) && wifi_dac5.submitted==91 &&

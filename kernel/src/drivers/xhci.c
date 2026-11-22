@@ -784,7 +784,7 @@ bool xhci_wifi_identity_ready(void) {
     unsigned found = 0;
     for (unsigned i = 0; i < XHCI_MAX_DEVICES; ++i) {
         const struct xhci_device *d = &xhci.devices[i];
-        if (!d->present || !d->wifi_probe_attempted) continue;
+        if (!d->present || d->slot_disabled || !d->wifi_probe_attempted) continue;
         if (!d->wifi_probe_ok || d->ep0_quarantined) return false;
         ++found;
     }
@@ -4542,6 +4542,8 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
 
 #include "xhci_wifi_firmware.inc"
 static bool wifi_scan_diagnosis_requested;
+#define SRVROS_XHCI_FULL_DRIVER
+#include <srvros/xhci_wifi_radio_bank.h>
 #include "xhci_wifi_mcu.inc"
 
 #include "xhci_wifi_fence5.inc"

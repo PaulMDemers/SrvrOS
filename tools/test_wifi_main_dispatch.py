@@ -39,7 +39,7 @@ class MainDispatchTests(unittest.TestCase):
         logger=source[begin:source.index('        bool wifi_log_isolation=',begin)]
         names=sorted(set(re.findall(r'\b(xhci_wifi_capture_\w+)\(\)',expression)))
         declarations=[]
-        for name in ('wifi_early5_requested','wifi_early5_trial','wifi_rx_compare5_requested','wifi_provider_trial','http_child_trial','wifi_stack5_trial','wifi_reconnect5_requested','wifi_reconnect5_trial','wifi_http_reconnect5_requested','wifi_http_reconnect5_trial','wifi_reconnect5_capture_attempted','wifi_http5_requested','wifi_http5_trial','wifi_desktop_owner_requested','wifi_desktop_owner_trial','wifi_desktop_reconnect_trial','wifi_desktop_reattach_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
+        for name in ('wifi_early5_requested','wifi_early5_trial','wifi_rx_compare5_requested','wifi_provider_trial','http_child_trial','wifi_stack5_trial','wifi_reconnect5_requested','wifi_reconnect5_trial','wifi_http_reconnect5_requested','wifi_http_reconnect5_trial','wifi_reconnect5_capture_attempted','wifi_http5_requested','wifi_http5_trial','wifi_desktop_owner_requested','wifi_desktop_owner_trial','wifi_desktop_reconnect_trial','wifi_desktop_reattach_trial','wifi_desktop_replug_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
             match=re.search(r'\bbool '+name+r'\s*=[^;]+;',source)
             if not match:raise AssertionError('missing native declaration '+name)
             declarations.append(match.group())
@@ -52,6 +52,8 @@ class MainDispatchTests(unittest.TestCase):
             'static bool xhci_wifi_capture_desktop5(void *d,bool (*launch)(void *),bool (*running)(void *)){calls++;chosen="xhci_wifi_capture_desktop5";return capture_ok && launch(d) && running(d);}',
             'static bool xhci_wifi_capture_desktop_reconnect5(void *d,bool (*launch)(void *),bool (*running)(void *)){calls++;chosen="xhci_wifi_capture_desktop_reconnect5";return capture_ok && launch(d) && running(d);}',
             'static bool xhci_wifi_capture_desktop_reattach5(void *d,bool (*launch)(void *),bool (*running)(void *)){calls++;chosen="xhci_wifi_capture_desktop_reattach5";return capture_ok && launch(d) && running(d);}',
+            'static bool workspace_log_pause(void){return true;}',
+            'static bool xhci_wifi_capture_desktop_replug5(void *d,bool (*launch)(void *),bool (*running)(void *),bool (*checkpoint)(void)){calls++;chosen="xhci_wifi_capture_desktop_replug5";return capture_ok && launch(d) && running(d) && checkpoint();}',
             'static bool logger_ok;static bool workspace_log_quiesce(uint64_t ms){if(ms!=5000)return false;quiesces++;return logger_ok;}',
             'static void console_printf(const char *f,...){(void)f;}',
             'unsigned compare_logger(const char *cmdline,unsigned trial,unsigned started,unsigned returned,unsigned desktop,unsigned allowed){',
@@ -172,6 +174,13 @@ class MainDispatchTests(unittest.TestCase):
         for extra in ('srvros.wifi-desktop-reconnect=1','srvros.wifi-desktop-reattach=1'):
             self.assertEqual(self.dispatch(recipe+' '+extra),(False,'none',0))
         self.assertEqual(self.dispatch(self.recipe(149)+' srvros.wifi-desktop-reattach=1'),(False,'none',0))
+
+    def test_desktop_replug_requires_the_reattachment_recipe(self):
+        recipe=self.recipe(154)
+        self.assertEqual(self.dispatch(recipe),(True,'xhci_wifi_capture_desktop_replug5',1))
+        self.assertEqual(self.dispatch(recipe,parked=False),(False,'none',0))
+        self.assertEqual(self.dispatch(recipe.replace('srvros.wifi-desktop-reattach=1','')),(False,'none',0))
+        self.assertEqual(self.dispatch(self.recipe(149)+' srvros.wifi-desktop-replug=1'),(False,'none',0))
 
     def test_prime_recipe_and_order(self):
         recipe=self.recipe(147)

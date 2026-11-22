@@ -283,7 +283,7 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
     unsigned found=0;bool success=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];struct xhci_wifi_firmware *f=&d->firmware;
-        if(!d->present || !d->wifi_probe_attempted)continue;
+        if(!d->present || d->slot_disabled || !d->wifi_probe_attempted)continue;
         found++;
         if(f->attempted || !f->configured || f->failed || d->ep0_quarantined){success=false;continue;}
         f->attempted=true;f->active=true;f->image=image;f->image_size=size;

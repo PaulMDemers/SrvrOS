@@ -55,8 +55,18 @@ Edimax with fresh USB contexts and an independently configured firmware
 endpoint. One cold MacBookPro11,2 run on release `0ea8bac8aaaf6ce3`
 verified the high-speed reset, replacement firmware endpoint and visible
 System Devices entry. Exit desktop saved the logs and returned to Ubuntu
-with the workspace clean. Fresh firmware, calibration, association and
-network traffic after reattachment are the next stage.
+with the workspace clean.
+
+The v154 `--wifi-desktop-replug` profile extends the v153 checklist. After
+clean disconnect and same-port re-enumeration, it saves a workspace
+checkpoint. The replacement gets fresh firmware, calibration, discovery,
+and a new System Wi-Fi selection. Connect to Demers5 again within the
+same boot. On each connection the kernel verifies DHCP, a gateway
+ping and a DNS reply through the resident worker. The second Disconnect
+retires the provider. Exit desktop saves the final log and returns to
+Ubuntu once ownership is safe. The procedure covers the Edimax USB
+adapter after an orderly disconnect. Physical acceptance depends on
+the MacBookPro11,2 run evidence.
 
 ## Calibration response-loss tracing (November 11)
 

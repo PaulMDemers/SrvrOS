@@ -261,14 +261,14 @@ def main():
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     wifi_nop5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v134-"))
-    wifi_stream5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-")))
+    wifi_stream5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-")))
     wifi_stream5_dhcp=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v136-"))
-    wifi_stack5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-")))
+    wifi_stack5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-")))
     wifi_early5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v144-","ram-usb-wifi-fw-v145-","ram-usb-wifi-fw-v146-")))
     wifi_http_reconnect5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-")))
     wifi_http5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v139-"))
     wifi_reconnect5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-")))
-    wifi_desktop_owner=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-")))
+    wifi_desktop_owner=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-")))
     if wifi_stream5:
         config=(source/"limine.conf").read_text()
         commands=[line.split(":",1)[1].split() for line in config.splitlines() if line.strip().startswith("cmdline:")]
@@ -281,14 +281,15 @@ def main():
         assert ("srvros.wifi-desktop-owner=1" in tokens)==wifi_desktop_owner
         if wifi_desktop_owner:assert "srvros.trackpad=gestures" in tokens
         assert ("srvros.wifi-desktop-reconnect=1" in tokens)==manifest["config_version"].startswith("ram-usb-wifi-fw-v152-")
-        assert ("srvros.wifi-desktop-reattach=1" in tokens)==manifest["config_version"].startswith("ram-usb-wifi-fw-v153-")
-        assert ("srvros.wifi-cal5-cleanup=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-"))
+        assert ("srvros.wifi-desktop-reattach=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-"))
+        assert ("srvros.wifi-desktop-replug=1" in tokens)==manifest["config_version"].startswith("ram-usb-wifi-fw-v154-")
+        assert ("srvros.wifi-cal5-cleanup=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-"))
         assert ("srvros.wifi-http5=1" in tokens)==manifest["config_version"].startswith("ram-usb-wifi-fw-v139-")
         assert ("srvros.wifi-reconnect5=1" in tokens)==wifi_reconnect5
         assert ("srvros.wifi-reconnect5-http=1" in tokens)==wifi_http_reconnect5
-        assert ("srvros.wifi-cal5-prime=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-"))
-        assert ("srvros.wifi-survey5=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-"))
-        assert ("srvros.wifi-first-auth5=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-"))
+        assert ("srvros.wifi-cal5-prime=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-"))
+        assert ("srvros.wifi-survey5=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-"))
+        assert ("srvros.wifi-first-auth5=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-"))
         assert not tokens.intersection({"srvros.wifi-wpa5=1","srvros.wifi-data5=1","srvros.wifi-provider5=1","srvros.wifi-reuse5=1","srvros.wifi-nop5=1"})
     if wifi_nop5:
         config=(source/"limine.conf").read_text()

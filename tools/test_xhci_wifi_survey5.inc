@@ -92,6 +92,7 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
   assert(ok && wifi_survey5.complete && wifi_cal5.stopped && wifi_cal5_cleanup_held());
   bool selected=mode==0 || mode==13 || mode==15 || mode==19;
   assert(wifi_survey5.selected==selected && wifi_cal5.choice.selected==selected);
+  if(selected)assert(wifi_cal5.choice.generation==wifi_radio5_bank+1);
   assert(wifi_cal5.commands==5 && early5_mcu_calls==10);
   if(mode==1 || mode==2)assert(wifi_survey5.reason==2 && wifi_survey5.window==15);
   if(mode==3)assert(wifi_survey5.reason==1 && !wifi_cal5.window.completions && wifi_cal5.window.attempts==1);
@@ -112,5 +113,11 @@ static void test_wifi_survey5(void){
  for(unsigned mode=0;mode<=20;mode++)survey5_whole_native(mode,0);
  for(unsigned limit=1;limit<=17;limit++)survey5_whole_native(0,limit);
  survey5_whole_native(21,0);
- puts("xhci-wifi-survey5: PASS39 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases, including desktop missing-target cleanup; modeled HCD/RF");
+ assert(wifi_survey5_banks[0].complete && !wifi_survey5_banks[0].selected);
+ wifi_radio5_bank=1;
+ survey5_whole_native(0,0);
+ assert(wifi_survey5_banks[0].complete && !wifi_survey5_banks[0].selected);
+ assert(wifi_survey5_banks[1].complete && wifi_cal5_banks[1].choice.generation==2);
+ wifi_radio5_bank=0;
+ puts("xhci-wifi-survey5: PASS 40 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases, including replacement discovery and desktop missing-target cleanup; modeled HCD/RF");
 }

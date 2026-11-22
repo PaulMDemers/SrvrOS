@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 #include <srvros/mt76_trim5.h>
 static bool wifi_5ghz_prereq_requested;
 static bool wifi_5ghz_band_requested;
@@ -2533,7 +2534,8 @@ static struct {
     struct mt76_5ghz_band state;
     unsigned submitted[10],last_phase;
     bool active;
-} wifi_5ghz_band;
+} wifi_5ghz_band_banks[WIFI_RADIO5_BANKS];
+#define wifi_5ghz_band (wifi_5ghz_band_banks[wifi_radio5_bank])
 static const char *wifi_5ghz_band_prefix(unsigned phase){
     static const char *prefix[10]={"refused","wifi-5ghz-prereq","wifi-5ghz-select-rf","wifi-5ghz-select-mac","wifi-5ghz-selected","wifi-5ghz-restore-mac","wifi-5ghz-restore-rf","wifi-5ghz-original","wifi-5ghz-synth","wifi-a20-cycle"};
     return phase<10?prefix[phase]:"refused";
@@ -2668,7 +2670,8 @@ static bool wifi_mcu_a20_inventory(struct xhci_device *d){
     console_printf("wifi-a20-inventory: status=%u complete=%u valid=%u operations=%u submitted=%u reads=%u exchanges=%u writes=0 network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->operations,(uint64_t)wifi_a20_inventory.submitted,(uint64_t)s->reads,(uint64_t)s->exchanges);
     return valid?true:wifi_mcu_fail(d);
 }
-static struct {struct xhci_device *d;struct mt76_5ghz_prereq state;unsigned submitted;bool active;} wifi_frontend;
+static struct {struct xhci_device *d;struct mt76_5ghz_prereq state;unsigned submitted;bool active;} wifi_frontend_banks[WIFI_RADIO5_BANKS];
+#define wifi_frontend (wifi_frontend_banks[wifi_radio5_bank])
 static bool wifi_frontend_owned(void *context){
     if(context!=&wifi_frontend || !wifi_frontend_requested || !wifi_frontend.active)return false;
     struct xhci_device *d=wifi_frontend.d;struct mt76_5ghz_prereq *s=&wifi_frontend.state;
@@ -2712,7 +2715,8 @@ static bool wifi_mcu_frontend(struct xhci_device *d){
     console_printf("wifi-frontend: status=%u complete=%u valid=%u operations=%u submitted=%u reads=%u exchanges=%u writes=0 network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->operations,(uint64_t)wifi_frontend.submitted,(uint64_t)s->reads,(uint64_t)s->exchanges);
     return valid?(!wifi_pa5_requested || wifi_mcu_pa5(d)):wifi_mcu_fail(d);
 }
-static struct {struct xhci_device *d;struct mt76_pa5 state;unsigned submitted;bool active;} wifi_pa5;
+static struct {struct xhci_device *d;struct mt76_pa5 state;unsigned submitted;bool active;} wifi_pa5_banks[WIFI_RADIO5_BANKS];
+#define wifi_pa5 (wifi_pa5_banks[wifi_radio5_bank])
 static bool wifi_pa5_parent(struct xhci_device *d){
     if(!d || d!=wifi_frontend.d || d!=wifi_5ghz_band.d || !wifi_pa5_requested || !wifi_frontend_requested ||
        !wifi_a20_cycle_requested || !wifi_5ghz_channel_requested || !wifi_5ghz_band_requested || !wifi_5ghz_prereq_requested ||
@@ -2760,7 +2764,8 @@ static bool wifi_mcu_pa5(struct xhci_device *d){
     console_printf("wifi-pa5: status=%u complete=%u valid=%u restored=%u operations=%u submitted=%u reads=%u exchanges=%u writes=%u parent=%u network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->restored,(uint64_t)s->operations,(uint64_t)wifi_pa5.submitted,(uint64_t)s->reads,(uint64_t)s->exchanges,(uint64_t)s->writes,(uint64_t)parent);
     return valid?(!wifi_bbp5_requested || wifi_mcu_bbp5(d)):wifi_mcu_fail(d);
 }
-static struct {struct xhci_device *d;struct mt76_gain5_fields gain;struct mt76_efuse_map_gate gate;struct mt76_bbp5 state;unsigned submitted;bool active,fields_active;} wifi_bbp5;
+static struct {struct xhci_device *d;struct mt76_gain5_fields gain;struct mt76_efuse_map_gate gate;struct mt76_bbp5 state;unsigned submitted;bool active,fields_active;} wifi_bbp5_banks[WIFI_RADIO5_BANKS];
+#define wifi_bbp5 (wifi_bbp5_banks[wifi_radio5_bank])
 static bool wifi_bbp5_parent(struct xhci_device *d){
     return wifi_bbp5_requested && d && d==wifi_pa5.d && wifi_pa5_parent(d) &&
         mt76_pa5_valid(&wifi_pa5.state) && wifi_pa5.submitted==490 && mt76_bbp5_parent_valid(&wifi_frontend.state);
@@ -2817,7 +2822,8 @@ static bool wifi_mcu_bbp5(struct xhci_device *d){
     return valid?(!wifi_held_requested || wifi_mcu_held(d)):wifi_mcu_fail(d);
 }
 /* One static device owner; all child plans use its context and authorizer. */
-static struct {struct xhci_device *d;struct mt76_channel5 state;unsigned submitted;bool active;} wifi_held;
+static struct {struct xhci_device *d;struct mt76_channel5 state;unsigned submitted;bool active;} wifi_held_banks[WIFI_RADIO5_BANKS];
+#define wifi_held (wifi_held_banks[wifi_radio5_bank])
 static bool wifi_held_parent(struct xhci_device *d){
     struct mt76_gain5_fields *f=&wifi_bbp5.gain;struct mt76_efuse_map_gate *g=&wifi_bbp5.gate;
     return wifi_held_requested && d && d==wifi_bbp5.d && wifi_bbp5_parent(d) &&
@@ -2879,7 +2885,8 @@ static bool wifi_mcu_held(struct xhci_device *d){
     return valid?(!wifi_trim5_requested || wifi_mcu_trim5(d)):wifi_mcu_fail(d);
 }
 /* Separate fresh-field and RF ownership; no old G-band trim-mode admission. */
-static struct {struct xhci_device *d;struct mt76_trim5 state;struct mt76_trim_fields fields;struct mt76_efuse_map_gate gate;unsigned submitted;bool active,fields_active;} wifi_trim5;
+static struct {struct xhci_device *d;struct mt76_trim5 state;struct mt76_trim_fields fields;struct mt76_efuse_map_gate gate;unsigned submitted;bool active,fields_active;} wifi_trim5_banks[WIFI_RADIO5_BANKS];
+#define wifi_trim5 (wifi_trim5_banks[wifi_radio5_bank])
 static bool wifi_trim5_parent(struct xhci_device *d){
     return wifi_trim5_requested && d && d==wifi_held.d && !wifi_held.active && wifi_held_parent(d) &&
         mt76_channel5_valid(&wifi_held.state) && wifi_held.submitted==3732;
@@ -3844,7 +3851,7 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];struct xhci_wifi_firmware *f=&d->firmware;
         struct xhci_wifi_mcu *m=&f->mcu;
-        if(!d->present || !d->wifi_probe_attempted)continue;
+        if(!d->present || d->slot_disabled || !d->wifi_probe_attempted)continue;
         found++;
         if(!wifi_firmware_enabled || !f->ready || f->active || m->attempted){saved=false;continue;}
         m->attempted=true;f->active=true;

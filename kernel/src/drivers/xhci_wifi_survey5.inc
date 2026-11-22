@@ -1,6 +1,8 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Runs only after the first calibration/receive MAC has closed. Later windows
  * repeat receive, not calibration. Inspection and all copies follow exact Stop. */
-static struct wifi_cal5_state wifi_survey5_next;
+static struct wifi_cal5_state wifi_survey5_next_banks[WIFI_RADIO5_BANKS];
+#define wifi_survey5_next (wifi_survey5_next_banks[wifi_radio5_bank])
 static bool wifi_survey5_now(uint64_t *out){
  uint64_t now=timer_monotonic_us();
  if(!out || !wifi_survey5.started || now<wifi_survey5.previous || now<wifi_survey5.start)

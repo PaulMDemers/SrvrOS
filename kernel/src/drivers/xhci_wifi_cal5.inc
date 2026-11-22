@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 #include <srvros/mt76_discovery5.h>
 /* Explicit fixed161/20MHz owner. Pages/ring survive every outcome until reset. */
 static struct wifi_cal5_state {
@@ -17,7 +18,8 @@ static struct wifi_cal5_state {
  uint64_t cleanup_stop_index,cleanup_control_setup;bool cleanup_control_active;
  unsigned cleanup_posts,cleanup_completed,cleanup_stop_seen;
  bool cleanup_enabled,cleanup_started,cleanup_pending,cleanup_stop_pending,cleanup_failed,cleanup_frozen,cleanup_needed,cleanup_fault_valid;
-} wifi_cal5;
+} wifi_cal5_banks[WIFI_RADIO5_BANKS];
+#define wifi_cal5 (wifi_cal5_banks[wifi_radio5_bank])
 static bool wifi_prime5_alias(uint64_t);
 static bool wifi_prime5_held(void);
 static bool wifi_prime5_route_new(uint64_t);
@@ -484,7 +486,8 @@ static bool wifi_discovery5_inspect(void){
  const struct mt76_discovery_io io={&wifi_cal5,wifi_discovery5_owned};
  bool complete=mt76_discovery5_collect(&wifi_cal5.discovery,&wifi_cal5.window,&io);
  enum mt76_discovery5_status status=MT76_DISC5_OWNERSHIP;
- if(complete)status=mt76_discovery5_choose(&wifi_cal5.choice,&wifi_cal5.discovery,&wifi_cal5.window,&io,1,(const uint8_t *)"Demers5",7);
+ if(complete)status=mt76_discovery5_choose(&wifi_cal5.choice,&wifi_cal5.discovery,&wifi_cal5.window,&io,
+  wifi_radio5_bank+1,(const uint8_t *)"Demers5",7);
  wifi_cal5.discovery_status=status;
  /* No identifiers,other SSIDs,raw advertisements or secrets in logs. This
   * is an explicitly requested target candidate,not authentication authority. */

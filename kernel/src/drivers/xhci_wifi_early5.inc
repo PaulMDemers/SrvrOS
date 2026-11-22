@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Opt-in fixed161 calibration comparison. Every page is published once and
  * retained until machine reset. No payload inspection, resubmission or network
  * connection is authorized by this queue or its completion records. */
@@ -9,7 +10,8 @@ static struct {
  uintptr_t pointers[WIFI_EARLY5_SLOTS],ring_pointer;
  struct xhci_trb events[WIFI_EARLY5_SLOTS],stop_event,stop_command;
  unsigned published,completed,at_command[5],at_return[5],during_mcu,during_control,idle_events,fault;
-} wifi_early5;
+} wifi_early5_banks[WIFI_RADIO5_BANKS];
+#define wifi_early5 (wifi_early5_banks[wifi_radio5_bank])
 static bool wifi_cal5_owned(void *,bool);
 static bool wifi_cal5_layout(void);
 

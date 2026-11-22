@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 /* Explicit connection-profile prime. The first ring and all 32 payload pages
  * remain retained and uninspected. Only a proved stopped endpoint is retargeted;
  * Set TR Dequeue preserves its USB toggle. No reset or uncertain rollback. */
@@ -6,7 +7,8 @@ static struct {
  unsigned fault,first_operations;uint64_t first_post_us,old_dequeue;
  struct xhci_device *d;struct mt76_mac_cycle first_mac;
  uint32_t endpoint[8];uint8_t early[sizeof wifi_early5],ring[4096];
-} wifi_prime5;
+} wifi_prime5_banks[WIFI_RADIO5_BANKS];
+#define wifi_prime5 (wifi_prime5_banks[wifi_radio5_bank])
 static bool wifi_prime5_equal(const void *a,const void *b,size_t n){
  const uint8_t *x=a,*y=b;for(size_t i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }

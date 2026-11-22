@@ -370,19 +370,23 @@ static void stream_test_progress(void){
   struct xhci_trb e={.parameter_low=r->id.pointer,.parameter_high=r->id.pointer>>32,.status=1u<<24,.control=(33u<<10)|((uint32_t)wifi_stream5.slot<<24)};stream_enqueue(&e,n);
  }
 }
-static void stream_setup(void){
- reset_test();memset(&sim,0,sizeof sim);sim.parent=true;sim.filter=0x17f97;sim.txop=0x583f;sim.fault_at=5;test_time_step=3;
- memset(&wifi_stream5,0,sizeof wifi_stream5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&wifi_join5,0,sizeof wifi_join5);memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_power5,0,sizeof wifi_power5);memset(&wifi_handoff5,0,sizeof wifi_handoff5);memset(&wifi_tx5,0,sizeof wifi_tx5);memset(&wifi_peer5,0,sizeof wifi_peer5);memset(stream_commands,0,sizeof stream_commands);memset(stream_events,0,sizeof stream_events);
- xhci.present=xhci.operational=xhci.controller_owned=true;xhci.pci=&stream_pci;xhci.command_ring=stream_commands;xhci.command_ring_phys=(uint64_t)stream_commands;xhci.command_enqueue=12;xhci.command_cycle=true;xhci.event_ring=stream_events;xhci.event_ring_phys=(uint64_t)stream_events;xhci.event_cycle=true;xhci.db_base=0x4000;xhci.rt_base=0x3000;xhci.op_base=0x100;
- struct xhci_device *d=&xhci.devices[0];*d=(struct xhci_device){.present=true,.slot_id=1,.vendor_id=0x7392,.product_id=0xa711,.device_bcd=0x100,.wifi_probe_attempted=true,.wifi_probe_ok=true};void *p;
- assert(alloc_frame_zero(&d->input_context_phys,&p));d->input_context=p;assert(alloc_frame_zero(&d->output_context_phys,&p));d->output_context=p;
+static void stream_fixture_parent(struct xhci_device *d){
+ void *p;
  wifi_cal5.d=d;assert(alloc_frame_zero(&wifi_cal5.plan.ring,&p));wifi_cal5.ep.ring=p;for(unsigned i=0;i<8;i++){assert(alloc_frame_zero(&wifi_cal5.plan.physical[i],&p));wifi_cal5.plan.buffer[i]=p;}
  assert(alloc_frame_zero(&wifi_handoff5.plan.new_ring,&p));wifi_handoff5.ring=p;assert(alloc_frame_zero(&wifi_tx5.ring_phys,&p));wifi_tx5.ring=p;
  assert(alloc_frame_zero(&wifi_join5.rx_phys,&p));wifi_join5.rx=p;wifi_join5.pins[0]=wifi_join5.rx_phys;assert(alloc_frame_zero(&wifi_join5.tx_phys,&p));wifi_join5.tx=p;wifi_join5.pins[1]=wifi_join5.tx_phys;
  for(unsigned i=0;i<WIFI_JOIN5_RX+3;i++){assert(alloc_frame_zero(&wifi_join5.pages[i],&p));wifi_join5.buffer[i]=p;wifi_join5.pins[i+2]=wifi_join5.pages[i];}
- wifi_peer5.binding=(struct mt76_peer5){.attempted=true,.complete=true,.generation=1,.observations=2,.rates=255,.peer={.ssid="Demers5",.ssid_size=7,.channel=161,.basic_rates=21}};memcpy(wifi_peer5.binding.peer.station,hs_spa,6);memcpy(wifi_peer5.binding.peer.bssid,hs_aa,6);wifi_peer5.binding.peer.rsn_size=mt76_rsn_station_ie(wifi_peer5.binding.peer.rsn,sizeof wifi_peer5.binding.peer.rsn);wifi_join5.peer=wifi_peer5.binding;
+ wifi_peer5.binding=(struct mt76_peer5){.attempted=true,.complete=true,.generation=wifi_radio5_bank+1,.observations=2,.rates=255,.peer={.ssid="Demers5",.ssid_size=7,.channel=161,.basic_rates=21}};memcpy(wifi_peer5.binding.peer.station,hs_spa,6);memcpy(wifi_peer5.binding.peer.bssid,hs_aa,6);wifi_peer5.binding.peer.rsn_size=mt76_rsn_station_ie(wifi_peer5.binding.peer.rsn,sizeof wifi_peer5.binding.peer.rsn);wifi_join5.peer=wifi_peer5.binding;
  wifi_join5.active=wifi_join5.restored=wifi_join5.exchange.complete=true;wifi_join5.phase=9;wifi_tx5.active=true;wifi_tx5.disabled=true;wifi_tx5.input_restored=true;wifi_power5.cycle.chosen[0]=0x2f2f1313;
  context_write32(d->output_context,0,0,16u<<27);context_write32(d->output_context,9,0,3);context_write32(d->output_context,9,1,(3u<<1)|(6u<<3)|(512u<<16));context_write32(d->output_context,9,2,wifi_cal5.plan.ring|1);context_write32(d->output_context,9,3,wifi_cal5.plan.ring>>32);context_write32(d->output_context,9,4,4096);
+}
+static void stream_setup(void){
+ reset_test();wifi_radio5_bank=0;memset(&sim,0,sizeof sim);sim.parent=true;sim.filter=0x17f97;sim.txop=0x583f;sim.fault_at=5;test_time_step=3;
+ memset(&wifi_stream5,0,sizeof wifi_stream5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&wifi_join5,0,sizeof wifi_join5);memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_power5,0,sizeof wifi_power5);memset(&wifi_handoff5,0,sizeof wifi_handoff5);memset(&wifi_tx5,0,sizeof wifi_tx5);memset(&wifi_peer5,0,sizeof wifi_peer5);memset(stream_commands,0,sizeof stream_commands);memset(stream_events,0,sizeof stream_events);
+ xhci.present=xhci.operational=xhci.controller_owned=true;xhci.pci=&stream_pci;xhci.command_ring=stream_commands;xhci.command_ring_phys=(uint64_t)stream_commands;xhci.command_enqueue=12;xhci.command_cycle=true;xhci.event_ring=stream_events;xhci.event_ring_phys=(uint64_t)stream_events;xhci.event_cycle=true;xhci.db_base=0x4000;xhci.rt_base=0x3000;xhci.op_base=0x100;
+ struct xhci_device *d=&xhci.devices[0];*d=(struct xhci_device){.present=true,.slot_id=1,.vendor_id=0x7392,.product_id=0xa711,.device_bcd=0x100,.wifi_probe_attempted=true,.wifi_probe_ok=true};void *p;
+ assert(alloc_frame_zero(&d->input_context_phys,&p));d->input_context=p;assert(alloc_frame_zero(&d->output_context_phys,&p));d->output_context=p;
+ stream_fixture_parent(d);
  memcpy(sim.credential,"SRWPA5\0\1",8);sim.credential[8]=7;memcpy(sim.credential+9,"Demers5",7);memcpy(sim.credential+41,hs_pmk,32);stream_credential.size=73;stream_credential.mode=0600;
 }
 static void stream_size_projection_emit(void){

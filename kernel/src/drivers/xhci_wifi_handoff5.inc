@@ -1,3 +1,4 @@
+#include <srvros/xhci_wifi_radio_bank.h>
 #include <srvros/mt76_handoff5.h>
 static bool wifi_peer5_requested;
 static bool wifi_peer5_inspect(void);
@@ -10,7 +11,8 @@ static struct {
  uint64_t command_ring,input,output,ep0,descriptor,new_physical;uintptr_t new_pointer;
  uint8_t cal[sizeof wifi_cal5],power[sizeof wifi_power5],old_ring[4096],old_pages[8][4096];
  bool attempted,active,frozen,failed,inspection_ok;
-} wifi_handoff5;
+} wifi_handoff5_banks[WIFI_RADIO5_BANKS];
+#define wifi_handoff5 (wifi_handoff5_banks[wifi_radio5_bank])
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){const uint8_t *x=a,*y=b;for(size_t i=0;i<n;i++)if(x[i]!=y[i])return false;return true;}
 static bool wifi_handoff5_fail(void){wifi_handoff5.failed=true;return wifi_handoff5.d?wifi_mcu_fail(wifi_handoff5.d):false;}
 static bool wifi_handoff5_context(void){
