@@ -3,6 +3,11 @@
 November 5, 2026. Status: source/configuration audit and owner design review complete; target
 implementation remains unqualified behind the explicit gates below.
 
+November 22 follow-up. The pinned GLib probe reached a missing target `iconv`
+provider after a diagnostic poll-header adaptation. The normal guest verified
+the native wait primitives and the host verified GLib wakeup and timer dispatch.
+See the [GLib prerequisite results](browser-glib-prereq.md).
+
 ## Target and evidence boundary
 
 The proposed next visible target is one bundled HTML/CSS page in a SrvrOS

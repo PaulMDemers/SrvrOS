@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated November 5, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 22, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -20,12 +20,12 @@ audit. Runtime and SrvrUI owner reviews are complete with explicit shared-memory
 wait and frame-completion implementation gates. No shared implementation or
 production capability change is in scope.
 
-Required audit outcomes are the dependency matrix, bounded discovery evidence,
-explicit buffer/event/lifetime contract and owner findings. The next proposed
-implementation slice is a pinned GLib prerequisite probe, with static bring-up
-contingent on real target links and a compatible main-context wait policy, and
-shared-memory/IPC design separately owned. It is a recommendation, not work
-started by this audit. The earlier closeout below remains completed history.
+The November 22 [GLib prerequisite probe](browser-glib-prereq.md) verifies
+native wait primitives in the normal guest and GLib wake/timer dispatch on the
+host. Target configure now has two concrete prerequisites: a GLib-side
+poll-header adaptation and a target `iconv` provider. Static GLib bring-up and
+the end-to-end main-context bridge are subsequent milestones. Shared-memory/IPC
+design remains separately owned.
 
 ## Final integration and workspace reset — November 4, 2026
 

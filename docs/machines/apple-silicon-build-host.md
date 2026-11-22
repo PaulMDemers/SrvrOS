@@ -1,5 +1,23 @@
 # Apple Silicon macOS build host
 
+## GLib platform prerequisite probe — November 22, 2026
+
+The browser audit branch incorporates actual OS main `b275e57d` at `14edc87b`.
+The rebuilt SDK and normal diskless guest execute the pthread, pipe, timer,
+eventfd and GUI wait prerequisites twice. Both cases exit successfully and
+QEMU stops. Installed GLib 2.90.1 verifies the main-context handoff on the Mac.
+Stock target GLib configure stops on its `sys/poll.h` check. A disposable
+`poll.h` diagnostic passes the poll and thread checks and stops at `iconv`.
+The source pin, exact procedure and evidence are in the
+[GLib prerequisite record](../browser-glib-prereq.md).
+
+Runtime coordination and review used the same checked-out SDK. The independent
+native experiment and the browser fixture were consolidated into one guest
+runner. The tested scope is native SDK prerequisites and host GLib behavior.
+Target GLib and the GUI integration remain gated on the dependency and wait
+work described in the probe record. The build and VM slot was returned to
+integration for the CLI queue.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
