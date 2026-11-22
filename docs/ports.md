@@ -64,6 +64,23 @@ and generated sources match; complete-image bit reproducibility is not claimed.
 
 ![Pinned awk CSV report in Terminal](assets/screenshots/awk-terminal.png)
 
+## GNU sha256sum
+
+`sha256sum` is installed at `/fat/bin/sha256sum` and `/sha256sum` in the
+initramfs. Hash regular files or finite standard input. Save and verify a
+manifest from Terminal or the shell:
+
+```sh
+sha256sum /fat/home/input.bin > /fat/home/SHA256SUMS
+sha256sum -c /fat/home/SHA256SUMS
+```
+
+The C-locale profile accepts one explicit untagged manifest with up to 256 KiB,
+4096 physical records and 1023 decoded bytes per path. Use `-c -` to read the
+manifest from stdin. `cksum` and `sum` retain their separate implementations.
+[Port contract](../ports/srvros/sha256sum/PORT.md) and
+[qualification receipt](assets/evidence/sha256sum/receipt.json).
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and
@@ -311,6 +328,17 @@ upstream POSIX `ed` port. It supports basic numeric range addressing plus
 regex addresses, regex substitutions, append/insert/change/delete/print/read/
 write/load/quit commands, and the ports smoke test verifies an edit script
 against `cmp`.
+
+GNU Grep 3.12 is staged as `/fat/bin/ggrep` in the bounded port candidate.
+Use `ggrep [-FGEivnqc] [--] PATTERN [FILE]`. It supports one C locale pattern
+of at most 1024 bytes and one existing regular file or finite standard input.
+The input limits are 256 KiB, 8192 physical lines and 64 KiB per line, including
+the newline. Quiet mode validates the entire input before it reports a match.
+Status 0 means a selected line, 1 means no selection, and 2 means trouble.
+The production command uses a 16 MiB SDK heap arena ceiling. The
+[qualification receipt](assets/evidence/ggrep/receipt.json) records tested
+behavior, signal outcomes and evidence limits.
+
 The `/fat/bin/uvdemo` app links the first srvros `uv.h` compatibility shim. The
 shim is not upstream libuv yet; it is a deliberately small bridge that gives
 ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP

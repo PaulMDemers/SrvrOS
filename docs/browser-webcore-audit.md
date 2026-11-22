@@ -5,10 +5,12 @@ implementation remains unqualified behind the explicit gates below.
 
 November 22 follow-up. The pinned GLib configure now detects the SDK poll
 constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
-Configure processes bundled GVDB and proxy-libintl, then stops at GIO's
-resolver header check for `C_IN`. The normal guest verified native wait,
-character conversion, Unicode matching, foreign calls and callbacks,
-gzip streams and message passthrough.
+Configure processes bundled GVDB and proxy-libintl, finds `C_IN` in the
+SrvrOS SDK and completes static configuration after linking `res_query()`.
+The GIO resolver object compiles with the SrvrOS DNS decoder. The static
+build first stops on missing `ELOOP` in the GLib file utilities. The normal guest
+verified native wait, character conversion, Unicode matching, foreign calls
+and callbacks, gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.
 See the [GLib prerequisite results](browser-glib-prereq.md).
 

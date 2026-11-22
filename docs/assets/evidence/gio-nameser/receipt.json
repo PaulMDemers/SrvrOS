@@ -1,0 +1,64 @@
+{
+  "scope": "public DNS Internet class declaration and real GLib cross-configure",
+  "source_baseline": "e186c9112c13080d6038c619820cf0f1797c8782",
+  "header_sha256": "57dd4dee113db885b6b927bc63936195cf33b8deb31d461ac9db1e8d54b9428d",
+  "exported_sdk_headers_sha256": "938204f23d9fb7ced8d6a1388e9a408787db32270258a24e8a43cf764385176e",
+  "sdk_headers_without_addition_sha256": "d4d2d2e539f673d86771afd1cf33c0819ef39a79ea834ee4fbe7255bc4100386",
+  "sdk_runtime_inputs_sha256": {
+    "build/sysroot/srvros/lib/libsrvros.a": "a29884690f650a1393c7d1126b89f75b1fe513266d32c13ac19aff1e2f16e205",
+    "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+    "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912"
+  },
+  "public_header_checks": {
+    "before_compiler_diagnostic": "fatal error: 'arpa/nameser.h' file not found",
+    "exact_gio_c_probe": "pass",
+    "standalone_repeated_header_c11": "pass",
+    "standalone_repeated_header_cxx23": "pass",
+    "all_compiler_dependencies": "exported SDK include/arpa/nameser.h",
+    "gio_c_in_x86_64_data_hex": "01000000",
+    "probe_objects_sha256": {
+      "gio-c-in": "9bf7c9d8a8c58570144c0647dcbd3592715f4baec024f1771d9af9e446b6435c",
+      "header-contract-c": "0e1d73b6c4933b96dfbf0a2358885e990be20dfb8ad27f6a392c28f450230e3b",
+      "header-contract-cxx": "ac29782312d46a6df777645fb3eee55cc6588ca31ae66a6b985176f01be47eea"
+    }
+  },
+  "configure": {
+    "meson": "1.10.2",
+    "exit": 1,
+    "cross_file_sha256": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+    "reused_provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "evidence": [
+      "Run-time dependency iconv found: YES",
+      "Run-time dependency libpcre2-8 found: YES 10.49",
+      "Run-time dependency libffi found: YES 3.8.0",
+      "Run-time dependency zlib found: YES 1.4",
+      "Dependency intl from subproject subprojects/proxy-libintl-0.5 found: YES 1",
+      "Checking if \"C_IN in public headers (no arpa/nameser_compat.h needed)\" compiles: YES",
+      "Checking if \"res_query()\" links: NO",
+      "Checking if \"res_query() in -lresolv\" links: NO",
+      "Checking if \"res_query() in -lbind\" links: NO",
+      "Checking if \"res_query() in -lsocket\" links: NO",
+      "build/browser-glib-nameser/configure-o4e2t57f/glib-2.90.1/gio/meson.build:63:6: ERROR: Problem encountered: Could not find res_query()"
+    ],
+    "next_gate": "res_query() link",
+    "compiler_diagnostic": "fatal error: 'resolv.h' file not found",
+    "unavailable_fallback_libraries": [
+      "resolv",
+      "bind",
+      "socket"
+    ]
+  },
+  "previous_provider_receipt_sha256": "13f056ab807a389dac7b70d5f756e85ed3f1c63ae23fcb1104e5f625d42b7e68",
+  "local_logs_sha256": {
+    "before.log": "bf312f13b0b190a11a5c34c3f9d0a3463b7850d021f4b467a9f1b20997fa7352",
+    "sdk-rebuild.log": "bf1bae62791c5c707cc31004414ccb7f3d45c8c40da93ccf529f09f50b65627e",
+    "configure-o4e2t57f/glib-configure.log": "a9d14b84ee01176b81bfb2f900e4c1e5aab54cdd9f6186f8a2d770988557a390",
+    "configure-o4e2t57f/glib-build/meson-logs/meson-log.txt": "a24794f1adfbb6282a8b4c8285e08bb542ef513ee7e6a9cc860f5f0c5132ea9b"
+  }
+}

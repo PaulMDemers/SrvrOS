@@ -3,8 +3,11 @@
 November 22, 2026. The original target configure stopped at GLib's
 `sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
 the missing `iconv` dependency. GLib now configures through the SrvrOS
-poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib and
-proxy-libintl. GIO's next required check is the `C_IN` resolver declaration.
+poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
+proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
+the static build graph. The GIO resolver object compiles with the SrvrOS DNS
+decoder. The first static build failure is the missing `ELOOP` declaration in
+GLib's file utilities.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -38,7 +41,9 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | libffi | Minimum 3.0.0. Meson finds the target static 3.8.0 provider. |
 | zlib | Meson finds the browser target's static 1.4 provider. |
 | `intl` | GLib configures the pinned proxy-libintl 0.5 wrap as an internal dependency, with `-Dnls=disabled`. |
-| GIO resolver headers | Both `C_IN` compile probes fail because the SDK lacks `<arpa/nameser.h>`. |
+| GIO resolver headers | The SDK exports `C_IN` in `<arpa/nameser.h>`. GIO's primary compile check passes. |
+| GIO resolver link | Meson links `res_query()` directly from the SrvrOS SDK using `<resolv.h>`. |
+| GIO resolver object | `gthreadedresolver.c` compiles with `dn_expand()`, wire cursors, the fixed DNS header and the record constants. |
 
 The target profile searches only the staged PCRE2, libffi and zlib pkg-config
 directories and disables Meson wrap downloads. The `intl` lookup uses the
@@ -163,6 +168,72 @@ Add `--proxy-intl-archive /path/to/proxy-libintl-0.5.tar.gz` to the full
 zlib configure command above. Add `--proxy-intl-prefix
 /path/to/run/target-proxy-intl` to the corresponding guest command.
 
+## GIO resolver header
+
+SrvrOS exports `C_IN = 1` from
+[`<arpa/nameser.h>`](../userspace/lib/include/arpa/nameser.h) through the
+normal `srvros-sysroot` target. The header supplies the DNS Internet class.
+[IANA DNS class registry](https://www.iana.org/assignments/dns-parameters#dns-parameters-2).
+
+The historical resolver review chat was archived. The integration owner
+confirmed the compile-time boundary, and the user delegated validation of
+the header to this task. A fresh SDK export passed the exact GIO C probe
+and strict standalone C11 and C++23 checks with repeated inclusion. The
+libc archive, startup object and linker script retained their hashes.
+Verification used target compiler probes, and the VM window stayed available.
+
+The fresh Meson run reused the verified providers from the combined
+proxy-libintl run with the rebuilt SDK. GIO's primary `C_IN` probe compiled.
+That header-only run failed the direct `res_query()` check on missing
+`<resolv.h>`. The static linker reported that the `resolv`, `bind` and
+`socket` fallback libraries were unavailable. At runtime the GIO record resolver
+consumes DNS wire answers and uses resolver error state and compressed-name
+decoding. Its source includes SRV, TXT, SOA, NS and MX handling.
+[Pinned GIO resolver source](https://github.com/GNOME/glib/blob/2.90.1/gio/gthreadedresolver.c).
+
+## GIO raw resolver query
+
+The networking owner's historical chat was archived and the integration
+owner found no active successor. The user delegated review of the query
+contract to this task. SrvrOS exports `res_query()` from `<resolv.h>` and
+thread-local `h_errno` from `<netdb.h>`. The query uses the existing
+bounded IPv4 UDP resolver transport with an independent socket and random
+transaction ID. The existing A lookup retains its answer parser and native
+fallback. The [POSIX profile](posix-supported-profile.md) describes the wire
+and error contracts.
+
+Meson 1.10.2 on the SDK rebuilt with main `b95bc096` links both
+`res_query()` and `socket()` directly and exits 0 with Ninja files.
+The targeted command
+`ninja -C /path/to/glib-build gio/libgio-2.0.a.p/gthreadedresolver.c.o`
+failed first at `dn_expand()` on that SDK and also reported missing
+`GETSHORT`, `GETLONG`, `HEADER` and record constants.
+
+`python3 tools/glib_platform_guest.py --resolver` passed twice in the
+diskless Q35 guest using the restored SDK, kernel, init and Limine inputs.
+The private Ethernet peer saw 24 queries and sent 30 replies. The native
+fixture checked raw TXT and SRV replies, compressed names, short-buffer sizing,
+rejection of unrelated or malformed replies, DNS error mapping, thread-local
+`h_errno` and the existing IPv4 `getaddrinfo()` path. Both platform probes also
+returned exit 0, and QEMU and its DNS peer stopped. Readback from the boot ISO
+matched the restored kernel and the packed init and probe ELFs.
+The [resolver receipt](assets/evidence/gio-res-query/receipt.json) records
+the configure and guest evidence.
+
+## GIO DNS wire decoding
+
+PR #511 landed as `00ea6d78`. The follow-up adds bounded `dn_expand()`
+and the nameser declarations used by pinned GIO. The native fixture tests
+literal and compressed names, escaping, original bytes consumed, capacity
+limits and malformed input. It also expands a compressed owner from a
+live SRV fixture reply. Two resolver runs and two platform runs exited 0 in
+the diskless guest. QEMU and the DNS peer stopped.
+
+Fresh Meson configuration and the exact GIO resolver object build both
+passed. The static GLib, GObject, GModule and GIO build first stops compiling
+`glib/gfileutils.c:1505`, where the `O_NOFOLLOW` failure path references
+`ELOOP`. See the [wire decoder receipt](assets/evidence/gio-dns-wire/receipt.json).
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
@@ -189,6 +260,9 @@ zlib configure command above. Add `--proxy-intl-prefix
   dependency and continued into GIO. Both public-header probes for `C_IN`
   failed with a missing `<arpa/nameser.h>`. Meson stopped before producing
   the complete GLib build graph.
+- **Configure with the exported resolver header.** The rebuilt SDK passes
+  the primary `C_IN` check. The first remaining configure stop is
+  `Could not find res_query()` in GIO.
 - **Normal SrvrOS guest.** The native fixture links strictly against the same
   SDK. Both runs passed in one diskless, no-NIC, one-CPU Q35/TCG guest. The
   fixture verifies nonblocking close-on-exec pipes, two pthread wakes, draining
@@ -245,8 +319,9 @@ The [original receipt](assets/evidence/glib-prereq/receipt.json),
 [poll and iconv receipt](assets/evidence/glib-iconv/receipt.json),
 [PCRE2 receipt](assets/evidence/glib-pcre2/receipt.json),
 [libffi receipt](assets/evidence/glib-libffi/receipt.json),
-[zlib receipt](assets/evidence/glib-zlib/receipt.json), and
-[proxy-libintl receipt](assets/evidence/glib-proxy-intl/receipt.json) record
+[zlib receipt](assets/evidence/glib-zlib/receipt.json),
+[proxy-libintl receipt](assets/evidence/glib-proxy-intl/receipt.json), and
+[GIO header receipt](assets/evidence/gio-nameser/receipt.json) record
 configuration outcomes, matched inputs and result hashes. The first strict
 one-step Zig compile/link rejected an unused driver option. Separate strict
 compilation and the normal SDK linker invocation resolved it. The test and
@@ -337,7 +412,5 @@ For the diagnostic, copy that source and replace `sys/poll.h` with `poll.h`
 only in the `has_syspoll` check and the adjacent constants-test include in
 `meson.build`. Use that copy and a new output directory with the same flags.
 
-The next concrete configure task is to review GIO's resolver header and
-API requirements with the SrvrOS networking owner. The first failed check
-requires a public declaration of `C_IN` through `<arpa/nameser.h>`.
-GIO's subsequent `res_query` link probe is visible in the pinned source.
+The next configure task is to define and verify the resolver API contract
+for GIO's `res_query()` dependency with the networking owner.
