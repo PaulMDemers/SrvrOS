@@ -15,6 +15,20 @@ the native Wi-Fi owner, System controls and reconnect fixture. PR #301 and
 with fresh WPA and DHCP state while USB storage stays mounted. Live adapter
 reinsertion and cold reliability follow the two-connection trial.
 
+The opt-in v152 profile uses source `92ccb627` and release
+`74da74e0b57afbb8`. Its native driver fixture used a modeled access point,
+xHCI controller and scheduler to pass two independent WPA and DHCP runs,
+DNS and exact HTTP body checks on both connections, shared USB storage
+traffic and separate retirement of both connection owners. The second
+Connect rejects the first connection's selection generation. Physical
+acceptance requires both connections and disconnects on this Mac with
+the workspace attached and a new file saved and reopened on each connection.
+The exact image passed the GPT workspace save and reset check and four
+journal rehearsals covering both destinations, missing workspace, journal
+refusal with workspace fallback, and both destinations refusing writes.
+Help opens the complete checklist. Trial records are under
+`build/bringup/wifi-desktop-reconnect5`.
+
 ### Desktop connection owner and shared USB storage
 
 Follow-up scope at `722bddcc` with `origin/main` at `4016abf0`: use the
