@@ -19,7 +19,7 @@ from exfat_test_image import ExfatFixture
 from pack_runtime_elf import runtime_elf
 from uefi_usb_smoke import default_ovmf_path
 import installation_image
-import profile_bundle as v1
+import profile_bundle as metadata
 import profile_chooser_smoke as c
 import profile_desktop_smoke as d
 import profile_image
@@ -68,17 +68,17 @@ def memory_scripts():
         'file_16m': ['Documents/large.bin'],
         'total_64m': ['Documents/large.bin', 'Documents/a.bin', 'Documents/b.bin', 'Documents/c.bin'],
     }
-    return {f'memory-{name}.sh': ('export SRVROS_PROFILE_TRACE_MEMORY=1\n/fat/bin/profile preview-export-auto ' +
+    return {f'memory-{name}.sh': ('export SRVROS_PROFILE_TRACE_MEMORY=1\n/fat/bin/profile preview-export ' +
             A + ' ' + ' '.join(paths) + '\n').encode('ascii') for name, paths in workloads.items()}
 
 
 def invalid_fixtures():
     sample = b'\0' * CHUNK
     def container(docs, payload=b'', *, reserved=0, manifest_override=None):
-        metadata = {'format': v1.FORMAT, 'schema_version': 2,
+        manifest = {'format': metadata.FORMAT, 'schema_version': 2,
                     'profile': d.make_bundle()['profile'],
                     'preferences': d.make_bundle()['preferences'], 'documents': docs}
-        raw = manifest_override if manifest_override is not None else v1.encode_json(metadata)
+        raw = manifest_override if manifest_override is not None else metadata.encode_json(manifest)
         return MAGIC + struct.pack('<II', len(raw), reserved) + raw + payload
     good = {'path': 'Documents/x.bin', 'size': len(sample), 'sha256': hashlib.sha256(sample).hexdigest()}
     corrupt = sample[:-1] + b'X'
@@ -110,17 +110,17 @@ def verify_v2(stream, expected):
     if header[:16] != MAGIC: raise RuntimeError('not a v2 container')
     size, reserved = struct.unpack('<II', header[16:])
     if not 0 < size <= 65536 or reserved: raise RuntimeError('invalid v2 header')
-    manifest = v1.decode_json(read_exact(size))
-    v1.exact(manifest, ('format', 'schema_version', 'profile', 'preferences', 'documents'), 'v2 manifest')
-    if manifest['format'] != v1.FORMAT or type(manifest['schema_version']) is not int or manifest['schema_version'] != 2:
+    manifest = metadata.decode_json(read_exact(size))
+    metadata.exact(manifest, ('format', 'schema_version', 'profile', 'preferences', 'documents'), 'v2 manifest')
+    if manifest['format'] != metadata.FORMAT or type(manifest['schema_version']) is not int or manifest['schema_version'] != 2:
         raise RuntimeError('invalid v2 version')
-    v1.identity(manifest['profile']); v1.preferences(manifest['preferences'])
+    metadata.identity(manifest['profile']); metadata.preferences(manifest['preferences'])
     docs = manifest['documents']
     if type(docs) is not list or len(docs) > 64: raise RuntimeError('invalid v2 document count')
     seen, total, evidence = set(), 0, {}
     for item in docs:
-        v1.exact(item, ('path', 'size', 'sha256'), 'v2 document')
-        path = item['path']; v1.document_path(path)
+        metadata.exact(item, ('path', 'size', 'sha256'), 'v2 document')
+        path = item['path']; metadata.document_path(path)
         n, digest = item['size'], item['sha256']
         if type(n) is not int or not 0 <= n <= MAX_DOC or not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
             raise RuntimeError('invalid v2 document metadata')
@@ -147,7 +147,7 @@ def fixture(out, receipt, image, binary):
     driver = (ROOT / 'build/tests/profile-image-driver').resolve()
     ma, mb = d.machine_preferences(4, -300), d.machine_preferences(2, 60)
     source = out / 'source.exfat'
-    profile_image.provision(base, source, d.make_bundle(), A, 'local_a', 1001, 1001, driver, ma)
+    d.provision_fixture(base, source, d.make_bundle(), A, 'local_a', 1001, 1001, driver, ma)
     target = out / 'destination.exfat'
     with tempfile.TemporaryDirectory(prefix='.profile-image-', dir=out) as tmp:
         stage = Path(tmp) / 'image'; shutil.copyfile(base, stage)
@@ -232,8 +232,8 @@ def gui_transfer(vm, operation, *, checkpoint=None, filename='transfer.srvrprofi
         # the next command, so a later successful readback cannot hide failure.
         if operation == 'import' and change_file == '/work/transfer.srvrprofile':
             commands = ['/fat/bin/mv /work/transfer.srvrprofile /work/reviewed-original.srvrprofile',
-                        '/fat/bin/cp /work/legacy.json /work/transfer.srvrprofile',
-                        '/fat/bin/cmp -s /work/transfer.srvrprofile /work/legacy.json']
+                        '/fat/bin/cp /work/alternate.srvrprofile /work/transfer.srvrprofile',
+                        '/fat/bin/cmp -s /work/transfer.srvrprofile /work/alternate.srvrprofile']
         elif operation == 'export' and change_file == A + '/Documents/migration.txt':
             commands = ['/fat/bin/write ' + change_file + ' changed-after-review',
                         '/fat/bin/cmp -s ' + change_file + ' /work/stream-input/change-expected.txt']
@@ -321,11 +321,11 @@ def restored_readback(vm):
 def check_profile(fixture, home, machine, bundle, payloads, source):
     prefix = home.removeprefix('/fat/') + '/'
     if (fixture.read(prefix + 'profile.id') != b'srvros-profile-v1\n' + d.ID.encode() + b'\n' or
-        v1.decode_json(fixture.read(prefix + 'identity.json')) != bundle['profile'] or
-        v1.decode_json(fixture.read(prefix + v1.PREF_PATH)) != bundle['preferences'] or
+        metadata.decode_json(fixture.read(prefix + 'identity.json')) != bundle['profile'] or
+        metadata.decode_json(fixture.read(prefix + metadata.PREF_PATH)) != bundle['preferences'] or
         fixture.read('home/desktop.conf') != machine):
         raise RuntimeError('profile identity, settings, or machine preferences differ')
-    binding = v1.decode_json(fixture.read(prefix + 'profile-local.json'))
+    binding = metadata.decode_json(fixture.read(prefix + 'profile-local.json'))
     if source and binding != {'alias': 'local_a', 'uid': 1001, 'gid': 1001}:
         raise RuntimeError('source binding changed')
     if not source and (binding.get('alias') != 'local_b' or binding.get('uid') == 1001 or binding.get('gid') == 1001):
@@ -391,9 +391,9 @@ def memory_preview(vm, label, expected_bytes):
     stats = re.findall(rb'profile-memory: guest_peak_mapped_bytes=(\d+) phase=exit', output)
     reviews = re.findall(rb'\{[^\r\n]*\}', output)
     if len(stats) != 1 or not reviews: raise RuntimeError('missing guest mapped-high-water evidence')
-    review = v1.decode_json(reviews[-1])
+    review = metadata.decode_json(reviews[-1])
     if (review.get('format') != 'srvros-profile-review-v1' or review.get('operation') != 'export' or
-        review.get('bundle_version') != 2 or review.get('bytes') != expected_bytes):
+        review.get('bytes') != expected_bytes):
         raise RuntimeError('memory preview review differs from workload')
     return int(stats[0]), review
 
@@ -415,9 +415,9 @@ def review_guest(vm, line, operation, size):
     output = run_guest(vm, line, timeout=600)
     reviews = re.findall(rb'\{[^\r\n]*\}', output)
     if not reviews: raise RuntimeError('missing guest review')
-    review = v1.decode_json(reviews[-1])
+    review = metadata.decode_json(reviews[-1])
     if (review.get('format') != 'srvros-profile-review-v1' or review.get('operation') != operation or
-        review.get('bundle_version') != 2 or review.get('bytes') != size or
+        review.get('bytes') != size or
         not re.fullmatch(r'[0-9a-f]{64}', review.get('sha256', ''))):
         raise RuntimeError('guest transfer review mismatch')
     return review
@@ -494,15 +494,16 @@ def main():
             create_sentinels(vm)
             start, index = c.chooser(vm, A); c.select(vm, index); c.opened(vm, A, start)
             source_text(vm)
-            gui_transfer(vm, 'export', filename='legacy.json', docs=('Documents/migration.txt', 'Documents/binary.dat'))
+            gui_transfer(vm, 'export', filename='alternate.srvrprofile', docs=('Documents/migration.txt', 'Documents/binary.dat'))
             gui_transfer(vm, 'export')
             t.close_session(vm)
         expected = {'Documents/large.bin': binary, 'Documents/photo.bmp': image, 'Documents/migration.txt': TEXT}
         transport = t.check_allocation(disks['transport'], out, 'transport-export')
-        legacy = transport.read('legacy.json'); legacy_bundle = v1.decode_json(legacy)
-        if (legacy.startswith(MAGIC) or legacy_bundle['profile'] != d.make_bundle()['profile'] or
-            v1.validate_bundle(legacy_bundle) != {'Documents/migration.txt': TEXT, 'Documents/binary.dat': d.BINARY}):
-            raise RuntimeError('small graphical export is not compatible v1')
+        alternate = transport.read('alternate.srvrprofile')
+        alternate_bundle, _, _ = verify_v2(io.BytesIO(alternate),
+                                            {'Documents/migration.txt': TEXT, 'Documents/binary.dat': d.BINARY})
+        if alternate_bundle['profile'] != d.make_bundle()['profile']:
+            raise RuntimeError('small graphical export identity differs')
         exported = transport.read('transfer.srvrprofile')
         path = out / 'guest-export.srvrprofile'; path.write_bytes(exported)
         with path.open('rb') as stream: bundle, digest, documents = verify_v2(stream, expected)
@@ -511,7 +512,7 @@ def main():
         # Exercise the independently maintained host codec on the actual
         # guest-produced container, while retaining the separate wire verifier.
         with host_stream.open_bundle(path) as host:
-            if host.legacy or host.metadata != bundle or host.sha256 != digest:
+            if host.metadata != bundle or host.sha256 != digest:
                 raise RuntimeError('host codec disagrees with guest v2 bundle')
             for entry in host.metadata['documents']:
                 sink = io.BytesIO(); host.copy_document(entry, sink)
@@ -520,7 +521,7 @@ def main():
         receipt['host_codec'] = {'guest_v2_read': True, 'sha256': digest}
         receipt['guest_export'] = {'path': str(path), 'sha256': digest, 'bytes': len(exported),
                                    'version': 2, 'documents': documents}
-        receipt['legacy_export'] = {'sha256': d.digest(legacy), 'bytes': len(legacy), 'version': 1}
+        receipt['alternate_export'] = {'sha256': d.digest(alternate), 'bytes': len(alternate), 'version': 2}
         with c.VM(disks['a'], disks['transport'], out, 'a-v2-partial', args) as vm:
             desktop(vm, A, checkpoint='export-partial')
             gui_transfer(vm, 'export', checkpoint='export-partial', filename='partial.srvrprofile')
@@ -543,7 +544,7 @@ def main():
         # Reverse interoperability uses a product host-encoder fixture on a
         # different generated transport and a B clone. The main transport stays
         # the untouched guest-produced export throughout the core proof.
-        host_store = out / 'host-store'; v1.init_store(host_store)
+        host_store = out / 'host-store'; metadata.init_store(host_store)
         host_stream.import_bundle(host_store, path, 'host_fixture', 3100, 3100)
         host_export = out / 'host-produced.srvrprofile'
         host_stream.export_bundle(host_store, d.ID, ['Documents/photo.bmp'], host_export)
@@ -568,8 +569,8 @@ def main():
         host_fs = t.check_allocation(host_receiver, out, 'host-import-final')
         host_prefix = B.removeprefix('/fat/') + '/'
         if (host_fs.read(host_prefix + 'Documents/photo.bmp') != image or
-            v1.decode_json(host_fs.read(host_prefix + 'identity.json')) != host_manifest['profile'] or
-            v1.decode_json(host_fs.read(host_prefix + v1.PREF_PATH)) != host_manifest['preferences'] or
+            metadata.decode_json(host_fs.read(host_prefix + 'identity.json')) != host_manifest['profile'] or
+            metadata.decode_json(host_fs.read(host_prefix + metadata.PREF_PATH)) != host_manifest['preferences'] or
             host_fs.read('home/desktop.conf') != mb):
             raise RuntimeError('guest import of host-produced v2 differs')
         c.absent(host_fs, host_prefix + '.profile-import-pending')
@@ -583,26 +584,26 @@ def main():
         receipt['host_codec'].update(host_v2_guest_import=True, host_export_sha256=host_digest,
                                      host_transport_gpt=host_ready['gpt'])
         t.archive_completed(host_receiver, out); t.archive_completed(host_disk, out); t.archive_completed(host_volume, out)
-        # The legacy receiver is a pristine B copy. It never changes the main B.
-        legacy_disk = out / 'probe-legacy.img'; shutil.copyfile(disks['b'], legacy_disk)
-        with c.VM(legacy_disk, disks['transport'], out, 'b-legacy-import', args) as vm:
-            desktop(vm); gui_transfer(vm, 'import', filename='legacy.json'); t.close_session(vm)
-        fixture_legacy = t.check_allocation(legacy_disk, out, 'b-legacy-final')
+        # The alternate receiver is a pristine B copy. It never changes the main B.
+        alternate_disk = out / 'probe-alternate.img'; shutil.copyfile(disks['b'], alternate_disk)
+        with c.VM(alternate_disk, disks['transport'], out, 'b-alternate-import', args) as vm:
+            desktop(vm); gui_transfer(vm, 'import', filename='alternate.srvrprofile'); t.close_session(vm)
+        fixture_alternate = t.check_allocation(alternate_disk, out, 'b-alternate-final')
         prefix = B.removeprefix('/fat/') + '/'
-        if (fixture_legacy.read(prefix + 'Documents/migration.txt') != TEXT or
-            fixture_legacy.read(prefix + 'Documents/binary.dat') != d.BINARY or
-            v1.decode_json(fixture_legacy.read(prefix + 'identity.json')) != legacy_bundle['profile'] or
-            v1.decode_json(fixture_legacy.read(prefix + v1.PREF_PATH)) != legacy_bundle['preferences'] or
-            fixture_legacy.read('home/desktop.conf') != mb or
-            fixture_legacy.read(prefix + 'profile.id') != b'srvros-profile-v1\n' + d.ID.encode() + b'\n'):
-            raise RuntimeError('v1 graphical import differs')
-        legacy_binding = v1.decode_json(fixture_legacy.read(prefix + 'profile-local.json'))
-        if legacy_binding.get('alias') != 'local_b' or legacy_binding.get('uid') == 1001 or legacy_binding.get('gid') == 1001:
-            raise RuntimeError('v1 imported binding is not destination-local')
-        for path, _ in SENTINELS: c.absent(fixture_legacy, prefix + path)
-        if d.outside_data(legacy_disk, *d.partitions(legacy_disk)[1]) != receipt['installations']['b']['protected_regions']:
-            raise RuntimeError('legacy receiver protected bytes changed')
-        t.archive_completed(legacy_disk, out)
+        if (fixture_alternate.read(prefix + 'Documents/migration.txt') != TEXT or
+            fixture_alternate.read(prefix + 'Documents/binary.dat') != d.BINARY or
+            metadata.decode_json(fixture_alternate.read(prefix + 'identity.json')) != alternate_bundle['profile'] or
+            metadata.decode_json(fixture_alternate.read(prefix + metadata.PREF_PATH)) != alternate_bundle['preferences'] or
+            fixture_alternate.read('home/desktop.conf') != mb or
+            fixture_alternate.read(prefix + 'profile.id') != b'srvros-profile-v1\n' + d.ID.encode() + b'\n'):
+            raise RuntimeError('small v2 graphical import differs')
+        alternate_binding = metadata.decode_json(fixture_alternate.read(prefix + 'profile-local.json'))
+        if alternate_binding.get('alias') != 'local_b' or alternate_binding.get('uid') == 1001 or alternate_binding.get('gid') == 1001:
+            raise RuntimeError('small v2 imported binding is not destination-local')
+        for path, _ in SENTINELS: c.absent(fixture_alternate, prefix + path)
+        if d.outside_data(alternate_disk, *d.partitions(alternate_disk)[1]) != receipt['installations']['b']['protected_regions']:
+            raise RuntimeError('alternate receiver protected bytes changed')
+        t.archive_completed(alternate_disk, out)
         # Revalidation rejects a changed source after the actual review. A and
         # the transport are cloned/isolated so the original inputs survive.
         changed_a = out / 'probe-changed-a.img'; shutil.copyfile(disks['a'], changed_a)
@@ -618,7 +619,7 @@ def main():
         changed_transport = out / 'transport-changed.img'; shutil.copyfile(disks['transport'], changed_transport)
         changed_initial = t.check_allocation(changed_transport, out, 'changed-transport-initial')
         c.absent(changed_initial, 'reviewed-original.srvrprofile')
-        if changed_initial.read('transfer.srvrprofile') != exported or changed_initial.read('legacy.json') != legacy:
+        if changed_initial.read('transfer.srvrprofile') != exported or changed_initial.read('alternate.srvrprofile') != alternate:
             raise RuntimeError('changed-bundle fixture inputs differ from guest exports')
         del changed_initial
         with c.VM(disks['b'], changed_transport, out, 'b-changed-review', args) as vm:
@@ -633,8 +634,8 @@ def main():
             raise RuntimeError('changed transport protected bytes changed')
         changed_final = t.check_allocation(changed_transport, out, 'changed-transport-final')
         if (changed_final.read('reviewed-original.srvrprofile') != exported or
-            changed_final.read('transfer.srvrprofile') != legacy or changed_final.read('legacy.json') != legacy):
-            raise RuntimeError('changed-bundle fixture did not preserve original and replace with legacy export')
+            changed_final.read('transfer.srvrprofile') != alternate or changed_final.read('alternate.srvrprofile') != alternate):
+            raise RuntimeError('changed-bundle fixture did not preserve original and replace with the alternate export')
         t.archive_completed(changed_transport, out)
         del changed_final
         receipt['changed_review'] = {'source_revalidation_refused': True, 'bundle_revalidation_refused': True}
@@ -659,7 +660,7 @@ def main():
                 desktop(vm, checkpoint=checkpoint); gui_transfer(vm, 'import', checkpoint=checkpoint); t.close_session(vm)
             stopped = t.check_allocation(probe, out, 'stopped-' + checkpoint)
             journal_bytes = stopped.read('home/local_b.profile-import.json')
-            journal = v1.decode_json(journal_bytes)
+            journal = metadata.decode_json(journal_bytes)
             if (set(journal) != {'format', 'home', 'bundle', 'sha256', 'binding', 'profile_id'} or
                     journal['format'] != 'srvros-profile-import-v2' or journal['home'] != B or
                     journal['sha256'] != digest or journal['profile_id'] != d.ID):
@@ -711,7 +712,7 @@ def main():
             if low_fs.read(path) != b'\0' * (blocks * CHUNK):
                 raise RuntimeError('low-space refusal changed filler: ' + path)
         c.absent(low_fs, 'home/local_b/profile.id')
-        try: journal = v1.decode_json(low_fs.read('home/local_b.profile-import.json'))
+        try: journal = metadata.decode_json(low_fs.read('home/local_b.profile-import.json'))
         except StopIteration: journal = None
         if journal is not None and (journal.get('format') != 'srvros-profile-import-v2' or
                                     journal.get('home') != B or journal.get('sha256') != digest):
@@ -734,7 +735,7 @@ def main():
             if restored_free <= before_free or restored_free < MAX_DOC:
                 raise RuntimeError('removing the synthetic filler did not restore enough space')
             if journal is not None:
-                retained = v1.decode_json(restored_fs.read('home/local_b.profile-import.json'))
+                retained = metadata.decode_json(restored_fs.read('home/local_b.profile-import.json'))
                 if retained != journal: raise RuntimeError('space restoration modified retained journal')
                 recover(vm)
             else:
@@ -796,7 +797,7 @@ def main():
             guest_script(vm, '/work/e', [
                 'export SRVROS_PROFILE_TRACE_MEMORY=1', 'H=' + export_review['sha256'],
                 'D=Documents/large.bin', 'A=Documents/a.bin', 'B=Documents/b.bin', 'C=Documents/c.bin',
-                '/fat/bin/profile export-auto-reviewed /fat/home/local-a /work/m64 $H $D $A $B $C'])
+                '/fat/bin/profile export-reviewed /fat/home/local-a /work/m64 $H $D $A $B $C'])
             export_peak = memory_command(vm, '/work/e')
             vm.finish()
         if d.outside_data(memory_disk, *d.partitions(memory_disk)[1]) != receipt['installations']['a']['protected_regions']:
@@ -838,11 +839,11 @@ def main():
         memory_b_fs = t.check_allocation(memory_b, out, 'memory-b-final')
         memory_prefix = B.removeprefix('/fat/') + '/'
         if (memory_b_fs.read(memory_prefix + 'profile.id') != b'srvros-profile-v1\n' + d.ID.encode() + b'\n' or
-            v1.decode_json(memory_b_fs.read(memory_prefix + 'identity.json')) != bundle['profile'] or
-            v1.decode_json(memory_b_fs.read(memory_prefix + v1.PREF_PATH)) != bundle['preferences'] or
+            metadata.decode_json(memory_b_fs.read(memory_prefix + 'identity.json')) != bundle['profile'] or
+            metadata.decode_json(memory_b_fs.read(memory_prefix + metadata.PREF_PATH)) != bundle['preferences'] or
             memory_b_fs.read('home/desktop.conf') != mb):
             raise RuntimeError('64 MiB imported identity/preferences differ')
-        actual_binding = v1.decode_json(memory_b_fs.read(memory_prefix + 'profile-local.json'))
+        actual_binding = metadata.decode_json(memory_b_fs.read(memory_prefix + 'profile-local.json'))
         if actual_binding != {'alias': 'local_b', 'uid': destination['uid'], 'gid': destination['gid']}:
             raise RuntimeError('64 MiB imported binding differs from review')
         for document, data in memory_expected.items():
@@ -913,7 +914,7 @@ def main():
             receipt['installations'][name]['profile'] = {'id': d.ID, 'binding': binding,
                 'machine_sha256': d.digest(machine)}
         final_transport = t.check_allocation(disks['transport'], out, 'transport-final')
-        if final_transport.read('transfer.srvrprofile') != exported or final_transport.read('legacy.json') != legacy or final_transport.read('small.srvrprofile') != small_bytes or final_transport.read('partial.srvrprofile') != partial:
+        if final_transport.read('transfer.srvrprofile') != exported or final_transport.read('alternate.srvrprofile') != alternate or final_transport.read('small.srvrprofile') != small_bytes or final_transport.read('partial.srvrprofile') != partial:
             raise RuntimeError('transport bundle changed')
         for name, disk in disks.items():
             if d.outside_data(disk, *d.partitions(disk)[1]) != receipt['installations'][name]['protected_regions']:

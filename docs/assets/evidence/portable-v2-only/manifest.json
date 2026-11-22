@@ -1,0 +1,102 @@
+{
+  "graphical": {
+    "boot_sequence": [
+      "a-export",
+      "b-interrupted",
+      "b-recovered",
+      "b-remembered"
+    ],
+    "bundle_sha256": "dd00dd297d28a7493d71c8445c2af901459ecb0685b33549882d877cc1054e4d",
+    "default_small_bundle_schema": 2,
+    "documents": {
+      "Documents/binary.dat": {
+        "sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+        "size": 11
+      },
+      "Documents/migration.txt": {
+        "sha256": "6fd395fed312e588ab38f6c64639b744adeeb351cd4b69511548fe54eb81f203",
+        "size": 24
+      }
+    },
+    "interrupted_import_checkpoint": "document",
+    "receipt_sha256": "eadac55d67357494bd14381708b84df0aafc4708fcfbb8c8ec1a1e97e34f56dd",
+    "snapshots": {
+      "a-initial": "07f462bb299b5d0f57719b1de715c4e7a9f0bb70ff48151ba50e852ef348c639",
+      "b-recovered": "087a01628be50f439f6115a01ddf65481079423a76a00af49401f99f8d709073",
+      "b-remembered": "429befe2822bd9ad1092abae2c93af3c91d8f417c132aa25ab3a8fba19da5fdf"
+    }
+  },
+  "host_checks": {
+    "guest_and_host_v1_rejected": true,
+    "guest_command_tests_passed": 24,
+    "guest_stream_tests_passed": 12,
+    "installation_optional_skipped": 1,
+    "installation_tests_passed": 100,
+    "offline_native_boundary": {
+      "max_file_bytes": 16777216,
+      "total_bytes": 67108864
+    },
+    "portable_profile_optional_skipped": 1,
+    "portable_profile_tests_passed": 27,
+    "profile_catalog": "PASS",
+    "profiles_review_parser": "PASS",
+    "publication_checkpoints": [
+      "recorded",
+      "partial-write",
+      "written",
+      "file-synced",
+      "linked",
+      "unlinked",
+      "directory-synced",
+      "acknowledged"
+    ]
+  },
+  "independent_byte_audit_sha256": "acaf610990e2d5f858f92fa3aee22da9b48ea629efc19955986de4902c1f95b3",
+  "integrated_main": "7373d4d5d2c53ab7529619f4c174567331b4fdad",
+  "offline": {
+    "bundle_sha256": "99d39072a360a506f3c0a152399b2eca72dca2f55d78cb4a9b687613f03bbd01",
+    "documents": [
+      {
+        "path": "Documents/migration.txt",
+        "sha256": "0bb4ea865cafd90717ab7028e7f0ec711e0e270ba27557bb2a3ec9dbd5790e54",
+        "size": 24
+      },
+      {
+        "path": "Documents/binary.profile-import.dat",
+        "sha256": "ed231d85a68b071fe94b60a4b2563217dd131410f8c91a828d31a649efd945d8",
+        "size": 20
+      },
+      {
+        "path": "Documents/large.bin",
+        "sha256": "341aacac661ccb210720bedaa9ead5d668fe5ea41a73532fc147c71e34040df1",
+        "size": 16777216
+      }
+    ],
+    "fresh_efi_boots": 2,
+    "interruption_exit": 75,
+    "publication_states": [
+      "prepared",
+      "complete"
+    ],
+    "real_interruption": "written",
+    "receipt_sha256": "e6f91584cc0937368d8bff549d3f91dcc425b79d53f5f33b0bf261b1d2c5398f",
+    "snapshots": {
+      "a-before-export": "d1ec62dbdd79faa0d5eb419572a48dd3181e2fa857fc2389e9667af7ef500f51",
+      "b-preboot": "e6120c0624794acd3d6a99f524d5a27e57591267448493d39a4adc6ecec207b5",
+      "b1": "6b29b119c470e75fa915494ee9935a147595f98a53502813a9df4e762868e1ce",
+      "b2": "bc5945c08b7622a25c7769f4b674bda8784713d55284192b9a5da3e7606b384b"
+    },
+    "source_flushes": 0,
+    "source_writes": 0
+  },
+  "offline_export_driver_sha256": "e5dfc86e1d66c9f879bb037e1c1723a8a45a1e09e7eec6fbe3c43d47985df898",
+  "runtime_sha256": {
+    "build/initramfs.tar": "b53b1c2ae45cd1c9a440cf05bdc1450ad2a1f28740e82e95a99525350736cd1b",
+    "build/kernel/srvros.elf": "96d26185f42cbbc7a3a1c09bc014a1c4a316fab29e61502a18f9d732fa642460",
+    "build/srvros.exfat": "498ff775f047a95975d4323a6d154f66c5a86d6dc5c5aedcd03f50a5e72d9d34"
+  },
+  "srvr_apps_review_head": "dff99477c70801e1cc94abe868d887938c026452",
+  "status": "qualified-for-review",
+  "tested_srvr_apps_pin": "1531a15490d2e56b8a3f6dad5367d7f79a26d674",
+  "tested_srvr_os": "de748bb00f68ddc934e8ad538a00ace366b9b46b"
+}

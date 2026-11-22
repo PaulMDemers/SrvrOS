@@ -18,7 +18,7 @@ import traceback
 from exfat_test_image import ExfatFixture
 from pack_runtime_elf import runtime_elf
 from profile_desktop_smoke import (ROOT, ID, BINARY, EDITED, boot, data_image,
-    digest, machine_preferences, make_bundle, outside_data, partitions, save_json,
+    digest, machine_preferences, make_bundle, outside_data, partitions, save_json, write_fixture_bundle,
     verified_build)
 from profile_installation_smoke import clone, seed_volume
 from uefi_usb_smoke import default_ovmf_path
@@ -109,8 +109,8 @@ def run(args, storage):
         prefs = machine_preferences(4, -300)
         storage.call(2 * originals['exfat'].stat().st_size, seed_volume,
                      originals['exfat'], paths['exfat'], prefs, paths['driver'], out)
-        paths['bundle'] = private / 'bundle.json'
-        profile_bundle.publish_bundle(paths['bundle'], make_bundle())
+        paths['bundle'] = private / 'bundle.srvrprofile'
+        write_fixture_bundle(paths['bundle'], make_bundle())
         private_hashes = {n: installation_image.digest(p) for n, p in paths.items()}
         receipt['private_inputs'] = private_hashes
         save_json(receipt_path, receipt)

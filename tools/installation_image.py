@@ -129,11 +129,8 @@ def profile_source(bundle):
 
 
 def profile_metadata(bundle, home, alias, uid, gid):
-    if bundle.legacy:
-        metadata, _, _ = profile_image.validate_request(bundle.metadata, home, alias, uid, gid)
-    else:
-        documents = (entry['path'] for entry in bundle.metadata['documents'])
-        metadata, _, _ = profile_image.profile_layout(bundle.metadata, documents, home, alias, uid, gid)
+    documents = (entry['path'] for entry in bundle.metadata['documents'])
+    metadata, _, _ = profile_image.profile_layout(bundle.metadata, documents, home, alias, uid, gid)
     return metadata
 
 
@@ -424,14 +421,11 @@ def _apply(target, checkpoint):
         provisioned = target / 'profile.exfat'
         binding = (profile['home'], profile['alias'], profile['uid'], profile['gid'])
         driver = plan['sources']['profile_driver']['path']
-        if bundle['schema_version'] == 2:
-            record = plan['sources']['profile_bundle']
-            with profile_stream.open_bundle(record['path']) as opened:
-                if profile_source(opened) != record:
-                    raise ValueError('profile bundle changed before provisioning')
-                result = profile_image.provision_stream(exfat_path, provisioned, opened, *binding, driver)
-        else:
-            result = profile_image.provision(exfat_path, provisioned, bundle, *binding, driver)
+        record = plan['sources']['profile_bundle']
+        with profile_stream.open_bundle(record['path']) as opened:
+            if profile_source(opened) != record:
+                raise ValueError('profile bundle changed before provisioning')
+            result = profile_image.provision(exfat_path, provisioned, opened, *binding, driver, fresh=True)
         if (result['profile_id'] != profile['profile_id'] or result['home'] != profile['home'] or
             any(result[key] != profile[key] for key in ('alias', 'uid', 'gid'))):
             raise ValueError('profile provision result mismatch')
@@ -685,7 +679,7 @@ def main():
     export.add_argument('--inspect-driver', required=True)
     export.add_argument('--export-driver', required=True)
     import installation_export_publication as export_publication
-    export.add_argument('--publication-dir')
+    export.add_argument('--publication-dir', required=True)
     export.add_argument('--interrupt-after', choices=export_publication.CHECKPOINTS)
     export_inspect = sub.add_parser('inspect-export')
     export_inspect.add_argument('publication_dir')
@@ -716,14 +710,12 @@ def main():
             result = inspect_installed(args.staging_dir, args.driver)
         elif args.action == 'export-profile':
             from installation_export import export_installed
-            if args.interrupt_after and not args.publication_dir:
-                parser.error('--interrupt-after requires --publication-dir')
             def checkpoint(name):
                 if name == args.interrupt_after:
                     os._exit(75)
             result = export_installed(args.staging_dir, args.output, args.profile_id, args.home,
                                       args.document, args.inspect_driver, args.export_driver,
-                                      args.publication_dir, checkpoint if args.publication_dir else None)
+                                      args.publication_dir, checkpoint)
         elif args.action == 'inspect-export':
             result = export_publication.inspect(args.publication_dir)
         elif args.action == 'reconcile-export':

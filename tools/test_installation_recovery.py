@@ -8,7 +8,7 @@ from unittest import mock
 import uuid
 
 import installation_image as image
-import profile_bundle as profiles
+import profile_stream_fixture as stream_fixture
 from test_installation_profile import sparse_builder
 from test_installation_image import exfat_fixture
 
@@ -39,9 +39,8 @@ class RecoveryTests(unittest.TestCase):
         self.driver = self.root / 'driver'
         self.driver.write_text('#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[1], "r+b") as f:\n f.seek(-1,2); f.write(b"X")\n')
         self.driver.chmod(0o755)
-        self.bundle = self.root / 'bundle.json'
-        self.bundle.write_bytes(profiles.encode_json({'format': profiles.FORMAT, 'schema_version': 1,
-            'profile': {'id': str(uuid.uuid4()), 'display_name': 'A'}, 'preferences': {}, 'documents': []}))
+        self.bundle = self.root / 'bundle.srvrprofile'
+        stream_fixture.write_stream(self.bundle, {'id': str(uuid.uuid4()), 'display_name': 'A'}, {}, [])
 
     def prepare(self, with_profile=False):
         extra = dict(profile_bundle=self.bundle, profile_home='/fat/home/alice', profile_alias='alice',
@@ -60,7 +59,7 @@ class RecoveryTests(unittest.TestCase):
                          os.readlink(p) if p.is_symlink() else image.digest(p))
                 for p in self.target.iterdir()}
 
-    def test_checkpoint_matrix_v1_v2(self):
+    def test_checkpoint_matrix_plain_and_v2_profile(self):
         states = {'provisioning-started': 'incomplete', 'provisioned': 'incomplete',
                   'assembled': 'incomplete', 'verified': 'verified', 'image-linked': 'image-linked',
                   'image-published': 'image-published', 'ready-written': 'ready-written',

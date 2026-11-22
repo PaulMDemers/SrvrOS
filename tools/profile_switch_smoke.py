@@ -335,8 +335,8 @@ def fixture(out, receipt):
     bundle_b['preferences'] = {'text_size': 20, 'clock_flags': 1, 'wallpaper': 1,
                                'theme_accent': 2, 'glass_level': 0, 'theme_style': 1}
     first = out / 'profile-a.exfat'; second = out / 'profiles.exfat'
-    profile_image.provision(base, first, bundle_a, A, 'switch_a', 1001, 1001, driver, machine)
-    profile_image.provision(first, second, bundle_b, B, 'switch_b', 2001, 2001, driver)
+    d.provision_fixture(base, first, bundle_a, A, 'switch_a', 1001, 1001, driver, machine)
+    d.provision_fixture(first, second, bundle_b, B, 'switch_b', 2001, 2001, driver)
     disks = {}
     receipt['installations'] = {}
     for name, volume in (('system', second), ('transport', base)):
@@ -566,9 +566,9 @@ def main():
             fixture_final.read('home/.desktop-profile') != c.expected_choice(A, ID_A)):
             raise RuntimeError('save/discard, clipboard, machine settings, or remembered choice differs')
         transport = t.check_allocation(disks['transport'], out, 'transport-final')
-        io_bundle = profile_bundle.decode_json(transport.read('io-export.json'))
+        io_bundle, io_payloads = d.decode_fixture_bundle(transport.read('io-export.json'))
         if (io_bundle['profile'] != bundle_a['profile'] or io_bundle['preferences'] != bundle_a['preferences'] or
-            profile_bundle.validate_bundle(io_bundle) != {'Documents/profile-io.bin': b'\0' * (1024 * 1024)}):
+            io_payloads != {'Documents/profile-io.bin': b'\0' * (1024 * 1024)}):
             raise RuntimeError('accepted Profiles export bundle differs')
         receipt['accepted_io'] = {'files_bytes': 16 * 1024 * 1024,
             'profile_bytes': 1024 * 1024, 'profile_bundle_sha256': d.digest(transport.read('io-export.json')),

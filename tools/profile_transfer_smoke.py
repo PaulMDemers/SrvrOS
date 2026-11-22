@@ -129,7 +129,7 @@ def prepare(args, out, receipt):
     base = ROOT / 'build/srvros.exfat'
     machines = {'a': d.machine_preferences(4, -300), 'b': d.machine_preferences(2, 60)}
     source = out / 'source.exfat'
-    profile_image.provision(base, source, d.make_bundle(), A, 'local_a', 1001, 1001, driver, machines['a'])
+    d.provision_fixture(base, source, d.make_bundle(), A, 'local_a', 1001, 1001, driver, machines['a'])
     target = out / 'destination.exfat'
     with tempfile.TemporaryDirectory(prefix='.profile-image-', dir=out) as temporary:
         image = Path(temporary) / 'image'; shutil.copyfile(base, image)
@@ -372,8 +372,7 @@ def main():
             launch_desktop(vm, A); transfer(vm, 'export'); close_session(vm)
         exported = check_allocation(disks['transport'], out, 'transport-export').read('transfer.json')
         (out / 'guest-export.json').write_bytes(exported)
-        bundle = profile_bundle.decode_json(exported)
-        payloads = profile_bundle.validate_bundle(bundle)
+        bundle, payloads = d.decode_fixture_bundle(exported)
         if (bundle['profile'] != d.make_bundle()['profile'] or payloads != {'Documents/migration.txt': d.SOURCE,
                 'Documents/binary.dat': d.BINARY} or bundle['preferences'] != d.make_bundle()['preferences']):
             raise RuntimeError('GUI export differs from selected source documents or preferences')

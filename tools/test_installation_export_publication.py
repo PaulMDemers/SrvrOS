@@ -13,7 +13,8 @@ from unittest import mock
 
 import installation_export_publication as pub
 import profile_bundle as p
-from test_profile_image import bundle
+import profile_stream
+import profile_stream_fixture
 
 
 class Stop(BaseException):
@@ -42,8 +43,11 @@ class ExportPublicationTests(unittest.TestCase):
         self.source = self.root / 'source'; self.source.mkdir()
         self.observation = {'stage': str(self.source), 'plan_sha256': '1' * 64,
                             'image_sha256': '2' * 64, 'home': '/fat/home/alice'}
-        self.value = bundle()
-        self.data = p.encode_json(self.value)
+        self.spool = self.root / 'spool'
+        self.value = profile_stream_fixture.write_stream(self.spool,
+            {'id': '12345678-1234-4abc-8def-123456789abc', 'display_name': 'A'},
+            {'text_size': 16}, [('Documents/notes.txt', b'portable data')])
+        self.data = self.spool.read_bytes()
 
     def paths(self):
         root = self.root / str(len(list(self.root.iterdir())))
@@ -55,7 +59,7 @@ class ExportPublicationTests(unittest.TestCase):
             if name == checkpoint:
                 raise Stop()
         with self.assertRaises(Stop):
-            pub.publish(attempt, output, self.value, self.observation, interrupted)
+            pub.publish_stream(attempt, output, self.spool, self.observation, interrupted)
         return root, attempt, output
 
     def inspected(self, root, attempt):
@@ -121,14 +125,14 @@ class ExportPublicationTests(unittest.TestCase):
     def test_foreign_existing_paths_and_source_overlap_preserved(self):
         root, attempt, output = self.paths(); output.write_bytes(b'foreign')
         before = snapshot(root)
-        self.assertEqual(pub.publish(attempt, output, self.value, self.observation)['state'], 'refused')
+        self.assertEqual(pub.publish_stream(attempt, output, self.spool, self.observation)['state'], 'refused')
         self.assertEqual(snapshot(root), before)
         self.assertFalse(attempt.exists())
         output.unlink(); attempt.mkdir()
         before = snapshot(root)
-        self.assertEqual(pub.publish(attempt, output, self.value, self.observation)['state'], 'refused')
+        self.assertEqual(pub.publish_stream(attempt, output, self.spool, self.observation)['state'], 'refused')
         self.assertEqual(snapshot(root), before)
-        result = pub.publish(self.source / 'attempt', output, self.value, self.observation)
+        result = pub.publish_stream(self.source / 'attempt', output, self.spool, self.observation)
         self.assertEqual(result['state'], 'refused'); self.assertFalse((self.source / 'attempt').exists())
 
     def test_torn_record_checksum_ack_and_unknown_entries_refuse(self):
@@ -164,7 +168,7 @@ class ExportPublicationTests(unittest.TestCase):
         destination = root / 'destination'; destination.mkdir(); output = destination / 'output.json'
         def interrupted(name):
             if name == 'written': raise Stop()
-        with self.assertRaises(Stop): pub.publish(attempt, output, self.value, self.observation, interrupted)
+        with self.assertRaises(Stop): pub.publish_stream(attempt, output, self.spool, self.observation, interrupted)
         destination.rename(root / 'moved'); destination.mkdir()
         self.refused(root, attempt)
 
@@ -190,16 +194,20 @@ class ExportPublicationTests(unittest.TestCase):
         real_write, real_sync = os.write, os.fsync
         for kind in ('write', 'short-write', 'file-sync'):
             with self.subTest(kind=kind):
-                root, attempt, output = self.paths(); armed = False; triggered = []
+                root, attempt, output = self.paths(); armed = False; triggered = []; short_started = False
                 def checkpoint(name):
                     nonlocal armed
                     if name == 'recorded': armed = True
                 def candidate(fd):
                     return armed and pub.identity(os.fstat(fd)) == pub.identity((attempt / 'bundle.partial').stat())
                 def fail_write(fd, data):
+                    nonlocal short_started
                     if kind != 'file-sync' and candidate(fd):
                         triggered.append(True)
-                        if kind == 'short-write': return real_write(fd, data[:1])
+                        if kind == 'short-write':
+                            if not short_started:
+                                short_started = True; return real_write(fd, data[:1])
+                            return 0
                         raise OSError('injected payload write')
                     return real_write(fd, data)
                 def fail_sync(fd):
@@ -207,7 +215,7 @@ class ExportPublicationTests(unittest.TestCase):
                         triggered.append(True); raise OSError('injected payload sync')
                     return real_sync(fd)
                 with mock.patch.object(pub.os, 'write', side_effect=fail_write), mock.patch.object(pub.os, 'fsync', side_effect=fail_sync):
-                    result = pub.publish(attempt, output, self.value, self.observation, checkpoint)
+                    result = pub.publish_stream(attempt, output, self.spool, self.observation, checkpoint)
                 self.assertTrue(triggered); self.assertEqual(result['state'], 'refused'); self.assertFalse(output.exists())
                 state = self.inspected(root, attempt)
                 self.assertEqual(state['state'], 'prepared' if kind == 'file-sync' else 'incomplete')
@@ -238,8 +246,8 @@ class ExportPublicationTests(unittest.TestCase):
                 with mock.patch.object(pub.os, 'unlink', side_effect=unlink), mock.patch.object(pub.os, 'fsync', side_effect=sync), mock.patch.object(pub.os, 'close', side_effect=close):
                     if kind == 'link':
                         with mock.patch.object(pub.os, 'link', side_effect=link):
-                            result = pub.publish(attempt, output, self.value, self.observation, checkpoint)
-                    else: result = pub.publish(attempt, output, self.value, self.observation, checkpoint)
+                            result = pub.publish_stream(attempt, output, self.spool, self.observation, checkpoint)
+                    else: result = pub.publish_stream(attempt, output, self.spool, self.observation, checkpoint)
                 self.assertTrue(triggered); self.assertEqual(result['state'], 'refused')
                 self.assertTrue(self.inspected(root, attempt)['can_reconcile'])
                 self.assertEqual(pub.reconcile(attempt)['state'], 'complete')
@@ -255,15 +263,32 @@ class ExportPublicationTests(unittest.TestCase):
                         triggered.append(True); return real_write(fd, data[:1])
                     return real_write(fd, data)
                 with mock.patch.object(pub.os, 'write', side_effect=write):
-                    result = pub.publish(attempt, output, self.value, self.observation)
+                    result = pub.publish_stream(attempt, output, self.spool, self.observation)
                 self.assertTrue(triggered); self.assertEqual(result['state'], 'refused')
                 self.refused(root, attempt)
 
     def test_future_bundle_version_refuses_before_creation(self):
-        root, attempt, output = self.paths(); value = dict(self.value, schema_version=2)
+        root, attempt, output = self.paths()
+        raw = json.dumps(dict(self.value, schema_version=3), sort_keys=True, separators=(',', ':')).encode()
+        bad = self.root / 'future'; bad.write_bytes(profile_stream.HEADER.pack(profile_stream.MAGIC, len(raw), 0) + raw + b'portable data')
         before = snapshot(root)
-        self.assertEqual(pub.publish(attempt, output, value, self.observation)['state'], 'refused')
+        self.assertEqual(pub.publish_stream(attempt, output, bad, self.observation)['state'], 'refused')
         self.assertEqual(snapshot(root), before)
+
+    def test_legacy_bundle_and_publication_record_refused(self):
+        root, attempt, output = self.paths()
+        old = self.root / 'old.json'
+        old.write_bytes(p.encode_json({'format': p.FORMAT, 'schema_version': 1,
+                                       'profile': self.value['profile'], 'preferences': {}, 'documents': []}))
+        before = snapshot(root)
+        self.assertEqual(pub.publish_stream(attempt, output, old, self.observation)['state'], 'refused')
+        self.assertEqual(snapshot(root), before)
+        root, attempt, _ = self.stop('written')
+        record = json.loads((attempt / 'intent.json').read_bytes())
+        record['format'] = 'srvros-export-publication-v1'
+        raw = p.encode_json(record); (attempt / 'intent.json').write_bytes(raw)
+        (attempt / 'intent.sha256').write_text(hashlib.sha256(raw).hexdigest() + '\n')
+        self.refused(root, attempt)
 
     def test_changed_bytes_or_directory_alias_before_link_are_not_published(self):
         for kind in ('contents', 'directory-alias'):
@@ -274,7 +299,7 @@ class ExportPublicationTests(unittest.TestCase):
                     (attempt / 'bundle.partial').write_bytes(self.data.upper())
                 else:
                     attempt.rename(root / 'moved'); attempt.symlink_to(root / 'moved')
-            result = pub.publish(attempt, output, self.value, self.observation, changed)
+            result = pub.publish_stream(attempt, output, self.spool, self.observation, changed)
             self.assertEqual(result['state'], 'refused'); self.assertFalse(output.exists())
 
     def test_boolean_record_preference_is_not_integer_metadata(self):

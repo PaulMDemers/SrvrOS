@@ -34,7 +34,7 @@ class StreamInstallationTests(unittest.TestCase):
                     'preferences': {'text_size': 16},
                     'documents': [{'path': path, 'size': len(data),
                                    'sha256': hashlib.sha256(data).hexdigest()}]}
-        manifest = json.dumps(metadata, separators=(',', ':')).encode()
+        manifest = json.dumps(metadata, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
         self.bundle_path.write_bytes(stream.HEADER.pack(stream.MAGIC, len(manifest), 0) + manifest + data)
         return metadata
 

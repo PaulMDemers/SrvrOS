@@ -5,13 +5,13 @@ The executable uses SRVROS_PROFILE_HOST_TEST solely to allow temporary HOME root
 and host fsync instead of guest srv_sync. The exact parser/codec/transaction code
 is exercised; no mocked filesystem and no guest account/security claims.
 """
-import base64
 import copy
 import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import tempfile
 import unittest
@@ -41,15 +41,26 @@ class GuestProfile(unittest.TestCase):
 
     @staticmethod
     def make_bundle(data):
-        return {'format': normative.FORMAT, 'schema_version': 1,
+        return {'format': normative.FORMAT, 'schema_version': 2,
                 'profile': {'id': str(uuid.uuid4()), 'display_name': 'Guest Profile'},
                 'preferences': {'text_size': 20, 'clock_flags': 3, 'wallpaper': 2,
                                 'theme_accent': 1, 'glass_level': 0, 'theme_style': 2},
                 'documents': [{'path': p, 'size': len(d), 'sha256': hashlib.sha256(d).hexdigest(),
-                               'data_base64': base64.b64encode(d).decode()} for p, d in data.items()]}
+                               } for p, d in data.items()]}
 
     def save(self, value=None):
-        self.bundle.write_text(json.dumps(self.value if value is None else value))
+        value = self.value if value is None else value
+        meta = json.dumps(value, separators=(',', ':')).encode()
+        payload = b''.join(self.data.get(d['path'], b'') for d in value['documents'])
+        self.bundle.write_bytes(b'SRVROS-PROFILE2\n' + struct.pack('<II', len(meta), 0) + meta + payload)
+
+    @staticmethod
+    def manifest(path):
+        raw = path.read_bytes()
+        assert raw.startswith(b'SRVROS-PROFILE2\n')
+        size, reserved = struct.unpack('<II', raw[16:24])
+        assert reserved == 0
+        return json.loads(raw[24:24 + size])
 
     def run_cli(self, *args, code=0, stop=None, random_fault=None):
         env = dict(os.environ)
@@ -210,9 +221,8 @@ class GuestProfile(unittest.TestCase):
         self.verify(first)
         output = self.root / 'export.json'
         self.run_cli('export', first, output, *self.data)
-        exported = json.loads(output.read_text())
+        exported = self.manifest(output)
         self.assertEqual(exported, self.value)
-        normative.validate_bundle(exported)
         second = self.b / 'bob'
         self.run_cli('import', output, second, 'bob', 2002, 200)
         self.verify(second)
@@ -220,7 +230,7 @@ class GuestProfile(unittest.TestCase):
                          {'alias': 'bob', 'uid': 2002, 'gid': 200})
         self.assertEqual(json.loads(self.run_cli('inspect', output).stdout)['bytes'], sum(map(len, self.data.values())))
         self.run_cli('export', first, output, *self.data, code=1)
-        self.assertEqual(json.loads(output.read_text()), self.value)
+        self.assertEqual(self.manifest(output), self.value)
 
     def test_reviewed_transfer_and_changed_sources(self):
         home = self.import_home()
@@ -349,9 +359,9 @@ class GuestProfile(unittest.TestCase):
         (home / 'identity.json').unlink()
         output = self.root / 'export.json'
         self.run_cli('export', home, output, 'Documents/note.txt')
-        self.assertEqual(json.loads(output.read_text())['profile']['display_name'], 'Portable profile')
+        self.assertEqual(self.manifest(output)['profile']['display_name'], 'Portable profile')
 
-    def test_hash_and_base64_boundaries(self):
+    def test_hash_and_stream_boundaries(self):
         sizes = [0, 1, 2, 3, 55, 56, 63, 64, 65, 1024, 1024 * 1024]
         self.data = {f'Documents/b{n}.bin': bytes(i % 251 for i in range(n)) for n in sizes}
         self.value = self.make_bundle(self.data)
@@ -360,8 +370,7 @@ class GuestProfile(unittest.TestCase):
         self.verify(home)
         output = self.root / 'export.json'
         self.run_cli('export', home, output, *self.data)
-        self.assertEqual(json.loads(output.read_text()), self.value)
-        normative.validate_bundle(json.loads(output.read_text()))
+        self.assertEqual(self.manifest(output), self.value)
 
     def test_durable_checkpoints_and_partial_scratch(self):
         for phase in ['journal', 'directories', 'document', 'identity', 'commit-ready']:
@@ -475,15 +484,16 @@ class GuestProfile(unittest.TestCase):
         def variant(change):
             value = copy.deepcopy(self.value)
             change(value)
-            bad.append(json.dumps(value).encode())
-        variant(lambda v: v.update(schema_version=2))
+            meta = json.dumps(value).encode()
+            bad.append(b'SRVROS-PROFILE2\n' + struct.pack('<II', len(meta), 0) + meta + b''.join(self.data.values()))
+        variant(lambda v: v.update(schema_version=1))
         variant(lambda v: v.update(extra=1))
         variant(lambda v: v['profile'].update(id=str(uuid.uuid1())))
         variant(lambda v: v['preferences'].update(text_size=True))
         variant(lambda v: v['preferences'].update(theme_style=1.0))
         variant(lambda v: v['preferences'].update(password=0))
         variant(lambda v: v['documents'][0].update(sha256='0'*64))
-        variant(lambda v: v['documents'][0].update(size=1024*1024+1))
+        variant(lambda v: v['documents'][0].update(size=16*1024*1024+1))
         variant(lambda v: v['documents'][0].update(data_base64='@@@='))
         variant(lambda v: v['documents'][0].update(path='Documents/../escape'))
         variant(lambda v: v['documents'][0].update(path='Documents/.secret'))
@@ -494,13 +504,19 @@ class GuestProfile(unittest.TestCase):
         variant(lambda v: v['documents'][1].update(path='Documents/note.txt/child'))
         variant(lambda v: v['documents'][0].update(path='Documents/nested/second'))
         variant(lambda v: v['documents'].extend([copy.deepcopy(v['documents'][0])]*64))
-        valid = json.dumps(self.value).encode()
-        bad += [valid[:-1], valid + b' trailing', valid.replace(b'"schema_version": 1', b'"schema_version": 01'),
-                valid.replace(b'"schema_version": 1', b'"schema_version": 1, "schema_version": 1'),
-                valid.replace(b'"schema_version": 1', b'"schema_version": 111111111111111111111'),
-                valid.replace(b'Guest Profile', b'Guest\\u0000Profile'),
-                valid.replace(b'Guest Profile', b'Guest\\ud800'),
-                valid.replace(b'Guest Profile', b'Guest\xff'), b'['*9+b']'*9, json.dumps({str(n): n for n in range(10000)}).encode(), b'x'*(12*1024*1024+1)]
+        meta = json.dumps(self.value).encode()
+        prefix = b'SRVROS-PROFILE2\n' + struct.pack('<II', len(meta), 0)
+        valid = prefix + meta + b''.join(self.data.values())
+        bad += [valid[:-1], valid + b' trailing', b'['*9+b']'*9,
+                json.dumps({str(n): n for n in range(10000)}).encode()]
+        invalid_meta = [meta.replace(b'"schema_version": 2', b'"schema_version": 01'),
+                        meta.replace(b'"schema_version": 2', b'"schema_version": 2, "schema_version": 2'),
+                        meta.replace(b'"schema_version": 2', b'"schema_version": 111111111111111111111'),
+                        meta.replace(b'Guest Profile', b'Guest\\u0000Profile'),
+                        meta.replace(b'Guest Profile', b'Guest\\ud800'),
+                        meta.replace(b'Guest Profile', b'Guest\xff')]
+        bad += [b'SRVROS-PROFILE2\n' + struct.pack('<II', len(raw), 0) + raw + b''.join(self.data.values())
+                for raw in invalid_meta]
         for index, raw in enumerate(bad):
             with self.subTest(index=index):
                 self.bundle.write_bytes(raw)
@@ -508,17 +524,9 @@ class GuestProfile(unittest.TestCase):
                 self.import_home(code=1)
                 self.assertEqual(list(self.a.iterdir()), [])
 
-    def test_noncanonical_base64(self):
-        for text in ['Zh==', 'Zg=A', 'Zg==\n', '=g==', 'Zg===']:
-            v = self.make_bundle({'Documents/one': b'f'})
-            v['documents'][0]['data_base64'] = text
-            self.save(v)
-            self.run_cli('inspect', self.bundle, code=1)
-
     def test_aggregate_and_expanded_path_limits_before_mutation(self):
-        self.value = self.make_bundle({f'Documents/f{i}': b'x' * (1024 * 1024) for i in range(8)})
-        extra = self.make_bundle({'Documents/extra': b'x'})['documents'][0]
-        self.value['documents'].append(extra)
+        self.value = self.make_bundle({'Documents/f': b'x'})
+        self.value['documents'][0]['size'] = 16 * 1024 * 1024 + 1
         self.save()
         self.import_home(code=1)
         self.assertEqual(list(self.a.iterdir()), [])
@@ -536,7 +544,7 @@ class GuestProfile(unittest.TestCase):
         self.verify(home)
         output = self.root / 'export.json'
         self.run_cli('export', home, output, *self.data)
-        self.assertEqual(json.loads(output.read_text()), self.value)
+        self.assertEqual(self.manifest(output), self.value)
 
     def test_source_links_and_existing_home_refused(self):
         home = self.a / 'alice'

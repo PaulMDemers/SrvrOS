@@ -1,4 +1,4 @@
-/* Bounded SHA-256 (FIPS 180-4) and canonical RFC 4648 base64. No platform crypto
+/* Bounded SHA-256 (FIPS 180-4). No platform crypto
  * dependency; callers limit decoded content to 1 MiB and JSON to 12 MiB. */
 #include "codec.h"
 #include "memory.h"
@@ -41,16 +41,3 @@ void profile_sha256_final(struct profile_sha256_ctx *c,char hex[65]){
     for(unsigned i=0;i<32;i++){unsigned v=(c->h[i/4]>>(24-8*(i%4)))&255;hex[2*i]=digits[v>>4];hex[2*i+1]=digits[v&15];}hex[64]=0;
 }
 void profile_sha256(const void *data,size_t size,char hex[65]){struct profile_sha256_ctx c;profile_sha256_init(&c);profile_sha256_update(&c,data,size);profile_sha256_final(&c,hex);}
-static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-char *profile_base64_encode(const unsigned char *data,size_t size){
-    size_t len=4*((size+2)/3);char *s=malloc(len+1);if(!s)return NULL;
-    size_t j=0;for(size_t i=0;i<size;i+=3){unsigned a=data[i],b=i+1<size?data[i+1]:0,c=i+2<size?data[i+2]:0;
-        s[j++]=alphabet[a>>2];s[j++]=alphabet[((a&3)<<4)|(b>>4)];s[j++]=i+1<size?alphabet[((b&15)<<2)|(c>>6)]:'=';s[j++]=i+2<size?alphabet[c&63]:'=';}s[j]=0;return s;
-}
-unsigned char *profile_base64_decode(const char *text,size_t expected){
-    size_t n=strlen(text);if(n!=4*((expected+2)/3))return NULL;
-    unsigned char *out=malloc(expected+1);if(!out)return NULL;size_t j=0;
-    for(size_t i=0;i<n;i+=4){unsigned v=0;for(unsigned k=0;k<4;k++){const char *p=strchr(alphabet,text[i+k]);if(text[i+k]=='='){if(i+4!=n || k<2){free(out);return NULL;}v<<=6;}else if(!p){free(out);return NULL;}else v=(v<<6)|(unsigned)(p-alphabet);}
-        for(unsigned k=0;k<3&&j<expected;k++)out[j++]=(unsigned char)(v>>(16-8*k));}
-    char *canonical=profile_base64_encode(out,expected);int okay=canonical&&!strcmp(canonical,text);free(canonical);if(!okay){free(out);return NULL;}return out;
-}

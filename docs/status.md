@@ -29,7 +29,10 @@ bundle admission and restoration into a fresh offline installation. Two EFI
 boots verified the restored identity, local binding, preferences and exact bytes
 of all three selected documents, including a 16 MiB file. A separate v1 restore
 boot passed. The current-main refresh reproduced the proof inputs byte for byte.
-Offline export and export-publication recovery still use canonical v1.
+Profiles, the guest CLI and offline tools now use streaming v2 for every
+portable bundle. Offline export requires a publication directory so it can
+reconcile an interrupted attempt. See the
+[v2-only qualification](assets/evidence/portable-v2-only/manifest.json).
 See the [installation guide](disk-installation.md) and
 [qualification manifest](assets/screenshots/installation-stream-restore-manifest.json).
 

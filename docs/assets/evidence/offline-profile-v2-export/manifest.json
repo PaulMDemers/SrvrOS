@@ -1,0 +1,118 @@
+{
+  "export": {
+    "documents": [
+      {
+        "path": "Documents/migration.txt",
+        "sha256": "0bb4ea865cafd90717ab7028e7f0ec711e0e270ba27557bb2a3ec9dbd5790e54",
+        "size": 24
+      },
+      {
+        "path": "Documents/binary.profile-import.dat",
+        "sha256": "ed231d85a68b071fe94b60a4b2563217dd131410f8c91a828d31a649efd945d8",
+        "size": 20
+      },
+      {
+        "path": "Documents/large.bin",
+        "sha256": "341aacac661ccb210720bedaa9ead5d668fe5ea41a73532fc147c71e34040df1",
+        "size": 16777216
+      }
+    ],
+    "exit": 75,
+    "fresh_process_interruption": "written",
+    "observed_before_reconcile": "prepared",
+    "offline_source_preserved": true,
+    "public_output_before_reconcile": false,
+    "reconciled": "complete",
+    "sha256": "99d39072a360a506f3c0a152399b2eca72dca2f55d78cb4a9b687613f03bbd01",
+    "unselected_document_omitted": true
+  },
+  "fresh_disposable_guest": {
+    "boot_count": 2,
+    "boot_image_sha256": [
+      "7fa2350863a80d5c36f91c6d7d7b4b2deaabd6ff4d7ee9c8bc545158fbf9488b",
+      "bd560e64b82e6062df573106b60960811c48c155f1e25bc65929b4b9dde09761"
+    ],
+    "exact_documents_after_each_boot": true,
+    "independently_checked_data_snapshots": {
+      "data-a-before-export.exfat.gz": {
+        "payloads": 3,
+        "sha256": "84b7ec22086bae4e972a8e5c31857484f945197e0d6bf59d2341e5218960233f"
+      },
+      "data-b-preboot.exfat.gz": {
+        "payloads": 3,
+        "sha256": "cea1485abb19152f68116ca41dbba1cef4ae72f6cd93ce9c7d3b02c779eb980a"
+      },
+      "data-b1.exfat.gz": {
+        "payloads": 3,
+        "sha256": "0fa21173d4bd50d01f01bad3bda7626f4467d8c1eacc3f3c7ae94a6fed4693be"
+      },
+      "data-b2.exfat.gz": {
+        "payloads": 3,
+        "sha256": "1c231b58740da0ee067a51c4f756d9f6623f8a779551958e9a10488a8dc5e5b2"
+      }
+    },
+    "inspection_flushes": 0,
+    "inspection_writes": 0,
+    "owned_guests_remaining": 0
+  },
+  "historical_runtime_build_source": "d4b09b4dd9dd93f81aeabb0760cbeed1a1ee7f5e",
+  "host_checks": {
+    "default_v1_bytes_match_canonical_fixture": true,
+    "installation": {
+      "optional_skipped": 1,
+      "passed": 101
+    },
+    "portable_profile": {
+      "optional_skipped": 2,
+      "passed": 26
+    },
+    "v2_publication_checkpoints": [
+      "recorded",
+      "partial-write",
+      "written",
+      "file-synced",
+      "linked",
+      "unlinked",
+      "directory-synced",
+      "acknowledged"
+    ]
+  },
+  "independent_byte_audit_sha256": "1ccc14702ac1f61d97561851186cbb7856540573abdf50a1c1648199ce43484e",
+  "integrated_main": "28eb62916d6a3dbd85ca20c9761e189ea6cbb951",
+  "matched_runtime_hashes": {
+    "build/initramfs.tar": "8fdbd0c3c38a4b751c80a4a014d2ef40b6a1d7a3d62831d1c25ec860c37f1c2c",
+    "build/kernel/srvros.elf": "2f094ffb63ce2cf959eb11d390d43c9d05274a92c1afd14885c1fa3d1687557c",
+    "build/srvros.exfat": "a82ac8eb59d542d12b7467fcaee238eabfab0554adeec797df1e3073a0f3d72a"
+  },
+  "matched_runtime_tree_ids": {
+    "Makefile": "408db3ce1acc0a58861dc060e58b41de3384490b",
+    "kernel": "9475dd7e54d0ac663367d79a75b5c24fcad2820b",
+    "ports": "276eb1b05206a0da2efe832a8d96a26d3b1e663b",
+    "shared": "c8c8ff324c2082fc37ac3825ffaddad6bd02d2ad",
+    "userspace": "62a947a2f202b812757b528a2b52c0dd632824a4"
+  },
+  "native_export_driver_sha256": "67bc2174848eb3eed41a87aa5f158ba0ba224d83266415c5311b08c99b77cae2",
+  "proof_tools": {
+    "exfat_test_image.py": "43caec710a0076a7d2b0fb2812987bbf0138b188467d8863f6260291cc381359",
+    "installation_export.py": "17f89785a486d9168eded6c5c7f014f8033e355d4c3db5b1c5b5a519c1b67d91",
+    "installation_export_driver.c": "7592fa3c7243baf9e78acd62210861ae72a264d5fd06c5211d1573d3184a5bcf",
+    "installation_export_publication.py": "5349fe69fb381bddd502299d65380431c3a2767fc2dd4ea261f9c209b9bb7d4b",
+    "installation_export_recovery_smoke.py": "1768f4c6d6cb4b1b2c18ed2f3196966de89342770dd4e36435780f1445ab9fdb",
+    "installation_image.py": "a79cacff3de391414efa2fc3faee57857dd90339b6a7c4fe675d5fadb74b5e84",
+    "installation_inspection.py": "57de0b498decaa2b94f02ab785cc37026aaacc10f04326f64df5bf5491804524",
+    "installation_stream_export_smoke.py": "dffd12415a370783bd7ee4c02bb77b42c99c62e7db908449088c2c36a88be298",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_chooser_smoke.py": "2f83858309cb316efc8b21f4dbb2fa11e15014e517bd7afd9d793f96c1910b4d",
+    "profile_create_smoke.py": "6a38599440cebde02d3bedb74a8e3ee44737a95f8dbe67adbe2f653e2ae63062",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_guest_smoke.py": "ee3ea72f5e64a57ae5ebd1b68354c36ef8e9359a9d7f1a18b48fc1410b661eb1",
+    "profile_image.py": "02411670be16f7448f2834ff9c3c60bf0797dc863d10bb0dcd78a1bbcabac7fb",
+    "profile_image_driver.c": "2d48c967b28b1b66a7513e08eadd7cfc6ff92d887225369640219b1919f4829f",
+    "profile_stream.py": "48a270adc1dfc9c35526f5836fcae23d55d3c2ac932bef4c58e30275a95c8b88",
+    "profile_transfer_smoke.py": "fe5f5409b994fcd007fafe0246e2858fdf8de72ab17e39cf66430e54cb1fd8db"
+  },
+  "receipt_sha256": "f63b18d8f979f04b5970e0656f60f5f98eb401184ac17c4a7a1423cbceb42c77",
+  "scope": "Disposable host/EFI workflow with a 16 MiB file and two smaller documents.",
+  "status": "qualified-for-review",
+  "tested_source": "d5476ffdaff706cc4ef2b97127ab25f09d3f2817"
+}
