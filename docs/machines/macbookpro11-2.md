@@ -7,6 +7,16 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Retina desktop default
+
+Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
+and a native 2880 × 1800 internal panel. Set the 2× desktop default
+through the kernel display hint for the exact firmware model and use
+the existing SrvrUI native-density renderer, compositor input mapping,
+and Settings transaction. Cover ordinary desktop startup, the profile
+chooser, saved scale and explicit overrides. Air7,2 GPU ownership
+in PR #301 is separate. Native validation on the Pro is pending.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
