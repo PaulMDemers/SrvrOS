@@ -6875,9 +6875,12 @@ build/intel-stolen/probe.o: kernel/src/drivers/intel_stolen_probe.c $(KERNEL_HEA
 build/intel-stolen/layout.o: kernel/diagnostics/intel_bdw_stolen_scanout.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-stolen/%.o: kernel/diagnostics/intel_bdw_%.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
 INTEL_STOLEN_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/drivers/intel_stolen_probe.c.o,$(KERNEL_OBJ))
-build/intel-stolen/srvros.elf: build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o $(INTEL_STOLEN_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o $(INTEL_STOLEN_BASE) -o $@
+build/intel-stolen/srvros.elf: build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o build/intel-joint/page.o build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o $(INTEL_STOLEN_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o build/intel-joint/page.o build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o $(INTEL_STOLEN_BASE) -o $@
 
 # Isolated full-GT reset/fence-preservation protocol. Host only: no native
 # image/adapter is enabled by this target or by the existing BCS8-only writer.
@@ -7342,7 +7345,7 @@ build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-STOLEN_ADAPTER_HOST_SOURCES := kernel/diagnostics/intel_bdw_bcs_context.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
+STOLEN_ADAPTER_HOST_SOURCES := kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
 build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -Wl,--gc-sections -o $@

@@ -10,12 +10,26 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-PR 301 now checks the live plane and device traffic immediately after each
-store to slot 8704 and again after the System Agent invalidation posts.
-The command-interval diagnostic prepares the Broadwell render indirect
-batch in CPU memory and verifies it at each of the three lease checks.
-Pages 4 and 5 of the 32-page interval are proposed for the two-cache-line
-batch and its register-save scratch. Neither page has a native GPU binding.
+On PR 301 the native submission diagnostic allocates 18 DMA frames and
+populates a Broadwell private GPU address space. The blitter context points
+at all four private page directories. Its ring selects a batch in that
+address space. Three readbacks span the loan of slot 8704 and its return.
+Each checks all six proposed global bindings, the context, private tables,
+commands and scratch contents. The driver frees the frames after returning
+the command interval. The global context binding is still outstanding.
+
+On November 22 the Air executed the exact private command page three times
+under Ubuntu i915. Each run produced five distinct drain markers, a subsequent
+render flush marker, five pending fences and five resume markers. All 512
+words of each 64-bit scratch array matched. Internal CRTC 52 advanced from
+frame 2886718 to 2886719, 2886719 to 2886720 and 2886720 to 2886721 in
+the three holds. i915 owned the active page tables in these runs. The
+SrvrOS device-wide WiDi hold and coherent L3 acknowledgement remain open.
+[Private command layout and hardware comparison](../intel-bdw-bcs-flush.md#private-command-pages-on-broadwell)
+
+The native slot writer checks the live primary plane, WiDi and engine
+traffic immediately after each store to slot 8704 and again after the
+System Agent invalidation posts.
 
 On November 22 the Ubuntu comparison completed a render-context switch
 after fresh markers from all five engines. The programmed render indirect

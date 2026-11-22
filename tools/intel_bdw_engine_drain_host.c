@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "intel_bdw_i915_host.h"
 #include <srvros/intel_bdw_bcs_flush.h>
+#include <srvros/intel_bdw_private_vm.h>
 #include <limits.h>
 #include <linux/sync_file.h>
 #include <poll.h>
@@ -192,6 +193,27 @@ static void assert_waiting(struct submission work[], const uint32_t *gate)
     require(!__atomic_load_n(gate, __ATOMIC_ACQUIRE), "Watchdog expired during verification");
 }
 
+static pid_t start_watchdog(uint32_t *gate,int *signal_fd)
+{
+    /* A separate process releases the wait even if an ioctl blocks or the
+     * test exits. It needs no engine, GEM ioctl or allocation to do so. */
+    int finish[2];
+    require(!pipe(finish), "Cannot create watchdog pipe");
+    pid_t watcher = fork();
+    require(watcher >= 0, "Cannot start watchdog");
+    if (!watcher) {
+        close(finish[1]);
+        struct pollfd stop = {.fd = finish[0], .events = POLLIN};
+        int ready = poll(&stop, 1, 1500);
+        __atomic_store_n(&gate[BDW_GATE_RENDER_START / 4], 1, __ATOMIC_SEQ_CST);
+        __atomic_store_n(gate, 1, __ATOMIC_SEQ_CST);
+        _exit(ready == 1 ? 0 : 1);
+    }
+    close(finish[0]);
+    *signal_fd=finish[1];
+    return watcher;
+}
+
 static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t seed)
 {
     struct drm_i915_gem_create a = {.size = SLOT_BO_BYTES}, b = {.size = SLOT_BO_BYTES};
@@ -209,21 +231,8 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(gate != MAP_FAILED, "Cannot map coherent private semaphore");
     __atomic_store_n(gate, 0, __ATOMIC_RELEASE);
     __atomic_store_n(&gate[BDW_GATE_RENDER_START / 4], 0, __ATOMIC_RELEASE);
-    /* A separate process releases the wait even if an ioctl blocks or the
-     * test exits. It needs no engine, GEM ioctl or allocation to do so. */
-    int finish[2];
-    require(!pipe(finish), "Cannot create watchdog pipe");
-    pid_t watcher = fork();
-    require(watcher >= 0, "Cannot start watchdog");
-    if (!watcher) {
-        close(finish[1]);
-        struct pollfd stop = {.fd = finish[0], .events = POLLIN};
-        int ready = poll(&stop, 1, 1500);
-        __atomic_store_n(&gate[BDW_GATE_RENDER_START / 4], 1, __ATOMIC_SEQ_CST);
-        __atomic_store_n(gate, 1, __ATOMIC_SEQ_CST);
-        _exit(ready == 1 ? 0 : 1);
-    }
-    close(finish[0]);
+    int signal_fd;
+    pid_t watcher=start_watchdog(gate,&signal_fd);
     struct submission work[BDW_BARRIER_ENGINES];
     for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i)
         work[i] = submit(fd, ctx, i, i, seed, -1, i == BDW_BARRIER_RCS ? 0 : gate_handle);
@@ -273,7 +282,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(first < last && active_edp(card) == crtc, "Original panel stopped advancing");
     confirm_mapping(2);
     assert_waiting(work, gate);
-    close(finish[1]);
+    close(signal_fd);
     int status;
     require(waitpid(watcher, &status, 0) == watcher && WIFEXITED(status) && !WEXITSTATUS(status),
             "Watchdog released the gate before rollback finished");
@@ -287,13 +296,83 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
            (unsigned long long)first, (unsigned long long)last);
 }
 
+/* Execute the native batch bytes and virtual addresses. i915 supplies its
+ * own page tables and contexts. Only private, per-process mappings are used. */
+static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t epoch)
+{
+    static _Alignas(4096) struct bdw_private_vm_image image;
+    /* The model bus address is used solely to validate table construction.
+     * None of these page-table words are submitted to i915. */
+    require(intel_bdw_private_vm_build(&image,0x100000,epoch) &&
+            intel_bdw_private_vm_verify(&image,0x100000,epoch),"Invalid private VM image");
+    uint32_t batch=create_page(fd), gate=create_page(fd);
+    struct drm_i915_gem_pwrite upload={.handle=batch,.size=sizeof(image.commands),
+                                       .data_ptr=(uintptr_t)image.commands};
+    call(fd,DRM_IOCTL_I915_GEM_PWRITE,&upload,"upload exact native batch page");
+    struct drm_i915_gem_mmap_offset off={.handle=gate,.flags=I915_MMAP_OFFSET_WB};
+    call(fd,DRM_IOCTL_I915_GEM_MMAP_OFFSET,&off,"map gate");
+    uint32_t *cpu=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_SHARED,fd,off.offset);
+    require(cpu!=MAP_FAILED && !cpu[0] && !cpu[BDW_GATE_RENDER_START/4],"Gate was not clear");
+    struct submission q[BDW_BARRIER_ENGINES];
+    for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++) {
+        q[e].result=create_page(fd);
+        q[e].view=map_result(fd,q[e].result);
+        q[e].marker=(epoch<<8)|(e+1);
+        for(unsigned i=0;i<512;i++) require(!q[e].view[i],"Stale engine scratch");
+    }
+    int signal_fd;
+    pid_t watcher=start_watchdog(cpu,&signal_fd);
+    for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++) {
+        struct drm_i915_gem_exec_object2 obj[]={
+            {.handle=gate,.offset=(BDW_PRIVATE_GATE+1)*4096,.flags=EXEC_OBJECT_PINNED},
+            {.handle=q[e].result,.offset=(2+e)*4096,.flags=EXEC_OBJECT_PINNED|EXEC_OBJECT_WRITE},
+            {.handle=batch,.offset=4096,.flags=EXEC_OBJECT_PINNED}
+        };
+        struct drm_i915_gem_execbuffer2 request={.buffers_ptr=(uintptr_t)obj,.buffer_count=3,
+            .batch_start_offset=e*256,.batch_len=256,.rsvd1=ctx,.flags=engines[e].flags|I915_EXEC_FENCE_OUT};
+        call(fd,DRM_IOCTL_I915_GEM_EXECBUFFER2_WR,&request,"execute native queue batch");
+        q[e].fence=(int)(request.rsvd2>>32);
+    }
+    for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++)observe_marker(q[e].view,0,q[e].marker);
+    assert_waiting(q,cpu);
+    require(!__atomic_load_n(q[0].view+BDW_QUEUE_FINAL_FLUSH/8,__ATOMIC_ACQUIRE),"Early render marker");
+    __atomic_store_n(cpu+BDW_GATE_RENDER_START/4,1,__ATOMIC_SEQ_CST);
+    uint64_t deadline=monotonic_us()+COMPLETION_TIMEOUT_US;
+    while(!__atomic_load_n(q[0].view+BDW_QUEUE_FINAL_FLUSH/8,__ATOMIC_ACQUIRE) && monotonic_us()<deadline) {
+        const struct timespec delay={.tv_nsec=50000}; nanosleep(&delay,NULL);
+    }
+    require(q[0].view[BDW_QUEUE_FINAL_FLUSH/8]==q[0].marker,"Missing final render flush");
+    uint64_t first=frame(card,crtc),last=first;
+    deadline=monotonic_us()+COMPLETION_TIMEOUT_US;
+    while(first==last && monotonic_us()<deadline)last=frame(card,crtc);
+    require(last>first && active_edp(card)==crtc,"Panel stopped while engines waited");
+    assert_waiting(q,cpu);
+    close(signal_fd);
+    int status;
+    require(waitpid(watcher,&status,0)==watcher && WIFEXITED(status) && !WEXITSTATUS(status),
+            "Watchdog expired");
+    for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++) {
+        struct pollfd fence={.fd=q[e].fence,.events=POLLIN};
+        require(poll(&fence,1,3000)==1 && fence_status(fence.fd)==1,"Private batch fence failed");
+        for(unsigned i=0;i<512;i++) {
+            uint64_t expected=i==BDW_QUEUE_RESUMED/8 ? ~q[e].marker :
+                (i==BDW_QUEUE_DRAIN/8 || (!e && i==BDW_QUEUE_FINAL_FLUSH/8)) ? q[e].marker : 0;
+            require(__atomic_load_n(q[e].view+i,__ATOMIC_ACQUIRE)==expected,"Unexpected scratch contents");
+        }
+        printf("%s marker=%016llx resumed=%016llx scratch verified\n",engines[e].name,
+               (unsigned long long)q[e].marker,(unsigned long long)~q[e].marker);
+    }
+    printf("private-image eDP CRTC %u frames %llu -> %llu\n",crtc,(unsigned long long)first,(unsigned long long)last);
+}
+
 int main(int argc, char **argv)
 {
-    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan");
+    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--private-image");
     char *end;
     long timeline = strtol(argv[1], &end, 10);
     bool slot_trial = !strcmp(argv[1], "--slot-loan");
-    if (!slot_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
+    bool image_trial = !strcmp(argv[1], "--private-image");
+    if (!slot_trial && !image_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
     int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
     require(fd >= 0 && parameter(fd, I915_PARAM_CHIPSET_ID) == 0x1626 &&
             parameter(fd, I915_PARAM_HAS_ALIASING_PPGTT) >= 2 && parameter(fd, I915_PARAM_HAS_LLC) &&
@@ -306,6 +385,10 @@ int main(int argc, char **argv)
     uint64_t seed;
     require(getrandom(&seed, sizeof(seed), 0) == sizeof(seed) && (uint32_t)(seed >> 32) != 0 &&
             (uint32_t)(seed >> 32) != UINT32_MAX, "Cannot obtain fresh markers");
+    if (image_trial) {
+        private_image(fd,card,crtc,context.ctx_id,seed>>8);
+        return EXIT_SUCCESS;
+    }
     if (slot_trial) {
         slot_loan(fd, card, crtc, context.ctx_id, seed);
         return EXIT_SUCCESS;

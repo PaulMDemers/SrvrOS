@@ -102,7 +102,7 @@ class StolenProbe(unittest.TestCase):
         controls={
             'lost-reader-census':('!readers(n)', '(false && !readers(n))'),
             'lost-candidate-policy':('!candidate_policy(n)', '(false && !candidate_policy(n))'),
-            'unmasked-aperture-query':('flags=intel_stolen_test_irq_save();','flags=0;'),
+            'unmasked-aperture-query':('\n flags=intel_stolen_test_irq_save();','\n flags=0;'),
             'skipped-native-guard-begin':('!cpu_guard_operation(0,pair)','false'),
             'skipped-native-guard-check':('!cpu_guard_operation(1,pair)','false'),
             'skipped-native-guard-close':('!cpu_guard_operation(2,pair)','false'),

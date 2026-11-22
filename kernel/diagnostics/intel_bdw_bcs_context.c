@@ -44,7 +44,15 @@ static const uint32_t state[BDW_BCS_STATE_WORDS]={
  [44]=0x2227c,[46]=0x22278,[48]=0x22274,[50]=0x22270,
  [65]=0x11001003,[66]=0x22200,[68]=0x22028
 };
-static uint32_t word(const struct intel_bdw_bcs_context_config *c,unsigned i) {
+static uint32_t word(const struct intel_bdw_bcs_context_config *c,unsigned i,uint64_t pdp0) {
+ if(pdp0) {
+  /* Global BCS ring, private-address MI_BATCH_BUFFER_START, second 256-byte
+   * batch at VA 0x1100. Three MI_NOOPs preserve the 24-byte ring tail. */
+  if(i<1024)return i==0 ? 0x18800101u : i==1 ? 0x1100u : 0;
+  /* The state image lists PDP3..0, upper then lower DWORD for each. */
+  if(i>=2048+39 && i<=2048+51 && ((i-(2048+39))%4)==0)
+   return (uint32_t)(pdp0+(3-(i-(2048+39))/4)*4096);
+ }
  if(i==0)return 0x13044003;
  if(i==1)return (uint32_t)c->completion_gpu|4;
  if(i==3)return (uint32_t)c->nonce;
@@ -56,7 +64,7 @@ static uint32_t word(const struct intel_bdw_bcs_context_config *c,unsigned i) {
 static uint64_t descriptor(const struct intel_bdw_bcs_context_config *c) {
  return ((uint64_t)c->context_id<<32)|c->context_gpu|0x0d;
 }
-bool intel_bdw_bcs_context_build(const struct intel_bdw_bcs_context_config *c,volatile uint32_t *ram,uint64_t *out) {
+static bool build(const struct intel_bdw_bcs_context_config *c,uint64_t pdp0,volatile uint32_t *ram,uint64_t *out) {
  if(!valid(c) || ((uintptr_t)ram&3) || ((uintptr_t)out&7) ||
  overlap(c,sizeof(*c),ram,BDW_BCS_IMAGE_BYTES) || overlap(c,sizeof(*c),out,sizeof(*out)) ||
  overlap(ram,BDW_BCS_IMAGE_BYTES,out,sizeof(*out)))return false;
@@ -64,20 +72,35 @@ bool intel_bdw_bcs_context_build(const struct intel_bdw_bcs_context_config *c,vo
   * CPU arena. No type-punning uint64_t-backed storage through uint32_t. */
  volatile unsigned char *bytes=(volatile unsigned char *)ram;
  for(unsigned i=0;i<BDW_BCS_IMAGE_WORDS;i++){
-  uint32_t value=word(c,i);
+  uint32_t value=word(c,i,pdp0);
   for(unsigned b=0;b<4;b++)bytes[4*i+b]=(unsigned char)(value>>(8*b));
  }
- *out=descriptor(c);return true;
+ *out=descriptor(c)|(pdp0 ? 1u<<8 : 0);return true;
 }
-bool intel_bdw_bcs_context_verify(const struct intel_bdw_bcs_context_config *c,volatile const uint32_t *ram,uint64_t desc) {
- if(!valid(c) || ((uintptr_t)ram&3) || overlap(c,sizeof(*c),ram,BDW_BCS_IMAGE_BYTES) || desc!=descriptor(c))return false;
+static bool verify(const struct intel_bdw_bcs_context_config *c,uint64_t pdp0,volatile const uint32_t *ram,uint64_t desc) {
+ if(!valid(c) || ((uintptr_t)ram&3) || overlap(c,sizeof(*c),ram,BDW_BCS_IMAGE_BYTES) || desc!=(descriptor(c)|(pdp0 ? 1u<<8 : 0)))return false;
  volatile const unsigned char *bytes=(volatile const unsigned char *)ram;
  for(unsigned i=0;i<BDW_BCS_IMAGE_WORDS;i++){
   uint32_t actual=0;
   for(unsigned b=0;b<4;b++)actual|=(uint32_t)bytes[4*i+b]<<(8*b);
-  if(actual!=word(c,i))return false;
+  if(actual!=word(c,i,pdp0))return false;
  }
  return true;
+}
+
+bool intel_bdw_bcs_context_build(const struct intel_bdw_bcs_context_config *c,volatile uint32_t *ram,uint64_t *out) {
+ return build(c,0,ram,out);
+}
+bool intel_bdw_bcs_context_verify(const struct intel_bdw_bcs_context_config *c,volatile const uint32_t *ram,uint64_t desc) {
+ return verify(c,0,ram,desc);
+}
+bool intel_bdw_bcs_private_context_build(const struct intel_bdw_bcs_context_config *c,uint64_t pdp0,
+                                         volatile uint32_t *ram,uint64_t *out) {
+ return span(pdp0,4*4096) && build(c,pdp0,ram,out);
+}
+bool intel_bdw_bcs_private_context_verify(const struct intel_bdw_bcs_context_config *c,uint64_t pdp0,
+                                          volatile const uint32_t *ram,uint64_t desc) {
+ return span(pdp0,4*4096) && verify(c,pdp0,ram,desc);
 }
 
 /* Broadwell RCS restore workaround, following gen8_init_indirectctx_bb in

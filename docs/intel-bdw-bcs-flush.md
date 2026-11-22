@@ -176,7 +176,7 @@ software timeline. The render user runs the probe and opens the DRM devices.
 ```sh
 mkdir -p build/tests
 cc -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include \
-  tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_bcs_flush.c \
+  tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c \
   -o build/tests/intel-bdw-engine-drain-host
 sudo sh -c 'exec 3<>/sys/kernel/debug/sync/sw_sync; exec setpriv --reuid="$SUDO_UID" --regid="$SUDO_GID" --init-groups timeout 20 "$1" 3' sh "$PWD/build/tests/intel-bdw-engine-drain-host"
 ```
@@ -253,3 +253,45 @@ render flush and exclude the separate WiDi requester through translation
 retirement. The measured GAM request and WiDi registers stayed open under
 the private waits. The inherited slot writer continues to require a
 device-wide hold. [Native writer requirements](intel-bdw-edp-recovery.md#reset-free-use-of-the-same-traffic-checks)
+
+### Private command pages on Broadwell
+
+The Air submission diagnostic builds six pages intended for the global
+graphics table and twelve for a legacy 32-bit per-process graphics table.
+The global pages contain the BCS ring, its two context pages, completion
+storage, the RCS indirect batch and its private register-save scratch.
+Only command words are copied to the RCS batch page. Its pointer stays in
+the context metadata.
+
+In the private address space, VA `0x1000` holds five batches at 256-byte
+intervals. VAs `0x2000` through `0x6000` each hold one writable completion
+page. VA `0x7000` holds the CPU-controlled semaphore. Commands and the
+semaphore are read-only to the GPU. Four aligned page directories and one
+leaf table complete the allocation. Only the first directory has a present
+entry. The blitter context names all four directories, enables legacy PPGTT
+and starts its batch at VA `0x1100`. Broadwell still fetches that context
+and the ring through the global table. Activating it requires the global
+bindings, compatible GPU private PAT entry 3, the correct DMA domain and
+exclusive submission. [Intel Broadwell context descriptor, pp. 107–110](https://cdrdv2-public.intel.com/690870/intel-gfx-prm-osrc-bdw-vol-02d-commandreference-structures.pdf)
+
+Receipt version 6 records the physical allocation, PDP0, CPU cache lines
+flushed and return of the allocation. The driver checks the DMA tag on every
+frame and the effective write-back policy of its actual kernel alias. It
+checks the complete images against the fresh interval three times. The
+collector preserves earlier receipt formats.
+
+To execute the same batch bytes and virtual addresses using the Ubuntu GPU
+driver, build the five-engine tool above and run it from the desktop user
+account.
+
+```sh
+build/tests/intel-bdw-engine-drain-host --private-image
+```
+
+Each engine gets its own fresh marker and scratch page. After all five drain
+markers arrive, the CPU releases the render-only semaphore and checks the
+final render flush. It then verifies that eDP advances while all five fences
+remain pending, releases the common semaphore and checks every scratch
+word. The watchdog releases both waits if the client fails. This exercises
+the engine commands on silicon. Native page-table installation, WiDi and
+the power manager's L3 acknowledgement require separate physical evidence.

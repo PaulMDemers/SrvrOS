@@ -6,6 +6,8 @@ bool intel_stolen_probe_retained(void) {return false;}
 #else
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/intel_bdw_bcs_context.h>
+#include <srvros/intel_bdw_ggtt.h>
+#include <srvros/intel_bdw_private_vm.h>
 #include <srvros/intel_reader_audit.h>
 #include <srvros/intel_completion_audit.h>
 #include <srvros/intel_pci_requester.h>
@@ -95,7 +97,11 @@ static struct {
   struct scanout_transfer_token token;
   struct scanout_transfer_manifest manifest;
   struct intel_bdw_bcs_context_config bcs;
-  uint32_t image[BDW_BCS_IMAGE_WORDS];
+  uint64_t dma_base;
+  struct intel_bdw_ggtt_page planned[6];
+  uint64_t pdp0;
+  unsigned flush_lines;
+  bool dma_freed;
   struct intel_bdw_rcs_indirect rcs;
   uint64_t descriptor;
   unsigned samples, conflicts;
@@ -785,6 +791,96 @@ static bool command_occupancy(unsigned first, uint32_t *mask) {
  return true;
 }
 
+/* First four pages are the BCS hardware image. RCS executes from page four
+ * and saves the old L3 policy in page five. Keep metadata out of both. */
+#define TAIL_GLOBAL_PAGES 6u
+#define TAIL_DMA_PAGES (TAIL_GLOBAL_PAGES+BDW_PRIVATE_PAGES)
+static bool command_frames_owned(void)
+{
+ uint64_t base=stolen.command_tail.dma_base;
+ if(!base || stolen.command_tail.dma_freed)return false;
+ for(unsigned i=0;i<TAIL_DMA_PAGES;i++)
+  if(!pmm_frame_has_tag(base+4096ull*i,PMM_FRAME_DMA))return false;
+ return true;
+}
+static bool command_ram_alias(uint64_t base)
+{
+ struct vmm_alias_observation alias;
+ uint64_t va=(uint64_t)pmm_phys_to_virt(base);
+ if(!va || (va&4095) || base<0x100000 || base>0x100000000ull-4096*TAIL_DMA_PAGES ||
+    !command_frames_owned() || !stolen.layout.classified ||
+    (base<stolen.plan.data_end && base+4096*TAIL_DMA_PAGES>stolen.plan.gtt_begin))return false;
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ uint64_t flags=intel_stolen_test_irq_save();
+#else
+ uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+#endif
+ bool ok=vmm_diagnostic_kernel_alias(stolen.root,va,base,TAIL_DMA_PAGES,
+                                     stolen.cache.cpu.physical_bits,&alias,NULL);
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ intel_stolen_test_irq_restore(flags);
+#else
+ if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+ unsigned mtrr,pat,effective,checks;
+ return ok && alias.pages==TAIL_DMA_PAGES && alias.writable && !alias.user &&
+        x86_cache_range(&stolen.cache,base,TAIL_DMA_PAGES,alias.pat_index,&mtrr,&pat,&effective,&checks) &&
+        mtrr==6 && pat==6 && effective==6;
+}
+static bool prepare_command_frames(const struct scanout_transfer_manifest *m)
+{
+ if(stolen.command_tail.dma_base)return false;
+#ifndef SRVROS_INTEL_STOLEN_HOST_TEST
+ uint32_t eax=1,ebx,ecx,edx;
+ __asm__ volatile("cpuid":"+a"(eax),"=b"(ebx),"=c"(ecx),"=d"(edx));
+ if(!(edx&(1u<<19)) || ((ebx>>8)&255u)!=8)return false;
+#endif
+ uint64_t base=pmm_alloc_frames_tagged(TAIL_DMA_PAGES,PMM_FRAME_DMA);
+ stolen.command_tail.dma_base=base;
+ if(!base || !command_ram_alias(base))return false;
+ for(unsigned i=0;i<TAIL_GLOBAL_PAGES;i++)
+  if(!intel_bdw_ggtt_plan_entry(m,m->first+i,base+i*4096,&stolen.command_tail.planned[i]))return false;
+ volatile uint32_t *ram=pmm_phys_to_virt(base);
+ for(unsigned i=0;i<2048;i++)
+  ram[BDW_BCS_IMAGE_WORDS+i]=i<32 ? stolen.command_tail.rcs.words[i] : 0;
+ uint64_t vm_base=base+TAIL_GLOBAL_PAGES*4096;
+ if(!intel_bdw_private_vm_build(pmm_phys_to_virt(vm_base),vm_base,stolen.command_tail.token.epoch))return false;
+ uint64_t pdp0=vm_base+BDW_PRIVATE_PD*4096;
+ if(!intel_bdw_bcs_private_context_build(&stolen.command_tail.bcs,pdp0,ram,&stolen.command_tail.descriptor))return false;
+ stolen.command_tail.pdp0=pdp0;
+ __atomic_thread_fence(__ATOMIC_SEQ_CST);
+ for(unsigned i=0;i<TAIL_DMA_PAGES*4096/64;i++) {
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+  intel_stolen_test_flush((volatile unsigned char *)ram+i*64,i);
+#else
+  __asm__ volatile("clflush (%0)"::"r"((volatile unsigned char *)ram+i*64):"memory");
+#endif
+  ++stolen.command_tail.flush_lines;
+ }
+ __atomic_thread_fence(__ATOMIC_SEQ_CST);
+ return true;
+}
+static bool check_command_frames(const struct scanout_transfer_manifest *m)
+{
+ uint64_t base=stolen.command_tail.dma_base;
+ if(!command_ram_alias(base) || stolen.command_tail.flush_lines!=TAIL_DMA_PAGES*64)return false;
+ for(unsigned i=0;i<TAIL_GLOBAL_PAGES;i++) {
+  struct intel_bdw_ggtt_page expected;
+  const struct intel_bdw_ggtt_page *saved=&stolen.command_tail.planned[i];
+  if(!intel_bdw_ggtt_plan_entry(m,m->first+i,base+i*4096,&expected) ||
+     expected.replacement!=saved->replacement || expected.original!=saved->original ||
+     expected.gpu_address!=saved->gpu_address || expected.mmio_offset!=saved->mmio_offset ||
+     expected.index!=saved->index || expected.physical!=saved->physical)return false;
+ }
+ volatile const uint32_t *ram=pmm_phys_to_virt(base);
+ if(!intel_bdw_bcs_private_context_verify(&stolen.command_tail.bcs,stolen.command_tail.pdp0,ram,stolen.command_tail.descriptor))return false;
+ for(unsigned i=0;i<2048;i++)
+  if(ram[BDW_BCS_IMAGE_WORDS+i]!=(i<32 ? stolen.command_tail.rcs.words[i] : 0))return false;
+ uint64_t vm_base=base+TAIL_GLOBAL_PAGES*4096;
+ return stolen.command_tail.pdp0==vm_base+BDW_PRIVATE_PD*4096 &&
+        intel_bdw_private_vm_verify(pmm_phys_to_virt(vm_base),vm_base,stolen.command_tail.token.epoch);
+}
+
 /* Borrow only the alignment padding in the second imported buffer. Keep the
  * complete tiled image and its 128-PTE fetch allowance outside this interval.
  * The lender pins the original translations; the lease alone permits no I/O. */
@@ -807,9 +903,8 @@ static bool borrow_command_tail(struct scanout_transfer_manifest source) {
   .aperture_bytes=source.aperture_bytes,.fence_begin=source.fence_begin,.fence_end=source.fence_end,
   .nonce=stolen.command_tail.token.epoch,.context_id=1,
   .vendor=stolen.facts[1].gpu&0xffff,.device=stolen.facts[1].gpu>>16};
- return intel_bdw_bcs_context_build(&stolen.command_tail.bcs,stolen.command_tail.image,
-                                    &stolen.command_tail.descriptor) &&
-        intel_bdw_rcs_indirect_build(source.first,source.pages,&stolen.command_tail.rcs);
+ return intel_bdw_rcs_indirect_build(source.first,source.pages,&stolen.command_tail.rcs) &&
+        prepare_command_frames(&source);
 }
 
 static bool check_command_tail(void) {
@@ -820,7 +915,7 @@ static bool check_command_tail(void) {
  fresh.original=entries;
  if(!scanout_transfer_reservation_matches(&stolen.command_tail.transfer,&stolen.command_tail.token,&fresh) ||
     !intel_bdw_rcs_indirect_verify(fresh.first,fresh.pages,&stolen.command_tail.rcs) ||
-    !intel_bdw_bcs_context_verify(&stolen.command_tail.bcs,stolen.command_tail.image,stolen.command_tail.descriptor))
+    !check_command_frames(&fresh))
   return false;
  ++stolen.command_tail.samples;
  /* A second child of the same firmware lender must also be excluded. */
@@ -1027,6 +1122,14 @@ done:
   stolen.command_tail.returned=scanout_transfer_close(&stolen.command_tail.transfer,&stolen.command_tail.token);
   if(!stolen.command_tail.returned){stolen.uncertain=true;ok=false;refuse(34);}
  }
+ /* These frames have never been installed in any GPU translation. Only the
+  * owner that returned the tail loan can give them back to the PMM. */
+ if(stolen.command_tail.dma_base && stolen.command_tail.returned && !stolen.uncertain) {
+  if(command_frames_owned()) {
+   pmm_free_frame_range(stolen.command_tail.dma_base,TAIL_DMA_PAGES);
+   stolen.command_tail.dma_freed=true;
+  } else {stolen.uncertain=true;ok=false;refuse(34);}
+ }
  if(stolen.range.token.object && stolen.range.transfer.state!=TRANSFER_CLOSED && !stolen.uncertain &&
     !scanout_transfer_close(&stolen.range.transfer,&stolen.range.token)){
   stolen.uncertain=true;ok=false;refuse(32);
@@ -1157,7 +1260,7 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.import.submission)
-  console_printf("intel-submission-guard: v=5 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x\n",
+  console_printf("intel-submission-guard: v=6 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x dma_base=%x cpu_flush_lines=%u dma_freed=%u pdp0=%x\n",
    (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
    (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
    (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2],
@@ -1166,7 +1269,8 @@ report:
    (uint64_t)stolen.import.first,(uint64_t)stolen.import.checked,(uint64_t)stolen.import.command_returned,
    (uint64_t)stolen.command_tail.manifest.first,(uint64_t)stolen.command_tail.manifest.pages,
    stolen.command_tail.transfer.original[0],stolen.command_tail.descriptor,(uint64_t)stolen.command_tail.samples,
-   (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned,(uint64_t)stolen.command_tail.rcs.pointer);
+   (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned,(uint64_t)stolen.command_tail.rcs.pointer,
+   stolen.command_tail.dma_base,(uint64_t)stolen.command_tail.flush_lines,(uint64_t)stolen.command_tail.dma_freed,stolen.command_tail.pdp0);
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,

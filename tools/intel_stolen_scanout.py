@@ -452,7 +452,8 @@ def stolen_result(text,*,native=False,required_version=None):
         from intel_gt_bootstrap import fields
         keys=['v','pages','closed']
         words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
-        indirect=guards[0].startswith('intel-submission-guard: v=5 ')
+        dma=guards[0].startswith('intel-submission-guard: v=6 ')
+        indirect=dma or guards[0].startswith('intel-submission-guard: v=5 ')
         tail_loan=indirect or guards[0].startswith('intel-submission-guard: v=4 ')
         current=tail_loan or guards[0].startswith('intel-submission-guard: v=3 ')
         if current or guards[0].startswith('intel-submission-guard: v=2 '):
@@ -462,13 +463,17 @@ def stolen_result(text,*,native=False,required_version=None):
             if indirect:
                 tail_keys.append('rcs_indirect')
                 hex_extra.append('rcs_indirect')
+            if dma:
+                tail_keys.extend(('dma_base','cpu_flush_lines','dma_freed','pdp0'))
+                hex_extra.append('dma_base')
+                hex_extra.append('pdp0')
             guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys,
-                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(5 if indirect else 4 if tail_loan else 3 if current else 2,))
+                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
             if current:
                 masks=[guard[f'mask{i}'] for i in range(3)]
                 slots=(0x10000,0x80000,0xffe00)
                 tried,first,checked,returned=(guard[k] for k in ('tried','first','checked','returned'))
-                if (tried>3 or checked>2 or returned>1 or any(guard[k]>0xffffffff for k in hex_extra) or
+                if (tried>3 or checked>2 or returned>1 or any(guard[k]>0xffffffff for k in hex_extra if k!='dma_base') or
                     any(masks[tried:]) or (first and (not tried or first!=slots[tried-1] or masks[tried-1])) or
                     ((checked or returned) and not first)):
                     raise ValueError('invalid GPU-only command interval')
@@ -488,7 +493,7 @@ def stolen_result(text,*,native=False,required_version=None):
                         buffer=rows['run'][5]
                         offset=buffer['pages']-32
                         slot=buffer['gpu']//4096+offset
-                        desc=(1<<32) | ((slot+1)*4096) | 0x0d
+                        desc=(1<<32) | ((slot+1)*4096) | (0x10d if dma else 0x0d)
                         if (first or tried!=3 or not all(masks) or reserved!=32 or offset<r['pages'] or
                             guard['tail_slot']!=slot or guard['tail_pte']!=buffer['first']+offset*4096 or
                             samples>3 or conflicts>samples or closed>1 or
@@ -498,6 +503,14 @@ def stolen_result(text,*,native=False,required_version=None):
                         if indirect and (guard['rcs_indirect'] not in (0, ((slot+4)*4096)|2) or
                                          (samples and not guard['rcs_indirect'])):
                             raise ValueError('invalid render indirect context in command interval')
+                        if dma:
+                            base,lines,freed=(guard[k] for k in ('dma_base','cpu_flush_lines','dma_freed'))
+                            if (lines not in (0,1152) or freed>1 or (freed and (not closed or not base)) or
+                                (lines and (base<0x100000 or base&4095 or base+18*4096>1<<32 or
+                                            (base<(rows['facts'][1]['tolud']&0xfff00000) and
+                                             base+18*4096>(rows['facts'][1]['bgsm']&0xfff00000)))) or
+                                (guard['pdp0']!=(base+14*4096 if lines else 0)) or (samples and lines!=1152) or (complete and not freed)):
+                                raise ValueError('invalid command DMA backing')
                         if complete:
                             extra_maps+=samples
                             extra_aliases+=2*samples

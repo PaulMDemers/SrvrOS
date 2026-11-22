@@ -10,6 +10,17 @@
 static bool intel_stolen_test_alias(uint64_t,uint64_t,uint64_t);
 static bool intel_stolen_test_read(uint32_t,uint32_t *);
 static uint64_t fixture_flags;
+#include <srvros/intel_bdw_private_vm.h>
+static _Alignas(4096) struct {
+ uint32_t global[6*1024];
+ struct bdw_private_vm_image vm;
+} dma_image;
+#define command_ram dma_image.global
+static bool dma_live;
+static void intel_stolen_test_flush(volatile unsigned char *address,unsigned line)
+{
+ assert(dma_live && line<sizeof(dma_image)/64 && address==(unsigned char *)&dma_image+line*64);
+}
 static uint64_t intel_stolen_test_irq_save(void) {
  uint64_t saved=fixture_flags;
  fixture_flags&=~(1ull<<9);
@@ -144,7 +155,73 @@ bool vmm_reserved_guard_close(struct vmm_reserved_guard *g,struct vmm_alias_inve
  if(fault(GUARD_CLOSE)){d->walk.reason=VMM_ALIAS_MODE;return false;}
  model.guard_live=false;*out=(struct vmm_alias_inventory){.tables=9,.entries=4608};return true;
 }
+#define FIXTURE_COMMAND_PA 0x2800000ull
+uint64_t pmm_alloc_frames_tagged(uint64_t count,enum pmm_frame_tag tag) {
+ assert(count==TAIL_DMA_PAGES && tag==PMM_FRAME_DMA && !dma_live && model.guard_live);
+ if(model.mode==73)return 0;
+ dma_live=true;
+ memset(&dma_image,0x55,sizeof(dma_image));
+ return FIXTURE_COMMAND_PA;
+}
+void *pmm_phys_to_virt(uint64_t physical) {
+ assert(dma_live);
+ if(physical==FIXTURE_COMMAND_PA+sizeof(command_ram))return &dma_image.vm;
+ assert(physical==FIXTURE_COMMAND_PA);
+ return &dma_image;
+}
+/* Replay the hardware walk from the recorded physical directory. Decode the
+ * five batch addresses independently of the production image constructor. */
+static uint64_t fixture_walk(unsigned va,bool write) {
+ const uint64_t base=FIXTURE_COMMAND_PA+sizeof(command_ram);
+ assert(stolen.command_tail.pdp0==base+8*4096);
+ unsigned directory=va>>21, leaf=(va>>12)&511;
+ uint64_t pd=dma_image.vm.tables[1][directory];
+ if(!pd)return 0;
+ assert(pd==(base+7*4096+0x1b));
+ uint64_t pte=dma_image.vm.tables[0][leaf];
+ if(!(pte&1) || (write && !(pte&2)))return 0;
+ assert((pte&0x18)==0x18);
+ return (pte&~4095ull)+(va&4095);
+}
+static void fixture_private_commands(void) {
+ uint64_t base=FIXTURE_COMMAND_PA+sizeof(command_ram);
+ assert((stolen.command_tail.descriptor&4095)==0x10d && command_ram[0]==0x18800101 &&
+        command_ram[1]==0x1100 && !command_ram[2] && !command_ram[3] && !command_ram[4] && !command_ram[5] && command_ram[2048+7]==24);
+ for(unsigned pd=0;pd<4;pd++) {
+  assert(command_ram[2048+51-pd*4]==stolen.command_tail.pdp0+pd*4096 && !command_ram[2048+49-pd*4]);
+  if(pd)for(unsigned i=0;i<512;i++)assert(!dma_image.vm.tables[pd+1][i]);
+ }
+ assert(!fixture_walk(0,false) && !fixture_walk(0x8000,false) &&
+        !fixture_walk(0x200000,false) && !fixture_walk(0x1000,true));
+ for(unsigned e=0;e<5;e++) {
+  assert(fixture_walk(0x1000+256*e,false)==base+256*e);
+  uint32_t *batch=&dma_image.vm.commands[64*e];
+  uint64_t marker=(stolen.command_tail.token.epoch<<8)|(e+1);
+  if(e==0)assert(batch[0]==0x7a000004);
+  else assert(batch[0]==0x13004003);
+  unsigned dst=e?batch[1]:batch[2];
+  assert(fixture_walk(dst,true)==base+(1+e)*4096+64);
+  assert((e?batch[3]:batch[4])==(uint32_t)marker);
+  unsigned wait=e?6:16;
+  assert(fixture_walk(batch[wait+2],false)==base+6*4096);
+  assert(!fixture_walk(batch[wait+2],true));
+  assert(batch[wait+10]==0x05000000);
+ }
+}
+void pmm_free_frame_range(uint64_t physical,uint64_t count) {
+ assert(physical==FIXTURE_COMMAND_PA && count==TAIL_DMA_PAGES && dma_live && stolen.command_tail.returned);
+ if(model.mode==66)fixture_private_commands();
+ dma_live=false;
+}
+bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t pages,unsigned bits,
+                                 struct vmm_alias_observation *alias,struct vmm_range_observation *detail) {
+ assert(root==0x1000 && va==(uintptr_t)command_ram && pa==FIXTURE_COMMAND_PA && pages==TAIL_DMA_PAGES && bits==39 &&
+        dma_live && model.guard_live && !(fixture_flags&(1ull<<9)) && !detail);
+ *alias=(struct vmm_alias_observation){.pages=TAIL_DMA_PAGES,.leaves=1,.writable=1,.leaf_sizes=2,.pat_index=model.mode==74?3u:0u};
+ return true;
+}
 bool pmm_frame_has_tag(uint64_t physical,enum pmm_frame_tag tag) {
+ if(tag==PMM_FRAME_DMA)return dma_live && physical>=FIXTURE_COMMAND_PA && physical<FIXTURE_COMMAND_PA+sizeof(dma_image);
  assert(tag==PMM_FRAME_RESERVED && physical>=0x8e201000 && physical<0x8ee01000 && !(physical&4095));
  assert(physical==0x8e201000+4096ull*model.tag_queries);
  ++model.tag_queries;
@@ -239,7 +316,12 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
     offset==0x800000u+(stolen.command_tail.manifest.first+COMMAND_PAGES-1)*8) {
   if(model.mode==68){*out=0xdead0001;return true;}
   if(model.mode==70)stolen.command_tail.rcs.words[7]^=1u<<21;
-  if(model.mode==69)stolen.command_tail.image[BDW_BCS_IMAGE_WORDS-1]=1;
+  if(model.mode==71)command_ram[5*1024+64]=1;
+  if(model.mode==72)command_ram[4*1024+32]=1;
+  if(model.mode==75)dma_image.vm.tables[1][0]^=4096;
+  if(model.mode==76)dma_image.vm.tables[0][1]|=2;
+  if(model.mode==77)dma_image.vm.result[4][16]=1;
+  if(model.mode==69)command_ram[BDW_BCS_IMAGE_WORDS-1]=1;
  }
  if(model.mode==63 && stolen.import.samples==1 && offset==0x811000){*out=0x8e202001u;return true;}
  switch(offset) {
@@ -283,7 +365,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    assert(model.guard_live && model.held && (offset&~4095u)==stolen.import.command_page);
    *out=0;
    if(!(offset&4) && (offset&4095)==31*8 &&
-      (model.mode==66 || model.mode==68 || model.mode==69 || model.mode==70 || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
+      (model.mode==66 || (model.mode>=68 && model.mode<=77) || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
     *out=2; /* Invalid, but already occupied. */
    return true;
   }
@@ -380,10 +462,22 @@ int main(int argc,char **argv) {
    assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.import.command_returned);
    return 0;
   }
+  if(!strcmp(argv[1],"--submission-alloc-fail") || !strcmp(argv[1],"--submission-wb-fail")) {
+   model.mode=!strcmp(argv[1],"--submission-alloc-fail")?73:74;
+   assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && !dma_live && !model.held);
+   assert(stolen.command_tail.returned && !stolen.command_tail.samples && !stolen.command_tail.flush_lines);
+   return 0;
+  }
   if(!strcmp(argv[1],"--submission-tail-drift") || !strcmp(argv[1],"--submission-image-drift") ||
-     !strcmp(argv[1],"--submission-render-drift")) {
+     !strcmp(argv[1],"--submission-render-drift") || !strcmp(argv[1],"--submission-scratch-drift") ||
+     !strcmp(argv[1],"--submission-padding-drift") || !strncmp(argv[1],"--submission-vm-",16)) {
    model.mode=!strcmp(argv[1],"--submission-tail-drift")?68:!strcmp(argv[1],"--submission-render-drift")?70:69;
-   assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.import.returned);
+   if(!strcmp(argv[1],"--submission-vm-root"))model.mode=75;
+   if(!strcmp(argv[1],"--submission-vm-writable"))model.mode=76;
+   if(!strcmp(argv[1],"--submission-vm-stale"))model.mode=77;
+   if(!strcmp(argv[1],"--submission-scratch-drift"))model.mode=71;
+   if(!strcmp(argv[1],"--submission-padding-drift"))model.mode=72;
+   assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.import.returned && !dma_live);
    assert(stolen.command_tail.samples==2 && stolen.command_tail.returned && !model.held && !model.mapped);
    return 0;
   }

@@ -21,6 +21,12 @@ struct intel_bdw_bcs_context_config {
  * Caller supplies independently owned writable CPU RAM with stable config. */
 bool intel_bdw_bcs_context_build(const struct intel_bdw_bcs_context_config *,volatile uint32_t *,uint64_t *descriptor);
 bool intel_bdw_bcs_context_verify(const struct intel_bdw_bcs_context_config *,volatile const uint32_t *,uint64_t descriptor);
+/* Legacy32 BCS context using four consecutive private directory frames.
+ * Its ring dispatches the BCS batch in the private command page. */
+bool intel_bdw_bcs_private_context_build(const struct intel_bdw_bcs_context_config *,uint64_t pdp0,
+                                         volatile uint32_t *,uint64_t *descriptor);
+bool intel_bdw_bcs_private_context_verify(const struct intel_bdw_bcs_context_config *,uint64_t pdp0,
+                                          volatile const uint32_t *,uint64_t descriptor);
 /* Candidate RCS indirect context for the borrowed 32-page command interval.
  * Pages 0..3 belong to BCS. Page 4 holds this batch, and page 5 holds its
  * private register-save word. Preparing it on the CPU grants no GPU access. */
