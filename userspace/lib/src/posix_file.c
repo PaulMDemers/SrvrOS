@@ -67,6 +67,8 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
 }
 
 int __posix_translate_open_flags(int flags, uint64_t *srv_flags) {
+    /* The VFS admits only regular files and directories. Supporting link
+     * nodes would require enforcing O_NOFOLLOW at kernel open admission. */
     if(flags&~(O_ACCMODE|O_CREAT|O_EXCL|O_TRUNC|O_APPEND|O_NONBLOCK|O_NOFOLLOW|O_DIRECTORY|O_CLOEXEC)) { errno=EINVAL;return -1; }
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
