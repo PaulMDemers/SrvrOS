@@ -10,11 +10,21 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-PR301 is importing the two classified firmware buffers into the shared GPU
-interval registry for the lifetime of this boot. The device branch will
-exercise a one-page transfer reservation inside that import with the boot
-display pinned, including a competing claimant before and after return.
-The live engine, firmware and cache handoff remains a prerequisite for writes.
+Release `a773b6292dc27551` (source `71af1064`, session
+`session-000660d3b60bcb64-00`) imported both 6 MiB firmware buffers into
+the SrvrOS GPU address allocator. The allocator lent slot 8704 to the driver
+and accepted its return. It refused a competing claim before, during and
+after the loan. Both reads of the slot returned `0x8e201001`.
+
+Pipe A stayed on the inherited framebuffer and advanced from frame 1151
+to 1152. The trial checked 1,484 candidate entries, completed 42 closing
+reader checks and retired all 76 temporary CPU mappings. Ubuntu collected
+the matching report and the offline exFAT integrity check passed.
+
+The trial issued zero GPU page-table writes. The remaining prerequisite
+for replacing the slot is a native graphics owner that can block new GPU
+and display-proxy requests to it, witness outstanding engine and L3 work
+finish, and hold that exclusion through rollback while Pipe A keeps scanning.
 
 Release `5d1fa7400ba472cc` (source `bccf2409`, session
 `session-000660d30f73afdb-00`) completed the independent-range diagnostic.

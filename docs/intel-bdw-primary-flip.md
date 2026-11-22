@@ -238,12 +238,13 @@ and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-curr
    repeated flips, rollback and retirement on the internal panel.
 
 The Air7,2 completed step 1 on release `5d1fa7400ba472cc`. The entire
-eligible region had nonzero entries. Step 2 now requires an explicit takeover. Import the inherited plane, fence and firmware
-reservations into the driver's address-space allocator, identify and quiesce
-the clients of the interval selected for reuse, and retain its original
-translations through rollback.
-Repeating the empty-entry search on the same aperture will not supply that
-ownership. Upstream i915 determines unused intervals from its allocation
+eligible region had nonzero entries. Release `a773b6292dc27551` exercised
+the allocator portion of step 2 on the Air. The original framebuffer fence
+stayed pinned while the allocator imported both firmware spans and lent
+and recovered slot 8704. The remaining portion of step 2 is to quiesce
+the hardware clients of that slot and hold exclusive access through both
+page-table writes and translation retirement in step 3.
+Upstream i915 determines unused intervals from its allocation
 records during GGTT initialization. [Linux i915 GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
 
 The Linux framebuffer offsets in the [Air7,2 hardware record](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
