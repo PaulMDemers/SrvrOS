@@ -210,3 +210,34 @@ counts from Pipe A. On the Air, the guard covered `0xb2200000` while the
 frame counter advanced. The next write-capable trial needs a device owner
 that keeps the slot exclusive from the first PTE store through restoration
 and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
+
+## Driver-owned second surface on Air7,2
+
+1. **Reserve a distinct GPU interval.** The opt-in `intel-private-range-v1`
+   boot searches from the first GGTT table page after the inherited framebuffer
+   fence and both firmware candidate surfaces to the end of the CPU-visible
+   aperture. Only all-zero 64-bit entries qualify. A present scratch mapping
+   and a nonzero invalid encoding both stay reserved. The existing interval
+   registry arbitrates aligned runs against every other SrvrOS claimant.
+   The trial rereads all 1,484 entries under the lease, rechecks the fences
+   and original display, then returns the lease. A complete search can also
+   report exhaustion or a conflicting display reader.
+2. **Give the native driver control of who can use that interval.** Retain
+   the exact lease and the boot display fence. Account for inherited engine
+   contexts, pending work, firmware and display-proxy users before admitting
+   new SrvrOS work. Every native binding and submission must reference the
+   live driver's allocation. A zero PTE alone supplies no reader guarantee.
+3. **Bind one private RAM page and roll back.** Pin the RAM, publish its PTE
+   inside that interval, invalidate the translation, verify visibility, then
+   restore the exact zero entry. Release RAM only after translation and
+   reader retirement. Keep the boot plane live throughout.
+4. **Flip the complete surface and integrate desktop presentation.** Repeat
+   the binding for the X-tiled image and fetch padding, verify distinct
+   primary-plane CRCs across vblank, restore the boot image and CRC, then
+   use that lifetime for the compositor. Physical acceptance requires
+   repeated flips, rollback and retirement on the internal panel.
+
+This path leaves the populated firmware entry at slot 8704 intact. Its first
+hardware question is whether a suitably sized zero range actually exists in
+the inherited GGTT. If the aperture is populated throughout, identify the
+binding owner and use an explicit takeover or another addressable region.

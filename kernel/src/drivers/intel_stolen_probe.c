@@ -67,6 +67,11 @@ static struct {
   uint32_t frame[2],frame_reads;
   bool selected,verified,aperture_alias;
  } range;
+ struct {
+  struct scanout_interval lease;
+  unsigned begin, first, scanned, nonzero, verified, batches, maps;
+  bool selected, scanning, claimed, returned, exhausted, reader_conflict;
+ } private_range;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -129,7 +134,7 @@ static bool checkpoint(unsigned step) {
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }
-static bool parse_recipe(const char *s,bool *range) {
+static bool parse_recipe(const char *s,bool *range,bool *private_range) {
  static const char *const fixed[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only",
  "srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-stolen=read-only","srvros.capture-failure=reboot"};
  unsigned seen=0,tokens=0;
@@ -154,15 +159,18 @@ static bool parse_recipe(const char *s,bool *range) {
   }
   static const char exact_range[]="srvros.intel-scanout=range-observation";
   if(len==sizeof(exact_range)-1 && equal_bytes(start,exact_range,len))bit=512;
+  static const char allocator[]="srvros.intel-scanout=private-range";
+  if(len==sizeof(allocator)-1 && equal_bytes(start,allocator,len))bit=1024;
   if(!bit || (seen&bit) || ++tokens>10)return false;
   seen|=bit;
  }
- if(!((tokens==9 && seen==511) || (tokens==10 && seen==1023)))return false;
- if(range)*range=(seen&512)!=0;
+ if(!((tokens==9 && seen==511) || (tokens==10 && (seen==1023 || seen==1535))))return false;
+ if(range)*range=(seen&(512|1024))!=0;
+ if(private_range)*private_range=(seen&1024)!=0;
  return true;
 }
 bool intel_stolen_probe_recipe(const char *s) {
- return parse_recipe(s,NULL);
+ return parse_recipe(s,NULL,NULL);
 }
 static bool tick(uint64_t begin) {
  uint64_t at=timer_monotonic_us();
@@ -192,6 +200,8 @@ static bool identity(void) {
  return ok || refuse(9);
 }
 static bool allowed(uint32_t page) {
+ if(stolen.private_range.scanning && stolen.guard.checked && !stolen.guard.closed &&
+    page>=0x800000u+8*stolen.private_range.begin && page<0x800000u+8*SCANOUT_SPACE_PAGES)return true;
  if(page==0x100000 && stolen.range.selected && stolen.guard.checked && !stolen.guard.closed)return true;
  if(page==0x108000 || page==0x43000 || page==0x6f000 ||
     page==0x70000 || page==0x71000 || page==0x72000)return true;
@@ -579,6 +589,91 @@ static bool range_fences(void) {
  return true;
 }
 
+/* Only the inherited primary on A may fetch at these checkpoints. A cursor,
+ * sprite, queued surface or second primary requires its own footprint import. */
+static bool private_display_clear(void) {
+ for(unsigned p=0;p<3;p++) {
+  const uint32_t *w=&stolen.handoff.readers[3+INTEL_READER_WORDS*p];
+  if((w[0]>>31)!=(unsigned)(p==0) || (w[5]&63) || (w[8]>>31))return false;
+  for(unsigned i=1;i<=4;i++)if(w[i]&0xfffff000u)return false;
+ }
+ return true;
+}
+
+/* Read up to 64 PTEs from one RO UC page per guarded batch. A populated
+ * scratch entry, an encoded non-present entry and an unstable read are all
+ * ineligible. No access through the aperture or the sampled backing. */
+static bool private_batch(unsigned first,unsigned count,uint64_t *values) {
+ uint32_t offset=0x800000u+first*8;
+ if(!count || count>64 || ((first&511)+count)>512 || !tick(stolen.begin[1]) ||
+    !map(offset&~4095u) || !alias())return false;
+ for(unsigned i=0;i<count;i++,offset+=8) {
+  uint32_t hi,lo,again;
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+  if(!intel_stolen_test_read(offset+4,&hi) || !intel_stolen_test_read(offset,&lo) ||
+     !intel_stolen_test_read(offset+4,&again))return refuse(17);
+#else
+  volatile const uint32_t *pte=(volatile const uint32_t *)(STOLEN_VA+(offset&4095));
+  hi=pte[1];lo=pte[0];again=pte[1];
+#endif
+  if(hi!=again || (hi==UINT32_MAX && lo==UINT32_MAX))return refuse(20);
+  values[i]=((uint64_t)hi<<32)|lo;
+ }
+ if(!alias() || !tick(stolen.begin[1]))return false;
+ ++stolen.private_range.batches;
+ return true;
+}
+
+static bool reserve_private_range(unsigned pages) {
+ struct scanout_interval *lease=&stolen.private_range.lease;
+ const struct bdw_stolen_range *last=&stolen.plan.range[2];
+ /* Start at the first GGTT register page beyond both firmware candidates. */
+ uint64_t after=(last->gpu+last->bytes)/4096;
+ if(after>SCANOUT_SPACE_PAGES || !pages || pages>SCANOUT_SPACE_PAGES ||
+    stolen.source.aperture_bytes!=4096ull*SCANOUT_SPACE_PAGES)return false;
+ unsigned begin=(after+511u)&~511u;
+ stolen.private_range.begin=begin;
+ if(!private_display_clear()){stolen.private_range.reader_conflict=true;return true;}
+ if(!unmap())return false;
+ unsigned maps_before=stolen.maps, run=0;
+ bool ok=false;
+ uint64_t values[64];
+ stolen.private_range.scanning=true;
+ for(unsigned slot=begin;slot<SCANOUT_SPACE_PAGES && !stolen.private_range.claimed;slot+=64) {
+  if(!private_batch(slot,64,values))goto done;
+  for(unsigned i=0;i<64;i++) {
+   ++stolen.private_range.scanned;
+   if(values[i]){++stolen.private_range.nonzero;run=0;continue;}
+   unsigned pos=slot+i;
+   if(!run && (pos&63u))continue;
+   if(++run<pages)continue;
+   unsigned first=pos+1-pages;
+   struct scanout_space_range range={first,pages};
+   if(scanout_interval_claim(lease,stolen.source.mmio,stolen.source.aperture,
+        stolen.source.aperture_bytes,stolen.source.fence_end,range)){
+    stolen.private_range.first=first;stolen.private_range.claimed=true;break;
+   }
+   /* Slide to the next 256 KiB aligned start within the same zero run. */
+   run=pages>=64?pages-64:0;
+  }
+ }
+ if(!stolen.private_range.claimed){stolen.private_range.exhausted=true;ok=true;goto done;}
+ for(unsigned i=0;i<pages;) {
+  unsigned count=pages-i<64?pages-i:64;
+  if(!scanout_interval_held(lease,stolen.source.mmio,stolen.source.aperture,stolen.source.aperture_bytes,
+      stolen.source.fence_end,(struct scanout_space_range){stolen.private_range.first,pages}) ||
+     !private_batch(stolen.private_range.first+i,count,values))goto done;
+  for(unsigned j=0;j<count;j++){if(values[j])goto done;++stolen.private_range.verified;}
+  i+=count;
+ }
+ ok=true;
+done:
+ if(!unmap())ok=false;
+ stolen.private_range.scanning=false;
+ stolen.private_range.maps=stolen.maps-maps_before;
+ return ok || refuse(32);
+}
+
 static bool observe_scanout_range(void) {
  const struct bdw_stolen_range *candidate=&stolen.layout.plan.range[1];
  if(!stolen.layout.classified || !stolen.guard.checked || stolen.guard.closed ||
@@ -616,6 +711,7 @@ static bool observe_scanout_range(void) {
   if(raw!=stolen.range.transfer.original[i] || raw!=stolen.pte[0][1][i])return refuse(32);
   stolen.range.digest=hash_word(stolen.range.digest,raw);++stolen.range.checked;
  }
+ if(stolen.private_range.selected && !reserve_private_range(pages))return false;
  if(!range_fences() || !unmap() || !handoff_readers(true) || !unmap() ||
     !handoff_config(1) || !equal_bytes(stolen.handoff.config[0],stolen.handoff.config[1],sizeof(stolen.handoff.config[0])) ||
     !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source) ||
@@ -670,6 +766,10 @@ done:
     !scanout_transfer_close(&stolen.range.transfer,&stolen.range.token)){
   stolen.uncertain=true;ok=false;refuse(32);
  }
+ if(stolen.private_range.claimed && !stolen.uncertain) {
+  scanout_interval_release(&stolen.private_range.lease);
+  stolen.private_range.returned=true;
+ }
  if(!stolen.uncertain) {
   if(display_access_unpin(&stolen.exclusion))stolen.guard.unpinned=1;
   else {stolen.uncertain=true;ok=false;refuse(30);}
@@ -686,7 +786,7 @@ bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
  console_write("intel-stolen: hardware ownership gate under maintained CPU mapping exclusion; two bounded2s passes, no input, no GPU writes or allocation grant\n");
- if(!parse_recipe(cmdline,&stolen.range.selected)){refuse(1);goto report;}
+ if(!parse_recipe(cmdline,&stolen.range.selected,&stolen.private_range.selected)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
  if(!checkpoint(1))goto report;
@@ -734,7 +834,7 @@ cleanup:
 report:
  trace(14,1);
  console_printf("intel-stolen-summary: v=%u reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
- (uint64_t)(stolen.range.selected?12:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
+ (uint64_t)(stolen.private_range.selected?13:stolen.range.selected?12:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
@@ -791,6 +891,12 @@ report:
   console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
+ if(stolen.private_range.selected)
+  console_printf("intel-private-range: v=1 begin=%u first=%u scanned=%u occupied=%u checked=%u batches=%u maps=%u claimed=%u returned=%u exhausted=%u reader_conflict=%u writes=0\n",
+   (uint64_t)stolen.private_range.begin,(uint64_t)stolen.private_range.first,(uint64_t)stolen.private_range.scanned,
+   (uint64_t)stolen.private_range.nonzero,(uint64_t)stolen.private_range.verified,(uint64_t)stolen.private_range.batches,
+   (uint64_t)stolen.private_range.maps,(uint64_t)stolen.private_range.claimed,(uint64_t)stolen.private_range.returned,
+   (uint64_t)stolen.private_range.exhausted,(uint64_t)stolen.private_range.reader_conflict);
  if(stolen.range.selected)
   console_printf("intel-stolen-range: v=4 aperture_page=%x aperture_alias=%u frame0=%u frame1=%u frame_reads=%u protected_pages=%u reservation=%u returned=%u epoch=%u slot=%u pages=%u checked=%u fences=%u closing_readers=%u hash=%x verified=%u missing=%u assurances=0 obligations=255 writes=0\n",
    stolen.range.excluded_aperture_page,(uint64_t)stolen.range.aperture_alias,(uint64_t)stolen.range.frame[0],(uint64_t)stolen.range.frame[1],

@@ -236,6 +236,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    while(w<13 && offsets[w]!=(offset&4095))++w;
    assert(w<13);
    *out=p==0 && w==0?0x80000000u:0;
+   if(model.mode==60 && p==1 && w==5)*out=1;
    if(model.mode==33 && stolen.reader_reads==model.at)*out=UINT32_MAX;
    if(model.mode==34 && stolen.phase==2 && p==1 && w==9)*out=0x2400000;
    return true;
@@ -245,6 +246,15 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    uint64_t raw=(offset<0x100008)?0x021ff02f00000001ull:0;
    if(model.mode==50 && stolen.range.fences==63)raw=1;
    *out=(offset&4)?(uint32_t)(raw>>32):(uint32_t)raw;return true;
+  }
+  if(stolen.private_range.scanning) {
+   unsigned slot=(offset-0x800000)/8;
+   assert(slot>=stolen.private_range.begin && slot<65536 && model.guard_live && model.held);
+   uint64_t entry=(slot==stolen.private_range.begin+64 || model.mode==57)?0x12345001:0;
+   if(slot==stolen.private_range.begin+128)entry=2; /* Encoded non-present */
+   if(model.mode==58 && stolen.private_range.claimed && slot==stolen.private_range.first+1483)entry=1;
+   *out=(offset&4)?(uint32_t)(entry>>32):(uint32_t)entry;
+   return true;
   }
   assert(offset>=0x800000 && offset<0x817000 && !(offset&3));
   uint64_t pte=0x8c001001ull+((offset-0x800000)/8)*4096ull;
@@ -312,6 +322,35 @@ int main(int argc,char **argv) {
   bool fail_tail=!strcmp(argv[1],"--range-tail-refusal");
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
+ }
+ char private_command[512];
+ snprintf(private_command,sizeof(private_command),"%s srvros.intel-scanout=private-range",command);
+ if(argc==2 && !strncmp(argv[1],"--private-",10)) {
+  reset();model.report=true;
+  struct scanout_interval competing={0};
+  if(!strcmp(argv[1],"--private-collision")){
+   model.mode=61;
+   assert(scanout_interval_claim(&competing,0xc0000000,0xb0000000,0x10000000,0x2200000,
+                                 (struct scanout_space_range){11776+192,64}));
+  }
+  else if(!strcmp(argv[1],"--private-full"))model.mode=57;
+  else if(!strcmp(argv[1],"--private-change"))model.mode=58;
+  else if(!strcmp(argv[1],"--private-reader"))model.mode=60;
+  else assert(!strcmp(argv[1],"--private-report"));
+  bool ok=intel_stolen_probe_report(private_command);
+  assert(ok==(model.mode!=58) && !model.mapped && !model.held && !model.guard_live);
+  if(model.mode==61){
+   assert(stolen.private_range.first==11776+256 && stolen.private_range.returned &&
+          scanout_interval_held(&competing,0xc0000000,0xb0000000,0x10000000,0x2200000,
+                                (struct scanout_space_range){11776+192,64}));
+   scanout_interval_release(&competing);
+  }
+  if(model.mode==57)assert(stolen.private_range.exhausted && !stolen.private_range.claimed);
+  if(model.mode==58)assert(stolen.private_range.verified==1483 && stolen.private_range.returned);
+  if(model.mode==60)assert(stolen.private_range.reader_conflict && !stolen.private_range.scanned);
+  if(!model.mode)assert(stolen.private_range.first==stolen.private_range.begin+192 &&
+                       stolen.private_range.returned && stolen.private_range.verified==1484);
+  return 0;
  }
  for(unsigned mode=49;mode<=53;mode++) {
   reset();model.mode=mode;bool matched=mode==49;

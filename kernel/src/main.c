@@ -1047,6 +1047,8 @@ void kmain(void) {
                     "intel-stolen: unchanged60s means photograph and restart manually; no GPU write or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-scanout=range-observation"))
                     console_write("intel-scanout: checking CPU aperture exclusion during active scanout. No GPU mapping change.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-scanout=private-range"))
+                    console_write("intel-scanout: searching for a separate framebuffer interval; panel stays on, no input needed.\n");
                 bool checkpoint=started && workspace_log_pause();
                 bool stolen_ok=checkpoint && intel_stolen_probe_report(cmdline);sampled=sampled && stolen_ok;
                 if(!checkpoint)console_write("intel-stolen: checkpoint failed; census refused\n");

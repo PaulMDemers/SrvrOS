@@ -69,6 +69,26 @@ class Receipts(unittest.TestCase):
         cls.prefix=cls.preinit+subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe'),'fresh-uc'],text=True)+'\n'.join(lines)+'\n'
         cls.late=re.sub(r'\b(begin|end)=(\d+)',lambda m:m[1]+'='+str(int(m[2])+1000000 if int(m[2]) else 0),cls.text)
         cls.command=next(l.split('cmdline:',1)[1].strip() for l in boot.limine_config('0123456789abcdef','ram-usb-v9-intel-stolen-laptop-probe-37d8c5d0-auto-return').splitlines() if 'cmdline:' in l)
+    def test_private_range_selection_and_firmware_conflicts(self):
+        exe=ROOT/'build/tests/intel-stolen-probe'
+        version='ram-usb-v14-intel-stolen-laptop-probe-37d8c5d0-auto-return'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in cfg.splitlines() if 'cmdline:' in l)
+        self.assertIn('srvros.intel-scanout=private-range',cmd.split())
+        self.assertEqual(trial_parsers('intel-private-range-v1')[0](cmd),stolen_recipe(self.command))
+        for name in ('report','full','reader','change','collision'):
+            raw=subprocess.check_output([str(exe),'--private-'+name],text=True)
+            result=stolen_result(raw,required_version=13)
+            self.assertEqual(result['complete'], name!='change')
+            self.assertFalse(result['managed_range'] or result['hardware_ownership'])
+            row=result['private_range']
+            self.assertEqual(row['checked'],{'report':1484,'collision':1484,'change':1483}.get(name,0))
+            if name=='report':
+                line=next(l for l in raw.splitlines() if l.startswith('intel-private-range:'))
+                for bad in ('',line+'\n'+line,line.replace('checked=1484','checked=1483'),
+                            line.replace('returned=1','returned=0'),line.replace('claimed=1','claimed=0'),
+                            line.replace('scanned=1676','scanned=1675'),line.replace('writes=0','writes=1')):
+                    with self.assertRaises(ValueError):stolen_result(raw.replace(line,bad),required_version=13)
     def test_guarded_scanout_range_and_last_tail_entry(self):
         def report(option):
             return subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),option],text=True)

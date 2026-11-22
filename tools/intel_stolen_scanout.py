@@ -41,8 +41,10 @@ def verify_stolen_preinit(text):
 
 def stolen_recipe(command):
     tokens=command.split()
-    if 'srvros.intel-scanout=range-observation' in tokens:
-        tokens.remove('srvros.intel-scanout=range-observation')
+    for token in ('srvros.intel-scanout=range-observation','srvros.intel-scanout=private-range'):
+        if token in tokens:
+            tokens.remove(token)
+            break
     if len(tokens)!=9 or len(set(tokens))!=9 or not set(FIXED)<=set(tokens):
         raise ValueError('exact stolen census recipe required')
     fields={}
@@ -274,14 +276,14 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,13) else ''
-        if kind=='summary' and version in range(3,13):extra+=' preflight'
-        if kind=='summary' and version in range(4,13):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in range(5,13):extra+=' reader_reads'
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,14) else ''
+        if kind=='summary' and version in range(3,14):extra+=' preflight'
+        if kind=='summary' and version in range(4,14):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in range(5,14):extra+=' reader_reads'
         if kind=='range' and version in (2,3,4):extra+=' reservation returned'
         if kind=='range' and version in (3,4):extra+=' protected_pages'
         if kind=='range' and version==4:extra+=' aperture_page aperture_alias frame0 frame1 frame_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,13) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,14) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
@@ -336,7 +338,10 @@ def stolen_result(text,*,native=False,required_version=None):
         raise ValueError('stolen authority/outcome')
     if s['released']>s['acquired'] or s['retained']!=(s['acquired'] and not s['released']) or s['classified']!=s['complete']:
         raise ValueError('stolen lifetime receipt')
-    if s['maps']>128 or s['retired']>s['maps'] or s['cache_checks']>256 or s['meta_reads']>8 or s['checked']>65536 or (not s['retained'] and s['maps']!=s['retired']):
+    # Private mode scans at most 105 table pages above 46 MiB and revisits
+    # at most four to recheck the selected surface.
+    extra_limit=109 if wire==13 else 0
+    if s['maps']>128+extra_limit or s['retired']>s['maps'] or s['cache_checks']>256+2*extra_limit or s['meta_reads']>8 or s['checked']>65536 or (not s['retained'] and s['maps']!=s['retired']):
         raise ValueError('stolen mapping progress')
     for f in rows['facts']:
         if any(f[k]>=1<<32 for k in HEX if k in f):raise ValueError('stolen DWORD overflow')
@@ -357,7 +362,7 @@ def stolen_result(text,*,native=False,required_version=None):
     range_reads=0
     if wire>=9:
         r=rows['range'][0]
-        if r['v']!=wire-8:
+        if r['v']!=min(wire-8,4):
             raise ValueError('scanout reservation wire mismatch')
         if wire>=12:
             if r['frame_reads']>4097 or max(r['frame0'],r['frame1'])>0xffffffff:
@@ -402,6 +407,44 @@ def stolen_result(text,*,native=False,required_version=None):
             raise ValueError('missing scanout range observation')
         result['scanout_range']=r
         range_reads=3*(r['fences']+r['checked'])+r['closing_readers']+r.get('frame_reads',0)
+    private=[line for line in text.splitlines() if line.startswith('intel-private-range:')]
+    if len(private)!=int(wire==13):
+        raise ValueError('missing or unexpected private range result')
+    extra_maps=extra_aliases=0
+    if private:
+        from intel_gt_bootstrap import fields
+        h=fields(private[0],'intel-private-range:',
+                 'v begin first scanned occupied checked batches maps claimed returned exhausted reader_conflict writes'.split())
+        if (any(h[k]>1 for k in ('claimed','returned','exhausted','reader_conflict')) or h['writes'] or
+                h['returned']>h['claimed'] or h['occupied']>h['scanned'] or h['scanned']>65536-h['begin'] or
+                h['checked']>1484 or (h['claimed'] and (h['first']%64 or h['first']<h['begin'] or
+                h['first']+1484!=h['begin']+h['scanned'])) or
+                (not h['claimed'] and (h['first'] or h['checked']))):
+            raise ValueError('private range bounds or reservation')
+        if complete:
+            last=rows['run'][2]
+            begin=((last['gpu']+last['bytes']+0x1fffff)//0x200000)*512
+            if h['begin']!=begin or h['returned']!=h['claimed'] or sum(h[k] for k in ('returned','exhausted','reader_conflict'))!=1:
+                raise ValueError('private range outcome')
+            if h['claimed'] and (h['checked']!=1484 or h['scanned']-h['occupied']<1484):
+                raise ValueError('private lease revalidation')
+            if h['exhausted'] and h['scanned']!=65536-begin:
+                raise ValueError('incomplete aperture search')
+            readers=rows['reader'][3:]
+            conflict=any(bool(r['w0']>>31)!=(pipe==0) or r['w5']&63 or r['w8']>>31 or
+                         any(r['w'+str(w)]&0xfffff000 for w in range(1,5)) for pipe,r in enumerate(readers))
+            if bool(h['reader_conflict'])!=conflict:
+                raise ValueError('private range reader conflicts differ from hardware snapshot')
+            if h['reader_conflict'] and h['scanned']:
+                raise ValueError('private range searched with conflicting display reader')
+            extra_maps=(h['scanned']+511)//512
+            if h['checked']:
+                extra_maps+=(h['first']+1483)//512-h['first']//512+1
+            batches=(h['scanned']+63)//64+(h['checked']+63)//64
+            if (h['maps'],h['batches'])!=(extra_maps,batches):
+                raise ValueError('private range MMIO coverage')
+            extra_aliases=2*batches
+        result['private_range']=h
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -431,8 +474,8 @@ def stolen_result(text,*,native=False,required_version=None):
     entries=sum(size//4096 for _,size in spans)
     if wire>=5:maps+=6
     held_maps=5 if hardware and hardware['observation_complete'] else 0
-    maps+=held_maps+(10 if range_reads else 0)
-    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+range_reads+s.get('reader_reads',0)+(42 if held_maps else 0),2*entries):
+    maps+=extra_maps+held_maps+(10 if range_reads else 0)
+    if (s['maps'],s['retired'],s['cache_checks'],s['alias_checks'],s['checked'])!=(maps,maps,2*maps+(wire>=3),6*entries+8+2*maps+extra_aliases+range_reads+s.get('reader_reads',0)+(42 if held_maps else 0),2*entries):
         raise ValueError('stolen complete census counters')
     physical=[]
     for n in range(2):
@@ -476,6 +519,9 @@ def stolen_result(text,*,native=False,required_version=None):
             for gpu,size in spans:
                 start=0x800000+gpu//4096*8;end=start+size//4096*8
                 offsets.update(range(start&~4095,(end+4095)&~4095,4096))
+            if wire==13 and h['scanned']:
+                first=0x800000+h['begin']*8
+                offsets.update(range(first,first+((h['scanned']+511)//512)*4096,4096))
             for sample in cache['rows']['sample']:
                 n=sample['sample'];regions=_snapshot(sample,[r for r in cache['rows']['variable'] if r['sample']==n],[r for r in cache['rows']['fixed'] if r['sample']==n])
                 if any(_page(sample,regions,window['summary']['mmio']+offset,3)!=(0,0,0) for offset in offsets):
@@ -493,13 +539,14 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
     command=lines[0].split('=',1)[1]
     stolen_recipe(command)
-    if ('srvros.intel-scanout=range-observation' in command.split())!=(result['version']>=9):
+    if (('srvros.intel-scanout=range-observation' in command.split())!=(9<=result['version']<=12) or
+        ('srvros.intel-scanout=private-range' in command.split())!=(result['version']==13)):
         raise ValueError('stolen range recipe/version mismatch')
     prefixes=('intel-display-','intel-backing-','intel-cache-','intel-window-')
     before=[l for l in preflight.splitlines() if l.startswith(prefixes)]

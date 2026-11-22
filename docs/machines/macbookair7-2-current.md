@@ -10,6 +10,12 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+The current PR301 objective is to reserve an independent GPU virtual interval
+for a driver-allocated second surface. The native range probe, shared interval
+registry and result collector are in scope. The first trial preserves the
+inherited fence and classifies firmware PTEs before allocating a software
+lease. Binding RAM and retiring hardware readers are separate milestones.
+
 The version 4 context diagnostic checks the CPU path to the wireless-display
 (WiDi) queue tail registers while inspecting slot 8704. It requires their
 register page to be absent at both held boundaries. Local qualification also

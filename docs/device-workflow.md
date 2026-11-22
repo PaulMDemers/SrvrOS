@@ -1,5 +1,12 @@
 # Repeatable device trials
 
+The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
+It uses the range probe's two existing deadlines and the common display and
+CPU guards. Its version 13 result records the aperture searched, allocation,
+reread and return, including an exhausted search or an active reader that
+prevented the search. This is an unattended software reservation trial with
+the original primary plane active. [Implementation milestones](intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
+
 The [GT flush acknowledgement trial](intel-completion-prerequisites.md#engine-and-l3-acknowledgement-trial)
 uses `intel-gt-flush-v59`, `--intel-gt-flush` and wire12. The source-bound
 image takes three read-only message snapshots under the original requester
