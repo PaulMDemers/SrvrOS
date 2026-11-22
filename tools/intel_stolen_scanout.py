@@ -452,7 +452,8 @@ def stolen_result(text,*,native=False,required_version=None):
         from intel_gt_bootstrap import fields
         keys=['v','pages','closed']
         words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
-        dma=guards[0].startswith('intel-submission-guard: v=6 ')
+        engine_hwsp=guards[0].startswith('intel-submission-guard: v=7 ')
+        dma=engine_hwsp or guards[0].startswith('intel-submission-guard: v=6 ')
         indirect=dma or guards[0].startswith('intel-submission-guard: v=5 ')
         tail_loan=indirect or guards[0].startswith('intel-submission-guard: v=4 ')
         current=tail_loan or guards[0].startswith('intel-submission-guard: v=3 ')
@@ -467,8 +468,11 @@ def stolen_result(text,*,native=False,required_version=None):
                 tail_keys.extend(('dma_base','cpu_flush_lines','dma_freed','pdp0'))
                 hex_extra.append('dma_base')
                 hex_extra.append('pdp0')
+            if engine_hwsp:
+                tail_keys.append('engine_hwsp')
+                hex_extra.append('engine_hwsp')
             guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys,
-                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
+                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(7 if engine_hwsp else 6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
             if current:
                 masks=[guard[f'mask{i}'] for i in range(3)]
                 slots=(0x10000,0x80000,0xffe00)
@@ -505,11 +509,15 @@ def stolen_result(text,*,native=False,required_version=None):
                             raise ValueError('invalid render indirect context in command interval')
                         if dma:
                             base,lines,freed=(guard[k] for k in ('dma_base','cpu_flush_lines','dma_freed'))
-                            if (lines not in (0,1152) or freed>1 or (freed and (not closed or not base)) or
-                                (lines and (base<0x100000 or base&4095 or base+18*4096>1<<32 or
+                            dma_pages=19 if engine_hwsp else 18
+                            if engine_hwsp and (guard['engine_hwsp'] not in (0,(slot+6)*4096) or
+                                                (lines and not guard['engine_hwsp'])):
+                                raise ValueError('invalid blitter engine status page')
+                            if (lines not in (0,dma_pages*64) or freed>1 or (freed and (not closed or not base)) or
+                                (lines and (base<0x100000 or base&4095 or base+dma_pages*4096>1<<32 or
                                             (base<(rows['facts'][1]['tolud']&0xfff00000) and
-                                             base+18*4096>(rows['facts'][1]['bgsm']&0xfff00000)))) or
-                                (guard['pdp0']!=(base+14*4096 if lines else 0)) or (samples and lines!=1152) or (complete and not freed)):
+                                             base+dma_pages*4096>(rows['facts'][1]['bgsm']&0xfff00000)))) or
+                                (guard['pdp0']!=(base+(dma_pages-4)*4096 if lines else 0)) or (samples and lines!=dma_pages*64) or (complete and not freed)):
                                 raise ValueError('invalid command DMA backing')
                         if complete:
                             extra_maps+=samples

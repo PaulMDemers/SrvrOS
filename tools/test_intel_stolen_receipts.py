@@ -117,12 +117,12 @@ class Receipts(unittest.TestCase):
         raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-guard'],text=True)
         report=stolen_result(raw,required_version=15)
         self.assertTrue(report['complete'])
-        self.assertEqual(report['submission_guard'],dict(v=6,pages=7,closed=1,samples=2,
+        self.assertEqual(report['submission_guard'],dict(v=7,pages=7,closed=1,samples=2,
             surface0=0,tail0=16,status0=0,surface1=0,tail1=16,status1=0,func0=0,func1=0,
             strap0=0x20100042,strap1=0x20100042,tried=2,mask0=1<<31,mask1=0,mask2=0,
             first=0x80000,checked=2,returned=1,tail_slot=0,tail_pages=0,tail_pte=0,descriptor=0,
-            tail_samples=0,tail_conflicts=0,tail_returned=0,rcs_indirect=0,dma_base=0,cpu_flush_lines=0,dma_freed=0,pdp0=0))
-        for option, complete in (('unfused',False),('command-drift',False),('tail-drift',False),('image-drift',False),('render-drift',False),('padding-drift',False),('scratch-drift',False),('wb-fail',False),('alloc-fail',False),('vm-root',False),('vm-writable',False),('vm-stale',False),('command-full',True)):
+            tail_samples=0,tail_conflicts=0,tail_returned=0,rcs_indirect=0,dma_base=0,cpu_flush_lines=0,dma_freed=0,pdp0=0,engine_hwsp=0))
+        for option, complete in (('unfused',False),('command-drift',False),('tail-drift',False),('image-drift',False),('render-drift',False),('padding-drift',False),('scratch-drift',False),('wb-fail',False),('alloc-fail',False),('vm-root',False),('vm-writable',False),('vm-stale',False),('vm-hwsp',False),('command-full',True)):
             data=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-'+option],text=True)
             obs=stolen_result(data,required_version=15)
             self.assertEqual(obs['complete'],complete)
@@ -132,15 +132,19 @@ class Receipts(unittest.TestCase):
                 self.assertEqual((g['first'],g['tail_slot'],g['tail_pages'],g['tail_samples'],
                                   g['tail_conflicts'],g['tail_returned']),(0,11744,32,3,3,1))
                 self.assertEqual(g['rcs_indirect'], (11748 << 12) | 2)
-                self.assertEqual((g['dma_base'], g['cpu_flush_lines'], g['dma_freed']),(0x2800000,1152,1))
-                old=re.sub(r' dma_base=\S+ cpu_flush_lines=\S+ dma_freed=\d+ pdp0=\S+', '', data)
+                self.assertEqual((g['dma_base'], g['cpu_flush_lines'], g['dma_freed']),(0x2800000,1216,1))
+                old=re.sub(r' engine_hwsp=\S+', '', data).replace('intel-submission-guard: v=7 ', 'intel-submission-guard: v=6 ')
+                old=old.replace('cpu_flush_lines=1216','cpu_flush_lines=1152').replace(
+                    f"pdp0=0x{g['pdp0']:016x}",f"pdp0=0x{g['pdp0']-4096:016x}")
+                self.assertEqual(stolen_result(old,required_version=15)['submission_guard']['v'],6)
+                old=re.sub(r' dma_base=\S+ cpu_flush_lines=\S+ dma_freed=\d+ pdp0=\S+', '', old)
                 old=old.replace('intel-submission-guard: v=6 ', 'intel-submission-guard: v=5 ')
                 old=old.replace(f"descriptor=0x{g['descriptor']:016x}",f"descriptor=0x{g['descriptor']&~256:016x}")
                 self.assertNotIn('dma_base',stolen_result(old,required_version=15)['submission_guard'])
                 old=old.replace('intel-submission-guard: v=5 ', 'intel-submission-guard: v=4 ')
                 old=re.sub(r' rcs_indirect=\S+', '', old)
                 self.assertNotIn('rcs_indirect', stolen_result(old,required_version=15)['submission_guard'])
-                for field in ('dma_base','cpu_flush_lines','dma_freed','pdp0','rcs_indirect','tail_pte','descriptor','tail_slot','tail_returned','tail_conflicts','tail_samples'):
+                for field in ('engine_hwsp','dma_base','cpu_flush_lines','dma_freed','pdp0','rcs_indirect','tail_pte','descriptor','tail_slot','tail_returned','tail_conflicts','tail_samples'):
                     changed=re.sub(r'(?<= )'+field+r'=\S+',field+'=0',data)
                     with self.assertRaises(ValueError):stolen_result(changed,required_version=15)
             elif option in ('tail-drift','image-drift','render-drift','padding-drift','scratch-drift'):

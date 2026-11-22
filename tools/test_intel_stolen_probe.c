@@ -12,7 +12,7 @@ static bool intel_stolen_test_read(uint32_t,uint32_t *);
 static uint64_t fixture_flags;
 #include <srvros/intel_bdw_private_vm.h>
 static _Alignas(4096) struct {
- uint32_t global[6*1024];
+ uint32_t global[7*1024];
  struct bdw_private_vm_image vm;
 } dma_image;
 #define command_ram dma_image.global
@@ -210,7 +210,12 @@ static void fixture_private_commands(void) {
 }
 void pmm_free_frame_range(uint64_t physical,uint64_t count) {
  assert(physical==FIXTURE_COMMAND_PA && count==TAIL_DMA_PAGES && dma_live && stolen.command_tail.returned);
- if(model.mode==66)fixture_private_commands();
+ if(model.mode==66){
+  fixture_private_commands();
+  assert(stolen.command_tail.planned[6].physical==physical+6*4096);
+  assert(stolen.command_tail.planned[6].gpu_address==(stolen.command_tail.manifest.first+6ull)*4096);
+  for(unsigned i=0;i<1024;i++)assert(command_ram[6*1024+i]==0);
+ }
  dma_live=false;
 }
 bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t pages,unsigned bits,
@@ -320,6 +325,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
   if(model.mode==72)command_ram[4*1024+32]=1;
   if(model.mode==75)dma_image.vm.tables[1][0]^=4096;
   if(model.mode==76)dma_image.vm.tables[0][1]|=2;
+  if(model.mode==78)command_ram[6*1024+1023]=1;
   if(model.mode==77)dma_image.vm.result[4][16]=1;
   if(model.mode==69)command_ram[BDW_BCS_IMAGE_WORDS-1]=1;
  }
@@ -365,7 +371,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    assert(model.guard_live && model.held && (offset&~4095u)==stolen.import.command_page);
    *out=0;
    if(!(offset&4) && (offset&4095)==31*8 &&
-      (model.mode==66 || (model.mode>=68 && model.mode<=77) || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
+      (model.mode==66 || (model.mode>=68 && model.mode<=78) || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
     *out=2; /* Invalid, but already occupied. */
    return true;
   }
@@ -474,6 +480,7 @@ int main(int argc,char **argv) {
    model.mode=!strcmp(argv[1],"--submission-tail-drift")?68:!strcmp(argv[1],"--submission-render-drift")?70:69;
    if(!strcmp(argv[1],"--submission-vm-root"))model.mode=75;
    if(!strcmp(argv[1],"--submission-vm-writable"))model.mode=76;
+   if(!strcmp(argv[1],"--submission-vm-hwsp"))model.mode=78;
    if(!strcmp(argv[1],"--submission-vm-stale"))model.mode=77;
    if(!strcmp(argv[1],"--submission-scratch-drift"))model.mode=71;
    if(!strcmp(argv[1],"--submission-padding-drift"))model.mode=72;

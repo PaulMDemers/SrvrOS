@@ -256,10 +256,13 @@ device-wide hold. [Native writer requirements](intel-bdw-edp-recovery.md#reset-f
 
 ### Private command pages on Broadwell
 
-The Air submission diagnostic builds six pages intended for the global
+The Air submission diagnostic builds seven pages intended for the global
 graphics table and twelve for a legacy 32-bit per-process graphics table.
 The global pages contain the BCS ring, its two context pages, completion
-storage, the RCS indirect batch and its private register-save scratch.
+storage, the RCS indirect batch, its private register-save scratch and a
+dedicated engine hardware status page. On Air7,2 the active i915 blitter used
+a global engine status address distinct from its per-request timeline status
+address. The driver reserves a full zeroed page for the engine.
 Only command words are copied to the RCS batch page. Its pointer stays in
 the context metadata.
 
@@ -274,8 +277,9 @@ and the ring through the global table. Activating it requires the global
 bindings, compatible GPU private PAT entry 3, the correct DMA domain and
 exclusive submission. [Intel Broadwell context descriptor, pp. 107–110](https://cdrdv2-public.intel.com/690870/intel-gfx-prm-osrc-bdw-vol-02d-commandreference-structures.pdf)
 
-Receipt version 6 records the physical allocation, PDP0, CPU cache lines
-flushed and return of the allocation. The driver checks the DMA tag on every
+Receipt version 7 adds the engine status page address and covers all 1,216
+cache lines of the 19-frame allocation. Version 6 recorded the physical
+allocation, PDP0, CPU cache lines flushed and return of its 18 frames. The driver checks the DMA tag on every
 frame and the effective write-back policy of its actual kernel alias. It
 checks the complete images against the fresh interval three times. The
 collector preserves earlier receipt formats.
