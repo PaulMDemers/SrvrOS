@@ -46,6 +46,7 @@
 #include <srvros/virtio_net.h>
 #include <srvros/virtio_block.h>
 #include <srvros/display_present.h>
+#include <srvros/display_profile.h>
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
 #include <srvros/monitor.h>
@@ -77,6 +78,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 extern volatile struct limine_framebuffer_request framebuffer_request;
 extern volatile struct limine_hhdm_request hhdm_request;
 extern volatile struct limine_memmap_request memmap_request;
+extern volatile struct limine_smbios_request smbios_request;
 extern volatile struct limine_rsdp_request rsdp_request;
 extern volatile struct limine_module_request module_request;
 bool lapic_init(void);
@@ -921,6 +923,9 @@ void kmain(void) {
 
     block_init();
     arch_init();
+    /* The firmware parser can use SIMD, which arch_init enables. */
+    display_profile_init(smbios_request.response, memmap_request.response,
+        hhdm_request.response ? hhdm_request.response->offset : 0);
     arch_test_breakpoint();
     pmm_init(memmap_request.response,
         hhdm_request.response != NULL ? hhdm_request.response->offset : 0);

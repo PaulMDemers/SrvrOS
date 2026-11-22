@@ -20,14 +20,21 @@ timeout; retry remains explicit.
 Protocol v18 adds confirmed display requests and authoritative display state
 inside the unchanged 168-byte desktop packet. Build matched compositor and GUI
 applications; no mixed-version compatibility is claimed. The strict v7 preference
-file uses a 512-byte bound and reads v1–v6. Older files default to inherited
-resolution and 1× scale; pre-v6 files use Silver, and pre-v5 files use Blue/Subtle.
+file uses a 512-byte bound and reads v1–v6. Older files inherit the boot
+resolution and the machine's suggested scale. Pre-v6 files use Silver, and
+pre-v5 files use Blue/Subtle.
 Display scale/resolution use a separate Apply/Keep/Revert transaction. Generic
 appearance preference updates cannot bypass its confirmation or overwrite those
 fields. Only Keep persists a trial; startup restoration retains rollback state
 until clients have accepted their new sizes and density.
 The existing delayed-load merge, debounce, verified write, conflict and shutdown
 rules remain in the OS runtime.
+
+The Apple MacBookPro11,2 firmware profile suggests 2× on displays of at least
+2560 × 1600. Its 2880 × 1800 panel provides a 1440 × 900 logical desktop.
+The profile chooser and desktop use the same start scale and SrvrUI draws at
+the physical density. A confirmed Settings choice overrides the suggestion.
+`deskd --scale=1` or `deskd --scale=2` overrides the scale for that launch.
 
 Each `desk_app` caches a validated, server-authenticated preference snapshot.
 Visual changes dirty that window. The inline `desk_app_theme()` adapter resolves

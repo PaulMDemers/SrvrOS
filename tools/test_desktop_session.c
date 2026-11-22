@@ -1147,6 +1147,9 @@ static void display_transaction_tests(void) {
     c->configure=c->awaiting=0;display_received(&s,0,&p);assert(s.display.trial);
     c->closing=1;display_tick(&s);assert(!s.display.trial && s.scale==2 && !memcmp(&w->frame,&before,sizeof(before)));
     c->closing=0;c->configure=c->awaiting=0;
+    s.preferences.value.display_width=0;s.preferences.value.display_height=0;s.preferences.value.display_scale=1;
+    s.display.restore_done=0;display_tick(&s);
+    assert(s.display.restore_done && !s.display.trial && s.scale==2);
     /* Startup restoration is provisional until clients settle; an allocation
      * failure leaves the old canvas, while a client refusal rolls it back. */
     s.preferences.value.display_width=1600;s.preferences.value.display_height=1200;s.preferences.value.display_scale=1;

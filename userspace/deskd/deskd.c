@@ -2352,6 +2352,10 @@ int main(int argc,char **argv) {
     if(profile_transfer_stop && (!ordinary_desktop || !apps_trace)) {
         ui_puts("deskd: profile-transfer test checkpoint requires an ordinary --apps-trace session\n");return 1;
     }
+    if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
+    struct gfx_info info={0};
+    if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
+    if (!explicit_scale && info.scale_num==2 && info.scale_den==1 && info.width>=1280 && info.height>=960) scale=2;
     if(ordinary_desktop && !profile_home) {
         struct desktop_profile_request request={.root="/fat/home",.remember_path="/fat/home/.desktop-profile",.scale=scale,.force=choose_profile,.create_stop=profile_transfer_stop};
         struct desktop_profile_result choice;
@@ -2363,7 +2367,6 @@ int main(int argc,char **argv) {
             selected_profile=choice.profile;strcpy(portable_path,choice.portable_path);profile_home=selected_profile.home;
         }
     }
-    if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
     int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
     int control_manual=control_monitor || (argc==2 && !strcmp(argv[1],"--battery-controls-manual"));
     int control_capture=control_manual || (argc==2 && !strcmp(argv[1],"--battery-controls"));
@@ -2403,9 +2406,7 @@ int main(int argc,char **argv) {
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
     int tap_typing=argc==2 && strcmp(argv[1],"--tap-typing-test")==0;
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
-    struct gfx_info info={0};
-    if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((wifi_trial || wifi_managed_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((wifi_trial || wifi_managed_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale && scale==1) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { ui_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }

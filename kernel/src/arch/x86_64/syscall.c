@@ -24,6 +24,7 @@
 #include <srvros/block.h>
 #include <srvros/console.h>
 #include <srvros/display_present.h>
+#include <srvros/display_profile.h>
 #include <srvros/exfat.h>
 #include <srvros/gui.h>
 #include <srvros/heap.h>
@@ -2486,7 +2487,6 @@ static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
     struct syscall_gfx_info copy = {
         .abi_version = SRV_ABI_VERSION,
         .struct_size = sizeof(copy),
-        .scale_num = 1,
         .scale_den = 1,
     };
 
@@ -2495,6 +2495,7 @@ static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
     }
     copy.width = display.width;
     copy.height = display.height;
+    copy.scale_num = display_profile_scale(display.width, display.height);
     copy.pitch = display.pitch;
     copy.bpp = display.bpp;
     copy.memory_model = display.memory_model;

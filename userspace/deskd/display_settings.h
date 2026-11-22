@@ -186,8 +186,11 @@ static void display_tick(struct session *s) {
         }
     } else if(!d->restore_done && !s->preferences.loading && display_ready(s)) {
         d->restore_done=1;const struct desk_preferences *p=&s->preferences.value;
+        /* Keep records both dimensions, even at the inherited resolution.
+         * Zero dimensions with the factory 1x value mean no display choice. */
         unsigned pw=p->display_width?p->display_width:d->info->width,ph=p->display_height?p->display_height:d->info->height;
-        unsigned scale=d->explicit_scale?session_scale(s):p->display_scale;
+        int inherit_scale=!p->display_width && p->display_scale==1;
+        unsigned scale=d->explicit_scale || inherit_scale ? session_scale(s) : p->display_scale;
         if(pw!=d->info->width || ph!=d->info->height || scale!=session_scale(s)) {
             d->window_count=session_capacity(s);d->windows_bytes=(size_t)d->window_count*sizeof(*d->windows);
             d->windows=mmap(NULL,d->windows_bytes,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
