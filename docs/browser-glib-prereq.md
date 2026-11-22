@@ -5,8 +5,9 @@ November 22, 2026. The original target configure stopped at GLib's
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
-the static build graph. The targeted GIO resolver compile stops at missing
-DNS wire declarations and `dn_expand()`.
+the static build graph. The GIO resolver object compiles with the SrvrOS DNS
+decoder. The first static build failure is the missing `ELOOP` declaration in
+GLib's file utilities.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -42,7 +43,7 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | `intl` | GLib configures the pinned proxy-libintl 0.5 wrap as an internal dependency, with `-Dnls=disabled`. |
 | GIO resolver headers | The SDK exports `C_IN` in `<arpa/nameser.h>`. GIO's primary compile check passes. |
 | GIO resolver link | Meson links `res_query()` directly from the SrvrOS SDK using `<resolv.h>`. |
-| GIO resolver object | Compiling `gthreadedresolver.c` needs `dn_expand()`, `GETSHORT`, `GETLONG`, `HEADER` and DNS record constants. |
+| GIO resolver object | `gthreadedresolver.c` compiles with `dn_expand()`, wire cursors, the fixed DNS header and the record constants. |
 
 The target profile searches only the staged PCRE2, libffi and zlib pkg-config
 directories and disables Meson wrap downloads. The `intl` lookup uses the
@@ -205,8 +206,8 @@ Meson 1.10.2 on the SDK rebuilt with main `b95bc096` links both
 `res_query()` and `socket()` directly and exits 0 with Ninja files.
 The targeted command
 `ninja -C /path/to/glib-build gio/libgio-2.0.a.p/gthreadedresolver.c.o`
-fails first at `dn_expand()` and also reports missing `GETSHORT`, `GETLONG`,
-`HEADER` and record constants. Target GLib libraries remain unbuilt.
+failed first at `dn_expand()` on that SDK and also reported missing
+`GETSHORT`, `GETLONG`, `HEADER` and record constants.
 
 `python3 tools/glib_platform_guest.py --resolver` passed twice in the
 diskless Q35 guest using the restored SDK, kernel, init and Limine inputs.
@@ -218,6 +219,20 @@ returned exit 0, and QEMU and its DNS peer stopped. Readback from the boot ISO
 matched the restored kernel and the packed init and probe ELFs.
 The [resolver receipt](assets/evidence/gio-res-query/receipt.json) records
 the configure and guest evidence.
+
+## GIO DNS wire decoding
+
+PR #511 landed as `00ea6d78`. The follow-up adds bounded `dn_expand()`
+and the nameser declarations used by pinned GIO. The native fixture tests
+literal and compressed names, escaping, original bytes consumed, capacity
+limits and malformed input. It also expands a compressed owner from a
+live SRV fixture reply. Two resolver runs and two platform runs exited 0 in
+the diskless guest. QEMU and the DNS peer stopped.
+
+Fresh Meson configuration and the exact GIO resolver object build both
+passed. The static GLib, GObject, GModule and GIO build first stops compiling
+`glib/gfileutils.c:1505`, where the `O_NOFOLLOW` failure path references
+`ELOOP`. See the [wire decoder receipt](assets/evidence/gio-dns-wire/receipt.json).
 
 ## Verification
 

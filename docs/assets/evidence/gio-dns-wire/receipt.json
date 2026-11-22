@@ -1,0 +1,188 @@
+{
+  "scope": "SrvrOS GIO DNS wire support, resolver object compile and native guest",
+  "integration_base": "00ea6d787e67bcb9107646cdc6bc4d5c5e1b9a60",
+  "ports_pin": "9d42e0f5702453490de8b7e80f40c64a82fcfd6d",
+  "source_sha256": {
+    "userspace/lib/include/arpa/nameser.h": "8eb9e0e61faffdb5e0c1bd26e18e3b8930c75454a048706407643e2229610464",
+    "userspace/lib/include/resolv.h": "10440f1165e1e57508d477f871c86677071cb11d19e962b3f9d6666c9f3568fa",
+    "userspace/lib/src/posix_resolver_wire.c": "3990382343445fe9f52e9cd79063d1e7106f8c9d7b5cfc7ff30a8b6a1f704e1f"
+  },
+  "build": {
+    "source": "cc34733f6d35f05062675bb989a98d21627909f0",
+    "configure_exit": 0,
+    "gio_resolver_object_exit": 0,
+    "static_build_exit": 1,
+    "sdk_headers_sha256": "f3d820e80ebc863d0f8537e955bd0d4fc5e4465a56bd1597c2faadfbd1bdd488",
+    "files_sha256": {
+      "build/browser-glib-gio-wire/sdk-build-main.log": "fef35a8a29896079532f988d5367b01e03d277146479f57a90ce3a7d2cad673d",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/configure.log": "906dff54b5ab72dc4ed8b7db68557a399ada9ec9b6cb2ec513769e7a8f1efc47",
+      "build/browser-glib-gio-wire/glib-build/meson-logs/meson-log.txt": "a85791324fcb27d07ebcebc7051f7f6f167194ab968002db7def2109f9d2eb05",
+      "build/browser-glib-gio-wire/gio-resolver-object.log": "6bafa7e741a9a425ac7aeeaab11c1eacb9310b914d9e93d88dcbbf9080cdf07c",
+      "build/browser-glib-gio-wire/glib-build/gio/libgio-2.0.a.p/gthreadedresolver.c.o": "852519675f3c9e5e12cee8ddf0668ffbe70cf6f443695a0286cf9b04d8e5d87f",
+      "build/browser-glib-gio-wire/static-glib-gio.log": "d17ebf95b864ddcd89c85b3d7529117e5978a30a139696ae869b272d32c60040",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "build/sysroot/srvros/lib/libsrvros.a": "988f4a9bb453fb25c94e49b336e43a512f1488cf09ca985338ce186340dafb01",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/browser-glib-gio-wire/sdk-build.log": "c50341cb16ad86ded800c89a581d5db5716b58dc9048f72f7db399a8c390a825"
+    },
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "static_targets": [
+      "glib/libglib-2.0.a",
+      "gobject/libgobject-2.0.a",
+      "gmodule/libgmodule-2.0.a",
+      "gio/libgio-2.0.a"
+    ],
+    "first_static_error": "../glib-2.90.1/glib/gfileutils.c:1505:30: error: use of undeclared identifier 'ELOOP'"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "cc34733f6d35f05062675bb989a98d21627909f0",
+    "sdk_headers_sha256": "f3d820e80ebc863d0f8537e955bd0d4fc5e4465a56bd1597c2faadfbd1bdd488",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "20f28376fe32fe4252ddf1dd5a7b5b2455fd9a01306dd3dff3f68a230c17e4c3",
+      "tools/test_glib_platform_guest.c": "dd02effe60f1661b4c04072ac45709726add18656ae299693b6d8a08a358035b",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "267cc3831aa372a2ef56a0738dbb51754fb48fdf04afede7fbc98be46cd4f4da",
+      "build/userspace/init.elf": "3bcb6672bc585f06ac100014874c4e5504378158167e17d0070d90104a7da30f",
+      "build/sysroot/srvros/lib/libsrvros.a": "988f4a9bb453fb25c94e49b336e43a512f1488cf09ca985338ce186340dafb01",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "736befeaa8cb735399447e9cd56713dc289c4b95ed8fde6ffff2712838471174",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/resolver_dns_test_peer.py": "e7e01c70a3d12ffff9121107099bf01e2226be0efe0709efc55bf50166669678",
+      "tools/test_glib_resolver_guest.c": "fd6deeec27ebc26624da6d10cdfffbadae1d99675f19b96787b7882bd1805698",
+      "tools/test_glib_dns_expand.h": "1688a72b33d7df4bb2a70efbb05ba23c39ba1048b6599ee911e623fbe636b1e3"
+    },
+    "payload_sha256": "c19b3bfaff4f2146b02567d8cabb8fcbabff705b2f778c7c4370729d3ebe3d9e",
+    "resolver_payload_sha256": "2c4b981300ca2dfe445b2b8c128bd42e9c76aee9cb64bc6928958b0d454ce730",
+    "image_sha256": "34b42eb5cdd96c52244020aa4d93b6563b6de97fedafe342be8d67c198962f5f",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-c8iyfx4t/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:/tmp/srv-glib-y0v01j83/serial,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-netdev",
+      "socket,id=fixture,fd=4",
+      "-device",
+      "e1000,netdev=fixture"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-resolver",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-resolver",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "dns_peer_exit": 0,
+    "dns_peer_sha256": "41cf584c9a99d1a783f4203afb0c02bfd8b25b6b65104c13def7bfd4cdcf341f",
+    "dns_peer_queries": {
+      "good": 2,
+      "large": 4,
+      "legacy": 2,
+      "malformed": 2,
+      "mismatch": 2,
+      "missing": 4,
+      "nodata": 2,
+      "service": 2,
+      "temporary": 2,
+      "truncated": 2
+    },
+    "serial_sha256": "44af331fd032f450010ce65c865d11d0bc00f055e8233f2b59b69aab2612d013",
+    "dns_peer_observation": {
+      "arp_requests": 1,
+      "deliberate_malformed_replies": 2,
+      "deliberate_mismatch_replies": 4,
+      "dns_responses": 30,
+      "frames": 25,
+      "ignored_frames": 0,
+      "invalid_frames": 0,
+      "queries": {
+        "good": 2,
+        "large": 4,
+        "legacy": 2,
+        "malformed": 2,
+        "mismatch": 2,
+        "missing": 4,
+        "nodata": 2,
+        "service": 2,
+        "temporary": 2,
+        "truncated": 2
+      },
+      "rejected_queries": 0,
+      "result": "eof"
+    },
+    "iso_readback": {
+      "kernel_sha256": "267cc3831aa372a2ef56a0738dbb51754fb48fdf04afede7fbc98be46cd4f4da",
+      "initramfs_sha256": "0e19208efd45e8028ef9f10720a9c9eddb282eb4a51bc28ab78abfc310d24c95",
+      "initramfs_member_sha256": {
+        "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+        "glib-platform": "da7b53ea17a53ebf03309be24f4186d31f845a5021001fe5a11cbaf558603b7f",
+        "glib-resolver": "145f07a4b47a4fabbd472f0bfc028706a23885b3f7473089e8450fe0b9f805d9"
+      }
+    },
+    "run_directory": "build/browser-glib-prereq/guest-c8iyfx4t",
+    "local_receipt_sha256": "8806bdf13bc96ee049cf7bbd8951a438decc85f034654d84b82de6ba6404c373"
+  }
+}

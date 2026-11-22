@@ -19,9 +19,9 @@ libffi 3.8.0 and zlib 1.4. It configures the internal proxy-libintl 0.5
 fallback. The normal guest passed all six dependency probes twice. The
 SDK exports `<arpa/nameser.h>` and passes GIO's `C_IN` compile check.
 GIO now links the SDK's `res_query()` and Meson generates the static GLib
-build graph. The native resolver fixture passed twice in the diskless
-guest against a private DNS peer. Compiling GIO's resolver object first
-fails on missing `dn_expand()`, with further DNS wire declarations also missing.
+build graph. The native resolver and DNS decoder passed twice in the diskless
+guest against a private DNS peer. GIO's resolver object compiles. The static
+build first stops on missing `ELOOP` in GLib's file utilities.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
