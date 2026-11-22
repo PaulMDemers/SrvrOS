@@ -10,10 +10,21 @@
   },
   "cli_regression": {
     "commands": 498,
-    "status": "running"
+    "fsck": "clean",
+    "log_sha256": "4bcea53f7d2f676c629972799071e7d67fdd7a9f297a13555a65ebe20f1e78dc",
+    "status": "PASS"
   },
   "ports_pin": "f79db5fa2f2744191315f0941e9578e1681b9a49",
-  "ports_pin_fetch": "Pending independent OS clone and submodule initialization.",
+  "ports_pin_fetch": {
+    "battery_runtime_blob": "427a30d358d4bb3757efdd94c421bf4fbede1062",
+    "candidate_os_head": "4dde85761b981668f8e7333b7aea65d9e2ba2c86",
+    "gitlink": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+    "method": "Fresh independent remote shallow OS clone, normal ports submodule initialization, explicit fetch of dedicated ref, clean worktrees.",
+    "ref_tip": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+    "status": "PASS",
+    "submodule_head": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+    "tree": "2eec2fb8bfae4caa6c2a103e5ec7d3710991f374"
+  },
   "ports_ref": "refs/heads/pins/srvros-sha256sum",
   "ports_regression": {
     "log_sha256": "2bf370fca76a4054012f31b0e0cc4729003837c94c586052ec5818cef9eec386",
@@ -52,7 +63,7 @@
       143
     ]
   },
-  "status": "Scoped guest, reproducibility, Terminal and ports PASS. Full CLI regression is running.",
+  "status": "PASS scoped integration qualification and independent pin fetch",
   "terminal": {
     "files_and_statuses": "manifest digest, check OK, missing-file exit 1, retry OK",
     "fsck": "clean",
