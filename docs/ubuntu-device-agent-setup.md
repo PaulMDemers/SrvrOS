@@ -813,6 +813,36 @@ A first boot can instead be selected manually from the GRUB menu. The helper is
 not a macOS boot installer, and no raw USB image needs to be written over the
 exFAT logging drive for this Ubuntu/GRUB workflow.
 
+### Prepare the installed Retina return record
+
+After installing the VM-qualified image and retaining the unit’s known-good
+previous release, run the preflight on Ubuntu with the USB workspace
+attached and unmounted. Use the accepted recovery release and backup
+directory from this unit’s handoff.
+
+```sh
+tools/trial prepare-return "$QUALIFICATION_JSON" --sudo \
+  --recovery-release "$RECOVERY_RELEASE" --recovery-archive "$RECOVERY_ARCHIVE"
+```
+
+The command reads the two VM results and checks that guest Help opened the
+Retina checklist. It compares the installed payload hashes with the qualified
+payload and the previous release with the independent backup. The installed
+and qualification checkout revisions are recorded separately. It checks the
+Ubuntu default, the generated GRUB release entries and pending GRUB/firmware
+one-shot selections. Inspection runs `fsck.exfat -n`, mounts the UUID-matched
+GPT workspace read-only to capture file hashes, prior sessions and node
+headroom, then unmounts it. Only host inspection uses sudo. The invoking user
+owns the saved files.
+
+The printed record is under `build/trial-runs/retina-*/run.json`; pass its
+directory to `tools/trial collect` after a return. Exit 0 means the installed
+trial is verified and unarmed. Exit 1 means a prior file already occupies the
+guest Help proof filename. The record contains the complete checklist with a
+fresh filename. Deliver it to the operator and confirm they captured it before
+any attended reboot. Exit 2 means an inspection failed. Installation, arming
+and reboot remain explicit, separate actions.
+
 ## 7. Test, return and collect
 
 For a native desktop or laptop-probe run with a pre-boot session list, use

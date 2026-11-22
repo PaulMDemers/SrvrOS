@@ -20745,3 +20745,21 @@ staged manifest SHA-256
 With the GPT workspace, the fractional trial saved Text, screenshot and
 logs and unmounted cleanly. With the workspace absent, the guest skipped
 the desktop and reached automatic return. This is VM qualification.
+
+### Host tooling for the Retina return handoff (November 22)
+
+On PR #514 (`397700cc`, integration main `00ea6d78`), prepare the
+collector's pre-boot record from the passed Retina receipt and the
+installed release. Scope is host verification of the workspace, Ubuntu
+boot selection, known-good recovery and guest checklist. PR #501 owns
+the payload. Check the prepared record against the collector contract and
+exercise the existing Pro evidence without starting another native run.
+
+Read-only live preflight matched installed `2c50726ff8fd17be` to both VM
+receipts and verified previous `74da74e0b57afbb8` against its independent
+backup. Ubuntu was the default with no pending GRUB or firmware one-shot.
+The clean GPT workspace had 546 prior files and 225 prior sessions. The
+on-disk handoff selected `retina-fractional-proof-2.txt` because the
+original proof already exists. A repeat attended run requires delivery of
+the saved checklist with that filename. The workspace was unmounted and
+the candidate remains unarmed.
