@@ -7,6 +7,17 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Wi-Fi release qualification
+
+Start from the accepted v154 image `cf20824eddefc734` and device source
+`9a0fb703`. Integrate fetched main `4016abf0` into PR #19 while preserving
+Air6,1's directory-admission changes. The remaining scope covers active
+USB removal, repeated cold starts and sustained Demers5 traffic with
+the workspace mounted. Publish native ownership, transport and recovery
+proofs, then qualify the exact merged candidate before landing PR #19.
+Battery, headphones, trackpad latency and 2.4 GHz remain deferred.
+
+
 ### Demers5 network recovery after replug
 
 Work starts at `0b73c05d` with `origin/main` at `4016abf0`. PR #19 owns
