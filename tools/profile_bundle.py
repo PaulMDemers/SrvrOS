@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Host-only portable profile v1 proof; operates on explicitly initialized fixtures.
+"""Shared metadata and local-store helpers for portable profile streams.
 
 No authentication, chown, guest installation, automatic secret discovery, or
 power-loss durability is claimed. Documents are always explicitly selected.
 """
 import argparse
-import base64
-import binascii
 from contextlib import contextmanager
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -21,10 +18,10 @@ import tempfile
 import uuid
 
 FORMAT = 'org.srvros.portable-profile'
-VERSION = 1
-MAX_FILE = 1024 * 1024
-MAX_TOTAL = 8 * MAX_FILE
-MAX_BUNDLE = 12 * MAX_FILE
+VERSION = 2
+MAX_FILE = 16 * 1024 * 1024
+MAX_TOTAL = 64 * 1024 * 1024
+MAX_JSON = 12 * 1024 * 1024
 MAX_FILES = 64
 MARKER = b'srvros-profile-fixture-v1\n'
 PREF_PATH = '.config/srvros/portable.json'
@@ -67,8 +64,8 @@ def bounded_integer(text):
 
 
 def decode_json(data):
-    require(len(data) <= MAX_BUNDLE, 'bundle exceeds size limit')
-    # The v1 schema needs only three levels. Bound hostile nesting before the
+    require(len(data) <= MAX_JSON, 'JSON object exceeds size limit')
+    # Metadata needs only three levels. Bound hostile nesting before the
     # Python decoder, whose recursion limit varies between host environments.
     depth, quoted, escaped = 0, False, False
     for byte in data:
@@ -158,43 +155,7 @@ def document_path(value):
     return parts
 
 
-def validate_bundle(bundle):
-    exact(bundle, ('format', 'schema_version', 'profile', 'preferences', 'documents'), 'bundle')
-    require(bundle['format'] == FORMAT and type(bundle['schema_version']) is int
-            and bundle['schema_version'] == VERSION, 'unsupported profile schema')
-    identity(bundle['profile'])
-    preferences(bundle['preferences'])
-    entries = bundle['documents']
-    require(type(entries) is list and len(entries) <= MAX_FILES, 'too many documents')
-    payloads, aliases, total = {}, {}, 0
-    for entry in entries:
-        exact(entry, ('path', 'size', 'sha256', 'data_base64'), 'document')
-        path = entry['path']
-        parts = document_path(path)
-        require(path not in payloads, 'duplicate document')
-        for n in range(1, len(parts) + 1):
-            prefix = '/'.join(parts[:n])
-            folded = prefix.lower()
-            require(folded not in aliases or aliases[folded] == prefix, 'case collision')
-            aliases[folded] = prefix
-        require(type(entry['size']) is int and 0 <= entry['size'] <= MAX_FILE, 'invalid document size')
-        require(type(entry['data_base64']) is str and len(entry['data_base64']) <= 4 * ((MAX_FILE + 2) // 3), 'invalid payload size')
-        try:
-            data = base64.b64decode(entry['data_base64'], validate=True)
-        except (ValueError, binascii.Error) as error:
-            raise ProfileError('invalid base64 payload') from error
-        require(len(data) == entry['size'] and hashlib.sha256(data).hexdigest() == entry['sha256'], 'document integrity mismatch')
-        require(base64.b64encode(data).decode() == entry['data_base64'], 'noncanonical base64')
-        total += len(data)
-        require(total <= MAX_TOTAL, 'profile exceeds total size limit')
-        payloads[path] = data
-    for path in payloads:
-        require(not any('/'.join(path.split('/')[:n]) in payloads
-                        for n in range(1, len(path.split('/')))), 'file/directory collision')
-    return payloads
-
-
-def read_regular(path, limit=MAX_BUNDLE):
+def read_regular(path, limit=MAX_JSON):
     """Reject symlinks in every path component, special files and hard links.
 
     Fixture directories must be offline and controlled by the invoking user;
@@ -276,10 +237,13 @@ def profile_directory(root, identifier):
     return path
 
 
-def import_bundle(root, bundle, alias, uid, gid, checkpoint=lambda _: None):
-    payloads = validate_bundle(bundle)  # No store mutation until all input validates.
-    local = binding(alias, uid, gid)
-    identifier = bundle['profile']['id']
+def install_profile(root, who, portable_preferences, local, populate=None,
+                    checkpoint=lambda _: None, verify_source=None):
+    who = identity(who)
+    portable_preferences = preferences(portable_preferences)
+    exact(local, ('alias', 'uid', 'gid'), 'local binding')
+    local = binding(**local)
+    identifier = who['id']
     with store_lock(root) as root:
         require(not any((root / 'staging').iterdir()), 'interrupted import; run recover before retry')
         destination = root / 'profiles' / identifier
@@ -288,74 +252,31 @@ def import_bundle(root, bundle, alias, uid, gid, checkpoint=lambda _: None):
             profile_id(path.name)
             require(stat.S_ISDIR(path.lstat().st_mode), 'invalid profile store entry')
             old = local_binding(path)
-            require(old['alias'] != alias, 'local account name already exists')
-            require(old['uid'] != uid, 'local UID already assigned')
+            require(old['alias'] != local['alias'], 'local account name already exists')
+            require(old['uid'] != local['uid'], 'local UID already assigned')
         stage = Path(tempfile.mkdtemp(prefix='import-', dir=root / 'staging'))
-        # Failures retain only unpublished staging. Explicit recovery removes it;
-        # published directories are never overwritten or rolled back on a retry.
         checkpoint('stage')
         home = stage / 'home'
         for directory in ('Documents', '.config/srvros', '.local/share', '.cache'):
             (home / directory).mkdir(mode=0o700, parents=True, exist_ok=True)
-        write_new(stage / 'identity.json', encode_json(bundle['profile']))
+        write_new(stage / 'identity.json', encode_json(who))
         write_new(stage / 'binding.json', encode_json(local))
-        write_new(home / PREF_PATH, encode_json(bundle['preferences']))
+        write_new(home / PREF_PATH, encode_json(portable_preferences))
         checkpoint('metadata')
-        for relative, data in payloads.items():
-            target = home / relative
-            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            write_new(target, data)
-            checkpoint('document:' + relative)
+        if populate is not None:
+            populate(home)
         checkpoint('before-publish')
-        os.rename(stage, destination)  # One host-filesystem namespace publication.
+        if verify_source is not None:
+            verify_source()
+        require(not os.path.lexists(destination), 'profile identity already exists')
+        os.rename(stage, destination)
         checkpoint('after-publish')
         return {'profile_id': identifier, 'home': str(destination / 'home'), **local}
 
 
 def create_profile(root, name, alias, uid, gid):
-    bundle = {'format': FORMAT, 'schema_version': VERSION,
-              'profile': {'id': str(uuid.uuid4()), 'display_name': name},
-              'preferences': {}, 'documents': []}
-    return import_bundle(root, bundle, alias, uid, gid)
-
-
-def export_bundle(root, identifier, documents, legacy_desktop=False):
-    require(len(documents) <= MAX_FILES and len(set(documents)) == len(documents), 'duplicate or excessive selection')
-    with store_lock(root) as root:
-        directory = profile_directory(root, identifier)
-        who = identity(decode_json(read_regular(directory / 'identity.json', 4096)))
-        require(who['id'] == identifier, 'stored profile identity mismatch')
-        home = directory / 'home'
-        prefs = (desktop_projection(read_regular(home / 'desktop.conf', 512)) if legacy_desktop else
-                 preferences(decode_json(read_regular(home / PREF_PATH, 4096))))
-        entries = []
-        for path in documents:
-            document_path(path)
-            data = read_regular(home / path, MAX_FILE)
-            entries.append({'path': path, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
-                            'data_base64': base64.b64encode(data).decode()})
-        bundle = {'format': FORMAT, 'schema_version': VERSION, 'profile': who,
-                  'preferences': prefs, 'documents': entries}
-        validate_bundle(bundle)
-        return bundle
-
-
-def publish_bundle(path, bundle):
-    validate_bundle(bundle)
-    data = encode_json(bundle)
-    require(len(data) <= MAX_BUNDLE, 'encoded bundle exceeds size limit')
-    path = Path(path)
-    require(not os.path.lexists(path), 'output already exists; choose a new filename')
-    fd, temporary = tempfile.mkstemp(prefix='.profile-export-', dir=path.parent)
-    os.close(fd)
-    try:
-        with open(temporary, 'wb') as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.link(temporary, path)  # Exclusive publication, never overwrite a bundle.
-    finally:
-        os.unlink(temporary)
+    who = identity({'id': str(uuid.uuid4()), 'display_name': name})
+    return install_profile(root, who, {}, binding(alias, uid, gid))
 
 
 def recover(root):
@@ -385,22 +306,16 @@ def environment(root, identifier):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    for name in ('init', 'create', 'import', 'export', 'env', 'recover'):
+    for name in ('init', 'create', 'env', 'recover'):
         cmd = commands.add_parser(name)
         cmd.add_argument('root', type=Path, help='disposable offline installation fixture')
-        if name in ('create', 'import'):
-            cmd.add_argument('name' if name == 'create' else 'bundle')
+        if name == 'create':
+            cmd.add_argument('name')
             cmd.add_argument('--alias', required=True)
             cmd.add_argument('--uid', required=True, type=int)
             cmd.add_argument('--gid', required=True, type=int)
-        if name in ('export', 'env'):
+        if name == 'env':
             cmd.add_argument('profile_id')
-        if name == 'export':
-            cmd.add_argument('output', type=Path)
-            cmd.add_argument('--document', action='append', default=[], help='explicit home-relative Documents file; may contain private content')
-            cmd.add_argument('--legacy-desktop', action='store_true', help='project portable fields from home/desktop.conf v7')
-    inspect = commands.add_parser('inspect')
-    inspect.add_argument('bundle', type=Path)
     args = parser.parse_args(argv)
     try:
         if args.command == 'init':
@@ -408,19 +323,6 @@ def main(argv=None):
             result = {'initialized': str(args.root)}
         elif args.command == 'create':
             result = create_profile(args.root, args.name, args.alias, args.uid, args.gid)
-        elif args.command == 'import':
-            result = import_bundle(args.root, decode_json(read_regular(args.bundle)), args.alias, args.uid, args.gid)
-        elif args.command == 'export':
-            bundle = export_bundle(args.root, args.profile_id, args.document, args.legacy_desktop)
-            publish_bundle(args.output, bundle)
-            result = {'exported': str(args.output), 'documents': args.document,
-                      'excluded': ['credentials', 'device/display settings', 'cache', 'sessions', 'unselected files']}
-        elif args.command == 'inspect':
-            bundle = decode_json(read_regular(args.bundle))
-            payloads = validate_bundle(bundle)
-            result = {'profile': bundle['profile'], 'preferences': bundle['preferences'],
-                      'documents': list(payloads), 'bytes': sum(map(len, payloads.values())),
-                      'authentication': 'not provided; confirm bundle source before import'}
         elif args.command == 'recover':
             result = recover(args.root)
         else:
@@ -429,10 +331,8 @@ def main(argv=None):
         return 0
     except (ProfileError, OSError) as error:
         print('profile: ' + str(error), file=sys.stderr)
-        if args.command == 'import':
-            print('Run recover to discard unpublished staging and list published IDs before retrying.', file=sys.stderr)
-        elif args.command == 'export':
-            print('Inspect an existing output before retrying; completed bundles are never overwritten.', file=sys.stderr)
+        if args.command == 'recover':
+            print('Inspect published profiles and staging before retrying.', file=sys.stderr)
         return 1
 
 

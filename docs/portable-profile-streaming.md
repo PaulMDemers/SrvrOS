@@ -1,6 +1,6 @@
 # Portable streaming bundle v2 — qualified contract
 
-This contract is qualified by the source-matched 31-guest proof at `0e2bac73`,
+The original streaming implementation was qualified by the source-matched 31-guest proof at `0e2bac73`,
 with independently native-qualified core trees from `9f5816a5`. The
 [evidence manifest](assets/screenshots/profile-stream-manifest.json) records exact
 pins, hashes, separate memory measures and acceptance limits.
@@ -15,13 +15,6 @@ and consumer checks pass; source-matched guest transfer/recovery qualification
 also passes. Native allocation and guest mapped-memory evidence remain distinct. Raising the
 ordinary cap or relying only on userspace high-water evidence is insufficient.
 Authentication and permission enforcement remain separate.
-
-User authorizes larger-document migration with bounded memory, v1 compatibility,
-two disposable-VM transfer/recovery proof. Authentication and permission
-enforcement remain separate. Work is isolated in SrvrOS-profile-326-review.
-The initial no-kernel/filesystem-change assumption is superseded only by this
-concrete bounded-I/O prerequisite; no ordinary device trial or security-policy
-change is authorized by the profile format.
 
 Wire: 16 magic bytes `SRVROS-PROFILE2\n` (ASCII), uint32 little-endian manifest
 byte length, uint32 reserved zero; exactly that many UTF-8 JSON bytes, then opaque
@@ -43,22 +36,18 @@ nofollow, regular single-link source fd; fstat identity/size/timestamps rechecke
 Rehash copied data before rename and full source before publication so same-inode
 edits never silently publish. No concurrent-writer or arbitrary power-cut claim.
 
-V1 parser, schema, constants, bytes, default CLI export and creation remain
-unchanged. Guest existing import/preview-import/import-reviewed/recover/inspect
-recognize v2 by exact magic; v1 path continues existing strict validator.
-New guest commands preview-export-auto and export-auto-reviewed select v1 when
-all files/aggregate fit v1 limits, otherwise v2 within new caps. Keep old
-preview-export/export-reviewed/export behavior. Auto review reports optional
-bundle_version (1/2), existing review format srvros-profile-review-v1 and fields
-unchanged. Whole hash binds chosen format; mutation revalidates source data,
-format and reviewed digest. GUI uses auto commands, default generic .srvrprofile
-suffix, and labels large-document compatibility in review; explicit old filenames
-are allowed, extensions do not determine format. Existing small GUI exports stay
-v1; graphical import supports both. Review JSON <=16384 (prove64maxlegalpaths).
+The Profiles app, guest CLI, host fixture tools and offline installer all read
+and write portable bundles in v2. Every guest export uses `preview-export`,
+`export-reviewed` or `export`. The `srvros-profile-review-v1` message is the
+separate confirmation protocol. It describes the selection, including its full
+bundle hash and a proposed local binding for imports. The CLI revalidates
+the reviewed bytes before output or import. Keep review JSON within 16,384
+bytes.
 
-V2 journal uses existing sibling .profile-import.json name with format
-srvros-profile-import-v2 and SAME six fields as import-v1: format,home,bundle,
-sha256,binding,profile_id. Preserve v1/create-v1 recovery. Source path+container
+The sibling `.profile-import.json` journal uses `srvros-profile-import-v2` and six
+fields (`format`, `home`, `bundle`, `sha256`, `binding`, and `profile_id`).
+Profile creation uses its own journal and the installed profile ID marker has
+its own schema. Source path+container
 SHA revalidated on recovery before mutations; source fd stays owned through
 copy/publication. Existing marker, binding/UUID/case/collision/tree gates stay.
 Only matched-journal reserved root scratch can be removed, never final unknown
@@ -72,15 +61,11 @@ Export O_EXCL existing path policy stays: invalid input creates no output;
 late failure/interruption preserves incomplete exclusive output, no success and
 no overwrite. No new export-publication reconciliation engine in this milestone.
 
-New tools/profile_stream.py host codec/fixture CLI supports stream v2 and reads
-v1 via unchanged profile_bundle helpers. No changes to profile_bundle.py v1
-constants/functions, installation_{export,image,inspection}, profile_image native
-driver. The new runtime dependency changes filesystem implementation only for
-the opt-in I/O path and conflict guards described below. PR367 left native
-installation and offline export at v1. The installation owner's
-`srvros-export-publication-v1` is private metadata, unrelated
-to this portable schema. V2 host fixture import validates all input before new
-stage, streams only into its owned stage, no replacement, existing host recovery.
+The host fixture codec in `tools/profile_stream.py` validates the complete
+bundle before creating a private import stage. It then streams the selected
+documents, checks their hashes, and publishes the new home exclusively.
+Offline installation uses the same portable format. Its private publication
+record binds the exported bundle and remains separate from the wire format.
 
 Memory: all v2 payload I/O/hash/copy/readback incremental65536, bounded manifest
 and file count, no payload-sized allocations. Measure peak ALL engine allocations
@@ -94,8 +79,7 @@ are requirements, not measurements. Production guest stats require explicit
 SRVROS_PROFILE_TRACE_MEMORY=1 and report at exit or a selected interruption
 checkpoint. Numeric stats stderr only, no review/payload pollution.
 
-Acceptance: host-v2/guest-v2 cross interoperability, v1 unchanged tests plus actual
-v1 guest import/export, >1MiB image+16MiB binary+selected Text, aggregate64MiB
+The original mixed-format milestone tested host and guest interoperability, >1MiB image+16MiB binary+selected Text, aggregate64MiB
 boundary/native host test, invalid/truncated/corrupt/extra/version/path/case/count/
 size/changed-source/existing-output/lowspace refusals, IO/fsync faults, all import
 checkpoints incl copy-partial and published recovery. Two independent installed
@@ -218,7 +202,7 @@ high-water peaks are 2,396,160 bytes for the small/16 MiB/64 MiB previews and
 transfer/recovery, exact content and 96 compressed-image readbacks pass in the
 31-guest disposable proof. The 64 MiB boundary consists of four 16 MiB files.
 [Offline export](disk-installation.md#recoverable-offline-export-publication)
-defaults to v1 and supports v2 through the opt-in recoverable publication flow.
+uses v2 with recoverable publication.
 [Offline restore](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
 consumes v2 when provisioning a fresh image. External runtime-owner peer acceptance and Linux exfatprogs conformance
 are not claimed by this local native/guest qualification.

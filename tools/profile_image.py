@@ -15,13 +15,6 @@ import tempfile
 import profile_bundle as p
 
 
-def validate_request(bundle, home, alias, uid, gid, machine_preferences=None):
-    payloads = p.validate_bundle(bundle)
-    metadata, files, directories = profile_layout(bundle, payloads, home, alias, uid, gid, machine_preferences)
-    files.update({home + '/' + name: data for name, data in payloads.items()})
-    return metadata, files, directories
-
-
 def profile_layout(bundle, document_paths, home, alias, uid, gid, machine_preferences=None):
     """Build the installed namespace from previously validated bundle metadata."""
     local = p.binding(alias, uid, gid)
@@ -55,24 +48,11 @@ def profile_layout(bundle, document_paths, home, alias, uid, gid, machine_prefer
 
 
 def provision(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver,
-              machine_preferences=None):
-    metadata, files, directories = validate_request(bundle, home, alias, uid, gid, machine_preferences)
-
-    def populate(run):
-        for name, data in files.items():
-            run('write', name, data)
-        if machine_preferences is not None:
-            run('write-desktop', '/fat/home/desktop.conf', machine_preferences)
-
-    return _provision(source_exfat, target_exfat, metadata, directories, driver, populate)
-
-
-def provision_stream(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver):
+              machine_preferences=None, *, fresh=False):
     """Copy a pinned, open v2 bundle into a private exFAT staging image."""
-    p.require(not bundle.legacy, 'streaming bundle required')
     documents = bundle.metadata['documents']
     metadata, files, directories = profile_layout(bundle.metadata, (d['path'] for d in documents),
-                                                   home, alias, uid, gid)
+                                                   home, alias, uid, gid, machine_preferences)
 
     def populate(run):
         for name, data in files.items():
@@ -81,11 +61,13 @@ def provision_stream(source_exfat, target_exfat, bundle, home, alias, uid, gid, 
             run('write-stream', home + '/' + document['path'],
                 lambda stream: bundle.copy_document(document, stream))
         p.require(bundle.recheck() == bundle.sha256, 'streaming bundle changed during provisioning')
+        if machine_preferences is not None:
+            run('write-desktop', '/fat/home/desktop.conf', machine_preferences)
 
-    return _provision(source_exfat, target_exfat, metadata, directories, driver, populate, streaming=True)
+    return _provision(source_exfat, target_exfat, metadata, directories, driver, populate, fresh=fresh)
 
 
-def _provision(source_exfat, target_exfat, metadata, directories, driver, populate, *, streaming=False):
+def _provision(source_exfat, target_exfat, metadata, directories, driver, populate, *, fresh=False):
     source = Path(os.path.abspath(source_exfat))
     target = Path(os.path.abspath(target_exfat))
     for parent in (source.parent, target.parent):
@@ -122,13 +104,13 @@ def _provision(source_exfat, target_exfat, metadata, directories, driver, popula
                         content.unlink()
                 else:
                     subprocess.run(args, check=True)
-            if streaming:
+            if fresh:
                 run('check-stream-base', '/fat/home')
             run('ensure-home', '/fat/home')
             for directory in sorted(directories, key=lambda value: (value.count('/'), value)):
                 run('mkdir', directory)
             populate(run)
-            run('check-stream-final' if streaming else 'check-clean', '/fat/home')
+            run('check-stream-final', '/fat/home')
             os.link(stage, target)  # Atomic, exclusive publication on the same filesystem.
     finally:
         os.close(source_fd)

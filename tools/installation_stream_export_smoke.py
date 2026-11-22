@@ -22,6 +22,7 @@ import profile_chooser_smoke as chooser
 import profile_create_smoke as create
 import profile_desktop_smoke as desktop
 import profile_stream as stream
+import profile_stream_fixture
 import profile_transfer_smoke as transfer
 import source_provenance
 from installation_export_recovery_smoke import readback, stamp, tree
@@ -59,19 +60,9 @@ def make_stream(path):
         (DOCS[2], bytes(range(256)) * (stream.MAX_FILE // 256)),
         (UNSELECTED, b'synthetic unselected source document\n'),
     ]
-    metadata = []
-    for name, data in docs:
-        metadata.append({'path': name, 'size': len(data), 'sha256': digest_bytes(data)})
-    manifest = {'format': bundle.FORMAT, 'schema_version': 2,
-                'profile': portable['profile'], 'preferences': portable['preferences'],
-                'documents': metadata}
-    encoded = bundle.encode_json(manifest)
-    require(len(encoded) <= stream.MAX_MANIFEST, 'manifest too large')
-    with path.open('xb') as output:
-        output.write(stream.HEADER.pack(stream.MAGIC, len(encoded), 0) + encoded)
-        for _, data in docs:
-            for offset in range(0, len(data), CHUNK):
-                output.write(data[offset:offset + CHUNK])
+    manifest = profile_stream_fixture.write_stream(
+        path, portable['profile'], portable['preferences'], docs)
+    require(path.stat().st_size <= stream.MAX_BUNDLE, 'bundle too large')
     return manifest, {name: data for name, data in docs}
 
 
@@ -81,12 +72,10 @@ def git(root, *args):
 
 def source_equivalence(payload_root):
     """Verify the historical build payloads and current runtime source match."""
-    build = json.loads((payload_root / 'build/macos-build.json').read_text())
+    build = desktop.verified_build(payload_root)
+    payload_source = source_provenance.capture(payload_root)
     require(build.get('schema') == 1 and type(build.get('source')) is str,
             'invalid historical build record')
-    payload_source = source_provenance.capture(payload_root)
-    require(not any(row.get('dirty') for row in payload_source.values()),
-            'payload checkout must be clean')
     historical = build['source']
     payload_head = payload_source['.']['head']
     current = source_provenance.capture(ROOT)
@@ -139,7 +128,6 @@ def main():
     args = parser.parse_args()
     require(10 <= args.boot_wait <= 240, 'invalid boot wait')
     payload_root = image.checked_path(args.payload_root)
-    require(payload_root != ROOT, 'payload root must be a separate matched checkout')
     for path in (args.ovmf, args.ovmf_vars):
         require(Path(path).is_file() and ',' not in str(path), 'invalid firmware path')
 
@@ -260,7 +248,7 @@ def main():
         output = out / 'offline-export-v2.srvrprofile'
         attempt = out / 'offline-export-attempt'
         export_args = command + ['export-profile', str(stage_a), str(output),
-            '--bundle-version', '2', '--publication-dir', str(attempt), '--interrupt-after', 'written',
+            '--publication-dir', str(attempt), '--interrupt-after', 'written',
             '--profile-id', identity['id'], '--home', HOME_A,
             '--inspect-driver', str(inputs['inspect_driver']), '--export-driver', str(inputs['export_driver'])]
         for document in DOCS:
@@ -277,8 +265,8 @@ def main():
         require(output.is_file() and tree(stage_a) == source_after_a, 'reconciled export missing or A changed')
         exported_stamp = stamp(output)
         exported_hash = image.digest(output)
-        with stream.open_bundle(output) as exported:
-            require(not exported.legacy and exported.sha256 == exported_hash, 'output is not canonical streaming v2')
+        with stream.open_bundle(output, require_canonical=True) as exported:
+            require(exported.sha256 == exported_hash, 'output is not canonical streaming v2')
             metadata = exported.metadata
             require(metadata['profile'] == identity and metadata['preferences'] == manifest_a['preferences'],
                     'exported profile metadata differs')

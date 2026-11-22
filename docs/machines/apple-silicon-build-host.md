@@ -1,6 +1,14 @@
 # Apple Silicon macOS build host
 
-## Offline v2 profile export and publication
+## V2-only portable profiles
+
+The current follow-up to OS #504 consolidates Profiles, the guest command, the
+host codec and offline installation tooling on the v2 wire format. The scope
+includes the matching Apps pin and v2 recovery at every current entry point.
+Keep prior qualification receipts attributable to their original commits.
+Authentication and permission enforcement remain separate.
+
+## Original opt-in offline v2 profile export proof
 
 On `device/apple-silicon/offline-export-v2`, source `d5476ffd` uses the merged
 OS #502 restore path and the OS #367 wire format. The matched `d4b09b4d`

@@ -142,43 +142,36 @@ class StreamInstalledTests(unittest.TestCase):
         self.publish()
         before = snapshot(self.stage)
         output = self.root / 'export-v2'
-        missing = self.call(output=output, documents=['Documents/notes.txt'], bundle_version=2)
+        missing = self.call(output=output, documents=['Documents/notes.txt'], publication_dir=None)
         self.assertEqual(missing['state'], 'refused', missing)
         self.assertFalse(output.exists())
-        result = self.call(output=output, documents=['Documents/notes.txt'], bundle_version=2,
+        result = self.call(output=output, documents=['Documents/notes.txt'],
                            publication_dir=self.root / 'api-attempt')
         self.assertEqual(result['state'], 'exported', result)
         with profile_stream.open_bundle(output) as opened:
-            self.assertFalse(opened.legacy)
+            self.assertEqual(opened.metadata['schema_version'], 2)
             self.assertEqual(opened.metadata['profile'], bundle()['profile'])
             self.assertEqual(opened.metadata['documents'][0]['sha256'], hashlib.sha256(b'portable data').hexdigest())
         self.assertEqual(snapshot(self.stage), before)
         cli_output = self.root / 'cli-v2'
         cmd = [sys.executable, str(ROOT / 'tools/installation_image.py'), 'export-profile', str(self.stage),
                str(cli_output), '--profile-id', PROFILE_ID, '--home', HOME, '--document', 'Documents/notes.txt',
-               '--inspect-driver', str(INSPECT_DRIVER), '--export-driver', str(EXPORT_DRIVER), '--bundle-version', '2']
+               '--inspect-driver', str(INSPECT_DRIVER), '--export-driver', str(EXPORT_DRIVER)]
         missing_cli = subprocess.run(cmd, cwd=self.root, capture_output=True, text=True)
         self.assertNotEqual(missing_cli.returncode, 0)
         self.assertFalse(cli_output.exists())
-        proc = subprocess.run(cmd + ['--publication-dir', str(self.root / 'cli-attempt')], cwd=self.root,
-                              capture_output=True, text=True)
+        args = cmd + ['--publication-dir', str(self.root / 'cli-attempt')]
+        old_selector = subprocess.run(args + ['--bundle-version', '1'], cwd=self.root,
+                                      capture_output=True, text=True)
+        self.assertEqual(old_selector.returncode, 2, old_selector.stdout)
+        self.assertFalse(cli_output.exists())
+        proc = subprocess.run(args, cwd=self.root, capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
         self.assertEqual(json.loads(proc.stdout)['state'], 'exported')
         with profile_stream.open_bundle(cli_output) as opened:
-            self.assertFalse(opened.legacy)
+            self.assertEqual(opened.metadata['schema_version'], 2)
             self.assertEqual(opened.metadata['documents'][0]['sha256'], hashlib.sha256(b'portable data').hexdigest())
         self.assertEqual(snapshot(self.stage), before)
-
-
-    def test_default_export_matches_explicit_v1_bytes(self):
-        self.publish()
-        documents = ['Documents/notes.txt']
-        default = self.root / 'default-v1'
-        explicit = self.root / 'explicit-v1'
-        self.assertEqual(self.call(output=default, documents=documents)['state'], 'exported')
-        self.assertEqual(self.call(output=explicit, documents=documents, bundle_version=1)['state'], 'exported')
-        self.assertEqual(default.read_bytes(), explicit.read_bytes())
-        self.assertEqual(default.read_bytes(), profile_bundle.encode_json(bundle()))
 
 
 if __name__ == '__main__':

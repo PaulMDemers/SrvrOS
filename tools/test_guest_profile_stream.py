@@ -73,26 +73,27 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
             str(root/'userspace/profile/stream.c'),str(root/'userspace/profile/codec.c'),'-o',str(out)],check=True)
         subprocess.run([str(out)],check=True)
 
-    def test_unsupported_backend_legacy_fallback(self):
+    def test_unsupported_backend_and_v1_rejection(self):
         import base64
         payload=b'legacy'; legacy={'format':'org.srvros.portable-profile','schema_version':1,
             'profile':self.manifest['profile'],'preferences':{},'documents':[{'path':'Documents/old.txt',
             'size':len(payload),'sha256':hashlib.sha256(payload).hexdigest(),'data_base64':base64.b64encode(payload).decode()}]}
         old=self.root/'legacy.bundle';old.write_text(json.dumps(legacy))
-        self.assertEqual(json.loads(self.run_cli('inspect',old,io='unsupported').stdout)['bytes'],len(payload))
+        self.run_cli('inspect',old,code=1)
+        self.run_cli('inspect',old,code=1,io='unsupported')
         self.run_cli('inspect',self.source,code=1,io='unsupported')
         self.run_cli('preview-import',self.source,self.root/'a'/'bad','bad',code=1,io='unsupported')
         self.assertFalse((self.root/'a'/'bad').exists())
 
     def test_import_recovery_export(self):
         home=self.root/'a'/'alice';review=json.loads(self.run_cli('preview-import',self.source,home,'alice').stdout)
-        self.assertEqual(review['bundle_version'],2); self.assertEqual(review['sha256'],hashlib.sha256(self.source.read_bytes()).hexdigest())
+        self.assertNotIn('bundle_version',review); self.assertEqual(review['sha256'],hashlib.sha256(self.source.read_bytes()).hexdigest())
         d=review['destination'];self.run_cli('import-reviewed',self.source,home,'alice',d['uid'],d['gid'],review['sha256'],code=86,stop='copy-partial')
         self.run_cli('check-recover',home);self.run_cli('recover',home)
         self.assertEqual((home/'Documents/data.bin').read_bytes(),self.data)
-        out=self.root/'out.bundle';exp=json.loads(self.run_cli('preview-export-auto',home,'Documents/data.bin').stdout)
-        self.assertEqual(exp['bundle_version'],2)
-        self.run_cli('export-auto-reviewed',home,out,exp['sha256'],'Documents/data.bin')
+        out=self.root/'out.bundle';exp=json.loads(self.run_cli('preview-export',home,'Documents/data.bin').stdout)
+        self.assertNotIn('bundle_version',exp)
+        self.run_cli('export-reviewed',home,out,exp['sha256'],'Documents/data.bin')
         self.assertEqual(hashlib.sha256(out.read_bytes()).hexdigest(),exp['sha256'])
         self.assertEqual(json.loads(self.run_cli('inspect',out).stdout)['bytes'],len(self.data))
         self.run_cli('import',out,self.root/'b'/'bob','bob',2001,2001)
@@ -105,13 +106,13 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
             self.run_cli('check-recover',home);self.run_cli('recover',home)
             self.assertEqual((home/'Documents/data.bin').read_bytes(),self.data)
 
-    def test_auto_small_remains_v1(self):
+    def test_small_export_uses_v2(self):
         self.data=b'hello';self.manifest['documents'][0].update(size=5,sha256=hashlib.sha256(self.data).hexdigest());self.write_bundle()
         home=self.root/'a'/'small';self.run_cli('import',self.source,home,'small',1001,2001)
-        review=json.loads(self.run_cli('preview-export-auto',home,'Documents/data.bin').stdout)
-        self.assertEqual(review['bundle_version'],1)
-        out=self.root/'small.bundle';self.run_cli('export-auto-reviewed',home,out,review['sha256'],'Documents/data.bin')
-        self.assertEqual(json.loads(out.read_bytes())['schema_version'],1)
+        review=json.loads(self.run_cli('preview-export',home,'Documents/data.bin').stdout)
+        self.assertNotIn('bundle_version',review)
+        out=self.root/'small.bundle';self.run_cli('export-reviewed',home,out,review['sha256'],'Documents/data.bin')
+        self.assertTrue(out.read_bytes().startswith(MAGIC))
 
     def test_stream_io_failures_and_short_io(self):
         home=self.root/'a'/'alice'
@@ -121,13 +122,13 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         self.assertTrue(Path(str(home)+'.profile-import.json').exists())
         self.assertFalse((home/'profile.id').exists())
         self.run_cli('recover',home,io='read-short')
-        out=self.root/'out.bundle';review=json.loads(self.run_cli('preview-export-auto',home,'Documents/data.bin').stdout)
-        self.run_cli('export-auto-reviewed',home,out,review['sha256'],'Documents/data.bin',io='write-short')
+        out=self.root/'out.bundle';review=json.loads(self.run_cli('preview-export',home,'Documents/data.bin').stdout)
+        self.run_cli('export-reviewed',home,out,review['sha256'],'Documents/data.bin',io='write-short')
         self.assertEqual(hashlib.sha256(out.read_bytes()).hexdigest(),review['sha256'])
         out2=self.root/'failed.bundle'
-        self.run_cli('export-auto-reviewed',home,out2,review['sha256'],'Documents/data.bin',code=1,io='fsync-error')
+        self.run_cli('export-reviewed',home,out2,review['sha256'],'Documents/data.bin',code=1,io='fsync-error')
         self.assertTrue(out2.exists())
-        self.run_cli('export-auto-reviewed',home,out2,review['sha256'],'Documents/data.bin',code=1)
+        self.run_cli('export-reviewed',home,out2,review['sha256'],'Documents/data.bin',code=1)
 
     def test_size_boundary_and_memory(self):
         block=b'x'*65536;docsize=16*1024*1024
@@ -151,9 +152,9 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         for doc in self.manifest['documents']:
             with (home/doc['path']).open('rb') as f: self.assertEqual(hashlib.file_digest(f,'sha256').hexdigest(),doc['sha256'])
         names=[doc['path'] for doc in self.manifest['documents']]
-        review=self.run_cli('preview-export-auto',home,*names);peak(review)
+        review=self.run_cli('preview-export',home,*names);peak(review)
         fingerprint=json.loads(review.stdout)['sha256'];out=self.root/'large.bundle'
-        peak(self.run_cli('export-auto-reviewed',home,out,fingerprint,*names))
+        peak(self.run_cli('export-reviewed',home,out,fingerprint,*names))
         with out.open('rb') as f:self.assertEqual(hashlib.file_digest(f,'sha256').hexdigest(),fingerprint)
         self.manifest['documents'][0]['size']=docsize+1;self.write_bundle()
         self.run_cli('inspect',self.source,code=1)
@@ -161,9 +162,9 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         home=self.root/'a'/'alice';self.run_cli('import',self.source,home,'alice',1001,2001)
         doc=home/'Documents/data.bin'
         for kind in ('mutation','replacement'):
-            review=json.loads(self.run_cli('preview-export-auto',home,'Documents/data.bin').stdout)
+            review=json.loads(self.run_cli('preview-export',home,'Documents/data.bin').stdout)
             output=self.root/(kind+'.bundle');env=dict(os.environ,SRVROS_PROFILE_TEST_EXPORT_PAUSE='1')
-            proc=subprocess.Popen([BIN,'export-auto-reviewed',str(home),str(output),review['sha256'],'Documents/data.bin'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            proc=subprocess.Popen([BIN,'export-reviewed',str(home),str(output),review['sha256'],'Documents/data.bin'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             pid,status=os.waitpid(proc.pid,os.WUNTRACED);self.assertEqual(pid,proc.pid);self.assertTrue(os.WIFSTOPPED(status))
             if kind=='mutation':
                 with doc.open('r+b') as f:f.seek(42);f.write(b'!')
@@ -182,9 +183,9 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         os.kill(proc.pid,signal.SIGCONT);stdout,stderr=proc.communicate(timeout=60)
         self.assertNotEqual(proc.returncode,0,(stdout,stderr));self.assertFalse((home/'Documents/data.bin').exists())
         self.run_cli('recover',home)
-        review=json.loads(self.run_cli('preview-export-auto',home,'Documents/data.bin').stdout);output=self.root/'output.bundle'
+        review=json.loads(self.run_cli('preview-export',home,'Documents/data.bin').stdout);output=self.root/'output.bundle'
         env=dict(os.environ,SRVROS_PROFILE_TEST_OUTPUT_PAUSE='1')
-        proc=subprocess.Popen([BIN,'export-auto-reviewed',str(home),str(output),review['sha256'],'Documents/data.bin'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc=subprocess.Popen([BIN,'export-reviewed',str(home),str(output),review['sha256'],'Documents/data.bin'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         pid,status=os.waitpid(proc.pid,os.WUNTRACED);self.assertEqual(pid,proc.pid);self.assertTrue(os.WIFSTOPPED(status))
         replacement=self.root/'output-replacement';replacement.write_bytes(output.read_bytes());os.replace(replacement,output)
         os.kill(proc.pid,signal.SIGCONT);stdout,stderr=proc.communicate(timeout=60)
@@ -197,12 +198,12 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         self.manifest['documents']=docs;self.data=large+small*63;self.write_bundle()
         home=self.root/'a'/'many';self.run_cli('import',self.source,home,'many',1001,2001)
         names=[d['path'] for d in docs]
-        preview=json.loads(self.run_cli('preview-export-auto',home,*names,nofile=67).stdout)
-        self.assertEqual(preview['bundle_version'],2)
+        preview=json.loads(self.run_cli('preview-export',home,*names,nofile=67).stdout)
+        self.assertNotIn('bundle_version',preview)
         partial=self.root/'partial.bundle'
-        self.run_cli('export-auto-reviewed',home,partial,preview['sha256'],*names,code=86,stop='export-partial',nofile=67)
+        self.run_cli('export-reviewed',home,partial,preview['sha256'],*names,code=86,stop='export-partial',nofile=67)
         self.assertTrue(partial.read_bytes().startswith(MAGIC));self.run_cli('inspect',partial,code=1)
-        out=self.root/'many.bundle';self.run_cli('export-auto-reviewed',home,out,preview['sha256'],*names,nofile=67)
+        out=self.root/'many.bundle';self.run_cli('export-reviewed',home,out,preview['sha256'],*names,nofile=67)
         with out.open('rb') as f:self.assertEqual(hashlib.file_digest(f,'sha256').hexdigest(),preview['sha256'])
 
     def test_max_document_review_fits_gui(self):

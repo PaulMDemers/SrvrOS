@@ -19,8 +19,7 @@ import installation_inspection as inspection
 import profile_bundle as p
 import profile_stream
 
-FORMAT = 'srvros-export-publication-v1'
-STREAM_FORMAT = 'srvros-export-publication-v2'
+FORMAT = 'srvros-export-publication-v2'
 MAX_RECORD = 65536
 CHECKPOINTS = ('recorded', 'partial-write', 'written', 'file-synced', 'linked',
                'unlinked', 'directory-synced', 'acknowledged')
@@ -131,19 +130,8 @@ def locked(path, *, exclusive=False, create=False):
             os.close(root)
 
 
-def projection(bundle):
-    # Future portable formats need a separately qualified streaming publisher.
-    require(type(bundle) is dict and bundle.get('format') == 'org.srvros.portable-profile' and
-            type(bundle.get('schema_version')) is int and bundle['schema_version'] == 1,
-            'publication recovery supports portable v1 only')
-    p.validate_bundle(bundle)
-    return {'profile': bundle['profile'], 'preferences': bundle['preferences'],
-            'documents': [{k: entry[k] for k in ('path', 'size', 'sha256')}
-                          for entry in bundle['documents']]}
-
-
 def stream_projection(bundle):
-    require(not bundle.legacy and type(bundle.metadata) is dict and
+    require(type(bundle.metadata) is dict and
             bundle.metadata.get('schema_version') == 2,
             'publication recovery supports portable streaming v2 only')
     profile_stream.validate_manifest(bundle.metadata)
@@ -153,8 +141,7 @@ def stream_projection(bundle):
 
 
 def completion(record, intent_hash):
-    ack_format = 'srvros-export-complete-v1' if record['format'] == FORMAT else 'srvros-export-complete-v2'
-    return p.encode_json({'format': ack_format, 'attempt': record['attempt'],
+    return p.encode_json({'format': 'srvros-export-complete-v2', 'attempt': record['attempt'],
                           'intent_sha256': intent_hash, 'bundle_sha256': record['sha256'],
                           'bundle_identity': record['bundle_identity']})
 
@@ -179,7 +166,7 @@ def load(path, root, lock):
     p.exact(record, ('format', 'attempt', 'directory', 'directory_identity', 'lock_identity',
                      'output', 'parent_identity', 'bundle_identity', 'size', 'sha256',
                      'selection', 'source_snapshot'), 'export publication')
-    require(record['format'] in (FORMAT, STREAM_FORMAT), 'invalid publication format')
+    require(record['format'] == FORMAT, 'invalid publication format')
     require(type(record['attempt']) is str and
             str(uuid.UUID(record['attempt'])) == record['attempt'],
             'invalid publication format or attempt')
@@ -189,8 +176,8 @@ def load(path, root, lock):
     require(record['directory'] == str(path) and record['directory_identity'] == identity(os.fstat(root))
             and record['directory_identity'] == identity(path.stat())
             and record['lock_identity'] == lock, 'publication identity mismatch')
-    limit = p.MAX_BUNDLE if record['format'] == FORMAT else profile_stream.MAX_BUNDLE
-    require(type(record['size']) is int and 0 < record['size'] <= limit, 'invalid bundle size')
+    require(type(record['size']) is int and 0 < record['size'] <= profile_stream.MAX_BUNDLE,
+            'invalid bundle size')
     valid_hash(record['sha256'])
     p.exact(record['selection'], ('profile', 'preferences', 'documents'), 'recorded selection')
     p.identity(record['selection']['profile']); p.preferences(record['selection']['preferences'])
@@ -220,33 +207,26 @@ def state(path, root, lock):
         else:
             require(all(s.st_size == record['size'] for s in found), 'bundle size mismatch')
             directory, name = (parent, output.name) if public else (root, 'bundle.partial')
-            if record['format'] == FORMAT:
-                raw, _ = read_regular(directory, name, p.MAX_BUNDLE, links=len(found))
-                require(digest(raw) == record['sha256'], 'bundle hash mismatch')
-                bundle = p.decode_json(raw)
-                require(p.encode_json(projection(bundle)) == p.encode_json(record['selection']) and p.encode_json(bundle) == raw,
-                        'bundle selection or encoding mismatch')
-            else:
-                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
-                try:
-                    before = os.fstat(fd)
-                    expected = public if public is not None else private
-                    current = named(directory, name)
-                    require(current is not None and
-                            os.pread(fd, len(profile_stream.MAGIC), 0) == profile_stream.MAGIC and
-                            stable(before) == stable(expected) and stable(before) == stable(current) and
-                            before.st_nlink == len(found), 'stream publication file changed')
-                    with profile_stream.open_bundle_fd(fd, expected_links=len(found),
-                                                       require_canonical=True) as bundle:
-                        require(bundle.stamp[2] == record['size'] and bundle.sha256 == record['sha256'],
-                                'stream bundle size or hash mismatch')
-                        require(p.encode_json(stream_projection(bundle)) == p.encode_json(record['selection']),
-                                'stream bundle selection mismatch')
-                    current = named(directory, name)
-                    require(current is not None and stable(os.fstat(fd)) == stable(before) and
-                            stable(current) == stable(before), 'stream publication file changed')
-                finally:
-                    os.close(fd)
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+            try:
+                before = os.fstat(fd)
+                expected = public if public is not None else private
+                current = named(directory, name)
+                require(current is not None and
+                        os.pread(fd, len(profile_stream.MAGIC), 0) == profile_stream.MAGIC and
+                        stable(before) == stable(expected) and stable(before) == stable(current) and
+                        before.st_nlink == len(found), 'stream publication file changed')
+                with profile_stream.open_bundle_fd(fd, expected_links=len(found),
+                                                   require_canonical=True) as bundle:
+                    require(bundle.stamp[2] == record['size'] and bundle.sha256 == record['sha256'],
+                            'stream bundle size or hash mismatch')
+                    require(p.encode_json(stream_projection(bundle)) == p.encode_json(record['selection']),
+                            'stream bundle selection mismatch')
+                current = named(directory, name)
+                require(current is not None and stable(os.fstat(fd)) == stable(before) and
+                        stable(current) == stable(before), 'stream publication file changed')
+            finally:
+                os.close(fd)
             if complete:
                 ack, _ = read_regular(root, 'complete.json', MAX_RECORD)
                 require(public and not private and ack == completion(record, intent_hash),
@@ -326,54 +306,6 @@ def reconcile(publication_dir, checkpoint=None):
                 'publication_dir': str(publication_dir), 'reason': str(error)[:512]}
 
 
-def publish(publication_dir, output, bundle, source_snapshot, checkpoint=None):
-    checkpoint = checkpoint or (lambda _: None)
-    visible = False
-    try:
-        selected = projection(bundle)
-        source_observation(source_snapshot)
-        data = p.encode_json(bundle)
-        require(len(data) <= p.MAX_BUNDLE, 'encoded bundle exceeds limit')
-        path, output = image.checked_path(publication_dir), image.checked_path(output)
-        source = image.checked_path(source_snapshot['stage'])
-        require(path != source and source not in path.parents and output != source and
-                source not in output.parents and path != output and path not in output.parents,
-                'publication/output overlaps source or publication directory')
-        require(not os.path.lexists(output), 'output already exists')
-        parent = output.parent.stat()
-        require(stat.S_ISDIR(parent.st_mode) and path.parent.stat().st_dev == parent.st_dev,
-                'publication and output must share a host filesystem')
-        with locked(path, exclusive=True, create=True) as (path, root, lock):
-            fd = os.open('bundle.partial', os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                         0o600, dir_fd=root)
-            try:
-                os.fsync(fd)
-                record = {'format': FORMAT, 'attempt': str(uuid.uuid4()), 'directory': str(path),
-                          'directory_identity': identity(os.fstat(root)), 'lock_identity': lock,
-                          'output': str(output), 'parent_identity': identity(parent),
-                          'bundle_identity': identity(os.fstat(fd)), 'size': len(data), 'sha256': digest(data),
-                          'selection': selected, 'source_snapshot': source_snapshot}
-                encoded = p.encode_json(record)
-                require(len(encoded) <= MAX_RECORD, 'publication record exceeds limit')
-                write_new(root, 'intent.json', encoded)
-                write_new(root, 'intent.sha256', (digest(encoded) + '\n').encode())
-                os.fsync(root)
-                image.sync_dir(path.parent)
-                checkpoint('recorded')
-                half = len(data) // 2
-                write(fd, data[:half]); checkpoint('partial-write')
-                write(fd, data[half:]); checkpoint('written')
-            finally:
-                os.close(fd)
-            result = finish(path, root, lock, checkpoint)
-        return result
-    except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
-        if 'output' in locals():
-            visible = os.path.lexists(output)
-        return {'state': 'refused', 'can_reconcile': False, 'publication_dir': str(publication_dir),
-                'visible_uncertain': visible, 'reason': str(error)[:512]}
-
-
 def _write_chunk(fd, data):
     view = memoryview(data)
     while view:
@@ -418,7 +350,7 @@ def publish_stream(publication_dir, output, bundle_path, source_snapshot, checkp
                              0o600, dir_fd=root)
                 try:
                     os.fsync(fd)
-                    record = {'format': STREAM_FORMAT, 'attempt': str(uuid.uuid4()), 'directory': str(path),
+                    record = {'format': FORMAT, 'attempt': str(uuid.uuid4()), 'directory': str(path),
                               'directory_identity': identity(os.fstat(root)), 'lock_identity': lock,
                               'output': str(output), 'parent_identity': identity(parent),
                               'bundle_identity': identity(os.fstat(fd)), 'size': size, 'sha256': expected_hash,

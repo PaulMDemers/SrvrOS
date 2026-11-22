@@ -111,8 +111,19 @@ static unsigned json_uint(cJSON *obj,const char *key) {
     cJSON *v=cJSON_GetObjectItemCaseSensitive(obj,key);assert(cJSON_IsNumber(v)&&v->valuedouble>0&&v->valuedouble<=2147483647);
     unsigned n=(unsigned)v->valuedouble;assert(v->valuedouble==n);return n;
 }
+static FILE *write_bundle_manifest(const char *path,const char *text,size_t length) {
+    unsigned char header[24]="SRVROS-PROFILE2\n";
+    for(unsigned i=0;i<4;i++)header[16+i]=(unsigned char)(length>>(8*i));
+    FILE *file=fopen(path,"wb");assert(file);
+    assert(fwrite(header,1,sizeof(header),file)==sizeof(header));
+    assert(fwrite(text,1,length,file)==length);
+    return file;
+}
 static void bundle(const char *path,unsigned number) {
-    char text[700];snprintf(text,sizeof(text),"{\"format\":\"org.srvros.portable-profile\",\"schema_version\":1,\"profile\":{\"id\":\"12345678-1234-4234-8234-%012u\",\"display_name\":\"Profile %u\"},\"preferences\":{\"text_size\":20},\"documents\":[]}",number,number);put(path,text);
+    char text[700];
+    int n=snprintf(text,sizeof(text),"{\"format\":\"org.srvros.portable-profile\",\"schema_version\":2,\"profile\":{\"id\":\"12345678-1234-4234-8234-%012u\",\"display_name\":\"Profile %u\"},\"preferences\":{\"text_size\":20},\"documents\":[]}",number,number);
+    assert(n>0 && (size_t)n<sizeof(text));
+    assert(!fclose(write_bundle_manifest(path,text,(size_t)n)));
 }
 static void imported(const char *slot,unsigned number,const char *checkpoint) {
     char virtual_home[128],actual_home[1024],source[1024],alias[32],uid[20];
@@ -130,11 +141,7 @@ static void stream_bundle(const char *path,unsigned number) {
         "\"preferences\":{\"text_size\":20},\"documents\":[{\"path\":\"Documents/data.bin\","
         "\"size\":65536,\"sha256\":\"1f8745f0d2d1387ec1af2211a3cf417b2e9e885e853472649c1d979d0e9370e3\"}]}",number,number);
     assert(n>0 && (size_t)n<sizeof(text));
-    unsigned char header[24]="SRVROS-PROFILE2\n";
-    header[16]=(unsigned char)n;header[17]=(unsigned char)(n>>8);
-    header[18]=(unsigned char)(n>>16);header[19]=(unsigned char)(n>>24);
-    FILE *f=fopen(path,"wb");assert(f);
-    assert(fwrite(header,1,sizeof(header),f)==sizeof(header));assert(fwrite(text,1,(size_t)n,f)==(size_t)n);
+    FILE *f=write_bundle_manifest(path,text,(size_t)n);
     char chunk[1024];memset(chunk,'x',sizeof(chunk));
     for(unsigned i=0;i<64;i++)assert(fwrite(chunk,1,sizeof(chunk),f)==sizeof(chunk));
     assert(!fclose(f));

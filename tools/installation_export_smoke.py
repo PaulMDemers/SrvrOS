@@ -4,8 +4,8 @@
 Uses generated images only; does not establish physical-device or power-loss acceptance.
 """
 import argparse
-import base64
 import fcntl
+import io
 import json
 import os
 from pathlib import Path
@@ -21,11 +21,13 @@ from exfat_test_image import ExfatFixture
 from installation_io_smoke import Storage, MIB
 from pack_runtime_elf import runtime_elf
 from profile_desktop_smoke import (ROOT, ID, BINARY, EDITED, boot, data_image, digest,
-    machine_preferences, make_bundle, outside_data, partitions, save_json, verified_build)
+    machine_preferences, make_bundle, SOURCE, outside_data, partitions, save_json, verified_build)
 from profile_installation_smoke import clone, seed_volume
 from uefi_usb_smoke import default_ovmf_path
 import installation_image as image
 import profile_bundle
+import profile_stream
+import profile_stream_fixture
 import source_provenance
 
 DOCS = ['Documents/migration.txt', 'Documents/binary.dat']
@@ -98,15 +100,18 @@ def run(args, storage):
             ('installation_export_smoke.py','installation_export.py','installation_inspection.py',
              'installation_image.py','installation_export_driver.c','installation_inspect_driver.c',
              'installation_readonly_host.h','profile_desktop_smoke.py','profile_installation_smoke.py',
-             'profile_bundle.py','profile_image.py','installation_io_smoke.py','exfat_test_image.py')}
+             'profile_bundle.py','profile_stream.py','profile_stream_fixture.py','profile_image.py','installation_io_smoke.py','exfat_test_image.py')}
         private = out/'inputs'; private.mkdir(); exports = out/'exports'; exports.mkdir()
+        publications = out/'publications'; publications.mkdir()
         paths = {}
         for name in ('kernel','bootx64','init','profile_driver','inspect_driver','export_driver'):
             paths[name] = private/name
             storage.call(originals[name].stat().st_size, clone, originals[name], paths[name])
         for name in ('profile_driver','inspect_driver','export_driver'): paths[name].chmod(0o700)
-        paths['bundle_a'] = private/'bundle-a.json'
-        profile_bundle.publish_bundle(paths['bundle_a'], make_bundle())
+        paths['bundle_a'] = private/'bundle-a.srvrprofile'
+        initial = make_bundle()
+        profile_stream_fixture.write_stream(paths['bundle_a'], initial['profile'], initial['preferences'],
+                                            [(DOCS[0], SOURCE), (DOCS[1], BINARY)])
         for label,speed,tz in (('a',4,-300),('b',2,60)):
             paths['exfat_'+label] = private/('base-'+label+'.exfat')
             storage.call(2*originals['exfat'].stat().st_size, seed_volume, originals['exfat'],
@@ -209,14 +214,17 @@ def run(args, storage):
             return stage,disk,offset,size,ready
         a,disk,offset,size,ready=install('a','/fat/home/local-a','local_a',1001,1001,4,-300,paths['bundle_a'])
         home='/fat/home/local-a'
-        expected_bundle=make_bundle()
-        expected_bundle['preferences']['theme_style']=1
-        expected_bundle['documents'][0].update(size=len(EDITED),sha256=digest(EDITED),
-            data_base64=base64.b64encode(EDITED).decode())
-        expected_bundle_hash=digest(profile_bundle.encode_json(expected_bundle))
+        original=make_bundle()
+        expected_path=private/'expected.srvrprofile'
+        expected_bundle=profile_stream_fixture.write_stream(expected_path, original['profile'],
+            dict(original['preferences'],theme_style=1), [(DOCS[0],EDITED),(DOCS[1],BINARY)])
+        expected_bundle_hash=image.digest(expected_path)
+        paths['expected_bundle']=expected_path
+        hashes['expected_bundle']=expected_bundle_hash
         def export(label, output, *, profile=ID, selected_home=home, docs=DOCS, expected=None):
             before=snapshot(a); sources=verify_sources(); output_before=snapshot(exports)
-            extra=[str(output),'--profile-id',profile,'--home',selected_home]
+            extra=[str(output),'--profile-id',profile,'--home',selected_home,
+                   '--publication-dir',str(publications/label)]
             for doc in docs: extra += ['--document',doc]
             extra += ['--inspect-driver',str(paths['inspect_driver']),'--export-driver',str(paths['export_driver'])]
             result=command('export-profile',a,*extra); after=snapshot(a); sources_after=verify_sources(); output_after=snapshot(exports)
@@ -241,7 +249,10 @@ def run(args, storage):
         first=exports/'a.json'; second=exports/'a-repeat.json'
         export('export-a',first); export('export-a-repeat',second)
         if first.read_bytes()!=second.read_bytes(): raise RuntimeError('repeat export differs')
-        bundle=profile_bundle.decode_json(first.read_bytes()); payloads=profile_bundle.validate_bundle(bundle)
+        with profile_stream.open_bundle(first) as opened:
+            bundle=opened.metadata; payloads={}
+            for entry in bundle['documents']:
+                sink=io.BytesIO(); opened.copy_document(entry,sink); payloads[entry['path']]=sink.getvalue()
         if bundle['profile']!=make_bundle()['profile'] or bundle['preferences']!=dict(make_bundle()['preferences'],theme_style=1) or list(payloads)!=DOCS or payloads!={DOCS[0]:EDITED,DOCS[1]:BINARY}:
             raise RuntimeError('export bundle content mismatch')
         paths['export_bundle'] = first

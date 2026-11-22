@@ -4,14 +4,9 @@
 #include <srvros/exfat_stream.h>
 
 #define MAX_DOCS 64
-#define MAX_FILE (1024u * 1024u)
-#define MAX_TOTAL (8u * 1024u * 1024u)
 #define PATH_LIMIT 257
 #define STREAM_MAX_FILE (16u * 1024u * 1024u)
 #define STREAM_MAX_TOTAL (64u * 1024u * 1024u)
-
-struct payload { uint8_t *data; uint64_t size; };
-static struct payload payloads[MAX_DOCS+1];
 
 static bool number(const char *s,uint64_t *v) {
     if(!*s)return false;
@@ -67,27 +62,6 @@ static bool directory(const char *path) {
     const struct vfs_node *n=vfs_lookup(path);
     return n && n->type==VFS_NODE_DIRECTORY;
 }
-/* Verify each parent as well as the selected final regular file. */
-static bool retain(const char *path,uint64_t cap,struct payload *out) {
-    char parent[PATH_LIMIT];size_t len=strlen(path);
-    if(len>=sizeof(parent))return false;
-    memcpy(parent,path,len+1);
-    for(char *p=parent+1;*p;p++)if(*p=='/') {
-        *p=0;bool ok=directory(parent);*p='/';if(!ok)return false;
-    }
-    const struct vfs_node *node=vfs_lookup(path);
-    if(!node || node->type!=VFS_NODE_FILE || node->size>cap)return false;
-    const uint8_t *data=NULL;uint64_t size=0;
-    if(!vfs_read_all(node,&data,&size))return false;
-    bool ok=size==node->size && (!size || data);
-    if(ok && size) {
-        out->data=kmalloc(size);
-        if(!out->data)ok=false;else memcpy(out->data,data,(size_t)size);
-    }
-    vfs_release_data(node,data);
-    if(ok)out->size=size;
-    return ok;
-}
 static bool bootstrap_placeholder(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
     (void)node;(void)data;(void)size;return false;
 }
@@ -113,10 +87,9 @@ int main(int argc,char **argv) {
     uint64_t fdnum,total=0;struct stat st;bool mounted=false;
     int64_t handles[MAX_DOCS+1];uint64_t sizes[MAX_DOCS+1]={0};
     for(int i=0;i<MAX_DOCS+1;i++)handles[i]=-1;
-    bool stream=argc>1 && !strcmp(argv[1],"--stream-fd");
     (void)signal(SIGPIPE,SIG_IGN);
     const char *reason="export-fd-range";
-    if(argc<6 || argc>6+MAX_DOCS || (!stream && strcmp(argv[1],"--fd")) || !number(argv[2],&fdnum) || fdnum>INT_MAX ||
+    if(argc<6 || argc>6+MAX_DOCS || strcmp(argv[1],"--stream-fd") || !number(argv[2],&fdnum) || fdnum>INT_MAX ||
        !number(argv[3],&base) || !number(argv[4],&length) || !length || base%512 || length%512 ||
        base>INT64_MAX || length>(uint64_t)INT64_MAX-base)goto fail;
     source_fd=(int)fdnum;int flags=fcntl(source_fd,F_GETFL);
@@ -131,9 +104,8 @@ int main(int argc,char **argv) {
     struct block_device d={.used=true,.name="export",.block_size=512,.block_count=length/512,
         .read=block_read,.write=block_write,.flush=refuse_flush};
     reason="export-clean-admission";
-    /* Match the two bootstrap identities present before the guest mounts the
-     * installed volume, without changing the historical v1 path. */
-    if(stream && (!vfs_register_directory("/") || !vfs_register_file("/init",0,NULL,bootstrap_placeholder)))goto fail;
+    /* Match the bootstrap identities present before the guest mounts the volume. */
+    if(!vfs_register_directory("/") || !vfs_register_file("/init",0,NULL,bootstrap_placeholder))goto fail;
     if(!exfat_mount_block_device_clean("/fat",&d))goto fail;
     mounted=true;
     struct exfat_check_result check={0};
@@ -142,7 +114,6 @@ int main(int argc,char **argv) {
     reason="export-namespace";
     if(!directory("/fat/bin") || !directory("/fat/var") || !directory("/fat/home"))goto fail;
     char path[PATH_LIMIT];
-    if(stream) {
         reason="export-portable";
         if(snprintf(path,sizeof(path),"%s/.config/srvros/portable.json",argv[5]) >= (int)sizeof(path) ||
            !stream_open(path,512,&handles[0],&sizes[0]))goto fail;
@@ -174,35 +145,10 @@ int main(int argc,char **argv) {
         reason="export-output";
         if(fflush(stdout) || ferror(stdout))goto fail;
         return 0;
-    }
-    reason="export-portable";
-    if(snprintf(path,sizeof(path),"%s/.config/srvros/portable.json",argv[5]) >= (int)sizeof(path) ||
-       !retain(path,512,&payloads[0]))goto fail;
-    reason="export-document";
-    for(int i=6;i<argc;i++) {
-        if(snprintf(path,sizeof(path),"%s/%s",argv[5],argv[i]) >= (int)sizeof(path) ||
-           !retain(path,MAX_FILE,&payloads[i-5]))goto fail;
-        total+=payloads[i-5].size;if(total>MAX_TOTAL)goto fail;
-    }
-    reason="export-unmount";
-    if(!exfat_unmount("/fat")) { mounted=false;goto fail; }
-    mounted=false;
-    if(read_failed || writes || flushes || vfs_count())goto fail;
-    reason="export-output";
-    static const char magic[]="srvros-installed-export-v1\n";
-    if(!emit(magic,sizeof(magic)-1))goto fail;
-    for(int i=0;i<argc-5;i++) {
-        uint8_t size[8];for(unsigned j=0;j<8;j++)size[j]=(uint8_t)(payloads[i].size>>(8*j));
-        if(!emit(size,sizeof(size)) || !emit(payloads[i].data,(size_t)payloads[i].size))goto fail;
-    }
-    if(fflush(stdout) || ferror(stdout))goto fail;
-    for(int i=0;i<argc-5;i++)kfree(payloads[i].data);
-    return 0;
 fail:
     for(int i=0;i<MAX_DOCS+1;i++)if(handles[i]>=0)(void)exfat_stream_close((uint64_t)handles[i]);
     if(mounted)(void)exfat_unmount("/fat");
     if(writes || flushes)reason="export-write-flush";
     else if(read_failed)reason="export-read-budget";
-    for(int i=0;i<MAX_DOCS+1;i++)kfree(payloads[i].data);
     fprintf(stderr,"installation export refused: %s\n",reason);return 1;
 }

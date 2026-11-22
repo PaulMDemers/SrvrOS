@@ -370,7 +370,7 @@ def main():
         transport = t.check_allocation(disks['transport'], out, 'transport-export')
         exported = transport.read('transfer.json')
         (out / 'guest-export.json').write_bytes(exported)
-        bundle = profile_bundle.decode_json(exported); payloads = profile_bundle.validate_bundle(bundle)
+        bundle, payloads = d.decode_fixture_bundle(exported)
         expected_prefs = dict(DEFAULTS)
         if (bundle['profile'] != identity or bundle['preferences'] != expected_prefs or
                 payloads != {'Documents/migration.txt': TEXT, 'Documents/binary.dat': BINARY}):
