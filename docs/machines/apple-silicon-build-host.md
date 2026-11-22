@@ -6047,3 +6047,15 @@ Ports9 merged at `89f22a967415297cc6af9229c2bee950932b4aee`; its tree equals rev
 `eb8468df24044d63626a0c0f76b90f024dffc244`. The OS pin now names that actual
 merge commit. Relative to the qualified af1421b port implementation, only
 PORT.md documentation changed; this pin promotion adds no runtime code.
+
+### GNU Grep queue resumption, November 22, 2026
+
+The user resumed the bounded CLI queue. Separate `SrvrOS-ports-grep` at OS
+`b275e57d` owns the GNU Grep 3.12 source, port-local SDK build and guest fixtures.
+`ggrep` preserves existing compact `grep` callers and adds single-file or finite
+stdin search with fixed strings, genuine BRE and ERE, C locale, count/quiet
+and explicit admission limits. GNU's direct release signature and SHA-256
+were verified against the published signer fingerprint. The compiler/guest
+window follows the browser owner's release. No protected checkout or VM was
+used. The OS pin's Pro checkpoint logging call needs owner coordination before
+using a new Ports main pin. This is separate from the Grep port.

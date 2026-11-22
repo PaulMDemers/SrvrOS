@@ -1,8 +1,13 @@
 # CLI port queue and closeout
 
-Current closeout: GNU diff and GNU Patch are delivered and verified. Grep and
-sha256sum are deferred by the later closeout instruction. All owned jobs stopped;
-no further port or heavy reservation is active.
+Current work, November 22, 2026: GNU diff and Patch are delivered. The
+user resumed the queue with GNU Grep, followed by sha256sum. The separate Grep
+checkout starts from OS `b275e57d` and Ports main `67a92d4`. The bounded GNU
+command is `ggrep` alongside the shipped `grep`, whose existing callers use
+`-o` and multi-file `-l`/`-L`. The port needs a matched guest proof, measured
+heap ceiling and cancellation after observable progress. The OS pin differs
+from Ports main in the Pro battery checkpoint logging call. Integration is
+coordinating that dependency separately before OS delivery.
 
 Authorized November 4, 2026: implement bounded GNU diff in a separate checkout,
 then independently review, publish and merge each accepted port and its OS
@@ -15,8 +20,8 @@ reservation for the next milestone.
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
 | 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Delivered and verified: [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) `72f3d6fa`, then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370) `3e327513`; exact reviewed trees and reachable `6ff5eda` pin verified. No further feature required. |
-| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
-| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
+| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Resumed November 22; authenticated source reacquired and generated SDK port underway. |
+| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued after Grep delivery under the resumed instruction. |
 
 Each row gets a coherent port commit/PR before the dependent OS gitlink PR,
 independent source review, truthful host/guest evidence, required target/Terminal
