@@ -20745,3 +20745,12 @@ staged manifest SHA-256
 With the GPT workspace, the fractional trial saved Text, screenshot and
 logs and unmounted cleanly. With the workspace absent, the guest skipped
 the desktop and reached automatic return. This is VM qualification.
+
+### Host tooling for the Retina return handoff (November 22)
+
+On PR #514 (`397700cc`, integration main `00ea6d78`), prepare the
+collector's pre-boot record from the passed Retina receipt and the
+installed release. Scope is host verification of the workspace, Ubuntu
+boot selection, known-good recovery and guest checklist. PR #501 owns
+the payload. Check the prepared record against the collector contract and
+exercise the existing Pro evidence without starting another native run.
