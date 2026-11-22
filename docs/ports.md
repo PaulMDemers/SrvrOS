@@ -311,6 +311,17 @@ upstream POSIX `ed` port. It supports basic numeric range addressing plus
 regex addresses, regex substitutions, append/insert/change/delete/print/read/
 write/load/quit commands, and the ports smoke test verifies an edit script
 against `cmp`.
+
+GNU Grep 3.12 is staged as `/fat/bin/ggrep` in the bounded port candidate.
+Use `ggrep [-FGEivnqc] [--] PATTERN [FILE]`. It supports one C locale pattern
+of at most 1024 bytes and one existing regular file or finite standard input.
+The input limits are 256 KiB, 8192 physical lines and 64 KiB per line, including
+the newline. Quiet mode validates the entire input before it reports a match.
+Status 0 means a selected line, 1 means no selection, and 2 means trouble.
+The production command uses a 16 MiB SDK heap arena ceiling. The
+[qualification receipt](assets/evidence/ggrep/receipt.json) records tested
+behavior, signal outcomes and evidence limits.
+
 The `/fat/bin/uvdemo` app links the first srvros `uv.h` compatibility shim. The
 shim is not upstream libuv yet; it is a deliberately small bridge that gives
 ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP

@@ -1,8 +1,17 @@
 # CLI port queue and closeout
 
-Current closeout: GNU diff and GNU Patch are delivered and verified. Grep and
-sha256sum are deferred by the later closeout instruction. All owned jobs stopped;
-no further port or heavy reservation is active.
+Current work, November 22, 2026: GNU diff and Patch are delivered. GNU Grep
+marshals bounded searches through `ggrep` alongside the shipped `grep`.
+[Ports #15](https://github.com/PaulMDemers/SrvrPorts/pull/15) merged `f96d91c3`.
+The replacement pin in [Ports #16](https://github.com/PaulMDemers/SrvrPorts/pull/16)
+restores the one checkpoint logging line already shipped through OS pin `276eb1b`.
+[OS #503](https://github.com/PaulMDemers/SrvrOS/pull/503) passes fresh qualification
+with the exact pin. Integration approved retaining that commit on
+[`pins/srvros-503-ggrep`](https://github.com/PaulMDemers/SrvrPorts/tree/pins/srvros-503-ggrep).
+An independent OS clone initialized `ports` at `9d42e0f` and fetched that ref.
+Ports #16 remains open for Pro owner review of promotion to Ports main.
+Keep the dedicated ref while an OS revision pins it. Coreutils 9.12 is queued
+after OS #503 delivery.
 
 Authorized November 4, 2026: implement bounded GNU diff in a separate checkout,
 then independently review, publish and merge each accepted port and its OS
@@ -15,8 +24,8 @@ reservation for the next milestone.
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
 | 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Delivered and verified: [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) `72f3d6fa`, then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370) `3e327513`; exact reviewed trees and reachable `6ff5eda` pin verified. No further feature required. |
-| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
-| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
+| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Ports #15 delivered and verified. OS #503 is qualified on `9d42e0f`, verified reachable through `pins/srvros-503-ggrep`. Ports #16 remains open for separate review. |
+| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued after Grep delivery under the resumed instruction. |
 
 Each row gets a coherent port commit/PR before the dependent OS gitlink PR,
 independent source review, truthful host/guest evidence, required target/Terminal
@@ -25,11 +34,9 @@ with actual main before merge; verify merged tree equality and port-pin
 reachability. Native-host tests do not count as guest tests. Never merge a failed
 or unverified gate to maintain queue momentum.
 
-The original instruction authorized automatic review/merge/proceed through
-these four rows. The later November 4 closeout instruction, relayed by the
-integration chat, supersedes that continuation: finish and verify the current
-GNU Patch Ports12→OS370 delivery, update topic/unit documentation and status,
-then stop. Grep and sha256sum are deferred; do not start another port. Do useful independent work while waiting on resource ownership;
+The November 4 closeout paused the queue after verified Patch delivery. The
+November 22 instruction resumed it. Do useful independent work while waiting
+on resource ownership;
 never silently reduce an approved input/behavior boundary or add fake runtime
 capability stubs. A shared libc/kernel need requires a minimal reproducer and
 coordination before changing its contract.
@@ -211,3 +218,48 @@ reservations are stopped/released. Keep the integration checkout/review VMs
 untouched. No further work is required for the bounded Patch target; later
 ports remain deferred. Final aggregate docs/status consistency belongs to the
 integration closeout PR373.
+
+### GNU Grep resumption and delivery
+
+GNU Grep 3.12 is staged as `ggrep` so existing compact `grep` callers keep
+their broader options. Clean OS `0241ba87` with composite Ports `9fdd187`
+passed five sequential 512 MiB guests, two clean GNU rebuilds against the
+same SDK objects, and selected native upstream tests (five PASS, one SKIP).
+Actual guest evidence covers 19 GNU reference cases, 14 refusals, finite pipe
+admission, persistence, filesystem checks, heap refusal and recovery,
+held-output and diagnostic progress signals, Terminal and both regressions.
+The combined input cap measured 368,640 bytes of mapped heap within the
+16 MiB arena ceiling. The [qualification receipt](assets/evidence/ggrep/receipt.json)
+records exact tested hashes and limits. Earlier failed output probes remain
+retained with their corrected results in the readback-verified archive.
+
+The Grep-only port merged `f96d91c3` and matches reviewed tree `fe111cb3`.
+The draft OS candidate retains the tested pin. New main `28eb6291` adds offline
+installation tooling and documentation, with no staged runtime inputs changed.
+The OS's checkpoint logging file and the composite agree byte for byte.
+Ports main uses the capture call at that line. Keep the OS draft until the
+separate Pro logging owner establishes an approved landing path. Then
+reconcile the final reachable pin, confirm target evidence and deliver before
+starting the next application. Coreutils 9.12 source and its bounded design
+are retained. No sha256sum port build has started.
+
+### Reachable Grep pin candidate
+
+Ports #16 head `9d42e0f` restores `workspace_log_start_checkpoints()` for
+`desktop_power_test`. That file is byte-identical to deployed OS pin `276eb1b`.
+Compared with the tested composite `9fdd187`, the candidate changes only the
+merged Grep port documentation. Integration reviewed the one-line landing path.
+The Pro owner review request is recorded in the
+[Pro bringup PR](https://github.com/PaulMDemers/SrvrOS/pull/19#issuecomment-7086783718).
+No owner disposition has been recorded.
+
+OS candidate `b69f84cb` incorporates actual main `b95bc096`, including kernel
+and libc isolation changes. It passes the clean matched build, two Grep boots,
+ports regression, actual Terminal functional and expert checks, and all 498
+CLI commands. Guest filesystem checks are clean. The packed `ggrep` payload
+remains identical to the prior qualification. The
+[proposed-pin receipt](assets/evidence/ggrep/pin-receipt.json) identifies exact
+source, pin, artifacts and limitations. Compact test logs, screenshots and
+hash manifests survived build cleanup. The integration checkout and review VM
+are untouched. Integration subsequently approved the dedicated-ref route for
+OS #503. The separate Ports #16 review remains open.
