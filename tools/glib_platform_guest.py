@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKER = b'glib-platform: ok'
 GUI_MARKER = b'gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit'
 ICONV_MARKER = b'glib-iconv: ok'
+PCRE2_MARKER = b'glib-pcre2: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -90,6 +91,7 @@ def run_guest(image, output, receipt, probes):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--iconv-prefix', type=Path, help='target prefix from browser_glib_iconv.py')
+    parser.add_argument('--pcre2-prefix', type=Path, help='target PCRE2 prefix from browser_glib_iconv.py')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -123,24 +125,30 @@ def main():
         receipt['payload_sha256'] = digest(elf)
         payloads = {'glib-platform': elf}
         probes = {'glib-platform': (MARKER, GUI_MARKER)}
-        if args.iconv_prefix:
-            prefix = args.iconv_prefix.resolve()
-            iconv_source = ROOT / 'tools/test_glib_iconv_guest.c'
-            header = prefix / 'include/iconv.h'
-            library = prefix / 'lib/libiconv.a'
-            receipt['inputs_sha256'][str(iconv_source.relative_to(ROOT))] = digest(iconv_source)
-            receipt['iconv_provider_sha256'] = {str(path.relative_to(prefix)): digest(path)
-                                                for path in (header, library)}
-            iconv_obj = output / 'iconv.o'
-            iconv_elf = output / 'iconv.elf'
+        dependencies = [
+            ('iconv', args.iconv_prefix, 'libiconv.a', ICONV_MARKER),
+            ('pcre2', args.pcre2_prefix, 'libpcre2-8.a', PCRE2_MARKER),
+        ]
+        for name, target_prefix, archive_name, marker in dependencies:
+            if target_prefix is None:
+                continue
+            prefix = target_prefix.resolve()
+            unit = ROOT / f'tools/test_glib_{name}_guest.c'
+            header = prefix / f'include/{name}.h'
+            library = prefix / 'lib' / archive_name
+            receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
+            receipt[f'{name}_provider_sha256'] = {str(path.relative_to(prefix)): digest(path)
+                                                 for path in (header, library)}
+            obj = output / f'{name}.o'
+            payload = output / f'{name}.elf'
             subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
-                            '-I', header.parent, '-c', iconv_source, '-o', iconv_obj],
+                            '-I', header.parent, '-c', unit, '-o', obj],
                            cwd=ROOT, check=True, timeout=60)
-            subprocess.run([compiler, iconv_obj, library, '-o', iconv_elf],
+            subprocess.run([compiler, obj, library, '-o', payload],
                            cwd=ROOT, check=True, timeout=60)
-            receipt['iconv_payload_sha256'] = digest(iconv_elf)
-            payloads['glib-iconv'] = iconv_elf
-            probes['glib-iconv'] = (ICONV_MARKER,)
+            receipt[f'{name}_payload_sha256'] = digest(payload)
+            payloads[f'glib-{name}'] = payload
+            probes[f'glib-{name}'] = (marker,)
         boot = output / 'stage/boot/limine'
         boot.mkdir(parents=True)
         shutil.copyfile(kernel, boot.parent / 'srvros.elf')
