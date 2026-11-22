@@ -1,16 +1,17 @@
 #include <srvros/intel_bdw_scanout_mapping.h>
 #include <srvros/intel_bdw_ggtt.h>
+#include <srvros/intel_bdw_stolen_scanout.h>
 #include <srvros/intel_ggtt_window.h>
 
-bool intel_bdw_scanout_page_store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
+static bool page_store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
                          const struct scanout_transfer *t, uint32_t index)
 {
-    if (!m || !token || !t || index != INTEL_WINDOW_FIRST ||
+    if (!m || !token || !t ||
         m->object != m || token->object != m || token->epoch != m->epoch || token->owner != m->owner ||
         !m->busy || m->owner != t->owner || m->backing_pages != 1 || m->layout.pages != 1 ||
         m->layout.tiled || m->cpu_serial || m->dependent || m->registered || m->hold_serial ||
         m->space != &t->space || m->range.first != index || m->range.pages != 1 ||
-        t->manifest.first != index || t->manifest.fence_end != (uint64_t)index * 4096 ||
+        t->manifest.first != index ||
         t->manifest.assurances != HANDOFF_ALL || t->manifest.obligations) return false;
 
     const struct scanout_transfer_manifest *s = &t->manifest;
@@ -30,6 +31,47 @@ bool intel_bdw_scanout_page_store_active(const struct scanout_memory *m, const s
         return false;
 
     return true;
+}
+
+bool intel_bdw_scanout_page_store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
+                                        const struct scanout_transfer *t, uint32_t index)
+{
+    return index == INTEL_WINDOW_FIRST && t && t->manifest.fence_end == (uint64_t)index * 4096 &&
+           page_store_active(m, token, t, index);
+}
+
+static bool owned_page_range(const struct scanout_transfer_manifest *s,
+                             const struct scanout_interval *firmware, const struct bdw_stolen_layout *layout)
+{
+    uint32_t end = intel_bdw_stolen_import_end(layout, s->fence_end, s->aperture_bytes);
+    if (!end || !firmware || !firmware->firmware || s->pages != 1 || s->first < end ||
+        firmware->pages.first != INTEL_WINDOW_FIRST || (uint64_t)INTEL_WINDOW_FIRST * 4096 != s->fence_end ||
+        end != (uint64_t)firmware->pages.first + firmware->pages.pages)
+        return false;
+    return scanout_interval_held(firmware, s->mmio, s->aperture, s->aperture_bytes,
+                                 s->fence_end, firmware->pages);
+}
+
+bool intel_bdw_scanout_owned_page_store_matches(const struct scanout_memory *m,
+        const struct scanout_memory_token *token, struct scanout_transfer *t,
+        const struct scanout_transfer_token *grant, const struct scanout_interval *firmware,
+        const struct bdw_stolen_layout *layout, uint32_t index, uint64_t expected, uint64_t value)
+{
+    if (!t || !owned_page_range(&t->manifest, firmware, layout) || !page_store_active(m, token, t, index) ||
+        !scanout_transfer_check(t, grant)) return false;
+    uint64_t original;
+    struct intel_bdw_ggtt_page plan;
+    if (!owned_page_range(&t->manifest, firmware, layout) || !page_store_active(m, token, t, index) ||
+        !scanout_transfer_original(t, grant, index, &original) ||
+        !intel_bdw_ggtt_page_plan(&t->manifest, m->physical, &plan) || plan.original != original ||
+        !scanout_space_verify_original(m->space, &m->range, 0, original) ||
+        m->publication.before[0] != original || m->publication.after[0] != plan.replacement ||
+        original == plan.replacement || t->last_us < m->publication.last_us ||
+        t->last_us < m->publication.phase_us ||
+        t->last_us - m->publication.phase_us > SCANOUT_PUBLISH_DEADLINE_US) return false;
+    bool restore = m->publication.state == PUB_RESTORING;
+    return expected == (restore ? plan.replacement : original) &&
+           value == (restore ? original : plan.replacement);
 }
 
 struct encode_context {
@@ -61,9 +103,12 @@ static bool encode(void *ctx, uint64_t physical, uint64_t *replacement)
     return true;
 }
 
+enum mapping_kind { FULL_SURFACE, INHERITED_PAGE, DRIVER_PAGE };
+
 static bool prepare(struct scanout_memory *m, const struct scanout_memory_token *token,
                     struct scanout_transfer *transfer, const struct scanout_transfer_token *grant,
-                    struct scanout_publish_pool *pool, struct scanout_publish_io io, bool single_page)
+                    struct scanout_publish_pool *pool, struct scanout_publish_io io, enum mapping_kind kind,
+                    const struct scanout_interval *firmware, const struct bdw_stolen_layout *layout)
 {
     if (!m || !token || !transfer || !grant || !pool ||
         m->object != m || token->object != m || token->epoch != m->epoch ||
@@ -78,12 +123,13 @@ static bool prepare(struct scanout_memory *m, const struct scanout_memory_token 
         !io.guard || !io.read || !io.write || !io.flush || !io.readers_retired)
         return false;
 
-    if (single_page) {
+    if (kind != FULL_SURFACE) {
         const struct scanout_transfer_manifest *s = &transfer->manifest;
         if (m->layout.pages != 1 || m->layout.tiled || m->backing_pages != 1 ||
-            s->first != INTEL_WINDOW_FIRST ||
             !scanout_interval_boot_framebuffer_matches(s->mmio,s->aperture,s->aperture_bytes,s->fence_end))
             return false;
+        if (kind == INHERITED_PAGE && s->first != INTEL_WINDOW_FIRST) return false;
+        if (kind == DRIVER_PAGE && !owned_page_range(s, firmware, layout)) return false;
     } else if (m->backing_pages < 128 || m->layout.pages != m->backing_pages - 128) {
         return false;
     }
@@ -92,21 +138,30 @@ static bool prepare(struct scanout_memory *m, const struct scanout_memory_token 
 
     /* scanout_memory_prepare consumes encode synchronously and copies only
      * the publisher's long-lived I/O into the transaction. */
-    struct encode_context encoder = {transfer, *grant, m, single_page};
+    struct encode_context encoder = {transfer, *grant, m, kind != FULL_SURFACE};
     struct scanout_memory_binding binding = {&encoder, encode, io};
-    return scanout_memory_prepare(m, token, &transfer->space, pool, 64, binding);
+    return scanout_memory_prepare(m, token, &transfer->space, pool, kind == DRIVER_PAGE ? 1 : 64, binding);
 }
 
 bool intel_bdw_scanout_prepare(struct scanout_memory *m, const struct scanout_memory_token *token,
                               struct scanout_transfer *transfer, const struct scanout_transfer_token *grant,
                               struct scanout_publish_pool *pool, struct scanout_publish_io io)
 {
-    return prepare(m, token, transfer, grant, pool, io, false);
+    return prepare(m, token, transfer, grant, pool, io, FULL_SURFACE, 0, 0);
 }
 
 bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *m, const struct scanout_memory_token *token,
                                         struct scanout_transfer *transfer, const struct scanout_transfer_token *grant,
                                         struct scanout_publish_pool *pool, struct scanout_publish_io io)
 {
-    return prepare(m, token, transfer, grant, pool, io, true);
+    return prepare(m, token, transfer, grant, pool, io, INHERITED_PAGE, 0, 0);
+}
+
+bool intel_bdw_scanout_prepare_owned_page(struct scanout_memory *m, const struct scanout_memory_token *token,
+                                         struct scanout_transfer *transfer, const struct scanout_transfer_token *grant,
+                                         const struct scanout_interval *firmware, const struct bdw_stolen_layout *layout,
+                                         struct scanout_publish_pool *pool,
+                                         struct scanout_publish_io io)
+{
+    return prepare(m, token, transfer, grant, pool, io, DRIVER_PAGE, firmware, layout);
 }

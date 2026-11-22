@@ -4,7 +4,9 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-MODES = """normal missing invalid failed-open clock-open stuck-open deadline-open
+OWNED_PAGE_MODES = ("owned-no-grant", "owned-short-import", "owned-vacant", "owned-populated", "owned-before-loss",
+                    "owned-rollback-loss", "owned-invalidation", "owned-plane-moved")
+MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close
 clock-close changed-close full-buffers linear-tail partial-write pending-readers reuse

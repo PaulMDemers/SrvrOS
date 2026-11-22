@@ -27,6 +27,11 @@ struct bdw_stolen_layout {
  uint32_t checked;
  bool classified;
 };
+/* Complete contiguous firmware import following the active framebuffer.
+ * Return its exclusive end in GPU pages, or zero for an inconsistent layout. */
+uint32_t intel_bdw_stolen_import_end(const struct bdw_stolen_layout *, uint64_t fence_end,
+                                     uint64_t aperture_bytes);
+
 /* Decode locked PCI host bounds and the BDW WOPCM reservation. Every proposed
  * new GPU range is outside the complete inherited fence, with256KiB alignment
  * and the128-PTE display tail. The first stolen RAM page is never reusable. */

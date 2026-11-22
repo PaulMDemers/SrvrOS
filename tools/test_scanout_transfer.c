@@ -3,6 +3,8 @@
 #include <srvros/intel_bdw_scanout_mapping.h>
 #include <srvros/intel_ggtt_invalidate.h>
 #include <srvros/vmm.h>
+#include <srvros/intel_bdw_ggtt.h>
+#include <srvros/intel_bdw_stolen_scanout.h>
 #include <srvros/x86_cache.h>
 #include <assert.h>
 #include <stdio.h>
@@ -59,6 +61,12 @@ static struct {
     bool mutate,reenter,poison,pending,fail,stuck,regress,clock_fail,step_deadline,post_open_clock,other_pin;
     bool late_restore_change;
 } model;
+static uint32_t active_plane_slot, inherited_plane_slot;
+static uint64_t inherited_plane_entry;
+static bool panel_preserved(void)
+{
+    return active_plane_slot == inherited_plane_slot && table[active_plane_slot] == inherited_plane_entry;
+}
 static struct scanout_transfer_io provider(void);
 static uint64_t now(void *ctx) {
     assert(ctx==&model);
@@ -87,7 +95,7 @@ static bool revalidate(void *ctx,const struct scanout_transfer_manifest *m,enum 
     if(model.mutate && phase==TRANSFER_ADMIT) {
         manifest.first=1;manifest.pages=1;manifest.assurances=0;input[2711]^=1;exclusion.epoch++;
     }
-    if(model.fail || model.source_epoch!=m->source_epoch)return false;
+    if(model.fail || model.source_epoch!=m->source_epoch || (inherited_plane_entry && !panel_preserved()))return false;
     if(phase!=TRANSFER_LIVE)for(unsigned i=0;i<m->pages;i++)
         if(table[m->first+i]!=m->original[i])return false;
     return true;
@@ -612,8 +620,130 @@ static void close_clean(void) {
     }
     assert(display_access_release(&transfer.exclusion,true));assert(display_access_allowed());
 }
+/* An independent address outside the boot fence and both imported images.
+ * Only an explicit transfer from the model device owner can change it. */
+static struct bdw_stolen_layout owned_display;
+static bool exchange_owned_entry(void *ctx, uint32_t index, uint64_t replacement)
+{
+    const struct scanout_publication *p = &a.publication;
+    assert(ctx == &model && index == model.first && p->pages == 1 && panel_preserved());
+    bool restoring = p->state == PUB_RESTORING;
+    assert(restoring || p->state == PUB_WRITING);
+    assert(replacement == (restoring ? input[0] : (a.physical | 1)));
+    uint64_t expected = restoring ? (a.physical | 1) : input[0];
+    assert(cached_translation == expected);
+    assert(!intel_bdw_scanout_owned_page_store_matches(&a, &at, &transfer, &token, &firmware,
+                                                        &owned_display, 8704, expected, replacement));
+    assert(!intel_bdw_scanout_owned_page_store_matches(&a, &at, &transfer, &token, &firmware,
+                                                        &owned_display, index, replacement, expected));
+    if (!intel_bdw_scanout_owned_page_store_matches(&a, &at, &transfer, &token, &firmware,
+                                                     &owned_display, index, expected, replacement)) return false;
+    ++model.writes;
+    return intel_bdw_ggtt_exchange(&table[index], expected, replacement) == GT_WRITE_DONE;
+}
+
+static bool invalidate_owned_entry(void *ctx)
+{
+    assert(ctx == &model);
+    ++model.flushes;
+    if (!strcmp(page_failure, "owned-invalidation") && model.flushes == 2) return false;
+    cached_translation = table[model.first];
+    return true;
+}
+
+static void owned_page_case(const char *mode)
+{
+    page_failure = mode;
+    inherited_plane_slot = active_plane_slot = 4096;
+    inherited_plane_entry = table[active_plane_slot];
+    const uint32_t target = 12291;
+    struct scanout_space_range imported = {8704, 3072};
+    const struct bdw_stolen_facts facts = {0x16048086,0x16268086,0x011b106b,0x2c1,
+        0x8c000001,0x8b800001,0x90000001,0x8ff00007,0x10000000,0x800000,0,0x2200000,1440,900,6144};
+    owned_display.classified = true;
+    assert(intel_bdw_stolen_scanout_plan(&facts, &owned_display.plan));
+    bool short_import = !strcmp(mode, "owned-short-import");
+    if (short_import) --imported.pages;
+    assert(scanout_interval_protect_boot_framebuffer(manifest.mmio, manifest.aperture,
+                                                      manifest.aperture_bytes, manifest.fence_end));
+    assert(scanout_interval_import_firmware(&firmware, manifest.mmio, manifest.aperture,
+                                            manifest.aperture_bytes, manifest.fence_end, imported));
+    model.first = manifest.first = target;
+    model.memory_pages = model.pages = manifest.pages = 1;
+    if (!strcmp(mode, "owned-vacant")) table[target] = 0;
+    cached_translation = input[0] = table[target];
+    if (!strcmp(mode, "owned-no-grant")) {
+        manifest.assurances = 0;
+        manifest.obligations = 255;
+        assert(scanout_transfer_reserve(&transfer, &pool, &exclusion, &manifest, &token));
+        assert(!scanout_transfer_activate(&transfer, &token, &spaces, &manifest, provider()));
+        assert(transfer.state == TRANSFER_RESERVED && !model.writes && !transfer.space.object);
+        assert(table[target] == input[0] && panel_preserved());
+        assert(scanout_transfer_close(&transfer, &token) && display_access_release(&exclusion, true));
+        return;
+    }
+    opened();
+    expect_conflict(manifest);
+    assert(open_small(8704) == HANDOFF_SPACE && open_small(imported.first + imported.pages - 1) == HANDOFF_SPACE);
+    const uint64_t inherited = table[8704], left = table[target-1], right = table[target+1];
+    struct scanout_memory_layout layout;
+    assert(scanout_memory_layout(1, 1, 64, false, &layout));
+    assert(scanout_memory_create_with_tail(&a, &memories, 7, &layout, 0, 0x100000000ull,
+           (struct scanout_memory_io){&model, allocate, backing, release}, &at));
+
+    struct scanout_publish_io io = binding().publication;
+    io.write = exchange_owned_entry;
+    io.flush = invalidate_owned_entry;
+    struct scanout_interval copy_of_import = firmware;
+    assert(!intel_bdw_scanout_prepare_owned_page(&a, &at, &transfer, &token,
+                                                  &copy_of_import, &owned_display, &publications, io));
+    assert(!intel_bdw_scanout_prepare_test_page(&a, &at, &transfer, &token, &publications, io));
+    assert(!a.range.object && !model.writes);
+    bool prepared = intel_bdw_scanout_prepare_owned_page(&a, &at, &transfer, &token, &firmware,
+                                                         &owned_display, &publications, io);
+    if (short_import) {
+        assert(!prepared && !a.range.object && !model.writes && table[target] == input[0]);
+        assert(scanout_memory_close(&a, &at));
+        close_clean();
+        return;
+    }
+    assert(prepared);
+    assert(a.range.first == target && a.range.pages == 1);
+    if (!strcmp(mode, "owned-before-loss")) {
+        ++model.source_epoch;
+        assert(!scanout_memory_apply(&a, &at) && !model.writes);
+        assert(table[target] == input[0] && transfer.state == TRANSFER_FAULT);
+    } else {
+        assert(scanout_memory_apply(&a, &at) && cached_translation == (a.physical | 1));
+        model.pending = true;
+        assert(!scanout_memory_close(&a, &at) && model.writes == 1 && !model.releases);
+        model.pending = false;
+        if (!strcmp(mode, "owned-rollback-loss") || !strcmp(mode, "owned-plane-moved")) {
+            if (!strcmp(mode, "owned-plane-moved")) ++active_plane_slot;
+            else ++model.source_epoch;
+            assert(!scanout_memory_close(&a, &at) && model.writes == 1);
+            assert(!model.releases && cached_translation == (a.physical | 1));
+            assert(!scanout_transfer_close(&transfer, &token));
+        } else if (!strcmp(mode, "owned-invalidation")) {
+            assert(!scanout_memory_close(&a, &at) && model.writes == 2);
+            assert(table[target] == input[0] && cached_translation == (a.physical | 1));
+            assert(!model.releases && !scanout_transfer_close(&transfer, &token));
+        } else {
+            assert(scanout_memory_close(&a, &at) && model.releases == 1);
+            assert(model.writes == 2 && model.flushes == 2);
+            assert(table[target] == input[0] && cached_translation == input[0]);
+            close_clean();
+        }
+    }
+    assert(scanout_interval_held(&firmware, manifest.mmio, manifest.aperture,
+                                 manifest.aperture_bytes, manifest.fence_end, imported));
+    assert(table[8704] == inherited && table[target-1] == left && table[target+1] == right);
+}
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];setup();
+    if(!strncmp(mode,"owned-",6)) {
+        owned_page_case(mode);printf("PASS %s\n", mode);return 0;
+    }
     if(!strcmp(mode,"boot-framebuffer")) {
         boot_framebuffer_case();puts("PASS inherited frame survives child return");return 0;
     }

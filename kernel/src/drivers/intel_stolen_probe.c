@@ -759,11 +759,10 @@ static bool aperture_guard_held(void) {
 /* Both firmware candidates have two classified, complete PTE vectors. Keep
  * their contiguous GPU span occupied in the common allocator until reboot. */
 static bool import_firmware(void) {
- const struct bdw_stolen_range *a=&stolen.layout.plan.range[1],*b=&stolen.layout.plan.range[2];
- if(!stolen.layout.classified || !private_display_clear() || a->gpu!=stolen.source.fence_end ||
-    a->bytes+b->bytes>stolen.source.aperture_bytes || a->gpu+a->bytes!=b->gpu ||
-    b->gpu+b->bytes>stolen.source.aperture_bytes)return false;
- struct scanout_space_range pages={a->gpu/4096,a->pages+b->pages};
+ uint32_t end=intel_bdw_stolen_import_end(&stolen.layout,stolen.source.fence_end,stolen.source.aperture_bytes);
+ uint32_t first=(uint32_t)(stolen.source.fence_end/4096);
+ if(!end || !private_display_clear())return false;
+ struct scanout_space_range pages={first,end-first};
  stolen.import.imported=scanout_interval_import_firmware(&stolen.import.firmware,stolen.source.mmio,
      stolen.source.aperture,stolen.source.aperture_bytes,stolen.source.fence_end,pages);
  return stolen.import.imported;

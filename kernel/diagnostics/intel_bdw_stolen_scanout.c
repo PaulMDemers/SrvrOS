@@ -70,3 +70,21 @@ bool intel_bdw_stolen_scanout_check(const struct bdw_stolen_facts *f,const struc
  }
  result.classified=true;*out=result;return true;
 }
+
+uint32_t intel_bdw_stolen_import_end(const struct bdw_stolen_layout *layout, uint64_t fence_end,
+                                     uint64_t aperture_bytes)
+{
+ if (!layout || !layout->classified || !fence_end || (fence_end & 4095) ||
+     aperture_bytes > 0x100000000ull) return 0;
+ const struct bdw_stolen_range *ranges = layout->plan.range;
+ if (ranges[0].gpu || ranges[0].bytes != fence_end || ranges[0].pages != fence_end/4096)
+  return 0;
+ uint64_t end = fence_end;
+ for (unsigned i = 1; i <= 2; ++i) {
+  if (!ranges[i].pages || ranges[i].gpu != end || end > aperture_bytes ||
+      ranges[i].bytes != (uint64_t)ranges[i].pages * 4096 || ranges[i].bytes > aperture_bytes-end)
+   return 0;
+  end += ranges[i].bytes;
+ }
+ return (uint32_t)(end/4096);
+}

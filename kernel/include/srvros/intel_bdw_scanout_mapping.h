@@ -20,6 +20,26 @@ bool intel_bdw_scanout_prepare(struct scanout_memory *, const struct scanout_mem
 bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct scanout_memory_token *,
                                         struct scanout_transfer *, const struct scanout_transfer_token *,
                                         struct scanout_publish_pool *, struct scanout_publish_io);
+/* One page from a separate driver-owned interval beyond the permanent import
+ * of both firmware buffers. The caller supplies the actual import object and
+ * a live hardware transfer for exactly that page. I/O must keep the original
+ * plane active, protect the target and retire its translation on both writes.
+ * An observed PTE (including zero) never grants this transfer. */
+struct bdw_stolen_layout;
+bool intel_bdw_scanout_prepare_owned_page(struct scanout_memory *, const struct scanout_memory_token *,
+                                         struct scanout_transfer *, const struct scanout_transfer_token *,
+                                         const struct scanout_interval *, const struct bdw_stolen_layout *,
+                                         struct scanout_publish_pool *,
+                                         struct scanout_publish_io);
+
+/* Check one proposed compare-and-store inside the provider's write callback.
+ * The provider separately holds the verified register alias and device access
+ * through the store, invalidation and reader retirement. */
+bool intel_bdw_scanout_owned_page_store_matches(const struct scanout_memory *,
+        const struct scanout_memory_token *, struct scanout_transfer *, const struct scanout_transfer_token *,
+        const struct scanout_interval *, const struct bdw_stolen_layout *, uint32_t index,
+        uint64_t expected, uint64_t value);
+
 /* Check the projected store against the original memory, range, framebuffer
  * fence and publication phase. Call from inside the publisher's writer. */
 bool intel_bdw_scanout_page_store_active(const struct scanout_memory *, const struct scanout_memory_token *,

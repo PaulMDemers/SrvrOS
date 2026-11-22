@@ -8,6 +8,18 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Driver-owned one-page trial
+
+The Air7,2 objective is to map one driver-owned GGTT page beyond both
+firmware imports, keep slot 8704 reserved and Pipe A active, then restore
+the exact PTE and retire its translation. The mapping core ran inside
+SrvrOS under Q35 with an explicit model grant for slot 12291. It restored
+both tested originals exactly, waited for readers and retained backing
+after a failed rollback invalidation. The existing Air census found
+nonzero entries throughout the eligible CPU-visible aperture. The cold-boot
+driver still lacks a grant for any of them. This round used the VM only.
+[Mapping, hardware prerequisites and QEMU reproduction](../intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
+
 ## Reset-free primary plane flip
 
 The Air7,2 work covers native GGTT register access for the blitter

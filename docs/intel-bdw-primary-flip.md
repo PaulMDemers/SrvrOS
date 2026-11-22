@@ -241,9 +241,24 @@ The Air7,2 completed step 1 on release `5d1fa7400ba472cc`. The entire
 eligible region had nonzero entries. Release `a773b6292dc27551` exercised
 the allocator portion of step 2 on the Air. The original framebuffer fence
 stayed pinned while the allocator imported both firmware spans and lent
-and recovered slot 8704. The remaining portion of step 2 is to quiesce
-the hardware clients of that slot and hold exclusive access through both
-page-table writes and translation retirement in step 3.
+and recovered slot 8704. The driver-owned path keeps that firmware interval reserved through
+rollback. Its one-page adapter accepts an exact, active transfer beyond the
+classified end of both firmware buffers. A live provider must vouch for who
+can submit work or read through the address. The mapping core revalidates
+the grant and the expected old and new PTEs at each store.
+
+Run `make smoke-scanout-owned-page` to exercise the mapping core inside
+SrvrOS under QEMU. The fixture uses slot 12291 and models the device owner,
+page table, active plane and translation invalidation. It covers mapping and
+exact rollback of zero and populated entries, a shortened import, a missing
+grant, an outstanding reader, owner loss, plane movement and failed rollback
+invalidation. The guest serial transcript is in
+`build/tests/scanout-guest/serial.log`.
+
+The native cold-boot provider still needs to identify an exclusive range
+outside the firmware import and retain control of its readers through both
+invalidations. Native hardware acceptance requires that provider, a fresh
+same-boot grant and a completed rollback on the Air.
 Upstream i915 determines unused intervals from its allocation
 records during GGTT initialization. [Linux i915 GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
 
