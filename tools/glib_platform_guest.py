@@ -24,6 +24,7 @@ MARKER = b'glib-platform: ok'
 GUI_MARKER = b'gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit'
 ICONV_MARKER = b'glib-iconv: ok'
 PCRE2_MARKER = b'glib-pcre2: ok'
+LIBFFI_MARKER = b'glib-libffi: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -92,6 +93,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--iconv-prefix', type=Path, help='target prefix from browser_glib_iconv.py')
     parser.add_argument('--pcre2-prefix', type=Path, help='target PCRE2 prefix from browser_glib_iconv.py')
+    parser.add_argument('--libffi-prefix', type=Path, help='target libffi prefix from browser_glib_iconv.py')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -126,23 +128,24 @@ def main():
         payloads = {'glib-platform': elf}
         probes = {'glib-platform': (MARKER, GUI_MARKER)}
         dependencies = [
-            ('iconv', args.iconv_prefix, 'libiconv.a', ICONV_MARKER),
-            ('pcre2', args.pcre2_prefix, 'libpcre2-8.a', PCRE2_MARKER),
+            ('iconv', args.iconv_prefix, ('iconv.h',), 'libiconv.a', ICONV_MARKER),
+            ('pcre2', args.pcre2_prefix, ('pcre2.h',), 'libpcre2-8.a', PCRE2_MARKER),
+            ('libffi', args.libffi_prefix, ('ffi.h', 'ffitarget.h'), 'libffi.a', LIBFFI_MARKER),
         ]
-        for name, target_prefix, archive_name, marker in dependencies:
+        for name, target_prefix, headers, archive_name, marker in dependencies:
             if target_prefix is None:
                 continue
             prefix = target_prefix.resolve()
             unit = ROOT / f'tools/test_glib_{name}_guest.c'
-            header = prefix / f'include/{name}.h'
+            include = prefix / 'include'
             library = prefix / 'lib' / archive_name
             receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
             receipt[f'{name}_provider_sha256'] = {str(path.relative_to(prefix)): digest(path)
-                                                 for path in (header, library)}
+                                                 for path in (library, *(include / header for header in headers))}
             obj = output / f'{name}.o'
             payload = output / f'{name}.elf'
             subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
-                            '-I', header.parent, '-c', unit, '-o', obj],
+                            '-I', include, '-c', unit, '-o', obj],
                            cwd=ROOT, check=True, timeout=60)
             subprocess.run([compiler, obj, library, '-o', payload],
                            cwd=ROOT, check=True, timeout=60)

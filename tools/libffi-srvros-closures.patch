@@ -1,0 +1,290 @@
+--- /dev/null
++++ b/src/x86/srvros-tramp.h
+@@ -0,0 +1,11 @@
++/* Shared by the SrvrOS x86-64 stub table and the closure allocator. */
++#define FFI_SRVROS_SLOTS 128
++#define FFI_SRVROS_STUB_SIZE 32
++#define FFI_SRVROS_SLOT_SIZE 16
++#define FFI_SRVROS_SLOT_TARGET 8
++
++#ifndef LIBFFI_ASM
++ffi_status ffi_srvros_prep_closure (ffi_closure *, ffi_cif *,
++  void (*)(ffi_cif *, void *, void **, void *), void *, void *,
++  void (*)(void)) FFI_HIDDEN;
++#endif
+--- /dev/null
++++ b/src/x86/srvros-closures.inc
+@@ -0,0 +1,122 @@
++/* SrvrOS keeps trampoline code in linked text and per-closure state in data.
++   Callers must publish the prepared entry before calling it on another thread,
++   and finish all calls to it before preparing it again or freeing the closure. */
++#include <pthread.h>
++#include <stddef.h>
++#include <stdlib.h>
++#include "srvros-tramp.h"
++
++struct srvros_slot
++{
++  ffi_closure *closure;
++  void (*target)(void);
++};
++
++_Static_assert (sizeof (struct srvros_slot) == FFI_SRVROS_SLOT_SIZE,
++                "assembly slot size");
++_Static_assert (offsetof (struct srvros_slot, target) == FFI_SRVROS_SLOT_TARGET,
++                "assembly target offset");
++
++struct srvros_slot ffi_srvros_slots[FFI_SRVROS_SLOTS] FFI_HIDDEN;
++extern const unsigned char ffi_srvros_stubs[] FFI_HIDDEN;
++static pthread_mutex_t slots_lock = PTHREAD_MUTEX_INITIALIZER;
++
++static size_t
++slot_for (const void *closure)
++{
++  for (size_t i = 0; i < FFI_SRVROS_SLOTS; i++)
++    if (ffi_srvros_slots[i].closure == closure)
++      return i;
++  return FFI_SRVROS_SLOTS;
++}
++
++static void *
++slot_entry (size_t slot)
++{
++  return (void *) (ffi_srvros_stubs + slot * FFI_SRVROS_STUB_SIZE);
++}
++
++void *
++ffi_closure_alloc (size_t size, void **code)
++{
++  if (!code)
++    return NULL;
++  *code = NULL;
++  if (size < sizeof (ffi_closure))
++    return NULL;
++
++  ffi_closure *closure = malloc (size);
++  if (!closure)
++    return NULL;
++
++  pthread_mutex_lock (&slots_lock);
++  size_t slot = slot_for (NULL);
++  if (slot < FFI_SRVROS_SLOTS)
++    {
++      ffi_srvros_slots[slot].closure = closure;
++      *code = slot_entry (slot);
++    }
++  pthread_mutex_unlock (&slots_lock);
++  if (!*code)
++    {
++      free (closure);
++      return NULL;
++    }
++  return closure;
++}
++
++void
++ffi_closure_free (void *closure)
++{
++  if (!closure)
++    return;
++
++  pthread_mutex_lock (&slots_lock);
++  size_t slot = slot_for (closure);
++  if (slot < FFI_SRVROS_SLOTS)
++    ffi_srvros_slots[slot] = (struct srvros_slot) { 0 };
++  pthread_mutex_unlock (&slots_lock);
++  if (slot < FFI_SRVROS_SLOTS)
++    free (closure);
++}
++
++void *
++ffi_data_to_code_pointer (void *closure)
++{
++  if (!closure)
++    return NULL;
++
++  pthread_mutex_lock (&slots_lock);
++  size_t slot = slot_for (closure);
++  pthread_mutex_unlock (&slots_lock);
++  return slot < FFI_SRVROS_SLOTS ? slot_entry (slot) : NULL;
++}
++
++ffi_status
++ffi_srvros_prep_closure (ffi_closure *closure, ffi_cif *cif,
++  void (*fun)(ffi_cif *, void *, void **, void *), void *user_data,
++  void *codeloc, void (*target)(void))
++{
++  if (!closure || !fun)
++    return FFI_BAD_ARGTYPE;
++
++  pthread_mutex_lock (&slots_lock);
++  size_t slot = slot_for (closure);
++  if (slot == FFI_SRVROS_SLOTS || codeloc != slot_entry (slot))
++    {
++      pthread_mutex_unlock (&slots_lock);
++      return FFI_BAD_ARGTYPE;
++    }
++  closure->cif = cif;
++  closure->fun = fun;
++  closure->user_data = user_data;
++  ffi_srvros_slots[slot].target = target;
++  pthread_mutex_unlock (&slots_lock);
++  return FFI_OK;
++}
++
++int
++ffi_tramp_is_present (void *closure)
++{
++  return ffi_data_to_code_pointer (closure) != NULL;
++}
+--- a/src/closures.c
++++ b/src/closures.c
+@@ -1061,4 +1061,6 @@
+ }
+
++# elif defined(__SRVROS__)
++#  include "x86/srvros-closures.inc"
+ # else /* ! FFI_MMAP_EXEC_WRIT */
+
+--- a/src/x86/unix64.S
++++ b/src/x86/unix64.S
+@@ -36,4 +36,22 @@
+
+ 	.text
++
++#ifdef __SRVROS__
++#include "srvros-tramp.h"
++
++	.balign FFI_SRVROS_STUB_SIZE
++	.globl C(ffi_srvros_stubs)
++	FFI_HIDDEN(C(ffi_srvros_stubs))
++C(ffi_srvros_stubs):
++	.set .Lsrvros_slot, 0
++	.rept FFI_SRVROS_SLOTS
++	_CET_ENDBR
++	movq C(ffi_srvros_slots)+.Lsrvros_slot(%rip), %r10
++	jmp *C(ffi_srvros_slots)+.Lsrvros_slot+FFI_SRVROS_SLOT_TARGET(%rip)
++	.balign FFI_SRVROS_STUB_SIZE
++	.set .Lsrvros_slot, .Lsrvros_slot+FFI_SRVROS_SLOT_SIZE
++	.endr
++ENDF(C(ffi_srvros_stubs))
++#endif
+
+ /* This macro allows the safe creation of jump tables without an
+--- a/src/x86/ffi64.c
++++ b/src/x86/ffi64.c
+@@ -38,4 +38,7 @@
+ #include <tramp.h>
+ #include "internal64.h"
++#ifdef __SRVROS__
++#include "srvros-tramp.h"
++#endif
+
+ #ifdef __x86_64__
+@@ -1213,4 +1216,14 @@
+ 		      void *codeloc)
+ {
++#ifdef __SRVROS__
++#ifndef __ILP32__
++  if (cif->abi == FFI_EFI64 || cif->abi == FFI_GNUW64)
++    return ffi_prep_closure_loc_efi64 (closure, cif, fun, user_data, codeloc);
++#endif
++  if (cif->abi != FFI_UNIX64)
++    return FFI_BAD_ABI;
++  return ffi_srvros_prep_closure (closure, cif, fun, user_data, codeloc,
++    cif->flags & UNIX64_FLAG_XMM_ARGS ? ffi_closure_unix64_sse : ffi_closure_unix64);
++#else
+   static const unsigned char trampoline[24] = {
+     /* endbr64 */
+@@ -1263,4 +1276,5 @@
+
+   return FFI_OK;
++#endif
+ }
+
+--- a/src/x86/ffiw64.c
++++ b/src/x86/ffiw64.c
+@@ -33,4 +33,7 @@
+ #include <stdbool.h>
+ #include <tramp.h>
++#ifdef __SRVROS__
++#include "srvros-tramp.h"
++#endif
+
+ #ifdef X86_WIN64
+@@ -261,4 +264,10 @@
+ 		      void *codeloc MAYBE_UNUSED)
+ {
++#ifdef __SRVROS__
++  if (cif->abi != FFI_WIN64 && cif->abi != FFI_GNUW64)
++    return FFI_BAD_ABI;
++  return ffi_srvros_prep_closure (closure, cif, fun, user_data, codeloc,
++                                 ffi_closure_win64);
++#else
+   static const unsigned char trampoline[FFI_TRAMPOLINE_SIZE - 8] = {
+     /* endbr64 */
+@@ -303,4 +312,5 @@
+
+   return FFI_OK;
++#endif
+ }
+
+--- a/src/prep_cif.c
++++ b/src/prep_cif.c
+@@ -361,5 +361,10 @@
+ 		  void *user_data)
+ {
++#ifdef __SRVROS__
++  return ffi_prep_closure_loc (closure, cif, fun, user_data,
++                              ffi_data_to_code_pointer (closure));
++#else
+   return ffi_prep_closure_loc (closure, cif, fun, user_data, closure);
++#endif
+ }
+
+--- a/src/raw_api.c
++++ b/src/raw_api.c
+@@ -236,5 +236,9 @@
+ 				 cif,
+ 				 &ffi_translate_args,
++#ifdef __SRVROS__
++				 cl,
++#else
+ 				 codeloc,
++#endif
+ 				 codeloc);
+   if (status == FFI_OK)
+@@ -262,5 +266,10 @@
+ 		      void *user_data)
+ {
++#ifdef __SRVROS__
++  return ffi_prep_raw_closure_loc (cl, cif, fun, user_data,
++                              ffi_data_to_code_pointer (cl));
++#else
+   return ffi_prep_raw_closure_loc (cl, cif, fun, user_data, cl);
++#endif
+ }
+
+--- a/src/java_raw_api.c
++++ b/src/java_raw_api.c
+@@ -347,5 +347,9 @@
+ 				 cif,
+ 				 &ffi_java_translate_args,
++#ifdef __SRVROS__
++				 cl,
++#else
+ 				 codeloc,
++#endif
+ 				 codeloc);
+   if (status == FFI_OK)
+@@ -368,5 +372,10 @@
+ 			   void *user_data)
+ {
++#ifdef __SRVROS__
++  return ffi_prep_java_raw_closure_loc (cl, cif, fun, user_data,
++                              ffi_data_to_code_pointer (cl));
++#else
+   return ffi_prep_java_raw_closure_loc (cl, cif, fun, user_data, cl);
++#endif
+ }
+
