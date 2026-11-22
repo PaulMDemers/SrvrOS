@@ -26,7 +26,7 @@ static struct {struct xhci_device *d;unsigned step;bool inspected;struct mt76_po
 static unsigned wifi_channel_vco5;
 static struct {
  uint8_t pages[64][4096];unsigned next,calls,commands,fail,guard_bad,power_bad,mutate,bad_slot,corrupt_command,quarantines;
- bool parent,allocation_fail,uncertain,cleanup_held;uint32_t context[8];
+ bool parent,allocation_fail,uncertain,cleanup_held;uint32_t context[8];uint64_t primed_page;
 }fake;
 static struct xhci_device device;
 static uint64_t physical_bias;
@@ -53,6 +53,7 @@ static void console_printf(const char *f,...){
 }
 static void console_write(const char *f){if(trace)fputs(f,stdout);}
 static bool wifi_cal5_cleanup_held(void){return !wifi_cal5.cleanup_enabled || fake.cleanup_held;}
+static bool wifi_prime5_alias(uint64_t physical){return physical && physical==fake.primed_page;}
 static bool wifi_channel_vco5_owned(void *p){return p==&wifi_channel_vco5 && fake.parent;}
 static bool wifi_power5_owned(void *p,bool cleanup){(void)cleanup;return p==&wifi_power5 && fake.parent && !device.ep0_quarantined && wifi_power5.step==84 && (fake.context[2]|((uint64_t)fake.context[3]<<32))==wifi_cal5.stop_dequeue;}
 static void mutate(void);
@@ -126,7 +127,7 @@ int main(int argc,char **argv){
   setup();fake.bad_slot=n;assert(!xhci_wifi_capture_handoff5() && fake.quarantines==1 && fake.commands==n && firmware_command_failed);
   setup();fake.corrupt_command=n;assert(!xhci_wifi_capture_handoff5() && fake.quarantines==1 && fake.commands==n);
  }
- for(unsigned n=0;n<10;n++){
+ for(unsigned n=0;n<11;n++){
   setup();
   if(n==0)fake.parent=false;
   if(n==1)wifi_power5.step=83;
@@ -138,6 +139,7 @@ int main(int argc,char **argv){
   if(n==7)fake.context[0]=1;
   if(n==8)fake.allocation_fail=true;
   if(n==9)device.firmware.mcu.buffer_phys=device.firmware.buffer_phys;
+  if(n==10)fake.primed_page=physical_bias+(uint64_t)fake.next*4096;
   assert(!xhci_wifi_capture_handoff5() && !fake.calls && !wifi_handoff5.active && !fake.quarantines);
  }
  for(unsigned n=0;n<4;n++){

@@ -26,7 +26,21 @@ Only an exact Disable Slot completion permits provider retirement and
 ordinary desktop exit. The old DMA stays retained. The operator leaves
 Wi-Fi unplugged until Ubuntu returns. This trial covers terminal active
 removal. The accepted v154 profile covers same-boot replug after an
-orderly disconnect. Record two independent cold v155 passes before merge.
+orderly disconnect. For final cold qualification, repeat the native
+Demers5 association and active removal with all 60 gateway replies.
+
+The first v155 cold run used source `5fcce89b`, release
+`d2a184d5d4a8e199`, and session `session-000660d5a7e5c506-00`.
+DHCP, gateway ping and DNS passed. Physical removal interrupted the
+endurance window after 18 replies and 1,785 ticks. The worker stopped,
+the controller confirmed Disable Slot, and the driver erased keys and
+retired the provider while retaining the old DMA. Exit desktop saved
+the logs and returned automatically. The workspace filesystem was clean
+and all 519 existing files matched. Text save/reopen has no receipt.
+The exact image and evidence are archived in the unit's recovery directory.
+The retry checklist points to the Demers5 row in System > Wi-Fi as the
+removal cue because the Network tab shows link earlier. The native
+test fixture covers safe early removal and the Wi-Fi state transition.
 
 
 ### Demers5 network recovery after replug
