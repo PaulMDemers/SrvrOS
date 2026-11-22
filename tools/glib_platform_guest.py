@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Link and execute the native GLib prerequisites in a disposable SrvrOS guest."""
+"""Run native GLib prerequisite probes in a disposable SrvrOS guest."""
 
+import argparse
 import hashlib
 import io
 import json
@@ -21,6 +22,7 @@ from signal_public_guest import sdk_headers
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = b'glib-platform: ok'
 GUI_MARKER = b'gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit'
+ICONV_MARKER = b'glib-iconv: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -29,7 +31,7 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run_guest(image, output, receipt):
+def run_guest(image, output, receipt, probes):
     with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp:
         uart = str(Path(temp) / 'serial')
         argv = ['qemu-system-x86_64', '-name', 'SrvrOS GLib prerequisite probe',
@@ -57,21 +59,23 @@ def run_guest(image, output, receipt):
                     if b'srv> ' not in boot or FAULT.search(boot):
                         raise RuntimeError('guest did not reach the monitor')
                     receipt['tests'] = []
-                    for attempt in (1, 2):
-                        connection.sendall(b'run /glib-platform\n')
-                        result = receive_run(connection, 15)
-                        serial.write(result)
-                        exits = list(re.finditer(rb'(?m)^run: pid=\d+ exited status=(\d+)\r?\n', result))
-                        if len(exits) != 1 or FAULT.search(result):
-                            raise RuntimeError('unexpected guest exit receipts or fault')
-                        status = exits[0]
-                        if status[1] != b'0' or b'srv> ' not in result[status.end():]:
-                            raise RuntimeError('guest probe did not exit successfully and return to monitor')
-                        for marker in (MARKER, GUI_MARKER):
-                            matches = re.findall(rb'(?m)^' + re.escape(marker) + rb'\r?$', result[:status.start()])
-                            if len(matches) != 1:
-                                raise RuntimeError(f'missing or duplicate guest marker: {marker.decode()}')
-                        receipt['tests'].append({'attempt': attempt, 'exit_status': 0, 'returned_to_monitor': True})
+                    for name, markers in probes.items():
+                        for attempt in (1, 2):
+                            connection.sendall(f'run /{name}\n'.encode())
+                            result = receive_run(connection, 15)
+                            serial.write(result)
+                            exits = list(re.finditer(rb'(?m)^run: pid=\d+ exited status=(\d+)\r?\n', result))
+                            if len(exits) != 1 or FAULT.search(result):
+                                raise RuntimeError('unexpected guest exit receipts or fault')
+                            status = exits[0]
+                            if status[1] != b'0' or b'srv> ' not in result[status.end():]:
+                                raise RuntimeError('guest probe did not exit successfully and return to monitor')
+                            for marker in markers:
+                                matches = re.findall(rb'(?m)^' + re.escape(marker) + rb'\r?$', result[:status.start()])
+                                if len(matches) != 1:
+                                    raise RuntimeError(f'missing or duplicate guest marker: {marker.decode()}')
+                            receipt['tests'].append({'program': name, 'attempt': attempt,
+                                                     'exit_status': 0, 'returned_to_monitor': True})
             finally:
                 if process.poll() is None:
                     process.terminate()
@@ -84,6 +88,9 @@ def run_guest(image, output, receipt):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--iconv-prefix', type=Path, help='target prefix from browser_glib_iconv.py')
+    args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
     StorageGuard(base).preflight()
@@ -114,6 +121,26 @@ def main():
         elf = output / 'platform.elf'
         subprocess.run([compiler, *objects, '-o', elf], cwd=ROOT, check=True, timeout=60)
         receipt['payload_sha256'] = digest(elf)
+        payloads = {'glib-platform': elf}
+        probes = {'glib-platform': (MARKER, GUI_MARKER)}
+        if args.iconv_prefix:
+            prefix = args.iconv_prefix.resolve()
+            iconv_source = ROOT / 'tools/test_glib_iconv_guest.c'
+            header = prefix / 'include/iconv.h'
+            library = prefix / 'lib/libiconv.a'
+            receipt['inputs_sha256'][str(iconv_source.relative_to(ROOT))] = digest(iconv_source)
+            receipt['iconv_provider_sha256'] = {str(path.relative_to(prefix)): digest(path)
+                                                for path in (header, library)}
+            iconv_obj = output / 'iconv.o'
+            iconv_elf = output / 'iconv.elf'
+            subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
+                            '-I', header.parent, '-c', iconv_source, '-o', iconv_obj],
+                           cwd=ROOT, check=True, timeout=60)
+            subprocess.run([compiler, iconv_obj, library, '-o', iconv_elf],
+                           cwd=ROOT, check=True, timeout=60)
+            receipt['iconv_payload_sha256'] = digest(iconv_elf)
+            payloads['glib-iconv'] = iconv_elf
+            probes['glib-iconv'] = (ICONV_MARKER,)
         boot = output / 'stage/boot/limine'
         boot.mkdir(parents=True)
         shutil.copyfile(kernel, boot.parent / 'srvros.elf')
@@ -125,7 +152,7 @@ def main():
             '    cmdline: srvros.log=quiet\n'
             '    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n')
         with tarfile.open(boot.parent / 'initramfs.tar', 'w', format=tarfile.USTAR_FORMAT) as archive:
-            for name, path in [('init', init), ('glib-platform', elf)]:
+            for name, path in [('init', init), *payloads.items()]:
                 data = runtime_elf(path.read_bytes())
                 entry = tarfile.TarInfo(name)
                 entry.mode, entry.size = 0o755, len(data)
@@ -139,7 +166,7 @@ def main():
             subprocess.run([limine / 'limine', 'bios-install', image], check=True,
                            timeout=30, stdout=log, stderr=log)
         receipt['image_sha256'] = digest(image)
-        run_guest(image, output, receipt)
+        run_guest(image, output, receipt, probes)
         receipt['result'] = 'passed'
     except Exception as error:
         receipt['error'] = str(error)

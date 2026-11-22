@@ -1,10 +1,10 @@
 # GLib 2.90.1 prerequisites on SrvrOS
 
-November 22, 2026. The prerequisite probe is complete. A stock target
-configure stops at GLib's `sys/poll.h` lookup. A diagnostic copy using the
-SDK's `<poll.h>` passes the poll and thread checks and reaches the first
-missing target library, `iconv`. Static GLib/GObject/GIO bring-up depends on
-those configure gaps and the remaining dependencies below.
+November 22, 2026. The original target configure stopped at GLib's
+`sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
+the missing `iconv` dependency. The follow-up adds a SrvrOS poll fallback
+and a target GNU libiconv provider. The next target dependency is PCRE2
+8-bit.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -24,27 +24,62 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | GLib input | Observed or upstream requirement |
 | --- | --- |
 | POSIX threads and atomics | The diagnostic configure links its thread and atomic checks against the SDK. |
-| `iconv` | Mandatory for this target. Neither built-in nor system search found a target provider. |
+| `iconv` | Mandatory for this target. Meson detects the static GNU libiconv 1.19 provider from an isolated target prefix. |
 | PCRE2 8-bit | Minimum 10.32. Upstream wrap specifies 10.46 plus a hashed Meson wrapper. |
 | GVDB | Upstream subproject pinned to `2b42fc75f09dbe1cd1057580b5782b08f2dcb400`. |
 | libffi | Minimum 3.0.0. Upstream wrap specifies 3.5.2 plus a hashed Meson wrapper. |
 | zlib | Source exists at the OS ports pin. GLib target package/export still needs a real link check. |
 | `intl` | GLib tries libc/system gettext and then its proxy-libintl wrap. `-Dnls=disabled` alone does not remove this lookup. |
 
-Only the iconv failure was reached after the header diagnostic. Later rows
-describe the pinned source's graph. No dependency archive was supplied through
-host package metadata or an automatic Meson wrap download.
+The original header diagnostic reached `iconv`. The follow-up reached
+PCRE2 8-bit, which Meson could find neither in the target packages nor as a
+local subproject. The remaining rows describe the pinned source's graph.
+The target profile uses an empty pkg-config directory and disables Meson
+wrap downloads.
 [Pinned Meson source](https://github.com/GNOME/glib/blob/2.90.1/meson.build).
+
+## Target poll and iconv
+
+The [poll patch](../tools/glib-srvros-poll.patch) preserves the upstream
+`sys/poll.h` test and its public feature macro. For a SrvrOS target with
+`sys/types.h` and `poll.h`, it reads all six poll constants from the SDK.
+The static cross-configure uses the SrvrOS CRT and libc for executable probes.
+
+The build pins GNU libiconv **1.19**, 5,921,103 bytes with SHA-256
+`88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6`.
+The GNU detached signature verified against the project's published
+keyring, using fingerprint `E0FFBD975397F77A32AB76ECB6301D9E1BBEAC08`.
+The recipe builds upstream libcharset and the static libiconv archive using
+the SrvrOS compiler wrapper, then stages the public header, archive and
+`COPYING.LIB`. The library is LGPL 2.1 or later. The SDK exposes a C locale.
+The build disables the locale-backed `WCHAR_T` fallback because the SDK's
+`mbrtowc` and `wcrtomb` do not provide the multibyte behavior it requires.
+[GNU source archive](https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz)
+and [detached signature](https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz.sig).
+
+With the two checked archives and Meson 1.10.2 available, run the recipe
+from the SrvrOS root. It prints a fresh run directory and exits with
+Meson's status.
+
+```sh
+python3 tools/browser_glib_iconv.py --iconv-archive /path/to/libiconv-1.19.tar.gz \
+  --glib-archive /path/to/glib-2.90.1.tar.xz --meson /path/to/meson
+python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv
+```
 
 ## Verification
 
-- **Target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
+- **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
   existing SrvrOS C wrapper and SDK, and an empty target pkg-config directory.
   Target executable probes used static links. Stock Meson linked `eventfd`,
   `ppoll`, `clock_gettime`, and `dlopen`/`dlsym` before `FIX POLL* defines`.
   The `<poll.h>` diagnostic changed only the lookup and corresponding include
   in a disposable source copy. Meson resolved all six poll constants, linked
   its thread checks, and stopped at the mandatory `iconv` lookup.
+- **Follow-up target configure.** Meson found `<poll.h>`, computed all six
+  constants and found target `iconv` using the staged header and archive.
+  The first unresolved dependency was `libpcre2-8`. Meson exited at that
+  dependency before any GLib library build.
 - **Normal SrvrOS guest.** The native fixture links strictly against the same
   SDK. Both runs passed in one diskless, no-NIC, one-CPU Q35/TCG guest. The
   fixture verifies nonblocking close-on-exec pipes, two pthread wakes, draining
@@ -54,6 +89,14 @@ host package metadata or an automatic Meson wrap download.
   GUI peer fixture separately verifies deadlines, delayed pipe wake, cancellation,
   descriptor replacement, simultaneous GUI/pipe readiness, and peer exit.
   Both probe executions returned exit 0 and the monitor prompt. QEMU stopped.
+- **Target conversion.** The separate statically linked libiconv fixture
+  passed twice alongside two reruns of the native wait fixture. It checked
+  non-ASCII UTF-8/UTF-16LE in both directions, Latin-1, `E2BIG` and retry,
+  `EILSEQ`, `EINVAL`, pointer progress, and ISO-2022-JP shift-state reset.
+  It also checked the expected rejection of `WCHAR_T`. All four executions
+  exited 0 and returned to the monitor, and the guest stopped. Relinking
+  against the final recipe's archive produced exactly the booted runtime
+  ELF bytes after the standard packaging step.
 - **Host GLib.** Homebrew's GLib 2.90.1 passed an independent real
   `GMainContext` test using acquire, prepare, query, poll, check, and dispatch.
   One owner processed a worker-attached source and a timer. The quiet wait
@@ -62,8 +105,9 @@ host package metadata or an automatic Meson wrap download.
   within the SrvrOS guest awaits target library bring-up.
   [GLib main-loop API](https://docs.gtk.org/glib/main-loop.html).
 
-The [probe receipt](assets/evidence/glib-prereq/receipt.json) records
-configuration outcomes, matched inputs, and result hashes. The first strict
+The [original receipt](assets/evidence/glib-prereq/receipt.json) and
+[poll and iconv receipt](assets/evidence/glib-iconv/receipt.json) record
+configuration outcomes, matched inputs and result hashes. The first strict
 one-step Zig compile/link rejected an unused driver option. Separate strict
 compilation and the normal SDK linker invocation resolved it. The test and
 runner have no dependency on files from the earlier WebCore extraction.
@@ -153,6 +197,5 @@ For the diagnostic, copy that source and replace `sys/poll.h` with `poll.h`
 only in the `has_syspoll` check and the adjacent constants-test include in
 `meson.build`. Use that copy and a new output directory with the same flags.
 
-The next concrete dependency task is a pinned, real target `iconv` provider
-and a reviewed GLib-side POSIX poll-header adaptation. Rerun the isolated
-configure before adding libraries beyond its next observed requirement.
+The next concrete dependency task is a pinned target PCRE2 8-bit build
+and a fresh isolated GLib configure against it.
