@@ -74,27 +74,33 @@ static void refused_map(unsigned route,uint64_t physical,uint64_t flags) {
 }
 static void submission_window(void) {
  const uint64_t aperture=0xb2200000,backing=0x8b811000,reg=0xc0811000;
- uint64_t original[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000};
- uint64_t ports[8];
- uint64_t too_many[9]={0};
+ uint64_t original[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000,0xb2201000,0xb2202000,0xb2203000,0xb2204000};
+ uint64_t ports[12];
+ uint64_t too_many[13]={0};
  memcpy(too_many,original,sizeof(original));
- too_many[8]=0xc0066000;
+ too_many[12]=0xc0066000;
  setup();
  assert(!vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-         aperture,backing,reg,too_many,9,&result,&why) && !reserved_guard.owner);
+         aperture,backing,reg,too_many,13,&result,&why) && !reserved_guard.owner);
  memcpy(ports,original,sizeof(ports));
- for(unsigned n=0;n<8;n++){
+ for(unsigned n=0;n<12;n++){
   setup();
   t[3][7]=ports[n]|3;
   assert(!vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-         aperture,backing,reg,ports,8,&result,&why));
+         aperture,backing,reg,ports,12,&result,&why));
   assert(why.walk.reason==VMM_ALIAS_PRESENT && !reserved_guard.owner);
  }
  setup();
  assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-        aperture,backing,reg,ports,8,&result,&why));
+        aperture,backing,reg,ports,12,&result,&why));
  memset(ports,0,sizeof(ports)); /* The caller can discard its list. */
- for(unsigned n=0;n<8;n++)for(unsigned route=0;route<3;route++)refused_map(route,original[n],3);
+ int child;
+ assert(vmm_reserved_guard_pin_io_page(&guard,root,aperture,&child));
+ assert(vmm_reserved_guard_io_range_pinned(&guard,root,aperture,5,&child));
+ for(unsigned i=0;i<8;i++)assert(vmm_reserved_guard_io_range_pinned(&guard,root,original[i],1,&child));
+ assert(!vmm_reserved_guard_io_range_pinned(&guard,root,aperture,6,&child));
+ assert(vmm_reserved_guard_unpin_io_page(&guard,root,aperture,&child));
+ for(unsigned n=0;n<12;n++)for(unsigned route=0;route<3;route++)refused_map(route,original[n],3);
  assert(vmm_reserved_guard_check(&guard,&result,&why));
  assert(vmm_map_page_in_space(root,va+4096,original[0]+4096,3));
  assert(vmm_unmap_page_in_space(root,va+4096,NULL));
@@ -103,7 +109,7 @@ static void submission_window(void) {
  assert(vmm_unmap_page_in_space(root,va,NULL));
  setup();
  assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-        aperture,backing,reg,original,8,&result,&why));
+        aperture,backing,reg,original,12,&result,&why));
  t[3][7]=original[7]|3; /* Simulate a bypass outside the guarded mutators. */
  assert(!vmm_reserved_guard_close(&guard,&result,&why));
  assert(why.walk.reason==VMM_ALIAS_PRESENT);

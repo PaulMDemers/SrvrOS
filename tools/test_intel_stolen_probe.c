@@ -138,8 +138,8 @@ bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *g,uin
  const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
  unsigned ranges,uint64_t page,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned n,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
- const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000};
- assert(n==8 && !memcmp(ports,expected,sizeof(expected)));
+ const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000,0xb2201000,0xb2202000,0xb2203000,0xb2204000};
+ assert(n==12 && !memcmp(ports,expected,sizeof(expected)));
  return vmm_reserved_guard_begin_register_window(g,root,pair,count,bits,ram,ranges,page,backing,reg,out,d);
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {

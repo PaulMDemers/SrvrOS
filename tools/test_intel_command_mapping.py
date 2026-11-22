@@ -22,7 +22,7 @@ def run(binary,mode):
 class Mapping(unittest.TestCase):
  def test_native_window(self):
   modes=['joint-good','joint-widi:2','joint-widi:3','window-good','window-pending','window-aperture','window-cache','window-no-engine','window-no-l3','window-stale-l3','window-narrow-bank']
-  modes += [f'joint-{port}-port:{i}' for port in ('ring','audio','capture') for i in (0,2,3)]
+  modes += [f'joint-{port}-port:{i}' for port in ('rcs','vcs0','vcs1','vecs','bcs','ring','audio','capture') for i in (0,2,3)]
   modes += [f'window-{fault}:{i}' for fault in ('widi','foreign','plane','epoch') for i in range(1,9)]
   modes += [f'window-post-widi:{i}' for i in (1,2)]
   for mode in modes:

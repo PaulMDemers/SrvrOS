@@ -531,19 +531,20 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
   ok=stolen.layout.classified && plan->gtt_end>plan->gtt_begin &&
      table_offset<plan->gtt_end-plan->gtt_begin && stolen.source.mmio<=UINT64_MAX-0x800000-table_offset &&
      offset==stolen.source.fence_end && offset<=stolen.source.aperture_bytes-4096 &&
-     stolen.source.aperture<=UINT64_MAX-offset;
+     stolen.source.aperture<=UINT64_MAX-offset &&
+     (!stolen.import.submission || (stolen.source.aperture_bytes>=5*4096 &&
+       offset<=stolen.source.aperture_bytes-5*4096 && stolen.source.aperture+offset<=UINT64_MAX-4*4096));
   if(ok) {
    uint64_t aperture=stolen.source.aperture+offset, backing=plan->gtt_begin+table_offset;
    uint64_t reg=stolen.source.mmio+0x800000+table_offset;
    if(stolen.import.submission) {
-    /* RCS, VCS0, VCS1, VECS, BCS, WiDi ring tails, video capture, and wireless audio output. */
-    const uint32_t offsets[]={0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000,0x6e000,0x65000};
-    uint64_t ports[sizeof(offsets)/sizeof(offsets[0])];
-    unsigned count=sizeof(ports)/sizeof(ports[0]);
-    for(unsigned i=0;i<count;i++)ports[i]=stolen.source.mmio+offsets[i];
+    /* One owner covers the five aperture pages and every submission port. */
+    uint64_t ports[BDW_SUBMISSION_PORT_COUNT+4];
+    for(unsigned i=0;i<BDW_SUBMISSION_PORT_COUNT;i++)ports[i]=stolen.source.mmio+intel_bdw_submission_ports[i];
+    for(unsigned i=0;i<4;i++)ports[BDW_SUBMISSION_PORT_COUNT+i]=aperture+(i+1)*4096;
     ok=vmm_reserved_guard_begin_submission_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
-       stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,ports,count,&stolen.guard.inventory[0],&stolen.guard.detail);
-    if(ok)stolen.import.ports=count;
+       stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,ports,BDW_SUBMISSION_PORT_COUNT+4,&stolen.guard.inventory[0],&stolen.guard.detail);
+    if(ok)stolen.import.ports=BDW_SUBMISSION_PORT_COUNT;
    } else ok=vmm_reserved_guard_begin_register_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
        stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,&stolen.guard.inventory[0],&stolen.guard.detail);
   }
@@ -1282,7 +1283,7 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.import.submission) {
-  console_printf("intel-submission-guard: v=8 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x dma_base=%x cpu_flush_lines=%u dma_freed=%u pdp0=%x engine_hwsp=%x audio_samples=%u\n",
+  console_printf("intel-submission-guard: v=9 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x dma_base=%x cpu_flush_lines=%u dma_freed=%u pdp0=%x engine_hwsp=%x audio_samples=%u aperture_pages=%u\n",
    (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
    (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
    (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2],
@@ -1293,7 +1294,7 @@ report:
    stolen.command_tail.transfer.original[0],stolen.command_tail.descriptor,(uint64_t)stolen.command_tail.samples,
    (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned,(uint64_t)stolen.command_tail.rcs.pointer,
    stolen.command_tail.dma_base,(uint64_t)stolen.command_tail.flush_lines,(uint64_t)stolen.command_tail.dma_freed,stolen.command_tail.pdp0,stolen.command_tail.planned[6].gpu_address,
-   (uint64_t)stolen.import.audio_samples);
+   (uint64_t)stolen.import.audio_samples,(uint64_t)(stolen.guard.acquired?5:0));
   for(unsigned n=0;n<2;n++) {
    const __typeof__(stolen.import.audio[0]) *a=&stolen.import.audio[n];
    console_printf("intel-wireless-audio: v=1 sample=%u well_before=%x codec_before=%x control=%x codec_after=%x well_after=%x\n",

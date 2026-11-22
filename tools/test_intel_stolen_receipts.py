@@ -117,7 +117,7 @@ class Receipts(unittest.TestCase):
         raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-guard'],text=True)
         report=stolen_result(raw,required_version=15)
         self.assertTrue(report['complete'])
-        self.assertEqual(report['submission_guard'],dict(v=8,pages=8,closed=1,samples=2,audio_samples=2,
+        self.assertEqual(report['submission_guard'],dict(v=9,pages=8,closed=1,samples=2,audio_samples=2,aperture_pages=5,
             surface0=0,tail0=16,status0=0,surface1=0,tail1=16,status1=0,func0=0,func1=0,
             strap0=0x20100042,strap1=0x20100042,tried=2,mask0=1<<31,mask1=0,mask2=0,
             first=0x80000,checked=2,returned=1,tail_slot=0,tail_pages=0,tail_pte=0,descriptor=0,
@@ -133,7 +133,9 @@ class Receipts(unittest.TestCase):
                                   g['tail_conflicts'],g['tail_returned']),(0,11744,32,3,3,1))
                 self.assertEqual(g['rcs_indirect'], (11748 << 12) | 2)
                 self.assertEqual((g['dma_base'], g['cpu_flush_lines'], g['dma_freed']),(0x2800000,1216,1))
-                old='\n'.join(line for line in data.splitlines() if not line.startswith('intel-wireless-audio:'))+'\n'
+                old=data.replace('intel-submission-guard: v=9 ', 'intel-submission-guard: v=8 ').replace(' aperture_pages=5','')
+                self.assertEqual(stolen_result(old,required_version=15)['submission_guard']['v'],8)
+                old='\n'.join(line for line in old.splitlines() if not line.startswith('intel-wireless-audio:'))+'\n'
                 old=old.replace('intel-submission-guard: v=8 pages=8','intel-submission-guard: v=7 pages=7').replace(' audio_samples=2','')
                 for key,delta in (('maps',6),('retired',6),('cache_checks',12),('alias_checks',22)):
                     old=re.sub(r'(?<![a-z_])'+key+r'=(\d+)', lambda m:key+'='+str(int(m[1])-delta), old,count=1)
@@ -161,7 +163,7 @@ class Receipts(unittest.TestCase):
         self.assertEqual(refused['submission_guard']['status1'],1)
         self.assertFalse(report['hardware_ownership'])
         row=next(l for l in raw.splitlines() if l.startswith('intel-submission-guard:'))
-        for bad in ('', row+'\n'+row, row.replace('pages=8','pages=7'),row.replace('closed=1','closed=0'),
+        for bad in ('', row+'\n'+row, row.replace('pages=8','pages=7'),row.replace('aperture_pages=5','aperture_pages=1'),row.replace('closed=1','closed=0'),
                     row.replace('samples=2','samples=1'),row.replace('status1=0','status1=0x1'),
                     row.replace('checked=2','checked=1'),row.replace('returned=1','returned=0'),
                     row.replace('first=524288','first=65536'),row.replace('mask2=0','mask2=0x1'),

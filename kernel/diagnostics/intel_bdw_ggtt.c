@@ -1,5 +1,9 @@
 #include <srvros/intel_bdw_ggtt.h>
 
+const uint32_t intel_bdw_submission_ports[BDW_SUBMISSION_PORT_COUNT]={
+ 0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000,0x6e000,0x65000
+};
+
 /* Broadwell PRM Vol5 pp7,44-45; Linux v6.12 gen8_ggtt_pte_encode.
  * GTTMMADR+8MiB is the modification aperture. Gen8 entries are 64 bits.
  * This deliberately supports only a present entry with a low 32-bit address. */

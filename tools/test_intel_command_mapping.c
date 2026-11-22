@@ -152,9 +152,9 @@ bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint6
 {
  if(g!=&window_guard || root!=0x1000 || child!=&parent || fault("window-aperture",1))return false;
  if(joint && pages==1){
-  const uint64_t port[]={0xc0014000,0xc0065000,0xc006e000};
-  const char *missing[]={"joint-ring-port","joint-audio-port","joint-capture-port"};
-  for(unsigned i=0;i<3;i++)if(first==port[i])return !fault(missing[i],invalidations);
+  const uint64_t port[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc0065000,0xc006e000};
+  const char *missing[]={"joint-rcs-port","joint-vcs0-port","joint-vcs1-port","joint-vecs-port","joint-bcs-port","joint-ring-port","joint-audio-port","joint-capture-port"};
+  for(unsigned i=0;i<8;i++)if(first==port[i])return !fault(missing[i],invalidations);
  }
  return (first==0xb2201000 && pages==4) || (first==0xb2200000 && pages==1);
 }

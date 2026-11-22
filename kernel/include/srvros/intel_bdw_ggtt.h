@@ -3,6 +3,10 @@
 #include <srvros/scanout_transfer.h>
 #include <srvros/intel_gt_access.h>
 
+/* Engine submission, WiDi ring, wireless video and wireless audio pages. */
+#define BDW_SUBMISSION_PORT_COUNT 8u
+extern const uint32_t intel_bdw_submission_ports[BDW_SUBMISSION_PORT_COUNT];
+
 struct intel_bdw_ggtt_page {
  uint64_t physical,gpu_address,original,replacement;
  uint32_t index,mmio_offset;

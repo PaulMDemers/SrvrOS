@@ -117,15 +117,14 @@ static bool guard(void *ctx) {
   return fail(r,COMMAND_MAP_OWNERSHIP);
  ++r->proofs;return true;
 }
-/* During the joint loan, keep every CPU route to the WiDi ring, wireless
- * audio output and capture surface excluded by the same register borrower.
+/* During the joint loan, keep all engine submission and wireless
+ * programming pages excluded by the same register borrower.
  * The separate device-side GO/flush handshake still covers outstanding DMA. */
-static bool wireless_ports_pinned(const struct intel_command_mapping *r)
+static bool submission_ports_pinned(const struct intel_command_mapping *r)
 {
  if(!r->slot.transfer)return true;
- const uint32_t pages[]={0x14000,0x65000,0x6e000};
- for(unsigned i=0;i<sizeof(pages)/sizeof(pages[0]);i++)
-  if(!vmm_reserved_guard_io_range_pinned(r->window.guard,r->lease.root,r->manifest.mmio+pages[i],1,r->window.pin))
+ for(unsigned i=0;i<BDW_SUBMISSION_PORT_COUNT;i++)
+  if(!vmm_reserved_guard_io_range_pinned(r->window.guard,r->lease.root,r->manifest.mmio+intel_bdw_submission_ports[i],1,r->window.pin))
    return false;
  return true;
 }
@@ -140,7 +139,7 @@ static bool window_pinned(const struct intel_command_mapping *r)
         w->aperture_pin-r->manifest.aperture<r->manifest.aperture_bytes && w->guard_epoch==w->guard->epoch &&
         vmm_reserved_guard_register_pinned(w->guard,r->lease.root,w->aperture_pin,r->manifest.mmio+(off&~4095ull),
                                           w->alias,w->pin) &&
-        vmm_reserved_guard_io_range_pinned(w->guard,r->lease.root,aperture,4,w->pin) && wireless_ports_pinned(r);
+        vmm_reserved_guard_io_range_pinned(w->guard,r->lease.root,aperture,4,w->pin) && submission_ports_pinned(r);
 }
 
 static bool window_epoch(struct intel_command_mapping *r)

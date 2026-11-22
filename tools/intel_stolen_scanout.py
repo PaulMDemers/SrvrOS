@@ -449,7 +449,8 @@ def stolen_result(text,*,native=False,required_version=None):
     if len(guards)!=int(wire==15):
         raise ValueError('missing or unexpected submission guard')
     audio_rows=[line for line in text.splitlines() if line.startswith('intel-wireless-audio:')]
-    wireless_audio=bool(guards and guards[0].startswith('intel-submission-guard: v=8 '))
+    joint_aperture=bool(guards and guards[0].startswith('intel-submission-guard: v=9 '))
+    wireless_audio=joint_aperture or bool(guards and guards[0].startswith('intel-submission-guard: v=8 '))
     if len(audio_rows)!=(2 if wireless_audio else 0):
         raise ValueError('missing or unexpected wireless audio samples')
     if guards:
@@ -475,8 +476,8 @@ def stolen_result(text,*,native=False,required_version=None):
             if engine_hwsp:
                 tail_keys.append('engine_hwsp')
                 hex_extra.append('engine_hwsp')
-            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys+(['audio_samples'] if wireless_audio else []),
-                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(8 if wireless_audio else 7 if engine_hwsp else 6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
+            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys+(['audio_samples'] if wireless_audio else [])+(['aperture_pages'] if joint_aperture else []),
+                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(9 if joint_aperture else 8 if wireless_audio else 7 if engine_hwsp else 6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
             if current:
                 masks=[guard[f'mask{i}'] for i in range(3)]
                 slots=(0x10000,0x80000,0xffe00)
@@ -529,6 +530,8 @@ def stolen_result(text,*,native=False,required_version=None):
                     elif any(guard[k] for k in tail_keys) or (complete and not first):
                         raise ValueError('missing firmware command interval')
             ports=8 if wireless_audio else 7
+            if joint_aperture and guard['aperture_pages']!=5*rows['guard'][0]['acquired']:
+                raise ValueError('incomplete joint aperture exclusion')
             if wireless_audio:
                 count=guard['audio_samples']
                 if count<rows['guard'][0]['acquired'] or count>min(guard['samples'],2) or (count==2 and not guard['closed']) or (complete and count!=2):

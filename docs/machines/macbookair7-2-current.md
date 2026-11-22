@@ -34,8 +34,10 @@ audio control `0x540`. Audio output to wireless memory was disabled at
 all nine boundaries. WiDi GO remained open during the queue holds. The
 SrvrOS submission diagnostic now verifies the powered codec around each
 wireless audio control read and excludes its MMIO page during the loan.
-The slot writer also checks CPU exclusion of all three WiDi programming
-pages before the device request and through rollback. Physical acceptance
+The CPU guard now excludes the five engine submission pages, the three
+WiDi programming pages and the five aperture pages at slots 8704–8708
+together. The slot writer checks the submission pages before requesting
+the device block and keeps checking them through rollback. Physical acceptance
 still requires an independently sustained device request and fresh engine
 and L3 acknowledgements on the Air.
 [Wireless audio control, p. 117](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
