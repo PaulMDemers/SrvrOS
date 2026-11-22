@@ -39,6 +39,7 @@ static void console_printf(const char *fmt,...){
 static void console_write(const char *s){(void)s;}
 static bool wifi_mac_private_usb(struct xhci_device *,bool,uint32_t,uint32_t *);
 bool xhci_wifi_capture_discovery5(void);
+#define SRVROS_XHCI_FULL_DRIVER
 #include "../kernel/src/drivers/xhci_wifi_power5.inc"
 static bool wifi_handoff5_inspect(void){assert(!wifi_handoff5_requested);return false;}
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
@@ -127,6 +128,13 @@ int main(void){
  setup();fake.busy=3;assert(xhci_wifi_capture_power5() && fake.calls==208 && wifi_power5.fields.polls==8 && wifi_power5.map.polls==8);
  setup();fake.busy=~0u;assert(!xhci_wifi_capture_power5() && fake.calls==2053 && wifi_power5.fields.polls==1024 && !wifi_power5.cycle.attempted);
  setup();wifi_cal5.cal.saved[0]^=1;assert(!xhci_wifi_capture_power5() && fake.calls==74 && !wifi_power5.cycle.modified_mask && device.quarantined);
+ wifi_radio5_bank=1;
+ setup();assert(!xhci_wifi_capture_power5() && !fake.calls); /* Stale original choice. */
+ setup();wifi_cal5.choice.generation=3;assert(!xhci_wifi_capture_power5() && !fake.calls);
+ setup();wifi_cal5.choice.generation=2;assert(xhci_wifi_capture_power5());
+ assert(wifi_power5.fields.fields.generation==2 && wifi_power5.plan.generation==2 &&
+   wifi_power5.cycle.generation==2 && wifi_power5.cycle.restored_mask==511 && fake.calls==202);
+ assert(!memcmp(fake.words,fake.original,sizeof fake.words));
  printf("xhci-power5: PASS actual native child;202 before/after-uncertain I/O faults;%u ownership boundaries;guard/readback/quarantine/replay/parent-generation/USB-busy and1024-poll refusals;MT7610 implemented fields and cleanup-only semantic failures;modeled parent only,no hardware acceptance\n",owners);
  return 0;
 }

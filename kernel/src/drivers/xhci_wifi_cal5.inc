@@ -487,7 +487,7 @@ static bool wifi_discovery5_inspect(void){
  bool complete=mt76_discovery5_collect(&wifi_cal5.discovery,&wifi_cal5.window,&io);
  enum mt76_discovery5_status status=MT76_DISC5_OWNERSHIP;
  if(complete)status=mt76_discovery5_choose(&wifi_cal5.choice,&wifi_cal5.discovery,&wifi_cal5.window,&io,
-  wifi_radio5_bank+1,(const uint8_t *)"Demers5",7);
+  wifi_radio5_generation(),(const uint8_t *)"Demers5",7);
  wifi_cal5.discovery_status=status;
  /* No identifiers,other SSIDs,raw advertisements or secrets in logs. This
   * is an explicitly requested target candidate,not authentication authority. */

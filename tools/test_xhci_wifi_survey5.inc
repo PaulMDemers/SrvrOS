@@ -51,6 +51,45 @@ static bool survey5_test_receive(void){
   .status=(13u<<24)|(4096-size),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_cal5.d->slot_id<<24)});
  return true;
 }
+/* Run survey and the real generation-bound power child against the same
+ * modeled controller. Only the adapter's register values are synthesized. */
+static const unsigned survey5_power_addresses[]={0x13b0,0x1314,0x1318,0x131c,0x1320,0x1324,0x13d4,0x13d8,0x13dc};
+static struct {
+ uint32_t control,words[9],original[9];
+ uint8_t efuse[512];
+} survey5_power;
+static uint32_t survey5_test_power_register(unsigned address,bool in,uint32_t word){
+ if(address==0x1004 || address==0x2000 || address==0x208){
+  assert(in);
+  return address==0x1004?0:address==0x2000?0xf000f200:0x40000050;
+ }
+ if(address==0x24){
+  if(!in)survey5_power.control=word&~(1u<<30);
+  return survey5_power.control;
+ }
+ if(address>=0x28 && address<=0x34){
+  unsigned offset=((survey5_power.control>>16)&0x3ff)+address-0x28;
+  assert(in && offset+4<=sizeof survey5_power.efuse);
+  uint32_t value=0;
+  for(unsigned i=0;i<4;i++)value|=(uint32_t)survey5_power.efuse[offset+i]<<(8*i);
+  return value;
+ }
+ unsigned index=0;
+ while(index<9 && survey5_power_addresses[index]!=address)index++;
+ assert(index<9);
+ if(!index && !wifi_power5.snapshot_mask && !wifi_power5.cycle.snapshot_complete)
+  survey5_power.words[0]=survey5_power.original[0]=wifi_cal5.cal.saved[0];
+ if(!in)survey5_power.words[index]=word;
+ return survey5_power.words[index];
+}
+static void survey5_test_power_setup(struct xhci_device *d){
+ memset(&survey5_power,0,sizeof survey5_power);
+ survey5_power.control=0x80000000;
+ const unsigned offsets[]={0,0x34,0x36,0x98,0xde,0x120,0x122,0x124,0x126,0x12c};
+ const uint16_t values[]={0x7610,0xfd11,0x1004,19u<<8,0x0201,0x0405,4,0x0607,0x0203,0x0809};
+ for(unsigned i=0;i<10;i++)survey5_put16(survey5_power.efuse+offsets[i],values[i]);
+ d->firmware.mcu.ant_fields.nic0=values[1];d->firmware.mcu.ant_fields.nic1=values[2];
+}
 static void survey5_whole_native(unsigned mode,unsigned limit){
  struct xhci_device *d=early5_base_setup();
  memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_early5,0,sizeof wifi_early5);
@@ -70,6 +109,11 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
  if(mode!=20){assert(!xhci_wifi_cal5_survey_enable());}wifi_discovery5_requested=true;
  survey5_test_drop_command=false;
  bool desktop_absent=mode==21;
+ bool replacement_power=mode==22;
+ if(replacement_power){
+  survey5_test_power_setup(d);
+  wifi_power5_requested=true;
+ }
  bool absent=mode==1 || mode==2 || mode==3 || mode==4 || mode==11 || mode==12 || mode==14 || mode==20;
  if(desktop_absent){
   survey5_mode=1;
@@ -90,7 +134,7 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
  }
  else{
   assert(ok && wifi_survey5.complete && wifi_cal5.stopped && wifi_cal5_cleanup_held());
-  bool selected=mode==0 || mode==13 || mode==15 || mode==19;
+  bool selected=mode==0 || mode==13 || mode==15 || mode==19 || replacement_power;
   assert(wifi_survey5.selected==selected && wifi_cal5.choice.selected==selected);
   if(selected)assert(wifi_cal5.choice.generation==wifi_radio5_bank+1);
   assert(wifi_cal5.commands==5 && early5_mcu_calls==10);
@@ -100,13 +144,18 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
   if(absent)assert(!wifi_http_reconnect5.complete && !wifi_http_reconnect5.connections && wifi_http_reconnect5_unattempted());
   if(desktop_absent)assert(wifi_desktop5_unattempted() && !wifi_power5.attempted &&
    !wifi_survey5.selected && wifi_survey5.window==15 && !wifi_http_reconnect5_reserved);
+  if(replacement_power){
+   assert(wifi_power5.cycle.complete && wifi_power5.cycle.generation==2 && wifi_power5.step==132 &&
+          wifi_power5.cycle.restored_mask==511);
+   assert(!memcmp(survey5_power.words,survey5_power.original,sizeof survey5_power.words));
+  }
   if(mode==19){
    uint8_t *p=(uint8_t *)wifi_survey5.prior[0].owner.plan.buffer[0];
    p[0]^=1;assert(!wifi_survey5_held());p[0]^=1;
    assert(!wifi_survey5_held() && wifi_survey5.failed && !wifi_cal5_cleanup_held());
   }
  }
- assert((!wifi_power5.attempted || mode==20) && !wifi_join5.attempted && !freed);
+ assert((!wifi_power5.attempted || mode==20 || replacement_power) && !wifi_join5.attempted && !freed);
  survey5_test_active=false;early5_finish();
 }
 static void test_wifi_survey5(void){
@@ -115,9 +164,9 @@ static void test_wifi_survey5(void){
  survey5_whole_native(21,0);
  assert(wifi_survey5_banks[0].complete && !wifi_survey5_banks[0].selected);
  wifi_radio5_bank=1;
- survey5_whole_native(0,0);
+ survey5_whole_native(22,0);
  assert(wifi_survey5_banks[0].complete && !wifi_survey5_banks[0].selected);
  assert(wifi_survey5_banks[1].complete && wifi_survey5_banks[1].selected);
  wifi_radio5_bank=0;
- puts("xhci-wifi-survey5: PASS 40 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases, including replacement discovery and desktop missing-target cleanup; modeled HCD/RF");
+ puts("xhci-wifi-survey5: PASS 40 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases, including replacement discovery through the power cycle and desktop missing-target cleanup; modeled HCD/RF");
 }

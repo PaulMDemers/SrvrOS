@@ -11,4 +11,6 @@ static unsigned wifi_radio5_bank;
 #define WIFI_RADIO5_BANKS 1
 #endif
 
+static inline unsigned wifi_radio5_generation(void) { return wifi_radio5_bank+1; }
+
 #endif

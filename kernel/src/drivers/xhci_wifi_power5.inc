@@ -21,7 +21,7 @@ static bool wifi_power5_parent(void){
  struct xhci_device *d=wifi_power5.d;
  return wifi_power5_requested && wifi_discovery5_requested && d && d==wifi_cal5.d && !xhci.sync_users &&
  wifi_discovery5_owned(&wifi_cal5,&wifi_cal5.window) && wifi_cal5.choice.attempted && wifi_cal5.choice.selected &&
- wifi_cal5.choice.matches==1 && wifi_cal5.choice.generation==1 && wifi_cal5.choice.row.channel==161 &&
+ wifi_cal5.choice.matches==1 && wifi_cal5.choice.generation==wifi_radio5_generation() && wifi_cal5.choice.row.channel==161 &&
  !d->firmware.pending && !d->firmware.mcu.pending;
 }
 static bool wifi_power5_fail(void){wifi_power5.failed=true;wifi_power5.forward_failed=false;return wifi_power5.d?wifi_mcu_fail(wifi_power5.d):false;}

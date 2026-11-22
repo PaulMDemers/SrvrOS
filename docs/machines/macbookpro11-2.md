@@ -28,7 +28,26 @@ through the worker on both associations. The workspace checkpoint
 `session-a.log` records retirement and re-enumeration before firmware
 reload. `exit.log` records the second connection and final retirement.
 The bound startup journal remains available independently of USB.
-This profile is pending physical acceptance.
+The first v154 cold run used source `04b4debc`, release
+`0878311345ec7ec4`, and saved session `session-000660d45929051b-00`.
+The first connection passed DHCP, gateway ping and DNS. After orderly
+disconnect, root port 1 retired slot 1 and enumerated slot 9. Fresh
+firmware uploaded all six chunks, calibration and receive priming
+completed, and Demers5 was selected at generation 2. The transmit-power
+stage then rejected the request before register I/O because its parent
+guard expected generation 1. The fallback disabled the replacement
+slot, which System showed as Device error. The second association and
+traffic checks did not run. The startup journal and workspace logs
+were saved, all 511 prior files matched, and Ubuntu returned normally.
+The exact failed image and evidence are archived under the unit's
+durable recovery directory.
+
+The retry binds the transmit-power stage to the active radio owner's
+discovery generation. The calibration fixture now reaches the real
+power stage on the replacement bank. The focused power fixture covers
+both valid generations, stale and unexpected generation refusal, and
+exact register restoration. Post-replug association and traffic remain
+pending physical acceptance.
 
 ### Demers5 USB reattachment
 

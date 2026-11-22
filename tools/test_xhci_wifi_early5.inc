@@ -10,6 +10,7 @@ static bool survey5_test_active;
 static bool survey5_test_drop_command;
 static void survey5_test_command(void);
 static bool survey5_test_receive(void);
+static uint32_t survey5_test_power_register(unsigned address,bool in,uint32_t word);
 static void early5_queue(struct xhci_trb e){
  assert(((xhci.event_ring[early5_producer].control&1)!=0)!=early5_cycle);
  e.control=(e.control&~1u)|(early5_cycle?1u:0u);
@@ -146,8 +147,13 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
    address==0x1004?&early5_mac:address==0x1400?&early5_filter:address==0x1340?&early5_txop:NULL;
   uint32_t word=v?*v:address==0x2000?0xf000f200:address==0x208?0x40000050:0;
   if(prime5_test_fault>=21 && wifi_prime5.after && wifi_cal5.mac.mac_disabled && address==0xa30 && wifi_cal5.cleanup_completed<3)word=1;
+  if(survey5_test_active && wifi_power5.active){
+   uint32_t value=0;
+   if(!in)for(unsigned i=0;i<4;i++)value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+   word=survey5_test_power_register(address,in,value);
+  }
   if(in)for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=(uint8_t)(word>>(8*i));
-  else{
+  else if(!survey5_test_active || !wifi_power5.active){
    assert(v);*v=0;for(unsigned i=0;i<4;i++)*v|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
   }
   if(wifi_early5.armed && !wifi_early5.frozen && early5_control_inject && early5_control_calls%5==0 && wifi_early5.completed<32){
