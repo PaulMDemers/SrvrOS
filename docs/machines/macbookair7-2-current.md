@@ -10,10 +10,17 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-PR301 is extending the kernel mapping guard to keep CPU mappings of all five
-command-streamer register pages and the WiDi queue page out of the active
-address space while it lends slot 8704. The trial uses the existing display
-pin and firmware import. GPU-side drain and firmware submission remain open.
+Release `d407fda266aee3db` (source `eafdd4d3`, session
+`session-000660d42be2ac76-00`) kept all five command-streamer register
+pages and the WiDi queue page unmapped in the boot CPU address space
+through the slot 8704 loan and return. The guard closed cleanly. Both
+reads of slot 8704 returned `0x8e201001`, and the allocator refused all
+three competing claims. The original Pipe A frame counter advanced from
+1083 to 1084. All 76 temporary mappings retired and the offline exFAT
+check passed after Ubuntu collected the report. The trial issued zero GPU
+page-table writes. Device-side submission, including the display proxy,
+and outstanding engine and cache traffic still need an owner before the
+first replacement.
 
 Release `a773b6292dc27551` (source `71af1064`, session
 `session-000660d3b60bcb64-00`) imported both 6 MiB firmware buffers into
@@ -90,7 +97,8 @@ the driver issued zero GPU page-table writes, and the return and offline
 USB integrity checks passed.
 
 That run physically verified CPU write exclusion on the five command-streamer
-pages. WiDi CPU mapping coverage still awaits a native version 4 report.
+pages. The later slot-loan trial above also covered the WiDi CPU mapping.
+The post-reset version 4 context trial has separate acceptance.
 The next native ownership step is to acquire and hold a GPU-side traffic block with
 Pipe A active, witness fresh engine and L3 acknowledgements, and keep that
 block through replacement and rollback of slot 8704.
