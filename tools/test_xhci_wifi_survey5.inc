@@ -112,6 +112,7 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
  bool replacement_power=mode==22;
  if(replacement_power){
   survey5_test_power_setup(d);
+  rf_wait_expected_delay=2; /* The modeled eFuse clears KICK before the first poll. */
   wifi_power5_requested=true;
  }
  bool absent=mode==1 || mode==2 || mode==3 || mode==4 || mode==11 || mode==12 || mode==14 || mode==20;
@@ -156,6 +157,7 @@ static void survey5_whole_native(unsigned mode,unsigned limit){
   }
  }
  assert((!wifi_power5.attempted || mode==20 || replacement_power) && !wifi_join5.attempted && !freed);
+ if(replacement_power)rf_wait_expected_delay=0;
  survey5_test_active=false;early5_finish();
 }
 static void test_wifi_survey5(void){
