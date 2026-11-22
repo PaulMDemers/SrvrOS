@@ -306,7 +306,7 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
         model.time+=SCANOUT_PUBLISH_DEADLINE_US+1;
     return true;
 }
-static unsigned traffic_reads,block_requests,block_releases,l3_reads;
+static unsigned traffic_reads,block_requests,block_releases,l3_reads,request_reads;
 static bool block_revoked,block_active,retire_reentered;
 static uint64_t held_block(const struct scanout_transfer *t,const struct scanout_publication *p) {
     assert(t==&transfer && p==&a.publication);
@@ -447,6 +447,23 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x8028: *word=(!block_active || !strcmp(page_failure,"gam-response")) ? 0x5f : 0; break;
     default: assert(0); return false;
+    }
+    if (block_active && offset==0x40d0) ++request_reads;
+    if (block_active && request_reads==1) {
+        if (!strcmp(page_failure,"l3-before-request")) {
+            if (offset==0x40d0 || offset==0x8028) *word=0x5f;
+            if (offset>=0x8000 && offset<=0x8014) *word=0x10;
+        }
+        static const struct { const char *mode; uint32_t bit, message; } early[]={
+            {"rcs-before-request",0,0x8000}, {"vcs0-before-request",1,0x8004},
+            {"vcs1-before-request",2,0x8008}, {"bcs-before-request",4,0x800c},
+            {"vecs-before-request",3,0x8010}, {"widi-before-request",6,0x8014}
+        };
+        for (unsigned i=0;i<sizeof(early)/sizeof(early[0]);++i) {
+            if (strcmp(page_failure,early[i].mode)) continue;
+            if (offset==0x40d0 || offset==0x8028) *word |= 1u<<early[i].bit;
+            if (offset==early[i].message) *word=offset==0x8014 ? 0 : 0x20;
+        }
     }
     return true;
 }

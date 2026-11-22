@@ -665,9 +665,12 @@ record of the handshakes under that same hold.
 ### Reset-free use of the same traffic checks
 
 The slot 8704 writer witnesses an initially open arbiter, issues one
-request for the original publication, and polls the engine, GAM and L3
-messages under that request. A one-shot L3 acknowledgement can arrive
-while the final engine is still draining. The writer also checks the
+request for the original publication, and reads the GAM request before
+the engine and L3 messages on each poll. Each engine's flush and GO
+acknowledgements require its own observed request closure. The writer
+checks WiDi GO against GAM bit 6. A one-shot L3 acknowledgement can
+arrive after the first observed request closure while the final engine
+is still draining. The writer also checks the
 power-manager flush policy for every bank in both enabled slices. Volume
 13 identifies the register range as replicated per bank and slice, and the
 Broadwell GT3 has eight L3 banks. Each addressed read must succeed under

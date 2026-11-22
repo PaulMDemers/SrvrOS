@@ -882,11 +882,11 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
         if (block && ((offset == 0x40d0 && s->flr_fault == GT_REQUEST_OPEN) ||
             (offset == 0x8028 && (s->flr_fault == GT_RESPONSE_OPEN ||
             (s->flr_fault == GT_REOPENED && s->media_reads == 4))))) *word |= 0x40;
-        if (block && s->l3_reads == 2 &&
+        if (block && s->l3_reads == 1 &&
             ((s->flr_fault == GT_REQUEST_REOPENS_ONCE && offset == 0x40d0) ||
              (s->flr_fault == GT_RESPONSE_REOPENS_ONCE && offset == 0x8028)))
             *word |= s->gt_fault_offset;
-        if (block && s->flr_fault == GT_PROGRESSIVE_BLOCK && s->l3_reads == 1)
+        if (block && s->flr_fault == GT_PROGRESSIVE_BLOCK && s->l3_reads == 0)
             *word |= offset == 0x40d0 ? 1 : 0x41;
         if (s->reopened_at_config && offset == 0x8028) *word |= 1;
         if (block && s->flr_fault == GT_FOREIGN_FLR_AFTER_BLOCK && offset == 0x40d0)
@@ -901,7 +901,7 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
         }
         if (block && s->flr_fault == GT_ENGINE_GO_REOPEN && offset == s->gt_fault_offset)
             *word = s->l3_reads == 1 ? 0 : s->l3_reads == 2 ? 0x10 : 0x20;
-        if (block && s->flr_fault == GT_PROGRESSIVE_BLOCK && offset == 0x8000) *word = 0x20;
+        if (block && s->flr_fault == GT_PROGRESSIVE_BLOCK && offset == 0x8004) *word = 0x20;
         if (ready && offset == s->gt_fault_offset) {
             if (s->flr_fault == GT_ENGINE_OPEN) *word |= 0x10;
             if (s->flr_fault == GT_ENGINE_IDLE) *word |= 1;

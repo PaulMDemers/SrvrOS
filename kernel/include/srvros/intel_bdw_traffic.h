@@ -39,17 +39,20 @@ static inline bool bdw_traffic_gam(struct bdw_traffic_sample *a, uint32_t allowe
 
 static inline bool bdw_traffic_engines(struct bdw_traffic_sample *a, bool blocked, bool *matches)
 {
-    static const uint32_t offsets[] = {0x8000, 0x8004, 0x8008, 0x800c, 0x8010, 0x8014};
+    /* The message and GAM orders differ for BCS/VECS. WiDi uses GAM bit 6. */
+    static const struct { uint32_t offset, request_bit; } clients[] = {
+        {0x8000, 0}, {0x8004, 1}, {0x8008, 2}, {0x800c, 4}, {0x8010, 3}, {0x8014, 6}
+    };
     /* With Go=0, the engine stays busy (bit 0 clear). Before the request
      * its pipeline may be either idle or busy. */
     /* WiDi has its own GO acknowledgement and busy indication. Bit 5
      * is reserved there; only the five command streamers acknowledge flush. */
     *matches = true;
-    for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
+    for (unsigned i = 0; i < sizeof(clients) / sizeof(clients[0]); ++i) {
         uint32_t word;
-        if (!a->read(a->ctx, offsets[i], &word))
+        if (!a->read(a->ctx, clients[i].offset, &word))
             return false;
-        uint32_t flush = offsets[i] == 0x8014 ? 0u : 0x20u;
+        uint32_t flush = clients[i].offset == 0x8014 ? 0u : 0x20u;
         /* Every client must be busy before it acknowledges GO=0. An
          * out-of-order acknowledgement invalidates the current request. */
         if ((word & 0x11u) == 1u) return false;
@@ -57,6 +60,8 @@ static inline bool bdw_traffic_engines(struct bdw_traffic_sample *a, bool blocke
         bool ready = (word & mask) == (blocked ? flush : 0x10u);
         if (blocked) {
             uint32_t engine = 1u << i;
+            if (!(a->request_closed & (1u << clients[i].request_bit)) &&
+                ((word & flush) || !(word & 0x10u))) return false;
             if (((a->engine_ack & engine) && !(word & 0x20u)) ||
                 ((a->engine_go_closed & engine) && (word & 0x10u)) ||
                 ((a->engine_blocked & engine) && !ready))
@@ -126,9 +131,11 @@ static inline bool intel_bdw_traffic_poll(struct bdw_traffic_sample *s,bool *dra
 {
     bool arbiter, pipelines;
     uint32_t l3, eco;
-    if (!s->read(s->ctx,0x8038,&l3) || !bdw_traffic_gam(s,0,&arbiter) ||
+    /* Read the request before the acknowledgements. A pulse observed while
+     * every request line is still open cannot qualify a later closure. */
+    if (!bdw_traffic_gam(s,0,&arbiter) || !s->read(s->ctx,0x8038,&l3) ||
         !bdw_traffic_engines(s,true,&pipelines) || !s->read(s->ctx,0x8040,&eco) ||
-        (l3 & 2u)) return false;
+        (l3 & 2u) || ((l3 & 1u) && !s->request_closed)) return false;
     /* GPM can consume L3's one-shot acknowledgement before the last engine closes. */
     s->l3_ack |= (l3 & 1u) != 0;
     *drained = arbiter && pipelines && s->l3_ack && (eco & 1u);

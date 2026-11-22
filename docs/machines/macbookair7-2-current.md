@@ -10,11 +10,31 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current Air7,2 work covers native GGTT register access for the blitter
-context and the physical traffic hold needed to change slot 8704. The
-original Pipe A scanout stays active during qualification. This round examines
-whether the shadow-register FIFO and clock-unit arbitration can supply the
-request while the engine and L3 acknowledgement registers remain readable.
+The Air7,2 work covers native GGTT register access for the blitter
+context and the device-wide traffic block needed to change slot 8704.
+The qualification keeps the original Pipe A scanout active.
+
+On November 22, 60 alternating Ubuntu trials started in RC6 with forcewake
+clear and advancing residency. Acquiring i915 forcewake took the GPU to RC0
+in all 30 trials. At the subsequent reads all six GAM clients were permitted,
+WiDi GO was open and the five engine flush bits and L3 flush bit were clear.
+Across the 30 control intervals without forcewake, 26 remained in RC6 at
+both subsequent samples. Slot 8704 read the same throughout the experiment.
+Ubuntu changed the panel surface in four forcewake trials; the other 26
+showed the same outcome with an unchanged panel surface at all four samples.
+This rules out forcewake as a way to inspect an ongoing RC6 traffic block
+on this unit. The cold-state register FIFO is configured to return zeros
+when blocked. The separate CPD transition has GAM GO messaging disabled
+by locked firmware policy (`MISC_CTRL0=0xc5280000`).
+[BCS context and firmware policy](../intel-bdw-bcs-context.md)
+
+The rollback verifier samples the hardware request before counting replies.
+It rejects a client acknowledging closure while its own request line is
+still open, including the distinct blitter, VEBox and WiDi bits. An L3
+pulse while every request line is open also disqualifies the transaction.
+The synchronous host fixture covers each of these seven sequences and
+a staggered positive handshake. An independently sustained device request
+remains outstanding. This qualification leaves the SrvrOS slot write unarmed.
 
 Three runs under Ubuntu i915 held all five queues on the Air. Both RC6
 control words read `0x40000` during each hold. GAM still allowed all six
