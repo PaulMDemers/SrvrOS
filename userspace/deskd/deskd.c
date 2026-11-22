@@ -2388,7 +2388,8 @@ int main(int argc,char **argv) {
     int wifi_active_remove_trial=argc==2 && !strcmp(argv[1],"--wifi-active-remove-trial");
     int wifi_managed_trial=wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
-    int hardware_trial=wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
+    int retina_trial=argc==2 && !strcmp(argv[1],"--retina-trial");
+    int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
@@ -2471,6 +2472,7 @@ int main(int argc,char **argv) {
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,wifi_active_remove_trial?"wifi-active-remove-trial":wifi_replug_trial?"wifi-replug-trial":wifi_reattach_trial?"wifi-reattach-trial":wifi_reconnect_trial?"wifi-reconnect-trial":"wifi-managed-trial");
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
+    else if(retina_trial) spawn_app(&s,DESK_APP_HELP,"retina-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");

@@ -28,6 +28,14 @@ and the saved logical screenshot passed. An explicit 1× override at
 2880 × 1800 also passed. The Air7,2 VM used its 1× default at 1440 × 900.
 Physical verification of the new default is pending.
 
+The attended physical candidate uses the dedicated `--desktop-retina`
+recipe from the PR #501 branch. It opens the complete Retina checklist
+and runs the default without a scale override. The scope includes pointer
+alignment, window layout, a reversible 1× comparison, Text save and
+reopen, and a workspace screenshot. Return to console saves the session
+and returns to Ubuntu after a clean unmount. The captured Wi-Fi release
+and independent known-good recovery remain available.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold

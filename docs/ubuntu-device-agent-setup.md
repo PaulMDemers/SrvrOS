@@ -162,7 +162,8 @@ USB input and audio identities in the machine record. On Pro11,3, preserve the
 firmware-selected graphics route; do not guess GMUX or discrete-GPU power writes.
 Desktop client surfaces remain bounded to 1440x900 logical pixels. An explicit
 `deskd --scale=2` path and confirmed Settings choices use native-density backing
-and built-in 2× font rasters; the default remains 1×. See [display scale](native-desktop.md#display-scale) for the launch and capture
+and built-in 2× font rasters. The MacBookPro11,2 profile suggests 2× at HiDPI
+resolutions. See [display scale](native-desktop.md#display-scale) for the launch and capture
 contract. QEMU switching and rendering checks do not accept native modesetting or extend
 Retina hardware acceptance. Do not copy the Air's firmware hash, register offsets or codec quirks to
 another model just to make a probe succeed.
@@ -391,6 +392,15 @@ provider and leaves audio/AML/SMC off. Rehearse with `--desktop-check` and the
 actual workspace partition-table type. Startup does not adjust the panel;
 Settings offers 5–100% only when the captured mode and period still match.
 Physical visible adjustment remains a separate acceptance check.
+
+Use `--desktop-volume "$SRVROS_USB_UUID" --desktop-retina` for the Pro's
+attended default-scale trial. It requests the 2880 × 1800 panel mode and
+lets the firmware profile choose the scale. Help opens the full checklist
+without a deadline. SrvrOS > Return to console saves the logs, safely
+unmounts the workspace, and reboots into Ubuntu. The prepared USB workspace
+must stay connected throughout. Rehearse the exact stage with
+`--desktop-check --workspace-table gpt` and also with
+`--desktop-check --retina-missing-workspace`.
 
 The subsequent Pro audio trial adds `--desktop-audio` to that command (v31).
 It retains brightness and scaled display while enabling the exact 8c20/CS4208
