@@ -10,6 +10,24 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+PR 301 adds a System Agent GGTT invalidation after each PTE store and
+readback in the one-page publisher. Replacement and rollback use the same
+traffic hold. The 193 host transfer cases cover missing, uncertain, late and
+unposted requests. The native traffic provider is still outstanding.
+
+On Ubuntu, i915 bound a 40 MiB object at `0x1700000`. The probe's bind of
+that object called `gen8_ggtt_insert_entries` then `gen8_ggtt_invalidate`.
+At slot 8704 it verified blitter completion and restored all 1,024 words.
+The matching GGTT unbind followed verification. The eDP panel stayed enabled.
+The register trace did not report an individual MMIO write.
+
+The next SrvrOS trial blocks the WD capture programming page along with the
+six submission pages. It samples WD surface, tail configuration and frame
+counters before and after the loan. A change refuses the trial. Identical
+samples on an inactive or power-gated bank are compatible with zero reads.
+This check leaves outstanding firmware, engine and L3 work to the native
+traffic provider.
+
 Release `d407fda266aee3db` (source `eafdd4d3`, session
 `session-000660d42be2ac76-00`) kept all five command-streamer register
 pages and the WiDi queue page unmapped in the boot CPU address space

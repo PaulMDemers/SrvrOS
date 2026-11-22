@@ -1,6 +1,7 @@
 #include <srvros/scanout_transfer.h>
 #include <srvros/scanout_memory.h>
 #include <srvros/intel_bdw_scanout_mapping.h>
+#include <srvros/intel_ggtt_invalidate.h>
 #include <srvros/vmm.h>
 #include <srvros/x86_cache.h>
 #include <assert.h>
@@ -334,12 +335,46 @@ static enum intel_gt_write release_block(const struct scanout_transfer *t,const 
     block_active=!strcmp(page_failure,"still-held");
     return !strcmp(page_failure,"uncertain-release") ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
+/* Keep the System Agent request distinct from PTE readback and the
+ * publisher's reader check. Each store must do read -> request -> read. */
+static unsigned ggtt_phase, ggtt_posts;
+static enum intel_gt_write invalidate_ggtt(const struct scanout_transfer *t,
+        const struct scanout_publication *p, uint64_t epoch, uint32_t offset, uint32_t value) {
+    assert(t==&transfer && p==&a.publication && offset==0x101008 && value==1);
+    assert(epoch==1 && block_active && borrower && ggtt_phase==1);
+    assert(table[8704]==(p->state==PUB_RESTORING?p->before[0]:p->after[0]));
+    assert(cached_translation!=table[8704]);
+    ggtt_phase=2;
+    if (!strcmp(page_failure,"sa-no-write")) return GT_WRITE_NONE;
+    if (!strcmp(page_failure,"sa-uncertain")) return GT_WRITE_UNCERTAIN;
+    if (!strcmp(page_failure,"sa-lost-hold")) block_revoked=true;
+    if (!strcmp(page_failure,"sa-expired")) model.time+=SCANOUT_PUBLISH_DEADLINE_US+1;
+    return GT_WRITE_DONE;
+}
+
 static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32_t *word) {
     assert(t==&transfer);
     ++traffic_reads;
     if (block_releases && !strcmp(page_failure,"read-failed")) return false;
     if (offset==0x8038 && !strcmp(page_failure,"unfilled-l3")) return true;
     switch(offset) {
+    case INTEL_GGTT_INVALIDATE_REGISTER:
+        assert(block_active && borrower);
+        if (ggtt_phase==0) {
+            assert(cached_translation==table[8704]);
+            ggtt_phase=1;
+            *word=!strcmp(page_failure,"sa-preflight");
+        } else {
+            assert(ggtt_phase==2 && cached_translation!=table[8704]);
+            if (!strcmp(page_failure,"sa-read-error")) return false;
+            *word=!strcmp(page_failure,"sa-bad-post");
+            if (!*word) {
+                ggtt_phase=0;
+                ++ggtt_posts;
+                if (strcmp(page_failure,"invalidate")) cached_translation=table[8704];
+            }
+        }
+        break;
     case 0x8014:
         *word = block_active ? 0 : 0x10;
         if (block_active && !strcmp(page_failure,"widi-open")) *word = 0x10;
@@ -398,7 +433,7 @@ static bool l3_policy(const struct scanout_transfer *t, unsigned slice, unsigned
 }
 static const struct intel_bdw_scanout_traffic traffic_io={
     .held_epoch=held_block,.read=traffic_word,.read_l3_flush_policy=l3_policy,
-    .request=request_block,.release=release_block
+    .request=request_block,.release=release_block,.invalidate_ggtt=invalidate_ggtt
 };
 static bool write_test_page(void *ctx,uint32_t index,uint64_t value) {
     assert(ctx==&model);
@@ -419,9 +454,8 @@ static bool flush_test_page(void *ctx) {
     const struct scanout_publication *p=&a.publication;
     bool restore=p->state==PUB_RESTORING;
     uint64_t expected=restore?p->before[0]:p->after[0];
-    assert(table[8704]==expected && cached_translation!=expected);
+    assert(table[8704]==expected && ggtt_phase==0 && ggtt_posts==(restore?2u:1u));
     ++model.flushes;
-    if(strcmp(page_failure,"invalidate"))cached_translation=table[8704];
     return cached_translation==expected;
 }
 static bool readers(void *ctx) {
@@ -677,13 +711,15 @@ int main(int argc,char **argv) {
         assert(restoring ? !scanout_memory_close(&a,&at) : !scanout_memory_apply(&a,&at));
         bool retired_fault=!strcmp(page_failure,"retirement-block");
         bool written=!strcmp(page_failure,"invalidate") || retired_fault;
-        if(written)assert(table[8704]==(restoring?input[0]:a.entries[0]));
+        bool store_uncertain=!strncmp(page_failure,"sa-",3) && strcmp(page_failure,"sa-preflight");
+        if(written || store_uncertain)assert(table[8704]==(restoring?input[0]:a.entries[0]));
         else assert(table[8704]==(previous^(!strcmp(page_failure,"foreign")?(1ull<<36):0)));
         assert(cached_translation==(retired_fault?input[0]:previous));
         assert(a.state==MEM_FAULT && !model.releases && model.writes==(unsigned)restoring+written);
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
         assert(!intel_bdw_scanout_retire_test_page(&a,&at));
-        if (restoring || written) assert(borrower);
+        if (restoring || written || store_uncertain) assert(borrower);
+        if (store_uncertain) assert(!block_releases && block_requests==1 && ggtt_posts==(unsigned)restoring);
         if (!strcmp(page_failure,"air-post-reset") || !strcmp(page_failure,"stale-l3"))
             assert(!block_requests);
         if (!strcmp(page_failure,"missing-l3") || !strcmp(page_failure,"uncertain-request") ||

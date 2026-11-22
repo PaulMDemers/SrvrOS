@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <srvros/intel_bdw_ggtt.h>
 #include <srvros/intel_ggtt_window.h>
+#include <srvros/intel_ggtt_invalidate.h>
 #include <srvros/intel_bdw_scanout_mapping.h>
 #include <srvros/vmm.h>
 #include <srvros/intel_bdw_traffic.h>
@@ -220,9 +221,10 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     /* Charge the alias and cache checks to the original publication deadline.
      * Recheck the operation and saved owner after the last provider callback. */
     uint64_t fresh;
-    if (!traffic.held_epoch || !traffic.read || !traffic.request || !traffic.release || !traffic.read_l3_flush_policy ||
+    if (!traffic.invalidate_ggtt || !traffic.held_epoch || !traffic.read || !traffic.request || !traffic.release || !traffic.read_l3_flush_policy ||
         !scanout_transfer_check(t,grant)) return false;
     if (restore && (borrow.transfer!=t || !page_hold_live(p) ||
+        borrow.traffic.invalidate_ggtt!=traffic.invalidate_ggtt ||
         borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read ||
         borrow.traffic.request!=traffic.request || borrow.traffic.release!=traffic.release ||
         borrow.traffic.read_l3_flush_policy!=traffic.read_l3_flush_policy)) return false;
@@ -252,6 +254,11 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     borrow.drained=true;
     if (!traffic_live(&check) ||
         !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
+    volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
+    uint64_t expected = restore ? entry.replacement : original;
+    if (*reg != expected) return false;
+    uint32_t posted;
+    if (!read_traffic(&check, INTEL_GGTT_INVALIDATE_REGISTER, &posted) || posted) return false;
     uint64_t now = t->io.now(t->io.ctx);
     if (!store_active(m, token, t, index) ||
         !scanout_transfer_original(t, grant, index, &fresh) || fresh != original ||
@@ -264,10 +271,14 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
 
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */
-    volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
-    if (p->hold_live != page_hold_live || !page_hold_live(p) || *reg != (restore ? entry.replacement : original)) return false;
+    if (p->hold_live != page_hold_live || !page_hold_live(p) || *reg != expected) return false;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
     *reg = value;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    return *reg == value;
+    if (*reg != value || !traffic_live(&check)) return false;
+    /* This WO register always reads zero. The read orders the preceding
+     * System Agent request. Engine and cache retirement have their own proof. */
+    if (borrow.traffic.invalidate_ggtt(t, p, check.epoch, INTEL_GGTT_INVALIDATE_REGISTER, 1) != GT_WRITE_DONE) return false;
+    return read_traffic(&check, INTEL_GGTT_INVALIDATE_REGISTER, &posted) && !posted &&
+           *reg == value;
 }

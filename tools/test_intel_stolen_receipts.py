@@ -117,10 +117,16 @@ class Receipts(unittest.TestCase):
         raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-guard'],text=True)
         report=stolen_result(raw,required_version=15)
         self.assertTrue(report['complete'])
-        self.assertEqual(report['submission_guard'],{'v':1,'pages':6,'closed':1})
+        self.assertEqual(report['submission_guard'],dict(v=2,pages=7,closed=1,samples=2,
+            surface0=0,tail0=16,status0=0,surface1=0,tail1=16,status1=0))
+        drift=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-drift'],text=True)
+        refused=stolen_result(drift,required_version=15)
+        self.assertFalse(refused['complete'])
+        self.assertEqual(refused['submission_guard']['status1'],1)
         self.assertFalse(report['hardware_ownership'])
         row=next(l for l in raw.splitlines() if l.startswith('intel-submission-guard:'))
-        for bad in ('', row+'\n'+row, row.replace('pages=6','pages=5'),row.replace('closed=1','closed=0')):
+        for bad in ('', row+'\n'+row, row.replace('pages=7','pages=6'),row.replace('closed=1','closed=0'),
+                    row.replace('samples=2','samples=1'),row.replace('status1=0','status1=0x1')):
             with self.assertRaises(ValueError):stolen_result(raw.replace(row,bad),required_version=15)
         version='ram-usb-v16-intel-stolen-laptop-probe-37d8c5d0-auto-return'
         cfg=boot.limine_config('0123456789abcdef',version)

@@ -127,8 +127,8 @@ bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *g,uin
  const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
  unsigned ranges,uint64_t page,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned n,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
- const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000};
- assert(n==6 && !memcmp(ports,expected,sizeof(expected)));
+ const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000};
+ assert(n==7 && !memcmp(ports,expected,sizeof(expected)));
  return vmm_reserved_guard_begin_register_window(g,root,pair,count,bits,ram,ranges,page,backing,reg,out,d);
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
@@ -237,6 +237,11 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  ++model.reads;
  if(model.mode==63 && stolen.import.samples==1 && offset==0x811000){*out=0x8e202001u;return true;}
  switch(offset) {
+ case 0x6e514: case 0x6e520: case 0x6e558:
+  assert(stolen.import.submission && model.pinned && !model.guard_live);
+  *out=offset==0x6e520?0x10u:0;
+  if(model.mode==64 && offset==0x6e558 && stolen.guard.closed)*out=1;
+  return true;
  case 0x70040:
   assert(stolen.range.selected && model.guard_live && model.held);
   *out=(model.mode==54 || !stolen.range.fences)?100:101;
@@ -340,12 +345,18 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strcmp(argv[1],"--submission-guard") || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
+ if(argc==2 && (!strcmp(argv[1],"--submission-guard") || !strcmp(argv[1],"--submission-drift") || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
   char import_command[512];
   snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
-    !strcmp(argv[1],"--submission-guard")?"submission-guard":"firmware-import");
+    !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
   reset();model.report=true;
   bool drift=!strcmp(argv[1],"--firmware-drift");
+  if(!strcmp(argv[1],"--submission-drift")){
+   model.mode=64;
+   assert(!intel_stolen_probe_report(import_command) && stolen.fail==31 && stolen.guard.closed &&
+          stolen.import.wd_samples==2 && stolen.import.returned && !model.held && !model.mapped);
+   return 0;
+  }
   if(drift)model.mode=63;
   assert(intel_stolen_probe_report(import_command)==!drift);
   assert(stolen.fail==(drift?34u:0u) && stolen.import.imported &&

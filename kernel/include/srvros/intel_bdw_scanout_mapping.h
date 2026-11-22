@@ -22,7 +22,8 @@ bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct s
                                         struct scanout_publish_pool *, struct scanout_publish_io);
 /* Called only inside the publisher's write callback. The device owner must
  * pin its original CPU root and its exclusive UC register alias across the
- * callback. A successful store includes raw posting readback. The separate
+ * callback. A successful store includes raw PTE readback and a posted System
+ * Agent GGTT invalidation under that same traffic hold. The separate
  * flush and reader callbacks remain mandatory for publication and reuse. */
 struct vmm_reserved_guard;
 /* request acquires the hardware block for this publication exactly once.
@@ -37,6 +38,11 @@ struct intel_bdw_scanout_traffic {
      * A powered-off or unaddressable instance cannot supply a sample. */
     bool (*read_l3_flush_policy)(const struct scanout_transfer *, unsigned slice,
                                  unsigned bank, uint32_t *word);
+    /* Issue one ordered UC DWORD 1 at MMIO+0x101008 only while this
+     * exact publication and traffic epoch are held. No polling or retry. */
+    enum intel_gt_write (*invalidate_ggtt)(const struct scanout_transfer *,
+                                          const struct scanout_publication *, uint64_t epoch,
+                                          uint32_t offset, uint32_t value);
     enum intel_gt_write (*request)(const struct scanout_transfer *,const struct scanout_publication *,uint64_t *epoch);
     enum intel_gt_write (*release)(const struct scanout_transfer *,const struct scanout_publication *,uint64_t epoch);
 };

@@ -450,9 +450,24 @@ def stolen_result(text,*,native=False,required_version=None):
         raise ValueError('missing or unexpected submission guard')
     if guards:
         from intel_gt_bootstrap import fields
-        guard=fields(guards[0],'intel-submission-guard:',['v','pages','closed'],())
+        keys=['v','pages','closed']
+        words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
+        if guards[0].startswith('intel-submission-guard: v=2 '):
+            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words,words,versions=(2,))
+            ports=7
+            if (guard['samples']>2 or (guard['samples']==2 and not guard['closed']) or
+                any(guard[k]>0xffffffff for k in words) or
+                (complete and (guard['samples']!=2 or any(guard[k]==0xffffffff for k in words) or
+                               any(guard[k]!=guard[j] for k,j in zip(words[:3],words[3:]))))):
+                raise ValueError('wireless capture samples did not bracket the loan')
+            if complete:
+                extra_maps+=2
+                extra_aliases+=6
+        else:
+            guard=fields(guards[0],'intel-submission-guard:',keys)
+            ports=6
         cpu=rows['guard'][0]
-        if guard['pages']!=6*cpu['acquired'] or guard['closed']!=cpu['closed'] or (complete and guard!={'v':1,'pages':6,'closed':1}):
+        if guard['pages']!=ports*cpu['acquired'] or guard['closed']!=cpu['closed'] or (complete and not guard['closed']):
             raise ValueError('incomplete CPU submission exclusion')
         result['submission_guard']=guard
     imports=[line for line in text.splitlines() if line.startswith('intel-firmware-import:')]

@@ -79,7 +79,8 @@ static struct {
   uint64_t observed[2];
   unsigned blocked, samples;
   bool selected, imported, returned, submission;
-  unsigned ports;
+  unsigned ports, wd_samples;
+  uint32_t wd[2][3];
  } import;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
@@ -217,6 +218,8 @@ static bool identity(void) {
 static bool allowed(uint32_t page) {
  if(stolen.private_range.scanning && stolen.guard.checked && !stolen.guard.closed &&
     page>=0x800000u+8*stolen.private_range.begin && page<0x800000u+8*SCANOUT_SPACE_PAGES)return true;
+ if(page==0x6e000 && stolen.import.submission && stolen.guard.pinned &&
+    (!stolen.guard.acquired || stolen.guard.closed))return true;
  if(page==0x100000 && stolen.range.selected && stolen.guard.checked && !stolen.guard.closed)return true;
  if(page==0x108000 || page==0x43000 || page==0x6f000 ||
     page==0x70000 || page==0x71000 || page==0x72000)return true;
@@ -501,8 +504,8 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
    uint64_t aperture=stolen.source.aperture+offset, backing=plan->gtt_begin+table_offset;
    uint64_t reg=stolen.source.mmio+0x800000+table_offset;
    if(stolen.import.submission) {
-    /* RCS, VCS0, VCS1, VECS, BCS, and both WiDi tail pointers. */
-    const uint32_t offsets[]={0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000};
+    /* RCS, VCS0, VCS1, VECS, BCS, WiDi ring tails, and WD capture surface/tail programming. */
+    const uint32_t offsets[]={0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000,0x6e000};
     uint64_t ports[sizeof(offsets)/sizeof(offsets[0])];
     unsigned count=sizeof(ports)/sizeof(ports[0]);
     for(unsigned i=0;i<count;i++)ports[i]=stolen.source.mmio+offsets[i];
@@ -830,6 +833,25 @@ static bool observe_handoff(void) {
  return true;
 }
 
+/* WD_SURF arms wireless capture. Sample the capture page on either side
+ * of CPU exclusion; the VMM refuses even a read alias while the loan is live. */
+static bool sample_wireless_capture(unsigned sample) {
+ const uint32_t offsets[]={0x6e514,0x6e520,0x6e558}; /* SURF, TAIL_CFG, STATUS */
+ for(unsigned i=0;i<3;i++) {
+  uint32_t *word=&stolen.import.wd[sample][i];
+  if(!tick(stolen.begin[1]) || !load(offsets[i],word) || *word==UINT32_MAX) {
+   refuse(31);
+   unmap();
+   return false;
+  }
+ }
+ if(!unmap() || !tick(stolen.begin[1]))return false;
+ ++stolen.import.wd_samples;
+ if(sample)
+  for(unsigned i=0;i<3;i++)if(stolen.import.wd[0][i]!=stolen.import.wd[1][i])return refuse(31);
+ return true;
+}
+
 static bool cpu_guard(void) {
  if(!stolen.cpu.admitted)return true;
  if(!checkpoint(23))return false;
@@ -842,6 +864,7 @@ static bool cpu_guard(void) {
  struct vmm_physical_span pair[2];
  for(unsigned i=0;i<2;i++)pair[i]=(struct vmm_physical_span){stolen.cpu.span[i].physical,stolen.cpu.span[i].pages};
  bool ok=false;
+ if(stolen.import.submission && !sample_wireless_capture(0))goto done;
  if(!tick(stolen.begin[1]) || !cpu_guard_operation(0,pair)){refuse(30);goto done;}
  stolen.guard.acquired=1;
  if(!tick(stolen.begin[1]) || !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source))goto done;
@@ -854,7 +877,8 @@ static bool cpu_guard(void) {
  if(!tick(stolen.begin[1]) || !identity() || !sole_root() ||
     !intel_window_handoff_revalidate(&stolen.source))goto done;
  if(!cpu_guard_operation(2,pair)){refuse(30);goto done;}
- stolen.guard.closed=1;ok=observed;
+ stolen.guard.closed=1;
+ ok=observed && (!stolen.import.submission || sample_wireless_capture(1));
 done:
  if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
  if(stolen.import.token.object && !stolen.import.returned && !stolen.uncertain) {
@@ -991,7 +1015,10 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.import.submission)
-  console_printf("intel-submission-guard: v=1 pages=%u closed=%u\n",(uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed);
+  console_printf("intel-submission-guard: v=2 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x\n",
+   (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
+   (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
+   (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2]);
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,
