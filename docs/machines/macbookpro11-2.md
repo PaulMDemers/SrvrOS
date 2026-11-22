@@ -20780,3 +20780,9 @@ provider retired and safe return. Both workspace comparisons report
 no changed or missing prior files and verified Ubuntu default and recovery.
 The repeat also compared identically through its saved collection bundle.
 These findings reuse the archived physical evidence.
+
+Integration scope for PRs #513, #514, #516 and #519 starts from main
+`0273ba64` and comparison head `12b3234f`. Validate the combined host
+commands with focused tests and the complete Wi-Fi, partial Retina and
+missing-session archives. Compare both collectors on the next planned
+native return, using the same volume, pre-boot baseline and session.
