@@ -1249,7 +1249,9 @@ static bool reset_port_mode(uint64_t index,bool replacement) {
     uint64_t offset = port_offset(index);
     uint32_t state = op_read32(offset);
     port->reset_result = "disconnected";
-    if ((state & XHCI_PORTSC_CCS) == 0 || (replacement && (state & XHCI_PORTSC_CSC))) {
+    if (!(state & XHCI_PORTSC_CCS) || (replacement && (state & (XHCI_PORTSC_CSC | XHCI_PORTSC_PR)))) {
+        if(replacement && (state & XHCI_PORTSC_CCS))port->reset_result="connect-changed";
+        port->reset_portsc = state;
         port->portsc = state;
         return false;
     }
@@ -1258,19 +1260,31 @@ static bool reset_port_mode(uint64_t index,bool replacement) {
      * before requesting reset; PR=0 alone does not establish completion. */
     op_write32(offset, portsc_neutral(state) | (state & XHCI_PORTSC_CHANGE_MASK));
     state = op_read32(offset);
+    if(replacement && (state&(XHCI_PORTSC_CCS|XHCI_PORTSC_CSC|XHCI_PORTSC_PR))!=XHCI_PORTSC_CCS) {
+        port->reset_result="connect-changed";
+        port->reset_portsc=port->portsc=state;
+        return false;
+    }
     op_write32(offset, portsc_neutral(state) | XHCI_PORTSC_PR);
     port->reset_attempts++;
     xhci.ports_reset++;
     port->reset_result = "reset-timeout";
     for (uint32_t elapsed = 0; elapsed <= 500; elapsed++) {
         state = op_read32(offset);
-        if ((state & XHCI_PORTSC_CCS) == 0 || (replacement && (state & XHCI_PORTSC_CSC))) {
+        if (!replacement && !(state & XHCI_PORTSC_CCS)) {
             port->reset_result = "disconnected";
             break;
         }
         if ((state & XHCI_PORTSC_PRC) != 0 && (state & XHCI_PORTSC_PR) == 0) {
-            port->reset_result = (state & XHCI_PORTSC_PED) ? "ready" : "reset-disabled";
-            break;
+            /* A USB2 port can lose its connection indication during reset
+             * and take time to regain it. CSC is sticky. If it is set once
+             * connected, the replacement still needs a new stable reset. */
+            if (state & XHCI_PORTSC_CCS) {
+                port->reset_result = replacement && (state & XHCI_PORTSC_CSC) ? "connect-changed" :
+                    (state & XHCI_PORTSC_PED) ? "ready" : "reset-disabled";
+                break;
+            }
+            port->reset_result = "disconnected";
         }
         if (elapsed == 500) break;
         if (!wait_microframes(8)) { /* 1 ms, bounded even if MFINDEX stalls. */
@@ -1281,7 +1295,8 @@ static bool reset_port_mode(uint64_t index,bool replacement) {
     port->reset_portsc = state; /* Keep completion/change bits for diagnostics. */
     op_write32(offset, portsc_neutral(state) | (state & XHCI_PORTSC_CHANGE_MASK));
     bool complete = (state & (XHCI_PORTSC_CCS | XHCI_PORTSC_PED | XHCI_PORTSC_PRC | XHCI_PORTSC_PR)) ==
-        (XHCI_PORTSC_CCS | XHCI_PORTSC_PED | XHCI_PORTSC_PRC);
+        (XHCI_PORTSC_CCS | XHCI_PORTSC_PED | XHCI_PORTSC_PRC) &&
+        (!replacement || !(state & XHCI_PORTSC_CSC));
     if (complete && !wait_microframes(80)) { /* USB reset recovery: 10 ms. */
         port->reset_result = "clock-stalled";
         complete = false;
@@ -3920,8 +3935,11 @@ struct wifi_root_reattach {
     struct xhci_device *previous,*replacement;
     enum wifi_root_reattach_phase phase;
     uint64_t stable_at;
+    unsigned resets;
     bool stable;
 };
+
+#define WIFI_ROOT_REATTACH_RESETS 3u
 
 /* Called by the Wi-Fi owner after all of its software users have retired.
  * A single root-port replacement gets a fresh record. The retired record and
@@ -3943,31 +3961,35 @@ static bool wifi_root_reattach_begin(struct wifi_root_reattach *trial,struct xhc
     return true;
 }
 
-static bool wifi_root_reattach_enumerate(struct wifi_root_reattach *trial,uint64_t index) {
+/* The caller has proved a stable high-speed reset on this one port. A new
+ * failure after allocating a record is terminal and retains all new DMA. */
+static const char *wifi_root_reattach_enumerate(struct wifi_root_reattach *trial) {
     const struct xhci_device *old=trial->previous;
-    if(!reset_port_mode(index,true) || port_speed(xhci.ports[index].portsc)!=old->speed)return false;
     struct xhci_device *device=allocate_device_record();
-    if(!device)return false;
+    if(!device)return "record-unavailable";
     *device=(struct xhci_device){.present=true,.port_id=old->port_id,.speed=old->speed,
         .ep0_max_packet=default_ep0_packet_for_speed(old->speed),.slot_type=root_port_slot_type(old->port_id)};
     trial->replacement=device;
     uint16_t length=0;
-    if(!read_device_descriptors(device,&length) ||
-       !probe_wifi(device,length,&old->wifi_identity) || !device->wifi_probe_ok ||
-       (wifi_firmware_enabled && !device->firmware.configured) || device_removed(device))return false;
+    if(!read_device_descriptors(device,&length))return "descriptors";
+    if(!probe_wifi(device,length,&old->wifi_identity) || !device->wifi_probe_ok)return "identity";
+    if(wifi_firmware_enabled && !device->firmware.configured)return "firmware-endpoint";
+    if(device_removed(device))return "removed-after-enumeration";
     device->stage="wifi-root-reattached";
-    return true;
+    return NULL;
 }
 
 static enum wifi_root_reattach_phase wifi_root_reattach_step(struct wifi_root_reattach *trial) {
     uint64_t flags=event_irq_save();
     struct xhci_device *old=trial->previous;
+    const char *failure="controller";
     if(!old || trial->phase>=WIFI_ROOT_READY)goto done;
     if(!xhci.operational || !xhci.controller_owned || xhci.stopping || !xhci.dcbaa ||
        xhci.command_failed || firmware_command_failed)goto failed;
     uint64_t index=old->port_id-1;
     uint64_t offset=port_offset(index);
     uint32_t state=op_read32(offset);
+    failure="port-read";
     if(state==UINT32_MAX)goto failed;
     if(trial->phase==WIFI_ROOT_WAIT_REMOVAL) {
         if(state&XHCI_PORTSC_CCS)goto done;
@@ -3981,6 +4003,7 @@ static enum wifi_root_reattach_phase wifi_root_reattach_step(struct wifi_root_re
         if(!scheduler_io_begin())goto done;
         bool disabled=xhci_retire_slot(old->slot_id);
         scheduler_io_end();
+        failure="disable-slot";
         if(!disabled || !old->slot_disabled || xhci.dcbaa[old->slot_id])goto failed;
         old->wifi_replaced=true;
         trial->phase=WIFI_ROOT_WAIT_INSERTION;
@@ -3992,7 +4015,7 @@ static enum wifi_root_reattach_phase wifi_root_reattach_step(struct wifi_root_re
         trial->stable=false;
         goto done;
     }
-    if(!(state&XHCI_PORTSC_CCS)) {
+    if(!(state&XHCI_PORTSC_CCS) || (state&XHCI_PORTSC_PR)) {
         trial->stable=false;
         goto done;
     }
@@ -4002,6 +4025,7 @@ static enum wifi_root_reattach_phase wifi_root_reattach_step(struct wifi_root_re
         trial->stable=true;
         goto done;
     }
+    failure="clock";
     if(now<trial->stable_at)goto failed;
     if(now-trial->stable_at<100000)goto done;
     if(!scheduler_io_begin())goto done;
@@ -4015,20 +4039,39 @@ static enum wifi_root_reattach_phase wifi_root_reattach_step(struct wifi_root_re
     }
     if(drained==XHCI_EVENT_TRB_COUNT) {scheduler_io_end();goto done;}
     state=op_read32(offset);
-    if((state&(XHCI_PORTSC_CCS|XHCI_PORTSC_CSC))!=XHCI_PORTSC_CCS) {
+    if((state&(XHCI_PORTSC_CCS|XHCI_PORTSC_CSC|XHCI_PORTSC_PR))!=XHCI_PORTSC_CCS) {
         scheduler_io_end();trial->stable=false;goto done;
     }
-    bool ready=wifi_root_reattach_enumerate(trial,index);
+    trial->resets++;
+    const struct xhci_port_state *port=&xhci.ports[index];
+    bool reset=reset_port_mode(index,true);
+    uint32_t after=op_read32(offset);
+    bool ready=reset && port_speed(after)==old->speed &&
+        (after&(XHCI_PORTSC_CCS|XHCI_PORTSC_PED|XHCI_PORTSC_CSC|XHCI_PORTSC_PR))==(XHCI_PORTSC_CCS|XHCI_PORTSC_PED);
+    console_printf("wifi-root-reattach-reset: attempt=%u result=%s ready=%u before=%x completion=%x after=%x speed=%u\n",
+        (uint64_t)trial->resets,port->reset_result,(uint64_t)ready,(uint64_t)state,
+        (uint64_t)port->reset_portsc,(uint64_t)after,(uint64_t)port_speed(after));
+    if(!ready) {
+        scheduler_io_end();
+        trial->stable=false;
+        failure="reset";
+        /* No replacement slot has been allocated. A transient attach or
+         * wrong negotiated speed can be retried after another debounce.
+         * An in-progress reset or unreadable port cannot accept a new PR. */
+        if(trial->resets<WIFI_ROOT_REATTACH_RESETS && after!=UINT32_MAX && !(after&XHCI_PORTSC_PR))goto done;
+        goto failed;
+    }
+    failure=wifi_root_reattach_enumerate(trial);
     scheduler_io_end();
-    if(!ready)goto failed;
+    if(failure)goto failed;
     trial->phase=WIFI_ROOT_READY;
     console_printf("wifi-root-reattach: enumerated=1 port=%u old_slot=%u slot=%u\n",
         (uint64_t)old->port_id,(uint64_t)old->slot_id,(uint64_t)trial->replacement->slot_id);
     goto done;
 failed:
     trial->phase=WIFI_ROOT_FAILED;
-    console_printf("wifi-root-reattach: failed=1 port=%u old_disabled=%u new_record=%u\n",
-        (uint64_t)old->port_id,(uint64_t)old->slot_disabled,(uint64_t)(trial->replacement!=NULL));
+    console_printf("wifi-root-reattach: failed=1 port=%u old_disabled=%u new_record=%u reason=%s resets=%u\n",
+        (uint64_t)old->port_id,(uint64_t)old->slot_disabled,(uint64_t)(trial->replacement!=NULL),failure,(uint64_t)trial->resets);
 done:
     event_irq_restore(flags);
     return trial->phase;

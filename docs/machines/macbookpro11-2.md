@@ -34,6 +34,24 @@ GPT workspace save/reset check and all four independent journal rehearsals.
 Physical run records are under
 `build/bringup/wifi-root-reattach5`.
 
+Cold session `session-000660d35ac3b690-00` connected to Demers5, passed a
+gateway ping, and completed the clean Disconnect. The driver detected removal
+on root port 1 and disabled slot 1. Reattachment failed before it allocated a
+replacement record. System's Devices list correctly showed seven USB devices
+after the old record was retired. The saved log did not include the reset
+completion or negotiated speed needed to identify the exact hardware event.
+All seven journal checkpoints, clean exFAT, the 507 prior workspace files,
+automatic return to Ubuntu, and the v152 recovery passed. The v153 image and
+matching failed-run evidence are archived under
+`/var/local/srvros-recovery/macbookpro11-2`.
+
+The follow-up covers the pre-enumeration USB2 reset on the same root port.
+It records the raw port state before, at completion and after reset, and
+retries a failed reset after a fresh debounce while the old slot remains
+disabled and no replacement slot has been allocated. The [Linux USB hub
+reset path](https://code.googlesource.com/linux/torvalds/linux/%2B/d97ae6474ca0411bb8c2696e5764ec946dba43d0/drivers/usb/core/hub.c#2840)
+also waits for the connection to settle and retries a USB2 connection change.
+
 ### Same-boot Demers5 desktop reconnect
 
 Work starts at `8b38e6eb` with `origin/main` at `4016abf0`. PR #19 covers

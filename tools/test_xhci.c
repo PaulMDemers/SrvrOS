@@ -89,6 +89,7 @@ static _Alignas(4096) uint8_t registers[XHCI_MMIO_MAP_SIZE];
  * real RW1C change bits, and a wrapping MFINDEX. Other tests use plain memory. */
 static struct {
     bool active, frozen, connected, reset_pending, never_complete, disabled;
+    bool change_during_first_reset,fs_during_first_reset;
     uint32_t now, connect_at, disconnect_at, reset_at, finished_at, state;
     unsigned resets;
 } port_model;
@@ -101,9 +102,16 @@ static void model_update(void) {
     if (port_model.reset_pending) {
         uint32_t age = port_model.now - port_model.reset_at;
         if (age >= 80) port_model.state |= XHCI_PORTSC_PR; /* Posted reset. */
+        if(port_model.resets==1 && port_model.change_during_first_reset && age>=80 && age<800) {
+            port_model.state&=~(XHCI_PORTSC_CCS|XHCI_PORTSC_PED);
+            port_model.state|=XHCI_PORTSC_CSC;
+        }
         if (age >= 800 && !port_model.never_complete) {
             port_model.state &= ~XHCI_PORTSC_PR;
             port_model.state |= XHCI_PORTSC_PRC;
+            if(port_model.change_during_first_reset && port_model.resets==1)port_model.state|=XHCI_PORTSC_CCS;
+            if(port_model.fs_during_first_reset)
+                port_model.state=(port_model.state & ~(15u<<10)) | ((port_model.resets==1?1u:3u)<<10);
             if (!port_model.disabled) port_model.state |= XHCI_PORTSC_PED;
             port_model.reset_pending = false;
             port_model.finished_at = port_model.now;
@@ -7590,7 +7598,7 @@ static void root_reattach_model(uint64_t offset,uint32_t value) {
 }
 
 static void test_wifi_root_reattach(void) {
-    for(unsigned fault=0;fault<5;fault++) {
+    for(unsigned fault=0;fault<8;fault++) {
         stop_fixture();
         static uint64_t dcbaa[256];memset(dcbaa,0,sizeof dcbaa);xhci.dcbaa=dcbaa;
         xhci.max_slots=8;xhci.port_count=2;
@@ -7633,16 +7641,38 @@ static void test_wifi_root_reattach(void) {
             assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION && !port_model.resets);
             test_time+=100000;
             if(fault==4)port_model.never_complete=true;
-            assert(wifi_root_reattach_step(&trial)==(fault?WIFI_ROOT_FAILED:WIFI_ROOT_READY));
-            if(fault==4)assert(!trial.replacement && !dcbaa[1] && root_reattach_commands==1);
+            if(fault==5)port_model.change_during_first_reset=true;
+            if(fault==6)port_model.fs_during_first_reset=true;
+            if(fault==7) {
+                port_model.disabled=true;
+                port_model.state&=~XHCI_PORTSC_PED;
+            }
+            if(fault>=5) {
+                unsigned max_resets=fault==7?WIFI_ROOT_REATTACH_RESETS:2;
+                for(unsigned attempt=1;attempt<max_resets;attempt++) {
+                    assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION);
+                    assert(trial.resets==attempt && port_model.resets==attempt && !port_model.reset_pending);
+                    assert(!trial.replacement && !dcbaa[1] && root_reattach_commands==1);
+                    if(fault==5)assert(xhci.ports[0].reset_portsc&XHCI_PORTSC_CSC);
+                    if(fault==6)assert(port_speed(xhci.ports[0].portsc)==1);
+                    assert(wifi_root_reattach_step(&trial)==WIFI_ROOT_WAIT_INSERTION && trial.stable);
+                    test_time+=100000;
+                }
+            }
+            bool success=!fault || fault==5 || fault==6;
+            assert(wifi_root_reattach_step(&trial)==(success?WIFI_ROOT_READY:WIFI_ROOT_FAILED));
+            if(fault==4 || fault==7) {
+                assert(!trial.replacement && !dcbaa[1] && root_reattach_commands==1);
+                assert(trial.resets==(fault==4?1u:WIFI_ROOT_REATTACH_RESETS));
+            }
             else {
                 struct xhci_device *fresh=trial.replacement;
                 assert(fresh==&xhci.devices[2] && device_by_slot(1)==fresh && fresh->slot_id==old->slot_id);
                 assert(dcbaa[1]==fresh->output_context_phys && fresh->output_context_phys!=old->output_context_phys);
                 assert(fresh->ep0_ring_phys!=old->ep0_ring_phys && fresh->descriptor_buffer_phys!=old->descriptor_buffer_phys);
-                assert(fresh->firmware.configured==!fault && fresh->wifi_probe_ok==!fault);
-                assert(root_reattach_commands==(fault?3u:4u) && root_reattach_controls==(fault==3?4u:fault==2?6u:7u));
-                if(!fault) {
+                assert(fresh->firmware.configured==success && fresh->wifi_probe_ok==success);
+                assert(root_reattach_commands==(success?4u:3u) && root_reattach_controls==(fault==3?4u:fault==2?6u:7u));
+                if(success) {
                     native_boundary_mmio_hook=NULL;disable_auto=true;
                     assert(xhci_retire_slot(1) && fresh->slot_disabled && !dcbaa[1]);
                 }
@@ -7652,7 +7682,7 @@ static void test_wifi_root_reattach(void) {
         for(unsigned i=0;i<PMM_FRAME_SIZE;i++)assert(((uint8_t *)old->ep0_ring)[i]==0x5a);
     }
     wifi_probe_enabled=wifi_firmware_enabled=test_io_gate_allowed=false;
-    puts("xhci Wi-Fi root reattach: PASS Disable Slot, fresh records and buffers, reused slot ID, stale EP0 completion, storage exclusion, and replacement refusal");
+    puts("xhci Wi-Fi root reattach: PASS exact slot retirement, fresh DMA, stale completion exclusion, USB2 reset bounce, transient speed, bounded reset failure, and storage isolation");
 }
 static void test_start_reset_boundaries(void) {
     stop_fixture();halt_after=0;start_status_model=true;

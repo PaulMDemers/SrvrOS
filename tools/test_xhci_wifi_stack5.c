@@ -661,13 +661,14 @@ static void desktop_reattach_case(void){
  old->port_id=1;old->speed=3;old->addressed=true;
  old->wifi_identity=(struct mt76_identity){0x76100002,0x76502000};
  port_model.active=port_model.connected=true;
+ port_model.change_during_first_reset=true;
  port_model.state=(3u<<10)|XHCI_PORTSC_PP|XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
  wifi_probe_enabled=wifi_firmware_enabled=true;
  assert(xhci_wifi_capture_desktop_reattach5(&ap,desktop_begin,desktop_reattach_running));
  assert(old->removed && old->slot_disabled && old->wifi_replaced && wifi_stack5.retired && resident_parked);
  struct xhci_device *fresh=device_by_slot(1),*disk=&xhci.devices[1];
  assert(fresh==&xhci.devices[2] && fresh->firmware.configured && !fresh->firmware.attempted);
- assert(root_reattach_commands==4 && root_reattach_controls==7 && !test_io_active && !freed);
+ assert(port_model.resets==2 && root_reattach_commands==4 && root_reattach_controls==7 && !test_io_active && !freed);
  struct srv_wifi_snapshot wifi;
  assert(wifi_service_snapshot(wifi_desktop5.owner,&wifi)==SRV_WIFI_STALE);
  struct srv_device_info info;
