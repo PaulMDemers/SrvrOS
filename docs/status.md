@@ -22,6 +22,17 @@ configure dependency is PCRE2 8-bit. See the
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
 open and draft under its own acceptance ledger.
 
+## Offline profile restoration
+
+[OS #502](https://github.com/PaulMDemers/SrvrOS/pull/502) adds streaming-v2
+bundle admission and restoration into a fresh offline installation. Two EFI
+boots verified the restored identity, local binding, preferences and exact bytes
+of all three selected documents, including a 16 MiB file. A separate v1 restore
+boot passed. The current-main refresh reproduced the proof inputs byte for byte.
+Offline export and export-publication recovery still use canonical v1.
+See the [installation guide](disk-installation.md) and
+[qualification manifest](assets/screenshots/installation-stream-restore-manifest.json).
+
 ## Final local integration and workspace reset
 
 The local closeout deliverables are integrated, including the bounded browser
@@ -75,10 +86,9 @@ hardware qualification.
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
 | Browser | The initial GC abort was attributed to unavailable entropy. Provider-only entropy and bounded no-JIT JavaScript/GC checks now pass on the reconciled current-main kernels; Ports #9 and OS #334 deliver the milestone. See [browser work](browser-port.md). No full browser or production capability acceptance is claimed. |
 
-Offline installation export and export-publication recovery remain canonical
-v1. The separate guest profile v2 streaming milestone does not add offline v2
-installation admission or export; that later work is deferred. See the
-[installation format boundary](disk-installation.md).
+At that closeout, offline installation export and export-publication recovery
+used canonical v1, and offline v2 admission and export were deferred. The
+[installation guide](disk-installation.md) records the later restore workflow.
 
 The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
 completed delivery and explicit exceptions. Physical-device PRs #301 and #19 retain separate owners and
