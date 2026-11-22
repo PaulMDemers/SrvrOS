@@ -42,7 +42,7 @@ def make_stream(path):
     """Write frozen v2 wire format using at most one 64 KiB payload block."""
     portable = desktop.make_bundle()
     docs = [('Documents/migration.txt', create.TEXT),
-            ('Documents/binary.dat', create.BINARY),
+            ('Documents/binary.profile-import.dat', create.BINARY),
             ('Documents/large.bin', bytes(range(256)) * (CHUNK // 256))]
     sizes = [len(create.TEXT), len(create.BINARY), stream.MAX_FILE]
     metadata = []
@@ -101,7 +101,7 @@ def main():
         receipt['firmware'] = firmware
         receipt['qemu_version'] = subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0]
         tool_names = ('installation_stream_restore_smoke.py', 'installation_image.py', 'profile_stream.py',
-                      'profile_image.py', 'profile_image_driver.c',
+                      'profile_image.py', 'profile_image_driver.c', 'installation_inspection.py',
                       'profile_bundle.py', 'profile_chooser_smoke.py', 'profile_create_smoke.py',
                       'profile_transfer_smoke.py', 'installation_export_recovery_smoke.py', 'exfat_test_image.py')
         receipt['tools'] = {name: image.digest(ROOT / 'tools' / name) for name in tool_names}
@@ -175,7 +175,7 @@ def main():
                 require(len(data) == item['size'] and digest == item['sha256'], 'document differs: ' + item['path'])
                 hashes[item['path']] = {'size': len(data), 'sha256': digest}
             require({name for name, _ in fs.entries(fs.read(prefix + 'Documents')) if name not in ('.', '..')} ==
-                    {'migration.txt', 'binary.dat', 'large.bin'}, 'unexpected Documents entries')
+                    {'migration.txt', 'binary.profile-import.dat', 'large.bin'}, 'unexpected Documents entries')
             for name in ('Documents/unselected.txt', '.config/credential-sentinel.fixture',
                          '.local/share/app-state.fixture', '.cache/runtime-cache.fixture', '.profile-import-pending'):
                 create.absent(fs, prefix + name)

@@ -26,9 +26,12 @@ document at a time, checks its hash, and uses the native exFAT stream backend
 to write, sync and read it back in chunks. GPT/ESP assembly retains the existing
 image-sized allocations. Before the image can publish, the installer rechecks
 the source and verifies the assembled disk and provisioned data partition.
+The native writer reserves the VFS identities of `/` and `/init`, matching
+installed boot before exFAT sidecar metadata is restored.
 
 V2 requires a fresh template with clean allocation, the installed root
 directories and no existing portable profile or pending profile scratch.
+An ordinary filename under `Documents` can contain the text `.profile-import`.
 Malformed or changed bundles, incorrect expected UUIDs, existing destinations,
 and insufficient space prevent publication. If `apply` fails before a verified
 publication record exists, keep that stage for inspection and use a new stage

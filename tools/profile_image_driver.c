@@ -5,6 +5,17 @@
 #include <srvros/exfat_stream.h>
 #include <strings.h>
 
+static bool bootstrap_placeholder(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
+    (void)node; (void)data; (void)size;
+    return false;
+}
+
+static bool document_path(const char *path) {
+    if(strncasecmp(path,"/fat/home/",10))return false;
+    const char *subpath=strchr(path+10,'/');
+    return subpath && !strncasecmp(subpath,"/Documents/",11);
+}
+
 /* Audit the entire profile namespace, including case-folded scratch names. */
 static bool stream_audit(bool fresh) {
     const char *roots[]={"/fat/bin","/fat/var","/fat/home"};
@@ -34,7 +45,8 @@ static bool stream_audit(bool fresh) {
         char folded[SRV_PATH_MAX];size_t len=strlen(leaf);
         if(len>=sizeof(folded))return false;
         for(size_t k=0;k<=len;k++)folded[k]=(leaf[k]>='A' && leaf[k]<='Z') ? (char)(leaf[k]+('a'-'A')) : leaf[k];
-        if(strstr(folded,".profile-import") || !strncmp(folded,".profile-copy-temp",18) || !strncmp(folded,".desktop-profile.tmp",20)) {
+        if(!document_path(n->path) && (strstr(folded,".profile-import") ||
+            !strncmp(folded,".profile-copy-temp",18) || !strncmp(folded,".desktop-profile.tmp",20))) {
             fputs("profile image driver: pending profile marker, journal, or scratch\n",stderr);return false;
         }
         for(uint64_t j=0;j<i;j++) {
@@ -142,6 +154,9 @@ int main(int argc, char **argv) {
     }
     struct block_device device={.used=true,.name="profile-stage",.block_size=512,.block_count=(uint64_t)st.st_size/512,
         .read=block_read,.write=block_write,.flush=flush};
+    /* The installed bootstrap tar contains only /init. Keep both boot VFS
+     * identities live so clean sidecar restore and allocation match the guest. */
+    if(!vfs_register_directory("/") || !vfs_register_file("/init",0,NULL,bootstrap_placeholder))goto done;
     /* Sidecar records contain absolute paths: use the guest mount, and refuse
      * pending/malformed metadata without repair before any mutation. */
     if(!exfat_mount_block_device_clean("/fat",&device)) goto done;

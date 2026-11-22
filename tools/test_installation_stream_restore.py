@@ -28,11 +28,11 @@ class StreamInstallationTests(unittest.TestCase):
         self.log = self.root / 'driver.log'
         self.fake_driver()
 
-    def write_bundle(self, data):
+    def write_bundle(self, data, path='Documents/test.txt'):
         metadata = {'format': profiles.FORMAT, 'schema_version': 2,
                     'profile': {'id': self.ident, 'display_name': 'Stream User'},
                     'preferences': {'text_size': 16},
-                    'documents': [{'path': 'Documents/test.txt', 'size': len(data),
+                    'documents': [{'path': path, 'size': len(data),
                                    'sha256': hashlib.sha256(data).hexdigest()}]}
         manifest = json.dumps(metadata, separators=(',', ':')).encode()
         self.bundle_path.write_bytes(stream.HEADER.pack(stream.MAGIC, len(manifest), 0) + manifest + data)
@@ -142,13 +142,16 @@ class StreamInstallationTests(unittest.TestCase):
     def test_native_large_stream_exact_data(self):
         # Large enough to exercise streaming across many native I/O buffers.
         data = bytes(range(256)) * (16 * 1024 * 1024 // 256)
-        metadata = self.write_bundle(data)
+        metadata = self.write_bundle(data, 'Documents/drafts.profile-import/test.txt')
         self.seed_native(48 * 1024 * 1024)
         original = install.digest(self.exfat)
         self.prepare()
         self.apply()
         fs = ExfatFixture((self.target / 'profile.exfat').read_bytes())
-        self.assertEqual(fs.read('home/alice/Documents/test.txt'), data)
+        self.assertEqual(fs.read('home/alice/Documents/drafts.profile-import/test.txt'), data)
+        sidecar = fs.read('.srvros/meta').decode('ascii').splitlines()[1:]
+        self.assertTrue(sidecar)
+        self.assertTrue(all(int(entry.split('\t')[1]) > 2 for entry in sidecar))
         self.assertEqual(profiles.decode_json(fs.read('home/alice/identity.json')), metadata['profile'])
         self.assertEqual(profiles.decode_json(fs.read('home/alice/.config/srvros/portable.json')), metadata['preferences'])
         self.assertEqual(install.digest(self.exfat), original)
@@ -156,6 +159,7 @@ class StreamInstallationTests(unittest.TestCase):
     @unittest.skipUnless(DRIVER.is_file(), 'native driver absent; run make test-installed-root to build it')
     def test_native_pending_collision_and_capacity_refuse(self):
         cases = (('pending', 4 * 1024 * 1024, (('mkdir', '/fat/home/.profile-import-pending'),), b'x'),
+                 ('journal', 4 * 1024 * 1024, (('mkdir', '/fat/home/alice.profile-import.json'),), b'x'),
                  ('collision', 4 * 1024 * 1024, (('mkdir', '/fat/home/alice'),), b'x'),
                  ('capacity', 4 * 1024 * 1024, (), b'x' * (4 * 1024 * 1024)))
         for name, size, extra, data in cases:

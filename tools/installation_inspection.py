@@ -172,6 +172,10 @@ def catalog(result, planned):
         return fs, [], None
     directory('/fat/home')
     for path in paths:
+        parts = path.split('/', 5)
+        if len(parts) == 6 and parts[4].lower() == 'documents':
+            # Import and selection journals live outside the Documents tree.
+            continue
         leaf = path.rsplit('/',1)[-1].lower()
         require(not ('.profile-import' in leaf or leaf.startswith('.profile-copy-temp') or leaf.startswith('.desktop-profile.tmp')), 'pending import or selection scratch: ' + path)
     homes = [x for x,e in paths.items() if x.count('/') == 3 and e['type'] == 'directory' and any(x+'/'+name in paths for name in ('profile.id','identity.json','profile-local.json','.profile-import-pending'))]
