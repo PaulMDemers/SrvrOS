@@ -21,7 +21,7 @@ FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion','hardware-observation','scanout-range','aperture-guard-query')
+          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion','hardware-observation','scanout-range','aperture-guard-query','firmware-interval-import')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
 HEX.update(['virtual','entry','physical']+['w'+str(i) for i in range(42)])
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
@@ -41,7 +41,7 @@ def verify_stolen_preinit(text):
 
 def stolen_recipe(command):
     tokens=command.split()
-    for token in ('srvros.intel-scanout=range-observation','srvros.intel-scanout=private-range'):
+    for token in ('srvros.intel-scanout=range-observation','srvros.intel-scanout=private-range','srvros.intel-scanout=firmware-import'):
         if token in tokens:
             tokens.remove(token)
             break
@@ -276,14 +276,14 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,14) else ''
-        if kind=='summary' and version in range(3,14):extra+=' preflight'
-        if kind=='summary' and version in range(4,14):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in range(5,14):extra+=' reader_reads'
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,15) else ''
+        if kind=='summary' and version in range(3,15):extra+=' preflight'
+        if kind=='summary' and version in range(4,15):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in range(5,15):extra+=' reader_reads'
         if kind=='range' and version in (2,3,4):extra+=' reservation returned'
         if kind=='range' and version in (3,4):extra+=' protected_pages'
         if kind=='range' and version==4:extra+=' aperture_page aperture_alias frame0 frame1 frame_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,14) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,15) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
@@ -311,7 +311,7 @@ def stolen_result(text,*,native=False,required_version=None):
     if wire>=5:verify_owner_progress(rows,s)
     if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
     if wire>=2:
-        if s['cache_index']!=3 or s['fail']>=len(FAILURES) or (s['fail']==33 and wire<12) or s['offset']>=0x1000000 or s['offset']&3:
+        if s['cache_index']!=3 or s['fail']>=len(FAILURES) or (s['fail']==34 and wire<14) or (s['fail']==33 and wire<12) or s['offset']>=0x1000000 or s['offset']&3:
             raise ValueError('stolen admission receipt')
         if any(s[k] not in (0,1,4,5,6,7,255) for k in ('mtrr','pat','effective')):raise ValueError('stolen cache type encoding')
         success=bool(s['complete'] and s['released'] and not s['retained'])
@@ -445,6 +445,28 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('private range MMIO coverage')
             extra_aliases=2*batches
         result['private_range']=h
+    imports=[line for line in text.splitlines() if line.startswith('intel-firmware-import:')]
+    if len(imports)!=int(wire==14):
+        raise ValueError('missing or unexpected firmware import')
+    if imports:
+        from intel_gt_bootstrap import fields
+        h=fields(imports[0],'intel-firmware-import:',
+                 'v first pages borrowed samples original last returned conflicts writes grants'.split(),('original','last'))
+        if (h['writes'] or h['grants'] or h['borrowed']>1 or h['returned']>h['borrowed'] or
+            h['samples']>2*h['borrowed'] or h['conflicts']>3 or
+            (h['first'],h['pages']) not in ((0,0),(8704,3072)) or
+            (h['borrowed'] and (not h['pages'] or not h['conflicts'])) or
+            (not h['borrowed'] and h['conflicts']>1) or
+            (h['conflicts']==3 and not h['returned'])):
+            raise ValueError('invalid firmware import or borrower')
+        if complete:
+            entry=rows['run'][4]['first']
+            if ((h['first'],h['pages'],h['borrowed'],h['samples'],h['returned'],h['conflicts'])!=(8704,3072,1,2,1,3) or
+                h['original']!=entry or h['last']!=entry or not r['verified'] or not r['returned']):
+                raise ValueError('incomplete firmware return or original translation')
+            extra_maps+=2
+            range_reads+=6
+        result['firmware_import']=h
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -539,14 +561,15 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
     command=lines[0].split('=',1)[1]
     stolen_recipe(command)
     if (('srvros.intel-scanout=range-observation' in command.split())!=(9<=result['version']<=12) or
-        ('srvros.intel-scanout=private-range' in command.split())!=(result['version']==13)):
+        ('srvros.intel-scanout=private-range' in command.split())!=(result['version']==13) or
+        ('srvros.intel-scanout=firmware-import' in command.split())!=(result['version']==14)):
         raise ValueError('stolen range recipe/version mismatch')
     prefixes=('intel-display-','intel-backing-','intel-cache-','intel-window-')
     before=[l for l in preflight.splitlines() if l.startswith(prefixes)]

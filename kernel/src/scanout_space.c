@@ -1,4 +1,5 @@
 #include <srvros/scanout_space.h>
+#include <stddef.h>
 
 static bool range_valid(struct scanout_space_range r, uint32_t pages) {
     return r.pages && r.first < pages && r.pages <= pages - r.first;
@@ -16,15 +17,26 @@ static bool compatible(const struct scanout_interval *a, const struct scanout_in
 }
 
 static bool register_interval(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
-                              uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
+                              uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages,
+                              const struct scanout_interval *lender, bool firmware) {
     if (!node || !mmio || !aperture || !bytes || bytes > SCANOUT_SPACE_PAGES * 4096ull ||
         ((mmio | aperture | bytes | fence_end) & 4095) || aperture > UINT64_MAX - bytes ||
         !fence_end || fence_end > bytes ||
         !range_valid(pages, (uint32_t)(bytes / 4096))) return false;
-    struct scanout_interval candidate = {mmio, aperture, bytes, fence_end, pages, 0};
+    struct scanout_interval candidate = {mmio, aperture, bytes, fence_end, pages, 0, firmware};
     if (boot_framebuffer.mmio && !compatible(&candidate, &boot_framebuffer)) return false;
-    for (struct scanout_interval *held = intervals; held; held = held->next)
-        if (held == node || !compatible(&candidate, held)) return false;
+    bool found = !lender;
+    for (struct scanout_interval *held = intervals; held; held = held->next) {
+        if (held == node) return false;
+        if (held == lender) {
+            if (!held->firmware || held->mmio != mmio || held->aperture != aperture ||
+                held->aperture_bytes != bytes || held->fence_end != fence_end ||
+                pages.first < held->pages.first ||
+                pages.first + pages.pages > held->pages.first + held->pages.pages) return false;
+            found = true;
+        } else if (!compatible(&candidate, held)) return false;
+    }
+    if (!found) return false;
     *node = candidate;
     /* Only child leases participate in the releasable list. */
     if (node != &boot_framebuffer) {
@@ -45,13 +57,25 @@ bool scanout_interval_protect_boot_framebuffer(uint64_t mmio, uint64_t aperture,
     if (boot_framebuffer.mmio)
         return scanout_interval_boot_framebuffer_matches(mmio, aperture, bytes, fence_end);
     return register_interval(&boot_framebuffer, mmio, aperture, bytes, fence_end,
-                             (struct scanout_space_range){0, (uint32_t)(fence_end / 4096)});
+                             (struct scanout_space_range){0, (uint32_t)(fence_end / 4096)}, NULL, false);
 }
 
 bool scanout_interval_claim(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
                             uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
     return pages.first >= fence_end / 4096 &&
-           register_interval(node, mmio, aperture, bytes, fence_end, pages);
+           register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, false);
+}
+
+bool scanout_interval_import_firmware(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
+                                      uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
+    return scanout_interval_boot_framebuffer_matches(mmio, aperture, bytes, fence_end) &&
+           register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, true);
+}
+
+bool scanout_interval_borrow(struct scanout_interval *node, const struct scanout_interval *firmware,
+                             uint64_t mmio, uint64_t aperture, uint64_t bytes, uint64_t fence_end,
+                             struct scanout_space_range pages) {
+    return firmware && register_interval(node, mmio, aperture, bytes, fence_end, pages, firmware, false);
 }
 
 bool scanout_interval_held(const struct scanout_interval *node,uint64_t mmio,uint64_t aperture,
@@ -66,7 +90,7 @@ bool scanout_interval_held(const struct scanout_interval *node,uint64_t mmio,uin
 void scanout_interval_release(struct scanout_interval *node) {
     struct scanout_interval **link = &intervals;
     while (*link && *link != node) link = &(*link)->next;
-    if (*link) {
+    if (*link && !node->firmware) {
         *link = node->next;
         node->next = 0;
     }

@@ -59,6 +59,11 @@ enum scanout_transfer_error scanout_transfer_admission(const struct scanout_tran
 bool scanout_transfer_reserve(struct scanout_transfer *,struct scanout_transfer_pool *,
     const struct display_access_token *,const struct scanout_transfer_manifest *,
     struct scanout_transfer_token *);
+/* Same display pin and admission rules, borrowing only from the named
+ * permanent firmware reservation. Closing the child leaves the import held. */
+bool scanout_transfer_reserve_imported(struct scanout_transfer *,struct scanout_transfer_pool *,
+    const struct display_access_token *,const struct scanout_transfer_manifest *,
+    const struct scanout_interval *firmware,struct scanout_transfer_token *);
 /* Test the live reservation and the lender's fresh originals. No arena or
  * publication rights are issued by this check. */
 bool scanout_transfer_reservation_matches(const struct scanout_transfer *,const struct scanout_transfer_token *,

@@ -91,6 +91,28 @@ class Receipts(unittest.TestCase):
                             line.replace('returned=1','returned=0'),line.replace('claimed=1','claimed=0'),
                             line.replace('scanned=1676','scanned=1675'),line.replace('writes=0','writes=1')):
                     with self.assertRaises(ValueError):stolen_result(raw.replace(line,bad),required_version=13)
+    def test_imported_firmware_page_roundtrip(self):
+        raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--firmware-import'],text=True)
+        result=stolen_result(raw,required_version=14)
+        self.assertTrue(result['complete'])
+        self.assertFalse(result['hardware_ownership'])
+        row=result['firmware_import']
+        self.assertEqual((row['first'],row['pages'],row['samples'],row['conflicts']),(8704,3072,2,3))
+        drift=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--firmware-drift'],text=True)
+        rejected=stolen_result(drift,required_version=14)
+        self.assertFalse(rejected['complete'])
+        self.assertEqual(rejected['failure_stage'],'firmware-interval-import')
+        self.assertNotEqual(rejected['firmware_import']['original'], rejected['firmware_import']['last'])
+        line=next(l for l in raw.splitlines() if l.startswith('intel-firmware-import:'))
+        for bad in ('',line+'\n'+line,line.replace('returned=1','returned=0'),line.replace('pages=3072','pages=1484'),
+                    line.replace('conflicts=3','conflicts=2'),line.replace('grants=0','grants=1'),
+                    re.sub(r'last=\S+','last=0',line)):
+            with self.assertRaises(ValueError):stolen_result(raw.replace(line,bad),required_version=14)
+        config=boot.limine_config('0123456789abcdef','ram-usb-v15-intel-stolen-laptop-probe-37d8c5d0-auto-return')
+        command=next(l.split('cmdline:',1)[1].strip() for l in config.splitlines() if 'cmdline:' in l)
+        self.assertIn('srvros.intel-scanout=firmware-import',command.split())
+        self.assertEqual(trial_parsers('intel-firmware-import-v1')[0](command),stolen_recipe(self.command))
+
     def test_guarded_scanout_range_and_last_tail_entry(self):
         def report(option):
             return subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),option],text=True)

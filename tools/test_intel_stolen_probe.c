@@ -90,7 +90,7 @@ bool display_access_acquire(uint64_t owner,struct display_access_token *t) {
  assert(!model.held && owner);if(fault(ACQUIRE))return false;
  *t=(struct display_access_token){1,owner};model.held=true;return true;
 }
-bool display_access_held(const struct display_access_token *t) {assert(t==&stolen.exclusion);return model.held && !fault(HELD);}
+bool display_access_held(const struct display_access_token *t) {return t && model.held && t->owner==stolen.exclusion.owner && t->epoch==stolen.exclusion.epoch && !fault(HELD);}
 bool display_access_release(const struct display_access_token *t,bool clean) {assert(t==&stolen.exclusion && clean && !model.mapped && !model.pinned && !model.guard_live);if(fault(RELEASE))return false;model.held=false;return true;}
 bool display_access_pin(const struct display_access_token *t) {
  assert(t && t->epoch==stolen.exclusion.epoch && t->owner==stolen.exclusion.owner && model.held);
@@ -98,7 +98,7 @@ bool display_access_pin(const struct display_access_token *t) {
  ++model.pinned;return true;
 }
 bool display_access_unpin(const struct display_access_token *t) {
- assert(t && t->epoch==stolen.exclusion.epoch && t->owner==stolen.exclusion.owner && model.held && model.pinned && !model.guard_live);
+ assert(t && t->epoch==stolen.exclusion.epoch && t->owner==stolen.exclusion.owner && model.held && model.pinned && (!model.guard_live || (t!=&stolen.exclusion && model.pinned>1)));
  if(fault(UNPIN))return false;
  --model.pinned;return true;
 }
@@ -227,6 +227,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  assert(stolen.preflight && model.unmaps>=1);
  if(fault(READ))return false;
  ++model.reads;
+ if(model.mode==63 && stolen.import.samples==1 && offset==0x811000){*out=0x8e202001u;return true;}
  switch(offset) {
  case 0x70040:
   assert(stolen.range.selected && model.guard_live && model.held);
@@ -330,6 +331,22 @@ int main(int argc,char **argv) {
   bool fail_tail=!strcmp(argv[1],"--range-tail-refusal");
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
+ }
+ if(argc==2 && (!strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
+  char import_command[512];
+  snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=firmware-import",command);
+  reset();model.report=true;
+  bool drift=!strcmp(argv[1],"--firmware-drift");
+  if(drift)model.mode=63;
+  assert(intel_stolen_probe_report(import_command)==!drift);
+  assert(stolen.fail==(drift?34u:0u) && stolen.import.imported &&
+         stolen.import.blocked==(drift?2u:3u) && stolen.import.returned);
+  assert(stolen.import.samples==2);
+  struct scanout_interval outsider={0};
+  assert(!scanout_interval_claim(&outsider,stolen.source.mmio,stolen.source.aperture,
+     stolen.source.aperture_bytes,stolen.source.fence_end,(struct scanout_space_range){8704,1}));
+  assert(!model.held && !model.mapped && !model.guard_live);
+  return 0;
  }
  char private_command[512];
  snprintf(private_command,sizeof(private_command),"%s srvros.intel-scanout=private-range",command);

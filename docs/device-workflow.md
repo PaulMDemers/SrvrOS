@@ -1,5 +1,12 @@
 # Repeatable device trials
 
+The Air7,2 `intel-firmware-import-v1` profile selects `--intel-firmware-import`.
+It imports both classified firmware buffers as a permanent GPU-address reservation
+and borrows slot 8704 under the existing CPU and display guard. The receipt
+records the two PTE samples, the return and three refused competing claims.
+A successful run verifies software ownership and original-entry preservation.
+Native GPU write and traffic-drain acceptance remain separate.
+
 The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
 It uses the range probe's two existing deadlines and the common display and
 CPU guards. Its version 13 result records the aperture searched, allocation,

@@ -72,6 +72,14 @@ static struct {
   unsigned begin, first, scanned, nonzero, verified, batches, maps;
   bool selected, scanning, claimed, returned, exhausted, reader_conflict;
  } private_range;
+ struct {
+  struct scanout_interval firmware;
+  struct scanout_transfer page;
+  struct scanout_transfer_token token;
+  uint64_t observed[2];
+  unsigned blocked, samples;
+  bool selected, imported, returned;
+ } import;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -134,7 +142,7 @@ static bool checkpoint(unsigned step) {
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }
-static bool parse_recipe(const char *s,bool *range,bool *private_range) {
+static bool parse_recipe(const char *s,bool *range,bool *private_range,bool *import) {
  static const char *const fixed[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only",
  "srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-stolen=read-only","srvros.capture-failure=reboot"};
  unsigned seen=0,tokens=0;
@@ -161,16 +169,19 @@ static bool parse_recipe(const char *s,bool *range,bool *private_range) {
   if(len==sizeof(exact_range)-1 && equal_bytes(start,exact_range,len))bit=512;
   static const char allocator[]="srvros.intel-scanout=private-range";
   if(len==sizeof(allocator)-1 && equal_bytes(start,allocator,len))bit=1024;
+  static const char imported[]="srvros.intel-scanout=firmware-import";
+  if(len==sizeof(imported)-1 && equal_bytes(start,imported,len))bit=2048;
   if(!bit || (seen&bit) || ++tokens>10)return false;
   seen|=bit;
  }
- if(!((tokens==9 && seen==511) || (tokens==10 && (seen==1023 || seen==1535))))return false;
- if(range)*range=(seen&(512|1024))!=0;
+ if(!((tokens==9 && seen==511) || (tokens==10 && (seen==1023 || seen==1535 || seen==2559))))return false;
+ if(range)*range=(seen&(512|1024|2048))!=0;
+ if(import)*import=(seen&2048)!=0;
  if(private_range)*private_range=(seen&1024)!=0;
  return true;
 }
 bool intel_stolen_probe_recipe(const char *s) {
- return parse_recipe(s,NULL,NULL);
+ return parse_recipe(s,NULL,NULL,NULL);
 }
 static bool tick(uint64_t begin) {
  uint64_t at=timer_monotonic_us();
@@ -693,6 +704,50 @@ static bool aperture_guard_held(void) {
  return held;
 }
 
+/* Both firmware candidates have two classified, complete PTE vectors. Keep
+ * their contiguous GPU span occupied in the common allocator until reboot. */
+static bool import_firmware(void) {
+ const struct bdw_stolen_range *a=&stolen.layout.plan.range[1],*b=&stolen.layout.plan.range[2];
+ if(!stolen.layout.classified || !private_display_clear() || a->gpu!=stolen.source.fence_end ||
+    a->bytes+b->bytes>stolen.source.aperture_bytes || a->gpu+a->bytes!=b->gpu ||
+    b->gpu+b->bytes>stolen.source.aperture_bytes)return false;
+ struct scanout_space_range pages={a->gpu/4096,a->pages+b->pages};
+ stolen.import.imported=scanout_interval_import_firmware(&stolen.import.firmware,stolen.source.mmio,
+     stolen.source.aperture,stolen.source.aperture_bytes,stolen.source.fence_end,pages);
+ return stolen.import.imported;
+}
+
+static bool check_import_conflict(const struct scanout_transfer_manifest *m) {
+ struct scanout_interval other={0};
+ if(scanout_interval_claim(&other,m->mmio,m->aperture,m->aperture_bytes,m->fence_end,
+                           (struct scanout_space_range){m->first,1})){
+  scanout_interval_release(&other);return false;
+ }
+ ++stolen.import.blocked;
+ return true;
+}
+
+static bool check_imported_page(struct scanout_transfer_manifest m) {
+ if(!scanout_transfer_close(&stolen.range.transfer,&stolen.range.token))return false;
+ m.pages=1;
+ if(!check_import_conflict(&m) ||
+    !scanout_transfer_reserve_imported(&stolen.import.page,&stolen.range.pool,&stolen.exclusion,
+                                       &m,&stolen.import.firmware,&stolen.import.token))return false;
+ for(unsigned i=0;i<2;i++) {
+  if(!tick(stolen.begin[1]) || !aperture_guard_held() ||
+     !scanout_transfer_reservation_matches(&stolen.import.page,&stolen.import.token,&m) ||
+     !range_pair(0x800000u+m.first*8,&stolen.import.observed[i]))return false;
+  ++stolen.import.samples;
+  if(stolen.import.observed[i]!=m.original[0] || !unmap())return false;
+  if(!i && (!check_import_conflict(&m) || !intel_window_handoff_revalidate(&stolen.source)))return false;
+ }
+ /* The software lender cannot grant permission to write the live PTE. */
+ if(scanout_transfer_admission(&m)!=TRANSFER_ASSURANCE ||
+    !scanout_transfer_close(&stolen.import.page,&stolen.import.token))return false;
+ stolen.import.returned=true;
+ return check_import_conflict(&m);
+}
+
 static bool observe_scanout_range(void) {
  const struct bdw_stolen_range *candidate=&stolen.layout.plan.range[1];
  if(!stolen.layout.classified || !stolen.guard.checked || stolen.guard.closed ||
@@ -721,8 +776,12 @@ static bool observe_scanout_range(void) {
   .source_epoch=stolen.exclusion.epoch,.assurances=stolen.source.assurances,.obligations=INTEL_COMPLETION_OPEN};
  stolen.range.epoch=interval.source_epoch;stolen.range.first=interval.first;stolen.range.pages=interval.pages;
  stolen.range.digest=14695981039346656037ull;
- if(!scanout_transfer_reserve(&stolen.range.transfer,&stolen.range.pool,&stolen.exclusion,
-                              &interval,&stolen.range.token))return refuse(32);
+ if(stolen.import.selected) {
+  if(!import_firmware() ||
+     !scanout_transfer_reserve_imported(&stolen.range.transfer,&stolen.range.pool,&stolen.exclusion,
+                                        &interval,&stolen.import.firmware,&stolen.range.token))return refuse(34);
+ } else if(!scanout_transfer_reserve(&stolen.range.transfer,&stolen.range.pool,&stolen.exclusion,
+                                     &interval,&stolen.range.token))return refuse(32);
  if(!range_fences())return false;
  for(unsigned i=0;i<interval.pages;i++) {
   uint64_t raw;
@@ -741,7 +800,7 @@ static bool observe_scanout_range(void) {
  if(scanout_transfer_admission(&interval)!=TRANSFER_ASSURANCE)return refuse(32);
  stolen.range.missing=HANDOFF_ALL & ~interval.assurances;
  stolen.range.verified=true;
- return true;
+ return !stolen.import.selected || check_imported_page(interval) || refuse(34);
 }
 
 static bool observe_handoff(void) {
@@ -782,7 +841,11 @@ static bool cpu_guard(void) {
  stolen.guard.closed=1;ok=observed;
 done:
  if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
- if(stolen.range.token.object && !stolen.uncertain &&
+ if(stolen.import.token.object && !stolen.import.returned && !stolen.uncertain) {
+  stolen.import.returned=scanout_transfer_close(&stolen.import.page,&stolen.import.token);
+  if(!stolen.import.returned){stolen.uncertain=true;ok=false;refuse(34);}
+ }
+ if(stolen.range.token.object && stolen.range.transfer.state!=TRANSFER_CLOSED && !stolen.uncertain &&
     !scanout_transfer_close(&stolen.range.transfer,&stolen.range.token)){
   stolen.uncertain=true;ok=false;refuse(32);
  }
@@ -806,7 +869,7 @@ bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
  console_write("intel-stolen: hardware ownership gate under maintained CPU mapping exclusion; two bounded2s passes, no input, no GPU writes or allocation grant\n");
- if(!parse_recipe(cmdline,&stolen.range.selected,&stolen.private_range.selected)){refuse(1);goto report;}
+ if(!parse_recipe(cmdline,&stolen.range.selected,&stolen.private_range.selected,&stolen.import.selected)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
  if(!checkpoint(1))goto report;
@@ -854,7 +917,7 @@ cleanup:
 report:
  trace(14,1);
  console_printf("intel-stolen-summary: v=%u reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
- (uint64_t)(stolen.private_range.selected?13:stolen.range.selected?12:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
+ (uint64_t)(stolen.import.selected?14:stolen.private_range.selected?13:stolen.range.selected?12:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
@@ -911,6 +974,11 @@ report:
   console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
+ if(stolen.import.selected)
+  console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
+    (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,
+    (uint64_t)(stolen.import.token.object!=NULL),(uint64_t)stolen.import.samples,
+    stolen.import.observed[0],stolen.import.observed[1],(uint64_t)stolen.import.returned,(uint64_t)stolen.import.blocked);
  if(stolen.private_range.selected)
   console_printf("intel-private-range: v=1 begin=%u first=%u scanned=%u occupied=%u checked=%u batches=%u maps=%u claimed=%u returned=%u exhausted=%u reader_conflict=%u writes=0\n",
    (uint64_t)stolen.private_range.begin,(uint64_t)stolen.private_range.first,(uint64_t)stolen.private_range.scanned,

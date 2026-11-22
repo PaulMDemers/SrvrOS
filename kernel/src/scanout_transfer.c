@@ -101,7 +101,7 @@ static bool unwind(struct scanout_transfer *t) {
 }
 static bool reserve_range(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
     const struct display_access_token *exclusion,const struct scanout_transfer_manifest *input,
-    struct scanout_transfer_token *out) {
+    const struct scanout_interval *firmware,struct scanout_transfer_token *out) {
     if(!t || (t->object && t->object!=t) || t->busy || t->pinned ||
        (t->state!=TRANSFER_EMPTY && t->state!=TRANSFER_CLOSED) || !geometry(input) ||
        !exclusion || overlap(pool,sizeof(*pool),t,sizeof(*t)) ||
@@ -116,8 +116,10 @@ static bool reserve_range(struct scanout_transfer *t,struct scanout_transfer_poo
        pool->epoch==UINT64_MAX || pool->epoch<t->epoch)return false;
     struct scanout_transfer_manifest m=*input;
     struct display_access_token token=*exclusion;
-    if(!scanout_interval_claim(&t->interval,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,
-                               (struct scanout_space_range){m.first,m.pages}))return false;
+    struct scanout_space_range pages={m.first,m.pages};
+    bool claimed=firmware ? scanout_interval_borrow(&t->interval,firmware,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,pages)
+                          : scanout_interval_claim(&t->interval,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,pages);
+    if(!claimed)return false;
     if(!display_access_pin(&token)){scanout_interval_release(&t->interval);return false;}
     t->object=t;t->busy=true;t->pinned=true;t->state=TRANSFER_RESERVED;t->error=TRANSFER_OK;
     t->epoch=++pool->epoch;t->owner=token.owner;t->arena_epoch=0;
@@ -127,16 +129,32 @@ static bool reserve_range(struct scanout_transfer *t,struct scanout_transfer_poo
     return true;
 }
 
-bool scanout_transfer_reserve(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
+static bool reserve_originals(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
     const struct display_access_token *exclusion,const struct scanout_transfer_manifest *input,
-    struct scanout_transfer_token *out) {
+    const struct scanout_interval *firmware,struct scanout_transfer_token *out) {
     if(!geometry(input))return false;
     const uint64_t *entries=input->original;
-    if(!reserve_range(t,pool,exclusion,input,out))return false;
+    if(!reserve_range(t,pool,exclusion,input,firmware,out))return false;
     for(uint32_t i=0;i<t->manifest.pages;i++)t->original[i]=entries[i];
     t->busy=false;
     *out=(struct scanout_transfer_token){t,t->epoch,t->owner};
     return true;
+}
+
+
+bool scanout_transfer_reserve(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
+    const struct display_access_token *exclusion,const struct scanout_transfer_manifest *input,
+    struct scanout_transfer_token *out) {
+    return reserve_originals(t,pool,exclusion,input,0,out);
+}
+
+bool scanout_transfer_reserve_imported(struct scanout_transfer *t,struct scanout_transfer_pool *pool,
+    const struct display_access_token *exclusion,const struct scanout_transfer_manifest *input,
+    const struct scanout_interval *firmware,struct scanout_transfer_token *out) {
+    if(!firmware || overlap(firmware,sizeof(*firmware),t,sizeof(*t)) ||
+       overlap(firmware,sizeof(*firmware),pool,sizeof(*pool)) ||
+       overlap(firmware,sizeof(*firmware),out,sizeof(*out)))return false;
+    return reserve_originals(t,pool,exclusion,input,firmware,out);
 }
 
 static bool start_transfer(struct scanout_transfer *t,struct scanout_space_pool *spaces,
@@ -200,7 +218,7 @@ bool scanout_transfer_open(struct scanout_transfer *t,struct scanout_transfer_po
        overlap(input->original,(uint64_t)input->pages*8,spaces,sizeof(*spaces)) ||
        overlap(out,sizeof(*out),spaces,sizeof(*spaces)))return false;
     struct scanout_transfer_manifest m=*input;
-    if(!reserve_range(t,pool,exclusion,&m,out))return false;
+    if(!reserve_range(t,pool,exclusion,&m,0,out))return false;
     if(!start_transfer(t,spaces,m,io,false))return unwind(t);
     *out=(struct scanout_transfer_token){t,t->epoch,t->owner};return true;
 }

@@ -137,11 +137,26 @@ static void expect_conflict(struct scanout_transfer_manifest request)
     assert(!untouched.object && contender_pool.epoch==epoch);
 }
 
-static bool reserve_then_activate(void)
+static struct scanout_interval firmware;
+static bool reserve_then_activate(bool imported)
 {
     struct scanout_transfer_manifest observed=manifest;
     observed.assurances=0;observed.obligations=255;
-    assert(scanout_transfer_reserve(&transfer,&pool,&exclusion,&observed,&token));
+    if(imported) {
+        struct scanout_space_range span={8704,3072};
+        assert(scanout_interval_import_firmware(&firmware,manifest.mmio,manifest.aperture,
+                                                manifest.aperture_bytes,manifest.fence_end,span));
+        struct scanout_interval copy=firmware,child={0};
+        assert(!scanout_interval_borrow(&child,&copy,manifest.mmio,manifest.aperture,manifest.aperture_bytes,
+                                        manifest.fence_end,span));
+        assert(!scanout_interval_borrow(&child,&firmware,manifest.mmio,manifest.aperture,manifest.aperture_bytes,
+                                        manifest.fence_end,(struct scanout_space_range){11775,2}));
+        scanout_interval_release(&firmware);
+        expect_conflict(manifest);
+        assert(scanout_transfer_reserve_imported(&transfer,&pool,&exclusion,&observed,&firmware,&token));
+        assert(!scanout_interval_borrow(&child,&firmware,manifest.mmio,manifest.aperture,manifest.aperture_bytes,
+                                        manifest.fence_end,(struct scanout_space_range){8704,1}));
+    } else assert(scanout_transfer_reserve(&transfer,&pool,&exclusion,&observed,&token));
     assert(transfer.state==TRANSFER_RESERVED && transfer.pinned && !transfer.arena_epoch);
     expect_conflict(manifest);
     expect_small_conflict();
@@ -542,7 +557,8 @@ int main(int argc,char **argv) {
     tiled_tail |= flip;
     bool full_tail=linear_tail || tiled_tail;
     bool tail_changed=!strcmp(mode,"linear-tail-original-change");
-    bool captured_page=!strcmp(mode,"one-page-air");
+    bool imported=!strcmp(mode,"firmware-page-air");
+    bool captured_page=imported || !strcmp(mode,"one-page-air");
     bool unblock=!strncmp(mode,"unblock-",8);
     bool single_page=captured_page || unblock || !strcmp(mode,"one-page");
     if(captured_page)input[0]=table[8704]=0x8e201001ull;
@@ -611,7 +627,7 @@ int main(int argc,char **argv) {
     if(!strcmp(mode,"poison-open"))model.poison=true;
     if(!strcmp(mode,"input-mutation"))model.mutate=true;
     if(!strcmp(mode,"reentry"))model.reenter=true;
-    bool ok=(flip || single_page || store_failure) ? reserve_then_activate() : scanout_transfer_open(&transfer,&pool,&spaces,&exclusion,&manifest,provider(),&token);
+    bool ok=(flip || single_page || store_failure) ? reserve_then_activate(imported) : scanout_transfer_open(&transfer,&pool,&spaces,&exclusion,&manifest,provider(),&token);
     if(!strcmp(mode,"poison-open")) {
         assert(!ok && transfer.state==TRANSFER_FAULT && transfer.pinned && transfer.error==TRANSFER_EXCLUSION);
         assert(!display_access_allowed() && !display_access_release(&transfer.exclusion,true));puts("PASS poisoned open stays pinned");return 0;
@@ -829,6 +845,12 @@ int main(int argc,char **argv) {
     }
     struct scanout_transfer_token stale=token;
     close_clean();
+    if(imported) {
+        assert(scanout_interval_held(&firmware,manifest.mmio,manifest.aperture,manifest.aperture_bytes,
+                                     manifest.fence_end,(struct scanout_space_range){8704,3072}));
+        assert(!scanout_interval_claim(&transfer.interval,manifest.mmio,manifest.aperture,manifest.aperture_bytes,
+                                       manifest.fence_end,(struct scanout_space_range){8704,1}));
+    }
     if(!strcmp(mode,"reuse")) {
         model.calls[TRANSFER_ADMIT]=model.calls[TRANSFER_RETIRE]=0;
         assert(display_access_acquire(7,&exclusion));opened();

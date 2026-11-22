@@ -10,6 +10,12 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+PR301 is importing the two classified firmware buffers into the shared GPU
+interval registry for the lifetime of this boot. The device branch will
+exercise a one-page transfer reservation inside that import with the boot
+display pinned, including a competing claimant before and after return.
+The live engine, firmware and cache handoff remains a prerequisite for writes.
+
 Release `5d1fa7400ba472cc` (source `bccf2409`, session
 `session-000660d30f73afdb-00`) completed the independent-range diagnostic.
 All 53,760 entries in slots 11,776 through 65,535 (46–256 MiB) contained

@@ -48,6 +48,8 @@ def release_id(hashes, version=CONFIG_VERSION, *, source=None):
 
 
 def limine_config(release, version=CONFIG_VERSION):
+    if version.startswith("ram-usb-v15-intel-stolen-"):
+        return limine_config(release,version.replace("v15-intel","v13-intel",1)).replace("=range-observation","=firmware-import")
     if version.startswith("ram-usb-v14-intel-stolen-"):
         return limine_config(release,version.replace("v14-intel","v13-intel",1)).replace("=range-observation","=private-range")
     if version.startswith(("ram-usb-v11-intel-stolen-","ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-")):
@@ -395,10 +397,10 @@ def verify(directory, expected_release=None):
             (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version) or LAPTOP_PROBE_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     source = None
-    if version.startswith((*EDP_CONFIGS, "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-")) and manifest.get("source_bound") is not True:
+    if version.startswith((*EDP_CONFIGS, "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-")) and manifest.get("source_bound") is not True:
         raise ValueError("Missing boot payload source binding")
     if "source_bound" in manifest:
-        if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
+        if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
             raise ValueError("Unexpected boot payload source binding")
         source = manifest.get("git_head")
         if source is None:
@@ -419,7 +421,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
                 any(v for k, v in locals().copy().items() if k not in allowed and k != "allowed")):
             raise ValueError("eDP baseline requires its own silent automatic workspace profile")
     if intel_stolen_capture:
-        if intel_stolen_capture is not True and intel_stolen_capture not in ("scanout-range","private-range"):
+        if intel_stolen_capture is not True and intel_stolen_capture not in ("scanout-range","private-range","firmware-import"):
             raise ValueError("Unknown stolen census mode")
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_stolen_capture","laptop_probe_volume","repeat","desktop_scale"}):
             raise ValueError("Stolen census requires its own read-only automatic workspace profile")
@@ -743,7 +745,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         elif intel_nonzero_reset:version=f"ram-usb-v1-intel-nonzero-reset-laptop-probe-{laptop_probe_volume}"
         if intel_entry_requester:version=f"ram-usb-v1-intel-entry-requester-laptop-probe-{laptop_probe_volume}"
         if intel_stolen_capture:
-            revision=14 if intel_stolen_capture=="private-range" else 13 if intel_stolen_capture=="scanout-range" else 9
+            revision=15 if intel_stolen_capture=="firmware-import" else 14 if intel_stolen_capture=="private-range" else 13 if intel_stolen_capture=="scanout-range" else 9
             version=f"ram-usb-v{revision}-intel-stolen-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
@@ -761,7 +763,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             shutil.copyfile(source, target / name)
         hashes = {name: digest(target / name) for name in sources}
         git_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        bind_source = intel_stolen_capture in ("scanout-range","private-range") or intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps or intel_gt_range or intel_gt_primary or intel_gt_aux or intel_gt_flush
+        bind_source = intel_stolen_capture in ("scanout-range","private-range","firmware-import") or intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps or intel_gt_range or intel_gt_primary or intel_gt_aux or intel_gt_flush
         release = release_id(hashes, version, source=git_head if bind_source else None)
         (target / "limine.conf").write_text(limine_config(release, version))
         # GRUB splits the EFI file path into directory and filename nodes.
@@ -1050,6 +1052,8 @@ def main():
     capture.add_argument("--intel-nonzero-reset",action="store_true",help="Original enabled entry then maintained nonzero-geometry BCS8 reset/preservation")
     capture.add_argument("--intel-entry-requester",action="store_true",help="Original state-aware entry/reset then bounded original-claim requester restoration")
     capture.add_argument("--intel-ring-reset",action="store_true",help="Live state-aware entry then unchanged zero-geometry reset under original owner")
+    capture.add_argument("--intel-firmware-import",dest="intel_stolen_capture",action="store_const",const="firmware-import",
+                         help="import both firmware scanout spans and borrow one populated page, read-only")
     capture.add_argument("--intel-private-range",dest="intel_stolen_capture",action="store_const",const="private-range",
                          help="reserve and recheck a separate unmapped GGTT interval")
     capture.add_argument("--intel-scanout-range",dest="intel_stolen_capture",action="store_const",const="scanout-range",
