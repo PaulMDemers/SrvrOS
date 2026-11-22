@@ -210,11 +210,13 @@ failure is `_POSIX_HOST_NAME_MAX` in `ghostutils.c`. See the
 
 ## GLib hostname utilities — November 22, 2026
 
-The browser topic extends PR #517 by supplying the existing SDK
+The browser topic extends merged PR #517 by supplying the existing SDK
 `<limits.h>` to the pinned GLib C build. The native platform fixture
-checks the SDK hostname limit and existing `gethostname()` behavior.
-The checkpoint is an exact hostname object build and the next static
-GLib/GIO result.
+checked the SDK hostname limit, `gethostname()` and `uname()` in two
+diskless Q35 executions. QEMU stopped and the window was released.
+The exact GLib hostname object compiled. The static build stops at
+`NSIG` and `SA_NOCLDSTOP` in `gmain.c`. See the
+[hostname receipt](../assets/evidence/glib-hostname/receipt.json).
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 
