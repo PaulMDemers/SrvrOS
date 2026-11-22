@@ -3327,6 +3327,7 @@ test-desktop-host-tools:
 	$(PYTHON) tools/test_hardware_desktop.py
 	$(PYTHON) tools/test_trial.py
 	$(PYTHON) tools/test_trial_qualify.py
+	$(PYTHON) tools/test_trial_prepare.py
 
 .PHONY: test-backlight
 test-core: test-backlight
