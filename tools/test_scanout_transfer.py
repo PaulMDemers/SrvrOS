@@ -19,7 +19,7 @@ pte-store-invalidate pte-store-restore-invalidate
 firmware-page-air reservation-clean reservation-removed reservation-promote-clock reservation-promote-provider reservation-fault reservation-stale-original boot-framebuffer one-page-no-boot-fence pte-store-aperture pte-store-restore-aperture pte-store-restore-guard-epoch""".split()
 
 for failure in ("sa-preflight", "sa-no-write", "sa-uncertain", "sa-lost-hold", "sa-expired",
-                "sa-read-error", "sa-bad-post", "widi-open", "widi-idle", "slice-mask","plane-off","plane-moved","queued-flip","engine-reset-reason","l3-steering","l3-unposted","l3-off","l3-power-lost","register-alias", "no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
+                "pre-store-widi", "sa-store-widi", "sa-post-engine", "sa-post-l3", "sa-post-plane", "sa-read-error", "sa-bad-post", "widi-open", "widi-idle", "slice-mask","plane-off","plane-moved","queued-flip","engine-reset-reason","l3-steering","l3-unposted","l3-off","l3-power-lost","register-alias", "no-block", "lost-block", "media-busy", "engine-go", "gam-busy", "l3-unblock",
                 "gam-request", "gam-response"):
     MODES.extend((f"pte-store-{failure}", f"pte-store-restore-{failure}"))
 MODES.extend(f"pte-store-engine-early-ack-{i}" for i in range(5))

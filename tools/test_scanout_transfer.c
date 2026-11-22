@@ -385,6 +385,9 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x8014:
         *word = block_active ? 0 : 0x10;
+        if (!strcmp(page_failure,"pre-store-widi") && ggtt_phase==1) *word=0x10;
+        if (!strcmp(page_failure,"sa-store-widi") && ggtt_phase==1 &&
+            table[8704]!=cached_translation) *word=0x10;
         if (block_active && !strcmp(page_failure,"widi-open")) *word = 0x10;
         if (block_active && (!strcmp(page_failure,"widi-idle") ||
             (!strcmp(page_failure,"widi-early-ack") && l3_reads==1))) *word = 1;
@@ -411,6 +414,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         *word=!strcmp(page_failure,"plane-off")?0:1u<<31; break;
     case 0x7019c: case 0x701ac:
         *word=0x00100000;
+        if (!strcmp(page_failure,"sa-post-plane") && ggtt_posts==a.publication.writes) *word+=4096;
         if (block_active && !strcmp(page_failure,"plane-moved")) *word+=4096;
         if (offset==0x7019c && !strcmp(page_failure,"queued-flip")) *word+=4096;
         if (block_releases && !strcmp(page_failure,"display-changed")) *word+=4096;
@@ -424,6 +428,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         char early_ack[32];
         snprintf(early_ack,sizeof(early_ack),"engine-early-ack-%u",(offset-0x8000)/4);
         if (block_active && l3_reads==1 && !strcmp(page_failure,early_ack)) *word=0x21;
+        if (!strcmp(page_failure,"sa-post-engine") && ggtt_posts==a.publication.writes) *word=0x10;
         if (block_releases && offset==0x8010 && !strcmp(page_failure,"engine-stuck")) *word=0x20;
         break;
     }
@@ -432,6 +437,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         if(!block_active){*word=!strcmp(page_failure,"stale-l3");break;}
         ++l3_reads;
         *word=!strcmp(page_failure,"l3-unblock")?2:(l3_reads==1 && strcmp(page_failure,"missing-l3"));
+        if (!strcmp(page_failure,"sa-post-l3") && ggtt_posts==a.publication.writes) *word=2;
         break;
     case 0x40d0: *word=(!block_active && !strcmp(page_failure,"air-post-reset")) ? 0x7fff :
         ((!block_active || !strcmp(page_failure,"gam-request")) ? 0x5f : 0);
@@ -725,12 +731,14 @@ int main(int argc,char **argv) {
         bool store_uncertain=!strncmp(page_failure,"sa-",3) && strcmp(page_failure,"sa-preflight");
         if(written || store_uncertain)assert(table[8704]==(restoring?input[0]:a.entries[0]));
         else assert(table[8704]==(previous^(!strcmp(page_failure,"foreign")?(1ull<<36):0)));
-        assert(cached_translation==(retired_fault?input[0]:previous));
+        bool posted=!strncmp(page_failure,"sa-post-",8);
+        assert(cached_translation==(posted?table[8704]:retired_fault?input[0]:previous));
         assert(a.state==MEM_FAULT && !model.releases && model.writes==(unsigned)restoring+written);
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
         assert(!intel_bdw_scanout_retire_test_page(&a,&at));
         if (restoring || written || store_uncertain) assert(borrower);
-        if (store_uncertain) assert(!block_releases && block_requests==1 && ggtt_posts==(unsigned)restoring);
+        if (store_uncertain) assert(!block_releases && block_requests==1 && ggtt_posts==(unsigned)restoring+posted);
+        if (!strcmp(page_failure,"sa-store-widi")) assert(ggtt_phase==1);
         if (!strcmp(page_failure,"air-post-reset") || !strcmp(page_failure,"stale-l3"))
             assert(!block_requests);
         if (!strcmp(page_failure,"missing-l3") || !strcmp(page_failure,"uncertain-request") ||

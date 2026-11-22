@@ -21,4 +21,12 @@ struct intel_bdw_bcs_context_config {
  * Caller supplies independently owned writable CPU RAM with stable config. */
 bool intel_bdw_bcs_context_build(const struct intel_bdw_bcs_context_config *,volatile uint32_t *,uint64_t *descriptor);
 bool intel_bdw_bcs_context_verify(const struct intel_bdw_bcs_context_config *,volatile const uint32_t *,uint64_t descriptor);
+/* Candidate RCS indirect context for the borrowed 32-page command interval.
+ * Pages 0..3 belong to BCS. Page 4 holds this batch, and page 5 holds its
+ * private register-save word. Preparing it on the CPU grants no GPU access. */
+struct intel_bdw_rcs_indirect {
+ uint32_t pointer, words[32];
+};
+bool intel_bdw_rcs_indirect_build(uint32_t first, uint32_t pages, struct intel_bdw_rcs_indirect *);
+bool intel_bdw_rcs_indirect_verify(uint32_t first, uint32_t pages, const struct intel_bdw_rcs_indirect *);
 #endif

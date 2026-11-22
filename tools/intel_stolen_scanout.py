@@ -452,14 +452,18 @@ def stolen_result(text,*,native=False,required_version=None):
         from intel_gt_bootstrap import fields
         keys=['v','pages','closed']
         words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
-        tail_loan=guards[0].startswith('intel-submission-guard: v=4 ')
+        indirect=guards[0].startswith('intel-submission-guard: v=5 ')
+        tail_loan=indirect or guards[0].startswith('intel-submission-guard: v=4 ')
         current=tail_loan or guards[0].startswith('intel-submission-guard: v=3 ')
         if current or guards[0].startswith('intel-submission-guard: v=2 '):
             extra='func0 func1 strap0 strap1 tried mask0 mask1 mask2 first checked returned'.split() if current else []
             hex_extra=[k for k in extra if k.startswith(('func','strap','mask'))]
             tail_keys='tail_slot tail_pages tail_pte descriptor tail_samples tail_conflicts tail_returned'.split() if tail_loan else []
+            if indirect:
+                tail_keys.append('rcs_indirect')
+                hex_extra.append('rcs_indirect')
             guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys,
-                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(4 if tail_loan else 3 if current else 2,))
+                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(5 if indirect else 4 if tail_loan else 3 if current else 2,))
             if current:
                 masks=[guard[f'mask{i}'] for i in range(3)]
                 slots=(0x10000,0x80000,0xffe00)
@@ -491,6 +495,9 @@ def stolen_result(text,*,native=False,required_version=None):
                             guard['descriptor'] not in (0,desc) or (samples and guard['descriptor']!=desc) or
                             (not closed and not s['retained']) or (complete and (samples,conflicts,closed)!=(3,3,1))):
                             raise ValueError('invalid firmware command interval or context')
+                        if indirect and (guard['rcs_indirect'] not in (0, ((slot+4)*4096)|2) or
+                                         (samples and not guard['rcs_indirect'])):
+                            raise ValueError('invalid render indirect context in command interval')
                         if complete:
                             extra_maps+=samples
                             extra_aliases+=2*samples

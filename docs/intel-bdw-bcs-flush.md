@@ -203,12 +203,14 @@ sudo timeout 12s python3 tools/intel_bdw_slot_loan_host.py \
     --user "$(id -un)" "$PWD/build/tests/intel-bdw-engine-drain-host"
 ```
 
-1. Each of the five private queues writes fresh data, issues its own
-   completion packet, then encounters a polling PPGTT `MI_SEMAPHORE_WAIT`.
-   The CPU checks the data, five post-sync markers, five pending fences
-   and untouched successor markers. A second semaphore lets only RCS
-   execute a final `PIPE_CONTROL` after this check. The CPU witnesses the
-   new post-sync marker before admitting the replacement.
+1. All five engines write fresh data and a post-sync marker. The four
+   non-render queues park on a PPGTT semaphore. The CPU verifies the first
+   render fence, then submits to a newly created render context. Its fresh
+   marker proves RCS ran in the second context after all five initial markers.
+   A second semaphore lets RCS execute its final `PIPE_CONTROL`. The CPU
+   checks that marker, all five pending fences and untouched successor markers
+   before admitting the replacement. The observer checks that RCS has the same
+   enabled indirect context batch at all three held checkpoints.
 2. i915 unbinds and rebinds two private 40 MiB objects. Their traced ranges
    must cover address `0x02200000` in the same GGTT. The observer follows
    both object identities, reads the changing slot 8704 PTE and matches
@@ -221,11 +223,19 @@ sudo timeout 12s python3 tools/intel_bdw_slot_loan_host.py \
    successor markers and fences. A separate process releases both semaphores
    if the client exits or 1.5 seconds elapse. Watchdog expiry fails the test.
 
-The Air completed two of eight final trials. Six stopped on the panel
+Before the render-context change, the Air completed two of eight trials. Six stopped on the panel
 surface check. Removing all waits allowed an engine to escape; removing
 only the first render wait exposed an early final flush. Both controls
 stopped before the replacement. These results cover the five submitted
 queues and their private GEM objects in a running i915 desktop.
+
+In the context-switch comparison i915 kept a 128-byte RCS indirect batch
+programmed at `0xffffd000`. On Broadwell its context-restore workaround saves
+L3SQCREG4, sets bit 21, executes a stalled DC flush and restores the original
+policy before ordinary batch execution. The observed context switch, indirect
+length and fresh RCS markers establish ordering. The observer samples neither
+the transient policy nor a power-manager L3 acknowledgement during the switch.
+[Linux Broadwell context restore](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_lrc.c#L1619-L1702)
 
 In the complete runs the selected bank returned `L3SQCREG4=0x40400000`.
 Bit 21 was clear, so the pipeline flush covered noncoherent lines and

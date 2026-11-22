@@ -178,3 +178,22 @@ returned zero throughout. A SrvrOS sample is still needed to identify its
 inherited policy. This register configures a transition and supplies no
 software request to enter or hold it.
 [Intel Broadwell register reference, pp. 606–607](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+## Render indirect context for the command interval
+
+When the firmware interval lends the final 32 pages, the native diagnostic
+also constructs a Broadwell render indirect batch in CPU RAM. At slot 11744
+its proposed batch address is `0x02de4000`, with two cache lines encoded in
+`INDIRECT_CTX`. Its dedicated save word is at `0x02de5100`. The diagnostic
+verifies every word, including trailing no-ops, at all three lease checks.
+The version 5 receipt records the pointer. The earlier version 4 receipt
+continues to describe only the blitter image.
+
+The indirect batch disables arbitration, saves the original L3 policy, enables
+coherent-line flushing, stalls and flushes the render data cache, and restores
+the saved policy. It also contains Broadwell's context-switch SLM clear and
+restores arbitration. A future submission needs a driver-owned RCS context
+and status page, the uniform captured L3 policy, and exclusive, GPU-visible
+batch and scratch mappings for the entire switch. The context-switch recipe
+and its independent i915 hardware comparison are described in the
+[flush guide](intel-bdw-bcs-flush.md#device-side-queue-hold-through-slot-8704-rollback).

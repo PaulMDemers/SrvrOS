@@ -684,8 +684,11 @@ pp. 815–816 and 1390](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
 The writer samples the enabled primary plane and its programmed and
 live addresses before requesting the block. It checks them against that
-snapshot before each store, before releasing the block, and again after
-requests reopen. The same request must cover PTE replacement, invalidation,
+snapshot before and after each store, after each posted invalidation, before
+releasing the block, and again after requests reopen. Loss of a hardware
+acknowledgement or movement of the plane after a store retains both the backing
+and the exclusion, even when the software owner epoch still matches. The same request must cover PTE replacement,
+invalidation,
 restoration and retirement of readers. Returning the register alias and display
 exclusion requires a confirmed release and reopened client and engine
 messages. An uncertain release consumes the attempt and retains the

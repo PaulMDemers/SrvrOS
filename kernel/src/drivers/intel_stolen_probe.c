@@ -96,6 +96,7 @@ static struct {
   struct scanout_transfer_manifest manifest;
   struct intel_bdw_bcs_context_config bcs;
   uint32_t image[BDW_BCS_IMAGE_WORDS];
+  struct intel_bdw_rcs_indirect rcs;
   uint64_t descriptor;
   unsigned samples, conflicts;
   bool returned;
@@ -807,7 +808,8 @@ static bool borrow_command_tail(struct scanout_transfer_manifest source) {
   .nonce=stolen.command_tail.token.epoch,.context_id=1,
   .vendor=stolen.facts[1].gpu&0xffff,.device=stolen.facts[1].gpu>>16};
  return intel_bdw_bcs_context_build(&stolen.command_tail.bcs,stolen.command_tail.image,
-                                    &stolen.command_tail.descriptor);
+                                    &stolen.command_tail.descriptor) &&
+        intel_bdw_rcs_indirect_build(source.first,source.pages,&stolen.command_tail.rcs);
 }
 
 static bool check_command_tail(void) {
@@ -817,6 +819,7 @@ static bool check_command_tail(void) {
  if(!private_batch(fresh.first,COMMAND_PAGES,entries) || !unmap())return false;
  fresh.original=entries;
  if(!scanout_transfer_reservation_matches(&stolen.command_tail.transfer,&stolen.command_tail.token,&fresh) ||
+    !intel_bdw_rcs_indirect_verify(fresh.first,fresh.pages,&stolen.command_tail.rcs) ||
     !intel_bdw_bcs_context_verify(&stolen.command_tail.bcs,stolen.command_tail.image,stolen.command_tail.descriptor))
   return false;
  ++stolen.command_tail.samples;
@@ -1154,7 +1157,7 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.import.submission)
-  console_printf("intel-submission-guard: v=4 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u\n",
+  console_printf("intel-submission-guard: v=5 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x\n",
    (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
    (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
    (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2],
@@ -1163,7 +1166,7 @@ report:
    (uint64_t)stolen.import.first,(uint64_t)stolen.import.checked,(uint64_t)stolen.import.command_returned,
    (uint64_t)stolen.command_tail.manifest.first,(uint64_t)stolen.command_tail.manifest.pages,
    stolen.command_tail.transfer.original[0],stolen.command_tail.descriptor,(uint64_t)stolen.command_tail.samples,
-   (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned);
+   (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned,(uint64_t)stolen.command_tail.rcs.pointer);
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,

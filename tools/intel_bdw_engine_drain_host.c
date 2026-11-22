@@ -48,7 +48,9 @@ static struct submission submit(int fd, uint32_t context, enum bdw_barrier_engin
     uint32_t address = 0x4000000 + sequence * 2 * PRIVATE_PAGE_BYTES;
     struct submission s = {.result = result, .view = map_result(fd, result),
                            .marker = seed ^ sequence, .data = ~(seed ^ sequence)};
-    require(!__atomic_load_n(s.view, __ATOMIC_ACQUIRE), "Stale private data before submission");
+    require(!__atomic_load_n(s.view, __ATOMIC_ACQUIRE) &&
+            !__atomic_load_n(&s.view[RESULT_MARKER_OFFSET / 8], __ATOMIC_ACQUIRE),
+            "Stale private data or marker before submission");
     /* Both GPU VAs are private, pinned by execbuf, and disjoint from every
      * other in-flight batch. No relocation may change the tested packet. */
     uint32_t batch[6 + BDW_GATE_WORDS_MAX + 2] = {MI_STORE_QWORD_PPGTT, address, 0, (uint32_t)s.data,
@@ -224,11 +226,21 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     close(finish[0]);
     struct submission work[BDW_BARRIER_ENGINES];
     for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i)
-        work[i] = submit(fd, ctx, i, i, seed, -1, gate_handle);
+        work[i] = submit(fd, ctx, i, i, seed, -1, i == BDW_BARRIER_RCS ? 0 : gate_handle);
     for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i)
         observe_marker(work[i].view, work[i].data, work[i].marker);
-    assert_waiting(work, gate);
+    /* Finish the first RCS request while the four sibling queues are parked.
+     * A fresh render context must execute after all five receipts. On BDW,
+     * i915 installs its coherent L3 workaround in the indirect context batch. */
+    verify(fd, &work[BDW_BARRIER_RCS]);
+    struct drm_i915_gem_context_create second = {0};
+    call(fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &second, "create second render context");
+    require(second.ctx_id != ctx, "Render context identity did not change");
     struct submission *render = &work[BDW_BARRIER_RCS];
+    *render = submit(fd, second.ctx_id, BDW_BARRIER_RCS, BDW_BARRIER_ENGINES, seed, -1, gate_handle);
+    observe_marker(render->view, render->data, render->marker);
+    assert_waiting(work, gate);
+    printf("Ordered render context switch %u -> %u after five engine receipts\n", ctx, second.ctx_id);
     const uint64_t *final_marker = &render->view[BDW_QUEUE_FINAL_FLUSH / 8];
     require(!__atomic_load_n(final_marker, __ATOMIC_ACQUIRE), "Final flush ran before engine drain");
     __atomic_store_n(&gate[BDW_GATE_RENDER_START / 4], 1, __ATOMIC_SEQ_CST);

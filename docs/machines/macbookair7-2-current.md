@@ -10,6 +10,29 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+PR 301 now checks the live plane and device traffic immediately after each
+store to slot 8704 and again after the System Agent invalidation posts.
+The command-interval diagnostic prepares the Broadwell render indirect
+batch in CPU memory and verifies it at each of the three lease checks.
+Pages 4 and 5 of the 32-page interval are proposed for the two-cache-line
+batch and its register-save scratch. Neither page has a native GPU binding.
+
+On November 22 the Ubuntu comparison completed a render-context switch
+after fresh markers from all five engines. The programmed render indirect
+pointer and length read `0xffffd002` at all three held checkpoints. i915
+replaced `0x118874001` with `0x1239d7001` at slot 8704 and restored the
+original PTE and all 1,024 words. Pipe A stayed on surface `0x1700000` at
+each sample and advanced from frame 2752202 to 2752203. Fourteen other
+attempts with the indirect-pointer check stopped at the panel guard.
+The five private queues resumed after rollback. GAM still permitted all
+six clients, WiDi GO remained set and the sampled L3 message was zero.
+
+The next native dependency is ownership of GPU-visible command, scratch and
+context storage and all issuers that can reach the inherited slot, including
+the WiDi display proxy. The CPU image and Ubuntu completion receipts supply
+no native device-wide hold. The SrvrOS slot-write trial remains unarmed.
+[Render flush procedure](../intel-bdw-bcs-flush.md#device-side-queue-hold-through-slot-8704-rollback)
+
 Release `ee4cf3b2ed98c61a` (source `05f62fd0`, session
 `session-000660d7f63163aa-00`) completed the native eight-bank check.
 After all five engines were prepared and before the first GT reset, the

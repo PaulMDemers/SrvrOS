@@ -46,7 +46,33 @@ static void reject(struct intel_bdw_bcs_context_config c) {
  for(unsigned i=0;i<BDW_BCS_IMAGE_WORDS;i++)assert(ram[i]==0xa5a5a5a5);
  assert(desc==0x87654321 && !intel_bdw_bcs_context_verify(&c,ram,desc));++cases;
 }
+static void render_indirect(void)
+{
+ struct intel_bdw_rcs_indirect r;
+ unsigned first=11744;
+ assert(!intel_bdw_rcs_indirect_build(first,31,&r));
+ assert(!intel_bdw_rcs_indirect_build((1u<<20)-31,32,&r));
+ assert(intel_bdw_rcs_indirect_build(first,32,&r));
+ assert(r.pointer==((first+4)*4096+2));
+ uint32_t scratch=(first+5)*4096+256;
+ const uint32_t expected[32]={
+  8u<<23, (0x24u<<23)|(1u<<22)|2, 0xb118, scratch, 0,
+  (0x22u<<23)|1, 0xb118, 0x40400000|(1u<<21),
+  0x7a000004, (1u<<20)|(1u<<5), 0,0,0,0,
+  (0x29u<<23)|(1u<<22)|2, 0xb118, scratch, 0,
+  0x7a000004, (1u<<27)|(1u<<21)|(1u<<20)|(1u<<14), 0x34*4,0,0,0, (8u<<23)|1
+ };
+ assert(!memcmp(r.words,expected,sizeof(expected)));
+ for(unsigned i=0;i<32;++i){
+  r.words[i]^=1;
+  assert(!intel_bdw_rcs_indirect_verify(first,32,&r));
+  r.words[i]^=1;
+ }
+ assert(intel_bdw_rcs_indirect_verify(first,32,&r));
+ assert(!intel_bdw_rcs_indirect_verify(first+1,32,&r));
+}
 int main(int argc,char **argv) {
+ render_indirect();
  struct intel_bdw_bcs_context_config c=config();positive(c);
  if(argc>1 && !strcmp(argv[1],"--positive"))return 0;
  for(unsigned i=0;i<BDW_BCS_IMAGE_WORDS;i++){

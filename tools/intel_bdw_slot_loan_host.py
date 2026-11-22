@@ -44,6 +44,7 @@ def trial(binary, user, instance):
         ptes = mmio_page(offset)
         plane = mmio_page(0x70180)
         cache = mmio_page(0xb118)
+        render = mmio_page(0x21c4)
         power = mmio_page(0x40d0)
         messages = mmio_page(0x8038)
         slice_status = mmio_page(0x138064)
@@ -91,6 +92,7 @@ def trial(binary, user, instance):
             extra_groups=os.getgrouplist(user.pw_name, user.pw_gid),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True))
         entries, bindings = [], []
+        indirect_context = None
         checked = 0
         pid = re.compile(r'-' + str(client.pid) + r'\s')
         previous_rows = 0
@@ -102,9 +104,17 @@ def trial(binary, user, instance):
                     pte, l3, scratch = sample()
                     if phase != checked or len(entries) != phase + 1 or entries[phase] != pte:
                         raise ValueError('GGTT binding changed before the end of the phase')
+                    # Gen8 RCS INDIRECT_CTX names the driver-owned restore batch.
+                    # Sample it only while the second render context is parked.
+                    indirect = struct.unpack_from('<I', render, 0x1c4)[0]
+                    if (indirect == 0xffffffff or not (indirect & 63) or
+                            not (indirect & ~63) or
+                            (indirect_context is not None and indirect != indirect_context)):
+                        raise ValueError('Render indirect context missing or changed under the hold')
+                    indirect_context = indirect
                     checked += 1
                     print(f'checked={phase} slot={SLOT} pte={pte:#018x} '
-                          f'l3sqcreg4={l3:#010x} scratch1={scratch:#010x} {traffic_messages()}', flush=True)
+                          f'rcs_indirect={indirect:#010x} l3sqcreg4={l3:#010x} scratch1={scratch:#010x} {traffic_messages()}', flush=True)
                     print(phase, file=client.stdin, flush=True)
                     continue
                 if fields[:1] != ['BIND']:

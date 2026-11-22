@@ -238,6 +238,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  if(stolen.command_tail.samples==2 && stolen.import.returned &&
     offset==0x800000u+(stolen.command_tail.manifest.first+COMMAND_PAGES-1)*8) {
   if(model.mode==68){*out=0xdead0001;return true;}
+  if(model.mode==70)stolen.command_tail.rcs.words[7]^=1u<<21;
   if(model.mode==69)stolen.command_tail.image[BDW_BCS_IMAGE_WORDS-1]=1;
  }
  if(model.mode==63 && stolen.import.samples==1 && offset==0x811000){*out=0x8e202001u;return true;}
@@ -282,7 +283,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    assert(model.guard_live && model.held && (offset&~4095u)==stolen.import.command_page);
    *out=0;
    if(!(offset&4) && (offset&4095)==31*8 &&
-      (model.mode==66 || model.mode==68 || model.mode==69 || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
+      (model.mode==66 || model.mode==68 || model.mode==69 || model.mode==70 || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
     *out=2; /* Invalid, but already occupied. */
    return true;
   }
@@ -379,8 +380,9 @@ int main(int argc,char **argv) {
    assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.import.command_returned);
    return 0;
   }
-  if(!strcmp(argv[1],"--submission-tail-drift") || !strcmp(argv[1],"--submission-image-drift")) {
-   model.mode=!strcmp(argv[1],"--submission-tail-drift")?68:69;
+  if(!strcmp(argv[1],"--submission-tail-drift") || !strcmp(argv[1],"--submission-image-drift") ||
+     !strcmp(argv[1],"--submission-render-drift")) {
+   model.mode=!strcmp(argv[1],"--submission-tail-drift")?68:!strcmp(argv[1],"--submission-render-drift")?70:69;
    assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.import.returned);
    assert(stolen.command_tail.samples==2 && stolen.command_tail.returned && !model.held && !model.mapped);
    return 0;

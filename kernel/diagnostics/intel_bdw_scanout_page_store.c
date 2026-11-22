@@ -295,14 +295,17 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
 
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */
-    if (p->hold_live != page_hold_live || !page_hold_live(p) || *reg != expected) return false;
+    if (!original_plane(&check) || !intel_bdw_traffic_still_blocked(&check, read_traffic) ||
+        p->hold_live != page_hold_live || !page_hold_live(p) || *reg != expected) return false;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
     *reg = value;
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    if (*reg != value || !traffic_live(&check)) return false;
+    if (*reg != value || !original_plane(&check) ||
+        !intel_bdw_traffic_still_blocked(&check, read_traffic)) return false;
     /* This WO register always reads zero. The read orders the preceding
      * System Agent request. Engine and cache retirement have their own proof. */
     if (borrow.traffic.invalidate_ggtt(t, p, check.epoch, INTEL_GGTT_INVALIDATE_REGISTER, 1) != GT_WRITE_DONE) return false;
     return read_traffic(&check, INTEL_GGTT_INVALIDATE_REGISTER, &posted) && !posted &&
+           original_plane(&check) && intel_bdw_traffic_still_blocked(&check, read_traffic) &&
            *reg == value;
 }

@@ -79,3 +79,38 @@ bool intel_bdw_bcs_context_verify(const struct intel_bdw_bcs_context_config *c,v
  }
  return true;
 }
+
+/* Broadwell RCS restore workaround, following gen8_init_indirectctx_bb in
+ * Linux v6.12 intel_lrc.c (MIT, notice above). Its length comes from
+ * INDIRECT_CTX, so trailing MI_NOOPs count and there is no MI_BATCH_BUFFER_END.
+ * Use only on engine restore with an owned HWSP (scratch at byte 0xd0), an
+ * exclusive scratch mapping, and the uniform 0x40400000 policy on all banks. */
+bool intel_bdw_rcs_indirect_build(uint32_t first, uint32_t pages, struct intel_bdw_rcs_indirect *out)
+{
+    if (!out || pages != 32 || !first || first > (1u << 20) - pages) return false;
+    uint32_t batch = (first + 4u) << 12;
+    uint32_t scratch = ((first + 5u) << 12) + 256u;
+    *out = (struct intel_bdw_rcs_indirect){
+        .pointer = batch | 2u, /* two 64-byte cache lines */
+        .words = {
+            0x04000000,                         /* MI_ARB_OFF */
+            0x12400002, 0xb118, scratch, 0,     /* save L3SQCREG4 */
+            0x11000001, 0xb118, 0x40600000,    /* include coherent lines */
+            0x7a000004, 0x00100020, 0, 0, 0, 0, /* stall and flush DC */
+            0x14c00002, 0xb118, scratch, 0,     /* restore L3SQCREG4 */
+            0x7a000004, 0x08304000, 0xd0, 0, 0, 0, /* clear SLM via HWSP */
+            0x04000001,                         /* MI_ARB_ON */
+        }
+    };
+    return true;
+}
+
+bool intel_bdw_rcs_indirect_verify(uint32_t first, uint32_t pages, const struct intel_bdw_rcs_indirect *image)
+{
+    struct intel_bdw_rcs_indirect expected;
+    if (!image || !intel_bdw_rcs_indirect_build(first, pages, &expected) ||
+        image->pointer != expected.pointer) return false;
+    for (unsigned i = 0; i < 32; ++i)
+        if (image->words[i] != expected.words[i]) return false;
+    return true;
+}
