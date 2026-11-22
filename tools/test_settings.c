@@ -164,6 +164,10 @@ int main(void) {
     dp.serial=0;ds.remaining_seconds=14;memcpy(dp.text,&ds,sizeof(ds));tool_settings_display(&t,&dp);
     assert(t.settings_scroll.offset==trial_offset);
     tool_settings_scroll(&t,10000);
+    display_request(&t,DESK_DISPLAY_QUERY);
+    uint64_t countdown_serial=brightness_sent.serial;
+    tool_layout(&t);
+    assert(t.display_pending && t.buttons[21].enabled && t.buttons[22].enabled);
     assert(!t.buttons[20].frame.w && t.buttons[21].frame.w && t.buttons[22].frame.w);
     struct desk_rect display_keep=t.buttons[21].frame;
     display_press=(struct desk_widget_event){.type=DESK_WIDGET_POINTER,.x=display_keep.x+10,.y=display_keep.y+10,.down=1,.pressed=1};
@@ -171,7 +175,10 @@ int main(void) {
     display_action=desk_ui_pointer(&t.ui,display_press,0);
     assert(display_action.id==SETTINGS_DISPLAY_KEEP && (display_action.flags&DESK_WIDGET_ACTIVATED));
     tool_settings_action(&t,display_action);
-    assert(brightness_sent.value==DESK_DISPLAY_KEEP && brightness_sent.generation==7);
+    assert(brightness_sent.value==DESK_DISPLAY_KEEP && brightness_sent.generation==7 &&
+        brightness_sent.serial>countdown_serial);
+    dp.serial=countdown_serial;tool_settings_display(&t,&dp);
+    assert(t.display_pending && t.display_operation==DESK_DISPLAY_KEEP);
     dp.serial=brightness_sent.serial;dp.value=DESK_DISPLAY_BUSY;tool_settings_display(&t,&dp);
     assert(t.buttons[22].enabled);
     struct desk_rect display_revert=t.buttons[22].frame;

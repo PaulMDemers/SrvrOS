@@ -68,8 +68,8 @@ The exact image and hardware evidence are archived under
 were verified after collecting the session.
 
 The rolling-logger trial used `f4dd4bd8`, release `5e87320cf984a090`, and
-session `session-000660e389e6bf61-00`. The saved `exit.log` starts
-with the newest 65,536 bytes after 101,191 bytes of logging. The separate
+session `session-000660e389e6bf61-00`. The saved `exit.log` contains
+the newest 65,536 bytes of 101,191 logged bytes. The separate
 boot snapshot records firmware 2× and the exit records startup 2×
 and a confirmed Settings change to 1×. The Text file survived and the
 operator confirmed a clean automatic return to Ubuntu.
@@ -80,6 +80,10 @@ Fractional scaling extends the desktop output transform, Settings,
 and persisted display preferences with 1.25×, 1.5× and 1.75×. Clients
 continue to use SrvrUI's existing 1× and 2× rasters. The compositor
 resamples fractional output independently of app buffer density.
+The QEMU desktop checks passed at all three fractional scales, including
+Apply, Keep, explicit Revert, timeout, closing Settings during a trial,
+Text save and readback, and restoring the confirmed choice on the next
+desktop launch. Native fractional validation remains pending.
 
 ### Wi-Fi release qualification
 

@@ -53,7 +53,10 @@ def main():
                         cmdline='srvros.virtio=on srvros.virtio-gpu=present')
         metadata['boot_iso_sha256'] = sha256(Path(iso))
         port = choose_port(30001, 38000)
-        command = [args.qemu, '-M', 'q35,i8042=off', '-m', '512M', '-cdrom', str(iso),
+        # Fractional trials keep the old canvas while allocating a larger
+        # 2x backing raster and replacement client surfaces.
+        memory = '512M' if scale_choice == 2 else '1024M'
+        command = [args.qemu, '-M', 'q35,i8042=off', '-m', memory, '-cdrom', str(iso),
                    '-boot', 'd', '-vga', 'none', '-device', 'virtio-vga,disable-legacy=on',
                    '-device', 'virtio-keyboard-pci,disable-legacy=on',
                    '-device', 'virtio-tablet-pci,disable-legacy=on',
@@ -121,12 +124,19 @@ def main():
                     move(x, y); button(True); button(False)
 
                 def shot(name, size):
-                    time.sleep(.6)
                     path = out / (name + '.ppm')
-                    qmp.call('screendump', {'filename': str(path)})
-                    w, h, _ = ppm(path)
-                    if (w, h) != size:
-                        raise AssertionError(f'{name}: screenshot {w}x{h}, expected {size}')
+                    deadline = time.monotonic() + 5
+                    while True:
+                        qmp.call('screendump', {'filename': str(path)})
+                        try:
+                            w, h, _ = ppm(path)
+                            if (w, h) != size:
+                                raise AssertionError(f'{name}: screenshot {w}x{h}, expected {size}')
+                            return
+                        except AssertionError:
+                            if time.monotonic() >= deadline:
+                                raise
+                            drain(.2)
 
                 def geometry(pid):
                     drain()
@@ -140,15 +150,21 @@ def main():
                     for _ in range(12):
                         shortcut('pgdn')
 
+                def maximized_frame():
+                    w = min(logical[0] - 16, 1442)
+                    h = min(logical[1] - 132, 945)
+                    return (logical[0] - w) // 2, 52, w, h
+
                 def display_button(which):
                     # Maximized Settings occupies the standard work area. The
                     # scrollbar is at its end; Settings content height is 1912.
-                    content_h = logical[1] - 177
+                    sx, sy, _, sh = maximized_frame()
+                    content_h = sh - 45
                     offset = 1912 - (content_h - 108)
                     local_y = 64 + 1610 + (72 if which in ('mode', 'scale') else 112) - offset + 16
                     x = {'mode': 24+55, 'scale': 172+36, 'apply': 24+40,
                          'keep': 24+40, 'revert': 120+40}[which]
-                    click(8 + 1 + x, 52 + 44 + local_y)
+                    click(sx + 1 + x, sy + 44 + local_y)
 
                 def applied(w, h, scale, restore):
                     percent = scale * 100 if scale in (1, 2) else scale
@@ -191,12 +207,15 @@ def main():
                 for _ in range((125, 150, 175, 2).index(scale_choice) + 1):
                     display_button('scale')
                 display_button('apply')
-                applied(1920, 1080, scale_choice, 0); shot('trial-1920x1080', (1920, 1080))
-                scroll_bottom(); display_button('keep')
+                applied(1920, 1080, scale_choice, 0)
+                wait(b'deskd: commit pid=' + settings_pid + b' ')
+                scroll_bottom(); shot('trial-1920x1080', (1920, 1080)); display_button('keep')
                 wait(f'deskd: display-kept scale={scale_choice} resolution=1920x1080'.encode())
                 wait(b'status=1 ', 60)
                 # Keep Settings open while returning to the original Text window.
-                click(logical[0]//2 - 150, logical[1]-50); shortcut('ctrl-c')
+                click(logical[0]//2 - 150, logical[1]-50)
+                wait(b'deskd: focused pid=' + text_pid + b' ')
+                shortcut('ctrl-a'); shortcut('ctrl-c')
                 wait(f'clipboard role=2 action=8 bytes={len(phrase)}'.encode())
                 # A snap triggers a real client resize with its original PID.
                 click(logical[0]//2 - 150, logical[1]-50); shortcut('meta_l-alt-left')
@@ -222,13 +241,16 @@ def main():
                 shot('timeout-reverted', (1920, 1080))
                 scroll_bottom(); display_button('mode'); display_button('apply')
                 applied(2560, 1440, scale_choice, 0)
+                wait(b'deskd: commit pid=' + settings_pid + b' ')
                 scroll_bottom(); display_button('revert')
                 applied(1920, 1080, scale_choice, 1); wait(b'deskd: display-reverted')
                 shot('explicit-revert', (1920, 1080))
                 scroll_bottom(); display_button('mode'); display_button('apply')
                 applied(2560, 1440, scale_choice, 0)
+                wait(b'deskd: commit pid=' + settings_pid + b' ')
                 # Closing the owner must revert even before its deadline.
-                click(logical[0]-28, 72)
+                sx, sy, sw, _ = maximized_frame()
+                click(sx + sw - 20, sy + 20)
                 applied(1920, 1080, scale_choice, 1); wait(b'deskd: display-reverted')
                 shot('owner-close-reverted', (1920, 1080))
                 desktop_exit()

@@ -126,15 +126,16 @@ at 2×. Fenced VirtIO presentation remains active after a successful switch.
 A display requires at least 640×480 logical pixels. For fractional output,
 the compositor renders with 2× assets and box-filters each damaged region
 to the physical framebuffer. Settings can save a fractional choice using
-the same Keep and Revert workflow. QEMU offers the inherited mode plus bounded presets through
-2880×1800; these are guest-supported modes, not an EDID monitor catalog. Other
-display drivers expose their current resolution and disable resolution changes.
+the same Keep and Revert workflow. QEMU offers the inherited mode plus bounded
+presets through 2880×1800. Other display drivers expose their current
+resolution and disable resolution changes.
 Scale can still change when the current framebuffer is large enough. See
 [display presentation](display-presentation.md) for the driver recovery contract.
 
-Saved screenshots retain logical dimensions, averaging native 2× pixels so the
-BMP remains within Preview's current 8 MiB file limit. QEMU screendumps preserve
-physical pixels for inspecting font detail. Serial diagnostics record physical
+Saved screenshots use logical dimensions, averaging native 2× pixels. The
+8 MiB BMP limit permits captures at 1.75× and 2× on the 2880×1800 panel.
+QEMU screendumps preserve physical pixels for inspecting font detail.
+Serial diagnostics record physical
 and logical dimensions, scale and confirmed/restored changes. VM evidence does
 not accept modesetting or panel timing on a physical Mac.
 [Acceptance and native-resolution captures](assets/screenshots/hidpi-display-manifest.json)

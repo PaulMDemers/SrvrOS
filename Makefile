@@ -5277,6 +5277,7 @@ build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnost
 
 # The session fixture includes display transaction implementation directly.
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
+build/tests/desktop-session-host$(HOST_EXE) build/tests/preferences-host$(HOST_EXE) build/tests/settings-host$(HOST_EXE): shared/include/srvros/desktop_scale.h
 
 .PHONY: test-vfs-namespace
 test-vfs-namespace:
