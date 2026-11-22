@@ -4,8 +4,9 @@ November 22, 2026. The original target configure stopped at GLib's
 `sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
-proxy-libintl and GIO's `C_IN` declaration. GIO's next required check
-links `res_query()`.
+proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
+the static build graph. The targeted GIO resolver compile stops at missing
+DNS wire declarations and `dn_expand()`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -40,7 +41,8 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | zlib | Meson finds the browser target's static 1.4 provider. |
 | `intl` | GLib configures the pinned proxy-libintl 0.5 wrap as an internal dependency, with `-Dnls=disabled`. |
 | GIO resolver headers | The SDK exports `C_IN` in `<arpa/nameser.h>`. GIO's primary compile check passes. |
-| GIO resolver link | The next mandatory check is `res_query()`. The target compiler reports missing `<resolv.h>`. |
+| GIO resolver link | Meson links `res_query()` directly from the SrvrOS SDK using `<resolv.h>`. |
+| GIO resolver object | Compiling `gthreadedresolver.c` needs `dn_expand()`, `GETSHORT`, `GETLONG`, `HEADER` and DNS record constants. |
 
 The target profile searches only the staged PCRE2, libffi and zlib pkg-config
 directories and disables Meson wrap downloads. The `intl` lookup uses the
@@ -181,12 +183,32 @@ Verification used target compiler probes, and the VM window stayed available.
 
 The fresh Meson run reused the verified providers from the combined
 proxy-libintl run with the rebuilt SDK. GIO's primary `C_IN` probe compiled.
-The direct `res_query()` check fails on missing `<resolv.h>`. The static
-linker reports that the `resolv`, `bind` and `socket` fallback libraries
-are unavailable. At runtime the GIO record resolver
+That header-only run failed the direct `res_query()` check on missing
+`<resolv.h>`. The static linker reported that the `resolv`, `bind` and
+`socket` fallback libraries were unavailable. At runtime the GIO record resolver
 consumes DNS wire answers and uses resolver error state and compressed-name
 decoding. Its source includes SRV, TXT, SOA, NS and MX handling.
 [Pinned GIO resolver source](https://github.com/GNOME/glib/blob/2.90.1/gio/gthreadedresolver.c).
+
+## GIO raw resolver query
+
+The networking owner's historical chat was archived and the integration
+owner found no active successor. The user delegated review of the query
+contract to this task. SrvrOS exports `res_query()` from `<resolv.h>` and
+thread-local `h_errno` from `<netdb.h>`. The query uses the existing
+bounded IPv4 UDP resolver transport with an independent socket and random
+transaction ID. The existing A lookup retains its answer parser and native
+fallback. The [POSIX profile](posix-supported-profile.md) describes the wire
+and error contracts.
+
+Meson 1.10.2 on the SDK rebuilt with main `b95bc096` links both
+`res_query()` and `socket()` directly and exits 0 with Ninja files.
+The targeted command
+`ninja -C /path/to/glib-build gio/libgio-2.0.a.p/gthreadedresolver.c.o`
+fails first at `dn_expand()` and also reports missing `GETSHORT`, `GETLONG`,
+`HEADER` and record constants. Target GLib libraries remain unbuilt.
+The [resolver receipt](assets/evidence/gio-res-query/receipt.json) records
+the matched SDK and configure inputs.
 
 ## Verification
 

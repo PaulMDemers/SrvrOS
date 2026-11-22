@@ -1,0 +1,82 @@
+{
+  "scope": "Public IPv4 UDP res_query and GLib 2.90.1 cross-configure",
+  "integration_base": "b95bc096d",
+  "runtime_source_sha256": {
+    "userspace/lib/include/arpa/nameser.h": "57dd4dee113db885b6b927bc63936195cf33b8deb31d461ac9db1e8d54b9428d",
+    "userspace/lib/include/resolv.h": "ce837a90025bba8ce8f31b9a351a1f9a946f087acf839c884fd39f554b84d459",
+    "userspace/lib/include/netdb.h": "a67e66b65378b5331848d15dd2426286feddc3686441b1f161eb0073574b7739",
+    "userspace/lib/include/errno.h": "b23be0219fbc885149ad457e52a2cf2d3b027e10dab6d27151a3dfe00c0ec7d0",
+    "userspace/lib/src/posix_socket.c": "cc5e046760db2e9b5850532308d3e8b29b2f4985a297f0b00d0cfe08e345d6e0"
+  },
+  "sdk_build_log_sha256": "a70e73b6085bad64d8e8b77309f28fb89ca79f1103b9218d26ce89c686b797b2",
+  "configure": {
+    "exit": 0,
+    "ninja_gio_resolver_object_exit": 1,
+    "source": "81c57479eb026bf7894f445c85e87bb933b213a5",
+    "meson": "1.10.2",
+    "argv": [
+      "build/browser-glib-prereq/venv/bin/meson",
+      "setup",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-build",
+      "build/browser-glib-resolver/configure-echfe_ll/glib-2.90.1",
+      "--cross-file",
+      "build/browser-glib-resolver/configure-echfe_ll/srvros.ini",
+      "--wrap-mode=nodownload",
+      "--default-library=static",
+      "-Dtests=false",
+      "-Dintrospection=disabled",
+      "-Dnls=disabled",
+      "-Dlibmount=disabled",
+      "-Dselinux=disabled",
+      "-Dxattr=false",
+      "-Dsysprof=disabled"
+    ],
+    "sdk_headers_sha256": "e698cc630c3f62febd2f0e7aa71ca0794f0f69013a5d7d73871a864bcf03499b",
+    "inputs_and_logs_sha256": {
+      "build/browser-glib-resolver/configure-echfe_ll/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "build/sysroot/srvros/lib/libsrvros.a": "dd30503bff0a193a418993960d4cb6a45ca5ad27125a47923f87d9df59d0706b",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "build/browser-glib-resolver/configure-echfe_ll/glib-2.90.1/gio/gthreadedresolver.c": "f0b5b8d72c656867f808cc6ebae03ab03b1d3f660b51016f18a21088f1bbb609",
+      "build/browser-glib-prereq/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-proxy-intl/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-configure.log": "3d8b3884f0de4a684d58560766245887d24a88e6bc7a8f4a7d6c223d48234728",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-build/meson-logs/meson-log.txt": "b2a6e68cdf34978401ff0a52eb7053898ac447b5c625cf31fca0c747a359f5f2",
+      "build/browser-glib-resolver/configure-9xn1mh6x/gio-resolver-compile.log": "2e1f13f91cb2af37cb11701f7bd6e286bf2044fcf92908a58c09a1e5bcb312a3",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-build/build.ninja": "3e95584e051fb89b87120aee3cc2e40ff310ea6fd9f4642b1b5011b52b574c2b"
+    },
+    "reused_provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "observations": [
+      "Checking if \"C_IN in public headers (no arpa/nameser_compat.h needed)\" compiles: YES",
+      "Checking if \"res_query()\" links: YES",
+      "Checking if \"socket()\" links: YES"
+    ],
+    "targeted_source": "gio/gthreadedresolver.c",
+    "first_compile_error": "call to undeclared function 'dn_expand'",
+    "additional_missing_declarations": [
+      "GETSHORT",
+      "GETLONG",
+      "HEADER",
+      "T_TXT",
+      "T_SOA",
+      "T_NS",
+      "T_MX"
+    ]
+  },
+  "host_regressions": {
+    "dns_response_libc": 22,
+    "posix_datagram": 6,
+    "posix_udp_owner": 12,
+    "cxx23_sdk_header_and_link": "pass",
+    "private_dns_peer_framing": "pass"
+  }
+}

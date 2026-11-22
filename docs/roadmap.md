@@ -24,10 +24,11 @@ The November 22 [GLib prerequisite probe](browser-glib-prereq.md) verifies
 native wait primitives and the iconv, PCRE2, libffi, zlib and proxy-libintl
 providers in the normal guest. Host GLib dispatches wakes and timers. Target
 GLib configures through its pinned internal `intl` fallback and the SDK's
-`C_IN` declaration. GIO stops at its `res_query()` link check. The
-resolver API contract needs networking owner review. Static GLib
-compilation and integrated main-context wait follow. Shared-memory and IPC
-design remains with its runtime owner.
+`C_IN` and `res_query()` checks. It generates the static build graph.
+The GIO resolver source now needs `dn_expand()` and the DNS wire declarations
+it uses to consume replies. Static GLib compilation and integrated
+main-context wait follow. Shared-memory and IPC design remains with its
+runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
 

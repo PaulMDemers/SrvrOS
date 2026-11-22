@@ -6,7 +6,9 @@ implementation remains unqualified behind the explicit gates below.
 November 22 follow-up. The pinned GLib configure now detects the SDK poll
 constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
 Configure processes bundled GVDB and proxy-libintl, finds `C_IN` in the
-SrvrOS SDK and stops at GIO's `res_query()` link check. The normal guest
+SrvrOS SDK and completes static configuration after linking `res_query()`.
+The targeted GIO resolver compile needs `dn_expand()` and DNS wire
+declarations. The normal guest
 verified native wait, character conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.
