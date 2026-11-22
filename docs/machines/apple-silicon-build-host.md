@@ -1,5 +1,40 @@
 # Apple Silicon macOS build host
 
+## Offline streaming-v2 installation restore — November 22, 2026
+
+Installation checkout `SrvrOS-installation-stream-v2` starts from integrated
+main `b275e57d`, which includes the qualified [PR367](https://github.com/PaulMDemers/SrvrOS/pull/367)
+stream codec and bounded exFAT runtime. This milestone owns host plan admission,
+the native private-image adapter and a fresh-installed reboot proof. It uses a
+new synthetic bundle and new disposable images. The WebCore checkout, previous
+installation evidence and other tasks' guests remain outside the work scope.
+The [installation guide](../disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+documents the operator flow and refusal boundaries.
+
+Matched source `afb305b6` passes 95 installation tests with one optional skip,
+43 workspace tests, v1 bundle and profile image checks, and the full build.
+Two sequential EFI boots restore and reopen the same profile at a new HOME
+with its six preferences, local bindings and exact selected documents. The
+filesystem reviewer verifies the exact bytes in both saved partitions,
+including a 16 MiB document and a valid filename containing `.profile-import`.
+The audit also verifies 166 installed binaries and all three allocation
+snapshots. Used-image inspection passes with zero writes and flushes. The
+synthetic input, base template and regions outside the installed data partition
+retain their hashes. Both owned VMs stopped with over 10 GiB of free space.
+A separate fresh v1 EFI boot with the same writer also passes exact selected
+document, identity, preference, allocation and preservation checks.
+
+The first proof at `c09edb67` failed installed-root admission because its native
+writer assigned exFAT entries inode IDs already in use by the guest's `/` and
+`/init`. The corrected writer models those bootstrap identities and treats
+journal-like names under Documents as ordinary files.
+Both results retain their source attribution in the
+[manifest](../assets/screenshots/installation-stream-restore-manifest.json).
+Verified [reboot screenshot](../assets/screenshots/installation-stream-restore-b2.png).
+The proof is limited to synthetic installed images and a 16 MiB selected
+document. The profile admission and copy audit measured Python heap allocation
+separately from the native driver and whole-image assembly.
+
 ## GLib platform prerequisite probe — November 22, 2026
 
 The browser audit branch incorporates actual OS main `b275e57d` at `14edc87b`.
