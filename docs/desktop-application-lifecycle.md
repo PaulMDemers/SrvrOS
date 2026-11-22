@@ -205,6 +205,37 @@ leave the live tracking prefix before a window; process slots remain reserved
 until initialization or retirement finishes. Byte/frame bounds, poisoning and
 failure/refusal behavior remain in force.
 
+A separate checked exec prelude can copy a background child's image from a
+completed read-only memory exFAT mount while another process owns storage.
+The current namespace, executable permission, file identity, contiguous full
+ValidDataLength and byte/cluster bounds must all qualify. It runs the same ELF,
+stack, TLS and vector validation and the same allocation-failure cleanup. It
+accepts only default console/closed standard descriptors and no file actions,
+replacement, foreground changes or explicit user scope. The prepared main tuple
+is published with READY and consumed once by a checked entry transition; ordinary
+scheduler bind/clear still refuse a foreign owner.
+
+Independent exit requires a quiet detached background continuation, the matching
+current image, audited safe siblings or
+siblings explicitly parked in the ordinary I/O admission wait,
+verified tracked PTEs, only console/closed descriptors, no stream/network/audio/
+surface/display ownership and no owned user scope. Worker retirement separately
+checks and unmaps its exact TLS ownership. IRQs stay masked through final image
+cleanup, runtime release and reap publication, preserving the foreign owner.
+An unexpected checked unmap failure retains its frame and fail-stops. All
+refusals use ordinary admission and original flushing/rights/cleanup. The 4,096
+mapping bound applies only to the atomic attempt; larger images retain the
+original loader/mapping limits and service windows. Stress deadlines and storage
+integrity/durability rules are unchanged. Native acceptance is recorded per unit.
+The explicit [launch/fcntl gate diagnostic](launch-gate-trace.md) records coverage
+and first refusal reasons without changing these predicates or limits.
+
+Periodic workspace captures keep their declared ten-second interval anchored to
+capture start, so write completion latency does not accumulate between captures.
+A write that overruns the period skips missed periods and arms a full next period;
+there is no queued catch-up. The 64 KiB tail and rotation/checkpoint caps remain
+unchanged, and missing startup/retirement evidence still fails qualification.
+
 Graphics output and surface transfers keep their private copy allocation under
 that owner until it is freed, and restore the scheduler-recorded address space
 before a checkpoint. Surface initialization keeps its existing quota reservation
@@ -235,3 +266,27 @@ continues to exclude same-PID siblings during mutable memory operations; a worke
 can move gate waits off the UI loop without making all of its memory work safely
 concurrent with that loop. Kernel service availability, application-only startup
 time, event-loop responsiveness and native audio acceptance are distinct checks.
+
+## Directory metadata during foreign storage commits
+
+Public dispatch invokes the callback-free READ_INFO prelude before acquiring
+namespace ownership. A refused proof retains the complete original owned span
+through fresh cancellation, user-mapping and FD checks, enumeration and copy.
+Other directory operations retain that span. The previous PR498 native run had
+zero handled entries because the wrapper acquired ownership first; it remains
+failed feature evidence. The public-dispatch regression compiles the actual
+helpers/wrapper together and fails against that old wrapper. Positive loaded-VM
+and native admission counts are required before accepting the corrected route. VFS publication depth spans metadata/retire callbacks and
+rollback; node publication and system namespace changes are excluded. The
+existing scheduler proof rejects foreign-owner image aliases, unsafe sibling
+continuations and wrong roots. Shared directory cursors and stale/retired node
+bindings retain ordinary gate admission. No cached listing replaces live size,
+mtime, inode or open-content size observations; the batch maximum stays 16.
+
+Refusal changes neither cookie nor output, then regains the original I/O gate,
+checks cancellation, revalidates user mappings and resolves the descriptor
+again. The user copy stays in the same interrupt-excluded snapshot. READ, PATH
+and CHDIR retain their original entry gate. A compact directory-admission row
+records handled/entry and refusal counts in existing sync checkpoints, including
+final logs. This is diagnostic evidence, not a substitute for the original
+500 ms loop, ten-second whole-app and complete workload/retirement checks.

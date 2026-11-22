@@ -3,6 +3,10 @@
 #include <stdint.h>
 #define DESK_CAPTURE_MAGIC 0x32504853u
 #define DESK_CAPTURE_PROGRESS_MAGIC 0x32504753u
+/* Explicit timing request; unchanged request/frame sizes. Ordinary requests
+ * neither produce nor accept the auxiliary post-allocation readiness frame. */
+#define DESK_CAPTURE_TRACE_MAGIC 0x32544853u
+#define DESK_CAPTURE_READY_MAGIC 0x32524853u
 #define DESK_CAPTURE_PATH 160
 #define DESK_CAPTURE_FOLDER "/fat/home/Screenshots"
 /* BMPs stay inside Preview's 8 MiB input limit. Includes full HD and the Air. */

@@ -1,4 +1,7 @@
 #include <srvros/session_scope.h>
+#include <srvros/sync_timing.h>
+#include <srvros/commit_wait_timing.h>
+#include "capture_write_timing_state.h"
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
 #include "arch/x86_64/isr_frame.h"
@@ -175,10 +178,16 @@ struct process_unix_listener {
 /* One content object per live pathname; unlinked objects retain their identity
  * until last close. Offsets/status belong to separate open descriptions. */
 struct process_file_content {
-    uint64_t refs;
+    uint64_t refs,diagnostic_identity;
     const struct vfs_node *node;
     const uint8_t *data;
     uint64_t size,capacity;
+    uint64_t dirty_generation,committed_size;
+    struct {
+        bool active;
+        const uint8_t *data;
+        uint64_t size,generation,append_calls,append_bytes;
+    } writeback;
     bool owned,dirty,failed,unlinked;
     struct vfs_metadata orphan_metadata;
     char path[PROCESS_PATH_MAX];
@@ -187,6 +196,14 @@ struct process_write_file {
     bool used;
     uint64_t refs,open_flags,offset;
     struct process_file_content *content;
+    bool fresh_exclusive;
+    struct {
+        bool valid;
+        struct process *owner;
+        struct process_file_content *content;
+        const uint8_t *data;
+        uint64_t image_generation,fd,fd_generation,capacity,limit,open_flags;
+    } append;
     char path[PROCESS_PATH_MAX];
 };
 struct process_read_file {
@@ -237,6 +254,7 @@ struct process {
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t owned_user_scope;
+    bool private_retiring,private_build,private_prepared;
     uint64_t session_id;
     uint64_t controlling_tty;
     uint64_t pid;
@@ -272,7 +290,9 @@ struct process {
     struct fpu_state fpu;
     struct process_file files[PROCESS_MAX_OPEN_FILES];
     uint64_t file_generations[PROCESS_MAX_OPEN_FILES];
-    struct process_mapping mappings[PROCESS_MAX_MAPPINGS];
+    /* Full-capacity image-owned backing, acquired before its first user page.
+     * Only [0,mapping_count) is published. Empty slots own none. */
+    struct process_mapping *mappings;
     uint64_t mapping_count;
     struct process_mmap_region mmap_regions[PROCESS_MAX_MMAP_REGIONS];
     uint64_t mmap_next;
@@ -353,13 +373,22 @@ static struct process_exit_record exit_records[PROCESS_EXIT_STATUS_CACHE];
 static bool process_slots_busy[PROCESS_MAX_PROCESSES];
 /* CPU0 process management: short IRQ-masked publication, preemptible loading
  * and destruction. Members include reservations and final resource release. */
+struct process_pipe_handoff_record {
+    const struct process_pipe_handoff *ticket;
+    uint64_t pid,image_generation,address_space,pipe,fd_generation;
+    bool owns_writer,published,closed;
+};
 struct process_lifetime {
     uint64_t token, members, peak;
     bool revoked, root_reserved, user, reservation;
     struct process *owner;
     uint64_t nonzero_exits, first_exit_status;
+    struct process_pipe_handoff_record handoff;
 };
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
+static void process_pipe_handoff_drop(struct process_lifetime *life);
+static bool process_pipe_handoff_install(struct process_lifetime *life,
+    struct process *child,struct process_pipe_handoff *ticket);
 static uint64_t next_lifetime = 1;
 static uint64_t next_image_generation;
 static uint64_t next_pid = 1;
@@ -390,6 +419,20 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stdin_fd,
     int64_t stdout_fd,
     int64_t stderr_fd);
+
+/* These privileged transitions are not host fixture operations. Keep native
+ * instructions exact; unexpected host entry must fail rather than emulate it. */
+#ifdef SRVROS_PROCESS_HOST_TEST
+#define PROCESS_ARCH_STI() __builtin_trap()
+#ifdef SRVROS_PRIVATE_LIFECYCLE_HOST_TEST
+#define PROCESS_ARCH_HALT() process_private_test_halt()
+#else
+#define PROCESS_ARCH_HALT() __builtin_trap()
+#endif
+#else
+#define PROCESS_ARCH_STI() __asm__ volatile ("sti" : : : "memory")
+#define PROCESS_ARCH_HALT() __asm__ volatile ("hlt")
+#endif
 
 static uint64_t process_irq_save(void) {
 #ifdef SRVROS_PROCESS_IRQ_HOST_TEST
@@ -515,6 +558,19 @@ bool process_resolve_user_binding(void *candidate, void *worker,
     return true;
 }
 
+bool process_admit_prepared_child(void *parent,void *candidate,uint64_t generation,uint64_t root,
+    struct process_user_binding *out) {
+    struct process_user_binding binding;
+    if(!parent || candidate==parent || !process_resolve_user_binding(candidate,NULL,generation,root,&binding))return false;
+    struct process *p=candidate,*owner=parent;
+    if(!owner->allocated || !owner->active || p->parent_pid!=owner->pid ||
+       root==owner->address_space || !p->quiet || !p->detached || p->startup_ready ||
+       p->fork_resume || !p->entry || !p->stack_top || !binding.new_worker_allowed ||
+       !binding.kernel_stack_top || p->mapping_count>4096)return false;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)return false;
+    *out=binding;return true;
+}
+
 bool process_admit_user_worker(void *candidate, void *worker, uint64_t generation,
     uint64_t root, struct process_user_binding *out) {
     struct process_user_binding binding;
@@ -615,7 +671,7 @@ static bool process_prepare_frame_copy(const struct isr_frame *frame,
      * narrower here: an exiting image cannot publish a future signal frame. */
     struct process *process=observed.process;
     if (!binding.new_worker_allowed || (!observed.user_thread && process->main_thread_exited) ||
-        process->mapping_count>PROCESS_MAX_MAPPINGS) return false;
+        (process->mapping_count>PROCESS_MAX_MAPPINGS || (process->mapping_count && !process->mappings))) return false;
     struct user_frame_stack stack;
     if (observed.user_thread) {
         struct scheduler_user_worker_stack worker;
@@ -870,9 +926,11 @@ static bool process_stream_cleanup(uint64_t owner) {
 #elif defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
     return file_stream_cleanup(owner);
 #else
+    uint64_t irq=process_irq_save();
+    if(!file_stream_owned(owner)) {process_irq_restore(irq);return true;}
     struct process_service_scope scope=process_service_begin();
-    if(!scope.held) { process_service_end(scope);return false; }
-    bool okay=file_stream_cleanup(owner);process_service_end(scope);return okay;
+    if(!scope.held) { process_service_end(scope);process_irq_restore(irq);return false; }
+    bool okay=file_stream_cleanup(owner);process_service_end(scope);process_irq_restore(irq);return okay;
 #endif
 }
 static void process_service_checkpoint(void) {
@@ -1219,6 +1277,79 @@ static bool process_path_equal(const char *a, const char *b) {
     return a[i] == '\0' && b[i] == '\0';
 }
 
+static struct capture_write_snapshot capture_writes;
+static uint64_t capture_write_now(void) {
+#ifdef SRVROS_CAPTURE_WRITE_CLOCK_HOST_TEST
+    extern uint64_t capture_write_test_clock(void);return capture_write_test_clock();
+#elif defined(SRVROS_PROCESS_HOST_TEST)
+    return 0;
+#else
+    return timer_monotonic_us();
+#endif
+}
+static uint64_t capture_write_pid(void) {
+    struct process *p=process_current();
+    return capture_writes.enabled && p && p->allocated && p->active &&
+        process_path_equal(p->executable_path,"/fat/bin/shotworker")?p->pid:0;
+}
+bool process_capture_write_timing_enable(void) {
+    uint64_t flags=process_irq_save();
+    bool ok=!capture_writes.enabled && timer_reference_ready();
+    if(ok)capture_writes.enabled=1;
+    process_irq_restore(flags);return ok;
+}
+uint64_t process_capture_write_clock(void) {
+    if(!capture_writes.enabled)return 0;
+    uint64_t flags=process_irq_save(),pid=capture_write_pid(),now=0;
+    if(pid) {now=capture_write_now();if(!capture_write_touch(&capture_writes,pid,now))now=0;}
+    process_irq_restore(flags);return now;
+}
+uint64_t process_capture_write_begin(void) {
+    uint64_t now=process_capture_write_clock();if(!now)return 0;
+    uint64_t flags=process_irq_save();struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    if(r && !capture_write_add(&r->attempts,1))r->invalid=1;
+    process_irq_restore(flags);return now;
+}
+void process_capture_write_record(enum capture_write_site site,uint64_t start) {
+    if(!start)return;
+    uint64_t flags=process_irq_save();
+    capture_write_sample(capture_write_find(&capture_writes,capture_write_pid()),site,start,capture_write_now());
+    process_irq_restore(flags);
+}
+void process_capture_write_result(uint64_t start,uint64_t requested,int64_t result) {
+    if(!start)return;
+    uint64_t flags=process_irq_save();
+    capture_write_result(capture_write_find(&capture_writes,capture_write_pid()),start,capture_write_now(),requested,result);
+    process_irq_restore(flags);
+}
+void process_capture_write_fast_result(uint64_t requested,int64_t result) {
+    uint64_t flags=process_irq_save();
+    capture_write_fast_result(capture_write_find(&capture_writes,capture_write_pid()),requested,result);
+    process_irq_restore(flags);
+}
+void process_capture_write_invalidate(void) {
+    uint64_t flags=process_irq_save();
+    struct capture_write_record *record=capture_write_find(&capture_writes,capture_write_pid());
+    if(record)record->invalid=1;
+    process_irq_restore(flags);
+}
+void process_capture_write_gate_wait(void) {
+    uint64_t flags=process_irq_save();
+    struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    scheduler_io_wait_observed(r?&r->gate:NULL);
+    process_irq_restore(flags);
+}
+void process_capture_write_growth(void) {
+    if(!capture_writes.enabled)return;
+    uint64_t flags=process_irq_save();struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    if(r && !capture_write_add(&r->growths,1))r->invalid=1;
+    process_irq_restore(flags);
+}
+void process_capture_write_snapshot(struct capture_write_snapshot *out) {
+    if(!out)return;
+    uint64_t flags=process_irq_save();*out=capture_writes;process_irq_restore(flags);
+}
+
 static void clear_process(struct process *process) {
     struct process_latency_span span=process_latency_begin();
     struct process_service_scope scope=process_service_begin();
@@ -1338,7 +1469,7 @@ bool process_lifetime_release(uint64_t token) {
     uint64_t flags=process_irq_save();
     struct process_lifetime *life=lifetime_find(token);
     bool ok=life && life->revoked && !life->members;
-    if (ok) *life=(struct process_lifetime){0};
+    if (ok) { process_pipe_handoff_drop(life); *life=(struct process_lifetime){0}; }
     process_irq_restore(flags);return ok;
 }
 
@@ -1451,6 +1582,8 @@ static void release_process_runtime(struct process *process) {
     }
 
     uint64_t irq=process_irq_save();
+    struct capture_write_record *trace=capture_write_find(&capture_writes,process->pid);
+    if(trace){uint64_t now=capture_write_now();if(now<trace->last_us)trace->invalid=1;trace->retired=1;trace->last_us=now;}
     process_signal_retire_image(process);
     process->image_generation=0;
     process_irq_restore(irq);
@@ -1815,8 +1948,9 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
 }
 
 static bool map_process_page_mode(struct process *process, uint64_t virtual_page, uint64_t flags,bool service) {
-    if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS) {
-        if(service)console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
+    if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS ||
+        (process->mapping_count && !process->mappings)) {
+        if(service && (!process || !process->private_build))console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
             (uint64_t)process,
             process != NULL ? process->mapping_count : 0,
             (uint64_t)PROCESS_MAX_MAPPINGS,
@@ -1824,18 +1958,35 @@ static bool map_process_page_mode(struct process *process, uint64_t virtual_page
         return false;
     }
 
+    /* Ordinary/private image loading owns this record. Atomic growth requires
+     * its existing backing and never allocates a tracking array here. The full
+     * original capacity is reserved in one checked heap allocation; entries
+     * are fully zeroed privately in bounded service batches before publication. */
+    if (!process->mappings) {
+        if (!service) return false;
+        uint64_t bytes=sizeof(*process->mappings)*PROCESS_MAX_MAPPINGS;
+        struct process_mapping *backing=kmalloc(bytes);
+        if (!backing) return false;
+        for(uint64_t at=0;at<bytes;) {
+            uint64_t end=at+65536;if(end>bytes)end=bytes;
+            while(at<end)((uint8_t *)backing)[at++]=0;
+            process_service_checkpoint();
+        }
+        process->mappings=backing;
+    }
+
     /* Atomic callers return failure silently: console rendering may yield. */
     uint64_t physical = pmm_alloc_frames_above_tagged(1,
         PROCESS_USER_PAGE_MIN_PHYSICAL,
         PMM_FRAME_USER);
     if (physical == 0) {
-        if(service)console_printf("run: map page pmm exhausted virt=%x\n", virtual_page);
+        if(service && (!process || !process->private_build))console_printf("run: map page pmm exhausted virt=%x\n", virtual_page);
         return false;
     }
 
     zero_page(pmm_phys_to_virt(physical));
     if (!vmm_map_page_in_space(process->address_space, virtual_page, physical, flags)) {
-        if(service)console_printf("run: map page failed as=%x virt=%x phys=%x flags=%x count=%u\n",
+        if(service && (!process || !process->private_build))console_printf("run: map page failed as=%x virt=%x phys=%x flags=%x count=%u\n",
             process->address_space,
             virtual_page,
             physical,
@@ -1862,7 +2013,7 @@ static bool map_process_page(struct process *process,uint64_t page,uint64_t flag
 }
 
 static int64_t process_mapping_index(struct process *process, uint64_t virtual_page) {
-    if (process == NULL) {
+    if (process == NULL || (process->mapping_count && !process->mappings)) {
         return -1;
     }
     for (uint64_t i = 0; i < process->mapping_count; i++) {
@@ -1913,9 +2064,15 @@ static void cleanup_process_mappings(struct process *process) {
      * remains in the live tracking prefix, including failure/rollback cleanup. */
     unsigned batch=0;
     while(process->mapping_count) {
-        process_unmap_mapping_at(process,process->mapping_count-1);
+        if(process->private_retiring) {
+            uint64_t page=process->mappings[process->mapping_count-1].virtual_address;
+            if(!process_unmap_tracked_page_checked(process,page))for(;;)PROCESS_ARCH_HALT();
+        } else process_unmap_mapping_at(process,process->mapping_count-1);
         if(!(++batch&31))process_service_checkpoint();
     }
+    struct process_mapping *retired=process->mappings;
+    process->mappings=NULL;
+    if(retired) kfree(retired);
     for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
         process->mmap_regions[i].used = false;
     }
@@ -1991,7 +2148,7 @@ static bool load_segment(struct process *process, const uint8_t *file, uint64_t 
     if (program->memsz < program->filesz ||
         program->offset > file_size ||
         program->filesz > file_size - program->offset) {
-        console_printf("run: bad segment off=%x filesz=%x memsz=%x file=%x\n",
+        if(!process->private_build)console_printf("run: bad segment off=%x filesz=%x memsz=%x file=%x\n",
             program->offset,
             program->filesz,
             program->memsz,
@@ -2047,7 +2204,7 @@ static bool map_user_stack(struct process *process, uint64_t stack_top) {
     return true;
 }
 
-static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stack_top, uint64_t *stack_top_out) {
+static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stack_top, uint64_t *stack_top_out,bool quiet) {
     uint64_t stack_size = USER_STACK_PAGES * PAGE_SIZE;
     uint64_t guard_size = USER_STACK_GUARD_PAGES * PAGE_SIZE;
     uint64_t stack_top = requested_stack_top;
@@ -2067,7 +2224,7 @@ static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stac
     }
     stack_bottom = stack_top - stack_size;
     if (page_up(image_end) + guard_size > stack_bottom) {
-        console_printf("run: image too large for user stack image_end=%x stack_bottom=%x\n",
+        if(!quiet)console_printf("run: image too large for user stack image_end=%x stack_bottom=%x\n",
             image_end,
             stack_bottom);
         return false;
@@ -2089,7 +2246,7 @@ static bool process_capture_tls_template(struct process *process,
         program->memsz > PROCESS_TLS_TEMPLATE_MAX ||
         program->offset > file_size ||
         program->filesz > file_size - program->offset) {
-        console_printf("run: unsupported TLS filesz=%x memsz=%x\n",
+        if(!process->private_build)console_printf("run: unsupported TLS filesz=%x memsz=%x\n",
             program->filesz,
             program->memsz);
         return false;
@@ -2178,24 +2335,28 @@ static void process_release_thread_tls(struct process_user_thread *thread) {
     thread->tls_base=0;thread->tls_thread_pointer=0;
 }
 
-static int64_t load_elf_image_checked_impl(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
+struct process_exec_view { const struct vfs_node *node;const uint8_t *data;uint64_t size; };
+static int64_t load_elf_image_source(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out,const struct process_exec_view *view) {
     if (process == NULL || process->address_space != 0) {
         return SRV_ERR_NOMEM;
     }
     if (!vmm_create_address_space(&process->address_space)) {
-        console_write("run: failed to create address space\n");
+        if(!view)console_write("run: failed to create address space\n");
         return SRV_ERR_NOMEM;
     }
 
 
-    const struct vfs_node *node = vfs_lookup(path);
-    const uint8_t *data;
-    uint64_t size;
+    const struct vfs_node *node = view?view->node:vfs_lookup(path);
+    const uint8_t *data=view?view->data:NULL;
+    uint64_t size=view?view->size:0;
     const struct elf64_header *header;
 
     int64_t error = node == NULL ? SRV_ERR_NOENT :
         node->type != VFS_NODE_FILE || !(node->metadata.mode & 0111) ? SRV_ERR_ACCES : 0;
-    if (!error && !vfs_read_all(node, &data, &size)) error = SRV_ERR_IO;
+    if (!error && !view && !vfs_read_all(node, &data, &size)) error = SRV_ERR_IO;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(!error && view)vfs_note_read(node);
+#endif
     if (error) {
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2203,8 +2364,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     }
 
     if (!validate_elf(data, size, &header)) {
-        console_printf("run: invalid executable: %s\n", path);
-        vfs_release_data(node, data);
+        if(!view)console_printf("run: invalid executable: %s\n", path);
+        if(!view)vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
         return SRV_ERR_NOEXEC;
@@ -2226,8 +2387,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
         }
     }
 
-    if (!choose_process_stack_top(image_end, stack_top, &stack_top)) {
-        vfs_release_data(node, data);
+    if (!choose_process_stack_top(image_end, stack_top, &stack_top,view!=NULL)) {
+        if(!view)vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
         return SRV_ERR_NOMEM;
@@ -2235,8 +2396,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
 
     for (uint64_t i = 0; i < header->phnum; i++) {
         if (programs[i].type == PT_LOAD && !load_segment(process, data, size, &programs[i])) {
-            console_printf("run: failed to load segment %u\n", i);
-            vfs_release_data(node, data);
+            if(!view)console_printf("run: failed to load segment %u\n", i);
+            if(!view)vfs_release_data(node, data);
             cleanup_process_mappings(process);
             vmm_destroy_address_space(process->address_space);
             process->address_space = 0;
@@ -2246,7 +2407,7 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
 
     if (tls_program != UINT64_MAX &&
         !process_capture_tls_template(process, data, size, &programs[tls_program])) {
-        vfs_release_data(node, data);
+        if(!view)vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2254,8 +2415,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     }
 
     if (!process_setup_tls_block(process, 0, &process->tls_base, &process->tls_thread_pointer)) {
-        console_write("run: failed to map TLS block\n");
-        vfs_release_data(node, data);
+        if(!view)console_write("run: failed to map TLS block\n");
+        if(!view)vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2263,8 +2424,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     }
 
     if (!map_user_stack(process, stack_top)) {
-        console_write("run: failed to map user stack\n");
-        vfs_release_data(node, data);
+        if(!view)console_write("run: failed to map user stack\n");
+        if(!view)vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2278,8 +2439,12 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     process->program_break = process->heap_base;
     process->mapped_break = process->heap_base;
     process->heap_limit = stack_top - (USER_STACK_PAGES * PAGE_SIZE) - (USER_STACK_GUARD_PAGES * PAGE_SIZE);
-    vfs_release_data(node, data);
+    if(!view)vfs_release_data(node, data);
     return 0;
+}
+
+static int64_t load_elf_image_checked_impl(const char *path,struct process *p,uint64_t top,uint64_t *entry) {
+    return load_elf_image_source(path,p,top,entry,NULL);
 }
 
 static int64_t load_elf_image_checked(const char *path,struct process *process,uint64_t stack_top,uint64_t *entry_out) {
@@ -2309,7 +2474,7 @@ static struct process_service_scope process_spawn_image_scope(struct process *pa
     struct process_service_scope scope={0};
     bool private=parent && child && child!=parent && child->allocated && child->active &&
         child->parent_pid==parent->pid && !child->startup_ready && !child->entry &&
-        !child->address_space && !child->mapping_count && !child->killed && !child->exiting;
+        !child->address_space && !child->mapping_count && !child->mappings && !child->killed && !child->exiting;
     if(private)for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
         if(child->user_threads[i].used)private=false;
     if(!copy_process_path(snapshot,capacity,path)) {if(snapshot && capacity)snapshot[0]=0;private=false;}
@@ -2392,8 +2557,18 @@ static void cleanup_process_address_space(struct process *process) {
 }
 
 static bool enter_process(struct process *process, const char *label) {
+    if(process->private_prepared)(void)process_irq_save();
     uint64_t restored = process_context_save(&process->context);
     if (restored == 0) {
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+        if(process->private_prepared) {
+            if(!scheduler_enter_prepared_process(process,process->address_space,process->kernel_stack_top,process->image_generation)) {
+                scheduler_io_set_user_safe(false);scheduler_io_wait();
+                scheduler_set_user_context(process,process->address_space,process->kernel_stack_top,process->image_generation);
+            }
+            process->private_prepared=false;
+        } else
+#endif
         scheduler_set_user_context(process, process->address_space, process->kernel_stack_top, process->image_generation);
         if (!process->quiet) {
             console_printf("%s: entering pid=%u %s entry=%x stack=%x\n",
@@ -2412,6 +2587,7 @@ static bool enter_process(struct process *process, const char *label) {
 #endif
             usermode_resume(&process->fork_frame,process->tls_thread_pointer);
         }
+        if(process_should_exit_current())process_exit(process_current_kill_status());
         usermode_enter(process->entry,
             process->stack_top,
             process->argc,
@@ -2420,8 +2596,10 @@ static bool enter_process(struct process *process, const char *label) {
             process->tls_thread_pointer);
     }
 
-    scheduler_clear_user_context();
-    __asm__ volatile ("sti" : : : "memory");
+    if(!process->private_retiring) {
+        scheduler_clear_user_context();
+        PROCESS_ARCH_STI();
+    }
     return process->exit_status == 0;
 }
 
@@ -2508,7 +2686,7 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     release_process(child);
     return status;
 }
@@ -2563,12 +2741,15 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     release_process(child);
     return status;
 }
 
-int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
+static struct process_pipe *pipe_at(uint64_t);
+static bool process_private_spawn_stdio(struct process *,struct process *,int64_t,int64_t,int64_t);
+static bool process_private_spawn_cleanup(struct process *);
+static int64_t process_spawn_exec_source(uint64_t scope_token,const char *path,
     uint64_t argc,
     const char *const *argv,
     uint64_t envc,
@@ -2583,7 +2764,7 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     uint64_t file_action_count,
     uint64_t signal_flags,
     uint64_t signal_mask,
-    uint64_t signal_default) {
+    uint64_t signal_default,const struct process_exec_view *view) {
     struct process *parent = process_current();
     if (parent == NULL || path == NULL || path[0] == '\0') {
         return SRV_ERR_INVAL;
@@ -2594,27 +2775,29 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
 
     struct process *child = alloc_process_lifetime(path, detached, scope_token);
     if (child == NULL) {
-        console_write("exec: process table full\n");
+        if(!view)console_write("exec: process table full\n");
         return SRV_ERR_AGAIN;
     }
     if (!allocate_kernel_stack(child)) {
-        console_write("exec: kernel stack alloc failed\n");
+        if(!view)console_write("exec: kernel stack alloc failed\n");
         release_process(child);
         return SRV_ERR_NOMEM;
     }
 
-    int64_t error=load_spawn_image_checked(parent,child,path);
+    child->private_build=view!=NULL;
+    int64_t error=view?load_elf_image_source(path,child,USER_STACK_TOP,&child->entry,view):load_spawn_image_checked(parent,child,path);
     if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
     if(!error) error=process_prepare_image(child);
     if(!error && (signal_flags&SRV_EXEC_INHERIT_FILES)) {
         error=process_inherit_files(child,parent);
         if(!error) error=process_posix_spawn_actions(child,file_actions,file_action_count);
         if(!error) close_cloexec_files(child);
-    } else if(!error && (!process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd) ||
+    } else if(!error && (!(view?process_private_spawn_stdio(child,parent,stdin_fd,stdout_fd,stderr_fd):
+        process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd)) ||
         !process_apply_spawn_file_actions(child,parent,file_actions,file_action_count))) error=SRV_ERR_BADF;
     if(error) {
         cleanup_process_address_space(child);
-        cleanup_process_files(child);
+        if(view)(void)process_private_spawn_cleanup(child);else (void)cleanup_process_files(child);
         release_process(child);
         return error;
     }
@@ -2642,10 +2825,16 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     if (detached) {
         uint64_t pid = child->pid;
         child->quiet = true;
-        if (!scheduler_spawn("user", background_process_thread, child)) {
-            console_write("exec: scheduler admission failed (stack/storage resources)\n");
+        child->private_build=false;child->private_prepared=view!=NULL;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+        if (!(view?scheduler_spawn_prepared_process("user",background_process_thread,child,child->address_space,child->image_generation):
+                    scheduler_spawn("user", background_process_thread, child))) {
+#else
+        if (!scheduler_spawn("user",background_process_thread,child)) {
+#endif
+            if(!view)console_write("exec: scheduler admission failed (stack/storage resources)\n");
             cleanup_process_address_space(child);
-            cleanup_process_files(child);
+            if(view)(void)process_private_spawn_cleanup(child);else (void)cleanup_process_files(child);
             release_process(child);
             return SRV_ERR_AGAIN;
         }
@@ -2671,10 +2860,20 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     release_process(child);
     return status;
 }
+
+int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,uint64_t argc,const char *const *argv,
+    uint64_t envc,const char *const *envp,bool detached,int64_t in,int64_t out,int64_t err,
+    uint64_t group,bool foreground,const struct process_spawn_file_action *actions,uint64_t count,
+    uint64_t flags,uint64_t mask,uint64_t defaults) {
+    return process_spawn_exec_source(scope_token,path,argc,argv,envc,envp,detached,in,out,err,group,foreground,
+        actions,count,flags,mask,defaults,NULL);
+}
+
+#include "process_private_spawn.inc"
 
 int64_t process_spawn_exec(const char *path,uint64_t argc,const char *const *argv,
     uint64_t envc,const char *const *envp,bool detached,int64_t stdin_fd,
@@ -2692,6 +2891,7 @@ static uint64_t load_process_u64(const uint64_t *value) {
 }
 
 static void move_process_image(struct process *destination, struct process *source) {
+    uint64_t irq=process_irq_save();
     destination->entry = load_process_u64(&source->entry);
     destination->stack_top = load_process_u64(&source->stack_top);
     destination->argc = load_process_u64(&source->argc);
@@ -2715,14 +2915,12 @@ static void move_process_image(struct process *destination, struct process *sour
     destination->mapping_count = load_process_u64(&source->mapping_count);
     if(source->peak_mapped_bytes>destination->peak_mapped_bytes)
         destination->peak_mapped_bytes=source->peak_mapped_bytes;
-    for (uint64_t i = 0; i < source->mapping_count; i++) {
-        destination->mappings[i].virtual_address = load_process_u64(&source->mappings[i].virtual_address);
-        destination->mappings[i].physical_address = load_process_u64(&source->mappings[i].physical_address);
-        destination->mappings[i].flags = load_process_u64(&source->mappings[i].flags);
-    }
+    destination->mappings=source->mappings;
+    source->mappings=NULL;
 
     source->address_space = 0;
     source->mapping_count = 0;
+    process_irq_restore(irq);
 }
 
 /* The exec image is private until fully loaded. Heap mutation stays atomic;
@@ -2844,9 +3042,11 @@ static void background_process_thread(void *arg) {
     }
     release_process_runtime(process);
     process_notify_parent_child_exit(process);
+    bool atomic=process->private_retiring;
     /* No access to process after publication: another thread may reap it. */
     process->reapable = true;
     scheduler_wake_all(&process_wait_queue);
+    if(atomic)scheduler_exit_current();
 }
 
 /* Eager cloning is intentional for the first CLI fork profile. There is no
@@ -3121,7 +3321,7 @@ static bool process_configure_stdio_fds(struct process *child, struct process *p
     return true;
 }
 
-static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, const char *args, bool quiet, uint64_t lifetime) {
+static int64_t process_spawn_background_elf_args_quiet_pipe(const char *path, const char *args, bool quiet, uint64_t lifetime, struct process_pipe_handoff *ticket) {
     if (path == NULL || path[0] == '\0') {
         return -1;
     }
@@ -3132,14 +3332,18 @@ static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, co
     }
 
     if (!allocate_kernel_stack(process)) {
+        if(ticket) (void)process_pipe_handoff_finish(ticket);
         release_process(process);
         return -1;
     }
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
         !setup_process_arguments(process, path, args != NULL ? args : "") ||
-        process_prepare_image(process) < 0) {
+        process_prepare_image(process) < 0 ||
+        (ticket && !process_pipe_handoff_install(lifetime_find(lifetime),process,ticket))) {
+        if(ticket) (void)cleanup_process_files(process);
         cleanup_process_address_space(process);
+        if(ticket) (void)process_pipe_handoff_finish(ticket);
         release_process(process);
         return -1;
     }
@@ -3147,12 +3351,19 @@ static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, co
     uint64_t pid = process->pid;
     process->quiet = quiet;
     if (!scheduler_spawn("user", background_process_thread, process)) {
+        if(ticket) (void)cleanup_process_files(process);
         cleanup_process_address_space(process);
+        if(ticket) (void)process_pipe_handoff_finish(ticket);
         release_process(process);
         return -1;
     }
 
     return (int64_t)pid;
+}
+
+static int64_t process_spawn_background_elf_args_quiet_flag(const char *path,
+    const char *args,bool quiet,uint64_t lifetime) {
+    return process_spawn_background_elf_args_quiet_pipe(path,args,quiet,lifetime,NULL);
 }
 
 int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args) {
@@ -3240,7 +3451,7 @@ int64_t process_scope_reap(uint64_t token) {
         struct process *candidate=&processes[i];
         if(!candidate->allocated || candidate->lifetime!=token || !candidate->detached ||
            !candidate->reapable || candidate->active || !candidate->parent_pid ||
-           candidate->address_space || candidate->mapping_count || candidate->kernel_stack ||
+           candidate->address_space || candidate->mapping_count || candidate->mappings || candidate->kernel_stack ||
            candidate->kernel_stack_physical || candidate->kernel_stack_frames ||
            process_slots_busy[i] || !scheduler_io_process_retired(candidate)) continue;
         bool resources=false;
@@ -3285,7 +3496,7 @@ static bool process_try_wait_retired_impl(uint64_t pid,uint64_t *status,int64_t 
     if(!parent || !parent->allocated || !parent->active)goto refused;
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated && processes[i].pid==pid) {child=&processes[i];break;}
     if(!child || child==parent || !child->detached || !child->reapable || child->active ||
-       child->parent_pid!=parent->pid || child->address_space || child->mapping_count ||
+       child->parent_pid!=parent->pid || child->address_space || child->mapping_count || child->mappings ||
        child->kernel_stack || child->kernel_stack_physical || child->kernel_stack_frames ||
        process_slots_busy[child-processes] || !scheduler_io_process_retired(child))goto refused;
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(child->files[i].used)goto refused;
@@ -4187,7 +4398,12 @@ static bool process_last_user_thread_done(void *arg) {
     return true;
 }
 
+#include "process_private_retirement.inc"
+
 void process_thread_exit(uint64_t value) {
+    (void)process_irq_save();
+    bool atomic=process_private_thread_retire();
+    if(!atomic) {scheduler_io_set_user_safe(false);scheduler_io_wait();}
     struct process_user_thread *thread = process_current_user_thread();
     if (thread == NULL || thread->owner == NULL) {
         struct process *process = process_current();
@@ -4219,12 +4435,17 @@ void process_thread_exit(uint64_t value) {
     thread->return_value = value;
     thread->active = false;
     scheduler_wake_all(&thread->owner->thread_wait_queue);
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(atomic) {
+        if(!scheduler_clear_user_context_private(thread->owner))for(;;)PROCESS_ARCH_HALT();
+    } else
+#endif
     scheduler_clear_user_context();
     process_release_thread_tls(thread);
     if (thread->detached) {
         thread->used = false;
     }
-    process_irq_restore(1ull << 9);
+    if(!atomic)process_irq_restore(1ull << 9);
     scheduler_exit_current();
 }
 
@@ -4244,7 +4465,7 @@ static int64_t process_main_thread_join(struct process *process, uint64_t *value
     }
     process->main_thread_join_claimed = true;
     process_irq_restore(irq);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     int64_t result = 0;
     while (!process->main_thread_exited) {
         if (process_should_exit_current()) { result = -1; break; }
@@ -4276,7 +4497,7 @@ int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
         return -1;
     }
 
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     while (thread->active) {
         if (process_should_exit_current()) {
             return -1;
@@ -4455,7 +4676,7 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
     if (futex == NULL) return SRV_ERR_AGAIN;
 
     int64_t result;
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     for (;;) {
         if (process_should_exit_current()) {
             result = -1; break;
@@ -4664,10 +4885,28 @@ int64_t process_file_pty_pair(struct process *process,uint64_t fds_out[2]) {
     fds_out[0]=index[0];fds_out[1]=index[1];return 0;
 }
 
+static void write_revoke_append(struct process_write_file *write) {
+    write->append.valid=false;write->fresh_exclusive=false;
+}
+static void content_revoke_append(struct process_file_content *content) {
+    if(!content)return;
+    for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES;i++)
+        if(write_files[i].used && write_files[i].content==content)write_revoke_append(&write_files[i]);
+}
+static void content_mutated(struct process_file_content *content) {
+    if(!content->dirty_generation)content->dirty_generation=1;
+    else if(content->dirty_generation!=UINT64_MAX)content->dirty_generation++;
+    if(content->dirty_generation==UINT64_MAX)content_revoke_append(content);
+    content->dirty=true;
+}
 static struct process_file_content *content_find(const char *path) {
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++)
         if(file_contents[i].refs && !file_contents[i].unlinked && process_path_equal(file_contents[i].path,path)) return &file_contents[i];
     return NULL;
+}
+void process_revoke_reserved_append_path(const char *path) {
+    if(!path)return;
+    uint64_t irq=process_irq_save();content_revoke_append(content_find(path));process_irq_restore(irq);
 }
 bool process_open_file_size(const char *path,uint64_t *size) {
     struct process_file_content *content=content_find(path);
@@ -4679,40 +4918,90 @@ static struct process_file_content *content_acquire(const struct vfs_node *node,
     const char *path,const uint8_t *data,uint64_t size) {
     struct process_file_content *content=content_find(path);
     if(content) {
+        if(content->writeback.active) {
+            if(data)vfs_release_data(node,data);
+            return NULL;
+        }
+        content_revoke_append(content);
         content->refs++;
         if(data) vfs_release_data(node,data);
         return content;
     }
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++) if(!file_contents[i].refs) {
         content=&file_contents[i];
-        *content=(struct process_file_content){.refs=1,.node=node,.data=data,.size=size};
-        if(copy_process_path(content->path,sizeof(content->path),path)) return content;
+        *content=(struct process_file_content){.refs=1,.node=node,.data=data,.size=size,
+            .dirty_generation=1,.committed_size=size};
+        if(copy_process_path(content->path,sizeof(content->path),path)) {
+            content->diagnostic_identity=sync_timing_content_identity();return content;
+        }
         content->refs=0;break;
     }
     if(data) vfs_release_data(node,data);
     return NULL;
 }
-static int64_t content_flush(struct process_file_content *content) {
-    if(content->unlinked) { content->dirty=false;return 0; }
-    if(content->failed) return SRV_ERR_IO;
-    if(!content->dirty) return 0;
+static int64_t content_flush_observed(struct process_file_content *content,uint64_t index,bool observe) {
+    uint64_t irq=process_irq_save();
+    if(content->writeback.active) {process_irq_restore(irq);return SRV_ERR_BUSY;}
+    if(content->unlinked || content->failed || !content->dirty) {
+        bool timed=observe && sync_timing_content_begin(index,content->diagnostic_identity,
+            content->unlinked?content->orphan_metadata.inode:content->node?content->node->metadata.inode:0,content->size);
+        int64_t result=content->failed && !content->unlinked?SRV_ERR_IO:0;
+        if(content->unlinked)content->dirty=false;
+        if(timed)sync_timing_content_end(result>=0,content->dirty);
+        process_irq_restore(irq);return result;
+    }
+    if(!content->dirty_generation)content->dirty_generation=1;
+    const uint8_t *data=content->data;
+    uint64_t size=content->size,generation=content->dirty_generation;
+    content->writeback=(__typeof__(content->writeback)){.active=true,.data=data,.size=size,.generation=generation};
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+    scheduler_io_private_append_progress();
+#endif
+    bool timed=observe && sync_timing_content_begin(index,content->diagnostic_identity,
+        content->node?content->node->metadata.inode:0,size);
+    /* Preserve incoming IF0 through the backend's ownership release and this
+     * borrow's retirement. Backend service windows already enable IRQs while
+     * waiting, then return CLI. Restoring an IF1 kernel caller here would let
+     * a queued last close run after fs_leave but before active is cleared. */
     bool retryable=false;
-    if(!exfat_write_file_retryable(content->path,content->data,content->size,&retryable)) {
+    bool ok=exfat_write_file_retryable(content->path,data,size,&retryable);
+    (void)process_irq_save();
+    if(!ok) {
         /* A clean refusal retains dirty data for a later explicit flush/close.
          * Partial writes and failed cleanup keep the sticky error contract. */
-        content->failed=!retryable;return SRV_ERR_IO;
+        content->failed=!retryable;
+    } else {
+        content->committed_size=size;
+        content->dirty=content->dirty_generation!=generation;
     }
-    content->dirty=false;return 0;
+    struct sync_content_prefix prefix={.valid=1,.start_generation=generation,
+        .end_generation=content->dirty_generation,.live_size=content->size,
+        .committed_size=content->committed_size,.append_calls=content->writeback.append_calls,
+        .append_bytes=content->writeback.append_bytes};
+    content->writeback.active=false;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+    scheduler_io_private_append_progress();
+#endif
+    if(timed)sync_timing_content_end_snapshot(ok,content->dirty,&prefix);
+    process_irq_restore(irq);return ok?0:SRV_ERR_IO;
+}
+static int64_t content_flush(struct process_file_content *content) {
+    return content_flush_observed(content,0,false);
 }
 static int64_t content_release(struct process_file_content *content) {
-    if(!content || !content->refs) return SRV_ERR_BADF;
-    if(--content->refs) return 0;
+    uint64_t irq=process_irq_save();
+    if(!content || !content->refs) {process_irq_restore(irq);return SRV_ERR_BADF;}
+    if(content->refs>1) {content->refs--;process_irq_restore(irq);return 0;}
+    if(content->writeback.active) {process_irq_restore(irq);return SRV_ERR_BUSY;}
+    /* The slot remains live while a backend service window can run, and until
+     * its old data is freed. A zero refcount would let another pathname reuse
+     * this fixed slot before the final free/reset of an IF1 kernel caller. */
     int64_t result=content_flush(content);
     if(content->data) {
         if(content->owned) kfree((void *)content->data);
         else if(content->node) vfs_release_data(content->node,content->data);
     }
-    *content=(struct process_file_content){0};return result;
+    *content=(struct process_file_content){0};process_irq_restore(irq);return result;
 }
 int64_t process_file_alloc(struct process *process,
     const struct vfs_node *node,
@@ -4796,6 +5085,7 @@ static int64_t read_file_close(uint64_t handle) {
     if (file == NULL) {
         return SRV_ERR_BADF;
     }
+    if(file->content && file->content->writeback.active)return SRV_ERR_BUSY;
     if (file->refs > 0) {
         file->refs--;
     }
@@ -4862,6 +5152,44 @@ static int64_t directory_next(struct process_read_file *read,struct srv_dirent_i
     if(metadata)(void)process_open_file_size(selected->path,&out->size);
     return 1;
 }
+static struct process_directory_admission directory_admission;
+static void directory_count(uint64_t *counter,uint64_t amount) {
+    *counter=amount>UINT64_MAX-*counter?UINT64_MAX:*counter+amount;
+}
+void process_directory_admission_snapshot(struct process_directory_admission *out) {
+    uint64_t irq=process_irq_save();
+    if(out)*out=directory_admission;
+    process_irq_restore(irq);
+}
+/* Metadata enumeration has no backend callbacks. Only an unshared cursor in
+ * an eligible foreign process may bypass admission. VFS writer exclusion spans
+ * callbacks/rollback; no stale directory cache or borrowed storage owner is
+ * used. Keep IF0 across the caller's mapping check, this proof, cursor advance
+ * and user copy. Live open-content sizes retain their ordinary semantics. */
+bool process_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result) {
+    uint64_t irq=process_irq_save();
+    if(!result || !out || !capacity || capacity%sizeof(struct srv_dirent_info) ||
+       capacity>SRV_DIRECTORY_BATCH_MAX*sizeof(struct srv_dirent_info))goto refused;
+    struct process *p=process_current();
+    if(!scheduler_io_process_atomic(p)) {directory_count(&directory_admission.policy_refused,1);goto refused;}
+    if(!vfs_view_snapshot_ready()) {directory_count(&directory_admission.publication_refused,1);goto refused;}
+    struct process_file *file=process_file_at(p,fd);
+    struct process_read_file *read=file && file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
+    if(!read || !read->directory || read->refs!=1 || !read->content || !read->content->refs ||
+       read->content->unlinked || read->content->failed || read->content->writeback.active ||
+       !read->node || !read->node->used || read->node->type!=VFS_NODE_DIRECTORY ||
+       read->content->node!=read->node || !process_path_equal(read->node->path,read->content->path) ||
+       vfs_namespace_system_lookup(read->path)!=read->node) {
+        directory_count(&directory_admission.descriptor_refused,1);goto refused;
+    }
+    *result=process_directory(SRV_DIRECTORY_READ_INFO,fd,out,capacity);
+    directory_count(&directory_admission.handled,1);
+    if(*result>0)directory_count(&directory_admission.entries,(uint64_t)*result);
+    process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
+}
+
 int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
     struct process_file *file=process_file_at(process_current(),fd);
     if(!file) return SRV_ERR_BADF;
@@ -5126,6 +5454,7 @@ static uint64_t write_file_alloc(void) {
 static void write_file_ref(uint64_t handle) {
     struct process_write_file *file = write_file_at(handle);
     if (file != NULL) {
+        write_revoke_append(file);
         file->refs++;
     }
 }
@@ -5134,6 +5463,7 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
     if(!file || !file->content) return false;
     struct process_file_content *content=file->content;
     if(content->owned && needed<=content->capacity) return true;
+    if(content->writeback.active)return false;
     uint64_t capacity=content->capacity?content->capacity:4096;
     if(needed<content->size) needed=content->size;
     if(needed>PROCESS_WRITE_BUFFER_MAX) return false;
@@ -5144,6 +5474,8 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
     for(uint64_t i=content->size;i<capacity;i++) next[i]=0;
     uint64_t irq=process_irq_save();
     const uint8_t *previous=content->data;bool owned=content->owned;
+    for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES;i++)
+        if(write_files[i].used && write_files[i].content==content)write_files[i].append.valid=false;
     content->data=next;content->capacity=capacity;content->owned=true;
     if(previous) {
         if(owned) kfree((void *)previous);
@@ -5152,12 +5484,170 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
     process_irq_restore(irq);return true;
 }
 
+#define PROCESS_RESERVED_APPEND_COPY_MAX 65536u
+#define PROCESS_RESERVED_APPEND_WINDOW (4u*PROCESS_RESERVED_APPEND_COPY_MAX)
+/* Metadata-only lease proof. Caller holds CPU0 IRQ exclusion. No pointer from
+ * this check may survive a wait; the ordinary path revalidates after admission. */
+static struct process_write_file *reserved_append_binding(struct process *process,uint64_t fd) {
+    if(!process || process!=process_current() || !process->allocated || !process->active ||
+       !process->image_generation || fd>=PROCESS_MAX_OPEN_FILES ||
+       process->file_generations[fd]==UINT64_MAX)return NULL;
+    struct process_file *file=process_file_at(process,fd);
+    if(!file || file->type!=PROCESS_FILE_VFS_WRITE)return NULL;
+    struct process_write_file *write=write_file_at(file->handle);
+    if(!write || write->refs!=1 || !write->append.valid ||
+       write->append.owner!=process || write->append.image_generation!=process->image_generation ||
+       write->append.fd!=fd || write->append.fd_generation!=process->file_generations[fd] ||
+       write->append.open_flags!=write->open_flags || !(write->open_flags&SRV_OPEN_WRITE) ||
+       (write->open_flags&SRV_OPEN_READ))return NULL;
+    struct process_file_content *content=write->content;
+    if(!content || content!=write->append.content || content->refs!=1 || !content->owned ||
+       !content->data || content->failed || content->unlinked || !content->dirty_generation ||
+       content->dirty_generation==UINT64_MAX || content->data!=write->append.data ||
+       content->capacity!=write->append.capacity || content->size>write->append.limit ||
+       write->append.limit>content->capacity || write->append.limit>PROCESS_WRITE_BUFFER_MAX)return NULL;
+    if(content->writeback.active && (content->writeback.data!=content->data ||
+       content->writeback.size>content->size))return NULL;
+    return write;
+}
+static bool reserved_append_count(struct process *process,struct process_write_file *write,
+    uint64_t requested,bool window,uint64_t *count) {
+    if(!write || !requested || requested>PROCESS_RESERVED_APPEND_COPY_MAX)return false;
+    struct process_file_content *content=write->content;
+    uint64_t position=(write->open_flags&SRV_OPEN_APPEND)?content->size:write->offset;
+    if(position!=content->size || position>=process->fsize_limit.current)return false;
+    uint64_t amount=requested;
+    if(amount>process->fsize_limit.current-position)amount=process->fsize_limit.current-position;
+    if(!amount || amount>write->append.limit-position || position>PROCESS_WRITE_BUFFER_MAX ||
+       amount>PROCESS_WRITE_BUFFER_MAX-position)return false;
+    uint64_t base=content->writeback.active?content->writeback.size:content->committed_size;
+    if(window && (base>position || position+amount-base>PROCESS_RESERVED_APPEND_WINDOW))return false;
+    *count=amount;return true;
+}
+int64_t process_file_reserve_append_ram(struct process *process,uint64_t fd,uint64_t limit) {
+    struct process_service_scope scope=process_service_begin();
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    if(!scope.held) {process_service_end(scope);return SRV_ERR_IO;}
+#endif
+    int64_t result=SRV_ERR_INVAL;
+    if(!process || process!=process_current() || !process->allocated || !process->active ||
+       !process->image_generation || fd>=PROCESS_MAX_OPEN_FILES ||
+       process->file_generations[fd]==UINT64_MAX || !limit || limit>PROCESS_WRITE_BUFFER_MAX)goto done;
+    struct process_file *file=process_file_at(process,fd);
+    struct process_write_file *write=file && file->type==PROCESS_FILE_VFS_WRITE?write_file_at(file->handle):NULL;
+    if(!write || write->refs!=1 || !write->fresh_exclusive ||
+       !(write->open_flags&SRV_OPEN_WRITE) || (write->open_flags&SRV_OPEN_READ))goto done;
+    struct process_file_content *content=write->content;
+    if(!content || content->refs!=1 || content->size || write->offset || content->dirty ||
+       content->failed || content->unlinked || content->writeback.active ||
+       !content->dirty_generation || content->dirty_generation==UINT64_MAX)goto done;
+    if(!ensure_write_capacity(write,limit)) {result=SRV_ERR_NOMEM;goto done;}
+    write->append=(__typeof__(write->append)){.valid=true,.owner=process,.content=content,
+        .data=content->data,.image_generation=process->image_generation,.fd=fd,
+        .fd_generation=process->file_generations[fd],.capacity=content->capacity,
+        .limit=limit,.open_flags=write->open_flags};
+    result=0;
+done:
+    process_service_end(scope);return result;
+}
+bool process_file_reserved_append_entry_candidate(struct process *process,uint64_t fd,uint64_t requested) {
+    uint64_t irq=process_irq_save(),count;
+    /* Classify a bounded metadata/copy prelude, even when its suffix window
+     * is currently full. No bytes are admitted until the original window and
+     * stronger mutation checks pass in the actual copy helper. */
+    bool allowed=reserved_append_count(process,reserved_append_binding(process,fd),requested,false,&count) &&
+        scheduler_io_entry_process_independent(process);
+    process_irq_restore(irq);return allowed;
+}
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+struct reserved_append_wait {struct process *process;uint64_t fd,requested;};
+static bool reserved_append_ready(void *opaque) {
+    const struct reserved_append_wait *wait=opaque;uint64_t count;
+    /* scheduler_wait invokes this only on the current waiting thread under
+     * CPU0 IRQ exclusion. Never retain a descriptor/content pointer over wait. */
+    return !scheduler_io_busy() || process_should_exit_current() ||
+        !scheduler_io_process_independent(wait->process) ||
+        !reserved_append_count(wait->process,reserved_append_binding(wait->process,wait->fd),wait->requested,false,&count) ||
+        reserved_append_count(wait->process,reserved_append_binding(wait->process,wait->fd),wait->requested,true,&count);
+}
+#endif
+bool process_file_wait_reserved_append(struct process *process,uint64_t fd,uint64_t requested) {
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+    (void)process;(void)fd;(void)requested;return false;
+#else
+    uint64_t irq=process_irq_save(),count;
+    if(!scheduler_io_process_independent(process) || !scheduler_io_busy() ||
+       !reserved_append_count(process,reserved_append_binding(process,fd),requested,false,&count) ||
+       reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count)) {
+        process_irq_restore(irq);return false;
+    }
+    struct reserved_append_wait wait={process,fd,requested};
+    uint64_t start=process_capture_write_clock(),wakes=0;bool retry=false;
+    struct process_write_file *binding=reserved_append_binding(process,fd);
+    uint64_t wait_pid=capture_write_pid();
+    bool observed_wait=start && binding && sync_commit_wait_begin(wait_pid,start,
+        binding->content->diagnostic_identity,
+        binding->content->writeback.active?binding->content->writeback.size:binding->content->committed_size,
+        binding->content->size,count,binding->content->writeback.active);
+    binding=NULL; /* Never retain a binding across scheduler turns. */
+    while(!reserved_append_ready(&wait)) {
+        if(!scheduler_io_private_append_wait(process,reserved_append_ready,&wait))break;
+        if(wakes!=UINT64_MAX)wakes++;
+    }
+    retry=!process_should_exit_current() && scheduler_io_process_independent(process) &&
+        reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count);
+    if(start) {
+        uint64_t end=capture_write_now();
+        if(observed_wait)sync_commit_wait_end(wait_pid,start,end,retry);
+        struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+        if(r) {
+            if(end<start || !capture_write_add(&r->append_wait_calls,1) ||
+               !capture_write_add(&r->append_wait_us,end-start) ||
+               !capture_write_add(&r->append_wait_wakes,wakes))r->invalid=1;
+            else if(end-start>r->append_wait_max_us)r->append_wait_max_us=end-start;
+            if(retry && scheduler_io_busy()) {
+                struct process_write_file *write=reserved_append_binding(process,fd);
+                if(write && write->content->writeback.active &&
+                   !capture_write_add(&r->append_wait_overlap,1))r->invalid=1;
+            }
+        }
+    }
+    process_irq_restore(irq);return retry;
+#endif
+}
+bool process_file_try_reserved_append(struct process *process,uint64_t fd,uint64_t requested,
+    process_reserved_append_copy_fn copy,void *context,int64_t *result) {
+    if(!copy || !result)return false;
+    uint64_t irq=process_irq_save(),count;
+    uint64_t reserve_at=process_capture_write_clock();
+    struct process_write_file *write=reserved_append_binding(process,fd);
+    if(!reserved_append_count(process,write,requested,true,&count) ||
+       !scheduler_io_process_independent(process)) {
+        process_irq_restore(irq);return false;
+    }
+    struct process_file_content *content=write->content;
+    process_capture_write_record(CAP_WRITE_RESERVE,reserve_at);
+    uint64_t copy_at=process_capture_write_clock();
+    bool copied=copy(context,(uint8_t *)content->data+content->size,count,requested);
+    process_capture_write_record(CAP_WRITE_COPY,copy_at);
+    if(!copied) {
+        *result=SRV_ERR_FAULT;process_irq_restore(irq);return true;
+    }
+    content->size+=count;write->offset=content->size;content_mutated(content);
+    if(content->writeback.active) {
+        content->writeback.append_calls++;content->writeback.append_bytes+=count;
+    }
+    *result=(int64_t)count;process_irq_restore(irq);return true;
+}
+
 int64_t process_unlink_file(const char *path) {
     if(process_stream_busy(path,true))return SRV_ERR_BUSY;
     const struct vfs_node *node=vfs_lookup(path);
     if(!node) return SRV_ERR_NOENT;
     if(node->type!=VFS_NODE_FILE) return SRV_ERR_ISDIR;
     struct process_file_content *content=content_find(path);
+    if(content && content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     struct vfs_metadata metadata=node->metadata;
     if(content && !content->owned) {
         struct process_write_file temporary={.content=content};
@@ -5194,7 +5684,10 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
     uint64_t source_inode=source->metadata.inode;
     struct vfs_metadata target_metadata=target?target->metadata:(struct vfs_metadata){0};
     struct process_file_content *source_content=content_find(old_path),*target_content=content_find(new_path);
+    if((source_content && source_content->writeback.active) ||
+       (target_content && target_content->writeback.active))return SRV_ERR_BUSY;
     struct process_file_content *contents[2]={source_content,target_content};
+    content_revoke_append(source_content);content_revoke_append(target_content);
     /* Promote retained backend snapshots before their directory slots can be
      * retired or reused. OOM leaves both names and contents unchanged. */
     for(unsigned i=0;i<2;i++) if(contents[i] && !contents[i]->owned) {
@@ -5300,6 +5793,8 @@ static int64_t process_file_open_write_raw(struct process *process, const char *
     bool append = (flags & SRV_OPEN_APPEND) != 0;
     bool trunc = (flags & SRV_OPEN_TRUNC) != 0;
     bool ensure_empty = trunc || (!exists && (flags & SRV_OPEN_CREATE) != 0);
+    struct process_file_content *existing_content=content_find(path);
+    if(existing_content && existing_content->writeback.active)return SRV_ERR_BUSY;
 
     if(exists && (flags & SRV_OPEN_CREATE) && (flags & SRV_OPEN_EXCL)) return SRV_ERR_EXIST;
     if(exists && node->type==VFS_NODE_DIRECTORY) return SRV_ERR_ISDIR;
@@ -5344,8 +5839,14 @@ static int64_t process_file_open_write_raw(struct process *process, const char *
     if(ensure_empty && !exfat_write_file_mode(path,NULL,0,mode)) {
         (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_IO;
     }
-    if(ensure_empty) { write->content->size=0;write->content->dirty=false; }
+    if(ensure_empty) {
+        content_revoke_append(write->content);write->content->size=0;
+        content_mutated(write->content);write->content->dirty=false;write->content->committed_size=0;
+    }
     write->open_flags=flags;
+    write->fresh_exclusive=!exists &&
+        (flags&(SRV_OPEN_CREATE|SRV_OPEN_EXCL|SRV_OPEN_WRITE))==(SRV_OPEN_CREATE|SRV_OPEN_EXCL|SRV_OPEN_WRITE) &&
+        !(flags&SRV_OPEN_READ);
     write->offset=append?write->content->size:0;
     struct process_file *file = &process->files[free_index];
     uint8_t *bytes = (uint8_t *)file;
@@ -5411,6 +5912,8 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         return 0;
     }
 
+    if(write->content->writeback.active) {process_irq_restore(flags);return SRV_ERR_BUSY;}
+
     uint64_t position=(write->open_flags & SRV_OPEN_APPEND)?write->content->size:write->offset;
     int64_t allowed=process_fsize_write(process,position,length);
     if(allowed<0) { process_irq_restore(flags);return allowed; }
@@ -5419,14 +5922,24 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         process_irq_restore(flags);return SRV_ERR_FBIG;
     }
     uint64_t needed=position+length;
-    if(!ensure_write_capacity(write,needed)) { process_irq_restore(flags);return SRV_ERR_NOMEM; }
+    uint64_t retained_count=0;
+    bool keep_append=reserved_append_binding(process,fd)==write &&
+        reserved_append_count(process,write,length,false,&retained_count) && retained_count==length;
+    uint64_t reserve_at=process_capture_write_clock(),capacity=write->content->capacity;
+    bool reserved=ensure_write_capacity(write,needed);
+    process_capture_write_record(CAP_WRITE_RESERVE,reserve_at);
+    if(!reserved) { process_irq_restore(flags);return SRV_ERR_NOMEM; }
+    if(reserve_at && write->content->capacity!=capacity)process_capture_write_growth();
+    uint64_t copy_at=process_capture_write_clock();
     for(uint64_t i=write->content->size;i<position;i++) ((uint8_t *)write->content->data)[i]=0;
     copy_bytes((uint8_t *)write->content->data+position,buffer,length);
+    process_capture_write_record(CAP_WRITE_COPY,copy_at);
     write->offset=needed;
     if (write->offset > write->content->size) {
         write->content->size = write->offset;
     }
-    write->content->dirty = true;
+    if(!keep_append)content_revoke_append(write->content);
+    content_mutated(write->content);
     process_irq_restore(flags);
     return (int64_t)length;
 }
@@ -5482,6 +5995,7 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
     struct process_write_file *write=write_file_at(file->handle);
     if (!write || !(write->open_flags & SRV_OPEN_WRITE)) { result=SRV_ERR_BADF; goto done; }
     if (!length) { result=0; goto done; }
+    if(write->content->writeback.active) {result=SRV_ERR_BUSY;goto done;}
     uint64_t position=(uint64_t)offset;
     result=process_fsize_write(process,position,length);
     if(result<0) goto done;
@@ -5496,7 +6010,7 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
     for (uint64_t i=write->content->size;i<position;i++) ((uint8_t *)write->content->data)[i]=0;
     for (uint64_t i=0;i<length;i++) ((uint8_t *)write->content->data)[position+i]=buffer[i];
     if (end>write->content->size) write->content->size=end;
-    write->content->dirty=true;
+    content_revoke_append(write->content);content_mutated(write->content);
     result=(int64_t)length;
 done:
     process_irq_restore(irq);
@@ -5698,11 +6212,144 @@ static void pipe_close(uint64_t handle, bool write_end) {
     process_file_poll_wake();
 }
 
+/* The lifetime table is the authoritative capability store. Its monotonically
+ * issued tokens are never reused; ticket self-address alone cannot authorize a
+ * copied/restored record after finish/release or pipe index reuse. */
+static struct process_lifetime *process_pipe_handoff_find(const struct process_pipe_handoff *t) {
+    if(!t || t->self!=(uintptr_t)t || !t->token) return NULL;
+    struct process_lifetime *life=lifetime_find(t->token);
+    return life && !life->user && life->handoff.ticket==t ? life : NULL;
+}
+static void process_pipe_handoff_drop(struct process_lifetime *life) {
+    if(life && life->handoff.owns_writer) {
+        pipe_close(life->handoff.pipe,true);
+        life->handoff.owns_writer=false;
+    }
+}
+static bool process_pipe_handoff_install(struct process_lifetime *life,
+    struct process *child,struct process_pipe_handoff *t) {
+    uint64_t irq=process_irq_save();bool ok=false;
+    if(!life || life->user || life->revoked || life->members!=1 || !child ||
+       !child->allocated || !child->active || child->killed || child->exiting ||
+       !child->image_generation || !child->address_space || life->handoff.ticket!=t ||
+       life->handoff.closed || life->handoff.owns_writer || child->lifetime!=life->token ||
+       child->files[3].used || child->files[4].used) goto out;
+    uint64_t fds[2];if(process_file_pipe(child,fds)<0) goto out;
+    /* Fresh quiet constructor has only STDIO0..2. No parent is fabricated. */
+    if(fds[0]!=3 || fds[1]!=4) {
+        (void)process_file_close(child,fds[0]);(void)process_file_close(child,fds[1]);goto out;
+    }
+    if(process_file_set_flags(child,3,SRV_FD_NONBLOCK)<0) {
+        (void)process_file_close(child,3);(void)process_file_close(child,4);goto out;
+    }
+    life->handoff=(struct process_pipe_handoff_record){.ticket=t,.pid=child->pid,
+        .image_generation=child->image_generation,.address_space=child->address_space,
+        .pipe=child->files[4].handle,.fd_generation=child->file_generations[3],.owns_writer=true};
+    /* Move, do not close/clone: the original writer ref now belongs to life. */
+    for(uint64_t i=0;i<sizeof(child->files[4]);i++)((uint8_t *)&child->files[4])[i]=0;
+    if(child->file_generations[4]!=UINT64_MAX)child->file_generations[4]++;
+    ok=true;
+out: process_irq_restore(irq);return ok;
+}
+int64_t process_lifetime_spawn_pipe(uint64_t token,const char *path,const char *args,
+    struct process_pipe_handoff *t) {
+    if(process_current() || !path || !path[0] || !t || t->self || t->token)return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=lifetime_find(token);
+    bool claim=life && !life->user && !life->revoked && !life->root_reserved &&
+        !life->members && !life->handoff.ticket;
+    if(claim) {t->self=(uintptr_t)t;t->token=token;life->handoff.ticket=t;}
+    process_irq_restore(irq);if(!claim)return SRV_ERR_INVAL;
+    int64_t pid=process_spawn_background_elf_args_quiet_pipe(path,args,true,token,t);
+    if(pid<0)(void)process_pipe_handoff_finish(t);
+    return pid;
+}
+static bool process_pipe_handoff_current_locked(struct process_lifetime *life) {
+    if(!life || life->user || life->members!=1 || !life->root_reserved ||
+       life->handoff.closed || life->handoff.published || !life->handoff.owns_writer)return false;
+    const struct process_pipe_handoff_record *r=&life->handoff;
+    struct process *p=NULL;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated && processes[i].pid==r->pid){p=&processes[i];break;}
+    if(!p || !p->active || p->killed || p->exiting || !p->startup_ready ||
+       p->lifetime!=life->token || p->image_generation!=r->image_generation ||
+       p->address_space!=r->address_space || p->file_generations[3]!=r->fd_generation ||
+       !p->files[3].used || p->files[3].type!=PROCESS_FILE_PIPE_READ ||
+       p->files[3].handle!=r->pipe || !process_file_nonblocking(p,3))return false;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)return false;
+    struct process_pipe *pipe=pipe_at(r->pipe);
+    if(!pipe || pipe->refs!=2 || pipe->read_refs!=1 || pipe->write_refs!=1 ||
+       pipe->size || pipe->read_pos || pipe->write_pos)return false;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(pipe->rights[i].used)return false;
+    return true;
+}
+bool process_pipe_handoff_current(const struct process_pipe_handoff *t) {
+    if(process_current())return false;
+    uint64_t irq=process_irq_save();bool ok=process_pipe_handoff_current_locked(process_pipe_handoff_find(t));
+    process_irq_restore(irq);return ok;
+}
+bool process_pipe_handoff_bound(const struct process_pipe_handoff *t,
+    struct process_pipe_identity *out) {
+    if(process_current() || !out)return false;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    bool ok=life && life->handoff.pid && life->handoff.image_generation;
+    if(ok)*out=(struct process_pipe_identity){.pid=life->handoff.pid,
+        .lifetime=life->token,.image_generation=life->handoff.image_generation};
+    process_irq_restore(irq);return ok;
+}
+bool process_pipe_handoff_identity(const struct process_pipe_handoff *t,
+    struct process_pipe_identity *out) {
+    if(process_current() || !out)return false;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    bool ok=process_pipe_handoff_current_locked(life);
+    if(ok)*out=(struct process_pipe_identity){.pid=life->handoff.pid,
+        .lifetime=life->token,.image_generation=life->handoff.image_generation};
+    process_irq_restore(irq);return ok;
+}
+int64_t process_pipe_handoff_publish(struct process_pipe_handoff *t,const uint8_t *bytes,uint64_t n) {
+    if(process_current())return SRV_ERR_INVAL;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    int64_t result=SRV_ERR_BADF;
+    if(!life || life->handoff.closed)goto out;
+    if(!bytes || !n || n>PROCESS_PIPE_HANDOFF_MAX) {result=SRV_ERR_INVAL;goto fail;}
+    if(!life->revoked || !process_pipe_handoff_current_locked(life))goto fail;
+    struct process_pipe *pipe=pipe_at(life->handoff.pipe);
+    /* Empty, original ring is checked above. One bounded transaction; only
+     * ordinary pipe_close's fixed wakeups run, never arbitrary rights release. */
+    copy_bytes(pipe->buffer,bytes,n);pipe->size=n;pipe->write_pos=n;
+    life->handoff.published=true;life->handoff.closed=true;
+    process_pipe_handoff_drop(life);result=(int64_t)n;goto out;
+fail:
+    life->handoff.closed=true;process_pipe_handoff_drop(life);
+out: process_irq_restore(irq);return result;
+}
+bool process_pipe_handoff_retired(const struct process_pipe_handoff *t,uint64_t *status) {
+    if(process_current() || !status)return false;
+    uint64_t irq=process_irq_save();bool ok=false;
+    struct process_lifetime *life=process_pipe_handoff_find(t);struct process *p=NULL;
+    if(!life || !life->handoff.closed || life->handoff.owns_writer)goto out;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated &&
+        processes[i].pid==life->handoff.pid){p=&processes[i];break;}
+    if(!p || p->lifetime!=life->token || p->parent_pid || p->active || !p->detached ||
+       !p->reapable || p->image_generation || p->address_space || p->mapping_count || p->mappings ||
+       p->kernel_stack || p->kernel_stack_physical || p->kernel_stack_frames ||
+       process_slots_busy[p-processes] || !scheduler_io_process_retired(p))goto out;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(p->files[i].used)goto out;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)goto out;
+    *status=p->exit_status;ok=true;
+out:process_irq_restore(irq);return ok;
+}
+bool process_pipe_handoff_finish(struct process_pipe_handoff *t) {
+    if(process_current())return false;
+    uint64_t irq=process_irq_save();struct process_lifetime *life=process_pipe_handoff_find(t);
+    if(life) {life->handoff.closed=true;process_pipe_handoff_drop(life);}
+    process_irq_restore(irq);return life!=NULL;
+}
+
 static int64_t write_file_close(uint64_t handle) {
     struct process_write_file *write = write_file_at(handle);
     if (write == NULL) {
         return SRV_ERR_BADF;
     }
+    if(write->content && write->content->writeback.active)return SRV_ERR_BUSY;
 
     if (write->refs > 0) {
         write->refs--;
@@ -5732,13 +6379,14 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
     if(file->type!=PROCESS_FILE_VFS_WRITE) goto done;
     struct process_write_file *write=write_file_at(file->handle);
     if(!write || !(write->open_flags&SRV_OPEN_WRITE)) goto done;
+    if(write->content->writeback.active) {result=SRV_ERR_BUSY;goto done;}
     if(length>write->content->size && length>process->fsize_limit.current) {
         process_fsize_signal(process);result=SRV_ERR_FBIG;goto done;
     }
     if(length>PROCESS_WRITE_BUFFER_MAX) { result=SRV_ERR_FBIG;goto done; }
     if(!ensure_write_capacity(write,length)) { result=SRV_ERR_NOMEM;goto done; }
     for(uint64_t i=write->content->size;i<length;i++) ((uint8_t *)write->content->data)[i]=0;
-    write->content->size=length;write->content->dirty=true;result=0;
+    write->content->size=length;content_revoke_append(write->content);content_mutated(write->content);result=0;
 done:
     process_irq_restore(irq);return result;
 }
@@ -5781,7 +6429,10 @@ int64_t process_file_sync_all(void) {
      * than retrying once per independent write description. */
     for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES + PROCESS_MAX_READ_FILES; i++) {
         struct process_file_content *content=&file_contents[i];
-        if (content->refs && content->dirty && content_flush(content) < 0) result = -1;
+        if (content->refs && content->dirty) {
+            int64_t flushed=content_flush_observed(content,i,true);
+            if(flushed<0)result=-1;
+        }
     }
     return result;
 }
@@ -6877,6 +7528,10 @@ static int64_t process_file_dup_replace(struct process *process, uint64_t old_fd
     struct process_file *source=process_file_at(process,old_fd);
     if(!source || new_fd>=PROCESS_MAX_OPEN_FILES) { process_irq_restore(irq);return SRV_ERR_BADF; }
     if(old_fd==new_fd) { process_irq_restore(irq);return (int64_t)new_fd; }
+    struct process_file_content *target_content=NULL;
+    if(file_content_for_fd(process_file_at(process,new_fd),&target_content) && target_content->writeback.active) {
+        process_irq_restore(irq);return SRV_ERR_BUSY;
+    }
     struct process_file replacement={0};
     if(!process_file_clone_entry(&replacement,source)) { process_irq_restore(irq);return SRV_ERR_NOMEM; }
     replacement.flags&=~SRV_FD_CLOEXEC;
@@ -7309,6 +7964,22 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd) {
     uint64_t *status=endpoint_status_flags(file);
     return access|((status?*status:file->flags)&SRV_FD_NONBLOCK);
 }
+/* Scalar simple-pipe metadata only, revalidated under IF0. No allocation,
+ * ref release, rights collection, callback or foreign-owner mutation. */
+bool process_file_try_set_pipe_flags(struct process *process,uint64_t fd,uint64_t flags,int64_t *result) {
+    uint64_t irq=process_irq_save();
+    struct process_file *f=process_file_at(process,fd);
+    if(!result || flags&~SRV_FD_NONBLOCK || !f ||
+       (f->type!=PROCESS_FILE_PIPE_READ && f->type!=PROCESS_FILE_PIPE_WRITE))goto refused;
+    struct process_pipe *p=pipe_at(f->handle);
+    if(!p || !p->refs || !(f->type==PROCESS_FILE_PIPE_WRITE?p->write_refs:p->read_refs))goto refused;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(p->rights[i].used)goto refused;
+    uint64_t *status=f->type==PROCESS_FILE_PIPE_WRITE?&p->write_flags:&p->read_flags;
+    *status=flags;f->flags=(f->flags&SRV_FD_CLOEXEC)|flags;*result=0;
+    process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
+}
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags) {
     struct process_file *file=process_file_at(process,fd);
     if(!file) return SRV_ERR_BADF;
@@ -7320,6 +7991,8 @@ int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t fl
     } else if(file->type==PROCESS_FILE_VFS_WRITE) {
         struct process_write_file *write=write_file_at(file->handle);
         if(!write) { process_irq_restore(irq);return SRV_ERR_BADF; }
+        if(write->content->writeback.active) {process_irq_restore(irq);return SRV_ERR_BUSY;}
+        write_revoke_append(write);
         write->open_flags=(write->open_flags&~(SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK)) |
             ((flags&SRV_FD_APPEND)?SRV_OPEN_APPEND:0) | ((flags&SRV_FD_NONBLOCK)?SRV_OPEN_NONBLOCK:0);
     }
@@ -7345,6 +8018,11 @@ int64_t process_file_set_fd_flags(struct process *process, uint64_t fd, uint64_t
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL) {
         return SRV_ERR_BADF;
+    }
+    if(file->type==PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write=write_file_at(file->handle);
+        if(write && write->content->writeback.active)return SRV_ERR_BUSY;
+        if(write)write_revoke_append(write);
     }
     file->flags = (file->flags & ~SRV_FD_CLOEXEC) | (flags & SRV_FD_CLOEXEC);
     return 0;
@@ -7487,6 +8165,10 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
     uint64_t irq=process_irq_save();
     struct process_file *file=process_file_at(process,fd);
     if(!file) { process_irq_restore(irq);return SRV_ERR_BADF; }
+    struct process_file_content *content=NULL;
+    if(file_content_for_fd(file,&content) && content->writeback.active) {
+        process_irq_restore(irq);return SRV_ERR_BUSY;
+    }
     struct process_file retired=*file;*file=(struct process_file){0};
     file_generation_invalidate(process,fd);
     process_irq_restore(irq);
@@ -7550,6 +8232,8 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     }
 
     if (write != NULL) {
+        if(write->content->writeback.active) {process_irq_restore(flags);return SRV_ERR_BUSY;}
+        write_revoke_append(write);
         write->offset = (uint64_t)target;
         process_irq_restore(flags);
         return (int64_t)write->offset;
@@ -7692,6 +8376,8 @@ int64_t process_file_stat(struct process *process,
 int64_t process_file_chmod(struct process *process,uint64_t fd,uint64_t mode) {
     struct process_file_content *content=NULL;
     if(!file_content_for_fd(process_file_at(process,fd),&content)) return SRV_ERR_BADF;
+    if(content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     if(content->unlinked) { content->orphan_metadata.mode=VFS_MODE_IFREG|(mode&07777);return 0; }
     return vfs_chmod(content->path,mode)?0:SRV_ERR_IO;
 }
@@ -7699,6 +8385,8 @@ int64_t process_path_utime(const char *path,uint64_t atime,uint64_t mtime) {
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
     if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return 0;
     struct process_file_content *content=content_find(path);
+    if(content && content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     if(content && content_flush(content)<0) return SRV_ERR_IO;
     return vfs_utime(path,atime,mtime)?0:SRV_ERR_IO;
 }
@@ -7706,6 +8394,8 @@ int64_t process_file_utime(struct process *process,uint64_t fd,uint64_t atime,ui
     struct process_file_content *content=NULL;
     if(!file_content_for_fd(process_file_at(process,fd),&content)) return SRV_ERR_BADF;
     if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return 0;
+    if(content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     if(content->unlinked) { vfs_metadata_utime(&content->orphan_metadata,atime,mtime);return 0; }
     if(content_flush(content)<0) return SRV_ERR_IO;
     return vfs_utime(content->path,atime,mtime)?0:SRV_ERR_IO;
@@ -8255,6 +8945,7 @@ static int64_t process_msync_impl(struct process *process,
 }
 
 static void process_exit_gate(void) {
+    if(process_private_exit_admit())return;
     /* A parked initial thread can resume here after a worker fault. Keep the
      * gate and teardown indivisible even when that continuation enabled IRQs. */
     (void)process_irq_save();
@@ -8267,7 +8958,7 @@ void process_exit(uint64_t status) {
     struct process *process = process_current();
     if (process == NULL || !process->active) {
         for (;;) {
-            __asm__ volatile ("hlt");
+            PROCESS_ARCH_HALT();
         }
     }
 
@@ -8308,6 +8999,11 @@ void process_exit(uint64_t status) {
     console_release_framebuffer_mute_owner(process->pid);
     net_process_cleanup(process);
     process->active = false;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(process->private_retiring) {
+        if(!scheduler_clear_user_context_private(process))for(;;)PROCESS_ARCH_HALT();
+    } else
+#endif
     scheduler_clear_user_context();
     process->image_generation=0;
     cleanup_process_address_space(process);

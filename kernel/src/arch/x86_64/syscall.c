@@ -1,8 +1,13 @@
+#include <srvros/sync_timing.h>
+#include <srvros/syscall.h>
+#include <srvros/capture_write_timing.h>
 #include <srvros/session_scope.h>
 #include <srvros/file_stream_kernel.h>
+#include <srvros/file_verify_kernel.h>
 #include <srvros/exfat_stream.h>
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
+#include <srvros/wifi_service.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
 #include <srvros/battery_snapshot.h>
@@ -579,15 +584,17 @@ static int64_t network_receive(uint64_t fd, struct network_user_io *io,
     irq_restore(flags);
     return result;
 }
-static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
-    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port) {
+static int64_t network_send_mode(uint64_t fd, const void *buffer, uint64_t length,
+    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port, bool finite_tcp) {
     uint64_t flags = irq_save();
     struct network_user_io io = {0};
     int64_t result = SRV_ERR_BADF;
     uint8_t small[1536], *snapshot = small;
+    _Static_assert(sizeof(small) == SRV_SOCKET_TCP_TRY_COPY_MAX, "finite TCP snapshot bound");
     if (!network_init(&io, fd) || io.type != (udp ? PROCESS_FILE_NET_UDP : PROCESS_FILE_NET_CONNECTION)) goto done;
     if (udp && length > SRV_NET_UDP_PAYLOAD_MAX) { result = SRV_ERR_INVAL; goto done; }
     if (!udp && length > MAX_SYSCALL_COPY) length = MAX_SYSCALL_COPY;
+    if (finite_tcp && length > sizeof(small)) length = sizeof(small);
     if (!owned) {
         if (length > sizeof(small)) snapshot = kmalloc(length);
         if (!snapshot) { result = SRV_ERR_NOMEM; goto done; }
@@ -596,11 +603,18 @@ static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
     }
     const struct net_transfer transfer = {.context=&io, .current=network_current};
     result = udp ? net_udp_send_checked(io.handle, ip, port, buffer, length, nonblock, &transfer) :
+        finite_tcp ? net_respond_try_checked(io.handle, buffer, length, &transfer) :
         net_respond_checked(io.handle, buffer, length, nonblock, &transfer);
  done:
     if (snapshot != small) kfree(snapshot);
     irq_restore(flags);
     return result;
+}
+
+/* Ordinary write/respond, generic socket SEND and UDP retain their backends. */
+static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
+    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port) {
+    return network_send_mode(fd, buffer, length, nonblock, owned, udp, ip, port, false);
 }
 
 static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bool owned) {
@@ -678,6 +692,64 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return regular_user_io(fd, (void *)buffer, length, true, false, 0);
 #endif
     return write_buffer(fd,buffer,length,false);
+}
+
+#if !defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) && !defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+struct reserved_append_input {const void *data;uint64_t requested;};
+static bool reserved_append_copy(void *context,void *destination,uint64_t count,uint64_t requested) {
+    const struct reserved_append_input *input=context;
+    /* Match ordinary write precedence: validate the FULL original range even
+     * when FSIZE permits only a positive short write. Every page access keeps
+     * the caller's outer IF0. A late fault can touch only unpublished tail. */
+    if(requested!=input->requested || !count || count>requested || requested>65536 ||
+       !user_buffer_ok(input->data,requested,false))return false;
+    return copy_from_user(destination,input->data,count);
+}
+#endif
+bool syscall_reserved_append_candidate(const struct isr_frame *frame) {
+#if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+    (void)frame;return false;
+#else
+    return frame && (frame->cs&3)==3 && frame->rax==SYS_WRITE && frame->rdi>=3 &&
+        frame->rdx && frame->rdx<=65536 &&
+        process_file_reserved_append_entry_candidate(process_current(),frame->rdi,frame->rdx);
+#endif
+}
+bool syscall_reserved_append_dispatch(struct isr_frame *frame) {
+    if(!frame)return false;
+    if((frame->cs&3)!=3 || frame->rax!=SYS_WRITE) {
+        process_capture_write_invalidate();frame->rax=(uint64_t)SRV_ERR_INVAL;return false;
+    }
+    uint64_t fd=frame->rdi,requested=frame->rdx;
+    const char *buffer=(const char *)frame->rsi;
+    uint64_t handler_at=process_capture_write_clock();
+#if !defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) && !defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+    if(fd>=3 && requested && requested<=65536) {
+        struct reserved_append_input input={.data=buffer,.requested=requested};int64_t result;
+        do {
+            if(process_should_exit_current())break;
+            if(process_file_try_reserved_append(process_current(),fd,requested,reserved_append_copy,&input,&result)) {
+                process_capture_write_fast_result(requested,result);frame->rax=(uint64_t)result;
+                process_capture_write_record(CAP_WRITE_HANDLER,handler_at);return true;
+            }
+        } while(process_file_wait_reserved_append(process_current(),fd,requested));
+    }
+#endif
+    /* A full window or a lease revoked across a notified wait retains ordinary
+     * admission. No private pointer or earlier eligibility survives this edge. */
+    scheduler_io_set_user_safe(false);
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    uint64_t gate_at=process_capture_write_clock();
+    if(gate_at)process_capture_write_gate_wait();else scheduler_io_wait();
+    process_capture_write_record(CAP_WRITE_GATE,gate_at);latency_gate(wait_at,SYS_WRITE);
+    if(process_should_exit_current()) {
+        scheduler_io_wait();process_exit(process_current_kill_status());
+    }
+    /* Exclude the observed ordinary gate from handler time. Prelude wait wall
+     * remains explicit in the append-wait companion and whole raw-call span. */
+    handler_at=process_capture_write_clock();
+    frame->rax=(uint64_t)syscall_write(fd,buffer,requested);
+    process_capture_write_record(CAP_WRITE_HANDLER,handler_at);return false;
 }
 
 static char tty_filter_input(char c) {
@@ -1080,6 +1152,23 @@ static int64_t copy_storage_path(const char *input,char *out,uint64_t capacity,b
     return vfs_namespace_system_path(normalized,out,capacity);
 }
 
+/* The scalar request and path are copied once; only the caller-owned immutable
+ * expected byte region is sampled in bounded, independently checked chunks. */
+static bool verify_expected_copy(void *context,void *destination,uint64_t offset,size_t length) {
+    const uint8_t *expected=context;
+    return copy_from_user(destination,expected+offset,length);
+}
+static int64_t syscall_file_verify(const struct srv_file_verify_request *user) {
+    struct srv_file_verify_request q;char path[MAX_PATH_LENGTH];
+    if(!copy_from_user(&q,user,sizeof(q)))return SRV_ERR_FAULT;
+    if(q.abi_version!=SRV_ABI_VERSION || q.struct_size!=sizeof(q) || q.reserved ||
+       !q.expected_inode || q.length>SRV_FILE_VERIFY_MAX || (q.length && !q.data))return SRV_ERR_INVAL;
+    if(q.length && (q.length>UINTPTR_MAX-(uintptr_t)q.data || !user_buffer_ok(q.data,q.length,false)))return SRV_ERR_FAULT;
+    int64_t result=copy_storage_path(q.path,path,sizeof(path),false);
+    if(result)return result;
+    return file_verify(path,&q,verify_expected_copy,(void *)q.data);
+}
+
 /* SYS_FILE_STREAM is admitted as one namespace operation. Its user request,
  * bounded payload snapshot and final copyout all remain inside that window. */
 static int64_t syscall_file_stream(const struct srv_file_stream_request *user) {
@@ -1263,6 +1352,9 @@ static int64_t syscall_spawn_bg_args_fds(const char *user_path,
         return -1;
     }
 
+    if(process_try_spawn_private_helper(path,args,stdin_fd,stdout_fd,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(process_should_exit_current())return SRV_ERR_INTR;
     flags = irq_save();
     result = process_spawn_background_elf_args_fds(path, args, stdin_fd, stdout_fd);
     irq_restore(flags);
@@ -1360,6 +1452,14 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint
         argv[argc++] = path;
     }
 
+    uint64_t request_mask=(scope_token?1ull:0)|(request.flags!=SRV_EXEC_BACKGROUND?2ull:0)|
+        ((request.stdin_fd!=-1 || request.stdout_fd!=-1 || request.stderr_fd!=-1)?4ull:0)|
+        (request.process_group?8ull:0)|(request.foreground?16ull:0)|(request.file_action_count?32ull:0);
+    if(!request_mask) {
+        if(process_try_spawn_private(path,argc,argv,envc,envp,&result))return result;
+    } else scheduler_launch_trace_exec(LAUNCH_TRACE_REQUEST,request_mask,0,0,0);
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(process_should_exit_current())return SRV_ERR_INTR;
     flags = irq_save();
     if ((request.flags & SRV_EXEC_REPLACE) != 0) {
         result = process_exec_replace(path,
@@ -1590,6 +1690,7 @@ static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     if(error) return error;
     if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
+    process_revoke_reserved_append_path(path);
     return vfs_chmod(path, mode) ? 0 : SRV_ERR_IO;
 }
 
@@ -2033,14 +2134,62 @@ static bool poll_console_only(struct process *process,const struct syscall_pollf
     return true;
 }
 
+struct poll_pipe_identity { uint64_t generation,handle; };
+/* Metadata-only observation of the same simple endpoints already admitted by
+ * bounded nonblocking byte I/O. The caller holds IF0 through classification,
+ * revalidation and observation; no descriptor release or rights work occurs. */
+static bool poll_pipe_endpoint(struct process *process,const struct syscall_pollfd *fd,
+    struct process_file **out) {
+    struct process_file *file=process_file_at(process,(uint64_t)fd->fd);
+    if(!file)return false;
+    bool writing=file->type==PROCESS_FILE_PIPE_WRITE;
+    if((!writing && file->type!=PROCESS_FILE_PIPE_READ) ||
+       fd->events!=(writing?SRV_POLLOUT:SRV_POLLIN) ||
+       !process_file_pipe_io_safe(process,(uint64_t)fd->fd,0,writing))return false;
+    *out=file;return true;
+}
+static bool poll_pipe_capture(struct process *process,const struct syscall_pollfd *fds,uint64_t nfds,
+    struct poll_pipe_identity *identities) {
+    bool any=false;
+    for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0) {
+        struct process_file *file;
+        if(!poll_pipe_endpoint(process,&fds[i],&file))return false;
+        uint64_t generation=process_fd_generation(process,(uint64_t)fds[i].fd);
+        if(generation==UINT64_MAX)return false;
+        identities[i]=(struct poll_pipe_identity){generation,file->handle};any=true;
+    }
+    return any;
+}
+static bool poll_pipes_current(struct process *process,const struct syscall_pollfd *fds,uint64_t nfds,
+    const struct poll_pipe_identity *identities) {
+    for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0) {
+        /* Identity precedes endpoint-specific lookup: never follow a newly
+         * installed descriptor family under a foreign storage owner. */
+        if(process_fd_generation(process,(uint64_t)fds[i].fd)!=identities[i].generation)return false;
+        struct process_file *file=process_file_at(process,(uint64_t)fds[i].fd);
+        if(!file || file->handle!=identities[i].handle)return false;
+        if(!poll_pipe_endpoint(process,&fds[i],&file))return false;
+    }
+    return true;
+}
+
 struct syscall_poll_wait {
     struct process *process;
     struct syscall_pollfd *fds;
     uint64_t nfds;
+    const struct poll_pipe_identity *pipes;
+    bool pipe_request;
 };
 
 static bool poll_wait_ready(void *arg) {
     struct syscall_poll_wait *wait = arg;
+    if(wait && wait->pipe_request) {
+        /* scheduler_wait checks under IF0 before enrollment. A safety/identity
+         * change wakes into the original gate, without polling a replacement. */
+        return process_should_exit_current() || process_signal_pending_current() ||
+            !poll_pipes_current(wait->process,wait->fds,wait->nfds,wait->pipes) ||
+            poll_once(wait->process,wait->fds,wait->nfds)!=0;
+    }
     return wait == NULL ||
         process_should_exit_current() ||
         process_signal_pending_current() ||
@@ -2070,18 +2219,24 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     }
 
     struct process *process = process_current();
-    /* Admit only the copied, immutable console request during owned I/O. Never
+    /* Admit only copied, immutable console or strict simple-pipe metadata
+     * requests during owned I/O. Never
      * classify a mutable userspace array and then read it again after yielding.
      * Everything else retains the original filesystem/process lifetime gate. */
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0 && !process_signal_experimental_fd_allowed((uint64_t)fds[i].fd))return SRV_ERR_NOTSUP;
 #endif
     uint64_t deadline_us=poll_deadline_us(timeout_ms,timer_monotonic_us());
+    struct poll_pipe_identity pipes[MAX_POLL_FDS];
     struct syscall_poll_wait wait = {
         .process = process,
         .fds = fds,
         .nfds = nfds,
+        .pipes = pipes,
     };
+    uint64_t initial_flags=irq_save();
+    wait.pipe_request=poll_pipe_capture(process,fds,nfds,pipes);
+    irq_restore(initial_flags);
 #ifndef SRVROS_SYSCALL_POLL_HOST_TEST
     __asm__ volatile ("sti" : : : "memory");
 #endif
@@ -2095,7 +2250,11 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         }
 
         uint64_t flags=irq_save();
-        if(!poll_console_only(process,fds,nfds)) {
+        bool pipe_safe=wait.pipe_request && poll_pipes_current(process,fds,nfds,pipes);
+        /* Revocation is permanent for this request. Even if the old number
+         * becomes a simple pipe again, it cannot reacquire this observation. */
+        if(wait.pipe_request && !pipe_safe)wait.pipe_request=false;
+        if(!pipe_safe && !poll_console_only(process,fds,nfds)) {
             scheduler_io_set_user_safe(false);scheduler_io_wait();
         }
         int64_t ready = poll_once(process, fds, nfds);
@@ -2204,6 +2363,19 @@ static int64_t syscall_poll_prepared(struct syscall_pollfd *user_fds,uint64_t nf
 #endif
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if(command==SRV_F_SETFL) {
+        int64_t result;
+        if(process_file_try_set_pipe_flags(process_current(),fd,arg,&result))return result;
+        scheduler_io_set_user_safe(false);scheduler_io_wait();
+        if(process_should_exit_current())return SRV_ERR_INTR;
+    }
+    if(command==SRV_F_RESERVE_APPEND_RAM) {
+#if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+        return SRV_ERR_NOTSUP;
+#else
+        return process_file_reserve_append_ram(process_current(),fd,arg);
+#endif
+    }
     if(command==SRV_F_DUPFD || command==SRV_F_DUPFD_CLOEXEC)
         return process_file_dup_min(process_current(),fd,arg,command==SRV_F_DUPFD_CLOEXEC);
     if (command == SRV_F_GETFD) {
@@ -2903,13 +3075,21 @@ static int64_t syscall_net_listen(uint16_t port) {
 }
 
 static int64_t syscall_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags) {
+    bool cache_only = (flags & SRV_NET_CONNECT_CACHE_ONLY) != 0;
+    if (cache_only && (!(flags & SRV_FD_NONBLOCK) ||
+        (flags & ~(SRV_NET_CONNECT_CACHE_ONLY | SRV_FD_NONBLOCK)))) return SRV_ERR_INVAL;
     struct process *process = process_current();
     if (process == NULL) {
         return -1;
     }
 
-    int64_t handle = net_connect(remote_ip, remote_port, (flags & SRV_FD_NONBLOCK) != 0);
+    /* Exclude CPU0 FD/table replacement through finite slot+FD publication.
+     * Ordinary connect keeps its existing ARP and waiting behavior. */
+    uint64_t irq = cache_only ? irq_save() : 0;
+    int64_t handle = cache_only ? net_connect_try(remote_ip, remote_port) :
+        net_connect(remote_ip, remote_port, (flags & SRV_FD_NONBLOCK) != 0);
     if (handle < 0) {
+        if (cache_only) irq_restore(irq);
         return handle;
     }
 
@@ -2917,6 +3097,7 @@ static int64_t syscall_net_connect(uint32_t remote_ip, uint16_t remote_port, uin
     if (fd < 0) {
         net_close((uint64_t)handle);
     }
+    if (cache_only) irq_restore(irq);
     return fd;
 }
 
@@ -2955,7 +3136,36 @@ static int64_t syscall_net_list(uint64_t index, struct srv_net_info *info) {
     return copy_net_struct_to_user(info, &copy, sizeof(copy)) ? next : -1;
 }
 
+/* Cache and queued operations only. The native owner runs RF/USB and IP. */
+static int64_t syscall_wifi(uint64_t op,uint64_t owner,void *user) {
+    if(op==SRV_WIFI_SELECT || op==SRV_WIFI_CONNECT || op==SRV_WIFI_DISCONNECT) {
+        struct srv_wifi_select request;
+        if(owner || !copy_from_user(&request,user,sizeof request))return SRV_WIFI_INVALID;
+        uint64_t flags=irq_save();
+        int result=op==SRV_WIFI_SELECT?wifi_service_select(&request):wifi_service_request((unsigned)op,&request);
+        irq_restore(flags);return result;
+    }
+    if(op!=SRV_WIFI_SNAPSHOT || !abi_user_struct_size(user,sizeof(struct srv_wifi_snapshot),SRV_WIFI_VERSION))return SRV_WIFI_INVALID;
+    struct srv_wifi_snapshot *copy=kmalloc(sizeof *copy);if(!copy)return SRV_WIFI_UNAVAILABLE;
+    uint64_t flags=irq_save();int result=wifi_service_snapshot(owner,copy);irq_restore(flags);
+    if(!copy_abi_struct_to_user(user,copy,sizeof *copy,SRV_WIFI_VERSION))result=SRV_WIFI_INVALID;
+    kfree(copy);return result;
+}
+
 static int64_t syscall_net_status_info(struct srv_net_status_info *info) {
+    struct srv_net_status_info idle;
+    _Static_assert(sizeof(idle)<=1024,"bounded callback-free network snapshot");
+    uint64_t flags=irq_save();
+    if(net_status_info_try_without_device(&idle)) {
+        /* Keep IF0 across registry proof, fixed-table reads and the existing
+         * size-negotiated, mapping-revalidated copy. No heap or device work. */
+        int64_t result=copy_net_struct_to_user(info,&idle,sizeof(idle))?0:-1;
+        irq_restore(flags);return result;
+    }
+    irq_restore(flags);
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_NET_STATUS_INFO);
+    if(process_should_exit_current())return SRV_ERR_INTR;
     struct srv_net_status_info *copy = kmalloc(sizeof(*copy));
     if (copy == NULL) {
         return -1;
@@ -3082,8 +3292,16 @@ static int64_t syscall_net_udp_recvfrom(uint64_t fd,
  * stays in force; this is not a GUI/I/O-owner bypass. */
 static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buffer,
     uint64_t length, struct srv_socket_peer *user_peer) {
-    if (operation < SRV_SOCKET_RECV || operation > SRV_SOCKET_UDP_SEND) return SRV_ERR_INVAL;
-    bool writing = operation == SRV_SOCKET_SEND || operation == SRV_SOCKET_UDP_SEND;
+    if (operation < SRV_SOCKET_RECV || operation > SRV_SOCKET_TCP_SEND_TRY) return SRV_ERR_INVAL;
+    bool finite_tcp = operation == SRV_SOCKET_TCP_SEND_TRY;
+    if (finite_tcp) {
+        /* Negotiate before CACHE_ONLY: old kernels ignored unknown flags. */
+        if (fd == UINT64_MAX) return !buffer && !length && !user_peer ?
+            SRV_SOCKET_TCP_TRY_ABI_VERSION : SRV_ERR_INVAL;
+        if (user_peer) return SRV_ERR_INVAL;
+        if (length > SRV_SOCKET_TCP_TRY_COPY_MAX) length = SRV_SOCKET_TCP_TRY_COPY_MAX;
+    }
+    bool writing = finite_tcp || operation == SRV_SOCKET_SEND || operation == SRV_SOCKET_UDP_SEND;
     if (!user_buffer_ok(buffer, length, !writing)) return SRV_ERR_FAULT;
     struct srv_socket_peer peer = {0};
     if (operation == SRV_SOCKET_UDP_SEND) {
@@ -3103,6 +3321,8 @@ static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buff
         return network_receive(fd, &io, length, true, false, false);
     }
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
+        if (finite_tcp)
+            return network_send_mode(fd, buffer, length, true, false, false, 0, 0, true);
         if (operation == SRV_SOCKET_SEND) return network_send(fd, buffer, length, true, false, false, 0, 0);
         struct srv_iovec iov = {.base=buffer, .length=length};
         struct network_user_io io = {.iov=&iov, .count=1};
@@ -3417,10 +3637,12 @@ static int64_t syscall_futex_wake(uint32_t *address, uint64_t max_count) {
 }
 
 static int64_t syscall_sync(void) {
+    bool timed=sync_timing_enabled() && sync_timing_begin(process_pid(process_current()));
     int64_t result = process_file_sync_all();
-    if (!block_flush_all()) {
-        result = -1;
-    }
+    if(timed)sync_timing_files_done(result>=0);
+    bool flushed=block_flush_all();
+    if(timed)sync_timing_end(flushed);
+    if (!flushed) result = -1;
     return result;
 }
 
@@ -3437,14 +3659,33 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
 /* Only independently synchronized paths with no filesystem or process-lifetime
  * teardown may overlap owned I/O. Default-deny also covers future syscalls. Do not admit
  * poll by inspecting a mutable userspace fd array before the actual copy. Poll
- * enters only its copy/validation prelude here, then gates non-console work.
+ * enters only its copy/validation prelude here, then gates requests other
+ * than validated console or strict simple-pipe metadata observation.
  * Close likewise admits only an atomic simple-pipe attempt before gating all
  * other descriptor cleanup; queued rights may recursively flush files.
- * Memory/thread calls admit only a validated bounded atomic attempt. Generic
- * allocation, thread creation, mapping and retirement retain gated fallback. */
+ * Exec/exit likewise admit only copied-request or resource-proof preludes;
+ * a foreign owner is never borrowed or released. Memory/thread calls admit
+ * only a validated bounded atomic attempt. Generic
+ * allocation, thread creation, mapping and retirement retain gated fallback.
+ * Native helpers and fcntl likewise enter only copied-input/simple-pipe
+ * attempts; their general constructors and all other controls regain the gate. */
+void syscall_gate_trace(const struct isr_frame *frame) {
+    if(!scheduler_launch_trace_enabled() || (frame->cs&3)!=3)return;
+    if(frame->rax==SYS_EXEC)scheduler_launch_trace_entry();
+    else if(frame->rax==SYS_FCNTL) {
+        uint64_t flags=irq_save();
+        const struct process_file *f=process_file_at(process_current(),frame->rdi);
+        scheduler_launch_trace_fcntl(frame->rdi,frame->rsi,frame->rdx,f?(uint64_t)f->type:0,f?f->flags:0);
+        irq_restore(flags);
+    }
+}
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE: return true; /* Validated prelude, gated fallback. */
+    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:
+    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS:
+    case SYS_NET_STATUS_INFO: return true; /* Validated prelude, gated fallback. */
+    case SYS_DIRECTORY: return frame->rdi==SRV_DIRECTORY_READ_INFO; /* Validated metadata attempt only. */
+    case SYS_FCNTL: return frame->rsi==SRV_F_SETFL; /* Scalar pipe attempt; all other controls retain the original entry gate. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */
@@ -3452,7 +3693,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
-     * Process spawn/kill remain gated. The memory/first-thread preludes above
+     * General process spawn/kill remain gated. The lifecycle/memory/thread preludes above
      * require ownership/bounds proofs; all refusals regain ordinary admission. */
     case SYS_GUI_WAIT_IO: case SYS_GUI_CANCEL_WAIT:
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:
@@ -3460,7 +3701,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
-    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE:
+    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE: case SYS_WIFI:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -3487,14 +3728,33 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+/* Public dispatch calls this before acquiring namespace ownership. A refusal
+ * leaves the cookie/output untouched and must enter the full owned fallback. */
+/* Release this batch-sized frame before entering the owned fallback. */
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result)
+    __attribute__((noinline));
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result) {
+    struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
+    if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0])) {*result=SRV_ERR_INVAL;return true;}
+    uint64_t flags=irq_save();
+    if(!out || !user_buffer_ok(out,capacity,true)) {*result=SRV_ERR_FAULT;irq_restore(flags);return true;}
+    int64_t count;
+    if(!process_directory_try_read_info(fd,entries,capacity,&count)) {irq_restore(flags);return false;}
+    *result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+    irq_restore(flags);return true;
+}
 static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
     if(operation==SRV_DIRECTORY_READ_INFO) {
         struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
         if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0]))return SRV_ERR_INVAL;
-        if(!out || !user_buffer_ok(out,capacity,true))return SRV_ERR_FAULT;
+        /* Namespace dispatch owns the original span through this fallback.
+         * Cancellation and mappings/FDs may have changed while awaiting it. */
+        if(process_should_exit_current())return SRV_ERR_INTR;
+        uint64_t flags=irq_save();
+        if(!out || !user_buffer_ok(out,capacity,true)) {irq_restore(flags);return SRV_ERR_FAULT;}
         int64_t count=process_directory(operation,fd,entries,capacity);
-        if(count<=0)return count;
-        return copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+        int64_t result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+        irq_restore(flags);return result;
     }
     if(operation==SRV_DIRECTORY_CHDIR) return process_directory(operation,fd,NULL,0);
     union { struct srv_dirent entry; char path[MAX_PATH_LENGTH]; } result;
@@ -3621,7 +3881,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     /* This exact test image admits local runtime qualification only. Reject
      * every external/namespace socket entry before any backend effect. */
     switch(frame->rax) {
-    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:return false;
+    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:case SYS_FILE_VERIFY:return false;
     case SYS_NET_LISTEN:case SYS_NET_ACCEPT:case SYS_NET_DHCP:case SYS_NET_STATUS:case SYS_NET_DNS:
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
@@ -3683,6 +3943,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
     }
 #endif
 
+    case SYS_FILE_VERIFY:
+        frame->rax=(uint64_t)syscall_file_verify((const struct srv_file_verify_request *)frame->rdi);
+        return;
     case SYS_FILE_STREAM:
         frame->rax=(uint64_t)syscall_file_stream((const struct srv_file_stream_request *)frame->rdi);
         return;
@@ -3809,6 +4072,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
         return;
     case SYS_NET_LIST:
         frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);
+        return;
+    case SYS_WIFI:
+        frame->rax=(uint64_t)syscall_wifi(frame->rdi,frame->rsi,(void *)frame->rdx);
         return;
     case SYS_NET_STATUS_INFO:
         frame->rax = (uint64_t)syscall_net_status_info((struct srv_net_status_info *)frame->rdi);
@@ -4217,7 +4483,7 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
  * This does not change syscall_io_safe or make filesystem operations I/O-safe. */
 static bool namespace_syscall(uint64_t number) {
     switch(number) {
-    case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
+    case SYS_FILE_VERIFY: case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
     case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS:
     case SYS_CHMOD: case SYS_UTIME: case SYS_UNLINK: case SYS_MKDIR:
     case SYS_MKDIR_MODE: case SYS_RMDIR: case SYS_RENAME: case SYS_FILE_CHANGE:
@@ -4228,10 +4494,18 @@ static bool namespace_syscall(uint64_t number) {
 void syscall_dispatch(struct isr_frame *frame) {
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     /* Unsupported extensions must not wait for namespace I/O ownership. */
-    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM) {
+    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM || frame->rax==SYS_FILE_VERIFY) {
         frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
     }
 #endif
+    /* Only READ_INFO enters its callback-free proof before ownership. All
+     * refusals and other directory operations retain the complete span below. */
+    if(frame->rax==SYS_DIRECTORY && frame->rdi==SRV_DIRECTORY_READ_INFO) {
+        int64_t result;
+        if(syscall_directory_try_read_info(frame->rsi,(void *)frame->rdx,frame->rcx,&result)) {
+            frame->rax=(uint64_t)result;return;
+        }
+    }
     if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
     uint64_t flags=irq_save();
     scheduler_io_set_user_safe(false);scheduler_io_wait();

@@ -11,12 +11,28 @@ static void test_registry_free(void *p,size_t bytes);
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+long srv_write(int fd,const void *p,size_t n){(void)fd;(void)p;(void)n;assert(!"unexpected owner IPC");return -1;}
+long srv_read(int fd,void *p,size_t n){(void)fd;(void)p;(void)n;assert(!"unexpected owner IPC");return -1;}
+long srv_poll(struct srv_pollfd *p,size_t n,int64_t timeout){(void)p;(void)n;(void)timeout;assert(!"unexpected owner IPC");return -1;}
+
 /* This scene fixture never starts a persistence helper. Final-save helper
  * restart and retirement are exercised by test_preferences_finish.c. */
 int desk_file_job_init(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper start");return -1;}
 void desk_file_job_close(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper close");}
 
 static unsigned capture_closes,capture_reap_pending;
+static unsigned scaled_capture_probe,scaled_capture_snapshots;
+int desk_capture_job_snapshot(struct desk_capture_job *j,const uint32_t *pixels,uint32_t width,uint32_t height) {
+    assert(scaled_capture_probe && pixels && width==2 && height==2 && j->pixels);
+    for(unsigned n=0;n<4;n++)assert(pixels[n]==0x203040);
+    memcpy(j->pixels,pixels,16);j->snapshotted=1;scaled_capture_snapshots++;return 0;
+}
+int desk_capture_job_poll_transfer(struct desk_capture_job *j) {(void)j;assert(!"unexpected UI capture transfer");return -1;}
+int desk_capture_job_start(struct desk_capture_job *j,const uint32_t *pixels,uint32_t width,uint32_t height,const char *path) {
+    (void)j;(void)pixels;(void)width;(void)height;(void)path;assert(!"unexpected synchronous capture start");return -1;
+}
+
+int desk_capture_job_trace(struct desk_capture_job *j,int enabled) {j->transfer.enabled=!!enabled;return 0;}
 int desk_capture_job_prepare(struct desk_capture_job *j,uint32_t width,uint32_t height,const char *path) {
     (void)j;(void)width;(void)height;(void)path;assert(!"unexpected capture preparation");return -1;
 }
@@ -83,7 +99,7 @@ static uint64_t now=1;
 static int slow_console_probe;
 static unsigned slow_console_calls;
 static int capture_loop_log;
-static char captured_loop_log[4096];
+static char captured_loop_log[8192];
 void srv_puts(const char *text) {
     if(slow_console_probe){slow_console_calls++;now+=60;return;}
     if(capture_loop_log) {
@@ -113,6 +129,7 @@ long srv_exec(const struct srv_exec_request *request) {
 }
 long srv_ticks(void) { return (long)now; }
 long srv_monotonic_us(void) { return (long)(now*10000); }
+long srv_getpid(void) { return 4; }
 long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; now+=kill_delay; return 0; }
@@ -803,6 +820,40 @@ static void document_routing_failures(void) {
     puts("desktop-document-route: PASS copied chunks, authenticated replies, pressure, uncertainty and shutdown without replay");
 }
 
+static void persistent_render_timing(void) {
+    struct loop_trace t={0};loop_trace_begin(&t,100,2,3,1);
+    struct loop_render_record *r=&t.current.render;
+    render_record_begin(r,200);r->damage=1;r->scale=1;
+    render_record_mark(r,1,300);
+    render_record_rect(r,0,310,500,100);render_record_rect(r,1,510,600,100);
+    render_record_mark(r,2,700);render_record_mark(r,3,800);render_record_mark(r,4,900);
+    assert(render_record_complete(r));
+    t.current.capture=(struct loop_capture_record){.begin=1000,.end=1200,.valid=1,.id_before=2,.id_after=2};
+    loop_trace_end(&t,700100,2,3,1);
+    struct loop_record retained=t.worst;
+    for(unsigned n=0;n<1000;n++) {
+        uint64_t now=800000+n*1000;loop_trace_begin(&t,now,3,4,1);
+        t.current.render.valid=99;t.current.capture.id_after=99;
+        loop_trace_end(&t,now+10,3,4,1);assert(!memcmp(&t.worst,&retained,sizeof(retained)));
+    }
+    struct loop_render_record good=retained.render,bad=good;
+    bad.next=2;render_record_rect(&bad,0,599,610,1);assert(!bad.valid);
+    bad=good;bad.next=2;render_record_rect(&bad,0,610,600,1);assert(!bad.valid);
+    bad=good;bad.next=2;bad.compose_us=UINT64_MAX;render_record_rect(&bad,0,610,620,1);assert(!bad.valid);
+    bad=good;bad.next=2;bad.compose_pixels=UINT64_MAX;render_record_rect(&bad,0,610,620,1);assert(!bad.valid);
+    bad=good;bad.next=2;render_record_mark(&bad,2,599);assert(!bad.valid);
+    bad=good;bad.next=2;render_record_mark(&bad,3,700);assert(!bad.valid);
+    bad=good;bad.upload_calls=0;assert(!render_record_complete(&bad));
+    bad=good;bad.compose_us=401;assert(!render_record_complete(&bad));
+    render_record_begin(&bad,0);assert(!bad.valid);
+    render_record_begin(&bad,UINT64_MAX);assert(!bad.valid);
+    capture_loop_log=1;loop_trace_report(&t,1);
+    assert(strstr(captured_loop_log,"desktop-loop-render: seq=1 version=1 valid=1"));
+    assert(strstr(captured_loop_log,"desktop-loop-capture: seq=1 version=1 valid=1"));
+    capture_loop_log=0;
+    puts("desktop-render-timing: PASS bounded callbacks, bad clocks/counts/overflow and retained same-loop attribution");
+}
+
 static void persistent_loop_timing(void) {
     struct loop_trace t={0};
     loop_trace_end(&t,100,0,0,0);assert(!t.samples);
@@ -896,6 +947,49 @@ static void retained_operations(void) {
     assert(w.operations.capture.sent==400 && w.operations.queued==1); /* Frozen until worker consumes. */
     assert(w.operations.reap_queued==1 && w.operations.reap_queue_age_us==300 && !w.operations.reap_run_age_us);
     puts("desktop-operations: PASS pending capture/launch/close ages and immutable retained snapshot");
+}
+static struct capture_trace completion_trace(unsigned id,uint64_t start,uint64_t finish) {
+    struct capture_trace c={.id=id,.started_us=start,.finished_us=finish,.status=DESK_CAPTURE_OK};
+    c.phases[CAPTURE_RECEIVE]=10;c.phases[CAPTURE_WRITE]=finish-start-10;return c;
+}
+static void retained_capture_history(void) {
+    struct session s={0};
+    struct capture_trace c=completion_trace(1,100,140);
+    capture_history_record(&s.capture_history,&c,42,150,1);
+    c=completion_trace(2,200,260);capture_history_record(&s.capture_history,&c,43,270,1);
+    c=completion_trace(3,300,400);capture_history_record(&s.capture_history,&c,44,410,1);
+    assert(s.capture_history.count==3 && s.capture_history.completed==3 && !s.capture_history.invalid && !s.capture_history.dropped);
+    assert(s.capture_history.rows[0].pid==42 && s.capture_history.rows[1].pid==43 && s.capture_history.rows[2].pid==44);
+    assert(s.capture_history.rows[0].phases[CAPTURE_WRITE]==30 && s.capture_history.rows[1].phases[CAPTURE_WRITE]==50 && s.capture_history.rows[2].phases[CAPTURE_WRITE]==90);
+    struct operation_trace t=operation_snapshot(&s,500);
+    c.phases[CAPTURE_WRITE]=0;s.capture_history.rows[1].phases[CAPTURE_WRITE]=999;
+    assert(t.capture_history.rows[1].phases[CAPTURE_WRITE]==50); /* Middle completion survives job reuse. */
+    capture_loop_log=1;captured_loop_log[0]=0;capture_history_report(&t.capture_history,500,1);
+    assert(strstr(captured_loop_log,"desktop-capture-history: version=1 snapshot_us=500 completed=3 count=3 dropped=0 invalid=0 final=1"));
+    assert(strstr(captured_loop_log,"index=1 id=2 pid=43 started_us=200 finished_us=260 retired_us=270 result=1 status=0"));
+    assert(strstr(captured_loop_log,"index=2 id=3 pid=44"));capture_loop_log=0;
+    struct capture_history before=t.capture_history;
+    c=completion_trace(4,500,600);capture_history_record(&t.capture_history,&c,45,610,1);
+    assert(t.capture_history.completed==4 && t.capture_history.dropped==1 && t.capture_history.count==3 && !t.capture_history.invalid);
+    assert(!memcmp(t.capture_history.rows,before.rows,sizeof(before.rows))); /* No eviction or behavior change after three. */
+    struct capture_history bad={0};c=completion_trace(1,100,140);
+    capture_history_record(&bad,&c,42,150,1);capture_history_record(&bad,&c,42,150,1);assert(bad.invalid);
+    bad=(struct capture_history){0};capture_history_record(&bad,&c,0,150,1);assert(bad.invalid);
+    bad=(struct capture_history){0};capture_history_record(&bad,&c,42,130,1);assert(bad.invalid);
+    bad=(struct capture_history){0};c.retiring=42;capture_history_record(&bad,&c,42,150,1);assert(bad.invalid);c.retiring=0;
+    bad=(struct capture_history){0};c.phases[CAPTURE_WRITE]=UINT64_MAX;capture_history_record(&bad,&c,42,150,1);assert(bad.invalid);
+    bad=(struct capture_history){.completed=UINT64_MAX};c=completion_trace(1,100,140);
+    capture_history_record(&bad,&c,42,150,-1);assert(bad.invalid && bad.completed==UINT64_MAX && bad.rows[0].result==-1);
+    /* Every maximum-width output row must remain below the atomic1KiB writer
+     * bound. Values here intentionally model malformed timing, not a pass. */
+    struct capture_history wide={.count=3,.completed=UINT64_MAX,.dropped=UINT64_MAX,.invalid=1};
+    for(unsigned i=0;i<3;i++) {
+        struct capture_completion *q=&wide.rows[i];
+        q->id=q->status=UINT32_MAX;q->pid=q->started_us=q->finished_us=q->retired_us=UINT64_MAX;q->result=-1;
+        for(unsigned j=1;j<CAPTURE_PHASE_COUNT;j++)q->phases[j]=UINT64_MAX;
+    }
+    capture_loop_log=1;captured_loop_log[0]=0;capture_history_report(&wide,UINT64_MAX,1);capture_loop_log=0;
+    puts("desktop-capture-history: PASS three terminal immutable identities/phases, retained middle, copied reports, overflow/drop/clock rejection and bounded rows");
 }
 static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {
     return (struct srv_key_event){.usage=usage,.modifiers=modifiers,.flags=flags};
@@ -1065,12 +1159,150 @@ static void display_transaction_tests(void) {
     now=1;
     puts("desktop-display: PASS mode admission, transaction ownership, cancellation, keep, timeout and disconnect rollback");
 }
-int main(void) {
+static int control_api_active,control_api_fail_begin,control_api_fail_end;
+static unsigned control_api_ends;
+long srv_sched_trace(unsigned operation,struct srv_sched_trace *out) {
+    if(operation==SRV_SCHED_TRACE_BEGIN) {
+        if(control_api_fail_begin || control_api_active)return -1;
+        control_api_active=1;*out=(struct srv_sched_trace){.version=1,.start_us=now*10000};return 0;
+    }
+    assert(operation==SRV_SCHED_TRACE_END);control_api_ends++;
+    if(control_api_fail_end || !control_api_active)return -1;
+    control_api_active=0;out->end_us=now*10000;return 0;
+}
+static void control_producer_tests(void) {
+    struct loop_trace t={0};loop_trace_begin(&t,100,1,2,2);control_record_begin(&t.current.control,100);
+    control_api_active=1;unsigned ends=control_api_ends;
+    control_region_begin(&t,CONTROL_REPORT);assert(!t.current.control.valid && !t.current.control.tracing);
+    control_region_end(&t,CONTROL_REPORT);assert(control_api_active && control_api_ends==ends);
+    control_api_active=0;
+    memset(&t,0,sizeof(t));loop_trace_begin(&t,100,1,2,2);control_record_begin(&t.current.control,100);
+    control_region_begin(&t,CONTROL_REPORT);assert(control_api_active && t.current.control.tracing==1);
+    control_api_fail_end=1;control_region_end(&t,CONTROL_REPORT);assert(!t.current.control.valid);
+    control_api_fail_end=control_api_active=0;
+    memset(&t,0,sizeof(t));loop_trace_begin(&t,100,1,2,2);control_record_begin(&t.current.control,100);
+    control_region_begin(&t,CONTROL_REPORT);assert(control_api_active);
+    control_trace_abort(&t);assert(!control_api_active && !t.current.control.tracing && !t.current.control.valid);
+    struct loop_control_record c;control_record_begin(&c,100);control_record_mark(&c,1,99);assert(!c.valid);
+    control_record_begin(&c,100);control_record_mark(&c,2,101);assert(!c.valid);
+    control_record_begin(&c,100);
+    for(unsigned i=1;i<5;i++)control_record_mark(&c,i,100+i);
+    assert(control_record_complete(&c));c.tracing=1;assert(!control_record_complete(&c));
+}
+static void control_shift_scheduler(struct srv_sched_trace *q,uint64_t shift) {
+    q->start_us+=shift;q->end_us+=shift;
+    if(q->wake_us)q->wake_us+=shift;
+    if(q->run_us)q->run_us+=shift;
+    q->start_tick+=200000;q->end_tick+=200000;
+    if(q->wake_tick)q->wake_tick+=200000;
+    if(q->deadline_tick)q->deadline_tick+=200000;
+}
+static int control_proof_fixture(int wide) {
+    control_producer_tests();
+    struct loop_trace t={0};loop_trace_begin(&t,100,4,13,2);
+    struct loop_control_record *c=&t.current.control;control_record_begin(c,100);
+    control_record_mark(c,1,200);control_record_mark(c,2,1200);control_record_mark(c,3,411200);control_record_mark(c,4,411986);
+    c->due=c->state_checked=c->snapshot_called=c->submit_called=c->accepted=1;
+    c->snapshot_begin=250;c->snapshot_end=450;c->submit_begin=500;c->submit_end=800;
+    c->audio_enabled=c->wait_called=c->notice_called=1;c->child_before=c->child_after=c->wait_pid=8;c->wait_flags=SRV_WAIT_NOHANG;
+    c->wait_begin=1500;c->wait_end=410900;c->notice_begin=410950;c->notice_end=411000;
+    c->scheduler[CONTROL_REPORT]=(struct srv_sched_trace){.version=1,.start_us=210,.end_us=1190};
+    c->scheduler[CONTROL_AUDIO]=(struct srv_sched_trace){.version=1,.start_us=1210,.end_us=411190,.end_tick=42,.blocked_us=120000,.ready_us=280000,.blocks=1,.signals=1,.dispatches=1,.max_ready_us=280000,.wake_us=130000,.run_us=410000,.wake_tick=13,.reason=1};
+    c->scheduler[CONTROL_IO]=(struct srv_sched_trace){.version=1,.start_us=411210,.end_us=411976,.end_tick=42};
+    assert(control_record_complete(c));loop_trace_mark(&t,LOOP_MESSAGES,411986);loop_trace_mark(&t,LOOP_WAIT,411986);
+    t.current.wait=(struct loop_wait_record){.valid=1,.begin=411996,.sleep_begin=412016,.sleep_end=420019,.end=420039,
+        .scheduler={.version=1,.start_us=412006,.end_us=420029,.end_tick=43,.blocked_us=1000,.ready_us=1000,.blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,.wake_us=414000,.run_us=415000,.wake_tick=41,.reason=1}};
+    loop_trace_end(&t,420079,4,13,3);
+    struct loop_control_record saved=t.worst.control;
+    struct lifecycle_worker worker={0};struct operation_trace operations={0};
+    assert(life_report_submit(&worker,&t,&operations));
+    loop_trace_begin(&t,500000,5,14,1);t.current.control.wait_begin=123;loop_trace_end(&t,500100,5,14,2);
+    assert(!memcmp(&t.worst.control,&saved,sizeof(saved)) && !memcmp(&worker.report.worst.control,&saved,sizeof(saved)));
+    t.worst.control.wait_result=-99;assert(worker.report.worst.control.wait_result==0);t.worst.control=saved;
+    if(wide==2) {
+        uint64_t shift=2000000000ull;t.worst.start+=shift;t.worst.end+=shift;
+        t.worst.sequence=50000;t.samples=50001;
+        for(unsigned i=0;i<5;i++)t.worst.control.at[i]+=shift;
+        uint64_t *clocks[]={&t.worst.control.snapshot_begin,&t.worst.control.snapshot_end,&t.worst.control.submit_begin,&t.worst.control.submit_end,&t.worst.control.wait_begin,&t.worst.control.wait_end,&t.worst.control.notice_begin,&t.worst.control.notice_end,&t.worst.wait.begin,&t.worst.wait.end,&t.worst.wait.sleep_begin,&t.worst.wait.sleep_end};
+        for(unsigned i=0;i<sizeof(clocks)/sizeof(clocks[0]);i++)*clocks[i]+=shift;
+        for(unsigned i=0;i<CONTROL_REGIONS;i++)control_shift_scheduler(&t.worst.control.scheduler[i],shift);
+        control_shift_scheduler(&t.worst.wait.scheduler,shift);loop_trace_report(&t,1);
+    } else if(wide) {
+        memset(&t.worst.control,255,sizeof(t.worst.control));t.worst.sequence=UINT64_MAX;
+        t.worst.control.next=5;t.worst.control.tracing=0;t.worst.control.wait_result=INT64_MIN;
+        control_trace_report(&t.worst,1);
+    } else loop_trace_report(&t,1);
+    return 0;
+}
+static int render_proof_fixture(void) {
+    struct loop_trace t={0};loop_trace_begin(&t,100,4,13,3);
+    loop_trace_mark(&t,LOOP_RENDER,1100);
+    struct loop_render_record *r=&t.current.render;
+    render_record_begin(r,1101);r->damage=1;r->scale=1;r->capture_id=2;r->capture_busy=1;
+    render_record_mark(r,1,1200);render_record_rect(r,0,1210,531210,100);
+    render_record_rect(r,1,532000,539000,100);render_record_mark(r,2,540000);
+    render_record_mark(r,3,540100);render_record_mark(r,4,541000);assert(render_record_complete(r));
+    r->scheduler=(struct srv_sched_trace){.version=1,.start_us=1110,.end_us=540990,.end_tick=60,
+        .blocked_us=2000,.ready_us=1000,.blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,
+        .wake_us=2000,.run_us=3000,.wake_tick=1,.reason=1};
+    loop_trace_mark(&t,LOOP_POST,541100);
+    t.current.capture=(struct loop_capture_record){.begin=541101,.end=551000,.valid=1,.id_before=2,.id_after=2,.busy_before=1,
+        .scheduler={.version=1,.start_us=541110,.end_us=550990,.end_tick=60,.ready_us=1000,.dispatches=1,
+        .max_ready_us=1000,.wake_us=542000,.run_us=543000,.wake_tick=1,.reason=1}};
+    loop_trace_mark(&t,LOOP_WAIT,551100);
+    t.current.wait=(struct loop_wait_record){.valid=1,.begin=551110,.sleep_begin=551130,.sleep_end=559040,.end=559060,
+        .scheduler={.version=1,.start_us=551120,.end_us=559050,.end_tick=60,.blocked_us=1000,.ready_us=1000,
+        .blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,.wake_us=552500,.run_us=553500,.wake_tick=1,.reason=1}};
+    loop_trace_end(&t,559100,4,13,3);loop_trace_report(&t,1);return 0;
+}
+static void scaled_capture_preparation(void) {
+    struct capture_worker owner={0};struct session s={.capture_owner=&owner};
+    uint32_t physical[16],snapshot[4];for(unsigned n=0;n<16;n++)physical[n]=0x203040;
+    struct desk_canvas canvas={.pixels=physical,.width=2,.height=2,.stride=4,.scale=2};
+    s.damage.width=s.damage.height=2;s.capture.busy=1;
+    owner.job=(struct desk_capture_job){.pid=42,.reader=10,.writer=11,.busy=1,.pixels=snapshot};
+    owner.job.request.width=owner.job.request.height=2;strcpy(owner.job.request.path,"/proof.bmp");
+    int before_allocations=allocations,before_frees=frees;
+    capture_owner_publish(&owner,CAPTURE_OWNER_PREPARING);capture_tick_scaled(&s,&canvas);
+    assert(allocations==before_allocations && frees==before_frees && !scaled_capture_snapshots);
+    scaled_capture_probe=1;capture_owner_publish(&owner,CAPTURE_OWNER_PREPARED);capture_tick_scaled(&s,&canvas);scaled_capture_probe=0;
+    assert(scaled_capture_snapshots==1 && allocations==before_allocations+1 && frees==before_frees+1 &&
+        capture_owner_state(&owner)==CAPTURE_OWNER_TRANSFERRING && !s.capture.pixels && s.capture.reader==-1);
+}
+int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--lifecycle-cycle-fixture")) {
+        capture_loop_log=0;
+        life_cycle_log(0,42,20,30,0);
+        life_cycle_log(1,43,40,50,0);
+        return 0;
+    }
+    if(argc==2 && (!strcmp(argv[1],"--capture-history-fixture") || !strcmp(argv[1],"--capture-transfer-fixture") || !strcmp(argv[1],"--capture-transfer-periodic-fixture"))) {
+        struct capture_history h={0};
+        for(unsigned i=0;i<3;i++) {
+            struct capture_trace c=completion_trace(i+1,100+i*100,140+i*120);
+            if(strcmp(argv[1],"--capture-history-fixture")) {
+                uint64_t begin=c.started_us,end=c.finished_us;
+                c.frames=2;
+                c.transfer=(struct desk_capture_transfer_timing){.enabled=1,.valid=1,.total=4272,
+                    .polls=5,.begin_us=begin,.end_us=end,.poll_us=10,.gap_us=end-begin-10,.gap_max_us=20,
+                    .write_calls=2,.write_ok=2,.write_bytes=4272,.write_first_us=begin+1,.write_last_us=begin+11,
+                    .write_us=4,.write_gap_us=6,.write_gap_max_us=6,.request_done_us=begin+3,.pixels_done_us=begin+11,
+                    .read_calls=5,.read_bytes=128,.read_again=1,
+                    .worker_receive_us=begin+4,.worker_allocated_us=begin+8,.worker_read_done_us=begin+14,.worker_final_us=end-2};
+            }
+            capture_history_record(&h,&c,42+i,150+i*120,1);
+        }
+        capture_loop_log=0;capture_history_report(&h,500,strcmp(argv[1],"--capture-transfer-periodic-fixture")!=0);return 0;
+    }
+    if(argc==2 && !strcmp(argv[1],"--control-proof"))return control_proof_fixture(0);
+    if(argc==2 && !strcmp(argv[1],"--control-late"))return control_proof_fixture(2);
+    if(argc==2 && !strcmp(argv[1],"--control-wide"))return control_proof_fixture(1);
+    if(argc==2 && !strcmp(argv[1],"--render-proof"))return render_proof_fixture();
     display_transaction_tests();
     deferred_ui_diagnostics();
     seeded_cache_reuse();
-    retained_operations();window_navigation();
-    persistent_loop_timing();asynchronous_loop_report();
+    retained_operations();retained_capture_history();window_navigation();
+    persistent_render_timing();persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
     uint64_t loop_last=0,loop_max=0;
@@ -1437,6 +1669,7 @@ int main(void) {
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     capture_cleanup_ownership();
+    scaled_capture_preparation();
     asynchronous_client_termination();
     asynchronous_child_reap();
     profile_transfer_diagnostic_launch();

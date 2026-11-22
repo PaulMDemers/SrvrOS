@@ -8,18 +8,16 @@
 #include <errno.h>
 static unsigned verify(const char *path,const unsigned char *data,size_t length,capture_progress_fn progress,void *context,unsigned phase) {
     if(progress)progress(context,phase,0);
-    int fd=open(path,O_RDONLY);if(fd<0) return DESK_CAPTURE_IO;
-    struct stat st;unsigned result=DESK_CAPTURE_OK;
-    if(fstat(fd,&st) || !S_ISREG(st.st_mode) || (uint64_t)st.st_size!=length) result=DESK_CAPTURE_IO;
-    unsigned char buffer[4096];size_t offset=0;
-    while(!result && offset<length) {
-        size_t bytes=length-offset;if(bytes>sizeof(buffer)) bytes=sizeof(buffer);
-        ssize_t n=read(fd,buffer,bytes);
-        if(n<=0 || (size_t)n>bytes || memcmp(buffer,data+offset,n)) result=DESK_CAPTURE_IO;
-        else { offset+=n;if(progress && (!(offset%65536) || offset==length))progress(context,phase,offset); }
-    }
-    if(close(fd)) result=DESK_CAPTURE_IO;
-    return result;
+    struct stat st;
+    if(stat(path,&st) || !S_ISREG(st.st_mode) || (uint64_t)st.st_size!=length)return DESK_CAPTURE_IO;
+    /* Ordinary reopen/read can reuse a live shared RAM buffer. This operation
+     * instead owns a fresh VFS media snapshot through complete comparison and
+     * release, without changing any ordinary reader's shared-file semantics. */
+    struct srv_file_verify_request request={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(request),
+        .path=path,.data=data,.length=length,.expected_inode=st.st_ino,.expected_mtime=st.st_mtime};
+    if(srv_file_verify(&request))return DESK_CAPTURE_IO;
+    if(progress)progress(context,phase,length);
+    return DESK_CAPTURE_OK;
 }
 unsigned capture_save_progress(const char *path,const unsigned char *data,size_t length,capture_progress_fn progress,void *context) {
     if(progress)progress(context,CAPTURE_PREPARE,0);
@@ -36,10 +34,17 @@ unsigned capture_save_progress(const char *path,const unsigned char *data,size_t
     int n=snprintf(temporary,sizeof(temporary),"%s/.capture-%llu-%llu.tmp",folder,(unsigned long long)srv_getpid(),(unsigned long long)srv_ticks());
     if(n<0 || (size_t)n>=sizeof(temporary)) return DESK_CAPTURE_INVALID;
     int fd=open(temporary,O_WRONLY|O_CREAT|O_EXCL,0600);if(fd<0) return DESK_CAPTURE_IO;
+    /* Opt into bounded RAM-only appends without changing visible file length.
+     * An old kernel or any refusal retains the ordinary checked write path. */
+    (void)srv_file_reserve_append_ram(fd,length);
     unsigned result=DESK_CAPTURE_OK;size_t offset=0;
     if(progress)progress(context,CAPTURE_WRITE,0);
     while(offset<length) {
-        size_t bytes=length-offset;if(bytes>16384) bytes=16384;
+        /* Keep every checked write bounded to64KiB. The explicit reservation
+         * may admit a proved private RAM append during foreign I/O; ordinary
+         * fallbacks retain their gate. All persistence and both full byte
+         * verification passes still follow below. */
+        size_t bytes=length-offset;if(bytes>65536) bytes=65536;
         ssize_t written=write(fd,data+offset,bytes);
         if(written<=0 || (size_t)written>bytes) { result=DESK_CAPTURE_IO;break; }offset+=written;
         if(progress && (!(offset%65536) || offset==length))progress(context,CAPTURE_WRITE,offset);

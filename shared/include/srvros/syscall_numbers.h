@@ -170,7 +170,10 @@
 #define SYS_SESSION_SCOPE 163
 #include <srvros/signal_syscall_numbers.h>
 #define SYS_FILE_STREAM 168
+#define SYS_FILE_VERIFY 170 /* 169 is used by the active Wi-Fi device branch. */
 
+/* Device branch Wi-Fi call moved from163;matched image required. */
+#define SYS_WIFI 169
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -261,11 +264,19 @@ struct srv_file_change {
 #define SRV_F_SETLKW 7
 #define SRV_F_DUPFD 8
 #define SRV_F_DUPFD_CLOEXEC 9
+/* Gated capacity-only opt-in for a fresh exclusive empty write description.
+ * Does not change visible length/offset/dirty state. Old kernels refuse this
+ * command; callers may retain ordinary writes on any reservation failure. */
+#define SRV_F_RESERVE_APPEND_RAM 10
 #define SRV_FD_NONBLOCK 0x01
 #define SRV_FD_CLOEXEC 0x02
 #define SRV_FD_READ 0x04
 #define SRV_FD_WRITE 0x08
 #define SRV_FD_APPEND 0x10
+
+/* SYS_NET_CONNECT only, not a descriptor status flag. Requires NONBLOCK.
+ * Old kernels may ignore unknown connect flags: negotiate TCP_TRY first. */
+#define SRV_NET_CONNECT_CACHE_ONLY 0x100ull
 
 #define SRV_F_RDLCK 1
 #define SRV_F_WRLCK 2
@@ -634,6 +645,16 @@ struct srv_gui_surface_rect {
 #define SRV_SOCKET_PEEK 3
 #define SRV_SOCKET_UDP_RECV 4
 #define SRV_SOCKET_UDP_SEND 5
+/* Explicit finite backend, leaving generic SEND and ordinary APIs unchanged.
+ * At most this prefix is mapped/copied to a fixed owned snapshot; actual
+ * admission may be shorter (MSS/window/history). peer must be NULL.
+ * Sentinel fd UINT64_MAX with NULL buffer, zero length and NULL peer is a
+ * side-effect-free version query, returning SRV_SOCKET_TCP_TRY_ABI_VERSION.
+ * Any other sentinel operands are invalid. Old kernels refuse operation6;
+ * callers must negotiate before using CACHE_ONLY on SYS_NET_CONNECT. */
+#define SRV_SOCKET_TCP_SEND_TRY 6
+#define SRV_SOCKET_TCP_TRY_ABI_VERSION 1
+#define SRV_SOCKET_TCP_TRY_COPY_MAX 1536u
 struct srv_socket_peer { uint32_t ip; uint16_t port; uint16_t reserved; };
 
 #endif

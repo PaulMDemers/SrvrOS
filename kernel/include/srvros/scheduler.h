@@ -2,6 +2,7 @@
 #define SRVROS_SCHEDULER_H
 
 #include <stdbool.h>
+#include <srvros/launch_gate_trace.h>
 #include <stdint.h>
 struct srv_sched_trace;
 
@@ -47,6 +48,24 @@ bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked.
  * Allocating callers must separately bound and audit IRQ-safe PMM/VMM work.
  * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
 bool scheduler_io_process_independent(void *process);
+/* IF0 atomic lifecycle proof: foreign owner, matching CR3, all siblings safe.
+ * Siblings must be audited safe or exactly parked in the I/O gate wait.
+ * No callbacks, IRQ enable, service windows or yielding may follow success. */
+bool scheduler_io_process_atomic(void *process);
+/* One-shot entry consumes the exact freshly published main tuple. Ordinary
+ * bind/clear keep their foreign-owner refusal. Retirement requires the atomic
+ * lifecycle proof again; caller must already have proved resource cleanup. */
+bool scheduler_enter_prepared_process(void *process,uint64_t root,uint64_t stack,uint64_t generation);
+bool scheduler_clear_user_context_private(void *process);
+/* Publish an already prepared main-image context with READY. Its quiet entry
+ * continuation must perform no callback, storage or yielding before user entry. */
+bool scheduler_spawn_prepared_process(const char *name,scheduler_thread_fn entry,void *process,uint64_t root,uint64_t generation);
+/* Read-only, exact raw SYS_WRITE entry proof under IF0. Same sole-main,
+ * address-space and foreign-owner exclusions as the mutation proof above,
+ * without requiring the user-safe flag that IDT deliberately cleared first.
+ * Grants no ownership, scheduling or callback authority; actual mutation must
+ * recheck scheduler_io_process_independent after normal entry classification. */
+bool scheduler_io_entry_process_independent(void *process);
 /* IRQ-masked bounded atomic retirement by a helper, siblings blocked on the supplied audited wait queue only.
  * No allocation, callbacks, service windows or yield until mutation completes. */
 bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queue *parked);
@@ -67,6 +86,14 @@ bool scheduler_io_yield(void);
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,void *arg,uint64_t deadline_ticks);
 void scheduler_io_wait(void);
+struct capture_gate_summary;
+/* Fixed-storage observation only, same wait semantics. Summary must remain
+ * valid in kernel storage throughout the wait. No callback or allocation. */
+void scheduler_io_wait_observed(struct capture_gate_summary *summary);
+/* A sole-main raw writer may park only its metadata/copy prelude. This never
+ * admits a filesystem continuation or releases another thread's I/O scope. */
+bool scheduler_io_private_append_wait(void *process,scheduler_wait_condition_fn ready,void *arg);
+void scheduler_io_private_append_progress(void);
 void scheduler_io_syscall(uint64_t number);
 /* A nonblocking operation deferred by another I/O owner requests a later
  * quiescent turn without blocking, waking sleepers or widening eligibility. */
@@ -118,6 +145,13 @@ bool scheduler_quarantine_noncurrent_services(uint64_t first, uint64_t second);
 bool scheduler_service_pair_quarantined(uint64_t caller, uint64_t peer);
 void scheduler_exit_current(void) __attribute__((noreturn));
 void scheduler_preempt_tick(void);
+/* IRQ-masked common CPL3 timer return ONLY, after every handler, EOI and
+ * optional return proof/cancellation dispatcher has unwound. Account the same
+ * tick/quantum and cancellation while unsafe, publishing user eligibility only
+ * around the due yield. No teardown/copy/dispatch may follow that publication;
+ * eligibility is restored unsafe on resume before the caller's final entry.
+ * This does not bypass same-image/private-image I/O exclusion. */
+void scheduler_preempt_user_return_tick(void);
 void scheduler_kill_user_threads(void *process, void *except_user_thread_context);
 bool scheduler_wait(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,

@@ -1,13 +1,96 @@
 #ifndef DESKD_OPERATION_TRACE_H
 #define DESKD_OPERATION_TRACE_H
+#include <srvros/desk_capture_job.h>
 /* Immutable, allocation-free diagnostic snapshots. UI owns collection; the
  * lifecycle worker owns output. No process pointers or mutable jobs escape. */
 struct capture_trace {
     uint64_t pid,retiring,sent,total,received,age_us,progress_age_us,bytes,started_us,finished_us;
     uint64_t phases[CAPTURE_PHASE_COUNT];
     uint64_t cleanup_us,close_us,unmap_us,reap_us;unsigned cleanup_pending;
+    struct desk_capture_transfer_timing transfer;
     unsigned id,busy,pending,phase,frames,finished,status;
 };
+/* Only the first three terminal captures are retained. Further ordinary captures
+ * continue normally, but a bounded stress proof must reject dropped history.
+ * PID is copied before resource ownership transfer; no live job is retained. */
+#define CAPTURE_HISTORY_ROWS 3u
+struct capture_completion {
+    uint64_t pid,started_us,finished_us,retired_us,phases[CAPTURE_PHASE_COUNT];
+    unsigned id,status;
+    int result;
+    struct desk_capture_transfer_timing transfer;
+    unsigned progress_frames;
+};
+struct capture_history {
+    struct capture_completion rows[CAPTURE_HISTORY_ROWS];
+    uint64_t completed,dropped,invalid;
+    unsigned count,last_id;
+};
+static inline void capture_history_record(struct capture_history *h,const struct capture_trace *c,
+    uint64_t pid,uint64_t retired,int result) {
+    if(h->completed==UINT64_MAX)h->invalid=1;else h->completed++;
+    if(!c->id || c->id<=h->last_id || !pid || !c->started_us ||
+       c->busy || c->retiring || c->cleanup_pending ||
+       c->finished_us<c->started_us || retired<c->finished_us ||
+       (result!=1 && result!=-1) || c->status>DESK_CAPTURE_EXISTS)h->invalid=1;
+    uint64_t total=0;
+    for(unsigned i=1;i<CAPTURE_PHASE_COUNT;i++) {
+        if(total>UINT64_MAX-c->phases[i])h->invalid=1;
+        else total+=c->phases[i];
+    }
+    if(c->finished_us>=c->started_us && total>c->finished_us-c->started_us)h->invalid=1;
+    h->last_id=c->id;
+    if(h->count==CAPTURE_HISTORY_ROWS) {
+        if(h->dropped==UINT64_MAX)h->invalid=1;else h->dropped++;
+        return;
+    }
+    struct capture_completion *q=&h->rows[h->count++];
+    *q=(struct capture_completion){.id=c->id,.pid=pid,.started_us=c->started_us,
+        .finished_us=c->finished_us,.retired_us=retired,.status=c->status,.result=result};
+    memcpy(q->phases,c->phases,sizeof(q->phases));
+    q->transfer=c->transfer;q->progress_frames=c->frames;
+}
+/* Called by the existing immutable report owner. The UI's small line queue is
+ * not used: complete companions must fit the existing atomic console writer. */
+static void capture_transfer_completion_report(const struct capture_completion *c,
+    unsigned index,uint64_t at,unsigned final) {
+    const struct desk_capture_transfer_timing *t=&c->transfer;
+    /* Scalars remain immutable in history until final publication. Repeating
+     * three rows per capture in every checkpoint needlessly evicts app events. */
+    if(!t->enabled || !final)return;
+    char text[1024];int length;
+#define CAPTURE_TRANSFER_KEYS "version=1 snapshot_us=%llu index=%u id=%u pid=%llu started_us=%llu finished_us=%llu retired_us=%llu"
+#define CAPTURE_TRANSFER_ARGS (unsigned long long)at,index,c->id,(unsigned long long)c->pid,(unsigned long long)c->started_us,(unsigned long long)c->finished_us,(unsigned long long)c->retired_us
+#define CAPTURE_TRANSFER_U(v) (unsigned long long)(v)
+    length=snprintf(text,sizeof(text),"desktop-capture-transfer: " CAPTURE_TRANSFER_KEYS " enabled=%llu valid=%llu invalid=%llu total=%llu polls=%llu budget_polls=%llu begin_us=%llu end_us=%llu poll_us=%llu gap_us=%llu gap_max_us=%llu final=%u\n",
+        CAPTURE_TRANSFER_ARGS,CAPTURE_TRANSFER_U(t->enabled),CAPTURE_TRANSFER_U(t->valid),CAPTURE_TRANSFER_U(t->invalid),CAPTURE_TRANSFER_U(t->total),CAPTURE_TRANSFER_U(t->polls),CAPTURE_TRANSFER_U(t->budget_polls),CAPTURE_TRANSFER_U(t->begin_us),CAPTURE_TRANSFER_U(t->end_us),CAPTURE_TRANSFER_U(t->poll_us),CAPTURE_TRANSFER_U(t->gap_us),CAPTURE_TRANSFER_U(t->gap_max_us),final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    length=snprintf(text,sizeof(text),"desktop-capture-transfer-write: " CAPTURE_TRANSFER_KEYS " write_calls=%llu write_ok=%llu write_bytes=%llu short_writes=%llu write_again=%llu write_intr=%llu write_failed=%llu write_first_us=%llu write_last_us=%llu write_us=%llu write_gap_us=%llu write_gap_max_us=%llu request_done_us=%llu pixels_done_us=%llu final=%u\n",
+        CAPTURE_TRANSFER_ARGS,CAPTURE_TRANSFER_U(t->write_calls),CAPTURE_TRANSFER_U(t->write_ok),CAPTURE_TRANSFER_U(t->write_bytes),CAPTURE_TRANSFER_U(t->short_writes),CAPTURE_TRANSFER_U(t->write_again),CAPTURE_TRANSFER_U(t->write_intr),CAPTURE_TRANSFER_U(t->write_failed),CAPTURE_TRANSFER_U(t->write_first_us),CAPTURE_TRANSFER_U(t->write_last_us),CAPTURE_TRANSFER_U(t->write_us),CAPTURE_TRANSFER_U(t->write_gap_us),CAPTURE_TRANSFER_U(t->write_gap_max_us),CAPTURE_TRANSFER_U(t->request_done_us),CAPTURE_TRANSFER_U(t->pixels_done_us),final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    length=snprintf(text,sizeof(text),"desktop-capture-transfer-read: " CAPTURE_TRANSFER_KEYS " read_calls=%llu read_bytes=%llu read_again=%llu read_intr=%llu read_failed=%llu progress_frames=%u worker_receive_us=%llu worker_allocated_us=%llu worker_read_done_us=%llu worker_final_us=%llu final=%u\n",
+        CAPTURE_TRANSFER_ARGS,CAPTURE_TRANSFER_U(t->read_calls),CAPTURE_TRANSFER_U(t->read_bytes),CAPTURE_TRANSFER_U(t->read_again),CAPTURE_TRANSFER_U(t->read_intr),CAPTURE_TRANSFER_U(t->read_failed),c->progress_frames,CAPTURE_TRANSFER_U(t->worker_receive_us),CAPTURE_TRANSFER_U(t->worker_allocated_us),CAPTURE_TRANSFER_U(t->worker_read_done_us),CAPTURE_TRANSFER_U(t->worker_final_us),final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+#undef CAPTURE_TRANSFER_U
+#undef CAPTURE_TRANSFER_ARGS
+#undef CAPTURE_TRANSFER_KEYS
+}
+static void capture_history_report(const struct capture_history *h,uint64_t at,unsigned final) {
+    desk_log("desktop-capture-history: version=1 snapshot_us=%llu completed=%llu count=%u dropped=%llu invalid=%llu final=%u\n",
+        (unsigned long long)at,(unsigned long long)h->completed,h->count,
+        (unsigned long long)h->dropped,(unsigned long long)h->invalid,final);
+    for(unsigned i=0;i<h->count && i<CAPTURE_HISTORY_ROWS;i++) {
+        const struct capture_completion *c=&h->rows[i];
+        desk_log("desktop-capture-completion: version=1 snapshot_us=%llu index=%u id=%u pid=%llu started_us=%llu finished_us=%llu retired_us=%llu result=%d status=%u p1_us=%llu p2_us=%llu p3_us=%llu p4_us=%llu p5_us=%llu p6_us=%llu p7_us=%llu p8_us=%llu p9_us=%llu p10_us=%llu p11_us=%llu p12_us=%llu final=%u\n",
+            (unsigned long long)at,i,c->id,(unsigned long long)c->pid,
+            (unsigned long long)c->started_us,(unsigned long long)c->finished_us,(unsigned long long)c->retired_us,c->result,c->status,
+            (unsigned long long)c->phases[1],(unsigned long long)c->phases[2],(unsigned long long)c->phases[3],
+            (unsigned long long)c->phases[4],(unsigned long long)c->phases[5],(unsigned long long)c->phases[6],
+            (unsigned long long)c->phases[7],(unsigned long long)c->phases[8],(unsigned long long)c->phases[9],
+            (unsigned long long)c->phases[10],(unsigned long long)c->phases[11],(unsigned long long)c->phases[12],final);
+        capture_transfer_completion_report(c,i,at,final);
+    }
+}
 /* Absolute observation clocks; zero means not observed, never zero cost.
  * UI retains only the current cycle and two immutable worst-case copies. */
 struct lifetime_trace {
@@ -41,6 +124,7 @@ struct operation_trace {
     unsigned queued,done,memory,pending_opens,live,awaiting,closing,close_requested,exiting,preferences;
     unsigned oldest_app,oldest_state;
     struct capture_trace capture,slowest;
+    struct capture_history capture_history;
 };
 static void capture_trace_report(const struct capture_trace *c,const char *kind,uint64_t at,unsigned final) {
     desk_log("desktop-capture-state: version=1 snapshot_us=%llu kind=%s id=%u pid=%llu retiring=%llu busy=%u pending=%u sent=%llu total=%llu received=%llu age_us=%llu started_us=%llu finished_us=%llu phase=%u phase_age_us=%llu bytes=%llu frames=%u finished=%u status=%u final=%u\n",
@@ -75,5 +159,6 @@ static void operation_trace_report(const struct operation_trace *t,unsigned fina
         (unsigned long long)t->launch_age_us,t->memory,t->pending_opens,t->live,t->awaiting,t->closing,t->close_requested,t->exiting,
         (unsigned long long)t->exit_age_us,(unsigned long long)t->close_pid,(unsigned long long)t->close_window,(unsigned long long)t->close_age_us,t->preferences,final);
     capture_trace_report(&t->capture,"current",t->at_us,final);capture_trace_report(&t->slowest,"slowest",t->at_us,final);
+    capture_history_report(&t->capture_history,t->at_us,final);
 }
 #endif

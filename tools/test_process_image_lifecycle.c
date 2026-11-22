@@ -1,9 +1,11 @@
 /* Actual-source staged spawn image preflight and cleanup. */
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
+#include <stdint.h>
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 static uint64_t simulated_flags=1ull<<9;
@@ -62,6 +64,7 @@ void scheduler_invalidate_current_user_trap(void) {
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *p) {(void)q;(void)fn;(void)p;abort();}
 void scheduler_yield(void) {abort();}
 void scheduler_io_wait(void) {
+    if(main_exit_test || worker_exit_test) {assert(!(simulated_flags&(1ull<<9)));return;}
     const char *mode=getenv("SRVROS_EXEC_PENDING_TEST");
     assert(exec_success && mode && (!strcmp(mode,"fatal") || !strcmp(mode,"earlier")));
     uint64_t usr1=1ull<<SRV_SIGNAL_USR1,usr2=1ull<<SRV_SIGNAL_USR2;
@@ -80,7 +83,7 @@ void scheduler_io_wait(void) {
         (current->pending_signals&retained)==retained && !user_entry_visited && earlier_fatal_injected==earlier);
     fatal_exit_visited=true;simulated_flags|=1ull<<9;longjmp(exec_entry,1);
 }
-void scheduler_io_set_user_safe(bool safe) {assert(exec_success && !safe && !(simulated_flags&(1ull<<9)));}
+void scheduler_io_set_user_safe(bool safe) {assert((exec_success || main_exit_test || worker_exit_test) && !safe && !(simulated_flags&(1ull<<9)));}
 void scheduler_kill_user_threads(void *p,void *except) {(void)p;(void)except;abort();}
 void audio_process_cleanup(uint64_t pid) {(void)pid;abort();}
 void gui_process_cleanup(uint64_t pid) {(void)pid;abort();}
@@ -194,6 +197,10 @@ static const struct vfs_node directory={.used=true,.type=VFS_NODE_DIRECTORY};
 uint64_t vfs_count(void) { return 0; }
 const struct vfs_node *vfs_node_at(uint64_t i) { (void)i;return NULL; }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 const struct vfs_node *vfs_lookup(const char *path) { return !strcmp(path,"/") || !strcmp(path,"/fat") || !strcmp(path,"/fat/bin") ? &directory : &executable; }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) { assert(node==&executable);elf_reads++;*data=image;*size=sizeof(image);return true; }
 void vfs_release_data(const struct vfs_node *node,const uint8_t *data) { assert(node==&executable && data==image);elf_releases++; }
@@ -316,6 +323,7 @@ int main(void) {
      * observation, then select the complete new image exactly once. */
     allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
     image_prepare_ok=true;next_image_generation=41;parent->image_generation=41;
+    if(!parent->mappings){parent->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*parent->mappings));assert(parent->mappings);}
     parent->mapping_count=1;parent->mappings[0]=(struct process_mapping){.virtual_address=0x500000,.physical_address=4096,.flags=VMM_PAGE_USER|VMM_PAGE_WRITABLE};
     parent->files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=1,.flags=SRV_FD_CLOEXEC};
     parent->fpu.active_user_trap=NULL;bound_fpu=&parent->fpu;bound_fs=parent->tls_thread_pointer;
@@ -353,6 +361,7 @@ int main(void) {
     /* A detached worker clears its binding before TLS backing and slot reuse. */
     parent->main_thread_exited=false;parent->tls_memsz=32;parent->tls_align=16;
     allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
+    if(!parent->mappings){parent->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*parent->mappings));assert(parent->mappings);}
     parent->mapping_count=1;parent->mappings[0]=(struct process_mapping){.virtual_address=USER_TLS_BASE+PAGE_SIZE,.physical_address=4096,.flags=VMM_PAGE_USER|VMM_PAGE_WRITABLE};
     exiting_worker=&parent->user_threads[0];
     *exiting_worker=(struct process_user_thread){.used=true,.active=true,.detached=true,.owner=parent,.tid=2,.tls_base=USER_TLS_BASE+PAGE_SIZE,.tls_thread_pointer=USER_TLS_BASE+PAGE_SIZE+32};
@@ -384,7 +393,8 @@ int main(void) {
     parent->usr1_action_generation=17;parent->signal_catch_mask=1ull<<10;parent->main_signal_mask=1ull<<12;
     parent->pending_signals=parent->main_pending_signals=1ull<<10;
     parent->tls_filesz=parent->tls_memsz=parent->tls_base=parent->tls_thread_pointer=0;
-    parent->address_space=3;parent->mapping_count=1;
+    parent->address_space=3;if(!parent->mappings){parent->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*parent->mappings));assert(parent->mappings);}
+    parent->mapping_count=1;
     allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
     parent->mappings[0]=(struct process_mapping){.virtual_address=0x500000,.physical_address=4096,.flags=VMM_PAGE_USER};
     memcpy(&parent_snapshot,parent,sizeof(*parent));fork_publish_expected=true;

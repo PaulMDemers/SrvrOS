@@ -24,6 +24,11 @@ struct sbs_snapshot {
     uint16_t raw[SBS_WORD_COUNT];
 };
 enum sbs_error { SBS_OK,SBS_TRANSPORT,SBS_CLOCK,SBS_DEADLINE,SBS_POLL_LIMIT,SBS_CHANGED_MODE,SBS_CANCELED };
+struct sbs_failure {
+    uint64_t at_us,previous_poll_us,max_poll_gap_us,started_us;
+    unsigned reason,polls,index;
+    bool valid,time_valid,active,waiting,current;
+};
 struct sbs_sampler {
     struct ec_smbus transaction;
     struct ec_transport *ec;
@@ -34,6 +39,8 @@ struct sbs_sampler {
     uint8_t base;
     bool active,waiting,current;
     enum sbs_error error;
+    uint64_t max_poll_gap_us;
+    struct sbs_failure failure;
 };
 /* Zero initialize first. Failed samples retain the last successful sample and
  * timestamp, but clear current. No battery/charger writes are ever requested. */

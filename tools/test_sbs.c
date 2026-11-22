@@ -74,8 +74,15 @@ int main(void) {
     assert(!sbs_sample_begin(&s,&e,0x20,now));
     setup(&s,&e,&b);assert(sbs_sample_begin(&s,&e,0x20,now));assert(!sbs_sample_poll(&s,now));sbs_sample_cancel(&s);
     assert(s.error==SBS_CANCELED&&e.poisoned&&!s.current);
+    assert(s.failure.valid&&!s.failure.time_valid&&s.failure.reason==SBS_CANCELED&&s.failure.waiting&&s.failure.active);
     setup(&s,&e,&b);assert(sbs_sample_begin(&s,&e,0x20,now));assert(!sbs_sample_poll(&s,now));assert(sbs_sample_poll(&s,now-1)==-1&&s.error==SBS_CLOCK&&e.poisoned);
     setup(&s,&e,&b);assert(sbs_sample_begin(&s,&e,0x20,now));assert(!sbs_sample_poll(&s,now));assert(sbs_sample_poll(&s,now+20000000)==-1&&s.error==SBS_DEADLINE&&e.poisoned);
+    assert(s.failure.valid&&s.failure.time_valid&&s.failure.at_us==now+20000000&&s.failure.max_poll_gap_us==20000000&&s.failure.waiting);
+    struct sbs_failure first=s.failure;assert(sbs_sample_poll(&s,now+30000000)==-1&&!memcmp(&first,&s.failure,sizeof(first)));
+    assert(!sbs_sample_begin(&s,&e,0x20,now+30000000)&&!memcmp(&first,&s.failure,sizeof(first)));
     setup(&s,&e,&b);assert(sbs_sample_begin(&s,&e,0x20,now));s.polls=100000;assert(sbs_sample_poll(&s,now)==-1&&s.error==SBS_POLL_LIMIT);
+    assert(s.failure.polls==100001&&s.failure.reason==SBS_POLL_LIMIT&&!e.poisoned);
+    /* Successful new attempts reset only observation state, never last-good. */
+    assert(sbs_sample_begin(&s,&e,0x20,now)&&!s.failure.valid&&s.max_poll_gap_us==0);
     puts("sbs: PASS bounded read-only EC/SMBus pipeline, signed/scaled units, capacity modes, independent full/SOC, invalid fields, sample age, last-good retention, mode races, timeout/cancel/clock quarantine");
 }

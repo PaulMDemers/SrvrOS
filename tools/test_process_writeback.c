@@ -94,3 +94,7 @@ void test_workspace_exercise(struct block_device *device,bool close_first,bool f
 }
 
 #include "test_process_salvage.inc"
+
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+#include "test_sync_content_bridge.inc"
+#endif

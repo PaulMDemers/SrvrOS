@@ -3,15 +3,39 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[64];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_CAL5_CAPTURE_CAPACITY]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
-static bool capacity_ok=true;
+static bool capacity_ok=true,extend_ok=true;
+static uint64_t snapshot_bytes=8;
+static bool lost_prefix;
+bool bootlog_extend_capture(void) { return extend_ok; }
+bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY || capacity==BOOTLOG_EXTENDED_CAPTURE_CAPACITY || capacity==BOOTLOG_RADIO_CAPTURE_CAPACITY || capacity==BOOTLOG_CAL5_CAPTURE_CAPACITY);return extend_ok; }
 static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
-static uint64_t ticks=10,total=100,clock_us;
+static uint64_t ticks=10,total=100,clock_us,save_tick_delay;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
+static bool *finish_on_wait;
+
+static struct sync_timing_snapshot sync_fixture;
+void process_directory_admission_snapshot(struct process_directory_admission *out) { *out=(struct process_directory_admission){.handled=3,.entries=17}; }
+static unsigned sync_headers,sync_records,sync_worst,sync_usb,sync_command,sidecar_reports;
 static unsigned global_syncs,durable_reports;
+static struct srv_pcm_status pcm_fixture={.version=SRV_PCM_VERSION};
+static uint64_t pcm_owner;
+static bool foreign_io;
+bool scheduler_io_active(void) {return depth || foreign_io;}
+static struct exfat_sidecar_trace sidecar_fixture;
+static struct {uint64_t at;struct exfat_sidecar_trace trace;} emitted_sidecars[8];
+static unsigned emitted_sidecar_count;
+void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out) {*out=sidecar_fixture;}
+void exfat_print_sidecar_trace(uint64_t at,const struct exfat_sidecar_trace *s) {
+    assert(!depth);sidecar_reports++;
+    emitted_sidecars[emitted_sidecar_count%8].at=at;
+    emitted_sidecars[emitted_sidecar_count++%8].trace=*s;
+}
+void exfat_print_append_contiguity(void) {assert(!depth);}
+
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
@@ -25,7 +49,7 @@ bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
-    assert(depth && n<=65536);writes++;clock_us+=100;if(!io_ok) return false;
+    assert(depth && n<=snapshot_limit);writes++;ticks+=save_tick_delay;clock_us+=100+save_tick_delay*10000;if(!io_ok) return false;
     struct item *f=find(p);if(!f) f=add(p);f->node.type=VFS_NODE_FILE;f->node.size=n;memcpy(f->bytes,data,n);return true;
 }
 bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) {
@@ -39,11 +63,13 @@ bool process_has_open_vfs_prefix(const char *p) { (void)p;return open_file; }
 bool scheduler_io_begin(void) { assert(!depth);depth=1;return true; }
 void scheduler_io_end(void) { assert(depth==1);depth=0; }
 bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg) { (void)name;(void)fn;(void)arg;return true; }
-bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;return fn(arg); }
+bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;if(finish_on_wait){*finish_on_wait=false;finish_on_wait=NULL;}return fn(arg); }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { bool ready=scheduler_wait(q,fn,arg);if(!ready)ticks=end;return ready; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 bool scheduler_io_observe_reset(void) { assert(!depth);return true; }
 void exfat_print_costs(void) { assert(!depth); }
+void exfat_print_sidecar_equality(void) { assert(!depth);sidecar_reports++; }
+static unsigned launch_trace_prints;
 void scheduler_print_io_owners(void) { assert(!depth); }
 void scheduler_print_activity(void) { assert(!depth); }
 void scheduler_snapshot(struct scheduler_stats *out) { assert(!depth);*out=(struct scheduler_stats){100,90,200,50}; }
@@ -51,22 +77,106 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
+uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity==snapshot_limit);
+    uint64_t n=snapshot_bytes<capacity?snapshot_bytes:capacity,skip=snapshot_bytes-n;
+    if(snapshot_bytes==8)memcpy(out,"test log",8);
+    else for(uint64_t i=0;i<n;i++)out[i]=(char)((skip+i)%251);
+    *seq=capacity>BOOTLOG_DEFAULT_CAPACITY?snapshot_bytes+(lost_prefix?1:0):total;return n; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
-void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=(struct srv_pcm_status){.version=SRV_PCM_VERSION};*owner=0; }
+void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=pcm_fixture;*owner=pcm_owner; }
 void audio_status(struct srv_audio_status *out) { assert(!depth);device_reads++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.tests_started=2,.tests_completed=2}; }
 void thermal_status(struct srv_thermal_status *out) { assert(!depth);device_reads++;*out=(struct srv_thermal_status){.version=SRV_THERMAL_VERSION,.state=SRV_THERMAL_UNAVAILABLE}; }
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"sync-snapshot:",14))sync_headers++;
+    if(!strncmp(fmt,"sync-record:",12))sync_records++;
+    if(!strncmp(fmt,"sync-worst:",11))sync_worst++;
+    if(!strncmp(fmt,"sync-usb-timing:",16))sync_usb++;
+    if(!strncmp(fmt,"sync-usb-command:",17))sync_command++;
     if(!strncmp(fmt,"workspace-cost:",15)) { assert(previous_save.pending && !tracing && !depth);cost_reports++; }
     if(!strncmp(fmt,"workspace-log: durable",22)) {assert(!tracing && !depth);durable_reports++;}
     total++;
 }
 void console_write(const char *text) { (void)text;total++; }
+static void test_wifi_replug_continuation(void) {
+    const uint64_t prefix=2147990;
+    for(unsigned scenario=0;scenario<5;scenario++){
+        count=0;snapshot_bytes=8;
+        assert(workspace_log_start_cal5_capture());
+        assert(workspace_log_quiesce(5000));
+        snapshot_bytes=prefix;
+        if(scenario==4)sync_ok=false;
+        assert(workspace_log_wifi_replug_checkpoint()==(scenario!=4));
+        sync_ok=true;
+        assert(wifi_replug_saved_prefix==(scenario==4?0:prefix));
+        struct item *initial=find(path);
+        assert(initial && strstr(path,"/session-a.log") && initial->node.size==prefix);
+        if(scenario!=4)assert(!workspace_log_wifi_replug_checkpoint());
+        snapshot_bytes=scenario==0?prefix+400:scenario==1?4262934:
+            scenario==2?prefix+BOOTLOG_CAL5_CAPTURE_CAPACITY:
+            scenario==3?prefix+BOOTLOG_CAL5_CAPTURE_CAPACITY+1:4262934;
+        unsigned expected_writes=writes+(scenario<3);
+        assert(workspace_log_stop()==(scenario<3));
+        assert(writes==expected_writes && !wifi_replug_saved_prefix);
+        if(scenario<3){
+            struct item *tail=find(path);
+            assert(tail && strstr(path,"/exit.log") && tail->node.size==snapshot_bytes-prefix);
+            for(uint64_t i=0;i<tail->node.size;i++)assert(tail->bytes[i]==(prefix+i)%251);
+        }
+        for(uint64_t i=0;i<initial->node.size;i++)assert(initial->bytes[i]==i%251);
+    }
+    count=0;snapshot_bytes=8;
+    puts("workspace-log: PASS replug segments across the observed wrap, exact boundary, and no save across a gap or uncommitted prefix");
+}
+
+static void test_sidecar_retention(void) {
+    /* The Wi-Fi capture profile reserves a larger backing array. Ordinary
+     * logging and sidecar sampling must retain their original 64 KiB limit. */
+    assert(sizeof(snapshot)==BOOTLOG_CAL5_CAPTURE_CAPACITY);
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && snapshot_limit==65536);
+    sidecar_fixture=(struct exfat_sidecar_trace){.checks=10,.equal=4,.changed=6,.retained_bytes=4096};
+    pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION,.state=SRV_PCM_PLAYING,.handle=11,.position_bytes=4};pcm_owner=9;
+    clock_us=1000;
+    foreign_io=true;sidecar_checkpoint();assert(!sidecar_pcm.first.at);foreign_io=false;
+    sidecar_fixture.active=1;sidecar_checkpoint();assert(!sidecar_pcm.first.at);sidecar_fixture.active=0;
+    pcm_fixture.state=SRV_PCM_BUFFERING;sidecar_checkpoint();assert(!sidecar_pcm.first.at);
+    pcm_fixture.state=SRV_PCM_PLAYING;pcm_owner=0;sidecar_checkpoint();assert(!sidecar_pcm.first.at);pcm_owner=9;
+    pcm_fixture.position_bytes=0;sidecar_checkpoint();assert(!sidecar_pcm.first.at);pcm_fixture.position_bytes=4;
+    sidecar_checkpoint();assert(sidecar_pcm.first.at==1000 && sidecar_pcm.first.trace.equal==4 && !sidecar_pcm.last.at);
+    clock_us=2000;sidecar_checkpoint();assert(!sidecar_pcm.last.at);
+    sidecar_fixture.checks=11;sidecar_fixture.equal=5;sidecar_fixture.retained_bytes=5000;clock_us=3000;
+    sidecar_checkpoint();assert(sidecar_pcm.last.at==3000 && sidecar_pcm.last.trace.equal==5);
+    sidecar_fixture.active=1;clock_us=4000;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);sidecar_fixture.active=0;
+    sidecar_fixture.checks=12;sidecar_fixture.equal=6;sidecar_fixture.retained_bytes=6000;
+    uint64_t *bad[]={&sidecar_fixture.invalid,&sidecar_fixture.refused,&sidecar_fixture.flush_failed};
+    for(unsigned i=0;i<3;i++){*bad[i]=1;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);*bad[i]=0;}
+    sidecar_fixture.changed++;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);sidecar_fixture.changed--;
+    pcm_fixture.state=SRV_PCM_DONE;clock_us=5000;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);
+    unsigned before=emitted_sidecar_count;sidecar_history_print();assert(emitted_sidecar_count==before+2);
+    assert(emitted_sidecars[before%8].at==1000 && emitted_sidecars[before%8].trace.equal==4);
+    assert(emitted_sidecars[(before+1)%8].at==3000 && emitted_sidecars[(before+1)%8].trace.equal==5);
+    pcm_fixture.state=SRV_PCM_DRAINING;pcm_fixture.handle=12;clock_us=6000;sidecar_checkpoint();
+    assert(sidecar_pcm.first.at==6000 && !sidecar_pcm.last.at);
+    pcm_owner=8;clock_us=7000;sidecar_checkpoint();assert(sidecar_pcm.first.at==7000 && !sidecar_pcm.last.at);
+    sidecar_fixture=(struct exfat_sidecar_trace){0};pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION};pcm_owner=0;
+    clock_us=0;sidecar_reports=emitted_sidecar_count=0;
+    /* Leave a prior stream behind: the real start_log below must clear it. */
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && snapshot_limit==65536);
+    puts("sidecar-retention: PASS original clocks and immutable copies; incomplete/post-PCM/growth refusal; handle/owner boundaries;64KiB unchanged");
+}
 int main(void) {
+    test_sidecar_retention();
+    sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb && !sidecar_reports);
+    sync_fixture.enabled=1;sync_fixture.records[0].pid=7;
+    sync_checkpoint(false);assert(sync_headers==1 && sync_records==1 && !sync_worst && !sync_usb && sidecar_reports==1);
+    sync_checkpoint(true);assert(sync_headers==2 && sync_records==2 && sync_worst==1 && sync_usb==6 && sync_command==2 && sidecar_reports==2);
+    assert(!writes && !flushes && !tracing && !depth);
+    sync_fixture=(struct sync_timing_snapshot){0};total=100;
+
     mounted=false;assert(!workspace_log_start() && !writes);mounted=true;
     capacity_ok=false;assert(!workspace_log_start() && !writes && !count && !directory[0]);capacity_ok=true;
     assert(workspace_log_start() && enabled && healthy && writes==1 && flushes==1);
+    assert(!sidecar_pcm.first.at && !sidecar_pcm.last.at && !sidecar_pcm.owner && !sidecar_pcm.handle);
     assert(!global_syncs && durable_reports==1);
     assert(device_reads==2);
     assert(previous_save.pending && previous_save.ok && previous_save.valid);
@@ -80,7 +190,7 @@ int main(void) {
     char checkpoint_path[160];strcpy(checkpoint_path,directory);strcat(checkpoint_path,"/exit.log");
     assert(!find(checkpoint_path)); /* A pause must never fabricate completion. */
     mounted=false;assert(!workspace_log_stop());mounted=true;
-    assert(workspace_log_stop() && !enabled && writes==4 && flushes==4);
+    assert(workspace_log_stop() && !enabled && writes==4 && flushes==4 && launch_trace_prints==1);
     assert(workspace_log_start() && strcmp(first,directory)); /* Same RTC still gets a fresh folder. */
     unsigned before=writes;open_file=true;assert(!save("session-a.log") && writes==before);open_file=false;
     unsigned durable_before=durable_reports;
@@ -107,9 +217,38 @@ int main(void) {
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);sync_ok=true;
     assert(workspace_log_start());io_ok=false;old_writes=writes;
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);io_ok=true;
+    assert(workspace_log_stop());
+    extend_ok=false;old_writes=writes;assert(!workspace_log_start_capture() && writes==old_writes);
+    extend_ok=true;snapshot_bytes=BOOTLOG_CAPTURE_CAPACITY;
+    assert(workspace_log_start_capture() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY && !retain_checkpoints);
+    struct item *large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    assert(!workspace_log_start() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);
+    lost_prefix=false;corrupt=true;assert(!save("session-a.log"));corrupt=false;
+    assert(workspace_log_stop());snapshot_bytes=8;
+    assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    assert(workspace_log_stop());
+    snapshot_bytes=BOOTLOG_LARGE_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_large_capture() && writes==old_writes);
+    extend_ok=true;assert(workspace_log_start_large_capture() && snapshot_limit==BOOTLOG_LARGE_CAPTURE_CAPACITY);
+    large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
+    assert(workspace_log_stop());snapshot_bytes=8;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
+    snapshot_bytes=BOOTLOG_FULL_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_full_capture() && writes==old_writes);extend_ok=true;
+    assert(workspace_log_start_full_capture() && snapshot_limit==BOOTLOG_FULL_CAPTURE_CAPACITY);
+    assert(workspace_log_stop());snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_extended_capture() && writes==old_writes);extend_ok=true;
+    assert(workspace_log_start_extended_capture() && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+
+    large=find(path);assert(large && large->node.size==snapshot_bytes);for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
+    assert(workspace_log_stop());snapshot_bytes=8;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
     count=0;enabled=false;busy=false;expected_capacity=64;
-    capacity_ok=false;assert(!workspace_log_start_capture());capacity_ok=true;
-    assert(workspace_log_start_capture() && retain_checkpoints && checkpoint==0);
+    capacity_ok=false;assert(!workspace_log_start_checkpoints());capacity_ok=true;
+    assert(workspace_log_start_checkpoints() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && retain_checkpoints && checkpoint==0);
     for(unsigned i=0;i<32;i++) {
         assert(periodic_save());
         char expected[160];snprintf(expected,sizeof(expected),"%s/checkpoint-%02x.log",directory,i);
@@ -121,5 +260,111 @@ int main(void) {
     assert(periodic_save() && strstr(path,"session-a.log"));
     assert(periodic_save() && strstr(path,"session-b.log"));
     assert(workspace_log_stop());
+    count=0;snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;
+    assert(workspace_log_start_extended_capture());
+    assert(workspace_log_begin_wifi_desktop() && enabled && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    char proof_path[160];snprintf(proof_path,sizeof proof_path,"%s/wifi-scan.log",directory);
+    struct item *proof=find(proof_path);assert(proof && proof->node.size==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+    assert(strstr(path,"wifi-ui-begin.log") && find(path)->node.size==BOOTLOG_DEFAULT_CAPACITY);
+    for(unsigned i=0;i<BOOTLOG_DEFAULT_CAPACITY;i++)assert(find(path)->bytes[i]==(BOOTLOG_EXTENDED_CAPTURE_CAPACITY-BOOTLOG_DEFAULT_CAPACITY+i)%251);
+    old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);
+    lost_prefix=true;assert(periodic_save() && periodic_save() && workspace_log_stop());lost_prefix=false;
+    for(uint64_t i=0;i<proof->node.size;i++)assert(proof->bytes[i]==i%251);
+    snapshot_bytes=8;assert(workspace_log_start());old_writes=writes;
+    assert(!workspace_log_begin_wifi_desktop() && writes==old_writes && enabled);assert(workspace_log_stop());
+    for(unsigned fault=0;fault<4;fault++){
+        count=0;assert(workspace_log_start_extended_capture());old_writes=writes;
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        if(fault==3)busy=true;
+        assert(!workspace_log_begin_wifi_desktop() && !enabled && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+        if(fault==0 || fault==3)assert(writes==old_writes);
+        if(fault==3)assert(busy);
+        lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
+    }
+    count=0;snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;
+    assert(workspace_log_start_extended_capture());
+    busy=true;finish_on_wait=&busy;
+    assert(workspace_log_begin_wifi_capture() && wifi_capture_parked && !enabled && !busy && !finish_on_wait);
+    assert(strstr(path,"session-a.log"));old_writes=writes;ticks+=10000;
+    assert(!ready(NULL) && !workspace_log_active() && writes==old_writes);
+    assert(!workspace_log_start() && !workspace_log_begin_wifi_capture() && writes==old_writes);
+    assert(workspace_log_begin_wifi_desktop() && enabled && !wifi_capture_parked);
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && ready(NULL)==false);
+    assert(periodic_save() && workspace_log_stop());
+    count=0;assert(workspace_log_start_extended_capture());
+    assert(workspace_log_begin_wifi_capture() && workspace_log_stop() && !wifi_capture_parked);
+    for(unsigned fault=0;fault<3;fault++){
+        count=0;assert(workspace_log_start_extended_capture());assert(workspace_log_begin_wifi_capture());
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        assert(!workspace_log_begin_wifi_desktop() && !enabled && wifi_capture_parked);
+        old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);
+        lost_prefix=corrupt=false;sync_ok=healthy=true;assert(workspace_log_stop() && !wifi_capture_parked);
+    }
+    /* A generic pause does not grant the Wi-Fi handoff ownership. */
+    count=0;assert(workspace_log_start_extended_capture());assert(workspace_log_quiesce(0));
+    old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);assert(workspace_log_stop());
+    for(unsigned fault=0;fault<4;fault++){
+        count=0;assert(workspace_log_start_extended_capture());old_writes=writes;
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        if(fault==3)busy=true;
+        assert(!workspace_log_begin_wifi_capture() && !enabled && !wifi_capture_parked);
+        if(fault==0 || fault==3)assert(writes==old_writes);
+        if(fault==3)assert(busy);
+        lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
+    }
+    snapshot_bytes=8;count=0;assert(workspace_log_start());old_writes=writes;
+    assert(!workspace_log_begin_wifi_capture() && enabled && writes==old_writes);assert(workspace_log_stop());
+    count=0;snapshot_bytes=BOOTLOG_CAL5_CAPTURE_CAPACITY;extend_ok=true;
+    assert(workspace_log_start_cal5_capture() && snapshot_limit==BOOTLOG_CAL5_CAPTURE_CAPACITY);
+    large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    assert(workspace_log_stop());
+    snapshot_bytes=BOOTLOG_RADIO_CAPTURE_CAPACITY;count=0;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_radio_capture() && writes==old_writes);extend_ok=true;
+    assert(workspace_log_start_radio_capture() && snapshot_limit==BOOTLOG_RADIO_CAPTURE_CAPACITY);
+    large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    lost_prefix=true;old_writes=writes;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
+    assert(workspace_log_stop());snapshot_bytes=8;count=0;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
+    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount;immutable full RF proof,rolling desktop tail and phase-boundary fault containment");
+count=0;snapshot_bytes=8;
+    assert(workspace_log_start());
+    assert(!workspace_log_ecam_snapshot()); /* Periodic writer must be quiesced. */
+    assert(workspace_log_quiesce(5000));
+    busy=true;assert(!workspace_log_ecam_snapshot());busy=false;
+    assert(workspace_log_ecam_snapshot() && ecam_saved && strstr(path,"/ecam.log"));
+    assert(workspace_log_window_snapshot() && window_saved && strstr(path,"/window.log"));
+    old_writes=writes;assert(!workspace_log_window_snapshot() && writes==old_writes);
+    old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    assert(workspace_log_stop());
+    assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));
+    corrupt=true;assert(!workspace_log_ecam_snapshot() && !ecam_saved && !healthy);corrupt=false;
+    old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    /* A seven-second write must not turn a ten-second capture cadence into
+     * seventeen seconds and overwrite startup records in the 64KiB tail. */
+    count=0;enabled=busy=false;mounted=io_ok=sync_ok=true;expected_capacity=32;save_tick_delay=0;
+    assert(workspace_log_start());ticks=due;uint64_t capture_start=ticks;
+    save_tick_delay=700;periodic_attempt();
+    assert(healthy && enabled && !busy && ticks==capture_start+700 && due==capture_start+1000 && !ready(NULL));
+    ticks=due;save_tick_delay=0;periodic_attempt();assert(due==ticks+1000 && enabled);
+    capture_start=ticks=due;save_tick_delay=1500;periodic_attempt();
+    assert(ticks==capture_start+1500 && due==ticks+1000 && !ready(NULL));
+    save_tick_delay=0;io_ok=false;ticks=due;periodic_attempt();assert(!healthy && !enabled && !busy);io_ok=true;
+    assert(periodic_deadline(UINT64_MAX-100,UINT64_MAX-1)==UINT64_MAX);
+    test_wifi_replug_continuation();
+    puts("workspace-log-cadence: PASS original1000ticks/64KiB/two-slot bounds, delayed-write drift prevented, overrun skips catch-up, failure stops");
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }
+
+void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(struct capture_write_snapshot){0};}
+
+void sync_timing_snapshot(struct sync_timing_snapshot *out){*out=sync_fixture;}
+void sync_commit_wait_snapshot(struct commit_wait_snapshot *out){*out=(struct commit_wait_snapshot){0};}
+
+void scheduler_print_launch_trace(void){assert(!depth);launch_trace_prints++;}

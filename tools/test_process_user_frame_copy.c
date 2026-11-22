@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 static uint64_t test_flags;
@@ -20,7 +21,8 @@ static struct process original;
 static struct fpu_state kernel_fpu;
 #ifndef SRVROS_PROCESS_COPY_CUSTOM_OBSERVERS
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
-    if(!observation_ok || (test_flags&0x200)) return false;*out=observation;return true;
+    if(!observation_ok || (test_flags&0x200)) return false;
+    *out=observation;return true;
 }
 bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
     (void)out;assert(!"Private frame operations must retain strict return admission");return false;
@@ -51,7 +53,7 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t dst,const struct user_fr
     memcpy(destination_bytes+4080,source->bytes,length);return true;
 }
 static void setup(struct process *p) {
-    memset(p,0,sizeof(*p));p->allocated=p->active=true;p->image_generation=1;p->address_space=0x2000;
+    free(p->mappings);memset(p,0,sizeof(*p));p->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*p->mappings));assert(p->mappings);p->allocated=p->active=true;p->image_generation=1;p->address_space=0x2000;
     p->kernel_stack_physical=0x4000000;p->kernel_stack_frames=32;
     p->kernel_stack=pmm_phys_to_virt(p->kernel_stack_physical);p->kernel_stack_top=(uint64_t)p->kernel_stack+PROCESS_KERNEL_STACK_SIZE;
     p->mapping_count=2;p->mappings[0]=(struct process_mapping){0x1000,0x8000,VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE};
@@ -66,10 +68,35 @@ static void refused(struct process *p,const struct isr_frame *frame,const struct
     unsigned prior=copies;assert(!process_copy_user_frame_current(frame,source,0x1ff0,32));
     assert(!memcmp(p,&original,sizeof(original)) && !memcmp(before,destination_bytes,sizeof(before)) && copies==prior);
 }
+static void test_prepared_child_binding(void) {
+    struct process *p=&processes[0],*parent=&processes[1];setup(p);
+    *parent=(struct process){.allocated=true,.active=true,.pid=99,.address_space=0x3000};
+    p->parent_pid=99;p->quiet=p->detached=true;p->entry=0x500000;p->stack_top=0x800000;
+    struct process_user_binding out;
+    assert(process_admit_prepared_child(parent,p,1,0x2000,&out) && out.kernel_stack_top==p->kernel_stack_top);
+    for(unsigned reason=0;reason<10;reason++) {
+        switch(reason) {
+        case 0:p->parent_pid=98;break;case 1:p->quiet=false;break;case 2:p->detached=false;break;
+        case 3:p->startup_ready=true;break;case 4:p->fork_resume=true;break;case 5:p->killed=true;break;
+        case 6:p->user_threads[0].used=true;break;case 7:parent->active=false;break;
+        case 8:parent->address_space=p->address_space;break;case 9:p->mapping_count=4097;break;
+        }
+        assert(!process_admit_prepared_child(parent,p,1,0x2000,&out));
+        p->parent_pid=99;p->quiet=p->detached=true;p->startup_ready=p->fork_resume=p->killed=false;
+        p->user_threads[0].used=false;parent->active=true;parent->address_space=0x3000;p->mapping_count=2;
+    }
+    assert(!process_admit_prepared_child(p,p,1,0x2000,&out));
+    memset(parent,0,sizeof(*parent));
+    puts("prepared-child-binding: PASS real slot/image/kernel-stack resolver, fresh parent/child, quiet detached image only");
+}
+
 int main(void) {
+    test_prepared_child_binding();
     struct process *p=&processes[0];struct isr_frame frame={0};struct user_frame_source source={{0}};
     for(unsigned i=0;i<32;i++)source.bytes[i]=(uint8_t)(i+1);
     setup(p);struct process_user_binding initial;
+    struct process_mapping *backing=p->mappings;p->mappings=NULL;
+    refused(p,&frame,&source);p->mappings=backing;
     assert(process_resolve_user_binding(p,NULL,1,0x2000,&initial));
     assert(initial.kernel_stack_base==0xffff800004000000ull && initial.kernel_stack_physical==0x4000000 && initial.kernel_stack_frames==32);
     unsigned n=proofs;policy_ok=false;refused(p,&frame,&source);assert(proofs==n);policy_ok=true;

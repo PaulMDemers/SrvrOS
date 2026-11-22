@@ -771,3 +771,7 @@ int main(int argc, char **argv) {
     printf("event-adapters: %s PASS\n",mode);
     return 0;
 }
+
+#define LEGACY_SIGNAL_STUB_MONOTONIC
+#define LEGACY_SIGNAL_HAS_IO_DISPATCH
+#include "legacy_signal_fixture.h"

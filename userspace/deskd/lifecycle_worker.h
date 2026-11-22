@@ -2,6 +2,7 @@
 #define DESKD_LIFECYCLE_WORKER_H
 #include <pthread.h>
 #include <srvros/profile_session.h>
+#include <srvros/desk_launch_owner.h>
 /* The UI owns admission and publication. One persistent worker owns blocking
  * syscalls. Release/acquire transfers each record; no scene pointers cross the
  * boundary. A discarded allocation keeps its budget until unmapping completes. */
@@ -36,6 +37,7 @@ struct life_prepare { unsigned state,width,height;int result;char path[DESK_CAPT
 struct life_reap { unsigned state;uint64_t pid,status,queued_us,begin_us,end_us;long result; };
 struct life_terminate { unsigned state;uint64_t pid,elapsed;long result; };
 struct lifecycle_worker {
+    struct desk_launch_owner owner;
     /* Single UI producer, single report-thread consumer. Never overwrite a
      * queued or emitting record, and never wait for console/serial pressure. */
     unsigned log_write,log_read;
@@ -192,7 +194,7 @@ static void life_work(struct lifecycle_worker *w) {
     for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_QUEUED) {
         struct life_reap *r=&w->reap[n];
         r->begin_us=(uint64_t)srv_monotonic_us();life_publish(&r->state,LIFE_RUNNING);
-        r->result=srv_wait(r->pid,&r->status,0);
+        r->result=w->owner.pid?desk_launch_owner_wait(&w->owner,r->pid,&r->status,0):srv_wait(r->pid,&r->status,0);
         r->end_us=(uint64_t)srv_monotonic_us();
         life_publish(&r->state,LIFE_DONE);
     }
@@ -226,7 +228,8 @@ static void life_work(struct lifecycle_worker *w) {
         }
         struct srv_exec_request r={.path=argv[0],.argv=argv,.envp=environment.envp,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
-        j->begin_us=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
+        j->begin_us=(uint64_t)srv_monotonic_us();
+        j->pid=w->owner.pid?desk_launch_owner_launch(&w->owner,argv[0],argv[1],argv[2],&j->profile):srv_exec(&r);
         j->end_us=(uint64_t)srv_monotonic_us();j->elapsed=j->end_us-j->begin_us;
         /* Live UART backpressure must stay off the compositor input loop.
          * Keep ownership until this immutable launch receipt is written. */
@@ -260,12 +263,14 @@ static void *life_report_thread(void *arg) {
     life_report_work(w);return NULL;
 }
 static int life_start(struct lifecycle_worker *w,int diagnostics) {
+    if(desk_launch_owner_start(&w->owner)){(void)desk_launch_owner_finish(&w->owner);return -1;}
     if(diagnostics) {
-        if(pthread_create(&w->report_thread,NULL,life_report_thread,w))return -1;
+        if(pthread_create(&w->report_thread,NULL,life_report_thread,w)){(void)desk_launch_owner_finish(&w->owner);return -1;}
         w->report_started=1;
     }
     int result=pthread_create(&w->thread,NULL,life_thread,w);
     if(result && w->report_started){life_publish(&w->report_stop,1);life_notify(&w->report_event);pthread_join(w->report_thread,NULL);w->report_started=0;}
+    if(result)(void)desk_launch_owner_finish(&w->owner);
     return result;
 }
 static int life_stop(struct lifecycle_worker *w) {

@@ -47,6 +47,11 @@ struct vfs_node {
  * must not mutate the VFS. A prefix event includes the named path and subtree. */
 typedef void (*vfs_retire_fn)(const char *path, bool prefix);
 void vfs_set_retire_callback(vfs_retire_fn callback);
+/* CPU0 only. Snapshot proof and consumption require continuous IRQ exclusion;
+ * these do not acquire/release storage ownership or authorize callbacks. */
+uint64_t vfs_view_write_begin(void);
+void vfs_view_write_end(uint64_t flags);
+bool vfs_view_snapshot_ready(void);
 void vfs_init(void);
 bool vfs_register_file(const char *path, uint64_t size, const void *private_data, vfs_read_all_fn read_all);
 bool vfs_register_directory(const char *path);
@@ -70,11 +75,25 @@ bool vfs_reserve_nodes(uint64_t additional);
 const struct vfs_node *vfs_node_at(uint64_t index);
 const struct vfs_node *vfs_lookup(const char *path);
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size);
+void vfs_note_read(const struct vfs_node *node);
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data);
 void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback);
 bool vfs_update_file_size(const char *path, uint64_t size);
 bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out);
 bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata);
+/* Restore metadata before publishing a newly mounted subtree. Caller holds
+ * filesystem/namespace exclusion (exFAT fs_enter masks IRQs) and retains
+ * immutable entries. Commit allocates nothing and invokes no callbacks.
+ * Desired IDs displace only same-subtree provisional IDs; any outside collision
+ * refuses atomically. Unlisted nodes retain every attribute except a displaced
+ * provisional inode. Existing live/borrowed mounts must not use this operation. */
+struct vfs_metadata_restore {
+    const struct vfs_node *node;
+    struct vfs_metadata metadata;
+};
+bool vfs_restore_metadata(const char *prefix,
+    const struct vfs_metadata_restore *entries, uint64_t count);
+
 bool vfs_chmod(const char *path, uint64_t mode);
 void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime);
 bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime);

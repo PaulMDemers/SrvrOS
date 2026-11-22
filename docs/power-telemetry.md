@@ -815,6 +815,10 @@ energy. This single short workload does not establish significant power changes
 or accept CPU/fan controls. See the [unit record](machines/macbookair6-1.md) for
 phase temperatures, retirement, file preservation and durable evidence details.
 
+The checkpoint logger enters through `workspace_log_start_checkpoints()`.
+This keeps its 64KiB tail and 64-node reservation separate from the Wi-Fi
+firmware startup-prefix capture entry points; ordinary logging still alternates
+two periodic files and reserves32 nodes.
 
 ## Accepted Air6,1 event-driven worker comparison
 

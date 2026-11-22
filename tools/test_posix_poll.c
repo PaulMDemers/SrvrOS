@@ -55,3 +55,12 @@ int main(void) {
     assert(poll(&ignored,1,0)==0 && !ignored.revents);
     puts("posix-poll-host: PASS (bit counts, priority masks, invalid FDs, requested sets, timeout bounds, high socket FD and pre-dispatched signal)");
 }
+
+#define LEGACY_SIGNAL_STUB_MONOTONIC
+#include "legacy_signal_fixture.h"
+
+void __posix_event_lock(void){abort();}
+void __posix_event_unlock(void){abort();}
+uint64_t __posix_event_capture_identity_locked(int fd){(void)fd;abort();}
+int __posix_event_identity_matches_locked(int fd,uint64_t id){(void)fd;(void)id;abort();}
+int __posix_eventfd_poll_locked(int fd,short e,uint64_t *id){(void)fd;(void)e;(void)id;abort();}

@@ -21,13 +21,14 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--soak-seconds',type=int,default=0)
     parser.add_argument('--second-usb',action='store_true',help='Also enumerate an inactive ECM adapter on a separate network')
+    parser.add_argument('--wifi-probe',action='store_true',help='Enable captured Wi-Fi probe alongside unrelated ECM devices')
     parser.add_argument('--device-checks',action='store_true',help='Exercise attended script gates with explicit synthetic observations, EOF and replay refusal')
     args=parser.parse_args()
     if not 0<=args.soak_seconds<=3600:parser.error('soak duration must be 0..3600 seconds')
     root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('usb-ecm-device-checks' if args.device_checks else 'usb-ecm-multiple' if args.second_usb else 'usb-ecm-soak' if args.soak_seconds else 'usb-ecm');out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('usb-ecm-device-checks' if args.device_checks else 'usb-ecm-multiple' if args.second_usb else 'usb-ecm-soak' if args.soak_seconds else 'usb-ecm');out = out.with_name(out.name+'-wifi-probe') if args.wifi_probe else out;out.mkdir(parents=True,exist_ok=True)
     original=boot.make_limine_conf
-    boot.make_limine_conf=lambda w,h:original(w,h)+'    cmdline: srvros.usb-network=ecm\n'
+    boot.make_limine_conf=lambda w,h:original(w,h)+'    cmdline: srvros.usb-network=ecm'+(' srvros.usb-wifi=probe' if args.wifi_probe else '')+'\n'
     output=b'';consumed=0
     udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);udp.bind(('127.0.0.1',0));udp.settimeout(.2)
     udp_port=udp.getsockname()[1];stop=threading.Event();messages=[]

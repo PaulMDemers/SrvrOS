@@ -285,3 +285,5 @@ static void sleep_overflow_tests(void) {
 int main(void) {
     resolution_tests(); times_tests(); sleep_tests(); sleep_handler_tests(); sleep_overflow_tests(); return 0;
 }
+
+#include "legacy_signal_fixture.h"

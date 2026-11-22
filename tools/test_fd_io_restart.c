@@ -233,3 +233,7 @@ int main(void) {
     puts("fd-io-restart: PASS restart, replacement, lock, signal and partial I/O");
     return 0;
 }
+
+#include "legacy_signal_fixture.h"
+int __posix_eventfd_is_pseudo_safe(int fd) {(void)fd;abort();}
+uint64_t __posix_event_capture_identity_locked(int fd) {(void)fd;abort();}

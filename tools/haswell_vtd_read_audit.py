@@ -10,6 +10,12 @@ from haswell_backing_audit import unsigned
 GPU_UNIT = 0xfed90000
 OTHER_UNIT = 0xfed91000
 PAGE = 4096
+SAMPLE_COUNT = 2
+MAP_CAP = 2
+PASS_LIMIT_US = 100000
+GAP_MIN_US, GAP_MAX_US = 20000, 100000
+GAP_ITERATION_CAP = 1000000
+RECEIPT_TAIL_BYTES = 65536
 PREDECESSOR = (0xfed1c000, 0x4000, 1)
 SUCCESSOR = (0xffe10000, 0x30000, 1)
 OFFSETS = (0x00, 0x08, 0x0c, 0x10, 0x14, 0x1c, 0x20, 0x24)
@@ -61,9 +67,9 @@ def audit(text):
                 dmar_sha256=PIN, resource_candidate=resources[0],
                 proposed_reads=[candidate_read(v) for v in OFFSETS],
                 per_sample_sequence=list(SEQUENCE), reads_per_sample=len(SEQUENCE),
-                sample_count=2, proposed_map_cap=2, pass_limit_us=100000,
-                gap_min_us=20000, gap_max_us=100000, gap_iteration_cap=1000000,
-                receipt_tail_bytes=65536,
+                sample_count=SAMPLE_COUNT, proposed_map_cap=MAP_CAP, pass_limit_us=PASS_LIMIT_US,
+                gap_min_us=GAP_MIN_US, gap_max_us=GAP_MAX_US, gap_iteration_cap=GAP_ITERATION_CAP,
+                receipt_tail_bytes=RECEIPT_TAIL_BYTES,
                 mapping_contract=['kernel-root-only', 'supervisor-read-only-NX-non-global',
                                   'effective-strong-UC-from-current-PAT-MTRR-and-actual-leaf',
                                   'compatible-existing-aliases-or-refuse',

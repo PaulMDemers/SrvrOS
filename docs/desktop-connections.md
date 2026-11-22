@@ -130,6 +130,16 @@ pool-wide request ID never repeats; exhaustion refuses a new request. Response
 magic, ID, size, operation-specific shape and checksum are validated before
 completion. An idle channel is returned only after the full response drains.
 
+Directory listings enter the existing kernel `OPEN_MODE` operation directly
+with the immutable absolute request path and READ/DIRECTORY/CLOEXEC flags.
+That operation validates each traversed component and namespace and publishes
+the descriptor under one filesystem admission. A preliminary libc `open` path
+resolution would repeat those checks in a separate gated syscall, allowing a
+foreign commit to interpose. This avoids that extra admission; it does not skip
+kernel resolution or make directory I/O independent of an active transaction.
+The metadata batches, terminal-batch handling, close, response checks and final
+worker retirement keep their original bounds and ownership.
+
 Transport/spawn failures return through the requesting job. A poisoned channel
 closes its pipes but retains its child PID and concurrency charge until reaped;
 no uncertain mutation is retried automatically. A later explicit operation may

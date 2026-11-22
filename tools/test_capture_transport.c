@@ -6,6 +6,7 @@
 #undef main
 static unsigned calls,polls,mode;static size_t offset;static int direction;
 static unsigned char expected[12345];
+static int frame_mode;static struct desk_capture_response captured;
 static long io(void *data,size_t n,int writing) {
     assert(writing==direction && n && n<=SRV_PIPE_BUF);calls++;
     if(mode==1)return 0;
@@ -15,7 +16,8 @@ static long io(void *data,size_t n,int writing) {
     if(calls==2 || calls==3)return SRV_ERR_AGAIN;
     if(n>997)n=997;
     assert(offset+n<=sizeof(expected));
-    if(writing)assert(!memcmp(data,expected+offset,n));else memcpy(data,expected+offset,n);
+    if(frame_mode){assert(writing && offset+n<=sizeof(captured));memcpy((char *)&captured+offset,data,n);}
+    else if(writing)assert(!memcmp(data,expected+offset,n));else memcpy(data,expected+offset,n);
     offset+=n;return n;
 }
 long srv_read(int fd,void *data,size_t n) {assert(fd==0);return io(data,n,0);}
@@ -26,7 +28,8 @@ long srv_poll(struct srv_pollfd *fds,size_t count,int64_t timeout) {
     if(polls==1)return SRV_ERR_INTR;
     fds->revents=SRV_POLLHUP|fds->events;return 1;
 }
-long srv_monotonic_us(void) {return 123;}
+static unsigned clock_reads;
+long srv_monotonic_us(void) {clock_reads++;return 123;}
 int main(void) {
     unsigned char actual[sizeof(expected)];for(size_t i=0;i<sizeof(expected);i++)expected[i]=(unsigned char)(i*37);
     for(direction=0;direction<=1;direction++) {
@@ -38,5 +41,12 @@ int main(void) {
     direction=1;mode=2;calls=0;struct progress_writer writer={.id=1};
     progress(&writer,CAPTURE_WRITE,0);assert(writer.broken && calls==1);
     progress(&writer,CAPTURE_FINAL_VERIFY,0);assert(calls==1);
+    direction=1;mode=calls=polls=0;offset=0;frame_mode=1;writer=(struct progress_writer){.id=19};
+    unsigned clocks=clock_reads;allocated(&writer);
+    assert(!writer.broken && clock_reads==clocks+1 && offset==sizeof(captured) && polls==2);
+    assert(captured.magic==DESK_CAPTURE_READY_MAGIC && captured.id==19 && captured.status==CAPTURE_RECEIVE &&
+        !captured.reserved && !captured.bytes && captured.at_us==123);
+    calls=polls=mode=0;offset=0;writer.broken=1;clocks=clock_reads;allocated(&writer);assert(!calls && clock_reads==clocks);
+    writer.broken=0;mode=2;allocated(&writer);assert(writer.broken && calls==1);
     puts("capture-transport: PASS bounded chunks, exact partial transfer, EINTR/EAGAIN/poll retry, HUP drain, EOF/EPIPE/oversize and broken progress reader");
 }

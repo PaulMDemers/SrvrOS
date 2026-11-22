@@ -618,3 +618,5 @@ int main(int argc, char **argv) {
     CHECK(pthread_create(&thread, &attr, inspect_worker, NULL) == 0);
     abort(); /* The modeled child exits this process before create returns. */
 }
+
+#include "legacy_signal_fixture.h"

@@ -22,8 +22,25 @@
 static int fd;
 static uint64_t read_calls,read_bytes,write_bytes;
 static unsigned writes, flushes, fail_at, crash_at, fail_flush_at, crash_flush_at, tear_at;
-static bool failed, foreign;
+static bool failed, foreign, sidecar_client;
 static unsigned io_depth;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+/* Deterministic clock/trace adapters for the real content/exFAT sync fixture.
+ * The same callbacks and media are used with observation enabled and disabled. */
+static uint64_t sync_content_us=1000000, sync_content_trace=1469598103934665603ull;
+static uint64_t sync_content_callbacks;
+static void sync_content_fold(uint64_t value) {
+    for(unsigned i=0;i<8;i++) { sync_content_trace^=(uint8_t)(value>>(i*8));sync_content_trace*=1099511628211ull; }
+}
+static void sync_content_callback(unsigned kind,uint64_t offset,uint64_t bytes,const void *data) {
+    sync_content_callbacks++;sync_content_fold(kind);sync_content_fold(offset);sync_content_fold(bytes);
+    if(data)for(uint64_t i=0;i<bytes;i++){sync_content_trace^=((const uint8_t *)data)[i];sync_content_trace*=1099511628211ull;}
+}
+uint64_t timer_monotonic_us(void) { return sync_content_us; }
+bool timer_reference_ready(void) { return true; }
+void test_sync_content_arm_failure(void) { fail_at=writes+1; }
+void test_sync_content_case(const char *mode,struct block_device *device);
+#endif
 bool scheduler_io_begin(void) { if(foreign) return false; io_depth++; return true; }
 void scheduler_io_end(void) { assert(io_depth); io_depth--; }
 bool scheduler_io_active(void) { return foreign || io_depth != 0; }
@@ -49,10 +66,17 @@ struct block_device *block_parent(struct block_device *d) { return d; }
 bool block_read(struct block_device *d, uint64_t o, void *p, uint64_t n) {
     read_calls++;read_bytes+=n;
     if(getenv("SRVROS_FAIL_READ_OFFSET") && o==strtoull(getenv("SRVROS_FAIL_READ_OFFSET"),NULL,10))return false;
-    return o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
+    bool ok=o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    sync_content_us+=10;sync_content_callback(0,o,n,ok?p:NULL);sync_content_fold(ok);
+#endif
+    return ok;
 }
 bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) {
     write_bytes+=n;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    sync_content_us+=20;sync_content_callback(1,o,n,p);
+#endif
     if (failed || ++writes == fail_at) { failed=true; return false; }
     assert(o+n <= block_device_size(d));
     if(getenv("SRVROS_TRACE_WRITES"))printf("write-trace: call=%u offset=%llu bytes=%llu\n",writes,(unsigned long long)o,(unsigned long long)n);
@@ -64,7 +88,13 @@ bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) 
     if(writes==crash_at) { fsync(fd); _exit(77); }
     return true;
 }
-static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; if(failed || fsync(fd)) return false;
+static bool flush(struct block_device *d) { (void)d; flushes++;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    sync_content_us+=30;sync_content_callback(2,0,0,NULL);
+#endif
+    if(getenv("SRVROS_TRACE_WRITES"))printf("flush-trace: call=%u\n",flushes);
+    if(flushes==fail_flush_at) failed=true;
+    if(failed || fsync(fd)) return false;
     if(flushes==crash_flush_at)_exit(78);
     return true; }
 /* Advertise transport capabilities for the eligibility predicate, but never
@@ -78,13 +108,56 @@ static void equal(const char *path, const uint8_t *expected, uint64_t n) {
     assert(node && vfs_read_all(node,&data,&size));
     assert(size==n && (!n || !memcmp(data,expected,n))); vfs_release_data(node,data);
 }
+static bool inspection_mountpoint_valid(const char *path) {
+    if(!path || path[0]!='/' || !path[1])return false;
+    size_t start=1;
+    for(size_t i=1;i<SRV_PATH_MAX;i++) {
+        unsigned char c=(unsigned char)path[i];
+        if(c && (c<32 || c>126))return false;
+        if(c && c!='/')continue;
+        size_t length=i-start;
+        if(!length || (length==1 && path[start]=='.') ||
+           (length==2 && path[start]=='.' && path[start+1]=='.'))return false;
+        if(!c)return true;
+        start=i+1;
+    }
+    return false;
+}
+static int invalid_inspection_arguments(void) {
+    fputs("exfat-driver: invalid inspection arguments\n",stderr);
+    return 2;
+}
+static void inspection_io_report(bool explicit_mountpoint) {
+    assert(!writes && !flushes);
+    if(explicit_mountpoint)printf("inspection-io: writes=%u flushes=%u\n",writes,flushes);
+}
 int main(int argc, char **argv) {
-    assert(argc>=3);
+    if(argc<3)return invalid_inspection_arguments();
+    if(!strncmp(argv[1],"--",2) || !strncmp(argv[2],"--",2))return invalid_inspection_arguments();
     bool image_range=!strcmp(argv[2],"image-range");
     bool headroom_only=!strcmp(argv[2],"headroom-check");
     bool writable_only=!strcmp(argv[2],"writable-check");
     bool clean_only=!strcmp(argv[2],"clean-check");
-    bool check_only=clean_only||writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool inspection=writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool check_only=clean_only||inspection;
+    bool explicit_mountpoint=false;
+    const char *mountpoint="/vol";
+    char inspection_path[SRV_PATH_MAX];
+    if(inspection) {
+        if(argc!=3) {
+            if(argc!=5 || strcmp(argv[3],"--mountpoint"))return invalid_inspection_arguments();
+            mountpoint=argv[4];explicit_mountpoint=true;
+        }
+        if(!inspection_mountpoint_valid(mountpoint))return invalid_inspection_arguments();
+        if(image_range || headroom_only) {
+            const char *suffix=image_range?"/srvros-work/battery-fs.img":"/new-trial";
+            int length=snprintf(inspection_path,sizeof inspection_path,"%s%s",mountpoint,suffix);
+            if(length<0 || (size_t)length>=sizeof inspection_path)return invalid_inspection_arguments();
+        }
+    } else {
+        for(int i=3;i<argc;i++)if(!strncmp(argv[i],"--",2))return invalid_inspection_arguments();
+        if(clean_only && (argc!=4 || (strcmp(argv[3],"accept") && strcmp(argv[3],"refuse"))))return invalid_inspection_arguments();
+    }
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -117,29 +190,31 @@ int main(int argc, char **argv) {
         return mounted == !strcmp(argv[3],"accept") ? 0 : 1;
     }
     if(check_only) {
-        if(!exfat_mount_block_device("/vol",&d)) {
+        if(explicit_mountpoint)printf("inspection-mountpoint: %s\n",mountpoint);
+        if(!exfat_mount_block_device(mountpoint,&d)) {
             fputs("allocation-check: unsupported or invalid filesystem; NOT CHECKED\n",stderr);
+            if(explicit_mountpoint)inspection_io_report(true);
             close(fd);return 2;
         }
         struct exfat_check_result result={0};
-        bool ok=exfat_check("/vol",&result);
+        bool ok=exfat_check(mountpoint,&result);
         bool graph_ok=ok;
         if(writable_only) {
-            bool writable=exfat_is_writable("/vol");
+            bool writable=exfat_is_writable(mountpoint);
             printf("writable-check: %s zero_writes=yes\n",writable?"PASS":"REFUSED");
             ok=ok && writable;
         }
         if(ok&&image_range) {
             struct block_device *resolved=NULL;uint64_t offset=0;
-            ok=exfat_exclusive_range("/vol/srvros-work/battery-fs.img",16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
+            ok=exfat_exclusive_range(inspection_path,16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
             printf("image-range: %s offset=%llu bytes=16777216\n",ok?"PASS":"REFUSED",(unsigned long long)offset);
         }
         if(headroom_only) {
-            bool room=exfat_creation_capacity("/vol/new-trial",32,8);
+            bool room=exfat_creation_capacity(inspection_path,32,8);
             printf("headroom-check: %s reserve_files=32 reserve_directories=8 plus_metadata=yes\n",room?"PASS":"REFUSED");
             ok=ok && room;
         }
-        assert(!writes && !flushes);
+        inspection_io_report(explicit_mountpoint);
         printf("allocation-check: %s files=%llu clusters=%llu leaked=%llu fat_bitmap_mismatches=%llu errors=%llu\n",
             graph_ok ? "PASS" : "FAIL",(unsigned long long)result.files_checked,
             (unsigned long long)result.clusters_checked,(unsigned long long)result.leaked_clusters,
@@ -221,7 +296,36 @@ int main(int argc, char **argv) {
         foreign=false;
     }
     assert(exfat_mount_block_device("/vol",&d));
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    if(!strncmp(argv[2],"sync-content-",13)) {
+        test_sync_content_case(argv[2],&d);
+        assert(fsync(fd)==0);close(fd);
+        printf("sync-content-trace: callbacks=%llu hash=%016llx writes=%u flushes=%u write_bytes=%llu\n",
+            (unsigned long long)sync_content_callbacks,(unsigned long long)sync_content_trace,writes,flushes,(unsigned long long)write_bytes);
+        return 0;
+    }
+#endif
     if(!strcmp(argv[2],"foreign")) foreign=true;
+    if(!strncmp(argv[2],"sidecar-",8)) {
+        if(!strcmp(argv[2],"sidecar-seed")) {
+            assert(exfat_write_file_mode("/vol/keep.txt",(const uint8_t *)"kept",4,0600));
+            assert(exfat_write_file_mode("/vol/anchor.txt",(const uint8_t *)"unchanged",9,0600));
+        } else if(!strcmp(argv[2],"sidecar-verify")) {
+            printf("mode=%llu\n",(unsigned long long)(vfs_lookup("/vol/keep.txt")->metadata.mode&07777));
+            equal("/vol/keep.txt",(const uint8_t *)"kept",4);equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+            assert(!writes && !flushes);
+        } else {
+            const char *late=getenv("SRVROS_SIDECAR_FAIL_OFFSET");
+            if(late)assert(!setenv("SRVROS_FAIL_READ_OFFSET",late,1));
+            sidecar_client=getenv("SRVROS_SIDECAR_CLIENT")!=NULL;
+            if(!strcmp(argv[2],"sidecar-pending"))assert(exfat_write_file("/vol/.srvros/meta.tmp",(const uint8_t *)"pending",7));
+            bool changed=!strcmp(argv[2],"sidecar-changed");
+            bool ok=vfs_chmod("/vol/keep.txt",changed?0640:0600);
+            printf("operation=%s writes=%u flushes=%u write_bytes=%llu\n",ok?"PASS":"FAIL",writes,flushes,(unsigned long long)write_bytes);
+            if(failed){unsigned before=writes;assert(!vfs_chmod("/vol/keep.txt",0600)&&before==writes);}
+        }
+        assert(fsync(fd)==0);close(fd);return 0;
+    }
     if(!strcmp(argv[2],"append-seed") || !strcmp(argv[2],"append-step") || !strcmp(argv[2],"append-repeat") || !strcmp(argv[2],"append-changed")) {
         struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
         uint64_t initial=info.block_size*2,maximum=initial+info.block_size*3+512;
@@ -615,4 +719,10 @@ int main(int argc, char **argv) {
 #define SRVROS_BLOCK_CLAIM_HOST_TEST
 #include "../kernel/src/block_claim.c"
 
-bool process_has_open_vfs_prefix(const char *p) { (void)p;return false; }
+bool process_has_open_vfs_prefix(const char *p) {
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    bool test_process_busy(const char *path);
+    if(test_process_busy(p))return true;
+#endif
+    return sidecar_client && !strcmp(p,"/vol/.srvros/meta");
+}

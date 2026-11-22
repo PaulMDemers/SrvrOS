@@ -2,6 +2,7 @@
  * No transport retries: an ambiguous write or halted endpoint quarantines the
  * device for this boot. xHCI retains DMA memory even after timeout/disconnect. */
 #include <srvros/usb_storage.h>
+#include <srvros/commit_wait_timing.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
 #include <srvros/scheduler.h>
@@ -9,9 +10,107 @@
 
 static uint64_t save_irq(void);
 static void restore_irq(uint64_t flags);
-static bool timing_active;
-static struct usb_storage_timing timing;
-bool usb_storage_timing_enabled(void) { return timing_active; }
+static bool timing_active,aux_timing_active;
+static bool owner_status_active;
+static struct usb_storage_timing timing,aux_timing;
+static struct usb_storage_content_timing content_timing;
+static bool content_active,content_command_active;
+static struct usb_storage_command_timing content_command;
+static bool content_command_peak;
+static unsigned content_role=USB_STORAGE_CONTENT_ROLES-1,content_depth;
+static unsigned content_command_role;
+static void content_bad(void) {
+    content_timing.valid=0;content_timing.invalid=1;
+    if(content_command_active)content_command.valid=0;
+}
+static void content_add(uint64_t *sum,uint64_t value) {
+    if(value>UINT64_MAX-*sum)content_bad();else *sum+=value;
+}
+bool usb_storage_content_begin(void) {
+    uint64_t f=save_irq();
+    bool ok=aux_timing_active && !content_active && !content_command_active;
+    if(ok) {
+        content_timing=(struct usb_storage_content_timing){.valid=1,.active=1};
+        content_role=USB_STORAGE_CONTENT_ROLES-1;content_depth=0;content_active=true;
+    }
+    restore_irq(f);return ok;
+}
+void usb_storage_content_end(struct usb_storage_content_timing *out) {
+    uint64_t f=save_irq();
+    if(!content_active) {if(out)*out=(struct usb_storage_content_timing){0};restore_irq(f);return;}
+    if(content_command_active) {
+        content_bad();if(out)*out=content_timing;restore_irq(f);return;
+    }
+    if(content_depth || content_role!=USB_STORAGE_CONTENT_ROLES-1 || !aux_timing_active)content_bad();
+    content_timing.active=0;if(out)*out=content_timing;
+    content_active=false;content_depth=0;content_role=USB_STORAGE_CONTENT_ROLES-1;
+    restore_irq(f);
+}
+unsigned usb_storage_content_role_begin(unsigned role) {
+    if(!content_active)return USB_STORAGE_CONTENT_NO_ROLE;
+    uint64_t f=save_irq();unsigned previous=USB_STORAGE_CONTENT_NO_ROLE;
+    if(content_active) {
+        if(role>=USB_STORAGE_CONTENT_ROLES || content_command_active ||
+           content_depth>=(USB_STORAGE_CONTENT_NO_ROLE>>3))content_bad();
+        else {previous=(content_depth<<3)|content_role;content_depth++;content_role=role;}
+    }
+    restore_irq(f);return previous;
+}
+void usb_storage_content_role_end(unsigned previous) {
+    if(previous==USB_STORAGE_CONTENT_NO_ROLE)return;
+    uint64_t f=save_irq();
+    if(content_active) {
+        if(content_command_active || !content_depth || (previous>>3)!=content_depth-1 ||
+           (previous&7u)>=USB_STORAGE_CONTENT_ROLES)content_bad();
+        else {content_depth--;content_role=previous&7u;}
+    }
+    restore_irq(f);
+}
+/* Called only where the existing command is about to attempt its CBW. The
+ * captured role cannot move until its original validation path returns. */
+static bool content_command_begin(uint8_t opcode,uint32_t bytes) {
+    if(!content_active)return false;
+    if(content_command_active || !aux_timing_active) {content_bad();return false;}
+    content_command_active=true;content_command_role=content_role;
+    content_command=(struct usb_storage_command_timing){.valid=content_timing.valid,.role=content_role};
+    content_command_peak=false;
+    struct usb_storage_content_role *p=&content_timing.roles[content_command_role];
+    if(opcode==0x28) {content_add(&p->read_commands,1);content_add(&p->read_bytes,bytes);}
+    else if(opcode==0x2a) {
+        content_add(&p->write_commands,1);content_add(&p->write_bytes,bytes);
+        if(bytes==512)content_add(&p->write512_commands,1);
+    }
+    else if(opcode==0x35)content_add(&p->flush_commands,1);
+    else content_add(&p->other_commands,1);
+    return true;
+}
+static void content_command_end(bool owned,bool ok) {
+    if(!owned || !content_command_active)return;
+    if(!content_active) {content_bad();content_command_active=false;return;}
+    if(!ok)content_add(&content_timing.roles[content_command_role].failed_commands,1);
+    content_command.complete=1;content_command.ok=ok;
+    if(content_command_peak)content_timing.command=content_command;
+    content_command_active=false;
+}
+static void content_command_bulk(unsigned phase,uint64_t start,uint64_t end,
+    uint32_t requested,uint32_t actual) {
+    if(!content_active || !content_command_active)return;
+    if(phase>2 || end<start || (content_command.end_us && start<content_command.end_us)) {
+        content_bad();return;
+    }
+    struct usb_storage_command_phase *p=&content_command.phase[phase];
+    if(!p->calls)p->first_us=start;
+    content_add(&p->calls,1);content_add(&p->requested,requested);
+    content_add(&p->actual,actual);content_add(&p->us,end-start);p->last_us=end;
+    if(!content_command.start_us)content_command.start_us=start;
+    content_command.end_us=end;
+    if(phase==2) {
+        content_command.csw_start_us=start;content_command.csw_end_us=end;
+        const struct usb_storage_command_timing *old=&content_timing.command;
+        content_command_peak=!old->complete || end-start>old->csw_end_us-old->csw_start_us;
+    }
+}
+bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active || content_active || owner_status_active; }
 bool usb_storage_timing_begin(void) {
     uint64_t flags=save_irq();
     bool ok=!timing_active && timer_reference_ready();
@@ -23,52 +122,135 @@ void usb_storage_timing_end(struct usb_storage_timing *out) {
     if(out) *out=timing_active?timing:(struct usb_storage_timing){0};
     timing_active=false;restore_irq(flags);
 }
-static void timing_add(uint64_t *sum,uint64_t value) {
-    if(value>UINT64_MAX-*sum) timing.valid=false;
+/* Independent reserved observer: never resets or ends the legacy logger's
+ * window. This is diagnostic storage, not a second hardware request/queue. */
+bool usb_storage_timing_aux_begin(void) {
+    uint64_t flags=save_irq();bool ok=!aux_timing_active && timer_reference_ready();
+    if(ok){aux_timing=(struct usb_storage_timing){.valid=true};aux_timing_active=true;}
+    restore_irq(flags);return ok;
+}
+void usb_storage_timing_aux_end(struct usb_storage_timing *out) {
+    uint64_t flags=save_irq();
+    if(content_active)content_bad();
+    if(out)*out=aux_timing_active?aux_timing:(struct usb_storage_timing){0};
+    aux_timing_active=false;restore_irq(flags);
+}
+static void timing_add(struct usb_storage_timing *target,uint64_t *sum,uint64_t value) {
+    if(value>UINT64_MAX-*sum) target->valid=false;
     else *sum+=value;
 }
 static void timing_max(uint64_t *maximum,uint64_t value) {
     if(value>*maximum)*maximum=value;
 }
-static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
-                       uint32_t length,uint32_t *actual) {
-    if(!timing_active) return s->bulk(s->context,in,data,length,actual);
-    uint64_t start=timer_monotonic_us();
-    bool ok=s->bulk(s->context,in,data,length,actual);
-    uint64_t end=timer_monotonic_us();
-    timing_add(&timing.calls[phase],1);
-    if(!ok) timing_add(&timing.failures,1);
-    if(end<start) { timing.valid=false;return ok; }
+static void record_bulk(struct usb_storage_timing *target,unsigned phase,uint64_t start,
+    uint64_t end,bool ok,bool has_sample,const struct usb_bulk_timing *captured) {
+    timing_add(target,&target->calls[phase],1);
+    if(!ok) timing_add(target,&target->failures,1);
+    if(end<start) { target->valid=false;return; }
     uint64_t elapsed=end-start;
-    struct usb_storage_phase_timing *p=&timing.phase[phase];
-    timing_add(&timing.us[phase],elapsed);timing_max(&p->max_us,elapsed);
-    if(elapsed>20000)timing_add(&p->over20ms,1);
-    if(elapsed>100000)timing_add(&p->over100ms,1);
-    if(elapsed>1000000)timing_add(&p->over1s,1);
-    if(s->transfer_timing) {
-        struct usb_bulk_timing sample={0};s->transfer_timing(s->context,&sample);
+    struct usb_storage_phase_timing *p=&target->phase[phase];
+    timing_add(target,&target->us[phase],elapsed);timing_max(&p->max_us,elapsed);
+    if(elapsed>20000)timing_add(target,&p->over20ms,1);
+    if(elapsed>100000)timing_add(target,&p->over100ms,1);
+    if(elapsed>1000000)timing_add(target,&p->over1s,1);
+    if(has_sample) {
+        struct usb_bulk_timing sample=*captured;
         if(sample.seen) {
             if(sample.submitted<start || sample.observed<sample.submitted ||
-               sample.resumed<sample.observed || sample.resumed>end)timing.valid=false;
+               sample.resumed<sample.observed || sample.resumed>end)target->valid=false;
             else {
                 uint64_t observe=sample.observed-sample.submitted,resume=sample.resumed-sample.observed;
-                timing_add(&p->observed_calls,1);
-                timing_add(&p->observe_us,observe);timing_add(&p->resume_us,resume);
+                timing_add(target,&p->observed_calls,1);
+                timing_add(target,&p->observe_us,observe);timing_add(target,&p->resume_us,resume);
                 if(!sample.service_valid || !sample.service_checks ||
                    sample.service_samples!=(sample.service_checks-1)/256+1 ||
                    sample.service_gap_max_us>observe || sample.completion_gap_us>sample.service_gap_max_us ||
-                   observe/(sample.service_samples+1)+(observe%(sample.service_samples+1)!=0)>sample.service_gap_max_us)timing.valid=false;
+                   observe/(sample.service_samples+1)+(observe%(sample.service_samples+1)!=0)>sample.service_gap_max_us)target->valid=false;
                 else {
-                    timing_add(&p->service_checks,sample.service_checks);
-                    timing_add(&p->service_samples,sample.service_samples);
+                    timing_add(target,&p->service_checks,sample.service_checks);
+                    timing_add(target,&p->service_samples,sample.service_samples);
                     timing_max(&p->service_gap_max_us,sample.service_gap_max_us);
                     timing_max(&p->completion_gap_max_us,sample.completion_gap_us);
                 }
                 timing_max(&p->observe_max_us,observe);timing_max(&p->resume_max_us,resume);
             }
-        } else if(ok) timing.valid=false; /* An instrumented success must have an event. */
+        } else if(ok) target->valid=false; /* An instrumented success must have an event. */
+    }
+}
+static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
+                       uint32_t length,uint32_t *actual,uint8_t opcode,uint32_t command_bytes,
+                       struct commit_command_anchor *anchor) {
+    bool legacy=timing_active,auxiliary=aux_timing_active;
+    bool owner_status=phase==2 && sync_commit_wait_status_enabled();
+    if(!legacy && !auxiliary && !content_active && !owner_status)return s->bulk(s->context,in,data,length,actual);
+    bool previous_owner_status=owner_status_active;
+    owner_status_active=previous_owner_status || owner_status;
+    uint64_t start=timer_monotonic_us();
+    bool ok=s->bulk(s->context,in,data,length,actual);
+    uint64_t end=timer_monotonic_us();
+    if(anchor)*anchor=(struct commit_command_anchor){start,end};
+    owner_status_active=previous_owner_status;
+    struct usb_bulk_timing sample={0};
+    if(s->transfer_timing)s->transfer_timing(s->context,&sample);
+    if(phase==2)sync_commit_wait_status(s->tag,opcode,command_bytes,start,end,length,*actual,ok,&sample);
+    content_command_bulk(phase,start,end,length,*actual);
+    /* Capture once, then copy the same observation into independent windows.
+     * No additional bulk/controller request or event-service operation. */
+    if(legacy)record_bulk(&timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
+    if(auxiliary) {
+        bool peak=phase==2 && (!aux_timing.calls[2] ||
+            (end>=start && end-start>aux_timing.phase[2].max_us));
+        record_bulk(&aux_timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
+        if(peak)aux_timing.csw=(struct usb_storage_csw_timing){
+            .start_us=start,.end_us=end,.opcode=opcode,.command_bytes=command_bytes,
+            .request_bytes=length,.actual=*actual,.ok=ok,.sample=sample};
+    }
+    if(content_active && phase==2) {
+        if(!content_command_active || !auxiliary || end<start)content_bad();
+        else {
+            struct usb_storage_content_role *p=&content_timing.roles[content_command_role];
+            if(!aux_timing.valid)content_bad();
+            uint64_t elapsed=end-start;
+            bool peak=!p->csw_calls || elapsed>p->worst.end_us-p->worst.start_us;
+            content_add(&p->csw_calls,1);content_add(&p->csw_us,elapsed);
+            if(elapsed>100000)content_add(&p->over100ms,1);
+            if(opcode==0x2a) {
+                content_add(&p->write_csw_us,elapsed);
+                if(command_bytes==512)content_add(&p->write512_csw_us,elapsed);
+                if(elapsed>100000) {
+                    content_add(&p->write_over100ms,1);
+                    if(command_bytes==512)content_add(&p->write512_over100ms,1);
+                }
+            }
+            if(peak)p->worst=(struct usb_storage_csw_timing){
+                .start_us=start,.end_us=end,.opcode=opcode,.command_bytes=command_bytes,
+                .request_bytes=length,.actual=*actual,.ok=ok,.sample=sample};
+        }
     }
     return ok;
+}
+
+/* Observe the existing checkpoint once; no extra yield or eligibility change.
+ * Disjoint from bulk callback intervals, so this accounts for part of the
+ * residual phase wall time without treating it as CPU execution. */
+static void timed_checkpoint(void) {
+    bool active=aux_timing_active;
+    if(!active){scheduler_io_checkpoint();return;}
+    uint64_t start=timer_monotonic_us();
+    scheduler_io_checkpoint();
+    uint64_t end=timer_monotonic_us();
+    timing_add(&aux_timing,&aux_timing.checkpoint_calls,1);
+    if(end<start)aux_timing.valid=false;
+    else timing_add(&aux_timing,&aux_timing.checkpoint_us,end-start);
+    if(content_active && content_command_active) {
+        if(end<start || start<content_command.end_us)content_bad();
+        else {
+            if(!content_command.checkpoint_calls)content_command.checkpoint_first_us=start;
+            content_add(&content_command.checkpoint_calls,1);
+            content_add(&content_command.checkpoint_us,end-start);
+            content_command.checkpoint_last_us=end;content_command.end_us=end;
+        }
+    }
 }
 
 static uint32_t le32(const uint8_t *p) {
@@ -86,6 +268,19 @@ static void put_be32(uint8_t *p, uint32_t n) {
 static void copy(void *out, const void *in, uint32_t n) {
     for (uint32_t i=0;i<n;i++) ((uint8_t *)out)[i]=((const uint8_t *)in)[i];
 }
+static void commit_command_done(struct usb_storage *s,const uint8_t *cdb,uint8_t cdb_len,
+    bool traced,bool ok,const struct commit_command_anchor *anchor) {
+    if(!sync_commit_wait_status_enabled() || !anchor->start_us || !anchor->end_us ||
+       cdb_len!=10 || (cdb[0]!=0x28 && cdb[0]!=0x2a && cdb[0]!=0x35))return;
+    struct commit_command_timing q={.available=1,.phases=traced,.tag=s->tag,
+        .opcode=cdb[0],.lba=be32(cdb+2),.blocks=((uint32_t)cdb[7]<<8)|cdb[8],
+        .sector_size=s->sector_size,.flags=cdb[1]};
+    if(traced)q.timing=content_command;
+    else q.timing=(struct usb_storage_command_timing){.valid=1,.role=USB_STORAGE_CONTENT_ROLES};
+    q.timing.complete=1;q.timing.ok=ok;
+    q.timing.csw_start_us=anchor->start_us;q.timing.csw_end_us=anchor->end_us;
+    sync_commit_wait_command(&q);
+}
 static void record_error(struct usb_storage *s, uint8_t opcode, uint8_t phase,
     const char *reason, uint32_t tag, uint32_t actual, const uint8_t csw[13]) {
     s->error_command=s->commands; s->error_opcode=opcode; s->error_phase=phase;
@@ -99,14 +294,16 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     bool in, void *data, uint32_t length) {
     if (s->failed || cdb_len==0 || cdb_len>16 || length>sizeof(s->data)) return -1;
     uint8_t cbw[31]={0}, csw[13]={0};
+    struct commit_command_anchor anchor={0};
     uint32_t actual=0, transferred=0, tag=++s->tag;
     put_le32(cbw,0x43425355); put_le32(cbw+4,tag); put_le32(cbw+8,length);
     cbw[12]=in?0x80:0; cbw[14]=cdb_len; copy(cbw+15,cdb,cdb_len);
     s->commands++;
+    bool content_observed=content_command_begin(cdb[0],length);
     latency_usb(length,cdb[0]);
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     const char *reason = "cbw-transfer";
-    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual)) goto bad;
+    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual,cdb[0],length,NULL)) goto bad;
     reason="cbw-length";
     if (actual!=sizeof(cbw)) goto bad;
     phase = 2;
@@ -117,7 +314,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
         uint32_t chunk=length-transferred;
         if(chunk>USB_STORAGE_BULK_BYTES)chunk=USB_STORAGE_BULK_BYTES;
         actual=0;reason="data-transfer";
-        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual)) {
+        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual,cdb[0],length,NULL)) {
             if(actual<=chunk)transferred+=actual;
             goto bad;
         }
@@ -127,11 +324,11 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
         /* A short data transfer ends the phase. Do not consume its CSW as
          * another data chunk; the existing status/residue checks decide it. */
         if(actual<chunk)break;
-        if(transferred<length)scheduler_io_checkpoint();
+        if(transferred<length)timed_checkpoint();
     }
     phase = 3;
     actual=0; reason="csw-transfer";
-    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual)) goto bad;
+    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual,cdb[0],length,&anchor)) goto bad;
     reason="csw-length"; if (actual!=sizeof(csw)) goto bad;
     reason="csw-signature"; if (le32(csw)!=0x53425355) goto bad;
     reason="csw-tag"; if (le32(csw+4)!=tag) goto bad;
@@ -144,13 +341,17 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
          * after publication cannot establish whether the medium changed. Never
          * resume old geometry/mount/cache state against a replacement medium. */
         if(s->block) {s->failed=true;block_invalidate(s->block);}
+        commit_command_done(s,cdb,cdb_len,content_observed,false,&anchor);
+        content_command_end(content_observed,false);
         return 1;
     }
     /* All implemented successful commands require their full requested data. */
     phase = 4;
     reason="data-length";
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
-    scheduler_io_checkpoint();
+    timed_checkpoint();
+    commit_command_done(s,cdb,cdb_len,content_observed,true,&anchor);
+    content_command_end(content_observed,true);
     return 0;
 bad:
     s->failed=true; s->errors++;
@@ -158,6 +359,8 @@ bad:
     record_error(s,cdb[0],phase,reason,tag,(phase==2 || phase==4)?transferred:actual,csw);
     s->error_status=255; /* No trustworthy command status. */
     console_printf("usb-storage: transport failed; device quarantined commands=%u\n",s->commands);
+    commit_command_done(s,cdb,cdb_len,content_observed,false,&anchor);
+    content_command_end(content_observed,false);
     return -1;
 }
 static uint64_t save_irq(void) {

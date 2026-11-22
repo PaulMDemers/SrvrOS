@@ -542,3 +542,83 @@ VM collector requires whole saved audio/lifecycle records agreeing with the
 separate durable result; it rejects missing, truncated, conflicting and failed
 records instead of reconstructing damaged UART output. The UI500ms and whole
 lifetime10s bounds, screenshot workload, global sync and retirement remain intact.
+
+
+## Deferred process mapping backing
+
+A process image keeps the original65536-entry tracking capacity, but unused
+process slots no longer embed those arrays in the kernel ELF. The first
+ordinary/private user-page mapping reserves the entire array through the
+checked heap allocator and zeros it privately in64KiB service batches. The
+pointer is published before any user page; only the initialized live prefix
+is tracked. Allocation failure publishes no page. Atomic growth requires the
+image's existing backing and cannot allocate or yield for new tracking storage.
+
+Cleanup retires all tracked user frames before detaching/freeing the backing.
+Exec transfers the unique backing and image fields under IRQ exclusion after
+old-image cleanup; the source loses pointer/count/root ownership. Fork allocates
+its own backing through ordinary checked page loading. Fresh-image, signal-frame
+and retired-child checks account for missing or still-owned storage. Slot and
+lifetime publication, heap validation passes,64 process slots and all mapping,
+thread, descriptor and I/O limits remain unchanged. Out-of-memory admission is
+handled before page publication and partial-image cleanup remains mandatory.
+
+This removes96MiB of unused static reservation and its boot mapping pressure;
+it does not establish a native complete-root census or bound heap fragmentation.
+Capacity, failure, fork/exec, signals, teardown and reuse are covered by the real
+process fixtures. The Air6,1 record owns its independent native acceptance.
+
+## Timer preemption at the user-return boundary
+
+CPL3 interrupt entry marks its kernel continuation unsafe for foreign I/O.
+IRQ0 dispatch completes timer/network work and EOI before returning to the ISR;
+it no longer parks that unsafe handler stack by preempting inside dispatch.
+Kernel-origin timer interrupts retain ordinary unsafe-continuation scheduling.
+For a userspace timer return, preemption follows all common-return dispatcher
+and optional signal/frame checks. Tick accounting, expired-wait wakeups,
+cancellation and the existing quantum remain unchanged.
+
+The IRQ-masked return helper validates a RUNNING user binding/current address
+space and kernel accounting state. Cancellation occurs while still unsafe.
+Only the due scheduler yield publishes this fully unwound user-return suffix
+as user-safe; after resumption it restores unsafe state before final user-entry
+accounting. No syscall/IRQ dispatch, user copy or process teardown is introduced
+in that yielding caller suffix. The existing scheduler predicate still excludes
+same-process/private-image conflicts and unsafe kernel continuations. This is
+an eligibility publication boundary change, not a wider syscall whitelist,
+I/O-owner bypass, renderer algorithm or timing-limit change.
+
+Host regressions cover actual dispatch/EOI/return ordering, kernel-origin and
+nested interrupt preservation, cancellation before publication, foreign-owner
+progress and unchanged same/private-image exclusions and invalid-boundary
+refusals. Loaded native latency acceptance remains specific to each unit's
+collected run; see the [Air6,1 record](machines/macbookair6-1.md).
+
+## Empty-stack network status under storage load
+
+`SYS_NET_STATUS_INFO` has a validated callback-free attempt for an uninitialized,
+workerless network stack with an empty provider registry. The syscall keeps IRQs
+excluded across that proof, the existing fixed-table formatter and the original
+size-negotiated, mapping-revalidated user copy. Its bounded stack snapshot needs
+no allocation, provider callback, VFS access or I/O ownership. It reports current
+RAM, rather than substituting a stale or fabricated unavailable status.
+
+A registered provider, including a retired tombstone, an initialized stack or a
+started worker refuses this attempt. The syscall then restores ordinary I/O
+admission, records the existing gate timing, rechecks cancellation, and uses the
+original allocated snapshot/provider callbacks and ABI copy. No provider callback
+is newly allowed under a foreign storage owner; no hardware/network gate changes.
+`test-net-empty-snapshot` exercises the actual registry/formatter, while
+`test-syscall-io` checks the foreign-owner attempt, short ABI copies, mapping
+faults, fresh gated fallback and cancellation before backend effects.
+
+
+Air6,1 source `07b4efa7` / release `772f95d189e4dcfc` now passes the original
+native 30-minute workload and diagnostic contract with valid empty-stack status
+refreshes during load. No long network-status wait is retained; the bounded
+wait rows are not a complete per-query counter. Observed whole-app ready/close
+maxima are 0.941/1.470 s, with no claim of new provider hardware acceptance or
+an isolated speed comparison. The worst desktop loop remains within 500 ms at
+419.979 ms, including an internally unattributed 411.886 ms control interval.
+See the [native return](machines/macbookair6-1.md#native-network-status-and-sample-retention-return-2026-11-13)
+for complete evidence and remaining performance work.

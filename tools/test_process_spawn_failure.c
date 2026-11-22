@@ -43,8 +43,8 @@ void console_printf(const char *s,...) { (void)s; }
 void console_write(const char *s) { (void)s; }
 bool exfat_write_file_mode(const char *p,const uint8_t *d,uint64_t n,uint64_t m) { (void)p;(void)d;(void)n;(void)m;abort(); }
 bool exfat_write_file_retryable(const char *p,const uint8_t *d,uint64_t n,bool *r) { (void)p;(void)d;(void)n;(void)r;abort(); }
-void *kmalloc(size_t n) { (void)n;abort(); }
-void kfree(void *p) { (void)p;abort(); }
+void *kmalloc(size_t n) { assert(n==sizeof(struct process_mapping)*PROCESS_MAX_MAPPINGS);return malloc(n); }
+void kfree(void *p) { free(p); }
 int64_t net_close(uint64_t h) { (void)h;abort(); }
 int64_t net_hold(uint64_t h) { (void)h;abort(); }
 bool pty_ref(uint64_t h,bool m) { (void)h;(void)m;abort(); }
@@ -59,6 +59,10 @@ static const struct vfs_node directory={.used=true,.type=VFS_NODE_DIRECTORY};
 uint64_t vfs_count(void) { return 0; }
 const struct vfs_node *vfs_node_at(uint64_t i) { (void)i;return NULL; }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 const struct vfs_node *vfs_lookup(const char *path) { return !strcmp(path,"/") || !strcmp(path,"/fat") || !strcmp(path,"/fat/bin") ? &directory : &executable; }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) { assert(node==&executable);elf_reads++;*data=image;*size=sizeof(image);return true; }
 void vfs_release_data(const struct vfs_node *node,const uint8_t *data) { assert(node==&executable && data==image);elf_releases++; }
@@ -90,3 +94,7 @@ int main(void) {
     assert(!processes[1].allocated && !process_slots_busy[1]);
     puts("process-spawn-vector-failure: PASS (real ELF load, child cleanup, modeled worker binding)");
 }
+
+void net_process_wake(struct process *p) { (void)p;assert(!"No live scope in failed-spawn fixture"); }
+void keyboard_wake_waiters(void) { assert(!"No live scope in failed-spawn fixture"); }
+void pty_wake(void) { assert(!"No live scope in failed-spawn fixture"); }

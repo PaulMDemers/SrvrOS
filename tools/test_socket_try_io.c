@@ -56,6 +56,9 @@ int64_t net_udp_recv_checked(uint64_t h,uint64_t n,bool nonblock,const struct ne
     int64_t result=t->copyout(t->context,(const uint8_t *)"abc",3,0,0x01020304,53);
     return result<0?result:invoked(h,n,nonblock);
 }
+int64_t net_respond_try_checked(uint64_t h,const char *b,uint64_t n,const struct net_transfer *t) {
+    (void)h;(void)b;(void)n;(void)t;assert(0);return -1;
+}
 int64_t net_respond_checked(uint64_t h,const char *b,uint64_t n,bool nonblock,const struct net_transfer *t) {
     assert(t->current(t->context) && b && n==3);
     if(mutate_source) { memset(mutate_source,'z',3);assert(!memcmp(b,"abc",3)); }
@@ -88,7 +91,7 @@ int main(void) {
     unsigned before=calls;
     assert(syscall_socket_try_io(99,5,buffer,3,&peer)==SRV_ERR_BADF);
     assert(syscall_socket_try_io(7,0,buffer,3,&peer)==SRV_ERR_INVAL);
-    assert(syscall_socket_try_io(7,6,buffer,3,&peer)==SRV_ERR_INVAL);
+    assert(syscall_socket_try_io(7,7,buffer,3,&peer)==SRV_ERR_INVAL);
     assert(syscall_socket_try_io(7,5,NULL,3,&peer)==SRV_ERR_FAULT);
     assert(syscall_socket_try_io(7,5,buffer,3,NULL)==SRV_ERR_FAULT);
     peer.reserved=1;assert(syscall_socket_try_io(7,5,buffer,3,&peer)==SRV_ERR_INVAL);peer.reserved=0;

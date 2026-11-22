@@ -35,6 +35,8 @@ uint64_t pmm_ram_frames(void);
 uint64_t pmm_free_frames(void);
 uint64_t pmm_used_frames(void);
 uint64_t pmm_tagged_frames(enum pmm_frame_tag tag);
+/* Read-only allocation/tag observation under saved IRQ exclusion. */
+bool pmm_frame_has_tag(uint64_t physical_address, enum pmm_frame_tag tag);
 const char *pmm_tag_name(enum pmm_frame_tag tag);
 void pmm_print_status(void);
 uint64_t pmm_hhdm_offset(void);

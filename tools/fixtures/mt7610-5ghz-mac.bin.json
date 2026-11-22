@@ -1,0 +1,15 @@
+{
+  "scope": "Offline fixed 5GHz MAC band words only; zero-before prerequisite not natively accepted",
+  "layout": "two little-endian uint32 address/value pairs in Linux source order",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c",
+      "sha256": "bd3d8a5425e4d0738d077728d8ea62687a7914ae26b36e69199bc34a4effc745"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h",
+      "sha256": "41fb5b443e35e415868880883058d972292606ff0dda3a53dee973f410a9db38"
+    }
+  ],
+  "sha256": "6f69d27cf9b416b88a9d13a0a4f67369d0385b00e0c444e04e570145031653ec"
+}

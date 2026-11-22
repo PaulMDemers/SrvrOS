@@ -19,6 +19,7 @@ static void release_callback(void *context,unsigned kind) {
     if(release_kind!=kind)return;
     release_kind=0;
     assert(!net_device_retire(&release_identity)); /* This callback still owns it. */
+    assert(!net_device_selected_is(&release_identity));
     uint8_t frame[64]={7};struct net_device_link state;
     assert(!net_device_send(frame,64) && !net_device_poll(1,false) && !net_device_link(&state));
     assert(!net_device_rx_wake_ready());
@@ -56,7 +57,7 @@ static void test_release(void) {
         char *name=malloc(32);assert(name);strcpy(name,"retirable");
         release_identity=(struct net_device_ops){.name=name,.context=context,.mac={2,1,2,3,4,5},
             .send=release_send,.poll=release_poll,.link=release_link,.rx_wake_ready=release_wake};
-        assert(net_device_register(&release_identity) && net_device_select());
+        assert(net_device_register(&release_identity) && net_device_select());assert(net_device_selected_is(&release_identity));
         memset(name,'x',9);assert(!strcmp(net_device_name(),"retirable"));
         struct net_device_ops unknown=release_identity;unknown.context=&kind;
         assert(!net_device_retire(&unknown));
@@ -77,6 +78,7 @@ static void test_release(void) {
             assert(!strcmp(net_device_name(),"retirable") && net_device_mac()[5]==5);
         }
         assert(release_calls==(kind==6?2u:1u) && !net_device_register(&release_identity));
+        assert(!net_device_selected_is(&release_identity));
     }
     assert(!net_device_retire(NULL));
     test_shared_release();
@@ -87,12 +89,19 @@ int main(void) {
     uint8_t frame[64]={7};struct net_device_link status;
     assert(!net_device_mac() && !net_device_send(frame,64) && !net_device_poll(1,0) && !net_device_link(&status));
     struct net_device_ops usb={.name="usb-model",.context=(void *)1,.mac={2,1,2,3,4,5},.priority=50,.send=send,.poll=poll,.link=link};
+    assert(!net_device_selected_is(NULL) && !net_device_selected_is(&usb));
     assert(!net_device_register(NULL));struct net_device_ops bad=usb;bad.mac[0]=1;assert(!net_device_register(&bad));
     bad=usb;memset(bad.mac,0,6);assert(!net_device_register(&bad));bad=usb;bad.send=NULL;assert(!net_device_register(&bad));
-    assert(net_device_register(&usb));assert(!net_device_register(&usb));
+    assert(net_device_register(&usb));assert(!net_device_register(&usb));assert(!net_device_selected_is(&usb));
     struct net_device_ops pci=usb;pci.name="pci-model";pci.context=(void *)2;pci.priority=100;pci.mac[5]=6;pci.rx_wake_ready=wake;
     assert(net_device_register(&pci));assert(net_device_select());assert(net_device_select());
     assert(!strcmp(net_device_name(),"pci-model") && net_device_mac()[5]==6);
+    assert(net_device_selected_is(&pci) && !net_device_selected_is(&usb));
+    struct net_device_ops same_key=pci;same_key.name="renamed";same_key.mac[5]=99;
+    assert(net_device_selected_is(&same_key));
+    same_key.context=&same_key;assert(!net_device_selected_is(&same_key));
+    same_key=pci;same_key.send=NULL;assert(!net_device_selected_is(&same_key));
+    assert(!sends && !polls);
     assert(!net_device_register(&usb));
     assert(!net_device_rx_wake_ready());wake_ready=true;assert(net_device_rx_wake_ready());wake_ready=false;assert(!net_device_rx_wake_ready());
     struct srv_net_adapter_info inventory[SRV_NET_ADAPTER_MAX];

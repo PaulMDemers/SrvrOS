@@ -32,7 +32,11 @@ void sbs_sample_decode(struct sbs_snapshot *s) {
     s->design_capacity=(uint64_t)s->raw[7]*factor;
     s->valid|=SBS_VALID_CAPACITY;
 }
-static int fail(struct sbs_sampler *s,enum sbs_error why,bool uncertain) {
+static int fail(struct sbs_sampler *s,enum sbs_error why,bool uncertain,uint64_t now,uint64_t previous,bool time_valid) {
+    if(!s->failure.valid)s->failure=(struct sbs_failure){.valid=true,.time_valid=time_valid,
+        .at_us=now,.previous_poll_us=previous,.max_poll_gap_us=s->max_poll_gap_us,
+        .started_us=s->staging.started_us,.reason=why,.polls=s->polls,.index=s->index,
+        .active=s->active,.waiting=s->waiting,.current=s->current};
     s->active=false;s->current=false;s->error=why;
     if(uncertain && s->waiting) { ec_transport_cancel(s->ec);s->ec->poisoned=true; }
     s->waiting=false;return -1;
@@ -40,29 +44,32 @@ static int fail(struct sbs_sampler *s,enum sbs_error why,bool uncertain) {
 bool sbs_sample_begin(struct sbs_sampler *s,struct ec_transport *ec,uint8_t base,uint64_t now) {
     if(!s||!ec||s->active||ec->poisoned||base>250||(ec->phase!=EC_IDLE && ec->phase!=EC_DONE)) return false;
     s->staging=(struct sbs_snapshot){.started_us=now};s->transaction=(struct ec_smbus){0};
+    s->max_poll_gap_us=0;s->failure=(struct sbs_failure){0};
     s->ec=ec;s->base=base;s->last_us=now;s->polls=0;s->index=0;s->active=true;s->waiting=false;s->error=SBS_OK;return true;
 }
 int sbs_sample_poll(struct sbs_sampler *s,uint64_t now) {
     if(!s||!s->ec) return -1;
     if(!s->active) return s->error==SBS_OK&&s->current?1:-1;
-    if(now<s->last_us) return fail(s,SBS_CLOCK,true);
+    uint64_t previous=s->last_us;
+    if(now>=previous && now-previous>s->max_poll_gap_us)s->max_poll_gap_us=now-previous;
+    if(now<s->last_us) return fail(s,SBS_CLOCK,true,now,previous,true);
     s->last_us=now;
-    if(now-s->staging.started_us>=20000000) return fail(s,SBS_DEADLINE,true);
-    if(++s->polls>100000) return fail(s,SBS_POLL_LIMIT,true);
+    if(now-s->staging.started_us>=20000000) return fail(s,SBS_DEADLINE,true,now,previous,true);
+    if(++s->polls>100000) return fail(s,SBS_POLL_LIMIT,true,now,previous,true);
     if(!s->waiting) {
-        if(!ec_smbus_read_word(&s->transaction,s->ec,s->base,0x0b,commands[s->index],now)) return fail(s,SBS_TRANSPORT,false);
+        if(!ec_smbus_read_word(&s->transaction,s->ec,s->base,0x0b,commands[s->index],now)) return fail(s,SBS_TRANSPORT,false,now,previous,true);
         s->waiting=true;return 0;
     }
     int result=ec_smbus_poll(&s->transaction,now);
-    if(result<0) return fail(s,SBS_TRANSPORT,true);
+    if(result<0) return fail(s,SBS_TRANSPORT,true,now,previous,true);
     if(!result) return 0;
     s->staging.raw[s->index++]=s->transaction.result;s->waiting=false;
     if(s->index<SBS_WORD_COUNT) return 0;
-    if(((s->staging.raw[0]^s->staging.raw[12])&0x8000) || s->staging.raw[1]!=s->staging.raw[13]) return fail(s,SBS_CHANGED_MODE,false);
+    if(((s->staging.raw[0]^s->staging.raw[12])&0x8000) || s->staging.raw[1]!=s->staging.raw[13]) return fail(s,SBS_CHANGED_MODE,false,now,previous,true);
     s->staging.completed_us=now;s->staging.generation=s->sample.generation+1;
     sbs_sample_decode(&s->staging);s->sample=s->staging;s->current=true;s->active=false;return 1;
 }
-void sbs_sample_cancel(struct sbs_sampler *s) { if(s&&s->active) (void)fail(s,SBS_CANCELED,true); }
+void sbs_sample_cancel(struct sbs_sampler *s) { if(s&&s->active) (void)fail(s,SBS_CANCELED,true,s->last_us,s->last_us,false); }
 bool sbs_sample_fresh(const struct sbs_sampler *s,uint64_t now,uint64_t age) {
     return s&&s->current&&now>=s->sample.completed_us&&now-s->sample.completed_us<=age;
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test the real process futex code with deterministic scheduler/IRQ interleavings.
 
-Extract verbatim declarations and functions; replace only privileged STI with a
-modeled interrupt-enable boundary. No production function body is reimplemented.
+Extract verbatim declarations and functions; model only the privileged STI
+macro boundary. No production function body is reimplemented or rewritten.
 """
 import argparse
 import hashlib
@@ -28,14 +28,16 @@ def main():
     declaration = text[text.index('struct process_futex {'):text.index('\nstruct process_exit_record {')]
     start = text.index('static struct process_futex *process_futex_find(')
     body = text[start:text.index('\nvoid process_mark_ready(', start)]
-    instruction = '__asm__ volatile ("sti" : : : "memory");'
+    instruction = 'PROCESS_ARCH_STI();'
     assert body.count(instruction) == 1
-    body = body.replace(instruction, 'host_enable_interrupts();')
+    assert text.count('#define PROCESS_ARCH_STI() __asm__ volatile ("sti" : : : "memory")') == 1
+    assert text.count('#define PROCESS_ARCH_STI() __builtin_trap()') == 1
+    boundary = '#define PROCESS_ARCH_STI() host_enable_interrupts()\n'
     helpers = ''
     for begin, end in [('static void process_unmap_mapping_at(', 'static bool process_unmap_tracked_page('),
                        ('static bool mmap_apply_protection(', '/* Failed mmap allocations')]:
         helpers += text[text.index(begin):text.index(end)]
-    (out / 'futex-under-test.h').write_text(declaration + '\nstatic struct process_futex futexes[PROCESS_MAX_FUTEXES];\n' + body + helpers)
+    (out / 'futex-under-test.h').write_text(declaration + '\nstatic struct process_futex futexes[PROCESS_MAX_FUTEXES];\n' + boundary + body + helpers + '\n#undef PROCESS_ARCH_STI\n')
     fixture = ROOT / 'tools/test_futex_contracts.c'
     executable = out / 'futex-contracts'
     command = shlex.split(os.environ.get('CC', 'cc')) + [
@@ -45,7 +47,7 @@ def main():
     result = subprocess.run([str(executable)], capture_output=True, text=True, timeout=15)
     print(result.stdout, end=''); print(result.stderr, end='')
     record = {'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-              'platform': platform.platform(), 'compile_command': command, 'exit': result.returncode,
+              'platform': platform.platform(), 'extracted_function_sha256': hashlib.sha256(body.encode()).hexdigest(), 'compile_command': command, 'exit': result.returncode,
               'stdout': result.stdout, 'stderr': result.stderr,
               'sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                          for p in (source, fixture, Path(__file__))}}

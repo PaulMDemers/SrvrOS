@@ -896,6 +896,14 @@ log flush and USB unmount precede automatic return to Ubuntu. Mounted ownership
 faults still halt; photograph those rather than call them successful returns.
 This exercises ordinary filesystem operations, not a claim of Text UI automation.
 
+Before that positive VM rehearsal, explicitly build the synthetic Air6,1
+kernel with `tools/host-env.sh make acpi-air61-battery-vm-kernel`, as well as
+the native `acpi-air61-battery-kernel` and matched userspace. The positive
+harness uses `build/acpi-air61-battery/vm.elf`; rebuilding only the native
+kernel leaves that separate file stale and can cause desktop protocol mismatch.
+Record the chosen `--accel tcg` or `--accel kvm` and all failed runs; a passing
+hardware-assisted run does not accept a failed software-emulation timing result.
+
 Validation uses `tools/host-env.sh python3 tools/audio_io_stress_smoke.py` for a
 fully automatic sixty-second Q35 run with observed non-silent audio and USB-write
 overlap, and `--stage RELEASE` for exact GRUB→Limine native-profile refusal and
@@ -919,3 +927,26 @@ Lifecycle coverage must span at least duration minus twenty seconds, with at
 least six completed cycles and no app errors. A clean PCM receipt alone is not a
 pass. No manual opening, saving or closing is needed. The worker's original disk
 pressure, byte comparison, flush/sync and PCM overlap checks remain unchanged.
+
+### Retained render and capture attribution
+
+The audio/disk/app diagnostic also retains four version1 companion records for
+the same worst-loop sequence: `desktop-loop-render`, `desktop-loop-render-sched`,
+`desktop-loop-capture` and `desktop-loop-capture-sched`. Render timestamps split
+stack preparation, presentation, fence and bookkeeping. Measured composition/
+upload callbacks retain summed wall time, rectangle counts and pixel areas;
+their sum must fit inside presentation. Capture transfer is measured separately
+in LOOP_POST, including before/after capture ownership scalars. Scheduler traces
+cover the enclosed render and capture bodies; all diagnostic overhead still
+counts in the unchanged outer loop. No per-frame record stream is added.
+
+Current plus worst state is fixed-size and copied atomically to the existing
+periodic logger; final companions are emitted with the final worst-loop proof.
+`tools/render_timing.py` checks exact fields, clocks, stage containment, callback
+accounting, same-sequence/final binding, duplicate agreement and scheduler state
+conservation. Old loop proofs remain readable, but cannot satisfy the new
+attribution requirement. The loaded VM gate validates companions directly from
+saved atomic snapshots and retains `render-attribution.json`. Missing, changed
+or invalid attribution is not repaired from partial UART records. Diagnostic
+collection does not accept a loop exceeding500ms or an app exceeding10s, and
+does not change renderer algorithms, policy, source/ownership or storage checks.

@@ -491,6 +491,12 @@ logs are checkpointed about every ten seconds into alternating `session-a.log`
 and `session-b.log`; `exit.log` is saved before the final flush/unmount. Each file
 contains at most the latest 64 KiB, with a timestamp and byte counter in its
 snapshot marker. This is bounded diagnostic history, not a complete transcript.
+The explicit Wi-Fi firmware capture alone opts into a 128KiB startup snapshot.
+It refuses activation if the original 64KiB ring already discarded bytes, and
+refuses a save if the extended ring overflowed. Ordinary desktop and battery
+snapshot limits remain 64KiB. Host collection accepts files up to 128KiB, with
+the existing aggregate 64MiB collection ceiling; collection size is not proof
+of successful hardware completion.
 Writes are read back and flushed through the existing storage service gate.
 A failed save is visible and stops periodic retries; the previous checkpoint
 remains available. A sudden reset can lose recent messages and these writes do
@@ -708,6 +714,16 @@ must update idle admission or supply an earlier deadline rather than assuming a
 10 ms loop. VM functional input checks are not physical latency acceptance.
 
 
+Explicit USB Wi-Fi firmware prerequisite profile v81 uses512KiB complete-prefix
+capture; ordinary desktop logging stays64KiB and older firmware profiles keep
+their128/256KiB selection. The larger capture still refuses an already-lost
+prefix and checks byte-preserving save/collection. This opt-in diagnostic does
+not enable Wi-Fi traffic or ordinary desktop startup probing; see
+[USB Wi-Fi bring-up](usb-wifi.md). The explicit v86/v87 channel/VCO
+diagnostics select1MiB to preserve the full earlier proof; v81-v85 remain512KiB,
+and ordinary desktop capacity remains unchanged. Captures refuse lost prefixes.
+
+
 ### Compositor lifecycle worker
 
 Application launch and compositor pixel-cache mapping/release run on one
@@ -770,6 +786,14 @@ success and loss of its reader does not cancel an accepted file write. The
 parent retains phase durations, progress age and immutable byte-transfer counts.
 All original temporary ownership, destination checks, flush and readback remain.
 
+The worker coalesces buffered file writes into ordinary checked requests of at
+most 64 KiB, reducing repeated namespace-admission waits. This changes caller
+batching only: kernel I/O eligibility, file/capture size limits and responsiveness
+bounds are unchanged. Short writes still advance only by their returned count.
+File fsync/close, both global syncs, both complete byte-for-byte readbacks and
+identity-checked no-replacement rename remain mandatory. A failed post-rename
+sync reports failure and retains the published destination for inspection.
+
 Stress-only diagnostic output uses a separate joined worker and fixed snapshot
 slot, so blocked app launch does not itself block status emission. Every ten
 seconds and at exit, `desktop-operations`, `desktop-capture-state` and
@@ -828,3 +852,32 @@ control title-bar, menu-bar and dock glass. Changes apply immediately and Settin
 reports whether they were saved or apply only to this session. The larger-text
 option continues to affect supported document views. See the
 [theme engine](desktop-theme.md) and [display presentation plan](display-presentation.md).
+
+### Opt-in screenshot buffered-write timing
+
+The separate `--capture-write-timing` automatic audio/disk stress stages explicitly
+set `srvros.capture-write-timing=on`; legacy v74/v80 configurations are preserved;
+ordinary desktop and the short listening profile omit it. The CPU0 kernel keeps
+at most eight fixed records for the exact active executable `/fat/bin/shotworker`.
+It grants no eligibility, changes no limits, and allocates/logs nothing in the
+observed paths. Records survive runtime retirement; overflow, incomplete calls,
+invalid clocks and inconsistent counters remain visible failures of evidence.
+
+For raw `SYS_WRITE` requests on descriptors 3 and above, sites 0–5 are complete
+call wall time, initial namespace admission, syscall handler, common-return
+handoff, buffer reservation and byte copy. Reservation and copy nest inside the
+handler; do not add them to handler time. Call wall time contains gate, handler
+and handoff plus observation/bookkeeping overhead. These are wall intervals,
+not CPU time. Capacity-change counts qualify reservation cost; unchanged capacity
+does not imply a zero-cost check. Userspace POSIX wrapper work, progress frames
+and scheduling outside the raw call are not included in these spans.
+
+The existing workspace logger copies records before filesystem I/O, then emits
+`capture-write-snapshot`, `capture-write-record` and `capture-write-sample` rows.
+`version=1`, `snapshot_us`, PID and `final` pair a complete snapshot. Acceptance
+requires all expected retired worker records, equal attempt/completion counts,
+exact BMP byte totals, all six phase counters, no overflow/invalid/failure and
+consistent nested totals. Missing or partial rows do not become a pass. Existing
+snapshot pixels, 64KiB caller batching, exclusive temporary ownership, both full
+readbacks, fsync/sync, guarded rename and all responsiveness/endurance bounds
+remain unchanged. This diagnostic adds no userspace syscall/capture-frame ABI.

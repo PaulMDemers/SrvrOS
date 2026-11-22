@@ -8,3 +8,5 @@ void test_process_teardown_fault(void) {
     (void)dispatch_user_fault(&frame);
     assert(0 && "faulting continuation returned");
 }
+
+void syscall_gate_trace(const struct isr_frame *frame){(void)frame;}

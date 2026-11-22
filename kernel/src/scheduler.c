@@ -1,4 +1,5 @@
 #include <srvros/syscall_numbers.h>
+#include "capture_gate_timing_state.h"
 #include <srvros/ap_probe.h>
 #include <srvros/console.h>
 #include <srvros/serial.h>
@@ -8,6 +9,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/commit_wait_timing.h>
 #include <srvros/idle_audit.h>
 #include <srvros/scheduler_abi.h>
 #include <srvros/timer.h>
@@ -48,9 +50,11 @@ struct thread {
     uint64_t identity;
     scheduler_thread_fn entry;
     scheduler_wait_condition_fn io_eligible;
+    bool process_entry_pending;
     void *arg;
     void *user_context;
     uint64_t io_syscall;
+    struct launch_gate_context launch_context;
     bool io_user_safe;
     bool io_gate_waiting;
     void *user_thread_context;
@@ -111,7 +115,7 @@ static uint64_t next_identity=2;
 static bool initialized;
 static bool switching;
 static bool io_services_enabled;
-static uint64_t io_owner, io_depth, io_service_at;
+static uint64_t io_owner, io_depth, io_service_at, io_scope_started;
 static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
@@ -152,6 +156,100 @@ static void io_gate_record(struct io_gate_sample v) {
         if(v.end-v.start<=io_gates.rows[slot].end-io_gates.rows[slot].start)return;
     }
     io_gates.rows[slot]=v;
+}
+/* At most eight concurrently observed waits, all explicitly enabled capture
+ * workers. CPU0 IRQ exclusion protects metadata; hooks never schedule or grant
+ * eligibility. Fixed slots retain no stack/user pointers. */
+#define CAPTURE_GATE_ACTIVE 8u
+static struct {
+    struct capture_gate_summary *summary;
+    struct capture_gate_wait wait;
+    struct capture_gate_owner owner;
+    uint64_t identity,index,phase_at;
+    unsigned phase;
+} capture_gates[CAPTURE_GATE_ACTIVE];
+static unsigned capture_gate_active;
+static void capture_gate_owner_begin(unsigned i,uint64_t now) {
+    const struct thread *owner=thread_at(io_owner);
+    capture_gates[i].owner=(struct capture_gate_owner){.thread=owner->identity,
+        .pid=process_pid(owner->user_context),.syscall=owner->io_syscall,
+        .scope_start_us=io_scope_started,.overlap_start_us=now};
+    struct capture_gate_counts *c=&capture_gates[i].wait.counts;
+    capture_gate_add(c,&c->scopes,1);
+}
+static void capture_gate_owner_end(unsigned i,uint64_t now) {
+    struct capture_gate_owner *o=&capture_gates[i].owner;
+    struct capture_gate_wait *w=&capture_gates[i].wait;
+    if(!o->thread || !o->scope_start_us || o->scope_start_us>o->overlap_start_us || now<o->overlap_start_us) {
+        w->counts.invalid=1;return;
+    }
+    o->scope_end_us=o->overlap_end_us=now;
+    uint64_t us=now-o->overlap_start_us;
+    capture_gate_add(&w->counts,&w->counts.owned_us,us);
+    if(!w->owner.thread || us>w->owner.overlap_end_us-w->owner.overlap_start_us) {
+        /* Sample the exact selected owner while its content observer is still
+         * live, before the backend returns to content retirement. This fixed
+         * copy cannot allocate, log, yield or affect admission. */
+        if(o->syscall==SYS_SYNC)
+            sync_timing_gate_snapshot(o->pid,o->scope_start_us,now,&o->sync);
+        w->owner=*o;
+    }
+    *o=(struct capture_gate_owner){0};
+}
+static void capture_gate_owner_edge(bool begin) {
+    if(!capture_gate_active)return;
+    uint64_t now=timer_monotonic_us();
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(capture_gates[i].summary) {
+        if(begin)capture_gate_owner_begin(i,now);else capture_gate_owner_end(i,now);
+    }
+}
+static void capture_gate_state(struct thread *t,unsigned phase) {
+    if(!capture_gate_active)return;
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(capture_gates[i].summary && capture_gates[i].identity==t->identity) {
+        uint64_t now=timer_monotonic_us();
+        struct capture_gate_counts *c=&capture_gates[i].wait.counts;
+        capture_gate_phase(c,capture_gates[i].phase,capture_gates[i].phase_at,now);
+        if(phase==1) {if(capture_gates[i].phase!=0)c->invalid=1;capture_gate_add(c,&c->blocks,1);}
+        if(phase==0 && capture_gates[i].phase!=0) {
+            if(capture_gates[i].phase!=2)c->invalid=1;
+            capture_gate_add(c,&c->dispatches,1);
+        }
+        capture_gates[i].phase=phase;capture_gates[i].phase_at=now;
+    }
+}
+static void capture_gate_exclusion(struct thread *t) {
+    if(!capture_gate_active)return;
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(capture_gates[i].summary && capture_gates[i].identity==t->identity) {
+        struct capture_gate_counts *c=&capture_gates[i].wait.counts;capture_gate_add(c,&c->exclusions,1);
+    }
+}
+static unsigned capture_gate_start(struct capture_gate_summary *summary) {
+    if(!summary)return CAPTURE_GATE_ACTIVE;
+    if(!initialized || switching || !timer_reference_ready() || current_thread>=thread_capacity || summary->active) {
+        summary->total.invalid=1;return CAPTURE_GATE_ACTIVE;
+    }
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(!capture_gates[i].summary) {
+        uint64_t now=timer_monotonic_us();
+        capture_gates[i]=(__typeof__(capture_gates[i])){.summary=summary,
+            .identity=thread_at(current_thread)->identity,.index=current_thread,
+            .phase_at=now,.wait={.start_us=now}};
+        summary->active=1;capture_gate_active++;
+        if(io_depth)capture_gate_owner_begin(i,now);
+        return i;
+    }
+    summary->total.invalid=1;return CAPTURE_GATE_ACTIVE;
+}
+static void capture_gate_finish(unsigned i) {
+    if(i==CAPTURE_GATE_ACTIVE)return;
+    uint64_t now=timer_monotonic_us();
+    struct capture_gate_wait *w=&capture_gates[i].wait;
+    capture_gate_phase(&w->counts,capture_gates[i].phase,capture_gates[i].phase_at,now);
+    w->end_us=now;
+    if(io_depth || capture_gates[i].owner.thread || capture_gates[i].identity!=thread_at(current_thread)->identity || capture_gates[i].phase!=0)
+        w->counts.invalid=1;
+    struct capture_gate_summary *s=capture_gates[i].summary;
+    capture_gate_complete(s,w);s->active=0;
+    capture_gates[i]=(__typeof__(capture_gates[i])){0};capture_gate_active--;
 }
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
@@ -195,6 +293,8 @@ static void irq_restore(uint64_t flags) {
 #endif
 }
 
+#include "launch_gate_trace.inc"
+
 bool scheduler_io_observe_reset(void) {
     uint64_t flags=irq_save();
     if(!initialized || switching || io_depth || !timer_reference_ready()) {
@@ -202,6 +302,7 @@ bool scheduler_io_observe_reset(void) {
     }
     io_observed=(__typeof__(io_observed)){.enabled=true};
     io_gates=(__typeof__(io_gates)){0};
+    launch_trace_reset();
     irq_restore(flags);return true;
 }
 static void io_observe_begin(void) {
@@ -216,11 +317,13 @@ static void io_observe_begin(void) {
         unsigned char c=(unsigned char)name[i];v->name[i]=c>32 && c<127?(char)c:'_';
     }
     v->name[i]=0;
+    sync_commit_owner_begin(v->seq,v->identity,v->pid,t->io_syscall,v->start,v->name);
 }
 static void io_observe_end(void) {
     if(!io_observed.enabled || !io_observed.active.seq)return;
     struct io_owner_sample *v=&io_observed.active;
     v->end=timer_monotonic_us();
+    sync_commit_owner_end(v->seq,v->identity,v->start,v->end);
     if(v->end<v->start)io_observed.invalid++;
     else if(v->end-v->start>=IO_OBSERVE_MIN_US) {
         io_observed.rows[io_observed.long_scopes%IO_OBSERVE_ROWS]=*v;
@@ -263,6 +366,7 @@ void scheduler_print_io_owners(void) {
 
 /* Opt-in observations only: never influence eligibility, wakeups or selection. */
 static void trace_ready(struct thread *t,uint64_t reason) {
+    capture_gate_state(t,2);
     if(!t->trace.active)return;
     uint64_t now=timer_monotonic_us();
     if(now<t->trace.since) {t->trace.out.invalid++;return;}
@@ -393,6 +497,7 @@ static bool io_thread_allowed(uint64_t index) {
      * writer can reacquire the gate before their first/last kernel turn. */
     if(!allowed && thread->state==THREAD_READY) {
         io_gate_request(thread);
+        capture_gate_exclusion(thread);
         if(io_observed.enabled && io_observed.active.seq)io_observed.active.exclusions++;
         if(thread->trace.active) {thread->trace.out.exclusions++;thread->trace.exclusions++;}
     }
@@ -444,6 +549,31 @@ bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queu
     return true;
 }
 
+/* Only for IF0, callback-free private child construction or checked final
+ * retirement. Other same-image continuations must be audited safe or parked
+ * inside the ordinary I/O admission wait, before resuming mutable work. The
+ * exact park marker is cleared on dispatch. None may run during the operation. This never grants a service window. */
+uint64_t scheduler_io_process_atomic_reason(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       current_thread>=thread_capacity)return LAUNCH_ATOMIC_STATE;
+    if(!io_depth || io_owner>=thread_capacity || io_owner==current_thread)return LAUNCH_ATOMIC_NO_FOREIGN;
+    if(io_private_image==process || thread_at(io_owner)->user_context==process)return LAUNCH_ATOMIC_SAME_IMAGE;
+    struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || !caller->io_user_safe)return LAUNCH_ATOMIC_CALLER;
+    if(vmm_current_address_space()!=thread_address_space(caller))return LAUNCH_ATOMIC_ROOT;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        struct thread *t=thread_at(i);
+        if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
+        bool parked=t->memory_park_queue==&io_waiters;
+        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || (!t->io_user_safe && !parked))return LAUNCH_ATOMIC_SIBLING;
+        if(thread_address_space(t)!=thread_address_space(caller))return LAUNCH_ATOMIC_SIBLING_ROOT;
+    }
+    return LAUNCH_ATOMIC_OK;
+}
+bool scheduler_io_process_atomic(void *process) {
+    return scheduler_io_process_atomic_reason(process)==LAUNCH_ATOMIC_OK;
+}
+
 void scheduler_io_request_turn(void) {
     uint64_t flags=irq_save();
     if(initialized && io_services_enabled && !switching && scheduler_io_busy() &&
@@ -467,7 +597,8 @@ bool scheduler_io_begin(void) {
     if (io_depth != 0 && io_owner != current_thread) return false;
     if (io_depth++ == 0) {
         io_owner = current_thread;io_private_image=NULL;
-        io_service_at=timer_monotonic_us();latency_owner_begin();
+        io_service_at=timer_monotonic_us();io_scope_started=io_service_at;latency_owner_begin();
+        capture_gate_owner_edge(true);
         io_observe_begin();
     }
     return true;
@@ -488,6 +619,7 @@ bool scheduler_io_begin_process_image(void *image) {
 
 void scheduler_io_end(void) {
     if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
+        capture_gate_owner_edge(false);
         io_observe_end();
         io_private_image=NULL;latency_owner_end(); scheduler_wake_all(&io_waiters);
     }
@@ -495,7 +627,10 @@ void scheduler_io_end(void) {
 
 void scheduler_io_syscall(uint64_t number) {
     uint64_t flags=irq_save();
-    if(initialized)thread_at(current_thread)->io_syscall=number;
+    if(initialized) {
+        thread_at(current_thread)->io_syscall=number;
+        if(launch_trace_configured)thread_at(current_thread)->launch_context=(struct launch_gate_context){0};
+    }
     irq_restore(flags);
 }
 void scheduler_io_set_user_safe(bool safe) {
@@ -508,6 +643,32 @@ void scheduler_io_set_user_safe(bool safe) {
 /* Test fixture for read-only RFLAGS observation; irq_save/restore unchanged. */
 static uint64_t scheduler_test_rflags;
 #endif
+/* This is the copied fixed-metadata classifier for one IRQ-masked raw write
+ * entry, not permission to execute a mutable or yielding continuation. IDT has
+ * not yet restored io_user_safe; the actual append helper rechecks the existing
+ * stronger mutation predicate after entry admission. */
+bool scheduler_io_entry_process_independent(void *process) {
+    uint64_t flags;
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    flags=scheduler_test_rflags;
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if((flags & (1ull<<9)) || !initialized || !io_services_enabled || switching || !process ||
+       thread_capacity>4096 || current_thread>=thread_capacity || (io_depth && io_owner>=thread_capacity))return false;
+    const struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || caller->user_thread_context ||
+       caller->account_user || caller->io_syscall!=SYS_WRITE ||
+       vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(io_depth && (io_owner==current_thread || io_private_image==process ||
+                   thread_at(io_owner)->user_context==process))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        const struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==process)return false;
+    }
+    return true;
+}
+
 static bool valid_user_worker_stack_extent(uint64_t physical,uint64_t base);
 static uint64_t worker_stack_view(uint64_t physical,const void *backing);
 
@@ -586,11 +747,14 @@ static bool io_available(void *arg) {
 /* Gate before inspecting/mutating filesystem, descriptor or process state.
  * Waiting preserves the syscall's arguments and does not turn contention into
  * an I/O error. Nested owner operations retain their existing scope. */
-void scheduler_io_wait(void) {
+void scheduler_io_wait_observed(struct capture_gate_summary *summary) {
     uint64_t flags=irq_save();
-    struct io_gate_sample sample={0};bool observe=io_observed.enabled && !io_available(NULL);
+    unsigned observed=capture_gate_start(summary);
+    struct io_gate_sample sample={0};struct launch_gate_context context={0};
+    bool observe=io_observed.enabled && !io_available(NULL);
     if(observe) {
         const struct thread *caller=thread_at(current_thread),*owner=thread_at(io_owner);
+        context=caller->launch_context;
         sample=(struct io_gate_sample){.pid=process_pid(caller->user_context),.identity=caller->identity,
             .syscall=caller->io_syscall,.owner_pid=process_pid(owner->user_context),
             .owner_identity=owner->identity,.owner_seq=io_observed.active.seq,.start=timer_monotonic_us()};
@@ -601,8 +765,33 @@ void scheduler_io_wait(void) {
         if (!scheduler_wait(&io_waiters,io_available,NULL)) scheduler_yield();
     }
     io_gate_leave(thread_at(current_thread));
-    if(observe){sample.end=timer_monotonic_us();io_gate_record(sample);}
+    if(observe){sample.end=timer_monotonic_us();io_gate_record(sample);launch_trace_gate(sample,context);}
+    capture_gate_finish(observed);
     irq_restore(flags);
+}
+
+void scheduler_io_wait(void) { scheduler_io_wait_observed(NULL); }
+
+bool scheduler_io_private_append_wait(void *process,scheduler_wait_condition_fn ready,void *arg) {
+    uint64_t flags=irq_save();
+    /* Retain the stronger mutation proof, including CR3, sole-main and foreign
+     * owner/image exclusion. The caller revalidates its lease after every wake. */
+    if(!ready || !scheduler_io_process_independent(process) ||
+       thread_at(current_thread)->io_syscall!=SYS_WRITE || !scheduler_io_busy()) {
+        irq_restore(flags);return false;
+    }
+    /* Also retain the ordinary quiescent-turn reservation. If no new suffix
+     * opens, a recurring foreign writer must not starve gated fallback. */
+    io_gate_request(thread_at(current_thread));
+    if(!scheduler_wait(&io_waiters,ready,arg))scheduler_yield();
+    io_gate_leave(thread_at(current_thread));
+    irq_restore(flags);return true;
+}
+void scheduler_io_private_append_progress(void) {
+    uint64_t flags=irq_save();
+    /* This is a notification, not an eligibility grant. Ordinary queued
+     * continuations remain excluded until the real owner fully unwinds. */
+    scheduler_wake_all(&io_waiters);irq_restore(flags);
 }
 
 void scheduler_io_handoff(void) {
@@ -745,7 +934,7 @@ static uint64_t worker_stack_view(uint64_t physical,const void *backing) {
 }
 
 static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
-    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base,uint64_t generation) {
+    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base,uint64_t generation,uint64_t prepared) {
     if (!initialized || entry == NULL) {
         return false;
     }
@@ -753,6 +942,17 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
     uint64_t flags=irq_save();
     if(current_thread>=thread_capacity || switching) {irq_restore(flags);return false;}
     struct thread *parent=thread_at(current_thread);
+    struct process_user_binding image={0};
+    if(prepared && (!scheduler_io_process_atomic(parent->user_context) || !arg ||
+       !process_admit_prepared_child(parent->user_context,arg,generation,prepared,&image) ||
+       !image.new_worker_allowed || !image.kernel_stack_top || !vmm_prepare_user_kernel_mappings(prepared))) {irq_restore(flags);return false;}
+    if(prepared) {
+        if(io_private_image==arg || thread_at(io_owner)->user_context==arg) {irq_restore(flags);return false;}
+        for(uint64_t n=0;n<thread_capacity;n++) {
+            struct thread *t=thread_at(n);
+            if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==arg) {irq_restore(flags);return false;}
+        }
+    }
     if(user) {
         struct process_user_binding binding,parent_binding;
         if(!arg || !user_fpu || !generation || parent->state!=THREAD_RUNNING || !parent->identity ||
@@ -826,6 +1026,12 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         slot->user_thread_context=arg;slot->user_fpu=user_fpu;
         slot->user_fs_base=user_fs_base;slot->io_user_safe=true;
     }
+    if(prepared) {
+        slot->user_context=arg;slot->address_space=prepared;
+        slot->image_generation=generation;slot->user_fpu=image.user_fpu;
+        slot->user_fs_base=image.fs_base;slot->kernel_stack_top=image.kernel_stack_top;
+        slot->io_user_safe=true;slot->process_entry_pending=true;
+    }
     if(grow) {
         thread_chunks[thread_capacity/SCHEDULER_INITIAL_THREADS]=chunk;
         thread_capacity+=SCHEDULER_INITIAL_THREADS;
@@ -836,17 +1042,22 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
-    return spawn_thread(name, entry, arg, NULL,false,NULL,0,0);
+    return spawn_thread(name, entry, arg, NULL,false,NULL,0,0,false);
 }
 
 bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base,uint64_t generation) {
-    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base,generation);
+    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base,generation,false);
 }
 
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
     void *arg, scheduler_wait_condition_fn eligible) {
     if (eligible == NULL) return false;
-    return spawn_thread(name, entry, arg, eligible,false,NULL,0,0);
+    return spawn_thread(name, entry, arg, eligible,false,NULL,0,0,false);
+}
+
+bool scheduler_spawn_prepared_process(const char *name,scheduler_thread_fn entry,void *process,uint64_t root,uint64_t generation) {
+    if(!process || !root || !generation)return false;
+    return spawn_thread(name,entry,process,NULL,false,NULL,0,generation,root);
 }
 
 static uint64_t next_ready_thread(uint64_t old_index) {
@@ -933,6 +1144,7 @@ static void yield_to(uint64_t preferred) {
 
     if (next_index == old_index) {
         thread_at(old_index)->memory_park_queue=NULL;
+        capture_gate_state(thread_at(old_index),0);
         if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
         irq_restore(flags);
         return;
@@ -953,6 +1165,7 @@ static void yield_to(uint64_t preferred) {
         old->state = THREAD_READY;
         io_ready_request(old);
     }
+    capture_gate_state(next,0);
     if(next->trace.active)trace_run(next,timer_monotonic_us());
     next->memory_park_queue=NULL;
     next->state = THREAD_RUNNING;
@@ -1055,6 +1268,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
         thread->trace.state=1;thread->trace.since=timer_monotonic_us();
         thread->trace.deadline=deadline_ticks;thread->trace.out.blocks++;
     }
+    capture_gate_state(thread,1);
     thread->state = THREAD_BLOCKED;
     thread->blocked_queue = queue;
     thread->memory_park_queue = queue;
@@ -1116,7 +1330,7 @@ static void wake_expired_waits(void) {
     }
 }
 
-void scheduler_preempt_tick(void) {
+static void preempt_tick(bool user_return) {
     if (!initialized || switching) {
         return;
     }
@@ -1136,7 +1350,24 @@ void scheduler_preempt_tick(void) {
     }
     preempt_tick_accumulator = 0;
     preemption_count++;
+    /* Cancellation above runs while still unsafe. From this point until the
+     * yield returns the caller performs no dispatch, user copy or teardown.
+     * The ordinary I/O predicate still excludes owner/private-image siblings. */
+    if(user_return)thread_at(current_thread)->io_user_safe=true;
     scheduler_yield();
+    if(user_return)thread_at(current_thread)->io_user_safe=false;
+}
+void scheduler_preempt_tick(void) { preempt_tick(false); }
+void scheduler_preempt_user_return_tick(void) {
+    uint64_t flags=irq_save();
+    if(!initialized || switching || current_thread>=thread_capacity || thread_at(current_thread)->state!=THREAD_RUNNING) {
+        irq_restore(flags);return;
+    }
+    const struct thread *t=thread_at(current_thread);
+    bool safe=!(flags & (1ull<<9)) && t->user_context && !t->io_user_safe && !t->account_user &&
+        vmm_current_address_space()==thread_address_space(t);
+    preempt_tick(safe);
+    irq_restore(flags);
 }
 
 static __attribute__((noreturn)) void invalid_user_binding(void) {
@@ -1145,9 +1376,10 @@ static __attribute__((noreturn)) void invalid_user_binding(void) {
 }
 
 static void bind_user_context(void *process,uint64_t address_space,uint64_t kernel_stack_top,
-    struct fpu_state *explicit_fpu,uint64_t generation,bool require_fpu) {
+    struct fpu_state *explicit_fpu,uint64_t generation,bool require_fpu,bool prepared) {
     uint64_t flags=irq_save();
-    if(!initialized || current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread)) invalid_user_binding();
+    if(!initialized || current_thread>=thread_capacity || switching ||
+       (io_depth && io_owner!=current_thread && !prepared)) invalid_user_binding();
     struct thread *thread=thread_at(current_thread);
     struct process_user_binding binding;
     if(thread->state!=THREAD_RUNNING || !thread->identity || thread->user_thread_context || !process || !generation || !address_space ||
@@ -1158,6 +1390,7 @@ static void bind_user_context(void *process,uint64_t address_space,uint64_t kern
     fpu_invalidate_user_trap(&thread->kernel_fpu);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
+    thread->process_entry_pending=false;
     thread->user_context = process;
     thread->user_thread_context = NULL;
     thread->io_user_safe = false;
@@ -1176,19 +1409,35 @@ static void bind_user_context(void *process,uint64_t address_space,uint64_t kern
 }
 
 void scheduler_set_user_context_fpu(void *process,uint64_t address_space,uint64_t kernel_stack_top,struct fpu_state *fpu,uint64_t generation) {
-    bind_user_context(process,address_space,kernel_stack_top,fpu,generation,true);
+    bind_user_context(process,address_space,kernel_stack_top,fpu,generation,true,false);
 }
 void scheduler_set_user_context(void *process,uint64_t address_space,uint64_t kernel_stack_top,uint64_t generation) {
-    bind_user_context(process,address_space,kernel_stack_top,NULL,generation,false);
+    bind_user_context(process,address_space,kernel_stack_top,NULL,generation,false,false);
 }
 
-void scheduler_clear_user_context(void) {
+bool scheduler_enter_prepared_process(void *process,uint64_t root,uint64_t stack,uint64_t generation) {
+    uint64_t flags=irq_save();
+    if(!initialized || current_thread>=thread_capacity || switching)goto refused;
+    struct thread *t=thread_at(current_thread);struct process_user_binding b;
+    if(!t->process_entry_pending || !t->io_user_safe || t->user_context!=process ||
+       t->user_thread_context || t->address_space!=root || t->kernel_stack_top!=stack ||
+       t->image_generation!=generation || vmm_current_address_space()!=root ||
+       (io_depth && !scheduler_io_process_atomic(process)) ||
+       !process_resolve_user_binding(process,NULL,generation,root,&b) || !b.new_worker_allowed ||
+       b.user_fpu!=t->user_fpu || b.fs_base!=t->user_fs_base || b.kernel_stack_top!=stack)goto refused;
+    bind_user_context(process,root,stack,NULL,generation,false,true);
+    irq_restore(flags);return true;
+refused:
+    irq_restore(flags);return false;
+}
+
+static void clear_user_context(bool atomic) {
     if (!initialized) {
         return;
     }
 
     uint64_t flags=irq_save();
-    if(current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread)) invalid_user_binding();
+    if(current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread && !atomic)) invalid_user_binding();
     struct thread *thread = thread_at(current_thread);
     uint64_t kernel_address_space=vmm_kernel_address_space(), default_stack=gdt_default_kernel_stack_top();
     uint64_t default_view=default_stack;
@@ -1201,6 +1450,7 @@ void scheduler_clear_user_context(void) {
     fpu_invalidate_user_trap(&thread->kernel_fpu);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
+    thread->process_entry_pending=false;
     thread->user_context = NULL;
     thread->io_user_safe = false;
     thread->user_thread_context = NULL;
@@ -1216,6 +1466,13 @@ void scheduler_clear_user_context(void) {
     vmm_switch_address_space(kernel_address_space);
     gdt_set_kernel_stack(default_stack);
     irq_restore(flags);
+}
+
+void scheduler_clear_user_context(void) {clear_user_context(false);}
+bool scheduler_clear_user_context_private(void *process) {
+    uint64_t flags=irq_save();
+    if(!scheduler_io_process_atomic(process)) {irq_restore(flags);return false;}
+    clear_user_context(true);irq_restore(flags);return true;
 }
 
 void *scheduler_current_user_context(void) {

@@ -159,3 +159,106 @@ it is not accepted as an atomic rename guarantee. Test media is disposable.
 The interruption model tests prefixes of requested writes, not physical-sector
 atomicity or controller reordering. Native performance and full endurance
 require their own matching trial.
+
+Consecutive unpublished FAT links in append preparation use at most512-byte
+boundary-contained writes with exact next-cluster values. This applies only to
+new contiguous allocations and the ignored FAT of an existing NoFatChain
+stream, after the unchanged full-prefix proof. Final old-tail attachment remains
+separate, and all original payload/link/publication flushes remain in order.
+Fragmented traversal, alias/alignment/COW fallbacks and quarantine are unchanged.
+The block driver retains its existing sector handling and transfer limits.
+`make test-exfat-link-batch` compares the actual writer with a host-only unbatched
+baseline: identical complete media bytes and ordered logical writes/barriers,
+fewer block calls, preserved neighbours, bounded ranges and partial-failure
+quarantine. `make test-exfat-append` still cuts every reachable write/flush/tear
+boundary and checks committed payload preservation and existing torn-publication
+limitations. Fewer commands do not by themselves establish native latency gains.
+
+
+## Persisted identity restoration
+
+exFAT registers provisional VFS nodes before loading its path-keyed metadata
+sidecar. Restoring records one at a time can turn a valid saved ID into a false
+collision with a different provisional node in that same mount. The mount-only
+`vfs_restore_metadata` batch validates registered targets,unique nonzero desired
+IDs,types and links before changing anything. It swaps provisional IDs inside
+that unpublished subtree,then installs exact saved fields without allocation or
+callbacks during commit. IDs belonging to another live subtree refuse;they are
+not remapped or aliased. Callers retain filesystem/namespace exclusion and an
+immutable batch. Ordinary single-node import semantics remain unchanged.
+
+An existing sidecar that fails parsing,allocation or identity restoration leaves
+ordinary media read-only and preserves its bytes. Fresh media without a sidecar
+and already quarantined dirty media retain their separate policies. Positive
+desktop fixtures use valid distinct persisted IDs;duplicate or wrong-mount
+sidecars are explicit refusal fixtures. Source/host tests alone do not establish
+native metadata preservation;compare a sealed raw baseline after physical runs.
+
+
+Host inspection must use the same virtual mountpoint as persisted path-keyed
+metadata. `check_exfat_allocation.py --mountpoint /work` selects this explicitly
+for the RAM workspace; the generic fixture driver defaults to `/vol`. The option
+is restricted to read-only allocation, writable-admission, headroom and extent
+queries. Invalid/misplaced options and oversized derived paths refuse before
+opening media. It does not remap metadata or change import/identity/quarantine
+rules; all read checks assert zero writes and flushes. A writable-admission
+refusal under a foreign prefix is expected, not permission to replace the sidecar.
+
+An existing metadata sidecar can retain its extent only after full current
+serialization exactly matches uncached media bytes. The bounded16KiB comparison
+checks length, ValidDataLength, every byte and FAT termination for linked extents; it does
+not use a persistent equality hint. Pending temp names and live sidecar clients
+retain the original replacement path. Mismatch uses that path unchanged; a
+failed read or unavailable proof refuses instead of permitting overwrite. A
+verified match flushes owner writes before the unchanged outer clean marker and
+unconditional global barriers. It removes only the unneeded new-temp/data/
+replace transaction; changed metadata retains all original publication writes
+and flushes, and allocation zero-padding is unchanged.
+
+`make test-exfat-sidecar-equality` independently checks exact media bytes,
+remounted attributes, unchanged changed-metadata write/barrier order, live-client
+and pending-temp fallback, uncached read/allocation refusal and every equal-path
+write/flush/cut/tear boundary. The explicit desktop sync diagnostic records
+bounded `exfat-sidecar` counters; retained_bytes counts equal serialized bytes,
+not physical bytes saved. Strict collection requires complete non-overflowing
+counters, no refused proofs/flush errors, and positive equality exercise. The
+Air6,1 trial additionally requires counter growth inside live PCM playback.
+Legacy cost output and other profiles' retention models/limits stay unchanged.
+
+
+Stream fault fixtures target the actual16KiB allocation after a verified media
+write when testing dirty-state allocation failure. Exact sidecar equality can
+skip COW allocations, so a fixed global allocation ordinal may never fire.
+The fixture asserts one hit, its exact size and post-write position, retaining
+all original retry/sync/close/read-only checks. Wrong size, future write threshold
+and unarmed controls must refuse to pass. This corrects test admission without
+changing kernel allocation failure, durability or quarantine policy.
+
+## Retaining live sidecar-equality evidence
+
+Ordinary workspace logs still use two alternating 64 KiB periodic files at the
+original ten-second cadence. When sync diagnostics are enabled, the logger keeps
+two fixed immutable sidecar observations: the first complete equality snapshot
+during playing/draining PCM with a positive playback position, and the latest
+complete snapshot for that same owner/handle with equality growth. Active,
+refused, invalid, failed-flush, inconsistent, in-flight I/O or non-playing samples cannot replace
+those endpoints. A new logger lifetime or observed PCM identity resets retention.
+
+Final logging renders those copied counters and differences with their original
+sample timestamps after verbose diagnostics. It never resamples current counters
+under old clocks, grows the log buffer or skips media equality checks. The strict
+`sidecar_equality_window` validator still requires two distinct completed samples
+inside the actual workload's live PCM interval, positive equality growth and a
+completed post-playback snapshot. PCM-state observations select candidates; only
+the independent workload clocks establish temporal acceptance. Missing coverage
+still fails. Final cumulative counters, old releases and post-playback samples
+cannot supply a missing live endpoint.
+
+
+Air6,1 source `07b4efa7` / release `772f95d189e4dcfc` physically accepts this
+retention in the original native 30-minute stress workload: the final 64 KiB
+log alone contains both completed live endpoints and equality growth of 3,165,
+followed by completed post-playback evidence. Fresh full-file hashes, fsck and
+allocation checks pass. The earlier incomplete run remains incomplete; its
+missing sample is not supplied retroactively. No buffer, cadence, workload,
+retirement or integrity limit changes. See the [native return](machines/macbookair6-1.md#native-network-status-and-sample-retention-return-2026-11-13).

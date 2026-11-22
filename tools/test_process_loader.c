@@ -19,10 +19,10 @@ static struct process *current;
 static bool exec_commit_test;
 static jmp_buf exec_commit;
 /* Exec now allocates privately and performs its own batched initialization. */
-void *kmalloc(size_t size) {assert(size==sizeof(clone));memset(&clone,0xa5,sizeof(clone));return &clone;}
+void *kmalloc(size_t size) {if(size==sizeof(struct process_mapping)*PROCESS_MAX_MAPPINGS)return malloc(size);assert(size==sizeof(clone));memset(&clone,0xa5,sizeof(clone));return &clone;}
 bool scheduler_io_active(void) {return false;}
 void *kcalloc(size_t count,size_t size) {assert(count==1 && size==sizeof(clone));memset(&clone,0,sizeof(clone));return &clone;}
-void kfree(void *p) {assert(p==&clone);}
+void kfree(void *p) {if(p!=&clone)free(p);}
 void scheduler_clear_user_context(void) {assert(exec_commit_test && current && !current->owned_user_scope);longjmp(exec_commit,1);}
 void scheduler_set_user_context(void *p,uint64_t as,uint64_t stack,uint64_t generation) {(void)p;(void)as;(void)stack;(void)generation;assert(0);}
 void usermode_enter(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,uint64_t f) {(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;abort();}
@@ -150,6 +150,10 @@ static const struct vfs_node fixture_directory={.used=true,.type=VFS_NODE_DIRECT
 uint64_t vfs_count(void) { return 0; }
 const struct vfs_node *vfs_node_at(uint64_t i) { (void)i;return NULL; }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 const struct vfs_node *vfs_lookup(const char *path) {
     if(!strcmp(path,"/") || !strcmp(path,"/fat") || !strcmp(path,"/fat/bin")) return &fixture_directory;
     return &executable;

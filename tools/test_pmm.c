@@ -61,6 +61,19 @@ static void release(uint64_t address, unsigned count) {
     for (unsigned i = 0; i < count * 4096; i++) assert(p[i] == PMM_POISON_FREE);
 }
 int main(void) {
+    reset();
+    assert(pmm_frame_has_tag(0,PMM_FRAME_RESERVED));
+    assert(pmm_frame_has_tag(0x100000,PMM_FRAME_FREE));
+    assert(!pmm_frame_has_tag(1,PMM_FRAME_RESERVED));
+    assert(!pmm_frame_has_tag(FRAMES*4096ull,PMM_FRAME_RESERVED));
+    assert(!pmm_frame_has_tag(0x100000,PMM_FRAME_PAGE_TABLE));
+    assert(!pmm_frame_has_tag(0,(enum pmm_frame_tag)8));
+    uint64_t tagged=pmm_alloc_frame_tagged(PMM_FRAME_PAGE_TABLE);
+    assert(tagged && pmm_frame_has_tag(tagged,PMM_FRAME_PAGE_TABLE));
+    bitmap_set(tagged/4096,false);assert(!pmm_frame_has_tag(tagged,PMM_FRAME_PAGE_TABLE));
+    bitmap_set(tagged/4096,true);assert(pmm_frame_has_tag(tagged,PMM_FRAME_PAGE_TABLE));
+    irq_enabled=false;assert(pmm_frame_has_tag(tagged,PMM_FRAME_PAGE_TABLE) && !irq_enabled);
+    irq_enabled=true;
     struct limine_memmap_entry ram={.base=0x1000,.length=16*4096,.type=LIMINE_MEMMAP_USABLE};
     struct limine_memmap_entry kernel={.base=0x20000,.length=4*4096,.type=LIMINE_MEMMAP_EXECUTABLE_AND_MODULES};
     struct limine_memmap_entry acpi={.base=0x30000,.length=2*4096,.type=LIMINE_MEMMAP_ACPI_RECLAIMABLE};

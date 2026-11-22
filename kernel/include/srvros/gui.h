@@ -84,4 +84,6 @@ int64_t gui_surface_copy(uint64_t pid,
     uint64_t stride);
 void gui_process_cleanup(uint64_t pid);
 
+/* Read-only presence snapshot; caller holds IF0 until consuming the result. */
+bool gui_process_surfaces_owned(uint64_t pid);
 #endif

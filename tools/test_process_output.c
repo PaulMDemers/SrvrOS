@@ -10,6 +10,7 @@ static void process_test_irq_restore(uint64_t flags);
 static uint64_t process_test_rflags(void);
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PROCESS_HOST_TEST
+#define SRVROS_CAPTURE_WRITE_CLOCK_HOST_TEST
 #include "../kernel/src/process.c"
 
 static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture,namespace_fixture;
@@ -51,6 +52,14 @@ const struct vfs_node *vfs_node_at(uint64_t i) {
     assert(path_fixture);return i<7?&path_nodes[i]:NULL;
 }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+static bool directory_atomic,view_blocked;
+static struct process *current_subject;
+bool vfs_view_snapshot_ready(void) {return !view_depth && !view_blocked;}
+bool scheduler_io_process_atomic(void *p) { assert(p==current_subject && !(process_test_rflags()&(1ull<<9)));return directory_atomic;}
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
 static struct process_pipe *legacy_retirement_watch;
@@ -208,6 +217,7 @@ bool vfs_stat(const char *path,struct vfs_metadata *metadata,uint64_t *size,uint
 }
 static struct process subject;
 static void setup(unsigned refs) {
+    free(subject.mappings);subject.mappings=NULL;
     clear_process(&subject);memset(write_files,0,sizeof(write_files));
     saves=0;fail_save=false;saved_size=0;
     uint64_t handle=write_file_alloc();assert(handle==1);
@@ -762,6 +772,15 @@ static void path_context_regression(void) {
     assert(!process_path_context(SRV_PATH_RESOLVE,"../output",out,sizeof(out)) && !strcmp(out,"/test/output"));
     assert(process_path_context(SRV_PATH_RESOLVE,"../output/..",out,sizeof(out))==SRV_ERR_NOTDIR);
     assert(process_path_context(SRV_PATH_RESOLVE,"../absent/..",out,sizeof(out))==SRV_ERR_NOENT);
+    /* deskfs passes its immutable raw path to OPEN_MODE without a preliminary
+     * PATH_CONTEXT call. The production open must retain the same traversal
+     * checks, including components which would disappear during dot folding. */
+    assert(process_file_open_flags(&subject,"/test/output/..",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC)==SRV_ERR_NOTDIR);
+    assert(process_file_open_flags(&subject,"/test/absent/..",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC)==SRV_ERR_NOENT);
+    assert(process_file_open_flags(&subject,"../output/..",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC)==SRV_ERR_NOTDIR);
+    long checked_open=process_file_open_flags(&subject,"../dir",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC);
+    assert(checked_open>=0 && process_file_get_fd_flags(&subject,checked_open)==SRV_FD_CLOEXEC);
+    assert(!process_file_close(&subject,checked_open));
     assert(process_path_context(SRV_PATH_CHDIR,"/test/output",NULL,0)==SRV_ERR_NOTDIR);
     assert(process_path_context(SRV_PATH_CHDIR,"",NULL,0)==SRV_ERR_NOENT);
     assert(process_path_context(SRV_PATH_CHDIR,NULL,NULL,0)==SRV_ERR_FAULT);
@@ -773,7 +792,32 @@ static void path_context_regression(void) {
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/test/dir"));
     long fd=process_file_alloc(&subject,&path_nodes[2],NULL,0);assert(fd==3);
     assert(process_has_open_vfs_prefix("/test/dir"));
+    /* Foreign-commit admission advances the real live cookie, never a cache.
+     * A rejected publication/scheduler/descriptor proof changes no output. */
+    for(unsigned i=0;i<7;i++)path_nodes[i].used=true;
+    struct srv_dirent_info admitted[2];memset(admitted,0xa5,sizeof(admitted));
+    unsigned char unchanged[sizeof(admitted)];memcpy(unchanged,admitted,sizeof(admitted));
+    int64_t result=99;directory_atomic=true;view_blocked=true;
+    assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==99);
+    assert(!memcmp(admitted,unchanged,sizeof(admitted)) && read_file_at(subject.files[fd].handle)->offset==0);
+    view_blocked=false;directory_atomic=false;
+    assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted),&result));
+    directory_atomic=true;
+    assert(process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==2);
+    assert(!strcmp(admitted[0].entry.name,".") && !strcmp(admitted[1].entry.name,".."));
+    path_nodes[3].size=123;path_nodes[3].metadata.mtime=789;
+    struct process_file_content *snapshot_live=content_acquire(&path_nodes[3],path_nodes[3].path,NULL,456);assert(snapshot_live);
+    assert(process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==2);
+    assert(!strcmp(admitted[0].entry.name,"a") && admitted[0].size==456 && admitted[0].modified==789);
+    assert(!content_release(snapshot_live));path_nodes[3].size=path_nodes[3].metadata.mtime=0;
+    assert(process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==0);
+    assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted)-1,&result));
+    assert(!process_directory_try_read_info(99,admitted,sizeof(admitted),&result));
+    assert(process_file_seek(&subject,fd,0,0)==0);
     long alias=process_file_dup(&subject,fd);assert(alias==4);
+    result=99;assert(!process_directory_try_read_info(fd,admitted,sizeof(admitted),&result) && result==99);
+    assert(read_file_at(subject.files[fd].handle)->offset==0);directory_atomic=false;
+
     struct srv_dirent entry;
     assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==1 && !strcmp(entry.name,".") && entry.inode==3);
     assert(process_directory(SRV_DIRECTORY_READ,alias,&entry,sizeof(entry))==1 && !strcmp(entry.name,"..") && entry.inode==2);
@@ -1594,6 +1638,21 @@ static bool cycle_regression(const char *name) {
 
 #include "test_process_teardown.inc"
 
+uint64_t capture_write_test_clock(void) {static uint64_t now=10;return ++now;}
+static void capture_write_identity_regression(void) {
+    clear_process(&subject);subject.allocated=true;subject.active=true;subject.pid=7001;current_subject=&subject;current_worker=NULL;
+    strcpy(subject.executable_path,"/fat/bin/shotworker");assert(!process_capture_write_clock());
+    assert(process_capture_write_timing_enable() && !process_capture_write_timing_enable());
+    strcpy(subject.executable_path,"/fat/bin/shotworker-other");assert(!process_capture_write_clock());
+    strcpy(subject.executable_path,"/fat/bin/shotworker");subject.active=false;assert(!process_capture_write_clock());
+    subject.active=true;subject.allocated=false;assert(!process_capture_write_clock());subject.allocated=true;
+    uint64_t start=process_capture_write_begin();assert(start);
+    process_capture_write_record(CAP_WRITE_GATE,start);process_capture_write_result(start,64,64);
+    struct capture_write_snapshot snap;process_capture_write_snapshot(&snap);
+    assert(snap.enabled && snap.records[0].pid==7001 && snap.records[0].calls==1 && snap.records[0].attempts==1 && snap.records[0].bytes==64 && !snap.records[0].invalid);
+    current_subject=NULL;capture_writes=(struct capture_write_snapshot){0};clear_process(&subject);
+    puts("capture-write-identity: PASS opt-in once, exact immutable executable, active/allocated identity, copied per-PID accounting; no admission change");
+}
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"teardown")) { teardown_regression();return 0; }
     pipe_mapping_commit_regression();
@@ -1602,6 +1661,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unknown process-output cycle case\n");
         return 2;
     }
+    capture_write_identity_regression();
     watch_regression();
     rename_failure_regression();
     orphan_io_failure_regression();

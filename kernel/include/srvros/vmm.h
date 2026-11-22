@@ -11,6 +11,9 @@
 #define VMM_PAGE_CACHE_DISABLE 0x010
 #define VMM_PAGE_NO_EXECUTE (1ull << 63)
 
+/* CPU0, IRQs masked: observational guard only, no lease or SMP proof.
+ * Requires current untagged kernel CR3 and no registered nonkernel root. */
+bool vmm_diagnostic_sole_kernel_root(uint64_t expected);
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */

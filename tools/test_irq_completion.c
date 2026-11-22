@@ -12,10 +12,10 @@ static void io_wait(void){}
 #include "../kernel/src/arch/x86_64/irq.c"
 void lapic_send_eoi(void){mark(4);}
 void console_printf(const char *fmt,...){(void)fmt;mark(7);}
-void timer_handle_tick(void){}
+void timer_handle_tick(void){mark(9);}
 uint64_t timer_ticks(void){return 0;}
-void net_timer_tick(void){}
-void scheduler_preempt_tick(void){}
+void net_timer_tick(void){mark(10);}
+void scheduler_preempt_tick(void){assert(!"IRQ dispatch must unwind before preemption");}
 void keyboard_handle_irq(void){}
 void serial_handle_irq(void){}
 void mouse_handle_irq(void){}
@@ -48,6 +48,9 @@ int main(void){
     unsigned drained[]={1,1,2,3,4,5,5,8};assert(count==8);
     for(unsigned i=0;i<count;i++)assert(order[i]==drained[i]);
     assert(irq_handler_remove(peer));
+    count=0;irq_dispatch(IRQ_VECTOR_BASE);
+    unsigned timer_order[]={9,10,3,4};assert(count==4);
+    for(unsigned i=0;i<count;i++)assert(order[i]==timer_order[i]);
     count=0;irq_dispatch(255);assert(!count);
     puts("irq-completion: PASS handler/result, original PIC then LAPIC EOI, all observers before terminal hook, removal and invalid vector");
 }

@@ -74,6 +74,10 @@ int64_t file_stream_close(uint64_t owner,uint64_t token) {
     if(result==SRV_ERR_BUSY)return result;
     *entry=(struct file_stream_entry){0};return result;
 }
+bool file_stream_owned(uint64_t owner) {
+    for(unsigned i=0;owner && i<SRV_FILE_STREAM_GLOBAL_MAX;i++)if(streams[i].owner==owner)return true;
+    return false;
+}
 bool file_stream_cleanup(uint64_t owner) {
     bool okay=true;
     for(unsigned i=0;i<SRV_FILE_STREAM_GLOBAL_MAX;i++)

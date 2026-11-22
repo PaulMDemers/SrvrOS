@@ -47,7 +47,7 @@ def main():
         start = text.index(begin)
         finish = text.index(end, start)
         line = text[:start].count('\n') + 1
-        return f'#line {line} "{file_source}"\n' + text[start:finish]
+        return f'#line {line} "{file_source}"\n' + text[start:finish] + '\n'
     declarations = ('int __posix_socket_is_pseudo(int);\nint __posix_socket_close(int);\n'
                     'void __posix_socket_note_close(int);\nvoid __posix_socket_note_dup(int,int);\n'
                     'int __posix_socket_dup(int);\nint __posix_socket_fcntl(int,int,uint64_t);\n'
@@ -55,7 +55,7 @@ def main():
                     'int __posix_signal_dispatch_pending_restartable(void);\n')
     extracted = out / 'adapter.c'
     extracted.write_text(f'#line 1 "{adapter}"\n' + prefix + '\n' + declarations +
-                         section('static int io_restart_after_signal(', '\nssize_t __posix_read_with_socket_error(') +
+                         section('static int io_restart_after_signal(', '\nstatic ssize_t signal_native_rw(') +
                          section('int close(int fd) {', '\nint fsync(') +
                          section('static int dup_locked(', '\nint pipe2(') +
                          section('static int fcntl_dupfd_locked(', '\nint fcntl64('))
@@ -70,7 +70,7 @@ def main():
     command = shlex.split(os.environ.get('CC', 'cc')) + [
         '-std=c11', '-ffreestanding', '-O0', '-g', '-Wall', '-Wextra', '-Werror',
         '-I', str(ROOT / 'userspace/lib/include'), '-I', str(ROOT / 'shared/include'),
-        '-include', str(renamed), str(extracted), str(poll_source), str(fixture), '-o', str(executable)]
+        '-I', str(ROOT / 'userspace/lib/src'), '-include', str(renamed), str(extracted), str(poll_source), str(fixture), '-o', str(executable)]
     subprocess.run(command, check=True, cwd=ROOT)
     modes = ('controls',) + LIFETIME + WAITS + COUNTERS + MODES + ROTATION + ONESHOT + EDGE + CLOSEOUT + (AUDITS if args.audit == 'all' else ((args.audit,) if args.audit else ()))
     results = []
@@ -83,7 +83,7 @@ def main():
     record = dict(source=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   platform=platform.platform(), command=command, cases=results, exit=code,
                   sha256={str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                          for p in (adapter, file_source, poll_source, fixture, Path(__file__).resolve(),
+                          for p in (adapter, file_source, poll_source, fixture, ROOT / "tools/legacy_signal_fixture.h", Path(__file__).resolve(),
                                     ROOT / "userspace/lib/include/sys/eventfd.h",
                                     ROOT / "userspace/lib/include/sys/epoll.h")})
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')

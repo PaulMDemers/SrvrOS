@@ -7,6 +7,8 @@
 #define IRQ_COUNT 16
 
 void irq_init(void);
+/* Handler/EOI/completion only. The ISR accounts and preempts IRQ0 after
+ * dispatch returns, at its kernel or fully checked user-return boundary. */
 void irq_dispatch(uint64_t vector);
 void irq0_legacy_dispatch(void);
 void irq1_legacy_dispatch(void);

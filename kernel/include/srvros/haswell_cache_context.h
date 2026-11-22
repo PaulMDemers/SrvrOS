@@ -8,3 +8,9 @@ bool hcc_walk(struct hcc_walk *,uint64_t root,uint64_t va,unsigned physical_bits
               bool (*read)(void *,uint64_t,unsigned,uint64_t *),void *ctx);
 bool hcc_walk_equal(const struct hcc_walk *,const struct hcc_walk *);
 bool haswell_cache_context_run(void);
+
+bool haswell_alias_context_run(void);
+
+/* One pre-user-init attempt; immutable result is emitted once after logger startup. */
+bool haswell_alias_context_prepare(void);
+bool haswell_alias_context_report(void);

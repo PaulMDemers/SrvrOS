@@ -11,6 +11,7 @@ from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
 from app_timing import RECORD,validate_collected_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
+from render_timing import validate_render_timing
 from lifetime_timing import lifetime_worst_records
 from operation_timing import operation_snapshots
 from file_service_records import file_service_receipts
@@ -74,6 +75,19 @@ def completion_line(output):
     return match.group(0) if match else None
 
 
+def sampled_usb_written(qmp,process):
+    # QEMU can close QMP just before poll observes its automatic exit. Sampling
+    # is observational; termination never substitutes for any guest receipt.
+    if process.poll() is not None:return None
+    try:
+        rows=qmp.call('query-blockstats')
+    except (OSError,json.JSONDecodeError) as error:
+        try:process.wait(timeout=2)
+        except subprocess.TimeoutExpired:raise error
+        return None
+    return next(x['stats']['wr_bytes'] for x in rows if x.get('device')=='stick')
+
+
 def cache_retirement(output):
     rows=re.findall(rb'^desktop-cache-retired: version=1 bytes=([0-9]+) retained=([0-9]+) reuses=([0-9]+)\r?\n',output,re.M)
     if len(rows)!=1:return None
@@ -85,24 +99,27 @@ def cache_retirement(output):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
+    parser.add_argument('--require-launch-gate-trace',action='store_true',help='Require complete opt-in final launch/fcntl observations in the current positive guest')
     parser.add_argument('--accel',choices=('tcg','kvm'),default='tcg')
     parser.add_argument('--air72',action='store_true',help='use Air7,2 synthetic ownership fixture; stages infer their own profile')
     parser.add_argument('--populated-home',action='store_true',help='Exercise Files startup with 64 existing Home files')
+    parser.add_argument('--require-control-timing',action='store_true',help='Require same-worst-loop control regions, inner calls and complete scheduler companions')
+    parser.add_argument('--require-live-sidecar-window',action='store_true',help='Require two completed equality snapshots with growth during actual PCM and a completed post-playback sample')
     parser.add_argument('--metadata-files',type=int,default=0,help='Add up to4000 preserved empty archive files to exercise a large metadata sidecar')
     parser.add_argument('--write-iops',type=int,default=0,help='Limit disposable VM USB write IOPS without pacing the guest workload')
     parser.add_argument('--read-iops',type=int,default=0,help='Limit disposable VM USB read IOPS without pacing the guest workload')
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json'):
+    for name in ('launch-gate-trace.json','result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','append-wait.json','commit-wait.json','commit-command.json','sync-timing.json','capture-history.json','capture-transfer.json','sync-content.json','sync-commands.json','sync-command-phases.json','sidecar-equality.json','sidecar-window.json','control-timing.json','append-contiguity.json','battery-protocol.json','binary-evidence-error.txt'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
-    if stage:assert manifest['config_version'].startswith(('ram-usb-v74-','ram-usb-v80-'))
-    air72=manifest['config_version'].startswith('ram-usb-v80-') if stage else args.air72
+    if stage:assert manifest['config_version'].startswith(('ram-usb-v74-','ram-usb-v80-','ram-usb-v1-capture-write-'))
+    air72=manifest['config_version'].startswith(('ram-usb-v80-','ram-usb-v1-capture-write-air72-')) if stage else args.air72
     if stage and args.air72 and not air72:parser.error('--air72 conflicts with staged profile')
     output=bytearray();consumed=0;timing_evidence="native_profile_refusal_only"
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
@@ -125,7 +142,7 @@ def main():
         (tmp/'battery.asl').write_text(('' if air72 else '#define BATTERY_AIR61 1\n')+'#define BATTERY_FAULT 83\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/('build/acpi-battery/vm.elf' if air72 else 'build/acpi-air61-battery/vm.elf');initramfs=root/'build/initramfs.tar'
-        cmdline=f'srvros.storage=ram srvros.workspace-volume={volume_id} srvros.desktop=session srvros.battery=on srvros.desktop-audio-io=smoke srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only'
+        cmdline=f'srvros.storage=ram srvros.workspace-volume={volume_id} srvros.desktop=session srvros.battery=on srvros.desktop-audio-io=smoke srvros.capture-write-timing=on srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only'
         if stage:
             from hardware_boot_smoke import make_disk
             from uefi_usb_smoke import default_ovmf_path
@@ -180,9 +197,10 @@ def main():
                     output.extend(read_for(serial,seconds));(out/'serial.log').write_bytes(output)
                     retain_checkpoint()
                     now=time.monotonic()
-                    if now-sample_at>=.2 and b'desktop-audio-io: result=' not in output:
+                    if now-sample_at>=.2 and b'audio-io: result=' not in output:
                         sample_at=now
-                        written=next(x['stats']['wr_bytes'] for x in qmp.call('query-blockstats') if x.get('device')=='stick')
+                        written=sampled_usb_written(qmp,process)
+                        if written is None:return
                         pcm=(out/'tone.wav').stat().st_size if (out/'tone.wav').exists() else 0
                         if previous and pcm>previous[1] and written-previous[0]>=65536:
                             with (out/'tone.wav').open('rb') as capture:
@@ -201,13 +219,15 @@ def main():
                 if args.write_iops or args.read_iops:qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':args.read_iops,'iops_wr':args.write_iops})
                 started=time.monotonic()
                 while completion_line(output) is None:
-                    assert time.monotonic()-started<180 and process.poll() is None
+                    assert time.monotonic()-started<180
+                    ended=process.poll() is not None
                     pump(.2)
+                    if ended:assert completion_line(output) is not None,'Missing complete terminal receipt after QEMU exit'
                     assert b'battery: HALTED' not in output
                 # Keep atomic failure diagnostics too: a clean automatic return
                 # is not a workload pass. Read only after QEMU exits, before any
                 # PASS assertion can discard the disposable backing image.
-                process.wait(timeout=30)
+                assert process.wait(timeout=30)==0,'QEMU failed during automatic return'
                 data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
                 final=ExfatFixture(data[2048*512:end]);snapshots=list(checkpoints)
                 if not stage:
@@ -218,6 +238,17 @@ def main():
                         if name.endswith('.log'):
                             raw=final.read(logdir+'/'+name);snapshots.append(raw)
                             (out/('saved-'+name)).write_bytes(raw)
+                    # Preserve exact binary evidence before any later PASS
+                    # check can unwind and remove the disposable backing image.
+                    try:
+                        directories=re.findall(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)
+                        if len(directories)==1:
+                            (out/'disk.receipt').write_bytes(final.read(directories[0].decode()+'/disk.receipt'))
+                        images=[name for name,_ in final.entries(final.read('srvros-work/Screenshots')) if name.endswith('.bmp')]
+                        if len(images)==1:
+                            (out/'automatic-screenshot.bmp').write_bytes(final.read('srvros-work/Screenshots/'+images[0]))
+                    except StopIteration as error:
+                        (out/'binary-evidence-error.txt').write_text(repr(error)+'\n')
                 expected=b'desktop-audio-io: result=FAIL unmounted=yes' if stage else b'desktop-audio-io: result=PASS unmounted=yes'
                 assert expected in completion_line(output),output[-2000:]
                 if stage:
@@ -246,10 +277,16 @@ def main():
                     m=re.fullmatch(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+) first_io_us=(\d+) last_io_us=(\d+) bursts=(\d+) bytes=(\d+) max_burst_us=(\d+) pcm_bytes=(\d+) underruns=0 worker_status=0 volume=1\n',receipt)
                     assert m,'incomplete audio/disk receipt'
                     start,end,first,last,bursts,written,maximum,pcm=map(int,m.groups())
+                    from battery_protocol_records import first_protocol_record
+                    protocol=first_protocol_record(snapshots,epoch=1)
+                    assert protocol['snapshot_us']>=end,'Protocol observation predates playback completion'
+                    (out/'battery-protocol.json').write_text(json.dumps(protocol,indent=2)+'\n')
                     assert start<=first<last<=end and last-first>=56000000
                     assert bursts>0 and written==bursts*262144
                     assert 60*192000<=pcm<=120*192000 and pcm%4==0
-                    assert struct.unpack('<5Q',final.read(directory+'/disk.receipt'))==(first,last,bursts,written,maximum)
+                    disk_receipt=final.read(directory+'/disk.receipt')
+                    (out/'disk.receipt').write_bytes(disk_receipt)
+                    assert struct.unpack('<5Q',disk_receipt)==(first,last,bursts,written,maximum)
                     (out/'receipt.txt').write_bytes(receipt)
                     # UART writers may interleave; saved bootlog records are atomic.
                     ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))
@@ -263,8 +300,13 @@ def main():
                     services=file_service_receipts([bytes(output),*snapshots],{row['pid']:row['role'] for row in timing if row['role'] in (1,2)})
                     (out/'file-service.json').write_text(json.dumps(services,indent=2)+'\n')
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
+                    if args.require_control_timing:
+                        from control_timing import validate_control_timing
+                        (out/'control-timing.json').write_text(json.dumps(validate_control_timing(snapshots,int(lifecycle[2])),indent=2)+'\n')
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
+                    attribution=validate_render_timing(snapshots,int(lifecycle[2]))
+                    (out/'render-attribution.json').write_text(json.dumps(attribution,indent=2)+'\n')
                     # UART writers can interleave. Use the saved atomic exit
                     # snapshot for the single final ownership receipt.
                     retired=cache_retirement((out/'saved-exit.log').read_bytes())
@@ -286,6 +328,48 @@ def main():
                     from PIL import Image
                     import io
                     image_bytes=final.read('srvros-work/Screenshots/'+images[0])
+                    (out/'automatic-screenshot.bmp').write_bytes(image_bytes)
+                    from capture_write_timing import capture_write_timing,capture_gate_timing
+                    write_timing=capture_write_timing(snapshots,1,len(image_bytes))
+                    write_timing['admission']=capture_gate_timing(snapshots,write_timing)
+                    # Historical stages lack this extension; matched candidates
+                    # additionally require it in their source-bound review.
+                    if any(b'capture-append-wait:' in blob for blob in snapshots):
+                        from append_wait import append_wait
+                        queued=append_wait(snapshots,write_timing)
+                        (out/'append-wait.json').write_text(json.dumps(queued,indent=2)+'\n')
+                        if any(b'capture-commit-wait:' in blob for blob in snapshots):
+                            from commit_wait import commit_wait
+                            isolation=commit_wait(snapshots,write_timing,queued)
+                            (out/'commit-wait.json').write_text(json.dumps(isolation,indent=2)+'\n')
+                            if any(b'capture-owner-command:' in b for b in snapshots):
+                                from commit_command import commit_command
+                                (out/'commit-command.json').write_text(json.dumps(commit_command(snapshots,isolation),indent=2)+'\n')
+                    from sync_timing import sync_timing
+                    sync_observed=sync_timing(snapshots)
+                    (out/'sync-timing.json').write_text(json.dumps(sync_observed,indent=2)+'\n')
+                    from sync_content import sync_content
+                    from sync_commands import sync_commands
+                    from sync_command_phases import sync_command_phases
+                    from capture_history import capture_history
+                    from capture_transfer import capture_transfer
+                    (out/'sync-content.json').write_text(json.dumps(sync_content(snapshots,sync_observed),indent=2)+'\n')
+                    (out/'sync-commands.json').write_text(json.dumps(sync_commands(snapshots),indent=2)+'\n')
+                    (out/'sync-command-phases.json').write_text(json.dumps(sync_command_phases(snapshots),indent=2)+'\n')
+                    (out/'capture-history.json').write_text(json.dumps(capture_history(snapshots,expected=1),indent=2)+'\n')
+                    (out/'capture-transfer.json').write_text(json.dumps(capture_transfer(snapshots,expected=1,expected_pixels=len(image_bytes)-54),indent=2)+'\n')
+                    if args.require_launch_gate_trace:
+                        from launch_gate_trace import launch_gate_trace
+                        (out/'launch-gate-trace.json').write_text(json.dumps(launch_gate_trace(snapshots),indent=2)+'\n')
+                    from sidecar_equality import sidecar_equality
+                    (out/'sidecar-equality.json').write_text(json.dumps(sidecar_equality(snapshots),indent=2)+'\n')
+                    if args.require_live_sidecar_window:
+                        from sidecar_equality import sidecar_equality_window
+                        live=sidecar_equality_window(snapshots,start,end)
+                        (out/'sidecar-window.json').write_text(json.dumps(live,indent=2)+'\n')
+                    from append_contiguity import append_contiguity
+                    (out/'append-contiguity.json').write_text(json.dumps(append_contiguity(snapshots),indent=2)+'\n')
+                    (out/'capture-write-timing.json').write_text(json.dumps(write_timing,indent=2)+'\n')
                     with Image.open(io.BytesIO(image_bytes)) as image:
                         image.load();assert image.size==(1280,800);image.save(out/'automatic-screenshot.png')
 
@@ -294,6 +378,9 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1')
+                result['control_timing']='VALID' if args.require_control_timing and not stage else 'native_profile_refusal_only' if args.require_control_timing else 'not_required'
+                result['live_sidecar_window']='VALID' if args.require_live_sidecar_window and not stage else 'native_profile_refusal_only' if args.require_live_sidecar_window else 'not_required'
+                result['launch_gate_trace']='VALID' if args.require_launch_gate_trace and not stage else 'native_profile_refusal_only' if args.require_launch_gate_trace else 'not_required'
                 result.update(app_timing_evidence=timing_evidence,retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,read_iops=args.read_iops,prior_files_preserved=len(prior)+len(archive),metadata_files=args.metadata_files)
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:

@@ -38,17 +38,23 @@ struct present_frame {
     const int *order;
     unsigned scale;
     uint64_t physical_width,physical_height;
+    struct loop_render_record *timing;
 };
 static void compose_frame_rect(void *context,struct desk_rect rect) {
     struct present_frame *f=context;
+    uint64_t begin=f->timing?(uint64_t)srv_monotonic_us():0;
     desk_clip(f->canvas,rect);desktop_draw_ordered(f->canvas,f->scene,f->order,1);
+    if(f->timing)render_record_rect(f->timing,0,begin,(uint64_t)srv_monotonic_us(),(uint64_t)rect.w*rect.h);
 }
 static int upload_frame_rect(void *context,struct desk_rect r) {
     struct present_frame *f=context;struct desk_canvas *c=f->canvas;
+    uint64_t begin=f->timing?(uint64_t)srv_monotonic_us():0;
     struct desk_rect p=desk_canvas_physical_rect(c,r);
     if((uint64_t)p.x+p.w>f->physical_width)p.w=f->physical_width-p.x;
     if((uint64_t)p.y+p.h>f->physical_height)p.h=f->physical_height-p.y;
-    return blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
+    int result=blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
+    if(f->timing)render_record_rect(f->timing,1,begin,(uint64_t)srv_monotonic_us(),(uint64_t)p.w*p.h);
+    return result;
 }
 
 /* Stress-only setup, before the measured loop or PCM owner exists. */
@@ -66,6 +72,39 @@ static int stress_volume_request(void) {
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
+static void control_trace_report(const struct loop_record *w,unsigned final) {
+    const struct loop_control_record *c=&w->control;char text[1024];int length;
+#define U(v) (unsigned long long)(v)
+#define EMIT_CONTROL() do { if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);else srv_puts("desktop-loop-control: invalid=record-overflow\n"); }while(0)
+    uint64_t flags=c->due|(c->state_checked<<1)|(c->snapshot_called<<2)|(c->submit_called<<3)|
+        (c->accepted<<4)|(c->audio_enabled<<5)|(c->finished_before<<6)|(c->finished_after<<7)|
+        (c->wait_called<<8)|(c->notice_called<<9)|(c->io_enabled<<10);
+    /* Relative inner clocks and fixed positional scheduler vectors save log
+     * bytes, not evidence. Flags distinguish uncalled from zero-duration work. */
+    int valid=control_record_complete(c);
+    const uint64_t bits[]={c->due,c->state_checked,c->snapshot_called,c->submit_called,c->accepted,c->audio_enabled,c->finished_before,c->finished_after,c->wait_called,c->notice_called,c->io_enabled};
+    for(unsigned i=0;i<sizeof(bits)/sizeof(bits[0]);i++)if(bits[i]>1)valid=0;
+    uint64_t base=c->at[0];
+    const uint64_t pairs[][3]={{c->snapshot_called,c->snapshot_begin,c->snapshot_end},{c->submit_called,c->submit_begin,c->submit_end},{c->wait_called,c->wait_begin,c->wait_end},{c->notice_called,c->notice_begin,c->notice_end}};
+    for(unsigned i=0;i<4;i++)if(pairs[i][0]?(pairs[i][1]<base || pairs[i][2]<pairs[i][1]):(pairs[i][1] || pairs[i][2]))valid=0;
+#define OFFSET(v) ((v)>=base?(v)-base:0)
+    if((c->snapshot_called && c->snapshot_begin<base) || (c->submit_called && c->submit_begin<base) ||
+       (c->wait_called && c->wait_begin<base) || (c->notice_called && c->notice_begin<base))valid=0;
+    length=snprintf(text,sizeof(text),"desktop-loop-control: seq=%llu version=1 valid=%u base_us=%llu edges=%llu,%llu,%llu,%llu flags=%llu state=%llu snapshot=%llu,%llu submit=%llu,%llu wait=%llu,%llu notice=%llu,%llu child=%llu,%llu waited=%llu wait_flags=%llu result=%lld final=%u\n",
+        U(w->sequence),valid,U(base),U(OFFSET(c->at[1])),U(OFFSET(c->at[2])),U(OFFSET(c->at[3])),U(OFFSET(c->at[4])),U(flags),U(c->report_state),
+        U(c->snapshot_called?OFFSET(c->snapshot_begin):0),U(c->snapshot_called?OFFSET(c->snapshot_end):0),
+        U(c->submit_called?OFFSET(c->submit_begin):0),U(c->submit_called?OFFSET(c->submit_end):0),
+        U(c->wait_called?OFFSET(c->wait_begin):0),U(c->wait_called?OFFSET(c->wait_end):0),
+        U(c->notice_called?OFFSET(c->notice_begin):0),U(c->notice_called?OFFSET(c->notice_end):0),U(c->child_before),U(c->child_after),U(c->wait_pid),U(c->wait_flags),(long long)c->wait_result,final);EMIT_CONTROL();
+#undef OFFSET
+    for(unsigned region=0;region<CONTROL_REGIONS;region++) {
+        const struct srv_sched_trace *q=&c->scheduler[region];
+        length=snprintf(text,sizeof(text),"desktop-loop-control-sched: seq=%llu version=1 region=%u data=%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu final=%u\n",
+            U(w->sequence),region,U(q->version),U(q->start_us),U(q->end_us),U(q->start_tick),U(q->end_tick),U(q->blocked_us),U(q->ready_us),U(q->blocks),U(q->signals),U(q->timeouts),U(q->dispatches),U(q->exclusions),U(q->invalid),U(q->max_ready_us),U(q->wake_us),U(q->run_us),U(q->wake_tick),U(q->deadline_tick),U(q->reason),U(q->ready_exclusions),U(q->late_ticks),final);EMIT_CONTROL();
+    }
+#undef EMIT_CONTROL
+#undef U
+}
 static void loop_trace_report(const struct loop_trace *,unsigned);
 static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",
@@ -77,6 +116,7 @@ static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
 }
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
+#include "capture_worker.h"
 /* Worker implementations above use direct console output. Only the UI thread
  * calls these wrappers; stop routing before joining/draining the report worker. */
 static struct lifecycle_worker *ui_logger;
@@ -94,6 +134,14 @@ static void ui_log(const char *format,...) {
     ui_puts(text);
 }
 #define desk_log(...) ui_log(__VA_ARGS__)
+/* Keep both observed durations together in one bounded console record. A saved
+ * bootlog tail can retain close after the original ready row has rolled out. */
+static void life_cycle_log(unsigned cycle,uint64_t pid,uint64_t ready_elapsed,
+        uint64_t closed_elapsed,unsigned errors) {
+    desk_log("desktop-life-cycle: version=1 cycle=%u pid=%llu ready_elapsed_us=%llu closed_elapsed_us=%llu errors=%u\n",
+        cycle,(unsigned long long)pid,(unsigned long long)ready_elapsed,
+        (unsigned long long)closed_elapsed,errors);
+}
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
@@ -136,6 +184,7 @@ struct session {
     const char *home,*profile_transfer_stop;
     struct srv_profile_session profile;
     struct lifecycle_worker *worker;
+    struct capture_worker *capture_owner;
     int startup_trace;
     struct lifetime_trace current_lifetime,ready_worst,close_worst;
     struct message_trace message;
@@ -187,6 +236,8 @@ struct session {
     unsigned capture_finished;
     uint64_t capture_serial;
     struct capture_trace slowest_capture;
+    struct capture_history capture_history;
+    uint64_t capture_worker_pid;
     struct pixel_cache cache[DESKD_WINDOWS][2];
     struct pixel_cache retained_cache[2];
     uint64_t cache_reuses;
@@ -237,6 +288,66 @@ static uint64_t loop_sample(uint64_t *last,uint64_t *maximum,uint64_t now) {
 static void loop_trace_stamp(struct loop_trace *t,unsigned stage) {
     if(t->active)loop_trace_mark(t,stage,(uint64_t)srv_monotonic_us());
 }
+/* Control traces are disjoint on the UI thread. The report worker owns its
+ * separate immutable copy; no emission, allocation or admission changes here. */
+static void control_region_begin(struct loop_trace *t,unsigned region) {
+    if(!t->active)return;
+    struct loop_control_record *r=&t->current.control;
+    control_record_mark(r,region+1,(uint64_t)srv_monotonic_us());
+    if(!r->valid)return;
+    if(srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&r->scheduler[region]))r->valid=0;
+    else r->tracing|=1ull<<region;
+}
+static void control_region_end(struct loop_trace *t,unsigned region) {
+    if(!t->active || !(t->current.control.tracing&(1ull<<region)))return;
+    t->current.control.tracing&=~(1ull<<region);
+    if(srv_sched_trace(SRV_SCHED_TRACE_END,&t->current.control.scheduler[region]))t->current.control.valid=0;
+}
+static void control_trace_abort(struct loop_trace *t) {
+    if(!t->active || !t->current.control.tracing)return;
+    t->current.control.valid=0;
+    for(unsigned region=0;region<CONTROL_REGIONS;region++)control_region_end(t,region);
+}
+static void control_messages_begin(struct loop_trace *t) {
+    if(!t->active)return;
+    control_region_end(t,CONTROL_IO);
+    uint64_t now=(uint64_t)srv_monotonic_us();
+    control_record_mark(&t->current.control,4,now);
+    loop_trace_mark(t,LOOP_MESSAGES,now);
+}
+static void render_scheduler_report(const char *kind,uint64_t sequence,const struct srv_sched_trace *q,unsigned final) {
+    char text[1024];
+    int length=snprintf(text,sizeof(text),"desktop-loop-%s-sched: seq=%llu version=%llu start_us=%llu end_us=%llu start_tick=%llu end_tick=%llu blocked_us=%llu ready_us=%llu blocks=%llu signals=%llu timeouts=%llu dispatches=%llu exclusions=%llu invalid=%llu max_ready_us=%llu wake_us=%llu run_us=%llu wake_tick=%llu deadline_tick=%llu reason=%llu ready_exclusions=%llu late_ticks=%llu final=%u\n",
+        kind,(unsigned long long)sequence,(unsigned long long)q->version,
+        (unsigned long long)q->start_us,(unsigned long long)q->end_us,(unsigned long long)q->start_tick,(unsigned long long)q->end_tick,
+        (unsigned long long)q->blocked_us,(unsigned long long)q->ready_us,(unsigned long long)q->blocks,
+        (unsigned long long)q->signals,(unsigned long long)q->timeouts,(unsigned long long)q->dispatches,
+        (unsigned long long)q->exclusions,(unsigned long long)q->invalid,(unsigned long long)q->max_ready_us,
+        (unsigned long long)q->wake_us,(unsigned long long)q->run_us,(unsigned long long)q->wake_tick,
+        (unsigned long long)q->deadline_tick,(unsigned long long)q->reason,(unsigned long long)q->ready_exclusions,
+        (unsigned long long)q->late_ticks,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    else srv_puts("desktop-loop-attribution: invalid=record-overflow\n");
+}
+static void render_trace_report(const struct loop_record *w,unsigned final) {
+    char text[1024];const struct loop_render_record *r=&w->render;
+    int length=snprintf(text,sizeof(text),"desktop-loop-render: seq=%llu version=1 valid=%llu begin_us=%llu present_begin_us=%llu fence_begin_us=%llu finish_begin_us=%llu end_us=%llu damage=%llu scale=%llu capture_id=%llu capture_busy=%llu compose_us=%llu upload_us=%llu compose_calls=%llu upload_calls=%llu compose_pixels=%llu upload_pixels=%llu final=%u\n",
+        (unsigned long long)w->sequence,(unsigned long long)r->valid,(unsigned long long)r->at[0],
+        (unsigned long long)r->at[1],(unsigned long long)r->at[2],(unsigned long long)r->at[3],(unsigned long long)r->at[4],
+        (unsigned long long)r->damage,(unsigned long long)r->scale,(unsigned long long)r->capture_id,
+        (unsigned long long)r->capture_busy,(unsigned long long)r->compose_us,(unsigned long long)r->upload_us,
+        (unsigned long long)r->compose_calls,(unsigned long long)r->upload_calls,(unsigned long long)r->compose_pixels,
+        (unsigned long long)r->upload_pixels,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);else srv_puts("desktop-loop-render: invalid=record-overflow\n");
+    render_scheduler_report("render",w->sequence,&r->scheduler,final);
+    const struct loop_capture_record *c=&w->capture;
+    length=snprintf(text,sizeof(text),"desktop-loop-capture: seq=%llu version=1 valid=%llu begin_us=%llu end_us=%llu id_before=%llu id_after=%llu busy_before=%llu busy_after=%llu pending_before=%llu pending_after=%llu final=%u\n",
+        (unsigned long long)w->sequence,(unsigned long long)c->valid,(unsigned long long)c->begin,(unsigned long long)c->end,
+        (unsigned long long)c->id_before,(unsigned long long)c->id_after,(unsigned long long)c->busy_before,
+        (unsigned long long)c->busy_after,(unsigned long long)c->pending_before,(unsigned long long)c->pending_after,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);else srv_puts("desktop-loop-capture: invalid=record-overflow\n");
+    render_scheduler_report("capture",w->sequence,&c->scheduler,final);
+}
 static void loop_trace_report(const struct loop_trace *t,unsigned final) {
     if(!t->samples)return;
     const struct loop_record *w=&t->worst;
@@ -276,6 +387,8 @@ static void loop_trace_report(const struct loop_trace *t,unsigned final) {
         (unsigned long long)q->ready_exclusions,(unsigned long long)q->late_ticks,final);
     if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
     else srv_puts("desktop-loop-sched: invalid=record-overflow\n");
+    render_trace_report(w,final);
+    control_trace_report(w,final);
 }
 static int window_lifetime_valid(const struct session *s,int i,uint64_t identity) {
     return i>=0 && i<session_capacity(s) && session_client(s,i)->pid &&
@@ -1390,8 +1503,12 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .progress_age_us=j->last_progress_us && !j->finished_us?now-j->last_progress_us:0,.bytes=j->progress_bytes,
         .started_us=j->started_us,.finished_us=j->finished_us,
         .cleanup_us=j->cleanup_us,.close_us=j->close_us,.unmap_us=j->unmap_us,.reap_us=j->reap_us,
-        .cleanup_pending=s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
-        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE),.phase=j->phase,.frames=j->progress_frames,
+        .transfer=j->transfer,
+        .cleanup_pending=s->capture_owner?capture_owner_state(s->capture_owner)==CAPTURE_OWNER_RETIRING:
+            s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
+        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->capture_owner?
+            (capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARING || capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED):
+            (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE)),.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
@@ -1400,7 +1517,8 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
         .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
-        .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture};
+        .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture,
+        .capture_history=s->capture_history};
     /* Preserve observed Close progress even if a deadline aborts this lifetime.
      * Zero remains unobserved; never manufacture a completed Close record. */
     if(t.ready_worst.pid && t.ready_worst.pid==s->current_lifetime.pid &&
@@ -1436,9 +1554,19 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
 }
 static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=0;
+    if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
+    if(s->capture_owner) {
+        result=capture_owner_poll(s->capture_owner,&s->capture,&s->capture_worker_pid);
+        if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
+        if(!result && capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED) {
+            if(capture_owner_snapshot(s->capture_owner,&s->capture,pixels,s->damage.width,s->damage.height)>0)
+                desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",s->capture.request.path,s->damage.width,s->damage.height);
+        }
+    } else {
     if(s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE) {
         int prepared;
         if(!life_prepare_take(s->worker,&s->capture,&prepared))return;
+        s->capture_worker_pid=s->capture.pid;
         if(prepared)result=-1;
         else if(desk_capture_job_snapshot(&s->capture,pixels,s->damage.width,s->damage.height)) {
             /* A changed/vanished canvas cannot be copied with stale bounds.
@@ -1453,10 +1581,13 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
             if(completed)(void)life_capture_submit(s->worker,&s->capture,completed);
         }
     } else if(!result)result=desk_capture_job_poll(&s->capture);
+    }
     if(result) {
         int success=result>0 && !s->capture.response.status;
         s->capture_success=success;s->capture_finished++;
-        struct capture_trace captured=capture_snapshot(s,(uint64_t)srv_monotonic_us());
+        uint64_t retired=(uint64_t)srv_monotonic_us();
+        struct capture_trace captured=capture_snapshot(s,retired);
+        capture_history_record(&s->capture_history,&captured,s->capture_worker_pid,retired,result);
         if(captured.age_us>=s->slowest_capture.age_us)s->slowest_capture=captured;
         const char *name=strrchr(s->capture.request.path,'/');
         capture_notice(s,success,success?(name?name+1:s->capture.request.path):"Save or verification failed. Check Files.");
@@ -1470,6 +1601,12 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     int path_length=snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
     if(path_length<0 || (size_t)path_length>=sizeof(path)) {
         s->capture_pending=0;capture_notice(s,0,"The profile path is too long for this screenshot name.");return;
+    }
+    if(s->capture_owner) {
+        if(capture_owner_submit(s->capture_owner,&s->capture,s->damage.width,s->damage.height,path)) {
+            s->capture_pending=0;global_menu_rebuild(s);
+        }
+        return;
     }
     if(s->worker) {
         if(life_prepare_submit(s->worker,&s->capture,s->damage.width,s->damage.height,path)) {
@@ -1904,6 +2041,10 @@ static void service(struct session *s) {
                 }
             }
             (void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
+        } else if(s->worker && s->worker->owner.pid && desk_launch_index(s->worker->owner.children,*session_children(s,i))>=0) {
+            /* Only the launch owner can reap this child. Keep IPC off the UI
+             * while the worker runs; after join shutdown owns the channel. */
+            if(life_state(&s->worker->stop))waited=desk_launch_owner_wait(&s->worker->owner,*session_children(s,i),&status,SRV_WAIT_NOHANG);
         } else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
         uint64_t elapsed=(uint64_t)srv_monotonic_us()-began;
         if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
@@ -2237,8 +2378,14 @@ int main(int argc,char **argv) {
     int battery_guided=argc==2 && !strcmp(argv[1],"--battery-transition-capture");
     int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
     int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
+    int wifi_trial=argc==2 && !strcmp(argv[1],"--wifi-trial");
+    int wifi_reconnect_trial=argc==2 && !strcmp(argv[1],"--wifi-reconnect-trial");
+    int wifi_reattach_trial=argc==2 && !strcmp(argv[1],"--wifi-reattach-trial");
+    int wifi_replug_trial=argc==2 && !strcmp(argv[1],"--wifi-replug-trial");
+    int wifi_active_remove_trial=argc==2 && !strcmp(argv[1],"--wifi-active-remove-trial");
+    int wifi_managed_trial=wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
-    int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
+    int hardware_trial=wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
@@ -2258,7 +2405,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((wifi_trial || wifi_managed_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { ui_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -2274,7 +2421,7 @@ int main(int argc,char **argv) {
     if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.session_child=session_child,.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
+        .trace=wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
     if(profile_home) {
         s.profile=selected_profile;s.home=s.profile.home;
         desk_log("deskd: profile id=%s home=%s credentials=unchanged\n",s.profile.id,s.home);
@@ -2283,6 +2430,7 @@ int main(int argc,char **argv) {
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
+    if(audio_io && desk_capture_job_trace(&s.capture,1))return 1;
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
@@ -2313,8 +2461,15 @@ int main(int argc,char **argv) {
     static struct lifecycle_worker worker;
     cache_seed(&s,&worker);
     if(life_start(&worker,1)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;ui_logger=&worker;
+    static struct capture_worker capture_worker;
+    if(capture_owner_start(&capture_worker)) {
+        ui_logger=NULL;(void)life_stop(&worker);(void)desk_launch_owner_finish(&worker.owner);gfx_console_mute(0);return 1;
+    }
+    s.capture_owner=&capture_worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
+    else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,wifi_active_remove_trial?"wifi-active-remove-trial":wifi_replug_trial?"wifi-replug-trial":wifi_reattach_trial?"wifi-reattach-trial":wifi_reconnect_trial?"wifi-reconnect-trial":"wifi-managed-trial");
+    else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
@@ -2362,7 +2517,7 @@ int main(int argc,char **argv) {
     int audio_io_complete=0,audio_io_finished=0;
     unsigned stress_shots=0,stress_saved=0,stress_shot_seen=0;
     uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0,followup_elapsed=0;unsigned followup_phase=0;
-    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
+    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,life_ready_elapsed=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
     struct operation_trace failure_operations={0};
@@ -2390,11 +2545,25 @@ int main(int argc,char **argv) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
             loop_trace_begin(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
-            if(loop_now-loop_report_at>=10000000 && life_state(&worker.report_state)==LIFE_IDLE) {
+            struct loop_control_record *c=&loop_trace.current.control;
+            control_record_begin(c,loop_now);control_region_begin(&loop_trace,CONTROL_REPORT);
+            c->due=loop_now-loop_report_at>=10000000;
+            if(c->due) {c->state_checked=1;c->report_state=life_state(&worker.report_state);}
+            if(c->due && c->report_state==LIFE_IDLE) {
+                c->snapshot_called=1;c->snapshot_begin=(uint64_t)srv_monotonic_us();
                 struct operation_trace operations=operation_snapshot(&s,loop_now);
-                if(life_report_submit(&worker,&loop_trace,&operations))loop_report_at=loop_now;
+                c->snapshot_end=(uint64_t)srv_monotonic_us();
+                c->submit_called=1;c->submit_begin=(uint64_t)srv_monotonic_us();
+                int accepted=life_report_submit(&worker,&loop_trace,&operations);
+                c->submit_end=(uint64_t)srv_monotonic_us();c->accepted=!!accepted;
+                if(accepted)loop_report_at=loop_now;
             }
             if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
+        }
+        if(loop_trace.active) {
+            control_region_end(&loop_trace,CONTROL_REPORT);control_region_begin(&loop_trace,CONTROL_AUDIO);
+            struct loop_control_record *c=&loop_trace.current.control;
+            c->audio_enabled=!!audio_io;c->finished_before=!!audio_io_finished;c->child_before=audio_io_pid;
         }
         if(audio_io && !audio_io_finished) {
             uint64_t now=(uint64_t)srv_monotonic_us();
@@ -2413,7 +2582,10 @@ int main(int argc,char **argv) {
                     /* Lifecycle fixture launches actual apps after playback starts. */
                 } else if(now-audio_io_begin>15000000) {failed=1;break;}
             } else {
+                struct loop_control_record *c=&loop_trace.current.control;
+                if(loop_trace.active) {c->wait_called=1;c->wait_pid=audio_io_pid;c->wait_flags=SRV_WAIT_NOHANG;c->wait_begin=(uint64_t)srv_monotonic_us();}
                 uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
+                if(loop_trace.active) {c->wait_end=(uint64_t)srv_monotonic_us();c->wait_result=done;}
                 if(done==(long)audio_io_pid) {
                     audio_io_complete=status==0;audio_io_finished=1;audio_io_pid=0;failed=!audio_io_complete;
 
@@ -2425,13 +2597,21 @@ int main(int argc,char **argv) {
                 if(now-audio_io_begin>((uint64_t)audio_io_seconds+90)*1000000){failed=1;break;}
             }
             if(!audio_io_finished && now-audio_io_notice>=1000000) {
+                if(loop_trace.active) {loop_trace.current.control.notice_called=1;loop_trace.current.control.notice_begin=(uint64_t)srv_monotonic_us();}
                 audio_io_notice=now;
                 snprintf(s.scene.notice,sizeof(s.scene.notice),audio_io_attended?"Audio + USB: %llu / %u sec. Follow Help checklist; save before leaving.":"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+                if(loop_trace.active)loop_trace.current.control.notice_end=(uint64_t)srv_monotonic_us();
             }
         }
+        if(loop_trace.active) {
+            struct loop_control_record *c=&loop_trace.current.control;
+            c->finished_after=!!audio_io_finished;c->child_after=audio_io_pid;
+            control_region_end(&loop_trace,CONTROL_AUDIO);control_region_begin(&loop_trace,CONTROL_IO);
+            c->io_enabled=!!s.io.enabled;
+        }
         io_trial_loop_begin(&s.io);
-        loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
+        control_messages_begin(&loop_trace);
         uint64_t message_begin=(uint64_t)srv_monotonic_us();
         for (int n=0;n<32;n++) {
             struct desk_packet p; uint64_t pid=0;
@@ -2514,11 +2694,12 @@ int main(int argc,char **argv) {
             }
             if(!life_phase && now>=life_due && (power_trial?now-power_phase.began<48000000:now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000)) {
                 static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
-                life_begin=now;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
+                life_begin=now;life_ready_elapsed=0;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
             } else if(life_phase==1) {
                 if(!life_pid)life_pid=s.last_launch_pid;
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
-                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_begin));
+                    life_ready_elapsed=now-life_begin;
+                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)life_ready_elapsed);
                     s.current_lifetime.pid=life_pid;s.current_lifetime.ready_us=now;
                     if(now-life_begin>life_ready_max) {life_ready_max=now-life_begin;s.ready_worst=s.current_lifetime;}
                     life_phase=2;life_due=now+500000;break;
@@ -2528,6 +2709,7 @@ int main(int argc,char **argv) {
                 life_close=now;s.current_lifetime.close_request_us=now;life_phase=3;
             } else if(life_phase==3 && child_index(&s,life_pid)<0) {
                 desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
+                life_cycle_log(life_cycles,life_pid,life_ready_elapsed,now-life_close,s.child_errors);
                 s.current_lifetime.closed_us=now;
                 if(now-life_close>life_close_max) {life_close_max=now-life_close;s.close_worst=s.current_lifetime;}
                 if(s.ready_worst.pid==life_pid)s.ready_worst=s.current_lifetime;
@@ -2790,7 +2972,8 @@ int main(int argc,char **argv) {
                         int children=0;
                         for(int i=0;i<children_capacity(&s);i++)children|=*session_children(&s,i)!=0;
                         if(saved==1 && !children && !s.capture.busy && !s.capture_pending &&
-                           !s.pending_opens && life_state(&worker.prepare.state)==LIFE_IDLE && life_state(&worker.capture.state)==LIFE_IDLE) {
+                           !s.pending_opens && capture_owner_state(&capture_worker)==CAPTURE_OWNER_IDLE &&
+                           life_state(&worker.prepare.state)==LIFE_IDLE && life_state(&worker.capture.state)==LIFE_IDLE) {
                             s.end_committed=1;
                             desk_log("session-ui: phase=committed action=%s\n",s.end_action==DESKTOP_SESSION_SWITCH?"switch":"console");
                             quit=1;break;
@@ -3027,17 +3210,29 @@ int main(int argc,char **argv) {
             }
         }
         loop_trace_stamp(&loop_trace,LOOP_RENDER);
+        struct loop_render_record *render=loop_trace.active?&loop_trace.current.render:NULL;
+        int render_scheduler=0;
+        if(render) {
+            render_record_begin(render,(uint64_t)srv_monotonic_us());
+            render->damage=s.damage.count;render->scale=scale;
+            render->capture_id=s.capture.next_id;render->capture_busy=s.capture.busy;
+            render_scheduler=srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&render->scheduler)==0;
+            if(!render_scheduler)render->valid=0;
+        }
         long render_start=(io_mode || hardware_trial) && s.damage.count?srv_monotonic_us():0;
         /* No scene mutation/dispatch during this frame. Sort once, then borrow
          * the registry scratch order for all damage rectangles. */
         int inline_order[DESKD_WINDOWS];int *frame_order=s.scene.order?s.scene.order:inline_order;
         if(s.damage.count) desktop_stack(&s.scene,frame_order);
-        struct present_frame frame={&canvas,&s.scene,frame_order,scale,info.width,info.height};
+        struct present_frame frame={&canvas,&s.scene,frame_order,scale,info.width,info.height,render};
         const struct desktop_present_ops present_ops={compose_frame_rect,upload_frame_rect};
+        if(render)render_record_mark(render,1,(uint64_t)srv_monotonic_us());
         if(desktop_present(&s.damage,scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
+        if(render)render_record_mark(render,2,(uint64_t)srv_monotonic_us());
         if(!failed && s.damage.count && fenced_present && gfx_present()!=0) {
             ui_puts("deskd: gfx-present frame failed\n");failed=1;
         }
+        if(render)render_record_mark(render,3,(uint64_t)srv_monotonic_us());
         if(hardware_trial) {
             long end=s.damage.count?srv_monotonic_us():0;
             desktop_timing_end(&timing,poll_time,render_start>0?(uint64_t)render_start:0,end>0?(uint64_t)end:0,!failed && s.damage.count);
@@ -3059,8 +3254,27 @@ int main(int argc,char **argv) {
             coexist_script_done=1;ui_puts("desktop-text: script presented; keyboard ready\n");
         }
         s.damage.count=0;
+        if(render) {
+            if(render_scheduler && srv_sched_trace(SRV_SCHED_TRACE_END,&render->scheduler))render->valid=0;
+            render_record_mark(render,4,(uint64_t)srv_monotonic_us());
+            if(!render_record_complete(render) || render->scheduler.invalid) {render->valid=0;loop_trace.invalid++;}
+        }
         loop_trace_stamp(&loop_trace,LOOP_POST);
+        struct loop_capture_record *capture=loop_trace.active?&loop_trace.current.capture:NULL;
+        int capture_scheduler=0;
+        if(capture) {
+            capture->begin=(uint64_t)srv_monotonic_us();capture->valid=1;
+            capture->id_before=s.capture.next_id;capture->busy_before=s.capture.busy;capture->pending_before=s.capture_pending;
+            capture_scheduler=srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&capture->scheduler)==0;
+            if(!capture_scheduler)capture->valid=0;
+        }
         if(apps && !failed) capture_tick_scaled(&s,&canvas);
+        if(capture) {
+            if(capture_scheduler && srv_sched_trace(SRV_SCHED_TRACE_END,&capture->scheduler))capture->valid=0;
+            capture->end=(uint64_t)srv_monotonic_us();
+            capture->id_after=s.capture.next_id;capture->busy_after=s.capture.busy;capture->pending_after=s.capture_pending;
+            if(!capture->valid || !capture->begin || capture->end<capture->begin || capture->end>=INT64_MAX || capture->scheduler.invalid) {capture->valid=0;loop_trace.invalid++;}
+        }
         if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack &&
            (!control_files || coexist_ack==60 || (uint64_t)srv_monotonic_us()-coexist_begin>=coexist_limit)) {
             coexist_complete=coexist_ack>=55 && frames-coexist_frames>=55 &&
@@ -3253,6 +3467,7 @@ int main(int argc,char **argv) {
             if(wait->scheduler.invalid)loop_trace.invalid++;
         }
     }
+    control_trace_abort(&loop_trace);
     if(present_lease) {
         if(gfx_present_end()!=0) { ui_puts("deskd: gfx-present end failed\n");failed=1; }
         else desk_log("deskd: gfx-present end\n");
@@ -3309,13 +3524,17 @@ int main(int argc,char **argv) {
         failed=1;gfx_console_mute(0);
         ui_puts("deskd: session failed; draining accepted work. Profile switching stopped.\n");
     }
-    /* Preparation owns unpublished handles/mappings. Drain that publication
-     * before closing the job; the UI placeholder has none of those resources. */
+    /* The exclusive capture owner drains accepted persistence and joins before
+     * its storage/session can disappear. The UI never closes its resources. */
+    if(capture_owner_stop(&capture_worker)){srv_puts("deskd: capture worker join failed\n");return 1;}
+    s.capture_pending=0;
+    if(capture_owner_state(&capture_worker)==CAPTURE_OWNER_DONE)capture_tick(&s,NULL);
+    /* Retain fallback lifecycle retirement for callers without a capture owner. */
     if(life_state(&worker.prepare.state)!=LIFE_IDLE) {
         while(life_state(&worker.prepare.state)!=LIFE_DONE)srv_sleep_ticks(1);
         int prepared;(void)life_prepare_take(&worker,&s.capture,&prepared);
     }
-    if(s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
+    if(!s.capture_owner && s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
     ui_logger=NULL;
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
     desk_log("desktop-ui-log: version=1 dropped=%llu pending=%u\n",(unsigned long long)worker.log_dropped,
@@ -3335,9 +3554,9 @@ int main(int argc,char **argv) {
             /* A storage wait can cross the grace deadline after the client
              * exits. Reap that completion before treating it as a forced kill. */
             uint64_t status=0,pid=(*session_children(&s,i));
-            long waited=srv_wait(pid,&status,SRV_WAIT_NOHANG);
+            long waited=desk_launch_owner_wait(&worker.owner,pid,&status,SRV_WAIT_NOHANG);
             if(waited!=(long)pid) {
-                srv_kill(pid);waited=srv_wait(pid,&status,0);
+                srv_kill(pid);waited=desk_launch_owner_wait(&worker.owner,pid,&status,0);
                 if(coexist) failed=1;
             }
             if(waited==(long)pid) {
@@ -3394,6 +3613,12 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);s.worker=NULL;
+    long owner_pid=worker.owner.pid;
+    int owner_result=desk_launch_owner_finish(&worker.owner);
+    desk_log("desktop-launch-owner: version=1 pid=%lld launches=%llu reaps=%llu retired=%u errors=%u\n",
+        (long long)owner_pid,(unsigned long long)worker.owner.launches,(unsigned long long)worker.owner.reaps,
+        !worker.owner.pid,owner_result!=0);
+    if(owner_result)failed=1;
     unsigned retained=0;
     for(unsigned n=0;n<2;n++)retained+=s.retained_cache[n].job!=NULL;
     if(s.cache_bytes || retained)failed=1;

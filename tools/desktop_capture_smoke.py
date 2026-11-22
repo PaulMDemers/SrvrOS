@@ -96,7 +96,12 @@ def main():
                 click(760,522);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
                 shot("screenshots-folder");type_text("Screen-");qmp.key("ret");wait(b"deskview: loaded path=",60);shot("preview-capture")
                 # Menu path captures again and leaves Return to console as End.
-                shortcut("f10");qmp.key("end");qmp.key("up");qmp.key("ret")
+                # Select Save screenshot from the leading enabled system actions.
+                # Profile-session commands now sit between it and Return to
+                # console, so End/Up no longer identifies this action.
+                shortcut("f10");qmp.key("home")
+                for _ in range(10):qmp.key("down")
+                qmp.key("ret")
                 wait(b"deskd: screenshot captured path=");wait(b"height=800");wait(b"deskd: screenshot saved status=0 path=",90)
                 captured=re.findall(rb"deskd: screenshot captured path=([^\s]+) width=1280 height=800",output)
                 assert len(captured)==2 and captured[0]!=captured[1]
