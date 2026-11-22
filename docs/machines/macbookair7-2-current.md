@@ -44,6 +44,23 @@ All 80 mappings retired and the offline exFAT check passed. The guarded
 Intel writer exercised replacement and rollback in QEMU. The physical run
 performed zero GPU page-table writes.
 
+The native writer now verifies the guarded GGTT backing for both slots before
+requesting traffic exclusion and throughout rollback. It also waits for both
+L3 message bits to settle before returning the CPU guard after release.
+
+On November 22, three Ubuntu i915 trials replaced and restored slot 12291
+on this Air. i915 rebound 40 MiB objects containing the tested page.
+In each run a separate occupied interval kept slot 8704 outside the loan. The original PTE and all 1,024 data words returned. The protected
+PTE matched at all seven checks and the trace recorded no binding changes at
+8704 during the loan. All five engine fences completed after the rollback.
+The text console kept its original primary surface while CRTC 52 advanced
+66563–66564, 66618–66619 and 66674–66676. At the nine held samples the GAM
+request/response read 0xff/0x7f, all five engine flush acknowledgement bits
+were clear, WiDi reported 0x1f and the L3 message was zero. Ubuntu owned
+submission and the GGTT throughout. The cold-boot SrvrOS writer still needs
+a device owner that excludes inherited GPU readers and accounts for outstanding
+cache traffic. [Reproduce the independent slot comparison](../intel-bdw-primary-flip.md#independent-slot-comparison-under-i915)
+
 ## Reset-free primary plane flip
 
 The Air7,2 work covers native GGTT register access for the blitter

@@ -9,13 +9,17 @@ import re
 import struct
 import subprocess
 import tempfile
+import time
 
-SLOT = 8704
+FIRMWARE_SLOT = 8704
+INDEPENDENT_SLOT = 12291
 BIND = re.compile(r'i915_vma_bind: obj=(\w+), offset=(0x[\da-f]+) size=(0x[\da-f]+).* vm=(\w+)')
+TRANSITION = re.compile(r'i915_vma_(?:un)?bind: obj=\w+, offset=(0x[\da-f]+) size=(0x[\da-f]+).* vm=(\w+)')
 PCI = Path('/sys/bus/pci/devices/0000:00:02.0')
 
 
-def trial(binary, user, instance):
+def trial(binary, user, instance, independent, console):
+    slot = INDEPENDENT_SLOT if independent else FIRMWARE_SLOT
     panel = PCI / 'drm'
     edp, = panel.glob('card*/card*-eDP-1/enabled')
     if (Path('/sys/class/dmi/id/product_name').read_text().strip() != 'MacBookAir7,2' or
@@ -26,7 +30,7 @@ def trial(binary, user, instance):
     for event in ('i915_vma_bind', 'i915_vma_unbind'):
         (instance / 'events/i915' / event / 'enable').write_text('1')
     (instance / 'tracing_on').write_text('1')
-    offset = 0x800000 + SLOT * 8
+    offset = 0x800000 + slot * 8
     card, = (PCI / 'drm').glob('card[0-9]*')
     if {p.name for p in (card / 'engine').iterdir()} != {'rcs0', 'bcs0', 'vcs0', 'vcs1', 'vecs0'}:
         raise ValueError('Unexpected engine topology')
@@ -42,6 +46,41 @@ def trial(binary, user, instance):
                                                  prot=mmap.PROT_READ, offset=address & ~4095))
 
         ptes = mmio_page(offset)
+        protected_offset = 0x800000 + FIRMWARE_SLOT * 8
+        protected_page = mmio_page(protected_offset) if independent else None
+        protected = None
+        ggtt = None
+        separator = None
+        separator_bind = None
+
+        def checked_trace():
+            trace = (instance / 'trace').read_text()
+            counts = re.search(r'entries-in-buffer/entries-written:\s*(\d+)/(\d+)', trace)
+            if not counts or counts[1] != counts[2]:
+                raise ValueError('Incomplete i915 trace')
+            return trace
+
+        def verify_protected():
+            if not independent:
+                return
+            entry = struct.unpack_from('<Q', protected_page, protected_offset & 4095)[0]
+            if not ggtt or entry != protected:
+                raise ValueError('Protected GGTT entry changed during the target loan')
+            rows = checked_trace().splitlines()
+            if rows.count(separator_bind) != 1:
+                raise ValueError('Missing original separator bind event')
+            for row in rows[rows.index(separator_bind) + 1:]:
+                if 'i915_vma_bind:' not in row and 'i915_vma_unbind:' not in row:
+                    continue
+                event = TRANSITION.search(row)
+                if not event:
+                    raise ValueError('Unrecognized i915 VMA event')
+                if separator in row and f'vm={ggtt}' in row:
+                    raise ValueError('Separator was unbound during the loan')
+                begin, size, vm = event.groups()
+                if vm == ggtt and 0 <= FIRMWARE_SLOT * 4096 - int(begin, 16) < int(size, 16):
+                    raise ValueError('Binding change overlaps the protected slot')
+
         plane = mmio_page(0x70180)
         cache = mmio_page(0xb118)
         render = mmio_page(0x21c4)
@@ -55,11 +94,12 @@ def trial(binary, user, instance):
             return tuple(struct.unpack_from('<I', plane, r)[0] for r in (0x180, 0x19c, 0x1ac))
 
         def sample():
+            verify_protected()
             live = primary()
             if (live != original_plane or edp.read_text().strip() != 'enabled' or
                 not live[0] & (1 << 31) or live[0] == 0xffffffff or
-                (live[1] & ~8) != live[2] or live[2] >= SLOT * 4096):
-                raise ValueError('Original panel surface changed or is outside the admitted range')
+                (live[1] & ~8) != live[2] or live[2] >= FIRMWARE_SLOT * 4096):
+                raise ValueError(f'Panel state changed or lies outside the admitted range: {original_plane} -> {live}')
             entry = struct.unpack_from('<Q', ptes, offset & 4095)[0]
             if not entry & 1 or entry == 2**64 - 1:
                 raise ValueError('Invalid native GGTT entry')
@@ -80,28 +120,82 @@ def trial(binary, user, instance):
 
         def traffic_messages():
             request = struct.unpack_from('<I', power, 0xd0)[0]
+            engines = struct.unpack_from('<5I', messages, 0)
             widi = struct.unpack_from('<I', messages, 0x14)[0]
+            response = struct.unpack_from('<I', messages, 0x28)[0]
             l3 = struct.unpack_from('<I', messages, 0x38)[0]
-            if 0xffffffff in (request, widi, l3):
+            if 0xffffffff in (request, response, *engines, widi, l3):
                 raise ValueError('Invalid power-manager message read')
-            return f'gam_request={request:#x} widi={widi:#x} l3_message={l3:#x}'
+            words = ','.join(hex(word) for word in engines)
+            return f'gam_request={request:#x} widi={widi:#x} l3_message={l3:#x} gam_response={response:#x} engines={words}'
 
-        original_plane = primary()
+        original_plane = None if independent else primary()
         client = stack.enter_context(subprocess.Popen(
-            [str(binary), '--slot-loan'], user=user.pw_uid, group=user.pw_gid,
+            [str(binary), '--independent-slot' if independent else '--slot-loan'], user=user.pw_uid, group=user.pw_gid,
             extra_groups=os.getgrouplist(user.pw_name, user.pw_gid),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True))
         entries, bindings = [], []
         indirect_context = None
+        client_ready = False
         checked = 0
         pid = re.compile(r'-' + str(client.pid) + r'\s')
         previous_rows = 0
         try:
             for line in client.stdout:
                 fields = line.split()
+                if fields == ['READY']:
+                    if not independent or client_ready:
+                        raise ValueError('Unexpected start of mapping trial')
+                    client_ready = True
+                    if console is not None:
+                        previous = Path('/sys/class/tty/tty0/active').read_text().strip()
+                        if not re.fullmatch(r'tty[1-9][0-9]*', previous):
+                            raise ValueError('Cannot identify the recovery VT')
+                        stack.callback(subprocess.run, ['chvt', previous[3:]], check=True)
+                        subprocess.run(['chvt', str(console)], check=True)
+                        # Seat activation returns before fbcon's modeset and
+                        # deferred unpins have necessarily reached the device.
+                        time.sleep(0.5)
+                    (instance / 'trace').write_text('\n')
+                    print(1, file=client.stdin, flush=True)
+                    continue
+                if fields[:1] == ['PAD']:
+                    if not client_ready or protected is not None:
+                        raise ValueError('Unexpected separator allocation')
+                    rows = [r for r in checked_trace().splitlines() if pid.search(r)]
+                    matches = [(row, m) for row in rows[previous_rows:] if (m := BIND.search(row))
+                               and int(m[3], 16) == int(fields[1])]
+                    previous_rows = len(rows)
+                    if len(matches) != 1:
+                        raise ValueError('Expected one fresh separator binding')
+                    bind_row, match = matches[0]
+                    obj, base, size, vm = match.groups()
+                    begin, end = int(base, 16), int(base, 16) + int(size, 16)
+                    if begin <= slot * 4096 < end:
+                        raise ValueError('i915 placed a separator on the target slot')
+                    if end <= FIRMWARE_SLOT * 4096 or begin > slot * 4096:
+                        print(0, file=client.stdin, flush=True)
+                        continue
+                    # This independent occupied interval prevents a contiguous
+                    # target allocation from extending across slot 8704.
+                    ggtt = vm
+                    separator = f'i915_vma_unbind: obj={obj}, offset={base} '
+                    separator_bind = bind_row
+                    original_plane = primary()
+                    protected = struct.unpack_from('<Q', protected_page, protected_offset & 4095)[0]
+                    if not protected & 1 or protected == 2**64 - 1:
+                        raise ValueError('Invalid original protected PTE')
+                    print(f'protected_slot={FIRMWARE_SLOT} pte={protected:#018x} separator=[{begin:#x},{end:#x})', flush=True)
+                    print(1, file=client.stdin, flush=True)
+                    continue
                 if fields[:1] == ['CHECK']:
                     phase = int(fields[1])
                     pte, l3, scratch = sample()
+                    if independent and phase == checked == 3 and len(entries) == 3 and pte == entries[0]:
+                        checked += 1
+                        print(f'resumed=1 slot={slot} restored_pte={pte:#018x} protected_pte={protected:#018x}', flush=True)
+                        print(phase, file=client.stdin, flush=True)
+                        continue
                     if phase != checked or len(entries) != phase + 1 or entries[phase] != pte:
                         raise ValueError('GGTT binding changed before the end of the phase')
                     # Gen8 RCS INDIRECT_CTX names the driver-owned restore batch.
@@ -113,7 +207,7 @@ def trial(binary, user, instance):
                         raise ValueError('Render indirect context missing or changed under the hold')
                     indirect_context = indirect
                     checked += 1
-                    print(f'checked={phase} slot={SLOT} pte={pte:#018x} '
+                    print(f'checked={phase} slot={slot} pte={pte:#018x} '
                           f'rcs_indirect={indirect:#010x} l3sqcreg4={l3:#010x} scratch1={scratch:#010x} {traffic_messages()}', flush=True)
                     print(phase, file=client.stdin, flush=True)
                     continue
@@ -121,10 +215,7 @@ def trial(binary, user, instance):
                     print(line.rstrip(), flush=True)
                     continue
                 _, phase, size = fields
-                trace = (instance / 'trace').read_text()
-                counts = re.search(r'entries-in-buffer/entries-written:\s*(\d+)/(\d+)', trace)
-                if not counts or counts[1] != counts[2]:
-                    raise ValueError('Incomplete i915 trace')
+                trace = checked_trace()
                 rows = [r for r in trace.splitlines() if pid.search(r)]
                 recent = rows[previous_rows:]
                 previous_rows = len(rows)
@@ -133,9 +224,15 @@ def trial(binary, user, instance):
                 if len(matches) != 1 or int(phase) != len(entries) or checked != len(entries):
                     raise ValueError('Expected one fresh private GGTT binding for this phase')
                 at, (obj, base, length, vm) = matches[0]
-                relative = SLOT * 4096 - int(base, 16)
+                if independent:
+                    if protected is None or (ggtt is not None and vm != ggtt):
+                        raise ValueError('Target binding does not belong to the trial')
+                    if 0 <= FIRMWARE_SLOT * 4096 - int(base, 16) < int(length, 16):
+                        raise ValueError(f'i915 allocated the target over slot {FIRMWARE_SLOT} at {base}')
+                    ggtt = vm
+                relative = slot * 4096 - int(base, 16)
                 if not 0 <= relative <= int(length, 16) - 4096:
-                    raise ValueError(f'Private i915 allocation at {base} does not cover slot {SLOT}')
+                    raise ValueError(f'Private i915 allocation at {base} does not cover slot {slot}')
                 if bindings:
                     last_obj, last_base, last_vm = bindings[-1]
                     if (vm != last_vm or obj == last_obj or not any(
@@ -149,11 +246,11 @@ def trial(binary, user, instance):
                     raise ValueError('Original i915 binding or raw PTE did not return')
                 bindings.append((obj, base, vm))
                 entries.append(pte)
-                print(f'phase={phase} slot={SLOT} pte={pte:#018x} pipe_surface={original_plane[2]:#x}', flush=True)
+                print(f'phase={phase} slot={slot} pte={pte:#018x} pipe_surface={original_plane[2]:#x}', flush=True)
                 print(relative, file=client.stdin, flush=True)
         finally:
             client.stdin.close()
-        if client.wait() or checked != 3:
+        if client.wait() or checked != (4 if independent else 3):
             raise RuntimeError('Private hardware transaction did not complete')
 
 
@@ -161,13 +258,18 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('binary', type=Path)
     ap.add_argument('--user', required=True)
+    ap.add_argument('--independent-slot', action='store_true', help='Rebind slot 12291 while protecting slot 8704')
+    ap.add_argument('--console', type=int, choices=range(1, 64), metavar='VT',
+                    help='Use a text VT during the independent trial and return to the previous VT')
     args = ap.parse_args()
+    if args.console is not None and not args.independent_slot:
+        ap.error('--console requires --independent-slot')
     account = pwd.getpwnam(args.user)
     if os.geteuid() or account.pw_uid == 0:
         ap.error('Use a privileged trace observer and an unprivileged GPU client')
     inst = Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
     try:
-        trial(args.binary.resolve(strict=True), account, inst)
+        trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console)
     finally:
         (inst / 'tracing_on').write_text('0')
         inst.rmdir()

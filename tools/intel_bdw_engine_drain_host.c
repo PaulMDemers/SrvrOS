@@ -150,7 +150,7 @@ static uint32_t bind_slot(int fd, uint32_t handle, unsigned phase, uint64_t seed
     fflush(stdout);
     unsigned offset;
     require(scanf("%u", &offset) == 1 && !(offset & 4095) && offset <= SLOT_BO_BYTES - 4096,
-            "Observer could not identify a binding covering slot 8704");
+            "Observer could not identify the target in this binding");
     uint32_t words[1024];
     for (unsigned i = 0; i < 1024; ++i) {
         words[i] = (phase == 1 ? ~(uint32_t)seed : (uint32_t)seed) ^ i;
@@ -212,6 +212,27 @@ static pid_t start_watchdog(uint32_t *gate,int *signal_fd)
     close(finish[0]);
     *signal_fd=finish[1];
     return watcher;
+}
+
+/* Keep small private GGTT bindings live until the observer locates a
+ * separator between the protected and target slots in i915's allocator. */
+static void separate_slots(int fd)
+{
+    for (unsigned i = 0; i < 16; ++i) {
+        struct drm_i915_gem_create pad = {.size = 4u * 1024 * 1024};
+        call(fd, DRM_IOCTL_I915_GEM_CREATE, &pad, "create GGTT separator");
+        struct drm_i915_gem_mmap_offset off = {.handle = pad.handle, .flags = I915_MMAP_OFFSET_GTT};
+        call(fd, DRM_IOCTL_I915_GEM_MMAP_OFFSET, &off, "separator mmap offset");
+        volatile const uint32_t *view = mmap(NULL, pad.size, PROT_READ, MAP_SHARED, fd, off.offset);
+        require(view != MAP_FAILED, "Cannot map GGTT separator");
+        (void)view[0];
+        printf("PAD %llu\n", (unsigned long long)pad.size);
+        fflush(stdout);
+        unsigned done;
+        require(scanf("%u", &done) == 1 && done <= 1, "Observer lost the separator binding");
+        if (done) return;
+    }
+    require(false, "No separator within the trial allocation budget");
 }
 
 static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t seed)
@@ -367,12 +388,13 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
 
 int main(int argc, char **argv)
 {
-    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--private-image");
+    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--independent-slot|--private-image");
     char *end;
     long timeline = strtol(argv[1], &end, 10);
     bool slot_trial = !strcmp(argv[1], "--slot-loan");
+    bool independent_trial = !strcmp(argv[1], "--independent-slot");
     bool image_trial = !strcmp(argv[1], "--private-image");
-    if (!slot_trial && !image_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
+    if (!slot_trial && !independent_trial && !image_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
     int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
     require(fd >= 0 && parameter(fd, I915_PARAM_CHIPSET_ID) == 0x1626 &&
             parameter(fd, I915_PARAM_HAS_ALIASING_PPGTT) >= 2 && parameter(fd, I915_PARAM_HAS_LLC) &&
@@ -389,8 +411,16 @@ int main(int argc, char **argv)
         private_image(fd,card,crtc,context.ctx_id,seed>>8);
         return EXIT_SUCCESS;
     }
-    if (slot_trial) {
+    if (slot_trial || independent_trial) {
+        if (independent_trial) {
+            unsigned ready;
+            puts("READY");
+            fflush(stdout);
+            require(scanf("%u", &ready) == 1 && ready == 1, "Observer did not establish the baseline");
+            separate_slots(fd);
+        }
         slot_loan(fd, card, crtc, context.ctx_id, seed);
+        if (independent_trial) confirm_mapping(3); /* Before i915 closes any trial object. */
         return EXIT_SUCCESS;
     }
     struct sw_fence gate = {.value = 1, .name = "SrvrOS private successors"};

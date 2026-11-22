@@ -273,3 +273,39 @@ records during GGTT initialization. [Linux i915 GGTT initialization](https://git
 The Linux framebuffer offsets in the [Air7,2 hardware record](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
 give a comparison for the allocator. Firmware handoff and the size of the live
 boot fence must be established afresh in SrvrOS before reusing addresses.
+
+## Independent slot comparison under i915
+
+Build the [five-engine comparator](intel-bdw-bcs-flush.md#five-engine-private-queue-test)
+on the Ubuntu Air7,2. Choose an available text VT for a stationary primary
+surface. The observer restores the previous VT on normal completion or a
+reported refusal. The render user opens the DRM devices before the switch.
+
+```sh
+sudo python3 tools/intel_bdw_slot_loan_host.py --user "$USER" --independent-slot --console 3 \
+    build/tests/intel-bdw-engine-drain-host
+```
+
+i915 rebinds two private 40 MiB objects and chooses their addresses. The
+client checks the single 4 KiB page at slot 12291. Before the trial, the client faults in up to
+sixteen private 4 MiB objects to establish an occupied interval separating
+the target from slot 8704. The observer records the protected PTE and
+programmed/live primary surface after that setup. At each target binding
+and held check, it verifies these values and examines all recorded i915
+bind/unbind events in the same address space. Losing the separator, changing
+a binding covering slot 8704, trace loss or a different primary surface
+invalidates the run. A final check after all five engines resume repeats
+the verification before the client closes its objects.
+
+A passing result shows that a driver already in control of the GPU can
+replace and restore slot 12291 while preserving slot 8704. The host engine
+markers and power-manager acknowledgements are recorded separately. The next
+SrvrOS hardware write requires a cold-boot handoff with exclusive control
+of submissions, outstanding GPU work, and the display proxy through rollback.
+
+The Gen8 i915 page insertion routine takes a DMA address and an offset in
+the driver's GGTT, writes the encoded PTE, then invalidates the translation.
+For SrvrOS the unresolved step precedes that store. The boot handoff must
+establish who can issue work against this range and retire earlier users
+before the driver's own allocation and fence records can govern reuse.
+[Linux Gen8 GGTT page insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L405-L422)
