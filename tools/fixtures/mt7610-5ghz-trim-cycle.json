@@ -1,0 +1,51 @@
+{
+  "scope": "host-only RF0:22 exact-board reversible trim,optionally held around v116 channel engine;no pulses",
+  "original_source": "c3088243",
+  "original_session": "session-00065f6683c07ec1-00",
+  "original_frontend_index": 41,
+  "original": 0,
+  "selected": 68,
+  "fresh_native_fields_required": true,
+  "sha256": "c89d7172ca69fc2887c28de995e1e7c715350b0d05986081c48ca5e06b520398",
+  "sources": {
+    "initvals.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals.h",
+      "sha256": "396bd681bc7f7d3a04f0a04aa38f9419c3483ef9fe7e075e78c4db799002e1fc"
+    },
+    "eeprom.c": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.c",
+      "sha256": "310a56c74589e73f1063b2868a0aceeace8def725beb56a84fc3ccaa392b6f7d"
+    },
+    "eeprom.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.h",
+      "sha256": "1a44c40f4d371b378d1ca0ca7a8cbaa0d26161bc793e5d2606111baf0693df10"
+    },
+    "regs.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h",
+      "sha256": "a75b36645b29e69db0627d9a16f776cad0e4000b6944a31183ef644d0398aefb"
+    },
+    "phy.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.h",
+      "sha256": "78684d608144054cf1f2803a3db20845c465fe4a1164352481f23fa96bd5cdf7"
+    },
+    "initvals_phy.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h",
+      "sha256": "5a1f239a47c22f2d5ac58c806fbf93d36a4f0467dea9d4faee6e9bab4be5d0f6"
+    },
+    "phy.c": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c",
+      "sha256": "bd3d8a5425e4d0738d077728d8ea62687a7914ae26b36e69199bc34a4effc745"
+    },
+    "eeprom0.c": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c",
+      "sha256": "0493df28d2975bf1dee85b2146eaaa2f4a8550e21005f77daa1c8d054b23a6bc"
+    }
+  },
+  "dependencies": {
+    "mt7610-5ghz-band.bin": "8681b73c95181f7923b370a7b34a207eae0f4217f253ca9637d53efdbcd0de87",
+    "mt7610-5ghz-a20-hb.bin": "860f086d35b588daf6b8d63188f269a547b48722d3b3b4e032008b63110e67ca",
+    "mt7610-us5-channel161-frequency.bin": "d55e35b3664c59ee93ef4eb4651bab0d518e9b95697381e380f7d4be4eb69978",
+    "mt7610-5ghz-pa-cycle.bin": "087be5365755e8fee2ceefe0cffbba8712cbaea670e8c8dbd04c25552249f478",
+    "mt7610-5ghz-bbp-cycle.bin": "82af5c1ba423e017b087cb4f3cdb6a8ade2d9c734dd5632b62a3c35bf8b6ebb6"
+  }
+}

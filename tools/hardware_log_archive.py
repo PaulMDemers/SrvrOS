@@ -71,7 +71,7 @@ def snapshot(folder):
     result={}
     for p in folder.iterdir():
         st=p.lstat()
-        if p.name not in LOG_NAMES or not stat.S_ISREG(st.st_mode) or st.st_size>2*1024*1024:
+        if p.name not in LOG_NAMES or not stat.S_ISREG(st.st_mode) or st.st_size>4*1024*1024:
             raise ValueError('Unrecognized/oversized session contents')
         result[p.name]=dict(bytes=st.st_size,sha256=sha(p))
     return result

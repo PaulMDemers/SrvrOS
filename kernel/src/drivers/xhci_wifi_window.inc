@@ -1,0 +1,133 @@
+/* Explicit v94/v95 profiles only. Polling fits inside the accepted MAC hook; final inspection is
+ * deferred until the parent MAC cleanup, endpoint stop and six guards finish. */
+static bool wifi_window_owned(void *context,bool cleanup) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    struct xhci_wifi_window *w=&m->window;struct xhci_wifi_rx *r=&m->rx;
+    if(!m->window_mode || !w->state.attempted || !wifi_window_layout(d) ||
+       !wifi_rx_owned(d) || !m->poweron.complete || m->poweron_ack_mask!=31 ||
+       !m->mac_cycle.started || !m->mac_cycle.snapshot_complete)return false;
+    const struct mt76_rx_window_plan *p=&w->state.plan;
+    /* Existing native recipes own only the legacy channel1 window. Explicit
+     * channel plans belong to the later repeated-window adapter, never here. */
+    if(p->first_index || w->plan.first_index || p->country[0] || p->country[1] || p->channel ||
+       w->plan.country[0] || w->plan.country[1] || w->plan.channel)return false;
+    if(p->budget_us!=w->plan.budget_us || p->ring!=w->plan.ring || p->slot!=w->plan.slot || p->dci!=9)return false;
+    for(unsigned i=0;i<8;i++)if(p->buffer[i]!=w->plan.buffer[i] || p->physical[i]!=w->plan.physical[i])return false;
+    if(cleanup)return m->mac_cycle.complete && m->mac_cycle.mac_disabled &&
+        m->mac_cycle.tx_drained && m->mac_cycle.rx_drained &&
+        m->mac_cycle.filter_restored && m->mac_cycle.txop_restored &&
+        r->stopped && r->stop_attempted && !r->pending && !r->failed &&
+        wifi_rx_guards_valid(r,6);
+    return w->polling && !w->state.polled && !w->state.failed &&
+        !m->mac_cycle.complete && !r->stop_attempted && !r->stopped &&
+        wifi_rx_guards_valid(r,3) && wifi_mac_cycle_owned(d,false);
+}
+static bool wifi_window_post(void *context,unsigned index,uint64_t trb,uint64_t physical) {
+    struct xhci_device *d=context;struct xhci_wifi_window *w=&d->firmware.mcu.window;
+    struct xhci_wifi_rx *r=&d->firmware.mcu.rx;
+    if(!wifi_window_owned(d,false) || index>=8 || w->state.attempts!=index+1 ||
+       trb!=w->plan.ring+16*index || physical!=w->plan.physical[index])return false;
+    if(index==0)return r->posts==1 && r->trb==trb &&
+        ((!r->done && r->pending && !r->events) ||
+         (r->done && !r->pending && r->events==1 &&
+          (r->completion==1 || r->completion==13) && r->remaining<=4096));
+    if(r->posts!=index || !r->done || r->pending || r->events!=1 ||
+       (r->completion!=1 && r->completion!=13) || r->remaining>4096 ||
+       !w->delivered || !w->state.item[index-1].completed)return false;
+    uint64_t flags=event_irq_save();
+    r->buffer=(uint8_t *)w->plan.buffer[index];r->buffer_phys=physical;
+    r->done=false;r->pending=true;r->events=0;r->completion=0;r->remaining=0;
+    w->delivered=false;r->posts++;
+    struct xhci_trb td={.parameter_low=(uint32_t)physical,.parameter_high=physical>>32,
+        .status=4096,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
+    r->trb=ring_push(r->ep.ring,r->ep.ring_phys,&r->ep.enqueue,&r->ep.cycle,&td);
+    bool ok=r->trb==trb;
+    if(ok)db_write32(d->slot_id,9);
+    event_irq_restore(flags);
+    console_printf("wifi-window-post: index=%u requested=4096 submitted=%u retained=1 reused=0\n",(uint64_t)index,(uint64_t)ok);
+    return ok;
+}
+static bool wifi_window_poll(void *context,struct mt76_rx_window_event *out,bool *present) {
+    struct xhci_device *d=context;struct xhci_wifi_rx *r=&d->firmware.mcu.rx;
+    struct xhci_wifi_window *w=&d->firmware.mcu.window;
+    if(!out || !present || !wifi_window_owned(d,false))return false;
+    uint64_t flags=event_irq_save();
+    if(!r->done) {
+        struct xhci_trb event;
+        if(poll_event(&event))dispatch_transfer_event(&event);
+    }
+    *present=r->done && !w->delivered;
+    if(*present) {
+        if(r->events!=1 || r->pending || r->failed){event_irq_restore(flags);return false;}
+        *out=(struct mt76_rx_window_event){.trb=r->trb,.slot=d->slot_id,.dci=9,
+            .completion=r->completion,.remaining=r->remaining};
+        w->delivered=true;
+    }
+    event_irq_restore(flags);return !r->failed;
+}
+static bool wifi_window_inspect(void *context,uint32_t tx,uint32_t ibi) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    struct xhci_wifi_window *w=&m->window;
+    if(!m->window_mode || w->state.attempted || !w->prepared ||
+       !wifi_poweron_inspect(d,tx,ibi) || !wifi_window_layout(d))return false;
+    w->initial_early=m->rx.done;w->polling=true;
+    console_write(m->window_long_mode?"wifi-window-progress: up to8 distinct retained IN pages for10s; decode after parent MAC cleanup and exact stop\n":"wifi-window-progress: up to8 distinct retained IN pages for1s; decode after parent MAC cleanup and exact stop\n");
+    const struct mt76_rx_window_io io={.context=d,.owned=wifi_window_owned,
+        .post=wifi_window_post,.poll=wifi_window_poll,.now=wifi_mac_cycle_now};
+    bool ok=mt76_rx_window_poll(&w->state,&w->plan,&io);w->polling=false;
+    console_printf("wifi-window-poll: ok=%u attempts=%u completions=%u polls=%u elapsed_us=%u initial_early=%u retained=1\n",(uint64_t)ok,(uint64_t)w->state.attempts,(uint64_t)w->state.completions,(uint64_t)w->state.polls,w->state.elapsed_us,(uint64_t)w->initial_early);
+    return ok;
+}
+static bool wifi_window_finish(struct xhci_device *d) {
+    struct xhci_wifi_rx *r=&d->firmware.mcu.rx;
+    const struct mt76_rx_window_stop stop={.slot=d->slot_id,.dci=r->ep.dci,
+        .state=r->stop_state,.dequeue=r->stop_dequeue};
+    const struct mt76_rx_window_io io={.context=d,.owned=wifi_window_owned};
+    return mt76_rx_window_finish(&d->firmware.mcu.window.state,&io,&stop);
+}
+static void wifi_window_log(struct xhci_device *d) {
+    struct xhci_wifi_window *w=&d->firmware.mcu.window;
+    struct mt76_rx_window *s=&w->state;
+    console_printf("wifi-window: attempted=%u polled=%u poll_ok=%u finish_attempted=%u complete=%u failed=%u stop_attempted=%u stopped=%u attempts=%u completions=%u beacons=%u ignored=%u polls=%u elapsed_us=%u posts=%u initial_early=%u retained=1 reused=0 data_out=0 first_entry_only=1 identifiers_logged=0\n",(uint64_t)s->attempted,(uint64_t)s->polled,(uint64_t)s->poll_ok,(uint64_t)s->finish_attempted,(uint64_t)s->complete,(uint64_t)s->failed,(uint64_t)s->stop_attempted,(uint64_t)s->stopped,(uint64_t)s->attempts,(uint64_t)s->completions,(uint64_t)s->beacons,(uint64_t)s->ignored,(uint64_t)s->polls,s->elapsed_us,(uint64_t)d->firmware.mcu.rx.posts,(uint64_t)w->initial_early);
+    for(unsigned i=0;i<s->attempts && i<8;i++) {
+        struct mt76_rx_window_item *v=&s->item[i];
+        console_printf("wifi-window-item: index=%u submitted=%u completed=%u cc=%u remaining=%u actual=%u inspected=%u view_status=%u beacon_status=%u consumed=%u mpdu=%u frame_control=%x beacon=%u during_window=%u\n",(uint64_t)i,(uint64_t)v->submitted,(uint64_t)v->completed,(uint64_t)v->completion,(uint64_t)v->remaining,(uint64_t)v->actual,(uint64_t)v->inspected,(uint64_t)v->view_status,(uint64_t)v->beacon_status,(uint64_t)v->consumed,(uint64_t)v->mpdu,(uint64_t)v->frame_control,(uint64_t)v->beacon,(uint64_t)(v->completed && (i || !w->initial_early)));
+        if(v->beacon)console_printf("wifi-window-beacon: index=%u channel=1 interval=%u ssid_size=%u privacy=%u rsn=%u wpa=%u probe_response=%u ds_present=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)v->interval,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa,(uint64_t)v->probe_response,(uint64_t)v->ds_present);
+    }
+}
+
+/* v96 only. No identifier is printed; private copied rows outlive borrowed DMA
+ * views. Check the live stopped endpoint context on every ownership callback. */
+static bool wifi_discovery_owned(void *context,const struct mt76_rx_window *window) {
+    struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    struct xhci_wifi_rx *r=&m->rx;m->discovery_checks++;
+    if(!m->discovery_mode || !m->window_long_mode || window!=&m->window.state ||
+       !window->complete || window->failed || !window->stopped ||
+       !wifi_window_owned(d,true) || !d->output_context || r->stop_state!=3 ||
+       (r->stop_dequeue&15)!=1 ||
+       ((r->stop_dequeue&~15ull)!=r->trb && (r->stop_dequeue&~15ull)!=r->trb+16))return false;
+    __asm__ volatile("" ::: "memory");
+    uint32_t state=context_read32(d->output_context,9,0)&7;
+    uint64_t dequeue=context_read32(d->output_context,9,2)|
+        ((uint64_t)context_read32(d->output_context,9,3)<<32);
+    return state==3 && dequeue==r->stop_dequeue;
+}
+static bool wifi_discovery_capture(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(!m->discovery_mode || m->discovery.attempted)return false;
+    console_write("wifi-discovery-progress: stopped RX; collecting private channel1 AP rows; identifiers omitted\n");
+    const struct mt76_discovery_io io={.context=d,.owned=wifi_discovery_owned};
+    return mt76_discovery_collect(&m->discovery,&m->window.state,&io);
+}
+static void wifi_discovery_log(struct xhci_device *d) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_discovery *s=&m->discovery;
+    console_printf("wifi-discovery: attempted=%u complete=%u failed=%u inputs=%u empty=%u parsed=%u unrelated=%u rejected=%u rows=%u ownership_checks=%u channel=1 identifiers_logged=0 data_out=0 retained=1\n",(uint64_t)s->attempted,(uint64_t)s->complete,(uint64_t)s->failed,(uint64_t)s->inputs,(uint64_t)s->empty,(uint64_t)s->parsed,(uint64_t)s->unrelated,(uint64_t)s->rejected,(uint64_t)s->count,(uint64_t)m->discovery_checks);
+    for(unsigned i=0;i<s->count && i<MT76_DISCOVERY_ROWS;i++) {
+        const struct mt76_discovery_row *r=&s->row[i];
+        console_printf("wifi-discovery-row: index=%u observations=%u channel=%u interval=%u ssid_size=%u hidden=%u privacy=%u rsn=%u wpa=%u ds_present=%u beacon_seen=%u probe_response_seen=%u ssid_conflict=%u security_conflict=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)r->observations,(uint64_t)r->channel,(uint64_t)r->interval,(uint64_t)r->ssid_size,(uint64_t)r->hidden,(uint64_t)r->privacy,(uint64_t)r->rsn,(uint64_t)r->wpa,(uint64_t)r->ds_present,(uint64_t)r->beacon_seen,(uint64_t)r->probe_response_seen,(uint64_t)r->ssid_conflict,(uint64_t)r->security_conflict);
+    }
+}
+
+#include "xhci_wifi_channel.inc"
+
+#include "xhci_wifi_tune.inc"

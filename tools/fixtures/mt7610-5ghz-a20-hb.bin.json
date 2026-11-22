@@ -1,0 +1,15 @@
+{
+  "scope": "Offline RF tables for channel161, high band,20MHz; not a channel-ready or hardware acceptance proof",
+  "layout": "24 bank/register/value byte triples; bandwidth table first, band table second",
+  "sources": {
+    "phy.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.h",
+      "sha256": "78684d608144054cf1f2803a3db20845c465fe4a1164352481f23fa96bd5cdf7"
+    },
+    "initvals_phy.h": {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h",
+      "sha256": "5a1f239a47c22f2d5ac58c806fbf93d36a4f0467dea9d4faee6e9bab4be5d0f6"
+    }
+  },
+  "sha256": "860f086d35b588daf6b8d63188f269a547b48722d3b3b4e032008b63110e67ca"
+}

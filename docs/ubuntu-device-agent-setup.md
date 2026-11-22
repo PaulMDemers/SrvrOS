@@ -358,7 +358,7 @@ sequence. Add `--require-headroom` to the allocation checker to validate the
 reserve with the real SrvrOS filesystem/VFS implementation:
 
 ```sh
-sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-headroom
+sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID" --require-headroom
 ```
 
 A disposable exact-stage negative rehearsal is available for an ordinary desktop
@@ -630,7 +630,7 @@ connected; the trial needs no input and returns automatically. Follow the
 and retain both outer-volume preflight checks. Pro desktop v37 is a separate
 profile; do not replace or renumber it when merging these staging changes.
 With the selected partition unmounted, also run
-`sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --battery-image`
+`sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID" --battery-image`
 to reject a fragmented, aliased or incompletely initialized outer file before
 reboot. This checks the outer extent; the kernel separately validates the inner
 filesystem identity, marker and allocation graph before enabling its view.
@@ -680,6 +680,15 @@ Announce required human actions before rebooting. Use `--hold-on-failure` only
 for an explicitly attended diagnostic. Existing installed recipes keep their
 original behavior; restage to obtain automatic failure return. The guided v32
 AC transition trial remains attended and must be announced in advance.
+
+For the captured Edimax USB Wi-Fi identity diagnostic, stage with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --wifi-capture`.
+The immutable v39 profile enables only the read-only identity probe and automatic
+capture/return. Run `python3 tools/hardware_boot_smoke.py --probe-check --workspace-table gpt`
+against that exact stage. An absent radio in QEMU must report unavailable identity,
+save `completed=NO`, unmount and reset. Require a saved matching native identity
+before accepting the hardware read; neither capture completion nor VM refusal
+accepts Wi-Fi connectivity. See [USB Wi-Fi](usb-wifi.md).
 
 ### Mounted Home battery boundary (Air diagnostic)
 
@@ -793,9 +802,78 @@ use `write /work/srvros-work/console-test.txt test-text` followed by
 filename and verify its contents after returning to Ubuntu.
 
 
-On a halt, photograph the complete diagnostics before manually restarting. After
-Ubuntu returns, mount the same volume and reload its UUID/release from the local
-record. Collect before preparing another run:
+For automatic diagnostics, use the default automatic-return recipe: results are
+logged to the workspace before sync/unmount and return to Ubuntu, including
+handled diagnostic failures. Do not require photographs when matching saved
+logs contain the needed evidence. Reserve an explicitly attended hold for a
+specific evidence gap, such as failure before persistent logging starts. Missing
+or incomplete logs remain incomplete evidence, never a pass. After Ubuntu
+returns, mount the same volume and reload its UUID/release from the local record.
+The v1085GHz prerequisite inventory retains a1MiB complete common-init and
+read-only MAC/PA/RF-selector prefix, shows progress and returns automatically.
+It stops before band programming, frequency/VCO, RX and network traffic; warm
+inventory completion does not accept cold reset or connectivity.
+The explicit full RF bank5/bank6/VGA/G20/trim diagnostic selects a256KiB startup-proof window to
+retain its complete command and guard receipts. Ordinary logging stays64KiB;
+previous firmware captures stay128KiB. The selected profile determines the exact
+`tail_limit`; require the whole prefix and matching byte count, and reject a
+lost/truncated prefix even when a completion marker is present.
+
+The v117 fresh-trim child inherits the held-channel2MiB prefix. Collect it with
+an explicit matching session/release bound; ordinary collection remains1MiB.
+Archive the byte-verified older large session first, preserving its accepted
+backup. Require the full parent and fresh-field/trim/channel/restoration trace;
+firmware completion alone does not accept this trial or Wi-Fi connectivity.
+
+The v118 common DAC child uses the same automatic2MiB transport after the full
+v117 fresh-field/trim/channel parent. Require the complete91-operation DAC
+sequence and independent final word reads; word restoration is not analog
+calibration or receiver acceptance. No VCO pulse or credential is part of v118.
+Pro11,2 accepted this bounded contract in release `62e3a5325065719e`:11669
+operations and1510049bytes, complete restoration/storage/recovery and automatic
+return. Require a new source-bound proof for later VCO or receive trials.
+
+The v119 common VCO child inherits the same full-prefix/automatic-return policy.
+Require the entire v118 parent,105 new I/O records and six exact delay receipts,
+monotonic self-clear, original RF word and inverse trim readbacks. Pending or
+reasserted triggers are failures; do not force-clear/replay or accept calibration
+from a cleared bit. Physical acceptance remains machine/source/release specific.
+Pro11,2 accepted release `ace4b3dcaa85e353`/`11689cfa`:11774 operations,
+1520120 complete bytes, immediate pending and all six delayed clear samples,
+independent restoration and storage/recovery/automatic-return checks. This does
+not accept a calibrated receiver or Wi-Fi connection.
+
+The opt-in v120 selected-channel VCO coordinator keeps the2MiB automatic capture
+bound. Require the complete v119 parent and3844 new I/O, with its77-operation
+child inserted before the first inverse BBP write, six exact wait receipts,
+monotonic trigger clear and all inverse originals. Pro11,2
+`019299c5a721fcda`/`e2bf7e3b` now accepts the matching saved session
+`session-00065f6d30db0147-00`:15618 operations and1991045bytes, trigger clear,
+selected-state/inverse-original proof, offline allocation/fsck and recovery.
+It does not accept MCU calibration or reception.
+
+The separate v121 `--wifi-cal5` automatic profile requires all v120 flags and
+keeps the2MiB limit. Inspect fresh IBI9 effect/raw restoration, exact R0/VCO161/
+FULL901/LC1/RXDCOC1 replies and timing, all receive attempts and anonymous
+metadata, MAC drain/disable/filter/TXOP restoration, exact endpoint cessation and
+inverse band/trim originals. The selected-state hook must bracket these before
+the first inverse BBP write. Missing completion, uncertain ownership or failed
+restoration is incomplete evidence. Zero decoded beacons accepts no RF or
+populated discovery. Firmware acknowledgements accept no analog calibration.
+Use the matching source-frozen full-prefix checker; no generic G-band recipe,
+network OUT or credentials. Cold shutdown/unplug remains required on this unit;
+automatic save/unmount/Ubuntu return and progress require no guest commands.
+
+Pro11,2 corrected v121 `285dad07e7a14417`/`128c25b0` now accepts session
+`session-00065f785b60016f-00`:15719 operations/2004737 complete bytes,all five
+firmware replies,eight retained receive transfers with seven decoded beacon/
+probe-response observations,terminal cleanup/inverse originals and storage/
+recovery/automatic return. The window is190863us;identifiers and distinct AP
+count are not recorded. Initial3732593a failed before MAC/calibration and remains
+preserved. This result accepts bounded command/restoration/management receive,
+not endurance,analog quality,authentication,network TX or IP data.
+
+Collect and inspect the matching session before preparing another run:
 
 ```sh
 python3 tools/hardware_desktop.py --uuid "$SRVROS_USB_UUID" \
@@ -820,8 +898,8 @@ Files/terminal views of the volume and unmount it:
 make build/tests/exfat-driver
 udisksctl unmount -b "$SRVROS_USB_PART"
 sudo fsck.exfat -n "$SRVROS_USB_PART"
-sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
-sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-writable
+sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID"
+sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID" --require-writable
 udisksctl mount -b "$SRVROS_USB_PART"
 ```
 
@@ -1126,6 +1204,71 @@ runtime ownership halts with the mount retained. Collect the strict
 contents (`AA`), prior-file hashes and offline allocation before another trial.
 Ordinary desktop startup and continuous battery admission remain disabled.
 
+### Pro11,2 fixed161 private discovery candidate (v122)
+
+The opt-in `--wifi-discovery5` child requires `--wifi-cal5` and its complete
+existing automatic parent chain. It adds private copied aggregation and exact
+requested-target PSK/CCMP candidate selection after stopped retained receive,
+then inverse RF cleanup. Follow the normal matched build,exact-stage VM,recovery,
+run-record,one-shot and collection sequence. This is an unattended console trial
+with progress and complete saved results,not an attended desktop or an
+authenticated/IP provider. See [USB Wi-Fi](usb-wifi.md) and the local unit's
+record for acceptance. Pro11,2 still needs a cold adapter unplug;use shutdown
+under the user's existing authorization rather than silently substituting a
+warm reboot. Retain the workspace drive and collect the matching session first.
+
+
+### Pro11,2 grouped power-only child (v123)
+
+`--wifi-power5` requires the complete automatic `--wifi-discovery5` and calibration
+chain. It admits fresh mapped power fields and a guarded nine-word apply/readback/
+reverse-restore transaction while the same selected161 parent remains held and
+MAC is disabled. It submits no network frames or keys. Follow matched build,
+exact-stage VM,recovery and run-record preflight before a physical boot;collect
+with the strict full-parent power checker before accepting hardware. Host tests
+are not native acceptance. Progress and results are automatic;the captured
+adapter still requires the local cold-unplug/shutdown sequence. See the unit
+record and [USB Wi-Fi](usb-wifi.md) for current scope and limitations.
+
+### Pro11,2 empty stopped RX context handoff (v124 candidate)
+
+`--wifi-handoff5` requires the complete automatic `--wifi-power5` chain. It keeps
+MAC disabled and posts no TD while proving fresh empty-ring ownership,selected
+power readbacks and exact old stopped-context restoration. Follow matched build,
+exact GPT/missing-workspace VM,recovery/run-record/USB eligibility and one-shot
+collection rules before any native trial. The captured adapter still needs the
+standing cold-unplug shutdown procedure. Guest progress and results are saved;
+no commands/photos/attended UI checklist are needed. Require the full-parent
+handoff checker;host fixtures or a restored context after handled failure are
+not physical success. No live association/key/IP/data authority follows.
+
+### Pro11,2 live management child (v127 candidate)
+
+The opt-in `--wifi-join5` profile requires the complete automatic empty OUT
+preview/peer/handoff/power parent. It adds independent fresh RX/data-OUT rings,
+matched open-system authentication/association and leave submission,then MAC
+drain/disable,endpoint cessation and exact old RX/shared-input restoration.
+Follow the normal matched-build,exact-stage VM,independent recovery,workspace
+eligibility,run-record,one-shot and collection sequence. The local cold-unplug
+shutdown procedure remains required;progress,results and automatic return need
+no user commands/photos. The strict full-prefix checker requires the old parent
+and new exchange/retirement;USB completion alone is not a peer reply or WPA2.
+No keys,credentials or authenticated IP/data provider are enabled. See
+[USB Wi-Fi](usb-wifi.md) and the unit record for source-specific acceptance.
+
+### Pro11,2 bounded native M1 capture (v128)
+
+`--wifi-eapol5` requires the complete automatic `--wifi-join5` chain. It adds
+one bounded private structural EAPOL M1 receive window after association,before
+leave and the existing exact MAC/endpoint/input/parent cleanup. It sends no
+EAPOL reply and installs no keys. Use matched build,strict complete-prefix,
+sanitisers/stack/storage,exact staged GPT/missing-workspace VMs and independent
+recovery/run-record checks before installation and one-shot boot. This local
+adapter still needs shutdown and10second Wi-Fi-only cold unplug/reconnection
+while off;leave workspace connected. Progress/save/return are automatic,with
+no commands/photos. Collect the matching session first. Structural M1 and VM
+success are not authenticated connectivity;the unit record owns acceptance.
+
 
 ### Air6,1 opt-in checked ECAM/census trial
 
@@ -1176,6 +1319,66 @@ ecam.log and exit.log with strict collection and offline USB integrity before
 acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
 No register read, write, DMA policy or sibling acceptance follows from v6.
 
+### Pro11,2 bounded software-key four-way child (v129)
+
+`--wifi-wpa5 --wifi-wpa5-pmk <private-record>` requires the complete automatic
+v128 EAPOL parent. Provision the selected network's derived PMK privately with
+`tools/wifi_wpa5_credentials.py`;use a0600 record and keep all credential-bearing
+artifacts in protected local evidence. Ordinary builds do not add credentials.
+This child validates M3,submits M4,activates and erases software keys,then leaves
+and restores the retained endpoints/input/MAC/power/RF parent. It does not
+exercise encrypted data or prove AP acknowledgement. Follow matched build,
+strict complete-prefix,sanitizer/stack/storage,exact-stage VM,recovery and saved
+run checks before installation. The initramfs credential store persists apart
+from ephemeral key erasure. This unit still needs the standing cold shutdown
+and Wi-Fi-only10second unplug/reconnect while off;leave workspace connected.
+Guest progress/save/return are automatic. Collect the matching session first;
+missing or failed receipts stay unaccepted even after a successful reboot.
+
+The v130 revision retains those explicit WPA5 flags and adds one guarded
+standard EP04 device-toggle clear before the independent host OUT context is
+configured. Both rings must be empty and MAC disabled;an exact successful
+zero-length status is mandatory before publication. The collector requires
+that receipt as well as the unchanged full four-way/retirement proof. It
+changes no WPA security gate,RF recipe or timeout. Follow the same private
+provisioning,qualification,recovery,cold-shutdown and collect-first sequence.
+
+
+### Pro11,2 bounded native provider TX handoff (v132)
+
+The explicit `--wifi-provider5` child requires `--wifi-data5` and its entire
+automatic/private-PMK parent. It defers ordinary network selection only in this
+exact unattended profile,then registers/selects the verified post-M4 station.
+Six existing strict encrypted IP requests exercise the copied provider queue,
+nonblocking USB submission and exact epoch/token completions. Receive remains
+the diagnostic path;ordinary provider RX,persistence,ring reuse,TCP/HTTP and UI
+are separate native milestones. No key owner or DMA/time limit is widened.
+Require early context-release refusal and final detach/registry retirement after
+the full key/endpoint/input/MAC/power/RF parent,using the separate strict v132
+saved-log checker. Follow matched build,sanitizers/stack/storage,exact-image GPT
+and missing-workspace VM,recovery and saved-run preflight. Preserve the accepted
+v131 data payload and its independent cold capsules. This unit still requires
+authorized shutdown and10second Wi-Fi-only unplug/reconnect while off;leave the
+workspace connected. Progress/save/return are automatic,no commands/photos.
+Collect the exact new session first;local/VM success is not native acceptance.
+
+
+### Pro11,2 real bounded reusable-page child (v133)
+
+Add `--wifi-reuse5` only with the complete automatic provider5/data5/WPA5/private
+PMK parent. The real owner uses the captured63 usable native TRBs and four pages
+per direction within the unchanged48 RX/11 TX transfer positions. Raw validated
+USB completions,copy/authentication/release and full late ledger/provider/hardware
+retirement are required. No descriptor wrap is admitted. The separate reuse5
+saved-log checker is mandatory;historical v132 cannot accept these receipts.
+Follow matched build,strict full-prefix,sanitizers/stack/storage,exact GPT and
+missing-workspace VMs,recovery/run-record and one-shot cold-shutdown workflow.
+Preserve accepted815/e17/v130/M1/e47d payloads. This adapter still requires10second
+Wi-Fi-only unplug/reconnect while off;leave workspace connected. No commands or
+photos are needed;guest progress/save/return are automatic. Collect the matching
+new session first. Ordinary receive/TCP/HTTP,persistence,descriptor wrap and UI
+require their own subsequent native evidence.
+
 ### Air6,1 two-pass zero-target-load qualification
 
 This v7 profile is separate from the accepted v6 single-window trial. It uses
@@ -1216,6 +1419,22 @@ reuse; photograph it and restart Ubuntu. A halt, missing receipt, missing saved
 reference or missing whole-trial completion is a failure or incomplete evidence.
 No native acceptance is inferred from host/VM fixtures.
 
+### Pro11,2 controller-only descriptor boundary candidate (v134)
+
+Use `--wifi-nop5` with the full `--wifi-tx5-owner` parent,not join/WPA/data/provider/
+reuse flags or private credentials. This explicit unattended recipe tests63+1
+bufferless controller No-Op descriptors and real asynchronous ring fencing with
+MAC disabled;it does not test radio data or ordinary networking. Follow matched
+build,actual-owner/strict-prefix fixtures,sanitizers/stack,exact staged GPT and
+missing-workspace VMs,independent recovery and saved-run checks. Save exact raw
+workspace metadata baseline outside USB and use the sidecar-aware preservation
+verifier;do not require generated metadata byte identity or ignore it wholesale.
+Preserve all other prior file bytes and strict metadata fields. No silent inode
+remapping allowance or old capsule rewrite is authorized. Progress/results and
+Ubuntu return are automatic;this local adapter still requires authorized shutdown
+and Wi-Fi-only10second unplug/reconnect while off,workspace left connected.
+Collect the matching session once first. Missing receipts,unmounted-state failure
+or a halt are failures/incomplete evidence. No photos/guest commands are required.
 
 ### Explicit screenshot write-admission timing
 
@@ -1237,6 +1456,15 @@ companions in addition to the unchanged1800-second PCM, USB readback/receipt,
 three-screenshot,500ms loop,10s lifecycle, ownership and retirement requirements.
 This diagnostic alone accepts no latency fix, allocation shortcut, scheduler
 policy change or sibling hardware support.
+
+The explicit v135 `--wifi-stream5` profile is a separate original-key encrypted
+ring-reuse diagnostic;see [USB Wi-Fi](usb-wifi.md#original-key-encrypted-ring-reuse-diagnostic-v135-candidate)
+and the Pro11,2 unit recipe. It requires the complete v128 parent,unit-private
+PMK and automatic save/return,and excludes the historical WPA/data/provider/reuse/
+No-Op child flags. Keep credentials local and preserve the capture reserve.
+Software fixtures and absent-radio VMs do not accept native encrypted RX/TX across
+ring boundaries or ordinary production networking. Collect its matching saved
+session and independent workspace/recovery evidence before another trial.
 
 
 The explicit screenshot-write diagnostic also records `SYS_SYNC` file-sync and
@@ -1267,6 +1495,28 @@ one controller metadata sample, with independent validity/overflow accounting.
 This permits observation across legitimate diagnostic-scope overlap without
 ending a foreign trace, issuing extra transfers or changing transport ownership.
 
+#### Pro11,2 v136 return checkpoint (November 9)
+
+The matching `38f2d76a` / `8529308170250844` run is collected exactly once and
+accepted for bounded original-key encrypted streaming: one bounded Discover
+retry, 71 data requests, 64 exact echoes, one TX / three RX real fences and full
+parent/ledger retirement. Strict prior-file/metadata, offline allocation and
+Ubuntu/recovery checks pass. Original native capsule has 255 files; separate
+14-file acceptance notes include independent stream/storage reviews. Do not
+recollect or reseal these capsules. No boot entry remains armed. Ordinary
+provider/production IP/TCP/HTTP, lifecycle/UI and unlimited command reuse still
+need their own matched qualification and native evidence; see the unit completion
+plan. The new nonblocking adapter and explicit production DHCP retry are software
+work in progress, not an installed candidate or a reason to reboot this host.
+
+The optional independent MT7610 production-stack AP fixture uses host OpenSSL
+EVP AES-CCM and Python `cryptography`, with public synthetic keys only. Ubuntu
+agents running `make test-mt76-stack5-peer` or the explicit combined stack fixture
+need `libssl-dev` and `python3-cryptography`. These host-only optional fixtures do
+not add OpenSSL to the freestanding OS or portable default `test-core` dependency
+set. The Pro host has installed `libssl-dev`; preserve normal host package policy
+on other machines rather than copying this host's library paths.
+
 
 The explicit sync-phase diagnostic also retains each phase's slowest CSW callback
 with command opcode/size and its exact software event/resume/service clocks,
@@ -1278,6 +1528,327 @@ Checkpoint observation calls the existing scheduler checkpoint exactly once;
 it does not add a yield, grant eligibility or change transfer policy. Time
 outside callbacks/checkpoints remains unassigned, and software event timestamps
 must not be described as device completion or CPU time.
+
+
+Earlier Pro11,2 v137 candidate (superseded): runtime `6a26cb80`, release `815747ea8c559ec0`,
+merged main `e85a6846`, UUID `0E53-5900`. The guarded production DHCP/DNS/64exact
+ICMP candidate is qualified/installed; native acceptance remains pending. The
+new local run record is `build/bringup/wifi-stack5-native/run.json`; collect its
+matching session FIRST once with that directory's `run_root.py return_collect`.
+The new capsule survives distclean outside build. Previous native255/accepted14
+and software1233 capsules remain immutable. EFI space required removing only
+v130's unreferenced duplicate after full177/24-file backup/seal and no-reference
+proof; accepted8529/4a/3c9/815/e17 and Ubuntu/e47d remain installed. Continue the
+existing authorized cold shutdown/Wi-Fi-only10second unplug protocol; never copy
+this UUID or approval to another host. The record owns arming state; guest
+progress/save/return are automatic. No native TCP/HTTP/lifecycle claim follows.
+
+
+Pro11,2 latest diagnostic candidate: source2da2f400/release7026c0d52d23d45d,
+UUID0E53-5900. The first native production run failed before second AUTH matched;
+preserve its1605-file native capsule and separate11-file review. Current candidate
+adds deferred AUTH observations without changing exchange/gates, passes local and
+exact-image/workspace checks, and is installed for the authorized cold comparison.
+The latest record/collector is `build/bringup/wifi-stack5-auth/run.json` and that
+directory's `run_root.py return_collect`; collect FIRST once. Do not reuse the
+older collector. Failed815747's EFI duplicate alone was retired after restoring
+accepted8529 and verifying its immutable backup/no-reference proof. Ubuntu/e47d
+and accepted8529/4a/3c9/815/e17 remain installed. Keep the same Wi-Fi-only10second
+OFF-state unplug/reconnect protocol; guest progress/save/return are automatic.
+The run record owns arming state; native production/HTTP/lifecycle remain pending.
+
+
+Read-only host allocation/writable/headroom/extent inspection accepts an explicit
+`--mountpoint` matching the guest's persisted metadata namespace. This RAM-workspace
+workflow uses `/work`; that is not Ubuntu's `/media` mount directory. The host
+fixture default stays `/vol` for compatibility with disposable test images.
+A foreign prefix correctly refuses writable metadata admission even when fsck and
+allocation ownership are clean. There is no namespace guessing, fallback or
+sidecar rewriting. `make test-exfat-inspection` verifies explicit/default prefixes,
+malformed/duplicate/dirty refusals, argument bounds and zero writes/flushes.
+
+
+Pro11,2 current returned record is `build/bringup/wifi-stack5-response/run.json`.
+Its matching `session-00065fdae4e5f609-00` was collected exactly once; do not run
+that collector again. Sourcec75cdb78/release7a4442e75476090f FAILED calibration
+RX cleanup before discovery/authentication/production traffic. All eight forward
+buffers filled, then0xa30 remained0x500 through200 rounds; MACdisable and endpoint
+Stop passed but RXdrain did not. The unchanged seven-quiet requirement correctly
+refuses completion. The856-file failed capsule is immutable. All422 prior files,
+strict metadata apart from RTC-bounded marker atime, offline allocation/fsck and
+Ubuntu-unarmed recovery pass. Accepted2da's1155/109 and precedingfailed5ca's1877/14
+remain historical immutable evidence. No identical retry is armed.
+
+Current source now consumes actualmainf30ad7a5 while preserving Pro logger
+isolation in portscd066bf. Next work is bounded cleanup-only retained RX service
+and finite TCP syscall integration, with distinct software/VM/native gates.
+Ubuntu/e47d and all six accepted payloads remain available. Read-only host mounts
+are verified before workspace reads; metadata inspection remains explicitly/work.
+Continue standing cold shutdown/Wi-Fi-only10second unplug while off, same-port
+reconnect and power-on only after a newly qualified candidate is installed; leave
+workspace connected. Guest progress/save/Ubuntu return are automatic, with no
+commands or photos. Native TCP/process/IRQ, worker/service coexistence,
+lifecycle/UI and reliability remain separate gates.
+
+
+Historical preboot note: Pro11,2 v138 `20157ab5` / `becb29ad72ed94df` was qualified and installed for native
+validation of separate immutable cleanup receive pages and per-buffer inspection
+ownership. The old7a run is already collected once and failed; keep its856-file
+native and12-file review capsules immutable. Use only the new
+`build/bringup/wifi-cal5-cleanup/run_root.py return_collect` once after return.
+Its run record owns arming. The new trial uses fixed4MiB capture and explicit
+session/release-bound collection; legacy profiles retain2MiB. Complete MAC drain,
+exact Stop/held/original-eight-buffer and original production-IP/key/provider/
+fence/parent/ledger proof plus independent preservation/recovery remain mandatory.
+424-file exact clone and all staged VM gates pass, not native Wi-Fi acceptance.
+Ubuntu/e47d and six accepted recovery payloads are retained; only fully backed
+failed7a's unreferenced EFI duplicate was retired after accepted7026 fallback.
+Continue the authorized shutdown/Wi-Fi-only10second OFF-state unplug, same-port
+reconnect and power-on sequence; leave workspace connected. Guest progress,
+disk save and Ubuntu return are automatic. No commands or photos are needed.
+
+The20157/BEC run is now collected once and failed before discovery/authentication.
+MAC RX drain passed seven quiet samples without extra cleanup TDs, but the empty
+Stop notification was refused before successful final ownership proof. Its920-file
+primary and separate20-file review are immutable. Do not run its collector again.
+The next bounded correction record is `build/bringup/wifi-cal5-stop`; it must retain
+one exact nonpayload CC27 notification during its own Stop and require successful
+command completion plus final stopped context/dequeue before inspection. Event-time
+context was not logged, so an early context check is a hypothesis rather than an
+established native cause. No new trial is armed until exact source qualification.
+
+The next correction is now qualified/installed at `0e7dc297` / `d49a66bb7768f15f`,
+native pending. Use only `build/bringup/wifi-cal5-stop/run_root.py return_collect`
+once after its armed run. The frozen source-specific checker explicitly requires
+the retained zero-post terminal receipt, including matching final dequeue and
+original handoff slot; historical compatibility defaults cannot accept this run.
+397.25seconds of selected build/tests, actual normal/fatal emitted-row/source
+review,508 prefix refusals,258 stage cases and exact426-file desktop/GPT/
+missing-workspace VM preservation pass. Only backed failedBEC's EFI duplicate
+was retired after accepted7026 fallback; all six accepted payloads/Ubuntu/e47d
+remain. The on-disk run record owns arming and collection. Cold shutdown still
+requires Wi-Fi-only10seconds OFF-state unplug, same-port reconnect/power-on;
+leave workspace connected. Progress/save/Ubuntu return are automatic.
+
+The first `0e7dc297`/D49 attempt is now collected once with no new session and
+no filesystem changes; it is incomplete, not a Wi-Fi result. Keep its 2,455-file
+primary and separate 12-file exact zero-change review immutable. The controlled
+retry uses `build/bringup/wifi-cal5-stop-retry/run.json` and its own one-time
+`run_root.py return_collect`; do not reuse an older collector. It reuses the
+qualified installed payload with identical code and 2,277 inputs. For this retry
+only, reset BOTH Wi-Fi and workspace USB for ten seconds while OFF, reconnect
+both to the same ports, then power on and keep both connected. No photos or
+commands are requested. No install, payload retirement or new qualification pass
+is claimed. Missing output cannot establish kernel entry or any Wi-Fi phase.
+
+
+The controlled both-USB retry is now collected once: `session-00065fde277b7149-00`,
+source0e7/D49. Its 103-file capsule is immutable. Exact empty-ring calibration
+Stop passes, but first management MAC RX cleanup fails after successful
+AUTH/ASSOC/M1/leave; production networking was not attempted. Workspace, metadata,
+allocation/fsck and recovery checks pass; Ubuntu is unarmed. Neither the old
+`wifi-cal5-stop` collector nor `wifi-cal5-stop-retry` may be run again. Next work
+is bounded first-join receive cleanup and source/host qualification, with a new
+record required before any physical trial. Preserve the unchanged drain policy
+and all older accepted/failed/incomplete capsules.
+
+
+Pro11,2 installed `5b91b743`/`689b8f2bdfdec593` (v138) has now passed
+independent native acceptance for normal zero-extra management cleanup and the
+complete production DHCP/DNS/64 exact ICMP/retirement regression. Matching session
+`00065fdf424e803b-00` was collected once. The 6,175-file primary and separate
+111-file acceptance capsule are immutable; never rerun that collector. Extra
+cleanup pages and forward-completion reconciliation were not needed natively,
+so those branches retain software qualification only. All 428 prior ordinary
+file bytes and strict metadata survived except marker atime inside the proven
+RTC window. Allocation/fsck, installed recovery checks and Ubuntu unarmed pass.
+
+The prior cold procedure reset both USB devices for ten seconds while OFF,
+reconnecting the same ports before power-on. A future run requires its own
+source-qualified record and exact VM baseline; do not reuse old arming. Preserve
+raw logs before protocol validation, post-tree evidence even on an incomplete
+run, and strict no-clock/no-atime-allowance behavior. TCP/HTTP, real process/worker
+coexistence, lifecycle/UI/reattach and reliability remain open. Main125eb2b5 is
+merged for software qualification; native acceptance remains bound to5b91b743.
+
+
+Pro11,2 v139 HTTP hold retry: source785e3605/release7cdfeeefca45728b is installed
+with factorye47 previous, six retained recovery directories (factory plus five
+accepted, including689b), and Ubuntu default unchanged. The prior387e27
+native attempt is closed failed/incomplete (startup-only log, retained-owner
+hold in photo); its6,636-file capsule and separate photo remain unchanged.
+Only its now-unreferenced EFI duplicate was retired after accepted fallback
+promotion/full backup equality. New local run/collection owner is
+`build/bringup/wifi-http5-hold-state/run.json` and that directory's
+`run_root.py return_collect`; collect the matching new session FIRST once.
+Current numeric and production-DNS HTTP VMs and exact431-file clone preservation
+pass, without native TCP/HTTP acceptance. Both USB devices need10seconds off
+and disconnected, then the same ports. Safe completion saves and returns; an
+unsafe hold prints five frozen diagnostic rows and explicitly requests a photo
+before manual poweroff because disk activity cannot safely resume. Arming belongs
+to the saved record, not this documentation. Do not reuse these UUIDs or approval
+on another host.
+
+
+Pro11,2 current return checkpoint (November9):785e3605/release7cdfeeefca45728b
+has independently accepted bounded native actual-process DHCP/DNS/TCP/HTTP,
+exact request/body/EOF and full named key/provider/parent retirement. Preserve
+its1729-file primary and separate10-file acceptance notes unchanged. The ONE
+unchanged-image cold repeat uses the NEW owner
+`build/bringup/wifi-http5-repeat/run.json` and that directory's
+`run_root.py return_collect` FIRST once. Its fresh433-file workspace clone VM
+passes; old qualification is explicitly reused. Installed payload is unchanged
+and seven recovery directories are retained. Both USB devices require10seconds
+cold unplug, same ports. The run record owns arming; no old run is recollected.
+Persistent service, reconnect/reattach, desktop controls and reliability remain
+open. See the current unit handoff and completion plan.
+
+Pro11,2 latest checkpoint: the unchanged785 repeat is now closed failed/incomplete
+at terminal provider drain; its1135-file primary and photo remain immutable.
+Runtime21387b54/releaseb865c96e670e52df is the separately qualified, installed,
+physically unaccepted consuming terminal RX-handoff candidate. Its selected
+source/fatal/format reviews, both actual HTTP VMs and exact native-stage,
+missing-workspace, desktop and fresh434-file clone preservation pass. Use ONLY
+`build/bringup/wifi-http5-rx-handoff/run_root.py return_collect` for its matching
+NEW session, first once. Its frozen578 Python modules/nine RF fixtures enforce
+workloadv2 receiver_closed plus the retained-raw-RX receipt and all original
+hardware/key/parent closure proofs. New capsules seal nested indexes too.
+Factory/accepted7cd/689 and Ubuntu recovery remain verified; only older815's
+unreferenced EFI duplicate was retired after its exact197-file external backup
+and payload/no-reference checks. Both USB devices need10seconds unplugged while
+OFF and the same ports. The independent sealed preboot review and saved run
+record own arming. Safe completion saves/returns; unsafe holds still request
+five diagnostic rows before manual poweroff. Do not recollect prior capsules.
+
+
+Pro11,2 November10 fixed Stop-context validation preparation used runtime776833e0 /
+release7c3f531966cbbe0f after the full software audit. Its new collection owner is
+`build/bringup/wifi-http5-stop-validation/run.json`; collect only its matching NEW
+session first once through that directory's `run_root.py return_collect`.
+The source-matched staged GPT/missing-workspace/desktop and fresh435-file clone
+checks pass, alongside normal/fatal native-path and actual HTTP guest checks.
+The earlier213/b865 trial is already closed failed/incomplete, and its2062-file
+primary and the148-file audit capsule stay immutable. Both USB devices still
+need10seconds disconnected while OFF, then the same ports. The saved record owns
+installation and one-shot arming; preserve Ubuntu, factory and all six accepted
+recoveries. This is hardware validation pending, not new physical acceptance.
+
+That run is now collected FIRST once: session00065fe7075fb554-00 saved a complete
+1896171-byte exit prefix but FAILED at DHCP before DNS/HTTP. One RX fence passed
+without the preceding OWNER hold; two encrypted sends/two authenticated receives
+do not establish DORA. Exact ACK arrival/admission is unobserved. Full parent/
+provider retirement is incomplete, so no new native acceptance follows. Preserve
+the1173-file primary and separate11-file return review unchanged, and never rerun
+its collector. All435 prior files/strict metadata (apart from RTC-bounded marker
+atime), offline allocation/fsck, installed candidate and six recovery backups
+pass. Ubuntu is default and unarmed. No identical retry is scheduled; next work
+is bounded DHCP state/refusal evidence and production/native-path qualification.
+
+The next qualified Pro11,2 diagnostic uses runtime070089f5/releasec603901d483d3f86
+and host validation3e61c3b6. Its ONLY new collection owner is
+`build/bringup/wifi-http5-dhcp-diagnostics/run.json` and that directory's
+`run_root.py return_collect` FIRST once after boot. Original normal55/fatal4
+runtime results stay labeled0700; the two-file host absence-checker followup
+passes263 units and all six fresh VM gates, including the437-file strict clone.
+The content-addressed runtime payload retains its original manifest. A separate
+DHCP diagnosis now survives a full-protocol refusal without accepting the run.
+Keep the previous1173-file primary/11-file review and148-file audit unchanged.
+Both USB devices require10seconds OFF-state unplug and same-port reconnect;
+safe progress/save/Ubuntu return is automatic. Installation/arming belongs to
+the saved record; protect all six recoveries and retire only fully backed failed
+776/7c3's EFI duplicate if measured capacity requires it. Native acceptance is pending.
+
+
+The Pro11,2 DHCP diagnostic is now collected FIRST once: runtime070089f5 /
+releasec603, session00065fed77ae049a-00, immutable1880-file primary. Do not run
+that collector again. The complete source-frozen protocol check observes one
+accepted Offer and ACK without retry/rejection, production DNS, actual HTTP
+request/body/EOF and full named software/key/provider/parent retirement. Its
+separate12-file return reviews independently accept that bounded lifetime. Backend tombstones remain;
+persistent service, reconnect/UI/reattach and unlimited reuse stay open. All437
+prior file bytes/metadata survive except RTC-bounded marker atime, offline
+fsck/allocation and six recovery equality checks pass, and Ubuntu is unarmed.
+No new trial is scheduled; retain the same both-USB cold procedure for future
+qualified native runs. The preceding776 DHCP failure remains failed/unexplained.
+
+
+The next Pro11,2 ONE unchanged0700/c603 cold repeat has its own owner:
+`build/bringup/wifi-http5-dhcp-repeat/run.json` and that directory's
+`run_root.py return_collect` FIRST once after return. The closed diagnostics
+collector must never run again. Runtime0700/host3e normal/fatal/six-VM results
+are explicitly reused rather than presented as fresh; the current439-file
+workspace exact-stage clone is fresh and passes. All seven factory/accepted
+payloads, including acceptedc603, are protected. No new runtime build or install
+is claimed. Mainc355's adjacent-extent exFAT fix is inspected/deferred for this
+same-image comparison; integrate it before new runtime/lifecycle qualification.
+The new shutdown helper's cancellation state and log-failure boot cleanup pass
+11 actual-AST mock cases. Its final sealed installed-record review must pass
+before arming; run.json owns that state. Both USB devices still need10seconds
+disconnected while OFF, then the same ports. Progress/save/safe return are
+automatic; uncertain native ownership still holds without disk activity.
+
+
+The Pro11,2 unchanged0700/c603 repeat is now collected FIRST once in
+session00065fef07bf175d-00. Its 1,164-file primary is closed; never run that or
+the original diagnostics collector again. Complete source-frozen production
+DHCP/DNS/actual HTTP/EOF and full named retirement pass, including one selected
+authenticated RX data crossing. Independent return review passes with no findings; separate12-file notes
+accept this bounded repeat. All439 prior files/metadata survive except RTC-bounded marker atime;
+allocation/fsck and seven recovery equalities pass, Ubuntu is unarmed. Backend
+tombstones remain retained; repeated connection generations, persistent service,
+UI and reattach remain open. No new trial is scheduled. Integrate/requalify main
+before new runtime/lifecycle work; keep both accepted c603 cold runs immutable.
+
+
+### Pro11,2 independent startup capture
+
+The opt-in v141 startup-only profile writes seven checkpoints to a preallocated
+internal EFI file through the existing AHCI driver, independently of USB
+workspace mounting. It stops before firmware/network capture. Prepare and pin
+one fresh journal file, archive its descriptor and empty contents, then follow
+the normal matched build, exact-stage VM, protected recovery, one-shot boot and
+once-only collection sequence. See the [startup journal](startup-journal.md)
+for disk binding, bounded data writes, checkpoint format and failure handling.
+
+
+The separate v142 `--wifi-reconnect5-journal` profile carries the same bounded
+journal around the full fixed-channel calibration and two connection lifetimes.
+It requires `--startup-journal` with a fresh descriptor and the complete
+`--wifi-reconnect5` recipe. The journal runs outside active MCU commands. A safe
+return writes phase seven after USB capture cleanup; a held run may retain a
+valid incomplete prefix. Collect the independent raw file and USB files before
+success-only protocol checks. Seven checkpoints prove capture completion, while
+full RF, fresh authentication, DHCP/DNS, traffic and retirement proofs determine
+Wi-Fi acceptance. A populated journal must never be reused for another trial.
+
+
+### Pro11,2 readable HTTP diagnostic handoff (November 11)
+
+Runtime `d413e338` / release `e4e95e7d5e24fc7c` integrates main `ae869c9b` and
+uses24×48 text on the2880×1800 panel. Its held HTTP display is a compact frozen
+panel with error codes and manual-return instructions; ordinary console/desktop
+and all ownership/protocol bounds remain unchanged. Normal/fatal/native-path,
+actual-ELF HTTP, seven exact-stage journal cases, an additional exact-payload
+high-resolution UEFI boot and fresh456-file clone preservation pass. The new
+owner is `build/bringup/wifi-http-readable/run.json`; collect FIRST once with
+that directory's `run_root.py return_collect` after return. Do not recollect the
+closed failed835 primary, its separate return notes or any earlier run.
+
+The user explicitly requests larger fonts and proceeding. Preserve Ubuntu and all
+seven protected recoveries. While OFF, unplug only Wi-Fi for ten seconds, reconnect
+to the same port, then power on; leave the workspace drive connected. Commands and
+safe save/return are automatic. An unsafe hold displays large codes for a photo
+before manual power-off/return. Run.json owns actual arming; this documentation
+neither arms a test nor claims native HTTP-pair acceptance or a resolved cause.
+
+
+The readable Pro return is now collected FIRST once and closed failed for Wi-Fi:
+session000660021b689d1e-00 saved all seven checkpoints and both logs, and readable
+24×48 text plus automatic return are user-confirmed. A first-R0 MCU receive timeout
+prevents connection entry. Its1,438-file primary and separate return review stay
+immutable; do not run the readable collector again. Current releasee4 remains
+installed and Ubuntu is unarmed. Test-onlyec98 first-R0 timeout/delay coverage
+passes normal/fatal without a production correction or new native candidate.
 
 ### Isolated fixed-file storage control
 
@@ -1291,12 +1862,37 @@ brief1% boundary cues outside storage timing. See the
 bound, strict receipt/byte/allocation checks and terminal quarantine on uncertain
 I/O. This is a separate control, not a replacement for the combined stress trial.
 
+Pro11,2 November12 return: `build/bringup/wifi-bootstrap-abort5/run.json` is
+collected exactly once and closed failed. A complete exit and seven independent
+checkpoints survive; the eight-frame discovery window filled without the target
+before any AUTH/DHCP/HTTP attempt. Its immutable primary and separate review
+must not be recollected/resealed. See the [current unit handoff](machines/macbookpro11-2.md#current-handoff)
+for source-bound software qualification, storage/recovery results and the next
+discovery/cleanup scope. Main7c1a08a0 is integrated; installed runtime remains
+f0f77ed7/release1b555afb6e2f942b. Ubuntu is default/unarmed and no next candidate
+is installed. The unit's existing shutdown/unplug authorization is unchanged;
+never copy it, its UUID or credentials to another machine.
+
 The separate v2 attribution trial adds `--storage-command-trace` to that same
 explicit storage-only stage command. Rehearse the exact GPT/MBR layout and require
 version 2, all role masks/rows, exact command/status sums and the bounded wire
 receipt, alongside every original sample, byte, lease and offline filesystem
 check. It retains the original twelve writes/six pairs, 180-second bound and 1%
 boundary cues. No controller policy, limit or integrity shortcut is enabled.
+
+
+### Pro11,2 initial AUTH observations (v149)
+
+The explicit `--wifi-first-auth5` flag extends the complete v148 survey/primed
+journaled HTTP reconnect recipe. It is refused without that parent; ordinary
+startup and older recipes remain unchanged. The guest records bounded initial
+AUTH EXT/FIFO snapshots and anonymous receive framing under the original750ms
+reply deadline. These are observations, never proof of AP acknowledgement or
+successful authentication. A source-frozen collector preserves them even when
+full RF/protocol success checking refuses. Require the exact-image journal,
+workspace-copy and recovery rehearsals before installing; use this unit's own
+run record and existing cold-shutdown authorization. See the
+[current Pro handoff](machines/macbookpro11-2.md#current-handoff).
 
 The separate v3 full-field trial uses `--storage-metadata-trace` with the same
 storage-only command. Require version 3, twelve complete metadata rows, all role
@@ -1316,3 +1912,17 @@ review require the same worst-loop companion with all three scheduler vectors
 in saved workspace logs. Compact records preserve the existing row and 64 KiB
 log caps; missing final workload or control evidence is incomplete, never repaired
 from interleaved serial output. All original limits and integrity checks apply.
+
+### Pro11,2 bounded DHCP/radio comparison return (November 13)
+
+Source `cbf807de` / release `a2b2ed09ff25187b` is collected once and independently
+accepted for one cold fixed161/20MHz two encrypted DHCP/DNS/actual-process
+HTTP+EOF lifetimes with software disconnect/reconnect and full restoration.
+The radio observer preserves all five DHCP tag bindings but credits no MAC
+outcome because both final snapshots reach their17-entry cap before empty.
+Do not recollect/reseal `build/bringup/wifi-dhcp-radio-hardware/run.json`. Its
+primary and separate review are immutable. Ubuntu is unarmed; protect the newly
+accepted current payload alongside the original eight recoveries. See the
+[current unit handoff](machines/macbookpro11-2.md#current-handoff) for acceptance
+limits and the next bounded scope. Reliability, persistent service, physical
+reattach, UI and2.4GHz remain separate.

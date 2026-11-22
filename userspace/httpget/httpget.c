@@ -1,3 +1,4 @@
+#include "wifi_exact.h"
 #include <errno.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -35,6 +36,7 @@ static int request(int fd, const char *host, const char *path, const char *port)
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && (strcmp(argv[1], "--wifi-exact") == 0 || strcmp(argv[1], "--wifi-preflight") == 0)) return wifi_exact_main(argc, argv);
     const char *host;
     const char *path;
     struct addrinfo hints;

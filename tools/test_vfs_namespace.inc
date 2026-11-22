@@ -185,7 +185,16 @@ static void namespace_case(const char *mode) {
         vfs_namespace_system_reset();
         assert(!vfs_namespace_system_lookup("/bin/tool"));
     } else if(!strcmp(mode,"namespace-workspace")) {
-        assert(exfat_unmount("/fat") && exfat_mount_block_device("/work",&device));
+        assert(exfat_unmount("/fat"));
+        /* A persisted /fat sidecar cannot silently become /work metadata.
+         * Preserve it read-only; the positive workspace uses fresh media. */
+        uint8_t *preserved=malloc(BYTES);assert(preserved);memcpy(preserved,disk,BYTES);
+        unsigned original_writes=writes;
+        assert(exfat_mount_block_device("/work",&device));
+        assert(!exfat_is_writable("/work") && !exfat_create_directory("/work/refused"));
+        assert(writes==original_writes && !memcmp(preserved,disk,BYTES));
+        assert(exfat_unmount("/work"));free(preserved);
+        fixture(1100,true);assert(exfat_mount_block_device("/work",&device));
         assert(exfat_create_directory("/work/srvros-work"));
         assert(exfat_write_file("/work/srvros-work/keep",(const uint8_t *)"workspace",9));
         namespace_refuses(&ns,"/home/note");

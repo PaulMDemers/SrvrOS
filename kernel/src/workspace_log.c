@@ -21,10 +21,12 @@
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
-static char directory[128],path[160],snapshot[65536];
+static char directory[128],path[160],snapshot[BOOTLOG_CAL5_CAPTURE_CAPACITY];
+static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
+static uint64_t wifi_replug_saved_prefix;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
-static bool retain_checkpoints;
+static bool retain_checkpoints,wifi_capture_parked;
 static bool ecam_saved,window_saved;
 static uint64_t due;
 static struct scheduler_wait_queue wake;
@@ -330,7 +332,7 @@ static void report_save(void) {
     report_transfers("logger",previous_save.start,&previous_save.usb);
     previous_save.pending=false;
 }
-static bool save(const char *name) {
+static bool save_snapshot(const char *name,uint64_t saved_prefix,uint64_t *saved_end) {
     /* Save latency is a clock measurement, independent of optional MSR power
      * telemetry. Ordinary desktop stress needs these intervals too. */
     bool measured=timer_reference_ready();
@@ -342,8 +344,22 @@ static bool save(const char *name) {
     if(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.')scheduler_print_launch_trace();
     if(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.')sidecar_history_print();
     uint64_t snapshot_us=timer_monotonic_us();
-    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,snapshot_us,bootlog_total());
-    uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
+    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,snapshot_us,bootlog_total(),snapshot_limit);
+    uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;
+    const uint8_t *bytes=(const uint8_t *)snapshot;
+    if(saved_prefix) {
+        /* The first file owns [0,saved_prefix). Continue only when the ring
+         * still contains every byte starting at that verified boundary. */
+        if(total-count>saved_prefix || saved_prefix>=total) {
+            console_write("workspace-log: SAVE FAILED Wi-Fi replug continuation gap\n");
+            return false;
+        }
+        bytes+=saved_prefix-(total-count);
+        count=total-saved_prefix;
+    } else if(snapshot_limit>BOOTLOG_DEFAULT_CAPACITY && total!=count) {
+        console_write("workspace-log: SAVE FAILED extended capture prefix lost\n");
+        return false;
+    }
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
     uint64_t prepared=measured?timer_monotonic_us():0;
     bool tracing=measured && usb_storage_timing_begin();
@@ -351,12 +367,12 @@ static bool save(const char *name) {
     uint64_t written=prepared,verified=prepared;
     if(entered) {
         ok=workspace_active() && !process_has_open_vfs_prefix(path) &&
-            exfat_write_file(path,(const uint8_t *)snapshot,count);
+            exfat_write_file(path,bytes,count);
         written=measured?timer_monotonic_us():0;
         const struct vfs_node *node=ok?vfs_lookup(path):NULL;
         const uint8_t *data=NULL;uint64_t length=0;
         ok=ok && node && vfs_read_all(node,&data,&length) && length==count;
-        for(uint64_t i=0;ok && i<count;i++) if(data[i]!=(uint8_t)snapshot[i]) ok=false;
+        for(uint64_t i=0;ok && i<count;i++) if(data[i]!=bytes[i]) ok=false;
         if(node && data) vfs_release_data(node,data);
         end(flags);
         verified=measured?timer_monotonic_us():0;
@@ -375,10 +391,14 @@ static bool save(const char *name) {
         previous_save.prepare=prepared-start;previous_save.write=written-prepared;
         previous_save.verify=verified-written;previous_save.sync=finished-verified;
     }
-    if(ok) console_printf("workspace-log: durable snapshot=%s monotonic_us=%u\n",name,snapshot_us);
+    if(ok) {
+        if(saved_end)*saved_end=total;
+        console_printf("workspace-log: durable snapshot=%s monotonic_us=%u\n",name,snapshot_us);
+    }
     else console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
     return ok;
 }
+static bool save(const char *name) { return save_snapshot(name,0,NULL); }
 static bool ready(void *arg) { (void)arg;return enabled && timer_ticks()>=due; }
 static bool activated(void *arg) { (void)arg;return enabled; }
 static bool idle(void *arg) { (void)arg;return !busy; }
@@ -411,8 +431,14 @@ static void worker(void *arg) {
         periodic_attempt();
     }
 }
-static bool start_log(bool retain) {
-    if(enabled || busy || !workspace_active()) return false;
+static bool start(uint64_t limit,bool retain) {
+    if(enabled || busy || wifi_capture_parked || !workspace_active()) return false;
+    if(limit>BOOTLOG_DEFAULT_CAPACITY && !bootlog_extend_capture_to(limit)) {
+        console_write("workspace-log: REFUSED extended capture prefix lost\n");
+        return false;
+    }
+    snapshot_limit=limit;
+    wifi_replug_saved_prefix=0;
     (void)scheduler_io_observe_reset();
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
@@ -446,8 +472,11 @@ static bool start_log(bool retain) {
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }
-bool workspace_log_start(void) { return start_log(false); }
-bool workspace_log_start_capture(void) { return start_log(true); }
+bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY,false); }
+bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_large_capture(void) { return start(BOOTLOG_LARGE_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_full_capture(void) { return start(BOOTLOG_FULL_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_checkpoints(void) { return start(BOOTLOG_DEFAULT_CAPACITY,true); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);
@@ -464,15 +493,24 @@ bool workspace_log_stop(void) {
     enabled=false;scheduler_wake_all(&wake);
     while(busy) scheduler_wait(&wake,idle,NULL);
     if(!directory[0] || !workspace_active()) return false;
-    bool ok=save("exit.log");
+    bool ok=save_snapshot("exit.log",wifi_replug_saved_prefix,NULL);
+    wifi_replug_saved_prefix=0;
     console_printf("workspace-log: final=%s directory=%s\n",ok?"saved":"FAILED",directory);
+    wifi_capture_parked=false;
     return ok && healthy;
 }
-bool workspace_log_pause(void) {
+static bool pause_with_checkpoint(uint64_t *saved_end) {
     enabled=false;scheduler_wake_all(&wake);
     while(busy) scheduler_wait(&wake,idle,NULL);
     if(!directory[0] || !workspace_active())return false;
-    return save("session-a.log") && healthy;
+    return save_snapshot("session-a.log",0,saved_end) && healthy;
+}
+bool workspace_log_pause(void) { return pause_with_checkpoint(NULL); }
+bool workspace_log_wifi_replug_checkpoint(void) {
+    if(wifi_replug_saved_prefix || snapshot_limit!=BOOTLOG_CAL5_CAPTURE_CAPACITY || !healthy)return false;
+    if(!pause_with_checkpoint(&wifi_replug_saved_prefix))return false;
+    console_printf("workspace-log: Wi-Fi replug continuation session-a.log bytes=%u\n",wifi_replug_saved_prefix);
+    return true;
 }
 const char *workspace_log_directory(void){return directory[0]?directory:NULL;}
 bool workspace_log_ecam_snapshot(void) {
@@ -545,4 +583,33 @@ bool workspace_storage_wait_capture(void) {
     console_printf("storage-wait: complete=%s samples=%u restored=%s elapsed_us=%u\n",
         ok&&completed==18&&restored?"yes":"NO",(uint64_t)completed,restored?"yes":"NO",timer_monotonic_us()-start);
     return ok && completed==18 && restored;
+}
+
+bool workspace_log_start_radio_capture(void) { return start(BOOTLOG_RADIO_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_cal5_capture(void) { return start(BOOTLOG_CAL5_CAPTURE_CAPACITY,false); }
+
+bool workspace_log_start_extended_capture(void) { return start(BOOTLOG_EXTENDED_CAPTURE_CAPACITY,false); }
+
+bool workspace_log_begin_wifi_capture(void) {
+    if(!enabled || wifi_capture_parked || !healthy ||
+       snapshot_limit!=BOOTLOG_EXTENDED_CAPTURE_CAPACITY || retain_checkpoints ||
+       !directory[0] || !workspace_active())return false;
+    if(!workspace_log_quiesce(5000))return false;
+    healthy=save("session-a.log") && healthy;
+    if(!healthy)return false;
+    wifi_capture_parked=true;
+    console_write("workspace-log: phase=wifi-radio periodic=paused tail_limit=1048576\n");
+    return true;
+}
+
+bool workspace_log_begin_wifi_desktop(void) {
+    if((!enabled && !wifi_capture_parked) || !healthy || snapshot_limit!=BOOTLOG_EXTENDED_CAPTURE_CAPACITY ||
+       retain_checkpoints || !directory[0] || !workspace_active())return false;
+    if(!workspace_log_quiesce(5000))return false;
+    if(!save("wifi-scan.log")){healthy=false;return false;}
+    snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
+    console_write("workspace-log: phase=wifi-desktop startup_saved=1 tail_limit=65536\n");
+    healthy=save("wifi-ui-begin.log") && healthy;
+    if(!healthy)return false;
+    wifi_capture_parked=false;enabled=true;due=timer_ticks()+1000;scheduler_wake_all(&wake);return true;
 }

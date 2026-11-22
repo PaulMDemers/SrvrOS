@@ -72,6 +72,22 @@ bool net_device_select(void) {
 const char *net_device_name(void) { return selected?selected->name:"none"; }
 bool net_device_registry_empty(void) { return !provider_count && !selected; }
 const uint8_t *net_device_mac(void) { return selected?selected->mac:NULL; }
+bool net_device_selected_is(const struct net_device_ops *identity) {
+    if (!identity || !identity->send) return false;
+    uint64_t flags=registry_lock();
+    bool match=false;
+    if (sealed && selected) {
+        for (unsigned i=0;i<provider_count;i++) {
+            if (selected==&providers[i] && !retiring[i] &&
+                identities[i].context==identity->context && identities[i].send==identity->send) {
+                match=true;
+                break;
+            }
+        }
+    }
+    registry_unlock(flags);
+    return match;
+}
 bool net_device_send(const uint8_t *frame,uint16_t length) {
     struct net_device_ops p;const struct net_device_ops *owner=selected;
     if(!frame || length<14 || length>NET_DEVICE_FRAME_MAX || !enter(owner,&p))return false;

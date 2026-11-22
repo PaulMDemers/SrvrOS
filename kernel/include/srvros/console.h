@@ -43,6 +43,9 @@ bool console_set_serial_output(bool enabled);
 bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale);
 void console_init(struct limine_framebuffer *framebuffer);
+/* Boot-time only: integer text scaling 1..3; graphics pixel APIs are unchanged.
+ * Invalid scale refuses framebuffer text. No live font/viewport mutation. */
+void console_init_scaled(struct limine_framebuffer *framebuffer, uint64_t scale);
 void console_set_graphics_framebuffer(struct limine_framebuffer *framebuffer);
 void console_clear(void);
 void console_set_framebuffer_muted(bool muted);

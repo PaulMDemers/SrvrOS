@@ -13,8 +13,9 @@
 #define SRV_DEVICE_HUB 64u
 #define SRV_DEVICE_FAILED 128u
 #define SRV_DEVICE_NETWORK 256u
+#define SRV_DEVICE_WIFI 512u
 /* Read-only enumeration. PCI describes detected functions, not driver health.
- * USB flags describe the boot-enumerated function bindings; no hotplug promise.
+ * USB flags describe the current enumerated function bindings.
  * index is opaque: pass the positive return value to request the next entry. */
 struct srv_device_info {
     uint32_t version,size,bus_kind,index;

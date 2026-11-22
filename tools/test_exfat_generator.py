@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import struct
 import unittest
+import shutil,subprocess,tempfile
 from exfat_test_image import ExfatFixture
 from mk_exfat_image import file_entry, ascii_upcase_table, checksum32, write_boot_regions
 
@@ -71,6 +72,31 @@ class GeneratorTests(unittest.TestCase):
             data[106]=2;data[112]=255;verify_boot(data)
             data[11*(1<<shift)+4]^=1
             with self.assertRaises(AssertionError):verify_boot(data)
+
+    @unittest.skipUnless(shutil.which('mkfs.exfat') and shutil.which('fsck.exfat'),'requires exfatprogs')
+    def test_independent_alias_fixture(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'disk.exfat'
+            with p.open('wb') as out:out.truncate(16*1024*1024)
+            subprocess.run(['mkfs.exfat','-c','4K',str(p)],check=True,stdout=subprocess.DEVNULL)
+            f=ExfatFixture(p.read_bytes());payload=bytes(range(256))*33
+            f.add_directory_files('d',{'owner':payload})
+            directory=next(e for n,e in f.entries(f.chain(f.root)) if n=='d')
+            first=struct.unpack_from('<I',directory,52)[0];owner=next(e for n,e in f.entries(f.read('d')) if n=='owner')
+            alias=ExfatFixture.checked_entry('peer',struct.unpack_from('<I',owner,52)[0],payload,contiguous=False)
+            at=f.offset(first)+len(owner);f.data[at:at+len(alias)]=alias
+            p.write_bytes(f.data)
+            self.assertNotEqual(subprocess.run(['fsck.exfat','-n',str(p)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode,0)
+            self.assertEqual(f.copy_file_aliases(),1)
+            self.assertEqual(f.read('d/owner'),payload);self.assertEqual(f.read('d/peer'),payload)
+            self.assertEqual(f.copy_file_aliases(),0)
+            p.write_bytes(f.data)
+            subprocess.run(['fsck.exfat','-n',str(p)],check=True,stdout=subprocess.DEVNULL)
+            # A partial overlap is not an exact alias and must remain untouched.
+            alias=ExfatFixture.checked_entry('overlap',struct.unpack_from('<I',owner,52)[0],payload[:-1],contiguous=False)
+            at=f.offset(first)+len(owner)*2;f.data[at:at+len(alias)]=alias;before=bytes(f.data)
+            with self.assertRaises(ValueError):f.copy_file_aliases()
+            self.assertEqual(bytes(f.data),before)
 
     def test_upcase(self):
         table=ascii_upcase_table();verify_upcase(table,checksum32(table))

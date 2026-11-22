@@ -32,6 +32,9 @@ static uint64_t columns;
 static uint64_t rows;
 static uint64_t cursor_x;
 static uint64_t cursor_y;
+static uint64_t text_scale = 1;
+static uint64_t text_width(void) { return CELL_WIDTH * text_scale; }
+static uint64_t text_height(void) { return CELL_HEIGHT * text_scale; }
 static bool framebuffer_console_ready;
 static bool framebuffer_console_muted;
 static uint64_t framebuffer_console_mute_owner;
@@ -185,15 +188,15 @@ void console_flush(void) {
         for (uint64_t col = left; col < right; col++) chars[col] = cells[row][col];
         console_irq_restore(flags);
         if (left >= right) continue;
-        for (uint64_t py = 0; py < CELL_HEIGHT; py++) {
+        for (uint64_t py = 0; py < text_height(); py++) {
             for (uint64_t col = left; col < right; col++) {
-                const uint32_t *tile = glyph_cache[chars[col] - SRV_FONT_FIRST][py];
-                for (uint64_t px = 0; px < CELL_WIDTH; px++) scanline[col * CELL_WIDTH + px] = tile[px];
+                const uint32_t *tile = glyph_cache[chars[col] - SRV_FONT_FIRST][py / text_scale];
+                for (uint64_t px = 0; px < text_width(); px++) scanline[col * text_width() + px] = tile[px / text_scale];
             }
             volatile uint32_t *dst = (volatile uint32_t *)fb->address +
-                (row * CELL_HEIGHT + py) * (fb->pitch / 4) + left * CELL_WIDTH;
-            const uint32_t *src = scanline + left * CELL_WIDTH;
-            uint64_t length = (right - left) * CELL_WIDTH;
+                (row * text_height() + py) * (fb->pitch / 4) + left * text_width();
+            const uint32_t *src = scanline + left * text_width();
+            uint64_t length = (right - left) * text_width();
             /* A graphics owner may claim the display while rasterizing. Check
              * under the same short critical section as each scanline store so
              * an interrupted console cannot paint over its new framebuffer. */
@@ -206,16 +209,16 @@ void console_flush(void) {
             for (uint64_t i = 0; i < length; i++) dst[i] = src[i];
             console_irq_restore(flags);
         }
-        stats.framebuffer_bytes_written += (right - left) * CELL_WIDTH * CELL_HEIGHT * 4;
+        stats.framebuffer_bytes_written += (right - left) * text_width() * text_height() * 4;
         stats.cells_painted += right - left;
     }
     flags = console_irq_save();
     previous_cursor_x = cursor_x;
     previous_cursor_y = cursor_y;
     if (!framebuffer_console_muted) {
-        fill_rect(cursor_x * CELL_WIDTH, cursor_y * CELL_HEIGHT + CELL_HEIGHT - 1,
-            CELL_WIDTH - 1, 1, accent_color());
-        stats.framebuffer_bytes_written += (CELL_WIDTH - 1) * 4;
+        fill_rect(cursor_x * text_width(), cursor_y * text_height() + text_height() - text_scale,
+            text_width() - text_scale, text_scale, accent_color());
+        stats.framebuffer_bytes_written += (text_width() - text_scale) * text_scale * 4;
     }
     presenting = false;
     console_irq_restore(flags);
@@ -477,8 +480,8 @@ void console_clear(void) {
     console_irq_restore(flags);
     if (framebuffer_console_muted) return;
     /* Clear unused margins once, not on every text update. */
-    fill_rect(columns * CELL_WIDTH, 0, fb->width - columns * CELL_WIDTH, fb->height, bg_color());
-    fill_rect(0, rows * CELL_HEIGHT, fb->width, fb->height - rows * CELL_HEIGHT, bg_color());
+    fill_rect(columns * text_width(), 0, fb->width - columns * text_width(), fb->height, bg_color());
+    fill_rect(0, rows * text_height(), fb->width, fb->height - rows * text_height(), bg_color());
     console_flush();
 }
 
@@ -546,13 +549,17 @@ void console_set_cursor(uint64_t x, uint64_t y) {
 }
 
 void console_init(struct limine_framebuffer *framebuffer) {
+    console_init_scaled(framebuffer, 1);
+}
+
+void console_init_scaled(struct limine_framebuffer *framebuffer, uint64_t scale) {
     fb = framebuffer;
     graphics_fb = NULL;
     framebuffer_console_ready = false;
     framebuffer_console_muted = false;
     framebuffer_console_mute_owner = 0;
 
-    if (fb == NULL || fb->address == NULL || fb->bpp != 32 ||
+    if (scale < 1 || scale > 3 || fb == NULL || fb->address == NULL || fb->bpp != 32 ||
         fb->memory_model != LIMINE_FRAMEBUFFER_RGB || fb->width > UINT64_MAX / 4 ||
         fb->pitch < fb->width * 4 || fb->pitch % 4 != 0 ||
         fb->height > UINT64_MAX / (fb->pitch ? fb->pitch : 1) ||
@@ -562,10 +569,11 @@ void console_init(struct limine_framebuffer *framebuffer) {
         return;
     }
 
-    columns = fb->width / CELL_WIDTH;
-    rows = fb->height / CELL_HEIGHT;
-    if (columns > MAX_COLUMNS) columns = MAX_COLUMNS;
-    if (rows > MAX_ROWS) rows = MAX_ROWS;
+    text_scale = scale;
+    columns = fb->width / text_width();
+    rows = fb->height / text_height();
+    if (columns > MAX_COLUMNS / scale) columns = MAX_COLUMNS / scale;
+    if (rows > MAX_ROWS / scale) rows = MAX_ROWS / scale;
     if (columns == 0 || rows == 0) {
         return;
     }
