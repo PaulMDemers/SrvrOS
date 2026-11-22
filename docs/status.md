@@ -13,11 +13,11 @@ complete with runtime and SrvrUI owner review. A CPU/SHM rendering path exists
 in the pinned source; missing GLib dependencies, shared-memory/IPC, combined
 wait policy and frame completion/cancellation remain explicit implementation
 gates. No full target configure, engine build or rendered page is claimed.
-GLib 2.90.1 now computes its poll constants from the SrvrOS SDK and detects
-the pinned GNU libiconv 1.19 target archive. The normal SDK guest passed
-the native wait and conversion checks twice each. The next static GLib
-configure dependency is PCRE2 8-bit. See the
-[GLib probe record](browser-glib-prereq.md).
+The GLib 2.90.1 cross-configure computes the SrvrOS poll constants,
+configures bundled GVDB, and detects GNU libiconv 1.19, PCRE2 10.49 and
+libffi 3.8.0. The normal guest passed the native wait, conversion, PCRE2
+and libffi probes twice each. The next required configure dependency
+is zlib. See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
 open and draft under its own acceptance ledger.
