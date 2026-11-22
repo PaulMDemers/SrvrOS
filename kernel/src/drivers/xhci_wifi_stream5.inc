@@ -17,6 +17,7 @@ _Static_assert(WIFI_STREAM5_TX==DHCP_RADIO5_TX_LIMIT,"radio allowance must track
 /* DATA is not a mt76_wpa5_tx member; the RX enum uses a different value. */
 #define WIFI_STREAM5_DATA_TX 5u
 #define WIFI_STREAM5_PAIRED_SLOTS 15u
+#define WIFI_STREAM5_SESSION_COMMANDS 6u
 #define WIFI_STREAM5_COOKIE_TAG UINT64_C(0xa57d000000000000)
 #define WIFI_STREAM5_COOKIE_MAX UINT64_C(0x0000ffffffffffff)
 #define WIFI_STREAM5_EVENT_DATA (1u<<2)
@@ -473,7 +474,7 @@ static bool wifi_stream5_usb(void *c,bool write,uint32_t a,uint32_t *v,bool clea
  wifi_stream5_owned(c,cleanup)?true:wifi_stream5_fail();
 }
 static bool wifi_stream5_auth_radio(unsigned phase){
- if(!wifi_stream5.connection_mode || !wifi_stream5.stack_mode)return true;
+ if(!wifi_stream5.connection_mode || !wifi_stream5.stack_mode || wifi_stream5.resident)return true;
  if(phase>1 || wifi_stream5.auth_radio.attempted[phase])return phase<2 && wifi_stream5.auth_radio.complete[phase];
  wifi_stream5.auth_radio.attempted[phase]=true;
  if((!phase && wifi_stream5.posts[0]) || (phase && (!wifi_stream5.auth_radio.complete[0] || wifi_stream5.posts[0]!=1 || wifi_stream5.pending[0])))return wifi_stream5_fail();
@@ -596,7 +597,9 @@ static bool wifi_stream5_inspect(void){
   if(!wifi_stream5_slots[0].epoch || wifi_stream5_slots[0].epoch==UINT64_MAX)return false;
   wifi_stream5.epoch=wifi_stream5_slots[0].epoch+1;wifi_stream5.peer.generation=wifi_stream5.epoch;
  }
- if(wifi_fence5_native.bound || xhci.command_enqueue+2+2*wifi_stream5_fence_limit()+6>63 || !wifi_stream5_credentials())return false;
+ unsigned commands=wifi_stream5.paired && wifi_stream5.connection_mode?WIFI_STREAM5_SESSION_COMMANDS:
+  2+2*wifi_stream5_fence_limit()+6;
+ if(wifi_fence5_native.bound || xhci.command_enqueue>63-commands || !wifi_stream5_credentials())return false;
  const unsigned dcis[]={0,11,16,8,9};for(unsigned i=0;i<5;i++)for(unsigned j=0;j<8;j++)wifi_stream5.context[i][j]=context_read32(d->output_context,dcis[i],j);
  for(unsigned dir=0;dir<2;dir++)for(unsigned j=0;j<8;j++)wifi_stream5.snapshots[0][dir][j]=wifi_stream5.context[dir?4:3][j];
  copy_bytes(wifi_stream5.parent,(const uint8_t *)&wifi_join5,sizeof wifi_join5);copy_bytes(wifi_stream5.parent_ring[0],(const uint8_t *)wifi_join5.rx,4096);copy_bytes(wifi_stream5.parent_ring[1],(const uint8_t *)wifi_join5.tx,4096);

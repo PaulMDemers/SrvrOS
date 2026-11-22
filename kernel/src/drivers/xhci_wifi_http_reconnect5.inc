@@ -131,7 +131,7 @@ static bool wifi_http_reconnect5_window(void){
    if(!failed_closed)return false;
    /* A consumed terminal failure closes only this adapter inspection. Never
     * clear protocol failure or count a connection; return before generation2. */
-   if(!wifi_reconnect5_closed_state(&wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma,true))wifi_http5_hold(10);
+   if(!wifi_reconnect5_closed_state(&wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma,true,false))wifi_http5_hold(10);
    wifi_http_reconnect5.failure_closed=true;
    console_write("wifi-http-reconnect5-parent-cleanup: version=1 protocol_failed=1 local_closed=1 next_allowed=0 workload_success=0 parent_cleanup_allowed=1\n");
    return true;

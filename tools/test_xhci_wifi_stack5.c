@@ -52,6 +52,8 @@ static scheduler_thread_fn resident_thread;
 static scheduler_wait_condition_fn resident_eligible;
 static jmp_buf resident_wait;
 static bool in_resident,resident_parked;
+static bool desktop_wait_service,desktop_timer_running;
+static void resident_turn(void);
 #ifndef SRVROS_XHCI_HTTP5_HOST_TEST
 bool scheduler_spawn(const char *name,scheduler_thread_fn entry,void *arg){
  assert(!strcmp(name,"net-poll") && entry && !arg && !resident_thread);
@@ -67,6 +69,8 @@ bool scheduler_spawn_io_service(const char *name,scheduler_thread_fn entry,void 
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a,uint64_t end){
  (void)q;(void)fn;(void)a;(void)end;test_time+=10000;
  if(in_resident)longjmp(resident_wait,1);
+ if(desktop_timer_running)net_timer_tick();
+ if(desktop_wait_service)resident_turn();
  return false;
 }
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a){
@@ -111,7 +115,8 @@ static void stack_test_connection(unsigned generation){
  }else{
   assert(wifi_stream5_current==&wifi_stream5_slots[1] && wifi_stream5_slots[0].connection_closed);
   assert(wifi_stack5_net.state==MT76_NET5_DOWN && !wifi_stack5_net.attached && !wifi_stack5_net.io.context);
-  if(http_reconnect_peer)assert(wifi_http_reconnect5.probe[0].result.complete && wifi_http_reconnect5.probe[0].result.disconnected);
+  if(wifi_desktop5.reconnect)assert(wifi_desktop5.scopes[0].disconnected);
+  else if(http_reconnect_peer)assert(wifi_http_reconnect5.probe[0].result.complete && wifi_http_reconnect5.probe[0].result.disconnected);
   else assert(wifi_reconnect5.probe[0].complete && wifi_reconnect5.probe[0].disconnected);
   reconnect_old_stream=wifi_stream5_slots[0];reconnect_old_fence=wifi_fence5_first;
   for(unsigned i=0;i<10;i++)memcpy(reconnect_old_physical[i],i<2?(void *)wifi_stream5_slots[0].ring[i]:(void *)wifi_stream5_slots[0].buffer[(i-2)/4][(i-2)%4],4096);
@@ -283,8 +288,13 @@ static void ap_packet(const uint8_t *p,size_t n){
    ap_http_request_check();
   }else assert(size-header==sizeof stack_request-1 && !memcmp(t+header,stack_request,sizeof stack_request-1));
   uint8_t bytes[sizeof stack_header-1+3072];memcpy(bytes,stack_header,sizeof stack_header-1);for(unsigned i=0;i<3072;i++)bytes[sizeof stack_header-1+i]=(uint8_t)('A'+i%26);
-  for(unsigned at=0;at<sizeof bytes;){unsigned count=(unsigned)sizeof bytes-at;if(count>1100)count=1100;bool last=http_reconnect_peer && !http_reconnect_peer_no_fin && at+count==sizeof bytes;ap_tcp_reply(p,last?0x19:0x18,ap.server_seq,seq+size-header,bytes+at,count);ap.server_seq+=count+(unsigned)last;at+=count;}
- }else if(flags&1){ap_tcp_reply(p,http_reconnect_peer?0x10:0x11,ap.server_seq,seq+1,NULL,0);if(!http_reconnect_peer)ap.server_seq++;ap.closed=true;}
+  for(unsigned at=0;at<sizeof bytes;){unsigned count=(unsigned)sizeof bytes-at;if(count>1100)count=1100;bool last=(http_reconnect_peer || wifi_desktop5.reconnect) && !http_reconnect_peer_no_fin && at+count==sizeof bytes;ap_tcp_reply(p,last?0x19:0x18,ap.server_seq,seq+size-header,bytes+at,count);ap.server_seq+=count+(unsigned)last;at+=count;}
+ }else if(flags&1){
+  bool sent_fin=http_reconnect_peer || wifi_desktop5.reconnect;
+  ap_tcp_reply(p,sent_fin?0x10:0x11,ap.server_seq,seq+1,NULL,0);
+  if(!sent_fin)ap.server_seq++;
+  ap.closed=true;
+ }
  else assert(flags==0x10);
 }
 static void stack_test_progress(void){
@@ -512,11 +522,15 @@ static void desktop_storage_turn(struct xhci_device *disk){
  test_storage_wait_hook=NULL;
 }
 static bool desktop_model_removed;
+static unsigned desktop_data_windows;
+static uint64_t desktop_first_generation;
+static uint32_t desktop_dhcp_ids[2];
 static bool desktop_begin(void *context){
  assert(context==&ap && !wifi_stream5.attempted);
  struct srv_wifi_snapshot s;
  assert(wifi_service_snapshot(0,&s)==SRV_WIFI_OK && s.owner && s.generation && s.count==1);
  assert(s.flags==(SRV_WIFI_READY|SRV_WIFI_CONTROL) && s.row[0].channel==161);
+ desktop_first_generation=s.generation;
  struct srv_wifi_select req={SRV_WIFI_VERSION,sizeof req,s.owner,s.generation,0,0};
  assert(wifi_service_request(SRV_WIFI_CONNECT,&req)==SRV_WIFI_OK);
  assert(wifi_service_request(SRV_WIFI_CONNECT,&req)==SRV_WIFI_BUSY);
@@ -524,6 +538,20 @@ static bool desktop_begin(void *context){
 }
 static bool desktop_running(void *context){
  assert(context==&ap);
+ if(wifi_desktop5.reconnect && wifi_desktop5.connections==1 && !wifi_desktop5.connected &&
+    !wifi_desktop5.connect.serial){
+  struct srv_wifi_snapshot view;
+  struct srv_net_status_info status;
+  assert(wifi_service_snapshot(wifi_desktop5.owner,&view)==0 && (view.flags&SRV_WIFI_DISCONNECTED));
+  assert(view.generation==desktop_first_generation+1);
+  assert(!net_status_info(&status) && !status.dhcp_configured && !status.local_ip);
+  resident_turn();
+  assert(resident_parked && !resident_eligible(NULL));
+  struct srv_wifi_select request={SRV_WIFI_VERSION,sizeof request,view.owner,desktop_first_generation,0,0};
+  assert(wifi_service_request(SRV_WIFI_CONNECT,&request)==SRV_WIFI_STALE);
+  request.generation=view.generation;
+  assert(wifi_service_request(SRV_WIFI_CONNECT,&request)==SRV_WIFI_OK);
+ }
  if(!wifi_desktop5.connected || ap.closed)return true;
  assert(wifi_stream5.resident && wifi_stream5.exchange.session_active && !wifi_desktop5.gate);
  struct srv_wifi_snapshot s;
@@ -535,12 +563,14 @@ static bool desktop_running(void *context){
  if(result==SRV_ERR_AGAIN){for(unsigned i=0;i<8;i++)resident_turn();result=net_udp_sendto_mode((uint64_t)udp,ap_ip,9000,payload,sizeof payload,true);}
  assert(result==sizeof payload);
  struct xhci_device *disk=&xhci.devices[1];
- *disk=(struct xhci_device){.present=true,.slot_id=2};
- void *ring,*bounce;
- assert(alloc_frame_zero(&disk->bulk_ep[1].ring_phys,&ring) && alloc_frame_zero(&disk->bulk_buffer_phys,&bounce));
- disk->bulk_ep[1].ring=ring;disk->bulk_ep[1].dci=3;disk->bulk_ep[1].cycle=true;
- disk->bulk_buffer=bounce;
- memset(bounce,0x5a,4096);
+ if(!disk->present){
+  *disk=(struct xhci_device){.present=true,.slot_id=2};
+  void *ring,*bounce;
+  assert(alloc_frame_zero(&disk->bulk_ep[1].ring_phys,&ring) && alloc_frame_zero(&disk->bulk_buffer_phys,&bounce));
+  disk->bulk_ep[1].ring=ring;disk->bulk_ep[1].dci=3;disk->bulk_ep[1].cycle=true;
+  disk->bulk_buffer=bounce;
+ }
+ memset(disk->bulk_buffer,0x5a,4096);
  uint8_t data[512];uint32_t actual=0;
  test_io_active=true;test_storage_wait_hook=desktop_storage_turn;
  assert(storage_bulk_transfer(disk,true,data,sizeof data,&actual) && actual==sizeof data);
@@ -560,10 +590,50 @@ static bool desktop_running(void *context){
  }
  assert(test_time-before>15000000 && wifi_stream5.posts[0]>80 && wifi_stream5.record_count==WIFI_STREAM5_RX+WIFI_STREAM5_TX);
  assert(!net_close((uint64_t)udp));
+ if(wifi_desktop5.reconnect){
+  assert(ap.dhcp==2 && ap.dhcp_xid && desktop_data_windows<2);
+  desktop_dhcp_ids[desktop_data_windows]=ap.dhcp_xid;
+  uint32_t resolved=0;
+  desktop_wait_service=true;
+  assert(!net_dns_resolve("example.com",&resolved) && resolved==ap_ip && ap.dns==1);
+  desktop_wait_service=false;
+  int64_t tcp=net_connect(resolved,80,true);
+  assert(tcp>0);
+  for(unsigned i=0;i<12;i++)resident_turn();
+  assert(net_respond((uint64_t)tcp,stack_request,sizeof stack_request-1,true)==sizeof stack_request-1);
+  for(unsigned i=0;i<24;i++)resident_turn();
+  char bytes[4096];
+  int64_t n=net_read((uint64_t)tcp,bytes,sizeof bytes,true);
+  assert(n==sizeof stack_header-1+3072 && !memcmp(bytes,stack_header,sizeof stack_header-1));
+  for(unsigned i=0;i<3072;i++)assert(bytes[sizeof stack_header-1+i]==(char)('A'+i%26));
+  assert(net_read((uint64_t)tcp,bytes,sizeof bytes,true)==0);
+  assert(!net_close((uint64_t)tcp));
+  for(unsigned i=0;i<12;i++)resident_turn();
+  assert(ap.closed);
+  desktop_data_windows++;
+ }
  struct srv_wifi_select req={SRV_WIFI_VERSION,sizeof req,s.owner,s.generation,SRV_WIFI_NONE,0};
  assert(wifi_service_request(SRV_WIFI_DISCONNECT,&req)==SRV_WIFI_OK);
  ap.closed=true;
  return true;
+}
+static void desktop_reconnect_case(void){
+ probe_setup(0);test_io_gate_allowed=desktop_timer_running=true;
+ assert(xhci_wifi_capture_desktop_reconnect5(&ap,desktop_begin,desktop_running));
+ assert(wifi_desktop5.connections==2 && wifi_desktop5.disconnects==2 && desktop_data_windows==2);
+ assert(desktop_dhcp_ids[0]!=desktop_dhcp_ids[1]);
+ assert(wifi_desktop5.scopes[0].disconnected && wifi_desktop5.scopes[1].disconnected);
+ assert(wifi_desktop5.epochs[0]<wifi_desktop5.epochs[1] && wifi_desktop5.tokens[0]<wifi_desktop5.tokens[1]);
+ assert(reconnect_hook_count==2 && reconnect_old_epoch==wifi_desktop5.epochs[0] && reconnect_old_token==wifi_desktop5.tokens[0]);
+ const struct wifi_stream5_state *old=&wifi_stream5_slots[0];
+ for(unsigned i=0;i<10;i++){
+  const void *p=i<2?(const void *)old->ring[i]:(const void *)old->buffer[(i-2)/4][(i-2)%4];
+  assert(!memcmp(p,reconnect_old_physical[i],4096));
+ }
+ struct srv_wifi_snapshot view;
+ assert(wifi_service_snapshot(wifi_desktop5.owner,&view)==0 && (view.flags&SRV_WIFI_CLOSED));
+ assert(wifi_stack5.retired && !test_io_active && xhci_wifi_desktop5_return_safe());
+ puts("xhci desktop Wi-Fi: PASS same-boot fresh WPA and DHCP twice, DNS and exact HTTP body twice, shared storage and two separate retirements");
 }
 static void desktop_case(bool removed){
  probe_setup(0);test_io_gate_allowed=true;desktop_model_removed=removed;
@@ -919,6 +989,7 @@ static void connection_dhcp_receipt(unsigned fault){
 int STACK5_TEST_MAIN(int argc,char **argv){
  if(argc==2 && !strcmp(argv[1],"--desktop-case")){desktop_case(false);return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-removed")){desktop_case(true);return 0;}
+ if(argc==2 && !strcmp(argv[1],"--desktop-reconnect")){desktop_reconnect_case();return 0;}
 #ifndef SRVROS_XHCI_HTTP5_HOST_TEST
  if(argc==2 && !strcmp(argv[1],"--desktop-rf")){desktop_rf_case();return 0;}
 #endif

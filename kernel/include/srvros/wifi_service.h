@@ -30,6 +30,8 @@ uint64_t wifi_service_publish_connection(const struct wifi_service_provider *,co
 int wifi_service_request(unsigned operation,const struct srv_wifi_select *);
 bool wifi_service_take(uint64_t,void *,struct wifi_service_command *);
 bool wifi_service_finish(uint64_t,void *,const struct wifi_service_command *,bool success);
+/* Complete a proven disconnect and retire requests from the previous view. */
+bool wifi_service_rearm_connection(uint64_t,void *,const struct wifi_service_command *,uint64_t next_generation);
 void wifi_service_seal_connection(uint64_t,void *,bool success);
 struct wifi_service_counts { uint64_t published,reads,selected,stale,refused,removed; };
 /* Anonymous boot-lifetime totals, saturating; same serialized CPU0 contract. */

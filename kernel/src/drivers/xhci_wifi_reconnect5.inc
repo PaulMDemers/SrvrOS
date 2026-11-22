@@ -12,7 +12,7 @@ static struct {
  * remains owned. This is deliberately not whole-adapter/backend retirement. */
 static bool wifi_http5_failed_detached(void);
 static unsigned wifi_reconnect5_closed_reason;
-static bool wifi_reconnect5_closed_state(void *owner,uint64_t epoch,const struct mt76_dma5 *dma,bool failed){
+static bool wifi_reconnect5_closed_state(void *owner,uint64_t epoch,const struct mt76_dma5 *dma,bool failed,bool paired){
  wifi_reconnect5_closed_reason=0;
  if(failed && !wifi_http5_failed_detached()){wifi_reconnect5_closed_reason=1;return false;}
  struct wifi_stream5_state *s=owner;
@@ -23,7 +23,8 @@ static bool wifi_reconnect5_closed_state(void *owner,uint64_t epoch,const struct
  if(s->epoch!=epoch){wifi_reconnect5_closed_reason=6;return false;}
  if(dma!=&s->dma){wifi_reconnect5_closed_reason=7;return false;}
  if(dma->identity!=(uintptr_t)dma){wifi_reconnect5_closed_reason=8;return false;}
- if(dma->positions!=127){wifi_reconnect5_closed_reason=9;return false;}
+ if(s->paired!=paired || dma->paired!=paired ||
+    dma->positions!=(paired?WIFI_STREAM5_PAIRED_SLOTS:127u)){wifi_reconnect5_closed_reason=9;return false;}
  if(dma->epoch!=epoch){wifi_reconnect5_closed_reason=10;return false;}
  if(dma->state!=MT76_DMA5_RETIRED){wifi_reconnect5_closed_reason=11;return false;}
  if(!s->retired){wifi_reconnect5_closed_reason=12;return false;}
@@ -83,7 +84,7 @@ static bool wifi_reconnect5_closed_state(void *owner,uint64_t epoch,const struct
  return closed;
 }
 static bool wifi_reconnect5_closed(void *owner,uint64_t epoch,const struct mt76_dma5 *dma){
- return wifi_reconnect5_closed_state(owner,epoch,dma,false);
+ return wifi_reconnect5_closed_state(owner,epoch,dma,false,false);
 }
 static bool wifi_reconnect5_exercise(void *context,struct mt76_net5 *p){
  if(wifi_reconnect5.connections>1 || context!=&wifi_reconnect5.probe[wifi_reconnect5.connections] ||

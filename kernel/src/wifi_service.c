@@ -141,7 +141,7 @@ int wifi_service_request(unsigned operation,const struct srv_wifi_select *r){
        p->commands==UINT64_MAX)return SRV_WIFI_UNAVAILABLE;
     if(p->command.serial)return SRV_WIFI_BUSY;
     if(operation==SRV_WIFI_CONNECT){
-        if(r->index!=0 || p->connection_state)return SRV_WIFI_INVALID;
+        if(r->index!=0 || (p->connection_state && p->connection_state!=SRV_WIFI_DISCONNECTED))return SRV_WIFI_INVALID;
         p->connection_state=SRV_WIFI_CONNECTING;
     }else {
         if(r->index!=SRV_WIFI_NONE || p->connection_state!=SRV_WIFI_CONNECTED)return SRV_WIFI_INVALID;
@@ -169,6 +169,17 @@ bool wifi_service_finish(uint64_t id,void *context,const struct wifi_service_com
     p->connection_state=success?(p->selected?SRV_WIFI_CONNECTED:0):SRV_WIFI_FAILED;
     p->processing=false;
     p->command=(struct wifi_service_command){0};
+    return true;
+}
+bool wifi_service_rearm_connection(uint64_t id,void *context,const struct wifi_service_command *command,uint64_t next){
+    prune();
+    struct provider *p=find(id);
+    if(!p || !p->controlled || p->ops.context!=context ||
+       p->connection_state!=SRV_WIFI_DISCONNECTING || !command ||
+       command->operation!=SRV_WIFI_DISCONNECT || p->snapshot.generation==UINT64_MAX ||
+       next!=p->snapshot.generation+1 || !wifi_service_finish(id,context,command,true))return false;
+    p->snapshot.generation=next;
+    p->connection_state=SRV_WIFI_DISCONNECTED;
     return true;
 }
 void wifi_service_seal_connection(uint64_t id,void *context,bool success){

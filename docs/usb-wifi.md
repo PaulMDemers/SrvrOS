@@ -34,10 +34,15 @@ ordinary traffic after WPA and DHCP, including during an isolated USB storage
 bulk transfer. Help opens the checklist automatically. Exit desktop saves the
 workspace logs and returns to Ubuntu after safe retirement.
 
-The profile supports one association per boot. Safe disconnect withdraws
-IPv4 and proves endpoint, key and provider retirement. The current unit
-handoff tracks native validation and the remaining reconnect and reattach
-work. [MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
+The v152 follow-up adds `--wifi-desktop-reconnect` to the same recipe. The
+first Disconnect withdraws IPv4, erases the keys, stops the endpoints and
+detaches that generation from the network worker. System then publishes a
+new selection generation and enables Connect once the operator selects the
+network again. The second association uses fresh WPA, DHCP and DMA ownership.
+The second Disconnect closes the trial. Help gives the two-connection test
+sequence, including an HTTP request and a USB file save and reopen on each
+connection. The current unit handoff tracks physical validation and adapter
+reinsertion. [MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
 
 ## Calibration response-loss tracing (November 11)
 
