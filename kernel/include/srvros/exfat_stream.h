@@ -6,6 +6,7 @@
 /* Internal stable backend leases; caller holds the existing storage service
  * admission. Backend data copies/bounces never exceed the chunk bound. */
 int64_t exfat_stream_open_read(const char *path);
+int64_t exfat_stream_create_owned(const char *path,uint64_t mode,uint64_t uid,uint64_t gid);
 int64_t exfat_stream_create(const char *path,uint64_t mode);
 int64_t exfat_stream_pread(uint64_t handle,void *buffer,uint64_t length,uint64_t offset);
 int64_t exfat_stream_append(uint64_t handle,const void *buffer,uint64_t length);

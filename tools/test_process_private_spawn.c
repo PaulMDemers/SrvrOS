@@ -15,6 +15,7 @@ static void process_private_test_halt(void) __attribute__((noreturn));
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PRIVATE_LIFECYCLE_HOST_TEST
 #include "../kernel/src/process.c"
+#include "test_process_isolation_stubs.inc"
 static uint64_t trace_reason,trace_maps,trace_atomic,trace_detail;
 static bool irq,safe=true,refuse_view,fail_prepared,oom,fail_kernel,fail_root;
 static uint64_t foreign_depth=2,foreign_owner=7,root=0x1000;

@@ -154,6 +154,9 @@ int64_t exfat_stream_stat(uint64_t token,struct srv_file_stream_stat *info) {
     fs_leave(&scope);return result;
 }
 int64_t exfat_stream_create(const char *path,uint64_t mode) {
+    return exfat_stream_create_owned(path,mode,0,0);
+}
+int64_t exfat_stream_create_owned(const char *path,uint64_t mode,uint64_t uid,uint64_t gid) {
     if(!path || (mode&~07777ull))return SRV_ERR_INVAL;
     struct fs_scope access;if(!fs_enter(&access))return SRV_ERR_BUSY;
     int64_t result=SRV_ERR_INVAL;struct exfat_mount *m=find_mount_for_path(path);
@@ -166,7 +169,7 @@ int64_t exfat_stream_create(const char *path,uint64_t mode) {
     struct mutation_scope scope;stream_mutation_depth++;
     bool begun=mutation_begin(m,&scope,path,1,0,"stream-create"),ok=false;
     if(begun) {
-        ok=create_file(path,NULL,0,mode) && !m->volume.write_blocked && exfat_sync_mount_metadata(m);
+        ok=create_file(path,NULL,0,mode,uid,gid) && !m->volume.write_blocked && exfat_sync_mount_metadata(m);
         ok=mutation_end(&scope,ok);
     }
     stream_mutation_depth--;

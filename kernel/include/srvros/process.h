@@ -54,6 +54,9 @@ struct process_spawn_file_action {
 };
 
 struct process;
+struct process_credentials { uint64_t uid, gid; };
+struct process_credentials process_get_credentials(const struct process *process);
+int64_t process_drop_credentials(uint64_t uid, uint64_t gid);
 struct isr_frame;
 int64_t process_fork(const struct isr_frame *frame);
 struct scheduler_wait_queue;
