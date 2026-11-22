@@ -570,7 +570,8 @@ def stolen_result(text,*,native=False,required_version=None):
     if imports:
         from intel_gt_bootstrap import fields
         h=fields(imports[0],'intel-firmware-import:',
-                 'v first pages borrowed samples original last returned conflicts writes grants'.split(),('original','last'))
+                 'v first pages borrowed samples original last returned conflicts writes grants'.split(),('original','last'),
+                 versions=(1,2) if wire==14 else (1,))
         if (h['writes'] or h['grants'] or h['borrowed']>1 or h['returned']>h['borrowed'] or
             h['samples']>2*h['borrowed'] or h['conflicts']>3 or
             (h['first'],h['pages']) not in ((0,0),(8704,3072)) or
@@ -586,6 +587,26 @@ def stolen_result(text,*,native=False,required_version=None):
             extra_maps+=2
             range_reads+=6
         result['firmware_import']=h
+    owned=[line for line in text.splitlines() if line.startswith('intel-owned-page:')]
+    if len(owned)!=int(bool(imports) and result['firmware_import']['v']==2):
+        raise ValueError('missing or unexpected one-page reservation')
+    if owned:
+        words='left0 pte0 right0 left1 pte1 right1'.split()
+        page=fields(owned[0],'intel-owned-page:',
+                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words,words)
+        samples=page['samples']
+        if (page['slot']!=12291 or max(page['frame0'],page['frame1'])>0xffffffff or page['frame_reads']>4097 or samples>2 or page['conflicts']>samples or
+                page['returned']>int(bool(page['epoch'])) or page['writes'] or page['grants']):
+            raise ValueError('invalid one-page reservation')
+        if complete:
+            if (samples!=2 or not page['epoch'] or page['returned']!=1 or page['conflicts']!=2 or
+                    any(page[a]!=page[b] or page[a]==2**64-1 for a,b in zip(words[:3],words[3:])) or
+                    page['frame_reads']<2 or not 1<=((page['frame1']-page['frame0'])&0xffffffff)<=240 or
+                    page['slot']-1 < h['first']+h['pages']):
+                raise ValueError('incomplete or changed one-page reservation')
+            extra_maps+=4
+            extra_aliases+=14+page['frame_reads']
+        result['owned_page']=page
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:
         raise ValueError('stolen incomplete success')
@@ -634,6 +655,17 @@ def stolen_result(text,*,native=False,required_version=None):
             else:
                 if any(base<end and start<base+size for start,end in physical):raise ValueError('stolen physical overlap')
                 physical.append((base,base+size))
+    if owned:
+        raw=result['owned_page']['pte0']
+        # Interpret the exact low32-bit, present encoding this adapter supports.
+        # Preserve every other raw value without guessing its cache/address bits.
+        kind='vacant' if not raw else 'encoded-nonpresent' if not raw&1 else 'unknown-present'
+        if (raw&0xffffffff00000fff)==1:
+            target=raw&~4095
+            names=('boot-framebuffer','firmware-buffer-1','firmware-buffer-2')
+            kind=next((name for name,(lo,hi) in zip(names,physical) if lo<=target<hi),
+                      'other-stolen' if data<=target<top else 'outside-stolen')
+        result['owned_page']['backing']=kind
     if wire>=5:result['owner_preflight']=owner_preflight(rows,physical)
     if wire>=6:result['cpu_backing_admission']=cpu_admission(rows,physical)
     if wire>=7:result['cpu_mapping_exclusion']=dict(lifetime_complete=bool(rows['guard'][0]['end']),hardware_ownership=False,physical_tearfree=False)
@@ -680,7 +712,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-owned-page:','intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')

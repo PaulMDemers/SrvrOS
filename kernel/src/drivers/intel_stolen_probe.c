@@ -28,6 +28,7 @@ extern volatile struct limine_memmap_request memmap_request;
 /* Separate read-only census budget: at most23 GGTT pages/pass and three
  * stable DWORD loads for every entry, with fresh PCI/root/alias checks. This
  * changes no100ms GT maintenance/publication deadline or ownership policy. */
+#define OWNED_PAGE_SLOT 12291u
 #define STOLEN_CENSUS_US 2000000u
 /* Three disjoint GPU-only command windows, below the Gen8 32-bit limit.
  * None can be reached by indexing the CPU aperture. */
@@ -97,6 +98,14 @@ static struct {
  struct {
   struct scanout_transfer transfer;
   struct scanout_transfer_token token;
+  uint64_t entries[2][3]; /* left, selected slot, right */
+  uint32_t frame[2], frame_reads;
+  unsigned samples, conflicts;
+  bool reading, returned;
+ } owned_page;
+ struct {
+  struct scanout_transfer transfer;
+  struct scanout_transfer_token token;
   struct scanout_transfer_manifest manifest;
   struct intel_bdw_bcs_context_config bcs;
   uint64_t dma_base;
@@ -106,6 +115,7 @@ static struct {
   bool dma_freed;
   struct intel_bdw_rcs_indirect rcs;
   uint64_t descriptor;
+  uint32_t frame[2], frame_reads;
   unsigned samples, conflicts;
   bool returned;
  } command_tail;
@@ -243,6 +253,9 @@ static bool identity(void) {
  return ok || refuse(9);
 }
 static bool allowed(uint32_t page) {
+ if(stolen.owned_page.reading && stolen.import.selected && !stolen.import.submission &&
+    stolen.import.imported && stolen.guard.checked && !stolen.guard.closed &&
+    page==((0x800000u+8*OWNED_PAGE_SLOT)&~4095u))return true;
  if(stolen.import.submission && stolen.guard.checked && !stolen.guard.closed) {
   if (page == 0x42000) return true;
   for(unsigned i=0;i<3;i++)
@@ -585,17 +598,17 @@ static bool handoff_config(unsigned sample) {
 /* PIPE_FRMCOUNT_A shares the active plane's already admitted register page.
  * Observe frame progress inside the aperture guard, using the original pass
  * clock and a bounded poll even if that clock stops advancing. */
-static bool range_frame(bool closing) {
+static bool sample_frame(bool closing,uint32_t frames[2],uint32_t *reads) {
  uint64_t begin=stolen.last;
  for(unsigned i=0;i<4096;i++) {
   if(!tick(stolen.begin[1]) || stolen.last-begin>50000)return refuse(32);
   uint32_t frame;
   if(!load(0x70040,&frame))return false;
-  ++stolen.range.frame_reads;
-  stolen.range.frame[closing]=frame;
+  ++*reads;
+  frames[closing]=frame;
   if(frame==UINT32_MAX)return refuse(32);
   if(!closing)return true;
-  uint32_t advanced=frame-stolen.range.frame[0];
+  uint32_t advanced=frame-frames[0];
   if(advanced)return advanced<=240 || refuse(32);
  }
  return refuse(32);
@@ -618,7 +631,7 @@ static bool handoff_readers(bool closing) {
    if(!pipe && word>=1 && word<=4 && (raw&0xfffff000u))return refuse(32);
   }
   if(stolen.range.selected && i==3) {
-   if(!(raw&(1u<<31)) || !range_frame(closing))return refuse(32);
+   if(!(raw&(1u<<31)) || !sample_frame(closing,stolen.range.frame,&stolen.range.frame_reads))return refuse(32);
   }
   if(closing) {
    if(raw!=stolen.handoff.readers[i])return refuse(32);
@@ -964,6 +977,47 @@ static bool check_video_fuse(unsigned i) {
         (!i || *strap==stolen.import.strap[0]);
 }
 
+static bool owned_plane_sample(bool closing) {
+ for(unsigned i=0;i<5;i++) {
+  uint32_t word;
+  if(!load(0x70000+intel_reader_offsets[i],&word) || word!=stolen.handoff.readers[3+i])
+   return refuse(32);
+ }
+ return sample_frame(closing,stolen.owned_page.frame,&stolen.owned_page.frame_reads) && unmap();
+}
+
+/* The driver can reserve an address while its original mapping is populated.
+ * Hold only a software reservation until a source can grant hardware access. */
+static bool observe_owned_page(struct scanout_transfer_manifest m, unsigned sample) {
+ const struct scanout_interval *fw=&stolen.import.firmware;
+ uint32_t end=intel_bdw_stolen_import_end(&stolen.layout,m.fence_end,m.aperture_bytes);
+ if(sample>1 || sample!=stolen.owned_page.samples || !end || end>OWNED_PAGE_SLOT-1 ||
+    OWNED_PAGE_SLOT+1>=m.aperture_bytes/4096 || !fw->firmware ||
+    (uint64_t)fw->pages.first+fw->pages.pages!=end ||
+    !scanout_interval_held(fw,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,fw->pages) ||
+    !private_display_clear() || !aperture_guard_held())return false;
+ if(!sample && !owned_plane_sample(false))return false;
+ uint64_t *entries=stolen.owned_page.entries[sample];
+ stolen.owned_page.reading=true;
+ bool read=private_batch(OWNED_PAGE_SLOT-1,3,entries);
+ stolen.owned_page.reading=false;
+ if(!unmap() || !read)return false;
+ ++stolen.owned_page.samples;
+ m.first=OWNED_PAGE_SLOT;m.pages=1;m.original=&entries[1];
+ if(scanout_transfer_admission(&m)!=TRANSFER_ASSURANCE)return false;
+ if(!sample && !scanout_transfer_reserve(&stolen.owned_page.transfer,&stolen.range.pool,
+     &stolen.exclusion,&m,&stolen.owned_page.token))return false;
+ if(!scanout_transfer_reservation_matches(&stolen.owned_page.transfer,&stolen.owned_page.token,&m) ||
+    (sample && !equal_bytes(entries,stolen.owned_page.entries[0],3*sizeof(*entries))))return false;
+ struct scanout_interval other={0};
+ if(scanout_interval_claim(&other,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,
+                           (struct scanout_space_range){m.first,1})) {
+  scanout_interval_release(&other);return false;
+ }
+ ++stolen.owned_page.conflicts;
+ return !sample || owned_plane_sample(true);
+}
+
 static bool check_imported_page(struct scanout_transfer_manifest m) {
  if(!scanout_transfer_close(&stolen.range.transfer,&stolen.range.token))return false;
  m.pages=1;
@@ -977,6 +1031,7 @@ static bool check_imported_page(struct scanout_transfer_manifest m) {
      !range_pair(0x800000u+m.first*8,&stolen.import.observed[i]))return false;
   ++stolen.import.samples;
   if(stolen.import.observed[i]!=m.original[0] || !unmap())return false;
+  if(!stolen.import.submission && !observe_owned_page(m,i))return false;
   if(!i && (!check_import_conflict(&m) || !intel_window_handoff_revalidate(&stolen.source)))return false;
  }
  /* The software lender cannot grant permission to write the live PTE. */
@@ -1135,6 +1190,10 @@ done:
  if(stolen.import.first && !stolen.import.command_returned && !stolen.uncertain) {
   scanout_interval_release(&stolen.import.commands);
   stolen.import.command_returned=true;
+ }
+ if(stolen.owned_page.token.object && !stolen.uncertain) {
+  stolen.owned_page.returned=scanout_transfer_close(&stolen.owned_page.transfer,&stolen.owned_page.token);
+  if(!stolen.owned_page.returned){stolen.uncertain=true;ok=false;refuse(34);}
  }
  if(stolen.import.token.object && !stolen.import.returned && !stolen.uncertain) {
   stolen.import.returned=scanout_transfer_close(&stolen.import.page,&stolen.import.token);
@@ -1302,10 +1361,17 @@ report:
   }
  }
  if(stolen.import.selected)
-  console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
-    (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,
+  console_printf("intel-firmware-import: v=%u first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
+    (uint64_t)(stolen.import.submission?1:2),(uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,
     (uint64_t)(stolen.import.token.object!=NULL),(uint64_t)stolen.import.samples,
     stolen.import.observed[0],stolen.import.observed[1],(uint64_t)stolen.import.returned,(uint64_t)stolen.import.blocked);
+ if(stolen.import.selected && !stolen.import.submission) {
+  const uint64_t *a=stolen.owned_page.entries[0],*b=stolen.owned_page.entries[1];
+  console_printf("intel-owned-page: v=1 slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
+   (uint64_t)OWNED_PAGE_SLOT,(uint64_t)stolen.owned_page.samples,stolen.owned_page.token.epoch,
+   (uint64_t)stolen.owned_page.returned,(uint64_t)stolen.owned_page.conflicts,
+   (uint64_t)stolen.owned_page.frame[0],(uint64_t)stolen.owned_page.frame[1],(uint64_t)stolen.owned_page.frame_reads,a[0],a[1],a[2],b[0],b[1],b[2]);
+ }
  if(stolen.private_range.selected)
   console_printf("intel-private-range: v=1 begin=%u first=%u scanned=%u occupied=%u checked=%u batches=%u maps=%u claimed=%u returned=%u exhausted=%u reader_conflict=%u writes=0\n",
    (uint64_t)stolen.private_range.begin,(uint64_t)stolen.private_range.first,(uint64_t)stolen.private_range.scanned,

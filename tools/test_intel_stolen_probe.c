@@ -358,7 +358,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
   return true;
  case 0x70040:
   assert(stolen.range.selected && model.guard_live && model.held);
-  *out=(model.mode==54 || !stolen.range.fences)?100:101;
+  *out=(model.mode==54 || !stolen.range.fences)?100:101+stolen.owned_page.samples;
   return true;
  case 0x1082c0:*out=0x8ff00007;return true;
  case 0x43208:*out=model.mode==45 && model.guard_live?UINT32_MAX:0;return true;
@@ -382,6 +382,14 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    uint64_t raw=(offset<0x100008)?0x021ff02f00000001ull:0;
    if(model.mode==50 && stolen.range.fences==63)raw=1;
    *out=(offset&4)?(uint32_t)(raw>>32):(uint32_t)raw;return true;
+  }
+  if(stolen.owned_page.reading) {
+   unsigned slot=(offset-0x800000u)/8;
+   assert(slot>=OWNED_PAGE_SLOT-1 && slot<=OWNED_PAGE_SLOT+1 && model.guard_live && model.held);
+   uint64_t entry=0x8c001001ull+(slot-OWNED_PAGE_SLOT+1)*4096ull;
+   if(model.mode==84 && stolen.owned_page.samples && slot==OWNED_PAGE_SLOT)entry^=4096;
+   *out=offset&4 ? (uint32_t)(entry>>32) : (uint32_t)entry;
+   return true;
   }
   if(stolen.import.command_page) {
    assert(model.guard_live && model.held && (offset&~4095u)==stolen.import.command_page);
@@ -467,11 +475,18 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
+ if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift"))) {
   char import_command[512];
   snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
     !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
   reset();model.report=true;
+  if(!strcmp(argv[1],"--owned-page-drift")) {
+   model.mode=84;
+   assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.owned_page.samples==2 &&
+          stolen.owned_page.conflicts==1 && stolen.owned_page.returned && stolen.import.returned &&
+          !model.held && !model.mapped && !model.guard_live);
+   return 0;
+  }
   bool drift=!strcmp(argv[1],"--firmware-drift");
   const char *wireless[]={"audio-unpowered","audio-codec","audio-enabled","audio-close-enabled","audio-close-power"};
   for(unsigned n=0;n<5;n++)if(!strncmp(argv[1],"--submission-",13) && !strcmp(argv[1]+13,wireless[n])) {

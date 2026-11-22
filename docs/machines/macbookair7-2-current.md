@@ -20,6 +20,12 @@ nonzero entries throughout the eligible CPU-visible aperture. The cold-boot
 driver still lacks a grant for any of them. This round used the VM only.
 [Mapping, hardware prerequisites and QEMU reproduction](../intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
+The next native firmware-import trial reserves slot 12291 under the same
+display exclusion as the slot 8704 loan. It checks the original translation,
+the two neighbours and competing allocations at both ends of that loan.
+The collector compares the backing address with the classified firmware
+buffers. The run is unattended, with a 1% host volume and Ubuntu recovery.
+
 ## Reset-free primary plane flip
 
 The Air7,2 work covers native GGTT register access for the blitter

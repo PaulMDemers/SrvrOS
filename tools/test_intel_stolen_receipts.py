@@ -96,6 +96,19 @@ class Receipts(unittest.TestCase):
         result=stolen_result(raw,required_version=14)
         self.assertTrue(result['complete'])
         self.assertFalse(result['hardware_ownership'])
+        page=result['owned_page']
+        self.assertEqual((page['slot'],page['samples'],page['conflicts'],page['returned'],page['backing']),
+                         (12291,2,2,1,'boot-framebuffer'))
+        line=next(line for line in raw.splitlines() if line.startswith('intel-owned-page:'))
+        for bad in ('', line+'\n'+line, line.replace('slot=12291','slot=8704'),line.replace('returned=1','returned=0'),
+                    line.replace('conflicts=2','conflicts=1'),line.replace('grants=0','grants=1'),
+                    re.sub(r'frame1=\d+', f"frame1={page['frame0']}", line),re.sub(r'pte1=\S+', 'pte1=0', line)):
+            with self.assertRaises(ValueError):stolen_result(raw.replace(line,bad),required_version=14)
+        changed=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--owned-page-drift'],text=True)
+        failure=stolen_result(changed,required_version=14)
+        self.assertFalse(failure['complete'])
+        self.assertEqual(failure['owned_page']['returned'],1)
+        self.assertNotEqual(failure['owned_page']['pte0'],failure['owned_page']['pte1'])
         row=result['firmware_import']
         self.assertEqual((row['first'],row['pages'],row['samples'],row['conflicts']),(8704,3072,2,3))
         drift=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--firmware-drift'],text=True)

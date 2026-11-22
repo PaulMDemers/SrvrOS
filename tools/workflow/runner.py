@@ -373,6 +373,7 @@ class Runner:
                         jobs=jobs, created_utc=now(),
                         hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
         if trial_profile in STOLEN_PREINIT:manifest['stolen_progress_version']=1
+        if trial_profile==FIRMWARE_IMPORT:manifest['owned_page_slot']=12291
         self.frozen(manifest)
         directory = self.store / 'runs' / name
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', name):
@@ -661,6 +662,8 @@ class Runner:
             native = native_parser(text)
             if manifest.get('wire_version') is not None and native.get('version') != manifest['wire_version']:
                 raise ValueError('Native receipt differs from frozen wire version')
+            if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
+                raise ValueError('Missing independent page receipt for this stage')
             native_complete = bool(native['complete'] and native['native_complete'])
             diagnostic_complete = bool(((manifest['profile'] in STOLEN_WIRES and native.get('diagnostic_stolen')) or (manifest['profile']=='intel-bcs-context-v46' and native.get('diagnostic_context')) or (manifest['profile']=='intel-gt-arena-v45' and native.get('diagnostic_arena')) or (manifest['profile']=='intel-gt-memory-v44' and native.get('diagnostic_memory')) or (manifest['profile']=='intel-gt-range-v56' and native.get('diagnostic_range')) or (manifest['profile']=='intel-gt-primary-v57' and native.get('diagnostic_primary')) or (manifest['profile']=='intel-gt-aux-v58' and native.get('diagnostic_aux')) or (manifest['profile']=='intel-gt-flush-v59' and native.get('diagnostic_flush')) or (manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds')) or (manifest['profile']=='intel-gt-practical-v43' and native.get('diagnostic_practical'))) and native.get('diagnostic_complete'))
             if manifest['profile'] in EDP_PROFILES:
