@@ -1,5 +1,23 @@
 # Apple Silicon macOS build host
 
+## Offline v2 export from a used installation — November 22, 2026
+
+OS #504 delivered offline streaming export and fresh-B restoration. Its
+end-to-end source A was provisioned offline, while separate host fixtures
+covered used-image admission. This proof extends the same harness to boot A,
+modify a selected document and write a cache sentinel from the guest, then
+stop A before any export. The native read-only gate must report A as used and
+consistent. Four refusal cases, interrupted export, explicit reconciliation
+and the two B boots all consume the same stopped image and preserved baseline.
+The [installation guide](../disk-installation.md#recoverable-offline-export-publication)
+describes the existing export workflow.
+
+Use integrated main `b95bc096` including OS #509 and its current profile and
+filesystem contracts. Filesystem and Profiles keep their production ownership.
+The proof uses new synthetic EFI images on a private APFS volume backed by a
+new sparsebundle. Check at least 8 GiB available before startup and hold 4 GiB
+on the evidence volume and its backing filesystem, with 2 GiB internal free.
+
 ## Local kernel isolation
 
 `device/apple-silicon/kernel-local-isolation` starts from integrated main
