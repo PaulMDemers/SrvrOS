@@ -76,6 +76,15 @@ bool intel_cache_probe_uc_page(uint64_t physical) {
     return x86_cache_page(&current,physical,2,&m,&p,&e) && e==0;
 }
 
+bool intel_cache_probe_owned_pte_uc(uint64_t physical) {
+    struct x86_cache_snapshot current;
+    unsigned mtrr,pat,effective;
+    /* The driver independently checks the live BAR and exact GGTT slot.
+     * Compare the full CPU cache context and require a UC MTRR at this page. */
+    return physical==0xc0818000 && intel_cache_probe_context(&current) &&
+           x86_cache_page(&current,physical,2,&mtrr,&pat,&effective) && !mtrr && !effective;
+}
+
 /* Keep the accepted candidate-page checker unchanged. These two explicitly
  * audited pages are only cache eligibility, never MMIO or hardware authority. */
 bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset) {

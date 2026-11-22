@@ -592,8 +592,19 @@ def stolen_result(text,*,native=False,required_version=None):
         raise ValueError('missing or unexpected one-page reservation')
     if owned:
         words='left0 pte0 right0 left1 pte1 right1'.split()
+        guarded=owned[0].startswith('intel-owned-page: v=2 ')
+        added=['aperture','table_backing','register_page'] if guarded else []
         page=fields(owned[0],'intel-owned-page:',
-                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words,words)
+                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words+added+(['guard_checks'] if guarded else []),
+                    words+added,versions=(2,) if guarded else (1,))
+        if guarded:
+            acquired=bool(rows['guard'][0]['acquired'])
+            if (page['guard_checks']>page['conflicts']+page['returned'] or
+                any(bool(page[k])!=acquired or page[k]&4095 or page[k]>=1<<39 for k in added) or
+                (complete and (page['guard_checks']!=3 or
+                 page['aperture']!=r['aperture_page']+(12291-8704)*4096 or
+                 page['table_backing']!=(rows['facts'][1]['bgsm']&0xfff00000)+0x18000))):
+                raise ValueError('inconsistent CPU guard for independent page')
         samples=page['samples']
         if (page['slot']!=12291 or max(page['frame0'],page['frame1'])>0xffffffff or page['frame_reads']>4097 or samples>2 or page['conflicts']>samples or
                 page['returned']>int(bool(page['epoch'])) or page['writes'] or page['grants']):
@@ -678,6 +689,8 @@ def stolen_result(text,*,native=False,required_version=None):
         if not window or not window['native_observation_complete'] or not display:raise ValueError('stolen native prerequisites')
         if wire>=12 and rows['range'][0]['aperture_page']!=window['summary']['aperture_base']+a['fence_end']:
             raise ValueError('excluded page differs from the native PCI aperture')
+        if owned and guarded and page['register_page']!=window['summary']['mmio']+0x818000:
+            raise ValueError('independent page GGTT register disagrees with native BAR')
         for e in backing['rows']['endpoint']:
             if any((e[k]&65535 if k=='ggc' else e[k])!=a[k] for k in ('host','ggc','bdsm','bgsm','tolud')):
                 raise ValueError('stolen changed PCI source bounds')

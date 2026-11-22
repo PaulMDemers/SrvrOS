@@ -151,6 +151,12 @@ bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t
         reserved_guard.io_page==page && reserved_guard.root==root &&
         !(reserved_guard_flags()&512) && read_cr3()==root;
 }
+bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+ if(!vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page))return false;
+ if(page==reserved_guard.io_page)return true;
+ for(unsigned i=0;i<reserved_guard.port_count;i++)if(reserved_guard.ports[i]==page)return true;
+ return false;
+}
 bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  if(!child || reserved_guard.io_borrower || !vmm_reserved_guard_io_page_held(g,root,page))return false;
  reserved_guard.io_borrower=child;

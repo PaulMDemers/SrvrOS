@@ -109,6 +109,12 @@ class Receipts(unittest.TestCase):
         self.assertFalse(failure['complete'])
         self.assertEqual(failure['owned_page']['returned'],1)
         self.assertNotEqual(failure['owned_page']['pte0'],failure['owned_page']['pte1'])
+        self.assertEqual(page['guard_checks'],3)
+        for field in ('aperture','table_backing','guard_checks'):
+            with self.assertRaises(ValueError):
+                stolen_result(raw.replace(line,re.sub(field+r'=\S+',field+'=0',line)),required_version=14)
+        lost=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--owned-port-loss'],text=True)
+        self.assertFalse(stolen_result(lost,required_version=14)['complete'])
         row=result['firmware_import']
         self.assertEqual((row['first'],row['pages'],row['samples'],row['conflicts']),(8704,3072,2,3))
         drift=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--firmware-drift'],text=True)

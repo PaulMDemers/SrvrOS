@@ -32,6 +32,11 @@ mappings retired, and the returned USB report passed offline integrity checks.
 The remaining requirement for a native replacement is exclusive control of
 GPU access to that address through both translation invalidations.
 
+The next checkpoint exercises the Intel register writer at the non-page-aligned
+PTE for slot 12291 in QEMU, and qualifies CPU exclusion of this aperture page
+alongside slot 8704 and the engine and WiDi submission registers on the Air.
+The native run keeps the panel active and the GPU page table read-only.
+
 ## Reset-free primary plane flip
 
 The Air7,2 work covers native GGTT register access for the blitter

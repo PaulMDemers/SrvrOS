@@ -99,6 +99,8 @@ static struct {
   struct scanout_transfer transfer;
   struct scanout_transfer_token token;
   uint64_t entries[2][3]; /* left, selected slot, right */
+  uint64_t aperture, table_backing, register_page;
+  unsigned guard_checks;
   uint32_t frame[2], frame_reads;
   unsigned samples, conflicts;
   bool reading, returned;
@@ -115,6 +117,8 @@ static struct {
   bool dma_freed;
   struct intel_bdw_rcs_indirect rcs;
   uint64_t descriptor;
+  uint64_t aperture, table_backing, register_page;
+  unsigned guard_checks;
   uint32_t frame[2], frame_reads;
   unsigned samples, conflicts;
   bool returned;
@@ -558,6 +562,30 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
     ok=vmm_reserved_guard_begin_submission_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
        stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,ports,BDW_SUBMISSION_PORT_COUNT+4,&stolen.guard.inventory[0],&stolen.guard.detail);
     if(ok)stolen.import.ports=BDW_SUBMISSION_PORT_COUNT;
+   } else if(stolen.import.selected) {
+    /* Make the candidate's aperture and GGTT backing the primary guard
+     * window. Keep the inherited aperture, table backing and all eight CPU
+     * submission/WiDi ports excluded in the very same VMM owner. */
+    const uint64_t page_offset=(uint64_t)OWNED_PAGE_SLOT*4096;
+    const uint64_t table_page=(8ull*OWNED_PAGE_SLOT)&~4095ull;
+    uint64_t ports[BDW_SUBMISSION_PORT_COUNT+2];
+    for(unsigned i=0;i<BDW_SUBMISSION_PORT_COUNT;i++)ports[i]=stolen.source.mmio+intel_bdw_submission_ports[i];
+    ports[BDW_SUBMISSION_PORT_COUNT]=aperture;
+    ports[BDW_SUBMISSION_PORT_COUNT+1]=backing;
+    ok=page_offset<=stolen.source.aperture_bytes-4096 && stolen.source.aperture<=UINT64_MAX-page_offset &&
+       plan->gtt_end-plan->gtt_begin>=table_page+4096 && stolen.source.mmio<=UINT64_MAX-0x800000-table_page &&
+       pmm_frame_has_tag(backing,PMM_FRAME_RESERVED);
+    if(ok) {
+     uint64_t target=stolen.source.aperture+page_offset, target_backing=plan->gtt_begin+table_page;
+     uint64_t target_reg=stolen.source.mmio+0x800000+table_page;
+     ok=vmm_reserved_guard_begin_submission_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
+        stolen.cpu.ram,stolen.cpu.ram_count,target,target_backing,target_reg,ports,BDW_SUBMISSION_PORT_COUNT+2,
+        &stolen.guard.inventory[0],&stolen.guard.detail);
+     if(ok) {
+      stolen.owned_page.aperture=target;stolen.owned_page.table_backing=target_backing;
+      stolen.owned_page.register_page=target_reg;
+     }
+    }
    } else ok=vmm_reserved_guard_begin_register_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
        stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,&stolen.guard.inventory[0],&stolen.guard.detail);
   }
@@ -759,8 +787,16 @@ static bool aperture_guard_held(void) {
 #else
  __asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
 #endif
- bool held=vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,
-                                           stolen.source.aperture+stolen.source.fence_end);
+ uint64_t inherited=stolen.source.aperture+stolen.source.fence_end;
+ bool held;
+ if(stolen.owned_page.aperture) {
+  held=vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,stolen.owned_page.aperture) &&
+       vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,inherited) &&
+       vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,
+          stolen.layout.plan.gtt_begin+((stolen.source.first*8ull)&~4095ull));
+  for(unsigned i=0;held && i<BDW_SUBMISSION_PORT_COUNT;i++)
+   held=vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,stolen.source.mmio+intel_bdw_submission_ports[i]);
+ } else held=vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,inherited);
 #ifdef SRVROS_INTEL_STOLEN_HOST_TEST
  intel_stolen_test_irq_restore(flags);
 #else
@@ -996,7 +1032,8 @@ static bool observe_owned_page(struct scanout_transfer_manifest m, unsigned samp
     (uint64_t)fw->pages.first+fw->pages.pages!=end ||
     !scanout_interval_held(fw,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,fw->pages) ||
     !private_display_clear() || !aperture_guard_held())return false;
- if(!sample && !owned_plane_sample(false))return false;
+ if(!intel_cache_probe_owned_pte_uc(stolen.owned_page.register_page) ||
+    (!sample && !owned_plane_sample(false)))return false;
  uint64_t *entries=stolen.owned_page.entries[sample];
  stolen.owned_page.reading=true;
  bool read=private_batch(OWNED_PAGE_SLOT-1,3,entries);
@@ -1015,7 +1052,9 @@ static bool observe_owned_page(struct scanout_transfer_manifest m, unsigned samp
   scanout_interval_release(&other);return false;
  }
  ++stolen.owned_page.conflicts;
- return !sample || owned_plane_sample(true);
+ if((sample && !owned_plane_sample(true)) || !aperture_guard_held())return false;
+ ++stolen.owned_page.guard_checks;
+ return true;
 }
 
 static bool check_imported_page(struct scanout_transfer_manifest m) {
@@ -1043,7 +1082,13 @@ static bool check_imported_page(struct scanout_transfer_manifest m) {
    return false;
   stolen.command_tail.returned=true;
  }
- return check_import_conflict(&m);
+ if(!check_import_conflict(&m))return false;
+ if(stolen.owned_page.token.object) {
+  if(!aperture_guard_held() || !scanout_transfer_close(&stolen.owned_page.transfer,&stolen.owned_page.token))return false;
+  stolen.owned_page.returned=true;
+  ++stolen.owned_page.guard_checks;
+ }
+ return true;
 }
 
 static bool observe_scanout_range(void) {
@@ -1191,7 +1236,7 @@ done:
   scanout_interval_release(&stolen.import.commands);
   stolen.import.command_returned=true;
  }
- if(stolen.owned_page.token.object && !stolen.uncertain) {
+ if(stolen.owned_page.token.object && !stolen.owned_page.returned && !stolen.uncertain) {
   stolen.owned_page.returned=scanout_transfer_close(&stolen.owned_page.transfer,&stolen.owned_page.token);
   if(!stolen.owned_page.returned){stolen.uncertain=true;ok=false;refuse(34);}
  }
@@ -1367,8 +1412,9 @@ report:
     stolen.import.observed[0],stolen.import.observed[1],(uint64_t)stolen.import.returned,(uint64_t)stolen.import.blocked);
  if(stolen.import.selected && !stolen.import.submission) {
   const uint64_t *a=stolen.owned_page.entries[0],*b=stolen.owned_page.entries[1];
-  console_printf("intel-owned-page: v=1 slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
-   (uint64_t)OWNED_PAGE_SLOT,(uint64_t)stolen.owned_page.samples,stolen.owned_page.token.epoch,
+  console_printf("intel-owned-page: v=2 aperture=%x table_backing=%x register_page=%x guard_checks=%u slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
+   stolen.owned_page.aperture,stolen.owned_page.table_backing,stolen.owned_page.register_page,
+   (uint64_t)stolen.owned_page.guard_checks,(uint64_t)OWNED_PAGE_SLOT,(uint64_t)stolen.owned_page.samples,stolen.owned_page.token.epoch,
    (uint64_t)stolen.owned_page.returned,(uint64_t)stolen.owned_page.conflicts,
    (uint64_t)stolen.owned_page.frame[0],(uint64_t)stolen.owned_page.frame[1],(uint64_t)stolen.owned_page.frame_reads,a[0],a[1],a[2],b[0],b[1],b[2]);
  }

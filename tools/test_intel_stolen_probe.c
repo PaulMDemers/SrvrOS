@@ -138,12 +138,29 @@ bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *g,uin
  const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
  unsigned ranges,uint64_t page,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned n,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ if(stolen.import.selected && !stolen.import.submission) {
+  const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,
+       0xc0014000,0xc006e000,0xc0065000,0xb2200000,0x8b811000};
+  assert(n==10 && !memcmp(ports,expected,sizeof(expected)) && page==0xb3003000 &&
+         backing==0x8b818000 && reg==0xc0818000);
+  return vmm_reserved_guard_begin(g,root,pair,count,bits,ram,ranges,out,d);
+ }
  const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000,0xb2201000,0xb2202000,0xb2203000,0xb2204000};
  assert(n==12 && !memcmp(ports,expected,sizeof(expected)));
  return vmm_reserved_guard_begin_register_window(g,root,pair,count,bits,ram,ranges,page,backing,reg,out,d);
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
- return model.mode!=62 && !(fixture_flags&(1ull<<9)) && model.guard_live && g==&stolen.guard.owner && root==stolen.root && page==0xb2200000;
+ return model.mode!=62 && !(fixture_flags&(1ull<<9)) && model.guard_live && g==&stolen.guard.owner && root==stolen.root &&
+        page==(stolen.import.selected && !stolen.import.submission ? 0xb3003000 : 0xb2200000);
+}
+bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+ assert(stolen.import.selected && !stolen.import.submission);
+ if(!vmm_reserved_guard_io_page_held(g,root,0xb3003000))return false;
+ if(model.mode==85 && stolen.owned_page.conflicts==2 && page==0xc006e000)return false;
+ const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,
+       0xc0014000,0xc006e000,0xc0065000,0xb2200000,0x8b811000};
+ for(unsigned i=0;i<10;i++)if(expected[i]==page)return true;
+ return false;
 }
 bool vmm_reserved_guard_check(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
  assert(g==&stolen.guard.owner && g->object==g && model.guard_live && model.pinned && out==&stolen.guard.inventory[1] && d==&stolen.guard.detail);
@@ -226,6 +243,9 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
  return true;
 }
 bool pmm_frame_has_tag(uint64_t physical,enum pmm_frame_tag tag) {
+ if(tag==PMM_FRAME_RESERVED && physical==0x8b811000) {
+  assert(stolen.import.selected && !stolen.import.submission && model.pinned);return true;
+ }
  if(tag==PMM_FRAME_DMA)return dma_live && physical>=FIXTURE_COMMAND_PA && physical<FIXTURE_COMMAND_PA+sizeof(dma_image);
  assert(tag==PMM_FRAME_RESERVED && physical>=0x8e201000 && physical<0x8ee01000 && !(physical&4095));
  assert(physical==0x8e201000+4096ull*model.tag_queries);
@@ -279,6 +299,10 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
  case 0xbc:return 0x90000001;
  default:assert(false);return 0;
  }
+}
+bool intel_cache_probe_owned_pte_uc(uint64_t page) {
+ assert(stolen.import.selected && !stolen.import.submission && model.guard_live);
+ return page==0xc0818000;
 }
 bool intel_cache_probe_context(struct x86_cache_snapshot *s) {
  if(fault(CACHE))return false;
@@ -475,11 +499,17 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift"))) {
+ if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift") || !strcmp(argv[1],"--owned-port-loss"))) {
   char import_command[512];
   snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
     !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
   reset();model.report=true;
+  if(!strcmp(argv[1],"--owned-port-loss")) {
+   model.mode=85;
+   assert(!intel_stolen_probe_report(import_command) && stolen.owned_page.guard_checks==1 &&
+          stolen.fail==34 && stolen.owned_page.returned && !model.held && !model.guard_live);
+   return 0;
+  }
   if(!strcmp(argv[1],"--owned-page-drift")) {
    model.mode=84;
    assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.owned_page.samples==2 &&

@@ -25,8 +25,15 @@ static uint64_t input[SCANOUT_TRANSFER_PAGES];
 static _Alignas(4096) uint64_t table[SCANOUT_SPACE_PAGES];
 static const char *page_failure = "";
 static struct vmm_reserved_guard cpu_guard;
+/* Expected register page and aperture are independent of the driver planner. */
+static uint64_t expected_register(void) {
+    return manifest.mmio+(manifest.first==12291 ? 0x818000 : 0x811000);
+}
+static uintptr_t expected_alias(void) {
+    return (uintptr_t)&table[manifest.first==12291 ? 12288 : 8704];
+}
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
-    return g==&cpu_guard && root==4096 && page==manifest.aperture+8704ull*4096 &&
+    return g==&cpu_guard && root==4096 && page==manifest.aperture+(uint64_t)manifest.first*4096 &&
            strcmp(page_failure,"aperture");
 }
 static const void *borrower;
@@ -38,14 +45,23 @@ bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t 
 bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
     return child && borrower==child && vmm_reserved_guard_io_page_held(g,root,page);
 }
+bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint64_t root,
+                                        uint64_t first,unsigned pages,const void *child) {
+    static const uint64_t excluded[]={0xb2200000,0xc0002000,0xc0012000,0xc001c000,0xc001a000,
+                                      0xc0022000,0xc0014000,0xc006e000,0xc0065000};
+    if(manifest.first!=12291 || pages!=1 || !vmm_reserved_guard_io_page_pinned(g,root,0xb3003000,child))return false;
+    if(!strcmp(page_failure,"owned-mmio-port-loss") && first==0xc006e000)return false;
+    for(unsigned i=0;i<sizeof(excluded)/sizeof(excluded[0]);i++)if(first==excluded[i])return true;
+    return false;
+}
 bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,
  uint64_t reg,uint64_t alias,const void *child) {
-    return reg==manifest.mmio+0x811000 && alias==(uintptr_t)&table[8704] &&
+    return reg==expected_register() && alias==expected_alias() &&
            strcmp(page_failure,"register-alias") && vmm_reserved_guard_pin_io_page(g,root,page,child);
 }
 bool vmm_reserved_guard_register_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,
  uint64_t reg,uint64_t alias,const void *child) {
-    return reg==manifest.mmio+0x811000 && alias==(uintptr_t)&table[8704] &&
+    return reg==expected_register() && alias==expected_alias() &&
            strcmp(page_failure,"register-alias") && vmm_reserved_guard_io_page_pinned(g,root,page,child);
 }
 bool vmm_reserved_guard_unpin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
@@ -298,17 +314,20 @@ static bool read_entry(void *ctx,uint32_t index,uint64_t *out) {
 /* The native QWord store runs against a page-aligned register image. Only
  * the machine-specific kernel-root and cache checks are substituted here. */
 bool intel_cache_probe_uc_page(uint64_t physical) {
-    return physical == manifest.mmio + 0x811000 && strcmp(page_failure,"cache");
+    return physical == manifest.mmio+0x811000 && strcmp(page_failure,"cache");
+}
+bool intel_cache_probe_owned_pte_uc(uint64_t physical) {
+    return physical==0xc0818000 && manifest.first==12291;
 }
 bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t pages,unsigned bits,
                                  struct vmm_alias_observation *out,struct vmm_range_observation *unused) {
     assert(!unused && pages==1 && bits==39);
-    if(root!=4096 || va!=(uintptr_t)&table[8704] || pa!=manifest.mmio+0x811000)return false;
+    if(root!=4096 || va!=expected_alias() || pa!=expected_register())return false;
     *out=(struct vmm_alias_observation){.pages=1,.leaves=1,.pat_index=2,.writable=1,.no_execute=1,.leaf_sizes=1};
     ++store_alias_walks;
     if(!strcmp(page_failure,"alias"))out->user=1;
     if(!strcmp(page_failure,"late-alias") && store_alias_walks==2)out->no_execute=0;
-    if(!strcmp(page_failure,"foreign") && store_alias_walks==1)table[8704]^=1ull<<36;
+    if(!strcmp(page_failure,"foreign") && store_alias_walks==1)table[manifest.first]^=1ull<<36;
     if(!strcmp(page_failure,"deadline") ||
        (!strcmp(page_failure,"late-deadline") && store_alias_walks==2))
         model.time+=SCANOUT_PUBLISH_DEADLINE_US+1;
@@ -328,7 +347,7 @@ static uint64_t held_block(const struct scanout_transfer *t,const struct scanout
 }
 static enum intel_gt_write request_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t *epoch) {
     assert(t==&transfer && p==&a.publication && borrower && !block_active && !block_requests);
-    assert(table[8704]==input[0] && p->state==PUB_WRITING);
+    assert(table[manifest.first]==input[0] && p->state==PUB_WRITING);
     if (!strcmp(page_failure,"frozen-request")) model.stuck=true;
     ++block_requests;
     block_active=true;
@@ -337,7 +356,7 @@ static enum intel_gt_write request_block(const struct scanout_transfer *t,const 
 }
 static enum intel_gt_write release_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch) {
     assert(t==&transfer && p==&a.publication && borrower && block_active && !block_releases);
-    assert(epoch==1 && p->state==PUB_RETIRED && table[8704]==input[0] && cached_translation==input[0]);
+    assert(epoch==1 && p->state==PUB_RETIRED && table[manifest.first]==input[0] && cached_translation==input[0]);
     if (!strcmp(page_failure,"frozen-release")) model.stuck=true;
     ++block_releases;
     block_active=!strcmp(page_failure,"still-held");
@@ -350,8 +369,8 @@ static enum intel_gt_write invalidate_ggtt(const struct scanout_transfer *t,
         const struct scanout_publication *p, uint64_t epoch, uint32_t offset, uint32_t value) {
     assert(t==&transfer && p==&a.publication && offset==0x101008 && value==1);
     assert(epoch==1 && block_active && borrower && ggtt_phase==1);
-    assert(table[8704]==(p->state==PUB_RESTORING?p->before[0]:p->after[0]));
-    assert(cached_translation!=table[8704]);
+    assert(table[manifest.first]==(p->state==PUB_RESTORING?p->before[0]:p->after[0]));
+    assert(cached_translation!=table[manifest.first]);
     ggtt_phase=2;
     if (!strcmp(page_failure,"sa-no-write")) return GT_WRITE_NONE;
     if (!strcmp(page_failure,"sa-uncertain")) return GT_WRITE_UNCERTAIN;
@@ -377,17 +396,17 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     case INTEL_GGTT_INVALIDATE_REGISTER:
         assert(block_active && borrower);
         if (ggtt_phase==0) {
-            assert(cached_translation==table[8704]);
+            assert(cached_translation==table[manifest.first]);
             ggtt_phase=1;
             *word=!strcmp(page_failure,"sa-preflight");
         } else {
-            assert(ggtt_phase==2 && cached_translation!=table[8704]);
+            assert(ggtt_phase==2 && cached_translation!=table[manifest.first]);
             if (!strcmp(page_failure,"sa-read-error")) return false;
             *word=!strcmp(page_failure,"sa-bad-post");
             if (!*word) {
                 ggtt_phase=0;
                 ++ggtt_posts;
-                if (strcmp(page_failure,"invalidate")) cached_translation=table[8704];
+                if (strcmp(page_failure,"invalidate")) cached_translation=table[manifest.first];
             }
         }
         break;
@@ -395,7 +414,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         *word = block_active ? 0 : 0x10;
         if (!strcmp(page_failure,"pre-store-widi") && ggtt_phase==1) *word=0x10;
         if (!strcmp(page_failure,"sa-store-widi") && ggtt_phase==1 &&
-            table[8704]!=cached_translation) *word=0x10;
+            table[manifest.first]!=cached_translation) *word=0x10;
         if (block_active && !strcmp(page_failure,"sa-post-widi") &&
             ggtt_posts==a.publication.writes) *word=0x10;
         if (block_active && !strcmp(page_failure,"widi-open")) *word = 0x10;
@@ -484,7 +503,7 @@ static bool write_test_page(void *ctx,uint32_t index,uint64_t value) {
     store_alias_walks=0;
     traffic_reads=0;
     bool ok=intel_bdw_scanout_store_test_page(&a,&at,&transfer,&token,traffic_io,&cpu_guard,4096,
-                                             (uintptr_t)&table[8704],index,value);
+                                             (uintptr_t)&table[manifest.first],index,value);
     if(ok)++model.writes;
     return ok;
 }
@@ -498,7 +517,7 @@ static bool flush_test_page(void *ctx) {
     const struct scanout_publication *p=&a.publication;
     bool restore=p->state==PUB_RESTORING;
     uint64_t expected=restore?p->before[0]:p->after[0];
-    assert(table[8704]==expected && ggtt_phase==0 && ggtt_posts==(restore?2u:1u));
+    assert(table[manifest.first]==expected && ggtt_phase==0 && ggtt_posts==(restore?2u:1u));
     ++model.flushes;
     return cached_translation==expected;
 }
@@ -642,6 +661,17 @@ static bool exchange_owned_entry(void *ctx, uint32_t index, uint64_t replacement
     return intel_bdw_ggtt_exchange(&table[index], expected, replacement) == GT_WRITE_DONE;
 }
 
+static bool write_owned_mmio(void *ctx,uint32_t index,uint64_t value)
+{
+    assert(ctx==&model && index==12291);
+    uintptr_t alias=expected_alias();
+    if (!strcmp(page_failure,"owned-mmio-wrong-page")) alias-=4096;
+    bool ok=intel_bdw_scanout_store_owned_page(&a,&at,&transfer,&token,&firmware,&owned_display,
+                                                traffic_io,&cpu_guard,4096,alias,index,value);
+    if(ok)++model.writes;
+    return ok;
+}
+
 static bool invalidate_owned_entry(void *ctx)
 {
     assert(ctx == &model);
@@ -692,8 +722,9 @@ static void owned_page_case(const char *mode)
            (struct scanout_memory_io){&model, allocate, backing, release}, &at));
 
     struct scanout_publish_io io = binding().publication;
-    io.write = exchange_owned_entry;
-    io.flush = invalidate_owned_entry;
+    bool mmio = !strncmp(mode,"owned-mmio-",11);
+    io.write = mmio ? write_owned_mmio : exchange_owned_entry;
+    io.flush = mmio ? flush_test_page : invalidate_owned_entry;
     struct scanout_interval copy_of_import = firmware;
     assert(!intel_bdw_scanout_prepare_owned_page(&a, &at, &transfer, &token,
                                                   &copy_of_import, &owned_display, &publications, io));
@@ -709,7 +740,29 @@ static void owned_page_case(const char *mode)
     }
     assert(prepared);
     assert(a.range.first == target && a.range.pages == 1);
-    if (!strcmp(mode, "owned-before-loss")) {
+    if (mmio) {
+        if (!strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3")) {
+            if (!strcmp(mode,"owned-mmio-no-l3")) page_failure="missing-l3";
+            assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
+            assert(block_requests==(!strcmp(mode,"owned-mmio-no-l3") ? 1u : 0u) && !model.releases);
+        } else {
+            assert(scanout_memory_apply(&a,&at) && model.writes==1 && ggtt_posts==1 && block_active);
+            model.pending=true;
+            assert(!scanout_memory_close(&a,&at) && block_active && !model.releases && !block_releases);
+            model.pending=false;
+            if (!strcmp(mode,"owned-mmio-widi-loss")) {
+                page_failure="widi-open";
+                assert(!scanout_memory_close(&a,&at) && !model.releases && !block_releases && ggtt_posts==1);
+                assert(block_active && table[target]==(a.physical|1) && !scanout_transfer_close(&transfer,&token));
+            } else {
+                assert(scanout_memory_close(&a,&at) && ggtt_posts==2 && table[target]==input[0]);
+                assert(block_active && !block_releases && intel_bdw_scanout_retire_test_page(&a,&at));
+                assert(block_requests==1 && block_releases==1 && !block_active && !borrower);
+                close_clean();
+            }
+        }
+        assert(panel_preserved());
+    } else if (!strcmp(mode, "owned-before-loss")) {
         ++model.source_epoch;
         assert(!scanout_memory_apply(&a, &at) && !model.writes);
         assert(table[target] == input[0] && transfer.state == TRANSFER_FAULT);

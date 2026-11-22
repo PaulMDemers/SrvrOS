@@ -29,6 +29,9 @@ the original entry and both neighbours twice, exclude a competing reservation
 on each pass, and verify that the inherited Pipe A plane advances frames with
 the same surface registers. The collector classifies the original backing
 against the three captured firmware spans and checks the reservation was returned.
+Version 2 of the one-page receipt identifies the target aperture, GGTT backing
+and register page. The guard excludes the inherited aperture and eight
+submission and WiDi ports while the independent reservation is held and returned.
 Native GPU write and traffic-drain acceptance remain separate.
 
 The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.

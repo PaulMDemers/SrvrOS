@@ -35,6 +35,9 @@ bool intel_bdw_scanout_prepare_owned_page(struct scanout_memory *, const struct 
 /* Check one proposed compare-and-store inside the provider's write callback.
  * The provider separately holds the verified register alias and device access
  * through the store, invalidation and reader retirement. */
+bool intel_bdw_scanout_owned_page_store_active(const struct scanout_memory *,
+        const struct scanout_memory_token *, const struct scanout_transfer *,
+        const struct scanout_interval *, const struct bdw_stolen_layout *, uint32_t index);
 bool intel_bdw_scanout_owned_page_store_matches(const struct scanout_memory *,
         const struct scanout_memory_token *, struct scanout_transfer *, const struct scanout_transfer_token *,
         const struct scanout_interval *, const struct bdw_stolen_layout *, uint32_t index,
@@ -74,6 +77,13 @@ struct intel_bdw_scanout_traffic {
 bool intel_bdw_scanout_store_test_page(struct scanout_memory *, const struct scanout_memory_token *,
                                       struct scanout_transfer *, const struct scanout_transfer_token *,
                                       struct intel_bdw_scanout_traffic, const struct vmm_reserved_guard *, uint64_t root, uint64_t alias, uint32_t index, uint64_t value);
+
+/* alias is the aligned base of the one checked MMIO page. The writer derives
+ * the QWord offset from the live transfer and keeps the firmware import held. */
+bool intel_bdw_scanout_store_owned_page(struct scanout_memory *,const struct scanout_memory_token *,
+        struct scanout_transfer *,const struct scanout_transfer_token *, const struct scanout_interval *,
+        const struct bdw_stolen_layout *,struct intel_bdw_scanout_traffic,const struct vmm_reserved_guard *,
+        uint64_t root,uint64_t alias,uint32_t index,uint64_t value);
 
 /* Return the CPU aperture pin after scanout_memory_close retired this exact
  * publication. Until then, including on uncertain writes, parent close fails. */

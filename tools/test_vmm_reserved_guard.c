@@ -95,6 +95,10 @@ static void submission_window(void) {
         aperture,backing,reg,ports,12,&result,&why));
  memset(ports,0,sizeof(ports)); /* The caller can discard its list. */
  int child;
+ for(unsigned i=0;i<12;i++)assert(vmm_reserved_guard_excludes_io_page(&guard,root,original[i]));
+ assert(vmm_reserved_guard_excludes_io_page(&guard,root,aperture));
+ assert(!vmm_reserved_guard_excludes_io_page(&guard,root,aperture+5*4096));
+ assert(!vmm_reserved_guard_excludes_io_page(&guard,root+4096,aperture));
  assert(vmm_reserved_guard_pin_io_page(&guard,root,aperture,&child));
  assert(vmm_reserved_guard_io_range_pinned(&guard,root,aperture,5,&child));
  for(unsigned i=0;i<8;i++)assert(vmm_reserved_guard_io_range_pinned(&guard,root,original[i],1,&child));

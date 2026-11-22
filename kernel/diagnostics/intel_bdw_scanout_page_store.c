@@ -7,9 +7,6 @@
 #include <srvros/intel_bdw_traffic.h>
 #include <srvros/x86_cache.h>
 
-/* Only the first PTE beyond the captured 34 MiB fence. Its register is the
- * first QWord in the one 4 KiB modification page audited by the cache probe. */
-
 /* CPU0 only. Keep the original publication, guard and register alias together
  * across both stores and the publisher's final device-reader retirement. */
 static struct page_borrow {
@@ -18,6 +15,9 @@ static struct page_borrow {
     uint64_t epoch, guard_epoch, root, aperture, alias, reg;
     struct scanout_transfer *transfer;
     struct intel_bdw_scanout_traffic traffic;
+    const struct scanout_interval *firmware;
+    const struct bdw_stolen_layout *layout;
+    volatile uint64_t *entry;
     uint64_t block_epoch, transfer_epoch;
     uint32_t plane_control, live_surface;
     bool plane_sampled, drained, retiring;
@@ -25,6 +25,15 @@ static struct page_borrow {
 
 static bool page_pinned(const struct scanout_publication *p)
 {
+    if (borrow.firmware) {
+        const struct scanout_transfer_manifest *s=&borrow.transfer->manifest;
+        if (!vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->aperture+s->fence_end,1,&borrow))
+            return false;
+        for (unsigned i=0;i<BDW_SUBMISSION_PORT_COUNT;i++) {
+            if (!vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->mmio+intel_bdw_submission_ports[i],1,&borrow))
+                return false;
+        }
+    }
     return p && borrow.publication == p && borrow.epoch == p->epoch &&
            borrow.transfer->device_publication == p && borrow.transfer->pinned &&
            borrow.transfer->epoch == borrow.transfer_epoch &&
@@ -112,7 +121,7 @@ static bool acquire_traffic(struct traffic_check *check)
     struct bdw_traffic_sample sample={.ctx=check,.read=read_traffic};
     if (!original_plane(check) || !l3_flush_covers_all_lines(check) ||
         !intel_bdw_traffic_open(&sample) || !traffic_live(check) ||
-        *(volatile const uint64_t *)(uintptr_t)borrow.alias!=borrow.publication->before[0]) return false;
+        *borrow.entry!=borrow.publication->before[0]) return false;
     uint64_t requested_at = check->last, epoch = 0;
     enum intel_gt_write issued=borrow.traffic.request(borrow.transfer,borrow.publication,&epoch);
     if (issued!=GT_WRITE_DONE || !epoch) return false;
@@ -163,12 +172,15 @@ bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const str
     return false;
 }
 
-bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct scanout_memory_token *token,
+static bool store_page(struct scanout_memory *m, const struct scanout_memory_token *token,
                                       struct scanout_transfer *t, const struct scanout_transfer_token *grant,
+                                      const struct scanout_interval *firmware, const struct bdw_stolen_layout *layout,
                                       struct intel_bdw_scanout_traffic traffic, const struct vmm_reserved_guard *cpu_guard, uint64_t root, uint64_t alias, uint32_t index, uint64_t value)
 {
     uint64_t original;
-    if (!root || !alias || (alias & 4095) || !intel_bdw_scanout_page_store_active(m, token, t, index) ||
+    bool active = firmware ? intel_bdw_scanout_owned_page_store_active(m,token,t,firmware,layout,index) :
+                             intel_bdw_scanout_page_store_active(m,token,t,index);
+    if (!root || !alias || (alias & 4095) || !active ||
         !scanout_transfer_original(t, grant, index, &original)) return false;
 
     struct scanout_publication *p = &m->publication;
@@ -179,9 +191,12 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
         !(original & ~4095ull) || (original & ~4095ull) == m->physical ||
         t->manifest.mmio > UINT64_MAX - entry.mmio_offset) return false;
 
-    uint64_t physical = t->manifest.mmio + entry.mmio_offset;
+    uint64_t address = t->manifest.mmio + entry.mmio_offset;
+    uint64_t physical = address & ~4095ull;
+    volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)(alias + (address & 4095u));
     if (!m->allocator.validate || !m->allocator.validate(m->allocator.ctx, entry.physical, 1) ||
-        !intel_cache_probe_uc_page(physical) || !mapped_register(root, alias, physical)) return false;
+        !(firmware ? intel_cache_probe_owned_pte_uc(physical) : intel_cache_probe_uc_page(physical)) ||
+        !mapped_register(root, alias, physical)) return false;
 
     /* Charge the alias and cache checks to the original publication deadline.
      * Recheck the operation and saved owner after the last provider callback. */
@@ -199,12 +214,13 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     if (restore) {
         if (borrow.publication != p || borrow.epoch != p->epoch || borrow.guard != cpu_guard ||
             borrow.guard_epoch != cpu_guard->epoch || borrow.root != root || borrow.alias != alias ||
-            borrow.aperture != aperture || !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow))
+            borrow.aperture != aperture || borrow.entry != reg || borrow.firmware != firmware || borrow.layout != layout ||
+            !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow))
             return false;
     } else {
         if (p->hold_live || borrow.publication || t->device_publication || !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
         borrow = (struct page_borrow){.publication=p,.guard=cpu_guard,.epoch=p->epoch,.guard_epoch=cpu_guard->epoch,
-            .root=root,.aperture=aperture,.alias=alias,.reg=physical,.transfer=t,.traffic=traffic,.transfer_epoch=t->epoch};
+            .root=root,.aperture=aperture,.alias=alias,.reg=physical,.entry=reg,.firmware=firmware,.layout=layout,.transfer=t,.traffic=traffic,.transfer_epoch=t->epoch};
         t->device_publication=p;
         p->hold_live=page_hold_live;
     }
@@ -219,15 +235,15 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     borrow.drained=true;
     if (!traffic_live(&check) ||
         !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
-    volatile uint64_t *reg = (volatile uint64_t *)(uintptr_t)alias;
     uint64_t expected = restore ? entry.replacement : original;
     if (*reg != expected) return false;
     uint32_t posted;
     if (!read_traffic(&check, INTEL_GGTT_INVALIDATE_REGISTER, &posted) || posted) return false;
     uint64_t now = t->io.now(t->io.ctx);
-    if (!intel_bdw_scanout_page_store_active(m, token, t, index) ||
+    if (!(firmware ? intel_bdw_scanout_owned_page_store_active(m,token,t,firmware,layout,index) :
+                     intel_bdw_scanout_page_store_active(m,token,t,index)) ||
         !scanout_transfer_original(t, grant, index, &fresh) || fresh != original ||
-        m->physical != entry.physical || t->manifest.mmio != physical - entry.mmio_offset ||
+        m->physical != entry.physical || t->manifest.mmio != address - entry.mmio_offset ||
         restore != (p->state == PUB_RESTORING) || p->before[0] != original || p->after[0] != entry.replacement ||
         !scanout_space_verify_original(m->space, &p->range, 0, original) ||
         value != (restore ? original : entry.replacement) || t->last_us < p->last_us ||
@@ -238,6 +254,7 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
      * aligned QWord store. A changed entry is left to its original owner. */
     if (!original_plane(&check) || !intel_bdw_traffic_still_blocked(&check, read_traffic) ||
         p->hold_live != page_hold_live || !page_hold_live(p)) return false;
+    if (firmware && !intel_bdw_scanout_owned_page_store_active(m,token,t,firmware,layout,index)) return false;
     if (intel_bdw_ggtt_exchange(reg, expected, value) != GT_WRITE_DONE || !original_plane(&check) ||
         !intel_bdw_traffic_still_blocked(&check, read_traffic)) return false;
     /* This WO register always reads zero. The read orders the preceding
@@ -246,4 +263,20 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     return read_traffic(&check, INTEL_GGTT_INVALIDATE_REGISTER, &posted) && !posted &&
            original_plane(&check) && intel_bdw_traffic_still_blocked(&check, read_traffic) &&
            *reg == value;
+}
+
+bool intel_bdw_scanout_store_test_page(struct scanout_memory *m,const struct scanout_memory_token *token,
+        struct scanout_transfer *t,const struct scanout_transfer_token *grant,
+        struct intel_bdw_scanout_traffic traffic,const struct vmm_reserved_guard *guard,
+        uint64_t root,uint64_t alias,uint32_t index,uint64_t value)
+{
+    return store_page(m,token,t,grant,NULL,NULL,traffic,guard,root,alias,index,value);
+}
+
+bool intel_bdw_scanout_store_owned_page(struct scanout_memory *m,const struct scanout_memory_token *token,
+        struct scanout_transfer *t,const struct scanout_transfer_token *grant,const struct scanout_interval *fw,
+        const struct bdw_stolen_layout *layout,struct intel_bdw_scanout_traffic traffic,
+        const struct vmm_reserved_guard *guard,uint64_t root,uint64_t alias,uint32_t index,uint64_t value)
+{
+    return fw && layout && store_page(m,token,t,grant,fw,layout,traffic,guard,root,alias,index,value);
 }

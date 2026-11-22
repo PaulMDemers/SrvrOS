@@ -252,7 +252,10 @@ SrvrOS under QEMU. The fixture uses slot 12291 and models the device owner,
 page table, active plane and translation invalidation. It covers mapping and
 exact rollback of zero and populated entries, a shortened import, a missing
 grant, an outstanding reader, owner loss, plane movement and failed rollback
-invalidation. The guest serial transcript is in
+invalidation. The MMIO cases run the Intel writer with the target entry at
+byte 24 of its register page, check both posted invalidations and reader
+retirement, and inject a wrong alias, missing L3 acknowledgement, lost CPU
+port exclusion and reopened WiDi. The guest serial transcript is in
 `build/tests/scanout-guest/serial.log`.
 
 The native reservation trial on release `ec94f04d158f8a13` held slot 12291

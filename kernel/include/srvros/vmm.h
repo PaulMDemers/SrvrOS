@@ -155,6 +155,8 @@ bool vmm_reserved_guard_register_pinned(const struct vmm_reserved_guard *,uint64
  uint64_t reg,uint64_t alias,const void *child);
 bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *,uint64_t root,uint64_t first,
                                         unsigned pages,const void *child);
+/* Query the primary aperture page or an additional excluded programming port. */
+bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *,uint64_t root,uint64_t page);
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *,uint64_t root,uint64_t io_page);
 /* CPU0 with interrupts disabled. A child pins this exact root and aperture
  * page until it returns the borrow. A parent close is retryable while pinned. */

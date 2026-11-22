@@ -83,6 +83,10 @@ int main(int argc,char **argv) {
         assert(intel_cache_probe_gt_uc_page(0xc0130000,0x130000) && reads==50);
         scenario=3;assert(!intel_cache_probe_gt_uc_page(0xc000a000,0xa000) && reads==60);
         assert(!intel_cache_probe_uc_page(0xc0811000) && reads==70);
+        assert(!intel_cache_probe_owned_pte_uc(0xc0811000) && reads==70);
+        assert(!intel_cache_probe_owned_pte_uc(0xc0818000) && reads==80);
+        scenario=0;
+        assert(intel_cache_probe_owned_pte_uc(0xc0818000) && reads==90);
     }
     if(argc>1 && !strcmp(argv[1],"gt-pat-only"))assert(!intel_cache_probe_gt_uc_page(0xc000a000,0xa000) && reads==30);
     if(argc>1 && !strcmp(argv[1],"firmware-wb")) {

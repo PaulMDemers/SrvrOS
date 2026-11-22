@@ -52,16 +52,23 @@ static bool owned_page_range(const struct scanout_transfer_manifest *s,
                                  s->fence_end, firmware->pages);
 }
 
+bool intel_bdw_scanout_owned_page_store_active(const struct scanout_memory *m,
+        const struct scanout_memory_token *token, const struct scanout_transfer *t,
+        const struct scanout_interval *firmware, const struct bdw_stolen_layout *layout, uint32_t index)
+{
+    return t && owned_page_range(&t->manifest, firmware, layout) && page_store_active(m, token, t, index);
+}
+
 bool intel_bdw_scanout_owned_page_store_matches(const struct scanout_memory *m,
         const struct scanout_memory_token *token, struct scanout_transfer *t,
         const struct scanout_transfer_token *grant, const struct scanout_interval *firmware,
         const struct bdw_stolen_layout *layout, uint32_t index, uint64_t expected, uint64_t value)
 {
-    if (!t || !owned_page_range(&t->manifest, firmware, layout) || !page_store_active(m, token, t, index) ||
+    if (!intel_bdw_scanout_owned_page_store_active(m, token, t, firmware, layout, index) ||
         !scanout_transfer_check(t, grant)) return false;
     uint64_t original;
     struct intel_bdw_ggtt_page plan;
-    if (!owned_page_range(&t->manifest, firmware, layout) || !page_store_active(m, token, t, index) ||
+    if (!intel_bdw_scanout_owned_page_store_active(m, token, t, firmware, layout, index) ||
         !scanout_transfer_original(t, grant, index, &original) ||
         !intel_bdw_ggtt_page_plan(&t->manifest, m->physical, &plan) || plan.original != original ||
         !scanout_space_verify_original(m->space, &m->range, 0, original) ||
