@@ -25,6 +25,14 @@ returns to sign-in. The boot mode assumes a trusted EFI configuration and
 administrator control of recovery. The VM qualification uses synthetic
 credentials, a disposable image, and a diagnostic session executable.
 
+Runtime `5e8014a8` passed enrollment, two consecutive sign-in boots on one
+installed data disk, and controlled damage through explicit recovery. Both
+users reached only their assigned homes. Wrong, unknown and disabled
+credentials and the damaged store produced refusals. Separate boots refused
+a writable sign-in executable and a writable executable directory. The host
+Argon2id vector, allocation and wipe checks passed. Serial transcripts
+contained none of the fixture passwords.
+
 Build with
 `sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
 Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
