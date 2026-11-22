@@ -230,11 +230,9 @@ static bool window_release(struct intel_command_mapping *r)
  if(issued!=GT_WRITE_DONE || !unchanged(r,&saved))return false;
  r->block_epoch=0;
  for(unsigned poll=0;poll<GT_ACCESS_POLL_CAP;poll++){
-  bool arbiter,engines;
-  uint32_t l3;
-  if(!bdw_traffic_gam(&observations,BDW_GAM_CLIENTS,&arbiter) ||
-     !bdw_traffic_engines(&observations,false,&engines) || !window_read(&check,0x8038,&l3))return false;
-  if(arbiter && engines && !(l3&3u) && before<r->last)return window_plane(&check);
+  bool open;
+  if(!bdw_traffic_reopened(&observations,&open))return false;
+  if(open && before<r->last)return window_plane(&check);
  }
  return false;
 }

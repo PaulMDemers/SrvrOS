@@ -153,6 +153,10 @@ bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t
  return model.mode!=62 && !(fixture_flags&(1ull<<9)) && model.guard_live && g==&stolen.guard.owner && root==stolen.root &&
         page==(stolen.import.selected && !stolen.import.submission ? 0xb3003000 : 0xb2200000);
 }
+bool vmm_reserved_guard_register_window_held(const struct vmm_reserved_guard *g,uint64_t root,
+                                             uint64_t aperture,uint64_t backing,uint64_t reg) {
+ return backing==0x8b818000 && reg==0xc0818000 && vmm_reserved_guard_io_page_held(g,root,aperture);
+}
 bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  assert(stolen.import.selected && !stolen.import.submission);
  if(!vmm_reserved_guard_io_page_held(g,root,0xb3003000))return false;

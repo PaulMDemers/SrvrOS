@@ -36,6 +36,11 @@ bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t
     return g==&cpu_guard && root==4096 && page==manifest.aperture+(uint64_t)manifest.first*4096 &&
            strcmp(page_failure,"aperture");
 }
+bool vmm_reserved_guard_register_window_held(const struct vmm_reserved_guard *g,uint64_t root,
+                                             uint64_t aperture,uint64_t backing,uint64_t reg) {
+    return backing==0x8b818000 && reg==expected_register() &&
+           strcmp(page_failure,"owned-mmio-wrong-backing") && vmm_reserved_guard_io_page_held(g,root,aperture);
+}
 static const void *borrower;
 bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
     if (!child || borrower || !vmm_reserved_guard_io_page_held(g,root,page)) return false;
@@ -47,10 +52,11 @@ bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *g,uint64
 }
 bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint64_t root,
                                         uint64_t first,unsigned pages,const void *child) {
-    static const uint64_t excluded[]={0xb2200000,0xc0002000,0xc0012000,0xc001c000,0xc001a000,
+    static const uint64_t excluded[]={0x8b811000,0xb2200000,0xc0002000,0xc0012000,0xc001c000,0xc001a000,
                                       0xc0022000,0xc0014000,0xc006e000,0xc0065000};
     if(manifest.first!=12291 || pages!=1 || !vmm_reserved_guard_io_page_pinned(g,root,0xb3003000,child))return false;
     if(!strcmp(page_failure,"owned-mmio-port-loss") && first==0xc006e000)return false;
+    if(!strcmp(page_failure,"inherited-backing-loss") && first==0x8b811000)return false;
     for(unsigned i=0;i<sizeof(excluded)/sizeof(excluded[0]);i++)if(first==excluded[i])return true;
     return false;
 }
@@ -463,7 +469,10 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     }
     case 0x8040: *word=strcmp(page_failure,"gam-busy")!=0; break;
     case 0x8038:
-        if(!block_active){*word=!strcmp(page_failure,"stale-l3");break;}
+        if(!block_active){
+            *word=(block_releases && !strcmp(page_failure,"unsettled-l3")) ? 2u : !strcmp(page_failure,"stale-l3");
+            break;
+        }
         ++l3_reads;
         *word=!strcmp(page_failure,"l3-unblock")?2:(l3_reads==1 && strcmp(page_failure,"missing-l3"));
         if (!strcmp(page_failure,"sa-post-l3") && ggtt_posts==a.publication.writes) *word=2;
@@ -741,7 +750,7 @@ static void owned_page_case(const char *mode)
     assert(prepared);
     assert(a.range.first == target && a.range.pages == 1);
     if (mmio) {
-        if (!strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3")) {
+        if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3")) {
             if (!strcmp(mode,"owned-mmio-no-l3")) page_failure="missing-l3";
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
             assert(block_requests==(!strcmp(mode,"owned-mmio-no-l3") ? 1u : 0u) && !model.releases);
@@ -750,8 +759,8 @@ static void owned_page_case(const char *mode)
             model.pending=true;
             assert(!scanout_memory_close(&a,&at) && block_active && !model.releases && !block_releases);
             model.pending=false;
-            if (!strcmp(mode,"owned-mmio-widi-loss")) {
-                page_failure="widi-open";
+            if (!strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing")) {
+                page_failure=!strcmp(mode,"owned-mmio-widi-loss") ? "widi-open" : "inherited-backing-loss";
                 assert(!scanout_memory_close(&a,&at) && !model.releases && !block_releases && ggtt_posts==1);
                 assert(block_active && table[target]==(a.physical|1) && !scanout_transfer_close(&transfer,&token));
             } else {

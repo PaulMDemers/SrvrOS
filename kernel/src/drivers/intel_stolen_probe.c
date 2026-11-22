@@ -790,7 +790,8 @@ static bool aperture_guard_held(void) {
  uint64_t inherited=stolen.source.aperture+stolen.source.fence_end;
  bool held;
  if(stolen.owned_page.aperture) {
-  held=vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,stolen.owned_page.aperture) &&
+  held=vmm_reserved_guard_register_window_held(&stolen.guard.owner,stolen.root,stolen.owned_page.aperture,
+              stolen.owned_page.table_backing,stolen.owned_page.register_page) &&
        vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,inherited) &&
        vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,
           stolen.layout.plan.gtt_begin+((stolen.source.first*8ull)&~4095ull));

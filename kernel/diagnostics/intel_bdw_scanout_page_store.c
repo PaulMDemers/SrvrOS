@@ -5,6 +5,7 @@
 #include <srvros/intel_bdw_scanout_mapping.h>
 #include <srvros/vmm.h>
 #include <srvros/intel_bdw_traffic.h>
+#include <srvros/intel_bdw_stolen_scanout.h>
 #include <srvros/x86_cache.h>
 
 /* CPU0 only. Keep the original publication, guard and register alias together
@@ -27,6 +28,15 @@ static bool page_pinned(const struct scanout_publication *p)
 {
     if (borrow.firmware) {
         const struct scanout_transfer_manifest *s=&borrow.transfer->manifest;
+        const struct bdw_stolen_plan *plan=&borrow.layout->plan;
+        uint64_t target_offset=((uint64_t)s->first*8) & ~4095ull;
+        uint64_t inherited_offset=((uint64_t)INTEL_WINDOW_FIRST*8) & ~4095ull;
+        if (!borrow.layout->classified || plan->gtt_end<=plan->gtt_begin ||
+            plan->gtt_end-plan->gtt_begin<target_offset+4096 || inherited_offset>target_offset ||
+            !vmm_reserved_guard_register_window_held(borrow.guard,borrow.root,borrow.aperture,
+                                                     plan->gtt_begin+target_offset,borrow.reg) ||
+            !vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,plan->gtt_begin+inherited_offset,1,&borrow))
+            return false;
         if (!vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->aperture+s->fence_end,1,&borrow))
             return false;
         for (unsigned i=0;i<BDW_SUBMISSION_PORT_COUNT;i++) {
@@ -157,12 +167,9 @@ bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const str
     for (unsigned n=0;n<GT_ACCESS_POLL_CAP;++n) {
         /* A failed read or owner check is terminal. An asynchronous release
          * may take time to reach all six clients and five engines. */
-        bool arbiter, pipelines;
-        uint32_t l3;
-        if (!bdw_traffic_gam(&sample,BDW_GAM_CLIENTS,&arbiter) ||
-            !bdw_traffic_engines(&sample,false,&pipelines) || !read_traffic(&check,0x8038,&l3))
-            return false;
-        if (!arbiter || !pipelines || (l3 & 1u) || check.last == released_at) continue;
+        bool open;
+        if (!bdw_traffic_reopened(&sample,&open)) return false;
+        if (!open || check.last == released_at) continue;
         if (!original_plane(&check) || !traffic_live(&check) || !vmm_reserved_guard_unpin_io_page(
                 borrow.guard,borrow.root,borrow.aperture,&borrow)) return false;
         borrow.transfer->device_publication=NULL;

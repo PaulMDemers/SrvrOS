@@ -154,6 +154,9 @@ static void register_window(void) {
  assert(vmm_reserved_guard_begin_register_window(&guard,root,pair,2,52,&ram[1],1,
                                                  aperture,backing,reg,&result,&why));
  assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&writer));
+ assert(vmm_reserved_guard_register_window_held(&guard,root,aperture,backing,reg));
+ assert(!vmm_reserved_guard_register_window_held(&guard,root,aperture,backing+4096,reg));
+ assert(!vmm_reserved_guard_register_window_held(&guard,root,aperture,backing,reg+4096));
  t[3][0]=reg|flags;
  t[3][8]=reg|flags; /* Even an otherwise identical second leaf is foreign. */
  assert(!vmm_reserved_guard_pin_register(&guard,root,aperture,reg,va,&writer));

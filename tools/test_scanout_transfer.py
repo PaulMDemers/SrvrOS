@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 OWNED_PAGE_MODES = ("owned-no-grant", "owned-short-import", "owned-vacant", "owned-populated", "owned-before-loss",
                     "owned-rollback-loss", "owned-invalidation", "owned-plane-moved", "owned-mmio-roundtrip", "owned-mmio-wrong-page",
-                    "owned-mmio-no-l3", "owned-mmio-widi-loss", "owned-mmio-port-loss")
+                    "owned-mmio-no-l3", "owned-mmio-widi-loss", "owned-mmio-port-loss", "owned-mmio-wrong-backing", "owned-mmio-rollback-backing")
 MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close
@@ -32,7 +32,7 @@ MODES.extend(("pte-store-unfilled-l3", "pte-store-widi-early-ack", "pte-store-ch
               "pte-store-frozen-request","pte-store-uncertain-request","pte-store-restore-new-block", "pte-store-restore-retirement-block"))
 
 MODES.extend(f"unblock-{failure}" for failure in
-             ("uncertain-release", "widi-open", "widi-stuck", "still-held", "read-failed", "frozen-release", "engine-stuck", "l3-steering","l3-unposted","l3-off","l3-power-lost", "display-changed"))
+             ("uncertain-release", "unsettled-l3", "widi-open", "widi-stuck", "still-held", "read-failed", "frozen-release", "engine-stuck", "l3-steering","l3-unposted","l3-off","l3-power-lost", "display-changed"))
 
 for phase in ("pte-store-", "pte-store-restore-", "unblock-"):
     for slice_id in range(2):

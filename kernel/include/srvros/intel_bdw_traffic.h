@@ -118,6 +118,19 @@ static inline bool intel_bdw_traffic_l3_policy(struct bdw_traffic_sample *s, boo
     return bdw_traffic_steer(s,select, current, original) && complete;
 }
 
+/* A release may be in progress. Distinguish a valid partial sample from
+ * unreadable registers, and require both L3 messages to settle. */
+static inline bool bdw_traffic_reopened(struct bdw_traffic_sample *s, bool *open)
+{
+    bool arbiter, pipelines;
+    uint32_t l3;
+    if (!bdw_traffic_gam(s,BDW_GAM_CLIENTS,&arbiter) ||
+        !bdw_traffic_engines(s,false,&pipelines) || !s->read(s->ctx,0x8038,&l3))
+        return false;
+    *open = arbiter && pipelines && !(l3 & 3u);
+    return true;
+}
+
 static inline bool intel_bdw_traffic_open(struct bdw_traffic_sample *s)
 {
     bool arbiter, pipelines;

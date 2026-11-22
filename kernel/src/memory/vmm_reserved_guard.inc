@@ -151,6 +151,11 @@ bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t
         reserved_guard.io_page==page && reserved_guard.root==root &&
         !(reserved_guard_flags()&512) && read_cr3()==root;
 }
+bool vmm_reserved_guard_register_window_held(const struct vmm_reserved_guard *g,uint64_t root,
+                                             uint64_t aperture,uint64_t backing,uint64_t reg) {
+ return reg && backing && reg==reserved_guard.register_page && backing==reserved_guard.register_backing &&
+        vmm_reserved_guard_io_page_held(g,root,aperture);
+}
 bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  if(!vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page))return false;
  if(page==reserved_guard.io_page)return true;
