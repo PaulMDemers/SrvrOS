@@ -50,6 +50,10 @@ int main(void) {
     assert(!display_present_available() && !display_present_begin(7));
     fb.red_mask_shift = 0; assert(!display_present_prepare(&fb)); fb.red_mask_shift = 16;
     assert(display_present_prepare(&fb) && display_present_available());
+    struct display_access_token t;assert(display_access_acquire(1,&t) && display_present_handoff_idle());
+    assert(!display_present_begin(7) && !display_present_frame(7) && !display_mode_set(7,1));
+    assert(!begins && !frames && !ends && !display_present_can_write(0));
+    assert(display_access_release(&t,true));
     assert(!display_present_prepare(&fb)); cr3 = 23;
     assert(!display_present_begin(0) && display_present_can_write(0));
     begin_ok = false; assert(!display_present_begin(7) && cr3 == 23 && interrupts);

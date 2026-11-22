@@ -1,6 +1,7 @@
 /* The inherited VGA framebuffer is preserved for console recovery. A mode
  * switch may route desktop writes through a separately allocated staging image. */
 #include <srvros/display_present.h>
+#include <srvros/display_access.h>
 #include <srvros/virtio_gpu_probe.h>
 #include <srvros/console.h>
 #include <srvros/service_window.h>
@@ -40,7 +41,7 @@ bool display_mode_get(uint64_t index, uint64_t *width, uint64_t *height) {
 static uint64_t owner;
 static bool busy, poisoned;
 
-bool display_present_prepare(struct limine_framebuffer *fb) {
+static bool display_present_prepare_inner(struct limine_framebuffer *fb) {
     uint64_t physical;
     if (!fb || staging || fb->bpp != 32 || fb->memory_model != LIMINE_FRAMEBUFFER_RGB ||
         fb->red_mask_size != 8 || fb->red_mask_shift != 16 ||
@@ -54,10 +55,15 @@ bool display_present_prepare(struct limine_framebuffer *fb) {
     return true;
 }
 
+bool display_present_prepare(struct limine_framebuffer *fb) {
+    if (!display_access_enter()) return false;
+    bool ok=display_present_prepare_inner(fb);
+    display_access_leave();return ok;
+}
 bool display_present_available(void) { return staging && !poisoned && virtio_gpu_present_available(); }
 bool display_present_info_available(void) { return !busy && !poisoned; }
 bool display_present_active(void) { return owner && !busy && !poisoned && virtio_gpu_present_active(); }
-bool display_present_can_write(uint64_t pid) { return !busy && !poisoned && (!owner || (pid && pid == owner)); }
+bool display_present_can_write(uint64_t pid) { return display_access_allowed() && !busy && !poisoned && (!owner || (pid && pid == owner)); }
 
 /* The scheduler I/O gate prevents owner cancellation while DMA is live. Every
  * checkpoint restores the scheduler-recorded CR3; reentrant display operations
@@ -69,7 +75,7 @@ static void checkpoint(void *opaque) {
     service_window_checkpoint(&service->window);
     if (service->previous != service->kernel) vmm_switch_address_space(service->kernel);
 }
-static bool operation(uint64_t pid, unsigned op) {
+static bool operation_inner(uint64_t pid, unsigned op) {
     struct present_service service = {.window=service_window_begin()};
     bool ok = false;
     if (!pid || !staging || busy || poisoned || (op == 0 ? owner != 0 : owner != pid)) goto done;
@@ -105,7 +111,7 @@ done:
 /* Switching uses a confirmed device reset rather than retiring live resources.
  * Before the reset the candidate software image is allocated and cleared. A
  * later failure returns to inherited VGA, or quarantines on uncertain reset. */
-bool display_mode_set(uint64_t pid, uint64_t index) {
+static bool display_mode_set_inner(uint64_t pid, uint64_t index) {
     uint64_t width, height, physical = 0, frames = 0;
     struct present_service service = {.window=service_window_begin()};
     bool ok = false;
@@ -154,6 +160,19 @@ done:
     service_window_end(service.window);
     return ok;
 }
+static bool operation(uint64_t pid, unsigned op) {
+    if (!display_access_enter()) return false;
+    bool ok=operation_inner(pid,op);
+    display_access_leave();
+    return ok;
+}
+bool display_mode_set(uint64_t pid,uint64_t index) {
+    if (!display_access_enter()) return false;
+    bool ok=display_mode_set_inner(pid,index);
+    display_access_leave();
+    return ok;
+}
+bool display_present_handoff_idle(void) {return !owner && !busy && !poisoned;}
 bool display_present_begin(uint64_t pid) { return operation(pid, 0); }
 bool display_present_frame(uint64_t pid) { return operation(pid, 1); }
 bool display_present_end(uint64_t pid) {
@@ -168,7 +187,7 @@ bool display_present_end(uint64_t pid) {
 void display_present_release(uint64_t pid) { if (pid && owner == pid) (void)display_present_end(pid); }
 
 void display_present_damage(uint64_t x, uint64_t y, uint64_t width, uint64_t height) {
-    if (!owner || busy || poisoned || !staging || !width || !height ||
+    if (!display_access_allowed() || !owner || busy || poisoned || !staging || !width || !height ||
         x >= staging->width || y >= staging->height) return;
     if (width > staging->width - x) width = staging->width - x;
     if (height > staging->height - y) height = staging->height - y;

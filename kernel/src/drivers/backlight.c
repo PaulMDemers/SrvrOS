@@ -1,4 +1,5 @@
 #include <srvros/backlight.h>
+#include <srvros/display_access.h>
 static struct backlight_io device;
 static bool available;
 static uint32_t period;
@@ -13,14 +14,14 @@ static bool sample(uint32_t *raw) {
     }
     return true;
 }
-bool backlight_bind_profile(struct backlight_io io,enum backlight_profile profile) {
+static bool backlight_bind_profile_inner(struct backlight_io io,enum backlight_profile profile) {
     available=false;
     if(!io.read || !io.write_duty) return false;
     if(profile!=BACKLIGHT_AIR7_2 && profile!=BACKLIGHT_PRO11_2 && profile!=BACKLIGHT_AIR6_1) return false;
     device=io;period=profile==BACKLIGHT_PRO11_2?1953:2777;available=true;uint32_t raw;
     return sample(&raw); /* Discovery never writes. */
 }
-int backlight_percent(unsigned value) {
+static int backlight_percent_inner(unsigned value) {
     if(value && (value<5 || value>100)) return -1;
     uint32_t raw;if(!sample(&raw)) return -1;
     if(value) {
@@ -36,3 +37,16 @@ int backlight_percent(unsigned value) {
 }
 
 bool backlight_bind(struct backlight_io io) { return backlight_bind_profile(io,BACKLIGHT_AIR7_2); }
+
+int backlight_percent(unsigned value) {
+    if (!display_access_enter()) return -1;
+    int result=backlight_percent_inner(value);
+    display_access_leave();
+    return result;
+}
+
+bool backlight_bind_profile(struct backlight_io io,enum backlight_profile profile) {
+    if (!display_access_enter()) return false;
+    bool ok=backlight_bind_profile_inner(io,profile);
+    display_access_leave();return ok;
+}

@@ -10,7 +10,7 @@
 #include <unistd.h>
 static uint64_t test_cr3,test_flags,test_efer=(1ull<<11);
 static uint32_t test_max=0x80000001u,test_features=(1u<<20)|(1u<<26);
-static unsigned switches,allocs,frees,msrs;
+static unsigned switches,allocs,frees,msrs,root_reads,flag_reads,ram_lookups;
 static bool create_mode,create_alloc_failure;
 static uint64_t create_frame,*create_output,create_expected_output,create_initial_flags;
 static unsigned irq_saves,irq_restores;
@@ -25,15 +25,18 @@ static void vmm_test_irq_restore(uint64_t flags) {
     assert(create_output && *create_output==create_expected_output);
     test_flags=flags;irq_restores++;
 }
-static uint64_t vmm_test_cr3(void) { return test_cr3; }
+static uint64_t vmm_test_cr3(void) { root_reads++;return test_cr3; }
 static void vmm_test_write_cr3(uint64_t v) { test_cr3=v;switches++; }
-static uint64_t vmm_test_rflags(void) { return test_flags; }
+static uint64_t vmm_test_rflags(void) { flag_reads++;return test_flags; }
 static void vmm_test_cpuid(uint32_t leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
     *a=*b=*c=*d=0;if(leaf==0x80000000u)*a=test_max;if(leaf==0x80000001u)*d=test_features;
 }
 static uint64_t vmm_test_efer(void) { msrs++;return test_efer; }
 #define SRVROS_VMM_HOST_TEST
-#include "../kernel/src/memory/vmm.c"
+#ifndef SRVROS_VMM_ROOT_OBSERVER_FILE
+#define SRVROS_VMM_ROOT_OBSERVER_FILE "../kernel/src/memory/vmm.c"
+#endif
+#include SRVROS_VMM_ROOT_OBSERVER_FILE
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t m,enum pmm_frame_tag tag) {
     assert(create_mode && n==1 && m==VMM_PAGE_TABLE_MIN_PHYSICAL && tag==PMM_FRAME_PAGE_TABLE);
     assert(test_flags==create_initial_flags && create_output && !*create_output);
@@ -42,7 +45,7 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t m,enum pmm_frame_tag 
 void pmm_free_frame(uint64_t p) {
     assert(create_mode && p==create_frame && !find_address_space_record(p));frees++;
 }
-void *pmm_phys_to_virt(uint64_t p) { return (void *)(uintptr_t)p; }
+void *pmm_phys_to_virt(uint64_t p) { ram_lookups++;return (void *)(uintptr_t)p; }
 void console_printf(const char *fmt,...) { (void)fmt;assert(!"unexpected console"); }
 static uint64_t *tables[5]; /* kernel root, PDPT, PD, PT, staged root */
 static size_t host_page;
@@ -147,6 +150,45 @@ static void create_tests(void)
     assert(!vmm_create_address_space(NULL) && allocs==a);
     create_mode=false;create_output=NULL;
 }
+/* The actual original guard is evaluated once, without a translation walk or
+ * context mutation. Faults short-circuit in the same order as boolean callers. */
+static void root_observation_case(uint64_t expected,unsigned reason,uint64_t detail,unsigned cr3_reads,unsigned lookups) {
+    struct vmm_range_observation d;memset(&d,0xa5,sizeof(d));
+    unsigned rr=root_reads,fr=flag_reads,ram=ram_lookups,sw=switches;
+    uint64_t cr3=test_cr3,flags=test_flags,count=address_space_count,occupancy=address_space_occupancy;
+    assert(vmm_diagnostic_sole_kernel_root_observe(expected,&d)==(reason==0));
+    assert(d.phase==(reason?1u:4u) && d.reason==reason && !d.level && !d.checked && d.detail==detail);
+    assert(root_reads==rr+cr3_reads && flag_reads==fr+1 && ram_lookups==ram+lookups);
+    assert(test_cr3==cr3 && test_flags==flags && switches==sw);
+    assert(address_space_count==count && address_space_occupancy==occupancy);
+}
+static void root_observation_tests(void) {
+    reset_mapping();address_space_count=address_space_occupancy=0;test_flags=2;
+    root_observation_case(kernel_cr3,0,0,1,1);
+    assert(vmm_diagnostic_sole_kernel_root_observe(kernel_cr3,NULL));
+    test_flags|=512;address_space_count=3;test_cr3|=24;
+    root_observation_case(0,VMM_RANGE_IRQ,512,0,0);test_flags=2;
+    root_observation_case(0,VMM_RANGE_ROOT,0,0,0);
+    root_observation_case(kernel_cr3|1,VMM_RANGE_ROOT,0,0,0);
+    root_observation_case(kernel_cr3+4096,VMM_RANGE_KERNEL,0,0,0);
+    /* Preserve every low bit, including PWT/PCD, in the original failure.
+     * Same-base tagged contexts remain refused; no CR3 normalization/store. */
+    for(unsigned low=1;low<4096;low++){
+        test_cr3=kernel_cr3|low;
+        root_observation_case(kernel_cr3,VMM_RANGE_CURRENT,low,1,0);
+    }
+    test_cr3=kernel_cr3+4096;root_observation_case(kernel_cr3,VMM_RANGE_CURRENT,0,1,0);
+    test_cr3=kernel_cr3;kernel_pml4=NULL;
+    root_observation_case(kernel_cr3,VMM_RANGE_PML4,0,1,0);
+    kernel_pml4=tables[1];root_observation_case(kernel_cr3,VMM_RANGE_POINTER,0,1,1);
+    kernel_pml4=tables[0];root_observation_case(kernel_cr3,VMM_RANGE_COUNT,3,1,1);
+    address_space_count=0;
+    for(unsigned bit=0;bit<64;bit++){
+        address_space_occupancy=1ull<<bit;
+        root_observation_case(kernel_cr3,VMM_RANGE_OCCUPANCY,1ull<<bit,1,1);
+    }
+    address_space_occupancy=0;root_observation_case(kernel_cr3,0,0,1,1);
+}
 int main(void)
 {
     long page=sysconf(_SC_PAGESIZE);assert(page>=4096 && page%4096==0);host_page=(size_t)page;
@@ -154,6 +196,7 @@ int main(void)
         tables[i]=mmap(NULL,host_page,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
         assert(tables[i]!=MAP_FAILED);memset(tables[i],0xa5,host_page);
     }
+    root_observation_tests();
     reset_mapping();
     address_space_count=0;address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));
     test_cr3=kernel_cr3;test_flags=2;

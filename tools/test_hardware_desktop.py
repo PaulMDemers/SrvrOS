@@ -4,6 +4,24 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_admission_attention_decodes_the_entire_observation(self):
+        from test_intel_admission import line
+        for queries in (0, 924):
+            self.assertFalse(desktop.needs_attention(line(queries=queries).strip()))
+        refusal=line(queries=3,code=7,pages=1350,phase=1,reason=7,value=2).strip()
+        self.assertTrue(desktop.needs_attention(refusal))
+        self.assertTrue(desktop.needs_attention(line(code=300).strip()))
+        good=line(queries=924).strip()
+        for bad in (good.replace('v=1','v=2'),good+' unexpected=0',
+                    good.replace('queries=924','queries=2000001'),
+                    good.replace('code=0','code=8'),
+                    good.replace('value=0','value=1'),
+                    good.replace('v=1','v=01'),
+                    good.replace(' detail=0',''),
+                    good.replace('intel-admission:','intel-admission-unknown:'),
+                    'intel-admission:'):
+            with self.subTest(row=bad):self.assertTrue(desktop.needs_attention(bad))
+
     def test_audio_completion_requires_a_whole_line(self):
         from audio_io_stress_smoke import completion_line
         for ending in (b'\n',b'\r\n'):
@@ -678,6 +696,71 @@ class CollectionTests(unittest.TestCase):
             for i in range(32):self.assertEqual((out/folder.name/f'checkpoint-{i:02x}.log').read_bytes(),(folder/f'checkpoint-{i:02x}.log').read_bytes())
             self.assertFalse((out/folder.name/'checkpoint-20.log').exists())
             (folder/'checkpoint-00.log').unlink();(folder/'checkpoint-00.log').symlink_to(folder/'checkpoint-01.log')
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+
+    def test_joined_provider_read_budget_keeps_older_sessions_bounded(self):
+        prefix=b'intel-vtd-drain: v=6 b=unqualified\nintel-command-ownership: v=1 b=unqualified\n'
+        self.assertEqual(desktop.session_log_limit(prefix),98304)
+        self.assertEqual(desktop.session_log_limit(prefix.replace(b'v=6',b'v=5')),65536)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            payload=prefix+b'x'*(98304-len(prefix));(folder/'exit.log').write_bytes(payload)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),payload)
+            self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            (folder/'exit.log').write_bytes(payload+b'x')
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+            (folder/'exit.log').write_bytes(b'x'*65537)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+
+    def test_full_gt_read_budget_preserves_raw_without_accepting_receipts(self):
+        prefix=b'intel-wake-summary: v=37 unqualified\nintel-bootstrap-summary: v=7 unqualified\n'
+        self.assertEqual(desktop.session_log_limit(prefix),98304)
+        for version in range(1,13):
+            self.assertEqual(desktop.session_log_limit(prefix.replace(b'v=7 ',f'v={version} '.encode())),98304)
+        for bad in (prefix.replace(b'v=7 ',b'v=13 '),prefix.replace(b'v=7 ',b'v=012 '),
+                    prefix.replace(b'v=37 ',b'v=36 '),prefix.split(b'\n',1)[1]):
+            self.assertEqual(desktop.session_log_limit(bad),65536)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            payload=prefix+b'x'*(98304-len(prefix));(folder/'exit.log').write_bytes(payload)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),payload)
+            self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            (folder/'exit.log').write_bytes(payload+b'x')
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+            (folder/'exit.log').write_bytes(payload.replace(b'v=7 ',b'v=8 '))
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),payload.replace(b'v=7 ',b'v=8 '))
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            wire9 = payload.replace(b'v=7 ',b'v=9 ')
+            (folder/'exit.log').write_bytes(wire9)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),wire9)
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            (folder/'exit.log').write_bytes(wire9 + b'x')
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
+            wire10 = payload.replace(b'v=7 ', b'v=10 ')[:-1]
+            (folder/'exit.log').write_bytes(wire10)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),wire10)
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            wire11 = wire10.replace(b'v=10 ',b'v=11 ')
+            (folder/'exit.log').write_bytes(wire11)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),wire11)
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            wire12 = wire11.replace(b'v=11 ',b'v=12 ')
+            (folder/'exit.log').write_bytes(wire12)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual((out/folder.name/'exit.log').read_bytes(),wire12)
+            self.assertIsNone(report['sessions'][0]['intel_gt_bootstrap'])
+            (folder/'exit.log').write_bytes(wire12.replace(b'v=12 ',b'v=13 '))
             with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'out')
 
     def test_logs_and_unsafe_paths(self):

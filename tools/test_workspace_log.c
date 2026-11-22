@@ -3,11 +3,11 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[64];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[SRVROS_BOOTLOG_CAPACITY]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true;
 static unsigned expected_capacity=32;
-static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
+static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file,full_snapshot;
 static uint64_t ticks=10,total=100,clock_us,save_tick_delay;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
@@ -43,7 +43,7 @@ bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
-    assert(depth && n<=65536);writes++;ticks+=save_tick_delay;clock_us+=100+save_tick_delay*10000;if(!io_ok) return false;
+    assert(depth && n<=SRVROS_BOOTLOG_CAPACITY);writes++;ticks+=save_tick_delay;clock_us+=100+save_tick_delay*10000;if(!io_ok) return false;
     struct item *f=find(p);if(!f) f=add(p);f->node.type=VFS_NODE_FILE;f->node.size=n;memcpy(f->bytes,data,n);return true;
 }
 bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) {
@@ -71,7 +71,7 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
+uint64_t bootlog_snapshot_lines(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);*seq=total;if(full_snapshot){memset(out,'x',capacity);out[capacity-1]='\n';return capacity;}memcpy(out,"test log",8);return 8; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=pcm_fixture;*owner=pcm_owner; }
@@ -89,7 +89,7 @@ void console_printf(const char *fmt,...) {
 }
 void console_write(const char *text) { (void)text;total++; }
 static void test_sidecar_retention(void) {
-    assert(sizeof(snapshot)==65536);
+    assert(sizeof(snapshot)==SRVROS_BOOTLOG_CAPACITY);
     sidecar_fixture=(struct exfat_sidecar_trace){.checks=10,.equal=4,.changed=6,.retained_bytes=4096};
     pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION,.state=SRV_PCM_PLAYING,.handle=11,.position_bytes=4};pcm_owner=9;
     clock_us=1000;
@@ -117,9 +117,14 @@ static void test_sidecar_retention(void) {
     sidecar_fixture=(struct exfat_sidecar_trace){0};pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION};pcm_owner=0;
     clock_us=0;sidecar_reports=emitted_sidecar_count=0;
     /* Leave a prior stream behind: the real start_log below must clear it. */
-    puts("sidecar-retention: PASS original clocks and immutable copies; incomplete/post-PCM/growth refusal; handle/owner boundaries;64KiB unchanged");
+    puts("sidecar-retention: PASS original clocks and immutable copies; incomplete/post-PCM/growth refusal; handle/owner boundaries; bounded snapshot storage");
 }
 int main(void) {
+#if defined(SRVROS_INTEL_COMMAND_OWNERSHIP) || defined(SRVROS_INTEL_GT_BOOTSTRAP_NATIVE)
+    assert(sizeof(snapshot)==98304);
+#else
+    assert(sizeof(snapshot)==65536);
+#endif
     test_sidecar_retention();
     sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb && !sidecar_reports);
     sync_fixture.enabled=1;sync_fixture.records[0].pid=7;
@@ -194,8 +199,19 @@ int main(void) {
     assert(workspace_log_window_snapshot() && window_saved && strstr(path,"/window.log"));
     old_writes=writes;assert(!workspace_log_window_snapshot() && writes==old_writes);
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    old_writes=writes;
+    assert(!workspace_log_stolen_progress(NULL,1) && !workspace_log_stolen_progress("x",0) && !workspace_log_stolen_progress("x",4097));
+    assert(writes==old_writes);
+    enabled=true;assert(!workspace_log_stolen_progress("progress",8));enabled=false;
+    busy=true;assert(!workspace_log_stolen_progress("progress",8));busy=false;
+    for(unsigned i=0;i<32;i++)assert(workspace_log_stolen_progress("progress",8) && strstr(path,"/stolen-progress.log"));
+    old_writes=writes;assert(!workspace_log_stolen_progress("progress",8) && writes==old_writes);
     assert(workspace_log_stop());
-    assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));
+    assert(workspace_log_start() && !stolen_progress_saves && !ecam_saved && workspace_log_quiesce(5000));
+    corrupt=true;old_writes=flushes;assert(!workspace_log_stolen_progress("progress",8) && !healthy && flushes==old_writes);corrupt=false;
+    assert(workspace_log_start() && workspace_log_quiesce(5000));
+    sync_ok=false;assert(!workspace_log_stolen_progress("progress",8) && !healthy);sync_ok=true;
+    assert(workspace_log_start() && workspace_log_quiesce(5000));
     corrupt=true;assert(!workspace_log_ecam_snapshot() && !ecam_saved && !healthy);corrupt=false;
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
     /* A seven-second write must not turn a ten-second capture cadence into
@@ -209,8 +225,9 @@ int main(void) {
     assert(ticks==capture_start+1500 && due==ticks+1000 && !ready(NULL));
     save_tick_delay=0;io_ok=false;ticks=due;periodic_attempt();assert(!healthy && !enabled && !busy);io_ok=true;
     assert(periodic_deadline(UINT64_MAX-100,UINT64_MAX-1)==UINT64_MAX);
-    puts("workspace-log-cadence: PASS original1000ticks/64KiB/two-slot bounds, delayed-write drift prevented, overrun skips catch-up, failure stops");
-    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
+    full_snapshot=true;assert(save("wide.log"));assert(find(path)->node.size==SRVROS_BOOTLOG_CAPACITY);
+    puts("workspace-log-cadence: PASS original1000ticks/two-slot bounds, selected full snapshot capacity, delayed-write drift prevented, overrun skips catch-up, failure stops");
+    printf("workspace-log: PASS capacity=%u full write/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount\n",SRVROS_BOOTLOG_CAPACITY);
 }
 
 void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(struct capture_write_snapshot){0};}

@@ -50,6 +50,19 @@ static void range(unsigned i,uint64_t base,uint64_t size,unsigned type) {
     assert(i<16 && size>=4096 && !(size&(size-1)) && !(base&(size-1)));
     raw.base[i]=base|type;raw.mask[i]=(((1ull<<39)-1) & ~(size-1))|0x800;
 }
+static void span(uint64_t physical,uint32_t pages,unsigned index) {
+    unsigned m=99,p=98,e=97,n=96,a=0,b=0,c=0;
+    bool expected=pages && pages<=4096 && physical>=0x100000 && !(physical&4095) &&
+        index<8 && physical<=(1ull<<snapshot.cpu.physical_bits)-(uint64_t)pages*4096;
+    if(expected)expected=x86_cache_page(&snapshot,physical,index,&a,&b,&c);
+    for(unsigned i=1;expected && i<pages;i++) {
+        unsigned x,y,z;
+        expected=x86_cache_page(&snapshot,physical+4096ull*i,index,&x,&y,&z) && x==a && y==b && z==c;
+    }
+    assert(x86_cache_range(&snapshot,physical,pages,index,&m,&p,&e,&n)==expected);
+    if(expected)assert(m==a && p==b && e==c && n>=1 && n<=33);
+    else assert(m==99 && p==98 && e==97 && n==96);
+}
 int main(void) {
     setup();capture();unsigned reads=calls;assert(reads==33 && snapshot.reads==reads);
     struct x86_cache_snapshot saved=snapshot;assert(x86_cache_equal(&saved,&snapshot));
@@ -93,5 +106,24 @@ int main(void) {
     setup();freeze=true;assert(!x86_cache_snapshot(&snapshot,&io) && snapshot.status==CACHE_CLOCK);
     setup();backward=true;assert(!x86_cache_snapshot(&snapshot,&io) && snapshot.status==CACHE_CLOCK);
     setup();capture();snapshot.base[7]=1;assert(!x86_cache_equal(&saved,&snapshot));
+    setup();capture();span(0x1000000,1356,0);span(0x1000000,1356,2);
+    span(0x1000000,0,0);span(0x1000000,4097,0);span(0x1000001,1,0);
+    span(0xff000,2,0);span(UINT64_MAX-4095,2,0);span(0x1000000,1,8);
+    span((1ull<<39)-4096,1,0);span((1ull<<39)-4096,2,0);
+    /* Equal WB endpoints conceal a single interior UC page. Every page in
+     * the span is the independent oracle for the bounded boundary algorithm. */
+    for(unsigned i=1;i<63;i++) {
+        setup();range(0,0x1000000+4096ull*i,4096,0);capture();
+        span(0x1000000,64,0);span(0x1000000+4096ull*i,1,0);
+    }
+    /* Many overlapping boundaries, UC precedence and WT/WB overlap. */
+    for(unsigned scenario=0;scenario<32;scenario++) {
+        setup();
+        for(unsigned i=0;i<8;i++)range(i,0x1000000+4096ull*((scenario*13+i*7)%64),4096,(i+scenario)%3==0?0:6);
+        capture();for(unsigned index=0;index<4;index++)span(0x1000000,64,index);
+    }
+    setup();range(0,0x1000000,0x200000,6);range(1,0x1100000,0x100000,4);capture();span(0x1000000,512,0);span(0x1100000,256,0);
+    setup();raw.def_type=6;capture();span(0x1000000,1356,0);
+    setup();raw.cpu.physical_bits=52;capture();span((1ull<<52)-4096,1,0);
     puts("x86-cache: PASS architectural matrix, UC-/WC trap, overlap/boundary/width refusal, 33 read faults, stable endpoints and bounded no-write snapshots");
 }

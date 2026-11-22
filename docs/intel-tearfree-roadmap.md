@@ -1,0 +1,708 @@
+# Air7,2 native tear-free desktop roadmap
+
+The next milestone is a reviewable ownership protocol that can support one
+private GPU mapping. Repeating successful observations will not by itself
+make inherited graphics memory available. The inherited framebuffer remains
+the desktop backend until the native ownership and publication gates pass.
+
+This roadmap orders the work in the [managed-memory plan](intel-managed-memory-plan.md).
+The [Air7,2 unit record](machines/macbookair7-2.md) owns physical acceptance;
+the [coordination guide](agent-coordination.md) governs shared implementation.
+It does not accept another Mac's firmware or graphics profile.
+
+The latest hardware result completes the read-only CPU backing guard for two
+existing6MiB candidates; the earlier original full-GT reset/memory/private CPU
+arena lifetime remains separate evidence. See the
+[current Air record](machines/macbookair7-2-current.md).
+The mapping core now supports the selected practical timing aliases in host
+qualification. A separate [primary-envelope classifier](intel-bdw-primary-range.md)
+accounts for tiled padding,128 extra display translations and the full protected
+fence using raw observations. Neither is a native ownership provider. The next
+new native operation needs a documented outstanding-memory completion witness
+and maintained firmware/all-reader exclusion before the exact-range transfer;
+replaying or rebooting unchanged positive observations will not fill that gap.
+
+The [private BCS submit step](intel-bdw-bcs-submit.md) now has a bounded
+four-DWORD protocol and actual joined flush/nonce tests. The old MMIO sync-flush
+shortcut is reserved on Broadwell, so it supplies no bootstrap mechanism.
+The new host code still needs an independently initialized/owned context and
+mappings; no queue sample, issued packet or nonce can create that prior authority.
+Native startup memory-completion/reader ownership remains the next decision.
+
+The [private CPU context-image trial](intel-bdw-bcs-context.md) now prepares
+and verifies the complete byte image in the existing original-owner arena, with
+post-retirement erasure and exact cleanup. This separates CPU construction from
+actual GPU mapping, visibility and execution. Its own wire8/image/recipe retains
+all255 obligations. One original Air7,2 CPU image lifetime now completes on
+hardware (source4ce676bd/release08ae); exact source/evidence and the still-open
+GPU ownership boundary are recorded in the linked contract.
+
+The [primary-A flip protocol](intel-bdw-primary-flip.md) now implements the
+separate synchronous arm/live-latch sequence with incremental bounded polling.
+A queued surface, posting read or advanced frame alone cannot complete it.
+Host qualification covers retained failures and late latch, but no native image
+calls it. Actual mapping/visibility ownership and old-reader retirement remain
+independent prerequisites; this is not native page-flip acceptance.
+
+## Capability-sized trial plan
+
+The next acceptance target is one complete **private one-page GPU mapping
+lifetime**, not another collection of successful register observations. The
+[current Air status](machines/macbookair7-2-current.md) separates CPU maintenance
+already accepted from the still-open device obligations. Use the
+[durable workflow](device-workflow.md) to freeze each candidate and collect it.
+
+| Required part | Evidence required before advancing the original owner |
+| --- | --- |
+| Ownership | Maintained firmware/requester/engine exclusion tied to the actual source, epoch and exact range; every unknown keeps the grant refused |
+| Completion | Actual outstanding DMA/posted-write/prefetch, GPU translation/cache and every remaining display/firmware reader have bounded completion witnesses; clear endpoints alone do not retire them |
+| One-page transfer | Original entry captured, private backing held, encoding/cache policy checked, admitted store and required hardware visibility/completion confirmed |
+| Publication | First private publication and any reader leases remain attached to the same owner; no reuse while any consumer remains |
+| Restoration | Stop publication, drain consumers, restore exact original entry with required completion, retire aliases/holds and verify inherited display and USB/recovery integrity |
+| Failure | Every partial store, missing ACK, stale identity, timeout and failed restoration retains the original exclusion/backing; no false success or free/retry |
+
+Implement and host-test the whole protocol before scheduling the mapping trial.
+Use pure-core tests, actual adapter fault points, mutation controls and fatal
+sanitizers. Batch compatible subphases in one boot only when each live prerequisite
+is established before the next action, with the **original deadlines unchanged**.
+Never turn separate boots into a live ownership token. Where a required hardware
+witness is still unknown, design and batch the discriminating read-only evidence
+first; do not repeatedly boot an unchanged positive observation.
+
+Freeze all required jobs and exact payload once, qualify it in QEMU, then run the
+single bounded native question. Buffer compact source-bound timing, route,
+failure and retirement data; persist after safe ownership return instead of
+printing inside the critical interval. Save raw data before classification on
+Ubuntu. Accept the whole capability only after strict original-chain, media and
+recovery review. A retained unsafe outcome still halts; safe saved/unmounted
+outcomes return automatically. No new GPU action is enabled by this plan.
+
+The [Broadwell TLB protocol](intel-bdw-tlb-protocol.md) now implements and
+host-tests the downstream request/self-clear sequence, with fresh mandatory
+pipeline/memory proofs and original clocks. No native caller or image is added.
+The next native decision remains the actual quiescence mechanism and its
+memory-retirement guarantee; the current observations cannot supply it.
+
+## Established boundary
+
+| Native evidence | Accepted scope | Still excluded |
+| --- | --- | --- |
+| BCS reset provider integration, source `4873e6bd`, release `6365de27e20576b6` | Already-disabled BCS entry, bounded reset/preservation and clean retirement; core61,212/100,000us | Enabled shutdown, other reset domains, device-wide DMA retirement |
+| Five-engine preparation, source `292163ac`, release `0cafc3a5551ab1b2` | Bounded prepare/hold/cancel and preservation;93,246/100,000us | Maintained readiness after cancellation, authority for a later reset |
+| PCI AF requester capture, source `fe6677c5`, release `3ff42f33e6c01391`, session `session-00065fdf108c49b4-00` | Two matching nine-DWORD snapshots, BME enabled in both, TP clear, FLR control0;27,036/100,000us, borrow returned and10 aliases retired | Comprehensive DMA drain, firmware exclusion, cache/translation/reader retirement, memory transfer |
+| Requester capture inside maintained preparation, source `8559ac44`, release `67a178af16c8983f`, session `session-00065fe0b883f61e-00` | Original preparation borrow, five ready requests, two matching PCI snapshots, cancellation/preservation/return;96,728/100,000us,13 aliases retired | Reset-capable action semantics, repeatability, all memory/completion obligations |
+| Maintained preparation/PCI/BCS8 reset, source `9c788f3f`, release `8d3839aaa57f707d`, session `session-00065fe55d829da0-00` | Exact pre-user-init recipe; full reset/cancel/preservation/return in97,414/100,000us, wake280,135/500,000us;13 aliases retired | Repeatability, wider reset scope, all memory/completion obligations |
+| Private backing lifetime, source `23af85e2`, release `d72619c4e02bb721`, session `session-00065fe6c815e551-00` | Four cases in16,563us; two disjoint1,356-page buffers, full patterns, CPU borrow drain, unknown-range refusal and one deliberate private-page quarantine; durable checkpoint, preservation and clean return | GPU interval import, native mapping/encoding, hardware cache/translation completion, real flip/reader retirement |
+| Original GGTT entry inside held reset, source `3315df79`, release `e07848a7c00d893d`, session `session-00065fef0f0829d7-00` | Six read-only DWORD loads in59us under the original active post-reset borrow; original entry/source epoch bind, preparation97,379/100,000us, full preservation and14 aliases retired | Exclusive interval transfer, hardware/cache/DMA/firmware/reader assurances, PTE writes and page flips |
+
+These are separate exact-source lifetimes. They cannot be combined into a
+current owner or completion token. The [requester contract](intel-pci-requester.md)
+records the accepted native capture; PCI AF TP clear is an observation, not
+proof that all posted writes reached memory. Bus mastering remains enabled.
+All eight completion obligations remain open (mask255), native hardware
+assurances remain zero and no managed GPU pages are accepted.
+
+The [post-reset BCS re-arm scope](intel-engine-rehold.md) is now accepted in
+source`f2a6c116`, release`e83571c874bc17f1`, session
+`session-00065ff078d4f70a-00`:358us scope/234us child, exact mixed-state
+restoration,97,758/100,000us preparation and14 retired aliases with full
+preservation. It closes no memory/completion obligation. The new
+[source-bound interval claim](intel-interval-claim.md) registers its own child
+dependent and owns opening/closing original-entry observations. Its software
+lifetime and refusal path supply no native address transfer or positive assurance.
+
+The joined claim now passes on Air7,2 source `e81caf7f`, release
+`978d9be94b96243a`, session `session-00065ff636174005-00`: preparation
+91,213/100,000 µs, HDA command phases 6/2/2/6, both original-entry observations
+and clean alias/owner retirement. The next software layer registers an interval
+consumer before callbacks and blocks early claim/HDA closure. Its conservative
+one-page Broadwell codec calculates an entry for a private physical address
+below 4 GiB; it performs no store or transfer. Actual interval ownership and
+mapping visibility/completion remain the next native boundary.
+
+The separate [complete transfer core](scanout-transfer.md), source`68489058`,
+now supplies4,096-entry owned manifests and joined child drain/retirement with
+host fault/sanitizer qualification. It preserves the legacy native16-entry
+observer and has no native provider. The next boundary is genuine maintained
+interval ownership and a one-page mapping, not another synthetic capacity trial.
+
+The separate [original-owner HDA/BCS diagnostic](intel-hda-bcs-shutdown.md) now
+accepts already-disabled observation on source`a720d774`, release
+`bd77ce8cff00a4a3`, session`session-000660022da620b1-00`. Census and BCS entry
+agree, full preservation and HDA6/2/2/6 pass, and GPU11/HDA1 aliases retire in
+307,103/500,000us outer lifetime. BCS attempts/stores0 leave enabled shutdown
+unexercised. This does not identify why an earlier requester boot saw enabled
+entry, or supply a reset/claim/memory grant. Next compose legal entry/shutdown
+and reset admission under the same original owner, retaining all existing
+geometry, source, epoch and deadline checks; do not synthesize an enabled case
+or repeat unchanged observation boots as a substitute for that integration.
+
+The separate [disabled-entry/reset composition](intel-entry-reset-composition.md)
+now qualifies a sealed zero-store child before the unchanged joint reset path.
+Its original census age, epoch and borrow return remain mandatory. Host/VM
+qualification is complete. Native source0fadb55b/release0994cd9762acfca1 now
+refuses enabled inherited BCS before its child or reset enters; full native
+composition remains unaccepted. The next step is an explicit source-bound
+enabled-ring ownership transition with fresh epoch/census and valid nonzero-
+geometry reset semantics, preserving the old gates. An unchanged retry, geometry
+clearing or a saved-observation token cannot supply that route. No memory or
+completion grant is added.
+
+The [enabled-ring transition](intel-enabled-ring-transition.md) is now a separate
+v24 hardware-ready candidate (`c43d30d0` / `811ff18f86cf3d17`), with host/VM
+qualification complete and native acceptance pending. It uses the original HDA/GT
+owners, the captured enabled ring, one guarded disable, a fresh full census at
+an advanced epoch and exact engine/reader preservation. Its first native
+milestone ends with disabled submission and clean retirement. Reset from that
+nonzero geometry still needs a separate contract; no old reset gate is widened.
+
+The first native v24 trial (`811ff18f86cf3d17`) instead observes already-disabled,
+zero-geometry entry and safely refuses before its enabled-only child/write.
+HDA and all mappings retire within bounds; this does not accept enabled shutdown.
+These contrasting captures motivated explicit original-owner routes for both
+naturally observed entry states, preserving old geometry/epoch gates.
+
+A separate [state-aware entry contract](intel-ring-entry.md) has host/VM qualification
+for both captured sources and native acceptance of its already-disabled route. It keeps enabled one-store/epoch
+advance distinct from disabled NULL-writer observation, requires fresh full
+post-census and reader preservation on both, and ends before reset. Both old
+recipes and geometry gates remain unchanged; neither observed completion nor
+host modeling accepts a physically unexercised enabled writer.
+
+## First decision: how ownership begins
+
+Before another destructive native operation, choose and document a complete
+ownership route against generation-specific references and the captured profile.
+The route must answer:
+
+1. Who transfers the exact GGTT interval and which physical allocations remain
+   pinned? The populated16-entry candidate and the protected34MiB inherited
+   region are unavailable until that transfer is established.
+2. Which render, video, blitter, display, firmware and other requester clients can
+   still access or change that interval, and what maintains their exclusion?
+3. What hardware operation completes earlier accesses, with what exact scope and
+   postconditions? BCS reset acknowledgement or PCI TP clear cannot stand in for
+   missing posted-write, prefetch, cache or translation evidence.
+4. What can still be restored safely after each possible store, and when must
+   memory, mappings and exclusion remain pinned instead?
+
+The selected design route is an **explicit cooperative OS graphics-driver
+takeover**, extending the [existing cooperative EFI policy](intel-gt-access.md#opt-in-cooperative-efi-wake-contract).
+Conforming firmware yielding the OS requester is a declared platform assumption,
+not something inferred from stable mailboxes or an assertion that SMM is absent.
+There is no captured firmware service that grants a spare GGTT interval. The
+native implementation still needs to maintain the expanded ownership lifetime;
+the current bounded wake policy alone does not transfer graphics memory.
+
+The now-accepted composition binds the real preparation/requester/reset
+cores in one lifetime: fresh engine census; five reset requests held; requester
+observation while that hold remains active; exact reviewed reset action; fresh
+post-reset state; reverse cancellation; full engine/display/HDA preservation and
+retirement. The original preparation API completes cancellation before return;
+the separate maintained-action/reset API supplies the required live boundary. A cancelled preparation
+receipt cannot serve as that boundary. Epoch invalidation must precede any
+possible reset store, and old censuses must become unusable.
+
+The first software piece is the separate
+[maintained read-only action boundary](intel-engine-prepare.md#maintained-read-only-action-boundary).
+It brackets an observation with original-borrow guards and matching held-state
+samples inside the unchanged100ms budget. It has no reset permission. The
+standalone requester observer acquires its own borrow and cannot be nested
+unchanged. The [held requester sampler](intel-held-requester.md) explicitly
+binds the active preparation borrow; its isolated native provider now accepts
+one exact-source combined capture and clean return, with3,272us preparation
+headroom. This answers whether requester observation can fit within the maintained
+hold and existing budget. A reset-capable composition remains separate because it
+changes epoch and control-state semantics.
+
+The fresh CPU translation retry (`8b91de5b`, release`b63d89044865e7a8`) retains
+all censuses and bounds. Its host/image/VM qualification passes; native combined
+timing remains pending. Its first native run refuses excluded inherited
+backing/window revalidation before wake/reset access; exact predicate attribution
+is the next diagnostic. It grants no GPU range or completion assurance.
+
+The next qualified diagnostic (`e0ab9800`, release`b726c22e43838e36`) retains
+the original first failed predicate and query context without a second probe.
+Its host/image/VM checks pass. The native row identifies an entry-context refusal:
+two registered address spaces before the range walk (`phase=1 reason=7 value=2`).
+System init precedes this diagnostic. Next qualify startup ordering to establish
+the existing sole-root context without relaxing root/occupancy gates or any
+deadline. No wake mapping/write/reset occurs and combined timing remains pending.
+
+The complete composition needs host fault injection at every transition.
+It must preserve the existing BCS-only writer gate until a separate review
+settles wider domain semantics. Broadwell GDRST full-reset bit0 is distinct from
+per-engine bits1/2/3/4/7. The pinned Linux reset path prepares engines, resets,
+then cancels, and repeats reset with50us settling for delayed register stability.
+Do not widen domain8 to0x9e or assume readiness bits survive reset. See the
+[pinned reset references](intel-engine-prepare.md) and
+[reset contract](intel-bcs-reset.md). That planning block selected no broader native reset writer. The separate
+[held BCS reset composition](intel-engine-held-reset.md) now implements the
+BCS8-only epoch-aware lifetime, with a distinct native image and qualification
+gates. Its first native run completes the reset helper and clean preservation/
+retirement but misses the preparation deadline at103,702/100,000us. The combined
+lifetime remains a timing nonpass; no memory transfer is accepted.
+
+Before staging that composition, record the exact native action, reference-backed
+register/memory effects, per-obligation evidence and failure-state ownership.
+Any unresolved completion/ownership dependency retains refusal. A synthetic
+positive-assurance provider would not establish transfer. A hold-plus-requester
+observation-only trial is warranted only if its result resolves a specific
+composition decision, not merely because both operations exist separately.
+
+The next isolated native prerequisite is the
+[original-claim GPU requester hold](intel-gpu-requester-hold.md): exact PCI
+Command 7→3, bounded AF pending-clear observation and 3→7 restoration while the
+original interval consumer and HDA/engine owners remain live. It adds no address
+or completion assurance and must qualify independently before being used by a
+future memory provider.
+
+## Ordered delivery blocks
+
+| Block | Implementation | Observable exit gate |
+| --- | --- | --- |
+| 1. Ownership protocol | Encode the chosen route as a single original-object, same-epoch transaction; bind provider, resources, interval and clocks. Preserve raw attempted/completed prefixes and retained state. Keep unrelated ordinary startup unchanged. | Actual-core fault tests cover copied/stale objects, reentry, clock expiry, provider loss, every store boundary and retirement refusal. The reviewed native protocol identifies the witness for each claimed assurance; unsupported prerequisites refuse. |
+| 2. Native ownership qualification | Implement only the exact reviewed operation and native profile, with its own immutable recipe, checkpoint and collector. Any all-engine preparation needed for reset must remain live through that reset and its cancellation/preservation path. | Matching hardware evidence proves the intended operation and its scope, full display/backing preservation and verified return, within existing bounds. A clean reset alone does not close the memory obligations. |
+| 3. One-page GPU mapping | Lease a transferred non-display GPU interval and pin one private RAM page. Bind DMA addressing/translation, CPU aliases/cache policy and original PTE. Implement exact PTE write, posting and required invalidation/completion sequence. | The page is the only changed translation; exact readback and documented visibility/completion pass. No plane, route or visible framebuffer changes. Unknown completion retains both address and RAM leases. |
+| 4. Owned command completion | Where required by the selected route, own ring/context/status/completion backing and implement a finite generation-specific command sequence with a fresh nonzero completion value. This block moves earlier if mapping/retirement depends on it. | Completion is tied to the submitted request, original mappings and exact scope. Stale completion values, timeouts and unrelated engine completion cannot release backing. Never submit through an inherited ring. |
+| 5. Restore and retire | Restore original translations only while ownership remains established, complete the required translation/cache/reader retirement, then release address and RAM leases. | Success and injected failure paths have explicit ownership outcomes. A known store followed by an unknown result cannot free, replay or optimistically restore memory. Native trial verifies preserved original display and clean retirement. |
+| 6. Full scanout buffers | Connect the existing complete4096-entry transfer contract to a real native owner, then own two full buffers with checked stride, padding, layout/tiling, swizzle, DMA and cache policy. | Host overflow/extent/alias/lease tests and native buffer validation pass. The legacy16-entry observer is not a full native import. No truncated import is accepted. |
+| 7. Flip publication | Connect owned buffers to surface programming, latch detection and old-reader retirement while preserving link, route and brightness. Integrate [publication](scanout-publication.md), [buffer lifetime](scanout-buffer-lifetime.md) and [reservations](native-scanout-reservations.md). | A real latch witness identifies the displayed buffer; the previous buffer remains pinned until its readers retire. Failed/uncertain publication quarantines backing. A frame counter alone is insufficient. |
+| 8. Desktop qualification | Enable the native backend as an explicit candidate, retain verified recovery, and exercise drawing, resize/drag, window churn and I/O/audio overlap. | Automated repeated flips and teardown, saved screenshots/timings and endurance pass; attended moving-content checks verify absence of visible tearing and normal interaction separately. Only then consider default enablement. |
+
+Blocks3–5 are one ownership problem, not independent permissions. Their order
+must follow the selected hardware protocol. In particular, no completion command
+may be used to justify the memory ownership it already requires.
+
+## Work that can proceed in parallel
+
+- Audit the hardware bootstrap route and its exact generation-specific evidence.
+- Audit generic handoff, address-space, buffer and publication lifetimes; implement
+  bounded software fixes and actual-core failure regressions independently of
+  positive native assurances.
+- Maintain the milestone ledger, collector failure classification and acceptance
+  documentation without editing another device's evidence.
+
+Only the integration owner builds, stages or runs a VM harness in this checkout.
+Integrate shared changes before preparing one candidate. Neither parallel work
+nor a host test changes the installed native release's acceptance.
+
+## Validation and stop conditions
+
+Host tests establish software lifetime/order/failure behavior. Object and staged
+image checks bind the real native addresses, permissions, widths and writer
+isolation. Exact-stage VM trials establish refusal, persistence, safe automatic
+return and missing-workspace behavior. None proves native GPU ownership.
+
+Each physical candidate needs a matching model/profile, immutable source/release,
+recovery, saved prerequisite checkpoint, in-guest progress and strict final
+collection. Keep the existing100/300/500ms bounds for the current dependent,
+owner and outer protocols; do not extend them to conceal a composition failure.
+A distinct future protocol needs its own reviewed timing contract rather than
+silently changing these receipts. Keep volume1% for automated trials.
+
+Stop before issuing a new operation if its ownership, exact resource interval,
+cache policy, completion scope or restoration safety is unresolved. After a
+possible store, unknown ownership/completion retains resources and halts visibly;
+a timeout is not permission to free them. Safe handled outcomes with verified
+save/unmount return automatically to Ubuntu. Missing final markers, retained
+state, incomplete raw coverage and failed persistence remain nonpasses. Keep
+failed evidence and backups outside disposable build artifacts.
+
+The next ready-for-hardware checkpoint must name the operation it will prove,
+which obligations it can actually close, and what remains open. Do not schedule
+another observation-only trial unless it resolves a specific protocol decision.
+
+
+The pre-user-init combined retry is now qualified in source`9c788f3f`,
+release`8d3839aaa57f707d` (main`486b6d2a`). Its isolated main defers user init
+only for the exact terminal held-reset recipe; ordinary-image service startup
+and diagnostic save/unmount/return/halt paths pass separate VM regressions.
+Original sole-root/count/occupancy guards, all preservation work and100/300/500ms
+bounds remain. One native trial will exercise the full maintained preparation,
+PCI capture, BCS8 reset and cancellation lifetime. Native timing, all255
+completion obligations and managed GPU-memory/tear-free acceptance remain open.
+
+
+That pre-user-init native trial now passes in97,414/100,000us, including the
+reset and complete preservation/return. The initial collector omission for the
+healthy zero-code witness is fixed and reviewed against identical raw logs;
+original classification is retained. This closes the bounded composition gate.
+The next implementation is the exact interval/private-memory/completion owner
+in the managed-memory plan, with no GPU PTE store before transfer is established.
+
+
+The next hardware-ready checkpoint is source`23af85e2`, release`d72619c4e02bb721`:
+[joined backing ownership](scanout-memory.md), full padded sizing and allocator/
+CPU-borrow/range/publication retirement are qualified in host and guest tests.
+The isolated native trial exercises two full private buffers and expected
+unknown-range refusal, with no GPU writer or grant. Its PMM/frame-tag/CPU mapping
+and quarantine accounting resolve the new backing-adapter qualification boundary;
+it does not repeat or replace the accepted shadow publication. Exclusive GGTT
+transfer, owned completion and real buffer/flip publication remain open.
+
+## Current original-owner entry/reset result
+
+Air7,2 source `9e67bce7` / release `74d46f42447d218e`, session
+`session-0006600e477bf0c3-00`, accepts the bounded same-owner kind 2
+zero-geometry entry/reset/re-arm/claim/preservation path. Original full initial
+census, four read-only BCS8 samples, fresh full post-census/readers, source and
+provider/epoch binding, registered returns and clean GPU/HDA/exclusion retirement
+verify. Entry stores remain zero/epoch 0; the existing reset advances epoch 0→1.
+Entry is 90,760/150,000 us, handoff 31,895/100,000 us, preparation
+91,213/100,000 us, HDA 318,012/400,000 us and outer 368,571/500,000 us.
+All deadlines remain unchanged; exact raw checkpoint, all prior files, offline
+allocation and Ubuntu recovery pass. This one bounded pass does not establish
+repeatability or native tear-free presentation. See the
+[composition contract](intel-state-aware-reset.md) and [unit record](machines/macbookair7-2.md).
+
+The entry/reset composition milestone is complete for this exact source and
+observed route. Main `7c1a08a0` is integrated afterward with affected local
+checks; the installed native payload remains frozen `9e67bce7`. Nonzero geometry
+and enabled entry writing remain separately unaccepted. Next is the remaining
+firmware/DMA/cache/translation/reader retirement and exclusive GPU address/RAM
+ownership protocol, then managed backing, actual command completion where
+required and real flip publication. Blocks 3–7 above remain open. A reset alone
+does not close those obligations: mask 255, assurances 0 and managed pages 0.
+Keep full original live-object/deadline rules; no geometry clearing, forced
+enable, saved-receipt authority or unchanged observation/reset retry. No new
+trial is armed.
+
+## Current entry/requester trial: safe nonzero-geometry refusal
+
+The v27 trial on Air7,2 source `cef27b1c` / release `127a222d11cc79fc`
+verifies the naturally enabled kind 1 entry writer, fresh post-census/readers,
+original return and clean HDA/GPU retirement. Its reset guard then refuses the
+nonzero geometry, leaving preparation/reset/requester unentered. Full completion
+is **not** accepted. The [composition result](intel-entry-requester.md#native-result-enabled-entry-completed-resetrequester-safely-refused)
+and [unit ledger](machines/macbookair7-2.md) retain `completed=NO`, all alerts and
+independent safe file/recovery proofs. Previous kind 2 zero-geometry reset
+acceptance remains unchanged. A separate nonzero-geometry ownership/epoch protocol
+is needed before this route can continue; no geometry clearing, forced state,
+old-gate widening or unchanged retry is planned. Managed memory/real flips remain open.
+
+## Current buffer ownership integration
+
+The [original startup source](intel-startup-source.md) now accepts one native
+already-disabled route, while its enabled route remains unaccepted. The next
+[private-buffer binding image](intel-startup-buffers.md) connects original RAM
+holds to that same live reset/source lifetime, without substituting a saved
+receipt. Two full padded buffers must stay pinned through source, reset and
+outer cleanup, then verify and release exactly once. Host/model evidence is not
+native timing acceptance; this still grants no GGTT interval or GPU PTE writer.
+
+
+The [v31 original-source buffer trial](intel-startup-buffers.md#native-result-original-already-disabled-route-accepted)
+now passes one native kind 2 lifetime on runtime876b500e/releasec154. Both full
+private buffers stay pinned through actual outer retirement, then pass full
+patterns and release exactly once; preparation98,198/100,000 us. This closes
+that route's RAM/source binding prerequisite only. Exclusive GPU address/range
+transfer, completion/cache/reader ownership and actual GPU publication remain
+open; no managed GPU pages or tear-free presentation are accepted.
+
+
+## Current original-source transfer result and next ownership step
+
+Source `f638ae7c`, release `8d0181c0ed0a4708`, now accepts one native v32
+kind 2 source/buffer/transfer registration and known-authority refusal lifetime.
+The transfer child is 45 us; preparation is 97,996/100,000 us and all original
+source/root/alias holds retire, followed by full patterns and exactly-once RAM
+release. The [unit result](machines/macbookair7-2.md#native-v32-original-source-transfer-lifetime-accepted)
+records strict raw/checkpoint, media and recovery proofs. All five hardware
+assurances remain absent and all eight completion obligations remain open.
+No further identical refusal trial is needed for this completed prerequisite.
+
+The next bounded implementation is a **maintained original-source requester
+hold**, followed by an actual interval/completion proof. The existing
+`intel_gpu_requester_hold_run` belongs to the older interval-claim graph and
+restores Command 7 before returning. Its receipt cannot authorize a child of
+the newer state-aware source, nor supply requester inhibition during mapping.
+Do not transplant its claim pointer, use a receipt from another boot, or treat
+Command 3/AF pending-clear as device-wide DMA completion.
+
+1. Define an original one-use hold beneath the real state-aware source/buffer
+   registration. It must retain the exact route, source/reset epoch, original
+   provider, RAM holds and CPU exclusion. Its inhibited state must enclose the
+   intended child and prevent parent return; restoring state follows child
+   retirement, rather than preceding it.
+2. Reuse the exact captured PCI capability/profile checks and Command-halfword
+   7→3→7 operation semantics. Bind every full profile, pre-store read, issued
+   prefix and pending sample to this original hold. Scope the expected Command
+   change to the original native owner only. Lost source, ambiguous stores or
+   unknown retirement retain the full chain and never replay restoration.
+3. Enforce the original preparation 100 ms, GT 300 ms, HDA 400 ms and outer
+   500 ms origins throughout. The latest 2,004 us preparation margin is measured
+   once, not spare capacity promised to new work. Qualify batching or admission
+   changes against actual guard/source/map/clock fault controls before adding
+   the operation. Preserve each required full validation and final store clock;
+   do not extend deadlines, skip witnesses or add an unbounded poll.
+4. Exercise both naturally observed entry routes in actual-core/model tests,
+   plus every read/store/clock/child/return failure. Native enablement needs a
+   separate exact image/recipe/strict receiver, source-matched VM persistence,
+   capacity and recovery checks, then one bounded physical trial. Its result
+   accepts only the observed route and exact control/retirement scope.
+5. After maintained requester control, specify the real cooperative firmware,
+   engine/prefetch, translation/cache, inherited backing and display-reader
+   witnesses for the proposed interval. These are independent requirements;
+   neither this hold nor the BCS reset clears them. Only their reviewed live
+   composition may reach the first one-page PTE transaction.
+
+Steps 1–4 above are now implemented and one native enabled-entry lifetime is
+accepted in the [v33 maintained requester result](intel-source-requester.md#native-result-original-enabled-entry-lifetime-accepted):
+source `a7c84ce5`, release `6f8fea336425b123`, session
+`session-0006602d3e4e59ec-00`. Original kind 1 entry0→1/reset1→2, both RAM
+holds, transfer and CPU/root registration enclose PCI7→3→3→7, the inhibited child
+and full closing validation. Requester scope is658us, child38us;
+preparation98,884/100,000us, complete preservation and exactly-once RAM release,
+strict raw/checkpoint and media/recovery proofs pass. Disabled v33 entry,
+pending-drain branch and repeatability remain unaccepted. This closes the
+requester-control lifetime prerequisite, not the actual interval/completion
+requirements in step5. All255 obligations and zero positive assurances remain.
+
+Main4016 is now integrated. Subsequent v34 all-five readiness holds and v35
+original-source PCI/cache/reader observations are qualified as recorded in the
+[unit history](machines/macbookair7-2.md). Latest source `4b4b4d5d` /
+release `4751b92fb87ad132` accepts one kind 2 version3 requested-CPU-alias lifetime:
+four full 1,356-page observations use actual PAT0/WB, writable/supervisor bits and
+four 2 MiB leaves per span. Raw NX bits are clear. Diagnostic mappings/holds/RAM
+retire cleanly and all prior files/recovery preserve. This neither donates whole
+large leaves nor proves other aliases, coherence or any hardware completion bit.
+
+Next bind exhaustive aliases/coherence and the actual step5 DMA/prefetch/cache/
+translation/firmware/display-reader witnesses before a GPU PTE writer. The latest
+preparation is 99,693/100,000us, leaving only 307 us
+in one run; measure/reduce overhead before adding excluded work. No deadline is
+extended, no full guard skipped, and no repeatability or timing cause is claimed.
+A completed requester/readiness hold, clear AF status or saved reset receipt
+must never be promoted to internal graphics/display DMA or cache retirement.
+No new trial is armed. Ordinary desktop still uses the inherited framebuffer;
+all 255 obligations, zero managed GPU pages and native tear-free remain pending.
+
+The specialized VMM follow-up source `634ab653` /
+release `5a204843df11446b` now passes one enabled-entry kind1 original lifetime,
+including entry0→1/reset1→2, receipt3 requested mappings and full diagnostic/
+media/recovery retirement. Preparation remains 99,679/100,000us,
+with only 321us margin. Different routes prevent a
+controlled comparison with the earlier4b kind2 run; no useful new native
+headroom or repeatability is claimed. Next isolate full-admission/control and
+census costs with bounded source-bound evidence before adding ownership work.
+All checks/deadlines and all 255 hardware obligations remain; no trial is armed.
+
+Air7,2 runtime42b17c5f now accepts one v35 kind2 span-admission/census timing
+lifetime:93,392/100,000us preparation,6,608us margin, complete original retirement
+and file/recovery preservation. The56 preparation census sample envelopes cover
+83,843us and overlap control brackets; repeated census work remains the dominant
+measured cost. Same-route4b was99,693us (one sample per source, no causation or
+repeatability claim). No checks/deadlines were removed or extended. See the
+[current unit result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted).
+Next use this baseline to bound outstanding DMA/cache/translation/firmware/reader
+protocol work. All255 actual ownership obligations and zero managed GPU pages
+remain; ordinary desktop still uses the inherited framebuffer. No trial armed.
+
+Air7,2 runtimeb10517bd/release3c9c4bfc2b632cc4 now accepts one original kind2
+[v35 whole-root CPU alias inventory lifetime](machines/macbookair7-2.md#native-v35-whole-root-cpu-alias-inventory-accepted).
+Two scans each visit110 logical table paths/56,320slots/47,369present leaves;
+each1,356-page private span has only its expected present mappings. Preparation
+94,806/100,000us leaves5,194us; original diagnostic retirement and all1,524prior
+files except metadata preserve, with three exact logs and clean offline recovery
+(1,527files/165sessions). Banks survive distclean; USB unmounted, no run/one-shot
+outstanding. Fresh main4016 is integrated; PR19/379 remain independent. This is
+point-in-time sole-root page-table evidence, with no stale-TLB/SMP/GPU/IOMMU,
+DMA/cache/reader ownership or repeatability grant. Next establish remaining
+completion/exclusion witnesses before GPU interval/PTE/submission authority.
+All255 hardware obligations/zero managed GPU pages/native tear-free pending;
+no sibling acceptance and no checks or deadline extensions.
+
+Air7,2 runtime2bde9498/release3807a53c3829ba9c now accepts one original kind2
+[private CPU translation/writeback lifetime](machines/macbookair7-2.md#native-private-cpu-translation-and-writeback-accepted):
+2,712 local target invalidations,173,568 line operations and fourfences complete
+in12,205/100,000us before GPU acquisition. The original held observations and
+full retirement pass, with GPU preparation94,782/100,000us (5,218us margin),
+exact2,712page release/DMA57→57 and offline file/recovery preservation
+(1,530files/166sessions). Banks survive distclean; USB unmounted and no trial
+or one-shot outstanding. Main4016 remains integrated, PR19/379 independent.
+This accepts the targeted CPU operation for that lifetime only; all255 actual
+GPU/DMA/prefetch/cache/translation/firmware/display-reader obligations and zero
+assurances/managed GPU pages remain. Next establish device-side completion and
+reader exclusion/retirement before GPU interval/PTE/submission authority.
+Enabled route for this source, repeatability and native tear-free remain pending.
+
+The [disabled-state graphics-unit VT-d drain protocol](intel-vtd-drain.md) is now
+host-qualified against the prior captured CAP/ECAP. It deliberately avoids
+graphics remapping activation and cannot satisfy a flushed GPU pipeline, cache,
+prefetch or reader witness. Native integration must join its admitted command
+alias, registered original source child, raw/strict receipt and clean retirement
+in one bounded opt-in trial. No observation-only reboot or ownership-bit change
+is scheduled from this host result.
+
+
+Air7,2 now accepts one bounded original kind2 graphics-remapper drain and complete
+diagnostic retirement on `e271fd2c` / `03ea83a4578614d5`; see the
+[unit evidence](machines/macbookair7-2.md#native-disabled-state-vt-d-drain-and-diagnostic-return-accepted)
+and [protocol scope](intel-vtd-drain.md#first-bounded-native-drain-acceptance).
+The user-authorized version3 policy allows150ms aggregate preparation/verified
+return, measured102,810us; original individual hardware and parent bounds remain.
+This removes the observed software100ms aggregate refusal for one new sample;
+older failures remain rejected. The operation drains only AT00 memory already
+processed by this graphics remapper. It does not establish that all GPU work
+has reached it, invalidate GPU translations/caches, exclude firmware/display
+readers or permit a private GPU interval. Those remain the next ownership
+protocol work before managed-memory publication. All255 obligations, zero
+assurances/managed GPU pages and inherited-framebuffer desktop remain unchanged.
+
+
+The subsequently integrated software component is the
+[System Agent GGTT invalidation protocol](intel-ggtt-invalidation.md): one exact
+MMIO101008 DWORD1 followed by an ordered posting read, with original source/
+root/epoch/clock and retained-failure checks. Both100/150ms actual-core matrices,
+sanitizers,16 weakening controls and image isolation are locally qualified.
+The separate combined native image now accepts one Air7,2 kind2 lifetime on
+`fe3919ec` / `451221606bdf74f7`: remapper drain plus exact GGTT operation and full
+original retirement in103,582/150,000us, with752us GGTT child. Its write-only zero
+read is not an ACK or a per-engine pipeline-flush proof. See the
+[native scope](intel-ggtt-invalidation.md#first-bounded-native-combined-acceptance).
+The next boundary remains actual outstanding DMA/prefetch, GPU pipeline/cache/
+per-engine translation and every firmware/display-reader completion, tied to
+the original owner before private mapping/publication. This bounded new witness
+closes no whole-device assurance bit and creates no managed GPU page.
+
+The next command layer now has a host-qualified
+[private BCS packet/completion protocol](intel-bdw-bcs-flush.md). It requires an
+already-owned stopped ring/context, fresh private completion page, admitted
+mapping/cache policy and original source/clock. Its known publication/submission
+and nonce completion are separate, bounded steps; unknown state retains backing.
+It cannot bootstrap those prerequisites, execute through an inherited ring or
+prove other engines/firmware/display readers retired. No native caller/image or
+new hardware acceptance follows. Next establish the genuine private command
+resource owner and its initialization/retirement before native submission.
+
+One native original kind2 [CPU command-arena lifetime](intel-command-memory.md)
+is now accepted on Air7,2 `4864ad3a` / `838082d16f6be16d`, with four WB CPU aliases,
+full16KiB preservation, exactly-once release and complete parent retirement.
+The subsequent [four-page GPU mapping transaction](intel-command-mapping.md)
+is host-qualified: it registers that CPU hold, requires an already transferred
+interval and fresh independent ownership, publishes/restores through the existing
+cores and retains every uncertain lifetime. It has no native provider or image
+caller. Next establish the actual firmware/engine/DMA/cache/reader interval and
+ordered completion witnesses, then integrate the original native adapter and
+receipt chain. Executable LRC and submission remain separate steps. All255 GPU
+obligations, zero positive assurances/managed GPU pages and native tear-free
+pending remain; host composition does not accept any new hardware operation.
+
+
+The separate [full-GT reset/fence protocol](intel-bdw-gt-bootstrap.md) now has
+host qualification for the next fresh-owner bootstrap. It preserves the old
+BCS8-only writer and imports no memory-completion assurance. Both timing policies,
+callback/clock/proof faults, exact 32-fence restoration, unknown issuance and
+native compiler/image isolation are tested. Its new original native parent and
+epoch-aware post-reset source are not implemented; the accepted BCS ancestry
+cannot host it unchanged. Keep fenced CPU clients, including the console,
+stopped through restoration, and qualify the new source/receipt/recovery chain
+before a physical full-reset trial. Actual interval/DMA/cache/all-reader ownership
+remains necessary before a native mapping or submission.
+
+## Existing-mapping reservation bridge
+
+The [native existing-mapping census](intel-bdw-stolen-scanout.md#native-v51-read-only-observation-complete)
+now completes after isolated pre-init dispatch. A separate
+[borrow backend](intel-bdw-stolen-borrow.md) connects an already owned reservation
+of those two external spans to the existing memory/hold lifecycle without PMM
+allocation/free or a GGTT store.7,360 host cases/16 controls, sanitizers/native
+frames and lifetime regressions pass. No native producer grants its rights;
+CPU aliases, first RAM store, live reader ownership and tear-free remain pending.
+The next native integration must establish the original live provider before
+wiring this bridge in; saved vectors and successful resets are insufficient.
+
+The [native v52 reader/cache preflight](intel-bdw-stolen-scanout.md#native-v52-reader-and-cache-observations-complete)
+now completes on Air7,2. Only primaryA is sampled active; existing PAT5 gives
+uniform hypothetical WC throughout both full candidates. All aliases retire
+and source/media/recovery evidence verifies. This closes those observation
+questions. Next implement the original live reservation/firmware/DMA/cache/
+all-reader provider before the first writable alias; then visibility, initial
+plane transition, latch/old-reader retirement and compositor/endurance. Stable
+snapshots and a valid cache-type combination supply no ownership right.
+
+The [native v53 CPU backing guard](intel-bdw-cpu-backing.md#native-result) also
+completes: all3,072 candidate pages have reserved carriers/PMM tags, and the
+actual whole-root scan finds no intersecting CPU alias. The22.924ms phase fits
+the original second-pass budget. This closes CPU eligibility observation only;
+an exclusive maintained reservation and the firmware/DMA/cache/all-reader proof
+producer are still needed. Do not repeat this unchanged diagnostic or treat its
+saved admission result as a live borrowed-source token.
+
+The [native v54 guard](intel-bdw-cpu-backing.md#native-guard-result) maintained
+CPU mapping exclusion through pin, acquisition, check, close and unpin on both
+candidates in 24.119 ms. The hardware ownership work now centers on the
+original firmware reservation and maintained requester, engine, DMA, cache
+and reader proof. Writable CPU aliases depend on that ownership.
+
+The [native v55 ownership gate](intel-bdw-stolen-scanout.md#native-v55-ownership-gate-result)
+completed with clean release. The first unmet condition was an explicit
+firmware transfer of the two inherited candidates. UEFI GOP describes the
+active framebuffer, and the captured Air7,2 firmware interfaces provide no
+verified transfer for the two extra spans. The active route is OS-allocated
+backing under a cooperative native graphics-driver takeover. Linux i915
+provides a design reference: GGTT reservations and reclamation are part of
+driver initialization, with separate handling for the inherited framebuffer.
+[UEFI GOP](https://uefi.org/specs/UEFI/2.10/12_Protocols_Console_Support.html#graphics-output-protocol)
+[Linux v6.12 GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L761)
+[Linux v6.12 initial plane](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_plane_initial.c#L127).
+
+1. Use [owned linear backing with a translation tail](scanout-memory.md#broadwell-translation-tail).
+   Keep the full inherited fence, all existing display translations and their
+   physical backing pinned.
+2. Implement native admission of an exact GGTT interval under the boot-scoped
+   owner. Bind all protected ranges and original entries to the same live
+   requester/engine/firmware lifetime. Require actual completion and exclusion
+   evidence before granting the interval to the allocator.
+3. Qualify one mapping and exact restoration with private backing, real
+   ordering, translation invalidation and observed completion. Then qualify
+   both complete surfaces and the initial tiled-to-linear primary transition.
+   Keep the inherited surface pinned until independent reader retirement.
+4. Exercise repeated flips and restoration before compositor integration and
+   physical tear-free acceptance.
+
+The [transfer-backed publication path](scanout-transfer.md#capture-and-maintained-ownership)
+now binds the leased entry to the original GGTT vector across preparation,
+exposure and restoration. Host tests cover the one-entry transaction and a
+late conflict in the second full buffer. The next native checkpoint is an
+interval provider inside the [original post-reset owner](intel-bdw-gt-bootstrap.md#same-owner-post-reset-memory-preparation-wire6).
+It needs to revalidate the enabled display's full footprint, other readers
+and the original backing in that lifetime. It also needs separate pipeline,
+cache and reader completion witnesses before arming the first aligned QWord
+PTE store. [Linux v6.12 GGTT insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L405).
+
+The [wire9 preservation image](intel-bdw-gt-bootstrap.md#held-display-translation-preservation-wire9)
+adds exact comparison of the inherited display's 128 trailing translations
+and one prospective slot before reset and after original memory maintenance.
+The MacBookAir7,2 matched both vectors and retired all four read-only aliases.
+The [wire10 hardware trial](intel-bdw-primary-range.md#native-wire10-result)
+also verified the live primary footprint, reader controls and display wells
+in the same held window after memory maintenance. The
+[wire11 hardware trial](intel-bdw-primary-range.md#native-wire11-result)
+showed VGA, framebuffer compression and panel self-refresh inactive in both
+samples bracketing that footprint. The
+[wire12 trial](intel-completion-prerequisites.md#native-wire12-result) reached
+Ready for Reset on all five engines and observed no engine or L3 flush-and-block
+acknowledgements. Before granting a writable interval, the hardware-backed
+owner must maintain this exclusion and establish completion of outstanding
+accesses, prefetched reads and cache effects. Physical flip qualification
+remains open.
+
+The [first candidate's physical backing check](intel-bdw-primary-range.md#first-candidates-original-physical-backing)
+now checks aliases between the selected PTE's original physical target and the
+complete sampled primary image and translation tail. Saved wires 10–12 confirm
+that physical separation. Keep the target reserved while a live owner proves
+firmware exclusion and interval-specific completion before the first write.
+
+The [reset boundary review](intel-completion-prerequisites.md#reset-and-display-recovery-decision)
+rules out PCI AF FLR for a trial that preserves the running display. A
+reset-based takeover would first need independent eDP and audio reinitialization.
+The exact diagnostic now has VM receipts for saving and resetting without a
+framebuffer and for halting over serial when its workspace is missing.
+
+The [Air7,2 eDP recovery core](intel-bdw-edp-recovery.md) now covers PPS
+power-up, AUX/DPCD training, the DDI/pipe register sequence and backlight
+admission in the joined host fixture. The next step binds original PHY,
+clock and mapping evidence to native MMIO and an independent fetch proof.
+Qualify that recovery before adding any GGTT store.

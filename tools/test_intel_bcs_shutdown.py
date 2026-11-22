@@ -1,0 +1,135 @@
+"""Fresh zero-geometry shutdown under the reset borrow; no disable writer."""
+from pathlib import Path
+import re,subprocess,unittest
+from intel_bcs_reset import bcs_result,native_bcs_result,verify_shutdown
+from intel_gt_wake import wake_result
+from test_intel_bcs_native import MODES
+ROOT=Path(__file__).resolve().parents[1]
+SHUT='shut-read shut-float shut-start shut-enabled shut-disabled-geometry shut-mode shut-drift shut-foreign shut-clock shut-backward'.split()
+def adapter(mode='report'):
+ return subprocess.check_output([str(ROOT/'build/tests/intel-bcs-shutdown-adapter'),'--wake-engine-'+mode],text=True)
+class BcsShutdownTests(unittest.TestCase):
+ def test_all_old_faults_still_contained(self):
+  for mode in MODES:
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);self.assertEqual(r['complete'],mode=='report')
+    self.assertFalse(r['cache_ownership'] or r['managed_range'] or r['physical_tearfree'])
+ def test_fresh_observation_faults_prevent_request_and_reset(self):
+  for mode in SHUT:
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);self.assertFalse(r['complete'])
+    self.assertEqual(r['summary']['attempts'],0);self.assertEqual(r['summary']['reset_attempts'],0)
+ def test_positive_same_borrow_order_epoch_and_native_binding(self):
+  t=adapter();r=bcs_result(t);w=wake_result(t);b=verify_shutdown(t,r['summary'],r['tables'],__import__('intel_completion_audit').completion_result(t))
+  self.assertTrue(r['complete']);self.assertEqual(w['summary']['v'],12);self.assertEqual(w['summary']['engine_reads'],216)
+  self.assertEqual(b['summary']['attempts'],0);self.assertEqual(r['summary']['epoch_after'],r['summary']['epoch_before']+1)
+  from test_intel_shutdown import ShutdownTests
+  self.assertTrue(native_bcs_result(ShutdownTests.native(t).replace('intel-wake: bounded','intel-wake: preflight checkpoint saved\nintel-wake: bounded'))['native_complete'])
+ def test_strict_receipt_schema_order_binding_and_version(self):
+  t=adapter()
+  for prefix in ('intel-bcs-clock:','intel-bcs-shutdown-row:','intel-bcs-shutdown-summary:'):
+   line=next(l for l in t.splitlines() if l.startswith(prefix))
+   for bad in (t.replace(line+'\n','',1),t+'\n'+line,t.replace(line,line+' extra=0',1)):
+    with self.subTest(prefix=prefix),self.assertRaises(ValueError):bcs_result(bad)
+  for a,b in [('entry_disabled=1','entry_disabled=0'),('intel-wake-summary: v=12','intel-wake-summary: v=7'),('engine_reads=216','engine_reads=184')]:
+   with self.subTest(a=a),self.assertRaises(ValueError):bcs_result(t.replace(a,b))
+  for key in ('epoch','owner_begin','attempts','writes'):
+   line=next(l for l in t.splitlines() if l.startswith('intel-bcs-shutdown-summary:'))
+   bad=re.sub(r'\b'+key+r'=\d+',key+'=4294967295',line)
+   with self.subTest(key=key),self.assertRaises(ValueError):bcs_result(t.replace(line,bad))
+  forged=re.sub(r'^(intel-bcs-shutdown-row:.*d=0,0,)0,',r'\g<1>4096,',t,flags=re.M)
+  with self.assertRaises(ValueError):bcs_result(forged)
+ def test_generated_recipe_with_actual_kernel_parser(self):
+  from hardware_boot import limine_config,stage
+  t=limine_config('0123456789abcdef','ram-usb-v1-intel-bcs-shutdown-laptop-probe-37d8c5d0-auto-return')
+  cmd=next(l.split('cmdline:',1)[1].split() for l in t.splitlines() if 'cmdline:' in l)
+  self.assertEqual(len(cmd),16);self.assertIn('srvros.intel-shutdown=observe-disabled',cmd)
+  parser=[str(ROOT/'build/tests/intel-gt-boot'),'bcs-shutdown']
+  subprocess.check_call(parser+[' '.join(cmd)])
+  for i in range(len(cmd)):
+   self.assertEqual(subprocess.run(parser+[' '.join(cmd[:i]+cmd[i+1:])]).returncode,1)
+   self.assertEqual(subprocess.run(parser+[' '.join(cmd+[cmd[i]])]).returncode,1)
+  self.assertEqual(subprocess.run(parser+[' '.join(cmd+['srvros.intel-blitter=retire'])]).returncode,1)
+  for key in ('intel_shutdown_trial','intel_bcs_reset_trial','hold_on_failure','desktop_audio','haswell_register_sample'):
+   with self.subTest(key=key),self.assertRaises(ValueError):stage(laptop_probe_volume='37d8c5d0',intel_bcs_shutdown_trial=True,**{key:True})
+ def test_core_seals_parent_epoch_policy_and_fresh_result(self):
+  for mode in ('normal','mask','delayed','nonzero-epoch','policy','copy','active','pending','flip','tlb','other-borrow','stale-epoch','stale-parent','overflow','census-drift','context-drift','missing-io','epoch-admission','detached-before','detached-after','extra-dependent'):
+   with self.subTest(mode=mode):subprocess.check_call([str(ROOT/'build/tests/intel-bcs-reset'),mode,'1','shutdown'],stdout=subprocess.DEVNULL)
+ def test_inner_first_fault_separate_from_parent_and_strict(self):
+  for mode,why in [('core-settle-deadline',4),('core-settle-zero',3),('core-settle-backward',2)]:
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);c=r['clock'];self.assertFalse(r['complete']);self.assertEqual(c['why'],why);self.assertEqual(c['stage'],1)
+    self.assertEqual(r['summary']['reset_acks'],2);self.assertTrue(r['summary']['uncertain']);self.assertEqual(r['summary']['returned'],0)
+    self.assertEqual(wake_result(t)['clock']['why'],0)
+    line=next(l for l in t.splitlines() if l.startswith('intel-bcs-clock:'))
+    for bad in (line.replace('why='+str(why),'why=8'),line.replace('stage=1','stage=0'),line+' extra=0'):
+     with self.assertRaises(ValueError):bcs_result(t.replace(line,bad))
+  t=adapter();line=next(l for l in t.splitlines() if l.startswith('intel-bcs-clock:'))
+  with self.assertRaises(ValueError):bcs_result(t.replace(line,line.replace('n=2','n=0')))
+  with self.assertRaises(ValueError):bcs_result(t.replace(line,line.replace('at=0','at=1')))
+ def test_endpoint_and_clean_return_clock_samples(self):
+  for mode,stage,why in [('zero',1,1),('backward',1,2),('end-clock-zero',2,11),('return-clock-tie',3,8)]:
+   with self.subTest(mode=mode):
+    t=subprocess.check_output([str(ROOT/'build/tests/intel-bcs-reset'),mode,'1','shutdown'],text=True)
+    row=re.search(r'core-clock why=(\d+) stage=(\d+) at=(\d+) prev=(\d+) begin=(\d+)',t)
+    self.assertIsNotNone(row);self.assertEqual((int(row[1]),int(row[2])),(why,stage))
+ def test_write_first_ack_faults_retain_ownership(self):
+  for mode in ('step-control-read','step-domain-read','step-foreign','step-phase'):
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);w=wake_result(t)['summary']
+    self.assertFalse(r['complete']);self.assertEqual(r['summary']['returned'],0)
+    self.assertTrue(r['summary']['uncertain']);self.assertEqual(w['retained'],1)
+    self.assertEqual(w['retired'],0);self.assertEqual(w['released'],0)
+    self.assertEqual(r['summary']['attempts'],1)
+    self.assertLessEqual(r['summary']['reset_attempts'],1)
+    self.assertEqual(r['summary']['reason'],7 if mode=='step-phase' else 6)
+  r=bcs_result(adapter());self.assertEqual(r['clock']['v'],3);self.assertEqual(r['clock']['t'],4)
+  line=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-clock:'))
+  t=adapter()
+  for bad in (line.replace('t=4','t=3'),line.replace('t=4','t=5'),line.replace(' t=4',''),line.replace('v=3','v=1')):
+   with self.assertRaises(ValueError):bcs_result(t.replace(line,bad))
+ def test_batched_census_coverage_and_parent_continuity(self):
+  t=adapter();r=bcs_result(t);self.assertEqual((r['clock']['c'],r['clock']['p']),(2,2))
+  line=next(l for l in t.splitlines() if l.startswith('intel-bcs-clock:'))
+  for key in ('c','p'):
+   for value in ('0','1','3'):
+    with self.subTest(key=key,value=value),self.assertRaises(ValueError):bcs_result(t.replace(line,line.replace(key+'=2',key+'='+value)))
+   with self.assertRaises(ValueError):bcs_result(t.replace(line,line.replace(' '+key+'=2','')))
+  for mode in ('normal','active','pending','flip-wait','tlb-pending','copy','guard','late-guard','changed','float','read','context-read','context-change','context-float','zero','clock-jump','batch-epoch','batch-unpin','batch-parent','batch-guard-unpin','batch-deadline'):
+   with self.subTest(mode=mode):subprocess.check_call([str(ROOT/'build/tests/intel-completion-core'),mode,'batch'],stdout=subprocess.DEVNULL)
+ def test_census_mid_callback_ownership_failures(self):
+  for mode in ('census-foreign-pre','census-map-pre','census-foreign-post','census-map-post'):
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);w=wake_result(t)['summary']
+    self.assertFalse(r['complete']);self.assertEqual(w['retained'],1);self.assertEqual(w['retired'],0)
+    if mode.endswith('pre'):
+     self.assertEqual(r['summary']['attempts'],0);self.assertEqual((r['clock']['c'],r['clock']['p']),(1,0))
+    else:
+     self.assertEqual(r['summary']['returned'],1);self.assertEqual(r['summary']['pin_returned'],0)
+     self.assertEqual((r['clock']['c'],r['clock']['p']),(2,1))
+ def test_failed_full_exit_retains_completed_write_prefix(self):
+  for kind in ('endpoint','backing'):
+   for n in range(1,5):
+    with self.subTest(kind=kind,n=n):
+     t=adapter('bcs-exit-'+kind+':'+str(n));r=bcs_result(t);s=r['summary'];w=wake_result(t)['summary']
+     self.assertFalse(r['complete']);self.assertEqual(s['writes']+s['reset_writes'],n)
+     self.assertEqual(s['attempts']+s['reset_attempts'],n)
+     self.assertEqual(s['returned'],0);self.assertEqual(s['uncertain'],1)
+     self.assertEqual((w['retained'],w['retired'],w['released']),(1,0,0))
+ def test_post_census_exit_fails_before_sample_acceptance(self):
+  for kind in ('endpoint','backing'):
+   for n in (1,2):
+    with self.subTest(kind=kind,n=n):
+     t=adapter('bcs-post-exit-'+kind+':'+str(n));r=bcs_result(t);s=r['summary'];w=wake_result(t)['summary']
+     self.assertFalse(r['complete']);self.assertEqual((s['writes'],s['reset_writes'],s['reset_acks']),(2,2,2))
+     self.assertEqual((s['returned'],s['pin_returned']),(1,0))
+     self.assertEqual(r['clock']['p'],n)
+     self.assertEqual(r['post']['summary']['samples'],n-1)
+     self.assertEqual((w['retained'],w['retired'],w['released']),(1,0,0))
+ def test_attention(self):
+  from hardware_desktop import needs_attention
+  clock=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-clock:'))
+  self.assertFalse(needs_attention(clock));self.assertTrue(needs_attention(clock+' extra=0'))
+  line=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-shutdown-summary:'))
+  self.assertFalse(needs_attention(line));self.assertTrue(needs_attention(line+' extra=0'))
+if __name__=='__main__':unittest.main()

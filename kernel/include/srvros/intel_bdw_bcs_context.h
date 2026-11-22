@@ -1,0 +1,24 @@
+#ifndef SRVROS_INTEL_BDW_BCS_CONTEXT_H
+#define SRVROS_INTEL_BDW_BCS_CONTEXT_H
+#include <stdbool.h>
+#include <stdint.h>
+#define BDW_BCS_IMAGE_BYTES 16384u
+#define BDW_BCS_IMAGE_WORDS 4096u
+#define BDW_BCS_STATE_WORDS 80u
+/* CPU image constructor only. Prospective GGTT addresses are not ownership.
+ * One private ring, two context pages (HWSP then register state), completion.
+ * Narrow legacy32/GGTT-only candidate: PPGTT disabled, all PDP registers zero.
+ * Does not certify actual mode, workaround/cache policy, context-ID uniqueness,
+ * translations, visibility or execution. In particular reserved descriptor bit5
+ * stays clear; a real provider must resolve coherency before any submission. */
+struct intel_bdw_bcs_context_config {
+ uint64_t ring_gpu,context_gpu,completion_gpu,aperture_bytes,fence_begin,fence_end,nonce;
+ uint32_t context_id,vendor,device;
+};
+/* Entire private 16KiB arena is initialized, including all unused bytes.
+ * Original config/output/descriptor must be disjoint; no changes on bad input.
+ * Does not map, publish, flush CPU caches, access hardware, submit or own RAM.
+ * Caller supplies independently owned writable CPU RAM with stable config. */
+bool intel_bdw_bcs_context_build(const struct intel_bdw_bcs_context_config *,volatile uint32_t *,uint64_t *descriptor);
+bool intel_bdw_bcs_context_verify(const struct intel_bdw_bcs_context_config *,volatile const uint32_t *,uint64_t descriptor);
+#endif
