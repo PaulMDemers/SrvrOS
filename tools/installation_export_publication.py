@@ -1,4 +1,4 @@
-"""Owned host publication of a fixed v1 export snapshot; no source recovery.
+"""Owned host publication of a fixed export snapshot; no source recovery.
 
 The private record is an integrity/ownership journal for cooperative offline
 operators, not authentication. Inspect never writes or flushes. Reconcile may
@@ -17,8 +17,10 @@ import uuid
 import installation_image as image
 import installation_inspection as inspection
 import profile_bundle as p
+import profile_stream
 
 FORMAT = 'srvros-export-publication-v1'
+STREAM_FORMAT = 'srvros-export-publication-v2'
 MAX_RECORD = 65536
 CHECKPOINTS = ('recorded', 'partial-write', 'written', 'file-synced', 'linked',
                'unlinked', 'directory-synced', 'acknowledged')
@@ -140,8 +142,19 @@ def projection(bundle):
                           for entry in bundle['documents']]}
 
 
+def stream_projection(bundle):
+    require(not bundle.legacy and type(bundle.metadata) is dict and
+            bundle.metadata.get('schema_version') == 2,
+            'publication recovery supports portable streaming v2 only')
+    profile_stream.validate_manifest(bundle.metadata)
+    return {'profile': bundle.metadata['profile'], 'preferences': bundle.metadata['preferences'],
+            'documents': [{k: entry[k] for k in ('path', 'size', 'sha256')}
+                          for entry in bundle.metadata['documents']]}
+
+
 def completion(record, intent_hash):
-    return p.encode_json({'format': 'srvros-export-complete-v1', 'attempt': record['attempt'],
+    ack_format = 'srvros-export-complete-v1' if record['format'] == FORMAT else 'srvros-export-complete-v2'
+    return p.encode_json({'format': ack_format, 'attempt': record['attempt'],
                           'intent_sha256': intent_hash, 'bundle_sha256': record['sha256'],
                           'bundle_identity': record['bundle_identity']})
 
@@ -166,7 +179,8 @@ def load(path, root, lock):
     p.exact(record, ('format', 'attempt', 'directory', 'directory_identity', 'lock_identity',
                      'output', 'parent_identity', 'bundle_identity', 'size', 'sha256',
                      'selection', 'source_snapshot'), 'export publication')
-    require(record['format'] == FORMAT and type(record['attempt']) is str and
+    require(record['format'] in (FORMAT, STREAM_FORMAT), 'invalid publication format')
+    require(type(record['attempt']) is str and
             str(uuid.UUID(record['attempt'])) == record['attempt'],
             'invalid publication format or attempt')
     for key in ('directory_identity', 'lock_identity', 'parent_identity', 'bundle_identity'):
@@ -175,7 +189,8 @@ def load(path, root, lock):
     require(record['directory'] == str(path) and record['directory_identity'] == identity(os.fstat(root))
             and record['directory_identity'] == identity(path.stat())
             and record['lock_identity'] == lock, 'publication identity mismatch')
-    require(type(record['size']) is int and 0 < record['size'] <= p.MAX_BUNDLE, 'invalid bundle size')
+    limit = p.MAX_BUNDLE if record['format'] == FORMAT else profile_stream.MAX_BUNDLE
+    require(type(record['size']) is int and 0 < record['size'] <= limit, 'invalid bundle size')
     valid_hash(record['sha256'])
     p.exact(record['selection'], ('profile', 'preferences', 'documents'), 'recorded selection')
     p.identity(record['selection']['profile']); p.preferences(record['selection']['preferences'])
@@ -205,11 +220,33 @@ def state(path, root, lock):
         else:
             require(all(s.st_size == record['size'] for s in found), 'bundle size mismatch')
             directory, name = (parent, output.name) if public else (root, 'bundle.partial')
-            raw, _ = read_regular(directory, name, p.MAX_BUNDLE, links=len(found))
-            require(digest(raw) == record['sha256'], 'bundle hash mismatch')
-            bundle = p.decode_json(raw)
-            require(p.encode_json(projection(bundle)) == p.encode_json(record['selection']) and p.encode_json(bundle) == raw,
-                    'bundle selection or encoding mismatch')
+            if record['format'] == FORMAT:
+                raw, _ = read_regular(directory, name, p.MAX_BUNDLE, links=len(found))
+                require(digest(raw) == record['sha256'], 'bundle hash mismatch')
+                bundle = p.decode_json(raw)
+                require(p.encode_json(projection(bundle)) == p.encode_json(record['selection']) and p.encode_json(bundle) == raw,
+                        'bundle selection or encoding mismatch')
+            else:
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+                try:
+                    before = os.fstat(fd)
+                    expected = public if public is not None else private
+                    current = named(directory, name)
+                    require(current is not None and
+                            os.pread(fd, len(profile_stream.MAGIC), 0) == profile_stream.MAGIC and
+                            stable(before) == stable(expected) and stable(before) == stable(current) and
+                            before.st_nlink == len(found), 'stream publication file changed')
+                    with profile_stream.open_bundle_fd(fd, expected_links=len(found),
+                                                       require_canonical=True) as bundle:
+                        require(bundle.stamp[2] == record['size'] and bundle.sha256 == record['sha256'],
+                                'stream bundle size or hash mismatch')
+                        require(p.encode_json(stream_projection(bundle)) == p.encode_json(record['selection']),
+                                'stream bundle selection mismatch')
+                    current = named(directory, name)
+                    require(current is not None and stable(os.fstat(fd)) == stable(before) and
+                            stable(current) == stable(before), 'stream publication file changed')
+                finally:
+                    os.close(fd)
             if complete:
                 ack, _ = read_regular(root, 'complete.json', MAX_RECORD)
                 require(public and not private and ack == completion(record, intent_hash),
@@ -329,6 +366,91 @@ def publish(publication_dir, output, bundle, source_snapshot, checkpoint=None):
             finally:
                 os.close(fd)
             result = finish(path, root, lock, checkpoint)
+        return result
+    except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
+        if 'output' in locals():
+            visible = os.path.lexists(output)
+        return {'state': 'refused', 'can_reconcile': False, 'publication_dir': str(publication_dir),
+                'visible_uncertain': visible, 'reason': str(error)[:512]}
+
+
+def _write_chunk(fd, data):
+    view = memoryview(data)
+    while view:
+        count = os.write(fd, view)
+        require(type(count) is int and 0 < count <= len(view), 'short publication write')
+        view = view[count:]
+
+
+@contextmanager
+def _open_stream_spool(spool):
+    if isinstance(spool, (str, os.PathLike)):
+        with profile_stream.open_bundle(image.checked_path(spool), require_canonical=True) as bundle:
+            yield bundle
+        return
+    fd = spool if type(spool) is int else spool.fileno()
+    require(os.fstat(fd).st_nlink == 0, 'file-like stream spool must be anonymous')
+    with profile_stream.open_bundle_fd(fd, expected_links=0, require_canonical=True) as bundle:
+        yield bundle
+
+
+def publish_stream(publication_dir, output, bundle_path, source_snapshot, checkpoint=None):
+    """Publish a validated v2 spool through the same recoverable hardlink protocol."""
+    checkpoint = checkpoint or (lambda _: None)
+    visible = False
+    try:
+        source_observation(source_snapshot)
+        path, output = image.checked_path(publication_dir), image.checked_path(output)
+        source = image.checked_path(source_snapshot['stage'])
+        require(path != source and source not in path.parents and output != source and
+                source not in output.parents and path != output and path not in output.parents,
+                'publication/output overlaps source or publication directory')
+        require(not os.path.lexists(output), 'output already exists')
+        parent = output.parent.stat()
+        require(stat.S_ISDIR(parent.st_mode) and path.parent.stat().st_dev == parent.st_dev,
+                'publication and output must share a host filesystem')
+        with _open_stream_spool(bundle_path) as bundle:
+            selected = stream_projection(bundle)
+            require(bundle.stamp[2] <= profile_stream.MAX_BUNDLE, 'stream bundle exceeds size limit')
+            size, expected_hash = bundle.stamp[2], bundle.sha256
+            with locked(path, exclusive=True, create=True) as (path, root, lock):
+                fd = os.open('bundle.partial', os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=root)
+                try:
+                    os.fsync(fd)
+                    record = {'format': STREAM_FORMAT, 'attempt': str(uuid.uuid4()), 'directory': str(path),
+                              'directory_identity': identity(os.fstat(root)), 'lock_identity': lock,
+                              'output': str(output), 'parent_identity': identity(parent),
+                              'bundle_identity': identity(os.fstat(fd)), 'size': size, 'sha256': expected_hash,
+                              'selection': selected, 'source_snapshot': source_snapshot}
+                    encoded = p.encode_json(record)
+                    require(len(encoded) <= MAX_RECORD, 'publication record exceeds limit')
+                    write_new(root, 'intent.json', encoded)
+                    write_new(root, 'intent.sha256', (digest(encoded) + '\n').encode())
+                    os.fsync(root)
+                    image.sync_dir(path.parent)
+                    checkpoint('recorded')
+                    bundle.stream.seek(0)
+                    require(size >= 2, 'stream spool is too small')
+                    copied, hasher, partial_checkpoint = 0, hashlib.sha256(), False
+                    while copied < size:
+                        amount = min(profile_stream.BUFFER, size - copied)
+                        if not partial_checkpoint:
+                            amount = min(amount, size // 2 - copied)
+                        chunk = bundle.stream.read(amount)
+                        require(chunk, 'truncated stream spool during publication')
+                        _write_chunk(fd, chunk)
+                        hasher.update(chunk)
+                        copied += len(chunk)
+                        if not partial_checkpoint and copied >= size // 2:
+                            partial_checkpoint = True
+                            checkpoint('partial-write')
+                    require(copied == size and hasher.hexdigest() == expected_hash and
+                            bundle.recheck() == expected_hash, 'stream spool changed during publication')
+                    checkpoint('written')
+                finally:
+                    os.close(fd)
+                result = finish(path, root, lock, checkpoint)
         return result
     except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
         if 'output' in locals():

@@ -1,6 +1,8 @@
 """Export explicitly selected portable data from an admitted offline installation."""
 import base64
+from contextlib import nullcontext
 import hashlib
+import json
 import os
 from pathlib import Path
 import selectors
@@ -14,6 +16,7 @@ import time
 import installation_image as image
 import installation_inspection as inspection
 import profile_bundle as p
+import profile_stream as stream
 
 MAGIC = b'srvros-installed-export-v1\n'
 
@@ -22,41 +25,39 @@ class PublicationUncertain(OSError):
     pass
 
 
-def driver_bytes(driver, fd, spec, home, documents):
-    proc = subprocess.Popen([str(driver), '--fd', str(fd), str(spec['offset_bytes']),
-                             str(spec['size_bytes']), home, *documents],
+def collect_driver(driver, fd, spec, home, documents, magic, total_limit, sink=None):
+    proc = subprocess.Popen([str(driver), '--stream-fd' if sink is not None else '--fd',
+                             str(fd), str(spec['offset_bytes']), str(spec['size_bytes']),
+                             home, *documents],
                             pass_fds=(fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     sel = selectors.DefaultSelector()
-    output = {proc.stdout: bytearray(), proc.stderr: bytearray()}
-    for stream in output:
-        sel.register(stream, selectors.EVENT_READ)
+    raw = bytearray()
+    errors = bytearray()
+    byte_limit = len(magic) + 8 * (len(documents) + 1) + 512 + total_limit
+    received = 0
     try:
+        sel.register(proc.stdout, selectors.EVENT_READ)
+        sel.register(proc.stderr, selectors.EVENT_READ)
         deadline = time.monotonic() + 120
         while sel.get_map():
             inspection.require(time.monotonic() < deadline, 'export driver timed out')
             for key, _ in sel.select(timeout=min(2, max(0, deadline - time.monotonic()))):
-                chunk = os.read(key.fd, 65536)
+                chunk = os.read(key.fd, stream.BUFFER)
                 if not chunk:
                     sel.unregister(key.fileobj)
-                    continue
-                data = output[key.fileobj]
-                data.extend(chunk)
-                limit = len(MAGIC) + 8 * (len(documents) + 1) + 512 + p.MAX_TOTAL if key.fileobj is proc.stdout else 16384
-                inspection.require(len(data) <= limit, 'export driver output exceeds limit')
-        inspection.require(proc.wait(timeout=30) == 0, 'export driver refused filesystem: ' + bytes(output[proc.stderr]).decode('utf-8', 'replace')[:512])
-        raw = bytes(output[proc.stdout])
-        inspection.require(raw.startswith(MAGIC), 'invalid export driver header')
-        position = len(MAGIC)
-        frames = []
-        for limit in [512] + [p.MAX_FILE] * len(documents):
-            inspection.require(position + 8 <= len(raw), 'truncated export frame')
-            size = struct.unpack_from('<Q', raw, position)[0]
-            position += 8
-            inspection.require(size <= limit and position + size <= len(raw), 'invalid export frame size')
-            frames.append(raw[position:position + size])
-            position += size
-        inspection.require(position == len(raw) and sum(map(len, frames[1:])) <= p.MAX_TOTAL, 'invalid export frame length')
-        return frames
+                elif key.fileobj is proc.stderr:
+                    errors.extend(chunk)
+                    inspection.require(len(errors) <= 16384, 'export driver output exceeds limit')
+                else:
+                    received += len(chunk)
+                    inspection.require(received <= byte_limit, 'export driver output exceeds limit')
+                    if sink is None:
+                        raw.extend(chunk)
+                    elif sink.write(chunk) != len(chunk):
+                        raise OSError('short driver spool write')
+        inspection.require(proc.wait(timeout=30) == 0,
+                           'export driver refused filesystem: ' + errors.decode('utf-8', 'replace')[:512])
+        return bytes(raw)
     finally:
         if proc.poll() is None:
             proc.kill()
@@ -64,6 +65,74 @@ def driver_bytes(driver, fd, spec, home, documents):
         sel.close()
         proc.stdout.close()
         proc.stderr.close()
+
+
+def driver_bytes(driver, fd, spec, home, documents):
+    raw = collect_driver(driver, fd, spec, home, documents, MAGIC, p.MAX_TOTAL)
+    inspection.require(raw.startswith(MAGIC), 'invalid export driver header')
+    position = len(MAGIC)
+    frames = []
+    for limit in [512] + [p.MAX_FILE] * len(documents):
+        inspection.require(position + 8 <= len(raw), 'truncated export frame')
+        size = struct.unpack_from('<Q', raw, position)[0]
+        position += 8
+        inspection.require(size <= limit and position + size <= len(raw), 'invalid export frame size')
+        frames.append(raw[position:position + size])
+        position += size
+    inspection.require(position == len(raw) and sum(map(len, frames[1:])) <= p.MAX_TOTAL,
+                       'invalid export frame length')
+    return frames
+
+
+def encode_stream(driver, fd, spec, home, documents, who, bundle_spool):
+    magic = b'srvros-installed-export-v2\n'
+
+    def frame_size(source, limit):
+        length = source.read(8)
+        inspection.require(len(length) == 8, 'truncated export frame')
+        size, = struct.unpack('<Q', length)
+        inspection.require(size <= limit, 'invalid export frame size')
+        return size
+
+    def payload(source, size):
+        while size:
+            chunk = source.read(min(size, stream.BUFFER))
+            inspection.require(chunk, 'truncated export payload')
+            size -= len(chunk)
+            yield chunk
+
+    with tempfile.TemporaryFile() as frames:
+        collect_driver(driver, fd, spec, home, documents, magic, stream.MAX_TOTAL, frames)
+        frames.seek(0)
+        inspection.require(frames.read(len(magic)) == magic, 'invalid export driver header')
+        size = frame_size(frames, 512)
+        prefs = inspection.guest_preferences(b''.join(payload(frames, size)))
+        entries = []
+        offsets = []
+        total = 0
+        for name in documents:
+            size = frame_size(frames, stream.MAX_FILE)
+            total += size
+            inspection.require(total <= stream.MAX_TOTAL, 'invalid export frame length')
+            offsets.append(frames.tell())
+            digest = hashlib.sha256()
+            for chunk in payload(frames, size):
+                digest.update(chunk)
+            entries.append({'path': name, 'size': size, 'sha256': digest.hexdigest()})
+        inspection.require(not frames.read(1), 'invalid export frame length')
+        bundle = {'format': p.FORMAT, 'schema_version': 2, 'profile': who,
+                  'preferences': prefs, 'documents': entries}
+        stream.validate_manifest(bundle)
+        manifest = json.dumps(bundle, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('utf-8')
+        inspection.require(len(manifest) <= stream.MAX_MANIFEST, 'manifest exceeds size limit')
+        bundle_spool.write(stream.HEADER.pack(stream.MAGIC, len(manifest), 0))
+        bundle_spool.write(manifest)
+        for offset, entry in zip(offsets, entries):
+            frames.seek(offset)
+            for chunk in payload(frames, entry['size']):
+                bundle_spool.write(chunk)
+        bundle_spool.flush()
+    return bundle
 
 
 def output_path(path, target):
@@ -122,8 +191,10 @@ def publish(path, bundle):
 
 
 def export_installed(stage, output, profile_id, home, documents, inspect_driver, export_driver,
-                     publication_dir=None, checkpoint=None):
+                     publication_dir=None, checkpoint=None, *, bundle_version=1):
     try:
+        inspection.require(type(bundle_version) is int and bundle_version in (1, 2), 'invalid bundle version')
+        inspection.require(bundle_version == 1 or publication_dir is not None, 'v2 export requires a publication directory')
         target = image.checked_path(stage)
         path = output_path(output, target)
         p.profile_id(profile_id)
@@ -141,7 +212,8 @@ def export_installed(stage, output, profile_id, home, documents, inspect_driver,
         if publication_path is not None:
             inspection.require(publication_path != target and target not in publication_path.parents and
                                not os.path.lexists(publication_path), 'publication directory exists or overlaps stage')
-        with image.plan_lock(target):
+        spool = tempfile.TemporaryFile() if bundle_version == 2 else nullcontext()
+        with spool as bundle_spool, image.plan_lock(target):
             def read_selected(fd, plan, profiles):
                 for source in plan['sources'].values():
                     source_path = Path(source['path'])
@@ -153,6 +225,10 @@ def export_installed(stage, output, profile_id, home, documents, inspect_driver,
                 matches = [x for x in profiles if x['profile_id'] == profile_id and x['home'] == home]
                 inspection.require(len(matches) == 1, 'selected profile not admitted')
                 who = p.identity({'id': profile_id, 'display_name': matches[0]['display_name']})
+                if bundle_version == 2:
+                    bundle = encode_stream(driver_record['path'], fd, plan['layout']['exfat'], home, documents, who, bundle_spool)
+                    inspection.require(image.source(export_driver) == driver_record, 'export driver changed')
+                    return bundle
                 frames = driver_bytes(driver_record['path'], fd, plan['layout']['exfat'], home, documents)
                 inspection.require(image.source(export_driver) == driver_record, 'export driver changed')
                 prefs = inspection.guest_preferences(frames[0])
@@ -169,9 +245,12 @@ def export_installed(stage, output, profile_id, home, documents, inspect_driver,
                 digest = publish(path, bundle)
             else:
                 import installation_export_publication as publication
-                recovery = publication.publish(publication_path, path, bundle,
-                    {'stage': str(target), 'plan_sha256': image.digest(target / 'plan.json'),
-                     'image_sha256': result['current_image_sha256'], 'home': home}, checkpoint)
+                snapshot = {'stage': str(target), 'plan_sha256': image.digest(target / 'plan.json'),
+                            'image_sha256': result['current_image_sha256'], 'home': home}
+                if bundle_version == 2:
+                    recovery = publication.publish_stream(publication_path, path, bundle_spool, snapshot, checkpoint)
+                else:
+                    recovery = publication.publish(publication_path, path, bundle, snapshot, checkpoint)
                 if recovery['state'] != 'complete':
                     return {'state': 'refused', 'read_only_source': True, 'output': str(path),
                             'export_publication': recovery, 'reason': recovery.get('reason', 'publication incomplete'),
@@ -182,7 +261,8 @@ def export_installed(stage, output, profile_id, home, documents, inspect_driver,
                 'documents': [{k: e[k] for k in ('path', 'size', 'sha256')} for e in bundle['documents']],
                 'current_image_sha256': result['current_image_sha256'], 'source_used': result['used'],
                 'filesystem': result['filesystem'], 'publication': result['publication'], 'inspect_driver': result['driver'],
-                'export_driver': driver_record, **({'export_publication': recovery} if recovery is not None else {})}
+                'export_driver': driver_record, **({'export_publication': recovery} if recovery is not None else {}),
+                **({'bundle_version': 2} if bundle_version == 2 else {})}
     except PublicationUncertain as error:
         return {'state': 'refused', 'read_only_source': True, 'visible_uncertain': True,
                 'output': str(path), 'reason': str(error)[:512]}

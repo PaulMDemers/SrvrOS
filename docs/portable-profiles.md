@@ -32,8 +32,9 @@ allocation and separate preregistered ceilings.
 
 Guest commands, Profiles import/export/recovery, the host portable-fixture
 codec and [fresh offline installation restore](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
-support both formats. Canonical offline installation profile export and export
-recovery use v1. Authentication,
+support both formats. [Offline export](disk-installation.md#recoverable-offline-export-publication)
+defaults to v1. Opt in to v2 with `--bundle-version 2` and a publication directory
+so the export can be inspected and reconciled after interruption. Authentication,
 credential handling, permission enforcement, login, cloud roaming and multi-user
 security isolation remain separate.
 

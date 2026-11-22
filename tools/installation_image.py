@@ -686,6 +686,7 @@ def main():
     export.add_argument('--export-driver', required=True)
     import installation_export_publication as export_publication
     export.add_argument('--publication-dir')
+    export.add_argument('--bundle-version', type=int, choices=(1, 2), default=1)
     export.add_argument('--interrupt-after', choices=export_publication.CHECKPOINTS)
     export_inspect = sub.add_parser('inspect-export')
     export_inspect.add_argument('publication_dir')
@@ -718,12 +719,15 @@ def main():
             from installation_export import export_installed
             if args.interrupt_after and not args.publication_dir:
                 parser.error('--interrupt-after requires --publication-dir')
+            if args.bundle_version == 2 and not args.publication_dir:
+                parser.error('--bundle-version 2 requires --publication-dir')
             def checkpoint(name):
                 if name == args.interrupt_after:
                     os._exit(75)
             result = export_installed(args.staging_dir, args.output, args.profile_id, args.home,
                                       args.document, args.inspect_driver, args.export_driver,
-                                      args.publication_dir, checkpoint if args.publication_dir else None)
+                                      args.publication_dir, checkpoint if args.publication_dir else None,
+                                      bundle_version=args.bundle_version)
         elif args.action == 'inspect-export':
             result = export_publication.inspect(args.publication_dir)
         elif args.action == 'reconcile-export':

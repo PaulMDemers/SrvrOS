@@ -1,5 +1,15 @@
 # Apple Silicon macOS build host
 
+## Offline v2 profile export and publication
+
+Current scope uses merged OS #502 (`28eb6291`) for fresh-install restore and OS
+#367 for the portable stream format. Work is isolated on
+`device/apple-silicon/offline-export-v2`. It owns the offline exporter, native
+read adapter, publication recovery and bounded round-trip verification. The
+acceptance gate is default-v1 compatibility, v2 interruption and reconciliation,
+and exact selected bytes after reboot on a fresh disposable EFI guest. Existing
+media and authentication and permission enforcement are outside this scope.
+
 ## Offline streaming-v2 installation restore — November 22, 2026
 
 Installation checkout `SrvrOS-installation-stream-v2` starts from integrated

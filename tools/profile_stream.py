@@ -25,9 +25,10 @@ require = v1.require
 ProfileError = v1.ProfileError
 
 
-def _stamp(fd):
+def _stamp(fd, expected_links=1):
     s = os.fstat(fd)
-    require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, 'only single-link regular files supported')
+    message = 'only single-link regular files supported' if expected_links == 1 else 'invalid regular file link count'
+    require(stat.S_ISREG(s.st_mode) and s.st_nlink == expected_links, message)
     return (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
 
 
@@ -103,12 +104,16 @@ def validate_manifest(bundle):
 
 class Bundle:
     """Validated owned source; offsets and sha256 describe the exact open file."""
-    def __init__(self, stream, stamp, path):
-        self.stream, self.stamp, self.path = stream, stamp, Path(os.path.abspath(path))
+    def __init__(self, stream, stamp, path, expected_links=1, require_canonical=False):
+        self.stream, self.stamp = stream, stamp
+        self.path = Path(os.path.abspath(path)) if path is not None else None
+        self.expected_links = expected_links
+        self.require_canonical = require_canonical
         require(stamp[2] <= MAX_BUNDLE, 'bundle exceeds size limit')
         prefix = _read_exact(stream, min(len(MAGIC), stamp[2]))
         stream.seek(0)
         self.legacy = prefix != MAGIC
+        require(not require_canonical or not self.legacy, 'streaming v2 bundle required')
         if self.legacy:
             require(stamp[2] <= v1.MAX_BUNDLE, 'legacy bundle exceeds size limit')
             data = _read_exact(stream, stamp[2])
@@ -118,7 +123,12 @@ class Bundle:
         else:
             magic, length, reserved = HEADER.unpack(_read_exact(stream, HEADER.size))
             require(magic == MAGIC and reserved == 0 and 0 < length <= MAX_MANIFEST, 'invalid stream header')
-            self.metadata = v1.decode_json(_read_exact(stream, length))
+            manifest = _read_exact(stream, length)
+            self.metadata = v1.decode_json(manifest)
+            if self.require_canonical:
+                canonical = json.dumps(self.metadata, sort_keys=True, separators=(',', ':'),
+                                       ensure_ascii=True).encode('utf-8')
+                require(manifest == canonical, 'noncanonical stream manifest')
             total = validate_manifest(self.metadata)
             require(stamp[2] == HEADER.size + length + total, 'bundle length mismatch')
             self.offsets = {}
@@ -131,12 +141,13 @@ class Bundle:
         self.sha256 = self.recheck()
 
     def recheck(self):
-        current = self.path.lstat()
-        require(stat.S_ISREG(current.st_mode) and (current.st_dev, current.st_ino) == self.stamp[:2], 'source pathname changed')
-        require(_stamp(self.stream.fileno()) == self.stamp, 'source changed')
+        if self.path is not None:
+            current = self.path.lstat()
+            require(stat.S_ISREG(current.st_mode) and (current.st_dev, current.st_ino) == self.stamp[:2], 'source pathname changed')
+        require(_stamp(self.stream.fileno(), self.expected_links) == self.stamp, 'source changed')
         self.stream.seek(0)
         digest = _hash_range(self.stream, self.stamp[2])
-        require(not self.stream.read(1) and _stamp(self.stream.fileno()) == self.stamp, 'source changed')
+        require(not self.stream.read(1) and _stamp(self.stream.fileno(), self.expected_links) == self.stamp, 'source changed')
         return digest
 
     def copy_document(self, entry, output):
@@ -146,12 +157,24 @@ class Bundle:
 
 
 @contextmanager
-def open_bundle(path):
+def open_bundle(path, require_canonical=False):
     stream, stamp = _open(path)
     try:
-        yield Bundle(stream, stamp, path)
+        yield Bundle(stream, stamp, path, 1, require_canonical)
     finally:
         stream.close()
+
+
+@contextmanager
+def open_bundle_fd(fd, expected_links=1, require_canonical=False):
+    """Validate an already pinned, no-follow regular file descriptor."""
+    owned = os.fdopen(os.dup(fd), 'rb', buffering=0)
+    try:
+        owned.seek(0)
+        stamp = _stamp(owned.fileno(), expected_links)
+        yield Bundle(owned, stamp, None, expected_links, require_canonical)
+    finally:
+        owned.close()
 
 
 def import_bundle(root, path, alias, uid, gid, checkpoint=lambda _: None):
