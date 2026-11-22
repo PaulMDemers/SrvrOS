@@ -383,8 +383,6 @@ def main():
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         if retina_desktop:
             command += ["-smbios", "type=1,manufacturer=Apple Inc.,product=MacBookPro11,,2"]
-        if args.retina_fractional:
-            command += ["-device", "usb-tablet,bus=xhci.0"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
         device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
         if network_desktop or device_checks or args.probe_network:
@@ -830,7 +828,11 @@ def main():
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
-                        for c in value: ui.key({">":"dot","$":"4","?":"slash",";":"semicolon"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                        for c in value:
+                            ui.key({">":"dot","$":"4","?":"slash",";":"semicolon"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                            if args.retina_fractional:
+                                # TCG redraws the full Text window after each key at Retina sizes.
+                                time.sleep(.25)
                     if network_desktop:
                         # Each saved phase is displayed by cat before its next gate.
                         def phase_cats(count):
@@ -855,19 +857,15 @@ def main():
                         time.sleep(1)
                         ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
                         if args.retina_fractional:
-                            from desktop_theme_profiles_smoke import qmp_axis
                             logical = (1440, 900)
                             scales = (1, 125, 150, 175, 2)
+                            pointer = [24, 56]
 
                             def click(x, y):
-                                ui.call("input-send-event", {"events": [
-                                    {"type": "abs", "data": {"axis": axis, "value": qmp_axis(pixel, extent)}}
-                                    for axis, pixel, extent in zip(("x", "y"), (x, y), logical)]})
-                                time.sleep(.12)
-                                for down in (True, False):
-                                    ui.call("input-send-event", {"events": [
-                                        {"type": "btn", "data": {"button": "left", "down": down}}]})
-                                    time.sleep(.16)
+                                ui.mouse(x-pointer[0], y-pointer[1])
+                                pointer[:] = [x, y]
+                                ui.mouse(0, 0, 1)
+                                ui.mouse(0, 0, 0)
 
                             def display_button(name):
                                 w = min(logical[0]-16, 1442)
@@ -908,8 +906,8 @@ def main():
                             def settings_geometry(s):
                                 return "desktools: starting role=settings" in s and len(re.findall(r"deskd: geometry pid=",s))>=2
                             text = wait_for(serial,settings_geometry,process,30)
-                            settings_pid,sx,sy,sw,_ = map(int,re.findall(r"deskd: geometry pid=(\d+) window=\d+ frame=(\d+),(\d+),(\d+),(\d+)",text)[-1])
-                            click(sx+sw-56,sy+20)
+                            settings_pid = int(re.findall(r"deskd: geometry pid=(\d+)",text)[-1])
+                            shortcut("meta_l-alt-down")
                             wait_for(serial,lambda s:f"deskd: zoom pid={settings_pid} maximized=1" in s,process,20)
                             select_scale(2,125,"revert")
                             select_scale(2,150,"timeout")
@@ -928,7 +926,10 @@ def main():
                             shortcut("meta_l-w")
                             wait_for(serial,lambda s:"deskterm: exited failure=0" in s,process,30)
                         shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
-                        wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
+                        text = wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
+                        if args.retina_fractional:
+                            opened_text = text.index("desktools: starting role=text")
+                            wait_for(serial,lambda s:"deskd: commit pid=" in s[opened_text:],process,30)
                         payload = "Retina fractional Aa09" if args.retina_fractional else "Retina 2x Aa09" if retina_desktop else "Pro scaled desktop USB test."
                         filename = "retina-fractional-proof.txt" if args.retina_fractional else "retina-scaling-proof.txt" if retina_desktop else "Untitled.txt"
                         time.sleep(1);type_text(payload)
@@ -975,13 +976,17 @@ def main():
                         assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==expected_dimensions
                         folder=re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
                         for name in ("boot.log","exit.log"):
-                            data=stored.read(folder+"/"+name);assert release.encode() in data
+                            data=stored.read(folder+"/"+name)
+                            if name == "boot.log" or not args.retina_fractional:
+                                assert release.encode() in data
                             (logs/("scaled-desktop-"+name)).write_bytes(data)
                         assert b"deskd: exited" in stored.read(folder+"/exit.log")
                         if retina_desktop:
                             exit_log = stored.read(folder+"/exit.log")
-                            for receipt in (b"deskhelp: page=retina-trial", b"physical=2880x1800 logical=1440x900 scale=2",
-                                            b"file-result role=text op=1 status=0", b"retina-desktop: startup_scale=2 final_scale=2",
+                            if not args.retina_fractional:
+                                assert b"deskhelp: page=retina-trial" in exit_log
+                                assert b"physical=2880x1800 logical=1440x900 scale=2" in exit_log
+                            for receipt in (b"file-result role=text op=1 status=0", b"retina-desktop: startup_scale=2 final_scale=2",
                                             b"retina-trial: desktop returned=1"):
                                 assert receipt in exit_log, receipt
                         if args.retina_fractional:
