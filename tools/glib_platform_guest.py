@@ -2,6 +2,7 @@
 """Run native GLib prerequisite probes in a disposable SrvrOS guest."""
 
 import argparse
+from contextlib import ExitStack
 import hashlib
 import io
 import json
@@ -10,6 +11,7 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -27,6 +29,7 @@ PCRE2_MARKER = b'glib-pcre2: ok'
 LIBFFI_MARKER = b'glib-libffi: ok'
 ZLIB_MARKER = b'glib-zlib: ok'
 PROXY_INTL_MARKER = b'glib-proxy-intl: ok'
+RESOLVER_MARKER = b'glib-resolver: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -35,17 +38,35 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run_guest(image, output, receipt, probes):
-    with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp:
+def run_guest(image, output, receipt, probes, dns_peer=None):
+    with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp, ExitStack() as stack:
         uart = str(Path(temp) / 'serial')
         argv = ['qemu-system-x86_64', '-name', 'SrvrOS GLib prerequisite probe',
                 '-machine', 'q35', '-accel', 'tcg,thread=single', '-cpu', 'qemu64',
                 '-smp', '1', '-m', '512M', '-cdrom', str(image), '-boot', 'd',
-                '-display', 'none', '-nic', 'none', '-serial',
+                '-display', 'none', '-serial',
                 f'unix:{uart},server=on,wait=off', '-monitor', 'none', '-no-reboot']
+        pass_fds = ()
+        if dns_peer:
+            a, b = socket.socketpair()
+            stack.enter_context(a)
+            stack.enter_context(b)
+            stats = output / 'dns-peer.json'
+            peer_argv = [sys.executable, dns_peer, '--fd', str(a.fileno()), '--stats', stats]
+            peer = stack.enter_context(subprocess.Popen(peer_argv, pass_fds=(a.fileno(),)))
+            stack.callback(peer.terminate)
+            a.close()
+            pass_fds = (b.fileno(),)
+            argv += ['-netdev', f'socket,id=fixture,fd={b.fileno()}', '-device', 'e1000,netdev=fixture']
+        else:
+            argv += ['-nic', 'none']
         receipt['qemu_argv'] = argv
         with (output / 'qemu.log').open('wb') as log, (output / 'serial.log').open('wb') as serial:
-            process = subprocess.Popen(argv, stdout=log, stderr=log)
+            try:
+                process = subprocess.Popen(argv, stdout=log, stderr=log, pass_fds=pass_fds)
+            finally:
+                if dns_peer:
+                    b.close()
             try:
                 with socket.socket(socket.AF_UNIX) as connection:
                     deadline = time.monotonic() + 10
@@ -89,6 +110,26 @@ def run_guest(image, output, receipt, probes):
                         process.kill()
                         process.wait(timeout=5)
                 receipt['guest_stopped'] = process.poll() is not None
+                if dns_peer:
+                    try:
+                        peer_exit = peer.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        peer.kill()
+                        peer_exit = peer.wait(timeout=5)
+                    receipt['dns_peer_exit'] = peer_exit
+                    if stats.is_file():
+                        receipt['dns_peer_sha256'] = digest(stats)
+        if dns_peer:
+            expected = dict.fromkeys(('good', 'large', 'missing', 'nodata', 'temporary',
+                                      'truncated', 'mismatch', 'legacy', 'malformed', 'service'), 2)
+            expected.update(large=4, missing=4)
+            observed = json.loads(stats.read_text())
+            if (peer_exit or observed['queries'] != expected or observed['invalid_frames'] or
+                observed['rejected_queries'] or observed['dns_responses'] != 30 or
+                observed['deliberate_mismatch_replies'] != 4 or
+                observed['deliberate_malformed_replies'] != 2):
+                raise RuntimeError(f'unexpected DNS fixture traffic: {observed}')
+            receipt['dns_peer_queries'] = observed['queries']
 
 
 def main():
@@ -98,6 +139,7 @@ def main():
     parser.add_argument('--libffi-prefix', type=Path, help='target libffi prefix from browser_glib_iconv.py')
     parser.add_argument('--zlib-prefix', type=Path, help='target zlib prefix from browser_glib_iconv.py')
     parser.add_argument('--proxy-intl-prefix', type=Path, help='target proxy-libintl prefix from browser_glib_iconv.py')
+    parser.add_argument('--resolver', action='store_true', help='test the SDK resolver against a private DNS peer')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -131,6 +173,20 @@ def main():
         receipt['payload_sha256'] = digest(elf)
         payloads = {'glib-platform': elf}
         probes = {'glib-platform': (MARKER, GUI_MARKER)}
+        dns_peer = None
+        if args.resolver:
+            dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
+            unit = ROOT / 'tools/test_glib_resolver_guest.c'
+            for path in (dns_peer, unit):
+                receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
+            obj = output / 'resolver.o'
+            resolver = output / 'resolver.elf'
+            subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
+                            '-c', unit, '-o', obj], cwd=ROOT, check=True, timeout=60)
+            subprocess.run([compiler, obj, '-o', resolver], cwd=ROOT, check=True, timeout=60)
+            payloads['glib-resolver'] = resolver
+            probes['glib-resolver'] = (RESOLVER_MARKER,)
+            receipt['resolver_payload_sha256'] = digest(resolver)
         dependencies = [
             ('iconv', args.iconv_prefix, ('iconv.h',), 'libiconv.a', ICONV_MARKER),
             ('pcre2', args.pcre2_prefix, ('pcre2.h',), 'libpcre2-8.a', PCRE2_MARKER),
@@ -183,7 +239,7 @@ def main():
             subprocess.run([limine / 'limine', 'bios-install', image], check=True,
                            timeout=30, stdout=log, stderr=log)
         receipt['image_sha256'] = digest(image)
-        run_guest(image, output, receipt, probes)
+        run_guest(image, output, receipt, probes, dns_peer)
         receipt['result'] = 'passed'
     except Exception as error:
         receipt['error'] = str(error)

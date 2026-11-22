@@ -570,6 +570,23 @@ and code zero before responding or completing a pending ping. See the
 [datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
 
 
+The SDK exports the DNS Internet class macro `C_IN` with value 1 through
+`<arpa/nameser.h>`. `res_query()` in `<resolv.h>` sends a single Internet-class
+question for an absolute name over IPv4 UDP. It validates the server endpoint,
+transaction ID, question and record boundaries before returning a complete
+wire reply of up to 1,472 bytes. If the caller buffer is too small, the return
+value gives the required size and the buffer is untouched. The SDK recognizes
+compression boundaries in question and owner names and in NS, CNAME, PTR,
+DNAME, SOA, MX and SRV record data. Other record data is opaque, so a pointer
+into an embedded name in that data can be rejected.
+
+`h_errno` is thread-local. NXDOMAIN yields `HOST_NOT_FOUND`. A successful DNS
+status with zero answers yields `NO_DATA`. SERVFAIL and transport failure
+yield `TRY_AGAIN`. A matched truncated response yields `TRY_AGAIN` with
+`EMSGSIZE`. Invalid arguments yield `NO_RECOVERY` with `EINVAL`. The query
+supports UDP only and uses the existing three receive budgets of two seconds
+each. See the [GIO resolver verification](browser-glib-prereq.md#gio-raw-resolver-query).
+
 ARP waits resolve their captured target from the bounded cache, so overlapping
 lookups cannot consume each other's completion. Only ARP request/reply opcodes
 update that cache. Native DNS permits one active query across ARP and all retries;

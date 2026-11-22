@@ -167,6 +167,25 @@ runs exit 0. The guest stops and the VM window returns to integration.
 GLib selects the internal fallback and stops at GIO's `C_IN` header
 check. See the [proxy-libintl receipt](../assets/evidence/glib-proxy-intl/receipt.json).
 
+## GIO resolver header — November 22, 2026
+
+Main `e186c911` supplies the verified dependency set. The browser topic
+exports `<arpa/nameser.h>` with `C_IN = 1`. The rebuilt SDK passes strict
+target C and C++ checks, and its runtime inputs match the prior hashes.
+The rerun passes GIO's primary `C_IN` compile check and stops at
+`res_query()`. The VM window stays available. See the
+[GIO header receipt](../assets/evidence/gio-nameser/receipt.json).
+
+## GIO resolver guest — November 22, 2026
+
+PR #511 at `c7c06f15` restored 161 SDK and boot files from the verified
+browser checkpoint and matched the pinned Zig binary. One diskless,
+single-CPU Q35 guest passed both platform and both resolver runs. The private
+DNS peer handled 24 queries. The guest returned to its monitor after each
+probe, and both processes stopped. Kernel, init and probe bytes were verified
+by reading the boot ISO. The VM window was returned to integration.
+See the [resolver receipt](../assets/evidence/gio-res-query/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

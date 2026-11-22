@@ -2114,23 +2114,9 @@ static uint32_t resolver_server_ip(void) {
     return srv_ip_to_sockaddr(((uint32_t)10 << 24) | ((uint32_t)0 << 16) | ((uint32_t)2 << 8) | 3);
 }
 
-static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
-    unsigned char packet[512];
-    memset(packet, 0, sizeof(packet));
-    uint16_t query_id = 0x7372;
-    dns_write_be16(packet + 0, query_id);
-    dns_write_be16(packet + 2, 0x0100);
-    dns_write_be16(packet + 4, 1);
-
-    size_t offset = 12;
-    if (dns_encode_name(packet, &offset, sizeof(packet), name) < 0 || offset + 4 > sizeof(packet)) {
-        return -1;
-    }
-    dns_write_be16(packet + offset, 1);
-    offset += 2;
-    dns_write_be16(packet + offset, 1);
-    offset += 2;
-
+static int dns_exchange(const unsigned char *query, size_t query_size,
+    unsigned char *response, size_t response_size,
+    bool (*accept)(const unsigned char *, size_t, void *), void *context) {
     int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (fd < 0) {
         return -1;
@@ -2146,23 +2132,21 @@ static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
         .fd = fd,
         .events = POLLIN,
     };
-    unsigned char response[512];
+    int received = -1;
+    int saved_errno;
     for (int attempt = 0; attempt < 3; attempt++) {
-        if (sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) != (ssize_t)offset) {
-            close(fd);
-            return -1;
+        ssize_t sent = sendto(fd, query, query_size, 0,
+            (const struct sockaddr *)&address, sizeof(address));
+        if (sent < 0) goto done;
+        if ((size_t)sent != query_size) {
+            errno = EIO;
+            goto done;
         }
         struct timespec start;
-        if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
-            close(fd);
-            return -1;
-        }
+        if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) goto done;
         for (;;) {
             struct timespec now;
-            if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
-                close(fd);
-                return -1;
-            }
+            if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) goto done;
             int64_t seconds = now.tv_sec - start.tv_sec;
             long nanos = now.tv_nsec - start.tv_nsec;
             if (nanos < 0) { seconds--; nanos += 1000000000; }
@@ -2171,34 +2155,222 @@ static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
             pfd.revents = 0;
             int ready = poll(&pfd, 1, 2000 - elapsed);
             if (ready == 0) break;
-            if (ready < 0 || (pfd.revents & POLLNVAL) ||
-                (!(pfd.revents & POLLIN) && (pfd.revents & (POLLERR | POLLHUP)))) {
-                close(fd);
-                return -1;
+            if (ready < 0) goto done;
+            if (pfd.revents & POLLNVAL) {
+                errno = EBADF;
+                goto done;
+            }
+            if (!(pfd.revents & POLLIN) && (pfd.revents & (POLLERR | POLLHUP))) {
+                errno = EIO;
+                goto done;
             }
             if (!(pfd.revents & POLLIN)) continue;
             struct sockaddr_in source;
             memset(&source, 0, sizeof(source));
-            struct iovec iov = {response, sizeof(response)};
+            struct iovec iov = {response, response_size};
             struct msghdr message = {.msg_name = &source, .msg_namelen = sizeof(source),
                 .msg_iov = &iov, .msg_iovlen = 1};
             ssize_t count = recvmsg(fd, &message, MSG_DONTWAIT);
             if (count < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
-                close(fd);
-                return -1;
+                goto done;
             }
             if (message.msg_namelen >= sizeof(source) && source.sin_family == AF_INET &&
                 source.sin_port == address.sin_port && source.sin_addr.s_addr == address.sin_addr.s_addr &&
                 !(message.msg_flags & MSG_TRUNC) &&
-                dns_parse_response(response, (size_t)count, query_id, name, ip_out) == 0) {
-                close(fd);
-                return 0;
+                accept(response, (size_t)count, context)) {
+                received = (int)count;
+                goto done;
             }
         }
     }
+    errno = ETIMEDOUT;
+done:
+    saved_errno = errno;
     close(fd);
-    return -1;
+    errno = saved_errno;
+    return received;
+}
+
+struct dns_a_question {
+    uint16_t id;
+    const char *name;
+    uint32_t *ip_out;
+};
+
+static bool dns_accept_a(const unsigned char *packet, size_t size, void *context) {
+    struct dns_a_question *question = context;
+    return dns_parse_response(packet, size, question->id, question->name, question->ip_out) == 0;
+}
+
+static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
+    unsigned char query[512] = {0};
+    struct dns_a_question question = {.id = 0x7372, .name = name, .ip_out = ip_out};
+    dns_write_be16(query, question.id);
+    dns_write_be16(query + 2, 0x0100);
+    dns_write_be16(query + 4, 1);
+
+    size_t offset = 12;
+    if (dns_encode_name(query, &offset, sizeof(query), name) < 0 || offset + 4 > sizeof(query)) {
+        return -1;
+    }
+    dns_write_be16(query + offset, 1);
+    dns_write_be16(query + offset + 2, 1);
+
+    unsigned char response[512];
+    return dns_exchange(query, offset + 4, response, sizeof(response), dns_accept_a, &question) < 0 ? -1 : 0;
+}
+
+static _Thread_local int resolver_error;
+
+int *__srvros_h_errno_location(void) {
+    return &resolver_error;
+}
+
+struct dns_raw_question {
+    const unsigned char *wire_name;
+    size_t name_size;
+    uint16_t id;
+    uint16_t type;
+    uint16_t klass;
+};
+
+/* Decode names in the common IN records so later records can point back into
+ * their RDATA. Leave other types opaque; the caller owns type-specific parsing. */
+static bool dns_rdata_names(struct srv_dns_reader *reader, uint16_t type, size_t data, size_t end) {
+    unsigned names = 1;
+    size_t prefix = 0;
+    size_t suffix = 0;
+    switch (type) {
+    case 2:  /* NS */
+    case 5:  /* CNAME */
+    case 12: /* PTR */
+    case 39: /* DNAME */
+        break;
+    case 6:  /* SOA */
+        names = 2;
+        suffix = 20;
+        break;
+    case 15: /* MX */
+        prefix = 2;
+        break;
+    case 33: /* SRV */
+        prefix = 6;
+        break;
+    default:
+        return true;
+    }
+    if (end - data < prefix + suffix) return false;
+    data += prefix;
+    end -= suffix;
+    unsigned char name[SRV_DNS_NAME_MAX];
+    size_t name_size;
+    size_t saved_length = reader->length;
+    reader->length = end;
+    bool valid = true;
+    for (unsigned i = 0; i < names; i++) {
+        if (!srv_dns_name(reader, &data, name, &name_size)) {
+            valid = false;
+            break;
+        }
+    }
+    reader->length = saved_length;
+    return valid && data == end;
+}
+
+static bool dns_accept_raw(const unsigned char *packet, size_t size, void *context) {
+    const struct dns_raw_question *question = context;
+    if (size < 12 || size > SRV_DNS_PACKET_MAX || srv_dns_u16(packet) != question->id) return false;
+    uint16_t flags = srv_dns_u16(packet + 2);
+    if (!(flags & 0x8000) || (flags & 0x7840) || srv_dns_u16(packet + 4) != 1) return false;
+
+    struct srv_dns_reader reader = {.packet = packet, .length = size};
+    unsigned char name[SRV_DNS_NAME_MAX];
+    size_t name_size;
+    size_t offset = 12;
+    if (!srv_dns_name(&reader, &offset, name, &name_size) ||
+        !srv_dns_equal(name, name_size, question->wire_name, question->name_size) ||
+        size - offset < 4 || srv_dns_u16(packet + offset) != question->type ||
+        srv_dns_u16(packet + offset + 2) != question->klass) {
+        return false;
+    }
+
+    /* After matching the question, TC is a transport failure even if the
+     * truncated record section cannot be parsed. */
+    if (flags & 0x0200) return true;
+    offset += 4;
+    unsigned records = (unsigned)srv_dns_u16(packet + 6) +
+        srv_dns_u16(packet + 8) + srv_dns_u16(packet + 10);
+    for (unsigned i = 0; i < records; i++) {
+        uint16_t type, klass, length;
+        size_t data;
+        if (!srv_dns_rr(&reader, &offset, name, &name_size, &type, &klass, &data, &length) ||
+            (klass == question->klass && !dns_rdata_names(&reader, type, data, data + length))) {
+            return false;
+        }
+    }
+    return offset == size;
+}
+
+int res_query(const char *name, int klass, int type, unsigned char *answer, int answer_size) {
+    unsigned char query[12 + SRV_DNS_NAME_MAX + 4] = {0};
+    struct dns_raw_question question = {.wire_name = query + 12};
+    resolver_error = NO_RECOVERY;
+    if (!name || klass != 1 || type < 1 || type > (int)UINT16_MAX ||
+        answer_size < 0 || (!answer && answer_size != 0)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (name[0] == '.' && name[1] == '\0') {
+        question.name_size = 1;
+    } else if (!srv_dns_text(name, query + 12, &question.name_size)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (srv_random(&question.id, sizeof(question.id), 0) != (long)sizeof(question.id)) {
+        errno = EIO;
+        return -1;
+    }
+    question.type = (uint16_t)type;
+    question.klass = (uint16_t)klass;
+    dns_write_be16(query, question.id);
+    dns_write_be16(query + 2, 0x0100);
+    dns_write_be16(query + 4, 1);
+    size_t end_name = 12 + question.name_size;
+    dns_write_be16(query + end_name, question.type);
+    dns_write_be16(query + end_name + 2, question.klass);
+
+    unsigned char response[SRV_DNS_PACKET_MAX];
+    int size = dns_exchange(query, end_name + 4, response, sizeof(response), dns_accept_raw, &question);
+    if (size < 0) {
+        resolver_error = TRY_AGAIN;
+        return -1;
+    }
+    uint16_t flags = srv_dns_u16(response + 2);
+    if (flags & 0x0200) {
+        resolver_error = TRY_AGAIN;
+        errno = EMSGSIZE;
+        return -1;
+    }
+    switch (flags & 15) {
+    case 0:
+        if (srv_dns_u16(response + 6) == 0) {
+            resolver_error = NO_DATA;
+            return -1;
+        }
+        break;
+    case 2:  /* SERVFAIL */
+        resolver_error = TRY_AGAIN;
+        return -1;
+    case 3:  /* NXDOMAIN */
+        resolver_error = HOST_NOT_FOUND;
+        return -1;
+    default:
+        return -1;
+    }
+    if (size <= answer_size) memcpy(answer, response, (size_t)size);
+    resolver_error = 0;
+    return size;
 }
 
 int getaddrinfo(const char *node,

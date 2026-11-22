@@ -1,0 +1,222 @@
+{
+  "scope": "Public IPv4 UDP res_query and GLib 2.90.1 cross-configure",
+  "integration_base": "b95bc096d",
+  "runtime_source_sha256": {
+    "userspace/lib/include/arpa/nameser.h": "57dd4dee113db885b6b927bc63936195cf33b8deb31d461ac9db1e8d54b9428d",
+    "userspace/lib/include/resolv.h": "ce837a90025bba8ce8f31b9a351a1f9a946f087acf839c884fd39f554b84d459",
+    "userspace/lib/include/netdb.h": "a67e66b65378b5331848d15dd2426286feddc3686441b1f161eb0073574b7739",
+    "userspace/lib/include/errno.h": "b23be0219fbc885149ad457e52a2cf2d3b027e10dab6d27151a3dfe00c0ec7d0",
+    "userspace/lib/src/posix_socket.c": "cc5e046760db2e9b5850532308d3e8b29b2f4985a297f0b00d0cfe08e345d6e0"
+  },
+  "sdk_build_log_sha256": "a70e73b6085bad64d8e8b77309f28fb89ca79f1103b9218d26ce89c686b797b2",
+  "configure": {
+    "exit": 0,
+    "ninja_gio_resolver_object_exit": 1,
+    "source": "81c57479eb026bf7894f445c85e87bb933b213a5",
+    "meson": "1.10.2",
+    "argv": [
+      "build/browser-glib-prereq/venv/bin/meson",
+      "setup",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-build",
+      "build/browser-glib-resolver/configure-echfe_ll/glib-2.90.1",
+      "--cross-file",
+      "build/browser-glib-resolver/configure-echfe_ll/srvros.ini",
+      "--wrap-mode=nodownload",
+      "--default-library=static",
+      "-Dtests=false",
+      "-Dintrospection=disabled",
+      "-Dnls=disabled",
+      "-Dlibmount=disabled",
+      "-Dselinux=disabled",
+      "-Dxattr=false",
+      "-Dsysprof=disabled"
+    ],
+    "sdk_headers_sha256": "e698cc630c3f62febd2f0e7aa71ca0794f0f69013a5d7d73871a864bcf03499b",
+    "inputs_and_logs_sha256": {
+      "build/browser-glib-resolver/configure-echfe_ll/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "build/sysroot/srvros/lib/libsrvros.a": "dd30503bff0a193a418993960d4cb6a45ca5ad27125a47923f87d9df59d0706b",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "build/browser-glib-resolver/configure-echfe_ll/glib-2.90.1/gio/gthreadedresolver.c": "f0b5b8d72c656867f808cc6ebae03ab03b1d3f660b51016f18a21088f1bbb609",
+      "build/browser-glib-prereq/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-proxy-intl/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-configure.log": "3d8b3884f0de4a684d58560766245887d24a88e6bc7a8f4a7d6c223d48234728",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-build/meson-logs/meson-log.txt": "b2a6e68cdf34978401ff0a52eb7053898ac447b5c625cf31fca0c747a359f5f2",
+      "build/browser-glib-resolver/configure-9xn1mh6x/gio-resolver-compile.log": "2e1f13f91cb2af37cb11701f7bd6e286bf2044fcf92908a58c09a1e5bcb312a3",
+      "build/browser-glib-resolver/configure-9xn1mh6x/glib-build/build.ninja": "3e95584e051fb89b87120aee3cc2e40ff310ea6fd9f4642b1b5011b52b574c2b"
+    },
+    "reused_provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "observations": [
+      "Checking if \"C_IN in public headers (no arpa/nameser_compat.h needed)\" compiles: YES",
+      "Checking if \"res_query()\" links: YES",
+      "Checking if \"socket()\" links: YES"
+    ],
+    "targeted_source": "gio/gthreadedresolver.c",
+    "first_compile_error": "call to undeclared function 'dn_expand'",
+    "additional_missing_declarations": [
+      "GETSHORT",
+      "GETLONG",
+      "HEADER",
+      "T_TXT",
+      "T_SOA",
+      "T_NS",
+      "T_MX"
+    ]
+  },
+  "host_regressions": {
+    "dns_response_libc": 22,
+    "posix_datagram": 6,
+    "posix_udp_owner": 12,
+    "cxx23_sdk_header_and_link": "pass",
+    "private_dns_peer_framing": "pass"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "c7c06f15e770c6e14b627c9758046e65a6fbc5c5",
+    "sdk_headers_sha256": "e698cc630c3f62febd2f0e7aa71ca0794f0f69013a5d7d73871a864bcf03499b",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "01e9cad7a893be808d4ed1b2470a62cdce838da42861b54791af3d99b6b4f5b3",
+      "tools/test_glib_platform_guest.c": "dd02effe60f1661b4c04072ac45709726add18656ae299693b6d8a08a358035b",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "267cc3831aa372a2ef56a0738dbb51754fb48fdf04afede7fbc98be46cd4f4da",
+      "build/userspace/init.elf": "752b36efe6e7fa8b1cf5fdb2b4b38abbe54146abb6965fc79518d429b4e8aff1",
+      "build/sysroot/srvros/lib/libsrvros.a": "dd30503bff0a193a418993960d4cb6a45ca5ad27125a47923f87d9df59d0706b",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "736befeaa8cb735399447e9cd56713dc289c4b95ed8fde6ffff2712838471174",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/resolver_dns_test_peer.py": "e7e01c70a3d12ffff9121107099bf01e2226be0efe0709efc55bf50166669678",
+      "tools/test_glib_resolver_guest.c": "805cb2f2f1ceba5e93dd95b98b263fc180a20dfa3757669b6b2fa1ceaaaf4d31"
+    },
+    "payload_sha256": "c19b3bfaff4f2146b02567d8cabb8fcbabff705b2f778c7c4370729d3ebe3d9e",
+    "resolver_payload_sha256": "1e771a27fd1921d001f912b77d068cf9a6dd78d08e9ddf964f7c33b4f900e248",
+    "image_sha256": "cb36a78b31642a7b8d21908fe800a547b1c539e2eccccf5d2dfab75a489761a0",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-tiak0fsr/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:/tmp/srv-glib-hl6al7qa/serial,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-netdev",
+      "socket,id=fixture,fd=4",
+      "-device",
+      "e1000,netdev=fixture"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-resolver",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-resolver",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "dns_peer_exit": 0,
+    "dns_peer_sha256": "41cf584c9a99d1a783f4203afb0c02bfd8b25b6b65104c13def7bfd4cdcf341f",
+    "dns_peer_queries": {
+      "good": 2,
+      "large": 4,
+      "legacy": 2,
+      "malformed": 2,
+      "mismatch": 2,
+      "missing": 4,
+      "nodata": 2,
+      "service": 2,
+      "temporary": 2,
+      "truncated": 2
+    },
+    "serial_sha256": "6c3532bff78bf5e4809621b8f4feda3709bd1d24622f06733fc5ba6a060d1826",
+    "restored_archive_sha256": "6d2f43aa0727618a6a1bdb6f0da289ec2f610a44e1b30834b0af1b286a85c452",
+    "restored_file_count": 161,
+    "restore_receipt_sha256": "05cded1f1b82239404319e02b770b04e91ada74f44ead5b052f025ac21be501a",
+    "qemu_version": "QEMU emulator version 11.1.2",
+    "run_directory": "build/browser-glib-prereq/guest-tiak0fsr",
+    "local_guest_receipt_sha256": "fbad8fad0c8040dbd78293d6d968e15a517719625d000d55288970ec7935ae7b",
+    "dns_peer_observation": {
+      "arp_requests": 1,
+      "deliberate_malformed_replies": 2,
+      "deliberate_mismatch_replies": 4,
+      "dns_responses": 30,
+      "frames": 25,
+      "ignored_frames": 0,
+      "invalid_frames": 0,
+      "queries": {
+        "good": 2,
+        "large": 4,
+        "legacy": 2,
+        "malformed": 2,
+        "mismatch": 2,
+        "missing": 4,
+        "nodata": 2,
+        "service": 2,
+        "temporary": 2,
+        "truncated": 2
+      },
+      "rejected_queries": 0,
+      "result": "eof"
+    },
+    "iso_readback": {
+      "kernel_sha256": "267cc3831aa372a2ef56a0738dbb51754fb48fdf04afede7fbc98be46cd4f4da",
+      "initramfs_sha256": "00b467e060873386caf8c415a93238a8922a6fbf9c82be62f1a96cb293cbb80b",
+      "initramfs_member_sha256": {
+        "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+        "glib-platform": "da7b53ea17a53ebf03309be24f4186d31f845a5021001fe5a11cbaf558603b7f",
+        "glib-resolver": "637c922af9ac4dc1a6a4ffaf3dc7e9cfe084a42644a280b7dd06cbd8dbec6719"
+      }
+    }
+  }
+}
