@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically. One cold Demers5 desktop connection and USB save passed on v151. Two fresh desktop connections and safe disconnects in a single cold boot with ping and DNS on both passed on v152. The v153 retry verifies live USB re-enumeration and the System device list after a clean Disconnect. The final v154 run verified same-boot Demers5 recovery after an orderly Disconnect and USB replug, including the Devices label, traffic on both connections, both disconnects and automatic log saving. Removal while connected and repeated cold reliability remain open.**
+Updated: 2026-11-22. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -9,12 +9,9 @@ Dated sections retain the bring-up history.
 
 ### Wi-Fi release qualification
 
-Start from the accepted v154 image `cf20824eddefc734` and device source
-`9a0fb703`. Integrate fetched main `4016abf0` into PR #19 while preserving
-Air6,1's directory-admission changes. The remaining scope covers active
-USB removal, repeated cold starts and sustained Demers5 traffic with
-the workspace mounted. Publish native ownership, transport and recovery
-proofs, then qualify the exact merged candidate before landing PR #19.
+The release checks for PR #19 cover active USB removal, repeated cold
+association and sustained Demers5 traffic with the workspace mounted.
+They build on the accepted v154 image `cf20824eddefc734`.
 Battery, headphones, trackpad latency and 2.4 GHz remain deferred.
 
 The branch merged fetched main at `d92d0b1d`. The VFS conflict retained
@@ -26,8 +23,7 @@ Only an exact Disable Slot completion permits provider retirement and
 ordinary desktop exit. The old DMA stays retained. The operator leaves
 Wi-Fi unplugged until Ubuntu returns. This trial covers terminal active
 removal. The accepted v154 profile covers same-boot replug after an
-orderly disconnect. For final cold qualification, repeat the native
-Demers5 association and active removal with all 60 gateway replies.
+orderly disconnect.
 
 The first v155 cold run used source `5fcce89b`, release
 `d2a184d5d4a8e199`, and session `session-000660d5a7e5c506-00`.
@@ -41,6 +37,23 @@ The exact image and evidence are archived in the unit's recovery directory.
 The retry checklist points to the Demers5 row in System > Wi-Fi as the
 removal cue because the Network tab shows link earlier. The native
 test fixture covers safe early removal and the Wi-Fi state transition.
+
+The repeat cold run used source `c186f622`, release `fdf4c549cecbbe87`,
+and session `session-000660d6bc85fcda-00`. The image used the first
+v155 kernel and firmware bytes with revised Help and a fresh journal
+binding. Local native-path and exact-image recovery checks passed.
+On the MacBook Pro, DHCP, gateway ICMP and DNS passed, followed by all
+60 paced gateway replies over 5,901 ticks (59.01 seconds). Removing the
+adapter while connected stopped the worker with one receive pending.
+An exact Disable Slot completion allowed the driver to erase keys and
+retire the provider with the old DMA retained. Exit desktop saved both
+logs and returned automatically. The independent journal completed all
+seven checkpoints. The USB filesystem was clean and all 521 existing
+files matched. Text save and reopen has no receipt in this run.
+The exact image and evidence are archived under
+`/var/local/srvros-recovery/macbookpro11-2` as `fdf4c549cecbbe87` and
+`evidence-fdf4c549cecbbe87`. The one-shot entry was consumed, Ubuntu
+remains the default, and recovery `74da74e0b57afbb8` was verified.
 
 
 ### Demers5 network recovery after replug
