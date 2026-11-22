@@ -33,11 +33,12 @@ struct vmm_reserved_guard;
 struct intel_bdw_scanout_traffic {
     uint64_t (*held_epoch)(const struct scanout_transfer *,const struct scanout_publication *);
     bool (*read)(const struct scanout_transfer *,uint32_t offset,uint32_t *);
-    /* Read low SCRATCH1 for this physical bank in this enabled slice.
-     * Own and verify its steering through the read, then restore it.
-     * A powered-off or unaddressable instance cannot supply a sample. */
-    bool (*read_l3_flush_policy)(const struct scanout_transfer *, unsigned slice,
-                                 unsigned bank, uint32_t *word);
+    /* Under exclusive MCR steering ownership and GT forcewake, compare the
+     * full current selector at 0xfdc with expected and change only bits
+     * 27:24. Keep ownership and both slices powered through restoration.
+     * A missing, changed or uncertain owner must refuse further writes. */
+    enum intel_gt_write (*select_l3)(const struct scanout_transfer *, uint32_t expected,
+                                     uint32_t selected);
     /* Issue one ordered UC DWORD 1 at MMIO+0x101008 only while this
      * exact publication and traffic epoch are held. No polling or retry. */
     enum intel_gt_write (*invalidate_ggtt)(const struct scanout_transfer *,

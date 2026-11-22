@@ -34,6 +34,13 @@ reread and return, including an exhausted search or an active reader that
 prevented the search. This is an unattended software reservation trial with
 the original primary plane active. [Implementation milestones](intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
+On Air7,2 the version 8 GT flush report also records slice availability
+and live slice power before and after each of its four observation windows.
+The power readings use the diagnostic’s existing forcewake and MMIO mappings.
+They identify when the driver can proceed to verify individual L3 banks.
+[Linux Broadwell slice-status decoder](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_sseu_debugfs.c#L168-L176)
+· [Broadwell replicated register ranges, p. 3](https://cdrdv2-public.intel.com/690867/intel-gfx-prm-osrc-bdw-vol-13-mmio.pdf#page=7)
+
 The [GT flush acknowledgement trial](intel-completion-prerequisites.md#engine-and-l3-acknowledgement-trial)
 uses `intel-gt-flush-v59`, `--intel-gt-flush` and wire12. The source-bound
 image takes three read-only message snapshots under the original requester

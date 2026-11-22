@@ -253,7 +253,7 @@ def bootstrap_result(text,*,native=False):
     if flush:
         from intel_gt_flush import flush_result
         flush_proof=flush_result(text,s,r,range_proof['summary'],primary_proof['summary'],retire,memory_proof['summary'])
-    elif any(l.startswith(('intel-flush-','intel-smi-guard:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
+    elif any(l.startswith(('intel-flush-','intel-l3-power:','intel-smi-guard:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,
                 hardware_ownership=False,managed_pages=0,physical_tearfree=False,
@@ -276,7 +276,7 @@ def verify_bootstrap_checkpoint(pre,text,*,native=False):
         if len(boots)!=1:raise ValueError('Bootstrap boot provenance')
         bootstrap_recipe(boots[0],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush)
         if value.count('init: deferred=gt-bootstrap-preinit;')!=1 or 'init: started pid=' in value:raise ValueError('Bootstrap preinit provenance')
-    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-','intel-aux-','intel-flush-','intel-smi-guard:')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
+    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-','intel-aux-','intel-flush-','intel-l3-power:','intel-smi-guard:')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
     verify_entry_checkpoint(historical_view(pre,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush),historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush),native=native,seconds=seconds,practical=practical)
     if not bootstrap_result(text,native=native):raise ValueError('Bootstrap missing final receipt')
     return True

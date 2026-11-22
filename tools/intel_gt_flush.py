@@ -51,7 +51,7 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     if not rows or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
     summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
-                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6, 7))
+                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6, 7, 8))
     smi_rows = [line for line in text.splitlines() if line.startswith(SMI_PREFIX)]
     smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire)
     traced = summary["v"] >= 6
@@ -132,6 +132,22 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     result = dict(summary=summary, samples=samples[:count], partial=samples[count:],
                   engine_ack=engine_ack, engine_ack_rise=engine_ack_rise,
                   l3_flush_ack=[bool(row["l3"] & 1) for row in samples[:count]])
+    slice_rows = [line for line in text.splitlines() if line.startswith("intel-l3-power:")]
+    if len(slice_rows) != (count if summary["v"] == 8 else 0):
+        raise ValueError("GT slice power sample coverage")
+    if summary["v"] == 8:
+        decoded = []
+        for n, line in enumerate(slice_rows):
+            sample = fields(line, "intel-l3-power:", ("v", "n", "fuse", "before", "after"),
+                            ("fuse", "before", "after"))
+            if sample["n"] != n or any(sample[k] >= 0xffffffff for k in ("fuse", "before", "after")):
+                raise ValueError("Invalid slice power observation")
+            available = (sample["fuse"] >> 25) & 7
+            before, after = sample["before"] & 7, sample["after"] & 7
+            if (before | after) & ~available:
+                raise ValueError("Powered slice outside available topology")
+            decoded.append(dict(available=available, before=before, after=after))
+        result["slice_power"] = decoded
     if media:
         current = [{key: (row[key] >> 16) & 0xff for key in MEDIA_WORDS} for row in samples[:count]]
         for n, queues in enumerate(current):

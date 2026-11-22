@@ -46,6 +46,9 @@ def trial(binary, user, instance):
         cache = mmio_page(0xb118)
         power = mmio_page(0x40d0)
         messages = mmio_page(0x8038)
+        slice_status = mmio_page(0x138064)
+        slice_fuse = mmio_page(0x9120)
+        steering = mmio_page(0xfdc)
 
         def primary():
             return tuple(struct.unpack_from('<I', plane, r)[0] for r in (0x180, 0x19c, 0x1ac))
@@ -61,9 +64,17 @@ def trial(binary, user, instance):
                 raise ValueError('Invalid native GGTT entry')
             # Read the currently selected bank. This does not steer i915 or
             # assert that the policy on all physical banks is identical.
+            before = struct.unpack_from('<I', slice_status, 0x64)[0]
+            fuse = struct.unpack_from('<I', slice_fuse, 0x120)[0]
+            selected = struct.unpack_from('<I', steering, 0xfdc)[0]
             l3, scratch = struct.unpack_from('<II', cache, 0x118)
-            if 0xffffffff in (l3, scratch):
+            selected_after = struct.unpack_from('<I', steering, 0xfdc)[0]
+            after = struct.unpack_from('<I', slice_status, 0x64)[0]
+            if (selected != selected_after or 0xffffffff in (l3, scratch, before, after, fuse, selected)
+                    or ((before | after) & 7) & ~((fuse >> 25) & 7)):
                 raise ValueError('Invalid L3 policy read')
+            print(f'slice_available={(fuse >> 25) & 7:#x} powered_before={before & 7:#x} '
+                  f'powered_after={after & 7:#x} selector={selected:#010x}', flush=True)
             return entry, l3, scratch
 
         def traffic_messages():

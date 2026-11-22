@@ -42,7 +42,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 7, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
+                        "v": 8, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
                     })
                     self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 4)
                     power = flush["power_controls"]
@@ -61,6 +61,17 @@ class FlushAcknowledgements(unittest.TestCase):
                         "v": 1, "reads": result["summary"]["native_writes"] + 7,
                         "point": 6, "fault": 0, "first": 13, "last": 13,
                     })
+
+    def test_live_slice_power(self):
+        text = observe("pass")
+        self.assertEqual(bootstrap_result(text)["flush"]["slice_power"],
+                         [dict(available=3, before=m, after=m) for m in (0, 3, 0, 0)])
+        row = next(line for line in text.splitlines() if line.startswith("intel-l3-power:"))
+        for bad in ("", row + "\n" + row, row.replace("n=0", "n=2"),
+                    re.sub(r"after=\S+", "after=0x4", row)):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row, bad))
+        self.assertFalse(bootstrap_result(observe("slice-read", 1))["complete"])
 
     def test_smi_change_stops_each_store_and_both_retirement_checkpoints(self):
         healthy = bootstrap_result(observe("pass"))
@@ -140,12 +151,12 @@ class FlushAcknowledgements(unittest.TestCase):
                     row.replace("authority=none", "authority=write")):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        old_power = re.sub(r"^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
+        old_power = re.sub(r"^intel-l3-power:.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
         old_power = re.sub(r" l3_close=.*", "", old_power)
         old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = old_power.replace("intel-range-summary: v=2 ", "intel-range-summary: v=1 ")
-        old_power = old_power.replace("v=7 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
+        old_power = old_power.replace("v=8 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
         self.assertNotIn("request_trace", bootstrap_result(old_power)["flush"])
         media = old_power.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
                              "intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9")
@@ -176,10 +187,10 @@ class FlushAcknowledgements(unittest.TestCase):
                 with self.subTest(bad=bad), self.assertRaises(ValueError):
                     bootstrap_result(text.replace(sample, bad))
         for before, after in (("intel-bootstrap-summary: v=12 ", "intel-bootstrap-summary: v=11 "),
-                              ("authority=none\nintel-flush-sample", "authority=write\nintel-flush-sample"),
+                              ("authority=none\nintel-l3-power", "authority=write\nintel-l3-power"),
                               ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=100 maps=28 retired=27"),
                               ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=99 maps=28 retired=28"),
-                              ("intel-flush-summary: v=7 ", "intel-flush-summary: v=6 ")):
+                              ("intel-flush-summary: v=8 ", "intel-flush-summary: v=6 ")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(before, after))

@@ -810,6 +810,8 @@ class Runner:
             record['flush_sample_us']=[row['end']-row['begin'] for row in observed['samples']]
             record['prepare_engine_ack_rise']=observed['engine_ack_rise']
             record['l3_flush_ack_samples']=observed['l3_flush_ack']
+            if 'slice_power' in observed:
+                record['slice_power']=observed['slice_power']
             if 'smi_guard' in observed:
                 record['smi_guard']=observed['smi_guard']
             if 'gam' in observed:

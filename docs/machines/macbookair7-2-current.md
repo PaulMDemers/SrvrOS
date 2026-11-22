@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-21 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-22 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -9,6 +9,20 @@ brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
+
+This block qualifies bank selection and live slice power in the one-page
+publisher on PR 301. The Ubuntu comparison samples both while the five
+private queues hold. The SrvrOS flush diagnostic samples slice power under
+the existing forcewake owner at the four preparation and reset checkpoints.
+
+In the November 22 Ubuntu comparison, i915 reported two available slices
+and zero powered slices at idle. With all five private queues held, both
+slices were powered before and after each of six policy reads. MCR stayed
+at `0x10000000`. Slot 8704 changed from `0x6f77f001` to `0x1ee3a1001`
+and back, with the 1,024 original words restored and a frame advance from
+291009 to 291010. Two other attempts stopped on the panel check. These
+reads cover the selected bank. The publisher now steers each of the eight
+banks in its host fixture and checks live slice power around every read.
 
 SrvrOS release `9f2a7089ffb12693` (source `1329b823`, session
 `session-000660d5b2987ebf-00`) qualified a software reservation of slots

@@ -106,23 +106,47 @@ static bool read_traffic(void *ctx,uint32_t offset,uint32_t *word)
            (offset != 0x40d0 || !(*word & 0xff00u)) && traffic_live(check);
 }
 
+static bool slices_powered(struct traffic_check *check)
+{
+    uint32_t status;
+    return read_traffic(check, 0x138064, &status) && (status & 7u) == 3u;
+}
+
+static bool steer_l3(struct traffic_check *check, uint32_t from, uint32_t to)
+{
+    uint32_t observed;
+    if (!read_traffic(check, 0xfdc, &observed) || observed != from) return false;
+    if (from == to) return true;
+    return borrow.traffic.select_l3(borrow.transfer, from, to) == GT_WRITE_DONE &&
+           read_traffic(check, 0xfdc, &observed) && observed == to;
+}
+
 static bool l3_flush_covers_all_lines(struct traffic_check *check)
 {
-    uint32_t fuse;
-    if (!read_traffic(check, 0x9120, &fuse) || ((fuse >> 25) & 7u) != 3u)
-        return false;
-    /* Broadwell GT3 has four L3 banks per slice. Each bank has its own
-     * SCRATCH1[4], which can narrow a PM flush to coherent lines. */
-    for (unsigned slice = 0; slice < 2; ++slice) {
+    uint32_t fuse, original;
+    if (!read_traffic(check, 0x9120, &fuse) || ((fuse >> 25) & 7u) != 3u ||
+        !slices_powered(check) || !read_traffic(check, 0xfdc, &original)) return false;
+
+    uint32_t current = original;
+    bool complete = true;
+    for (unsigned slice = 0; complete && slice < 2; ++slice) {
         for (unsigned bank = 0; bank < 4; ++bank) {
-            uint32_t policy = UINT32_MAX;
-            if (!traffic_live(check) ||
-                !borrow.traffic.read_l3_flush_policy(borrow.transfer, slice, bank, &policy) ||
-                (policy & (1u << 4)) || !traffic_live(check))
-                return false;
+            uint32_t target = (original & ~(15u << 24)) | (slice << 26) | (bank << 24);
+            if (!steer_l3(check, current, target)) return false;
+            current = target;
+            uint32_t policy, selector;
+            /* A powered-down bank can read as zero, which by itself would
+             * look like permission to flush both coherent and noncoherent lines. */
+            if (!slices_powered(check) || !read_traffic(check, 0xb11c, &policy) ||
+                !read_traffic(check, 0xfdc, &selector) || selector != target ||
+                !slices_powered(check) || (policy & (1u << 4))) {
+                complete = false;
+                break;
+            }
         }
     }
-    return true;
+    /* Refuse a foreign selector or expired owner even on the cleanup path. */
+    return steer_l3(check, current, original) && complete;
 }
 
 /* Keep both the queued scanout and the actual scanout on the inherited
@@ -221,13 +245,13 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     /* Charge the alias and cache checks to the original publication deadline.
      * Recheck the operation and saved owner after the last provider callback. */
     uint64_t fresh;
-    if (!traffic.invalidate_ggtt || !traffic.held_epoch || !traffic.read || !traffic.request || !traffic.release || !traffic.read_l3_flush_policy ||
+    if (!traffic.invalidate_ggtt || !traffic.held_epoch || !traffic.read || !traffic.request || !traffic.release || !traffic.select_l3 ||
         !scanout_transfer_check(t,grant)) return false;
     if (restore && (borrow.transfer!=t || !page_hold_live(p) ||
         borrow.traffic.invalidate_ggtt!=traffic.invalidate_ggtt ||
         borrow.traffic.held_epoch!=traffic.held_epoch || borrow.traffic.read!=traffic.read ||
         borrow.traffic.request!=traffic.request || borrow.traffic.release!=traffic.release ||
-        borrow.traffic.read_l3_flush_policy!=traffic.read_l3_flush_policy)) return false;
+        borrow.traffic.select_l3!=traffic.select_l3)) return false;
     uint64_t offset = (uint64_t)index * 4096;
     if (t->manifest.aperture > UINT64_MAX - offset || !cpu_guard) return false;
     uint64_t aperture = t->manifest.aperture + offset;

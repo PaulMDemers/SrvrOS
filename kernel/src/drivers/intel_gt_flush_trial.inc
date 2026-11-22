@@ -61,6 +61,7 @@ static bool gt_trace_request(void) {
 static struct {
     struct gt_display_access access;
     uint32_t raw[GT_FLUSH_SAMPLES][GT_FLUSH_WORDS];
+    uint32_t slice[GT_FLUSH_SAMPLES][3];
     uint64_t begin[GT_FLUSH_SAMPLES], end[GT_FLUSH_SAMPLES];
     unsigned samples;
 } gt_flush;
@@ -88,11 +89,28 @@ static bool gt_flush_live(void) {
         gt_bootstrap_native.prepared == prepared;
 }
 
+/* Use the parent's existing UC aliases for fuse topology and live slice
+ * status. Fuses describe availability even when the slices are power gated. */
+static bool gt_flush_slice_read(unsigned slot, uint32_t offset, uint32_t *value) {
+    if (!gt_flush_live() || !bootstrap_tick() ||
+        wake_pages[slot] != (offset & ~4095u) || !completion_mapping(gt_bootstrap_native.a, slot))
+        return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if (!intel_display_test_primary_read(offset, value)) return false;
+#else
+    *value = *(volatile const uint32_t *)(WAKE_VA + slot * 4096 + (offset & 4095));
+#endif
+    return *value != UINT32_MAX && gt_flush_live() && bootstrap_tick();
+}
+
 static bool gt_flush_sample(unsigned n) {
     if (n >= GT_FLUSH_SAMPLES || n != gt_flush.samples || !gt_flush_live() || !bootstrap_tick())
         return false;
     struct gt_display_access *access = &gt_flush.access;
     gt_flush.begin[n] = gt_bootstrap_native.last;
+    uint32_t *slice = gt_flush.slice[n];
+    if (!gt_flush_slice_read(9, 0x9120, &slice[0]) ||
+        !gt_flush_slice_read(2, 0x138064, &slice[1])) return false;
     /* One guarded alias per MMIO page, inside the same observation window. */
     static const unsigned group_ends[] = { 1, 9, 11, 13, 16, 24, GT_FLUSH_WORDS };
     const unsigned pages = sizeof(group_ends) / sizeof(group_ends[0]);
@@ -109,6 +127,9 @@ static bool gt_flush_sample(unsigned n) {
     if (access->mapped || access->maps != pages * (n + 1) || access->retired != access->maps ||
         access->reads != GT_FLUSH_WORDS * (n + 1))
         return false;
+    if (!gt_flush_slice_read(2, 0x138064, &slice[2]) ||
+        ((slice[1] | slice[2]) & 7u & ~(slice[0] >> 25)) ||
+        gt_bootstrap_native.last - gt_flush.begin[n] > BDW_BOOT_PHASE_US) return false;
     gt_flush.end[n] = gt_bootstrap_native.last;
     ++gt_flush.samples;
     /* Bits 23:16 are current requests. Capacity and latency are historical
@@ -128,11 +149,15 @@ static void gt_flush_report(void) {
             (uint64_t)i, (uint64_t)s->pulse, (uint64_t)s->word, (uint64_t)s->count,
             s->first_begin, s->first_end, s->last_begin, s->last_end);
     }
-    console_printf("intel-flush-summary: v=7 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
+    console_printf("intel-flush-summary: v=8 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
         (uint64_t)gt_flush.access.retired, gt_flush.access.mapped);
     for (unsigned n = 0; n < GT_FLUSH_SAMPLES; ++n) {
         const uint32_t *w = gt_flush.raw[n];
+        if (n < gt_flush.samples)
+            console_printf("intel-l3-power: v=1 n=%u fuse=%x before=%x after=%x\n",
+                (uint64_t)n, (uint64_t)gt_flush.slice[n][0],
+                (uint64_t)gt_flush.slice[n][1], (uint64_t)gt_flush.slice[n][2]);
         console_printf("intel-flush-sample: v=5 n=%u begin=%u end=%u rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x l3=%x gam_go=%x gam_eco=%x vcs0_ref=%x vcs0_prefetch=%x vcs1_ref=%x vcs1_prefetch=%x gam_req=%x rc_control=%x rc_target=%x rc6_threshold=%x l3_close=%x go_close=%x rcs_close=%x vcs0_close=%x vecs_close=%x vcs1_close=%x bcs_close=%x eco_close=%x req_close=%x\n",
             (uint64_t)n, gt_flush.begin[n], gt_flush.end[n], (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4], (uint64_t)w[5], (uint64_t)w[6], (uint64_t)w[7], (uint64_t)w[1], (uint64_t)w[8],
             (uint64_t)w[9], (uint64_t)w[10], (uint64_t)w[11], (uint64_t)w[12], (uint64_t)w[0], (uint64_t)w[13], (uint64_t)w[14], (uint64_t)w[15],

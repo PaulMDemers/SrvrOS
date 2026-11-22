@@ -352,6 +352,14 @@ static enum intel_gt_write invalidate_ggtt(const struct scanout_transfer *t,
     return GT_WRITE_DONE;
 }
 
+static uint32_t selector = 0x43001122u;
+static enum intel_gt_write select_l3(const struct scanout_transfer *t,uint32_t from,uint32_t to) {
+    assert(t==&transfer && borrower && selector==from && ((from^to)&~(15u<<24))==0);
+    if (!strcmp(page_failure,"l3-steering")) return GT_WRITE_NONE;
+    selector=to;
+    if (!strcmp(page_failure,"l3-unposted")) selector=from;
+    return GT_WRITE_DONE;
+}
 static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32_t *word) {
     assert(t==&transfer);
     ++traffic_reads;
@@ -383,6 +391,21 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         if (block_active && !strcmp(page_failure,"widi-reopened") && l3_reads==2) *word = 0x10;
         if (block_releases && !strcmp(page_failure,"widi-stuck")) *word = 0;
         break;
+    case 0xfdc: *word=selector; break;
+    case 0x138064:
+        *word=!strcmp(page_failure,"l3-off") || (!strcmp(page_failure,"l3-power-lost") &&
+            ((selector>>24)&15)==5) ? 1u : 3u;
+        break;
+    case 0xb11c: {
+        unsigned slice=(selector>>26)&3u, bank=(selector>>24)&3u;
+        char narrow[32], missing[32];
+        snprintf(narrow,sizeof(narrow),"l3-narrow-%u-%u",slice,bank);
+        snprintf(missing,sizeof(missing),"l3-missing-%u-%u",slice,bank);
+        if (!strcmp(page_failure,missing)) return true;
+        *word = !strcmp(page_failure,narrow) || (block_active && slice==1 && bank==3 &&
+            !strcmp(page_failure,"changed-policy")) ? 16u : 1u;
+        break;
+    }
     case 0x9120: *word=(!strcmp(page_failure,"slice-mask")?1u:3u)<<25; break;
     case 0x70180:
         *word=!strcmp(page_failure,"plane-off")?0:1u<<31; break;
@@ -419,20 +442,8 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     }
     return true;
 }
-static bool l3_policy(const struct scanout_transfer *t, unsigned slice, unsigned bank, uint32_t *word) {
-    assert(t==&transfer && borrower && slice<2 && bank<4);
-    char narrow[32], missing[32];
-    snprintf(narrow,sizeof(narrow),"l3-narrow-%u-%u",slice,bank);
-    snprintf(missing,sizeof(missing),"l3-missing-%u-%u",slice,bank);
-    /* A failed reader may report success without supplying its word. */
-    if (!strcmp(page_failure,missing)) return true;
-    *word = !strcmp(page_failure,narrow) ? 16u : 0u;
-    if (block_active && bank==3 && slice==1 && !strcmp(page_failure,"changed-policy"))
-        *word = 16u;
-    return strcmp(page_failure,"l3-steering")!=0;
-}
 static const struct intel_bdw_scanout_traffic traffic_io={
-    .held_epoch=held_block,.read=traffic_word,.read_l3_flush_policy=l3_policy,
+    .held_epoch=held_block,.read=traffic_word,.select_l3=select_l3,
     .request=request_block,.release=release_block,.invalidate_ggtt=invalidate_ggtt
 };
 static bool write_test_page(void *ctx,uint32_t index,uint64_t value) {
@@ -785,6 +796,7 @@ int main(int argc,char **argv) {
         assert(prepare_memory(&a,&at,0));assert(a.range.first==8704 && a.range.pages==1);
         uint64_t left=table[8703],right=table[8705];
         assert(scanout_memory_apply(&a,&at));assert(table[8704]==(a.physical|1));
+        assert(selector==0x43001122u);
         assert(borrower && !intel_bdw_scanout_retire_test_page(&a,&at));
         assert(cached_translation==table[8704]);
         assert(table[8703]==left && table[8705]==right);
