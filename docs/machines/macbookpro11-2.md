@@ -7,6 +7,16 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Demers5 USB reattachment
+
+Work starts at `6b298cdd` with `origin/main` at `4016abf0`. PR #19 owns
+the Wi-Fi desktop and xHCI handoff work. PR #301 and #379 remain separate.
+The next scope is one removal and fresh enumeration of the captured Edimax
+adapter on its original root port, with the USB workspace still mounted.
+The replacement needs a separate xHCI record, fresh DMA, firmware,
+calibration and network ownership. Start at the orderly Disconnect boundary
+proven by v152, then qualify recovery from removal during an active connection.
+
 ### Same-boot Demers5 desktop reconnect
 
 Work starts at `8b38e6eb` with `origin/main` at `4016abf0`. PR #19 covers
