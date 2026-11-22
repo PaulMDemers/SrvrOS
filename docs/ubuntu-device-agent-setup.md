@@ -787,6 +787,37 @@ exFAT logging drive for this Ubuntu/GRUB workflow.
 
 ## 7. Test, return and collect
 
+For a native desktop or laptop-probe run with a pre-boot session list, use
+the exact run directory from the handoff. After Ubuntu returns with its
+USB workspace mounted, collect the evidence into a private directory under
+`build/trial-collections/` with:
+
+```sh
+tools/trial collect "$RUN_DIR" --save
+```
+
+Omit `--save` for a JSON report on stdout. The command reads the recorded
+model and volume UUID, checks the marker, excludes pre-existing sessions,
+and matches the release in boot-option records. An unidentified new session
+beside a matching one makes the selection ambiguous. The live report checks
+prior file hashes and the installed recovery against the archive when the
+record contains those bindings. A null workspace comparison means no
+fingerprint baseline was supplied. Read failures remain visible. Use the
+recipe's offline filesystem, metadata, journal and physical acceptance
+checks as applicable.
+
+Use `tools/trial collect "$RUN_DIR" --archive` to replay the run's
+`return-evidence/sessions` or single legacy `collection/collection-*`
+directory without a device. The report keeps prior recipe results under
+`previously_reported` and independently checks the archived snapshots.
+Exit 0 means a unique match, a framed exit snapshot and the presence of
+all declared receipt markers. A failed trial can produce a complete log.
+Exit 1 means missing or ambiguous evidence. Exit 2 means an input or
+collection error. Inspect the workspace changes, recovery checks,
+attention counts and recipe verdict separately. A saved bundle includes
+the matched session logs and JSON report. Move accepted evidence into
+the unit's persistent recovery archive before cleaning the build tree.
+
 The desktop profile opens persistent Help instructions and has **no timed exit**.
 Do the recorded tests; save screenshots with Command-Shift-3. Return through
 SrvrOS → Return to console, check `USB unmounted=yes`, then type `reboot` at the

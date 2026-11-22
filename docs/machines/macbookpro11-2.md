@@ -20715,3 +20715,16 @@ preserve all runtime guards; the separate84.64-second recheck passes with its
 inputs unchanged. Parser tests pass9groups with one explicit full-composition
 skip pending matched C-formatter composition. The current source is not yet
 image-qualified, installed or physically accepted; no new test is armed.
+
+### Host tooling for collecting native returns (November 22)
+
+On integration base `b95bc096`, the host-side `tools/trial collect` work
+covers session identification, workspace comparison and return reporting.
+It depends on the existing USB UUID resolver, boot-option parser and
+pre-boot run records. Its qualification uses archived Pro returns and
+host fixtures. PR #501 owns the separate Retina payload and physical trial.
+
+Archived replay matched the v155 active-removal return, the 64 KiB
+rolling Retina exit and the two-file v154 replug exit. It retained the
+Retina retry's periodic evidence with the final snapshot missing, and
+reported no new matching session for the older cold-readiness return.
