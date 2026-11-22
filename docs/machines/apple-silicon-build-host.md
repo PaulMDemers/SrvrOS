@@ -6283,4 +6283,8 @@ records artifact hashes and scope. A verified archive outside build retains
 403 entries. The four older raw guest disk copies were retired after matching
 readback from the earlier qualification archive. All owned guest and build
 processes stopped. The integration checkout and review VM are untouched.
-OS #503 is still draft. Start sha256sum after the reachable pin and OS delivery.
+Integration approved landing OS #503 with Ports `9d42e0f` on the durable
+`pins/srvros-503-ggrep` ref. A fresh independent OS clone initialized the exact
+Ports gitlink and fetched the dedicated ref. Ports #16 remains open for owner
+review of promotion to Ports main. The archive was retired during cleanup.
+Compact evidence and manifests survive. Start sha256sum after OS delivery.

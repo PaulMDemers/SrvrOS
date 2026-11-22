@@ -1,5 +1,6 @@
 {
   "archive_entries_readback_verified": 403,
+  "archive_retention": "Bulk archive retired during cleanup after compact test receipts, logs, screenshots and hashes were preserved.",
   "archive_sha256": "ea04534d7829b4a2bd34d4830dad405b77b39cb9214725d6918e2e1e5a271ea9",
   "battery_runtime_sha256": "ba94ffeaa56a17455805c4360249229a9c99bc7f83d7bb7bc81281cb66d432f4",
   "boot_artifacts_sha256": {
@@ -16,6 +17,7 @@
     "reference_cases": 19,
     "refusals": 14
   },
+  "durable_pin_ref": "refs/heads/pins/srvros-503-ggrep",
   "evidence_sha256": {
     "cli": "4aa0e77ca4701de1a03265fc07dfcdb782fee7d84c1b0cc9c441a78410678fd0",
     "grep": "dee66d94c172bdcaa6f8b08e90f3d2752c8a7dac4051fd6020edb02cb8fdab37",
@@ -32,8 +34,15 @@
     "ports": "PASS",
     "terminal_functional_and_expert": "PASS"
   },
-  "merge": "OS #503 remains draft until Pro owner disposition and final pin reachability",
+  "merge": "Integration approved OS #503 on the exact qualified commit via the dedicated ref. Ports #16 remains open for Pro owner review of promotion to Ports main.",
   "owner_review": "Pending, requested on OS #19 and tracked in Ports #16",
+  "pin_fetch_verification": {
+    "checked_out_pin_and_ref_tip": "9d42e0f5702453490de8b7e80f40c64a82fcfd6d",
+    "checked_out_ports_tree": "3f358c74db204698c7516a6efdadbe9a7c7145b4",
+    "method": "Fresh independent remote shallow clone and normal git submodule update for ports, followed by an explicit fetch of the durable ref.",
+    "os_branch_head": "c3cd6948c96a921197f91bfcfea1b6b9efabf74b",
+    "status": "PASS"
+  },
   "port_candidate": "9d42e0f5702453490de8b7e80f40c64a82fcfd6d",
   "port_tree": "3f358c74db204698c7516a6efdadbe9a7c7145b4",
   "scope": "Fresh matched proposed-pin qualification. Mapped heap is scoped to SDK arena. No new physical device or Pro logging acceptance.",
