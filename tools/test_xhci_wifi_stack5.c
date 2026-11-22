@@ -823,7 +823,9 @@ static void desktop_replug_case(void){
   const void *p=i<2?(const void *)old->ring[i]:(const void *)old->buffer[(i-2)/4][(i-2)%4];
   assert(!memcmp(p,reconnect_old_physical[i],4096));
  }
- assert(!strcmp(net_device_name(),"none") && xhci.devices[0].slot_disabled && xhci.devices[2].firmware.ready);
+ assert(wifi_stack5_net.state==MT76_NET5_RETIRED && wifi_stack5_net.registry_drained &&
+        !net_device_selected_is(&wifi_stack5_net.ops) && !net_device_poll(1,false));
+ assert(xhci.devices[0].slot_disabled && xhci.devices[2].firmware.ready);
  puts("xhci desktop Wi-Fi: PASS native disconnect, same-slot re-enumeration, fresh radio ownership and WPA, DHCP, ping, DNS, UDP and shared USB storage on both lifetimes");
 }
 
