@@ -14,10 +14,10 @@ in the pinned source; missing GLib dependencies, shared-memory/IPC, combined
 wait policy and frame completion/cancellation remain explicit implementation
 gates. No full target configure, engine build or rendered page is claimed.
 The GLib 2.90.1 cross-configure computes the SrvrOS poll constants,
-configures bundled GVDB, and detects GNU libiconv 1.19, PCRE2 10.49 and
-libffi 3.8.0. The normal guest passed the native wait, conversion, PCRE2
-and libffi probes twice each. The next required configure dependency
-is zlib. See the [GLib probe record](browser-glib-prereq.md).
+configures bundled GVDB, and detects GNU libiconv 1.19, PCRE2 10.49,
+libffi 3.8.0 and zlib 1.4. The normal guest passed the native wait and
+each library probe twice. Configure stops at the proxy-libintl fallback
+for `intl`. See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
 open and draft under its own acceptance ledger.

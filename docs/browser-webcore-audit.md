@@ -4,9 +4,10 @@ November 5, 2026. Status: source/configuration audit and owner design review com
 implementation remains unqualified behind the explicit gates below.
 
 November 22 follow-up. The pinned GLib configure now detects the SDK poll
-constants and static GNU libiconv, PCRE2 8-bit and libffi providers. Configure
-processes bundled GVDB and stops at zlib. The normal guest verified native
-wait, character conversion, Unicode matching and foreign calls and callbacks.
+constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
+Configure processes bundled GVDB and stops at the `intl` fallback. The
+normal guest verified native wait, character conversion, Unicode matching,
+foreign calls and callbacks, and gzip compression and decompression.
 The host verified GLib wakeup and timer dispatch.
 See the [GLib prerequisite results](browser-glib-prereq.md).
 

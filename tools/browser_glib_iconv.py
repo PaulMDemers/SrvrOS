@@ -20,6 +20,7 @@ ICONV = 'libiconv-1.19'
 GLIB = 'glib-2.90.1'
 PCRE2 = 'pcre2-10.49'
 LIBFFI = 'libffi-3.8.0'
+ZLIB = 'zlib-1.4'
 PINS = {
     ICONV: ('https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz',
             '88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6'),
@@ -29,6 +30,8 @@ PINS = {
             '53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384'),
     LIBFFI: ('https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz',
              '7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4'),
+    ZLIB: ('https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.gz',
+           '02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584'),
 }
 
 
@@ -97,12 +100,30 @@ def build_libffi(source, out, gnu_target, tools, make, patch):
     ])
 
 
+def build_zlib(source, out, tools, make):
+    build = out / 'zlib-build'
+    build.mkdir()
+    prefix = out / 'target-zlib'
+    zlib_tools = dict(tools, CHOST='x86_64-srvros')
+    configure = [source / 'configure', '--static', f'--prefix={prefix}']
+    run_logged(configure, build, zlib_tools, out / 'zlib-configure.log', 120)
+    run_logged([make, '-j2', 'libz.a'], build, zlib_tools, out / 'zlib-build.log', 120)
+    return stage_provider(prefix, [
+        (source / 'zlib.h', 'include/zlib.h'),
+        (build / 'zconf.h', 'include/zconf.h'),
+        (build / 'libz.a', 'lib/libz.a'),
+        (build / 'zlib.pc', 'lib/pkgconfig/zlib.pc'),
+        (source / 'LICENSE', 'share/LICENSE'),
+    ])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--iconv-archive', type=Path, required=True)
     parser.add_argument('--glib-archive', type=Path, required=True)
     parser.add_argument('--pcre2-archive', type=Path, help='also build and expose the pinned PCRE2 8-bit port')
     parser.add_argument('--libffi-archive', type=Path, help='also build and expose the pinned libffi port')
+    parser.add_argument('--zlib-archive', type=Path, help='also build and expose the pinned zlib port')
     parser.add_argument('--meson', type=Path, required=True)
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-iconv'
@@ -122,7 +143,7 @@ def main():
                            'LIBS', 'CPATH', 'C_INCLUDE_PATH', 'LIBRARY_PATH', 'SDKROOT',
                            'CONFIG_SITE', 'MAKEFLAGS', 'MFLAGS')}
     env.update({'CONFIG_SITE': '/dev/null', 'LC_ALL': 'C', 'PYTHONUNBUFFERED': '1'})
-    dependencies = [(PCRE2, args.pcre2_archive), (LIBFFI, args.libffi_archive)]
+    dependencies = [(PCRE2, args.pcre2_archive), (LIBFFI, args.libffi_archive), (ZLIB, args.zlib_archive)]
     pins = [ICONV, GLIB, *(name for name, archive in dependencies if archive)]
     receipt = {'result': 'failed', 'pins': {name: PINS[name] for name in pins}}
     try:
@@ -187,6 +208,13 @@ def main():
                                        for path in sorted(ffi_prefix.rglob('*')) if path.is_file()}
             pc_dirs.append(str(ffi_prefix / 'lib/pkgconfig'))
             print(f'Target libffi prefix: {ffi_prefix}', flush=True)
+        if args.zlib_archive:
+            zlib = extract_archive(args.zlib_archive.resolve(), ZLIB, out)
+            zlib_prefix = build_zlib(zlib, out, tools, make)
+            receipt['zlib_sha256'] = {str(path.relative_to(out)): digest(path)
+                                     for path in sorted(zlib_prefix.rglob('*')) if path.is_file()}
+            pc_dirs.append(str(zlib_prefix / 'lib/pkgconfig'))
+            print(f'Target zlib prefix: {zlib_prefix}', flush=True)
         if not pc_dirs:
             pc = out / 'empty-pkgconfig'
             pc.mkdir()

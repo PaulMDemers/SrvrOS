@@ -1,0 +1,280 @@
+{
+  "scope": "static zlib 1.4 streaming and gzip with fresh GLib configure",
+  "ports": "276eb1b05206a0da2efe832a8d96a26d3b1e663b",
+  "configure": {
+    "result": "configure stopped",
+    "pins": {
+      "libiconv-1.19": [
+        "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz",
+        "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6"
+      ],
+      "glib-2.90.1": [
+        "https://download.gnome.org/sources/glib/2.90/glib-2.90.1.tar.xz",
+        "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396"
+      ],
+      "pcre2-10.49": [
+        "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.bz2",
+        "53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384"
+      ],
+      "libffi-3.8.0": [
+        "https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz",
+        "7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4"
+      ],
+      "zlib-1.4": [
+        "https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.gz",
+        "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584"
+      ]
+    },
+    "source": "7373d4d5d2c53ab7529619f4c174567331b4fdad",
+    "inputs_sha256": {
+      "tools/browser_glib_iconv.py": "15c36b9b6a6c1e0f0f6127dab4090a985642e2385c255129f659e5cad4a32671",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "build/sysroot/srvros/lib/libsrvros.a": "a29884690f650a1393c7d1126b89f75b1fe513266d32c13ac19aff1e2f16e205",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "tools/libffi-srvros-closures.patch": "a9e4f146829dd4ffd0a5acbd5317881b6ae71828b5773bcdf4bff13c5652c34d"
+    },
+    "sdk_headers_sha256": "d4d2d2e539f673d86771afd1cf33c0819ef39a79ea834ee4fbe7255bc4100386",
+    "meson": "1.10.2",
+    "provider_sha256": {
+      "target-iconv/include/iconv.h": "e9268746d5d234395604d3fe3abdf3038134340a2e29fc120a8bb411acfd419c",
+      "target-iconv/lib/libiconv.a": "a6d188e837630032747c5191ce6e1fa04aecd42151268b8863b81f1ef45e9467",
+      "target-iconv/share/COPYING.LIB": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "pcre2_sha256": {
+      "target-pcre2/include/pcre2.h": "19756397bb6c402d43f74ba827c55acd26c21d078eead9ed5d49f582e4c506d8",
+      "target-pcre2/lib/libpcre2-8.a": "0c4f3a2bf080bbe914d9f1738b9d9013772a681cf412cbc89b99e197d5edbe3f",
+      "target-pcre2/lib/pkgconfig/libpcre2-8.pc": "ddcfa67397b589949d5551d886d5aba3eaab72b5fa856918dc7e1e0cf1433371",
+      "target-pcre2/share/LICENCE.md": "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811"
+    },
+    "libffi_sha256": {
+      "target-libffi/include/ffi.h": "961bf175d63b76aa7028f1d887824efe7a6599480791ab2ed1a9cef3624df7a2",
+      "target-libffi/include/ffitarget.h": "0fbd9298a33dddf98467d739c6245a5415d9ec6132564cb36b7ae4069ff04a1b",
+      "target-libffi/lib/libffi.a": "bd68b85f4662712f8dea3e50e380ea8b62c149d8bfa3edf77427e0dd4a6850db",
+      "target-libffi/lib/pkgconfig/libffi.pc": "298298125a4755eac14853d3de7ff188505b1204ac080400479dd28d135fea2c",
+      "target-libffi/share/LICENSE": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c"
+    },
+    "zlib_sha256": {
+      "target-zlib/include/zconf.h": "7e5944546a1bdd0b1a447e7fea51c9b808b6db8de9aaa22787de8c09f40e8f2d",
+      "target-zlib/include/zlib.h": "2c404dcaa08709c2a129aea18f3dad4fb5acc5cb52ef12b6223bf8e78c195801",
+      "target-zlib/lib/libz.a": "aa114989b600d9534f4cd4e9705c7988b32d013dd283ffa0bf7d82072287d129",
+      "target-zlib/lib/pkgconfig/zlib.pc": "f2b0a196d0fa0d1e78a6d9591acb07213980318d538d2e9437de418637bc8bd1",
+      "target-zlib/share/LICENSE": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+    },
+    "glib_exit": 1,
+    "logs_sha256": {
+      "glib-configure.log": "1350a381e3385981cf1919ae3af6dc0e99af688be9bb0c6c369d56e361057f48",
+      "glib-patch.log": "f04feee6fb5e00437a44750ecd530cd845916c8aa6ae9520e2c5cdb9e7e2fd25",
+      "iconv-build.log": "6446e87ff34b612a79d20d1a17b68c34dc92b665c45a7400dab4876b8415c1a0",
+      "iconv-charset.log": "454053dde17e78ca3981ef689c8c91077017a60af9ed8a9e94fd70418c4d609f",
+      "iconv-configure.log": "bf2d7e6d3e3390fc685af4acce1180f19a8c7f6120da6b05b9df9054f4df227c",
+      "libffi-build.log": "384d62eb9cb8ac2fec60b269b3ef8cb2dee956a180f1b478215f82e346d34bd7",
+      "libffi-configure.log": "3ef07c6715b660beb84ba111d44c34ec8efc5748777153a349fe96ef2fde0dab",
+      "libffi-patch.log": "da367e8db125541a87179ae6424264c167e36898380af1c51627f6006872402b",
+      "pcre2-build.log": "b9dd8878b84e16b5f683ccb1ee2dc4f20d7243c55291fc93a428b613178d8c47",
+      "pcre2-configure.log": "3ba0d4c38b2148a3fe07d7987c05dd7630a75960ad20fc2afad191bdfee13d9b",
+      "zlib-build.log": "5bd0d248bd8a2b32605d3b02427bc0a421d8bdedbe77aced4bcebbf1e7088f58",
+      "zlib-configure.log": "c89df948830a263cbb7b303fd028a7c915fc01464b0fd4463acb204a6f685fb3",
+      "glib-build/meson-logs/meson-log.txt": "73fb516b8383f03e7ef90688211d1b481a3ed6b0a31cffa869ff8c30d7aed9cb"
+    },
+    "evidence": [
+      "Computing int of \"POLLIN\" : 1",
+      "Computing int of \"POLLOUT\" : 4",
+      "Computing int of \"POLLPRI\" : 2",
+      "Computing int of \"POLLERR\" : 8",
+      "Computing int of \"POLLHUP\" : 16",
+      "Computing int of \"POLLNVAL\" : 32",
+      "Run-time dependency iconv found: YES",
+      "Run-time dependency libpcre2-8 found: YES 10.49",
+      "Dependency gvdb found: YES 0.0 (overridden)",
+      "Run-time dependency libffi found: YES 3.8.0",
+      "Run-time dependency zlib found: YES 1.4",
+      "Run-time dependency intl found: NO (tried builtin and system)",
+      "Run-time dependency intl found: NO (tried builtin and system)",
+      "ERROR: Subproject proxy-libintl is buildable: NO",
+      "glib-2.90.1/meson.build:2361:12: ERROR: Automatic wrap-based subproject downloading is disabled"
+    ],
+    "next_missing_dependency": "intl (proxy-libintl fallback)"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "7373d4d5d2c53ab7529619f4c174567331b4fdad",
+    "sdk_headers_sha256": "d4d2d2e539f673d86771afd1cf33c0819ef39a79ea834ee4fbe7255bc4100386",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "397a191185075fa5a06a161cce9557f58b3132971ce0df09edc7503a7ebf9bac",
+      "tools/test_glib_platform_guest.c": "dd02effe60f1661b4c04072ac45709726add18656ae299693b6d8a08a358035b",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "95fe7b2f6b6402cc06aae3c379fe68996cbde0a9ea136ffaf9b8469a90879396",
+      "build/userspace/init.elf": "24c0db54869dd6567e17f21813ef9371e0520c9ceb1617fc93e48cf426d98064",
+      "build/sysroot/srvros/lib/libsrvros.a": "a29884690f650a1393c7d1126b89f75b1fe513266d32c13ac19aff1e2f16e205",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "736befeaa8cb735399447e9cd56713dc289c4b95ed8fde6ffff2712838471174",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_iconv_guest.c": "9d2758d8d8a9eefa8070437d54cebd6cc3fd57732da9915957b9dfcdb22f2ace",
+      "tools/test_glib_pcre2_guest.c": "30195fe2331159aacc252f86e68badc45b02e5aa79fc17b1163099959b682b54",
+      "tools/test_glib_libffi_guest.c": "4e2721ffedddec4a78d22a7d7a767458eaa14d95e7676423358a0d1be72fb900",
+      "tools/test_glib_zlib_guest.c": "fad43e53889cec60f3f365de591f35ae1f2d2f0f20355fcfa9dc712b5bcae919"
+    },
+    "payload_sha256": "631f2574820be2a512b37dbb9bcde8b171b4ab789a650b6279fa2cc8026635bd",
+    "iconv_provider_sha256": {
+      "lib/libiconv.a": "a6d188e837630032747c5191ce6e1fa04aecd42151268b8863b81f1ef45e9467",
+      "include/iconv.h": "e9268746d5d234395604d3fe3abdf3038134340a2e29fc120a8bb411acfd419c"
+    },
+    "iconv_payload_sha256": "56a5d6ae2a01e08bde8db5e5b82d685f9bd5e85fa34baca973d060cef450ea4c",
+    "pcre2_provider_sha256": {
+      "lib/libpcre2-8.a": "0c4f3a2bf080bbe914d9f1738b9d9013772a681cf412cbc89b99e197d5edbe3f",
+      "include/pcre2.h": "19756397bb6c402d43f74ba827c55acd26c21d078eead9ed5d49f582e4c506d8"
+    },
+    "pcre2_payload_sha256": "15f2d2c5b897e8a79f883c8558f69db6a8a3b1f44afff127ca5d494c1bcae1d1",
+    "libffi_provider_sha256": {
+      "lib/libffi.a": "bd68b85f4662712f8dea3e50e380ea8b62c149d8bfa3edf77427e0dd4a6850db",
+      "include/ffi.h": "961bf175d63b76aa7028f1d887824efe7a6599480791ab2ed1a9cef3624df7a2",
+      "include/ffitarget.h": "0fbd9298a33dddf98467d739c6245a5415d9ec6132564cb36b7ae4069ff04a1b"
+    },
+    "libffi_payload_sha256": "f5a8c5b0043a31217e73d55d47a4e03145d34548b9255153306b55c7c432e01b",
+    "zlib_provider_sha256": {
+      "lib/libz.a": "aa114989b600d9534f4cd4e9705c7988b32d013dd283ffa0bf7d82072287d129",
+      "include/zlib.h": "2c404dcaa08709c2a129aea18f3dad4fb5acc5cb52ef12b6223bf8e78c195801",
+      "include/zconf.h": "7e5944546a1bdd0b1a447e7fea51c9b808b6db8de9aaa22787de8c09f40e8f2d"
+    },
+    "zlib_payload_sha256": "162ca55cec13962cb4d4a6609311b78bc8567a34dc120359cd298a9252a11fe9",
+    "image_sha256": "b46c6c68371d1f96313566dbae7cc84855d12100ec4d38fbfc6b459f7590b5d8",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "<guest.iso>",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-nic",
+      "none",
+      "-serial",
+      "unix:<private UART>,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-iconv",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-iconv",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-pcre2",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-pcre2",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-libffi",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-libffi",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-zlib",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-zlib",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "6954361f4ab2329aaa9aba59176b4fe21a19f0ff9a3a5491e33ebc679a1b65c9",
+    "serial_evidence": [
+      "gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit",
+      "glib-platform: ok",
+      "run: pid=3 exited status=0",
+      "gui-wait-capture: PASS deadlines, delayed pipe, thread cancellation, descriptor replacement, simultaneous GUI/pipe and peer exit",
+      "glib-platform: ok",
+      "run: pid=5 exited status=0",
+      "glib-iconv: ok",
+      "run: pid=7 exited status=0",
+      "glib-iconv: ok",
+      "run: pid=8 exited status=0",
+      "glib-pcre2: ok",
+      "run: pid=9 exited status=0",
+      "glib-pcre2: ok",
+      "run: pid=10 exited status=0",
+      "glib-libffi: ok",
+      "run: pid=11 exited status=0",
+      "glib-libffi: ok",
+      "run: pid=12 exited status=0",
+      "glib-zlib: ok",
+      "run: pid=13 exited status=0",
+      "glib-zlib: ok",
+      "run: pid=14 exited status=0"
+    ]
+  },
+  "pkg_config_link": {
+    "cflags": "-I<target-zlib>/include",
+    "libs": "-L<target-zlib>/lib -lz",
+    "control_without_target_libdir": "error: unable to find static system library 'z' using strategy 'no_fallback'. searched paths: none",
+    "relink_elf_sha256": "162ca55cec13962cb4d4a6609311b78bc8567a34dc120359cd298a9252a11fe9",
+    "booted_initramfs_sha256": "fd0e53d5fc6e8c9626599bc4135a7a47522625a84a973c8f65096a358307c104",
+    "matched_runtime_elf_sha256": "c9883843ac7568386bf31b61b47f9abb68cf1638dbc42082a0541cd35c6b0d68",
+    "matched_runtime_elf_size": 141696
+  }
+}
