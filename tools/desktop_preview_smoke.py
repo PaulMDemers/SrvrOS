@@ -16,6 +16,18 @@ from displayd_resolution_smoke import build_iso
 from desktop_foundation_smoke import QMP
 
 
+def jpeg_with_exif_orientation(jpeg, orientation):
+    """Insert a minimal little-endian EXIF orientation tag after JPEG SOI."""
+    assert jpeg[:2] == b"\xff\xd8"
+    # TIFF header + one IFD entry for Orientation (SHORT, count 1).
+    tiff = (b"II" + struct.pack("<H", 42) + struct.pack("<I", 8) +
+            struct.pack("<H", 1) + struct.pack("<HHI", 0x0112, 3, 1) +
+            struct.pack("<H", orientation) + b"\0\0" + struct.pack("<I", 0))
+    payload = b"Exif\0\0" + tiff
+    segment = b"\xff\xe1" + struct.pack(">H", len(payload) + 2) + payload
+    return jpeg[:2] + segment + jpeg[2:]
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--stress",action="store_true",help="also exercise maximum-size images and cancellation")
@@ -34,6 +46,12 @@ def main():
         files={"Landscape.png":png,"Bad.png":b"not an image", "Oversize.png":png[:16]+struct.pack(">II",4096,4096)+png[24:]}
         if args.stress: files["Maximum.png"]=image_pattern(4096,1024)
         files.update({"Sample."+extension:(root/f"tools/fixtures/images/pattern.{extension}").read_bytes() for extension in ("png","jpg","bmp")})
+        sample_jpeg=files["Sample.jpg"]
+        files["LandscapeExif90.jpg"] = jpeg_with_exif_orientation(sample_jpeg, 6)
+        files["LandscapeExifMirror.jpg"] = jpeg_with_exif_orientation(sample_jpeg, 2)
+        # Orientation values outside the EXIF 1..8 range must not prevent a
+        # valid JPEG from decoding; retain the untransformed dimensions.
+        files["LandscapeExifMalformed.jpg"] = jpeg_with_exif_orientation(sample_jpeg, 9)
         fixture.add_directory_files("pictures",files)
         for name,data in files.items(): assert fixture.read("pictures/"+name)==data
         (tmp/"disk.exfat").write_bytes(fixture.data)
@@ -138,6 +156,16 @@ def main():
                 open_name("Bad.png");wait(b"image-result transport=1 status=3 retained=1");shot("preview-invalid")
                 open_name("Oversize.png");wait(b"image-result transport=1 status=4 retained=1")
                 open_name("Sample.jpg");wait(b"loaded path=/fat/pictures/Sample.jpg width=19 height=13")
+                shot("preview-exif-original")
+                open_name("LandscapeExif90.jpg")
+                wait(b"loaded path=/fat/pictures/LandscapeExif90.jpg width=13 height=19")
+                shot("preview-exif-90")
+                open_name("LandscapeExifMirror.jpg")
+                wait(b"loaded path=/fat/pictures/LandscapeExifMirror.jpg width=19 height=13")
+                shot("preview-exif-mirror")
+                open_name("LandscapeExifMalformed.jpg")
+                wait(b"loaded path=/fat/pictures/LandscapeExifMalformed.jpg width=19 height=13")
+                shot("preview-exif-malformed")
                 open_name("Sample.bmp");wait(b"loaded path=/fat/pictures/Sample.bmp width=19 height=13")
                 open_name("Sample.png");wait(b"loaded path=/fat/pictures/Sample.png width=19 height=13")
                 shortcut("ctrl-o");wait(b"deskview: picker ready");shortcut("esc")
@@ -166,7 +194,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-preview: PASS launcher, PNG/JPEG/BMP, fit/actual/zoom/pan, invalid/oversized input retention, picker clipboard, global View menu, compact layout, Files association and clean exit. Maximum-image/cancel stress: {args.stress}. Evidence: {out}")
+    print(f"desktop-preview: PASS launcher, PNG/JPEG/BMP, EXIF rotation/mirror/malformed orientation, fit/actual/zoom/pan, invalid/oversized input retention, picker clipboard, global View menu, compact layout, Files association and clean exit. Maximum-image/cancel stress: {args.stress}. Evidence: {out}")
 
 
 if __name__=="__main__": main()
