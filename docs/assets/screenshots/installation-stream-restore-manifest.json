@@ -30,6 +30,18 @@
     "16 MiB selected document; not a 64 MiB aggregate test",
     "offline ExfatFixture allocation audit loads the data partition into evidence-tool RAM"
   ],
+  "main_refresh": {
+    "docs": "PASS",
+    "focused_tests": "7 passed",
+    "identical_manifest_artifacts": 3,
+    "identical_submodule_pins": true,
+    "main": "c477c26e773b9f7b43c99e409e83e3554e298b22",
+    "matched_guest_proof_source": "afb305b6c6c5853c05c47b62d3d6ab6785e692e2",
+    "proof_inputs_identical": 7,
+    "proof_tools_identical": 12,
+    "refreshed_source": "d4b09b4dd9dd93f81aeabb0760cbeed1a1ee7f5e",
+    "status": "PASS"
+  },
   "memory": {
     "existing_gpt_image_sized_allocation": true,
     "native_payload_buffers_bytes": [
