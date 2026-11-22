@@ -21,7 +21,7 @@ FAILURES=('none','recipe','timer-reference','profile','source-snapshot','root','
           'console-sync','display-exclusion','identity','cache-context','source-revalidation',
           'PCI-bounds','MMIO-resource','cache-type','mapping','actual-alias','MMIO-read',
           'clock','layout-plan','torn-PTE','layout-classification','unmap','exclusion-release',
-          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion','hardware-observation','scanout-range')
+          'changed-facts','source-window','allowed-range','progress-save','invalid-reader-word','CPU-backing-guard','CPU-mapping-exclusion','hardware-observation','scanout-range','aperture-guard-query')
 HEX=set('host gpu subsystem ggc bdsm bgsm tolud reserved fbc psr_ctl psr_status first last hash bad_value'.split())
 HEX.update(['virtual','entry','physical']+['w'+str(i) for i in range(42)])
 FIXED=('srvros.storage=ram','srvros.capture=intel-display','srvros.intel-backing=read-only',
@@ -311,7 +311,7 @@ def stolen_result(text,*,native=False,required_version=None):
     if wire>=5:verify_owner_progress(rows,s)
     if required_version is not None and wire!=required_version:raise ValueError('stolen exact wire required')
     if wire>=2:
-        if s['cache_index']!=3 or s['fail']>=len(FAILURES) or s['offset']>=0x1000000 or s['offset']&3:
+        if s['cache_index']!=3 or s['fail']>=len(FAILURES) or (s['fail']==33 and wire<12) or s['offset']>=0x1000000 or s['offset']&3:
             raise ValueError('stolen admission receipt')
         if any(s[k] not in (0,1,4,5,6,7,255) for k in ('mtrr','pat','effective')):raise ValueError('stolen cache type encoding')
         success=bool(s['complete'] and s['released'] and not s['retained'])

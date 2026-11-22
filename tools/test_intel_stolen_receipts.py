@@ -76,13 +76,15 @@ class Receipts(unittest.TestCase):
         cmd=next(l.split('cmdline:',1)[1].strip() for l in cfg.splitlines() if 'cmdline:' in l)
         self.assertIn('srvros.intel-scanout=private-range',cmd.split())
         self.assertEqual(trial_parsers('intel-private-range-v1')[0](cmd),stolen_recipe(self.command))
-        for name in ('report','full','reader','change','collision'):
+        for name in ('report','full','reader','change','collision','guard'):
             raw=subprocess.check_output([str(exe),'--private-'+name],text=True)
             result=stolen_result(raw,required_version=13)
-            self.assertEqual(result['complete'], name!='change')
+            self.assertEqual(result['complete'], name not in ('change','guard'))
             self.assertFalse(result['managed_range'] or result['hardware_ownership'])
             row=result['private_range']
             self.assertEqual(row['checked'],{'report':1484,'collision':1484,'change':1483}.get(name,0))
+            if name=='guard':
+                self.assertEqual(result['failure_stage'],'aperture-guard-query')
             if name=='report':
                 line=next(l for l in raw.splitlines() if l.startswith('intel-private-range:'))
                 for bad in ('',line+'\n'+line,line.replace('checked=1484','checked=1483'),

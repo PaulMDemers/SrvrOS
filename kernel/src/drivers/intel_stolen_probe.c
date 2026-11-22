@@ -674,12 +674,32 @@ done:
  return ok || refuse(32);
 }
 
+/* The VMM validates the active root and guard with local IRQs masked.
+ * The guard remains pinned across the scan. Only this observation needs CLI. */
+static bool aperture_guard_held(void) {
+ uint64_t flags;
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ flags=intel_stolen_test_irq_save();
+#else
+ __asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+#endif
+ bool held=vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,
+                                           stolen.source.aperture+stolen.source.fence_end);
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ intel_stolen_test_irq_restore(flags);
+#else
+ if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+ return held;
+}
+
 static bool observe_scanout_range(void) {
  const struct bdw_stolen_range *candidate=&stolen.layout.plan.range[1];
  if(!stolen.layout.classified || !stolen.guard.checked || stolen.guard.closed ||
     !stolen.guard.owner.epoch || !stolen.exclusion.epoch || !identity() ||
-    !sole_root() || !intel_window_handoff_revalidate(&stolen.source))return refuse(32);
- if(!vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,stolen.source.aperture+stolen.source.fence_end))return refuse(32);
+    !sole_root())return refuse(32);
+ if(!intel_window_handoff_revalidate(&stolen.source))return refuse(11);
+ if(!aperture_guard_held())return refuse(33);
  stolen.range.excluded_aperture_page=stolen.source.aperture+stolen.source.fence_end;
  if(!scanout_interval_protect_boot_framebuffer(stolen.source.mmio,stolen.source.aperture,
       stolen.source.aperture_bytes,stolen.source.fence_end))return refuse(32);

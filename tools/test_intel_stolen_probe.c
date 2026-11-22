@@ -9,6 +9,13 @@
 #include <string.h>
 static bool intel_stolen_test_alias(uint64_t,uint64_t,uint64_t);
 static bool intel_stolen_test_read(uint32_t,uint32_t *);
+static uint64_t fixture_flags;
+static uint64_t intel_stolen_test_irq_save(void) {
+ uint64_t saved=fixture_flags;
+ fixture_flags&=~(1ull<<9);
+ return saved;
+}
+static void intel_stolen_test_irq_restore(uint64_t flags) {fixture_flags=flags;}
 #define SRVROS_INTEL_STOLEN_CAPTURE
 #define SRVROS_INTEL_STOLEN_HOST_TEST
 #ifndef SRVROS_STOLEN_ADAPTER_FILE
@@ -33,6 +40,7 @@ volatile struct limine_memmap_request memmap_request;
 static const char *command="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-stolen=read-only srvros.capture-failure=reboot";
 static bool fault(unsigned which) {return ++model.calls[which]==model.at && model.which==which;}
 static void reset(void) {
+ fixture_flags=1ull<<9;
  unsigned cases=model.cases;memset(&model,0,sizeof(model));model.cases=cases;model.clock=1000;
  memset(&stolen,0,sizeof(stolen));
  entry=(struct limine_memmap_entry){.base=0xc0000000,.length=0x1000000,.type=LIMINE_MEMMAP_RESERVED};
@@ -116,7 +124,7 @@ bool vmm_reserved_guard_begin_register_window(struct vmm_reserved_guard *g,uint6
  return vmm_reserved_guard_begin(g,root,pair,count,bits,ram,ranges,out,d);
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
- return model.guard_live && g==&stolen.guard.owner && root==stolen.root && page==0xb2200000;
+ return model.mode!=62 && !(fixture_flags&(1ull<<9)) && model.guard_live && g==&stolen.guard.owner && root==stolen.root && page==0xb2200000;
 }
 bool vmm_reserved_guard_check(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
  assert(g==&stolen.guard.owner && g->object==g && model.guard_live && model.pinned && out==&stolen.guard.inventory[1] && d==&stolen.guard.detail);
@@ -335,10 +343,13 @@ int main(int argc,char **argv) {
   }
   else if(!strcmp(argv[1],"--private-full"))model.mode=57;
   else if(!strcmp(argv[1],"--private-change"))model.mode=58;
+  else if(!strcmp(argv[1],"--private-guard"))model.mode=62;
   else if(!strcmp(argv[1],"--private-reader"))model.mode=60;
   else assert(!strcmp(argv[1],"--private-report"));
   bool ok=intel_stolen_probe_report(private_command);
-  assert(ok==(model.mode!=58) && !model.mapped && !model.held && !model.guard_live);
+  assert(ok==(model.mode!=58 && model.mode!=62) && !model.mapped && !model.held && !model.guard_live);
+  assert(fixture_flags==(1ull<<9));
+  if(model.mode==62)assert(stolen.fail==33 && !stolen.private_range.scanned && stolen.guard.closed);
   if(model.mode==61){
    assert(stolen.private_range.first==11776+256 && stolen.private_range.returned &&
           scanout_interval_held(&competing,0xc0000000,0xb0000000,0x10000000,0x2200000,
@@ -351,6 +362,16 @@ int main(int argc,char **argv) {
   if(!model.mode)assert(stolen.private_range.first==stolen.private_range.begin+192 &&
                        stolen.private_range.returned && stolen.private_range.verified==1484);
   return 0;
+ }
+ for(unsigned enabled=0;enabled<=1;enabled++) {
+  reset();
+  uint64_t flags=((uint64_t)enabled<<9)|2;
+  fixture_flags=flags;
+  model.guard_live=true;stolen.root=4096;stolen.source.aperture=0xb0000000;stolen.source.fence_end=0x2200000;
+  assert(vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,0xb2200000)==!enabled);
+  assert(aperture_guard_held() && fixture_flags==flags);
+  model.guard_live=false;
+  assert(!aperture_guard_held() && fixture_flags==flags);
  }
  for(unsigned mode=49;mode<=53;mode++) {
   reset();model.mode=mode;bool matched=mode==49;

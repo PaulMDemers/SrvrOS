@@ -16,6 +16,15 @@ registry and result collector are in scope. The first trial preserves the
 inherited fence and classifies firmware PTEs before allocating a software
 lease. Binding RAM and retiring hardware readers are separate milestones.
 
+Release `e6fb694136606470` (source `9771e874`, session
+`000660d2bf57904a-00`) returned to Ubuntu with intact USB evidence.
+The CPU guard closed, all 64 temporary mappings retired, and GPU writes
+were zero. The first frame counter was 1100. The probe refused before
+checking the aperture page or scanning any private entries. On this path
+the aperture-guard query requires IRQs masked and its caller did not mask
+them. The retry fixes the caller, models the IRQ contract locally, and
+records a distinct refusal if the aperture page is still unprotected.
+
 The version 4 context diagnostic checks the CPU path to the wireless-display
 (WiDi) queue tail registers while inspecting slot 8704. It requires their
 register page to be absent at both held boundaries. Local qualification also
