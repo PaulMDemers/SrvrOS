@@ -6138,3 +6138,17 @@ were verified against the published signer fingerprint. The compiler/guest
 window follows the browser owner's release. No protected checkout or VM was
 used. The OS pin's Pro checkpoint logging call needs owner coordination before
 using a new Ports main pin. This is separate from the Grep port.
+
+GNU Grep qualified on clean `0241ba87` with composite Ports `9fdd187`.
+The 19 GNU reference cases, 14 refusals, five disposable guests, Terminal
+walkthrough, 498-command CLI and ports regressions pass. Two clean component
+rebuilds match the same SDK objects and native tests record five PASS and one
+SKIP. The heap, interrupt and evidence scope is recorded in
+[the Grep receipt](../assets/evidence/ggrep/receipt.json). Exact tested source,
+boot payload and prior failed receipts are retained outside build cleanup.
+
+Ports #15 merged `f96d91c3` with its reviewed tree verified. OS #503 stays
+draft on the qualified composite until the Pro checkpoint logging owner
+approves its separate landing path. The candidate keeps the OS-main logging
+behavior. Current main `28eb6291` is reconciled with host-only incoming changes.
+All Grep guests stopped. The integration checkout and review VM were untouched.

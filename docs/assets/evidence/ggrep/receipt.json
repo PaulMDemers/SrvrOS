@@ -1,0 +1,42 @@
+{
+  "archive_sha256": "529044ba63cf3aea4c2d4f33fe3541fc9a2f5cdacbc5974d253001b4e45eb27d",
+  "archived_files": 673,
+  "blocked_os_merge": "Separate Pro checkpoint logging owner review and reachable final Ports pin.",
+  "cli_commands": 498,
+  "combined_cap_heap_high_water_bytes": 368640,
+  "evidence_sha256": {
+    "build/review/grep-terminal/proof-qfw0r8em/expert-review.json": "4ce2613e0f369a8c567557199a71da54211ca674fc44556333aed0e055e914f8",
+    "build/review/grep-terminal/proof-qfw0r8em/receipt.json": "de14e3dea53272bccc25c694b4db8ad6c472c7f8651d8fa40c3cbae0da459fb5",
+    "build/review/grep/20261122-151059-u1d36j04/receipt.json": "d86d8e7ab9ce33c56c08de303dd6f455a6b21bcefb2a1bc796fdcf69f6355f2c",
+    "build/review/grep/20261122-151324-oravxwvi/receipt.json": "2cdbd765ef470b5d36779552b1596ad93f305fb0dd2e2d85ce332e20777de930",
+    "build/review/grep/20261122-151446-8gimf8ok/receipt.json": "158a38eeddc57b7825a62d95fbd027ea70be454903547079267a79cffd2841c0",
+    "build/review/grep/cli-regression.log": "24c0f0da643c5e38928d96a3f0201ce1ac0e612b2fc18265efdf85eccf9038bf",
+    "build/review/grep/ports-regression.log": "f415d8873dbd599235a010b04176ce0e58492ce539fda46658d101366e94af42",
+    "build/review/grep/reproducibility/receipt.json": "6ad3a8ca4fd65ff4a7623991128e7719d91301d01c7341501f44349daf993260"
+  },
+  "gnu_reference_cases": 19,
+  "guests": 5,
+  "heap_limit_bytes": 16777216,
+  "limits": [
+    "Mapped SDK heap ceiling excludes stack, executable mappings, snapshot storage and RSS.",
+    "Compile and match signal tests use a diagnostic progress wait.",
+    "Native upstream results are five PASS and one SKIP.",
+    "The rendered Terminal check is an expert walkthrough at 1280 by 800."
+  ],
+  "os_pr": "https://github.com/PaulMDemers/SrvrOS/pull/503",
+  "port_merge": "f96d91c39a716ff445fd4ad1bbc81aa7dfc65937",
+  "port_merge_tree": "fe111cb3ee3973d14e41291ea563301f6015f7d1",
+  "port_reviewed_head": "49c1614d41d1448fea36a837f5e31bc607eb590c",
+  "port_tree": "494cd86f0441c4e578fd4cb0bdefa96d63851e1c",
+  "ports_main_base": "67a92d47c86d73f0df538894d3dc562fe40a7285",
+  "refusals": 14,
+  "screenshots": {
+    "01-matches.png": "bbab888ce0f272fe30244115144955ca036df2bda0fa41e05549ca028ec01c3e",
+    "02-missing-error.png": "a65c308585df5ce80d2218d0b41cf326135abbb0fad3843837f73f1814e02123",
+    "03-retry-count.png": "79c2a529fcc867415bcf64ebbca59d3766275130a9867eb51a2e7ffc38c63bae"
+  },
+  "status": "Port delivered and verified. OS draft pending Pro logging review.",
+  "tested_grep_port": "075938d088cde3d7c9d74e9b8274fe0259144e3a",
+  "tested_os": "0241ba871563814864d88280035bf5ed0d87d537",
+  "tested_port_pin": "9fdd187e12225eaf8dc5c00ad1cb12047d1eeab9"
+}
