@@ -3,8 +3,8 @@
 November 22, 2026. The original target configure stopped at GLib's
 `sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
 the missing `iconv` dependency. GLib now configures through the SrvrOS
-poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB and libffi. The next
-required dependency is zlib.
+poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib and
+proxy-libintl. GIO's next required check is the `C_IN` resolver declaration.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -14,6 +14,10 @@ The PCRE2 run starts from main `c477c26e` (PR #379) and reuses the same
 SDK and guest boot inputs, verified by hash.
 The libffi run starts from the PCRE2 topic at `9172c3d9` with those same
 SDK and guest boot inputs.
+The zlib run starts from main `7373d4d5` (PR #505), with those boot inputs
+and SDK verified again by hash.
+The combined run uses the rebased zlib commit `5d3d49be` on main
+`288886bd`, with the same verified SDK and boot bytes.
 
 ## Source pin and dependencies
 
@@ -32,12 +36,14 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | PCRE2 8-bit | Minimum 10.32. The SrvrOS build uses 10.49, and Meson finds it through the target-only pkg-config directory. |
 | GVDB | The pinned GLib release already contains the subproject, and Meson configures it offline. The wrap names `2b42fc75f09dbe1cd1057580b5782b08f2dcb400`. |
 | libffi | Minimum 3.0.0. Meson finds the target static 3.8.0 provider. |
-| zlib | Next required dependency. Source exists at the OS ports pin. GLib still needs a verified target package and link. |
-| `intl` | GLib tries libc/system gettext and then its proxy-libintl wrap. `-Dnls=disabled` alone does not remove this lookup. |
+| zlib | Meson finds the browser target's static 1.4 provider. |
+| `intl` | GLib configures the pinned proxy-libintl 0.5 wrap as an internal dependency, with `-Dnls=disabled`. |
+| GIO resolver headers | Both `C_IN` compile probes fail because the SDK lacks `<arpa/nameser.h>`. |
 
-The target profile searches only the staged PCRE2 and libffi pkg-config
-directories and disables Meson wrap downloads. The optional standalone
-`m` lookup returns absent and configure continues to libffi and zlib.
+The target profile searches only the staged PCRE2, libffi and zlib pkg-config
+directories and disables Meson wrap downloads. The `intl` lookup uses the
+verified local wrap source. The optional standalone `m` lookup returns absent,
+and the atomic link check passes.
 [Pinned Meson source](https://github.com/GNOME/glib/blob/2.90.1/meson.build).
 
 ## Target poll and iconv
@@ -115,6 +121,48 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
   --pcre2-prefix /path/to/run/target-pcre2 --libffi-prefix /path/to/run/target-libffi
 ```
 
+## Target zlib
+
+The browser build pins **zlib 1.4** with SHA-256
+`02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584`.
+This release includes upstream compression and gzip security fixes. The
+shared SrvrPorts checkout still supplies zlib 1.3.2 to its existing consumers.
+The browser recipe uses upstream `configure --static` with the SrvrOS C
+wrapper and builds the compression and gzip objects into `libz.a`. It stages
+both public headers, the generated target `zlib.pc` and the upstream license.
+[zlib 1.4 release](https://github.com/madler/zlib/releases/tag/v1.4).
+
+```sh
+python3 tools/browser_glib_iconv.py --iconv-archive /path/to/libiconv-1.19.tar.gz \
+  --glib-archive /path/to/glib-2.90.1.tar.xz \
+  --pcre2-archive /path/to/pcre2-10.49.tar.bz2 \
+  --libffi-archive /path/to/libffi-3.8.0.tar.gz \
+  --zlib-archive /path/to/zlib-1.4.tar.gz --meson /path/to/meson
+python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
+  --pcre2-prefix /path/to/run/target-pcre2 --libffi-prefix /path/to/run/target-libffi \
+  --zlib-prefix /path/to/run/target-zlib
+```
+
+## Target proxy-libintl
+
+GLib's own wrap pins **proxy-libintl 0.5** with SHA-256
+`f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303`.
+The recipe places the checked source in GLib's subprojects directory and lets
+Meson select its internal `intl` dependency with wrap downloads disabled.
+An independent Meson build of the same directory supplies the static archive,
+header and upstream license for the guest probe. The upstream `STUB_ONLY`
+configuration implements message passthrough, singular/plural selection and
+basic domain behavior. The tag is 0.5 and the Meson project reports version 1.
+Upstream `setup()` uses an unsynchronized initialization flag, and
+`textdomain()` stores mutable process-wide state. The serial guest probe
+establishes the fallback behavior. Concurrent first use and domain mutation
+need separate GLib integration checks.
+[Pinned proxy-libintl source archive](https://github.com/frida/proxy-libintl/archive/refs/tags/0.5.tar.gz).
+
+Add `--proxy-intl-archive /path/to/proxy-libintl-0.5.tar.gz` to the full
+zlib configure command above. Add `--proxy-intl-prefix
+/path/to/run/target-proxy-intl` to the corresponding guest command.
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
@@ -132,7 +180,15 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
   detected iconv and PCRE2 10.49, and configured the bundled GVDB sources.
   It stopped at the required libffi lookup before building GLib.
 - **Configure with libffi.** Meson detected libffi 3.8.0 from the staged
-  target package and stopped at zlib. GLib library compilation remains pending.
+  target package and stopped at zlib.
+- **Configure with zlib.** Meson detected zlib 1.4 from the isolated target
+  package and continued to `intl`. Both builtin and system checks failed,
+  then Meson stopped at the proxy-libintl fallback because wrap downloads
+  were disabled.
+- **Configure with proxy-libintl.** Meson selected its internal `intl`
+  dependency and continued into GIO. Both public-header probes for `C_IN`
+  failed with a missing `<arpa/nameser.h>`. Meson stopped before producing
+  the complete GLib build graph.
 - **Normal SrvrOS guest.** The native fixture links strictly against the same
   SDK. Both runs passed in one diskless, no-NIC, one-CPU Q35/TCG guest. The
   fixture verifies nonblocking close-on-exec pipes, two pthread wakes, draining
@@ -165,6 +221,18 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
   pkg-config flags reproduced the boot ISO's libffi probe bytes. The ELF
   places all 128 stubs in a read-execute segment and all dispatch slots in
   non-executable writable data.
+- **Target compression.** The zlib fixture verified the header and runtime
+  versions, known CRC32 and Adler32 vectors, one-shot compression, chunked
+  gzip streaming, corrupt and truncated stream errors, and blocking gzip
+  file APIs over a pipe. All five fixtures passed twice. The guest stopped
+  after ten zero exits. A relink with the target pkg-config flags reproduced
+  the exact zlib probe bytes extracted from the boot ISO.
+- **Target translation fallback.** The proxy-libintl fixture exercised
+  single-threaded identity and context passthrough, singular/plural selection,
+  default and replaced text domains, and the upstream binding and codeset
+  behavior. All six fixtures passed twice. The diskless guest stopped after
+  twelve zero exits. Relinking with the verified static archive reproduced
+  the exact proxy-libintl probe bytes extracted from the boot ISO.
 - **Host GLib.** Homebrew's GLib 2.90.1 passed an independent real
   `GMainContext` test using acquire, prepare, query, poll, check, and dispatch.
   One owner processed a worker-attached source and a timer. The quiet wait
@@ -175,8 +243,10 @@ python3 tools/glib_platform_guest.py --iconv-prefix /path/to/run/target-iconv \
 
 The [original receipt](assets/evidence/glib-prereq/receipt.json),
 [poll and iconv receipt](assets/evidence/glib-iconv/receipt.json),
-[PCRE2 receipt](assets/evidence/glib-pcre2/receipt.json), and
-[libffi receipt](assets/evidence/glib-libffi/receipt.json) record
+[PCRE2 receipt](assets/evidence/glib-pcre2/receipt.json),
+[libffi receipt](assets/evidence/glib-libffi/receipt.json),
+[zlib receipt](assets/evidence/glib-zlib/receipt.json), and
+[proxy-libintl receipt](assets/evidence/glib-proxy-intl/receipt.json) record
 configuration outcomes, matched inputs and result hashes. The first strict
 one-step Zig compile/link rejected an unused driver option. Separate strict
 compilation and the normal SDK linker invocation resolved it. The test and
@@ -267,6 +337,7 @@ For the diagnostic, copy that source and replace `sys/poll.h` with `poll.h`
 only in the `has_syspoll` check and the adjacent constants-test include in
 `meson.build`. Use that copy and a new output directory with the same flags.
 
-The next concrete dependency task is to expose the pinned zlib as a target
-package, verify compression and decompression in SrvrOS, and rerun GLib
-configure.
+The next concrete configure task is to review GIO's resolver header and
+API requirements with the SrvrOS networking owner. The first failed check
+requires a public declaration of `C_IN` through `<arpa/nameser.h>`.
+GIO's subsequent `res_query` link probe is visible in the pinned source.

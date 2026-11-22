@@ -21,11 +21,13 @@ wait and frame-completion implementation gates. No shared implementation or
 production capability change is in scope.
 
 The November 22 [GLib prerequisite probe](browser-glib-prereq.md) verifies
-native wait primitives and the iconv, PCRE2 and libffi providers in the normal
-guest. Host GLib dispatches wakes and timers. Target GLib configures through the
-SrvrOS poll fallback and those three providers. The next required dependency
-is zlib. Static GLib compilation and the integrated main-context wait are
-later milestones. Shared-memory and IPC design remains with its runtime owner.
+native wait primitives and the iconv, PCRE2, libffi, zlib and proxy-libintl
+providers in the normal guest. Host GLib dispatches wakes and timers. Target
+GLib configures through its pinned internal `intl` fallback and stops at
+GIO's `C_IN` compile check. Resolver header and API requirements need
+networking owner review before the next target configure run. Static GLib
+compilation and integrated main-context wait follow. Shared-memory and IPC
+design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
 

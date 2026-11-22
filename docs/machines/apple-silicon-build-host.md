@@ -103,6 +103,25 @@ to integration. The PCRE2/libffi changes are limited to browser build
 recipes, fixtures and the libffi source patch. Target GLib configure
 reaches zlib. See the [GLib prerequisite record](../browser-glib-prereq.md).
 
+## GLib zlib dependency — November 22, 2026
+
+The browser topic starts at main `7373d4d5` and uses the same matched SDK
+and normal boot inputs. Browser-local zlib 1.4 passes the checksum, streaming
+gzip and pipe I/O probe twice in a diskless x86-64 guest. All ten fixture
+runs exit 0. The guest stops and the VM window is returned to integration.
+GLib detects the target zlib package and stops at the `intl` fallback.
+See the [zlib receipt](../assets/evidence/glib-zlib/receipt.json).
+
+## GLib proxy-libintl fallback — November 22, 2026
+
+The combined topic uses the zlib change rebased onto OS main `288886bd`
+and retains the verified SDK and normal guest boot inputs. Meson builds the
+exact proxy-libintl 0.5 wrap source with `STUB_ONLY` for the target probe.
+The guest checks message, plural and domain behavior. All twelve fixture
+runs exit 0. The guest stops and the VM window returns to integration.
+GLib selects the internal fallback and stops at GIO's `C_IN` header
+check. See the [proxy-libintl receipt](../assets/evidence/glib-proxy-intl/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

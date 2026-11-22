@@ -20,6 +20,8 @@ ICONV = 'libiconv-1.19'
 GLIB = 'glib-2.90.1'
 PCRE2 = 'pcre2-10.49'
 LIBFFI = 'libffi-3.8.0'
+ZLIB = 'zlib-1.4'
+PROXY_INTL = 'proxy-libintl-0.5'
 PINS = {
     ICONV: ('https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz',
             '88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6'),
@@ -29,6 +31,10 @@ PINS = {
             '53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384'),
     LIBFFI: ('https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz',
              '7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4'),
+    ZLIB: ('https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.gz',
+           '02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584'),
+    PROXY_INTL: ('https://github.com/frida/proxy-libintl/archive/refs/tags/0.5.tar.gz',
+                 'f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303'),
 }
 
 
@@ -97,12 +103,45 @@ def build_libffi(source, out, gnu_target, tools, make, patch):
     ])
 
 
+def build_zlib(source, out, tools, make):
+    build = out / 'zlib-build'
+    build.mkdir()
+    prefix = out / 'target-zlib'
+    zlib_tools = dict(tools, CHOST='x86_64-srvros')
+    configure = [source / 'configure', '--static', f'--prefix={prefix}']
+    run_logged(configure, build, zlib_tools, out / 'zlib-configure.log', 120)
+    run_logged([make, '-j2', 'libz.a'], build, zlib_tools, out / 'zlib-build.log', 120)
+    return stage_provider(prefix, [
+        (source / 'zlib.h', 'include/zlib.h'),
+        (build / 'zconf.h', 'include/zconf.h'),
+        (build / 'libz.a', 'lib/libz.a'),
+        (build / 'zlib.pc', 'lib/pkgconfig/zlib.pc'),
+        (source / 'LICENSE', 'share/LICENSE'),
+    ])
+
+
+def build_proxy_intl(source, out, meson, cross, env):
+    build = out / 'proxy-intl-build'
+    run_logged([meson, 'setup', build, source, '--cross-file', cross,
+                '--wrap-mode=nodownload', '--default-library=static'],
+               out, env, out / 'proxy-intl-configure.log', 60)
+    run_logged([meson, 'compile', '-C', build, 'intl'],
+               out, env, out / 'proxy-intl-build.log', 60)
+    return stage_provider(out / 'target-proxy-intl', [
+        (source / 'libintl.h', 'include/libintl.h'),
+        (build / 'libintl.a', 'lib/libintl.a'),
+        (source / 'COPYING', 'share/COPYING'),
+    ])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--iconv-archive', type=Path, required=True)
     parser.add_argument('--glib-archive', type=Path, required=True)
     parser.add_argument('--pcre2-archive', type=Path, help='also build and expose the pinned PCRE2 8-bit port')
     parser.add_argument('--libffi-archive', type=Path, help='also build and expose the pinned libffi port')
+    parser.add_argument('--zlib-archive', type=Path, help='also build and expose the pinned zlib port')
+    parser.add_argument('--proxy-intl-archive', type=Path, help='build and supply the pinned GLib intl fallback')
     parser.add_argument('--meson', type=Path, required=True)
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-iconv'
@@ -122,7 +161,8 @@ def main():
                            'LIBS', 'CPATH', 'C_INCLUDE_PATH', 'LIBRARY_PATH', 'SDKROOT',
                            'CONFIG_SITE', 'MAKEFLAGS', 'MFLAGS')}
     env.update({'CONFIG_SITE': '/dev/null', 'LC_ALL': 'C', 'PYTHONUNBUFFERED': '1'})
-    dependencies = [(PCRE2, args.pcre2_archive), (LIBFFI, args.libffi_archive)]
+    dependencies = [(PCRE2, args.pcre2_archive), (LIBFFI, args.libffi_archive),
+                    (ZLIB, args.zlib_archive), (PROXY_INTL, args.proxy_intl_archive)]
     pins = [ICONV, GLIB, *(name for name, archive in dependencies if archive)]
     receipt = {'result': 'failed', 'pins': {name: PINS[name] for name in pins}}
     try:
@@ -187,6 +227,13 @@ def main():
                                        for path in sorted(ffi_prefix.rglob('*')) if path.is_file()}
             pc_dirs.append(str(ffi_prefix / 'lib/pkgconfig'))
             print(f'Target libffi prefix: {ffi_prefix}', flush=True)
+        if args.zlib_archive:
+            zlib = extract_archive(args.zlib_archive.resolve(), ZLIB, out)
+            zlib_prefix = build_zlib(zlib, out, tools, make)
+            receipt['zlib_sha256'] = {str(path.relative_to(out)): digest(path)
+                                     for path in sorted(zlib_prefix.rglob('*')) if path.is_file()}
+            pc_dirs.append(str(zlib_prefix / 'lib/pkgconfig'))
+            print(f'Target zlib prefix: {zlib_prefix}', flush=True)
         if not pc_dirs:
             pc = out / 'empty-pkgconfig'
             pc.mkdir()
@@ -211,6 +258,14 @@ pkg_config_libdir = {pc_dirs!r}
 c_args = [{'-I' + str(prefix / 'include')!r}]
 c_link_args = [{'-L' + str(prefix / 'lib')!r}]
 ''')
+        if args.proxy_intl_archive:
+            # Keep this in GLib's wrap directory so it is selected as the
+            # internal dependency. The isolated build tests the same source.
+            proxy = extract_archive(args.proxy_intl_archive.resolve(), PROXY_INTL, glib / 'subprojects')
+            proxy_prefix = build_proxy_intl(proxy, out, meson, cross, env)
+            receipt['proxy_intl_sha256'] = {str(path.relative_to(out)): digest(path)
+                                          for path in sorted(proxy_prefix.rglob('*')) if path.is_file()}
+            print(f'Target proxy-libintl prefix: {proxy_prefix}', flush=True)
         meson_args = [meson, 'setup', out / 'glib-build', glib, '--cross-file', cross,
                       '--wrap-mode=nodownload', '--default-library=static', '-Dtests=false',
                       '-Dintrospection=disabled', '-Dnls=disabled', '-Dlibmount=disabled',
@@ -227,6 +282,9 @@ c_link_args = [{'-L' + str(prefix / 'lib')!r}]
         meson_log = out / 'glib-build/meson-logs/meson-log.txt'
         if meson_log.is_file():
             logs.append(meson_log)
+        proxy_log = out / 'proxy-intl-build/meson-logs/meson-log.txt'
+        if proxy_log.is_file():
+            logs.append(proxy_log)
         receipt['logs_sha256'] = {str(log.relative_to(out)): digest(log) for log in logs}
         (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
 

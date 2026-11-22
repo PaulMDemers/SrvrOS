@@ -25,6 +25,8 @@ GUI_MARKER = b'gui-wait-capture: PASS deadlines, delayed pipe, thread cancellati
 ICONV_MARKER = b'glib-iconv: ok'
 PCRE2_MARKER = b'glib-pcre2: ok'
 LIBFFI_MARKER = b'glib-libffi: ok'
+ZLIB_MARKER = b'glib-zlib: ok'
+PROXY_INTL_MARKER = b'glib-proxy-intl: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -94,6 +96,8 @@ def main():
     parser.add_argument('--iconv-prefix', type=Path, help='target prefix from browser_glib_iconv.py')
     parser.add_argument('--pcre2-prefix', type=Path, help='target PCRE2 prefix from browser_glib_iconv.py')
     parser.add_argument('--libffi-prefix', type=Path, help='target libffi prefix from browser_glib_iconv.py')
+    parser.add_argument('--zlib-prefix', type=Path, help='target zlib prefix from browser_glib_iconv.py')
+    parser.add_argument('--proxy-intl-prefix', type=Path, help='target proxy-libintl prefix from browser_glib_iconv.py')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -131,12 +135,14 @@ def main():
             ('iconv', args.iconv_prefix, ('iconv.h',), 'libiconv.a', ICONV_MARKER),
             ('pcre2', args.pcre2_prefix, ('pcre2.h',), 'libpcre2-8.a', PCRE2_MARKER),
             ('libffi', args.libffi_prefix, ('ffi.h', 'ffitarget.h'), 'libffi.a', LIBFFI_MARKER),
+            ('zlib', args.zlib_prefix, ('zlib.h', 'zconf.h'), 'libz.a', ZLIB_MARKER),
+            ('proxy-intl', args.proxy_intl_prefix, ('libintl.h',), 'libintl.a', PROXY_INTL_MARKER),
         ]
         for name, target_prefix, headers, archive_name, marker in dependencies:
             if target_prefix is None:
                 continue
             prefix = target_prefix.resolve()
-            unit = ROOT / f'tools/test_glib_{name}_guest.c'
+            unit = ROOT / f"tools/test_glib_{name.replace('-', '_')}_guest.c"
             include = prefix / 'include'
             library = prefix / 'lib' / archive_name
             receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
