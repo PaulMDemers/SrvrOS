@@ -54,6 +54,7 @@ def run_guest(image, output, receipt, probes, dns_peer=None):
             stats = output / 'dns-peer.json'
             peer_argv = [sys.executable, dns_peer, '--fd', str(a.fileno()), '--stats', stats]
             peer = stack.enter_context(subprocess.Popen(peer_argv, pass_fds=(a.fileno(),)))
+            stack.callback(peer.terminate)
             a.close()
             pass_fds = (b.fileno(),)
             argv += ['-netdev', f'socket,id=fixture,fd={b.fileno()}', '-device', 'e1000,netdev=fixture']
