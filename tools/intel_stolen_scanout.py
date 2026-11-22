@@ -452,12 +452,14 @@ def stolen_result(text,*,native=False,required_version=None):
         from intel_gt_bootstrap import fields
         keys=['v','pages','closed']
         words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
-        current=guards[0].startswith('intel-submission-guard: v=3 ')
+        tail_loan=guards[0].startswith('intel-submission-guard: v=4 ')
+        current=tail_loan or guards[0].startswith('intel-submission-guard: v=3 ')
         if current or guards[0].startswith('intel-submission-guard: v=2 '):
             extra='func0 func1 strap0 strap1 tried mask0 mask1 mask2 first checked returned'.split() if current else []
             hex_extra=[k for k in extra if k.startswith(('func','strap','mask'))]
-            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra,words+hex_extra,
-                         versions=(3,) if current else (2,))
+            tail_keys='tail_slot tail_pages tail_pte descriptor tail_samples tail_conflicts tail_returned'.split() if tail_loan else []
+            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys,
+                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(4 if tail_loan else 3 if current else 2,))
             if current:
                 masks=[guard[f'mask{i}'] for i in range(3)]
                 slots=(0x10000,0x80000,0xffe00)
@@ -475,6 +477,25 @@ def stolen_result(text,*,native=False,required_version=None):
                         raise ValueError('incomplete hardware video exclusion or command lease')
                     extra_maps+=tried+checked+2
                     extra_aliases+=2*(tried+checked)+4
+                if tail_loan:
+                    reserved=guard['tail_pages']
+                    samples,conflicts,closed=(guard[k] for k in ('tail_samples','tail_conflicts','tail_returned'))
+                    if reserved:
+                        buffer=rows['run'][5]
+                        offset=buffer['pages']-32
+                        slot=buffer['gpu']//4096+offset
+                        desc=(1<<32) | ((slot+1)*4096) | 0x0d
+                        if (first or tried!=3 or not all(masks) or reserved!=32 or offset<r['pages'] or
+                            guard['tail_slot']!=slot or guard['tail_pte']!=buffer['first']+offset*4096 or
+                            samples>3 or conflicts>samples or closed>1 or
+                            guard['descriptor'] not in (0,desc) or (samples and guard['descriptor']!=desc) or
+                            (not closed and not s['retained']) or (complete and (samples,conflicts,closed)!=(3,3,1))):
+                            raise ValueError('invalid firmware command interval or context')
+                        if complete:
+                            extra_maps+=samples
+                            extra_aliases+=2*samples
+                    elif any(guard[k] for k in tail_keys) or (complete and not first):
+                        raise ValueError('missing firmware command interval')
             ports=7
             if (guard['samples']>2 or (guard['samples']==2 and not guard['closed']) or
                 any(guard[k]>0xffffffff for k in words) or

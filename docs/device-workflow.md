@@ -8,8 +8,15 @@ It also looks for a 32-page command allocation beyond the CPU aperture,
 at GGTT slots `0x10000`, `0x80000` and `0xffe00` in that order. The receipt
 records one occupancy bit per PTE, including encoded non-present entries.
 If it finds 32 zero entries, the driver reserves the interval, checks it
-twice during the loan and returns it. Three occupied windows are a valid
-search outcome. A reservation alone does not map command pages or submit work.
+twice during the loan and returns it. Version 3 can also report three occupied
+windows. In version 4 that result selects the last 32 pages of the second
+imported buffer, beyond the tiled image and its 128-page fetch allowance.
+The driver borrows those GPU addresses and builds a blitter context in private
+CPU memory. It rechecks all 32 translations and the context twice while
+slot 8704 is borrowed and once after it returns. Each time a competing
+borrow of the last page must fail. The receipt records the first original
+PTE, context descriptor, check counts and return of the command interval.
+Hardware command submission and PTE replacement require separate qualification.
 The native writer still requires exclusive submission, cache retirement and
 exclusion of both wireless-display sources.
 

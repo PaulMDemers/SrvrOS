@@ -10,6 +10,16 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+The current block uses the existing firmware lender and the submission-guard
+collector on PR 301 to reserve a command interval alongside the original
+framebuffer. It depends on the complete two-pass translation vectors and
+the tiled-image fetch allowance. The new host fixture exercises slots
+11744–11775, starting at GPU address `0x02de0000`, with 20 pages between
+that interval and the fetch allowance. It constructs and verifies a private
+16 KiB blitter image in CPU memory using those GPU addresses. The fixture rejects both a changed
+translation and a changed context after slot 8704 returns. The next native
+test checks the lease, competing borrowers and private image on the Air.
+
 Current PR 301 work covers native command memory and exclusion of the
 wireless-display requester while Pipe A keeps scanning. The display fuse,
 HD-audio input path and per-bank L3 policy have separate effects on this

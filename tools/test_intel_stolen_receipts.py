@@ -117,16 +117,26 @@ class Receipts(unittest.TestCase):
         raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-guard'],text=True)
         report=stolen_result(raw,required_version=15)
         self.assertTrue(report['complete'])
-        self.assertEqual(report['submission_guard'],dict(v=3,pages=7,closed=1,samples=2,
+        self.assertEqual(report['submission_guard'],dict(v=4,pages=7,closed=1,samples=2,
             surface0=0,tail0=16,status0=0,surface1=0,tail1=16,status1=0,func0=0,func1=0,
             strap0=0x20100042,strap1=0x20100042,tried=2,mask0=1<<31,mask1=0,mask2=0,
-            first=0x80000,checked=2,returned=1))
-        for option, complete in (('unfused',False),('command-drift',False),('command-full',True)):
+            first=0x80000,checked=2,returned=1,tail_slot=0,tail_pages=0,tail_pte=0,descriptor=0,
+            tail_samples=0,tail_conflicts=0,tail_returned=0))
+        for option, complete in (('unfused',False),('command-drift',False),('tail-drift',False),('image-drift',False),('command-full',True)):
             data=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-'+option],text=True)
             obs=stolen_result(data,required_version=15)
             self.assertEqual(obs['complete'],complete)
             self.assertFalse(obs['hardware_ownership'])
-            if complete:self.assertEqual(obs['submission_guard']['first'],0)
+            if complete:
+                g=obs['submission_guard']
+                self.assertEqual((g['first'],g['tail_slot'],g['tail_pages'],g['tail_samples'],
+                                  g['tail_conflicts'],g['tail_returned']),(0,11744,32,3,3,1))
+                for field in ('tail_pte','descriptor','tail_slot','tail_returned','tail_conflicts','tail_samples'):
+                    changed=re.sub(r'(?<= )'+field+r'=\S+',field+'=0',data)
+                    with self.assertRaises(ValueError):stolen_result(changed,required_version=15)
+            elif option in ('tail-drift','image-drift'):
+                self.assertEqual(obs['submission_guard']['tail_samples'],2)
+                self.assertEqual(obs['firmware_import']['returned'],1)
         drift=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-drift'],text=True)
         refused=stolen_result(drift,required_version=15)
         self.assertFalse(refused['complete'])

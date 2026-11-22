@@ -5,6 +5,7 @@ bool intel_stolen_probe_recipe(const char *cmdline) {(void)cmdline;return false;
 bool intel_stolen_probe_retained(void) {return false;}
 #else
 #include <srvros/intel_scanout_trial.h>
+#include <srvros/intel_bdw_bcs_context.h>
 #include <srvros/intel_reader_audit.h>
 #include <srvros/intel_completion_audit.h>
 #include <srvros/intel_pci_requester.h>
@@ -89,6 +90,16 @@ static struct {
   uint32_t command_page, occupied[3], first, tried, checked;
   bool command_returned;
  } import;
+ struct {
+  struct scanout_transfer transfer;
+  struct scanout_transfer_token token;
+  struct scanout_transfer_manifest manifest;
+  struct intel_bdw_bcs_context_config bcs;
+  uint32_t image[BDW_BCS_IMAGE_WORDS];
+  uint64_t descriptor;
+  unsigned samples, conflicts;
+  bool returned;
+ } command_tail;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
  uint64_t pte[2][3][16384];
@@ -773,7 +784,54 @@ static bool command_occupancy(unsigned first, uint32_t *mask) {
  return true;
 }
 
-static bool reserve_commands(void) {
+/* Borrow only the alignment padding in the second imported buffer. Keep the
+ * complete tiled image and its 128-PTE fetch allowance outside this interval.
+ * The lender pins the original translations; the lease alone permits no I/O. */
+static bool borrow_command_tail(struct scanout_transfer_manifest source) {
+ const struct bdw_stolen_range *buffer=&stolen.layout.plan.range[2];
+ if(!stolen.import.imported || !stolen.layout.classified || !private_display_clear() ||
+    buffer->pages<COMMAND_PAGES || source.pages>buffer->pages-COMMAND_PAGES ||
+    buffer->pages!=stolen.count[1][2] || buffer->pages!=stolen.count[0][2])return false;
+ unsigned offset=buffer->pages-COMMAND_PAGES;
+ source.first=buffer->gpu/4096+offset;
+ source.pages=COMMAND_PAGES;
+ source.original=&stolen.pte[1][2][offset];
+ if(scanout_transfer_admission(&source)!=TRANSFER_ASSURANCE ||
+    !scanout_transfer_reserve_imported(&stolen.command_tail.transfer,&stolen.range.pool,&stolen.exclusion,
+      &source,&stolen.import.firmware,&stolen.command_tail.token))return false;
+ stolen.command_tail.manifest=source;
+ uint64_t gpu=(uint64_t)source.first*4096;
+ stolen.command_tail.bcs=(struct intel_bdw_bcs_context_config){
+  .ring_gpu=gpu,.context_gpu=gpu+4096,.completion_gpu=gpu+3*4096,
+  .aperture_bytes=source.aperture_bytes,.fence_begin=source.fence_begin,.fence_end=source.fence_end,
+  .nonce=stolen.command_tail.token.epoch,.context_id=1,
+  .vendor=stolen.facts[1].gpu&0xffff,.device=stolen.facts[1].gpu>>16};
+ return intel_bdw_bcs_context_build(&stolen.command_tail.bcs,stolen.command_tail.image,
+                                    &stolen.command_tail.descriptor);
+}
+
+static bool check_command_tail(void) {
+ struct scanout_transfer_manifest fresh=stolen.command_tail.manifest;
+ struct scanout_interval other={0};
+ uint64_t entries[COMMAND_PAGES];
+ if(!private_batch(fresh.first,COMMAND_PAGES,entries) || !unmap())return false;
+ fresh.original=entries;
+ if(!scanout_transfer_reservation_matches(&stolen.command_tail.transfer,&stolen.command_tail.token,&fresh) ||
+    !intel_bdw_bcs_context_verify(&stolen.command_tail.bcs,stolen.command_tail.image,stolen.command_tail.descriptor))
+  return false;
+ ++stolen.command_tail.samples;
+ /* A second child of the same firmware lender must also be excluded. */
+ struct scanout_space_range last={fresh.first+fresh.pages-1,1};
+ if(scanout_interval_borrow(&other,&stolen.import.firmware,fresh.mmio,fresh.aperture,
+      fresh.aperture_bytes,fresh.fence_end,last)) {
+  scanout_interval_release(&other);
+  return false;
+ }
+ ++stolen.command_tail.conflicts;
+ return true;
+}
+
+static bool reserve_commands(struct scanout_transfer_manifest source) {
  const struct bdw_stolen_facts *f=&stolen.facts[1];
  for(unsigned i=0;i<3;i++) {
   unsigned first=command_slots[i];
@@ -783,13 +841,13 @@ static bool reserve_commands(void) {
   if(!scanout_interval_claim_gpu_only(&stolen.import.commands,stolen.source.mmio,stolen.source.aperture,
      f->aperture_bytes,f->fence_end,f->ggtt_bytes,(struct scanout_space_range){first,COMMAND_PAGES}))return false;
   stolen.import.first=first;
-  break;
+  return true;
  }
- return true;
+ return borrow_command_tail(source);
 }
 
 static bool check_command_lease(void) {
- if(!stolen.import.first)return true;
+ if(!stolen.import.first)return check_command_tail();
  struct scanout_space_range pages={stolen.import.first,COMMAND_PAGES};
  uint32_t mask;
  if(!scanout_interval_held(&stolen.import.commands,stolen.source.mmio,stolen.source.aperture,
@@ -825,6 +883,11 @@ static bool check_imported_page(struct scanout_transfer_manifest m) {
  if(scanout_transfer_admission(&m)!=TRANSFER_ASSURANCE ||
     !scanout_transfer_close(&stolen.import.page,&stolen.import.token))return false;
  stolen.import.returned=true;
+ if(stolen.command_tail.token.object) {
+  if(!check_command_tail() || !scanout_transfer_close(&stolen.command_tail.transfer,&stolen.command_tail.token))
+   return false;
+  stolen.command_tail.returned=true;
+ }
  return check_import_conflict(&m);
 }
 
@@ -880,7 +943,7 @@ static bool observe_scanout_range(void) {
  if(scanout_transfer_admission(&interval)!=TRANSFER_ASSURANCE)return refuse(32);
  stolen.range.missing=HANDOFF_ALL & ~interval.assurances;
  stolen.range.verified=true;
- if(stolen.import.submission && !reserve_commands())return refuse(34);
+ if(stolen.import.submission && !reserve_commands(interval))return refuse(34);
  bool imported=!stolen.import.selected || check_imported_page(interval);
  if(stolen.import.first && imported) {
   scanout_interval_release(&stolen.import.commands);
@@ -956,6 +1019,10 @@ done:
  if(stolen.import.token.object && !stolen.import.returned && !stolen.uncertain) {
   stolen.import.returned=scanout_transfer_close(&stolen.import.page,&stolen.import.token);
   if(!stolen.import.returned){stolen.uncertain=true;ok=false;refuse(34);}
+ }
+ if(stolen.command_tail.token.object && !stolen.command_tail.returned && !stolen.uncertain) {
+  stolen.command_tail.returned=scanout_transfer_close(&stolen.command_tail.transfer,&stolen.command_tail.token);
+  if(!stolen.command_tail.returned){stolen.uncertain=true;ok=false;refuse(34);}
  }
  if(stolen.range.token.object && stolen.range.transfer.state!=TRANSFER_CLOSED && !stolen.uncertain &&
     !scanout_transfer_close(&stolen.range.transfer,&stolen.range.token)){
@@ -1087,13 +1154,16 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.import.submission)
-  console_printf("intel-submission-guard: v=3 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u\n",
+  console_printf("intel-submission-guard: v=4 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u\n",
    (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
    (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
    (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2],
    (uint64_t)stolen.import.wd[0][3],(uint64_t)stolen.import.wd[1][3],(uint64_t)stolen.import.strap[0],(uint64_t)stolen.import.strap[1],
    (uint64_t)stolen.import.tried,(uint64_t)stolen.import.occupied[0],(uint64_t)stolen.import.occupied[1],(uint64_t)stolen.import.occupied[2],
-   (uint64_t)stolen.import.first,(uint64_t)stolen.import.checked,(uint64_t)stolen.import.command_returned);
+   (uint64_t)stolen.import.first,(uint64_t)stolen.import.checked,(uint64_t)stolen.import.command_returned,
+   (uint64_t)stolen.command_tail.manifest.first,(uint64_t)stolen.command_tail.manifest.pages,
+   stolen.command_tail.transfer.original[0],stolen.command_tail.descriptor,(uint64_t)stolen.command_tail.samples,
+   (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned);
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,

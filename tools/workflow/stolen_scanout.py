@@ -8,7 +8,7 @@ def jobs(dependencies, *, aperture=False):
     build=dict(name='fixtures',argv=[sys.executable,'tools/fixture_compile.py','--under-workflow-lock',*outputs],
                cache=False,inputs=dependencies,outputs=outputs,timeout=1200)
     image=dict(name='stolen-image',argv=['make','build/intel-stolen/srvros.elf'],cache=False,
-               inputs=dependencies,outputs=['build/intel-stolen/srvros.elf','build/intel-stolen/layout.o','build/intel-stolen/probe.o','build/intel-stolen/main.o'],timeout=1800)
+               inputs=dependencies,outputs=['build/intel-stolen/srvros.elf','build/intel-stolen/layout.o','build/intel-bcs-context/context.o','build/intel-stolen/probe.o','build/intel-stolen/main.o'],timeout=1800)
     def tests(name,modules):
         return dict(name=name,argv=[sys.executable,'-m','unittest','-v',*modules],
                     env={'PYTHONPATH':'tools','SRVROS_FIXTURE_BATCH':'1'},inputs=dependencies+outputs,outputs=[],timeout=1200)
