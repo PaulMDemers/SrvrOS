@@ -123,6 +123,14 @@ bool vmm_reserved_guard_begin_register_window(struct vmm_reserved_guard *g,uint6
  }
  return vmm_reserved_guard_begin(g,root,pair,count,bits,ram,ranges,out,d);
 }
+bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *g,uint64_t root,
+ const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
+ unsigned ranges,uint64_t page,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned n,
+ struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
+ const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000};
+ assert(n==6 && !memcmp(ports,expected,sizeof(expected)));
+ return vmm_reserved_guard_begin_register_window(g,root,pair,count,bits,ram,ranges,page,backing,reg,out,d);
+}
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  return model.mode!=62 && !(fixture_flags&(1ull<<9)) && model.guard_live && g==&stolen.guard.owner && root==stolen.root && page==0xb2200000;
 }
@@ -332,9 +340,10 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
+ if(argc==2 && (!strcmp(argv[1],"--submission-guard") || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
   char import_command[512];
-  snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=firmware-import",command);
+  snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
+    !strcmp(argv[1],"--submission-guard")?"submission-guard":"firmware-import");
   reset();model.report=true;
   bool drift=!strcmp(argv[1],"--firmware-drift");
   if(drift)model.mode=63;

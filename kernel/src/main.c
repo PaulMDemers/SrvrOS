@@ -1047,6 +1047,8 @@ void kmain(void) {
                     "intel-stolen: unchanged60s means photograph and restart manually; no GPU write or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-scanout=range-observation"))
                     console_write("intel-scanout: checking CPU aperture exclusion during active scanout. No GPU mapping change.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-scanout=submission-guard"))
+                    console_write("intel-scanout: blocking CPU access to six submission pages during the slot loan. Panel stays active. No input.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-scanout=firmware-import"))
                     console_write("intel-scanout: reserving firmware spans and borrowing one page. Panel stays active. No input.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-scanout=private-range"))

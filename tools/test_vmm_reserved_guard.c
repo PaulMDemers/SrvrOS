@@ -72,6 +72,37 @@ static void refused_map(unsigned route,uint64_t physical,uint64_t flags) {
  for(unsigned i=0;i<9;i++)assert(!memcmp(saved[i],t[i],4096));
  ++checks;
 }
+static void submission_window(void) {
+ const uint64_t aperture=0xb2200000,backing=0x8b811000,reg=0xc0811000;
+ uint64_t original[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000};
+ uint64_t ports[6];
+ memcpy(ports,original,sizeof(ports));
+ for(unsigned n=0;n<6;n++){
+  setup();
+  t[3][7]=ports[n]|3;
+  assert(!vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
+         aperture,backing,reg,ports,6,&result,&why));
+  assert(why.walk.reason==VMM_ALIAS_PRESENT && !reserved_guard.owner);
+ }
+ setup();
+ assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
+        aperture,backing,reg,ports,6,&result,&why));
+ memset(ports,0,sizeof(ports)); /* The caller can discard its list. */
+ for(unsigned n=0;n<6;n++)for(unsigned route=0;route<3;route++)refused_map(route,original[n],3);
+ assert(vmm_reserved_guard_check(&guard,&result,&why));
+ assert(vmm_map_page_in_space(root,va+4096,original[0]+4096,3));
+ assert(vmm_unmap_page_in_space(root,va+4096,NULL));
+ assert(vmm_reserved_guard_close(&guard,&result,&why));
+ assert(vmm_map_page_in_space(root,va,original[5],3));
+ assert(vmm_unmap_page_in_space(root,va,NULL));
+ setup();
+ assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
+        aperture,backing,reg,original,6,&result,&why));
+ t[3][7]=original[5]|3; /* Simulate a bypass outside the guarded mutators. */
+ assert(!vmm_reserved_guard_close(&guard,&result,&why));
+ assert(why.walk.reason==VMM_ALIAS_PRESENT);
+ reset_fault();
+}
 static void register_window(void) {
  const uint64_t aperture=0xb2200000, backing=0x8b811000, reg=0xc0811000;
  const uint64_t flags=VMM_PAGE_PRESENT|VMM_PAGE_WRITABLE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
@@ -191,6 +222,7 @@ int main(int argc,char **argv) {
   if(corrupt){assert(why.walk.reason==VMM_ALIAS_PRESENT);reset_fault();}
   else assert(vmm_map_page_in_space(root,va+4096,aperture,3));
  }
+ submission_window();
  register_window();
  /* Every reserved page is actually queried on admission. */
  for(unsigned page=1;page<=3072;page++) {

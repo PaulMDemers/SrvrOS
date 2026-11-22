@@ -1,5 +1,12 @@
 # Repeatable device trials
 
+On the Air7,2, `intel-submission-guard-v1` extends the firmware import trial.
+Under the same boot display and CPU guard it checks for existing mappings
+of the five command-streamer register pages and the WiDi queue page, then
+blocks new CPU mappings through the slot loan and its return. The USB report
+records the six pages and closure of the guard. GPU-side admission, cache
+retirement and the display proxy are separate prerequisites for a PTE write.
+
 The Air7,2 `intel-firmware-import-v1` profile selects `--intel-firmware-import`.
 It imports both classified firmware buffers as a permanent GPU-address reservation
 and borrows slot 8704 under the existing CPU and display guard. The receipt

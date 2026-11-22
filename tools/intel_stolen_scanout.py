@@ -41,7 +41,7 @@ def verify_stolen_preinit(text):
 
 def stolen_recipe(command):
     tokens=command.split()
-    for token in ('srvros.intel-scanout=range-observation','srvros.intel-scanout=private-range','srvros.intel-scanout=firmware-import'):
+    for token in ('srvros.intel-scanout=range-observation','srvros.intel-scanout=private-range','srvros.intel-scanout=firmware-import','srvros.intel-scanout=submission-guard'):
         if token in tokens:
             tokens.remove(token)
             break
@@ -276,14 +276,14 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('stolen numeric encoding')
             row[k]=int(value,16 if hexadecimal else 10)
             if row[k]>=1<<64:raise ValueError('stolen integer overflow')
-        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,15) else ''
-        if kind=='summary' and version in range(3,15):extra+=' preflight'
-        if kind=='summary' and version in range(4,15):extra+=' root_phase root_reason root_detail'
-        if kind=='summary' and version in range(5,15):extra+=' reader_reads'
+        version=row.get('v');extra=WIRE2 if kind=='summary' and version in range(2,16) else ''
+        if kind=='summary' and version in range(3,16):extra+=' preflight'
+        if kind=='summary' and version in range(4,16):extra+=' root_phase root_reason root_detail'
+        if kind=='summary' and version in range(5,16):extra+=' reader_reads'
         if kind=='range' and version in (2,3,4):extra+=' reservation returned'
         if kind=='range' and version in (3,4):extra+=' protected_pages'
         if kind=='range' and version==4:extra+=' aperture_page aperture_alias frame0 frame1 frame_reads'
-        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,15) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
+        if set(row)!=set((SCHEMAS[kind]+' '+extra).split()) or version not in (range(1,16) if kind=='summary' else (1,2,3,4) if kind=='range' else (1,)):raise ValueError('stolen schema')
         rows[kind].append(row)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [r['sample'] for r in rows['facts']]!=[0,1] or [(r['sample'],r['range']) for r in rows['run']]!=[(n,r) for n in range(2) for r in range(3)]:
@@ -445,8 +445,18 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('private range MMIO coverage')
             extra_aliases=2*batches
         result['private_range']=h
+    guards=[line for line in text.splitlines() if line.startswith('intel-submission-guard:')]
+    if len(guards)!=int(wire==15):
+        raise ValueError('missing or unexpected submission guard')
+    if guards:
+        from intel_gt_bootstrap import fields
+        guard=fields(guards[0],'intel-submission-guard:',['v','pages','closed'],())
+        cpu=rows['guard'][0]
+        if guard['pages']!=6*cpu['acquired'] or guard['closed']!=cpu['closed'] or (complete and guard!={'v':1,'pages':6,'closed':1}):
+            raise ValueError('incomplete CPU submission exclusion')
+        result['submission_guard']=guard
     imports=[line for line in text.splitlines() if line.startswith('intel-firmware-import:')]
-    if len(imports)!=int(wire==14):
+    if len(imports)!=int(wire>=14):
         raise ValueError('missing or unexpected firmware import')
     if imports:
         from intel_gt_bootstrap import fields
@@ -561,7 +571,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')
@@ -569,7 +579,8 @@ def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     stolen_recipe(command)
     if (('srvros.intel-scanout=range-observation' in command.split())!=(9<=result['version']<=12) or
         ('srvros.intel-scanout=private-range' in command.split())!=(result['version']==13) or
-        ('srvros.intel-scanout=firmware-import' in command.split())!=(result['version']==14)):
+        ('srvros.intel-scanout=firmware-import' in command.split())!=(result['version']==14) or
+        ('srvros.intel-scanout=submission-guard' in command.split())!=(result['version']==15)):
         raise ValueError('stolen range recipe/version mismatch')
     prefixes=('intel-display-','intel-backing-','intel-cache-','intel-window-')
     before=[l for l in preflight.splitlines() if l.startswith(prefixes)]

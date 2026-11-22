@@ -413,6 +413,8 @@ static struct {
  const void *io_borrower;
  uint64_t root,epoch,cr4,efer,io_page;
  uint64_t register_page, register_backing, register_alias;
+ uint64_t ports[VMM_GUARD_IO_LIMIT];
+ unsigned port_count;
  unsigned state,count,bits,ram_count;
  struct vmm_physical_span spans[VMM_ALIAS_SPANS];
  struct vmm_alias_ram ram[VMM_ALIAS_RAM_LIMIT];
@@ -432,6 +434,8 @@ static bool reserved_mutation_enter(enum reserved_mutation kind,uint64_t root,ui
   if((physical&~PAGE_MASK) || (physical&4095) || physical>=(1ull<<reserved_guard.bits))goto refuse;
   if(physical && (physical==reserved_guard.io_page || physical==reserved_guard.register_backing ||
       (reserved_guard.register_alias && physical==reserved_guard.register_page)))goto refuse;
+  for(unsigned i=0;i<reserved_guard.port_count;i++)
+   if(physical==reserved_guard.ports[i])goto refuse;
   for(unsigned i=0;i<reserved_guard.count;i++)
    if(physical>=reserved_guard.spans[i].physical &&
       physical<reserved_guard.spans[i].physical+(uint64_t)reserved_guard.spans[i].pages*4096)goto refuse;

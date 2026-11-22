@@ -10,6 +10,11 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+PR301 is extending the kernel mapping guard to keep CPU mappings of all five
+command-streamer register pages and the WiDi queue page out of the active
+address space while it lends slot 8704. The trial uses the existing display
+pin and firmware import. GPU-side drain and firmware submission remain open.
+
 Release `a773b6292dc27551` (source `71af1064`, session
 `session-000660d3b60bcb64-00`) imported both 6 MiB firmware buffers into
 the SrvrOS GPU address allocator. The allocator lent slot 8704 to the driver

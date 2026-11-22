@@ -140,6 +140,13 @@ bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *,uint64_t root,
 bool vmm_reserved_guard_begin_register_window(struct vmm_reserved_guard *,uint64_t root,
  const struct vmm_physical_span *,unsigned count,unsigned bits,const struct vmm_alias_ram *,unsigned ram_count,
  uint64_t aperture,uint64_t backing,uint64_t reg,struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+/* Additional MMIO pages must have no CPU alias at admission. The same
+ * guard refuses later mappings until its final absence check and close. */
+#define VMM_GUARD_IO_LIMIT 6u
+bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *,uint64_t root,
+ const struct vmm_physical_span *,unsigned count,unsigned bits,const struct vmm_alias_ram *,unsigned ram_count,
+ uint64_t aperture,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned port_count,
+ struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
 /* Adopt the only writable MMIO alias. The VMM freezes its VA and rejects
  * other mappings of its PA until this child retires. No device store occurs. */
 bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *,uint64_t root,uint64_t aperture,

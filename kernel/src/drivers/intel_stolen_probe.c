@@ -78,7 +78,8 @@ static struct {
   struct scanout_transfer_token token;
   uint64_t observed[2];
   unsigned blocked, samples;
-  bool selected, imported, returned;
+  bool selected, imported, returned, submission;
+  unsigned ports;
  } import;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
@@ -142,7 +143,7 @@ static bool checkpoint(unsigned step) {
 static bool equal_bytes(const void *a,const void *b,unsigned n) {
  const unsigned char *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;
 }
-static bool parse_recipe(const char *s,bool *range,bool *private_range,bool *import) {
+static bool parse_recipe(const char *s,bool *range,bool *private_range,bool *import,bool *submission) {
  static const char *const fixed[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only",
  "srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-stolen=read-only","srvros.capture-failure=reboot"};
  unsigned seen=0,tokens=0;
@@ -171,17 +172,20 @@ static bool parse_recipe(const char *s,bool *range,bool *private_range,bool *imp
   if(len==sizeof(allocator)-1 && equal_bytes(start,allocator,len))bit=1024;
   static const char imported[]="srvros.intel-scanout=firmware-import";
   if(len==sizeof(imported)-1 && equal_bytes(start,imported,len))bit=2048;
+  static const char submit[]="srvros.intel-scanout=submission-guard";
+  if(len==sizeof(submit)-1 && equal_bytes(start,submit,len))bit=4096;
   if(!bit || (seen&bit) || ++tokens>10)return false;
   seen|=bit;
  }
- if(!((tokens==9 && seen==511) || (tokens==10 && (seen==1023 || seen==1535 || seen==2559))))return false;
- if(range)*range=(seen&(512|1024|2048))!=0;
- if(import)*import=(seen&2048)!=0;
+ if(!((tokens==9 && seen==511) || (tokens==10 && (seen==1023 || seen==1535 || seen==2559 || seen==4607))))return false;
+ if(range)*range=(seen&(512|1024|2048|4096))!=0;
+ if(import)*import=(seen&(2048|4096))!=0;
+ if(submission)*submission=(seen&4096)!=0;
  if(private_range)*private_range=(seen&1024)!=0;
  return true;
 }
 bool intel_stolen_probe_recipe(const char *s) {
- return parse_recipe(s,NULL,NULL,NULL);
+ return parse_recipe(s,NULL,NULL,NULL,NULL);
 }
 static bool tick(uint64_t begin) {
  uint64_t at=timer_monotonic_us();
@@ -492,10 +496,22 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
   ok=stolen.layout.classified && plan->gtt_end>plan->gtt_begin &&
      table_offset<plan->gtt_end-plan->gtt_begin && stolen.source.mmio<=UINT64_MAX-0x800000-table_offset &&
      offset==stolen.source.fence_end && offset<=stolen.source.aperture_bytes-4096 &&
-     stolen.source.aperture<=UINT64_MAX-offset &&
-     vmm_reserved_guard_begin_register_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
-       stolen.cpu.ram,stolen.cpu.ram_count,stolen.source.aperture+offset,
-       plan->gtt_begin+table_offset,stolen.source.mmio+0x800000+table_offset,&stolen.guard.inventory[0],&stolen.guard.detail);
+     stolen.source.aperture<=UINT64_MAX-offset;
+  if(ok) {
+   uint64_t aperture=stolen.source.aperture+offset, backing=plan->gtt_begin+table_offset;
+   uint64_t reg=stolen.source.mmio+0x800000+table_offset;
+   if(stolen.import.submission) {
+    /* RCS, VCS0, VCS1, VECS, BCS, and both WiDi tail pointers. */
+    const uint32_t offsets[]={0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000};
+    uint64_t ports[sizeof(offsets)/sizeof(offsets[0])];
+    unsigned count=sizeof(ports)/sizeof(ports[0]);
+    for(unsigned i=0;i<count;i++)ports[i]=stolen.source.mmio+offsets[i];
+    ok=vmm_reserved_guard_begin_submission_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
+       stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,ports,count,&stolen.guard.inventory[0],&stolen.guard.detail);
+    if(ok)stolen.import.ports=count;
+   } else ok=vmm_reserved_guard_begin_register_window(&stolen.guard.owner,stolen.root,pair,2,stolen.cache.cpu.physical_bits,
+       stolen.cpu.ram,stolen.cpu.ram_count,aperture,backing,reg,&stolen.guard.inventory[0],&stolen.guard.detail);
+  }
   if(!ok && stolen.guard.detail.walk.reason==VMM_ALIAS_PRESENT) {
    const struct vmm_unmapped_detail *d=&stolen.guard.detail;
    uint64_t page=stolen.source.aperture+offset;
@@ -869,7 +885,7 @@ bool intel_stolen_probe_report(const char *cmdline) {
  if(stolen.attempted)return false;
  stolen.attempted=true;stolen.mtrr=stolen.pat=stolen.effective=255;
  console_write("intel-stolen: hardware ownership gate under maintained CPU mapping exclusion; two bounded2s passes, no input, no GPU writes or allocation grant\n");
- if(!parse_recipe(cmdline,&stolen.range.selected,&stolen.private_range.selected,&stolen.import.selected)){refuse(1);goto report;}
+ if(!parse_recipe(cmdline,&stolen.range.selected,&stolen.private_range.selected,&stolen.import.selected,&stolen.import.submission)){refuse(1);goto report;}
  if(!timer_reference_ready()){refuse(2);goto report;}
  stolen.command=cmdline;
  if(!checkpoint(1))goto report;
@@ -917,7 +933,7 @@ cleanup:
 report:
  trace(14,1);
  console_printf("intel-stolen-summary: v=%u reader_reads=%u root_phase=%u root_reason=%u root_detail=%u preflight=%u fail=%u offset=%u cache_index=3 mtrr=%u pat=%u effective=%u complete=%u phase=%u reason=%u acquired=%u released=%u retained=%u maps=%u retired=%u cache_checks=%u alias_checks=%u meta_reads=%u classified=%u checked=%u clock=%u previous=%u writes=0 ownership=none\n",
- (uint64_t)(stolen.import.selected?14:stolen.private_range.selected?13:stolen.range.selected?12:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
+ (uint64_t)(stolen.import.submission?15:stolen.import.selected?14:stolen.private_range.selected?13:stolen.range.selected?12:8),(uint64_t)stolen.reader_reads,(uint64_t)stolen.root_observation.phase,(uint64_t)stolen.root_observation.reason,stolen.root_observation.detail,
  (uint64_t)stolen.preflight,(uint64_t)stolen.fail,(uint64_t)stolen.fail_offset,(uint64_t)stolen.mtrr,(uint64_t)stolen.pat,(uint64_t)stolen.effective,
  (uint64_t)stolen.complete,(uint64_t)stolen.phase,(uint64_t)stolen.reason,(uint64_t)stolen.acquired,(uint64_t)stolen.released,
  (uint64_t)intel_stolen_probe_retained(),(uint64_t)stolen.maps,(uint64_t)stolen.retired,(uint64_t)stolen.cache_checks,
@@ -974,6 +990,8 @@ report:
   console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
+ if(stolen.import.submission)
+  console_printf("intel-submission-guard: v=1 pages=%u closed=%u\n",(uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed);
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,

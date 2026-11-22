@@ -113,6 +113,21 @@ class Receipts(unittest.TestCase):
         self.assertIn('srvros.intel-scanout=firmware-import',command.split())
         self.assertEqual(trial_parsers('intel-firmware-import-v1')[0](command),stolen_recipe(self.command))
 
+    def test_submission_guard_on_firmware_loan(self):
+        raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-guard'],text=True)
+        report=stolen_result(raw,required_version=15)
+        self.assertTrue(report['complete'])
+        self.assertEqual(report['submission_guard'],{'v':1,'pages':6,'closed':1})
+        self.assertFalse(report['hardware_ownership'])
+        row=next(l for l in raw.splitlines() if l.startswith('intel-submission-guard:'))
+        for bad in ('', row+'\n'+row, row.replace('pages=6','pages=5'),row.replace('closed=1','closed=0')):
+            with self.assertRaises(ValueError):stolen_result(raw.replace(row,bad),required_version=15)
+        version='ram-usb-v16-intel-stolen-laptop-probe-37d8c5d0-auto-return'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in cfg.splitlines() if 'cmdline:' in l)
+        self.assertIn('srvros.intel-scanout=submission-guard',cmd.split())
+        self.assertEqual(trial_parsers('intel-submission-guard-v1')[0](cmd),stolen_recipe(self.command))
+
     def test_guarded_scanout_range_and_last_tail_entry(self):
         def report(option):
             return subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),option],text=True)
@@ -588,7 +603,7 @@ class Receipts(unittest.TestCase):
             self.assertEqual((root/'build/hardware-boot'/release/'srvros.elf').read_text(),'intel-stolen/srvros.elf')
             stage=root/'build/hardware-boot'
             head='a'*40
-            for mode, revision in (('scanout-range',13),('private-range',14),('firmware-import',15)):
+            for mode, revision in (('scanout-range',13),('private-range',14),('firmware-import',15),('submission-guard',16)):
                 with patch.object(boot,'ROOT',root),patch.object(boot,'STAGE',stage),patch.object(boot.subprocess,'check_output',side_effect=[head,'']):
                     release=boot.stage(laptop_probe_volume='37d8c5d0',intel_stolen_capture=mode)
                 manifest=boot.verify(stage/release)

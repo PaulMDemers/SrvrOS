@@ -42,9 +42,11 @@ def code_inputs(repo):
 
 
 SCANOUT_APERTURE = 'intel-scanout-aperture-v1'
+SUBMISSION_GUARD = 'intel-submission-guard-v1'
 FIRMWARE_IMPORT = 'intel-firmware-import-v1'
 PRIVATE_RANGE = 'intel-private-range-v1'
 STOLEN_WIRES = {
+    SUBMISSION_GUARD: 15,
     FIRMWARE_IMPORT: 14,
     PRIVATE_RANGE: 13,
     'intel-stolen-v47': 1, 'intel-stolen-v48': 2, 'intel-stolen-v49': 3,
@@ -63,7 +65,7 @@ from intel_edp_baseline import DARK_PPS_PROFILE as EDP_DARK_PPS
 
 EDP_PROFILES = (EDP_BASELINE, EDP_CYCLE, EDP_FLR, EDP_DARK_WELL, EDP_PCI_HOLD, EDP_DARK_PWM, EDP_DARK_PPS)
 
-PROFILES = {FIRMWARE_IMPORT:'--intel-firmware-import', PRIVATE_RANGE:'--intel-private-range', SCANOUT_APERTURE:'--intel-scanout-range', EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle', EDP_FLR:'--intel-edp-flr-preflight',
+PROFILES = {SUBMISSION_GUARD:'--intel-submission-guard', FIRMWARE_IMPORT:'--intel-firmware-import', PRIVATE_RANGE:'--intel-private-range', SCANOUT_APERTURE:'--intel-scanout-range', EDP_BASELINE:'--intel-edp-baseline', EDP_CYCLE:'--intel-edp-cycle', EDP_FLR:'--intel-edp-flr-preflight',
             EDP_DARK_WELL:'--intel-edp-dark-well', EDP_PCI_HOLD:'--intel-edp-pci-hold', EDP_DARK_PWM:'--intel-edp-dark-pwm', EDP_DARK_PPS:'--intel-edp-dark-pps','intel-gt-flush-v59':'--intel-gt-flush','intel-gt-aux-v58':'--intel-gt-aux','intel-gt-primary-v57':'--intel-gt-primary','intel-gt-range-v56':'--intel-gt-range','intel-stolen-v55':'--intel-stolen-capture','intel-stolen-v54':'--intel-stolen-capture','intel-stolen-v53':'--intel-stolen-capture','intel-stolen-v52':'--intel-stolen-capture','intel-stolen-v51':'--intel-stolen-capture','intel-stolen-v50':'--intel-stolen-capture','intel-stolen-v49':'--intel-stolen-capture','intel-stolen-v48':'--intel-stolen-capture','intel-stolen-v47':'--intel-stolen-capture','intel-bcs-context-v46':'--intel-bcs-context','intel-gt-arena-v45':'--intel-gt-arena','intel-gt-memory-v44':'--intel-gt-memory','intel-gt-practical-v43':'--intel-gt-bootstrap-practical','intel-gt-seconds-v42':'--intel-gt-bootstrap-seconds','intel-gt-bootstrap-v41':'--intel-gt-bootstrap','intel-gt-bootstrap-v40':'--intel-gt-bootstrap','intel-gt-bootstrap-v39':'--intel-gt-bootstrap','intel-source-audit-v35': '--intel-source-audit', 'intel-vtd-drain-v36': '--intel-vtd-drain', 'intel-ggtt-invalidate-v36':'--intel-ggtt-invalidate','intel-command-memory-v37':'--intel-command-memory','intel-command-ownership-v38':'--intel-command-ownership'}
 VTD_FIXTURE = 'build/device-fixtures/macbookair7-2-dmar.bin'
 
@@ -133,7 +135,7 @@ def profile(repo, name='intel-source-audit-v35'):
         return jobs(dependencies)
     if name in STOLEN_WIRES:
         from workflow.stolen_scanout import jobs
-        return jobs(dependencies, aperture=(name in (SCANOUT_APERTURE,PRIVATE_RANGE,FIRMWARE_IMPORT)))
+        return jobs(dependencies, aperture=(name in (SCANOUT_APERTURE,PRIVATE_RANGE,FIRMWARE_IMPORT,SUBMISSION_GUARD)))
     if name in GT_DISPLAY_WIRES:
         from workflow.gt_range import jobs
         return jobs(dependencies, primary=GT_DISPLAY_WIRES[name]>=10, aux=GT_DISPLAY_WIRES[name]>=11, flush=GT_DISPLAY_WIRES[name]==12)
@@ -492,13 +494,15 @@ class Runner:
         payload = verify(stage, release)
         if payload['git_head'] != manifest['source'] or payload['git_dirty']:
             raise ValueError('Staged payload is not the frozen source')
+        if manifest['profile']==SUBMISSION_GUARD and not payload['config_version'].startswith('ram-usb-v16-intel-stolen-'):
+            raise ValueError('Unexpected submission guard payload')
         if manifest['profile']==FIRMWARE_IMPORT and not payload['config_version'].startswith('ram-usb-v15-intel-stolen-'):
             raise ValueError('Expected the firmware interval import payload')
         if manifest['profile']==PRIVATE_RANGE and not payload['config_version'].startswith('ram-usb-v14-intel-stolen-'):
             raise ValueError('Expected the independent GGTT range payload')
         if manifest['profile']==SCANOUT_APERTURE and not payload['config_version'].startswith('ram-usb-v13-intel-stolen-'):
             raise ValueError('Expected the aperture exclusion payload')
-        if (manifest['profile'] in GT_DISPLAY_WIRES or manifest['profile'] in EDP_PROFILES or manifest['profile'] in (SCANOUT_APERTURE,PRIVATE_RANGE,FIRMWARE_IMPORT)) and payload.get('source_bound') is not True:
+        if (manifest['profile'] in GT_DISPLAY_WIRES or manifest['profile'] in EDP_PROFILES or manifest['profile'] in (SCANOUT_APERTURE,PRIVATE_RANGE,FIRMWARE_IMPORT,SUBMISSION_GUARD)) and payload.get('source_bound') is not True:
             raise ValueError('Range payload release does not bind the frozen source')
         if payload.get('stolen_progress_version')!=manifest.get('stolen_progress_version'):
             raise ValueError('Staged progress contract differs from frozen manifest')

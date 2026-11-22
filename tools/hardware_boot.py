@@ -27,7 +27,7 @@ EDP_CONFIGS = ("ram-usb-v1-intel-edp-baseline-", "ram-usb-v1-intel-edp-cycle-", 
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-intel-stolen|2-intel-stolen|3-intel-stolen|4-intel-stolen|5-intel-stolen|6-intel-stolen|7-intel-stolen|8-intel-stolen|9-intel-stolen|10-intel-stolen|11-intel-stolen|12-intel-stolen|13-intel-stolen|14-intel-stolen|15-intel-stolen|1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-gt-bootstrap(?:-(?:seconds|practical|memory|arena|context|range|primary|aux|flush))?|1-intel-command-ownership|1-intel-command-memory|1-intel-ggtt-invalidate|2-intel-ggtt-invalidate|3-intel-ggtt-invalidate|1-intel-vtd-drain|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-edp-baseline|1-intel-edp-cycle|1-intel-edp-flr-preflight|1-intel-edp-dark-well|1-intel-edp-pci-hold|1-intel-edp-dark-pwm|1-intel-edp-dark-pps|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-intel-stolen|2-intel-stolen|3-intel-stolen|4-intel-stolen|5-intel-stolen|6-intel-stolen|7-intel-stolen|8-intel-stolen|9-intel-stolen|10-intel-stolen|11-intel-stolen|12-intel-stolen|13-intel-stolen|14-intel-stolen|15-intel-stolen|16-intel-stolen|1-audio-listen|1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|7-hfw|8-hfw|1-hsw|2-hsw|3-hsw|1-intel-memory-fixture|1-intel-memory|1-intel-paired-shutdown|1-intel-gt-bootstrap(?:-(?:seconds|practical|memory|arena|context|range|primary|aux|flush))?|1-intel-command-ownership|1-intel-command-memory|1-intel-ggtt-invalidate|2-intel-ggtt-invalidate|3-intel-ggtt-invalidate|1-intel-vtd-drain|1-intel-source-audit|1-intel-source-engines|1-intel-source-requester|1-intel-startup-transfer|1-intel-startup-buffers|1-intel-startup-source|1-intel-nonzero-source|1-intel-nonzero-reset|1-intel-entry-requester|1-intel-ring-reset|1-intel-ring-entry|1-intel-ring-transition|1-intel-joint-admit|1-intel-gpu-hold|1-intel-joint|1-intel-rehold|1-intel-held-interval|1-intel-held-reset|1-intel-held-requester|1-intel-requester|1-intel-engine-prepare|1-intel-takeover|1-intel-bcs-shutdown|1-intel-shutdown|1-intel-bcs-reset|1-intel-reset-ready|1-intel-completion|1-intel-readers|1-intel-hda-lease|1-intel-hda-owner|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-edp-baseline|1-intel-edp-cycle|1-intel-edp-flr-preflight|1-intel-edp-dark-well|1-intel-edp-pci-hold|1-intel-edp-dark-pwm|1-intel-edp-dark-pps|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-only|2-storage-only|3-storage-only|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82|1-capture-write-air61|1-capture-write-air72)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -48,6 +48,8 @@ def release_id(hashes, version=CONFIG_VERSION, *, source=None):
 
 
 def limine_config(release, version=CONFIG_VERSION):
+    if version.startswith("ram-usb-v16-intel-stolen-"):
+        return limine_config(release,version.replace("v16-intel","v13-intel",1)).replace("=range-observation","=submission-guard")
     if version.startswith("ram-usb-v15-intel-stolen-"):
         return limine_config(release,version.replace("v15-intel","v13-intel",1)).replace("=range-observation","=firmware-import")
     if version.startswith("ram-usb-v14-intel-stolen-"):
@@ -397,10 +399,10 @@ def verify(directory, expected_release=None):
             (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version) or LAPTOP_PROBE_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     source = None
-    if version.startswith((*EDP_CONFIGS, "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-")) and manifest.get("source_bound") is not True:
+    if version.startswith((*EDP_CONFIGS, "ram-usb-v16-intel-stolen-", "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-")) and manifest.get("source_bound") is not True:
         raise ValueError("Missing boot payload source binding")
     if "source_bound" in manifest:
-        if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
+        if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v16-intel-stolen-", "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
             raise ValueError("Unexpected boot payload source binding")
         source = manifest.get("git_head")
         if source is None:
@@ -421,7 +423,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
                 any(v for k, v in locals().copy().items() if k not in allowed and k != "allowed")):
             raise ValueError("eDP baseline requires its own silent automatic workspace profile")
     if intel_stolen_capture:
-        if intel_stolen_capture is not True and intel_stolen_capture not in ("scanout-range","private-range","firmware-import"):
+        if intel_stolen_capture is not True and intel_stolen_capture not in ("scanout-range","private-range","firmware-import","submission-guard"):
             raise ValueError("Unknown stolen census mode")
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in {"intel_stolen_capture","laptop_probe_volume","repeat","desktop_scale"}):
             raise ValueError("Stolen census requires its own read-only automatic workspace profile")
@@ -745,7 +747,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         elif intel_nonzero_reset:version=f"ram-usb-v1-intel-nonzero-reset-laptop-probe-{laptop_probe_volume}"
         if intel_entry_requester:version=f"ram-usb-v1-intel-entry-requester-laptop-probe-{laptop_probe_volume}"
         if intel_stolen_capture:
-            revision=15 if intel_stolen_capture=="firmware-import" else 14 if intel_stolen_capture=="private-range" else 13 if intel_stolen_capture=="scanout-range" else 9
+            revision=16 if intel_stolen_capture=="submission-guard" else 15 if intel_stolen_capture=="firmware-import" else 14 if intel_stolen_capture=="private-range" else 13 if intel_stolen_capture=="scanout-range" else 9
             version=f"ram-usb-v{revision}-intel-stolen-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
@@ -763,7 +765,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             shutil.copyfile(source, target / name)
         hashes = {name: digest(target / name) for name in sources}
         git_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        bind_source = intel_stolen_capture in ("scanout-range","private-range","firmware-import") or intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps or intel_gt_range or intel_gt_primary or intel_gt_aux or intel_gt_flush
+        bind_source = intel_stolen_capture in ("scanout-range","private-range","firmware-import","submission-guard") or intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps or intel_gt_range or intel_gt_primary or intel_gt_aux or intel_gt_flush
         release = release_id(hashes, version, source=git_head if bind_source else None)
         (target / "limine.conf").write_text(limine_config(release, version))
         # GRUB splits the EFI file path into directory and filename nodes.
@@ -1052,6 +1054,8 @@ def main():
     capture.add_argument("--intel-nonzero-reset",action="store_true",help="Original enabled entry then maintained nonzero-geometry BCS8 reset/preservation")
     capture.add_argument("--intel-entry-requester",action="store_true",help="Original state-aware entry/reset then bounded original-claim requester restoration")
     capture.add_argument("--intel-ring-reset",action="store_true",help="Live state-aware entry then unchanged zero-geometry reset under original owner")
+    capture.add_argument("--intel-submission-guard",dest="intel_stolen_capture",action="store_const",const="submission-guard",
+                         help="exclude CPU submission-register mappings through the firmware slot loan")
     capture.add_argument("--intel-firmware-import",dest="intel_stolen_capture",action="store_const",const="firmware-import",
                          help="import both firmware scanout spans and borrow one populated page, read-only")
     capture.add_argument("--intel-private-range",dest="intel_stolen_capture",action="store_const",const="private-range",
