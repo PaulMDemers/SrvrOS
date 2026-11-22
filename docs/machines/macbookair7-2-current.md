@@ -10,10 +10,20 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-This block qualifies bank selection and live slice power in the one-page
-publisher on PR 301. The Ubuntu comparison samples both while the five
-private queues hold. The SrvrOS flush diagnostic samples slice power under
-the existing forcewake owner at the four preparation and reset checkpoints.
+SrvrOS release `653a13d92f2e78f2` (source `5f53e4a0`, session
+`session-000660d723ab302b-00`) completed the slice-power diagnostic on
+November 22. Both available slices reported power at the beginning and end
+of all four samples around GPU engine preparation and reset (mask `0x3`).
+All four engine-ack masks were zero and the L3 flush acknowledgement stayed
+clear at the sampled endpoints. The maintenance interval still allowed GPU
+clients (mask `0x5f`). The driver rechecked and returned the reservation
+of slot 8704 with zero PTE writes. Ubuntu collected the report and the
+offline exFAT check passed. The result uses the diagnostic timing limits.
+
+Next, use the held native register access to read the policy of each of
+the eight L3 banks while both slices are powered, then verify restoration
+of the original bank selector. Device-wide flush completion and exclusion
+of new work through rollback still require separate hardware evidence.
 
 In the November 22 Ubuntu comparison, i915 reported two available slices
 and zero powered slices at idle. With all five private queues held, both
