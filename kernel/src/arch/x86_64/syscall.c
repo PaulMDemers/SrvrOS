@@ -3684,6 +3684,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:
     case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS:
     case SYS_NET_STATUS_INFO: return true; /* Validated prelude, gated fallback. */
+    case SYS_DIRECTORY: return frame->rdi==SRV_DIRECTORY_READ_INFO; /* Validated metadata attempt only. */
     case SYS_FCNTL: return frame->rsi==SRV_F_SETFL; /* Scalar pipe attempt; all other controls retain the original entry gate. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
@@ -3727,14 +3728,33 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     }
 }
 
+/* Public dispatch calls this before acquiring namespace ownership. A refusal
+ * leaves the cookie/output untouched and must enter the full owned fallback. */
+/* Release this batch-sized frame before entering the owned fallback. */
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result)
+    __attribute__((noinline));
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result) {
+    struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
+    if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0])) {*result=SRV_ERR_INVAL;return true;}
+    uint64_t flags=irq_save();
+    if(!out || !user_buffer_ok(out,capacity,true)) {*result=SRV_ERR_FAULT;irq_restore(flags);return true;}
+    int64_t count;
+    if(!process_directory_try_read_info(fd,entries,capacity,&count)) {irq_restore(flags);return false;}
+    *result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+    irq_restore(flags);return true;
+}
 static int64_t syscall_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity) {
     if(operation==SRV_DIRECTORY_READ_INFO) {
         struct srv_dirent_info entries[SRV_DIRECTORY_BATCH_MAX];
         if(!capacity || capacity>sizeof(entries) || capacity%sizeof(entries[0]))return SRV_ERR_INVAL;
-        if(!out || !user_buffer_ok(out,capacity,true))return SRV_ERR_FAULT;
+        /* Namespace dispatch owns the original span through this fallback.
+         * Cancellation and mappings/FDs may have changed while awaiting it. */
+        if(process_should_exit_current())return SRV_ERR_INTR;
+        uint64_t flags=irq_save();
+        if(!out || !user_buffer_ok(out,capacity,true)) {irq_restore(flags);return SRV_ERR_FAULT;}
         int64_t count=process_directory(operation,fd,entries,capacity);
-        if(count<=0)return count;
-        return copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+        int64_t result=count<=0?count:copy_to_user(out,entries,(uint64_t)count*sizeof(entries[0]))?count:SRV_ERR_FAULT;
+        irq_restore(flags);return result;
     }
     if(operation==SRV_DIRECTORY_CHDIR) return process_directory(operation,fd,NULL,0);
     union { struct srv_dirent entry; char path[MAX_PATH_LENGTH]; } result;
@@ -4478,6 +4498,14 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
     }
 #endif
+    /* Only READ_INFO enters its callback-free proof before ownership. All
+     * refusals and other directory operations retain the complete span below. */
+    if(frame->rax==SYS_DIRECTORY && frame->rdi==SRV_DIRECTORY_READ_INFO) {
+        int64_t result;
+        if(syscall_directory_try_read_info(frame->rsi,(void *)frame->rdx,frame->rcx,&result)) {
+            frame->rax=(uint64_t)result;return;
+        }
+    }
     if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
     uint64_t flags=irq_save();
     scheduler_io_set_user_safe(false);scheduler_io_wait();

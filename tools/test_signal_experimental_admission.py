@@ -35,6 +35,10 @@ struct isr_frame {uint64_t rax,rdi,rsi,rdx,rcx,r8,r9;};
 static unsigned backends,copies,handles,membership,fd_checks;
 static unsigned irq_saves,irq_restores,io_safety,io_waits,io_begins,io_ends;
 static bool io_admit=true;
+/* Scope/stream calls must not enter the unrelated directory prelude. */
+static bool syscall_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result) {
+    (void)fd;(void)out;(void)capacity;(void)result;assert(0);return false;
+}
 static uint64_t irq_save(void) {irq_saves++;return 0x202;}
 static void irq_restore(uint64_t flags) {assert(flags==0x202);irq_restores++;}
 static void scheduler_io_set_user_safe(bool safe) {assert(!safe);io_safety++;}

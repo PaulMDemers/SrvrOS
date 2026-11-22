@@ -14499,3 +14499,461 @@ a missing completion marker or timing companion is incomplete evidence.
 
 Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `3432e008`, PR19
 `95236e01`. Their actual loop/setup diffs remain independent.
+
+
+### Native control-phase trace accepted; prior stall not reproduced (2026-11-13)
+
+Return-review scope is documentation and independent evidence only, from fetched
+main `15eb67ad` (merged PR494). No runtime change, new build, installation or reboot
+is started. Open PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` remain
+separate; no unmerged scope is imported and no other task is contacted.
+
+Frozen source `fb8247d5`, release `bfe6ca6ff45fe078`, run `765fe64ceb414a4d`
+and matching session `session-0006602f3d3da2ff-00` pass the original fully
+automated 1800-second 1% audio/disk/app/three-screenshot workload and the new
+control-trace contract. Independent raw saved-log parsing verifies 1,306 complete
+app cycles, 3,904 verified 256 KiB disk bursts (1,023,410,176 bytes),
+345,780,224 PCM bytes, zero recorded underruns and worker status zero. All three
+exact 1366×768 BMPs pass readback/hash/header checks. Launcher 6 has 1,307 launches
+and final reaps, zero errors and terminal retirement; battery, cache, capture and
+file-service retirement and all original timing/ownership contracts pass.
+Audibility remains unassessed at 1%.
+
+All 53,765 loop samples are valid, with zero excursions over the unchanged
+500 ms bound. The worst loop is 127.140 ms, sequence 8,147, with 126.917 ms in
+waiting: the matching scheduler trace reports 98.378 ms blocked and 28.506 ms
+ready, including a 28.172 ms maximum individual ready interval. Its control
+phase is only 46 us: bookkeeping 4/report 10/audio 22/I/O 10 us. Report submission
+was not due; the original NOHANG child wait returned pending in 6 us. All three
+control scheduler vectors are valid with zero blocked/ready time. The compact
+same-sequence control and scheduler companions, plus both original live
+sidecar-equality endpoints (growth 3,205), replay independently from the final
+64 KiB log alone, preserving all required final completion receipts.
+
+The previous 411.886 ms control stall did not recur: even this run's global
+maximum loop is smaller. This accepts native instrumentation/retention and the
+original workload, not a causal cure or retrospective attribution. Different
+cold boots and interleavings cannot establish a tracing-induced improvement;
+records remain bounded worst observations rather than an exhaustive call history.
+
+Ready/close maxima are 1.085371/5.640914 s, within the unchanged ten-second
+whole-app limit. For the slowest close, the visual change took 30.066 ms but
+exit was not observed until 5.629837 s after the request. Actual final reap took
+0.895 ms after 2.684 ms queued. Close overlapped the third capture and exit was
+observed 19.973 ms after its retirement. This is a clock correlation, not proof
+of a shared owner or particular blocking syscall; the retained log has no
+per-call context for that child. Investigate the child-exit interval before
+blaming desktop rendering or final reaping.
+
+Capture lifetimes are 6.601244/11.954495/12.811269 s; WRITE is
+3.859606/8.356341/4.140561 s and temporary verification is
+0.502063/0.565303/1.057135 s. The current/longest-capture final cleanup snapshot
+is 67.912 ms with pending 0; this is not an exhaustive cleanup maximum. Shared
+append/commit waits and long storage completion/publication phases remain
+performance work, alongside the child-exit delay. All original limits and
+integrity checks remain unchanged.
+
+Fresh read-only file hashing, fsck and allocation traversal pass: all 943 prior
+paths and 942 non-sidecar hashes are unchanged; only expected `.srvros/meta`
+changed. Four logs, three BMPs and two workload receipts bring the volume to
+952 files/215 directories/5,146 clusters, with zero leaks, FAT/bitmap mismatches
+or errors. Installed/staged/independent payload and recovery hashes pass.
+Ubuntu stays default, the one-shot is consumed, the collector is disabled and
+USB is unmounted. Current stays this trial, recovery stays `c35475f62f154f1e`;
+no recovery promotion or reboot is armed. Matching raw and reviewed evidence is
+sealed outside build. Next should target the observed pre-exit child delay and
+remaining screenshot/storage waits; the historical control stall remains
+unexplained unless it recurs with the new trace.
+
+
+### Active Files exit/admission work (2026-11-13)
+
+From fetched main `44b414bf`, investigate Files cycle880/pid1167's5.640914-second
+close during the third screenshot. All matching prior evidence is reviewed and
+sealed, current `bfe6ca6ff45fe078` and recovery `c35475f62f154f1e` are protected,
+USB is unmounted, the previous one-shot is consumed and no reboot is armed.
+
+The checked source maps cycle880 to Files. Its file worker pid1168 has a matching
+4.199220-second `SYS_PATH_CONTEXT` wait during that close/capture. The directory
+worker currently calls POSIX `open`, which first resolves the pathname through
+one filesystem admission, then calls `SYS_OPEN_MODE`, whose production path
+repeats the same component/namespace resolution under a second admission before
+opening. The second gate permits another writer to interpose. Do not attribute
+all remaining close time to that single retained wait or change accepted-job
+retirement semantics.
+
+Bounded objective: remove this redundant directory-worker path/admission round
+using the existing atomic kernel open contract; preserve every traversed-
+component/directory/namespace/flags/mapping/cancellation check and all mutation,
+CRC/readback, FD, service, child and final-reap ownership. Audit the actual path
+and cover original errors/cancellation/EOF and competing-writer admission with
+regressions before claiming the implementation. Candidate files are
+`userspace/deskfs/deskfs.c`, its real-worker/contract tests and test wiring or
+loaded-stress proof if needed. No kernel/scheduler, filesystem mutation,
+shared ABI, log/row/cadence, power-policy or limit changes are planned. If the
+reproduction requires another subsystem, update this bounded scope before edits.
+
+PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` have no competing directory
+worker edit; their independent Makefile/subsystem scopes remain separate.
+Publish the objective, then reproduce/test the checked source change, freeze
+matched images, run relevant/full local and loaded/exact-stage checks, self-merge
+and prepare/seal a one-shot original1800-second1% automated audio/disk/app/three-
+screenshot stress run under the user's existing reboot authorization. Keep the
+original500ms loop/ten-second whole-app and every integrity/retirement criterion.
+Native latency improvement remains pending the matching next physical result.
+
+
+### Directory-open admission fix qualified; ready native trial (PR496)
+
+Frozen source `2eaea67b` changes only the LIST directory open in
+`deskfs`: it calls the existing `OPEN_MODE` contract directly with the immutable
+absolute path and the same READ/DIRECTORY/CLOEXEC flags. That production kernel
+operation checks all traversed components, namespace and directory type and
+publishes the fd under one admission. The previous libc path performed a
+separate gated `PATH_CONTEXT` check before repeating resolution in `OPEN_MODE`.
+Removing that extra round prevents an intervening commit between the two checks;
+it does not grant access to filesystem state while another transaction owns it.
+
+The earlier scope's association of worker 1168 with Files cycle 880 is a
+source-backed inference from the automated sequence and overlapping
+4.199220-second path wait,
+not a retained explicit parent/child join. Neither that interval nor this change
+attributes all 5.640914 seconds of the native close. Remaining true storage waits
+and native improvement must be assessed on the next matching run.
+
+The old real C worker fails the new direct-admission regression; the new worker
+passes exact flags, directory-open failure, missing/regular-file traversed-prefix
+refusal, full metadata/EOF boundaries and all prior guarded read/write/mutation,
+CRC/readback/corruption tests. Production process open tests also verify raw
+file/../missing-prefix refusal, relative cwd and CLOEXEC. Full service admission,
+private mapping/thread/retirement, accepted-job drain, EOF/reap and ownership
+regressions pass. There is no kernel/scheduler/shared ABI/libc/ports change;
+protocol, cancellation, accepted mutations and all limits are unchanged.
+
+Matched ordinary/native/Q35 builds, affected fixture links and source/object
+checks, including exact runtime-ELF binding inside the embedded filesystem,
+pass together with the fresh complete core/desktop/documentation suite.
+The existing optional exhaustive-I/O skip and baseline append-repair allocation
+gaps remain visible; no new power-loss repair acceptance is claimed. Ordinary
+syscall/network ABI, CLI/editing, UEFI USB input/display, USB-storage and ordinary
+screenshot guests pass, as does exact native-stage foreign-profile refusal.
+Profile-switch construction remains unchanged and was not newly exercised.
+
+The loaded KVM guest passes 24 app cycles and 171 verified
+256 KiB bursts over 60 seconds at 1%, one exact screenshot and zero recorded
+underruns. Ready/close are 1.160565/1.110121 s;
+maximum loop is 127.503 ms under unchanged 500 ms/ten-second limits.
+All original saved-only contracts pass independently. Launcher has
+25 launches/reaps and zero errors; live equality growth
+121 and same-worst-loop control/scheduler companions also
+pass using only the final 64 KiB log. This is contract qualification rather than
+an isolated native latency comparison.
+
+Release `d26b9b1b2a825384` is installed for the original automated 1800-second 1%
+audio/disk/app/three-screenshot workload, with its original 60-second audio tail.
+Progress and results are shown/saved in the guest, with automatic return and
+collection and no input required. Heavy metadata audit and optional ownership/
+power probes stay off. Preflight preserves all 952 prior USB
+paths/hashes except renewing the explicit 1% expiry, and verifies fresh read-only
+fsck/allocation/headroom/write admission and installed/staged/independent payload
+and recovery hashes. Ubuntu remains default; prior accepted `bfe6ca6ff45fe078`
+and `772f95d189e4dcfc`, plus known-good `7acb756c0ac5f4bb`, remain installed.
+Recovery stays `c35475f62f154f1e`. Only failed `188dda5f0fbb1a52`'s unreferenced
+EFI duplicate was retired after full stage/payload/file-hash, sealed failed-trial
+and firmware/GRUB reference verification. Its independent payload, full stage
+and failed evidence remain retained.
+
+The first loaded VM completed its workload but lacked three saved app-timing
+events and needed console fallback, so its saved-only evidence is incomplete.
+That raw attempt and its explicit assessment remain archived. A single repeat
+using identical source/images/flags/limits passed the full strict saved-only
+contract. No bounds, cadence or checks were changed; broader qualification was
+not repeated because all runtime bytes remained identical.
+
+PR19/301/379 remain independent and Actions remain disabled. Source tests prove
+the removed admission round; a matching native run is required before accepting
+latency improvement. Self-merge and a sealed one-shot reboot follow under the
+user's existing explicit authorization. No original time, row, log, queue,
+workload, integrity or complete-retirement criterion was relaxed.
+
+Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `d829acb0`, PR19
+`b3115e02`. No competing directory-worker/test edit is imported.
+
+
+### Native Files retry failed the original whole-app limit (2026-11-13)
+
+Return-review scope is matching evidence, fresh read-only integrity checks and
+documentation only, from fetched main `94d0b9b8` (PR496). No new implementation,
+build, stage, installation or reboot is started. PR19 `cbf807de`, PR301
+`364ccafa` and PR379 `817f80bb` remain separate; no unmerged scope is imported.
+
+Source `2eaea67b`, release `d26b9b1b2a825384`, run `f1d95b33c0c04b61` and
+matching session `session-000660312e2a743a-00` **fail** the original ten-second
+whole-app bound. After 880 completed cycles, Files cycle 880/pid 1167 reaches
+10.008178 s since launch while still in close phase, with its child record
+present, pending opens 0 and errors 0. The saved process snapshot is still
+background, parent 6. This is a real workload failure. The automatic collector's
+missing-workload-receipt assertion is a later consequence, not the root cause:
+there is no `result.txt` or `disk.receipt`; `payload.tmp` remains preserved as
+an incomplete-run artifact. No completed-burst count, full 1800-second audio/disk
+coverage or native latency acceptance may be inferred.
+
+All 36,853 observed loop samples are valid, with zero excursions and 121.565 ms
+maximum under the unchanged 500 ms bound. Completed-cycle ready/close maxima are
+3.746490/1.761259 s; the latter excludes the failed cycle and must not be reported
+as a successful close improvement. The same-worst-loop control/scheduler proof
+is valid and also replays from the final 64 KiB log. PCM snapshots report zero
+recorded underruns until abort; this is not full-duration audio acceptance.
+
+The matching log now explicitly records the Files request: role files/op 3/id 1
+submitted to worker 1168. That worker has two retained `SYS_DIRECTORY` waits,
+4.866285 s and 7.789883 s, both entered with initial owner 8. Under this exact
+worker source, LIST invokes READ_INFO; the removed preliminary PATH_CONTEXT
+round does not account for these remaining waits. Initial owner/sequence is a
+wait-entry correlation anchor: ownership may change while queued, so these are
+not physical USB completion times or proof of one uninterrupted transaction.
+
+Files receives Close at 1209.901341 s and acknowledges at 1209.926131 s. Its
+window-dispose call takes 0.642 ms and canvas unmap 0.378 ms. Document unmap begins
+at 1222.891111 s, 12.964980 s after Close acknowledgement, then takes 0.217 ms;
+file-service quiescence takes 0.029 ms and final pool retirement 0.048 ms. The
+service retains its accepted job, reports zero failed retirements and pending 0,
+and keeps process-owned storage pinned. This points to the outstanding directory
+request before model retirement, rather than expensive GUI/memory cleanup.
+Main returns at 1222.901540 s; parent exit is observed later during failure
+teardown. No saved per-call context attributes that later kernel-exit interval.
+
+Three BMPs eventually complete by teardown, taking 6.655296/18.332576/37.752318 s;
+WRITE is 3.697035/7.730296/28.468280 s. At the deadline, only two were saved and
+the third was busy, so the original live-workload capture requirement still
+fails. Final capture pending/busy/retiring state clears; battery runtime retires
+with attached/detached 1, heap/errors/denied 0. Battery controls correctly propagate
+the failed desktop result while reporting revoked/retired yes. Later cleanup
+and eventual BMP success do not convert the failed workload into a pass.
+
+Fresh read-only full-file hashing, fsck, exact BMP checks and allocation traversal
+pass: all 952 prior paths and 951 non-sidecar hashes remain identical; only expected
+`.srvros/meta` changed. Four logs, three BMPs and the temporary payload bring the
+volume to 960 files/219 directories/5,253 clusters, with zero leaks, FAT/bitmap
+mismatches or errors. Installed/staged/independent payload and recovery checks
+pass. Ubuntu remains default; the one-shot is consumed, collector disabled and
+USB unmounted. Current remains failed trial `d26b9b1b2a825384`, with accepted
+`bfe6ca6ff45fe078`/`772f95d189e4dcfc`/`7acb756c0ac5f4bb` and recovery
+`c35475f62f154f1e` retained; no recovery promotion or reboot is armed.
+Matching raw failure and reviewed evidence are sealed outside build.
+
+The checked single-admission directory open remains host/VM-qualified, but it
+has **not solved or physically accepted** native app-exit latency. No causal
+regression or speed improvement is established across different cold boots,
+media growth and interleavings. The next bounded target is remaining directory-
+metadata admission during shared storage commits, retaining accepted-job drain,
+complete worker/reap ownership and all original limits/integrity checks. Include
+any post-main-return exit delay in that audit rather than hiding it in Close
+accounting or raising the ten-second bound.
+
+### Directory metadata admission scope (2026-11-13)
+
+From fetched main `06dee36c`, this unit owns a bounded, callback-free
+READ_INFO admission attempt during foreign storage commits. Planned files are
+process/syscall directory dispatch, VFS publication exclusion and focused host
+fixtures. Keep the live metadata/shared-cookie contract, 16-entry bound,
+original gated fallback, same-image exclusion, cancellation and worker drain.
+No device, power, storage durability or stress-limit changes are authorized.
+PR19 `9b9e28ce` touches network/pipe process dispatch and adds a separate VFS
+metadata restore API; PR301 `f90fba95` touches process lifetime revoke handling;
+PR379 `817f80bb` is documentation only. Inspected shared-file hunks do not
+implement directory admission. Keep this implementation independent, preserve
+their pending scope, and recheck integration before merge. The failed d26 trial
+remains failed; next checkpoint is host/loaded-VM qualification of a coherent
+metadata snapshot, followed by the original automated 1800-second 1% trial.
+
+
+### Coherent directory metadata qualified; native trial prepared (PR498)
+
+Final remote recheck keeps main at `06dee36c`; PR19 `b4759eda` and PR301
+`4387351b` added no changes in this fix's shared source files since the scope
+inspection; PR379 remains `817f80bb`. No unmerged scope is imported.
+
+Frozen source `29f0dc24` addresses the failed Files worker's retained
+4.866/7.790-second READ_INFO admission waits. The metadata attempt copies the
+existing live VFS view without allocation, backend calls or yielding, under
+continuous CPU0 IRQ exclusion. Publication depth spans VFS callbacks/rollback;
+system namespace changes share that exclusion. Any new VFS mutator must join publication exclusion; this also applies when
+integrating the separate pending PR19 metadata-restore API. The existing atomic scheduler
+proof retains foreign-owner/image/root and sibling checks. Only an unshared
+valid directory cursor is eligible. All refusals regain the original gate,
+check cancellation, revalidate the output mapping and resolve the fd afresh.
+The live cookie, namespace projection, inode, mtime and open-content size
+semantics remain intact. No directory cache, batch increase, scheduler policy,
+storage backend, ABI, ownership, durability or integrity relaxation is included.
+
+Host regressions cover admitted live metadata/EOF, rejected publication and
+scheduler proofs, shared-cookie refusal, callback/rollback exclusion, invalid
+bounds/fds/mappings, post-wait cancellation and mapping invalidation, and IRQ
+exclusion through the copy. Original process cleanup/accepted-job drain, helper
+and scheduler ownership tests pass. Matched ordinary/native/Q35 builds, affected
+fixture links, source/symbol and packed-worker checks pass with the fresh full
+core/desktop/docs suite, ordinary VM suite, USB transport/capture regressions
+and exact native-stage foreign-profile refusal. Existing optional exhaustive-I/O
+skip and baseline append-repair allocation gaps remain visible; this grants no
+new power-loss repair acceptance.
+
+The loaded KVM run completes 24 app cycles and 175 verified
+256 KiB bursts over 60 seconds at 1%, one exact screenshot and zero recorded
+underruns. Ready/close maxima are 1.000301/
+0.868466 s, with 129.126 ms maximum loop.
+The final saved log retains directory admission counters; the callback-free
+positive path is host-regression covered and native positive use remains required;
+strict saved-only app/service/control, launch-owner and both live sidecar
+endpoints pass. The first identical VM attempt failed app-timing completeness (pid26
+history-free end without its begin, even in UART); it is retained separately.
+The exact-source/image/settings retry passes without relaxing checks. VM
+results do not accept native latency or causal speedup.
+
+Release `ba1a402c381b7a94`, run `c2199b02be244884` is installed and verified but not yet
+armed at this checkpoint. Ubuntu remains default; recovery `c35475f62f154f1e`
+and installed accepted `bfe6ca6ff45fe078`/`772f95d189e4dcfc`/
+`7acb756c0ac5f4bb` remain verified. Only the unreferenced historical `8a89638dfb0281b5`
+EFI duplicate was retired after full stage/independent-payload/sealed-evidence
+and firmware/GRUB-reference verification; all its independent artifacts remain.
+All 960 prior USB files, including failed-run temporary data,
+are retained except the explicitly renewed 1% expiry preference. Fresh fsck,
+allocation traversal, writable admission and headroom pass before installation.
+
+Next is the unchanged automated 1800-second native audio/disk/app/three-BMP
+workload at 1%, with 500 ms loop and ten-second whole-app bounds, full readback,
+CRC, fsync/flush/rename, fresh allocation, file retention, worker/reap and battery
+retirement checks. Heavy audit stays off; no human input is required. The prior
+d26 failure remains failed; this source has no physical acceptance until its
+matching complete return is collected and independently reviewed.
+
+### Directory metadata return-review scope (2026-11-14)
+
+From fetched main `00ab2d90` (PR498), review only the matching `ba1a402c381b7a94`
+return, replay original workload/diagnostic contracts, and perform fresh
+read-only media/recovery checks. No implementation, staging or reboot is
+authorized by this review checkpoint. The automatic collector reports missing
+positive directory admission; distinguish complete workload evidence from
+feature validation rather than accepting a zero-handled run.
+
+
+### Native workload passes; directory prelude remains gated (2026-11-14, PR499)
+
+Source `29f0dc24` / release `ba1a402c381b7a94`, run `c2199b02be244884`, matching
+session `session-00066035466f2a54-00` completes the original 1800-second 1%
+audio/disk/app/three-screenshot workload. Independent replay accepts 1360 app
+cycles, 3899 verified 256 KiB bursts, the exact binary disk receipt, zero
+recorded PCM underruns, all three exact BMPs entirely within playback, follow-up
+app cycles and clean exit. All 50231 loop samples are valid with
+zero excursions and 121.186 ms maximum under 500 ms. Ready/close maxima are
+7.024557/3.392970 s; original whole-app checks remain unchanged. All 1361 launches
+are reaped, with launcher retired/errors 0, final capture/cache workers clear,
+and battery attached/detached 1, heap/errors/denied 0 and controls PASS.
+
+The original workload passes, but the **directory fix validation fails**:
+final handled/entries are 0/0, policy refusals 3416, publication/descriptor
+refusals 0/0. The automatic failed assessment is preserved, not relabeled as a
+full feature pass. Native directory admission and causal latency improvement
+remain unaccepted. Capture lifetimes are 6.715420/26.573992/19.152908 s; WRITE
+is 3.661473/14.500053/15.659459 s. Different cold boots, media growth and
+interleavings do not isolate a speed change. Listening at 1% remains unassessed.
+
+The tested public `syscall_dispatch` still classifies all `SYS_DIRECTORY`
+operations as namespace calls. It marks the caller unsafe, waits, and acquires
+storage ownership before reaching the new READ_INFO handler. The existing
+atomic proof then correctly refuses a current-owned span. Thus even the prior
+positive host fixture called the handler directly and missed this outer gate;
+the zero VM counter was a real integration gap, not evidence of a working
+fast path. The native positive-use requirement correctly prevents acceptance.
+
+The next implementation must route only the validated READ_INFO attempt ahead
+of that outer ownership span. All refusals, shared/stale descriptors and other
+directory operations must regain the original complete owned fallback, with
+post-wait cancellation, mapping/FD revalidation and live cookie semantics.
+Add a public-dispatch regression that fails on the tested tree, plus positive
+loaded-VM use before repeating the original native trial. Do not simply remove
+DIRECTORY from namespace exclusion or weaken the existing atomic proof.
+
+Fresh read-only hashing/fsck/allocation checks preserve all 960 prior paths and
+959 non-sidecar hashes; only expected `.srvros/meta` changed. Four logs, three
+BMPs and two completed workload receipts bring the volume to 969 files,
+5360 allocated clusters, with zero leaks/mismatches/errors.
+Strict original control/scheduler companions and both completed live sidecar
+endpoints replay from the final 64 KiB log; all transfer/commit/launch/protocol
+companions also validate. Installed, staged and independent payload/recovery
+hashes agree. Ubuntu remains default, one-shot consumed, collector disabled,
+USB unmounted and no reboot armed. Current remains this diagnostic-failed trial;
+accepted `bfe6ca6ff45fe078`/`772f95d189e4dcfc`/`7acb756c0ac5f4bb` and recovery
+`c35475f62f154f1e` remain retained. No implementation or new boot was started
+in this return-review block. Raw matching evidence and the explicit failure
+classification are retained outside build.
+
+### Directory public-dispatch correction scope (2026-11-14)
+
+From main `62eca9ce` (PR499), correct the original directory-admission objective:
+move only the validated READ_INFO attempt before public namespace ownership.
+Keep the complete owned fallback, cancellation and fresh mapping/FD/cookie
+checks. Scope is syscall routing and its actual public-dispatch/host-copy tests;
+no VFS proof, scheduler, storage backend, ABI, policy or limit changes. Require
+a baseline-failing public-dispatch regression and positive loaded-VM admission
+before repeating the original 1800-second native 1% workload under the user's
+existing self-merge/reboot authorization. Matching prior evidence is reviewed
+and sealed; no uncollected run remains. PR19 `b4759eda`, PR301 `308d7454` and
+PR379 `817f80bb` remain independent; recheck actual shared-file hunks at merge.
+
+
+### Public directory prelude qualified with positive VM use (2026-11-14, PR500)
+
+Final fetched main remains `62eca9ce`; PR19 `bce79673` and PR301 `2f5d0ee3`
+were rechecked for actual shared-file overlap, with no competing public
+directory routing change. PR379 remains `817f80bb`. No unmerged scope is imported.
+
+Frozen source `1ca5c2bd` routes only the validated READ_INFO attempt
+before public namespace ownership. A declined attempt regains the complete
+original owned span; cancellation, fresh user mapping/FD lookup and live shared
+cookie semantics remain in the owned handler. READ, PATH, CHDIR and other
+namespace calls retain original ownership. The batch-sized prelude is out of
+line so its frame is released before the owned fallback on the 16 KiB entry
+stack. VFS publication/descriptor proofs, scheduler, storage backend, userspace,
+ABI, profile policy, 16-entry batch and all timing/integrity limits are unchanged.
+
+A new regression compiles the actual production directory helpers and public
+dispatcher text together. The old tested wrapper compiles, then fails the exact
+pre-ownership assertion; the corrected wrapper passes, also under ASan/UBSan.
+Cases cover retained foreign ownership on success, full owned fallback, FD
+replacement, mapping invalidation, post-wait cancellation, failed acquisition,
+invalid bounds/fds and unchanged other directory/namespace calls. Existing raw
+experimental admission/refusal and guarded user-copy/process/scheduler/VFS
+fixtures pass. No production test hook or synthetic native success is added.
+
+The loaded KVM run now proves positive public-path use from its saved final log:
+35 handled calls, 503 entries and 10 policy refusals,
+with publication/descriptor refusals 0/0. It completes
+23 app cycles and 176 verified 256 KiB bursts over 60 seconds
+at 1%, one exact screenshot and zero recorded underruns. Ready/close maxima are
+0.897674/1.299554 s and worst loop
+139.382 ms. Strict saved-only app/service/control, owner and
+both live sidecar proofs pass. Positive VM use is now a preparation prerequisite;
+the prior zero-handled native result stays failed feature evidence.
+
+Matched ordinary/native/Q35 builds, affected fixture links, kernel/payload
+binding, fresh full core/desktop/docs and boot suites, six ordinary VMs, USB
+transport/capture and exact native-stage foreign-profile refusal all pass.
+Existing optional exhaustive-I/O skip and baseline append-repair allocation
+gaps remain visible; no new power-loss repair or native speed claim is made.
+
+Release `ed12574bea281328`, run `ec1ebf7c48ec4bfb` is installed and verified, unarmed
+at this checkpoint. All 969 preboot files are retained except
+the renewed 1% expiry preference. Fresh fsck/allocation/headroom checks pass.
+Only the unreferenced failed `d26b9b1b2a825384` EFI duplicate was
+retired after full stage, independent payload, sealed failure and firmware/GRUB
+reference verification. Its evidence remains intact. Current/recovery and
+installed accepted bfe/772/7ac plus the prior ba trial remain verified; Ubuntu
+is default and recovery `c35475f62f154f1e` is unchanged.
+
+Next is the original automated 1800-second 1% audio/disk/app/three-screenshot
+trial, with unchanged 500 ms loop and ten-second whole-app bounds, all CRC,
+readback, flush/fsync/rename, file/allocation and worker/reap/battery retirement
+checks. Heavy audit remains off; no input is needed. Native acceptance requires
+positive directory counts and all original matching results after return. No
+new physical acceptance or recovery promotion is claimed before that review.

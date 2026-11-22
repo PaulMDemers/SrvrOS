@@ -6947,3 +6947,8 @@ test-wifi-dhcp-radio5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
 test-core: test-wifi-handshake5-log
 test-wifi-handshake5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
 	PYTHONDONTWRITEBYTECODE=1 WIFI_HANDSHAKE5_BINARY=$< $(PYTHON) -m unittest discover -s tools -p test_wifi_handshake5_log.py
+
+.PHONY: test-directory-dispatch
+test-core: test-directory-dispatch
+test-directory-dispatch:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_directory_dispatch.py --output build/tests/directory-dispatch

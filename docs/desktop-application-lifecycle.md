@@ -266,3 +266,27 @@ continues to exclude same-PID siblings during mutable memory operations; a worke
 can move gate waits off the UI loop without making all of its memory work safely
 concurrent with that loop. Kernel service availability, application-only startup
 time, event-loop responsiveness and native audio acceptance are distinct checks.
+
+## Directory metadata during foreign storage commits
+
+Public dispatch invokes the callback-free READ_INFO prelude before acquiring
+namespace ownership. A refused proof retains the complete original owned span
+through fresh cancellation, user-mapping and FD checks, enumeration and copy.
+Other directory operations retain that span. The previous PR498 native run had
+zero handled entries because the wrapper acquired ownership first; it remains
+failed feature evidence. The public-dispatch regression compiles the actual
+helpers/wrapper together and fails against that old wrapper. Positive loaded-VM
+and native admission counts are required before accepting the corrected route. VFS publication depth spans metadata/retire callbacks and
+rollback; node publication and system namespace changes are excluded. The
+existing scheduler proof rejects foreign-owner image aliases, unsafe sibling
+continuations and wrong roots. Shared directory cursors and stale/retired node
+bindings retain ordinary gate admission. No cached listing replaces live size,
+mtime, inode or open-content size observations; the batch maximum stays 16.
+
+Refusal changes neither cookie nor output, then regains the original I/O gate,
+checks cancellation, revalidates user mappings and resolves the descriptor
+again. The user copy stays in the same interrupt-excluded snapshot. READ, PATH
+and CHDIR retain their original entry gate. A compact directory-admission row
+records handled/entry and refusal counts in existing sync checkpoints, including
+final logs. This is diagnostic evidence, not a substitute for the original
+500 ms loop, ten-second whole-app and complete workload/retirement checks.
