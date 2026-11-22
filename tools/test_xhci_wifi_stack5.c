@@ -860,6 +860,7 @@ static bool desktop_active_remove_running(void *context){
  else {
   port_model.state&=~(XHCI_PORTSC_CCS|XHCI_PORTSC_PED);
   port_model.state|=XHCI_PORTSC_CSC;
+  if(early)assert(device_removed(wifi_stream5.d));
  }
  return true;
 }
@@ -870,7 +871,8 @@ static void desktop_active_remove_case(unsigned fault){
  root_reattach_fault=fault==1;
  bool completed=xhci_wifi_capture_desktop_active_remove5(&ap,desktop_begin,desktop_active_remove_running);
  bool early=fault==3;
- assert(desktop_active_remove_injected && wifi_desktop5.endurance_passed==!early && !freed);
+ assert(desktop_active_remove_injected && !freed);
+ assert(wifi_desktop5.endurance_passed==!early);
  assert(wifi_stream5.exchange.keys_erased && !wifi_stream5.exchange.leave_sent);
  if(fault && !early){
   assert(!completed && !xhci_wifi_desktop5_return_safe() && test_io_active && !xhci.devices[0].slot_disabled);
