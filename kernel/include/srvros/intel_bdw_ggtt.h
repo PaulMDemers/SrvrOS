@@ -1,6 +1,7 @@
 #ifndef SRVROS_INTEL_BDW_GGTT_H
 #define SRVROS_INTEL_BDW_GGTT_H
 #include <srvros/scanout_transfer.h>
+#include <srvros/intel_gt_access.h>
 
 struct intel_bdw_ggtt_page {
  uint64_t physical,gpu_address,original,replacement;
@@ -17,4 +18,8 @@ bool intel_bdw_ggtt_plan_entry(const struct scanout_transfer_manifest *,
  * The caller still needs live ownership, RAM/cache admission and completion. */
 bool intel_bdw_ggtt_page_plan(const struct scanout_transfer_manifest *,
                             uint64_t physical,struct intel_bdw_ggtt_page *);
+/* The caller pins an exclusive UC mapping and holds the hardware readers.
+ * Readback orders the QWord store. Translation invalidation remains separate. */
+enum intel_gt_write intel_bdw_ggtt_exchange(volatile uint64_t *pte,
+                                            uint64_t expected, uint64_t replacement);
 #endif

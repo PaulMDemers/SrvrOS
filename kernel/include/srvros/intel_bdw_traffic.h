@@ -70,6 +70,49 @@ static inline bool bdw_traffic_engines(struct bdw_traffic_sample *a, bool blocke
     return true;
 }
 
+static inline bool bdw_traffic_slices_powered(struct bdw_traffic_sample *s)
+{
+    uint32_t status;
+    return s->read(s->ctx, 0x138064, &status) && (status & 7u) == 3u;
+}
+
+static inline bool bdw_traffic_steer(struct bdw_traffic_sample *s, bool (*select)(void *,uint32_t,uint32_t), uint32_t from, uint32_t to)
+{
+    uint32_t observed;
+    if (!s->read(s->ctx, 0xfdc, &observed) || observed != from) return false;
+    if (from == to) return true;
+    return select(s->ctx, from, to) &&
+           s->read(s->ctx, 0xfdc, &observed) && observed == to;
+}
+
+static inline bool intel_bdw_traffic_l3_policy(struct bdw_traffic_sample *s, bool (*select)(void *,uint32_t,uint32_t))
+{
+    uint32_t fuse, original;
+    if (!s->read(s->ctx, 0x9120, &fuse) || ((fuse >> 25) & 7u) != 3u ||
+        !bdw_traffic_slices_powered(s) || !s->read(s->ctx, 0xfdc, &original)) return false;
+
+    uint32_t current = original;
+    bool complete = true;
+    for (unsigned slice = 0; complete && slice < 2; ++slice) {
+        for (unsigned bank = 0; bank < 4; ++bank) {
+            uint32_t target = (original & ~(15u << 24)) | (slice << 26) | (bank << 24);
+            if (!bdw_traffic_steer(s,select, current, target)) return false;
+            current = target;
+            uint32_t policy, selector;
+            /* A powered-down bank can read as zero, which by itself would
+             * look like permission to flush both coherent and noncoherent lines. */
+            if (!bdw_traffic_slices_powered(s) || !s->read(s->ctx, 0xb11c, &policy) ||
+                !s->read(s->ctx, 0xfdc, &selector) || selector != target ||
+                !bdw_traffic_slices_powered(s) || (policy & (1u << 4))) {
+                complete = false;
+                break;
+            }
+        }
+    }
+    /* Refuse a foreign selector or expired owner even on the cleanup path. */
+    return bdw_traffic_steer(s,select, current, original) && complete;
+}
+
 static inline bool intel_bdw_traffic_open(struct bdw_traffic_sample *s)
 {
     bool arbiter, pipelines;

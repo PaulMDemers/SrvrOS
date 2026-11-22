@@ -103,6 +103,23 @@ static void submission_window(void) {
  assert(why.walk.reason==VMM_ALIAS_PRESENT);
  reset_fault();
 }
+static void command_aperture(void) {
+ const uint64_t first=0xb2201000, ports[]={first+8192,first+4096,first+12288};
+ int borrower;
+ setup();
+ assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
+         first,0x8b811000,0xc0811000,ports,3,&result,&why));
+ assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&borrower));
+ assert(vmm_reserved_guard_pin_io_page(&guard,root,first,&borrower));
+ assert(vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&borrower));
+ assert(vmm_reserved_guard_io_range_pinned(&guard,root,first+4096,3,&borrower));
+ assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,5,&borrower));
+ assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,0,&borrower));
+ assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&other));
+ assert(vmm_reserved_guard_unpin_io_page(&guard,root,first,&borrower));
+ assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&borrower));
+ assert(vmm_reserved_guard_close(&guard,&result,&why));
+}
 static void register_window(void) {
  const uint64_t aperture=0xb2200000, backing=0x8b811000, reg=0xc0811000;
  const uint64_t flags=VMM_PAGE_PRESENT|VMM_PAGE_WRITABLE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
@@ -223,6 +240,7 @@ int main(int argc,char **argv) {
   else assert(vmm_map_page_in_space(root,va+4096,aperture,3));
  }
  submission_window();
+ command_aperture();
  register_window();
  /* Every reserved page is actually queried on admission. */
  for(unsigned page=1;page<=3072;page++) {

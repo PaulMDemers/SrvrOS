@@ -3,6 +3,7 @@
 #include <srvros/intel_command_memory.h>
 #include <srvros/intel_gt_access.h>
 #include <srvros/intel_bdw_ggtt.h>
+#include <srvros/intel_bdw_scanout_mapping.h>
 
 /* A trusted-provider transaction, not a source of native GPU ownership.
  * The exact interval MUST ALREADY be transferred with all hardware witnesses.
@@ -40,6 +41,26 @@ struct command_map_io {
  uint64_t (*now)(void *);
  void (*pause)(void *);
 };
+/* The four GGTT words share a single pinned UC register page. The VMM guard
+ * also excludes the four CPU aperture aliases. The device owner provides the
+ * synchronous request and reads under its real GT wake and firmware lease. */
+struct command_map_window {
+ const struct vmm_reserved_guard *guard;
+ const void *pin;
+ uint64_t guard_epoch,alias,aperture_pin;
+ struct intel_bdw_scanout_traffic traffic;
+};
+/* Independent transferred slot and private DMA backing. The publication IO
+ * supplies its own ownership, translation completion and reader retirement.
+ * The command mapper supplies the GGTT stores and shares its original block. */
+struct command_map_slot {
+ struct scanout_transfer *transfer;
+ struct scanout_transfer_token grant;
+ struct scanout_memory *memory;
+ struct scanout_memory_token token;
+ struct scanout_publish_pool *pool;
+ struct scanout_publish_io io;
+};
 struct intel_command_mapping {
  const struct intel_command_mapping *object;
  struct intel_command_memory *cpu;
@@ -50,6 +71,10 @@ struct intel_command_mapping {
  struct intel_command_lease lease;
  struct intel_command_io cpu_io;
  struct command_map_io io,original_io;
+ struct command_map_window window;
+ struct command_map_slot slot;
+ uint64_t block_epoch;
+ uint32_t plane_control,live_surface;
  struct scanout_space_token range;
  struct scanout_publish_pool pool;
  struct scanout_publish_token publication_token;
@@ -70,6 +95,17 @@ struct intel_command_mapping {
 bool intel_command_mapping_run(struct intel_command_mapping *,struct intel_command_memory *,
  struct scanout_transfer *,const struct scanout_transfer_token *,struct command_map_io,
  bool (*child)(void *,struct intel_command_mapping *),void *);
+/* Native MMIO backend. The ordinary read/write callbacks must be NULL.
+ * The original owner keeps the window and hardware grant pinned across the
+ * whole call and retains both on failure. The child executes under the block. */
+bool intel_command_mapping_run_window(struct intel_command_mapping *,struct intel_command_memory *,
+ struct scanout_transfer *,const struct scanout_transfer_token *,struct command_map_io,
+ const struct command_map_window *,bool (*child)(void *,struct intel_command_mapping *),void *);
+/* Automated adjacent-page trial. The command range and slot 8704 must share
+ * the pinned GGTT register page. Both ranges need independent live transfers. */
+bool intel_command_mapping_run_slot(struct intel_command_mapping *,struct intel_command_memory *,
+ struct scanout_transfer *,const struct scanout_transfer_token *,struct command_map_io,
+ const struct command_map_window *,const struct command_map_slot *);
 /* Pure same-object address lookup while the registered child is executing;
  * not fresh hardware admission or permission to submit commands. */
 bool intel_command_mapping_page(const struct intel_command_mapping *,unsigned page,uint64_t *gpu,uint64_t *physical);

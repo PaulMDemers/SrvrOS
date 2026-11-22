@@ -2,6 +2,36 @@
 #include <srvros/intel_bdw_ggtt.h>
 #include <srvros/intel_ggtt_window.h>
 
+bool intel_bdw_scanout_page_store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
+                         const struct scanout_transfer *t, uint32_t index)
+{
+    if (!m || !token || !t || index != INTEL_WINDOW_FIRST ||
+        m->object != m || token->object != m || token->epoch != m->epoch || token->owner != m->owner ||
+        !m->busy || m->owner != t->owner || m->backing_pages != 1 || m->layout.pages != 1 ||
+        m->layout.tiled || m->cpu_serial || m->dependent || m->registered || m->hold_serial ||
+        m->space != &t->space || m->range.first != index || m->range.pages != 1 ||
+        t->manifest.first != index || t->manifest.fence_end != (uint64_t)index * 4096 ||
+        t->manifest.assurances != HANDOFF_ALL || t->manifest.obligations) return false;
+
+    const struct scanout_transfer_manifest *s = &t->manifest;
+    if (!scanout_interval_boot_framebuffer_matches(s->mmio,s->aperture,s->aperture_bytes,s->fence_end))
+        return false;
+
+    const struct scanout_publication *p = &m->publication;
+    bool restore = p->state == PUB_RESTORING;
+    if (!p->busy || !p->exposed || p->object != p || p->pages != 1 || p->space != m->space ||
+        p->owner != m->owner || p->io.ctx != t->io.ctx || p->io.now != t->io.now ||
+        p->range.object != m->space || p->range.epoch != t->arena_epoch || p->range.first != index ||
+        m->range.object != p->range.object || m->range.epoch != p->range.epoch ||
+        p->range.pages != 1 || p->range.serial != m->range.serial || p->range.slot != m->range.slot ||
+        p->range.slot >= SCANOUT_SPACE_LEASES || m->space->leases[p->range.slot].use != SPACE_EXPOSED ||
+        (restore ? (m->state != MEM_GPU || !m->closing || p->writes != 2) :
+                   (p->state != PUB_WRITING || m->state != MEM_PREPARED || m->closing || p->writes != 1)))
+        return false;
+
+    return true;
+}
+
 struct encode_context {
     struct scanout_transfer *transfer;
     struct scanout_transfer_token token;

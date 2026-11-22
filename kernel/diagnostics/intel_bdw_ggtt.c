@@ -41,3 +41,17 @@ bool intel_bdw_ggtt_page_plan(const struct scanout_transfer_manifest *m,
                             uint64_t physical,struct intel_bdw_ggtt_page *out) {
     return m && m->pages == 1 && intel_bdw_ggtt_plan_entry(m, m->first, physical, out);
 }
+
+enum intel_gt_write intel_bdw_ggtt_exchange(volatile uint64_t *pte,
+                                            uint64_t expected, uint64_t replacement)
+{
+    if (!pte || ((uintptr_t)pte & 7) || expected == replacement ||
+        expected == UINT64_MAX || replacement == UINT64_MAX || *pte != expected)
+        return GT_WRITE_NONE;
+    /* MMIO does not support a locked compare-exchange. Exclusion is held
+     * by the caller and there is no callback between comparison and store. */
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    *pte = replacement;
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    return *pte == replacement ? GT_WRITE_DONE : GT_WRITE_UNCERTAIN;
+}

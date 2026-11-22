@@ -20,6 +20,14 @@ def run(binary,mode):
 
 
 class Mapping(unittest.TestCase):
+ def test_native_window(self):
+  modes=['joint-good','joint-widi:2','joint-widi:3','window-good','window-pending','window-aperture','window-cache','window-no-engine','window-no-l3','window-stale-l3','window-narrow-bank']
+  modes += [f'window-{fault}:{i}' for fault in ('widi','foreign','plane','epoch') for i in range(1,9)]
+  modes += [f'window-post-widi:{i}' for i in (1,2)]
+  for mode in modes:
+   with self.subTest(mode=mode):
+    self.assertEqual(run(TARGETS[0],mode)['complete'],int(mode in ('window-good','joint-good')))
+
  def test_original_composition_and_callback_faults(self):
   total=0
   for target,budget in zip(TARGETS,(100000,150000,250000)):
@@ -132,7 +140,8 @@ class Mapping(unittest.TestCase):
 
  def test_native_frame_and_image_isolation(self):
   source=(ROOT/CORE).read_text()
-  self.assertNotIn('volatile uint',source);self.assertNotIn('pmm_free',source)
+  self.assertIn('intel_bdw_ggtt_exchange(window_entry',source)
+  self.assertNotIn('pmm_free',source)
   plans=subprocess.check_output(['make','-Bn','--','build/kernel/srvros.elf','build/intel-command-memory/srvros.elf','build/intel-ggtt-native/srvros.elf'],cwd=ROOT,text=True,timeout=120)
   self.assertNotIn(CORE,plans)
   lines=[l for l in (ROOT/'Makefile').read_text().splitlines() if CORE in l]

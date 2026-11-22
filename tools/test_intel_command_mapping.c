@@ -2,6 +2,7 @@
  * synthetic in this host fixture; this is never native acceptance. */
 #define _POSIX_C_SOURCE 200809L
 #include <srvros/intel_command_mapping.h>
+#include <srvros/vmm.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +17,9 @@ static struct scanout_transfer_pool transfers;
 static struct scanout_space_pool spaces;
 static struct display_access_token exclusion;
 static struct scanout_transfer_token token;
-static uint64_t ram[2048],cpu_maps[4],gtt[4],original[4];
+static uint64_t ram[2048],cpu_maps[4],original[4];
+static _Alignas(4096) uint64_t table[512];
+#define gtt (table+1)
 static unsigned parent,lifetime,other;
 static struct command_map_io io(void);
 static bool use(void *,struct intel_command_mapping *);
@@ -133,6 +136,173 @@ static bool use(void *ctx,struct intel_command_mapping *r){
  if(mode("parent-close"))assert(!scanout_transfer_close(&transfer,&token));
  return !fault("child-false",m.children);
 }
+static struct vmm_reserved_guard window_guard={&window_guard,17};
+static bool active_block, joint, slot_allocated;
+static const uint64_t slot_original=0x8e201001;
+static unsigned requests,releases,invalidations;
+static uint32_t selector=0x40000000;
+bool vmm_reserved_guard_register_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t aperture,
+                                        uint64_t reg,uint64_t alias,const void *pin)
+{
+ return g==&window_guard && root==0x1000 && aperture==0xb2200000 && reg==0xc0811000 &&
+        alias==(uintptr_t)table && pin==&parent;
+}
+bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t first,
+                                        unsigned pages,const void *child)
+{
+ return g==&window_guard && root==0x1000 && ((first==0xb2201000 && pages==4) || (first==0xb2200000 && pages==1)) && child==&parent &&
+        !fault("window-aperture",1);
+}
+bool intel_cache_probe_uc_page(uint64_t physical)
+{
+ return physical==0xc0811000 && !fault("window-cache",1);
+}
+static uint64_t held_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
+{
+ assert(t==&transfer && p==&mapping.publication);
+ if(active_block && mapping.attempts && fault("window-epoch",mapping.attempts))return 22;
+ return active_block ? 21 : 0;
+}
+static enum intel_gt_write request(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t *epoch)
+{
+ assert(!held_epoch(t,p) && p->state==PUB_PREPARED && !requests);
+ requests++; active_block=true; *epoch=21;
+ return GT_WRITE_DONE;
+}
+static enum intel_gt_write unblock(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch)
+{
+ assert(held_epoch(t,p)==epoch && p->state==PUB_RETIRED && invalidations==(joint?4u:2u) && !releases);
+ for(unsigned i=0;i<4;i++)assert(gtt[i]==original[i]);
+ if(joint)assert(table[0]==slot_original && !slot_allocated);
+ active_block=false;releases++;return GT_WRITE_DONE;
+}
+static bool traffic_read(const struct scanout_transfer *t,uint32_t reg,uint32_t *v)
+{
+ assert(t==&transfer);
+ switch(reg){
+ case 0x40d0: case 0x8028: *v=active_block ? 0 : 0x5f;break;
+ case 0x8038: *v=active_block ? !fault("window-no-l3",1) : fault("window-stale-l3",1);break;
+ case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
+  *v=active_block && !(reg==0x8004 && fault("window-no-engine",1)) ? 0x20 : 0x10;break;
+ case 0x8014:
+  *v=!active_block || (mapping.attempts==m.at && fault("window-widi",mapping.attempts)) ||
+     (invalidations && (fault("window-post-widi",invalidations) || fault("joint-widi",invalidations))) ? 0x10 : 0;
+  break;
+ case 0x8040: *v=1;break;
+ case 0x70180: *v=1u<<31;break;
+ case 0x7019c: case 0x701ac:
+  *v=0x100000;
+  if(mapping.attempts && fault("window-plane",mapping.attempts))*v+=4096;
+  if(mapping.attempts && fault("window-foreign",mapping.attempts))gtt[(m.at-1)%4]=0xbadbe001;
+  break;
+ case 0x9120: *v=3u<<25;break;
+ case 0xfdc: *v=selector;break;
+ case 0x138064: *v=3;break;
+ case 0xb11c: *v=fault("window-narrow-bank",1) && (selector>>24&15)==7 ? 16 : 0;break;
+ case 0x101008: *v=fault("window-pending",mapping.attempts) ? 1 : 0;break;
+ case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: *v=0;break;
+ default: return false;
+ }
+ return true;
+}
+static enum intel_gt_write steer(const struct scanout_transfer *t,uint32_t from,uint32_t to)
+{
+ assert(t==&transfer && from==selector && !((from^to)&~(15u<<24)));
+ selector=to;return GT_WRITE_DONE;
+}
+static enum intel_gt_write invalidate(const struct scanout_transfer *t,const struct scanout_publication *p,
+                                      uint64_t epoch,uint32_t offset,uint32_t value)
+{
+ assert(held_epoch(t,p)==epoch && offset==0x101008 && value==1 && invalidations<(joint?4u:2u));
+ if(joint){
+  assert(active_block && !releases);
+  assert(table[0]==(invalidations==1 ? 0x2000001u : slot_original));
+  for(unsigned i=0;i<4;i++)assert(gtt[i]==(invalidations==3?original[i]:((cpu.physical+4096*i)|1)));
+ }
+ invalidations++;
+ return GT_WRITE_DONE;
+}
+static bool window_child(void *ctx,struct intel_command_mapping *r)
+{
+ assert(active_block && requests==1 && !releases && invalidations==1);
+ for(unsigned i=0;i<4;i++)assert(gtt[i]==((cpu.physical+4096*i)|1));
+ return use(ctx,r);
+}
+static uint64_t slot_allocate(void *ctx,uint32_t pages)
+{
+ assert(ctx==&m && pages==1 && !slot_allocated);
+ slot_allocated=true;return 0x2000000;
+}
+static bool slot_validate(void *ctx,uint64_t pa,uint32_t pages)
+{
+ return ctx==&m && pages==1 && pa==0x2000000 && slot_allocated;
+}
+static bool slot_release(void *ctx,uint64_t pa,uint32_t pages)
+{
+ assert(slot_validate(ctx,pa,pages) && active_block && invalidations==3 && table[0]==slot_original);
+ slot_allocated=false;return true;
+}
+static bool slot_owned(void *ctx,const struct scanout_transfer_manifest *p,enum scanout_transfer_phase phase)
+{
+ return ctx==&m && p->first==target_slot && p->pages==1 && p->source_epoch==1 &&
+        p->assurances==HANDOFF_ALL && !p->obligations && (phase==TRANSFER_LIVE || table[0]==slot_original);
+}
+static bool slot_held(void *ctx){return ctx==&m && active_block && requests==1 && !releases;}
+
+static void test_joint(struct command_map_io provider,struct command_map_window *window)
+{
+ static struct scanout_transfer second;
+ static struct scanout_publish_pool publications;
+ static struct scanout_memory memory;
+ struct scanout_memory_pool pool={0};
+ struct scanout_memory_layout layout;
+ struct command_map_slot slot={.transfer=&second,.pool=&publications,.memory=&memory,
+     .io={.ctx=&m,.guard=slot_held,.flush=slot_held,.readers_retired=slot_held,.now=now}};
+ struct scanout_transfer_manifest manifest=transfer.manifest;
+ manifest.first=target_slot;manifest.pages=1;manifest.original=&slot_original;
+ joint=true;table[0]=slot_original;table[5]=0xbad5001;
+ scanout_interval_release(&target);
+ assert(scanout_interval_protect_boot_framebuffer(manifest.mmio,manifest.aperture,manifest.aperture_bytes,manifest.fence_end));
+ assert(scanout_transfer_open(&second,&transfers,&spaces,&exclusion,&manifest,(struct scanout_transfer_io){&m,slot_owned,now},&slot.grant));
+ assert(scanout_memory_layout(16,1,64,false,&layout) && scanout_memory_create(&memory,&pool,second.owner,&layout,
+      0x100000000ull,(struct scanout_memory_io){&m,slot_allocate,slot_validate,slot_release},&slot.token));
+ bool ok=intel_command_mapping_run_slot(&mapping,&cpu,&transfer,&token,provider,window,&slot);
+ assert(table[5]==0xbad5001 && selector==0x40000000 && requests==1);
+ if(mode("joint-good")){
+  assert(ok && mapping.complete && memory.state==MEM_RELEASED && !slot_allocated && !active_block && releases==1 && invalidations==4);
+  assert(scanout_transfer_close(&second,&slot.grant) && scanout_transfer_close(&transfer,&token) && display_access_release(&exclusion,true));
+  m.retired=true;assert(intel_command_memory_close(&cpu));
+ }else{
+  assert(!ok && m.hit && mapping.retained && slot_allocated && active_block && !releases && invalidations==m.at);
+  assert(table[0]==(m.at==2?0x2000001:slot_original) && !intel_command_memory_close(&cpu));
+ }
+ printf("command-mapping: PASS joint complete=%u invalidations=%u releases=%u\n",ok,invalidations,releases);
+}
+static void test_window(struct command_map_io provider)
+{
+ struct command_map_window window={&window_guard,&parent,17,(uintptr_t)table,0xb2200000,
+   {.read=traffic_read,.held_epoch=held_epoch,.request=request,.release=unblock,
+    .select_l3=steer,.invalidate_ggtt=invalidate}};
+ provider.read=NULL;provider.write=NULL;m.active=true;
+ if(!strncmp(m.mode,"joint-",6)){test_joint(provider,&window);return;}
+ table[0]=0xbad1001;table[5]=0xbad5001;
+ bool ok=intel_command_mapping_run_window(&mapping,&cpu,&transfer,&token,provider,&window,window_child,&m);
+ assert(table[0]==0xbad1001 && table[5]==0xbad5001 && selector==0x40000000);
+ if(mode("window-good")){
+  assert(ok && mapping.complete && mapping.writes==8 && !active_block && releases==1 && m.children==1);
+  m.active=false;assert(scanout_transfer_close(&transfer,&token) && display_access_release(&exclusion,true));
+  m.retired=true;assert(intel_command_memory_close(&cpu));
+ }else{
+  assert(!ok && m.hit && mapping.retained && !releases && active_block==(requests!=0) &&
+         !intel_command_memory_close(&cpu) && !scanout_transfer_close(&transfer,&token));
+  if(mode("window-foreign"))assert(gtt[(m.at-1)%4]==0xbadbe001);
+  if(mode("window-pending") || mode("window-widi") || mode("window-foreign") || mode("window-plane") || mode("window-epoch"))assert(mapping.writes==m.at-1);
+  if(mode("window-post-widi"))assert(mapping.writes==4*m.at);
+  if(mode("window-aperture") || mode("window-cache") || mode("window-narrow-bank"))assert(!requests);
+ }
+ printf("command-mapping: PASS native-access=1 complete=%u stores=%u requests=%u releases=%u\n",ok,mapping.writes,requests,releases);
+}
+
 static void setup(void){
  m.time=1000;
  for(unsigned i=0;i<4;i++)gtt[i]=original[i]=0x128c000001ull+4096*i;
@@ -178,6 +348,7 @@ static int run_case(int argc,char **argv){
  if(mode("pending"))m.pending=m.at;
  if(mode("stuck"))m.pending=UINT32_MAX;
  struct command_map_io provider=io();
+ if(!strncmp(text,"window-",7) || !strncmp(text,"joint-",6)){test_window(provider);return 0;}
  if(mode("invalid")){
   switch(m.at){case 1:cpu.lease.root++;break;case 2:transfer.manifest.assurances=0;break;case 3:transfer.manifest.obligations=255;break;case 4:transfer.manifest.pages=3;break;case 5:provider.ctx=&other;break;case 6:provider.now=bad_now;break;case 7:provider.read=NULL;break;case 8:provider.write=NULL;break;case 9:provider.ownership=NULL;break;case 10:provider.complete=NULL;break;case 11:provider.readers_retired=NULL;break;case 12:provider.pause=NULL;break;case 13:token.epoch++;break;case 14:mapping.state=COMMAND_MAP_CLOSED;break;default:assert(0);}
   assert(!intel_command_mapping_run(&mapping,&cpu,&transfer,&token,provider,use,&m) && !mapping.object && !m.events && !m.writes);puts("command-mapping: PASS invalid no callbacks");return 0;

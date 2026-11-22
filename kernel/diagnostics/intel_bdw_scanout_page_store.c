@@ -40,35 +40,7 @@ static bool page_hold_live(const struct scanout_publication *p)
            borrow.block_epoch && borrow.traffic.held_epoch(borrow.transfer,p) == borrow.block_epoch;
 }
 
-static bool store_active(const struct scanout_memory *m, const struct scanout_memory_token *token,
-                         const struct scanout_transfer *t, uint32_t index)
-{
-    if (!m || !token || !t || index != INTEL_WINDOW_FIRST ||
-        m->object != m || token->object != m || token->epoch != m->epoch || token->owner != m->owner ||
-        !m->busy || m->owner != t->owner || m->backing_pages != 1 || m->layout.pages != 1 ||
-        m->layout.tiled || m->cpu_serial || m->dependent || m->registered || m->hold_serial ||
-        m->space != &t->space || m->range.first != index || m->range.pages != 1 ||
-        t->manifest.first != index || t->manifest.fence_end != (uint64_t)index * 4096 ||
-        t->manifest.assurances != HANDOFF_ALL || t->manifest.obligations) return false;
 
-    const struct scanout_transfer_manifest *s = &t->manifest;
-    if (!scanout_interval_boot_framebuffer_matches(s->mmio,s->aperture,s->aperture_bytes,s->fence_end))
-        return false;
-
-    const struct scanout_publication *p = &m->publication;
-    bool restore = p->state == PUB_RESTORING;
-    if (!p->busy || !p->exposed || p->object != p || p->pages != 1 || p->space != m->space ||
-        p->owner != m->owner || p->io.ctx != t->io.ctx || p->io.now != t->io.now ||
-        p->range.object != m->space || p->range.epoch != t->arena_epoch || p->range.first != index ||
-        m->range.object != p->range.object || m->range.epoch != p->range.epoch ||
-        p->range.pages != 1 || p->range.serial != m->range.serial || p->range.slot != m->range.slot ||
-        p->range.slot >= SCANOUT_SPACE_LEASES || m->space->leases[p->range.slot].use != SPACE_EXPOSED ||
-        (restore ? (m->state != MEM_GPU || !m->closing || p->writes != 2) :
-                   (p->state != PUB_WRITING || m->state != MEM_PREPARED || m->closing || p->writes != 1)))
-        return false;
-
-    return true;
-}
 
 static bool mapped_register(uint64_t root, uint64_t alias, uint64_t physical)
 {
@@ -106,47 +78,16 @@ static bool read_traffic(void *ctx,uint32_t offset,uint32_t *word)
            (offset != 0x40d0 || !(*word & 0xff00u)) && traffic_live(check);
 }
 
-static bool slices_powered(struct traffic_check *check)
+static bool select_traffic_l3(void *ctx,uint32_t from,uint32_t to)
 {
-    uint32_t status;
-    return read_traffic(check, 0x138064, &status) && (status & 7u) == 3u;
-}
-
-static bool steer_l3(struct traffic_check *check, uint32_t from, uint32_t to)
-{
-    uint32_t observed;
-    if (!read_traffic(check, 0xfdc, &observed) || observed != from) return false;
-    if (from == to) return true;
-    return borrow.traffic.select_l3(borrow.transfer, from, to) == GT_WRITE_DONE &&
-           read_traffic(check, 0xfdc, &observed) && observed == to;
+    (void)ctx;
+    return borrow.traffic.select_l3(borrow.transfer,from,to)==GT_WRITE_DONE;
 }
 
 static bool l3_flush_covers_all_lines(struct traffic_check *check)
 {
-    uint32_t fuse, original;
-    if (!read_traffic(check, 0x9120, &fuse) || ((fuse >> 25) & 7u) != 3u ||
-        !slices_powered(check) || !read_traffic(check, 0xfdc, &original)) return false;
-
-    uint32_t current = original;
-    bool complete = true;
-    for (unsigned slice = 0; complete && slice < 2; ++slice) {
-        for (unsigned bank = 0; bank < 4; ++bank) {
-            uint32_t target = (original & ~(15u << 24)) | (slice << 26) | (bank << 24);
-            if (!steer_l3(check, current, target)) return false;
-            current = target;
-            uint32_t policy, selector;
-            /* A powered-down bank can read as zero, which by itself would
-             * look like permission to flush both coherent and noncoherent lines. */
-            if (!slices_powered(check) || !read_traffic(check, 0xb11c, &policy) ||
-                !read_traffic(check, 0xfdc, &selector) || selector != target ||
-                !slices_powered(check) || (policy & (1u << 4))) {
-                complete = false;
-                break;
-            }
-        }
-    }
-    /* Refuse a foreign selector or expired owner even on the cleanup path. */
-    return steer_l3(check, current, original) && complete;
+    struct bdw_traffic_sample sample={.ctx=check,.read=read_traffic};
+    return intel_bdw_traffic_l3_policy(&sample,select_traffic_l3);
 }
 
 /* Keep both the queued scanout and the actual scanout on the inherited
@@ -227,7 +168,7 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
                                       struct intel_bdw_scanout_traffic traffic, const struct vmm_reserved_guard *cpu_guard, uint64_t root, uint64_t alias, uint32_t index, uint64_t value)
 {
     uint64_t original;
-    if (!root || !alias || (alias & 4095) || !store_active(m, token, t, index) ||
+    if (!root || !alias || (alias & 4095) || !intel_bdw_scanout_page_store_active(m, token, t, index) ||
         !scanout_transfer_original(t, grant, index, &original)) return false;
 
     struct scanout_publication *p = &m->publication;
@@ -284,7 +225,7 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     uint32_t posted;
     if (!read_traffic(&check, INTEL_GGTT_INVALIDATE_REGISTER, &posted) || posted) return false;
     uint64_t now = t->io.now(t->io.ctx);
-    if (!store_active(m, token, t, index) ||
+    if (!intel_bdw_scanout_page_store_active(m, token, t, index) ||
         !scanout_transfer_original(t, grant, index, &fresh) || fresh != original ||
         m->physical != entry.physical || t->manifest.mmio != physical - entry.mmio_offset ||
         restore != (p->state == PUB_RESTORING) || p->before[0] != original || p->after[0] != entry.replacement ||
@@ -296,11 +237,8 @@ bool intel_bdw_scanout_store_test_page(struct scanout_memory *m, const struct sc
     /* Pinned UC alias on x86-64. Compare immediately before the single
      * aligned QWord store. A changed entry is left to its original owner. */
     if (!original_plane(&check) || !intel_bdw_traffic_still_blocked(&check, read_traffic) ||
-        p->hold_live != page_hold_live || !page_hold_live(p) || *reg != expected) return false;
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    *reg = value;
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    if (*reg != value || !original_plane(&check) ||
+        p->hold_live != page_hold_live || !page_hold_live(p)) return false;
+    if (intel_bdw_ggtt_exchange(reg, expected, value) != GT_WRITE_DONE || !original_plane(&check) ||
         !intel_bdw_traffic_still_blocked(&check, read_traffic)) return false;
     /* This WO register always reads zero. The read orders the preceding
      * System Agent request. Engine and cache retirement have their own proof. */

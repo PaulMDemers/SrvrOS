@@ -20,6 +20,10 @@ bool intel_bdw_scanout_prepare(struct scanout_memory *, const struct scanout_mem
 bool intel_bdw_scanout_prepare_test_page(struct scanout_memory *, const struct scanout_memory_token *,
                                         struct scanout_transfer *, const struct scanout_transfer_token *,
                                         struct scanout_publish_pool *, struct scanout_publish_io);
+/* Check the projected store against the original memory, range, framebuffer
+ * fence and publication phase. Call from inside the publisher's writer. */
+bool intel_bdw_scanout_page_store_active(const struct scanout_memory *, const struct scanout_memory_token *,
+                                        const struct scanout_transfer *, uint32_t index);
 /* Called only inside the publisher's write callback. The device owner must
  * pin its original CPU root and its exclusive UC register alias across the
  * callback. A successful store includes raw PTE readback and a posted System

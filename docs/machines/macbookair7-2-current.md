@@ -10,13 +10,34 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-On PR 301 the native submission diagnostic allocates 18 DMA frames and
+The current Air7,2 work covers native GGTT register access for the blitter
+context and the physical traffic hold needed to change slot 8704. The
+original Pipe A scanout stays active during qualification.
+
+On PR 301 the native submission diagnostic allocates 19 DMA frames and
 populates a Broadwell private GPU address space. The blitter context points
 at all four private page directories. Its ring selects a batch in that
 address space. Three readbacks span the loan of slot 8704 and its return.
-Each checks all six proposed global bindings, the context, private tables,
+Each checks all seven proposed global bindings, the context, private tables,
 commands and scratch contents. The driver frees the frames after returning
 the command interval. The global context binding is still outstanding.
+
+Three November 22 i915 runs captured the blitter ring at GGTT address
+`0xfffaa000` and the engine hardware status page at `0xfffe7000` while
+all five queues waited. Pipe A kept scanning surface `0x00600000` and its
+frame counter advanced on all three runs. All five scratch markers and resumes
+verified. In each held sample all five engine flush acknowledgements were
+clear, WiDi GO was set and the L3 flush acknowledgement was clear. Receipt
+v7 now checks a dedicated engine status page in addition to the context's
+per-process status page.
+
+The host fixture binds command pages 8705–8708, replaces and restores slot
+8704 and retires both ranges under one device request. It checks all five
+engine acknowledgements, a fresh L3 flush, WiDi exclusion and the active
+panel throughout. The physical GPU still needs an owner that can issue and
+sustain that request. The fixture's adjacent test interval and the native
+diagnostic's firmware tail at 11744 are separate. These three captures left
+slot 8704 untouched. [Mapping and rollback](../intel-command-mapping.md#one-hold-for-the-command-pages-and-slot-8704)
 
 On November 22 the Air executed the exact private command page three times
 under Ubuntu i915. Each run produced five distinct drain markers, a subsequent

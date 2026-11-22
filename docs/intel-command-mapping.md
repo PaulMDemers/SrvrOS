@@ -43,8 +43,8 @@ page. It uses a present GGTT entry and aligned QWord access at
 [Broadwell memory views](https://www.x.org/docs/intel/BDW/intel-gfx-prm-osrc-bdw-vol05-memory_views_0.pdf)
 and pinned Linuxv6.12's
 [GGTT encoding/publication](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c).
-The native access adapter would still have to validate the real register mapping
-and hardware ownership immediately before each access.
+The native MMIO backend checks that the register window is pinned and uncached
+and verifies the hardware owner before each access.
 
 1. Capture all four original entries through the publication core and compare
    them exactly with the transfer's owned vector.
@@ -70,6 +70,32 @@ stores, lost proofs, changed callbacks and failed completion cannot trigger
 optimistic rollback, force cleanup or retry. There is no allocator-release
 callback in this transaction. Later CPU cleanup still requires original-parent
 retirement and preservation of all16KiB of zero storage.
+
+## One hold for the command pages and slot 8704
+
+`intel_command_mapping_run_slot` accepts two independently admitted GPU
+intervals. Slot 8704 and command pages 8705–8708 share a GGTT register
+page. The VMM guard pins the register alias and excludes CPU mappings of
+all five aperture pages. The caller owns both backing allocations and the
+original framebuffer fence.
+
+Before the first store the backend samples open traffic, checks the L3
+flush policy on each of the eight powered banks, and asks the device
+owner to block traffic. During that request it must observe five new
+engine flush acknowledgements, the L3 flush acknowledgement, WiDi GO
+clear and GAM idle. The same owner and epoch cover ten aligned 64-bit
+stores and four posted translation invalidations. Each store compares
+the live PTE with its expected predecessor and verifies its readback.
+The original plane control, queued surface and live surface must agree
+throughout. On a successful return both intervals contain their original
+entries and the device owner has reopened traffic.
+
+A lost WiDi hold during replacement or restoration retains the request
+and backing for recovery. The fixture models hardware acknowledgements
+and exercises both failures. Using this backend on the Air requires a
+device owner that can originate the request under native firmware,
+DMA and reader ownership. Parking the five private queues under i915
+left WiDi GO asserted and all five GPM flush acknowledgements clear.
 
 ## Clocks and validation
 

@@ -159,6 +159,19 @@ bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t 
 bool vmm_reserved_guard_io_page_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  return child && reserved_guard.io_borrower==child && vmm_reserved_guard_io_page_held(g,root,page);
 }
+/* Every aperture alias must be excluded by the original live borrow. */
+bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint64_t root,
+                                        uint64_t first,unsigned pages,const void *child) {
+ if(!pages || pages>1+VMM_GUARD_IO_LIMIT || first>UINT64_MAX-4096ull*(pages-1) ||
+    (!first || (first&4095)) || !vmm_reserved_guard_io_page_pinned(g,root,reserved_guard.io_page,child))return false;
+ for(unsigned i=0;i<pages;i++){
+  if(first+4096ull*i==reserved_guard.io_page)continue;
+  unsigned j=0;
+  while(j<reserved_guard.port_count && reserved_guard.ports[j]!=first+4096ull*i)++j;
+  if(j==reserved_guard.port_count)return false;
+ }
+ return true;
+}
 bool vmm_reserved_guard_unpin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  if(!vmm_reserved_guard_io_page_pinned(g,root,page,child))return false;
  if(reserved_guard.register_alias) {
