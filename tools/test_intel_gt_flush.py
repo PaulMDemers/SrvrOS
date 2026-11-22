@@ -42,7 +42,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["engine_ack_rise"], 31 if mode == "pass" else 0)
                     self.assertEqual(flush["l3_flush_ack"], list(map(bool, expected)))
                     self.assertEqual(flush["summary"], {
-                        "v": 8, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
+                        "v": 9, "samples": 4, "reads": 100, "maps": 28, "retired": 28, "live": 0,
                     })
                     self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 4)
                     power = flush["power_controls"]
@@ -58,9 +58,31 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["samples"][1]["gam_go"], 0x20 if idle else 0x7f)
                     self.assertEqual(flush["samples"][1]["gam_eco"], 0x201 if idle else 0x200)
                     self.assertEqual(flush["smi_guard"], {
-                        "v": 1, "reads": result["summary"]["native_writes"] + 7,
+                        "v": 1, "reads": result["summary"]["native_writes"] + 7 + flush["l3_banks"]["summary"]["writes"],
                         "point": 6, "fault": 0, "first": 13, "last": 13,
                     })
+
+    def test_bank_steering_and_restoration(self):
+        text = observe("pass")
+        bank = bootstrap_result(text)["flush"]["l3_banks"]
+        self.assertEqual(bank["summary"]["original"], bank["summary"]["final"])
+        self.assertEqual([b["sqc"] for b in bank["banks"]], [0x40400000 | i for i in range(8)])
+        self.assertEqual([b["scratch"] for b in bank["banks"]], [1]*7 + [17])
+        for mode, limit in (("bank-float", 8), ("bank-power", 8), ("bank-foreign", 1), ("bank-map", 4), ("bank-post", 8), ("bank-alias", 10)):
+            for i in range(1, limit + 1):
+                with self.subTest(mode=mode, i=i):
+                    failed = bootstrap_result(observe(mode, i))
+                    self.assertFalse(failed["complete"])
+                    self.assertEqual(failed["reset"]["reset_attempts"], 0)
+                    if mode in ("bank-float", "bank-power"):
+                        self.assertTrue(failed["flush"]["l3_banks"]["summary"]["restored"])
+                    if mode == "bank-foreign":
+                        self.assertFalse(failed["flush"]["l3_banks"]["summary"]["restored"])
+        row = next(l for l in text.splitlines() if l.startswith("intel-l3-bank: v=1 n=7 "))
+        for bad in ("", row.replace("n=7", "n=0"), re.sub(r"selector=\S+", "selector=0", row),
+                    re.sub(r"scratch=\S+", "scratch=0xffffffff", row)):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row, bad))
 
     def test_live_slice_power(self):
         text = observe("pass")
@@ -75,7 +97,7 @@ class FlushAcknowledgements(unittest.TestCase):
 
     def test_smi_change_stops_each_store_and_both_retirement_checkpoints(self):
         healthy = bootstrap_result(observe("pass"))
-        expected = [2, *([3] * healthy["summary"]["native_writes"]), 4, 4, 2, 5, 6]
+        expected = [2, *([3] * (healthy["summary"]["native_writes"] + healthy["flush"]["l3_banks"]["summary"]["writes"])), 4, 4, 2, 5, 6]
         for read, point in enumerate(expected, start=2):
             with self.subTest(read=read, point=point):
                 result = bootstrap_result(observe("smi-count", read))
@@ -151,12 +173,15 @@ class FlushAcknowledgements(unittest.TestCase):
                     row.replace("authority=none", "authority=write")):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        old_power = re.sub(r"^intel-l3-power:.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
+        old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
+        legacy_smi = row.replace(f"reads={flush['smi_guard']['reads']}",
+                                 f"reads={flush['smi_guard']['reads'] - flush['l3_banks']['summary']['writes']}")
+        old_power = old_power.replace(row, legacy_smi)
         old_power = re.sub(r" l3_close=.*", "", old_power)
         old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = old_power.replace("intel-range-summary: v=2 ", "intel-range-summary: v=1 ")
-        old_power = old_power.replace("v=8 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
+        old_power = old_power.replace("v=9 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
         self.assertNotIn("request_trace", bootstrap_result(old_power)["flush"])
         media = old_power.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
                              "intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9")
@@ -173,7 +198,7 @@ class FlushAcknowledgements(unittest.TestCase):
         previous = re.sub(r" gam_go=\S+ gam_eco=\S+", "", previous)
         previous = previous.replace("intel-flush-sample: v=2 ", "intel-flush-sample: v=1 ")
         self.assertNotIn("gam", bootstrap_result(previous)["flush"])
-        old = previous.replace(row, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
+        old = previous.replace(legacy_smi, "").replace("intel-flush-summary: v=2 ", "intel-flush-summary: v=1 ")
         self.assertNotIn("smi_guard", bootstrap_result(old)["flush"])
         for n, packet in enumerate(flush["samples"]):
             sample = next(line for line in text.splitlines() if line.startswith(f"intel-flush-sample: v=5 n={n} "))
@@ -190,7 +215,7 @@ class FlushAcknowledgements(unittest.TestCase):
                               ("authority=none\nintel-l3-power", "authority=write\nintel-l3-power"),
                               ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=100 maps=28 retired=27"),
                               ("samples=4 reads=100 maps=28 retired=28", "samples=4 reads=99 maps=28 retired=28"),
-                              ("intel-flush-summary: v=8 ", "intel-flush-summary: v=6 ")):
+                              ("intel-flush-summary: v=9 ", "intel-flush-summary: v=6 ")):
             self.assertIn(before, text)
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(before, after))

@@ -20,9 +20,10 @@ clients (mask `0x5f`). The driver rechecked and returned the reservation
 of slot 8704 with zero PTE writes. Ubuntu collected the report and the
 offline exFAT check passed. The result uses the diagnostic timing limits.
 
-Next, use the held native register access to read the policy of each of
-the eight L3 banks while both slices are powered, then verify restoration
-of the original bank selector. Device-wide flush completion and exclusion
+The next PR 301 trial measures both flush policies on each of the eight L3
+banks after all five engines are prepared and before the first reset. It
+checks live power around each pair of reads, verifies the selected bank,
+restores the original selector and returns both temporary MMIO mappings. Device-wide flush completion and exclusion
 of new work through rollback still require separate hardware evidence.
 
 In the November 22 Ubuntu comparison, i915 reported two available slices

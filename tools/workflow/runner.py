@@ -812,6 +812,8 @@ class Runner:
             record['l3_flush_ack_samples']=observed['l3_flush_ack']
             if 'slice_power' in observed:
                 record['slice_power']=observed['slice_power']
+            if 'l3_banks' in observed:
+                record['l3_banks']=observed['l3_banks']
             if 'smi_guard' in observed:
                 record['smi_guard']=observed['smi_guard']
             if 'gam' in observed:

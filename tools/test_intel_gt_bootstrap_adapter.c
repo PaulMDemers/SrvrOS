@@ -72,6 +72,10 @@ static bool intel_display_test_range_unmap(uint64_t *);
 static bool intel_display_test_primary_read(uint32_t, uint32_t *);
 #ifdef SRVROS_INTEL_GT_FLUSH
 static uint32_t intel_display_test_gam_request(void);
+static bool intel_display_test_bank_map(unsigned, bool);
+static bool intel_display_test_bank_aliases(void);
+static uint32_t intel_display_test_bank_read(unsigned);
+static void intel_display_test_bank_write(uint32_t);
 #endif
 #endif
 #include "test_intel_ring_transition_adapter.c"
@@ -442,6 +446,33 @@ static unsigned primary_reads,primary_maps,primary_unmaps,primary_aliases;
 static unsigned aux_reads,aux_maps,aux_unmaps,aux_aliases;
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
+static unsigned model_bank_maps;
+static uint32_t model_selector = 0x10000008;
+static bool intel_display_test_bank_map(unsigned i, bool create) {
+ assert(gt_bank_live() && i < 2 && !!(model_bank_maps & (1u<<i)) != create);
+ if(bf("bank-map", create ? i+1 : 4-i)) return false;
+ model_bank_maps ^= 1u << i;
+ return true;
+}
+static bool intel_display_test_bank_aliases(void) {
+ static unsigned calls;
+ return model_bank_maps == 3 && !bf("bank-alias", ++calls);
+}
+static void intel_display_test_bank_write(uint32_t target) {
+ assert(model_bank_maps==3 && gt_bank_live() && !((target ^ model_selector) & ~(15u<<24)));
+ if(!bf("bank-post",gt_banks.writes)) model_selector=target;
+}
+static uint32_t intel_display_test_bank_read(unsigned offset) {
+ assert(model_bank_maps==3 && gt_bank_live());
+ unsigned i=(model_selector>>24)&15u;
+ if(offset==GT_L3_SELECTOR) {
+  if(gt_banks.banks==7 && i==7 && bf("bank-foreign",1)) model_selector ^= 1u<<28;
+  return model_selector;
+ }
+ assert(i<8 && (offset==GT_L3_PIPE || offset==GT_L3_PM));
+ if(offset==GT_L3_PM && bf("bank-float",i+1)) return UINT32_MAX;
+ return offset==GT_L3_PIPE ? (0x40400000u|i) : (1u|(i==7 ? 16u : 0));
+}
 static unsigned flush_reads,flush_maps,flush_unmaps,flush_aliases;
 static uint32_t intel_display_test_gam_request(void) {
  assert(bootstrap_parent() && wake_irq && gpu_command==3 &&
@@ -574,6 +605,7 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  if(offset==0x138064 || offset==0x9120) {
   assert(!range_pa && gt_flush_live());
   *out=offset==0x9120 ? 3u<<25 : (gt_flush.samples==1 ? 3u : 0u);
+  if(offset==0x138064 && model_bank_maps==3 && gt_banks.captured && bf("bank-power",gt_banks.banks+1)) *out=1;
   static unsigned slice_reads;
   return !bf("slice-read", ++slice_reads);
  }

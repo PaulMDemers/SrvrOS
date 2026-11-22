@@ -13,7 +13,7 @@ SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
 
 
-def smi_guard_result(rows, version, parent, memory, retire):
+def smi_guard_result(rows, version, parent, memory, retire, selector_writes=0):
     if version == 1:
         if rows or parent["reason"] & SMI_FAULT:
             raise ValueError("Foreign GT SMI receipt")
@@ -23,7 +23,7 @@ def smi_guard_result(rows, version, parent, memory, retire):
     guard = fields(rows[0].removesuffix(" authority=none"), SMI_PREFIX,
                    ("v", "reads", "point", "fault", "first", "last"))
     reads, point, fault, first, last = (guard[key] for key in ("reads", "point", "fault", "first", "last"))
-    writes = parent["commands"] + parent["native_writes"] + memory["writes"]
+    writes = selector_writes + parent["commands"] + parent["native_writes"] + memory["writes"]
     if (max(first, last) >= 1 << 32 or point > 6 or fault > 2
             or bool(fault) != bool(parent["reason"] & SMI_FAULT)
             or (fault and (not parent["failed"] or parent["complete"]))):
@@ -46,14 +46,53 @@ def smi_guard_result(rows, version, parent, memory, retire):
     return guard
 
 
+def bank_result(text, version, samples, reset_started):
+    summaries = [line for line in text.splitlines() if line.startswith("intel-l3-steer:")]
+    rows = [line for line in text.splitlines() if line.startswith("intel-l3-bank:")]
+    if version < 9:
+        if summaries or rows:
+            raise ValueError("Unexpected L3 bank receipt")
+        return None
+    if len(summaries) != 1:
+        raise ValueError("Missing or duplicate L3 bank summary")
+    s = fields(summaries[0], "intel-l3-steer:",
+               ("v", "opened", "mapped", "captured", "original", "final", "writes", "banks", "restored"),
+               ("original", "final"))
+    orig, count, writes = s["original"], s["banks"], s["writes"]
+    if (len(rows) != count or count > 8 or writes > 9 or orig >= 0xffffffff or s["final"] > 0xffffffff
+            or s["opened"] not in (0, 1, 3) or s["mapped"] not in (0, 1, 3) or s["mapped"] & ~s["opened"]
+            or max(s["captured"], s["restored"]) > 1 or (s["opened"] and samples == 0)
+            or (s["captured"] and s["opened"] != 3)
+            or (not s["captured"] and (orig or writes or count or s["final"] or s["restored"]))
+            or (s["restored"] and s["final"] != orig)):
+        raise ValueError("Invalid L3 steering accounting")
+    banks = []
+    for i, line in enumerate(rows):
+        b = fields(line, "intel-l3-bank:", ("v", "n", "selector", "sqc", "scratch"),
+                   ("selector", "sqc", "scratch"))
+        if (b["n"] != i or b["selector"] != ((orig & ~(15 << 24)) | (i << 24))
+                or max(b["sqc"], b["scratch"]) >= 0xffffffff):
+            raise ValueError("Invalid steered L3 bank observation")
+        banks.append(b)
+    if count == 8 and s["restored"]:
+        expected = 7 + (((orig >> 24) & 15) != 0) + (((orig >> 24) & 15) != 7)
+        if writes != expected:
+            raise ValueError("Wrong L3 selector write count")
+    if (samples >= 2 or reset_started) and (count != 8 or not s["restored"] or s["mapped"]):
+        raise ValueError("Advanced without full L3 bank coverage and selector return")
+    return dict(summary=s, banks=banks)
+
+
 def flush_result(text, parent, reset, translation, primary, retire, memory):
     rows = [line for line in text.splitlines() if line.startswith("intel-flush-")]
     if not rows or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
     summary = fields(rows[0].removesuffix(" authority=none"), "intel-flush-summary:",
-                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6, 7, 8))
+                     ("v", "samples", "reads", "maps", "retired", "live"), ("live",), versions=(1, 2, 3, 4, 5, 6, 7, 8, 9))
     smi_rows = [line for line in text.splitlines() if line.startswith(SMI_PREFIX)]
-    smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire)
+    bank = bank_result(text, summary["v"], summary["samples"], reset["begin"])
+    smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire,
+                           bank["summary"]["writes"] if bank else 0)
     traced = summary["v"] >= 6
     if (summary["v"] >= 7) != (translation["v"] == 2):
         raise ValueError("GT flush and slot reservation receipt versions disagree")
@@ -133,9 +172,9 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
                   engine_ack=engine_ack, engine_ack_rise=engine_ack_rise,
                   l3_flush_ack=[bool(row["l3"] & 1) for row in samples[:count]])
     slice_rows = [line for line in text.splitlines() if line.startswith("intel-l3-power:")]
-    if len(slice_rows) != (count if summary["v"] == 8 else 0):
+    if len(slice_rows) != (count if summary["v"] >= 8 else 0):
         raise ValueError("GT slice power sample coverage")
-    if summary["v"] == 8:
+    if summary["v"] >= 8:
         decoded = []
         for n, line in enumerate(slice_rows):
             sample = fields(line, "intel-l3-power:", ("v", "n", "fuse", "before", "after"),
@@ -148,6 +187,10 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
                 raise ValueError("Powered slice outside available topology")
             decoded.append(dict(available=available, before=before, after=after))
         result["slice_power"] = decoded
+    if bank:
+        if count >= 2 and result["slice_power"][1] != dict(available=3, before=3, after=3):
+            raise ValueError("L3 bank observation lacks slice power")
+        result["l3_banks"] = bank
     if media:
         current = [{key: (row[key] >> 16) & 0xff for key in MEDIA_WORDS} for row in samples[:count]]
         for n, queues in enumerate(current):

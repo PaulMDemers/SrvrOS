@@ -103,6 +103,8 @@ static bool gt_flush_slice_read(unsigned slot, uint32_t offset, uint32_t *value)
     return *value != UINT32_MAX && gt_flush_live() && bootstrap_tick();
 }
 
+#include "intel_gt_l3_banks.inc"
+
 static bool gt_flush_sample(unsigned n) {
     if (n >= GT_FLUSH_SAMPLES || n != gt_flush.samples || !gt_flush_live() || !bootstrap_tick())
         return false;
@@ -111,6 +113,7 @@ static bool gt_flush_sample(unsigned n) {
     uint32_t *slice = gt_flush.slice[n];
     if (!gt_flush_slice_read(9, 0x9120, &slice[0]) ||
         !gt_flush_slice_read(2, 0x138064, &slice[1])) return false;
+    if (n == 1 && ((slice[1] & 7u) != 3 || !gt_bank_capture())) return false;
     /* One guarded alias per MMIO page, inside the same observation window. */
     static const unsigned group_ends[] = { 1, 9, 11, 13, 16, 24, GT_FLUSH_WORDS };
     const unsigned pages = sizeof(group_ends) / sizeof(group_ends[0]);
@@ -128,6 +131,7 @@ static bool gt_flush_sample(unsigned n) {
         access->reads != GT_FLUSH_WORDS * (n + 1))
         return false;
     if (!gt_flush_slice_read(2, 0x138064, &slice[2]) ||
+        (n == 1 && (slice[2] & 7u) != 3) ||
         ((slice[1] | slice[2]) & 7u & ~(slice[0] >> 25)) ||
         gt_bootstrap_native.last - gt_flush.begin[n] > BDW_BOOT_PHASE_US) return false;
     gt_flush.end[n] = gt_bootstrap_native.last;
@@ -149,7 +153,8 @@ static void gt_flush_report(void) {
             (uint64_t)i, (uint64_t)s->pulse, (uint64_t)s->word, (uint64_t)s->count,
             s->first_begin, s->first_end, s->last_begin, s->last_end);
     }
-    console_printf("intel-flush-summary: v=8 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
+    gt_bank_report();
+    console_printf("intel-flush-summary: v=9 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
         (uint64_t)gt_flush.access.retired, gt_flush.access.mapped);
     for (unsigned n = 0; n < GT_FLUSH_SAMPLES; ++n) {

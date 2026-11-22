@@ -34,6 +34,17 @@ reread and return, including an exhausted search or an active reader that
 prevented the search. This is an unattended software reservation trial with
 the original primary plane active. [Implementation milestones](intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
+The version 9 flush diagnostic adds an eight-bank policy capture on the
+Air7,2. It runs once between five-engine preparation and the first reset.
+It saves and restores the full MCR selector, changes only the slice/bank
+fields, and reads L3SQCREG4 and SCRATCH1 through a read-only mapping.
+The report carries each posted selector and both raw policy words.
+Slice power and selector identity are checked around the reads. An
+unconfirmed selector or an expired owner stops the trial before reset.
+The policy bits describe which lines a flush can cover. A fresh completion
+acknowledgement and a held traffic block remain separate requirements.
+[Gen8 MCR selector fields](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_gt_regs.h)
+
 On Air7,2 the version 8 GT flush report also records slice availability
 and live slice power before and after each of its four observation windows.
 The power readings use the diagnostic’s existing forcewake and MMIO mappings.
