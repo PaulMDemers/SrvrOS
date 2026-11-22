@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed channel 161 at 20 MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; one cold Demers5 desktop connection, network checks, USB file saving and safe disconnect accepted on v151; same-session reconnect, reattach and repeated reliability remain open**.
+Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; one cold Demers5 desktop connection and USB save accepted on v151; two fresh Demers5 desktop connections and safe disconnects in a single cold boot with ping and DNS on both accepted on v152. Live adapter reattach and repeated cold reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -28,6 +28,27 @@ journal rehearsals covering both destinations, missing workspace, journal
 refusal with workspace fallback, and both destinations refusing writes.
 Help opens the complete checklist. Trial records are under
 `build/bringup/wifi-desktop-reconnect5`.
+
+Cold session `session-000660d2ce56def8-00` on November 21 proved two System
+Connect and Disconnect cycles in the same boot on Demers5. The connection
+epochs were 1 and 2. WPA and DHCP completed, and gateway ping and DNS lookup
+succeeded in each connected interval. System showed IPv4 withdrawn between
+the two connections. Both intervals exchanged encrypted data and had zero
+driver/provider faults. Both disconnects erased the keys and retired their
+USB endpoints. The final provider retirement and RF restoration succeeded.
+
+The first connected interval recorded one successful `httpget` process exit
+and one Text save. The new file was verified on USB after reboot. The logs
+contain one HTTP process result and no HTTP response body or Text reopen
+receipt. The second interval has ping and DNS receipts.
+
+Exit desktop saved both workspace logs and returned to Ubuntu. The seven
+independent journal checkpoints, clean exFAT, all 504 prior workspace files
+and 37 unrelated EFI files verified. The exact candidate and matching
+evidence have a verified durable copy under
+`/var/local/srvros-recovery/macbookpro11-2`. The next physical milestone is
+adapter removal and reattachment within one desktop session with the
+workspace left attached.
 
 ### Desktop connection owner and shared USB storage
 

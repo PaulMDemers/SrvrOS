@@ -41,8 +41,10 @@ new selection generation and enables Connect once the operator selects the
 network again. The second association uses fresh WPA, DHCP and DMA ownership.
 The second Disconnect closes the trial. Help gives the two-connection test
 sequence, including an HTTP request and a USB file save and reopen on each
-connection. The current unit handoff tracks physical validation and adapter
-reinsertion. [MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
+connection. One cold MacBookPro11,2 run verified two WPA/DHCP and disconnect
+cycles, ping and DNS on both connections, one successful HTTP client exit,
+and one USB file save. Live adapter reinsertion is the next milestone.
+[MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
 
 ## Calibration response-loss tracing (November 11)
 
