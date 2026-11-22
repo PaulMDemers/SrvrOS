@@ -10,15 +10,28 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
-The current block uses the existing firmware lender and the submission-guard
-collector on PR 301 to reserve a command interval alongside the original
-framebuffer. It depends on the complete two-pass translation vectors and
-the tiled-image fetch allowance. The new host fixture exercises slots
-11744–11775, starting at GPU address `0x02de0000`, with 20 pages between
-that interval and the fetch allowance. It constructs and verifies a private
-16 KiB blitter image in CPU memory using those GPU addresses. The fixture rejects both a changed
-translation and a changed context after slot 8704 returns. The next native
-test checks the lease, competing borrowers and private image on the Air.
+SrvrOS release `9f2a7089ffb12693` (source `1329b823`, session
+`session-000660d5b2987ebf-00`) qualified a software reservation of slots
+11744–11775 on the Air. These 32 pages start at GPU address `0x02de0000`,
+20 pages beyond the second imported buffer’s tiled image and fetch allowance.
+The driver built a private 16 KiB blitter image in CPU memory for these
+addresses. It verified the image and all 32 original translations twice
+during the slot 8704 loan and once after its return. All three competing
+borrow requests were refused. The command interval was then returned.
+The original command-interval PTE started at `0x8ede1001` and the context
+descriptor was `0x102de100d`.
+
+Both reads of slot 8704 returned `0x8e201001`. The original Pipe A frame
+counter advanced from 1159 to 1160 during the range check. The diagnostic
+issued zero PTE writes. Ubuntu collected the completed session and the
+offline exFAT check passed. The next step is establishing device-side
+submission and cache ownership before publishing the private command
+backing or changing the mapping at slot 8704.
+
+In a separate Ubuntu i915 comparison at slot 11744, one of four attempts
+replaced and restored a private mapping, verified all 1,024 original words
+and resumed all five queues. Three attempts stopped at the original-panel
+guard. The successful Linux run used i915-owned pages and queues.
 
 Current PR 301 work covers native command memory and exclusion of the
 wireless-display requester while Pipe A keeps scanning. The display fuse,
@@ -42,10 +55,8 @@ offline exFAT check passed.
 
 All 32 entries in each GPU-only window starting at slots `0x10000`,
 `0x80000` and `0xffe00` were nonzero. This run claimed no command pages.
-The occupancy masks do not identify the backing or its owner. Further
-work should establish which inherited allocations must be pinned and how
-the native submission owner can take over a command interval while those
-allocations remain live. i915 uses its address allocator to distinguish
+The occupancy masks do not identify the backing or its owner. The later
+command-interval trial above used the imported buffer’s padding. i915 uses its address allocator to distinguish
 reserved ranges from holes when initializing the GGTT.
 [Linux GGTT initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
 · [SrvrOS trial guide](../device-workflow.md).
