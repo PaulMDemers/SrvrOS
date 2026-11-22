@@ -10,8 +10,15 @@ with the exact pin. Integration approved retaining that commit on
 [`pins/srvros-503-ggrep`](https://github.com/PaulMDemers/SrvrPorts/tree/pins/srvros-503-ggrep).
 An independent OS clone initialized `ports` at `9d42e0f` and fetched that ref.
 Ports #16 remains open for Pro owner review of promotion to Ports main.
-Keep the dedicated ref while an OS revision pins it. Coreutils 9.12 is queued
-after OS #503 delivery.
+Keep the dedicated ref while an OS revision pins it. OS #503 merged
+as `a51840a4` with its reviewed tree and gitlink verified. Standalone GNU
+Coreutils 9.12 `sha256sum` is in progress in `SrvrOS-ports-sha256sum`, based
+on current main `77b0c7cb`. Ports #17 merged `c331cb27`. The bounded SHA
+guest, Terminal, ports regression and reproducibility passed. The OS candidate
+pins the tested tree through `pins/srvros-sha256sum`. An independent clone
+initialized the exact gitlink. The full 498-command CLI regression and guest
+filesystem check passed. [OS #518](https://github.com/PaulMDemers/SrvrOS/pull/518)
+records qualification and delivery for the last entry in this queue.
 
 Authorized November 4, 2026: implement bounded GNU diff in a separate checkout,
 then independently review, publish and merge each accepted port and its OS
@@ -24,8 +31,8 @@ reservation for the next milestone.
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
 | 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Delivered and verified: [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) `72f3d6fa`, then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370) `3e327513`; exact reviewed trees and reachable `6ff5eda` pin verified. No further feature required. |
-| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Ports #15 delivered and verified. OS #503 is qualified on `9d42e0f`, verified reachable through `pins/srvros-503-ggrep`. Ports #16 remains open for separate review. |
-| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued after Grep delivery under the resumed instruction. |
+| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Ports #15 delivered and verified. OS #503 delivered at `a51840a4` with `9d42e0f` reachable through `pins/srvros-503-ggrep`. Ports #16 remains open for separate review. |
+| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Ports #17 delivered at `c331cb27`. OS #518 passed scoped qualification with durable Ports pin `f79db5fa`. |
 
 Each row gets a coherent port commit/PR before the dependent OS gitlink PR,
 independent source review, truthful host/guest evidence, required target/Terminal
