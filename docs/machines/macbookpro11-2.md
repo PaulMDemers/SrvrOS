@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-22. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
+Updated: 2026-11-22. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. The Retina desktop selects 2× at 2880 × 1800. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -61,6 +61,11 @@ Ubuntu. The final log was absent. The last periodic snapshot was
 rolling snapshots with a separate boot snapshot. The desktop repeats
 its initial and final scales on exit so the final snapshot records
 both after a long run.
+
+The exact image and hardware evidence are archived under
+`/var/local/srvros-recovery/macbookpro11-2` as `fd2656fd31386cc9` and
+`evidence-fd2656fd31386cc9`. Ubuntu's default and the recovery image
+were verified after collecting the session.
 
 ### Wi-Fi release qualification
 

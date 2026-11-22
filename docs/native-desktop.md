@@ -107,8 +107,9 @@ window placement. Settings reports persistence separately, so a session-only
 change is not presented as saved. Confirmed preferences are restored on the next
 desktop launch after the asynchronous preference load completes.
 
-The default is 1× with the inherited boot resolution. An explicit startup override
-remains available:
+The desktop starts at the inherited boot resolution. MacBookPro11,2 firmware
+selects 2× at 2560 × 1600 and larger. The generic default is 1×. For an
+explicit startup override, pass `--scale=1` or `--scale=2`:
 
 ```text
 run /fat/bin/deskd --scale=2
