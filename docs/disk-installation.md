@@ -73,6 +73,10 @@ the admitted source read-only, verifies that it stayed unchanged, and records
 the full bundle SHA-256 before publication. Use the same inspect and reconcile
 commands for either version.
 
+The [offline v2 export proof](assets/evidence/offline-profile-v2-export/manifest.json)
+records a real export interruption and reconciliation, then exact restoration of
+all three selected documents across two EFI boots of a fresh installation.
+
 Choose a new private record directory outside the installation stage, on the
 same host filesystem as the output. The host must support exclusive creation,
 hardlinks, advisory locks and checked file/directory sync. The mounted APFS

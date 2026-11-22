@@ -2,13 +2,21 @@
 
 ## Offline v2 profile export and publication
 
-Current scope uses merged OS #502 (`28eb6291`) for fresh-install restore and OS
-#367 for the portable stream format. Work is isolated on
-`device/apple-silicon/offline-export-v2`. It owns the offline exporter, native
-read adapter, publication recovery and bounded round-trip verification. The
-acceptance gate is default-v1 compatibility, v2 interruption and reconciliation,
-and exact selected bytes after reboot on a fresh disposable EFI guest. Existing
-media and authentication and permission enforcement are outside this scope.
+On `device/apple-silicon/offline-export-v2`, source `d5476ffd` uses the merged
+OS #502 restore path and the OS #367 wire format. The matched `d4b09b4d`
+runtime artifact hashes, source tree IDs and submodule pins match the disposable
+proof. The export driver was built from the new source. Default v1 bytes match
+the canonical fixture. Host checks cover all eight publication checkpoints.
+
+A real v2 export stopped at `written` and reported a private `prepared` attempt.
+A fresh reconciliation process published it. Two EFI boots of the restored
+installation preserved all three documents, including a 16 MiB file, with the
+new local binding and distinct machine preferences. An independent audit
+compared exact bytes across A, the export, and B before and after both boots.
+Used-image inspection attempted zero source writes and flushes. Both owned
+guests stopped. See the
+[qualification manifest](../assets/evidence/offline-profile-v2-export/manifest.json).
+Authentication and permission enforcement remain separate.
 
 ## Offline streaming-v2 installation restore — November 22, 2026
 

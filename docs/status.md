@@ -29,7 +29,10 @@ bundle admission and restoration into a fresh offline installation. Two EFI
 boots verified the restored identity, local binding, preferences and exact bytes
 of all three selected documents, including a 16 MiB file. A separate v1 restore
 boot passed. The current-main refresh reproduced the proof inputs byte for byte.
-Offline export and export-publication recovery still use canonical v1.
+Offline export defaults to canonical v1. The opt-in offline v2 export flow
+can reconcile an interrupted publication and restore the recovered bytes in a
+fresh installation. See the
+[export qualification](assets/evidence/offline-profile-v2-export/manifest.json).
 See the [installation guide](disk-installation.md) and
 [qualification manifest](assets/screenshots/installation-stream-restore-manifest.json).
 
