@@ -25,6 +25,15 @@ words of each 64-bit scratch array matched. Internal CRTC 52 advanced from
 frame 2886718 to 2886719, 2886719 to 2886720 and 2886720 to 2886721 in
 the three holds. i915 owned the active page tables in these runs. The
 SrvrOS device-wide WiDi hold and coherent L3 acknowledgement remain open.
+
+An instrumented fourth run sampled GAM, WiDi, all five engine messages and
+L3 together after the private flush and before the common semaphore release.
+The five command streamers reported GO open and flush ACK clear (low six
+bits `0x10`). WiDi returned `0x1f`, GAM request/response returned
+`0xff/0x7f` and L3 returned zero. Private PAT entry 3 was zero in all
+three snapshots. The Ubuntu compositor changed the panel surface before the
+held sample. The panel continued scanning. This comparison made zero
+changes to the inherited slot.
 [Private command layout and hardware comparison](../intel-bdw-bcs-flush.md#private-command-pages-on-broadwell)
 
 The native slot writer checks the live primary plane, WiDi and engine
