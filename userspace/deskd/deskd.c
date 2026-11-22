@@ -188,6 +188,7 @@ struct display_runtime {
     uint32_t *fractional_band;
     struct display_window_backup *windows;size_t windows_bytes;int window_count;
     uint64_t token,deadline,owner;unsigned scale,previous_scale;
+    unsigned applied_scales,kept_scales,reverted_scales,timed_out_scales;
     int trial,startup,abort,changed,fatal,restore_done,explicit_scale;
 };
 struct session {
@@ -3646,7 +3647,11 @@ int main(int argc,char **argv) {
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);
     desk_pixels_free(pixels,width*scale,height*scale); gfx_console_mute(0);
-    if(retina_trial)desk_log("retina-desktop: startup_scale=%u final_scale=%u\n",startup_scale,session_output_scale(&s));
+    if(retina_trial) {
+        desk_log("retina-desktop: startup_scale=%u final_scale=%u\n",startup_scale,session_output_scale(&s));
+        desk_log("retina-scales: applied=%u kept=%u reverted=%u timed_out=%u\n",
+            s.display.applied_scales,s.display.kept_scales,s.display.reverted_scales,s.display.timed_out_scales);
+    }
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

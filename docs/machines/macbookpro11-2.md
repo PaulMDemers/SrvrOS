@@ -85,6 +85,14 @@ Apply, Keep, explicit Revert, timeout, closing Settings during a trial,
 Text save and readback, and restoring the confirmed choice on the next
 desktop launch. Native fractional validation remains pending.
 
+PR #501's attended fractional trial uses the qualified `aa063e68` line,
+the pinned SrvrUI rasterizer and the Retina boot recipe. The trial updates
+the SrvrApps Help checklist and records scale coverage in the final log.
+It checks pointer alignment, readable rendering, live windows, display
+rollback, saved preferences, Text, a screenshot and automatic return on
+this unit. Main's portable-profile update at `288886bd` is separate from
+this fixed-framebuffer trial.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold

@@ -153,6 +153,10 @@ static unsigned display_revert(struct session *s) {
     }
     return result;
 }
+/* One bit per quarter step from 1x through 2x, retained after log wrap. */
+static unsigned display_scale_bit(const struct session *s) {
+    return 1u << (desk_scale_quarters(session_output_scale(s))-4);
+}
 static void display_received(struct session *s,int i,const struct desk_packet *p) {
     struct client *c=session_client(s,i);struct display_runtime *d=&s->display;
     unsigned result=DESK_DISPLAY_OK;
@@ -171,19 +175,26 @@ static void display_received(struct session *s,int i,const struct desk_packet *p
                     d->windows[n]=(struct display_window_backup){session_client(s,n)->identity,w->frame,w->restore,w->maximized};}
                 d->previous_info=*d->info;d->previous_scale=session_output_scale(s);d->owner=c->identity;
                 result=display_change(s,p->width,p->height,p->x,0);
-                if(result==DESK_DISPLAY_OK) {d->trial=1;d->token++;if(!d->token)d->token++;d->deadline=(uint64_t)srv_monotonic_us()+15000000;}
+                if(result==DESK_DISPLAY_OK) {
+                    d->applied_scales|=display_scale_bit(s);
+                    d->trial=1;d->token++;if(!d->token)d->token++;d->deadline=(uint64_t)srv_monotonic_us()+15000000;
+                }
                 else display_cleanup(s);
             }
         }
     } else if(p->value==DESK_DISPLAY_KEEP || p->value==DESK_DISPLAY_REVERT) {
         if(!d->trial || d->owner!=c->identity || p->generation!=d->token)result=DESK_DISPLAY_INVALID;
-        else if(p->value==DESK_DISPLAY_REVERT)result=display_revert(s);
+        else if(p->value==DESK_DISPLAY_REVERT) {
+            unsigned scale_bit=display_scale_bit(s);
+            result=display_revert(s);
+            if(result==DESK_DISPLAY_OK)d->reverted_scales|=scale_bit;
+        }
         else if(!display_ready(s) || d->abort || (uint64_t)srv_monotonic_us()>=d->deadline)result=DESK_DISPLAY_BUSY;
         else {
             struct desk_preferences value=s->preferences.value;
             value.display_width=d->info->width;value.display_height=d->info->height;value.display_scale=session_output_scale(s);
             if(desktop_preferences_set(&s->preferences,&value,DESK_PREF_DISPLAY,srv_ticks())<0)result=DESK_DISPLAY_FAILED;
-            else {d->trial=0;display_cleanup(s);preferences_changed(s);desk_log("deskd: display-kept scale=%u resolution=%llux%llu\n",value.display_scale,(unsigned long long)d->info->width,(unsigned long long)d->info->height);}
+            else {d->kept_scales|=display_scale_bit(s);d->trial=0;display_cleanup(s);preferences_changed(s);desk_log("deskd: display-kept scale=%u resolution=%llux%llu\n",value.display_scale,(unsigned long long)d->info->width,(unsigned long long)d->info->height);}
         }
     } else result=DESK_DISPLAY_INVALID;
     display_reply(s,i,p->serial,result);
@@ -193,8 +204,11 @@ static void display_tick(struct session *s) {
     if(d->trial) {
         if(d->startup && !d->abort && display_ready(s)) {d->trial=0;d->startup=0;display_cleanup(s);display_notify(s,DESK_DISPLAY_OK);return;}
         int owner=d->startup;for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid && session_client(s,i)->identity==d->owner && !session_client(s,i)->closing)owner=1;
-        if(!owner || d->abort || s->exiting || (uint64_t)srv_monotonic_us()>=d->deadline) {
+        int expired=(uint64_t)srv_monotonic_us()>=d->deadline;
+        if(!owner || d->abort || s->exiting || expired) {
+            unsigned timed_out=expired && owner && !d->abort && !s->exiting && !d->startup?display_scale_bit(s):0;
             if(display_revert(s)!=DESK_DISPLAY_OK) {d->trial=0;d->startup=0;d->abort=0;display_cleanup(s);display_notify(s,DESK_DISPLAY_FAILED);snprintf(s->scene.notice,sizeof(s->scene.notice),"Display recovery failed. Current settings were not saved.");}
+            else d->timed_out_scales|=timed_out;
         }
     } else if(!d->restore_done && !s->preferences.loading && display_ready(s)) {
         d->restore_done=1;const struct desk_preferences *p=&s->preferences.value;
