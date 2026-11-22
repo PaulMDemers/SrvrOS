@@ -19,6 +19,11 @@ also produces v2. Give it a new output path and a publication directory; use
 [fresh installation workflow](disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
 restores a v2 bundle into a separately provisioned image.
 
+The [v2-only qualification](assets/evidence/portable-v2-only/manifest.json) verifies the graphical export of a
+small v2 bundle, interrupted import and chooser recovery, and reopening the
+profile after reboot. It also verifies offline publication recovery and exact
+restoration of a 16 MiB file and two smaller files across two EFI boots.
+
 The original [OS #367](https://github.com/PaulMDemers/SrvrOS/pull/367) and
 [Apps #11](https://github.com/PaulMDemers/SrvrApps/pull/11) qualification included
 31 disposable guest lifetimes, seven interrupted-import checkpoints, low-space

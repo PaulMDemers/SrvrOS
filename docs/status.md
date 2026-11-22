@@ -32,7 +32,7 @@ boot passed. The current-main refresh reproduced the proof inputs byte for byte.
 Profiles, the guest CLI and offline tools now use streaming v2 for every
 portable bundle. Offline export requires a publication directory so it can
 reconcile an interrupted attempt. See the
-[original export qualification](assets/evidence/offline-profile-v2-export/manifest.json).
+[v2-only qualification](assets/evidence/portable-v2-only/manifest.json).
 See the [installation guide](disk-installation.md) and
 [qualification manifest](assets/screenshots/installation-stream-restore-manifest.json).
 

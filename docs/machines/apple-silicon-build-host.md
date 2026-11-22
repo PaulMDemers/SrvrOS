@@ -8,6 +8,12 @@ includes the matching Apps pin and v2 recovery at every current entry point.
 Keep prior qualification receipts attributable to their original commits.
 Authentication and permission enforcement remain separate.
 
+The matched current-main proof at `de748bb0` with Apps pin `1531a154` passes
+both the offline export-to-reboot round trip and the graphical export, import
+interruption, and chooser recovery workflow. The independent byte audit
+verified seven archived exFAT snapshots. See the
+[v2-only qualification](../assets/evidence/portable-v2-only/manifest.json).
+
 ## Original opt-in offline v2 profile export proof
 
 On `device/apple-silicon/offline-export-v2`, source `d5476ffd` uses the merged
