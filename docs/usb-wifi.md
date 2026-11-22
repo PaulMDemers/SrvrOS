@@ -43,7 +43,7 @@ The second Disconnect closes the trial. Help gives the two-connection test
 sequence, including an HTTP request and a USB file save and reopen on each
 connection. One cold MacBookPro11,2 run verified two WPA/DHCP and disconnect
 cycles, ping and DNS on both connections, one successful HTTP client exit,
-and one USB file save. Live adapter reinsertion is the next milestone.
+and one USB file save.
 [MacBookPro11,2 current handoff](machines/macbookpro11-2.md#current-handoff)
 
 The v153 `--wifi-desktop-reattach` trial opens Help and runs the same
@@ -52,10 +52,11 @@ unplug only Wi-Fi for five seconds, then reconnect it to the same port.
 SrvrOS verifies removal, disables the original slot and retains its DMA
 allocations. It then debounces the insertion and enumerates the matching
 Edimax with fresh USB contexts and an independently configured firmware
-endpoint. System's Devices page can show the new USB record. Help asks for
-a workspace Text save and reopen before Exit desktop. This trial verifies
-USB reattachment. Fresh firmware, calibration, association and network
-traffic after reattachment are the next stage.
+endpoint. One cold MacBookPro11,2 run on release `0ea8bac8aaaf6ce3`
+verified the high-speed reset, replacement firmware endpoint and visible
+System Devices entry. Exit desktop saved the logs and returned to Ubuntu
+with the workspace clean. Fresh firmware, calibration, association and
+network traffic after reattachment are the next stage.
 
 ## Calibration response-loss tracing (November 11)
 

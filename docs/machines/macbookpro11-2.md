@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; one cold Demers5 desktop connection and USB save accepted on v151; two fresh Demers5 desktop connections and safe disconnects in a single cold boot with ping and DNS on both accepted on v152. Live adapter reattach and repeated cold reliability remain open**.
+Updated: 2026-11-21. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded 5 GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically. One cold Demers5 desktop connection and USB save passed on v151. Two fresh desktop connections and safe disconnects in a single cold boot with ping and DNS on both passed on v152. The v153 retry verifies live USB re-enumeration and the System device list after a clean Disconnect. Network recovery after replug, removal while connected and repeated cold reliability remain open.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -62,6 +62,23 @@ enables the port both fail within the recorded bounds.
 The exact retry image passed the GPT workspace rehearsal and four
 journal recovery cases. It is installed with the accepted v152 recovery
 entry. The retry run record is under `build/bringup/wifi-root-reset-retry`.
+
+Cold session `session-000660d3b7ceca71-00` passed one orderly Disconnect and
+live USB reattachment. SrvrOS detected removal from root port 1, retired
+slot 1 and re-enumerated the Edimax on slot 9 at high speed. The first reset
+completed successfully (`PORTSC` `0x06e1` before reset, `0x200e03` at
+completion, `0x0e03` after acknowledgement). SrvrOS verified the device
+identity and configured the replacement's firmware endpoint. System
+returned to eight USB entries, and the operator saw the adapter reappear.
+The hardware run exercised the corrected reset path in one attempt.
+
+Exit desktop saved both logs and all seven journal checkpoints and returned
+to Ubuntu. Clean exFAT, 509 prior workspace files, 39 unrelated EFI files
+and the v152 recovery entry verified. The image and matching evidence are
+archived under `/var/local/srvros-recovery/macbookpro11-2`. A post-replug Text
+save and reopen remain unverified. The next network milestone is fresh
+firmware upload and calibration for the replacement, followed by a new
+Demers5 connection with gateway and data checks in the same boot.
 
 ### Same-boot Demers5 desktop reconnect
 
