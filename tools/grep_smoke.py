@@ -114,6 +114,8 @@ def workflow():
                   f'echo $? > {GUEST}heap-fail.status',
                   f'{GUEST}ggrep-diagnostic -F -- a.b {GUEST}basic > {GUEST}heap-recovery.out 2> {GUEST}heap-recovery.err',
                   f'echo $? > {GUEST}heap-recovery.status',
+                  f'SRV_GREP_TEST_REPORT_HEAP=1 {GUEST}ggrep-diagnostic -c -- ^x {GUEST}envelope > {GUEST}heap-envelope.out 2> {GUEST}heap-envelope.err',
+                  f'echo $? > {GUEST}heap-envelope.status',
                   f'{GUEST}grep-probe > {GUEST}probe.log 2> {GUEST}probe.err',
                   f'echo $? > {GUEST}probe.status', 'echo GREP_WORKFLOW_DONE'])
     return ('\n'.join(lines) + '\n').encode(), list(failures)
@@ -228,7 +230,7 @@ def main():
             expected=set(files)
             expected |= {f'{name}.{suffix}' for name,*_ in cases() for suffix in ('out','err','status')}
             expected |= {f'fail-{name}.{suffix}' for name in failures for suffix in ('out','err','status')}
-            expected |= {f'{name}.{suffix}' for name in ('heap-fail','heap-recovery') for suffix in ('out','err','status')}
+            expected |= {f'{name}.{suffix}' for name in ('heap-fail','heap-recovery','heap-envelope') for suffix in ('out','err','status')}
             expected |= {'probe.log','probe.err','probe.status','phase.out','pattern.out','pattern.err'}
             if boot == 2: expected.add('reboot.status')
             if names != expected: raise RuntimeError(f'boot {boot}: fixture names differ: missing={sorted(expected-names)} extra={sorted(names-expected)}')
@@ -251,6 +253,13 @@ def main():
         raise RuntimeError('mapped heap cap did not produce an observed allocation refusal')
     if get('heap-recovery.status') != b'0\n' or get('heap-recovery.err') or get('heap-recovery.out') != refs['fixed'][1]:
         raise RuntimeError('fresh diagnostic process did not recover after heap refusal')
+    heap_report = re.fullmatch(rb'GREP_HEAP_HIGH_WATER ([0-9]+)\n', get('heap-envelope.err'))
+    if get('heap-envelope.status') != b'0\n' or get('heap-envelope.out') != refs['envelope'][1] or not heap_report:
+        raise RuntimeError('combined-cap fixture did not report measured heap growth')
+    high_water = int(heap_report[1])
+    if not 0 < high_water <= 16 * 1024 * 1024 or high_water % 4096:
+        raise RuntimeError('mapped heap measurement is outside the page-bounded profile')
+    receipt['combined_cap_heap_high_water_bytes'] = high_water
     if get('probe.status') != b'0\n' or b'grep-probe: PASS' not in get('probe.log'): raise RuntimeError('subprocess probe failed')
     receipt['gate_results']={'gnu_reference':'PASS','profile_refusals':'PASS','second_boot':'PASS','output_errors_and_signals':'PASS', 'diagnostic_gated_phase_resume_and_signals':'PASS', 'mapped_heap_refusal_and_recovery':'PASS'}
     receipt['status']='PASS'; save(); print('grep smoke: PASS',out,flush=True)

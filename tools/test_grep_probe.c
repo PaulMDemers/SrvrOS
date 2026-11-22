@@ -36,7 +36,8 @@ static int write_errors(void) {
     pid=start(pipe[1]);srv_close(pipe[1]);CHECK(pid>0);
     done=wait_bounded(pid,&status);
     printf("grep-probe: closed consumer wait=%ld status=%llu\n",done,(unsigned long long)status);
-    CHECK(done==pid && status==2);return 0;
+    /* Native GNU grep also keeps the default SIGPIPE disposition. */
+    CHECK(done==pid && status==128+SRV_SIGNAL_PIPE);return 0;
 }
 /* Capture the state before changing the pipe or killing a stuck child. */
 static void output_failure_diagnostics(long pid,int read_fd,int write_fd,long initial_flags) {
