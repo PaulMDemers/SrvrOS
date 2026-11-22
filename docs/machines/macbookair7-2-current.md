@@ -12,7 +12,33 @@ tear-free scanout is still pending.
 
 The current Air7,2 work covers native GGTT register access for the blitter
 context and the physical traffic hold needed to change slot 8704. The
-original Pipe A scanout stays active during qualification.
+original Pipe A scanout stays active during qualification. This round examines
+whether the shadow-register FIFO and clock-unit arbitration can supply the
+request while the engine and L3 acknowledgement registers remain readable.
+
+Three runs under Ubuntu i915 held all five queues on the Air. Both RC6
+control words read `0x40000` during each hold. GAM still allowed all six
+clients, all five engine flush acknowledgements were clear, and the L3
+flush acknowledgement was clear. Each run verified all five scratch
+and resume markers while the internal panel advanced. A separate Linux
+trace recorded 731 ms of RC6 residency in each of two one-second idle
+intervals. The driver called its park and unpark routines repeatedly.
+These observations rule out using the RC6 target readback as a held
+traffic block. MGSR acknowledges a blocked **register FIFO**. The clock
+arbitration messages report exchanges between hardware units.
+[Register definitions, pp. 469, 546, 587–593, 1042](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+With the display-audio controller awake under Ubuntu runtime PM, nine
+samples across three more runs returned codec `0x80862808` and wireless
+audio control `0x540`. Audio output to wireless memory was disabled at
+all nine boundaries. WiDi GO remained open during the queue holds. The
+SrvrOS submission diagnostic now verifies the powered codec around each
+wireless audio control read and excludes its MMIO page during the loan.
+The slot writer also checks CPU exclusion of all three WiDi programming
+pages before the device request and through rollback. Physical acceptance
+still requires an independently sustained device request and fresh engine
+and L3 acknowledgements on the Air.
+[Wireless audio control, p. 117](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
 On PR 301 the native submission diagnostic allocates 19 DMA frames and
 populates a Broadwell private GPU address space. The blitter context points

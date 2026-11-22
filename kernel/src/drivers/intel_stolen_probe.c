@@ -88,6 +88,8 @@ static struct {
   bool selected, imported, returned, submission;
   unsigned ports, wd_samples;
   uint32_t wd[2][4], strap[2];
+  struct {uint32_t well_before, codec_before, control, codec_after, well_after;} audio[2];
+  unsigned audio_samples;
   struct scanout_interval commands;
   uint32_t command_page, occupied[3], first, tried, checked;
   bool command_returned;
@@ -248,7 +250,7 @@ static bool allowed(uint32_t page) {
  }
  if(stolen.private_range.scanning && stolen.guard.checked && !stolen.guard.closed &&
     page>=0x800000u+8*stolen.private_range.begin && page<0x800000u+8*SCANOUT_SPACE_PAGES)return true;
- if(page==0x6e000 && stolen.import.submission && stolen.guard.pinned &&
+ if((page==0x6e000 || page==0x65000 || page==0x45000) && stolen.import.submission && stolen.guard.pinned &&
     (!stolen.guard.acquired || stolen.guard.closed))return true;
  if(page==0x100000 && stolen.range.selected && stolen.guard.checked && !stolen.guard.closed)return true;
  if(page==0x108000 || page==0x43000 || page==0x6f000 ||
@@ -534,8 +536,8 @@ static bool cpu_guard_operation(unsigned phase,const struct vmm_physical_span *p
    uint64_t aperture=stolen.source.aperture+offset, backing=plan->gtt_begin+table_offset;
    uint64_t reg=stolen.source.mmio+0x800000+table_offset;
    if(stolen.import.submission) {
-    /* RCS, VCS0, VCS1, VECS, BCS, WiDi ring tails, and WD capture surface/tail programming. */
-    const uint32_t offsets[]={0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000,0x6e000};
+    /* RCS, VCS0, VCS1, VECS, BCS, WiDi ring tails, video capture, and wireless audio output. */
+    const uint32_t offsets[]={0x2000,0x12000,0x1c000,0x1a000,0x22000,0x14000,0x6e000,0x65000};
     uint64_t ports[sizeof(offsets)/sizeof(offsets[0])];
     unsigned count=sizeof(ports)/sizeof(ports[0]);
     for(unsigned i=0;i<count;i++)ports[i]=stolen.source.mmio+offsets[i];
@@ -1061,6 +1063,26 @@ static bool observe_handoff(void) {
  return true;
 }
 
+/* Power-gated display MMIO can read zero. Identify the live display codec
+ * on both sides of the control read and bracket the page with well status. */
+static bool sample_wireless_audio(unsigned sample) {
+ __typeof__(stolen.import.audio[0]) *a=&stolen.import.audio[sample];
+ const uint32_t powered=1u<<30, wireless_enabled=1u<<30, codec=0x80862808;
+ if(!tick(stolen.begin[1]) ||
+    !load(0x45404,&a->well_before) || a->well_before==UINT32_MAX || !(a->well_before & powered) ||
+    !load(0x65020,&a->codec_before) || a->codec_before!=codec ||
+    !load(0x65800,&a->control) || (a->control & wireless_enabled) ||
+    !load(0x65020,&a->codec_after) || a->codec_after!=codec ||
+    !load(0x45404,&a->well_after) || a->well_after==UINT32_MAX || !(a->well_after & powered)) {
+  refuse(31);
+  unmap();
+  return false;
+ }
+ if(!unmap() || !tick(stolen.begin[1]))return false;
+ ++stolen.import.audio_samples;
+ return true;
+}
+
 /* WD_SURF arms wireless capture. Sample the capture page on either side
  * of CPU exclusion; the VMM refuses even a read alias while the loan is live. */
 static bool sample_wireless_capture(unsigned sample) {
@@ -1078,7 +1100,7 @@ static bool sample_wireless_capture(unsigned sample) {
  if(sample)
   for(unsigned i=0;i<4;i++)if(stolen.import.wd[0][i]!=stolen.import.wd[1][i])return refuse(31);
  if(stolen.import.wd[sample][3] & (1u<<31))return refuse(31);
- return true;
+ return sample_wireless_audio(sample);
 }
 
 static bool cpu_guard(void) {
@@ -1259,8 +1281,8 @@ report:
   console_printf("intel-stolen-guard-walk: v=1 phase=%u tables=%u entries=%u leaves=%u\n",(uint64_t)n,
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
- if(stolen.import.submission)
-  console_printf("intel-submission-guard: v=7 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x dma_base=%x cpu_flush_lines=%u dma_freed=%u pdp0=%x engine_hwsp=%x\n",
+ if(stolen.import.submission) {
+  console_printf("intel-submission-guard: v=8 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u tail_slot=%u tail_pages=%u tail_pte=%x descriptor=%x tail_samples=%u tail_conflicts=%u tail_returned=%u rcs_indirect=%x dma_base=%x cpu_flush_lines=%u dma_freed=%u pdp0=%x engine_hwsp=%x audio_samples=%u\n",
    (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
    (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
    (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2],
@@ -1270,7 +1292,15 @@ report:
    (uint64_t)stolen.command_tail.manifest.first,(uint64_t)stolen.command_tail.manifest.pages,
    stolen.command_tail.transfer.original[0],stolen.command_tail.descriptor,(uint64_t)stolen.command_tail.samples,
    (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned,(uint64_t)stolen.command_tail.rcs.pointer,
-   stolen.command_tail.dma_base,(uint64_t)stolen.command_tail.flush_lines,(uint64_t)stolen.command_tail.dma_freed,stolen.command_tail.pdp0,stolen.command_tail.planned[6].gpu_address);
+   stolen.command_tail.dma_base,(uint64_t)stolen.command_tail.flush_lines,(uint64_t)stolen.command_tail.dma_freed,stolen.command_tail.pdp0,stolen.command_tail.planned[6].gpu_address,
+   (uint64_t)stolen.import.audio_samples);
+  for(unsigned n=0;n<2;n++) {
+   const __typeof__(stolen.import.audio[0]) *a=&stolen.import.audio[n];
+   console_printf("intel-wireless-audio: v=1 sample=%u well_before=%x codec_before=%x control=%x codec_after=%x well_after=%x\n",
+    (uint64_t)n,(uint64_t)a->well_before,(uint64_t)a->codec_before,(uint64_t)a->control,
+    (uint64_t)a->codec_after,(uint64_t)a->well_after);
+  }
+ }
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,

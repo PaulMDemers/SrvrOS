@@ -142,7 +142,7 @@ bool vmm_reserved_guard_begin_register_window(struct vmm_reserved_guard *,uint64
  uint64_t aperture,uint64_t backing,uint64_t reg,struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
 /* Additional MMIO pages must have no CPU alias at admission. The same
  * guard refuses later mappings until its final absence check and close. */
-#define VMM_GUARD_IO_LIMIT 7u
+#define VMM_GUARD_IO_LIMIT 8u
 bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *,uint64_t root,
  const struct vmm_physical_span *,unsigned count,unsigned bits,const struct vmm_alias_ram *,unsigned ram_count,
  uint64_t aperture,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned port_count,

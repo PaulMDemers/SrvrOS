@@ -138,8 +138,8 @@ bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *g,uin
  const struct vmm_physical_span *pair,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
  unsigned ranges,uint64_t page,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned n,
  struct vmm_alias_inventory *out,struct vmm_unmapped_detail *d) {
- const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000};
- assert(n==7 && !memcmp(ports,expected,sizeof(expected)));
+ const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000};
+ assert(n==8 && !memcmp(ports,expected,sizeof(expected)));
  return vmm_reserved_guard_begin_register_window(g,root,pair,count,bits,ram,ranges,page,backing,reg,out,d);
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
@@ -335,6 +335,22 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
   assert(stolen.import.submission && model.guard_live && model.pinned);
   *out=model.mode==65 ? 0 : 0x20100042;
   return true;
+ case 0x45404: case 0x65020: case 0x65800: {
+  assert(stolen.import.submission && model.pinned && !model.guard_live);
+  unsigned n=stolen.guard.closed?1:0;
+  if(offset==0x45404) {
+   *out=0xc0000000;
+   if(model.mode==79 || (model.mode==83 && n && stolen.import.audio[n].codec_after))*out=0;
+  } else if(offset==0x65020) {
+   assert(stolen.import.audio[n].well_before & (1u<<30));
+   *out=model.mode==80?0:0x80862808;
+  } else {
+   assert(stolen.import.audio[n].codec_before==0x80862808);
+   *out=0x540;
+   if(model.mode==81 || (model.mode==82 && n))*out|=1u<<30;
+  }
+  return true;
+ }
  case 0x6e400: case 0x6e514: case 0x6e520: case 0x6e558:
   assert(stolen.import.submission && model.pinned && !model.guard_live);
   *out=offset==0x6e520?0x10u:0;
@@ -457,6 +473,14 @@ int main(int argc,char **argv) {
     !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
   reset();model.report=true;
   bool drift=!strcmp(argv[1],"--firmware-drift");
+  const char *wireless[]={"audio-unpowered","audio-codec","audio-enabled","audio-close-enabled","audio-close-power"};
+  for(unsigned n=0;n<5;n++)if(!strncmp(argv[1],"--submission-",13) && !strcmp(argv[1]+13,wireless[n])) {
+   model.mode=79+n;
+   assert(!intel_stolen_probe_report(import_command) && stolen.fail==31);
+   assert(stolen.import.audio_samples==(n>=3) && stolen.guard.closed==(n>=3));
+   assert(!model.held && !model.mapped && !model.guard_live);
+   return 0;
+  }
   if(!strcmp(argv[1],"--submission-drift")){
    model.mode=64;
    assert(!intel_stolen_probe_report(import_command) && stolen.fail==31 && stolen.guard.closed &&

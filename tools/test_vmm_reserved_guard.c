@@ -74,31 +74,37 @@ static void refused_map(unsigned route,uint64_t physical,uint64_t flags) {
 }
 static void submission_window(void) {
  const uint64_t aperture=0xb2200000,backing=0x8b811000,reg=0xc0811000;
- uint64_t original[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000};
- uint64_t ports[7];
+ uint64_t original[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,0xc0014000,0xc006e000,0xc0065000};
+ uint64_t ports[8];
+ uint64_t too_many[9]={0};
+ memcpy(too_many,original,sizeof(original));
+ too_many[8]=0xc0066000;
+ setup();
+ assert(!vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
+         aperture,backing,reg,too_many,9,&result,&why) && !reserved_guard.owner);
  memcpy(ports,original,sizeof(ports));
- for(unsigned n=0;n<7;n++){
+ for(unsigned n=0;n<8;n++){
   setup();
   t[3][7]=ports[n]|3;
   assert(!vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-         aperture,backing,reg,ports,7,&result,&why));
+         aperture,backing,reg,ports,8,&result,&why));
   assert(why.walk.reason==VMM_ALIAS_PRESENT && !reserved_guard.owner);
  }
  setup();
  assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-        aperture,backing,reg,ports,7,&result,&why));
+        aperture,backing,reg,ports,8,&result,&why));
  memset(ports,0,sizeof(ports)); /* The caller can discard its list. */
- for(unsigned n=0;n<7;n++)for(unsigned route=0;route<3;route++)refused_map(route,original[n],3);
+ for(unsigned n=0;n<8;n++)for(unsigned route=0;route<3;route++)refused_map(route,original[n],3);
  assert(vmm_reserved_guard_check(&guard,&result,&why));
  assert(vmm_map_page_in_space(root,va+4096,original[0]+4096,3));
  assert(vmm_unmap_page_in_space(root,va+4096,NULL));
  assert(vmm_reserved_guard_close(&guard,&result,&why));
- assert(vmm_map_page_in_space(root,va,original[6],3));
+ assert(vmm_map_page_in_space(root,va,original[7],3));
  assert(vmm_unmap_page_in_space(root,va,NULL));
  setup();
  assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
-        aperture,backing,reg,original,7,&result,&why));
- t[3][7]=original[6]|3; /* Simulate a bypass outside the guarded mutators. */
+        aperture,backing,reg,original,8,&result,&why));
+ t[3][7]=original[7]|3; /* Simulate a bypass outside the guarded mutators. */
  assert(!vmm_reserved_guard_close(&guard,&result,&why));
  assert(why.walk.reason==VMM_ALIAS_PRESENT);
  reset_fault();

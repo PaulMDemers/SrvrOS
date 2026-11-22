@@ -76,7 +76,11 @@ retirement and preservation of all16KiB of zero storage.
 `intel_command_mapping_run_slot` accepts two independently admitted GPU
 intervals. Slot 8704 and command pages 8705–8708 share a GGTT register
 page. The VMM guard pins the register alias and excludes CPU mappings of
-all five aperture pages. The caller owns both backing allocations and the
+all five aperture pages. For the joint slot transaction it must also exclude
+the WiDi ring, wireless audio and video capture programming pages at
+BAR offsets `0x14000`, `0x65000` and `0x6e000`. The writer checks the
+same borrower and guard epoch around every device operation. This covers CPU mappings of those three pages while the GPU is draining.
+The caller owns both backing allocations and the
 original framebuffer fence.
 
 Before the first store the backend samples open traffic, checks the L3

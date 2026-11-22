@@ -448,11 +448,15 @@ def stolen_result(text,*,native=False,required_version=None):
     guards=[line for line in text.splitlines() if line.startswith('intel-submission-guard:')]
     if len(guards)!=int(wire==15):
         raise ValueError('missing or unexpected submission guard')
+    audio_rows=[line for line in text.splitlines() if line.startswith('intel-wireless-audio:')]
+    wireless_audio=bool(guards and guards[0].startswith('intel-submission-guard: v=8 '))
+    if len(audio_rows)!=(2 if wireless_audio else 0):
+        raise ValueError('missing or unexpected wireless audio samples')
     if guards:
         from intel_gt_bootstrap import fields
         keys=['v','pages','closed']
         words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
-        engine_hwsp=guards[0].startswith('intel-submission-guard: v=7 ')
+        engine_hwsp=wireless_audio or guards[0].startswith('intel-submission-guard: v=7 ')
         dma=engine_hwsp or guards[0].startswith('intel-submission-guard: v=6 ')
         indirect=dma or guards[0].startswith('intel-submission-guard: v=5 ')
         tail_loan=indirect or guards[0].startswith('intel-submission-guard: v=4 ')
@@ -471,8 +475,8 @@ def stolen_result(text,*,native=False,required_version=None):
             if engine_hwsp:
                 tail_keys.append('engine_hwsp')
                 hex_extra.append('engine_hwsp')
-            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys,
-                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(7 if engine_hwsp else 6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
+            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra+tail_keys+(['audio_samples'] if wireless_audio else []),
+                         words+hex_extra+(['tail_pte','descriptor'] if tail_loan else []),versions=(8 if wireless_audio else 7 if engine_hwsp else 6 if dma else 5 if indirect else 4 if tail_loan else 3 if current else 2,))
             if current:
                 masks=[guard[f'mask{i}'] for i in range(3)]
                 slots=(0x10000,0x80000,0xffe00)
@@ -524,7 +528,24 @@ def stolen_result(text,*,native=False,required_version=None):
                             extra_aliases+=2*samples
                     elif any(guard[k] for k in tail_keys) or (complete and not first):
                         raise ValueError('missing firmware command interval')
-            ports=7
+            ports=8 if wireless_audio else 7
+            if wireless_audio:
+                count=guard['audio_samples']
+                if count<rows['guard'][0]['acquired'] or count>min(guard['samples'],2) or (count==2 and not guard['closed']) or (complete and count!=2):
+                    raise ValueError('wireless audio samples did not bracket the loan')
+                names='well_before codec_before control codec_after well_after'.split()
+                result['wireless_audio']=[]
+                for n,line in enumerate(audio_rows):
+                    a=fields(line,'intel-wireless-audio:', ['v','sample']+names,names)
+                    if a['sample']!=n or any(a[k]>0xffffffff for k in names):
+                        raise ValueError('invalid wireless audio register sample')
+                    if n<count and (any(a[k]==0xffffffff or not a[k] & (1<<30) for k in ('well_before','well_after')) or
+                                    any(a[k]!=0x80862808 for k in ('codec_before','codec_after')) or a['control'] & (1<<30)):
+                        raise ValueError('wireless audio power, signature or output enable')
+                    result['wireless_audio'].append(a)
+                if complete:
+                    extra_maps+=6
+                    extra_aliases+=10
             if (guard['samples']>2 or (guard['samples']==2 and not guard['closed']) or
                 any(guard[k]>0xffffffff for k in words) or
                 (complete and (guard['samples']!=2 or any(guard[k]==0xffffffff for k in words) or
@@ -656,7 +677,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')

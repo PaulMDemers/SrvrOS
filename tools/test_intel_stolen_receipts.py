@@ -117,12 +117,12 @@ class Receipts(unittest.TestCase):
         raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-guard'],text=True)
         report=stolen_result(raw,required_version=15)
         self.assertTrue(report['complete'])
-        self.assertEqual(report['submission_guard'],dict(v=7,pages=7,closed=1,samples=2,
+        self.assertEqual(report['submission_guard'],dict(v=8,pages=8,closed=1,samples=2,audio_samples=2,
             surface0=0,tail0=16,status0=0,surface1=0,tail1=16,status1=0,func0=0,func1=0,
             strap0=0x20100042,strap1=0x20100042,tried=2,mask0=1<<31,mask1=0,mask2=0,
             first=0x80000,checked=2,returned=1,tail_slot=0,tail_pages=0,tail_pte=0,descriptor=0,
             tail_samples=0,tail_conflicts=0,tail_returned=0,rcs_indirect=0,dma_base=0,cpu_flush_lines=0,dma_freed=0,pdp0=0,engine_hwsp=0))
-        for option, complete in (('unfused',False),('command-drift',False),('tail-drift',False),('image-drift',False),('render-drift',False),('padding-drift',False),('scratch-drift',False),('wb-fail',False),('alloc-fail',False),('vm-root',False),('vm-writable',False),('vm-stale',False),('vm-hwsp',False),('command-full',True)):
+        for option, complete in (('unfused',False),('command-drift',False),('tail-drift',False),('image-drift',False),('render-drift',False),('padding-drift',False),('scratch-drift',False),('wb-fail',False),('alloc-fail',False),('audio-unpowered',False),('audio-codec',False),('audio-enabled',False),('audio-close-enabled',False),('audio-close-power',False),('vm-root',False),('vm-writable',False),('vm-stale',False),('vm-hwsp',False),('command-full',True)):
             data=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--submission-'+option],text=True)
             obs=stolen_result(data,required_version=15)
             self.assertEqual(obs['complete'],complete)
@@ -133,7 +133,12 @@ class Receipts(unittest.TestCase):
                                   g['tail_conflicts'],g['tail_returned']),(0,11744,32,3,3,1))
                 self.assertEqual(g['rcs_indirect'], (11748 << 12) | 2)
                 self.assertEqual((g['dma_base'], g['cpu_flush_lines'], g['dma_freed']),(0x2800000,1216,1))
-                old=re.sub(r' engine_hwsp=\S+', '', data).replace('intel-submission-guard: v=7 ', 'intel-submission-guard: v=6 ')
+                old='\n'.join(line for line in data.splitlines() if not line.startswith('intel-wireless-audio:'))+'\n'
+                old=old.replace('intel-submission-guard: v=8 pages=8','intel-submission-guard: v=7 pages=7').replace(' audio_samples=2','')
+                for key,delta in (('maps',6),('retired',6),('cache_checks',12),('alias_checks',22)):
+                    old=re.sub(r'(?<![a-z_])'+key+r'=(\d+)', lambda m:key+'='+str(int(m[1])-delta), old,count=1)
+                self.assertEqual(stolen_result(old,required_version=15)['submission_guard']['v'],7)
+                old=re.sub(r' engine_hwsp=\S+', '', old).replace('intel-submission-guard: v=7 ', 'intel-submission-guard: v=6 ')
                 old=old.replace('cpu_flush_lines=1216','cpu_flush_lines=1152').replace(
                     f"pdp0=0x{g['pdp0']:016x}",f"pdp0=0x{g['pdp0']-4096:016x}")
                 self.assertEqual(stolen_result(old,required_version=15)['submission_guard']['v'],6)
@@ -156,12 +161,18 @@ class Receipts(unittest.TestCase):
         self.assertEqual(refused['submission_guard']['status1'],1)
         self.assertFalse(report['hardware_ownership'])
         row=next(l for l in raw.splitlines() if l.startswith('intel-submission-guard:'))
-        for bad in ('', row+'\n'+row, row.replace('pages=7','pages=6'),row.replace('closed=1','closed=0'),
+        for bad in ('', row+'\n'+row, row.replace('pages=8','pages=7'),row.replace('closed=1','closed=0'),
                     row.replace('samples=2','samples=1'),row.replace('status1=0','status1=0x1'),
                     row.replace('checked=2','checked=1'),row.replace('returned=1','returned=0'),
                     row.replace('first=524288','first=65536'),row.replace('mask2=0','mask2=0x1'),
                     row.replace('strap1=', 'strap1=0x1')):
             with self.assertRaises(ValueError):stolen_result(raw.replace(row,bad),required_version=15)
+        for n,line in enumerate(l for l in raw.splitlines() if l.startswith('intel-wireless-audio:')):
+            self.assertEqual(report['wireless_audio'][n]['control'],0x540)
+            for key in ('well_before','codec_before','control','codec_after','well_after'):
+                changed=re.sub(key+r'=\S+',key+('=0x40000540' if key=='control' else '=0'),line)
+                with self.subTest(n=n,key=key),self.assertRaises(ValueError):
+                    stolen_result(raw.replace(line,changed),required_version=15)
         version='ram-usb-v16-intel-stolen-laptop-probe-37d8c5d0-auto-return'
         cfg=boot.limine_config('0123456789abcdef',version)
         cmd=next(l.split('cmdline:',1)[1].strip() for l in cfg.splitlines() if 'cmdline:' in l)

@@ -150,8 +150,13 @@ bool vmm_reserved_guard_register_pinned(const struct vmm_reserved_guard *g,uint6
 bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint64_t root,uint64_t first,
                                         unsigned pages,const void *child)
 {
- return g==&window_guard && root==0x1000 && ((first==0xb2201000 && pages==4) || (first==0xb2200000 && pages==1)) && child==&parent &&
-        !fault("window-aperture",1);
+ if(g!=&window_guard || root!=0x1000 || child!=&parent || fault("window-aperture",1))return false;
+ if(joint && pages==1){
+  const uint64_t port[]={0xc0014000,0xc0065000,0xc006e000};
+  const char *missing[]={"joint-ring-port","joint-audio-port","joint-capture-port"};
+  for(unsigned i=0;i<3;i++)if(first==port[i])return !fault(missing[i],invalidations);
+ }
+ return (first==0xb2201000 && pages==4) || (first==0xb2200000 && pages==1);
 }
 bool intel_cache_probe_uc_page(uint64_t physical)
 {
@@ -267,13 +272,13 @@ static void test_joint(struct command_map_io provider,struct command_map_window 
  assert(scanout_memory_layout(16,1,64,false,&layout) && scanout_memory_create(&memory,&pool,second.owner,&layout,
       0x100000000ull,(struct scanout_memory_io){&m,slot_allocate,slot_validate,slot_release},&slot.token));
  bool ok=intel_command_mapping_run_slot(&mapping,&cpu,&transfer,&token,provider,window,&slot);
- assert(table[5]==0xbad5001 && selector==0x40000000 && requests==1);
+ assert(table[5]==0xbad5001 && selector==0x40000000 && requests==(mode("joint-good") || m.at!=0));
  if(mode("joint-good")){
   assert(ok && mapping.complete && memory.state==MEM_RELEASED && !slot_allocated && !active_block && releases==1 && invalidations==4);
   assert(scanout_transfer_close(&second,&slot.grant) && scanout_transfer_close(&transfer,&token) && display_access_release(&exclusion,true));
   m.retired=true;assert(intel_command_memory_close(&cpu));
  }else{
-  assert(!ok && m.hit && mapping.retained && slot_allocated && active_block && !releases && invalidations==m.at);
+  assert(!ok && m.hit && mapping.retained && slot_allocated && active_block==(requests!=0) && !releases && invalidations==m.at);
   assert(table[0]==(m.at==2?0x2000001:slot_original) && !intel_command_memory_close(&cpu));
  }
  printf("command-mapping: PASS joint complete=%u invalidations=%u releases=%u\n",ok,invalidations,releases);
