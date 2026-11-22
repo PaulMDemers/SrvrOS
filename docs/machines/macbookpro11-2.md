@@ -15,7 +15,18 @@ through the kernel display hint for the exact firmware model and use
 the existing SrvrUI native-density renderer, compositor input mapping,
 and Settings transaction. Cover ordinary desktop startup, the profile
 chooser, saved scale and explicit overrides. Air7,2 GPU ownership
-in PR #301 is separate. Native validation on the Pro is pending.
+in PR #301 is separate.
+
+Source `b2b072b8` suggests 2× for this SMBIOS identity at 2560 × 1600
+or larger. The expected 2880 × 1800 mode was previously recorded on
+this unit. The host tests cover both SMBIOS entry formats, malformed
+and unmapped data, other Mac models, the lower-resolution fallback,
+preference restoration, desktop transactions, and the existing widgets.
+The UEFI VM with the Pro identity started at 1440 × 900 logical without
+a launch override. Pointer actions, window sizing, exact Text data,
+and the saved logical screenshot passed. An explicit 1× override at
+2880 × 1800 also passed. The Air7,2 VM used its 1× default at 1440 × 900.
+Physical verification of the new default is pending.
 
 ### Wi-Fi release qualification
 
