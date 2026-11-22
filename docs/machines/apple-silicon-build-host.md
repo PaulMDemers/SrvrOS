@@ -1,5 +1,36 @@
 # Apple Silicon macOS build host
 
+## Local console sign-in
+
+`device/apple-silicon/local-console-signin` starts from `b95bc096`, the
+merged kernel isolation milestone. It covers opt-in installed boot,
+administrator enrollment, console authentication and a restricted session
+in a disposable VM. The checkpoint is two accounts signing in on consecutive
+boots of the same installation, with wrong, unknown, disabled and damaged
+account cases refused. This work uses the existing kernel credential drop.
+Portable profile migration continues on its own path.
+
+Use `srvros.auth=recovery` on the EFI entry for the same installed root to
+provision accounts. From its administrator monitor, run
+`run /fat/bin/local-enroll add NAME UID GID` and enter a 15–128 character
+printable ASCII password twice. `run /fat/bin/local-enroll disable NAME`
+disables the account. The store lives at `/fat/etc/local-auth/accounts`.
+Enrollment uses an exclusive lock and publishes a synced replacement. An
+interrupted enrollment can leave a lock, staged store, or private home for
+the administrator to inspect in recovery.
+
+Use `srvros.auth=local` on the installed EFI entry to reach sign-in. The
+restricted session reports its kernel identity and assigned home, then
+returns to sign-in. The boot mode assumes a trusted EFI configuration and
+administrator control of recovery. The VM qualification uses synthetic
+credentials, a disposable image, and a diagnostic session executable.
+
+Build with
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
+Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
+with the local EFI firmware templates. Receipts and redacted console logs
+are saved under `build/review/local-signin/`.
+
 ## Local kernel isolation
 
 `device/apple-silicon/kernel-local-isolation` starts from integrated main

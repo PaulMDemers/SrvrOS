@@ -205,6 +205,28 @@ static bool cmdline_has_token(const char *cmdline, const char *token) {
     return false;
 }
 
+enum local_auth_boot { LOCAL_AUTH_DEFAULT, LOCAL_AUTH_SIGNIN, LOCAL_AUTH_RECOVERY, LOCAL_AUTH_INVALID };
+
+static enum local_auth_boot local_auth_boot_mode(const char *cmdline) {
+    static const char key[] = "srvros.auth=";
+    bool seen = false;
+    for (const char *p = cmdline; p && *p;) {
+        while (*p && char_is_separator(*p)) p++;
+        const char *start = p;
+        while (!char_is_separator(*p)) p++;
+        size_t length = (size_t)(p - start);
+        size_t i = 0;
+        while (i < sizeof(key) - 1 && i < length && start[i] == key[i]) i++;
+        if (i != sizeof(key) - 1) continue;
+        if (seen) return LOCAL_AUTH_INVALID;
+        seen = true;
+    }
+    if (!seen) return LOCAL_AUTH_DEFAULT;
+    if (cmdline_has_token(cmdline, "srvros.auth=local")) return LOCAL_AUTH_SIGNIN;
+    if (cmdline_has_token(cmdline, "srvros.auth=recovery")) return LOCAL_AUTH_RECOVERY;
+    return LOCAL_AUTH_INVALID;
+}
+
 /* Exact new probe recipes reject duplicate tokens before capture admission. */
 static bool cmdline_tokens_unique(const char *text) {
     if (!text) return false;
@@ -1189,6 +1211,20 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
+    enum local_auth_boot auth_mode = local_auth_boot_mode(cmdline);
+    if (auth_mode == LOCAL_AUTH_SIGNIN || auth_mode == LOCAL_AUTH_INVALID) {
+        boot_set_framebuffer_quiet(false);
+        console_clear();
+        if (auth_mode == LOCAL_AUTH_SIGNIN && installed == INSTALLED_ROOT_SELECTED && timer_running) {
+            console_write("local-auth: console sign-in\n");
+            (void)process_run_elf("/fat/bin/local-signin");
+        }
+        console_write("local-auth: sign-in unavailable. Restart in explicit recovery mode.\n");
+        console_sync();
+        halt_forever();
+    }
+    if (auth_mode == LOCAL_AUTH_RECOVERY)
+        console_write("local-auth: recovery console\n");
 #ifdef SRVROS_AP_PROBE
     if(timer_running && cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
        cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))
