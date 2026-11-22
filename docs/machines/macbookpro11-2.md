@@ -83,7 +83,7 @@ resamples fractional output independently of app buffer density.
 The QEMU desktop checks passed at all three fractional scales, including
 Apply, Keep, explicit Revert, timeout, closing Settings during a trial,
 Text save and readback, and restoring the confirmed choice on the next
-desktop launch. Native fractional validation remains pending.
+desktop launch.
 
 PR #501's attended fractional trial uses the qualified `aa063e68` line,
 the pinned SrvrUI rasterizer and the Retina boot recipe. The trial updates
@@ -92,6 +92,18 @@ It checks pointer alignment, readable rendering, live windows, display
 rollback, saved preferences, Text, a screenshot and automatic return on
 this unit. Main's portable-profile update at `288886bd` is separate from
 this fixed-framebuffer trial.
+
+The physical run used source `d808f491`, release `2c50726ff8fd17be`,
+and session `session-000660e48f07b63c-00`. The workspace preference
+selected 1× after the firmware's 2× default. The operator applied and
+kept 1.25×, 1.5×, 1.75× and 2× at 2880 × 1800, then restored 1×.
+The saved Text file reopened successfully. The final 64 KiB snapshot
+survived a wrap after 118,729 bytes of logging, all 537 existing workspace
+files matched, and the operator confirmed automatic return to Ubuntu.
+Explicit Revert, timeout and the 1.75× screenshot have QEMU coverage.
+The installed image and native evidence are archived as
+`2c50726ff8fd17be` and `evidence-2c50726ff8fd17be` in the unit's
+recovery directory.
 
 ### Wi-Fi release qualification
 
