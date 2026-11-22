@@ -62,6 +62,8 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size);
  * restored. Captured under storage exclusion. Success, invalid/unsupported or
  * ownership/device admission refusal, and uncertain mutation leave it false. */
 bool exfat_write_file_retryable(const char *path, const uint8_t *data, uint64_t size, bool *retryable);
+bool exfat_write_file_owned(const char *path,const uint8_t *data,uint64_t size,uint64_t mode,uint64_t uid,uint64_t gid);
+bool exfat_create_directory_owned(const char *path,uint64_t mode,uint64_t uid,uint64_t gid);
 bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size, uint64_t mode);
 bool exfat_create_directory_mode(const char *path, uint64_t mode);
 bool exfat_delete_file(const char *path);

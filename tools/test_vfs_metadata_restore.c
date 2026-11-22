@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define SRVROS_EXFAT_HOST_TEST
 #include "../kernel/src/vfs.c"
 static unsigned allocations,notifications;static bool fail_alloc;
 void *kcalloc(size_t n,size_t s){allocations++;return fail_alloc?NULL:calloc(n,s);}

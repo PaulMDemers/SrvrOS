@@ -9,6 +9,7 @@
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_SERVICE_HOST_TEST
 #include "../kernel/src/process.c"
+#include "test_process_isolation_stubs.inc"
 /* Exit tests stop at the scheduler-context query immediately after the hook. */
 void audio_process_cleanup(uint64_t p) {(void)p;assert(0);}
 void console_release_framebuffer_mute_owner(uint64_t p) {(void)p;assert(0);}
@@ -606,7 +607,26 @@ static void session_scope_contract(void) {
     puts("session-scope: PASS reservation/revoke, single root, fast reap errors, stale capability and ownerless zero retirement");
 }
 
+static void reaper_credential_drop_contract(void) {
+    current=&processes[0];
+    *current=(struct process){.allocated=true,.active=true,.pid=42};
+    assert(process_set_reaper(42));
+    assert(process_drop_credentials(1001,1001)==SRV_ERR_BUSY);
+    struct process_credentials credentials=process_get_credentials(current);
+    assert(!credentials.uid && !credentials.gid && system_reaper_pid==42);
+    struct process *reaper=current;
+    current=&processes[1];
+    *current=(struct process){.allocated=true,.active=true,.pid=43,.parent_pid=42};
+    assert(process_drop_credentials(1001,1001)==0);
+    credentials=process_get_credentials(current);
+    assert(credentials.uid==1001 && credentials.gid==1001 && system_reaper_pid==42);
+    assert(!process_get_credentials(reaper).uid && !process_get_credentials(reaper).gid);
+    current=NULL;system_reaper_pid=0;memset(processes,0,sizeof(processes));
+    puts("reaper-credentials: PASS drop refusal preserves reaper and ordinary child may drop");
+}
+
 int main(void) {
+    reaper_credential_drop_contract();
     image_init_contract();
     free_range_contract();
     protection_contract();

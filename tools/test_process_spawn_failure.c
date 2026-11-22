@@ -5,6 +5,7 @@
 #include <string.h>
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
+#include "test_process_isolation_stubs.inc"
 static struct process *current;
 static struct process parent_snapshot;
 static struct process_user_thread *worker;
