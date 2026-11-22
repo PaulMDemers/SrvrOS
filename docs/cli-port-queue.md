@@ -1,12 +1,13 @@
 # CLI port queue and closeout
 
-Current work, November 22, 2026: GNU diff and Patch are delivered. The user
-resumed the queue with GNU Grep, followed by sha256sum. The qualified GNU
-command is `ggrep` alongside the shipped `grep`. [Ports #15](https://github.com/PaulMDemers/SrvrPorts/pull/15)
-merged `f96d91c3` with its reviewed tree verified. [OS #503](https://github.com/PaulMDemers/SrvrOS/pull/503)
-retains the tested composite pin with the existing Pro checkpoint logging
-behavior. The separate owner-approved logging landing path is required before
-OS merge. Coreutils 9.12 source is verified and prepared for the next entry.
+Current work, November 22, 2026: GNU diff and Patch are delivered. GNU Grep
+marshals bounded searches through `ggrep` alongside the shipped `grep`.
+[Ports #15](https://github.com/PaulMDemers/SrvrPorts/pull/15) merged `f96d91c3`.
+The replacement pin in [Ports #16](https://github.com/PaulMDemers/SrvrPorts/pull/16)
+restores the one checkpoint logging line already shipped through OS pin `276eb1b`.
+[OS #503](https://github.com/PaulMDemers/SrvrOS/pull/503) passes fresh qualification
+with the proposed pin. Owner review and final pin reachability remain required.
+Coreutils 9.12 source is prepared for the next entry after OS #503.
 
 Authorized November 4, 2026: implement bounded GNU diff in a separate checkout,
 then independently review, publish and merge each accepted port and its OS
@@ -19,7 +20,7 @@ reservation for the next milestone.
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
 | 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Delivered and verified: [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) `72f3d6fa`, then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370) `3e327513`; exact reviewed trees and reachable `6ff5eda` pin verified. No further feature required. |
-| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Ports #15 delivered and verified. OS #503 draft is qualified on the tested composite, pending Pro logging review. |
+| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Ports #15 delivered and verified. OS #503 draft is qualified on proposed shared pin `9d42e0f`, pending Pro logging review. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued after Grep delivery under the resumed instruction. |
 
 Each row gets a coherent port commit/PR before the dependent OS gitlink PR,
@@ -237,3 +238,23 @@ separate Pro logging owner establishes an approved landing path. Then
 reconcile the final reachable pin, confirm target evidence and deliver before
 starting the next application. Coreutils 9.12 source and its bounded design
 are retained. No sha256sum port build has started.
+
+### Reachable Grep pin candidate
+
+Ports #16 head `9d42e0f` restores `workspace_log_start_checkpoints()` for
+`desktop_power_test`. That file is byte-identical to deployed OS pin `276eb1b`.
+Compared with the tested composite `9fdd187`, the candidate changes only the
+merged Grep port documentation. Integration reviewed the one-line landing path.
+The Pro owner review request is recorded in the
+[Pro bringup PR](https://github.com/PaulMDemers/SrvrOS/pull/19#issuecomment-7086783718).
+No owner disposition has been recorded.
+
+OS candidate `b69f84cb` incorporates actual main `b95bc096`, including kernel
+and libc isolation changes. It passes the clean matched build, two Grep boots,
+ports regression, actual Terminal functional and expert checks, and all 498
+CLI commands. Guest filesystem checks are clean. The packed `ggrep` payload
+remains identical to the prior qualification. The
+[proposed-pin receipt](assets/evidence/ggrep/pin-receipt.json) identifies exact
+source, pin, artifacts and limitations. Readback-verified evidence survives
+build cleanup. The integration checkout and review VM are untouched. Keep
+OS #503 in draft until the Pro logging decision and the reachable pin are verified.

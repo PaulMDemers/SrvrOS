@@ -6266,3 +6266,21 @@ draft on the qualified composite until the Pro checkpoint logging owner
 approves its separate landing path. The candidate keeps the OS-main logging
 behavior. Current main `28eb6291` is reconciled with host-only incoming changes.
 All Grep guests stopped. The integration checkout and review VM were untouched.
+
+### Grep pin reconciliation, November 22, 2026
+
+Ports #16 proposes the checkpoint logging line already deployed in OS pin
+`276eb1b`. The exact source file matches the deployed one, and the only other
+change relative to the prior qualified composite is Grep port documentation.
+Integration agreed with the separate review path. The owner review request is
+posted on Pro bringup PR19. Owner disposition is pending.
+
+The rebased OS candidate `b69f84cb` on actual main `b95bc096` with proposed
+Ports `9d42e0f` passes the clean matched build, two Grep boots, ports regression,
+Terminal functional and expert review, and all 498 CLI commands with clean
+filesystem checks. The [pin receipt](../assets/evidence/ggrep/pin-receipt.json)
+records artifact hashes and scope. A verified archive outside build retains
+403 entries. The four older raw guest disk copies were retired after matching
+readback from the earlier qualification archive. All owned guest and build
+processes stopped. The integration checkout and review VM are untouched.
+OS #503 is still draft. Start sha256sum after the reachable pin and OS delivery.
