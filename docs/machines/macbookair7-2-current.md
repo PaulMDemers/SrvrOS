@@ -10,6 +10,17 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+Current PR 301 work covers native command memory and exclusion of the
+wireless-display requester while Pipe A keeps scanning. The display fuse,
+HD-audio input path and per-bank L3 policy have separate effects on this
+handoff. Three reads with the Ubuntu i915 driver found `FUSE_STRAP=0x20100042`
+(WiDi video fused off) and `TRANS_WD_FUNC_CTL=0`, while GT WiDi GO remained
+open. On the separate display-audio controller at 00:03.0, two GET_HVV
+reads on codec 0x80862808 returned 3 (WiDi audio input disabled). Native
+audio exclusion across the loan remains open. The submission-guard v3
+trial checks the video fuse and looks for space for driver command pages
+above the mappable aperture. See the [device trial guide](../device-workflow.md).
+
 On November 21 the Air ran the SrvrOS command encoder on five i915-owned
 hardware queues. Each engine drained its preceding batch and parked. Only
 then did RCS issue the final render flush and park again. i915 rebound a

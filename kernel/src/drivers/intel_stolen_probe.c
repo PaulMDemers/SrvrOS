@@ -26,6 +26,10 @@ extern volatile struct limine_memmap_request memmap_request;
  * stable DWORD loads for every entry, with fresh PCI/root/alias checks. This
  * changes no100ms GT maintenance/publication deadline or ownership policy. */
 #define STOLEN_CENSUS_US 2000000u
+/* Three disjoint GPU-only command windows, below the Gen8 32-bit limit.
+ * None can be reached by indexing the CPU aperture. */
+static const uint32_t command_slots[] = {0x10000, 0x80000, 0xffe00};
+#define COMMAND_PAGES 32u
 #define STOLEN_VA 0xffffc001f51a0000ull
 static struct {
  struct scanout_handoff_snapshot source;
@@ -80,7 +84,10 @@ static struct {
   unsigned blocked, samples;
   bool selected, imported, returned, submission;
   unsigned ports, wd_samples;
-  uint32_t wd[2][3];
+  uint32_t wd[2][4], strap[2];
+  struct scanout_interval commands;
+  uint32_t command_page, occupied[3], first, tried, checked;
+  bool command_returned;
  } import;
  const struct pci_device *gpu,*host;
  uint64_t root,last,begin[2],end[2],physical,hash[2][3],clock_at,clock_previous;
@@ -216,6 +223,11 @@ static bool identity(void) {
  return ok || refuse(9);
 }
 static bool allowed(uint32_t page) {
+ if(stolen.import.submission && stolen.guard.checked && !stolen.guard.closed) {
+  if (page == 0x42000) return true;
+  for(unsigned i=0;i<3;i++)
+   if(page==stolen.import.command_page && page==0x800000u+8*command_slots[i])return true;
+ }
  if(stolen.private_range.scanning && stolen.guard.checked && !stolen.guard.closed &&
     page>=0x800000u+8*stolen.private_range.begin && page<0x800000u+8*SCANOUT_SPACE_PAGES)return true;
  if(page==0x6e000 && stolen.import.submission && stolen.guard.pinned &&
@@ -650,7 +662,7 @@ static bool private_batch(unsigned first,unsigned count,uint64_t *values) {
   values[i]=((uint64_t)hi<<32)|lo;
  }
  if(!alias() || !tick(stolen.begin[1]))return false;
- ++stolen.private_range.batches;
+ if(stolen.private_range.scanning)++stolen.private_range.batches;
  return true;
 }
 
@@ -746,6 +758,54 @@ static bool check_import_conflict(const struct scanout_transfer_manifest *m) {
  return true;
 }
 
+/* Read one candidate under the native display/CPU guard. A nonzero invalid
+ * entry is occupied too. No CPU mapping of the backing or GGTT write. */
+static bool command_occupancy(unsigned first, uint32_t *mask) {
+ uint64_t values[COMMAND_PAGES];
+ if(first<stolen.facts[1].aperture_bytes/4096 ||
+    first+COMMAND_PAGES>stolen.facts[1].ggtt_bytes/8)return false;
+ stolen.import.command_page=0x800000u+8*first;
+ bool ok=private_batch(first,COMMAND_PAGES,values);
+ stolen.import.command_page=0;
+ if(!unmap() || !ok)return false;
+ *mask=0;
+ for(unsigned i=0;i<COMMAND_PAGES;i++)if(values[i])*mask|=1u<<i;
+ return true;
+}
+
+static bool reserve_commands(void) {
+ const struct bdw_stolen_facts *f=&stolen.facts[1];
+ for(unsigned i=0;i<3;i++) {
+  unsigned first=command_slots[i];
+  if(!command_occupancy(first,&stolen.import.occupied[i]))return false;
+  ++stolen.import.tried;
+  if(stolen.import.occupied[i])continue;
+  if(!scanout_interval_claim_gpu_only(&stolen.import.commands,stolen.source.mmio,stolen.source.aperture,
+     f->aperture_bytes,f->fence_end,f->ggtt_bytes,(struct scanout_space_range){first,COMMAND_PAGES}))return false;
+  stolen.import.first=first;
+  break;
+ }
+ return true;
+}
+
+static bool check_command_lease(void) {
+ if(!stolen.import.first)return true;
+ struct scanout_space_range pages={stolen.import.first,COMMAND_PAGES};
+ uint32_t mask;
+ if(!scanout_interval_held(&stolen.import.commands,stolen.source.mmio,stolen.source.aperture,
+     stolen.source.aperture_bytes,stolen.source.fence_end,pages) ||
+    !command_occupancy(pages.first,&mask) || mask)return false;
+ ++stolen.import.checked;
+ return true;
+}
+
+static bool check_video_fuse(unsigned i) {
+ uint32_t *strap=&stolen.import.strap[i];
+ return tick(stolen.begin[1]) && load(0x42014,strap) && unmap() && *strap!=UINT32_MAX &&
+        (*strap & (1u<<20)) && !(*strap & ((1u<<31)|(1u<<30)|(1u<<26))) &&
+        (!i || *strap==stolen.import.strap[0]);
+}
+
 static bool check_imported_page(struct scanout_transfer_manifest m) {
  if(!scanout_transfer_close(&stolen.range.transfer,&stolen.range.token))return false;
  m.pages=1;
@@ -755,6 +815,7 @@ static bool check_imported_page(struct scanout_transfer_manifest m) {
  for(unsigned i=0;i<2;i++) {
   if(!tick(stolen.begin[1]) || !aperture_guard_held() ||
      !scanout_transfer_reservation_matches(&stolen.import.page,&stolen.import.token,&m) ||
+     (stolen.import.submission && (!check_video_fuse(i) || !check_command_lease())) ||
      !range_pair(0x800000u+m.first*8,&stolen.import.observed[i]))return false;
   ++stolen.import.samples;
   if(stolen.import.observed[i]!=m.original[0] || !unmap())return false;
@@ -819,7 +880,13 @@ static bool observe_scanout_range(void) {
  if(scanout_transfer_admission(&interval)!=TRANSFER_ASSURANCE)return refuse(32);
  stolen.range.missing=HANDOFF_ALL & ~interval.assurances;
  stolen.range.verified=true;
- return !stolen.import.selected || check_imported_page(interval) || refuse(34);
+ if(stolen.import.submission && !reserve_commands())return refuse(34);
+ bool imported=!stolen.import.selected || check_imported_page(interval);
+ if(stolen.import.first && imported) {
+  scanout_interval_release(&stolen.import.commands);
+  stolen.import.command_returned=true;
+ }
+ return imported || refuse(34);
 }
 
 static bool observe_handoff(void) {
@@ -836,8 +903,8 @@ static bool observe_handoff(void) {
 /* WD_SURF arms wireless capture. Sample the capture page on either side
  * of CPU exclusion; the VMM refuses even a read alias while the loan is live. */
 static bool sample_wireless_capture(unsigned sample) {
- const uint32_t offsets[]={0x6e514,0x6e520,0x6e558}; /* SURF, TAIL_CFG, STATUS */
- for(unsigned i=0;i<3;i++) {
+ const uint32_t offsets[]={0x6e514,0x6e520,0x6e558,0x6e400}; /* SURF, TAIL_CFG, STATUS, FUNC_CTL */
+ for(unsigned i=0;i<4;i++) {
   uint32_t *word=&stolen.import.wd[sample][i];
   if(!tick(stolen.begin[1]) || !load(offsets[i],word) || *word==UINT32_MAX) {
    refuse(31);
@@ -848,7 +915,8 @@ static bool sample_wireless_capture(unsigned sample) {
  if(!unmap() || !tick(stolen.begin[1]))return false;
  ++stolen.import.wd_samples;
  if(sample)
-  for(unsigned i=0;i<3;i++)if(stolen.import.wd[0][i]!=stolen.import.wd[1][i])return refuse(31);
+  for(unsigned i=0;i<4;i++)if(stolen.import.wd[0][i]!=stolen.import.wd[1][i])return refuse(31);
+ if(stolen.import.wd[sample][3] & (1u<<31))return refuse(31);
  return true;
 }
 
@@ -881,6 +949,10 @@ static bool cpu_guard(void) {
  ok=observed && (!stolen.import.submission || sample_wireless_capture(1));
 done:
  if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
+ if(stolen.import.first && !stolen.import.command_returned && !stolen.uncertain) {
+  scanout_interval_release(&stolen.import.commands);
+  stolen.import.command_returned=true;
+ }
  if(stolen.import.token.object && !stolen.import.returned && !stolen.uncertain) {
   stolen.import.returned=scanout_transfer_close(&stolen.import.page,&stolen.import.token);
   if(!stolen.import.returned){stolen.uncertain=true;ok=false;refuse(34);}
@@ -1015,10 +1087,13 @@ report:
    (uint64_t)g->tables,(uint64_t)g->entries,(uint64_t)g->leaves);
  }
  if(stolen.import.submission)
-  console_printf("intel-submission-guard: v=2 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x\n",
+  console_printf("intel-submission-guard: v=3 pages=%u closed=%u samples=%u surface0=%x tail0=%x status0=%x surface1=%x tail1=%x status1=%x func0=%x func1=%x strap0=%x strap1=%x tried=%u mask0=%x mask1=%x mask2=%x first=%u checked=%u returned=%u\n",
    (uint64_t)stolen.import.ports,(uint64_t)stolen.guard.closed,(uint64_t)stolen.import.wd_samples,
    (uint64_t)stolen.import.wd[0][0],(uint64_t)stolen.import.wd[0][1],(uint64_t)stolen.import.wd[0][2],
-   (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2]);
+   (uint64_t)stolen.import.wd[1][0],(uint64_t)stolen.import.wd[1][1],(uint64_t)stolen.import.wd[1][2],
+   (uint64_t)stolen.import.wd[0][3],(uint64_t)stolen.import.wd[1][3],(uint64_t)stolen.import.strap[0],(uint64_t)stolen.import.strap[1],
+   (uint64_t)stolen.import.tried,(uint64_t)stolen.import.occupied[0],(uint64_t)stolen.import.occupied[1],(uint64_t)stolen.import.occupied[2],
+   (uint64_t)stolen.import.first,(uint64_t)stolen.import.checked,(uint64_t)stolen.import.command_returned);
  if(stolen.import.selected)
   console_printf("intel-firmware-import: v=1 first=%u pages=%u borrowed=%u samples=%u original=%x last=%x returned=%u conflicts=%u writes=0 grants=0\n",
     (uint64_t)stolen.import.firmware.pages.first,(uint64_t)stolen.import.firmware.pages.pages,

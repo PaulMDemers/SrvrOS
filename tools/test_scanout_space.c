@@ -181,7 +181,30 @@ static void oracle(void) {
     assert(allocations > 1000 && releases > 1000 && refusals > 1000 && distinct > 32);
     printf("scanout-space oracle: allocations=%u releases=%u refusals=%u distinct_starts=%u\n", allocations, releases, refusals, distinct);
 }
+static void gpu_only_interval(void) {
+    const uint64_t mmio = 0xc0000000, aperture = 0xb0000000, bytes = 1u << 28;
+    const uint64_t fence = 8704u * 4096, table = 1u << 23;
+    struct scanout_space_range pages = {(uint32_t)(bytes / 4096), 32};
+    struct scanout_interval owner = {0}, other = {0};
+    assert(scanout_interval_protect_boot_framebuffer(mmio, aperture, bytes, fence));
+    assert(!scanout_interval_claim(&owner, mmio, aperture, bytes, fence, pages));
+    assert(!scanout_interval_claim_gpu_only(&owner, mmio, aperture, bytes, fence + 4096, table, pages));
+    assert(!scanout_interval_claim_gpu_only(&owner, mmio, aperture, bytes, fence, table + 4096, pages));
+    --pages.first;
+    assert(!scanout_interval_claim_gpu_only(&owner, mmio, aperture, bytes, fence, table, pages));
+    ++pages.first;
+    assert(scanout_interval_claim_gpu_only(&owner, mmio, aperture, bytes, fence, table, pages));
+    assert(!scanout_interval_claim_gpu_only(&other, mmio, aperture, bytes, fence, table, pages));
+    assert(scanout_interval_held(&owner, mmio, aperture, bytes, fence, pages));
+    scanout_interval_release(&owner);
+    pages.first = (uint32_t)(table / 8) - pages.pages;
+    assert(scanout_interval_claim_gpu_only(&other, mmio, aperture, bytes, fence, table, pages));
+    scanout_interval_release(&other);
+    ++pages.first;
+    assert(!scanout_interval_claim_gpu_only(&other, mmio, aperture, bytes, fence, table, pages));
+}
 int main(void) {
+    gpu_only_interval();
     no_authority_and_protected(); exposure_and_quarantine(); close_and_reuse(); limits(); oracle();
     puts("scanout-space: PASS protected full fence, unavailable gaps, epoch/serial reuse, exposure retirement, sticky quarantine and 50000-operation allocation oracle");
 }

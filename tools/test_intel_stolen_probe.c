@@ -237,7 +237,11 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  ++model.reads;
  if(model.mode==63 && stolen.import.samples==1 && offset==0x811000){*out=0x8e202001u;return true;}
  switch(offset) {
- case 0x6e514: case 0x6e520: case 0x6e558:
+ case 0x42014:
+  assert(stolen.import.submission && model.guard_live && model.pinned);
+  *out=model.mode==65 ? 0 : 0x20100042;
+  return true;
+ case 0x6e400: case 0x6e514: case 0x6e520: case 0x6e558:
   assert(stolen.import.submission && model.pinned && !model.guard_live);
   *out=offset==0x6e520?0x10u:0;
   if(model.mode==64 && offset==0x6e558 && stolen.guard.closed)*out=1;
@@ -268,6 +272,14 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
    uint64_t raw=(offset<0x100008)?0x021ff02f00000001ull:0;
    if(model.mode==50 && stolen.range.fences==63)raw=1;
    *out=(offset&4)?(uint32_t)(raw>>32):(uint32_t)raw;return true;
+  }
+  if(stolen.import.command_page) {
+   assert(model.guard_live && model.held && (offset&~4095u)==stolen.import.command_page);
+   *out=0;
+   if(!(offset&4) && (offset&4095)==31*8 &&
+      (model.mode==66 || stolen.import.command_page==0x880000 || (model.mode==67 && stolen.import.checked)))
+    *out=2; /* Invalid, but already occupied. */
+   return true;
   }
   if(stolen.private_range.scanning) {
    unsigned slot=(offset-0x800000)/8;
@@ -345,7 +357,7 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strcmp(argv[1],"--submission-guard") || !strcmp(argv[1],"--submission-drift") || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
+ if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift"))) {
   char import_command[512];
   snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
     !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
@@ -357,6 +369,12 @@ int main(int argc,char **argv) {
           stolen.import.wd_samples==2 && stolen.import.returned && !model.held && !model.mapped);
    return 0;
   }
+  if(!strcmp(argv[1],"--submission-unfused") || !strcmp(argv[1],"--submission-command-drift")) {
+   model.mode=!strcmp(argv[1],"--submission-unfused")?65:67;
+   assert(!intel_stolen_probe_report(import_command) && stolen.fail==34 && stolen.import.command_returned);
+   return 0;
+  }
+  if(!strcmp(argv[1],"--submission-command-full"))model.mode=66;
   if(drift)model.mode=63;
   assert(intel_stolen_probe_report(import_command)==!drift);
   assert(stolen.fail==(drift?34u:0u) && stolen.import.imported &&

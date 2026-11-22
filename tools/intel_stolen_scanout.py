@@ -452,8 +452,29 @@ def stolen_result(text,*,native=False,required_version=None):
         from intel_gt_bootstrap import fields
         keys=['v','pages','closed']
         words=[name+str(n) for n in range(2) for name in ('surface','tail','status')]
-        if guards[0].startswith('intel-submission-guard: v=2 '):
-            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words,words,versions=(2,))
+        current=guards[0].startswith('intel-submission-guard: v=3 ')
+        if current or guards[0].startswith('intel-submission-guard: v=2 '):
+            extra='func0 func1 strap0 strap1 tried mask0 mask1 mask2 first checked returned'.split() if current else []
+            hex_extra=[k for k in extra if k.startswith(('func','strap','mask'))]
+            guard=fields(guards[0],'intel-submission-guard:',keys+['samples']+words+extra,words+hex_extra,
+                         versions=(3,) if current else (2,))
+            if current:
+                masks=[guard[f'mask{i}'] for i in range(3)]
+                slots=(0x10000,0x80000,0xffe00)
+                tried,first,checked,returned=(guard[k] for k in ('tried','first','checked','returned'))
+                if (tried>3 or checked>2 or returned>1 or any(guard[k]>0xffffffff for k in hex_extra) or
+                    any(masks[tried:]) or (first and (not tried or first!=slots[tried-1] or masks[tried-1])) or
+                    ((checked or returned) and not first)):
+                    raise ValueError('invalid GPU-only command interval')
+                if complete:
+                    strap=guard['strap0']
+                    if (not tried or any(masks[tried:]) or any(m==0 for m in masks[:tried-1]) or
+                        (not first and (tried!=3 or not all(masks))) or
+                        (first and (checked,returned)!=(2,1)) or strap!=guard['strap1'] or not strap&(1<<20) or
+                        strap&0xc4000000 or guard['func0']!=guard['func1'] or guard['func0']&(1<<31)):
+                        raise ValueError('incomplete hardware video exclusion or command lease')
+                    extra_maps+=tried+checked+2
+                    extra_aliases+=2*(tried+checked)+4
             ports=7
             if (guard['samples']>2 or (guard['samples']==2 and not guard['closed']) or
                 any(guard[k]>0xffffffff for k in words) or

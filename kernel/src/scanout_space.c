@@ -18,11 +18,11 @@ static bool compatible(const struct scanout_interval *a, const struct scanout_in
 
 static bool register_interval(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
                               uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages,
-                              const struct scanout_interval *lender, bool firmware) {
+                              const struct scanout_interval *lender, bool firmware, uint32_t address_pages) {
     if (!node || !mmio || !aperture || !bytes || bytes > SCANOUT_SPACE_PAGES * 4096ull ||
         ((mmio | aperture | bytes | fence_end) & 4095) || aperture > UINT64_MAX - bytes ||
         !fence_end || fence_end > bytes ||
-        !range_valid(pages, (uint32_t)(bytes / 4096))) return false;
+        !range_valid(pages, address_pages)) return false;
     struct scanout_interval candidate = {mmio, aperture, bytes, fence_end, pages, 0, firmware};
     if (boot_framebuffer.mmio && !compatible(&candidate, &boot_framebuffer)) return false;
     bool found = !lender;
@@ -57,25 +57,37 @@ bool scanout_interval_protect_boot_framebuffer(uint64_t mmio, uint64_t aperture,
     if (boot_framebuffer.mmio)
         return scanout_interval_boot_framebuffer_matches(mmio, aperture, bytes, fence_end);
     return register_interval(&boot_framebuffer, mmio, aperture, bytes, fence_end,
-                             (struct scanout_space_range){0, (uint32_t)(fence_end / 4096)}, NULL, false);
+                             (struct scanout_space_range){0, (uint32_t)(fence_end / 4096)}, NULL, false, (uint32_t)(bytes / 4096));
 }
 
 bool scanout_interval_claim(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
                             uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
     return pages.first >= fence_end / 4096 &&
-           register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, false);
+           register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, false, (uint32_t)(bytes / 4096));
+}
+
+/* The GGTT can address command memory outside the CPU aperture. Keep the
+ * physical BAR identity unchanged so all clients share the interval list. */
+bool scanout_interval_claim_gpu_only(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
+                                     uint64_t bytes, uint64_t fence_end, uint64_t ggtt_bytes,
+                                     struct scanout_space_range pages) {
+    if (!scanout_interval_boot_framebuffer_matches(mmio, aperture, bytes, fence_end) ||
+        !ggtt_bytes || ggtt_bytes > 0x800000 || (ggtt_bytes & 4095) || pages.first < bytes / 4096)
+        return false;
+    return register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, false,
+                             (uint32_t)(ggtt_bytes / sizeof(uint64_t)));
 }
 
 bool scanout_interval_import_firmware(struct scanout_interval *node, uint64_t mmio, uint64_t aperture,
                                       uint64_t bytes, uint64_t fence_end, struct scanout_space_range pages) {
     return scanout_interval_boot_framebuffer_matches(mmio, aperture, bytes, fence_end) &&
-           register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, true);
+           register_interval(node, mmio, aperture, bytes, fence_end, pages, NULL, true, (uint32_t)(bytes / 4096));
 }
 
 bool scanout_interval_borrow(struct scanout_interval *node, const struct scanout_interval *firmware,
                              uint64_t mmio, uint64_t aperture, uint64_t bytes, uint64_t fence_end,
                              struct scanout_space_range pages) {
-    return firmware && register_interval(node, mmio, aperture, bytes, fence_end, pages, firmware, false);
+    return firmware && register_interval(node, mmio, aperture, bytes, fence_end, pages, firmware, false, (uint32_t)(bytes / 4096));
 }
 
 bool scanout_interval_held(const struct scanout_interval *node,uint64_t mmio,uint64_t aperture,
