@@ -865,9 +865,10 @@ static void retina_desktop_trial(const char *cmdline) {
     if (console_display_info(&display)) {
         console_printf("retina-trial: firmware scale=%u\n", (uint64_t)display_profile_scale(display.width, display.height));
     }
+    /* An untimed trial needs rolling snapshots after the boot log wraps. */
     if (!workspace_active()) {
         console_write("retina-trial: workspace unavailable; desktop skipped\n");
-    } else if (!workspace_log_start_capture()) {
+    } else if (!workspace_log_start()) {
         console_write("retina-trial: logging unavailable; desktop skipped\n");
     } else {
         bool returned = process_run_elf_args("/fat/bin/deskd", "--retina-trial");

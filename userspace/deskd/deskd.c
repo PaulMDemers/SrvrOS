@@ -2413,6 +2413,7 @@ int main(int argc,char **argv) {
     }
     uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
     if (width<640 || height<480) { ui_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
+    const unsigned startup_scale=scale;
     desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
         (unsigned long long)info.width,(unsigned long long)info.height,width,height,scale);
     uint32_t *pixels=desk_pixels_alloc(width*scale,height*scale);
@@ -3632,6 +3633,7 @@ int main(int argc,char **argv) {
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);
     desk_pixels_free(pixels,width*scale,height*scale); gfx_console_mute(0);
+    if(retina_trial)desk_log("retina-desktop: startup_scale=%u final_scale=%u\n",startup_scale,scale);
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

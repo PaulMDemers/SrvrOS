@@ -26,7 +26,6 @@ The UEFI VM with the Pro identity started at 1440 × 900 logical without
 a launch override. Pointer actions, window sizing, exact Text data,
 and the saved logical screenshot passed. An explicit 1× override at
 2880 × 1800 also passed. The Air7,2 VM used its 1× default at 1440 × 900.
-Physical verification of the new default is pending.
 
 The attended physical candidate uses the dedicated `--desktop-retina`
 recipe from the PR #501 branch. It opens the complete Retina checklist
@@ -50,6 +49,18 @@ NVS, ACPI reclaimable, or reserved-mapped memory. The exact-model,
 checksum, and range checks still apply. The retry records the firmware
 scale before the desktop starts so it can be compared with the actual
 startup scale and saved Settings state.
+
+The retry used `e6e727d6`, release `fd2656fd31386cc9`, and session
+`session-000660e3527e992f-00`. The native kernel selected 2× from
+firmware before `deskd` read Settings. The desktop opened Help at
+2880 × 1800 physical and 1440 × 900 logical. The workspace retained
+all 527 existing files and contained a new Text file and a valid
+1440 × 900 screenshot. The operator confirmed automatic return to
+Ubuntu. The final log was absent. The last periodic snapshot was
+128,956 bytes into a 128 KiB capture. The attended recipe now uses
+rolling snapshots with a separate boot snapshot. The desktop repeats
+its initial and final scales on exit so the final snapshot records
+both after a long run.
 
 ### Wi-Fi release qualification
 

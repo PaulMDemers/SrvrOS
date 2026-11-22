@@ -228,7 +228,17 @@ int main(void) {
     lost_prefix=false;corrupt=true;assert(!save("session-a.log"));corrupt=false;
     assert(workspace_log_stop());snapshot_bytes=8;
     assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    char initial_log[160];strcpy(initial_log,path);
+    snapshot_bytes=BOOTLOG_CAPTURE_CAPACITY+123;total=snapshot_bytes;
+    ticks=due;periodic_attempt();
+    assert(enabled && healthy && find(path)->node.size==BOOTLOG_DEFAULT_CAPACITY);
     assert(workspace_log_stop());
+    assert(find(initial_log)->node.size==8 && !memcmp(find(initial_log)->bytes,"test log",8));
+    struct item *tail=find(path);
+    assert(tail && tail->node.size==BOOTLOG_DEFAULT_CAPACITY);
+    for(uint64_t i=0;i<tail->node.size;i++)assert(tail->bytes[i]==(snapshot_bytes-tail->node.size+i)%251);
+    puts("workspace-log: PASS periodic and exit snapshots after wrap, boot snapshot retained");
+    total=100;
     snapshot_bytes=BOOTLOG_LARGE_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
     assert(!workspace_log_start_large_capture() && writes==old_writes);
     extend_ok=true;assert(workspace_log_start_large_capture() && snapshot_limit==BOOTLOG_LARGE_CAPTURE_CAPACITY);

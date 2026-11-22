@@ -910,7 +910,8 @@ def main():
                         if retina_desktop:
                             exit_log = stored.read(folder+"/exit.log")
                             for receipt in (b"deskhelp: page=retina-trial", b"physical=2880x1800 logical=1440x900 scale=2",
-                                            b"file-result role=text op=1 status=0", b"retina-trial: desktop returned=1"):
+                                            b"file-result role=text op=1 status=0", b"retina-desktop: startup_scale=2 final_scale=2",
+                                            b"retina-trial: desktop returned=1"):
                                 assert receipt in exit_log, receipt
                         assert not has_fatal_exception(text)
                         tone_result=None
