@@ -42,6 +42,9 @@ static int workspace(void) {
     CHECK("openat-cloexec", fcntl(fd, F_GETFD) == FD_CLOEXEC);
     CHECK("initial-write", write(fd, "initial", 7) == 7);
     CHECK("initial-close", close(fd) == 0);
+    errno = 0;
+    fd = openat(directory_fd, "data", O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW, 0600);
+    CHECK("openat-exclusive-existing", fd == -1 && errno == EEXIST);
     CHECK("initial-content", content(data_path, "initial") == 0);
 
     fd = openat(directory_fd, "data", O_RDWR | O_NOFOLLOW);
@@ -59,6 +62,10 @@ static int workspace(void) {
     CHECK("replacement-rename", rename(new_path, data_path) == 0);
     CHECK("replacement-content", content(data_path, "replacement") == 0);
     CHECK("unlink", unlink(data_path) == 0);
+    errno = 0;
+    CHECK("workspace-missing-nofollow", open(data_path, O_RDONLY | O_NOFOLLOW) == -1 && errno == ENOENT);
+    errno = 0;
+    CHECK("workspace-missing-ordinary", open(data_path, O_RDONLY) == -1 && errno == ENOENT);
     CHECK("rmdir", rmdir(directory) == 0);
     return 0;
 }
