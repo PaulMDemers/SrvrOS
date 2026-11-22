@@ -20728,3 +20728,12 @@ Archived replay matched the v155 active-removal return, the 64 KiB
 rolling Retina exit and the two-file v154 replug exit. It retained the
 Retina retry's periodic evidence with the final snapshot missing, and
 reported no new matching session for the older cold-readiness return.
+
+### Host tooling for Retina qualification (November 22)
+
+The next host command stages the Retina image once and rehearses the same
+release on disposable VMs with and without its GPT workspace. The host CLI
+builds on PR #513 at `14fc7306`. PR #501 at `6112a4e5` supplies the Retina
+recipe, built inputs and fractional-display VM harness. This scope covers
+the qualifier, its tests, guide and receipt. The next checkpoint is a
+release- and manifest-matched pair of VM results.
