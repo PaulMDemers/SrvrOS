@@ -1,5 +1,19 @@
 # Apple Silicon macOS build host
 
+## Preview JPEG orientation — November 22, 2026
+
+The isolated `app/preview-exif` candidate `41c33fec` uses SrvrApps
+`778998d0` for the matching Help update. The host regression reproduced
+the original mirror pixel mismatch and now passes all eight orientations in
+both EXIF byte orders, including fallback for invalid metadata. Focused
+desktop checks, ASan/UBSan and the ordinary image build pass.
+
+A disposable 1280×800 QEMU guest passed the Preview stress smoke, including
+cancellation and reopen at the maximum pixel count, compact layout, and
+opening from Files. Exact displayed RGB comparisons passed for rotation,
+mirroring, and invalid-orientation fallback. The acceptance receipt is under
+`.local/app-proof/preview-exif/` in the isolated checkout.
+
 ## Final integration and source-only workspace reset — November 4, 2026
 
 The local closeout includes the experimental no-JIT milestone through Ports #9
