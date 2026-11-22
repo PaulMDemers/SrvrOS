@@ -60,6 +60,18 @@ int main(void) {
     assert(display_profile_scale(1920, 1200) == 1);
     assert(display_profile_scale(2880, 1599) == 1);
 
+    /* The physical Pro keeps the SMBIOS entry and table in ACPI NVS. */
+    region.type = LIMINE_MEMMAP_ACPI_NVS;
+    display_profile_init(&smbios, &map, hhdm);
+    assert(display_profile_scale(2880, 1800) == 2);
+    region.type = LIMINE_MEMMAP_ACPI_RECLAIMABLE;
+    display_profile_init(&smbios, &map, hhdm);
+    assert(display_profile_scale(2880, 1800) == 2);
+    region.type = LIMINE_MEMMAP_RESERVED;
+    display_profile_init(&smbios, &map, hhdm);
+    assert(display_profile_scale(2880, 1800) == 1);
+    region.type = LIMINE_MEMMAP_RESERVED_MAPPED;
+
     entry32(write_table("Apple Inc.", "MacBookPro11,3"));
     display_profile_init(&smbios, &map, hhdm);
     assert(display_profile_scale(2880, 1800) == 1);
@@ -90,5 +102,5 @@ int main(void) {
     assert(display_profile_scale(2880, 1800) == 2);
     display_profile_init(NULL, &map, hhdm);
     assert(display_profile_scale(2880, 1800) == 1);
-    puts("display-profile: PASS exact MacBookPro11,2 match, 2.x and 3.x descriptors, mode fallback, malformed and unmapped refusal");
+    puts("display-profile: PASS exact Pro match, ACPI NVS and reclaimable placement, SMBIOS 2.x and 3.x, malformed and unmapped refusal");
 }

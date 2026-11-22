@@ -26,12 +26,14 @@ static uint64_t read_le(const uint8_t *bytes, unsigned length) {
     return value;
 }
 
-/* Limine base 6 reserves and maps SMBIOS pages in the HHDM. Validate the
- * complete span from the firmware before touching it. */
+/* Limine maps SMBIOS pages in the HHDM. Its table mapper preserves existing
+ * ACPI reclaimable/NVS entries instead of relabeling them reserved-mapped. */
 static bool mapped(const struct limine_memmap_response *map, uint64_t address, uint64_t size) {
     for (uint64_t i = 0; i < map->entry_count; i++) {
         const struct limine_memmap_entry *entry = map->entries[i];
-        if (entry->type != LIMINE_MEMMAP_RESERVED_MAPPED || address < entry->base) continue;
+        if (entry->type != LIMINE_MEMMAP_RESERVED_MAPPED && entry->type != LIMINE_MEMMAP_ACPI_NVS &&
+            entry->type != LIMINE_MEMMAP_ACPI_RECLAIMABLE) continue;
+        if (address < entry->base) continue;
         uint64_t offset = address - entry->base;
         if (offset < entry->length && size <= entry->length - offset) return true;
     }

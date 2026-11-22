@@ -36,6 +36,21 @@ reopen, and a workspace screenshot. Return to console saves the session
 and returns to Ubuntu after a clean unmount. The captured Wi-Fi release
 and independent known-good recovery remain available.
 
+The first native trial used `f6723ad2`, release `aa8d35a9d6e4e0a3`, and
+session `session-000660e30393bf18-00`. Periodic logs confirm the Retina
+Help topic and the 2880 × 1800 framebuffer at 1×. The operator verified
+changing to 2× and reverting to 1×, then restarted manually. The
+workspace remained clean with the new Text file and saved preferences.
+No final exit snapshot was recorded.
+
+Ubuntu reports both the SMBIOS entry point and the table in ACPI NVS.
+Limine preserves the ACPI memory-map type for tables already in that
+mapped region. The kernel now accepts complete SMBIOS spans in ACPI
+NVS, ACPI reclaimable, or reserved-mapped memory. The exact-model,
+checksum, and range checks still apply. The retry records the firmware
+scale before the desktop starts so it can be compared with the actual
+startup scale and saved Settings state.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold

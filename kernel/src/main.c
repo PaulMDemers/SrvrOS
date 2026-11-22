@@ -861,6 +861,10 @@ static void startup_checkpoint(uint32_t phase,uint64_t flags) {
 static void retina_desktop_trial(const char *cmdline) {
     bool saved = false;
     console_printf("retina-trial: boot options=%s\n", cmdline);
+    struct console_display_info display;
+    if (console_display_info(&display)) {
+        console_printf("retina-trial: firmware scale=%u\n", (uint64_t)display_profile_scale(display.width, display.height));
+    }
     if (!workspace_active()) {
         console_write("retina-trial: workspace unavailable; desktop skipped\n");
     } else if (!workspace_log_start_capture()) {
