@@ -10,6 +10,22 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+Release `ee4cf3b2ed98c61a` (source `05f62fd0`, session
+`session-000660d7f63163aa-00`) completed the native eight-bank check.
+After all five engines were prepared and before the first GT reset, the
+driver read `L3SQCREG4=0x40400000` and `SCRATCH1=0x1` on every bank.
+Both slices reported power around each pair of reads. Eight selector writes
+covered the sweep and restoration to `0x10000000`. The driver retired both
+MMIO mappings before reset. The pipeline flush policy covers noncoherent
+lines only. The power-manager policy permits flushing both line types.
+
+All four engine and L3 acknowledgement samples were clear. Clients remained
+permitted during maintenance (mask `0x5f`). The driver returned slot 8704
+with zero PTE writes. Ubuntu collected the matching report and the offline
+exFAT check passed. The next milestone is a driver-held block on new GPU
+requests with a fresh engine and L3 completion acknowledgement. The block
+must remain in force through replacement and rollback of slot 8704.
+
 SrvrOS release `653a13d92f2e78f2` (source `5f53e4a0`, session
 `session-000660d723ab302b-00`) completed the slice-power diagnostic on
 November 22. Both available slices reported power at the beginning and end
@@ -19,12 +35,6 @@ clear at the sampled endpoints. The maintenance interval still allowed GPU
 clients (mask `0x5f`). The driver rechecked and returned the reservation
 of slot 8704 with zero PTE writes. Ubuntu collected the report and the
 offline exFAT check passed. The result uses the diagnostic timing limits.
-
-The next PR 301 trial measures both flush policies on each of the eight L3
-banks after all five engines are prepared and before the first reset. It
-checks live power around each pair of reads, verifies the selected bank,
-restores the original selector and returns both temporary MMIO mappings. Device-wide flush completion and exclusion
-of new work through rollback still require separate hardware evidence.
 
 In the November 22 Ubuntu comparison, i915 reported two available slices
 and zero powered slices at idle. With all five private queues held, both
