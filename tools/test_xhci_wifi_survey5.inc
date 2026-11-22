@@ -117,7 +117,7 @@ static void test_wifi_survey5(void){
  wifi_radio5_bank=1;
  survey5_whole_native(0,0);
  assert(wifi_survey5_banks[0].complete && !wifi_survey5_banks[0].selected);
- assert(wifi_survey5_banks[1].complete && wifi_cal5_banks[1].choice.generation==2);
+ assert(wifi_survey5_banks[1].complete && wifi_survey5_banks[1].selected);
  wifi_radio5_bank=0;
  puts("xhci-wifi-survey5: PASS 40 native calibration/prime/fresh windows/Stop/selection/actual RF inverse cases, including replacement discovery and desktop missing-target cleanup; modeled HCD/RF");
 }
