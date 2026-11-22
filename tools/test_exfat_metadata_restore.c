@@ -10,7 +10,27 @@ static void outside_nodes(unsigned count){
  for(unsigned i=1;i<count;i++){snprintf(outside_names[i],sizeof outside_names[i],"/outside-%u",i);assert(vfs_register_directory(outside_names[i]));}
  assert(vfs_count()==count);
 }
+static void auth_metadata_refusal(const char *sidecar) {
+ outside_nodes(10);fixture(1100,true);
+ if(sidecar) {
+  assert(exfat_mount_block_device_clean("/vol",&device));
+  assert(exfat_write_file("/vol/extra",NULL,0));
+  assert(exfat_write_file("/vol/.srvros/meta",(const uint8_t *)sidecar,strlen(sidecar)));
+  assert(exfat_unmount("/vol"));
+ }
+ uint8_t *before=malloc(BYTES);assert(before);memcpy(before,disk,BYTES);
+ unsigned before_writes=writes,before_flushes=flushes;
+ assert(!exfat_mount_block_device_auth("/vol",&device));
+ assert(!vfs_lookup("/vol") && vfs_count()==10);
+ assert(writes==before_writes && flushes==before_flushes && !memcmp(before,disk,BYTES));
+ free(before);
+}
 int main(void){
+ auth_metadata_refusal(NULL);
+ auth_metadata_refusal("SRVROSMETA1\n/vol\t60000\t16877\t2\t0\t0\t1\t2\t3\n");
+ auth_metadata_refusal("SRVROSMETA1\n/vol\t60000\t16877\t2\t0\t0\t1\t2\t3\n"
+  "/vol/source\t60001\t33188\t1\t0\t0\t1\t2\t3\n"
+  "/vol/source\t60002\t33188\t1\t0\t0\t1\t2\t3\n");
  outside_nodes(10);fixture(1100,true);assert(exfat_mount_block_device_clean("/vol",&device));
  assert(exfat_write_file("/vol/extra",(const uint8_t *)"payload",7));
  const char *paths[]={"/vol","/vol/source","/vol/extra"};struct vfs_metadata_restore saved[3];
@@ -22,15 +42,16 @@ int main(void){
  assert(vfs_restore_metadata("/vol",saved,3));assert(exfat_sync_mount_metadata(&mounts[0]));assert(exfat_unmount("/vol"));
  const unsigned counts[]={998,997,100,998};
  for(unsigned round=0;round<4;round++){
-  outside_nodes(counts[round]);unsigned wr=writes;assert(exfat_mount_block_device_clean("/vol",&device));assert(writes==wr);
+  outside_nodes(counts[round]);unsigned wr=writes,fl=flushes;
+  assert(exfat_mount_block_device_auth("/vol",&device));assert(writes==wr && flushes==fl);
   for(unsigned i=0;i<3;i++){const struct vfs_node *n=vfs_lookup(paths[i]);assert(n && !memcmp(&n->metadata,&saved[i].metadata,sizeof n->metadata));}
   assert(exfat_sync_mount_metadata(&mounts[0]));
   for(unsigned i=0;i<3;i++)assert(!memcmp(&vfs_lookup(paths[i])->metadata,&saved[i].metadata,sizeof saved[i].metadata));
   const struct vfs_node *meta=vfs_lookup("/vol/.srvros/meta");const uint8_t *raw;uint64_t length;
   assert(vfs_read_all(meta,&raw,&length));wr=writes;fail_allocation=allocations+1;
-  assert(!parse_metadata_records(&mounts[0],raw,length,strlen("SRVROSMETA1\n"),true));fail_allocation=0;
+  assert(!parse_metadata_records(&mounts[0],raw,length,strlen("SRVROSMETA1\n"),false));fail_allocation=0;
   for(unsigned i=0;i<3;i++)assert(!memcmp(&vfs_lookup(paths[i])->metadata,&saved[i].metadata,sizeof saved[i].metadata));
-  live_reference=true;assert(!parse_metadata_records(&mounts[0],raw,length,strlen("SRVROSMETA1\n"),true));live_reference=false;
+  live_reference=true;assert(!parse_metadata_records(&mounts[0],raw,length,strlen("SRVROSMETA1\n"),false));live_reference=false;
   assert(writes==wr);vfs_release_data(meta,raw);assert(exfat_unmount("/vol"));
  }
  outside_nodes(1001);uint8_t *before=malloc(BYTES);assert(before);memcpy(before,disk,BYTES);unsigned wr=writes;
@@ -56,7 +77,7 @@ int main(void){
   * allocation failure must never overwrite it with current defaults. */
  outside_nodes(10);fixture(1100,true);assert(exfat_mount_block_device("/vol",&device));assert(exfat_is_writable("/vol"));
  assert(exfat_write_file("/vol/extra",NULL,0));before=malloc(BYTES);assert(before);memcpy(before,disk,BYTES);wr=writes;
- fail_allocation=allocations+2;assert(!load_mount_metadata(&mounts[0],false));fail_allocation=0;
+ fail_allocation=allocations+2;assert(!load_mount_metadata(&mounts[0],EXFAT_ADMIT_LEGACY));fail_allocation=0;
  assert(!exfat_is_writable("/vol") && !exfat_write_file("/vol/new",NULL,0) && writes==wr && !memcmp(before,disk,BYTES));assert(exfat_unmount("/vol"));free(before);
- puts("exfat-metadata-restore: PASS disposable sync/remount across boot counts,provisional/internal inode displacement,all persisted fields unchanged,OOM/live-reader/real outside-collision refusal;no native acceptance");return 0;
+ puts("exfat-metadata-restore: PASS strict admission, no-write refusals, sync/remount, allocation and identity checks");return 0;
 }

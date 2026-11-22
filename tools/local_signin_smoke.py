@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import tempfile
 import time
@@ -106,6 +107,95 @@ def account_bytes(disk):
     return ExfatFixture(proof.data_image(disk, offset, size)).read('etc/local-auth/accounts')
 
 
+def sidecar_variant(data, variant):
+    """Alter one exFAT sidecar in an owned, stopped data image.
+
+    Keep directory checksums and allocation consistent so refusal tests the
+    metadata coverage gate, not an unrelated filesystem structure error.
+    """
+    fs = ExfatFixture(data)
+    def entry_in_directory(first, size, contiguous, wanted):
+        raw = fs.chain(first, size, contiguous)
+        at = 0
+        while at + 32 <= len(raw) and raw[at]:
+            if raw[at] != 0x85:
+                at += 32
+                continue
+            n = (raw[at + 1] + 1) * 32
+            entry = raw[at:at+n]
+            names = list(fs.entries(entry))
+            if len(names) != 1: raise RuntimeError('invalid fixture entry')
+            if names[0][0] == wanted:
+                cluster = first
+                for _ in range(at // fs.cluster):
+                    cluster = cluster + 1 if contiguous else fs.u32(fs.fat + cluster * 4)
+                if at % fs.cluster + n > fs.cluster: raise RuntimeError('split fixture entry')
+                return fs.offset(cluster) + at % fs.cluster, bytearray(entry)
+            at += n
+        raise RuntimeError('missing fixture entry: ' + wanted)
+    _, directory = entry_in_directory(fs.root, None, False, '.srvros')
+    first = struct.unpack_from('<I', directory, 52)[0]
+    size = struct.unpack_from('<Q', directory, 56)[0]
+    entry_offset, entry = entry_in_directory(first, size, bool(directory[33] & 2), 'meta')
+    old = fs.read('.srvros/meta')
+    if not old.startswith(b'SRVROSMETA1\n') or not old.endswith(b'\n'):
+        raise RuntimeError('fixture sidecar is not valid metadata')
+    if variant == 'absent':
+        if any(name == 'metx' for name, _ in fs.entries(fs.read('.srvros'))):
+            raise RuntimeError('fixture sidecar alternate name already exists')
+        if entry[35] != 4 or entry[64] != 0xc1:
+            raise RuntimeError('unexpected sidecar name entry')
+        entry[66:74] = 'metx'.encode('utf-16le')
+        name_hash = 0
+        for byte in 'METX'.encode('utf-16le'):
+            name_hash = ((((name_hash & 1) << 15) | (name_hash >> 1)) + byte) & 0xffff
+        struct.pack_into('<H', entry, 36, name_hash)
+    elif variant == 'incomplete':
+        rows = old.splitlines(keepends=True)
+        remainder = (len(old) - 1) % fs.cluster + 1
+        candidates = [line for line in rows[1:] if line.startswith(b'/fat/home/local-alpha\t') and len(line) < remainder]
+        if not candidates:
+            candidates = [line for line in rows[1:] if line.startswith(b'/fat/') and len(line) < remainder]
+        if not candidates: raise RuntimeError('no record can be removed without changing allocation')
+        removed = candidates[0]
+        new = old.replace(removed, b'', 1)
+        if not new.startswith(b'SRVROSMETA1\n') or not new.endswith(b'\n') or len(new) >= len(old):
+            raise RuntimeError('invalid incomplete fixture')
+        first_data = struct.unpack_from('<I', entry, 52)[0]
+        contiguous = bool(entry[33] & 2)
+        cluster = first_data
+        for at in range(0, len(new), fs.cluster):
+            piece = new[at:at + fs.cluster]
+            offset = fs.offset(cluster)
+            fs.data[offset:offset + len(piece)] = piece
+            cluster = cluster + 1 if contiguous else fs.u32(fs.fat + cluster * 4)
+        struct.pack_into('<Q', entry, 40, len(new))
+        struct.pack_into('<Q', entry, 56, len(new))
+    else:
+        raise ValueError('unknown sidecar variant')
+    checksum = 0
+    for i, byte in enumerate(entry):
+        if i not in (2, 3): checksum = ((((checksum & 1) << 15) | (checksum >> 1)) + byte) & 0xffff
+    struct.pack_into('<H', entry, 2, checksum)
+    fs.data[entry_offset:entry_offset + len(entry)] = entry
+    if variant == 'incomplete' and fs.read('.srvros/meta') != new:
+        raise RuntimeError('sidecar mutation differs from expected bytes')
+    if variant == 'absent':
+        try: fs.read('.srvros/meta')
+        except StopIteration: pass
+        else: raise RuntimeError('sidecar still present')
+        if fs.read('.srvros/metx') != old: raise RuntimeError('renamed sidecar contents differ')
+    return bytes(fs.data)
+
+
+def write_data(disk, offset, data):
+    import os
+    with disk.open('r+b') as target:
+        target.seek(offset)
+        if target.write(data) != len(data): raise RuntimeError('short fixture data write')
+        target.flush(); os.fsync(target.fileno())
+
+
 class VM:
     def __init__(self, disk, out, label, args, mode):
         self.disk, self.out, self.label, self.args, self.mode = disk, out, label, args, mode
@@ -136,10 +226,13 @@ class VM:
             self.serial = connect_serial(port, 20); self.serial.settimeout(.2)
             self.qmp = QMP(qmp_path)
             prompt = {'recovery': b'srv> ', 'local': b'Login: ',
-                      'blocked': b'local-auth: sign-in unavailable.'}
+                      'blocked': b'local-auth: sign-in unavailable.',
+                      'root-recovery': b'No fallback volume or repair was selected.'}
             self.wait(prompt[self.mode], self.args.boot_wait)
-            if b'installed-root: selected device=ahci0p2 format=exfat-v1 role=system' not in self.output:
+            if self.mode != 'root-recovery' and b'installed-root: selected device=ahci0p2 format=exfat-v1 role=system' not in self.output:
                 raise RuntimeError('installed identity-selected root missing')
+            if self.mode == 'root-recovery' and b'installed-root: recovery reason=filesystem-recovery' not in self.output:
+                raise RuntimeError('strict sidecar refusal reason missing')
             if b'trying initramfs fallback' in self.output:
                 raise RuntimeError('unexpected initramfs fallback')
             if self.mode == 'recovery' and (b'local-auth: recovery console' not in self.output or
@@ -148,6 +241,10 @@ class VM:
             if self.mode == 'local':
                 if b'local-auth: console sign-in' not in self.output or b'srv> ' in self.output:
                     raise RuntimeError('local mode did not start restricted sign-in')
+            if self.mode == 'root-recovery':
+                if any(marker in self.output for marker in (b'Login: ', b'srv> ', b'bootlog: persisted',
+                       b'installed-root: selected', b'init: readiness=', b'local-auth: console sign-in')):
+                    raise RuntimeError('strict sidecar refusal reached normal boot')
             if self.mode == 'blocked':
                 if any(marker in self.output for marker in
                        (b'local-auth: console sign-in', b'Login: ', b'srv> ')):
@@ -217,7 +314,20 @@ class VM:
         # Recovery uses the monitor's flush/reboot sequence. Local mode has no
         # privileged monitor; reset terminates QEMU under -no-reboot after the
         # completed session and causes QEMU to close its owned image normally.
-        if self.mode == 'recovery':
+        if self.mode == 'root-recovery':
+            until = time.monotonic() + .7
+            while time.monotonic() < until:
+                if self.proc.poll() is not None: raise RuntimeError('recovery did not halt')
+                try:
+                    chunk = self.serial.recv(16384)
+                    if not chunk: raise RuntimeError('recovery serial disconnected')
+                    self.output.extend(chunk)
+                except socket.timeout: pass
+            if any(marker in self.output for marker in (b'Login: ', b'srv> ', b'bootlog: persisted',
+                   b'installed-root: selected', b'init: readiness=', b'local-auth: console sign-in')):
+                raise RuntimeError('strict sidecar refusal reached normal boot')
+            self.qmp.call('system_reset')
+        elif self.mode == 'recovery':
             self.command('/fat/bin/sync')
             self.send(b'reboot')
         else:
@@ -326,6 +436,63 @@ def main():
                 vm.finish()
             receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS', 'alpha': 'PASS', 'beta': 'PASS'})
             save()
+        # Pending transaction markers must block even a correct committed
+        # credential. Clear only the marker this invocation created, and prove
+        # that the same committed credential works again afterwards.
+        for name in ('accounts.tmp', 'enroll.lock'):
+            path = '/fat/etc/local-auth/' + name
+            before_swap = region_hash(target, *data)
+            copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'pending-' + name + '-setup', args, 'recovery') as vm:
+                vm.send(('write ' + path + ' pending-fixture').encode('ascii'))
+                vm.wait(b'write: ' + path.encode('ascii') + b' 15 bytes'); vm.wait(b'srv> ')
+                vm.finish()
+            if account_bytes(target) != original_accounts: raise RuntimeError('pending fixture changed committed accounts')
+            before_swap = region_hash(target, *data); local_mode()
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'pending-' + name, args, 'local') as vm:
+                vm.attempt('alpha', PASSWORDS['alpha']); vm.attempt('beta', PASSWORDS['beta'])
+                vm.finish()
+            before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'pending-' + name + '-clear', args, 'recovery') as vm:
+                vm.command('/fat/bin/rm ' + path); vm.finish()
+            if account_bytes(target) != original_accounts: raise RuntimeError('cleanup changed committed accounts')
+            before_swap = region_hash(target, *data); local_mode()
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'pending-' + name + '-cleared', args, 'local') as vm:
+                vm.attempt('alpha', PASSWORDS['alpha'], 1001); vm.finish()
+            receipt['cases'].append({'pending': name, 'refused': 'PASS', 'cleared_retry': 'PASS'})
+            save()
+        # Preserve one exact data snapshot. Mutations are made only offline,
+        # on this invocation's target image, then undone after each no-write
+        # refusal before the rest of the existing suite continues.
+        snapshot = proof.data_image(target, *data)
+        for variant in ('absent', 'incomplete'):
+            changed = sidecar_variant(snapshot, variant)
+            write_data(target, data[0], changed)
+            before = installation.digest(target)
+            with VM(target, out, 'sidecar-' + variant, args, 'root-recovery') as vm:
+                vm.finish()
+            after = installation.digest(target)
+            if before != after: raise RuntimeError('sidecar refusal wrote to installed disk')
+            receipt['cases'].append({'sidecar': variant, 'recovery': 'PASS', 'disk_sha256': before})
+            if variant == 'absent':
+                # The strict policy is specific to opt-in sign-in. Explicit
+                # administrator recovery must retain its existing admission.
+                before_swap = region_hash(target, *data)
+                copy_esp(recovery_image, target)
+                if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+                with VM(target, out, 'sidecar-absent-admin-recovery', args, 'recovery') as vm:
+                    vm.finish()
+                receipt['cases'].append({'sidecar_absent_admin_recovery': 'PASS'})
+                before_swap = region_hash(target, *data); local_mode()
+                if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            write_data(target, data[0], snapshot)
+            if region_hash(target, *data) != sha(snapshot): raise RuntimeError('sidecar fixture restore mismatch')
+            save()
+        if account_bytes(target) != original_accounts: raise RuntimeError('sidecar fixture changed committed accounts')
         before_swap = region_hash(target, *data)
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')

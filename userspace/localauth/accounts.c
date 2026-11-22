@@ -102,9 +102,19 @@ static int load(struct database *db,bool allow_missing) {
     if(close_result<0 || n==sizeof(data))return -1;
     return parse(db,data,n);
 }
+/* A pending administrator transaction requires explicit recovery.  The
+ * opt-in sign-in boot and recovery enrollment do not run concurrently. */
+static bool no_pending_change(void) {
+    struct stat st;
+    if(lstat(AUTH_LOCK,&st)==0 || errno!=ENOENT)return false;
+    if(lstat(AUTH_TEMP,&st)==0 || errno!=ENOENT)return false;
+    return true;
+}
 int local_account_lookup(const char *name,struct local_account *out) {
-    if(!valid_name(name) || !out)return -1;
-    struct database db;if(load(&db,false)<0)return -1;
+    if(!valid_name(name) || !out || geteuid()!=0 || !trusted_parent("/fat") ||
+       !trusted_parent("/fat/etc") || !safe_stat(AUTH_DIR,true,0700) || !no_pending_change())return -1;
+    struct database db;
+    if(load(&db,false)<0 || !no_pending_change())return -1;
     for(size_t i=0;i<db.count;i++)if(!strcmp(db.accounts[i].name,name)){*out=db.accounts[i];return 1;}
     return 0;
 }

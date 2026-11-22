@@ -17,12 +17,15 @@ printable ASCII password twice. `run /fat/bin/local-enroll disable NAME`
 disables the account. The store lives at `/fat/etc/local-auth/accounts`.
 Enrollment uses an exclusive lock and publishes a synced replacement. An
 interrupted enrollment can leave a lock, staged store, or private home for
-the administrator to inspect in recovery.
+the administrator to inspect in recovery. Sign-in refuses an outstanding
+lock or staged store until that inspection is complete.
 
 Use `srvros.auth=local` on the installed EFI entry to reach sign-in. The
 restricted session reports its kernel identity and assigned home, then
 returns to sign-in. The boot mode assumes a trusted EFI configuration and
-administrator control of recovery. The VM qualification uses synthetic
+administrator control of recovery. It requires complete, preexisting
+exFAT ownership metadata for installed-root admission and a private,
+administrator-provisioned account store. The VM qualification uses synthetic
 credentials, a disposable image, and a diagnostic session executable.
 
 Runtime `5e8014a8` passed enrollment, two consecutive sign-in boots on one

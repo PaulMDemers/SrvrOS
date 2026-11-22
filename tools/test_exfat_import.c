@@ -357,7 +357,7 @@ static void metadata_case(const char *mode) {
         assert(!vfs_lookup(path) && vfs_lookup("/vol/.srvros/meta"));
         remount();assert(vfs_lookup("/vol/source")->metadata.uid==42);
     } else {
-        assert(parse_metadata_file(&mounts[0],path,true)==valid);
+        assert(parse_metadata_file(&mounts[0],path,false)==valid);
         if(valid)assert(vfs_lookup("/vol/source")->metadata.uid==42);
         else assert(!memcmp(&before,&vfs_lookup("/vol/source")->metadata,sizeof(before)));
     }
