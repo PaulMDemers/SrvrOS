@@ -32,10 +32,17 @@ mappings retired, and the returned USB report passed offline integrity checks.
 The remaining requirement for a native replacement is exclusive control of
 GPU access to that address through both translation invalidations.
 
-The next checkpoint exercises the Intel register writer at the non-page-aligned
-PTE for slot 12291 in QEMU, and qualifies CPU exclusion of this aperture page
-alongside slot 8704 and the engine and WiDi submission registers on the Air.
-The native run keeps the panel active and the GPU page table read-only.
+Release `7b0c251bb4317d66` (source `013e72a5`, session
+`session-000660e59735fe0c-00`) verified the CPU mapping guard on the Air.
+The same guard covered the target aperture at `0xb3003000`, its GGTT
+backing at `0x8b818000`, the inherited aperture and table backing, and the
+eight engine and WiDi submission ports. All three guard checks passed
+through return of slot 12291. The driver verified the uncacheable policy
+for register page `0xc0818000`. Slot 12291, both neighbours and slot 8704
+kept their original entries. Pipe A advanced from frame 1112 to 1113.
+All 80 mappings retired and the offline exFAT check passed. The guarded
+Intel writer exercised replacement and rollback in QEMU. The physical run
+performed zero GPU page-table writes.
 
 ## Reset-free primary plane flip
 

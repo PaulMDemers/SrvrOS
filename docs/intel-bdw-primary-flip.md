@@ -261,7 +261,9 @@ port exclusion and reopened WiDi. The guest serial transcript is in
 The native reservation trial on release `ec94f04d158f8a13` held slot 12291
 across two samples while Pipe A advanced. Its original PTE mapped physical
 page `0x8f004000` in graphics-reserved RAM beyond both imported surfaces.
-The cold-boot provider still needs to exclude GPU readers of that address
+Release `7b0c251bb4317d66` verified the CPU-side aperture and submission
+exclusions through return of the slot on the Air, with the original panel
+advancing. The cold-boot provider still needs to exclude GPU readers of that address
 and retain the exclusion through replacement, restoration and both
 translation invalidations. Native hardware acceptance requires that provider, a fresh
 same-boot grant and a completed rollback on the Air.
