@@ -180,9 +180,10 @@ def main():
                 # Global View menu and compact client surface.
                 shortcut("f10");shortcut("right");shortcut("right");shortcut("down");shortcut("ret")
                 wait(b"deskview: action=4 scale=65536")
-                qmp.mouse(813-pointer[0],648-pointer[1]);pointer[:]=[813,648]
+                qmp.mouse(819-pointer[0],654-pointer[1]);pointer[:]=[819,654]
                 qmp.mouse(0,0,1);qmp.mouse(-470,-270,1);qmp.mouse(0,0,0);pointer[0]-=470;pointer[1]-=270;time.sleep(.5)
-                qmp.key("0");wait(b"fit=1");shot("preview-compact")
+                wait_all([b"edges=10 frame=56,88,292,295",b"size=290x250"])
+                click(203,158);wait(b"deskview: action=3");wait(b"fit=1");shot("preview-compact")
                 shortcut("ctrl-w");wait(b"deskview: exited failure=0")
                 # Files associates the image extension with Preview.
                 shortcut("meta_l-spc");wait(b"launcher opened");type_text("Files new app");qmp.key("ret")
