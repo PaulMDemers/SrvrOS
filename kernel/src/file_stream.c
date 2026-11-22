@@ -17,7 +17,8 @@ static struct file_stream_entry *stream_find(uint64_t owner,uint64_t token) {
         if(streams[i].owner==owner && streams[i].token==token)return &streams[i];
     return NULL;
 }
-int64_t file_stream_open(uint64_t owner,const char *path,bool create,uint64_t mode) {
+int64_t file_stream_open(uint64_t owner,const char *path,bool create,uint64_t mode,
+    uint64_t uid,uint64_t gid) {
     if(!owner || !path || (!create && mode) || (mode&~07777ull))return SRV_ERR_INVAL;
     struct file_stream_entry *free_slot=NULL;unsigned owned=0;
     for(unsigned i=0;i<SRV_FILE_STREAM_GLOBAL_MAX;i++) {
@@ -28,7 +29,7 @@ int64_t file_stream_open(uint64_t owner,const char *path,bool create,uint64_t mo
     if(!next_stream_token || next_stream_token>INT64_MAX)return SRV_ERR_OVERFLOW;
     uint64_t token=next_stream_token++;
     *free_slot=(struct file_stream_entry){.owner=owner,.token=token,.writing=create};
-    int64_t backend=create?exfat_stream_create(path,mode):exfat_stream_open_read(path);
+    int64_t backend=create?exfat_stream_create_owned(path,mode,uid,gid):exfat_stream_open_read(path);
     if(backend<=0) { *free_slot=(struct file_stream_entry){0};return backend<0?backend:SRV_ERR_IO; }
     free_slot->backend=(uint64_t)backend;return (int64_t)token;
 }

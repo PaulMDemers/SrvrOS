@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
+#include <srvros/process_credentials.h>
+#include <srvros/sys.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -115,24 +117,30 @@ int getgrgid_r(gid_t gid, struct group *grp, char *buf, size_t buflen, struct gr
     return getgrnam_r("root", grp, buf, buflen, result);
 }
 
+static struct srv_process_credentials current_credentials(void) {
+    struct srv_process_credentials credentials={.uid=UINT64_MAX,.gid=UINT64_MAX};
+    (void)srv_syscall2(SYS_PROCESS_CREDENTIALS,SRV_PROCESS_CREDENTIALS_GET,(long)&credentials);
+    return credentials;
+}
+
 uid_t getuid(void) {
-    return 0;
+    return (uid_t)current_credentials().uid;
 }
 
 uid_t geteuid(void) {
-    return 0;
+    return getuid();
 }
 
 gid_t getgid(void) {
-    return 0;
+    return (gid_t)current_credentials().gid;
 }
 
 gid_t getegid(void) {
-    return 0;
+    return getgid();
 }
 
 int setuid(uid_t uid) {
-    if (uid != 0) {
+    if (uid == (uid_t)-1 || uid != getuid()) {
         errno = EPERM;
         return -1;
     }
@@ -144,7 +152,7 @@ int seteuid(uid_t uid) {
 }
 
 int setgid(gid_t gid) {
-    if (gid != 0) {
+    if (gid == (gid_t)-1 || gid != getgid()) {
         errno = EPERM;
         return -1;
     }
@@ -167,13 +175,13 @@ int getgroups(int size, gid_t list[]) {
         errno = EINVAL;
         return -1;
     }
-    list[0] = 0;
+    list[0] = getgid();
     return 1;
 }
 
 int setgroups(size_t size, const gid_t *list) {
     for (size_t i = 0; i < size; i++) {
-        if (list == 0 || list[i] != 0) {
+        if (list == 0 || list[i] != getgid()) {
             errno = EPERM;
             return -1;
         }
@@ -182,7 +190,7 @@ int setgroups(size_t size, const gid_t *list) {
 }
 
 int initgroups(const char *user, gid_t group) {
-    if (user == 0 || group != 0) {
+    if (user == 0 || group != getgid()) {
         errno = user == 0 ? EINVAL : EPERM;
         return -1;
     }

@@ -1,5 +1,15 @@
 # Apple Silicon macOS build host
 
+## Local kernel isolation
+
+`device/apple-silicon/kernel-local-isolation` starts from integrated main
+`e186c911` after the portable-profile merges. Its scope is kernel process
+credentials, checked pathname operations, durable exFAT ownership, and a
+two-user proof in a disposable installed x86_64 guest on this host. A trusted
+test launcher provisions both identities. The fixture exercises initial boot
+and reboot using the same owned disk. Authentication, profile migration and
+physical boot are separate work.
+
 ## V2-only portable profiles
 
 The current follow-up to OS #504 consolidates Profiles, the guest command, the

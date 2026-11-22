@@ -9,6 +9,7 @@
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_SERVICE_HOST_TEST
 #include "../kernel/src/process.c"
+#include "test_process_isolation_stubs.inc"
 /* Exit tests stop at the scheduler-context query immediately after the hook. */
 void audio_process_cleanup(uint64_t p) {(void)p;assert(0);}
 void console_release_framebuffer_mute_owner(uint64_t p) {(void)p;assert(0);}

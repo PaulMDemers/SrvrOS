@@ -13,6 +13,7 @@ static uint64_t process_test_irq_save(void) {uint64_t f=simulated_flags;simulate
 static void process_test_irq_restore(uint64_t f) {simulated_flags=f;}
 static uint64_t process_test_rflags(void) {return simulated_flags;}
 #include "../kernel/src/process.c"
+#include "test_process_isolation_stubs.inc"
 static struct process *current;
 static struct process parent_snapshot;
 static struct process_user_thread *worker;
