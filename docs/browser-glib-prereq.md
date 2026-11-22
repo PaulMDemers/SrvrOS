@@ -3,8 +3,9 @@
 November 22, 2026. The original target configure stopped at GLib's
 `sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
 the missing `iconv` dependency. GLib now configures through the SrvrOS
-poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib and
-proxy-libintl. GIO's next required check is the `C_IN` resolver declaration.
+poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
+proxy-libintl and GIO's `C_IN` declaration. GIO's next required check
+links `res_query()`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -38,7 +39,8 @@ and [official checksums](https://download.gnome.org/sources/glib/2.90/glib-2.90.
 | libffi | Minimum 3.0.0. Meson finds the target static 3.8.0 provider. |
 | zlib | Meson finds the browser target's static 1.4 provider. |
 | `intl` | GLib configures the pinned proxy-libintl 0.5 wrap as an internal dependency, with `-Dnls=disabled`. |
-| GIO resolver headers | Both `C_IN` compile probes fail because the SDK lacks `<arpa/nameser.h>`. |
+| GIO resolver headers | The SDK exports `C_IN` in `<arpa/nameser.h>`. GIO's primary compile check passes. |
+| GIO resolver link | The next mandatory check is `res_query()`. The target compiler reports missing `<resolv.h>`. |
 
 The target profile searches only the staged PCRE2, libffi and zlib pkg-config
 directories and disables Meson wrap downloads. The `intl` lookup uses the
@@ -163,6 +165,29 @@ Add `--proxy-intl-archive /path/to/proxy-libintl-0.5.tar.gz` to the full
 zlib configure command above. Add `--proxy-intl-prefix
 /path/to/run/target-proxy-intl` to the corresponding guest command.
 
+## GIO resolver header
+
+SrvrOS exports `C_IN = 1` from
+[`<arpa/nameser.h>`](../userspace/lib/include/arpa/nameser.h) through the
+normal `srvros-sysroot` target. The header supplies the DNS Internet class.
+[IANA DNS class registry](https://www.iana.org/assignments/dns-parameters#dns-parameters-2).
+
+The historical resolver review chat was archived. The integration owner
+confirmed the compile-time boundary, and the user delegated validation of
+the header to this task. A fresh SDK export passed the exact GIO C probe
+and strict standalone C11 and C++23 checks with repeated inclusion. The
+libc archive, startup object and linker script retained their hashes.
+Verification used target compiler probes, and the VM window stayed available.
+
+The fresh Meson run reused the verified providers from the combined
+proxy-libintl run with the rebuilt SDK. GIO's primary `C_IN` probe compiled.
+The direct `res_query()` check fails on missing `<resolv.h>`. The static
+linker reports that the `resolv`, `bind` and `socket` fallback libraries
+are unavailable. At runtime the GIO record resolver
+consumes DNS wire answers and uses resolver error state and compressed-name
+decoding. Its source includes SRV, TXT, SOA, NS and MX handling.
+[Pinned GIO resolver source](https://github.com/GNOME/glib/blob/2.90.1/gio/gthreadedresolver.c).
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
@@ -189,6 +214,9 @@ zlib configure command above. Add `--proxy-intl-prefix
   dependency and continued into GIO. Both public-header probes for `C_IN`
   failed with a missing `<arpa/nameser.h>`. Meson stopped before producing
   the complete GLib build graph.
+- **Configure with the exported resolver header.** The rebuilt SDK passes
+  the primary `C_IN` check. The first remaining configure stop is
+  `Could not find res_query()` in GIO.
 - **Normal SrvrOS guest.** The native fixture links strictly against the same
   SDK. Both runs passed in one diskless, no-NIC, one-CPU Q35/TCG guest. The
   fixture verifies nonblocking close-on-exec pipes, two pthread wakes, draining
@@ -245,8 +273,9 @@ The [original receipt](assets/evidence/glib-prereq/receipt.json),
 [poll and iconv receipt](assets/evidence/glib-iconv/receipt.json),
 [PCRE2 receipt](assets/evidence/glib-pcre2/receipt.json),
 [libffi receipt](assets/evidence/glib-libffi/receipt.json),
-[zlib receipt](assets/evidence/glib-zlib/receipt.json), and
-[proxy-libintl receipt](assets/evidence/glib-proxy-intl/receipt.json) record
+[zlib receipt](assets/evidence/glib-zlib/receipt.json),
+[proxy-libintl receipt](assets/evidence/glib-proxy-intl/receipt.json), and
+[GIO header receipt](assets/evidence/gio-nameser/receipt.json) record
 configuration outcomes, matched inputs and result hashes. The first strict
 one-step Zig compile/link rejected an unused driver option. Separate strict
 compilation and the normal SDK linker invocation resolved it. The test and
@@ -337,7 +366,5 @@ For the diagnostic, copy that source and replace `sys/poll.h` with `poll.h`
 only in the `has_syspoll` check and the adjacent constants-test include in
 `meson.build`. Use that copy and a new output directory with the same flags.
 
-The next concrete configure task is to review GIO's resolver header and
-API requirements with the SrvrOS networking owner. The first failed check
-requires a public declaration of `C_IN` through `<arpa/nameser.h>`.
-GIO's subsequent `res_query` link probe is visible in the pinned source.
+The next configure task is to define and verify the resolver API contract
+for GIO's `res_query()` dependency with the networking owner.

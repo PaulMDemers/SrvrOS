@@ -570,6 +570,11 @@ and code zero before responding or completing a pending ping. See the
 [datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
 
 
+The SDK exports the DNS Internet class macro `C_IN` with value 1 through
+`<arpa/nameser.h>`. The GIO configure probe for that header and value passes.
+The next resolver dependency is the `res_query()` interface in
+`<resolv.h>`. See the [GIO header verification](browser-glib-prereq.md#gio-resolver-header).
+
 ARP waits resolve their captured target from the bounded cache, so overlapping
 lookups cannot consume each other's completion. Only ARP request/reply opcodes
 update that cache. Native DNS permits one active query across ARP and all retries;
