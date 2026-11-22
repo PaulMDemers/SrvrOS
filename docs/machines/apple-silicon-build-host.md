@@ -53,6 +53,19 @@ Target GLib and the GUI integration remain gated on the dependency and wait
 work described in the probe record. The build and VM slot was returned to
 integration for the CLI queue.
 
+## GLib PCRE2 and libffi dependencies — November 22, 2026
+
+The browser topic starts from OS main `28eb6291` plus the verified PCRE2
+commit `9172c3d9`. It uses the same SDK, normal kernel and Limine bytes as
+the original prerequisite probe. Static PCRE2 10.49 and libffi 3.8.0 pass
+in the diskless x86-64 guest. Both libffi probes cover call and callback
+ABI, legacy raw callbacks, thread publication and 128-slot exhaustion
+and reuse. The fixture's exact ELF has RX stubs and RW/NX dispatch data.
+All eight runs exit 0, QEMU stops, and the browser VM window is returned
+to integration. The PCRE2/libffi changes are limited to browser build
+recipes, fixtures and the libffi source patch. Target GLib configure
+reaches zlib. See the [GLib prerequisite record](../browser-glib-prereq.md).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
