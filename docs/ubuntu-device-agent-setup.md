@@ -1023,6 +1023,28 @@ does not authorize applying that repair to another machine's unexplained error.
 The [exfatprogs rescue implementation](https://github.com/exfatprogs/exfatprogs/blob/1.3.2/fsck/fsck.c)
 handles orphan recovery separately from ordinary read-only checking.
 
+### Compare two recorded returns
+
+Run `tools/trial compare "$RUN_A" "$RUN_B"` for a Markdown table with
+evidence links, or append `--json` for structured values and paths.
+Each input can be an archived native run directory, a directory created by
+`trial collect --save`, or its `return.json`. Comparison runs offline.
+Archived runs go through release/session matching. Saved bundles must
+reproduce their recorded log sizes, hashes, boot identity, exit framing
+and marker presence.
+
+The report gives the first unequal check observed on both sides in the
+displayed stage order. One-sided observations stay visible. The order
+describes the comparison and establishes no cause. For single Wi-Fi active
+removal, the command reads the connection, traffic and cleanup measurements
+from the framed exit logs and cross-checks overlapping recipe measurements.
+Known successful checks are grouped. Additional recipe fields retain their
+recorded values and verdicts.
+
+Exit 0 means both inputs have complete log capture, including when their
+outcomes differ. Exit 1 prints a comparison with incomplete capture. Exit 2
+reports an invalid input or conflicting evidence.
+
 ## 8. Unattended filesystem confidence tests
 
 Once boot/input and the workspace work on that machine, use a fresh request:
