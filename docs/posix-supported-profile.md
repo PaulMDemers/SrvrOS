@@ -51,6 +51,13 @@ Large vectored transfers may return a 256 KiB prefix; callers must handle short
 I/O. These are implementation limits, not claims that every optional POSIX
 facility is supported.
 
+`open()`, `openat()` and spawn open actions accept `O_NOFOLLOW` in the
+current link-free VFS. Initramfs skips archive link entries, and exFAT
+registers regular files and directories. An omitted archive link yields
+`ENOENT` with either ordinary or no-follow open. The SDK exports `ELOOP`
+and its error text. A link-capable backend must enforce `O_NOFOLLOW` during
+kernel open admission, before creation or truncation.
+
 ## Deliberate exclusions
 
 The [October 25 synchronization audit](synchronization-audit-2026-10-25.md)

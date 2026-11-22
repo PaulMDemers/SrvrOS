@@ -5,9 +5,9 @@ November 22, 2026. The original target configure stopped at GLib's
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
-the static build graph. The GIO resolver object compiles with the SrvrOS DNS
-decoder. The first static build failure is the missing `ELOOP` declaration in
-GLib's file utilities.
+the static build graph. The GIO resolver and GLib file-utilities objects
+compile. The first static build failure is the missing `_POSIX_HOST_NAME_MAX`
+declaration in GLib's hostname utilities.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -230,9 +230,25 @@ live SRV fixture reply. Two resolver runs and two platform runs exited 0 in
 the diskless guest. QEMU and the DNS peer stopped.
 
 Fresh Meson configuration and the exact GIO resolver object build both
-passed. The static GLib, GObject, GModule and GIO build first stops compiling
+passed. On that SDK, the static GLib/GIO build first stopped compiling
 `glib/gfileutils.c:1505`, where the `O_NOFOLLOW` failure path references
 `ELOOP`. See the [wire decoder receipt](assets/evidence/gio-dns-wire/receipt.json).
+
+## GLib file open policy
+
+PR #515 landed as `77b0c7cb`. The filesystem owner reviewed the invariant:
+initramfs skips archive links and exFAT exposes only files and directories.
+The SDK exports `ELOOP` and its error text for GLib's no-follow open path.
+
+Both `--file-policy` guest runs confirmed that the archive link was absent
+with ordinary and no-follow opens and the target bytes were intact. The
+private exFAT disk mounted at `/fat` and supported directory-relative no-follow
+create, exclusive-create refusal, truncate, replacement and cleanup. Both
+platform probes also exited 0. QEMU stopped and the VM window was released.
+
+Fresh configure passed and `gfileutils.c` compiled. The first static build
+stop is now `glib/ghostutils.c:426` using `_POSIX_HOST_NAME_MAX`. See the
+[file-policy receipt](assets/evidence/glib-file-policy/receipt.json).
 
 ## Verification
 
