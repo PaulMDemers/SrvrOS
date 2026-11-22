@@ -1,5 +1,36 @@
 # Apple Silicon macOS build host
 
+## Local kernel isolation
+
+`device/apple-silicon/kernel-local-isolation` starts from integrated main
+`e186c911` after the portable-profile merges. Its scope is kernel process
+credentials, checked pathname operations, durable exFAT ownership, and a
+two-user proof in a disposable installed x86_64 guest on this host. A trusted
+test launcher provisions both identities. The fixture exercises initial boot
+and reboot using the same owned disk. Authentication, profile migration and
+physical boot are separate work.
+
+Runtime `3eb669c7` on main `60d8bd68` passed both QEMU EFI boots. UID/GID
+1001 and 1002 persisted through fork and exec. Each identity read and wrote its
+own files and streams and was refused access to the other's private home,
+including through namespace aliases and parent traversal. A reboot preserved
+the exact file bytes, UID/GID and permission modes for both identities. Both
+exFAT filesystems passed the guest allocation checks on each boot. Restricted
+storage access requires the clean installed volume and its metadata. The
+isolated execution path uses a trusted launcher and a limited syscall set.
+
+[SrvrOS #509](https://github.com/PaulMDemers/SrvrOS/pull/509) review added a
+guard against credential drops by the designated system reaper. Host tests
+verified that the reaper retains its credentials and ordinary children can
+still drop theirs. The clean runtime at `948a5332` passed both EFI boots and
+the focused host checks on the same main baseline.
+
+To reproduce on this host, build with
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_isolation.elf`.
+Run `python3 tools/local_isolation_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
+with the local x86_64 EFI firmware templates. The harness writes its receipt
+and guest logs under `build/review/local-isolation/`.
+
 ## V2-only portable profiles
 
 The current follow-up to OS #504 consolidates Profiles, the guest command, the

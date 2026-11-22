@@ -144,7 +144,7 @@ int main(void) {
     reset(3);mutate_request=1;assert(!syscall_file_verify(&q) && reads==1 && releases==1 && path_resolutions==1);
 
     struct isr_frame frame={.rax=SYS_FILE_VERIFY};
-    assert(namespace_syscall(SYS_FILE_VERIFY) && !syscall_io_safe(&frame));
+    assert(namespace_syscall(&frame) && !syscall_io_safe(&frame));
     free(expected);
     puts("file-verify: PASS fresh full-media bytes, empty/8MiB bounds, copied request/path, namespace admission, no shared-cache allocation, stale metadata, corruption, user faults and every snapshot release");
     return 0;

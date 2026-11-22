@@ -13,6 +13,9 @@ static int deny_copy;
 static size_t mapped_bytes=sizeof(bytes);
 static int64_t admitted_override=INT64_MIN;
 static bool path_busy;
+static struct process_credentials creds;
+static int64_t access_result;
+static unsigned access_checks;
 static unsigned lookups,reads,chmods,utimes,allocations,revocations;
 static struct vfs_node node={.type=VFS_NODE_FILE};
 static const uint8_t file_data[]={1,2,3};
@@ -34,12 +37,15 @@ bool vmm_user_range_mapped(uint64_t a,uint64_t n,bool w){
 }
 void *kmalloc(size_t n){return malloc((size_t)n);} void kfree(void *p){free(p);}
 struct process *process_current(void){return (struct process *)(uintptr_t)1;}
+struct process_credentials process_get_credentials(const struct process *p){(void)p;return creds;}
+int64_t vfs_check_access(const char *p,uint64_t uid,uint64_t gid,unsigned access){assert(!strcmp(p,path) && uid==10 && gid==20 && access==4);access_checks++;return access_result;}
+int64_t vfs_check_parent_access(const char *p,uint64_t uid,uint64_t gid,unsigned access){assert(!strcmp(p,path) && uid==10 && gid==20 && access==3);access_checks++;return access_result;}
 uint64_t process_stream_identity(struct process *p){(void)p;return 7;}
 uint64_t process_creation_mode(uint64_t m){return m&~0022u;}
 int64_t process_path_context(uint64_t op,const char *p,char *outp,uint64_t n){(void)op;if(strlen(p)>=n)return SRV_ERR_INVAL;strcpy(outp,p);return 0;}
 int64_t process_resolve_storage_path(const char *p,char *outp,uint64_t n){if(strlen(p)>=n)return SRV_ERR_INVAL;strcpy(outp,p);return 0;}
 int64_t vfs_namespace_system_path(const char *p,char *outp,size_t n){if(strlen(p)>=n)return SRV_ERR_INVAL;strcpy(outp,p);return 0;}
-int64_t file_stream_open(uint64_t o,const char *p,bool create,uint64_t mode){assert(o==7 && !strcmp(p,path));if(create)assert(mode==0644);calls++;return 42;}
+int64_t file_stream_open(uint64_t o,const char *p,bool create,uint64_t mode,uint64_t uid,uint64_t gid){assert(uid==creds.uid && gid==creds.gid);assert(o==7 && !strcmp(p,path));if(create)assert(mode==0644);calls++;return 42;}
 int64_t file_stream_pread(uint64_t o,uint64_t h,void *b,uint64_t n,uint64_t offset){(void)o;(void)h;(void)offset;calls++;if(b)memset(b,0x5a,n);return backend_result?backend_result:(int64_t)n;}
 int64_t file_stream_append_count(uint64_t o,uint64_t h,uint64_t n){(void)o;(void)h;return admitted_override==INT64_MIN?(int64_t)n:admitted_override;}
 int64_t file_stream_append(uint64_t o,uint64_t h,const void *b,uint64_t n){(void)o;(void)h;calls++;if(n)assert(b && ((const unsigned char *)b)[0]==0x39);return backend_result?backend_result:(int64_t)n;}
@@ -54,6 +60,13 @@ int main(void){
     assert(syscall_file_stream((void *)(uintptr_t)1)==SRV_ERR_FAULT);
     reset(SRV_FILE_STREAM_OPEN_READ);q.path=(uint64_t)(uintptr_t)path;
     assert(syscall_file_stream(&q)==42 && calls==1);
+    creds=(struct process_credentials){.uid=10,.gid=20};access_result=SRV_ERR_ACCES;
+    assert(syscall_file_stream(&q)==SRV_ERR_ACCES && calls==1 && access_checks==1);
+    reset(SRV_FILE_STREAM_CREATE_APPEND);q.path=(uint64_t)(uintptr_t)path;q.mode=0666;
+    assert(syscall_file_stream(&q)==SRV_ERR_ACCES && calls==0 && access_checks==2);
+    access_result=0;assert(syscall_file_stream(&q)==42 && calls==1 && access_checks==3);
+    creds=(struct process_credentials){0};
+    reset(SRV_FILE_STREAM_OPEN_READ);q.path=(uint64_t)(uintptr_t)path;
     q.version=2;assert(syscall_file_stream(&q)==SRV_ERR_INVAL);q.version=1;q.size--;assert(syscall_file_stream(&q)==SRV_ERR_INVAL);q.size++;
     q.flags=1;assert(syscall_file_stream(&q)==SRV_ERR_INVAL);q.flags=0;q.reserved[1]=1;assert(syscall_file_stream(&q)==SRV_ERR_INVAL);q.reserved[1]=0;
     q.mode=1;assert(syscall_file_stream(&q)==SRV_ERR_INVAL);q.mode=0;q.handle=1;assert(syscall_file_stream(&q)==SRV_ERR_INVAL);
@@ -85,6 +98,6 @@ int main(void){
     assert(syscall_open(path)==9 && lookups==1 && reads==1 && allocations==1);
     assert(syscall_chmod(path,0600)==0 && lookups==2 && chmods==1 && revocations==1);
     assert(syscall_utime(path,11,12)==0 && utimes==1);
-    struct isr_frame frame={.rax=SYS_FILE_STREAM};assert(namespace_syscall(SYS_FILE_STREAM) && !syscall_io_safe(&frame));
+    struct isr_frame frame={.rax=SYS_FILE_STREAM};assert(namespace_syscall(&frame) && !syscall_io_safe(&frame));
     puts("file stream syscall: PASS");return 0;
 }
