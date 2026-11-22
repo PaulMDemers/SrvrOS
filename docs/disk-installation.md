@@ -37,6 +37,11 @@ and insufficient space prevent publication. If `apply` fails before a verified
 publication record exists, keep that stage for inspection and use a new stage
 for another attempt. Canonical offline export and export reconciliation use v1.
 
+The [proof manifest](assets/screenshots/installation-stream-restore-manifest.json)
+records two fresh-B boots, exact readback of a 16 MiB document and two smaller
+documents, and read-only inspection after reboot. The retained synthetic bundle
+and base template passed the preservation checks.
+
 ## Recoverable offline export publication
 
 The opt-in host recovery flow records an admitted export before writing its

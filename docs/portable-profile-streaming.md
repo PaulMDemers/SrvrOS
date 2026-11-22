@@ -76,8 +76,9 @@ New tools/profile_stream.py host codec/fixture CLI supports stream v2 and reads
 v1 via unchanged profile_bundle helpers. No changes to profile_bundle.py v1
 constants/functions, installation_{export,image,inspection}, profile_image native
 driver. The new runtime dependency changes filesystem implementation only for
-the opt-in I/O path and conflict guards described below. Native installer/offline exporter remain v1-only failclosed;
-installation owner's srvros-export-publication-v1 is PRIVATE metadata, unrelated
+the opt-in I/O path and conflict guards described below. PR367 left native
+installation and offline export at v1. The installation owner's
+`srvros-export-publication-v1` is private metadata, unrelated
 to this portable schema. V2 host fixture import validates all input before new
 stage, streams only into its owned stage, no replacement, existing host recovery.
 
