@@ -54,7 +54,9 @@ bool vmm_reserved_guard_io_range_pinned(const struct vmm_reserved_guard *g,uint6
                                         uint64_t first,unsigned pages,const void *child) {
     static const uint64_t excluded[]={0x8b811000,0xb2200000,0xc0002000,0xc0012000,0xc001c000,0xc001a000,
                                       0xc0022000,0xc0014000,0xc006e000,0xc0065000};
-    if(manifest.first!=12291 || pages!=1 || !vmm_reserved_guard_io_page_pinned(g,root,0xb3003000,child))return false;
+    if(manifest.first!=12291 || !vmm_reserved_guard_io_page_pinned(g,root,0xb3003000,child))return false;
+    if(first==0xc0071000)return pages==2 && strcmp(page_failure,"reader-hold-lost");
+    if(pages!=1)return false;
     if(!strcmp(page_failure,"owned-mmio-port-loss") && first==0xc006e000)return false;
     if(!strcmp(page_failure,"inherited-backing-loss") && first==0x8b811000)return false;
     for(unsigned i=0;i<sizeof(excluded)/sizeof(excluded[0]);i++)if(first==excluded[i])return true;
@@ -445,6 +447,8 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     }
     case 0x9120: *word=(!strcmp(page_failure,"slice-mask")?1u:3u)<<25; break;
+    case 0x70080: *word=!strcmp(page_failure,"owned-mmio-cursor"); break;
+    case 0x70280: *word=!strcmp(page_failure,"owned-mmio-sprite")?1u<<31:0; break;
     case 0x70180:
         *word=!strcmp(page_failure,"plane-off")?0:1u<<31; break;
     case 0x7019c: case 0x701ac:
@@ -750,7 +754,8 @@ static void owned_page_case(const char *mode)
     assert(prepared);
     assert(a.range.first == target && a.range.pages == 1);
     if (mmio) {
-        if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3")) {
+        if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3") ||
+            !strcmp(mode,"owned-mmio-cursor") || !strcmp(mode,"owned-mmio-sprite")) {
             if (!strcmp(mode,"owned-mmio-no-l3")) page_failure="missing-l3";
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
             assert(block_requests==(!strcmp(mode,"owned-mmio-no-l3") ? 1u : 0u) && !model.releases);
@@ -759,8 +764,9 @@ static void owned_page_case(const char *mode)
             model.pending=true;
             assert(!scanout_memory_close(&a,&at) && block_active && !model.releases && !block_releases);
             model.pending=false;
-            if (!strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing")) {
-                page_failure=!strcmp(mode,"owned-mmio-widi-loss") ? "widi-open" : "inherited-backing-loss";
+            if (!strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss")) {
+                page_failure=!strcmp(mode,"owned-mmio-widi-loss") ? "widi-open" :
+                             !strcmp(mode,"owned-mmio-reader-loss") ? "reader-hold-lost" : "inherited-backing-loss";
                 assert(!scanout_memory_close(&a,&at) && !model.releases && !block_releases && ggtt_posts==1);
                 assert(block_active && table[target]==(a.physical|1) && !scanout_transfer_close(&transfer,&token));
             } else {

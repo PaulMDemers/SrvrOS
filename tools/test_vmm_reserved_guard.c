@@ -125,8 +125,21 @@ static void command_aperture(void) {
  setup();
  assert(vmm_reserved_guard_begin_submission_window(&guard,root,pair,2,52,&ram[1],1,
          first,0x8b811000,0xc0811000,ports,3,&result,&why));
+ const uint64_t pipe=0xc0071000;
+ assert(!vmm_reserved_guard_exclude_io_range(&guard,root+4096,pipe,2));
+ assert(!vmm_reserved_guard_exclude_io_range(&guard,root,pipe,10));
+ assert(!vmm_reserved_guard_exclude_io_range(&guard,root,first,2));
+ t[3][7]=(pipe+4096)|3;
+ assert(!vmm_reserved_guard_exclude_io_range(&guard,root,pipe,2));
+ assert(!vmm_reserved_guard_excludes_io_page(&guard,root,pipe));
+ assert(!vmm_reserved_guard_excludes_io_page(&guard,root,pipe+4096));
+ t[3][7]=0;
+ assert(vmm_reserved_guard_exclude_io_range(&guard,root,pipe,2));
+ for(unsigned route=0;route<3;route++)for(unsigned i=0;i<2;i++)refused_map(route,pipe+4096*i,3);
  assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&borrower));
  assert(vmm_reserved_guard_pin_io_page(&guard,root,first,&borrower));
+ assert(!vmm_reserved_guard_exclude_io_range(&guard,root,pipe+8192,1));
+ assert(vmm_reserved_guard_io_range_pinned(&guard,root,pipe,2,&borrower));
  assert(vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&borrower));
  assert(vmm_reserved_guard_io_range_pinned(&guard,root,first+4096,3,&borrower));
  assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,5,&borrower));
@@ -135,6 +148,8 @@ static void command_aperture(void) {
  assert(vmm_reserved_guard_unpin_io_page(&guard,root,first,&borrower));
  assert(!vmm_reserved_guard_io_range_pinned(&guard,root,first,4,&borrower));
  assert(vmm_reserved_guard_close(&guard,&result,&why));
+ assert(vmm_map_page_in_space(root,va,pipe,3));
+ assert(vmm_unmap_page_in_space(root,va,NULL));
 }
 static void register_window(void) {
  const uint64_t aperture=0xb2200000, backing=0x8b811000, reg=0xc0811000;

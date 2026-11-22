@@ -157,9 +157,15 @@ bool vmm_reserved_guard_register_window_held(const struct vmm_reserved_guard *g,
                                              uint64_t aperture,uint64_t backing,uint64_t reg) {
  return backing==0x8b818000 && reg==0xc0818000 && vmm_reserved_guard_io_page_held(g,root,aperture);
 }
+bool vmm_reserved_guard_exclude_io_range(const struct vmm_reserved_guard *g,uint64_t root,uint64_t first,unsigned pages) {
+ assert(stolen.import.imported && model.pinned && !model.mapped && stolen.owned_page.reader_words==26 &&
+        first==0xc0071000 && pages==2 && vmm_reserved_guard_io_page_held(g,root,0xb3003000));
+ return model.mode!=87;
+}
 bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  assert(stolen.import.selected && !stolen.import.submission);
  if(!vmm_reserved_guard_io_page_held(g,root,0xb3003000))return false;
+ if(stolen.owned_page.reader_pages==2 && (page==0xc0071000 || page==0xc0072000))return true;
  if(model.mode==85 && stolen.owned_page.conflicts==2 && page==0xc006e000)return false;
  const uint64_t expected[]={0xc0002000,0xc0012000,0xc001c000,0xc001a000,0xc0022000,
        0xc0014000,0xc006e000,0xc0065000,0xb2200000,0x8b811000};
@@ -345,6 +351,8 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  assert(stolen.preflight && model.unmaps>=1);
  if(fault(READ))return false;
  ++model.reads;
+ if(offset>=0x71000 && offset<0x73000)assert(!model.guard_live || !stolen.owned_page.reader_pages);
+ if(model.mode==86 && stolen.guard.closed && offset==0x71080){*out=1;return true;}
  if(stolen.command_tail.samples==2 && stolen.import.returned &&
     offset==0x800000u+(stolen.command_tail.manifest.first+COMMAND_PAGES-1)*8) {
   if(model.mode==68){*out=0xdead0001;return true;}
@@ -503,11 +511,18 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift") || !strcmp(argv[1],"--owned-port-loss"))) {
+ if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift") || !strcmp(argv[1],"--owned-port-loss") || !strcmp(argv[1],"--owned-reader-change") || !strcmp(argv[1],"--owned-reader-alias"))) {
   char import_command[512];
   snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
     !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
   reset();model.report=true;
+  if(!strncmp(argv[1],"--owned-reader-",15)) {
+   model.mode=!strcmp(argv[1],"--owned-reader-change")?86:87;
+   assert(!intel_stolen_probe_report(import_command) && stolen.guard.closed &&
+          !model.held && !model.guard_live && !model.mapped);
+   assert(stolen.owned_page.reader_pages==(model.mode==86?2u:0u));
+   return 0;
+  }
   if(!strcmp(argv[1],"--owned-port-loss")) {
    model.mode=85;
    assert(!intel_stolen_probe_report(import_command) && stolen.owned_page.guard_checks==1 &&

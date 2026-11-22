@@ -10,6 +10,13 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+On PR 301 the Air agent is qualifying display-reader exclusion for slot 12291.
+The VMM guard excludes the Pipe B and C programming pages while the
+driver holds the slot, and the Intel writer checks Pipe A's cursor and
+sprite alongside the primary surface. The native trial depends on the existing
+firmware import and reports the original panel and both inactive pipes through
+return of the slot. Engine and cache retirement still need a native provider.
+
 The Air7,2 objective is to map one driver-owned GGTT page beyond both
 firmware imports, keep slot 8704 reserved and Pipe A active, then restore
 the exact PTE and retire its translation. The mapping core ran inside

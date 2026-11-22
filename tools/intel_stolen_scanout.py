@@ -592,11 +592,18 @@ def stolen_result(text,*,native=False,required_version=None):
         raise ValueError('missing or unexpected one-page reservation')
     if owned:
         words='left0 pte0 right0 left1 pte1 right1'.split()
-        guarded=owned[0].startswith('intel-owned-page: v=2 ')
+        readers=owned[0].startswith('intel-owned-page: v=3 ')
+        guarded=readers or owned[0].startswith('intel-owned-page: v=2 ')
         added=['aperture','table_backing','register_page'] if guarded else []
         page=fields(owned[0],'intel-owned-page:',
-                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words+added+(['guard_checks'] if guarded else []),
-                    words+added,versions=(2,) if guarded else (1,))
+                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words+added+(['guard_checks'] if guarded else [])+(['reader_pages','reader_words'] if readers else []),
+                    words+added,versions=(3,) if readers else (2,) if guarded else (1,))
+        if readers and (page['reader_pages'] not in (0,2) or page['reader_words']>52 or
+                (page['reader_pages'] and page['reader_words']<26) or
+                (not page['reader_pages'] and page['reader_words']>26) or
+                (page['samples'] and not page['reader_pages']) or
+                (complete and (page['reader_pages'],page['reader_words'])!=(2,52))):
+            raise ValueError('inconsistent display reader exclusion')
         if guarded:
             acquired=bool(rows['guard'][0]['acquired'])
             if (page['guard_checks']>page['conflicts']+page['returned'] or
@@ -617,6 +624,9 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('incomplete or changed one-page reservation')
             extra_maps+=4
             extra_aliases+=14+page['frame_reads']
+            if readers:
+                extra_maps+=4
+                extra_aliases+=56
         result['owned_page']=page
     if not complete:return result
     if s['reason'] or s['phase']!=3 or not s['acquired'] or s['clock'] or s['previous'] or s['meta_reads']!=8:

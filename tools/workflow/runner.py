@@ -374,7 +374,7 @@ class Runner:
                         hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
         if trial_profile in STOLEN_PREINIT:manifest['stolen_progress_version']=1
         if trial_profile==FIRMWARE_IMPORT:
-            manifest.update(owned_page_slot=12291, owned_page_version=2)
+            manifest.update(owned_page_slot=12291, owned_page_version=3)
         self.frozen(manifest)
         directory = self.store / 'runs' / name
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', name):

@@ -100,7 +100,7 @@ static struct {
   struct scanout_transfer_token token;
   uint64_t entries[2][3]; /* left, selected slot, right */
   uint64_t aperture, table_backing, register_page;
-  unsigned guard_checks;
+  unsigned guard_checks, reader_pages, reader_words;
   uint32_t frame[2], frame_reads;
   unsigned samples, conflicts;
   bool reading, returned;
@@ -795,6 +795,8 @@ static bool aperture_guard_held(void) {
        vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,inherited) &&
        vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,
           stolen.layout.plan.gtt_begin+((stolen.source.first*8ull)&~4095ull));
+  for(unsigned i=0;held && i<stolen.owned_page.reader_pages;i++)
+   held=vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,stolen.source.mmio+0x71000+4096*i);
   for(unsigned i=0;held && i<BDW_SUBMISSION_PORT_COUNT;i++)
    held=vmm_reserved_guard_excludes_io_page(&stolen.guard.owner,stolen.root,stolen.source.mmio+intel_bdw_submission_ports[i]);
  } else held=vmm_reserved_guard_io_page_held(&stolen.guard.owner,stolen.root,inherited);
@@ -1014,8 +1016,40 @@ static bool check_video_fuse(unsigned i) {
         (!i || *strap==stolen.import.strap[0]);
 }
 
+static bool inactive_pipe_sample(void) {
+ for(unsigned pipe=1;pipe<3;pipe++) {
+  for(unsigned i=0;i<INTEL_READER_WORDS;i++) {
+   uint32_t word;
+   if(!tick(stolen.begin[1]) || !load(0x70000+4096*pipe+intel_reader_offsets[i],&word) ||
+      word!=stolen.handoff.readers[3+pipe*INTEL_READER_WORDS+i]) {
+    unmap();return refuse(32);
+   }
+   ++stolen.owned_page.reader_words;
+  }
+ }
+ return unmap();
+}
+static bool hold_inactive_pipes(void) {
+ if(!inactive_pipe_sample())return false;
+ uint64_t flags;
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ flags=intel_stolen_test_irq_save();
+#else
+ __asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+#endif
+ bool held=vmm_reserved_guard_exclude_io_range(&stolen.guard.owner,stolen.root,stolen.source.mmio+0x71000,2);
+#ifdef SRVROS_INTEL_STOLEN_HOST_TEST
+ intel_stolen_test_irq_restore(flags);
+#else
+ if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+ if(held)stolen.owned_page.reader_pages=2;
+ return held || refuse(32);
+}
 static bool owned_plane_sample(bool closing) {
- for(unsigned i=0;i<5;i++) {
+ const unsigned indices[]={0,1,2,3,4,5,8};
+ for(unsigned n=0;n<sizeof(indices)/sizeof(indices[0]);n++) {
+  unsigned i=indices[n];
   uint32_t word;
   if(!load(0x70000+intel_reader_offsets[i],&word) || word!=stolen.handoff.readers[3+i])
    return refuse(32);
@@ -1034,7 +1068,7 @@ static bool observe_owned_page(struct scanout_transfer_manifest m, unsigned samp
     !scanout_interval_held(fw,m.mmio,m.aperture,m.aperture_bytes,m.fence_end,fw->pages) ||
     !private_display_clear() || !aperture_guard_held())return false;
  if(!intel_cache_probe_owned_pte_uc(stolen.owned_page.register_page) ||
-    (!sample && !owned_plane_sample(false)))return false;
+    (!sample && (!hold_inactive_pipes() || !owned_plane_sample(false))))return false;
  uint64_t *entries=stolen.owned_page.entries[sample];
  stolen.owned_page.reading=true;
  bool read=private_batch(OWNED_PAGE_SLOT-1,3,entries);
@@ -1230,7 +1264,8 @@ static bool cpu_guard(void) {
     !intel_window_handoff_revalidate(&stolen.source))goto done;
  if(!cpu_guard_operation(2,pair)){refuse(30);goto done;}
  stolen.guard.closed=1;
- ok=observed && (!stolen.import.submission || sample_wireless_capture(1));
+ ok=observed && (!stolen.import.submission || sample_wireless_capture(1)) &&
+    (!stolen.owned_page.reader_pages || inactive_pipe_sample());
 done:
  if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
  if(stolen.import.first && !stolen.import.command_returned && !stolen.uncertain) {
@@ -1413,7 +1448,8 @@ report:
     stolen.import.observed[0],stolen.import.observed[1],(uint64_t)stolen.import.returned,(uint64_t)stolen.import.blocked);
  if(stolen.import.selected && !stolen.import.submission) {
   const uint64_t *a=stolen.owned_page.entries[0],*b=stolen.owned_page.entries[1];
-  console_printf("intel-owned-page: v=2 aperture=%x table_backing=%x register_page=%x guard_checks=%u slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
+  console_printf("intel-owned-page: v=3 reader_pages=%u reader_words=%u aperture=%x table_backing=%x register_page=%x guard_checks=%u slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
+   (uint64_t)stolen.owned_page.reader_pages,(uint64_t)stolen.owned_page.reader_words,
    stolen.owned_page.aperture,stolen.owned_page.table_backing,stolen.owned_page.register_page,
    (uint64_t)stolen.owned_page.guard_checks,(uint64_t)OWNED_PAGE_SLOT,(uint64_t)stolen.owned_page.samples,stolen.owned_page.token.epoch,
    (uint64_t)stolen.owned_page.returned,(uint64_t)stolen.owned_page.conflicts,

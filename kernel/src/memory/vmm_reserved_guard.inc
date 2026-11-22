@@ -162,6 +162,38 @@ bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint
  for(unsigned i=0;i<reserved_guard.port_count;i++)if(reserved_guard.ports[i]==page)return true;
  return false;
 }
+/* Extend this owner monotonically after its reader census has retired its
+ * temporary mappings. No borrower may witness a partial exclusion. */
+bool vmm_reserved_guard_exclude_io_range(const struct vmm_reserved_guard *g,uint64_t root,
+                                         uint64_t first,unsigned pages) {
+ if(!vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page) || reserved_guard.io_borrower ||
+    __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST) || !first || (first&4095) || !pages ||
+    pages>VMM_GUARD_IO_LIMIT-reserved_guard.port_count)return false;
+ uint64_t bytes=4096ull*pages, limit=1ull<<reserved_guard.bits;
+ if(first>=limit || bytes>limit-first)return false;
+ for(unsigned i=0;i<pages;i++) {
+  uint64_t page=first+4096ull*i;
+  if(page==reserved_guard.register_page || page==reserved_guard.register_backing ||
+     vmm_reserved_guard_excludes_io_page(g,root,page))return false;
+ }
+ for(unsigned i=0;i<reserved_guard.count;i++) {
+  struct vmm_physical_span span=reserved_guard.spans[i];
+  if(first<span.physical+4096ull*span.pages && span.physical<first+bytes)return false;
+ }
+ reserved_guard.state=VMM_GUARD_CHECKING;
+ struct vmm_alias_inventory inventory;
+ struct vmm_physical_span span={first,pages};
+ bool clear=vmm_diagnostic_kernel_physical_unmapped(root,&span,1,reserved_guard.bits,
+                 reserved_guard.ram,reserved_guard.ram_count,&inventory,NULL);
+ if(!reserved_guard_identity(g) || reserved_guard.state!=VMM_GUARD_CHECKING ||
+    alias_inventory_cr4()!=reserved_guard.cr4 || alias_inventory_efer()!=reserved_guard.efer ||
+    (reserved_guard_flags()&512) || read_cr3()!=root) {
+  reserved_guard.state=VMM_GUARD_FAULT;return false;
+ }
+ if(clear)for(unsigned i=0;i<pages;i++)reserved_guard.ports[reserved_guard.port_count++]=first+4096ull*i;
+ reserved_guard.state=VMM_GUARD_ACTIVE;
+ return clear;
+}
 bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  if(!child || reserved_guard.io_borrower || !vmm_reserved_guard_io_page_held(g,root,page))return false;
  reserved_guard.io_borrower=child;

@@ -110,7 +110,11 @@ class Receipts(unittest.TestCase):
         self.assertEqual(failure['owned_page']['returned'],1)
         self.assertNotEqual(failure['owned_page']['pte0'],failure['owned_page']['pte1'])
         self.assertEqual(page['guard_checks'],3)
-        for field in ('aperture','table_backing','guard_checks'):
+        self.assertEqual((page['reader_pages'],page['reader_words']),(2,52))
+        for mode in ('--owned-reader-change','--owned-reader-alias'):
+            rejected=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),mode],text=True)
+            self.assertFalse(stolen_result(rejected,required_version=14)['complete'])
+        for field in ('aperture','table_backing','guard_checks','reader_pages','reader_words'):
             with self.assertRaises(ValueError):
                 stolen_result(raw.replace(line,re.sub(field+r'=\S+',field+'=0',line)),required_version=14)
         lost=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--owned-port-loss'],text=True)

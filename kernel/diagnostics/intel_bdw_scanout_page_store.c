@@ -37,7 +37,8 @@ static bool page_pinned(const struct scanout_publication *p)
                                                      plan->gtt_begin+target_offset,borrow.reg) ||
             !vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,plan->gtt_begin+inherited_offset,1,&borrow))
             return false;
-        if (!vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->aperture+s->fence_end,1,&borrow))
+        if (!vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->mmio+0x71000,2,&borrow) ||
+            !vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->aperture+s->fence_end,1,&borrow))
             return false;
         for (unsigned i=0;i<BDW_SUBMISSION_PORT_COUNT;i++) {
             if (!vmm_reserved_guard_io_range_pinned(borrow.guard,borrow.root,s->mmio+intel_bdw_submission_ports[i],1,&borrow))
@@ -113,7 +114,9 @@ static bool l3_flush_covers_all_lines(struct traffic_check *check)
  * surface. SURF bit 3 records the previous flip source, not an address. */
 static bool original_plane(struct traffic_check *check)
 {
-    uint32_t control, programmed, live;
+    uint32_t control, programmed, live, cursor, sprite;
+    if (borrow.firmware && (!read_traffic(check,0x70080,&cursor) || (cursor&63u) ||
+                            !read_traffic(check,0x70280,&sprite) || (sprite>>31))) return false;
     if (!read_traffic(check,0x70180,&control) || !(control & (1u<<31)) ||
         !read_traffic(check,0x7019c,&programmed) || !read_traffic(check,0x701ac,&live) ||
         (live & 4095u) || (programmed & ~8u)!=live || live>=borrow.transfer->manifest.fence_end)
