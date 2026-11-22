@@ -64,6 +64,23 @@ and generated sources match; complete-image bit reproducibility is not claimed.
 
 ![Pinned awk CSV report in Terminal](assets/screenshots/awk-terminal.png)
 
+## GNU sha256sum
+
+`sha256sum` is installed at `/fat/bin/sha256sum` and `/sha256sum` in the
+initramfs. Hash regular files or finite standard input. Save and verify a
+manifest from Terminal or the shell:
+
+```sh
+sha256sum /fat/home/input.bin > /fat/home/SHA256SUMS
+sha256sum -c /fat/home/SHA256SUMS
+```
+
+The C-locale profile accepts one explicit untagged manifest with up to 256 KiB,
+4096 physical records and 1023 decoded bytes per path. Use `-c -` to read the
+manifest from stdin. `cksum` and `sum` retain their separate implementations.
+[Port contract](../ports/srvros/sha256sum/PORT.md) and
+[qualification receipt](assets/evidence/sha256sum/receipt.json).
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and

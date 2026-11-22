@@ -1,0 +1,75 @@
+{
+  "artifacts_sha256": {
+    "binary_sha256": "fea9f575f34605473d2c8a9cca6d3a2fe93ddc3ef25c3bdf394f2aa58d53498a",
+    "host_sha256": "3f8adb9356c4a62bd9393eaccdafd0b529c79fed13eaf602f5bfdb326699861b",
+    "initramfs_sha256": "b2672a38cae505e32a0d3c9248822b5cb7037b8a86720c73f951845a8fa5ecd1",
+    "kernel_sha256": "1801edf586a50aeb98e13cb8cee88c746f70190f90eba580eb6d1c904aa7435f",
+    "probe_elf_sha256": "e35e827ef840da0199e19b138c4d123ee1cc7149af01651b9ddde76023d65456",
+    "source_disk_sha256": "5ba02aa500199873e9acbbc2e9f4d865c51f315d3975ec7906c4abdcfc7679fb",
+    "staged_sha256": "f337f04a2900b2bfc2727754f19dcc0467c25f4177aa0be52ed51a7e6f6fd136"
+  },
+  "cli_regression": {
+    "commands": 498,
+    "status": "running"
+  },
+  "ports_pin": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+  "ports_pin_fetch": "Pending independent OS clone and submodule initialization.",
+  "ports_ref": "refs/heads/pins/srvros-sha256sum",
+  "ports_regression": {
+    "log_sha256": "2bf370fca76a4054012f31b0e0cc4729003837c94c586052ec5818cef9eec386",
+    "status": "PASS"
+  },
+  "ports_review_merge": "c331cb27377269ec741842fe06175bab78fa6bf9",
+  "ports_tree": "2eec2fb8bfae4caa6c2a103e5ec7d3710991f374",
+  "pro_logging_blob": "427a30d358d4bb3757efdd94c421bf4fbede1062",
+  "release_signature": {
+    "algorithm": "OpenPGP RSA/sha512",
+    "archive_sha256": "a480198559733e9b3da999e90543ac6f888a2caa544d8d664c5a1f17e528e210",
+    "fingerprint": "6C37DC12121A5006BC1DB804DF6FD971306037D9",
+    "scope": "Direct verification using recorded release key. Key trust and revocation not assessed.",
+    "signature_verified": true
+  },
+  "reproducibility": {
+    "manifest_sha256": "4f36b08035bfce9980ba6013a45aa41158db52ec53deb025cedf5fcef46f0bc0",
+    "scope": "Two clean component builds on the same SDK. Compared 30 SDK, component object and ELF hashes."
+  },
+  "scope": "C-locale regular file and finite stdin hashing, and one bounded untagged manifest. Memory metrics are snapshots of private mapped user bytes. Escaped-name filesystem cases, whole-image reproducibility, and native hardware acceptance are outside this evidence.",
+  "sha_guest": {
+    "fsck": "clean",
+    "late_input_status": 1,
+    "late_input_stdout_bytes": 0,
+    "private_user_mapped_bytes": {
+      "after_1081344_input_bytes": 2314240,
+      "after_32768_input_bytes": 2314240
+    },
+    "probe_log_sha256": "9a2e1a6e3ab97591bedb10b845686c43f8d24554fb5ff7433b6fda2361bf01f6",
+    "raw_receipt_sha256": "bb0fbdae70b52d59ae9cbaf1f1746171e16655557731d54ac6e8b5770d1f345b",
+    "read_only_output_status": 1,
+    "reference_cases": 10,
+    "refusals": 11,
+    "signals": [
+      130,
+      143
+    ]
+  },
+  "status": "Scoped guest, reproducibility, Terminal and ports PASS. Full CLI regression is running.",
+  "terminal": {
+    "files_and_statuses": "manifest digest, check OK, missing-file exit 1, retry OK",
+    "fsck": "clean",
+    "raw_receipt_sha256": "54a87026a628baef0200c526eb0481957b20e802a0f8cd55b6f5c04d5405e702",
+    "screenshots_sha256": {
+      "01-manifest.png": "fbc3cb55b207f0a0f322ae7841820bfd88577253a0c65a792ea86012cbfc915c",
+      "02-check.png": "b3632aa04884a7ce83503c409b28495dc48aef1055d743e746501884fe33ef8d",
+      "03-missing-error.png": "7b495a758a984f79caf79d30c9b4cc39488d654124d5c051815c1f4c2887d886",
+      "04-retry.png": "3c3a04fed18ac8a02ed41d5d1789bd30fda94cc6e3e0d02b1f6b0da0d26b98d4"
+    },
+    "status": "PASS functional and visual review",
+    "visual": "Readable checksum and status messages with ordinary wrapping of the absolute path. The prompt returned after refusal and retry."
+  },
+  "tested_os_base": "77b0c7cb1cc30acd9004f819015dc8db079e875f",
+  "tested_os_build_input_sha256": {
+    "Makefile": "7b8d78f51721ca5801ac06558b4e3ad0eb946abe2386f48296b46cb927313ffa",
+    "tools/sha256sum_smoke.py": "b617e1f7642318d43f3ef82951a8854432f949b53bbaed93a0f32ade93b9ba70",
+    "tools/test_sha256sum_probe.c": "79af3eecc1425b1bfe3346810a6770cb36bbb7575a2209c47d524b57dfc82e6a"
+  }
+}
