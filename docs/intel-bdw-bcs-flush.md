@@ -190,3 +190,56 @@ locations untouched. After release the CPU verifies all successor data
 and markers. This exercises private work scheduled by i915. Native
 global admission, a power-manager L3 flush and slot ownership still
 require independent evidence.
+
+## Device-side queue hold through slot 8704 rollback
+
+On the Ubuntu Air7,2, build the binary as above and run the observer once.
+Its client uses the render user's DRM nodes. The observer reads the GGTT
+entry, Pipe A and cache/traffic registers under i915 forcewake and uses an
+isolated tracefs instance to identify the client's GGTT bindings.
+
+```sh
+sudo timeout 12s python3 tools/intel_bdw_slot_loan_host.py \
+    --user "$(id -un)" "$PWD/build/tests/intel-bdw-engine-drain-host"
+```
+
+1. Each of the five private queues writes fresh data, issues its own
+   completion packet, then encounters a polling PPGTT `MI_SEMAPHORE_WAIT`.
+   The CPU checks the data, five post-sync markers, five pending fences
+   and untouched successor markers. A second semaphore lets only RCS
+   execute a final `PIPE_CONTROL` after this check. The CPU witnesses the
+   new post-sync marker before admitting the replacement.
+2. i915 unbinds and rebinds two private 40 MiB objects. Their traced ranges
+   must cover address `0x02200000` in the same GGTT. The observer follows
+   both object identities, reads the changing slot 8704 PTE and matches
+   its exact original value on return. The client verifies all 1,024 words
+   of the target page against the GEM backing, including the original
+   contents after restoration. i915 changes whole object bindings here.
+3. Pipe A must stay enabled on the original programmed and live surface at
+   each check. Its frame counter must advance by the time rollback finishes.
+   Only then does the CPU release the common semaphore and verify all five
+   successor markers and fences. A separate process releases both semaphores
+   if the client exits or 1.5 seconds elapse. Watchdog expiry fails the test.
+
+The Air completed two of eight final trials. Six stopped on the panel
+surface check. Removing all waits allowed an engine to escape; removing
+only the first render wait exposed an early final flush. Both controls
+stopped before the replacement. These results cover the five submitted
+queues and their private GEM objects in a running i915 desktop.
+
+In the complete runs the selected bank returned `L3SQCREG4=0x40400000`.
+Bit 21 was clear, so the pipeline flush covered noncoherent lines and
+left coherent L3 lines outside its guarantee. `SCRATCH1[4]` selects a
+different policy for the power manager's flush. The observer leaves
+register steering and both policies untouched. Broadwell replicates this
+configuration per slice and bank. [Intel Broadwell register reference,
+pp. 845 and 863](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+· [Intel Broadwell MMIO, p. 3](https://cdrdv2-public.intel.com/690867/intel-gfx-prm-osrc-bdw-vol-13-mmio.pdf#page=7)
+
+SrvrOS needs exclusive submission and mappings for its command and
+semaphore pages. For a command-streamer drain it must also establish
+coherent-line flush coverage on every active bank before issuing the final
+render flush and exclude the separate WiDi requester through translation
+retirement. The measured GAM request and WiDi registers stayed open under
+the private waits. The inherited slot writer continues to require a
+device-wide hold. [Native writer requirements](intel-bdw-edp-recovery.md#reset-free-use-of-the-same-traffic-checks)

@@ -95,6 +95,23 @@ enum bdw_barrier_engine {
 bool intel_bdw_ppgtt_barrier(enum bdw_barrier_engine, uint64_t address, uint64_t marker,
                              uint32_t packet[BCS_FLUSH_DWORDS]);
 
+/* Gen8 memory-poll equality wait in an owned PPGTT on an execlist engine.
+ * Use a distinct coherent semaphore page which stays bound through release.
+ * Only commands following this packet in this queue are held. */
+bool intel_bdw_ppgtt_wait_equal(uint64_t address, uint32_t release_value, uint32_t packet[4]);
+
+/* Distinct cache lines within two owned, coherent 4 KiB PPGTT pages.
+ * Release RENDER_START only after all five DRAIN markers. Release the shared
+ * gate at offset zero only after rollback. The RCS post-sync marker attests
+ * to the flush selected by the current L3 policy. */
+enum {
+    BDW_QUEUE_DRAIN = 64, BDW_QUEUE_RESUMED = 128, BDW_QUEUE_FINAL_FLUSH = 192,
+    BDW_GATE_RENDER_START = 64, BDW_GATE_WORDS_MAX = 26,
+};
+unsigned intel_bdw_ppgtt_drain_and_hold(enum bdw_barrier_engine, uint64_t result_page,
+                                        uint64_t gate_page, uint64_t nonce,
+                                        uint32_t packet[BDW_GATE_WORDS_MAX]);
+
 /* Pure command/completion protocol. Original clocks never restart, including
  * the 10ms submit-through-completion interval. Unknown state is terminal and
  * retains ALL original backing; no rollback, unmap, retry or free callback.

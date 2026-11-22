@@ -262,6 +262,46 @@ static void private_barrier_cases(void)
     assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,1ull<<32,marker,out));
     assert(!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,addr,marker,NULL));
     assert(!memcmp(out,other,sizeof(out)));
+    const uint32_t wait[]={0x0e00c002,lo,addr,0};
+    assert(intel_bdw_ppgtt_wait_equal(addr,lo,out) && !memcmp(wait,out,sizeof(wait)));
+    assert(!intel_bdw_ppgtt_wait_equal(addr+1,lo,out));
+    assert(!intel_bdw_ppgtt_wait_equal(1ull<<32,lo,out));
+    assert(!intel_bdw_ppgtt_wait_equal(0,lo,out));
+    assert(!intel_bdw_ppgtt_wait_equal(addr,0,out));
+    assert(!intel_bdw_ppgtt_wait_equal(addr,lo,NULL));
+    assert(!memcmp(wait,out,sizeof(wait)));
+    uint32_t list[BDW_GATE_WORDS_MAX];
+    const uint32_t result = 0xfffff000, gate = 0x1000;
+    for (unsigned e = 0; e < BDW_BARRIER_ENGINES; ++e) {
+        memset(list, 0xaa, sizeof(list));
+        unsigned count = intel_bdw_ppgtt_drain_and_hold(e, result, gate, marker, list);
+        bool rcs = e == BDW_BARRIER_RCS;
+        assert(count == (rcs ? 26u : 16u));
+        assert(intel_bdw_ppgtt_barrier(e, result + 64, marker, out));
+        assert(!memcmp(list, out, sizeof(out)));
+        unsigned common = 6;
+        if (rcs) {
+            const uint32_t first[] = {0x0e00c002, 1, gate + 64, 0};
+            assert(!memcmp(list + 6, first, sizeof(first)));
+            assert(intel_bdw_ppgtt_barrier(e, result + 192, marker, out));
+            assert(!memcmp(list + 10, out, sizeof(out)));
+            common = 16;
+        }
+        const uint32_t held[] = {0x0e00c002, 1, gate, 0};
+        assert(!memcmp(list + common, held, sizeof(held)));
+        assert(intel_bdw_ppgtt_barrier(e, result + 128, ~marker, out));
+        assert(!memcmp(list + common + 4, out, sizeof(out)));
+        for (unsigned i = count; i < BDW_GATE_WORDS_MAX; ++i) assert(list[i] == 0xaaaaaaaa);
+    }
+    uint32_t before[BDW_GATE_WORDS_MAX];
+    memcpy(before, list, sizeof(list));
+    assert(!intel_bdw_ppgtt_drain_and_hold(0, gate, gate, marker, list));
+    assert(!intel_bdw_ppgtt_drain_and_hold(0, result, gate + 1, marker, list));
+    assert(!intel_bdw_ppgtt_drain_and_hold(0, result + 4096ull, gate, marker, list));
+    assert(!intel_bdw_ppgtt_drain_and_hold(BDW_BARRIER_ENGINES, result, gate, marker, list));
+    assert(!intel_bdw_ppgtt_drain_and_hold(0, result, gate, UINT64_MAX, list));
+    assert(!memcmp(before, list, sizeof(list)));
+
 }
 
 int main(void) {

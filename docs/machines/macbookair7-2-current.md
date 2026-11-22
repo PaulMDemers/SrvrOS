@@ -10,6 +10,26 @@ tear-free scanout is still pending.
 
 ## Reset-free primary plane flip
 
+On November 21 the Air ran the SrvrOS command encoder on five i915-owned
+hardware queues. Each engine drained its preceding batch and parked. Only
+then did RCS issue the final render flush and park again. i915 rebound a
+private GGTT allocation covering slot 8704 and restored it before the CPU
+released the five successors. In one completed run the slot contained
+`0x14cd5a001`, then `0x14d123001`, then exactly `0x14cd5a001`. All 1,024
+original words matched and Pipe A advanced from 90301 to 90302 on the same
+surface. Two of eight final trials completed. The other six refused when
+the original-plane check failed. Both hardware controls with an omitted
+wait refused before replacement. [Reproduction and scope](../intel-bdw-bcs-flush.md#device-side-queue-hold-through-slot-8704-rollback)
+
+The hardware also identified the boundary of the private-queue result.
+At every held check of the completed run the sampled L3 bank had coherent
+pipeline flushing disabled (`L3SQCREG4=0x40400000`). The arbiter and
+WiDi still allowed traffic (`GO_GAM_REQ=0xff`, `MSG_IDLE_WIN=0x1f`).
+The SrvrOS writer for the inherited entry still needs a native submission
+owner, a full coherent/noncoherent cache drain, and exclusion of the
+independent display proxy. Original Pipe A scanout must continue across
+the entire loan. The native write trial remains unarmed.
+
 PR 301 adds a System Agent GGTT invalidation after each PTE store and
 readback in the one-page publisher. Replacement and rollback use the same
 traffic hold. The 193 host transfer cases cover missing, uncertain, late and

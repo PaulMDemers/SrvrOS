@@ -39,6 +39,39 @@ bool intel_bdw_ppgtt_barrier(enum bdw_barrier_engine engine, uint64_t address, u
     }
     return true;
 }
+bool intel_bdw_ppgtt_wait_equal(uint64_t address, uint32_t release_value, uint32_t packet[4])
+{
+    if (!packet || !release_value || !address || address >= (1ull << 32) || (address & 3u))
+        return false;
+    /* MI_SEMAPHORE_WAIT: PPGTT, memory polling, SAD == SDD, four DWORDs. */
+    packet[0] = (0x1cu << 23) | (1u << 15) | (4u << 12) | 2u;
+    packet[1] = release_value;
+    packet[2] = (uint32_t)address;
+    packet[3] = 0;
+    return true;
+}
+
+unsigned intel_bdw_ppgtt_drain_and_hold(enum bdw_barrier_engine engine, uint64_t result,
+                                        uint64_t gate, uint64_t nonce,
+                                        uint32_t packet[BDW_GATE_WORDS_MAX])
+{
+    if (!result || !gate || result == gate || ((result | gate) & 4095u) ||
+        (result | gate) >= (1ull << 32) || !packet ||
+        !intel_bdw_ppgtt_barrier(engine, result + BDW_QUEUE_DRAIN, nonce, packet))
+        return 0;
+    unsigned used = BCS_FLUSH_DWORDS;
+    if (engine == BDW_BARRIER_RCS) {
+        if (!intel_bdw_ppgtt_wait_equal(gate + BDW_GATE_RENDER_START, 1, packet + used) ||
+            !intel_bdw_ppgtt_barrier(engine, result + BDW_QUEUE_FINAL_FLUSH, nonce, packet + used + 4))
+            return 0;
+        used += 4 + BCS_FLUSH_DWORDS;
+    }
+    if (!intel_bdw_ppgtt_wait_equal(gate, 1, packet + used) ||
+        !intel_bdw_ppgtt_barrier(engine, result + BDW_QUEUE_RESUMED, ~nonce, packet + used + 4))
+        return 0;
+    return used + 4 + BCS_FLUSH_DWORDS;
+}
+
 static bool binding_same(const struct bcs_flush_binding *a,const struct bcs_flush_binding *b) {
  return a->owner==b->owner && a->provider==b->provider && a->lifetime==b->lifetime && a->context==b->context &&
  a->epoch==b->epoch && a->sequence==b->sequence && a->root==b->root && a->nonce==b->nonce &&
