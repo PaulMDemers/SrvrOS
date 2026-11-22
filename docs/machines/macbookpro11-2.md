@@ -105,6 +105,15 @@ The installed image and native evidence are archived as
 `2c50726ff8fd17be` and `evidence-2c50726ff8fd17be` in the unit's
 recovery directory.
 
+The follow-up used the same release in session
+`session-000660e4e3033086-00`. Explicit Revert restored 1.25× from a
+1.5× trial, and the countdown restored 1.5× from a 1.75× trial. The
+operator then kept 1.75× and restored the workspace's saved 1× setting.
+The final 64 KiB log survived 364,144 bytes of logging. The workspace
+passed its integrity check, with the Text proof updated and all 541
+other files matching. The native 1.75× screenshot remains open. This
+session has its own evidence archive under the recovery directory.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
