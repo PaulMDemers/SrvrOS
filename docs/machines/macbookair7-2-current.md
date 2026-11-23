@@ -15,7 +15,18 @@ check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
 GRUB entry runs the EFI probe, then chainloads the same Limine binary used by
 recovery. With the Ubuntu binaries the guest recovered all 19 EFI pages,
-saved the report and restarted. Physical confirmation is pending.
+saved the report and restarted.
+
+Physical retry `7878ec2039051e30` reached SrvrOS and saved session
+`session-000660f87d2503b3-00`. Ubuntu verified a clean unmount and zero
+allocation errors. The kernel recorded `intel-efi-boot: imported=0 backing=0`.
+The framebuffer snapshot was preserved. Admission stopped before GT wake or
+any GPU page-table write. All seven command slots had zero observations. This
+confirms the direct GRUB boot repair. The EFI handoff prerequisite failed.
+
+The saved report cannot distinguish a probe load failure, an allocation or
+ACPI publication failure, or rejection during kernel import. The next trial
+needs separate evidence for each of those boundaries before retrying submission.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
@@ -38,8 +49,8 @@ before using the reservation. The backing stays reserved across reset and
 PCI reopening and returns to the boot reservation on clean retirement.
 
 The host suite passed all 23 tests. The first OVMF trial recovered all 19 pages.
-The next physical trial checks the firmware inventory and seven translations
-on this Air. The first native command still depends on a device-wide drain and
+The firmware inventory and seven translations still need a successful
+physical handoff on this Air. The first native command still depends on a device-wide drain and
 an independent WiDi hold. [EFI handoff](../intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 
 The blitter can promote that exact reservation when the original owner
