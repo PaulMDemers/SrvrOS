@@ -412,6 +412,16 @@ matched the exact kernel and three executables, and the guest stopped.
 Pinned static GIO compiles `ginetaddress.c` and stops at missing `IP_TOS`.
 [Address receipt](../assets/evidence/gio-inet-address/receipt.json)
 
+## GIO IPv4 traffic class messages — November 22, 2026
+
+Merged OS #528 at `8c5565d4` is the baseline. The GIO change includes the
+existing SDK header and leaves shared runtime source unchanged. A private,
+single-CPU 512 MiB diskless guest with an isolated NIC verified the linked
+codec and the SDK's UDP option refusal twice. Both platform controls passed,
+ISO readback matched, and the VM window was released. The pinned static
+build compiled `giptosmessage.c`. Static GIO next stops at `IPV6_TCLASS` in `gipv6tclassmessage.c`.
+See the [codec receipt](../assets/evidence/gio-ip-tos/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
