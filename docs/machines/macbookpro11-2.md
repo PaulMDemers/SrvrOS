@@ -20715,3 +20715,74 @@ preserve all runtime guards; the separate84.64-second recheck passes with its
 inputs unchanged. Parser tests pass9groups with one explicit full-composition
 skip pending matched C-formatter composition. The current source is not yet
 image-qualified, installed or physically accepted; no new test is armed.
+
+### Host tooling for collecting native returns (November 22)
+
+On integration base `b95bc096`, the host-side `tools/trial collect` work
+covers session identification, workspace comparison and return reporting.
+It depends on the existing USB UUID resolver, boot-option parser and
+pre-boot run records. Its qualification uses archived Pro returns and
+host fixtures. PR #501 owns the separate Retina payload and physical trial.
+
+Archived replay matched the v155 active-removal return, the 64 KiB
+rolling Retina exit and the two-file v154 replug exit. It retained the
+Retina retry's periodic evidence with the final snapshot missing, and
+reported no new matching session for the older cold-readiness return.
+
+### Host tooling for Retina qualification (November 22)
+
+The next host command stages the Retina image once and rehearses the same
+release on disposable VMs with and without its GPT workspace. The host CLI
+builds on PR #513 at `14fc7306`. PR #501 at `6112a4e5` supplies the Retina
+recipe, built inputs and fractional-display VM harness. This scope covers
+the qualifier, its tests, guide and receipt. The next checkpoint is a
+release- and manifest-matched pair of VM results.
+
+The qualifier staged the existing PR #501 build once at checkout
+`6112a4e5`. Both VMs returned PASS for release `2c50726ff8fd17be` and
+staged manifest SHA-256
+`a69eb04eeb1b1d7016554ed5121d160bd88e3e2bd907578533af8abf58e01f48`.
+With the GPT workspace, the fractional trial saved Text, screenshot and
+logs and unmounted cleanly. With the workspace absent, the guest skipped
+the desktop and reached automatic return. This is VM qualification.
+
+### Host tooling for the Retina return handoff (November 22)
+
+On PR #514 (`397700cc`, integration main `00ea6d78`), prepare the
+collector's pre-boot record from the passed Retina receipt and the
+installed release. Scope is host verification of the workspace, Ubuntu
+boot selection, known-good recovery and guest checklist. PR #501 owns
+the payload. Check the prepared record against the collector contract and
+exercise the existing Pro evidence without starting another native run.
+
+Read-only live preflight matched installed `2c50726ff8fd17be` to both VM
+receipts and verified previous `74da74e0b57afbb8` against its independent
+backup. Ubuntu was the default with no pending GRUB or firmware one-shot.
+The clean GPT workspace had 546 prior files and 225 prior sessions. The
+on-disk handoff selected `retina-fractional-proof-2.txt` because the
+original proof already exists. A repeat attended run requires delivery of
+the saved checklist with that filename. The workspace was unmounted and
+the candidate remains unarmed.
+
+### Host tooling for comparing native trials (November 22)
+
+Build a read-only comparison of archived returns on PR #516 (`93d804e6`,
+integration main `a055fc26`). Scope covers the host trial CLI, receipt
+comparison, focused tests and usage guide. Replay the two Pro Wi-Fi active
+removal trials through the existing session matcher and check the traffic,
+retirement, storage and recovery findings against their individual receipts.
+
+Replay of `d2a184d5d4a8e199` and `fdf4c549cecbbe87` finds the first
+difference after DHCP, gateway ping and DNS. Before removal the first
+recorded 18 of 60 required replies, and the repeat recorded 60 of 60.
+Both exit logs record the worker stopped, slot disabled, keys erased,
+provider retired and safe return. Both workspace comparisons report
+no changed or missing prior files and verified Ubuntu default and recovery.
+The repeat also compared identically through its saved collection bundle.
+These findings reuse the archived physical evidence.
+
+Integration scope for PRs #513, #514, #516 and #519 starts from main
+`0273ba64` and comparison head `12b3234f`. Validate the combined host
+commands with focused tests and the complete Wi-Fi, partial Retina and
+missing-session archives. Compare both collectors on the next planned
+native return, using the same volume, pre-boot baseline and session.
