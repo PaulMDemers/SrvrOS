@@ -45,9 +45,11 @@ static long launch_session(uint64_t scope, int slave, const struct local_account
     char *argv[] = {SESSION_PATH, "--enter", uid, gid, NULL};
     char *envp[] = {home, NULL};
     struct srv_exec_request request = {
-        .path = SESSION_PATH, .argv = argv, .envp = envp, .flags = SRV_EXEC_BACKGROUND,
+        .path = SESSION_PATH, .argv = argv, .envp = envp,
+        .flags = SRV_EXEC_BACKGROUND | SRV_EXEC_SET_SIGNAL_DEFAULT,
         .stdin_fd = slave, .stdout_fd = slave, .stderr_fd = slave,
-        .process_group = UINT64_MAX, .foreground = 1
+        .process_group = UINT64_MAX, .foreground = 1,
+        .signal_default = UINT64_C(1) << SIGINT
     };
     struct srv_scope_exec scoped = {
         .version = SRV_SCOPE_VERSION, .size = sizeof(scoped), .request = &request
@@ -211,6 +213,9 @@ static bool delay_failure(unsigned failures) {
 
 int main(void) {
     if (geteuid() != 0) return 1;
+    /* Physical Ctrl-C can arrive while the console is cooked between prompts
+     * or during retry delay. The private session restores default handling. */
+    if (signal(SIGINT, SIG_IGN) == SIG_ERR) return 1;
     unsigned failures = 0;
     for (;;) {
         char name[LOCAL_AUTH_NAME_MAX + 1] = {0};

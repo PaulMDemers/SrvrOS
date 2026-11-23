@@ -283,12 +283,17 @@ class VM:
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: enrollment failed: {name}')
 
-    def attempt(self, name, password, uid=None, session=None, ending='logout', diagnostic=True):
+    def attempt(self, name, password, uid=None, session=None, ending='logout', diagnostic=True,
+                interrupt_retry=False):
         start = len(self.output)
         self.send(name.encode('ascii')); self.wait(b'Password: ')
         sent = time.monotonic()
         self.send(password)
         if uid is None:
+            if interrupt_retry:
+                # The secret reader restores cooked mode before emitting this newline.
+                self.wait(b'\r\n')
+                self.serial.sendall(b'\x03')
             self.wait(b'Sign-in failed.')
             if time.monotonic() - sent < 0.8:
                 raise RuntimeError('failed sign-in returned before its retry delay')
@@ -498,7 +503,7 @@ def main():
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
         for number in (1, 2):
             with VM(target, out, f'local-{number}', args, 'local') as vm:
-                vm.attempt('alpha', WRONG)
+                vm.attempt('alpha', WRONG, interrupt_retry=True)
                 vm.attempt('unknown', WRONG)
                 vm.attempt('disabled', PASSWORDS['disabled'])
                 vm.attempt('alpha', PASSWORDS['alpha'], 1001,
@@ -516,6 +521,7 @@ def main():
                 if image.read('home/local-' + name + '/evidence.txt') != expected:
                     raise RuntimeError(f'{name}: persisted file bytes differ after boot {number}')
             receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS',
+                'interrupt_during_retry_returns_to_login': 'PASS',
                 'alpha': 'PASS', 'beta': 'PASS', 'file_readback': 'PASS',
                 'cross_user_denial': 'PASS', 'worker_logout_and_crash_retired': 'PASS'})
             save()
