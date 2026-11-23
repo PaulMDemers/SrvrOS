@@ -15,7 +15,8 @@ passed in the guest and `ginetaddress.c` compiles. A linked guest
 verified the IPv4 ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
-Static GIO next stops at undeclared `SOMAXCONN` in `gsocket.c`.
+The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
+Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
 The normal guest also verified native wait, character
 conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.

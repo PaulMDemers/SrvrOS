@@ -38,6 +38,7 @@ INET_ADDRESS_MARKER = b'glib-inet-address: ok'
 INET_ATON_MARKER = b'glib-inet-aton: ok'
 SEQPACKET_MARKER = b'glib-seqpacket: ok'
 EPROTOTYPE_MARKER = b'glib-eprototype: ok'
+SOMAXCONN_MARKER = b'glib-somaxconn: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
@@ -168,6 +169,7 @@ def main():
     parser.add_argument('--inet-aton', action='store_true', help='test SDK IPv4 numbers-and-dots parsing')
     parser.add_argument('--seqpacket', action='store_true', help='test native Unix packet pairs and descriptor transfer')
     parser.add_argument('--eprototype', action='store_true', help='test the protocol/type errno and socket creation flags')
+    parser.add_argument('--somaxconn', action='store_true', help='test the Unix listener backlog and its public ceiling')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
@@ -254,7 +256,8 @@ def main():
                       ('inet-address', args.inet_address, INET_ADDRESS_MARKER),
                       ('inet-aton', args.inet_aton, INET_ATON_MARKER),
                       ('seqpacket', args.seqpacket, SEQPACKET_MARKER),
-                      ('eprototype', args.eprototype, EPROTOTYPE_MARKER))
+                      ('eprototype', args.eprototype, EPROTOTYPE_MARKER),
+                      ('somaxconn', args.somaxconn, SOMAXCONN_MARKER))
         for name, enabled, marker in sdk_probes:
             if not enabled:
                 continue

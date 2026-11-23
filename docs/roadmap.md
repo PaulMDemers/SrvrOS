@@ -39,7 +39,8 @@ helpers and numeric IPv4 lookup. Linked guests verified the IPv4 ToS and
 IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
-Static GIO next stops at undeclared `SOMAXCONN` in `gsocket.c`.
+The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
+Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
