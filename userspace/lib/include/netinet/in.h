@@ -32,9 +32,11 @@ struct sockaddr_in6 {
 
 #define IP_TTL 2
 /* Public option identifiers also let callers handle unavailable features. */
+#define IP_MULTICAST_TTL 33
 #define IP_MULTICAST_LOOP 34
 /* Source compatibility for callers that handle unsupported IPv6 sockets. */
 #define IPV6_UNICAST_HOPS 16
+#define IPV6_MULTICAST_HOPS 18
 #define IPV6_MULTICAST_LOOP 19
 
 #define INADDR_ANY 0x00000000u
