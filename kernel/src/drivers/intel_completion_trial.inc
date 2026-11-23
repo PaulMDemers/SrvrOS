@@ -55,7 +55,7 @@ static bool completion_snapshot(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INT
 #else
 #define COMPLETION_SAMPLE NULL
 #endif
-#if defined(SRVROS_INTEL_ENTRY_REQUESTER) || defined(SRVROS_INTEL_NONZERO_RESET) || defined(SRVROS_INTEL_GT_MEMORY_PREPARE)
+#if defined(SRVROS_INTEL_ENTRY_REQUESTER) || defined(SRVROS_INTEL_NONZERO_RESET) || defined(SRVROS_INTEL_GT_MEMORY_PREPARE) || defined(SRVROS_INTEL_PREPARE_GAM)
 /* Lossless canonical raw bytes; reporting occurs after the bounded operation. */
 static void entry_requester_base64(const uint8_t *bytes,unsigned size,char *out) {
  static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";unsigned k=0;

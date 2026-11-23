@@ -385,7 +385,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
 
 /* Execute the native batch bytes and virtual addresses. i915 supplies its
  * own page tables and contexts. Only private, per-process mappings are used. */
-static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t epoch)
+static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t epoch, bool trace)
 {
     static _Alignas(4096) struct bdw_private_vm_image image;
     /* The model bus address is used solely to validate table construction.
@@ -409,6 +409,7 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
     }
     int signal_fd;
     pid_t watcher=start_watchdog(cpu,&signal_fd);
+    uint64_t submit_at = monotonic_us();
     for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++) {
         struct drm_i915_gem_exec_object2 obj[]={
             {.handle=gate,.offset=(BDW_PRIVATE_GATE+1)*4096,.flags=EXEC_OBJECT_PINNED},
@@ -429,11 +430,13 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
         const struct timespec delay={.tv_nsec=50000}; nanosleep(&delay,NULL);
     }
     require(q[0].view[BDW_QUEUE_FINAL_FLUSH/8]==q[0].marker,"Missing final render flush");
+    uint64_t held_at = monotonic_us();
     uint64_t first=frame(card,crtc),last=first;
     deadline=monotonic_us()+COMPLETION_TIMEOUT_US;
     while(first==last && monotonic_us()<deadline)last=frame(card,crtc);
     require(last>first && active_edp(card)==crtc,"Panel stopped while engines waited");
     assert_waiting(q,cpu);
+    uint64_t release_at = monotonic_us();
     close(signal_fd);
     int status;
     require(waitpid(watcher,&status,0)==watcher && WIFEXITED(status) && !WEXITSTATUS(status),
@@ -449,18 +452,23 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
         printf("%s marker=%016llx resumed=%016llx scratch verified\n",engines[e].name,
                (unsigned long long)q[e].marker,(unsigned long long)~q[e].marker);
     }
+    if (trace)
+        printf("hold_times %llu %llu %llu %llu\n", (unsigned long long)submit_at,
+               (unsigned long long)held_at, (unsigned long long)release_at,
+               (unsigned long long)monotonic_us());
     printf("private-image eDP CRTC %u frames %llu -> %llu\n",crtc,(unsigned long long)first,(unsigned long long)last);
 }
 
 int main(int argc, char **argv)
 {
-    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--independent-slot|--competing-context|--private-image");
+    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--independent-slot|--competing-context|--private-image|--observe-hold");
     char *end;
     long timeline = strtol(argv[1], &end, 10);
     bool slot_trial = !strcmp(argv[1], "--slot-loan");
     bool compete = !strcmp(argv[1], "--competing-context");
     bool independent_trial = compete || !strcmp(argv[1], "--independent-slot");
-    bool image_trial = !strcmp(argv[1], "--private-image");
+    bool trace = !strcmp(argv[1], "--observe-hold");
+    bool image_trial = trace || !strcmp(argv[1], "--private-image");
     if (!slot_trial && !independent_trial && !image_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
     int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
     require(fd >= 0 && parameter(fd, I915_PARAM_CHIPSET_ID) == 0x1626 &&
@@ -475,7 +483,13 @@ int main(int argc, char **argv)
     require(getrandom(&seed, sizeof(seed), 0) == sizeof(seed) && (uint32_t)(seed >> 32) != 0 &&
             (uint32_t)(seed >> 32) != UINT32_MAX, "Cannot obtain fresh markers");
     if (image_trial) {
-        private_image(fd,card,crtc,context.ctx_id,seed>>8);
+        if (trace) {
+            unsigned ready;
+            puts("READY");
+            fflush(stdout);
+            require(scanf("%u", &ready) == 1 && ready == 1, "Observer did not establish baseline");
+        }
+        private_image(fd,card,crtc,context.ctx_id,seed>>8,trace);
         return EXIT_SUCCESS;
     }
     if (slot_trial || independent_trial) {

@@ -10,6 +10,22 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+Three Air7,2 acquisition-only runs under Ubuntu/i915 parked and released all
+five queues and verified the five scratch markers. Across 4,086 register sweeps
+the GAM request/response stayed at `0xff/0x7f`. WiDi remained permitted and
+no engine flush or L3 block acknowledgement was sampled. Each run observed an
+advancing eDP frame counter and preserved the primary surface and both PTEs.
+Maximum gaps across the three traces were 54 µs during acquisition, 67 µs
+during the hold and 33 µs during release. Shorter pulses remain unresolved.
+
+The automated `intel-prepare-gam-v1` trial samples the native GAM request on
+both sides of four five-engine control snapshots, with PCI bus mastering enabled.
+The snapshots cover entry, two held observations and cancellation. The report
+preserves all eight raw DWORDs and the existing engine and display evidence.
+Both GGTT slots remain untouched. This experiment tests whether engine prepare
+changes GAM permission. A subsequent slot write requires independent engine,
+WiDi and L3 evidence and a request the driver can maintain through rollback.
+
 On November 22 the i915 comparison queued one independent request on each of
 the five engines while two lower-priority contexts held the queues. The kernel
 reported priorities −1023, −1023 and 0. None of the five scratch markers or

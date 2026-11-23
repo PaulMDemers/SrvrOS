@@ -17,6 +17,13 @@ def output(exe,*args):return subprocess.check_output([str(exe),*args],text=True,
 MODES=['normal','wait','copy','policy','pre-epoch','pre-active','pre-domain','pre-batches','pre-count','pre-time','pre-context','extra','preserve','preserve-epoch','preserve-time','end-deadline','end-epoch']
 POINTS={**{m:range(1,11) for m in ('write-none','write-uncertain','write-epoch','write-detach','ack-float','ack-reserved','ack-foreign','poll-read','poll-epoch','phase-time','first-ack-time','never-ready')},**{m:range(1,25) for m in ('sample-read','sample-float')},**{m:range(1,5) for m in ('sample-count','sample-epoch')},**{m:range(5) for m in ('pre-geometry','pre-wait','pre-busy','hold-drift','hold-mask-drift')},**{m:range(1,9) for m in ('guard','guard-time','guard-epoch','clock-epoch','zero','backward')}}
 class PrepareTests(unittest.TestCase):
+ def test_prepare_gam_brackets(self):
+  from workflow.prepare_gam import samples
+  text=output(ADAPTER,'--wake-engine-report')
+  self.assertEqual(samples(text),[0xff,0xff,0xdf,0xdf,0xdf,0xdf,0xff,0xff])
+  row=next(line for line in text.splitlines() if line.startswith('intel-gam-prepare:'))
+  for corrupted in (text.replace(row,''),text+row+'\n',text.replace(row,row.replace('n=8','n=7'))):
+   with self.assertRaises(ValueError):samples(corrupted)
  def test_preservation_provider_exit_failure(self):
   for mode in ('prep-post-exit-endpoint','prep-post-exit-backing'):
    for n in (1,2):
@@ -79,6 +86,13 @@ class PrepareTests(unittest.TestCase):
   handoff=output(Path('build/tests/intel-handoff-probe'),'0')
   adapter=output(ADAPTER,'--wake-engine-report').replace('intel-wake: bounded','intel-wake: preflight checkpoint saved\nintel-wake: bounded',1)
   text='bootloader: Limine 11.4.1\n'+cache+'intel-boot-claim: v=1 policy=2 client=2 immutable=1 hardware_ownership=0 managed_pages=0\n'+handoff+adapter
+  from workflow.prepare_gam import result
+  self.assertTrue(result(text)['diagnostic_complete'])
+  self.assertFalse(result(text)['hardware_ownership'])
+  row=next(line for line in adapter.splitlines() if line.startswith('intel-gam-prepare:'))
+  import struct,base64
+  invalid=base64.b64encode(struct.pack('<8I', *([0xff]*7+[0xffffffff]))).decode()
+  self.assertFalse(result(text.replace(row,'intel-gam-prepare: v=1 n=8 b='+invalid))['diagnostic_complete'])
   self.assertTrue(native_prepare_result(text)['native_complete'])
   for old,new in [('Limine 11.4.1','Limine 11.4.2'),('intel-wake: preflight checkpoint saved',''),('maps=13','maps=12'),('cache_checks=13','cache_checks=12')]:
    with self.subTest(old=old),self.assertRaises(ValueError):native_prepare_result(text.replace(old,new))

@@ -402,7 +402,7 @@ def verify(directory, expected_release=None):
     if version.startswith((*EDP_CONFIGS, "ram-usb-v16-intel-stolen-", "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-")) and manifest.get("source_bound") is not True:
         raise ValueError("Missing boot payload source binding")
     if "source_bound" in manifest:
-        if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v16-intel-stolen-", "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
+        if manifest["source_bound"] is not True or not version.startswith((*EDP_CONFIGS, "ram-usb-v1-intel-engine-prepare-", "ram-usb-v16-intel-stolen-", "ram-usb-v15-intel-stolen-", "ram-usb-v14-intel-stolen-", "ram-usb-v12-intel-stolen-","ram-usb-v13-intel-stolen-", "ram-usb-v1-intel-gt-bootstrap-range-", "ram-usb-v1-intel-gt-bootstrap-primary-", "ram-usb-v1-intel-gt-bootstrap-aux-", "ram-usb-v1-intel-gt-bootstrap-flush-")):
             raise ValueError("Unexpected boot payload source binding")
         source = manifest.get("git_head")
         if source is None:
@@ -765,7 +765,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             shutil.copyfile(source, target / name)
         hashes = {name: digest(target / name) for name in sources}
         git_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        bind_source = intel_stolen_capture in ("scanout-range","private-range","firmware-import","submission-guard") or intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps or intel_gt_range or intel_gt_primary or intel_gt_aux or intel_gt_flush
+        bind_source = intel_engine_prepare or intel_stolen_capture in ("scanout-range","private-range","firmware-import","submission-guard") or intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps or intel_gt_range or intel_gt_primary or intel_gt_aux or intel_gt_flush
         release = release_id(hashes, version, source=git_head if bind_source else None)
         (target / "limine.conf").write_text(limine_config(release, version))
         # GRUB splits the EFI file path into directory and filename nodes.

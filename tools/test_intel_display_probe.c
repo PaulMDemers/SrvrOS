@@ -253,6 +253,13 @@ static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t
  return intel_display_test_wake_read(0xa188,r) && intel_display_test_wake_read(0x130044,a) && intel_display_test_wake_read(0x13805c,t);
 }
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#ifdef SRVROS_INTEL_PREPARE_GAM
+static uint32_t intel_display_test_prepare_gam(void) {
+ assert(wake_irq && !display_access_allowed() && wake_ack==1);
+ for(unsigned e=0;e<5;e++)if((prepare_controls[e]&3)!=3)return 0xff;
+ return 0xdf;
+}
+#endif
 static unsigned takeover_reads;
 static bool intel_display_test_takeover_read(unsigned,uint32_t,uint32_t *);
 #endif

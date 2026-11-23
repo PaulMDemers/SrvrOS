@@ -1,11 +1,13 @@
 """Observe a private i915 GGTT rebind on Air7,2. The GPU client runs as the invoking user."""
 import argparse
+from collections import Counter
 from contextlib import ExitStack
 import mmap
 import os
 from pathlib import Path
 import pwd
 import re
+import select
 import struct
 import subprocess
 import tempfile
@@ -18,8 +20,85 @@ TRANSITION = re.compile(r'i915_vma_(?:un)?bind: obj=\w+, offset=(0x[\da-f]+) siz
 PCI = Path('/sys/bus/pci/devices/0000:00:02.0')
 
 
-def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False):
-    slot = INDEPENDENT_SLOT if independent else FIRMWARE_SLOT
+def text_console(stack, console):
+    if console is None:
+        return
+    previous = Path('/sys/class/tty/tty0/active').read_text().strip()
+    if not re.fullmatch(r'tty[1-9][0-9]*', previous):
+        raise ValueError('Cannot identify the recovery VT')
+    stack.callback(subprocess.run, ['chvt', previous[3:]], check=True)
+    subprocess.run(['chvt', str(console)], check=True)
+    time.sleep(0.5)
+
+
+def observe_hold(stack, client, console, power, messages, footprint):
+    if not select.select([client.stdout], [], [], 5)[0] or client.stdout.readline() != 'READY\n':
+        raise ValueError('GPU client missed the baseline handshake')
+    text_console(stack, console)
+    baseline = footprint()
+    if (not baseline[0] & (1 << 31) or baseline[0] == 0xffffffff or
+            baseline[1] & ~8 != baseline[2] or baseline[2] & 4095 or baseline[2] >= FIRMWARE_SLOT * 4096 or
+            any(not entry & 1 or entry == 2**64 - 1 for entry in baseline[3:])):
+        raise ValueError(f'Invalid baseline {baseline}')
+    samples = []
+    now = lambda: time.monotonic_ns() // 1000
+
+    def record():
+        begin = now()
+        request = struct.unpack_from('<I', power, 0xd0)[0]
+        response = struct.unpack_from('<I', messages, 0x28)[0]
+        l3 = struct.unpack_from('<I', messages, 0x38)[0]
+        engines = tuple(struct.unpack_from('<I', messages, i * 4)[0] for i in range(5))
+        widi = struct.unpack_from('<I', messages, 0x14)[0]
+        response_after = struct.unpack_from('<I', messages, 0x28)[0]
+        request_after = struct.unpack_from('<I', power, 0xd0)[0]
+        if 0xffffffff in (request, response, l3, *engines, widi, response_after, request_after):
+            raise ValueError('Floating traffic register')
+        state = (request, response, *(v & 0x31 for v in engines), widi & 0x11,
+                 l3 & 3, response_after, request_after)
+        if footprint() != baseline:
+            raise ValueError('Original plane or sampled GGTT entry changed')
+        samples.append((begin, now(), state))
+
+    record()
+    print(1, file=client.stdin, flush=True)
+    deadline = now() + 3_000_000
+    while client.poll() is None:
+        if now() >= deadline or len(samples) >= 100_000:
+            raise RuntimeError('GPU hold trace exceeded the capture budget')
+        record()
+    record()
+    output = client.stdout.read()
+    print(output, end='')
+    matches = re.findall(r'^hold_times (\d+) (\d+) (\d+) (\d+)$', output, re.M)
+    if client.returncode or len(matches) != 1:
+        raise ValueError('GPU client did not finish the five-engine transaction')
+    times = list(map(int, matches[0]))
+    if not (samples[0][1] <= times[0] < times[1] < times[2] < times[3] <= samples[-1][0]):
+        raise ValueError('Observer and GPU client intervals disagree')
+    print('plane_control=%#x programmed=%#x live=%#x slot8704=%#x slot12291=%#x' % baseline)
+    for phase, start, stop in zip(('acquire', 'held', 'release'), times, times[1:]):
+        inside = [(a, b, state) for a, b, state in samples if start <= a and b <= stop]
+        if not inside:
+            raise ValueError(f'Missing complete register sweep in {phase}')
+        # Includes the sweep on either side of an event, conservative for each register.
+        begins = [a for a, _, _ in inside]
+        ends = [b for _, b, _ in inside]
+        gap = max(b-a for a, b in zip([start, *begins], [*ends, stop]))
+        print(f'phase={phase} start_us={start} end_us={stop} sweeps={len(inside)} max_gap_us={gap}')
+        for state, count in sorted(Counter(state for _, _, state in inside).items()):
+            print('  req resp rcs vcs0 vcs1 bcs vecs widi l3 resp_end req_end =',
+                  *(hex(word) for word in state), f'samples={count}')
+    # Boundary sweeps can contain transient replies too. Include them in the
+    # overall histogram even when they cannot be attributed to a single phase.
+    observed = Counter(state for _, _, state in samples)
+    print(f'all_sweeps={len(samples)}')
+    for state, count in sorted(observed.items()):
+        print('  all', *(hex(word) for word in state), f'samples={count}')
+
+
+def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False, observe=False):
+    slot = INDEPENDENT_SLOT if independent or observe else FIRMWARE_SLOT
     panel = PCI / 'drm'
     edp, = panel.glob('card*/card*-eDP-1/enabled')
     if (Path('/sys/class/dmi/id/product_name').read_text().strip() != 'MacBookAir7,2' or
@@ -27,9 +106,10 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
         (PCI / 'device').read_text().strip() != '0x1626' or
         (PCI / 'driver').resolve().name != 'i915' or edp.read_text().strip() != 'enabled'):
         raise ValueError('Requires the Air7,2 with an active i915 eDP panel')
-    for event in ('i915_vma_bind', 'i915_vma_unbind'):
-        (instance / 'events/i915' / event / 'enable').write_text('1')
-    (instance / 'tracing_on').write_text('1')
+    if not observe:
+        for event in ('i915_vma_bind', 'i915_vma_unbind'):
+            (instance / 'events/i915' / event / 'enable').write_text('1')
+        (instance / 'tracing_on').write_text('1')
     offset = 0x800000 + slot * 8
     card, = (PCI / 'drm').glob('card[0-9]*')
     if {p.name for p in (card / 'engine').iterdir()} != {'rcs0', 'bcs0', 'vcs0', 'vcs1', 'vecs0'}:
@@ -47,7 +127,7 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
 
         ptes = mmio_page(offset)
         protected_offset = 0x800000 + FIRMWARE_SLOT * 8
-        protected_page = mmio_page(protected_offset) if independent else None
+        protected_page = mmio_page(protected_offset) if independent or observe else None
         protected = None
         ggtt = None
         separator = None
@@ -111,6 +191,20 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
         def primary():
             return tuple(struct.unpack_from('<I', plane, r)[0] for r in (0x180, 0x19c, 0x1ac))
 
+        if observe:
+            def footprint():
+                return (*primary(), struct.unpack_from('<Q', protected_page, protected_offset & 4095)[0],
+                        struct.unpack_from('<Q', ptes, offset & 4095)[0])
+            with subprocess.Popen([str(binary), '--observe-hold'], user=user.pw_uid, group=user.pw_gid,
+                                  extra_groups=os.getgrouplist(user.pw_name, user.pw_gid),
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as client:
+                try:
+                    observe_hold(stack, client, console, power, messages, footprint)
+                finally:
+                    if client.poll() is None:
+                        client.kill()
+            return
+
         def sample():
             verify_protected()
             live = primary()
@@ -167,15 +261,7 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
                     if not independent or client_ready:
                         raise ValueError('Unexpected start of mapping trial')
                     client_ready = True
-                    if console is not None:
-                        previous = Path('/sys/class/tty/tty0/active').read_text().strip()
-                        if not re.fullmatch(r'tty[1-9][0-9]*', previous):
-                            raise ValueError('Cannot identify the recovery VT')
-                        stack.callback(subprocess.run, ['chvt', previous[3:]], check=True)
-                        subprocess.run(['chvt', str(console)], check=True)
-                        # Seat activation returns before fbcon's modeset and
-                        # deferred unpins have necessarily reached the device.
-                        time.sleep(0.5)
+                    text_console(stack, console)
                     (instance / 'trace').write_text('\n')
                     print(1, file=client.stdin, flush=True)
                     continue
@@ -284,6 +370,8 @@ if __name__ == '__main__':
     ap.add_argument('binary', type=Path)
     ap.add_argument('--user', required=True)
     ap.add_argument('--independent-slot', action='store_true', help='Rebind slot 12291 while protecting slot 8704')
+    ap.add_argument('--observe-hold', action='store_true',
+                    help='Trace acquisition and release of five private queues with both slots left in place')
     ap.add_argument('--bcs-queue', action='store_true',
                     help='Verify the active blitter execlist and context across the held checkpoints')
     ap.add_argument('--competing-context', action='store_true',
@@ -291,17 +379,20 @@ if __name__ == '__main__':
     ap.add_argument('--console', type=int, choices=range(1, 64), metavar='VT',
                     help='Use a text VT during the independent trial and return to the previous VT')
     args = ap.parse_args()
-    if args.console is not None and not args.independent_slot:
-        ap.error('--console requires --independent-slot')
+    if args.observe_hold and (args.independent_slot or args.competing_context or args.bcs_queue):
+        ap.error('--observe-hold is independent of slot loans')
+    if args.console is not None and not (args.independent_slot or args.observe_hold):
+        ap.error('--console requires --independent-slot or --observe-hold')
     if args.competing_context and not args.independent_slot:
         ap.error('--competing-context requires --independent-slot')
     account = pwd.getpwnam(args.user)
     if os.geteuid() or account.pw_uid == 0:
         ap.error('Use a privileged trace observer and an unprivileged GPU client')
-    inst = Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
+    inst = None if args.observe_hold else Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
     try:
         trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console, args.bcs_queue,
-              args.competing_context)
+              args.competing_context, args.observe_hold)
     finally:
-        (inst / 'tracing_on').write_text('0')
-        inst.rmdir()
+        if inst is not None:
+            (inst / 'tracing_on').write_text('0')
+            inst.rmdir()

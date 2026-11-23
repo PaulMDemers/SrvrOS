@@ -13,6 +13,10 @@
 #endif
 struct engine_prepare_trial {
  struct intel_engine_prepare_result action;
+#ifdef SRVROS_INTEL_PREPARE_GAM
+ uint32_t gam_words[8];
+ unsigned gam_reads;
+#endif
  struct intel_completion_result post;
 #ifdef SRVROS_INTEL_PREPARE_RESET
  struct intel_engine_held_reset_result reset;
@@ -82,10 +86,35 @@ static void eprepare_exit(struct engine_prepare_adapter *p) {
 }
 static uint64_t eprepare_now(void *ctx) {return now(((struct engine_prepare_adapter *)ctx)->a);}
 static void eprepare_pause(void *ctx) {(void)ctx;wake_pause(NULL);}
+#ifdef SRVROS_INTEL_PREPARE_GAM
+/* This read-only alias already belongs to the held wake lease. A missing or
+ * floating sample invalidates the diagnostic, never the cancellation path. */
+static void eprepare_gam(struct engine_prepare_adapter *p) {
+ struct engine_prepare_trial *t=p->trial;
+ if(t->gam_reads>=8)return;
+ uint32_t word=UINT32_MAX;
+ if((backing.sample[1].endpoint.identity.command&6u)==6u &&
+    completion_mapping(p->a,8) && engine_requesters(p->a)) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  word=intel_display_test_prepare_gam();
+#else
+  word=*(volatile const uint32_t *)(WAKE_VA+8*4096+0xd0);
+#endif
+ }
+ t->gam_words[t->gam_reads++]=word;
+}
+#endif
 static bool eprepare_sample(void *ctx,uint32_t out[6],unsigned *count) {
  struct engine_prepare_adapter *p=ctx;
  if(!eprepare_guard(p))return false;
- bool ok=takeover_sample(p->a,out,count);eprepare_exit(p);return ok;
+#ifdef SRVROS_INTEL_PREPARE_GAM
+ eprepare_gam(p);
+#endif
+ bool ok=takeover_sample(p->a,out,count);
+#ifdef SRVROS_INTEL_PREPARE_GAM
+ if(ok)eprepare_gam(p);
+#endif
+ eprepare_exit(p);return ok;
 }
 static bool eprepare_control(void *ctx,unsigned e,uint32_t *out) {
  struct engine_prepare_adapter *p=ctx;struct wake_adapter *a=p->a;
@@ -232,6 +261,11 @@ static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const 
 }
 static void eprepare_report(const struct engine_prepare_trial *t) {
  const struct intel_engine_prepare_result *r=&t->action;
+#ifdef SRVROS_INTEL_PREPARE_GAM
+ char gam[45];
+ entry_requester_base64((const uint8_t *)t->gam_words,t->gam_reads*4,gam);
+ console_printf("intel-gam-prepare: v=1 n=%u b=%s\n",(uint64_t)t->gam_reads,t->gam_reads?gam:"-");
+#endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
  eheld_report(&t->requester);
  console_printf("intel-prepare-action: v=1 attempted=%u completed=%u active=%u begin=%u end=%u provider_enter=%u provider_exit=%u\n",(uint64_t)r->action_attempted,(uint64_t)r->action_completed,(uint64_t)r->action_active,r->action_begin_us,r->action_end_us,(uint64_t)t->held_provider_enter,(uint64_t)t->held_provider_exit);

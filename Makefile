@@ -5567,7 +5567,7 @@ test-intel-engine-prepare: build/tests/intel-engine-prepare-core$(HOST_EXE) buil
 
 build/intel-engine-prepare/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -DSRVROS_INTEL_PREPARE_GAM -c $< -o $@
 build/intel-engine-prepare/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
@@ -5576,7 +5576,7 @@ build/intel-engine-prepare/srvros.elf: build/intel-engine-prepare/probe.o build/
 
 build/tests/intel-engine-prepare-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/diagnostics/package_audit_core.c -o $@
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_ENGINE_PREPARE -DSRVROS_INTEL_PREPARE_GAM -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/diagnostics/package_audit_core.c -o $@
 
 # Host fixtures include these driver fragments directly; keep incremental
 # validation tied to the report/provider source actually being exercised.
