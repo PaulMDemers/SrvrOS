@@ -4758,6 +4758,8 @@ static bool isolated_syscall_allowed(const struct isr_frame *frame) {
         return true;
     case SYS_DIRECTORY:
         return frame->rdi==SRV_DIRECTORY_READ;
+    case SYS_FCNTL:
+        return frame->rsi==SRV_F_GETFL;
     case SYS_READ:
         return !process_fd_is_console(process_current(),frame->rdi,true);
     case SYS_WAIT:
