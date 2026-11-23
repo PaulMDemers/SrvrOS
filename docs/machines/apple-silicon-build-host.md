@@ -1,5 +1,34 @@
 # Apple Silicon macOS build host
 
+## Offline v2 export from a used installation — November 22, 2026
+
+OS #504 delivered offline streaming export and fresh-B restoration. Its
+end-to-end source A was provisioned offline, while separate host fixtures
+covered used-image admission. This proof extends the same harness to boot A,
+modify a selected document and write a cache sentinel from the guest, then
+stop A before any export. The native read-only gate must report A as used and
+consistent. Four refusal cases, interrupted export, explicit reconciliation
+and the two B boots all consume the same stopped image and preserved baseline.
+The [installation guide](../disk-installation.md#recoverable-offline-export-publication)
+describes the existing export workflow.
+
+The [qualification manifest](../assets/evidence/offline-used-profile-v2-export/manifest.json)
+records the matched guest proof at `6b0c504e` on main `e2b463d8`, including OS #512.
+A changed a selected document from its installed root and shut down before
+native inspection. Inspection reported zero writes and flushes. Wrong UUID,
+missing document, existing output and a held image lock all refused without
+changing A or the output namespace. Reconciliation published the export after
+an interruption at `written`. Two fresh-B EFI boots preserved all three
+selected documents byte for byte, including the guest edit and a 16 MiB file.
+B retained its own local binding and omitted the unselected document and cache
+sentinel.
+
+The matched build and all 33 native export and publication tests passed.
+The proof used the default installed-boot path and separate synthetic EFI
+images on internal APFS. It held at least 6.6 GiB free against a 4 GiB
+evidence reserve and a 2 GiB host temporary-storage reserve. All owned guests
+exited and the prior evidence receipts retained their hashes.
+
 ## Local console sign-in
 
 `device/apple-silicon/local-console-signin` starts from `b95bc096`, the

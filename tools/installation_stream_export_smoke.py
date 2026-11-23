@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove offline v2 export/reconciliation feeds a fresh two-boot EFI install.
+"""Prove v2 export from a guest-modified A feeds a fresh two-boot EFI install.
 
 The source A and destination B are generated under a new evidence directory.
 No original installation, source tree, or existing guest disk is opened for
@@ -7,8 +7,11 @@ writing. The guest payload root must contain the recorded matched build and
 native fixture drivers; this script does not build anything.
 """
 import argparse
+import errno
+import fcntl
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -40,6 +43,8 @@ GIB = 1024 ** 3
 CHUNK = stream.BUFFER
 DOCS = ('Documents/migration.txt', 'Documents/binary.profile-import.dat', 'Documents/large.bin')
 UNSELECTED = 'Documents/unselected.txt'
+GUEST_TEXT = b'guest-updated-document!\n'
+GUEST_SENTINEL = b'synthetic-cache\n'
 
 
 def require(value, message):
@@ -140,9 +145,9 @@ def main():
     parent.mkdir(parents=True, exist_ok=True)
     out = Path(tempfile.mkdtemp(prefix='proof-', dir=parent)).resolve()
     receipt = {'status': 'INCOMPLETE',
-               'scope': 'synthetic offline v2 export, explicit reconciliation, fresh B two EFI boots',
+               'scope': 'guest-modified A, offline v2 export and reconciliation, fresh B two EFI boots',
                'limits': ['no physical media or power-loss claim', 'one 16 MiB selected document',
-                          'no source A boot required; A is a newly provisioned offline installation'],
+                          'source A is a newly provisioned disposable installation'],
                'steps': [], 'boots': []}
 
     def save():
@@ -189,15 +194,18 @@ def main():
         source = source_provenance.capture(ROOT)
         receipt['tool_checkout'] = source
 
-        def guard(source_stage=None, stage_tree=None, bundle_file=None, bundle_stamp=None):
+        sealed_a = None
+        sealed_base = None
+        def guard(bundle_file=None, bundle_stamp=None):
             require({name: stamp(path) for name, path in inputs.items()} == originals,
                     'matched payload changed')
             require(source_provenance.capture(ROOT) == source, 'tool checkout changed during proof')
             require({str(path): image.digest(path) for path in map(Path, (args.ovmf, args.ovmf_vars))} == firmware,
                     'firmware changed')
             require(shutil.disk_usage(out).free >= 4 * GIB, 'evidence reserve exhausted')
-            if source_stage is not None:
-                require(tree(source_stage) == stage_tree, 'offline source A changed')
+            if sealed_a is not None:
+                require(tree(stage_a) == sealed_a, 'sealed used source A changed')
+                require(stamp(base_a) == sealed_base, 'source A baseline changed')
             if bundle_file is not None:
                 require(stamp(bundle_file) == bundle_stamp, 'portable input bundle changed')
 
@@ -228,11 +236,12 @@ def main():
             '--profile-gid', str(GID_A), '--profile-driver', str(inputs['profile_driver'])])
         require(plan_a['version'] == 2, 'A is not a fresh identity-bound v2 installation')
         ready_a = call(command + ['apply', str(stage_a)])
-        source_after_a = tree(stage_a)
-        source_a_image = stamp(stage_a / 'image.img')
-        receipt['offline_a'] = {'plan': plan_a, 'ready': ready_a,
-                                'image': source_a_image, 'tree': source_after_a,
-                                'base_sha256': image.digest(base_a)}
+        disk_a = stage_a / 'image.img'
+        ready_a_image = stamp(disk_a)
+        require(ready_a_image['sha256'] == ready_a['image_sha256'], 'initial A differs from ready record')
+        base_a_stamp = stamp(base_a)
+        offset_a, size_a = desktop.partitions(disk_a)[1]
+        protected_a = desktop.outside_data(disk_a, offset_a, size_a)
         a_fs = transfer.check_allocation(stage_a / 'image.img', out, 'a-before-export')
         prefix_a = HOME_A.removeprefix('/fat/') + '/'
         require(json.loads(a_fs.read(prefix_a + 'identity.json')) == identity,
@@ -244,6 +253,72 @@ def main():
             require(len(actual) == item['size'] and digest_bytes(actual) == item['sha256'],
                     'A source document differs: ' + item['path'])
         del a_fs
+        require(len(GUEST_TEXT) == 24 and GUEST_TEXT != source_docs[DOCS[0]], 'invalid guest text fixture')
+        transport, transport_record = create.install(inputs['base'], out / 'transport')
+        with chooser.VM(disk_a, transport, out, 'a1', args) as vm:
+            # The monitor invokes the guest write program directly; write adds a newline.
+            vm.run('/fat/bin/write ' + HOME_A + '/' + DOCS[0] + ' ' + GUEST_TEXT.decode().rstrip('\n'))
+            vm.run('/fat/bin/write ' + HOME_A + '/.cache/runtime-cache.fixture synthetic-cache')
+            vm.run('/fat/bin/sync')
+            vm.finish()
+        require(image.digest(disk_a) != ready_a_image['sha256'], 'guest boot did not change A image')
+        require(desktop.outside_data(disk_a, offset_a, size_a) == protected_a, 'A protected regions changed')
+        require(stamp(base_a) == base_a_stamp and stamp(source_bundle) == source_stamp, 'A baseline or source changed')
+        used_fs = transfer.check_allocation(disk_a, out, 'a-after-guest')
+        require(used_fs.read(prefix_a + DOCS[0]) == GUEST_TEXT, 'guest selected document write differs')
+        require(used_fs.read(prefix_a + '.cache/runtime-cache.fixture') == GUEST_SENTINEL,
+                'guest runtime sentinel differs')
+        for name in DOCS[1:] + (UNSELECTED,):
+            require(used_fs.read(prefix_a + name) == source_docs[name], 'A document changed: ' + name)
+        del used_fs
+        source_after_a = tree(stage_a)
+        sealed_a = source_after_a
+        sealed_base = base_a_stamp
+        source_a_image = stamp(disk_a)
+        inspection_a = call(command + ['inspect-installed', str(stage_a), '--driver', str(inputs['inspect_driver'])])
+        require(inspection_a['consistent'] and inspection_a['used'] and
+                inspection_a['filesystem']['writes'] == inspection_a['filesystem']['flushes'] == 0 and
+                inspection_a['current_image_sha256'] == source_a_image['sha256'],
+                'used-A native read-only inspection failed')
+        receipt['offline_a'] = {'plan': plan_a, 'ready': ready_a, 'ready_image': ready_a_image,
+                                'image': source_a_image, 'tree': source_after_a, 'base': base_a_stamp,
+                                'protected_regions': protected_a, 'inspection': inspection_a,
+                                'guest_document_sha256': digest_bytes(GUEST_TEXT),
+                                'guest_sentinel_sha256': digest_bytes(GUEST_SENTINEL),
+                                'transport': transport_record}
+        save()
+
+        # Each refusal gets an isolated namespace. Compare it and the sealed A
+        # before and after, including the pre-existing output in its case.
+        refusals = out / 'refusals'; refusals.mkdir()
+        def refuse(name, reason, profile=identity['id'], documents=DOCS, existing=False, locked=False):
+            folder = refusals / name; folder.mkdir()
+            candidate, publication = folder / 'output.srvrprofile', folder / 'attempt'
+            if existing:
+                candidate.write_bytes(b'preexisting-output\n')
+            before = tree(folder)
+            argv = command + ['export-profile', str(stage_a), str(candidate), '--publication-dir', str(publication),
+                '--profile-id', profile, '--home', HOME_A, '--inspect-driver', str(inputs['inspect_driver']),
+                '--export-driver', str(inputs['export_driver'])]
+            for document in documents:
+                argv += ['--document', document]
+            if locked:
+                with disk_a.open('rb') as held:
+                    fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    result = call(argv, expected=1)
+            else:
+                result = call(argv, expected=1)
+            require(result and result.get('state') == 'refused' and reason in result.get('reason', ''),
+                    name + ': incorrect refusal reason')
+            require(tree(folder) == before and tree(stage_a) == source_after_a,
+                    name + ': refusal changed source or output namespace')
+            receipt.setdefault('refusals', []).append({'case': name, 'reason': result['reason'],
+                                                       'namespace_unchanged': True, 'source_unchanged': True})
+            save()
+        refuse('wrong-uuid', 'selected profile not admitted', profile='00000000-0000-4000-8000-000000000000')
+        refuse('missing-document', 'export-document', documents=('Documents/missing.txt',))
+        refuse('existing-output', 'output already exists or invalid', existing=True)
+        refuse('locked-used-image', os.strerror(errno.EWOULDBLOCK), locked=True)
 
         output = out / 'offline-export-v2.srvrprofile'
         attempt = out / 'offline-export-attempt'
@@ -270,7 +345,10 @@ def main():
             metadata = exported.metadata
             require(metadata['profile'] == identity and metadata['preferences'] == manifest_a['preferences'],
                     'exported profile metadata differs')
-            expected_entries = [entry for entry in manifest_a['documents'] if entry['path'] in DOCS]
+            expected_entries = [dict(entry) for entry in manifest_a['documents'] if entry['path'] in DOCS]
+            for entry in expected_entries:
+                if entry['path'] == DOCS[0]:
+                    entry.update(size=len(GUEST_TEXT), sha256=digest_bytes(GUEST_TEXT))
             require(metadata['documents'] == expected_entries, 'exported selection/manifest differs')
         receipt['export'] = {'path': str(output), 'stamp': exported_stamp, 'sha256': exported_hash,
                              'manifest': metadata, 'attempt_inspection': inspected,
@@ -278,7 +356,7 @@ def main():
                              'selected_document_hashes': {entry['path']: entry['sha256'] for entry in expected_entries},
                              'source_unselected_document': UNSELECTED}
         output_stamp = stamp(output)
-        guard(stage_a, source_after_a, output, output_stamp)
+        guard(output, output_stamp)
 
         machine_b = desktop.machine_preferences(4, -300)
         require(machine_b != desktop.machine_preferences(2, 60), 'B machine settings are not distinct')
@@ -296,7 +374,6 @@ def main():
         require(all(ready_b['profile'].get(k) == v for k, v in expected_binding.items()),
                 'B local binding differs')
         disk = stage_b / 'image.img'
-        transport, transport_record = create.install(inputs['base'], out / 'transport')
         offset, size = desktop.partitions(disk)[1]
         protected = desktop.outside_data(disk, offset, size)
         require(len(set(ready_b['gpt'].values())) == len(ready_b['gpt']), 'B GPT identifiers are not distinct')
@@ -360,7 +437,7 @@ def main():
             receipt['boots'].append({'label': label, 'documents': hashes,
                                     'disk_sha256': image.digest(disk),
                                     'protected_regions': protected, 'binding': expected_binding})
-            guard(bundle_file=output, bundle_stamp=output_stamp)
+            guard(output, output_stamp)
             save()
 
         inspection = call(command + ['inspect-installed', str(stage_b), '--driver', str(inputs['inspect_driver'])])

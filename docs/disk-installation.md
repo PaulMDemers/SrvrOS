@@ -71,6 +71,9 @@ the full bundle SHA-256 before publication.
 The [offline v2 export proof](assets/evidence/offline-profile-v2-export/manifest.json)
 records a real export interruption and reconciliation, then exact restoration of
 all three selected documents across two EFI boots of a fresh installation.
+The [used-installation proof](assets/evidence/offline-used-profile-v2-export/manifest.json)
+also verifies four refusals against a stopped installation and restores a
+guest-written document through both boots of a fresh destination.
 
 Choose a new private record directory outside the installation stage, on the
 same host filesystem as the output. The host must support exclusive creation,
