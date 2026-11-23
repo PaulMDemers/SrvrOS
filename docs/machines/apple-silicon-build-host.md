@@ -1,5 +1,28 @@
 # Apple Silicon macOS build host
 
+## Console account-store recovery
+
+`device/apple-silicon/console-account-recovery` starts from `1f4f73b3`.
+The scope is read-only administrator inspection and explicit cleanup of
+pending console account transactions. It builds on the reset and re-enable
+checkpoints from #529 and #532. Qualification uses one disposable installed
+VM to check committed-store preservation, live-update and malformed-store
+refusals, and both users' file permissions after reboot.
+
+Boot the installed disk with `srvros.auth=recovery` and inspect the store
+with `run /fat/bin/local-enroll recover-store`. This reports the committed
+account names and enabled states, plus the presence of staged data and the
+transaction lock.
+
+After inspecting a known interrupted update, run
+`run /fat/bin/local-enroll recover-store --clear-pending`. The command
+validates the committed store and pending markers, excludes live account
+updates, and discards staged data before clearing the lock. The committed
+account file remains byte-for-byte intact. If validation fails, leave the
+pending state in place and resolve the account-store or filesystem problem
+in recovery. Reboot using `srvros.auth=local` to use the committed account
+state.
+
 ## Re-enable suspended console accounts
 
 `device/apple-silicon/console-account-enable` starts from `66fbf299`.
@@ -15,8 +38,8 @@ From the `srvros.auth=recovery` administrator console, run
 identity, and private home. A password reset performed while suspended
 takes effect at sign-in after an explicit enable.
 
-If enable was interrupted, reboot into explicit recovery and use the
-[account-store marker cleanup below](#console-password-reset). Keep the
+If enable was interrupted, reboot into explicit recovery and use
+[account-store recovery](#console-account-store-recovery). Keep the
 committed account store. If replacement had yet to occur, the account
 will stay suspended until the administrator retries enable. If replacement
 completed, clearing the pending markers lets the committed enabled state take
@@ -48,14 +71,11 @@ twice at the hidden prompts. A successful reset leaves the user's numeric
 identity, home, and enabled state in place.
 
 If the reset process stops before reporting success, restart into explicit
-recovery on the same installed disk. Keep the committed
-`/fat/etc/local-auth/accounts` file. For a known interrupted reset on a
-healthy volume, discard `/fat/etc/local-auth/accounts.tmp` if present, then
-remove `/fat/etc/local-auth/enroll.lock` if present. The committed store
-contains the old credential if replacement had yet to occur and the new
-credential if replacement completed. The next boot with `srvros.auth=local`
-uses the committed store. If the committed file is missing or the volume
-requires filesystem recovery, handle that recovery before clearing markers.
+recovery on the same installed disk and use
+[account-store recovery](#console-account-store-recovery). The committed
+store contains the old credential if replacement had yet to occur and the
+new credential if replacement completed. The next boot with
+`srvros.auth=local` uses the committed store.
 
 Runtime `fdbb2567` passed the matched build, authentication crypto checks and
 all 14 sign-in cases on one disposable installed QEMU disk. The stock tool

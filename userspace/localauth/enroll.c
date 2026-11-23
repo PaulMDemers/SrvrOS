@@ -15,13 +15,28 @@ static int parse_id(const char *s,uint32_t *out) {
 }
 #ifdef LOCAL_AUTH_ACCOUNT_VM_TEST
 static enum local_auth_account_phase interrupt_phase;
-static bool interrupt_enabled;
+static bool interrupt_enabled,hold_before_rename;
 void local_auth_account_checkpoint(enum local_auth_account_phase phase) {
+    if(hold_before_rename && phase==LOCAL_AUTH_ACCOUNT_BEFORE_RENAME) {
+        puts("local-enroll: transaction parked");
+        fflush(stdout);
+        for(;;) sleep(60);
+    }
     if(interrupt_enabled && phase==interrupt_phase) _exit(86);
 }
 #endif
 int main(int argc,char **argv) {
     if(geteuid()!=0){fprintf(stderr,"local-enroll: administrator required\n");return 1;}
+#ifdef LOCAL_AUTH_ACCOUNT_VM_TEST
+    if(argc==1 && !strcmp(argv[0],"/fat/signin-test/hold")) {
+        hold_before_rename=true;
+        mode_t old=umask(0);int result=local_account_enable("alpha");umask(old);
+        return result<0?1:0;
+    }
+#endif
+    if(argc>=2 && !strcmp(argv[1],"recover-store") &&
+       (argc==2 || (argc==3 && !strcmp(argv[2],"--clear-pending"))))
+        return local_account_recover_store(argc==3)<0 ? 1 : 0;
     if(argc==3 && !strcmp(argv[1],"disable")) {
         if(local_account_disable(argv[2])==0)return 0;
         fprintf(stderr,"local-enroll: disable failed\n");return 1;
@@ -42,7 +57,7 @@ int main(int argc,char **argv) {
     bool valid_add=argc==5 && !strcmp(argv[1],"add") &&
         parse_id(argv[3],&uid)==0 && parse_id(argv[4],&gid)==0;
     if(!valid_action && !valid_add) {
-        fprintf(stderr,"usage: local-enroll add NAME UID GID | disable NAME | enable NAME | reset-password NAME\n");return 1;
+        fprintf(stderr,"usage: local-enroll add NAME UID GID | disable NAME | enable NAME | reset-password NAME | recover-store [--clear-pending]\n");return 1;
     }
     if(enable) {
         mode_t old=umask(0);
