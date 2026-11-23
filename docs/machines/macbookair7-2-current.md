@@ -10,6 +10,23 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+The slot 12291 verifier now samples GAM request and response on both sides
+of each acquisition poll. It credits a fresh L3 flush acknowledgement only
+when all six clients are closed throughout those observations. In the Q35
+guest, a pulse before WiDi closed previously admitted a PTE write. The
+corrected writer refused that sequence, a pulse that stayed high through
+closure, a late WiDi response and a reopening during acquisition. A new pulse
+after closure allowed replacement and rollback. All 33 one-page cases passed.
+
+On the reference Air, the live Intel OpRegion is version 2.0 with mailbox mask
+`0x1f`. The DSDT's IGPU device-specific method handles the Apple `hda-gfx`
+property. The eleven loaded SSDTs examined on Ubuntu contained no additional
+IGPU or GFX0 scope. These interfaces provided no identified callable GAM hold.
+Broadwell's WiDi TLB invalidate at `0x4278` also requires an already-drained
+pipeline. The hardware slot-write trial remains pending a driver-controlled
+request that can stay asserted through both invalidations.
+[Intel Broadwell register reference, pp. 587–592, 859 and 1823](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 Three Air7,2 acquisition-only runs under Ubuntu/i915 parked and released all
 five queues and verified the five scratch markers. Across 4,086 register sweeps
 the GAM request/response stayed at `0xff/0x7f`. WiDi remained permitted and

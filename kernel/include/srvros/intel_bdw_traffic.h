@@ -12,7 +12,7 @@ struct bdw_traffic_sample {
     void *ctx;
     bool (*read)(void *,uint32_t,uint32_t *);
     uint32_t request_closed, response_closed, engine_ack, engine_go_closed, engine_blocked;
-    bool l3_ack;
+    bool l3_high, l3_ack;
 };
 
 static inline bool bdw_traffic_gam(struct bdw_traffic_sample *a, uint32_t allowed, bool *matches)
@@ -147,16 +147,21 @@ static inline bool intel_bdw_traffic_open(struct bdw_traffic_sample *s)
 
 static inline bool intel_bdw_traffic_poll(struct bdw_traffic_sample *s,bool *drained)
 {
-    bool arbiter, pipelines;
+    bool arbiter, pipelines, closing;
     uint32_t l3, eco;
     /* Read the request before the acknowledgements. A pulse observed while
      * every request line is still open cannot qualify a later closure. */
     if (!bdw_traffic_gam(s,0,&arbiter) || !s->read(s->ctx,0x8038,&l3) ||
         !bdw_traffic_engines(s,true,&pipelines) || !s->read(s->ctx,0x8040,&eco) ||
         (l3 & 2u) || ((l3 & 1u) && !s->request_closed)) return false;
-    /* GPM can consume L3's one-shot acknowledgement before the last engine closes. */
-    s->l3_ack |= (l3 & 1u) != 0;
-    *drained = arbiter && pipelines && s->l3_ack && (eco & 1u);
+    if (!bdw_traffic_gam(s,0,&closing)) return false;
+    /* An ACK first seen while any client could still issue memory traffic
+     * cannot cover that client, even if the bit stays high through closure.
+     * GPM may consume a valid pulse before the last engine reports ready. */
+    bool high = (l3 & 1u) != 0;
+    if (arbiter && closing && high && !s->l3_high) s->l3_ack = true;
+    s->l3_high = high;
+    *drained = arbiter && closing && pipelines && s->l3_ack && (eco & 1u);
     return true;
 }
 

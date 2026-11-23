@@ -281,8 +281,13 @@ matching request still permits traffic disqualifies a later PTE exchange.
 The MMIO writer requires both excluded
 pages on its own guard borrow and rechecks the video fuse alongside Pipe A
 through both PTE exchanges and translation invalidations.
-This trial supplies CPU and display observations. The GPU traffic hold
-remains a separate prerequisite for a native PTE write.
+During acquisition the verifier brackets the L3, engine and GAM-idle reads
+with GAM request and response samples. A flush pulse observed while WiDi
+still has permission cannot be reused after WiDi closes. A later low-to-high
+L3 acknowledgement can qualify once all six clients are closed, even if
+their engine acknowledgements finish on a subsequent poll. The physical
+slot write also requires a driver-held request to keep traffic excluded
+between samples and through rollback.
 
 The read-only image always emits `firmware_transfer=0`. Its
 `first_unmet=firmware-transfer` field identifies an unimplemented
@@ -365,4 +370,4 @@ the driver's GGTT, writes the encoded PTE, then invalidates the translation.
 For SrvrOS the unresolved step precedes that store. The boot handoff must
 establish who can issue work against this range and retire earlier users
 before the driver's own allocation and fence records can govern reuse.
-[Linux Gen8 GGTT page insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L405-L422)
+[Linux Gen8 GGTT page insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L435-L448)

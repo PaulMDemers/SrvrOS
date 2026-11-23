@@ -910,6 +910,8 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
         break;
     case 0x8038:
         *word = block ? (++s->l3_reads == 1 && s->flr_fault != GT_NO_L3) : s->flr_fault == GT_STALE_L3;
+        if (block && s->flr_fault == GT_PROGRESSIVE_BLOCK)
+            *word = s->l3_reads == 2;
         if (block && s->flr_fault == GT_OWNER_REPLACED && s->l3_reads == 2)
             ++s->block_epoch;
         if (block && s->flr_fault == GT_L3_UNBLOCK && s->media_reads == 4) *word = 2;

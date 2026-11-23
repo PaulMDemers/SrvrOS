@@ -345,7 +345,7 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
 }
 static unsigned traffic_reads,block_requests,block_releases,l3_reads,request_reads;
 static bool block_revoked,block_active,retire_reentered;
-static bool baseline_l3_sampled, rollback_media_sampled;
+static bool baseline_l3_sampled, rollback_media_sampled, acquisition_eco_sampled;
 static uint64_t held_block(const struct scanout_transfer *t,const struct scanout_publication *p) {
     assert(t==&transfer && p==&a.publication);
     if (!block_active || block_revoked || !strcmp(page_failure,"no-block") ||
@@ -501,6 +501,22 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x8028: *word=(!block_active || !strcmp(page_failure,"gam-response")) ? 0x5f : 0; break;
     default: assert(0); return false;
+    }
+    /* First pulse before WiDi closes: it can vanish, remain high or be
+     * followed by a fresh low-to-high transition in the closed interval. */
+    if (block_active && (!strcmp(page_failure,"owned-mmio-l3-before-widi") ||
+                         !strcmp(page_failure,"owned-mmio-l3-before-widi-response") ||
+                         !strcmp(page_failure,"owned-mmio-l3-across-widi") ||
+                         !strcmp(page_failure,"owned-mmio-l3-after-widi"))) {
+        if (!l3_reads && (offset==0x8028 || (offset==0x40d0 &&
+            strcmp(page_failure,"owned-mmio-l3-before-widi-response")))) *word |= 1u<<6;
+        if (l3_reads==1 && offset==0x8014) *word=0x10;
+        if (offset==0x8038 && l3_reads==2 && !strcmp(page_failure,"owned-mmio-l3-across-widi")) *word=1;
+        if (offset==0x8038 && l3_reads==3 && !strcmp(page_failure,"owned-mmio-l3-after-widi")) *word=1;
+    }
+    if (block_active && !strcmp(page_failure,"owned-mmio-acquire-reopen")) {
+        if (acquisition_eco_sampled && offset==0x40d0) *word|=1u<<6;
+        acquisition_eco_sampled = offset==0x8040 && l3_reads==2;
     }
     if (!strcmp(page_failure,"owned-mmio-admission-drift") && !block_active) {
         if (offset==0x8038) baseline_l3_sampled=true;
@@ -798,6 +814,11 @@ static void owned_page_case(const char *mode)
             assert(intel_bdw_bcs_port_claim(&model));
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && !block_requests);
             assert(!borrower && intel_bdw_bcs_port_release(&model));
+        } else if (!strcmp(mode,"owned-mmio-l3-before-widi") || !strcmp(mode,"owned-mmio-l3-across-widi") ||
+                   !strcmp(mode,"owned-mmio-l3-before-widi-response") || !strcmp(mode,"owned-mmio-acquire-reopen")) {
+            assert(!scanout_memory_apply(&a,&at));
+            assert(block_requests==1 && !model.writes && !ggtt_posts && table[target]==input[0]);
+            assert(borrower && !block_releases && !model.releases);
         } else if (!strcmp(mode,"owned-mmio-admission-drift") || !strcmp(mode,"owned-mmio-parked-queues")) {
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
             assert(block_requests==(unsigned)(!strcmp(mode,"owned-mmio-parked-queues")));
