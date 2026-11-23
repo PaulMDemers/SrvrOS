@@ -422,6 +422,15 @@ ISO readback matched, and the VM window was released. The pinned static
 build compiled `giptosmessage.c`. Static GIO next stops at `IPV6_TCLASS` in `gipv6tclassmessage.c`.
 See the [codec receipt](../assets/evidence/gio-ip-tos/receipt.json).
 
+## GIO IPv6 traffic class messages — November 22, 2026
+
+The topic starts at merged OS #530 (`66fbf299`). GIO uses the existing
+SDK header and constant. Both codec runs and both platform controls passed
+in the private diskless guest, including `EAFNOSUPPORT` for IPv6 UDP and TCP
+sockets. ISO readback matched and the guest stopped. The standard static
+graph compiled `gipv6tclassmessage.c`. Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
+[Verification receipt](../assets/evidence/gio-ipv6-tclass/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
