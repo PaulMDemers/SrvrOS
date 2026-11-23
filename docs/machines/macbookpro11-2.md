@@ -144,6 +144,14 @@ and all four independent-journal scenarios with the Realtek absent. A
 physical run requires a newly bound, empty internal journal and its own
 qualification and run record. No boot was armed for this implementation.
 
+The cold hardware image `571544c294dead1f` carries the identical runtime
+with a fresh bound journal. The exact image passed the GPT workspace and
+four journal/recovery VM rehearsals. Installation verified Ubuntu as the
+default, recovery `74da74e0b57afbb8`, and a clean direct USB workspace
+with 568 existing files. All three adapters stay in their original hub
+ports during the cold reset and unattended capture. The local
+`pro112-rtl8188cu-cold/run.json` owns one-shot state and return collection.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
