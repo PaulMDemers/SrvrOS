@@ -112,9 +112,7 @@ static size_t match_token(const unsigned char *p, int byte, int flags, bool wild
     return equal ? length : 0;
 }
 
-/* Gnulib ports carry their own strong implementation with port-specific
- * GNU behavior.  Keep this SDK implementation as their link-time fallback. */
-__attribute__((weak)) int fnmatch(const char *pattern, const char *string, int flags) {
+int fnmatch(const char *pattern, const char *string, int flags) {
     const unsigned char *p = (const unsigned char *)pattern;
     const unsigned char *start = (const unsigned char *)string;
     const unsigned char *s = start;
