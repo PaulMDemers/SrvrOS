@@ -41,6 +41,13 @@ reread and return, including an exhausted search or an active reader that
 prevented the search. This is an unattended software reservation trial with
 the original primary plane active. [Implementation milestones](intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
+On Air7,2 the `intel-gt-flush-v59` range receipt version 4 also reports
+the PMM frame, original and proposed PTE for slot 12291, three page-content
+checks, and release of the frame and of the CPU blitter-port claim after
+verified PCI reopening. The hardware PTE remains at its original value.
+On a failed check the diagnostic retains the resources and reports its
+last completed check. Historical range receipts remain collectable.
+
 The version 9 flush diagnostic adds an eight-bank policy capture on the
 Air7,2. It runs once between five-engine preparation and the first reset.
 It saves and restores the full MCR selector, changes only the slice/bank

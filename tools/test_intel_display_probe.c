@@ -586,11 +586,36 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
 }
 uint64_t acpi_table_count(void){return extra_table?2:1;}
 const struct acpi_table_info *acpi_table_at(uint64_t i){return i==0?&dsdt:i==1 && extra_table?&extra_dmar:NULL;}
-void *pmm_phys_to_virt(uint64_t p){return (void *)(uintptr_t)p;}
+#ifdef SRVROS_INTEL_GT_FLUSH
+#define TEST_BACKING_PA 0x01000000ull
+static uint64_t test_backing_page[512] __attribute__((aligned(4096)));
+static bool test_backing_allocated;
+uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
+ assert(tag==PMM_FRAME_DMA && !test_backing_allocated);
+ test_backing_allocated=true;
+ return TEST_BACKING_PA;
+}
+bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag) {
+ return pa==TEST_BACKING_PA && tag==(test_backing_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);
+}
+void pmm_free_frame(uint64_t pa) {
+ assert(pa==TEST_BACKING_PA && test_backing_allocated);
+ test_backing_allocated=false;
+}
+#endif
+void *pmm_phys_to_virt(uint64_t p){
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(p==TEST_BACKING_PA){intel_display_test_backing_access();return test_backing_page;}
+#endif
+ return (void *)(uintptr_t)p;}
 bool laptop_firmware_match(const uint8_t *p,size_t n){assert((uintptr_t)p==0x100000 && n==35034);return firmware_ok;}
 uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
-bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
+bool vmm_virt_to_phys(uint64_t v,uint64_t *p){
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(v==(uintptr_t)test_backing_page){*p=TEST_BACKING_PA;return true;}
+#endif
+ assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
  if(v==WAKE_VA+14*4096)return INTEL_CAPTURE_PAGES+16;

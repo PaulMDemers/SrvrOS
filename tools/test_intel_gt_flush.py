@@ -99,6 +99,23 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
                 self.assertEqual(result["range"]["slot"]["returned"], 0)
 
+    def test_backing_checked_at_reset_and_requester_return(self):
+        text = observe("pass")
+        page = bootstrap_result(text)["range"]["slot_backing"]
+        self.assertEqual((page["checks"], page["acquired"], page["held"], page["freed"]), (3, 1, 0, 1))
+        for position in (1, 2):
+            result = bootstrap_result(observe("backing-content", position))
+            page = result["range"]["slot_backing"]
+            self.assertFalse(result["complete"])
+            self.assertEqual((page["checks"], page["held"], page["freed"]), (position, 1, 0))
+        row = next(line for line in text.splitlines() if line.startswith("intel-slot-backing:"))
+        for bad in ("", row + "\n" + row, row.replace("checks=3", "checks=2"), row.replace("freed=1", "freed=0"),
+                    re.sub(r"planned=\S+", "planned=0x1", row)):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row, bad))
+        legacy = text.replace(row, "").replace("intel-range-summary: v=4 ", "intel-range-summary: v=3 ")
+        self.assertTrue(bootstrap_result(legacy)["complete"])
+
     def test_live_slice_power(self):
         text = observe("pass")
         self.assertEqual(bootstrap_result(text)["flush"]["slice_power"],
@@ -196,7 +213,8 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
-        old_power = old_power.replace("intel-range-summary: v=3 ", "intel-range-summary: v=1 ")
+        old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
+        old_power = old_power.replace("intel-range-summary: v=4 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
         old_power = old_power.replace("words0=132 words1=132", "words0=129 words1=129")

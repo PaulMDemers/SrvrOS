@@ -15,9 +15,9 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",), versions=(1, 2, 3),
+        ("live",), versions=(1, 2, 3, 4),
     )
-    dual = summary["v"] == 3
+    dual = summary["v"] >= 3
     batches = 3 if dual else 2
     words = 132 if dual else 129
     phase = summary["phase"]
@@ -95,4 +95,22 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
                 or (phase and not second["reserved"]) or (second["returned"] and phase != 2)):
             raise ValueError("Independent slot requester lifetime")
         result["independent_slot"] = second
+    backing_rows = [line for line in text.splitlines() if line.startswith("intel-slot-backing:")]
+    if len(backing_rows) != int(summary["v"] == 4):
+        raise ValueError("Missing or duplicate slot backing receipt")
+    if backing_rows:
+        b = fields(backing_rows[0], "intel-slot-backing:",
+                   "v physical original planned checks acquired held freed pte_writes".split(),
+                   ("physical", "original", "planned"))
+        pa, checks = b["physical"], b["checks"]
+        if (b["pte_writes"] or not 0 <= b["held"] <= b["acquired"] <= second["reserved"]
+                or not 0 <= b["freed"] <= slot["returned"] or not phase <= checks <= 3
+                or (checks == 3 and not second["reopen_verified"])
+                or (checks and (not b["acquired"] or not 0 < pa < 2**32 or pa % 4096
+                                or len(vectors[0]) < 132 or b["original"] != vectors[0][130]
+                                or b["planned"] != (pa | 1) or b["planned"] == b["original"]))
+                or (b["acquired"] and not b["held"] and not b["freed"])
+                or (owner_complete and (checks, b["held"], b["freed"]) != (3, 0, 1))):
+            raise ValueError("Invalid backing or submit port lifetime")
+        result["slot_backing"] = b
     return result

@@ -10,6 +10,12 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+The current Air trial pairs the reservation of slot 12291 with an actual PMM
+DMA page and the blitter submit-port claim. It checks the proposed translation
+and page contents before reset, after translation maintenance, and after PCI
+bus mastering reopens. Slot 8704 and the original panel stay protected. This
+extends the GT reset diagnostic and its collector on PR 301.
+
 On PR 301 the Broadwell blitter submitter and one-page GGTT writer now share
 a CPU-side claim on the submit port. An incomplete descriptor keeps the port
 claimed. The page writer holds it through rollback and device reopening. The

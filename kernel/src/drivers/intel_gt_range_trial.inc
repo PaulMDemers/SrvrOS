@@ -134,7 +134,15 @@ static struct scanout_transfer_manifest gt_slot_source(unsigned sample) {
 }
 
 #ifdef SRVROS_INTEL_GT_FLUSH
+#include <srvros/intel_bdw_bcs_port.h>
+#include <srvros/intel_bdw_ggtt.h>
 static struct scanout_transfer independent_slot;
+static struct {
+ uint64_t physical;
+ struct intel_bdw_ggtt_page plan;
+ unsigned checks;
+ bool port, freed;
+} slot_backing;
 static struct scanout_transfer_token independent_token;
 static bool independent_returned,independent_reopened;
 static struct scanout_transfer_manifest independent_source(unsigned sample) {
@@ -142,6 +150,35 @@ static struct scanout_transfer_manifest independent_source(unsigned sample) {
  m.first=GT_SECOND_SLOT;
  m.original=&gt_range.words[sample][GT_RANGE_TAIL+2];
  return m;
+}
+/* Only CPU access to private PMM RAM. Keep the plan and submission port
+ * on any failed proof. The GPU continues to see the inherited translation. */
+static bool independent_backing(unsigned sample, bool initialize)
+{
+ if(!intel_bdw_bcs_port_held(&slot_backing) || slot_backing.freed ||
+    !wake_irq_off() || vmm_current_address_space()!=gt_bootstrap_native.root)return false;
+ if(initialize) {
+  if(slot_backing.physical || slot_backing.checks)return false;
+  slot_backing.physical=pmm_alloc_frame_tagged(PMM_FRAME_DMA);
+ }
+ uint64_t pa=slot_backing.physical,actual;
+ if(!intel_scanout_trial_ram(pa,1) || !pmm_frame_has_tag(pa,PMM_FRAME_DMA))return false;
+ volatile uint64_t *ram=pmm_phys_to_virt(pa);
+ if(!ram || !vmm_virt_to_phys((uint64_t)ram,&actual) || actual!=pa)return false;
+ struct scanout_transfer_manifest source=independent_source(sample);
+ struct intel_bdw_ggtt_page fresh;
+ if(!intel_bdw_ggtt_page_plan(&source,pa,&fresh) || fresh.original==fresh.replacement)return false;
+ if(initialize)slot_backing.plan=fresh;
+ const struct intel_bdw_ggtt_page *plan=&slot_backing.plan;
+ if(plan->physical!=pa || plan->gpu_address!=fresh.gpu_address || plan->mmio_offset!=fresh.mmio_offset ||
+    plan->index!=fresh.index || plan->original!=fresh.original || plan->replacement!=fresh.replacement)return false;
+ for(unsigned i=0;i<4096/sizeof(*ram);i++) {
+  uint64_t expected=((pa+i)<<32) ^ plan->original ^ independent_token.epoch;
+  if(initialize)ram[i]=expected;
+  if(ram[i]!=expected)return false;
+ }
+ ++slot_backing.checks;
+ return true;
 }
 static bool independent_matches(unsigned sample) {
  struct scanout_transfer_manifest m=independent_source(sample);
@@ -152,7 +189,7 @@ static bool independent_matches(unsigned sample) {
 static bool gt_slot_live(void) {
  if(!gt_bootstrap_native.g)return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!independent_matches(gt_slot_checked?1:0))return false;
+ if(!intel_bdw_bcs_port_held(&slot_backing) || !independent_matches(gt_slot_checked?1:0))return false;
 #endif
  struct scanout_transfer_manifest source=gt_slot_source(gt_slot_checked?1:0);
  return scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source);
@@ -177,7 +214,8 @@ static bool gt_slot_boundary(unsigned phase) {
  struct scanout_transfer_manifest second=independent_source(phase);
  if(!phase && !scanout_transfer_reserve(&independent_slot,&gt_slot_pool,&gt_bootstrap_native.g->exclusion,
                                         &second,&independent_token))return false;
- if(!independent_matches(phase))return false;
+ if(!phase)slot_backing.port=intel_bdw_bcs_port_claim(&slot_backing);
+ if(!slot_backing.port || !independent_matches(phase) || !independent_backing(phase,!phase))return false;
 #endif
  if(phase)gt_slot_checked=true;
  return true;
@@ -192,11 +230,17 @@ static bool gt_slot_return(void) {
 #endif
     !bootstrap_guard() || !bootstrap_tick())return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
  if(!scanout_transfer_close(&independent_slot,&independent_token))return false;
  independent_returned=true;
 #endif
  if(!scanout_transfer_close(&gt_slot,&gt_slot_token))return false;
  gt_slot_returned=true;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ pmm_free_frame(slot_backing.physical);
+ slot_backing.freed=pmm_frame_has_tag(slot_backing.physical,PMM_FRAME_FREE);
+ if(!slot_backing.freed || !intel_bdw_bcs_port_release(&slot_backing))return false;
+#endif
  return true;
 }
 #endif
@@ -225,7 +269,10 @@ static bool gt_range_capture(unsigned phase) {
 }
 static void gt_range_report(void) {
 #if defined(SRVROS_INTEL_GT_FLUSH)
- const unsigned version=3;
+ const unsigned version=4;
+ console_printf("intel-slot-backing: v=1 physical=%x original=%x planned=%x checks=%u acquired=%u held=%u freed=%u pte_writes=0\n",
+  slot_backing.physical,slot_backing.plan.original,slot_backing.plan.replacement,(uint64_t)slot_backing.checks,
+  (uint64_t)slot_backing.port,(uint64_t)intel_bdw_bcs_port_held(&slot_backing),(uint64_t)slot_backing.freed);
  console_printf("intel-independent-slot: v=1 slot=%u reserved=%u returned=%u reopen_verified=%u pte_writes=0\n",
   (uint64_t)GT_SECOND_SLOT,(uint64_t)(independent_token.object!=NULL),(uint64_t)independent_returned,
   (uint64_t)independent_reopened);

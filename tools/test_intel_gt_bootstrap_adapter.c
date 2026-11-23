@@ -20,6 +20,7 @@ static void intel_display_test_bootstrap_receipt_boundary(void);
 static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
+static void intel_display_test_backing_access(void);
 static void intel_display_test_bootstrap_smi_cpuid(uint32_t,uint32_t *,uint32_t *,uint32_t *,uint32_t *);
 static uint32_t intel_display_test_bootstrap_smi_count(unsigned);
 #endif
@@ -100,6 +101,9 @@ static bool bf(const char *mode,unsigned n) {
  }return yes;
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
+static void intel_display_test_backing_access(void) {
+ if(slot_backing.checks && bf("backing-content",slot_backing.checks))test_backing_page[511]^=1;
+}
 static void intel_display_test_bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
  assert(wake_irq && !display_access_allowed());
  if(!leaf) {
@@ -219,7 +223,8 @@ static bool intel_display_test_bootstrap_command(unsigned value) {
  ++bcommands;assert(bcommands<=2 && value==(bcommands==1?3u:7u));
  assert(bootstrap_parent() && hda_command==2 && wake_irq && !display_access_allowed());
 #ifdef SRVROS_INTEL_GT_FLUSH
- assert(gt_slot_live() && !independent_returned);
+ assert(gt_slot_live() && !independent_returned && test_backing_allocated);
+ assert(!intel_bdw_bcs_port_claim(&gpu_command) && !intel_bdw_bcs_port_release(&gpu_command));
  struct scanout_interval competing={0};
  assert(!scanout_interval_claim(&competing,result.mmio_base,window_result.aperture_base,
    window_result.aperture_bytes,window_result.endpoint.fence_end,(struct scanout_space_range){GT_SECOND_SLOT,1}));
@@ -734,6 +739,7 @@ int main(int argc,char **argv) {
   assert(gt_slot_reserved && gt_slot_checked && gt_slot_returned && !gt_slot_live());
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
+  assert(slot_backing.checks==3 && slot_backing.freed && !test_backing_allocated && !intel_bdw_bcs_port_held(&slot_backing));
   assert(independent_returned && gt_range.completed==2 && gt_range.maps==6 && gt_range.retired==6 && !gt_range.mapped && !range_pa);
   assert(gt_range.reads==792 && range_reads==792 && range_maps==6 && range_unmaps==6);
 #else

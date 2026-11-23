@@ -375,6 +375,7 @@ class Runner:
         if trial_profile in STOLEN_PREINIT:manifest['stolen_progress_version']=1
         if trial_profile=='intel-gt-flush-v59':
             manifest['independent_slot'] = 12291
+            manifest['slot_backing_version'] = 1
         if trial_profile==FIRMWARE_IMPORT:
             manifest.update(owned_page_slot=12291, owned_page_version=4)
         self.frozen(manifest)
@@ -667,6 +668,8 @@ class Runner:
                 raise ValueError('Native receipt differs from frozen wire version')
             if 'independent_slot' in manifest and native.get('range',{}).get('independent_slot',{}).get('slot') != manifest['independent_slot']:
                 raise ValueError('Missing independent slot requester evidence')
+            if 'slot_backing_version' in manifest and native.get('range',{}).get('slot_backing',{}).get('v') != manifest['slot_backing_version']:
+                raise ValueError('Missing DMA backing and submission-port receipt')
             if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
                 raise ValueError('Missing independent page receipt for this stage')
             if 'owned_page_version' in manifest and native.get('owned_page',{}).get('v') != manifest['owned_page_version']:
@@ -806,6 +809,8 @@ class Runner:
                     native_acceptance=False,original_timing_acceptance=False,physical_tearfree=False,return_integrity='PASS')
         if native.get('diagnostic_range'):
             coverage=native['range']['summary']
+            if 'slot_backing' in native['range']:
+                record['slot_backing'] = native['range']['slot_backing']
             if 'independent_slot' in native['range']:
                 record['independent_slot'] = native['range']['independent_slot']
                 record['independent_slot_entries'] = [row[129:] for row in native['range']['vectors']]
