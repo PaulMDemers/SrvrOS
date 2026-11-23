@@ -12,8 +12,8 @@ A local-file-only GIO link verified the polling fallback on private exFAT.
 Guest-verified SDK address declarations let `ginetaddress.c` compile.
 Linked guests verified the IPv4 ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
-packet pairs passed guest verification. Static GIO next stops at undeclared
-`EPROTOTYPE` in `gsocket.c`.
+packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
+Static GIO next stops at undeclared `SOMAXCONN` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -582,6 +582,24 @@ host fixtures ran under Rosetta. Fresh static GIO reached `gsocket.c`
 and now reports undeclared `EPROTOTYPE` first at line 677, followed by
 other missing socket declarations.
 [Verification receipt](assets/evidence/gio-seqpacket/receipt.json)
+
+## Socket protocol/type errno
+
+From merged OS #535 at `e77f468f`, the SDK exports `EPROTOTYPE` as 91 and
+provides its error text through `strerror()` and `strerror_r()`. Pinned
+GIO uses the value when deciding whether to retry socket creation without
+flags. SrvrOS accepts `SOCK_CLOEXEC` and `SOCK_NONBLOCK` at creation.
+[Errno numbering reference](https://raw.githubusercontent.com/torvalds/linux/master/include/uapi/asm-generic/errno.h)
+
+Two diskless guest runs verified the errno value and error text, including
+short-buffer handling, flagged `AF_UNIX` stream creation and the existing
+error codes for incompatible requests. Both native packet-pair controls
+and both platform controls passed. The ISO matched the kernel and all
+four executables. QEMU stopped and the VM window was released.
+
+Fresh static GIO advanced past the errno check in `gsocket.c`. Its first
+error is now undeclared `SOMAXCONN` at line 1083.
+[Verification receipt](assets/evidence/gio-eprototype/receipt.json)
 
 ## Verification
 

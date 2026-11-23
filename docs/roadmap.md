@@ -38,8 +38,8 @@ Static GIO now compiles `ginetaddress.c` with guest-verified SDK address
 helpers and numeric IPv4 lookup. Linked guests verified the IPv4 ToS and
 IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
-packet pairs passed guest verification. Static GIO next stops at undeclared
-`EPROTOTYPE` in `gsocket.c`.
+packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
+Static GIO next stops at undeclared `SOMAXCONN` in `gsocket.c`.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
