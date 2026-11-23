@@ -47,33 +47,36 @@ def sha(data):
 
 
 def prepare_stage(stage, mode, root_guid=None, volume=None):
-    # prepare and apply both validate identity_config; keep the temporary
-    # override in scope through both calls and always restore the module.
     original = installation.identity_config
     original_esp = installation.ESP_MIB
-    def fixture_config(guid):
-        config = original(root_guid or guid)
-        before = b' srvros.root-role=system\n'
-        after = b' srvros.root-role=system srvros.auth=' + mode.encode('ascii') + b'\n'
-        if config.count(before) != 1:
-            raise RuntimeError('unexpected installation configuration')
-        return config.replace(before, after)
+    if mode not in ('local', 'recovery') or (mode == 'recovery') != (root_guid is not None):
+        raise ValueError('invalid fixture boot mode')
     try:
-        installation.identity_config = fixture_config
-        # Leave space for both owned images and the saved ESP on the build host.
-        # 288 MiB still exceeds FAT32's minimum cluster count at 4 KiB.
+        # Only the separately generated recovery template overrides the GUID:
+        # its ESP boots the actual target's system partition when transplanted.
+        if mode == 'recovery':
+            def recovery_config(_guid, *args, **kwargs):
+                return original(root_guid, auth='recovery')
+            installation.identity_config = recovery_config
+        # Preserve the existing fixture-only space budget for both disks.
         installation.ESP_MIB = 288
         plan = installation.prepare(stage, ROOT / 'build/kernel/srvros.elf',
             ROOT / 'build/limine-binary/BOOTX64.EFI', volume or ROOT / 'build/srvros.exfat',
-            ROOT / 'build/userspace/init.elf', identity_bound=True)
+            ROOT / 'build/userspace/init.elf', identity_bound=True,
+            console_auth=(mode == 'local'))
         ready = installation.apply(stage)
     finally:
         installation.identity_config = original
         installation.ESP_MIB = original_esp
-    if ('srvros.auth=' + mode) not in plan['config']:
-        raise RuntimeError('fixture configuration missing requested mode')
-    if root_guid and ('srvros.root=' + root_guid) not in plan['config']:
-        raise RuntimeError('fixture configuration bound to wrong data partition')
+    if (plan.get('console_auth') is True) != (mode == 'local'):
+        raise RuntimeError('installer plan does not contain the requested console-auth choice')
+    target_guid = root_guid or ready['gpt']['exfat_partition_guid']
+    expected = original(target_guid, auth=mode)
+    if plan.get('config', '').encode('ascii') != expected:
+        raise RuntimeError('installer generated an unexpected identity-bound EFI configuration')
+    if (stage / 'limine.conf').read_bytes() != expected:
+        raise RuntimeError('staged EFI configuration differs from installer plan')
+    # apply validates every EFI configuration copy against this exact plan.
     return plan, ready
 
 
@@ -274,7 +277,8 @@ class VM:
             self.serial = connect_serial(port, 20); self.serial.settimeout(.2)
             self.qmp = QMP(qmp_path)
             prompt = {'recovery': b'srv> ', 'local': b'Login: ',
-                      'blocked': b'local-auth: sign-in unavailable.',
+                      'blocked': b'local-auth: sign-in unavailable. Restart in explicit recovery mode.',
+                      'store-blocked': b'local-auth: sign-in unavailable. Restart in explicit recovery mode.',
                       'root-recovery': b'No fallback volume or repair was selected.'}
             self.wait(prompt[self.mode], self.args.boot_wait)
             if self.mode != 'root-recovery' and b'installed-root: selected device=ahci0p2 format=exfat-v1 role=system' not in self.output:
@@ -293,6 +297,10 @@ class VM:
                 if any(marker in self.output for marker in (b'Login: ', b'srv> ', b'bootlog: persisted',
                        b'installed-root: selected', b'init: readiness=', b'local-auth: console sign-in')):
                     raise RuntimeError('strict sidecar refusal reached normal boot')
+            if self.mode == 'store-blocked':
+                if (b'local-auth: console sign-in' not in self.output or
+                    any(marker in self.output for marker in (b'Login: ', b'srv> '))):
+                    raise RuntimeError('invalid account store did not fail before sign-in prompt')
             if self.mode == 'blocked':
                 if any(marker in self.output for marker in
                        (b'local-auth: console sign-in', b'Login: ', b'srv> ')):
@@ -506,7 +514,7 @@ class VM:
         # Recovery uses the monitor's flush/reboot sequence. Local mode has no
         # privileged monitor; reset terminates QEMU under -no-reboot after the
         # completed session and causes QEMU to close its owned image normally.
-        if self.mode == 'root-recovery':
+        if self.mode in ('root-recovery', 'store-blocked', 'blocked'):
             until = time.monotonic() + .7
             while time.monotonic() < until:
                 if self.proc.poll() is not None: raise RuntimeError('recovery did not halt')
@@ -515,9 +523,14 @@ class VM:
                     if not chunk: raise RuntimeError('recovery serial disconnected')
                     self.output.extend(chunk)
                 except socket.timeout: pass
-            if any(marker in self.output for marker in (b'Login: ', b'srv> ', b'bootlog: persisted',
-                   b'installed-root: selected', b'init: readiness=', b'local-auth: console sign-in')):
-                raise RuntimeError('strict sidecar refusal reached normal boot')
+            forbidden = (b'Login: ', b'srv> ')
+            if self.mode == 'blocked':
+                forbidden += (b'local-auth: console sign-in',)
+            if self.mode == 'root-recovery':
+                forbidden += (b'bootlog: persisted', b'installed-root: selected',
+                              b'init: readiness=', b'local-auth: console sign-in')
+            if any(marker in self.output for marker in forbidden):
+                raise RuntimeError('blocked boot reached an unsafe prompt or startup path')
             self.qmp.call('system_reset')
         elif self.mode == 'recovery':
             self.command('/fat/bin/sync')
@@ -651,6 +664,40 @@ def main():
         initial_data_hash = region_hash(target, *data)
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != initial_data_hash: raise RuntimeError('ESP swap changed target data')
+        # A fresh generated exFAT image has no ownership sidecar. Initialize
+        # the installed volume in explicit recovery, without creating accounts,
+        # so this case reaches account admission rather than the sidecar gate.
+        with VM(target, out, 'initial-recovery', args, 'recovery') as vm:
+            vm.finish()
+        initial_fs = ExfatFixture(proof.data_image(target, *data))
+        if not initial_fs.read('.srvros/meta').startswith(b'SRVROSMETA1\n'):
+            raise RuntimeError('initial recovery did not initialize metadata')
+        try: initial_fs.read('etc/local-auth/accounts')
+        except StopIteration: pass
+        else: raise RuntimeError('initial fixture unexpectedly has an account store')
+        before_swap = region_hash(target, *data); local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        missing_before = region_hash(target, *data)
+        with VM(target, out, 'missing-accounts', args, 'blocked') as vm:
+            blocked_before = vm.paused_data_state()
+            time.sleep(.7)
+            blocked_after = vm.paused_data_state()
+            if blocked_before != blocked_after:
+                raise RuntimeError('missing-account blocked state wrote during observation')
+            vm.finish()
+        missing_after = region_hash(target, *data)
+        missing_fs = ExfatFixture(proof.data_image(target, *data))
+        try: missing_fs.read('etc/local-auth/accounts')
+        except StopIteration: pass
+        else: raise RuntimeError('missing-account boot created an account store')
+        receipt['cases'].append({'missing_account_store_blocked': 'PASS',
+            'data_before_boot_sha256': missing_before, 'data_after_boot_sha256': missing_after,
+            'blocked_observation_data_sha256': blocked_before[0],
+            'blocked_observation_write_ops': blocked_before[1],
+            'blocked_observation_write_bytes': blocked_before[2],
+            'blocked_observation_no_writes': 'PASS'})
+        before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'enroll', args, 'recovery') as vm:
             vm.command('/fat/bin/chmod 755 /fat/signin-test/reset')
             vm.command('/fat/bin/chmod 755 /fat/signin-test/hold')
@@ -1070,9 +1117,12 @@ def main():
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'damage', args, 'recovery') as vm:
+            vm.command('/fat/bin/cp /fat/etc/local-auth/accounts /fat/etc/local-auth/accounts.fixture-backup')
+            vm.command('/fat/bin/chmod 600 /fat/etc/local-auth/accounts.fixture-backup')
             vm.send(('write ' + ACCOUNT_PATH + ' malformed-fixture').encode('ascii'))
             vm.wait(b'write: ' + ACCOUNT_PATH.encode('ascii') + b' 17 bytes')
             vm.wait(b'srv> ')
+            vm.command('/fat/bin/chmod 600 /fat/etc/local-auth/accounts')
             for name in ('accounts.tmp', 'enroll.lock'):
                 path = '/fat/etc/local-auth/' + name
                 vm.send(('write ' + path + ' pending-fixture').encode('ascii'))
@@ -1109,11 +1159,45 @@ def main():
         before_swap = region_hash(target, *data)
         local_mode()
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
-        with VM(target, out, 'damaged', args, 'local') as vm:
-            vm.attempt('alpha', alpha_password)
-            vm.attempt('beta', PASSWORDS['beta'])
+        damaged_before = region_hash(target, *data)
+        with VM(target, out, 'damaged', args, 'store-blocked') as vm:
+            blocked_before = vm.paused_data_state()
+            time.sleep(.7)
+            blocked_after = vm.paused_data_state()
+            if blocked_before != blocked_after:
+                raise RuntimeError('malformed-account blocked state wrote during observation')
             vm.finish()
-        receipt['cases'].append({'damaged_store': 'PASS'})
+        damaged_after = region_hash(target, *data)
+        if account_bytes(target) != damaged:
+            raise RuntimeError('malformed-account boot changed committed store')
+        receipt['cases'].append({'damaged_store': 'PASS', 'blocked_before_login': 'PASS',
+            'data_before_boot_sha256': damaged_before, 'data_after_boot_sha256': damaged_after,
+            'blocked_observation_data_sha256': blocked_before[0],
+            'blocked_observation_write_ops': blocked_before[1],
+            'blocked_observation_write_bytes': blocked_before[2],
+            'blocked_observation_no_writes': 'PASS'})
+        before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'restore-accounts', args, 'recovery') as vm:
+            vm.command('/fat/bin/cp /fat/etc/local-auth/accounts.fixture-backup /fat/etc/local-auth/accounts')
+            vm.command('/fat/bin/chmod 600 /fat/etc/local-auth/accounts')
+            vm.command('/fat/bin/rm /fat/etc/local-auth/accounts.fixture-backup')
+            vm.finish()
+        if account_bytes(target) != original_accounts:
+            raise RuntimeError('controlled recovery did not restore exact committed account store')
+        if any(marker_bytes(target, name) is not None for name in ('accounts.tmp', 'enroll.lock')):
+            raise RuntimeError('controlled account restoration retained transaction markers')
+        before_swap = region_hash(target, *data); local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'restored-accounts', args, 'local') as vm:
+            vm.attempt('alpha', alpha_password, 1001,
+                       session=lambda v: v.session_files('alpha', 1001, peer='beta'))
+            vm.attempt('beta', PASSWORDS['beta'], 1002,
+                       session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+            vm.finish()
+        verify_persisted_files(target, data)
+        receipt['cases'].append({'malformed_store_recovery': 'PASS',
+            'both_users_data_and_permissions': 'PASS'})
         previous = None
         for label, path in (('writable-program', '/fat/bin/local-signin'), ('writable-parent', '/fat/bin')):
             before_swap = region_hash(target, *data)

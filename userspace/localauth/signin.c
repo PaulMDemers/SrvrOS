@@ -212,7 +212,7 @@ static bool delay_failure(unsigned failures) {
 }
 
 int main(void) {
-    if (geteuid() != 0) return 1;
+    if (geteuid() != 0 || local_account_validate_store() < 0) return 1;
     /* Physical Ctrl-C can arrive while the console is cooked between prompts
      * or during retry delay. The private session restores default handling. */
     if (signal(SIGINT, SIG_IGN) == SIG_ERR) return 1;

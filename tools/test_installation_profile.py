@@ -108,6 +108,13 @@ class ProfileInstallationTests(unittest.TestCase):
         return install.prepare(self.target, self.kernel, self.boot, self.exfat, self.init,
                                **dict(self.options, **changes))
 
+    def test_console_auth_preserves_profile_plan(self):
+        plan = self.prepare(console_auth=True)
+        self.assertTrue(plan['console_auth'])
+        self.assertIn('srvros.auth=local', plan['config'])
+        self.assertEqual(plan['profile']['home'], self.options['profile_home'])
+        self.assertEqual(install.validate_plan(self.target)[2], plan['profile'])
+
     def test_refuse_partial_invalid_local_home_and_paths_before_stage(self):
         for changes in ({'profile_gid': None}, {'identity_bound': False},
                         {'profile_home': '/fat/home/../evil'}, {'profile_alias': '../bad'},

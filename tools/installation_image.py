@@ -17,6 +17,7 @@ from pathlib import Path
 from contextlib import contextmanager
 import stat
 import subprocess
+import sys
 import struct
 import tarfile
 import uuid
@@ -117,9 +118,50 @@ def sync_dir(path):
         os.close(fd)
 
 
-def identity_config(partition_guid):
+def validate_identity_uuid(partition_guid):
+    if type(partition_guid) is not str:
+        raise ValueError('partition GUID must be a canonical nonzero UUID')
+    try:
+        parsed = uuid.UUID(partition_guid)
+    except (ValueError, AttributeError):
+        raise ValueError('partition GUID must be a canonical nonzero UUID') from None
+    if str(parsed) != partition_guid or not parsed.int:
+        raise ValueError('partition GUID must be a canonical nonzero UUID')
+
+
+def identity_config(partition_guid, *, auth=None):
+    validate_identity_uuid(partition_guid)
+    if auth not in (None, 'local', 'recovery'):
+        raise ValueError('invalid console authentication mode')
+    auth_arg = '' if auth is None else f' srvros.auth={auth}'
     return CONFIG.replace(b"    cmdline: srvros.virtio=on\n",
-        f"    cmdline: srvros.virtio=on srvros.root={partition_guid} srvros.root-format=exfat-v1 srvros.root-role=system\n".encode("ascii"))
+        f"    cmdline: srvros.virtio=on srvros.root={partition_guid} srvros.root-format=exfat-v1 srvros.root-role=system{auth_arg}\n".encode('ascii'))
+
+
+def validate_identity_plan(plan):
+    """Validate shared root-selection and console mode fields, without I/O."""
+    if 'console_auth' in plan and plan['console_auth'] is not True:
+        raise ValueError('invalid console authentication flag')
+    selection = plan.get('selection')
+    if selection is None:
+        if any(k in plan for k in ('gpt', 'config', 'console_auth')):
+            raise ValueError('unexpected root selection fields')
+        return None
+    if selection != {'mode': 'identity-bound', 'format': 'exfat-v1', 'role': 'system'}:
+        raise ValueError('invalid root selection')
+    gpt = plan['gpt']
+    if type(gpt) is not dict or set(gpt) != {'disk_guid', 'esp_partition_guid', 'exfat_partition_guid', 'exfat_partition_name'}:
+        raise ValueError('invalid GPT plan')
+    identifiers = [gpt[k] for k in ('disk_guid', 'esp_partition_guid', 'exfat_partition_guid')]
+    for value in identifiers:
+        validate_identity_uuid(value)
+    if len(set(identifiers)) != 3 or gpt['exfat_partition_name'] != 'srvros-system-v1':
+        raise ValueError('invalid identity-bound plan')
+    config = (identity_config(identifiers[2], auth='local') if plan.get('console_auth') is True
+              else identity_config(identifiers[2]))
+    if plan['config'] != config.decode('ascii'):
+        raise ValueError('invalid identity-bound plan')
+    return selection
 
 
 def profile_source(bundle):
@@ -141,10 +183,12 @@ def load_profile(record, home, alias, uid, gid):
         return bundle.metadata, profile_metadata(bundle, home, alias, uid, gid)
 
 
-def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False,
+def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False, console_auth=False,
             profile_bundle=None, profile_home=None, profile_alias=None, profile_uid=None,
             profile_gid=None, profile_driver=None, profile_expected_id=None):
     target = checked_path(staging_dir)
+    if type(console_auth) is not bool or (console_auth and not identity_bound):
+        raise ValueError('console authentication requires identity-bound mode')
     options = (profile_bundle, profile_home, profile_alias, profile_uid, profile_gid, profile_driver)
     if any(value is not None for value in options) and (not identity_bound or any(value is None for value in options)):
         raise ValueError('profile requires identity-bound mode and all profile options')
@@ -188,7 +232,10 @@ def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False,
                'exfat_partition_guid': str(uuid.uuid4()), 'exfat_partition_name': 'srvros-system-v1'}
         plan['selection'] = {'mode': 'identity-bound', 'format': 'exfat-v1', 'role': 'system'}
         plan['gpt'] = gpt
-        plan['config'] = identity_config(gpt['exfat_partition_guid']).decode('ascii')
+        if console_auth:
+            plan['console_auth'] = True
+        plan['config'] = (identity_config(gpt['exfat_partition_guid'], auth='local') if console_auth
+                          else identity_config(gpt['exfat_partition_guid'])).decode('ascii')
     write_json(target / 'plan.json', plan)
     with open(target / 'plan.sha256', 'x') as f:
         f.write(digest(target / 'plan.json') + '\n')
@@ -318,18 +365,7 @@ def validate_plan(target):
         plan['layout'] != layout(plan['sources']['exfat']['size'])):
         raise ValueError('target or plan identity mismatch')
     uuid.UUID(plan['target_uuid'])
-    selection = plan.get('selection')
-    if selection is not None:
-        if selection != {'mode': 'identity-bound', 'format': 'exfat-v1', 'role': 'system'}:
-            raise ValueError('invalid root selection')
-        gpt = plan['gpt']
-        identifiers = [gpt[k] for k in ('disk_guid', 'esp_partition_guid', 'exfat_partition_guid')]
-        if (any(str(uuid.UUID(value)) != value or uuid.UUID(value).int == 0 for value in identifiers) or
-            len(set(identifiers)) != 3 or gpt['exfat_partition_name'] != 'srvros-system-v1' or
-            plan['config'] != identity_config(gpt['exfat_partition_guid']).decode('ascii')):
-            raise ValueError('invalid identity-bound plan')
-    elif 'gpt' in plan or 'config' in plan:
-        raise ValueError('unexpected root selection fields')
+    selection = validate_identity_plan(plan)
     for name, item in plan['sources'].items():
         if name != 'profile_bundle' and source(item['path']) != item:
             raise ValueError('source changed since prepare')
@@ -657,6 +693,8 @@ def main():
     for name in ('kernel', 'bootx64', 'exfat', 'init'):
         prep.add_argument('--' + name, required=True)
     prep.add_argument('--identity-bound', action='store_true')
+    prep.add_argument('--console-auth', action='store_true')
+    sub.add_parser('console-recovery-config').add_argument('root_guid')
     for name in ('bundle', 'home', 'alias', 'driver', 'expected-id'):
         prep.add_argument('--profile-' + name)
     for name in ('uid', 'gid'):
@@ -692,9 +730,12 @@ def main():
                                                         'ready-linked', 'ready-published'))
     args = parser.parse_args()
     try:
+        if args.action == 'console-recovery-config':
+            sys.stdout.buffer.write(identity_config(args.root_guid, auth='recovery'))
+            return
         if args.action == 'prepare':
             result = prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init,
-                identity_bound=args.identity_bound, profile_bundle=args.profile_bundle,
+                identity_bound=args.identity_bound, console_auth=args.console_auth, profile_bundle=args.profile_bundle,
                 profile_home=args.profile_home, profile_alias=args.profile_alias, profile_uid=args.profile_uid,
                 profile_gid=args.profile_gid, profile_driver=args.profile_driver,
                 profile_expected_id=args.profile_expected_id)

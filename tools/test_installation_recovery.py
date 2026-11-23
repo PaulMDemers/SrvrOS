@@ -59,6 +59,17 @@ class RecoveryTests(unittest.TestCase):
                          os.readlink(p) if p.is_symlink() else image.digest(p))
                 for p in self.target.iterdir()}
 
+    def test_console_auth_interrupted_publication_reconciles(self):
+        plan=image.prepare(self.target,self.kernel,self.boot,self.exfat,self.init,
+                           identity_bound=True,console_auth=True)
+        with mock.patch.object(image.usb,'build_image',side_effect=sparse_builder):
+            with self.assertRaises(Interrupted):
+                image.apply(self.target,checkpoint=stop_at('verified'))
+            self.assertEqual(image.inspect(self.target)['state'],'verified')
+            image.reconcile(self.target)
+        self.assertEqual(image.inspect(self.target)['state'],'ready')
+        self.assertIn('srvros.auth=local',plan['config'])
+
     def test_checkpoint_matrix_plain_and_v2_profile(self):
         states = {'provisioning-started': 'incomplete', 'provisioned': 'incomplete',
                   'assembled': 'incomplete', 'verified': 'verified', 'image-linked': 'image-linked',
