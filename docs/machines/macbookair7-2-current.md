@@ -10,11 +10,19 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
-The current change joins the WiDi programming-page exclusion to the native
-slot 12291 reservation across GT reset and PCI requester reopening. The
-range-v5 hardware trial also reads WiDi GO and reset-flow state during all four
-engine/cache observations and checks the live PTE after bus mastering
-reopens. Physical qualification of this combined lifetime is pending.
+Release `31cf9ad2837cdcb6` (source `b7ce1048`, session
+`session-000660eaf9bfabb7-00`) held all three WiDi programming pages
+and the slot 12291 reservation across GT reset and PCI requester reopening.
+The original display remained active. After bus mastering reopened, three
+reads confirmed the original PTE `0x8f004001`. SrvrOS issued zero PTE
+writes and returned the reservation. The exit report and offline USB
+integrity checks passed.
+
+Video and audio producers were disabled, but the device-side WiDi window
+read `0x1f` and reset flow read zero in all four samples. There was no
+fresh engine acknowledgment or L3 flush acknowledgment. Replacing and
+restoring this entry on hardware still requires a native submission path
+that retires inherited accesses and holds device-side exclusion through rollback.
 [Trial and receipt](../device-workflow.md)
 
 On Ubuntu/i915, four trials on this Air held a blitter request for a private
