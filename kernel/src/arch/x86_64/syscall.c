@@ -4078,7 +4078,8 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     /* This exact test image admits local runtime qualification only. Reject
      * every external/namespace socket entry before any backend effect. */
     switch(frame->rax) {
-    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:case SYS_FILE_VERIFY:case SYS_MOUNT_SNAPSHOT:return false;
+    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:case SYS_FILE_VERIFY:case SYS_MOUNT_SNAPSHOT:case SYS_SHM:return false;
+    case SYS_MMAP:return (frame->rcx & SRV_MAP_SHARED) == 0;
     case SYS_NET_LISTEN:case SYS_NET_ACCEPT:case SYS_NET_DHCP:case SYS_NET_STATUS:case SYS_NET_DNS:
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
@@ -4496,6 +4497,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
             (int64_t)frame->r8,
             (int64_t)frame->r9);
         return;
+    case SYS_SHM:
+        frame->rax = (uint64_t)process_shm(process_current(), frame->rdi, frame->rsi);
+        return;
     case SYS_MUNMAP:
         frame->rax = (uint64_t)syscall_munmap(frame->rdi, frame->rsi);
         return;
@@ -4743,7 +4747,7 @@ void syscall_dispatch(struct isr_frame *frame) {
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     /* Unsupported extensions must not wait for namespace I/O ownership. */
     if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM || frame->rax==SYS_FILE_VERIFY ||
-       frame->rax==SYS_MOUNT_SNAPSHOT) {
+       frame->rax==SYS_MOUNT_SNAPSHOT || frame->rax==SYS_SHM) {
         frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
     }
 #endif

@@ -10,8 +10,23 @@ void *mmap(void *address, size_t length, int protection, int flags, int fd, off_
         errno = EINVAL;
         return MAP_FAILED;
     }
-    if ((flags & MAP_SHARED) != 0 ||
-        (flags & MAP_PRIVATE) == 0 ||
+    if ((flags & MAP_SHARED) != 0) {
+        if (address != NULL || flags != MAP_SHARED || offset != 0) {
+            errno = EINVAL;
+            return MAP_FAILED;
+        }
+        if (fd < 0) {
+            errno = EBADF;
+            return MAP_FAILED;
+        }
+        long result = srv_mmap(address, length, protection, flags, fd, offset);
+        if (result < 0) {
+            errno = (int)-result;
+            return MAP_FAILED;
+        }
+        return (void *)(uintptr_t)result;
+    }
+    if ((flags & MAP_PRIVATE) == 0 ||
         (flags & ~(MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_NORESERVE)) != 0) {
         errno = ENOSYS;
         return MAP_FAILED;
@@ -67,8 +82,9 @@ int mprotect(void *address, size_t length, int protection) {
         errno = EINVAL;
         return -1;
     }
-    if (srv_mprotect(address, length, protection) < 0) {
-        errno = EINVAL;
+    long result = srv_mprotect(address, length, protection);
+    if (result < 0) {
+        errno = result == -EACCES ? EACCES : EINVAL;
         return -1;
     }
     return 0;

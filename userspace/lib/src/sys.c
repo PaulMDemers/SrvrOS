@@ -305,6 +305,14 @@ long srv_get_mount_snapshot(struct srv_mount_snapshot *snapshot) {
     return srv_syscall2(SYS_MOUNT_SNAPSHOT, (long)snapshot, sizeof(*snapshot));
 }
 
+long srv_shm_create(uint64_t size) {
+    return srv_syscall2(SYS_SHM, SRV_SHM_CREATE, (long)size);
+}
+
+long srv_shm_export_readonly(int fd) {
+    return srv_syscall2(SYS_SHM, SRV_SHM_EXPORT_READONLY, fd);
+}
+
 long srv_unlink(const char *path) {
     char full[CLI_PATH_MAX];
     return srv_syscall1(SYS_UNLINK, (long)srv_make_path(path, full, sizeof(full)));

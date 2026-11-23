@@ -62,6 +62,8 @@ _Static_assert(sizeof(struct isr_frame)==176 && offsetof(struct isr_frame,rip)==
 #define PROCESS_TLS_TEMPLATE_MAX 4096
 #define PROCESS_MAX_MAPPINGS 65536
 #define PROCESS_MAX_MMAP_REGIONS 512
+/* Tracking-only flag. Shared frames belong to the object, not the PTE. */
+#define PROCESS_MAPPING_SHARED (1ull << 9)
 #define PROCESS_NAME_MAX 64
 #define PROCESS_KERNEL_STACK_SIZE 131072
 #define PROCESS_KERNEL_STACK_MIN_PHYSICAL 0x100000ull
@@ -106,9 +108,22 @@ struct process_mapping {
 struct process_mmap_region {
     bool used;
     bool anonymous;
+    bool shared_writable;
+    uint8_t shared_handle;
     uint64_t base;
     uint64_t length;
 };
+
+struct process_shared_memory {
+    uint64_t refs;
+    uint64_t length;
+    uint64_t frame_count;
+    uint64_t *frames;
+};
+
+_Static_assert(SRV_SHM_MAX_OBJECTS <= UINT8_MAX, "shared mapping handle fits its region");
+static struct process_shared_memory shared_memory[SRV_SHM_MAX_OBJECTS];
+static uint64_t shared_memory_bytes;
 
 struct process;
 
@@ -2048,15 +2063,55 @@ static int64_t process_mapping_index(struct process *process, uint64_t virtual_p
     return -1;
 }
 
+/* Caller holds IRQ exclusion. A retiring object's slot stays reserved
+ * until its last frame is freed. No descriptor can observe that interval. */
+static struct process_shared_memory *shared_memory_at(uint64_t handle) {
+    if (!handle || handle > SRV_SHM_MAX_OBJECTS || !shared_memory[handle - 1].refs)
+        return NULL;
+    return &shared_memory[handle - 1];
+}
+
+static bool shared_memory_hold(uint64_t handle) {
+    uint64_t irq = process_irq_save();
+    struct process_shared_memory *object = shared_memory_at(handle);
+    bool held = object && object->refs != UINT64_MAX;
+    if (held) object->refs++;
+    process_irq_restore(irq);
+    return held;
+}
+
+static void shared_memory_drop(uint64_t handle) {
+    uint64_t irq = process_irq_save();
+    struct process_shared_memory *object = shared_memory_at(handle);
+    if (!object || --object->refs) {
+        process_irq_restore(irq);
+        return;
+    }
+    process_irq_restore(irq);
+    for (uint64_t i = 0; i < object->frame_count; i++)
+        pmm_free_frame(object->frames[i]);
+    if (object->frames) kfree(object->frames);
+    irq = process_irq_save();
+    shared_memory_bytes -= page_up(object->length);
+    *object = (struct process_shared_memory){0};
+    process_irq_restore(irq);
+}
+
 static void process_unmap_mapping_at(struct process *process, uint64_t index) {
     uint64_t irq = process_irq_save();
-    process_futex_invalidate_page(process, process->mappings[index].virtual_address);
+    const struct process_mapping mapping = process->mappings[index];
+    process_futex_invalidate_page(process, mapping.virtual_address);
     uint64_t physical = 0;
-    if (vmm_unmap_page_in_space(process->address_space,
-            process->mappings[index].virtual_address, &physical)) {
+    bool unmapped = vmm_unmap_page_in_space(process->address_space, mapping.virtual_address, &physical);
+    if (mapping.flags & PROCESS_MAPPING_SHARED) {
+        /* Do not drop the object or lose its tracking if a shared PTE was
+         * inconsistent. Private cleanup's free-on-failure rule is unsafe here. */
+        if (!unmapped || physical != mapping.physical_address)
+            for (;;) PROCESS_ARCH_HALT();
+    } else if (unmapped) {
         pmm_free_frame(physical);
-    } else if (process->mappings[index].physical_address != 0) {
-        pmm_free_frame(process->mappings[index].physical_address);
+    } else if (mapping.physical_address) {
+        pmm_free_frame(mapping.physical_address);
     }
     process->mappings[index] = process->mappings[--process->mapping_count];
     process_irq_restore(irq);
@@ -2071,7 +2126,8 @@ static bool process_unmap_tracked_page(struct process *process, uint64_t virtual
 
 static bool process_unmap_tracked_page_checked(struct process *process,uint64_t page) {
     int64_t i=process_mapping_index(process,page);uint64_t physical=0;
-    if(i<0 || !vmm_virt_to_phys_in_space(process->address_space,page,&physical) ||
+    if(i<0 || (process->mappings[i].flags & PROCESS_MAPPING_SHARED) ||
+       !vmm_virt_to_phys_in_space(process->address_space,page,&physical) ||
        physical!=process->mappings[i].physical_address)return false;
     process_futex_invalidate_page(process,page);
     uint64_t removed=0;
@@ -2098,7 +2154,10 @@ static void cleanup_process_mappings(struct process *process) {
     process->mappings=NULL;
     if(retired) kfree(retired);
     for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
-        process->mmap_regions[i].used = false;
+        struct process_mmap_region *region = &process->mmap_regions[i];
+        uint8_t handle = region->used ? region->shared_handle : 0;
+        *region = (struct process_mmap_region){0};
+        if (handle) shared_memory_drop(handle);
     }
     process->mmap_next = USER_MMAP_BASE;
 }
@@ -2119,7 +2178,7 @@ void process_refresh_mappings(struct process *process) {
         (void)vmm_ensure_page_in_space(process->address_space,
             process->mappings[i].virtual_address,
             process->mappings[i].physical_address,
-            process->mappings[i].flags);
+            process->mappings[i].flags & ~PROCESS_MAPPING_SHARED);
     }
     process_service_end(scope);
     process_latency_end(LATENCY_PROCESS_REFRESH,span);
@@ -3101,6 +3160,11 @@ int64_t process_fork(const struct isr_frame *frame) {
      * General multithreaded fork needs explicit libc/descriptor preparation. */
     if(process_current_user_thread() || process_signal_records_active(parent)) return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(parent->user_threads[i].used) return SRV_ERR_NOTSUP;
+    /* The current fork eagerly copies private frames. Reject shared
+     * mappings before allocation so it cannot change their visibility. */
+    for (unsigned i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++)
+        if (parent->mmap_regions[i].used && parent->mmap_regions[i].shared_handle)
+            return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used) {
         enum process_file_type type=parent->files[i].type;
         if(type==PROCESS_FILE_NET_LISTENER || type==PROCESS_FILE_NET_CONNECTION ||
@@ -7519,6 +7583,11 @@ static bool process_file_clone_entry(struct process_file *target, const struct p
         return false;
     }
 
+    if (source->type == PROCESS_FILE_SHARED_MEMORY) {
+        if (!shared_memory_hold(source->handle)) return false;
+        *target = *source;
+        return true;
+    }
     if (source->type == PROCESS_FILE_STDIO) {
         uint64_t handle = source->handle;
         uint8_t *bytes = (uint8_t *)target;
@@ -7656,6 +7725,8 @@ static void process_file_release_entry(struct process_file *file) {
         pipe_close(file->aux_handle, true);
     } else if (file->type == PROCESS_FILE_UNIX_LISTENER) {
         unix_listener_release(file->handle);
+    } else if (file->type == PROCESS_FILE_SHARED_MEMORY) {
+        shared_memory_drop(file->handle);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         (void)write_file_close(file->handle);
     }
@@ -8156,6 +8227,9 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd) {
             ((write->open_flags&SRV_OPEN_APPEND)?SRV_FD_APPEND:0) |
             ((write->open_flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
     }
+    if (file->type == PROCESS_FILE_SHARED_MEMORY)
+        return SRV_FD_READ | (file->aux_handle ? SRV_FD_WRITE : 0) |
+               (file->flags & SRV_FD_NONBLOCK);
     uint64_t access=file->type==PROCESS_FILE_STDIO?(file->handle==0?SRV_FD_READ:SRV_FD_WRITE):
         file->type==PROCESS_FILE_PIPE_READ?SRV_FD_READ:
         file->type==PROCESS_FILE_PIPE_WRITE?SRV_FD_WRITE:SRV_FD_READ|SRV_FD_WRITE;
@@ -8334,6 +8408,8 @@ static int64_t process_file_close_entry(struct process *process, struct process_
         pipe_close(file->aux_handle, true);
     } else if (file->type == PROCESS_FILE_UNIX_LISTENER) {
         unix_listener_release(file->handle);
+    } else if (file->type == PROCESS_FILE_SHARED_MEMORY) {
+        shared_memory_drop(file->handle);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         if (write_file_close(file->handle) < 0) {
             result = SRV_ERR_IO;
@@ -8464,6 +8540,22 @@ int64_t process_file_stat(struct process *process,
     }
     struct process_file *file=process_file_at(process,fd);
     if(!file) return SRV_ERR_BADF;
+    if (file->type == PROCESS_FILE_SHARED_MEMORY) {
+        uint64_t irq = process_irq_save();
+        struct process_shared_memory *object = shared_memory_at(file->handle);
+        if (file->type != PROCESS_FILE_SHARED_MEMORY || !object) {
+            process_irq_restore(irq);
+            return SRV_ERR_BADF;
+        }
+        *size_out = object->length;
+        *type_out = VFS_NODE_FILE;
+        if (metadata_out)
+            *metadata_out = (struct vfs_metadata){
+                .mode = VFS_MODE_IFREG | (file->aux_handle ? 0600 : 0400),
+            };
+        process_irq_restore(irq);
+        return 0;
+    }
     if(file->type==PROCESS_FILE_STDIO) {
         *size_out=0;*type_out=0;
         if(metadata_out) *metadata_out=(struct vfs_metadata){.inode=file->handle+1,.mode=VFS_MODE_IFCHR|0600,.nlink=1};
@@ -8791,7 +8883,9 @@ static void mmap_forget_range(struct process *process, uint64_t base, uint64_t l
             continue;
         }
         if (overlap_start == region_start && overlap_end == region_end) {
-            region->used = false;
+            uint8_t handle = region->shared_handle;
+            *region = (struct process_mmap_region){0};
+            if (handle) shared_memory_drop(handle);
             continue;
         }
         if (overlap_start == region_start) {
@@ -8873,7 +8967,8 @@ static bool mmap_apply_protection(struct process *process,
         process_irq_restore(irq); return false;
     }
     if (!(page_flags & VMM_PAGE_USER)) process_futex_invalidate_page(process, page);
-    process->mappings[index].flags = page_flags;
+    process->mappings[index].flags =
+        page_flags | (process->mappings[index].flags & PROCESS_MAPPING_SHARED);
     process_irq_restore(irq);
     return true;
 }
@@ -8888,6 +8983,199 @@ static void mmap_rollback_pages(struct process *process,uint64_t original_count)
     }
 }
 
+static int shared_memory_free_fd(const struct process *process) {
+    for (int fd = 0; fd < PROCESS_MAX_OPEN_FILES; fd++)
+        if (!process->files[fd].used) return fd;
+    return -1;
+}
+
+/* The writable bit is an immutable handle capability, separate from fcntl
+ * status flags. Clone and SCM_RIGHTS copy it without promotion. */
+static void shared_memory_install(struct process *process, int fd, uint64_t handle, bool writable) {
+    process->files[fd] = (struct process_file){
+        .used = true, .type = PROCESS_FILE_SHARED_MEMORY,
+        .handle = handle, .aux_handle = writable, .flags = SRV_FD_CLOEXEC,
+    };
+}
+
+static int64_t shared_memory_export_readonly(struct process *process, uint64_t fd) {
+    uint64_t irq = process_irq_save();
+    struct process_file *file = process_file_at(process, fd);
+    int64_t result = SRV_ERR_BADF;
+    if (file && file->type != PROCESS_FILE_SHARED_MEMORY) result = SRV_ERR_INVAL;
+    if (file && file->type == PROCESS_FILE_SHARED_MEMORY) {
+        int target = shared_memory_free_fd(process);
+        if (target < 0) result = SRV_ERR_MFILE;
+        else if (!shared_memory_hold(file->handle)) result = SRV_ERR_OVERFLOW;
+        else {
+            shared_memory_install(process, target, file->handle, false);
+            result = target;
+        }
+    }
+    process_irq_restore(irq);
+    return result;
+}
+
+static int64_t shared_memory_create(struct process *process, uint64_t length) {
+    if (!length || length > SRV_SHM_MAX_OBJECT_BYTES) return SRV_ERR_INVAL;
+    const uint64_t bytes = page_up(length);
+    uint64_t irq = process_irq_save();
+    if (shared_memory_free_fd(process) < 0) {
+        process_irq_restore(irq);
+        return SRV_ERR_MFILE;
+    }
+    unsigned index = 0;
+    while (index < SRV_SHM_MAX_OBJECTS && shared_memory[index].length) index++;
+    if (index == SRV_SHM_MAX_OBJECTS || bytes > SRV_SHM_MAX_TOTAL_BYTES - shared_memory_bytes) {
+        process_irq_restore(irq);
+        return SRV_ERR_NOSPC;
+    }
+    struct process_shared_memory *object = &shared_memory[index];
+    *object = (struct process_shared_memory){.refs = 1, .length = length};
+    shared_memory_bytes += bytes;
+    process_irq_restore(irq);
+
+    const uint64_t frame_count = bytes / PAGE_SIZE;
+    object->frames = kmalloc(frame_count * sizeof(*object->frames));
+    if (!object->frames) {
+        shared_memory_drop(index + 1);
+        return SRV_ERR_NOMEM;
+    }
+    while (object->frame_count < frame_count) {
+        uint64_t frame = pmm_alloc_frames_above_tagged(1, PROCESS_USER_PAGE_MIN_PHYSICAL, PMM_FRAME_USER);
+        if (!frame) {
+            shared_memory_drop(index + 1);
+            return SRV_ERR_NOMEM;
+        }
+        zero_page(pmm_phys_to_virt(frame));
+        object->frames[object->frame_count++] = frame;
+        if (!(object->frame_count & 31)) process_service_checkpoint();
+    }
+
+    irq = process_irq_save();
+    int fd = shared_memory_free_fd(process);
+    if (fd >= 0) shared_memory_install(process, fd, index + 1, true);
+    process_irq_restore(irq);
+    if (fd < 0) {
+        shared_memory_drop(index + 1);
+        return SRV_ERR_MFILE;
+    }
+    return fd;
+}
+
+int64_t process_shm(struct process *process, uint64_t operation, uint64_t argument) {
+    if (!process || process->credentials.uid) return SRV_ERR_PERM;
+    if (operation == SRV_SHM_EXPORT_READONLY)
+        return shared_memory_export_readonly(process, argument);
+    if (operation != SRV_SHM_CREATE) return SRV_ERR_INVAL;
+    struct process_service_scope scope = process_service_begin();
+    int64_t result = !scope.held && scheduler_io_active() ?
+        SRV_ERR_AGAIN : shared_memory_create(process, argument);
+    process_service_end(scope);
+    return result;
+}
+
+static int64_t mmap_shared(struct process *process, uint64_t address, uint64_t length,
+    uint64_t protection, uint64_t flags, int64_t fd, int64_t offset) {
+    if (!process || process->credentials.uid || !process->address_space) return SRV_ERR_PERM;
+    if (address || offset || flags != SRV_MAP_SHARED || !length ||
+        length > SRV_SHM_MAX_OBJECT_BYTES || !mmap_protection_valid(protection))
+        return SRV_ERR_INVAL;
+    if (protection & SRV_PROT_EXEC) return SRV_ERR_ACCES;
+    if (!(protection & SRV_PROT_READ)) return SRV_ERR_INVAL;
+
+    uint64_t irq = process_irq_save();
+    struct process_file *file = process_file_at(process, (uint64_t)fd);
+    int64_t status = SRV_ERR_BADF;
+    uint64_t handle = 0;
+    bool writable = false;
+    if (file && file->type != PROCESS_FILE_SHARED_MEMORY) status = SRV_ERR_NODEV;
+    if (file && file->type == PROCESS_FILE_SHARED_MEMORY) {
+        const struct process_shared_memory *object = shared_memory_at(file->handle);
+        writable = file->aux_handle != 0;
+        if (object && length != object->length) status = SRV_ERR_INVAL;
+        else if (object && (protection & SRV_PROT_WRITE) && !writable) status = SRV_ERR_ACCES;
+        else if (object && shared_memory_hold(file->handle)) handle = file->handle;
+    }
+    process_irq_restore(irq);
+    if (!handle) return status;
+
+    /* The prospective mapping reference keeps the frames live after close.
+     * No mapping record is published until every PTE is installed. */
+    const struct process_shared_memory *object = &shared_memory[handle - 1];
+    const uint64_t mapped_length = page_up(length);
+    const uint64_t count = object->frame_count;
+    int64_t found = mmap_find_free_range(process, mapped_length, 0);
+    struct process_mmap_region *region = mmap_free_region_slot(process);
+    if (found < 0 || !region || !process->mappings || count > PROCESS_MAX_MAPPINGS - process->mapping_count) {
+        shared_memory_drop(handle);
+        return SRV_ERR_NOMEM;
+    }
+
+    uint64_t base = (uint64_t)found;
+    uint64_t saved_count = process->mapping_count;
+    uint64_t page_flags = mmap_page_flags_for_protection(protection);
+    for (uint64_t i = 0; i < count; i++) {
+        uint64_t page = base + i * PAGE_SIZE;
+        uint64_t physical = object->frames[i];
+        uint64_t previous;
+        if (vmm_virt_to_phys_in_space(process->address_space, page, &previous) ||
+            !vmm_map_page_in_space(process->address_space, page, physical, page_flags)) {
+            mmap_rollback_pages(process, saved_count);
+            shared_memory_drop(handle);
+            return SRV_ERR_NOMEM;
+        }
+        process->mappings[process->mapping_count++] = (struct process_mapping){
+            .virtual_address = page, .physical_address = physical,
+            .flags = page_flags | PROCESS_MAPPING_SHARED,
+        };
+        if (!((i + 1) & 31)) process_service_checkpoint();
+    }
+
+    uint64_t tracked_bytes = process->mapping_count * PAGE_SIZE;
+    if (tracked_bytes > process->peak_mapped_bytes) process->peak_mapped_bytes = tracked_bytes;
+    *region = (struct process_mmap_region){
+        .used = true, .shared_handle = (uint8_t)handle, .shared_writable = writable,
+        .base = base, .length = mapped_length,
+    };
+    uint64_t next = base + mapped_length;
+    process->mmap_next = next < USER_MMAP_LIMIT ? next : USER_MMAP_BASE;
+    return found;
+}
+
+/* An overlapping shared VMA is indivisible in this ABI. Refuse on an
+ * inexact request before touching adjacent private VMAs or any PTE. */
+static int64_t mmap_shared_range(struct process *process, uint64_t address, uint64_t length,
+    uint64_t rounded, struct process_mmap_region **out) {
+    *out = NULL;
+    for (unsigned i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        struct process_mmap_region *region = &process->mmap_regions[i];
+        if (!region->used || !region->shared_handle || region->base >= address + rounded ||
+            address >= region->base + region->length)
+            continue;
+        const struct process_shared_memory *object = &shared_memory[region->shared_handle - 1];
+        if (region->base != address || region->length != rounded ||
+            (length != region->length && length != object->length))
+            return SRV_ERR_INVAL;
+        *out = region;
+        break;
+    }
+    return 0;
+}
+
+static bool shared_region_pages_valid(const struct process *process,
+    const struct process_mmap_region *region) {
+    const struct process_shared_memory *object = &shared_memory[region->shared_handle - 1];
+    for (uint64_t i = 0; i < object->frame_count; i++) {
+        uint64_t physical;
+        if (!vmm_virt_to_phys_in_space(process->address_space, region->base + i * PAGE_SIZE, &physical) ||
+            physical != object->frames[i])
+            return false;
+        if (!((i + 1) & 31)) process_service_checkpoint();
+    }
+    return true;
+}
+
 static int64_t process_mmap_impl(struct process *process,
     uint64_t address,
     uint64_t length,
@@ -8895,12 +9183,12 @@ static int64_t process_mmap_impl(struct process *process,
     uint64_t flags,
     int64_t fd,
     int64_t offset) {
+    if (flags & SRV_MAP_SHARED) return mmap_shared(process, address, length, protection, flags, fd, offset);
     if (process == NULL || process->address_space == 0 || length == 0) {
         return -1;
     }
-    if ((flags & ~(SRV_MAP_ANONYMOUS | SRV_MAP_PRIVATE | SRV_MAP_SHARED | SRV_MAP_FIXED)) != 0 ||
-        (flags & SRV_MAP_PRIVATE) == 0 ||
-        (flags & SRV_MAP_SHARED) != 0) {
+    if ((flags & ~(SRV_MAP_ANONYMOUS | SRV_MAP_PRIVATE | SRV_MAP_FIXED)) != 0 ||
+        (flags & SRV_MAP_PRIVATE) == 0) {
         return -1;
     }
     if (!mmap_protection_valid(protection)) {
@@ -9062,6 +9350,10 @@ static int64_t process_munmap_impl(struct process *process, uint64_t address, ui
     if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
         return -1;
     }
+    struct process_mmap_region *shared;
+    int64_t rule = mmap_shared_range(process, address, length, mapped_length, &shared);
+    if (rule < 0) return rule;
+    if (shared && !shared_region_pages_valid(process, shared)) return SRV_ERR_IO;
     if (!mmap_can_split_for_unmap(process, address, mapped_length)) {
         return -1;
     }
@@ -9100,6 +9392,15 @@ static int64_t process_mprotect_impl(struct process *process,
     if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
         return -1;
     }
+    struct process_mmap_region *shared;
+    int64_t rule = mmap_shared_range(process, address, length, mapped_length, &shared);
+    if (rule < 0) return rule;
+    if (shared && ((protection & SRV_PROT_EXEC) ||
+                   ((protection & SRV_PROT_WRITE) && !shared->shared_writable)))
+        return SRV_ERR_ACCES;
+    if (shared && (protection & SRV_PROT_WRITE) && !(protection & SRV_PROT_READ))
+        return SRV_ERR_INVAL;
+    if (shared && !shared_region_pages_valid(process, shared)) return SRV_ERR_IO;
     if(!mmap_range_registered(process,address,mapped_length))return -1;
     uint64_t page_flags=mmap_page_flags_for_protection(protection);
     /* The tracking array is unsorted. Visit it once, publishing each PTE and
@@ -9110,7 +9411,7 @@ static int64_t process_mprotect_impl(struct process *process,
            !mmap_apply_protection(process,i,page_flags))return -1;
         if(!((i+1)&31))process_service_checkpoint();
     }
-    if(protection!=SRV_PROT_NONE) {
+    if(!shared && protection!=SRV_PROT_NONE) {
         for(uint64_t page=address;page<address+mapped_length;page+=PAGE_SIZE) {
             uint64_t physical;
             /* PROT_NONE reservations may have no frame yet. Existing PTEs
