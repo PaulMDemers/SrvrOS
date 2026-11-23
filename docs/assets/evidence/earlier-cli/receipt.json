@@ -1,0 +1,128 @@
+{
+  "artifacts": {
+    "byacc": {
+      "elf": "0c0371a2411802bf9471847172c695c15823c8e1dbeb0638abd136940523147d",
+      "staged": "daeb67bb24352115ccb44fc8348f35ddb2a857f41372cd63c9a54b3803766f8f"
+    },
+    "lua": {
+      "elf": "3bf852371d69b1b3e217bd026e21784e973ff5a8c1e0f3ecb8e4b70d09dc469f",
+      "staged": "b0f0077e2d5c2830b637df60788ac47a5aea3596ba413f2297b129d3bfec2085"
+    },
+    "miniunz": {
+      "elf": "b700ce5c5ccdafa04e96538709b3ed184a47cc3400a048ab7dfcaeca962b8369",
+      "staged": "d97c7c06ce5e2cded779283199910d5ed5ba639d7cc6e3600de081046c47d848"
+    },
+    "minizip": {
+      "elf": "c1d7dc01d5bc87dc403538ad6daeca5b57f697c5b00c6ee8dbeb8d4b51f760a5",
+      "staged": "385e4ff34968d8012eb0f85615640a80e4be37b2cf8b2aed101bff403f3c5d9c"
+    }
+  },
+  "boot_sha256": {
+    "initramfs.tar": "18f2d90d091873ca7710f80e57900e267d03320bb6da2b339623d101074b0034",
+    "srvros.elf": "df6273b221eda6cc0a98a1136f4df223c275fb4e833be4595636fce57af66126"
+  },
+  "build_manifest_sha256": "bc332e29b16e6efa7384c37e73d6b045be428b12911bb9b9c4bd89a593ecc77f",
+  "cli_regression": {
+    "commands": 498,
+    "filesystem": "clean",
+    "log_sha256": "1ba9cbe7bf9f4a9b3413d3971eba13cbffe62f19f7b30c904c734885d83443a4",
+    "status": "PASS"
+  },
+  "focused_guest": {
+    "byacc": {
+      "compared_sources": [
+        "byacc-file.tab.c",
+        "byacc-file.tab.h",
+        "byacc-stdin.c",
+        "byacc-stdin.h",
+        "byacc-retry.c",
+        "byacc-retry.h"
+      ],
+      "host_output_failure_status": 1,
+      "native_reference_sha256": "6a24242ee7bdf8ae01c6acab8caa5c86c9aa99c156106352cc906351cc33a349",
+      "native_version": "2.0 20260126",
+      "parser_vectors": 3,
+      "vendored_host_output_failure_status": 0
+    },
+    "fsck": "clean",
+    "lua": {
+      "errors": "syntax, non-string runtime error, missing file, blocked output, and preloaded stdin read error",
+      "native_output_cases": 5,
+      "native_reference_sha256": "956c3a9e849b004d4a134ee8953eb866a2104cb6cf9fb7e8ef97822bb4d752d6",
+      "native_version": "5.4.8"
+    },
+    "readback_items": 99,
+    "receipt_sha256": "df02e72f379c73241f8b41f0b9790c0f02a514787bd7ee9a1c1d52ccd410ecac",
+    "status": "PASS",
+    "zip": {
+      "checks": "CRC, binary and empty members, independent ZIP reader, ordinary output refusal, named extraction, retry and DOS epoch fallback",
+      "formats": [
+        "stored",
+        "deflated"
+      ],
+      "readback_sha256": {
+        "zip-blocked/keep.txt": "0786d2b4a9e62ae708ff37f2fffbbdf6bfb486a8a5e931874266d568192b1a0a",
+        "zip-guest-deflate.zip": "e4efc6c69cbff4400344615d56485e3cd9042f985b53ecd78de3efd821ceba9f",
+        "zip-guest-stored.zip": "682e974c9c0f447c18dc0584e8f02e3a9dd7eaacbf673cbe89ccd4efb8e461b5",
+        "zip-host-out/zip-empty.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "zip-host-out/zip-note.txt": "0786d2b4a9e62ae708ff37f2fffbbdf6bfb486a8a5e931874266d568192b1a0a",
+        "zip-host-out/zip-payload.bin": "2b073d068993825891da6f4fdc2fb27953b51fb1d0415a41c9fadee49ffebe76",
+        "zip-member-out/zip-note.txt": "0786d2b4a9e62ae708ff37f2fffbbdf6bfb486a8a5e931874266d568192b1a0a",
+        "zip-retry/zip-empty.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "zip-retry/zip-note.txt": "0786d2b4a9e62ae708ff37f2fffbbdf6bfb486a8a5e931874266d568192b1a0a",
+        "zip-retry/zip-payload.bin": "2b073d068993825891da6f4fdc2fb27953b51fb1d0415a41c9fadee49ffebe76"
+      }
+    }
+  },
+  "lua_upstream_portable_soft": {
+    "bitwise": {
+      "log_sha256": "3f1e5dcd74cd0d88549b4c7a92591603af994f5e55ece5df335e8e995f495352",
+      "status": "PASS"
+    },
+    "files": {
+      "log_sha256": "cd5fc7387644c02f127fe9b8d613b3296a4a5895c565f250549b4a0a331bf487",
+      "status": "PASS"
+    },
+    "strings": {
+      "log_sha256": "ac4ab7d12a441cda9ff8a5155774468631f58d799b3bfbcecf369e835882b73f",
+      "status": "PASS"
+    },
+    "utf8": {
+      "log_sha256": "5e30e50d407cf89ba855ef43ca91930f00de6eb7edeac5e3924e488d21c48e27",
+      "status": "PASS"
+    }
+  },
+  "os_base": "e2b463d867a05d0a66421dfa9ed3c38feed5863e",
+  "pins": {
+    "berkeley_yacc_tree": "f988237fdfd14335e8bbe22a354bde0650e0b4d5",
+    "lua": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+    "zlib": "da607da739fa6047df13e66a2af6b8bec7c2a498"
+  },
+  "ports_pin": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+  "ports_regression": {
+    "filesystem": "clean",
+    "log_sha256": "f13431653ad56c1474712f9509aa7e759f2cd73c3cef9583e1ac4f50daec5e77",
+    "status": "PASS"
+  },
+  "reproducibility": {
+    "compared_artifacts": 72,
+    "manifest_sha256": "99c7e1820abc3c136ba2e5fffb28807d0f4ef661c7bd8b30f0c366c43646818c",
+    "scope": "Two clean component builds on the same matched SDK.",
+    "status": "PASS"
+  },
+  "scope": "Apple Silicon host with matched x86-64 guests. Lua portable/soft tests and ordinary CLI workflows, Berkeley Yacc native and guest file behavior, and flat-name ZIP32 interchange.",
+  "source": "743a72634e084a1fbd9667b5807d326f3dbf5705",
+  "source_disk_sha256": "843d9cb9f55d516c75ec32538c2b89e36b95a2dc11f2dfc25cc7a0d45979a657",
+  "status": "PASS scoped earlier CLI qualification and regressions",
+  "terminal": {
+    "fsck": "clean",
+    "receipt_sha256": "0806bd535c567ea114270d4da8eb56db867afebfc887e6dfdf916ee2bd0bcc6d",
+    "screenshots_sha256": {
+      "01-lua-repl.png": "cc6d5bc46fd073fb39e0a051a6ada126136549605e0bd3b11487615bd71dcb98",
+      "02-byacc-header.png": "a2884cadf78ab128f8bf9d20da437554a01fba2190913fa7b86262332336e133",
+      "03-minizip-list.png": "5f15d9f7f63d01ebe3328395563c5dea6da2b811d75ec3532d19920baaa4443c"
+    },
+    "status": "PASS functional and visual checks",
+    "visual_note": "Lua renders the full release banner, Yacc shows the generated token header and MiniUnz shows valid fallback dates. The Lua exit status display shows a stray glyph. Offline status readback was zero."
+  }
+}
