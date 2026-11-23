@@ -25,6 +25,45 @@ static int content(const char *path, const char *expected) {
     return 0;
 }
 
+static int check_creat(const char *directory) {
+    const char *path = "/fat/glib-nofollow-test/creat-file";
+    mode_t previous = umask(0027);
+    int fd = creat(path, 0666);
+    int create_errno = errno;
+    (void)umask(previous); /* Restore even if creation failed. */
+    errno = create_errno;
+    CHECK("creat-new", fd >= 0);
+    struct stat st;
+    CHECK("creat-mode", fstat(fd, &st) == 0 && (st.st_mode & 0777) == 0640);
+    int flags = fcntl(fd, F_GETFL);
+    CHECK("creat-write-only", flags >= 0 && (flags & O_ACCMODE) == O_WRONLY);
+    CHECK("creat-fd-flags", fcntl(fd, F_GETFD) == 0);
+    char byte;
+    errno = 0;
+    CHECK("creat-read-refused", read(fd, &byte, 1) == -1 && errno == EBADF);
+    CHECK("creat-write", write(fd, "original", 8) == 8);
+    CHECK("creat-close", close(fd) == 0);
+    CHECK("creat-readback", content(path, "original") == 0);
+
+    fd = creat(path, 0600);
+    CHECK("creat-existing", fd >= 0);
+    CHECK("creat-truncate-and-mode", fstat(fd, &st) == 0 && st.st_size == 0 &&
+        (st.st_mode & 0777) == 0640);
+    CHECK("creat-rewrite", write(fd, "new", 3) == 3);
+    CHECK("creat-reclose", close(fd) == 0);
+    CHECK("creat-reread", content(path, "new") == 0);
+    CHECK("creat-unlink", unlink(path) == 0);
+    errno = 0;
+    CHECK("creat-directory", creat(directory, 0600) == -1 && errno == EISDIR);
+    const char *missing = "/fat/glib-nofollow-test/missing-parent/file";
+    errno = 0;
+    CHECK("creat-control-fails", open(missing, O_WRONLY | O_CREAT | O_TRUNC, 0600) == -1 && errno != 0);
+    int open_errno = errno;
+    errno = 0;
+    CHECK("creat-forwards-error", creat(missing, 0600) == -1 && errno == open_errno);
+    return 0;
+}
+
 static int workspace(void) {
     const char *directory = "/fat/glib-nofollow-test";
     const char *data_path = "/fat/glib-nofollow-test/data";
@@ -37,6 +76,7 @@ static int workspace(void) {
     CHECK("mkdir", mkdir(directory, 0700) == 0);
     int directory_fd = open(directory, O_RDONLY | O_DIRECTORY);
     CHECK("directory-open", directory_fd >= 0);
+    CHECK("creat-policy", check_creat(directory) == 0);
     int fd = openat(directory_fd, "data", O_CREAT | O_EXCL | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
     CHECK("openat-create", fd >= 0);
     CHECK("openat-cloexec", fcntl(fd, F_GETFD) == FD_CLOEXEC);

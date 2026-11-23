@@ -280,6 +280,13 @@ objects compile. The static build stops at `creat()`; the independent
 `glib-unix.c` PID and descriptor-path gates also block the linked GLib
 watch test. See the [Unix watch receipt](../assets/evidence/glib-unix-watch/receipt.json).
 
+## GLib file creation — November 22, 2026
+
+The browser topic adds the filesystem owner's reviewed SDK `creat()`
+wrapper. It uses the existing file-open path. The checkpoint is a private
+exFAT proof for creation, truncation, mode and error handling, then a
+`gstdio.c` object build and the first static GLib/GIO build result.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
