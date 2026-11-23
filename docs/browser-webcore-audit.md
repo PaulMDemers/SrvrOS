@@ -7,8 +7,8 @@ November 22 follow-up. The pinned GLib configure now detects the SDK poll
 constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
 Configure processes bundled GVDB and proxy-libintl, finds `C_IN` in the
 SrvrOS SDK and completes static configuration after linking `res_query()`.
-The GIO resolver and GLib file-utilities objects compile. The static build
-first stops on missing `_POSIX_HOST_NAME_MAX` in the hostname utilities. The normal guest
+The GIO resolver and GLib file and hostname utility objects compile. The
+static build first stops at `NSIG` and `SA_NOCLDSTOP` in `gmain.c`. The normal guest
 verified native wait, character conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.

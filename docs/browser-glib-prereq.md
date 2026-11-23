@@ -5,9 +5,9 @@ November 22, 2026. The original target configure stopped at GLib's
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
-the static build graph. The GIO resolver and GLib file-utilities objects
-compile. The first static build failure is the missing `_POSIX_HOST_NAME_MAX`
-declaration in GLib's hostname utilities.
+the static build graph. The GIO resolver and GLib file and hostname utility
+objects compile. The first static build failure is in `gmain.c`, which uses
+`NSIG` and `SA_NOCLDSTOP`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -246,9 +246,23 @@ private exFAT disk mounted at `/fat` and supported directory-relative no-follow
 create, exclusive-create refusal, truncate, replacement and cleanup. Both
 platform probes also exited 0. QEMU stopped and the VM window was released.
 
-Fresh configure passed and `gfileutils.c` compiled. The first static build
-stop is now `glib/ghostutils.c:426` using `_POSIX_HOST_NAME_MAX`. See the
+Fresh configure passed and `gfileutils.c` compiled. The static build on that
+SDK stopped at `glib/ghostutils.c:426` using `_POSIX_HOST_NAME_MAX`. See the
 [file-policy receipt](assets/evidence/glib-file-policy/receipt.json).
+
+## GLib hostname limits
+
+PR #517 landed as `0273ba64`. The pinned GLib C build explicitly includes the
+SDK's `<limits.h>` so the hostname utility can use `HOST_NAME_MAX`. The
+ordinary include resolves to Zig's freestanding header, which lacks that
+macro. The scoped build keeps the compiler's existing header search order.
+
+Two native platform runs verified `sysconf(_SC_HOST_NAME_MAX) == 63`,
+`gethostname() == "srvros"` matching `uname().nodename`, a terminated one-byte
+result and `EINVAL` for a zero-length buffer. Both runs exited 0 and QEMU
+stopped. Fresh Meson configure and the `ghostutils.c` object build passed.
+The static build first stops at `NSIG` and `SA_NOCLDSTOP` in `glib/gmain.c`.
+See the [hostname receipt](assets/evidence/glib-hostname/receipt.json).
 
 ## Verification
 

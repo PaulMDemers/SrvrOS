@@ -258,6 +258,16 @@ to integration. GLib's `gfileutils.c` object compiles. The first static build
 failure is `_POSIX_HOST_NAME_MAX` in `ghostutils.c`. See the
 [file-policy receipt](../assets/evidence/glib-file-policy/receipt.json).
 
+## GLib hostname utilities — November 22, 2026
+
+The browser topic extends merged PR #517 by supplying the existing SDK
+`<limits.h>` to the pinned GLib C build. The native platform fixture
+checked the SDK hostname limit, `gethostname()` and `uname()` in two
+diskless Q35 executions. QEMU stopped and the window was released.
+The exact GLib hostname object compiled. The static build stops at
+`NSIG` and `SA_NOCLDSTOP` in `gmain.c`. See the
+[hostname receipt](../assets/evidence/glib-hostname/receipt.json).
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
