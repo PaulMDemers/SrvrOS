@@ -174,6 +174,7 @@
 #define SYS_PROCESS_CREDENTIALS 171
 #define SYS_NET_IPV4_TTL 172
 #define SYS_NET_UDP_BROADCAST 173
+#define SYS_MOUNT_SNAPSHOT 174 /* Output pointer and exact v1 byte size. */
 
 /* Device branch Wi-Fi call moved from163;matched image required. */
 #define SYS_WIFI 169
@@ -329,6 +330,7 @@ struct srv_termios {
 #define SRV_TIOCGPGRP 0x540Fu
 #define SRV_TIOCSPGRP 0x5410u
 #define SRV_TIOCGWINSZ 0x5413u
+#define SRV_FIONREAD 0x541Bu
 #define SRV_TIOCSWINSZ 0x5414u
 
 #define SRV_PROC_GET_PGROUP 1

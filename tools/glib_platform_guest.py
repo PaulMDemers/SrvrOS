@@ -43,7 +43,10 @@ IP_TTL_MARKER = b'glib-ip-ttl: ok'
 IPV6_UNICAST_HOPS_MARKER = b'glib-ipv6-unicast-hops: ok'
 SO_BROADCAST_MARKER = b'glib-so-broadcast: ok'
 IP_MULTICAST_LOOP_MARKER = b'glib-ip-multicast-loop: ok'
+FIONREAD_MARKER = b'glib-fionread: ok'
+LINKED_GOBJECT_MARKER = b'glib-linked-gobject: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
+GIO_MOUNTS_MARKER = b'gio-mounts: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
 GIO_RESOLVER_ADDRESS_MARKER = b'gio-resolver-address: ok'
@@ -192,6 +195,9 @@ def main():
     parser.add_argument('--ipv6-unicast-hops', action='store_true', help='test IPv6 unicast option refusal without network')
     parser.add_argument('--so-broadcast', action='store_true', help='test IPv4 UDP broadcast against a private peer')
     parser.add_argument('--ip-multicast-loop', action='store_true', help='test explicit IPv4 multicast loop option refusal')
+    parser.add_argument('--fionread', action='store_true', help='test non-consuming readable-byte queries')
+    parser.add_argument('--linked-gobject', type=Path, metavar='ELF',
+                        help='boot a probe linked to the target GLib and GObject archives')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
@@ -200,7 +206,11 @@ def main():
                         help='boot a linked GIO IPv6 traffic class codec probe')
     parser.add_argument('--gio-resolver-address', type=Path, metavar='ELF',
                         help='boot a linked GIO resolver address handling probe')
+    parser.add_argument('--gio-mounts', type=Path, metavar='ELF', help='boot a linked GioUnix mount snapshot probe')
+    parser.add_argument('--gio-mounts-exfat', action='store_true', help='stage exFAT for the linked mount probe')
     args = parser.parse_args()
+    if args.gio_mounts_exfat and not args.gio_mounts:
+        parser.error('--gio-mounts-exfat requires --gio-mounts')
     if sum((args.ip_ttl, args.resolver, args.so_broadcast)) > 1:
         parser.error('--ip-ttl, --resolver and --so-broadcast use separate private peers')
     base = ROOT / 'build/browser-glib-prereq'
@@ -210,7 +220,7 @@ def main():
     print(f'GLib prerequisite evidence: {output}', flush=True)
     receipt = {'result': 'failed', 'guest_stopped': False,
                'scope': ('native SrvrOS prerequisites with a disposable exFAT disk'
-                         if args.file_policy or args.gio_poll_monitor
+                         if args.file_policy or args.gio_poll_monitor or args.gio_mounts_exfat
                          else 'native SrvrOS prerequisites in a normal diskless guest')}
     try:
         compiler = ROOT / 'ports/srvros/webkit/cc'
@@ -253,6 +263,9 @@ def main():
         linked_probes = (
             ('glib-linked-child-watch', args.linked_child_watch, LINKED_CHILD_WATCH_MARKER,
              'linked_child_watch_payload_sha256'),
+            ('glib-linked-gobject', args.linked_gobject, LINKED_GOBJECT_MARKER,
+             'linked_gobject_payload_sha256'),
+            ('gio-mounts', args.gio_mounts, GIO_MOUNTS_MARKER, 'gio_mounts_payload_sha256'),
             ('gio-poll-monitor', args.gio_poll_monitor, GIO_POLL_MONITOR_MARKER,
              'gio_poll_monitor_payload_sha256'),
             ('gio-ip-tos', args.gio_ip_tos, GIO_IP_TOS_MARKER, 'gio_ip_tos_payload_sha256'),
@@ -274,7 +287,8 @@ def main():
             if payload_hash != receipt['inputs_sha256'][linked_input]:
                 raise RuntimeError(f'{program} payload changed during staging')
             payloads[program] = payload
-            probes[program] = (marker,)
+            probes[program] = ((f"gio-mounts: exfat={int(args.gio_mounts_exfat)}".encode(), marker)
+                               if program == "gio-mounts" else (marker,))
             receipt[receipt_key] = payload_hash
         sdk_probes = (('fnmatch', args.fnmatch, FNMATCH_MARKER),
                       ('inet-address', args.inet_address, INET_ADDRESS_MARKER),
@@ -285,7 +299,8 @@ def main():
                       ('ip-ttl', args.ip_ttl, IP_TTL_MARKER),
                       ('ipv6-unicast-hops', args.ipv6_unicast_hops, IPV6_UNICAST_HOPS_MARKER),
                       ('so-broadcast', args.so_broadcast, SO_BROADCAST_MARKER),
-                      ('ip-multicast-loop', args.ip_multicast_loop, IP_MULTICAST_LOOP_MARKER))
+                      ('ip-multicast-loop', args.ip_multicast_loop, IP_MULTICAST_LOOP_MARKER),
+                      ('fionread', args.fionread, FIONREAD_MARKER))
         for name, enabled, marker in sdk_probes:
             if not enabled:
                 continue
@@ -323,7 +338,7 @@ def main():
             payloads['glib-file-policy'] = payload
             probes['glib-file-policy'] = (FILE_POLICY_MARKER,)
             receipt['file_policy_payload_sha256'] = digest(payload)
-        if args.file_policy or args.gio_poll_monitor:
+        if args.file_policy or args.gio_poll_monitor or args.gio_mounts_exfat:
             generator = ROOT / 'tools/mk_exfat_image.py'
             for path in (generator, ROOT / 'tools/audio_fixture.py'):
                 receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
@@ -394,7 +409,7 @@ def main():
         receipt['image_sha256'] = digest(image)
         ttl_peer = ROOT / 'tools/ipv4_ttl_test_peer.py' if args.ip_ttl else None
         broadcast_peer = ROOT / 'tools/ipv4_broadcast_test_peer.py' if args.so_broadcast else None
-        idle_nic = args.gio_ip_tos is not None or args.ip_multicast_loop
+        idle_nic = args.gio_ip_tos is not None or args.ip_multicast_loop or args.fionread
         if ttl_peer:
             receipt['inputs_sha256'][str(ttl_peer.relative_to(ROOT))] = digest(ttl_peer)
             receipt['scope'] += ' and a private e1000 IPv4 TTL peer'

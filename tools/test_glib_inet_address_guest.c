@@ -49,6 +49,10 @@ int main(void) {
     ONCE("unspecified-once", IN6_IS_ADDR_UNSPECIFIED(once(&any)));
     ONCE("loopback-once", IN6_IS_ADDR_LOOPBACK(once(&loop)));
     CHECK("any-loop-distinct", !IN6_IS_ADDR_LOOPBACK(&any) && !IN6_IS_ADDR_UNSPECIFIED(&loop));
+    struct in6_addr mapped = {{[10] = 0xff, 0xff, 192, 0, 2, 123}};
+    struct in6_addr compatible = {{[12] = 192, 0, 2, 123}};
+    ONCE("mapped-once", IN6_IS_ADDR_V4MAPPED(once(&mapped)));
+    CHECK("only-mapped", !IN6_IS_ADDR_V4MAPPED(&compatible) && !IN6_IS_ADDR_V4MAPPED(&any));
     struct in6_addr link = {{0xfe, 0x80}}, link_last = {{0xfe, 0xbf}};
     struct in6_addr site = {{0xfe, 0xc0}}, site_last = {{0xfe, 0xff}};
     struct in6_addr other = {{0xfe, 0x7f}};

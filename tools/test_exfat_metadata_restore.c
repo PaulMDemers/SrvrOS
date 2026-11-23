@@ -25,7 +25,63 @@ static void auth_metadata_refusal(const char *sidecar) {
  assert(writes==before_writes && flushes==before_flushes && !memcmp(before,disk,BYTES));
  free(before);
 }
+/* Snapshot reads only retained mount/VFS state: never the backing medium. */
+static void snapshot_no_io(struct srv_mount_snapshot *snapshot, uint64_t uid, uint64_t gid) {
+ unsigned rd=reads,wr=writes,fl=flushes;
+ memset(snapshot,0,sizeof(*snapshot));
+ snapshot->version=SRV_MOUNT_SNAPSHOT_VERSION;
+ assert(exfat_mount_snapshot(snapshot,uid,gid)==0);
+ assert(reads==rd && writes==wr && flushes==fl);
+}
+static const struct srv_mount_entry *snapshot_entry(const struct srv_mount_snapshot *snapshot,const char *path) {
+ for(unsigned i=0;i<snapshot->count;i++)
+  if(!strcmp(snapshot->entries[i].mount_path,path))return &snapshot->entries[i];
+ return NULL;
+}
+static void snapshot_regression(void) {
+ struct srv_mount_snapshot snapshot;
+ vfs_namespace_system_reset();outside_nodes(1);
+ snapshot_no_io(&snapshot,0,0);
+ assert(snapshot.count==1 && snapshot_entry(&snapshot,"/") &&
+        snapshot.entries[0].filesystem==SRV_MOUNT_VFS && !strcmp(snapshot.entries[0].root_path,"/") &&
+        !strcmp(snapshot.entries[0].source,"srvros-vfs"));
+ fixture(1100,true);assert(exfat_mount_block_device_clean("/vol",&device));
+ snapshot_no_io(&snapshot,0,0);
+ const struct srv_mount_entry *entry=snapshot_entry(&snapshot,"/vol");
+ assert(snapshot.count==2 && entry && entry->filesystem==SRV_MOUNT_EXFAT &&
+        !strcmp(entry->root_path,"/") && !strcmp(entry->source,"import-test") &&
+        !(entry->flags&SRV_MOUNT_PROJECTION));
+ snapshot_no_io(&snapshot,42,43);
+ assert(snapshot.count==1 && snapshot_entry(&snapshot,"/") && !snapshot_entry(&snapshot,"/vol"));
+ assert(exfat_unmount("/vol"));
+ snapshot_no_io(&snapshot,0,0);assert(snapshot.count==1 && !snapshot_entry(&snapshot,"/vol"));
+
+ outside_nodes(1);fixture(1100,true);assert(exfat_mount_block_device_clean("/fat",&device));
+ assert(exfat_create_directory("/fat/bin") && exfat_create_directory("/fat/var") &&
+        exfat_create_directory("/fat/home"));
+ assert(exfat_sync_mount_metadata(&mounts[0]) && vfs_lookup("/fat/.srvros/meta"));
+ const struct vfs_node *var=vfs_lookup("/fat/var");assert(var);
+ struct vfs_metadata restricted=var->metadata;restricted.mode=(restricted.mode&VFS_MODE_IFMT)|0700;
+ assert(vfs_set_metadata("/fat/var",&restricted));
+ assert(vfs_namespace_system_activate());
+ snapshot_no_io(&snapshot,0,0);
+ assert(snapshot.count==6);
+ const char *paths[]={"/bin","/usr","/var","/home"};
+ const char *roots[]={"/bin","/","/var","/home"};
+ for(unsigned i=0;i<4;i++) {
+  entry=snapshot_entry(&snapshot,paths[i]);
+  assert(entry && entry->filesystem==SRV_MOUNT_EXFAT && (entry->flags&SRV_MOUNT_PROJECTION) &&
+         !strcmp(entry->root_path,roots[i]) && !strcmp(entry->source,"import-test"));
+ }
+ snapshot_no_io(&snapshot,42,43);
+ assert(snapshot.count==5 && snapshot_entry(&snapshot,"/fat") && snapshot_entry(&snapshot,"/bin") &&
+        snapshot_entry(&snapshot,"/usr") && snapshot_entry(&snapshot,"/home") && !snapshot_entry(&snapshot,"/var"));
+ assert(exfat_unmount("/fat"));
+ snapshot_no_io(&snapshot,0,0);assert(snapshot.count==1 && snapshot_entry(&snapshot,"/"));
+ vfs_namespace_system_reset();
+}
 int main(void){
+ snapshot_regression();
  auth_metadata_refusal(NULL);
  auth_metadata_refusal("SRVROSMETA1\n/vol\t60000\t16877\t2\t0\t0\t1\t2\t3\n");
  auth_metadata_refusal("SRVROSMETA1\n/vol\t60000\t16877\t2\t0\t0\t1\t2\t3\n"

@@ -51,6 +51,8 @@ bool exfat_mount_block_device_auth(const char *mountpoint, struct block_device *
  * Mount lifecycle is serialized through the CPU0 storage owner. */
 bool exfat_unmount(const char *mountpoint);
 bool exfat_is_writable(const char *mountpoint);
+struct srv_mount_snapshot;
+int64_t exfat_mount_snapshot(struct srv_mount_snapshot *snapshot, uint64_t uid, uint64_t gid);
 /* Diagnostic preparation only: verified, exclusive single-cluster 4096-byte
  * file. Caller must serialize against mutations and unmount before bypass I/O. */
 bool exfat_scratch_range(const char *path, struct block_device **device, uint64_t *offset);

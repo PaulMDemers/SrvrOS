@@ -301,6 +301,10 @@ long srv_statfs(const char *path, struct srv_fsinfo *info) {
     return srv_syscall2(SYS_STATFS, (long)srv_make_path(path, full, sizeof(full)), (long)info);
 }
 
+long srv_get_mount_snapshot(struct srv_mount_snapshot *snapshot) {
+    return srv_syscall2(SYS_MOUNT_SNAPSHOT, (long)snapshot, sizeof(*snapshot));
+}
+
 long srv_unlink(const char *path) {
     char full[CLI_PATH_MAX];
     return srv_syscall1(SYS_UNLINK, (long)srv_make_path(path, full, sizeof(full)));

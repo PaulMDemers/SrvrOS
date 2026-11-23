@@ -4,6 +4,8 @@
 
 #include <srvros/sys.h>
 
+int __posix_socket_real_fd(int fd);
+
 static void winsize_from_srv(struct winsize *out, const struct srv_winsize *in) {
     out->ws_row = in->row;
     out->ws_col = in->col;
@@ -23,6 +25,14 @@ int ioctl(int fd, unsigned long request, ...) {
     va_start(args, request);
     void *argument = va_arg(args, void *);
     va_end(args);
+
+    if (request == FIONREAD) {
+        int native_fd = __posix_socket_real_fd(fd);
+        if (native_fd < 0) { errno = fd < 0 ? EBADF : ENOTCONN; return -1; }
+        long result = srv_ioctl(native_fd, request, argument);
+        if (result < 0) { errno = result == -1 ? ENOTTY : (int)-result; return -1; }
+        return 0;
+    }
 
     if(request==TIOCGPGRP || request==TIOCSPGRP) {
         if(!argument) { errno=EINVAL;return -1; }

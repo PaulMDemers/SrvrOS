@@ -4,6 +4,7 @@
 #include <srvros/session_scope.h>
 #include <srvros/file_stream_kernel.h>
 #include <srvros/file_verify_kernel.h>
+#include <srvros/mount_snapshot.h>
 #include <srvros/exfat_stream.h>
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
@@ -1083,6 +1084,16 @@ static struct srv_winsize tty_current_winsize(void) {
 }
 
 static int64_t syscall_ioctl(uint64_t fd, uint64_t request, void *argument) {
+    if (request == SRV_FIONREAD) {
+        uint64_t irq = irq_save();
+        int64_t result = process_file_readable_bytes(process_current(), fd);
+        if (result >= 0) {
+            int32_t count = result > INT32_MAX ? INT32_MAX : (int32_t)result;
+            result = copy_to_user(argument, &count, sizeof(count)) ? 0 : SRV_ERR_FAULT;
+        }
+        irq_restore(irq);
+        return result;
+    }
     if (!syscall_tty_fd_ok(fd)) {
         return -1;
     }
@@ -1748,6 +1759,19 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
         copy.mountpoint[i] = fsinfo.mountpoint[i];
     }
     return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : SRV_ERR_FAULT;
+}
+
+static int64_t syscall_mount_snapshot(struct srv_mount_snapshot *out, uint64_t size) {
+    if (size != sizeof(*out)) return SRV_ERR_INVAL;
+    if (!user_buffer_ok(out, size, true)) return SRV_ERR_FAULT;
+    struct srv_mount_snapshot snapshot = {.version = SRV_MOUNT_SNAPSHOT_VERSION};
+    struct process_credentials credentials = process_get_credentials(process_current());
+    int64_t result = exfat_mount_snapshot(&snapshot, credentials.uid, credentials.gid);
+    if (result < 0) return result;
+    uint64_t irq = irq_save();
+    bool copied = user_buffer_ok(out, size, true) && copy_to_user(out, &snapshot, size);
+    irq_restore(irq);
+    return copied ? 0 : SRV_ERR_FAULT;
 }
 
 static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
@@ -4054,7 +4078,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     /* This exact test image admits local runtime qualification only. Reject
      * every external/namespace socket entry before any backend effect. */
     switch(frame->rax) {
-    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:case SYS_FILE_VERIFY:return false;
+    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:case SYS_FILE_VERIFY:case SYS_MOUNT_SNAPSHOT:return false;
     case SYS_NET_LISTEN:case SYS_NET_ACCEPT:case SYS_NET_DHCP:case SYS_NET_STATUS:case SYS_NET_DNS:
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
@@ -4065,6 +4089,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     case SYS_PREAD:case SYS_PWRITE:case SYS_PIPE_MESSAGE:
     case SYS_PIPE_SEND_RIGHTS:case SYS_PIPE_RECV_RIGHTS:case SYS_PIPE_PAIR:case SYS_PIPE_PAIR_FLAGS:return false;
     case SYS_READ:case SYS_WRITE:case SYS_VECTOR_IO:return process_signal_experimental_fd_allowed(frame->rdi);
+    case SYS_IOCTL:return frame->rsi != SRV_FIONREAD;
     case SYS_FCNTL:return (frame->rsi==SRV_F_GETFD || frame->rsi==SRV_F_GETFL) &&
         process_signal_experimental_fd_allowed(frame->rdi);
     default:return true;
@@ -4394,6 +4419,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
     case SYS_STATFS:
         frame->rax = (uint64_t)syscall_statfs((const char *)frame->rdi, (struct syscall_fsinfo *)frame->rsi);
         return;
+    case SYS_MOUNT_SNAPSHOT:
+        frame->rax = (uint64_t)syscall_mount_snapshot((struct srv_mount_snapshot *)frame->rdi, frame->rsi);
+        return;
     case SYS_FS_APPEND:
         frame->rax = (uint64_t)syscall_fs_append((const char *)frame->rdi, (const uint8_t *)frame->rsi, frame->rdx);
         return;
@@ -4669,7 +4697,7 @@ static bool namespace_syscall(const struct isr_frame *frame) {
     case SYS_PROCESS_CREDENTIALS: return frame->rdi==SRV_PROCESS_CREDENTIALS_CHOWN ||
         frame->rdi==SRV_PROCESS_CREDENTIALS_ACCESS;
     case SYS_FILE_VERIFY: case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
-    case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS:
+    case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS: case SYS_MOUNT_SNAPSHOT:
     case SYS_CHMOD: case SYS_UTIME: case SYS_UNLINK: case SYS_MKDIR:
     case SYS_MKDIR_MODE: case SYS_RMDIR: case SYS_RENAME: case SYS_FILE_CHANGE:
     case SYS_PATH_CONTEXT: case SYS_DIRECTORY: return true;
@@ -4693,7 +4721,7 @@ static bool isolated_syscall_allowed(const struct isr_frame *frame) {
     case SYS_OPEN: case SYS_OPEN_MODE: case SYS_CLOSE: case SYS_FSTAT: case SYS_SEEK:
     case SYS_WRITE: case SYS_PREAD: case SYS_PWRITE: case SYS_FTRUNCATE: case SYS_FSYNC:
     case SYS_MKDIR: case SYS_MKDIR_MODE: case SYS_UNLINK: case SYS_RMDIR: case SYS_RENAME:
-    case SYS_FILE_STREAM:
+    case SYS_FILE_STREAM: case SYS_MOUNT_SNAPSHOT:
         return true;
     case SYS_READ:
         return !process_fd_is_console(process_current(),frame->rdi,true);
@@ -4714,7 +4742,8 @@ void syscall_dispatch(struct isr_frame *frame) {
     }
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     /* Unsupported extensions must not wait for namespace I/O ownership. */
-    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM || frame->rax==SYS_FILE_VERIFY) {
+    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM || frame->rax==SYS_FILE_VERIFY ||
+       frame->rax==SYS_MOUNT_SNAPSHOT) {
         frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
     }
 #endif

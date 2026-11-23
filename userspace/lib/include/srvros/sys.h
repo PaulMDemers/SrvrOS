@@ -21,6 +21,7 @@ long srv_battery_status(struct srv_battery_status *out);
 #include <srvros/session_scope.h>
 #include <srvros/file_stream.h>
 #include <srvros/file_verify.h>
+#include <srvros/mount_snapshot.h>
 long srv_file_verify(const struct srv_file_verify_request *request);
 long srv_file_stream(const struct srv_file_stream_request *request);
 long srv_session_scope(unsigned operation,uint64_t token,void *payload);
@@ -166,6 +167,7 @@ long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);
 long srv_stat(const char *path, struct srv_stat *info);
 long srv_statfs(const char *path, struct srv_fsinfo *info);
+long srv_get_mount_snapshot(struct srv_mount_snapshot *snapshot);
 long srv_unlink(const char *path);
 long srv_mkdir(const char *path);
 long srv_rmdir(const char *path);

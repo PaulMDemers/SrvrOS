@@ -7339,6 +7339,19 @@ static void file_generation_invalidate(struct process *process,uint64_t fd) {
     scheduler_wake_all(&unix_wait_queue);
 }
 
+int64_t process_file_readable_bytes(struct process *process, uint64_t fd) {
+    struct process_file *file = process_file_at(process, fd);
+    if (!file) return SRV_ERR_BADF;
+    if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        struct process_pipe *pipe = pipe_at(file->handle);
+        if (!pipe) return SRV_ERR_BADF;
+        return pipe->seqpacket && pipe->size ? (int64_t)pipe_packet_length(pipe) : (int64_t)pipe->size;
+    }
+    if (file->type == PROCESS_FILE_NET_CONNECTION || file->type == PROCESS_FILE_NET_UDP)
+        return net_readable_bytes(file->handle);
+    return SRV_ERR_NOTTY;
+}
+
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events) {
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     struct process_file *file=fd>=0?process_file_at(process,(uint64_t)fd):NULL;
