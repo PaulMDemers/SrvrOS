@@ -20,7 +20,8 @@ IPv4 UDP `SO_BROADCAST` passed guest packet verification.
 The SDK declares `IP_MULTICAST_LOOP` for GIO. IPv4 UDP calls for this option
 return `ENOSYS`.
 The SDK also declares `IPV6_MULTICAST_LOOP`. IPv6 sockets return `EAFNOSUPPORT`.
-Static GIO next stops at undeclared `IP_MULTICAST_TTL` in `gsocket.c`.
+The SDK declares `IP_MULTICAST_TTL` and `IPV6_MULTICAST_HOPS` for GIO.
+Static GIO next stops at incomplete `struct ip_mreq` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -751,6 +752,30 @@ Fresh pinned GLib configuration passed. Static GIO advanced past
 `IPV6_MULTICAST_LOOP` and first stopped at undeclared `IP_MULTICAST_TTL`
 in `gio/gsocket.c:1919`.
 [Verification receipt](assets/evidence/gio-ipv6-multicast-loop/receipt.json)
+
+## Multicast TTL declarations
+
+After OS #543 landed at `07879c52`, the SDK exported
+`IP_MULTICAST_TTL=33` and `IPV6_MULTICAST_HOPS=18` in `<netinet/in.h>`.
+The declarations use the Linux option numbers required by GIO's IPv4
+and IPv6 multicast TTL calls. Multicast transport remains unsupported.
+[Linux IPv4 options](https://github.com/torvalds/linux/blob/master/include/uapi/linux/in.h)
+[Linux IPv6 options](https://github.com/torvalds/linux/blob/master/include/uapi/linux/in6.h)
+
+The expanded IPv4 UDP probe verified `ENOSYS` for get and set of both
+options, including setter values zero and one. It checked caller buffers
+and length, live IPv4 unicast TTL and broadcast get, set and reset, and
+the existing IPv4 multicast-loop refusal. The IPv6 probe also verified
+`EAFNOSUPPORT` for IPv6 TCP and UDP creation. Both probes and the platform
+control passed twice in one diskless guest with a private idle e1000
+socketpair. ISO readback matched, and kernel, init and SDK library hashes
+match the prior baseline. Integration coordinated the guest window.
+The guest stopped and the window was released.
+
+Fresh pinned GLib configuration passed. Static GIO advanced past both
+multicast TTL options and first stopped at incomplete `struct ip_mreq`
+in `gio/gsocket.c:2495`.
+[Verification receipt](assets/evidence/gio-multicast-ttl/receipt.json)
 
 ## Verification
 
