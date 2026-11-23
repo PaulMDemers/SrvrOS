@@ -314,11 +314,21 @@ verified after freeing space from one independently archived EFI copy.
 There were no overlapping driver or boot/journal changes in the fetched main
 `61111819` since integration baseline `50f1978a`.
 
-Physical discovery is pending. The local return record is
-`build/bringup/pro112-rtl8188cu-passive-cold/run.json`. Cold-cycle the hub
-with all three adapters in their original ports and keep the workspace drive
-connected. The unattended trial saves its discovery and teardown counters
-before resetting to Ubuntu.
+Cold session `session-000660f82badc75d-00` enumerated all three hub leaves,
+repeated the Realtek firmware-ready result, applied all 495 settings and
+read back channel 10. **Passive discovery failed.** The four-second receive
+window posted one bulk IN transfer, received zero completions and gave the
+beacon decoder zero frames. The endpoint stopped and the RF/RX parked with
+TX disabled. Ubuntu's scan cache on the same adapter still listed Demers2.4
+on channel 10 after the return.
+
+The workspace and independent journal agree on the result. All seven
+journal phases, the verified `exit.log`, clean unmount, automatic Ubuntu
+return path and preservation of all 574 existing files were recorded.
+The local return record is `build/bringup/pro112-rtl8188cu-passive-cold/run.json`.
+The logs and exact failed payload are preserved in local recovery archive
+`evidence-6f8f17af22d37166`. The next comparison is the device RX enable and
+first bulk IN completion against Linux on the same adapter and hub path.
 
 ### Retina desktop default
 
