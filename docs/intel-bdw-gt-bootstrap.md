@@ -352,8 +352,10 @@ captured FNV-1a state at each boundary, including the original final hash.
 It also computes the whole-table checksum. The three independent hash chains
 allow overlapping multiplies. With the kernel compiler and flags, four
 alternating host trials on the Air measured median costs of 48.8 µs for the
-prior matcher and 17.6 µs for the segmented matcher. The native trial retains
-the 250 ms preparation limit so its closing time can be compared directly.
+prior matcher and 17.6 µs for the segmented matcher. On the native Air7,2,
+the full preparation interval through final return fell from 251.782 ms to
+191.927 ms. Both trials performed 1,206 guards at the 250 ms limit.
+[Hardware result](machines/macbookair7-2-current.md#current-air72-work-on-pr-301).
 
 ### Separate multi-second diagnostic
 

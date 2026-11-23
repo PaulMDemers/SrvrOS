@@ -10,12 +10,21 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
-The current trial optimizes the Air firmware identity check inside framebuffer
-validation. On this Air under Ubuntu, the kernel-compiled matcher took a
-median of 17.6 µs per call, down from 48.8 µs on the same captured DSDT.
-The matcher passed all 35,034 single-byte mutations and 494 checksum-preserving
-changes. The hardware comparison repeats the queue handoff at the same 250 ms
-preparation limit.
+Release `3221b5025d194aa1` (source `6782d5c0`, session
+`session-000660ebf03315b7-00`) completed preparation and the final return in
+191.927 ms on the Air, leaving 58.073 ms under the existing 250 ms limit.
+Both runs performed 1,206 guards. After segmenting the firmware identity check,
+total framebuffer/endpoint validation fell from 87.095 to 33.427 ms. CPU cache
+validation took 57.185 ms, compared with 57.401 ms previously. The workflow
+closed as `DIAGNOSED` with the matching exit report and a clean offline exFAT
+check.
+
+The original display stayed active. Both 46-word queue/context samples for the
+five engines matched across PCI bus-master reopening. The independent slot
+12291 reservation returned with its original PTE `0x8f004001` and zero PTE
+writes. The CPU-side WiDi programming guard closed. Device-side WiDi exclusion
+and fresh engine/L3 flush acknowledgements remain prerequisites for replacing
+the entry and exercising rollback.
 
 Release `f1d4509e69f7f50a` (source `6a0ce5be`, session
 `session-000660eb6b5b1fca-00`) matched all 46 engine and context words
