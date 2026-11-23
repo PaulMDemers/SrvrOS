@@ -81,6 +81,20 @@ manifest from stdin. `cksum` and `sum` retain their separate implementations.
 [Port contract](../ports/srvros/sha256sum/PORT.md) and
 [qualification receipt](assets/evidence/sha256sum/receipt.json).
 
+## Bounded file-magic classification
+
+`file-magic` runs upstream libmagic 5.48 over the first 256 KiB of one regular
+file. Use `file-magic FILE` for a description or
+`file-magic -b --mime-type FILE` for the MIME type. For example, you can identify
+an unfamiliar report or archive before choosing how to open it.
+
+This C-locale profile qualifies ELF headers, PNG, SQLite, ZIP, gzip, xz, tar,
+plain text, empty files, and unknown binary data. The command is read-only and
+ships a compiled selection of upstream magic rules. It excludes custom rules,
+stdin, decompression, special files, and deep ELF and compound-document checks.
+See the [port contract](../ports/srvros/file-magic/PORT.md) for the build and
+runtime limits.
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and
