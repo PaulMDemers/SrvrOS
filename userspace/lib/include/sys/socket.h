@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <srvros/io_limits.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -21,6 +22,8 @@
 #define SOCK_STREAM 1
 #define SOCK_DGRAM 2
 #define SOCK_SEQPACKET 5
+/* Ceiling for the configurable AF_UNIX listener backlog. */
+#define SOMAXCONN SRV_UNIX_LISTEN_BACKLOG_MAX
 #define SOCK_NONBLOCK 0x0800
 #define SOCK_CLOEXEC 0x80000
 #define IPPROTO_IP 0

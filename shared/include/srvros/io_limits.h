@@ -1,4 +1,5 @@
 #ifndef SRVROS_IO_LIMITS_H
 #define SRVROS_IO_LIMITS_H
 #define SRV_PIPE_BUF 4096
+#define SRV_UNIX_LISTEN_BACKLOG_MAX 16
 #endif

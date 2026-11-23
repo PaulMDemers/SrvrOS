@@ -13,6 +13,7 @@
 #include <srvros/fpu.h>
 #include <srvros/gui.h>
 #include <srvros/heap.h>
+#include <srvros/io_limits.h>
 #include <srvros/latency.h>
 #include <srvros/keyboard.h>
 #include <srvros/net.h>
@@ -76,7 +77,6 @@ _Static_assert(sizeof(struct isr_frame)==176 && offsetof(struct isr_frame,rip)==
 #define PROCESS_MAX_PIPES 64
 #define PROCESS_PIPE_RIGHTS_QUEUE 8
 #define PROCESS_MAX_UNIX_LISTENERS 16
-#define PROCESS_UNIX_ACCEPT_QUEUE 16
 #define PROCESS_MAX_FILE_LOCKS 64
 /* A desktop worker can transfer one bounded 64 KiB batch per UI turn.
  * Fixed storage is 4 MiB across the 64-pipe pool; no allocation in I/O paths. */
@@ -173,7 +173,7 @@ struct process_unix_listener {
     bool listening;
     uint64_t backlog;
     char path[SRV_UNIX_PATH_MAX];
-    struct process_unix_pending queue[PROCESS_UNIX_ACCEPT_QUEUE];
+    struct process_unix_pending queue[SRV_UNIX_LISTEN_BACKLOG_MAX];
 };
 
 /* One content object per live pathname; unlinked objects retain their identity
@@ -6282,7 +6282,7 @@ static void pipe_rights_collect(void) {
         }
         for (unsigned l = 0; l < PROCESS_MAX_UNIX_LISTENERS; l++) {
             if (!unix_listeners[l].used) continue;
-            for (unsigned i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++)
+            for (unsigned i = 0; i < SRV_UNIX_LISTEN_BACKLOG_MAX; i++)
                 if (unix_listeners[l].queue[i].used)
                     pipe_rights_count_file(&unix_listeners[l].queue[i].file, reader_inflight, listener_inflight);
         }
@@ -6307,7 +6307,7 @@ static void pipe_rights_collect(void) {
             }
             for (unsigned l = 0; l < PROCESS_MAX_UNIX_LISTENERS; l++) {
                 if (!listeners[l]) continue;
-                for (unsigned i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++)
+                for (unsigned i = 0; i < SRV_UNIX_LISTEN_BACKLOG_MAX; i++)
                     if (unix_listeners[l].queue[i].used)
                         changed |= pipe_rights_mark_file(&unix_listeners[l].queue[i].file, readers, listeners);
             }
@@ -6755,7 +6755,7 @@ static uint64_t unix_listener_pending_count(const struct process_unix_listener *
     if (listener == NULL) {
         return 0;
     }
-    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+    for (uint64_t i = 0; i < SRV_UNIX_LISTEN_BACKLOG_MAX; i++) {
         if (listener->queue[i].used) {
             count++;
         }
@@ -6795,7 +6795,7 @@ static void unix_listener_release(uint64_t handle) {
      * new connects from finding this listener during a blocking release. */
     listener->bound = false;
     listener->listening = false;
-    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+    for (uint64_t i = 0; i < SRV_UNIX_LISTEN_BACKLOG_MAX; i++) {
         unix_pending_release(&listener->queue[i]);
     }
     uint8_t *bytes = (uint8_t *)listener;
@@ -6904,8 +6904,8 @@ int64_t process_unix_listen(struct process *process, uint64_t fd, uint64_t backl
     if (backlog == 0) {
         backlog = 1;
     }
-    if (backlog > PROCESS_UNIX_ACCEPT_QUEUE) {
-        backlog = PROCESS_UNIX_ACCEPT_QUEUE;
+    if (backlog > SRV_UNIX_LISTEN_BACKLOG_MAX) {
+        backlog = SRV_UNIX_LISTEN_BACKLOG_MAX;
     }
     listener->backlog = backlog;
     listener->listening = true;
@@ -6926,7 +6926,7 @@ int64_t process_unix_connect(struct process *process, const char *path) {
     }
 
     struct process_unix_pending *pending = NULL;
-    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+    for (uint64_t i = 0; i < SRV_UNIX_LISTEN_BACKLOG_MAX; i++) {
         if (!listener->queue[i].used) {
             pending = &listener->queue[i];
             break;
@@ -6969,7 +6969,7 @@ int64_t process_unix_accept(struct process *process, uint64_t fd) {
         if(!unix_accept_current(&wait)){process_irq_restore(irq);return SRV_ERR_BADF;}
         if(process_should_exit_current()){process_irq_restore(irq);return SRV_ERR_INTR;}
         struct process_unix_pending *pending=NULL;
-        for(unsigned i=0;i<PROCESS_UNIX_ACCEPT_QUEUE;i++)if(listener->queue[i].used){pending=&listener->queue[i];break;}
+        for(unsigned i=0;i<SRV_UNIX_LISTEN_BACKLOG_MAX;i++)if(listener->queue[i].used){pending=&listener->queue[i];break;}
         if(pending) {
             uint64_t index=PROCESS_MAX_OPEN_FILES;
             for(uint64_t i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(!process->files[i].used && process->file_generations[i]!=UINT64_MAX){index=i;break;}
