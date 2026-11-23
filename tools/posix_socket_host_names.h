@@ -108,4 +108,18 @@ uint32_t htonl(uint32_t value);
 uint32_t ntohl(uint32_t value);
 ssize_t sendmsg(int fd, const struct msghdr *message, int flags);
 ssize_t recvmsg(int fd, struct msghdr *message, int flags);
+
+/* These host fixtures model the legacy transport syscall set. */
+#ifndef srv_syscall5
+static inline long audit_unsupported_socket_syscall5(long number, long a, long b, long c, long d, long e) {
+    (void)number;
+    (void)a;
+    (void)b;
+    (void)c;
+    (void)d;
+    (void)e;
+    return -1;
+}
+#define srv_syscall5 audit_unsupported_socket_syscall5
+#endif
 #endif
