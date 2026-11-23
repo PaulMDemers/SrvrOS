@@ -98,6 +98,23 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         self.assertEqual(json.loads(self.run_cli('inspect',out).stdout)['bytes'],len(self.data))
         self.run_cli('import',out,self.root/'b'/'bob','bob',2001,2001)
         self.assertEqual((self.root/'b'/'bob'/'Documents/data.bin').read_bytes(),self.data)
+
+    def test_import_rejects_bundle_supplied_account_binding(self):
+        destination = self.root / 'a' / 'alice'
+        locations = [(self.manifest, 'account', {'name': 'alice'}),
+                     (self.manifest['profile'], 'uid', 1001),
+                     (self.manifest['profile'], 'gid', 1001),
+                     (self.manifest['profile'], 'home', str(destination)),
+                     (self.manifest['documents'][0], 'mode', 0o777)]
+        for entry, key, value in locations:
+            with self.subTest(field=key):
+                entry[key] = value
+                self.write_bundle()
+                self.run_cli('preview-import', self.source, destination, 'alice', code=1)
+                self.run_cli('import', self.source, destination, 'alice', 2001, 2001, code=1)
+                self.assertEqual(list(destination.parent.iterdir()), [])
+                del entry[key]
+
     def test_all_recovery_checkpoints(self):
         for i,phase in enumerate(('journal','directories','document','identity','commit-ready','published')):
             self.manifest['profile']['id']=f'12345678-1234-4234-8234-{i:012x}';self.write_bundle()
