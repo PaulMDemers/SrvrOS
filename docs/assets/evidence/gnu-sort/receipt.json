@@ -38,6 +38,28 @@
     "stdin_signal_status": 130,
     "terminal_receipt_sha256": "370035a7812b20482f09f929c3f774c95f37b0f5aa79045190a6af45d6da7d0b"
   },
+  "current_main_recheck": {
+    "cli_regression_scope": "Full 498-command run is from ddc37b8f. Neither changed account binary is invoked by that harness. This recheck reran focused, Terminal, and ports checks on the c8ce64a9 image.",
+    "component_hashes_identical_to_full_qualification": 11,
+    "disk_sha256": "4b8e71c932035f7da4c8b350cae580e33b8daf4a8709116468ef6673e7167163",
+    "focused_guest_receipt_sha256": "d13b4154853c04c078b0034d03c9f752d804faf6ec51f3e2118bd0fb15c8ff5a",
+    "initramfs_sha256": "a2596c3099e7bb1816dd88474c9b86a7319a955125d89529997b45400e4a0414",
+    "kernel_sha256": "ba3f9e8a3cf560c0adbdca9eb8525276407a3a53d3a2c422d0abc2683416bd40",
+    "manifest_sha256": "8325c76bccc7ca01ea4f765fdfe9471275a3183c7ecd463f12d7c77e5f6fa15b",
+    "os_base": "c8ce64a9e3136758adc87753670bb8cfe8123203",
+    "payload_comparison": [
+      "exfat changed files: /bin-local-enroll, /bin-local-signin, /bin/local-enroll, /bin/local-signin",
+      "initramfs changed files: srvros.exfat"
+    ],
+    "payload_comparison_sha256": "350396de6afbdaffadbe981ac50e84677f4ed36c50c4d7dc598156d0b3cdbaf4",
+    "ports_regression_sha256": "d72fa78a63c9cafdc1eda81ea84a3b26736b9ad37a5b064f1c44eb419c9c3682",
+    "screenshots_sha256": {
+      "04-current-recovery.png": "a9cf243300a5cc4de0666c935c08890273631c0e445d7b256cbe81e99486954c"
+    },
+    "source": "f0d16146990d3991dd4c1381f36a8252845f13fd",
+    "status": "PASS",
+    "terminal_receipt_sha256": "5c99cc957e2ae14a21b5064b357938ca49e5d575e8b6bb9245b8945d737761b3"
+  },
   "matched_build": {
     "disk_sha256": "3a10c7a217cc0e59437e747d4c39f0151b33a886b31f2eea1fae88aa5745d223",
     "host": "Apple Silicon macOS",
