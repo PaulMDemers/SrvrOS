@@ -256,6 +256,17 @@ the powered-off hub is cold-reset. The unattended capture records the setup
 steps and result before returning. The local `pro112-rtl8188cu-arm-cold/run.json`
 owns one-shot state and return collection.
 
+Native session `session-000660f79474d5cd-00` accepted RTL8188CUS firmware
+startup with all three dongles on the same hub. The enable readback kept
+`MCUFWDL=0x05`. All four page selectors read back correctly, and the full
+16,094-byte upload completed. Download closed at `0x00030004`, the host
+wrote `0x00030006`, and the MCU reported ready at `0x000300c6` with the
+RF/TX gates parked. All 19 setup receipts are in both `exit.log` and the
+independent journal. SrvrOS saved all seven journal phases, unmounted
+the workspace and returned to Ubuntu automatically. All 572 pre-existing
+files matched. The exact image and logs are under `evidence-f2f26465b6103e42`.
+The next milestone is radio initialization and passive Demers2.4 discovery.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
