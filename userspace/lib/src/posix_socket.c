@@ -1899,6 +1899,87 @@ uint32_t ntohl(uint32_t value) {
     return htonl(value);
 }
 
+static int parse_legacy_ipv4_part(const char **text, uint32_t *part) {
+    const char *p = *text;
+    uint32_t base = 10;
+    if (*p == '0') {
+        base = 8;
+        if (p[1] == 'x' || p[1] == 'X') {
+            base = 16;
+            p += 2;
+        }
+    }
+
+    const char *digits = p;
+    uint32_t value = 0;
+    for (;; ++p) {
+        uint32_t digit;
+        if (*p >= '0' && *p <= '9') {
+            digit = (uint32_t)(*p - '0');
+        } else if (*p >= 'a' && *p <= 'f') {
+            digit = (uint32_t)(*p - 'a' + 10);
+        } else if (*p >= 'A' && *p <= 'F') {
+            digit = (uint32_t)(*p - 'A' + 10);
+        } else {
+            break;
+        }
+        if (digit >= base || value > (UINT32_MAX - digit) / base) {
+            return 0;
+        }
+        value = value * base + digit;
+    }
+    if (p == digits) {
+        return 0;
+    }
+    *text = p;
+    *part = value;
+    return 1;
+}
+
+int inet_aton(const char *src, struct in_addr *dst) {
+    if (src == 0) {
+        return 0;
+    }
+
+    const char *p = src;
+    uint32_t prefix = 0;
+    unsigned prefix_parts = 0;
+    uint32_t last;
+    for (;;) {
+        if (!parse_legacy_ipv4_part(&p, &last)) {
+            return 0;
+        }
+        if (*p != '.') {
+            break;
+        }
+        if (prefix_parts == 3 || last > 255) {
+            return 0;
+        }
+        prefix = (prefix << 8) | last;
+        ++prefix_parts;
+        ++p;
+    }
+
+    while (*p == ' ' || (*p >= '\t' && *p <= '\r')) {
+        ++p;
+    }
+    if (*p != '\0') {
+        return 0;
+    }
+
+    if (prefix_parts != 0) {
+        unsigned last_bits = (4 - prefix_parts) * 8;
+        if (last >= (UINT32_C(1) << last_bits)) {
+            return 0;
+        }
+        last |= prefix << last_bits;
+    }
+    if (dst != 0) {
+        dst->s_addr = srv_ip_to_sockaddr(last);
+    }
+    return 1;
+}
+
 static int parse_decimal_octet(const char **text, uint32_t *octet) {
     uint32_t value = 0;
     int digits = 0;

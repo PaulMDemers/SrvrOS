@@ -1,0 +1,38 @@
+--- gio/gresolver.c
++++ gio/gresolver.c
+@@ -433,7 +433,22 @@
+   struct in_addr ip4addr;
+ #endif
+-
++
++#ifdef __SRVROS__
++  gboolean noncanonical_ipv4 = FALSE;
++#endif
++
+   addr = g_inet_address_new_from_string (hostname);
++#ifdef __SRVROS__
++  /* The SDK's inet_pton() accepts decimal octets with leading zeroes. */
++  if (addr != NULL && g_inet_address_get_family (addr) == G_SOCKET_FAMILY_IPV4)
++    {
++      gchar *canonical = g_inet_address_to_string (addr);
++      noncanonical_ipv4 = g_strcmp0 (hostname, canonical) != 0;
++      g_free (canonical);
++      if (noncanonical_ipv4)
++        g_clear_object (&addr);
++    }
++#endif
+   if (addr)
+     {
+       *addrs = g_list_append (NULL, addr);
+@@ -458,7 +473,11 @@
+    * address, so if inet_aton() succeeds, then it's an address we want
+    * to reject.
+    */
++#ifdef __SRVROS__
++  if (noncanonical_ipv4 || inet_aton (hostname, &ip4addr))
++#else
+   if (inet_aton (hostname, &ip4addr))
++#endif
+ #endif
+     {
+ #ifdef G_OS_WIN32
