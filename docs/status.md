@@ -40,7 +40,8 @@ The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported
 IPv4 UDP `SO_BROADCAST` passed guest packet verification.
 The SDK declares `IP_MULTICAST_LOOP` for GIO. IPv4 UDP calls for this option
 return `ENOSYS`.
-Static GIO next stops at undeclared `IPV6_MULTICAST_LOOP` in `gsocket.c`.
+The SDK also declares `IPV6_MULTICAST_LOOP`. IPv6 sockets return `EAFNOSUPPORT`.
+Static GIO next stops at undeclared `IP_MULTICAST_TTL` in `gsocket.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
