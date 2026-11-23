@@ -104,6 +104,13 @@ static void allocation_contract(void) {
         for(unsigned i=1;i<=4;i++)assert(!dma_live[i]);
     }
 }
+static bool terminal_read(void *context) {
+    struct block_device *dev=context;
+    uint8_t byte;
+    assert(!ahci_run_polled(dev,terminal_read,dev));
+    assert(!issue_command(&disks[1],ATA_CMD_READ_DMA_EXT,0,1,false));
+    return ahci_read(dev,0,&byte,1) && ahci_write(dev,0,&byte,1) && ahci_flush(dev);
+}
 int main(void) {
     allocation_contract();
     struct ahci_disk disk=setup(0);
@@ -174,6 +181,12 @@ int main(void) {
     uint8_t identify[512]={0}; identify[167]=0x60; assert(identify_flush_command(identify)==ATA_CMD_FLUSH_CACHE_EXT);
     identify[167]=0x50; assert(identify_flush_command(identify)==ATA_CMD_FLUSH_CACHE);
     identify[167]=0x10; assert(identify_flush_command(identify)==0);
+    disks[0]=setup(0);services_enabled=io_active=true;
+    dev=(struct block_device){.used=true,.private_data=&disks[0]};disks[0].block=&dev;
+    assert(ahci_run_polled(&dev,terminal_read,&dev));
+    assert(io_active && !yields && !polled_disk && !disks[0].busy && !profile_depth);
+    dev.backing=&dev;assert(!ahci_run_polled(&dev,terminal_read,&dev));
+    puts("ahci-host: PASS terminal journal may use selected disk with service yields disabled and original I/O scope preserved");
     puts("ahci-host: PASS (DMA/flush descriptors, stuck busy/CI, errors, quarantine, address-space restore, ownership, service windows)");
 }
 

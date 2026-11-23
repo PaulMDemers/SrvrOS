@@ -214,16 +214,15 @@ static bool wifi_desktop5_next(void){
 
 /* A stream cannot straddle the xHCI Link TRB during its ownership
  * change. Finish the last commands in the ring before taking its snapshot. */
-static bool wifi_desktop5_command_runway(void){
- for(unsigned i=0;i<WIFI_STREAM5_SESSION_COMMANDS-1 &&
-     xhci.command_enqueue>63-WIFI_STREAM5_SESSION_COMMANDS;i++){
+static bool wifi_desktop5_command_runway(unsigned reserve){
+ for(unsigned i=0;i<reserve-1 && xhci.command_enqueue>63-reserve;i++){
   uint64_t slot=UINT64_MAX;
   if(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) || slot!=0){
    xhci.command_failed=true;
    return false;
   }
  }
- return xhci.command_enqueue<=63-WIFI_STREAM5_SESSION_COMMANDS;
+ return xhci.command_enqueue<=63-reserve;
 }
 
 static bool wifi_desktop5_window(void){
@@ -248,10 +247,19 @@ static bool wifi_desktop5_window(void){
   if(!wifi_desktop5.connect.serial)(void)wifi_desktop5_take(&wifi_desktop5.connect);
   if(wifi_desktop5.connect.serial && wifi_desktop5_gate_begin()){
    if(wifi_desktop5.replug){
-    if(wifi_radio5_bank && !wifi_desktop5_command_runway())return false;
+    if(wifi_radio5_bank && !wifi_desktop5_command_runway(WIFI_STREAM5_SESSION_COMMANDS))return false;
     return wifi_desktop5_retire_connection();
    }
-   if(!wifi_desktop5.reconnect)return wifi_stream5_inspect();
+   if(!wifi_desktop5.reconnect){
+    if(wifi_desktop5_hub_trial()){
+     unsigned reserve=wifi_stream5_command_reserve(),before=(unsigned)xhci.command_enqueue;
+     bool ready=wifi_desktop5_command_runway(reserve);
+     console_printf("wifi-desktop-hub5-command: reserve=%u before=%u after=%u ready=%u\n",
+      (uint64_t)reserve,(uint64_t)before,xhci.command_enqueue,(uint64_t)ready);
+     if(!ready)return false;
+    }
+    return wifi_stream5_inspect();
+   }
    if(wifi_desktop5.connections && !wifi_desktop5_next())return false;
    if(!wifi_desktop5_retire_connection())return false;
    if(wifi_desktop5.connections==2 || !wifi_desktop5.disconnect.serial ||
@@ -493,3 +501,14 @@ bool xhci_wifi_capture_desktop_active_remove5(void *context,bool (*begin)(void *
  return completed;
 }
 bool xhci_wifi_desktop5_return_safe(void){return wifi_desktop5.return_safe;}
+void xhci_wifi_desktop5_print_hold(void){
+ unsigned port=wifi_desktop5.device?wifi_desktop5.device->hub_port_id:0;
+ console_printf("wifi-desktop5-hold: port=%u frontier=%u required=%u command_failed=%u stream_attempted=%u\n",
+  (uint64_t)port,xhci.command_enqueue,(uint64_t)wifi_stream5_command_reserve(),(uint64_t)xhci.command_failed,
+  (uint64_t)wifi_stream5.attempted);
+ console_printf("wifi-desktop5-hold-state: stream_failed=%u phase=%u fault_phase=%u stack_failed=%u\n",
+  (uint64_t)wifi_stream5.failed,(uint64_t)wifi_stream5.phase,(uint64_t)wifi_stream5.fault_phase,(uint64_t)wifi_stack5.failed);
+ console_printf("wifi-desktop5-hold-session: auth=%u assoc=%u keys_erased=%u tx_pending=%u rx_pending=%u\n",
+  (uint64_t)wifi_stream5.exchange.auth_matched,(uint64_t)wifi_stream5.exchange.assoc_matched,
+  (uint64_t)wifi_stream5.exchange.keys_erased,(uint64_t)wifi_stream5.pending[0],(uint64_t)wifi_stream5.pending[1]);
+}

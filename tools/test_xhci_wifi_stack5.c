@@ -921,6 +921,16 @@ static void desktop_case(bool removed){
  assert(!test_io_active && !xhci.storage_sync_owner);
  puts("xhci desktop Wi-Fi: PASS System request lifecycle, paced USB storage and Wi-Fi overlap, traffic beyond diagnostic limits, exact disconnect; modeled hardware and scheduler");
 }
+static unsigned desktop_hub_padding;
+static void desktop_hub_command_model(uint64_t offset,uint32_t value){
+ if(offset!=xhci.db_base || value)return;
+ unsigned index=(unsigned)(xhci.command_enqueue+62)%63;
+ assert(index==51+desktop_hub_padding++ && wifi_desktop5.gate && test_io_active);
+ assert((xhci.command_ring[index].control>>10)==XHCI_TRB_TYPE_NOOP);
+ uint64_t pointer=xhci.command_ring_phys+16*index;
+ stream_enqueue(&(struct xhci_trb){.parameter_low=(uint32_t)pointer,.parameter_high=pointer>>32,
+  .status=1u<<24,.control=XHCI_TRB_TYPE_COMMAND_COMPLETION<<10},0);
+}
 static void desktop_hub_case(void){
  probe_setup(0);test_io_gate_allowed=true;desktop_timer_running=true;
  struct xhci_device *wifi=wifi_cal5.d,*hub=&xhci.devices[2];
@@ -931,12 +941,15 @@ static void desktop_hub_case(void){
  wifi->addressed=true;wifi->speed=3;wifi->port_id=1;
  wifi->parent_slot_id=3;wifi->hub_port_id=2;wifi->route_string=2;
  apply_hub_port_status(hub,2,0x503);
+ xhci.command_enqueue=51;
+ native_boundary_mmio_hook=desktop_hub_command_model;
  assert(xhci_wifi_capture_desktop5(&ap,desktop_begin,desktop_running));
+ assert(desktop_hub_padding==12 && !xhci.command_cycle);
  assert(ap.dhcp==2 && ap.icmp==1 && ap.dns==1 && ap.udp==181);
  assert(wifi_desktop5.data_verified[0] && wifi_desktop5.disconnect.serial && wifi_stack5.retired);
  assert(xhci_wifi_desktop5_return_safe() && !test_io_active && !xhci.storage_sync_owner);
  assert(wifi_hub_path_present(wifi) && hub->configured && !hub->removed);
- puts("xhci desktop Wi-Fi: PASS routed Edimax session, DHCP, gateway ping, DNS, UDP, shared storage and orderly retirement");
+ puts("xhci desktop Wi-Fi: PASS routed Edimax session at frontier 51, exact command wrap, DHCP, gateway ping, DNS, UDP, shared storage and orderly retirement");
 }
 #ifndef SRVROS_XHCI_HTTP5_HOST_TEST
 bool survey5_test_RF_parent(bool (*)(void),bool);

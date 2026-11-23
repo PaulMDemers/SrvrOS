@@ -590,6 +590,10 @@ static bool wifi_stream5_credentials(void){
  for(unsigned i=p[8];i<32;i++)if(p[9+i])return false;
  copy_bytes(wifi_stream5.pmk,p+41,32);return true;
 }
+static unsigned wifi_stream5_command_reserve(void){
+ return wifi_stream5.paired && wifi_stream5.connection_mode?WIFI_STREAM5_SESSION_COMMANDS:
+  2+2*wifi_stream5_fence_limit()+6;
+}
 static bool wifi_stream5_inspect(void){
  if(wifi_stream5.attempted || !wifi_stream5_parent())return false;
  wifi_stream5.attempted=true;wifi_stream5.d=wifi_cal5.d;struct xhci_device *d=wifi_stream5.d;wifi_stream5.slot=d->slot_id;wifi_stream5.peer=wifi_join5.peer;wifi_stream5.epoch=wifi_stream5.peer.generation;
@@ -597,8 +601,7 @@ static bool wifi_stream5_inspect(void){
   if(!wifi_stream5_slots[0].epoch || wifi_stream5_slots[0].epoch==UINT64_MAX)return false;
   wifi_stream5.epoch=wifi_stream5_slots[0].epoch+1;wifi_stream5.peer.generation=wifi_stream5.epoch;
  }
- unsigned commands=wifi_stream5.paired && wifi_stream5.connection_mode?WIFI_STREAM5_SESSION_COMMANDS:
-  2+2*wifi_stream5_fence_limit()+6;
+ unsigned commands=wifi_stream5_command_reserve();
  if(wifi_fence5_native.bound || xhci.command_enqueue>63-commands || !wifi_stream5_credentials())return false;
  const unsigned dcis[]={0,11,16,8,9};for(unsigned i=0;i<5;i++)for(unsigned j=0;j<8;j++)wifi_stream5.context[i][j]=context_read32(d->output_context,dcis[i],j);
  for(unsigned dir=0;dir<2;dir++)for(unsigned j=0;j<8;j++)wifi_stream5.snapshots[0][dir][j]=wifi_stream5.context[dir?4:3][j];

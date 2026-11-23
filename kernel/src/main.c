@@ -1580,12 +1580,16 @@ void kmain(void) {
                     sampled=xhci_wifi_capture_mcu();
                 if(wifi_desktop.pid>0) {
                     if(!xhci_wifi_desktop5_return_safe()) {
+                        __asm__ volatile("cli":::"memory");
                         console_set_framebuffer_muted(false);
                         console_clear();
-                        console_write("Wi-Fi desktop stopped. USB ownership retained.\n"
-                            "Hold Power OFF, then Power ON for Ubuntu.\n");
+                        console_write("Wi-Fi desktop stopped. USB ownership retained.\n");
+                        xhci_wifi_desktop5_print_hold();
+                        if(startup_journal_admitted)
+                            console_printf("Wi-Fi failure journal saved=%u\n",
+                                (uint64_t)startup_journal_checkpoint_held(startup_flags));
+                        console_write("Hold Power OFF, then Power ON for Ubuntu.\n");
                         console_sync();
-                        __asm__ volatile("cli":::"memory");
                         halt_forever();
                     }
                     uint64_t status=0;

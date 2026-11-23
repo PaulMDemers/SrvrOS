@@ -128,6 +128,7 @@ struct ahci_disk {
 static volatile struct hba_memory *hba;
 static uint64_t hba_physical;
 static struct ahci_disk disks[AHCI_MAX_PORTS];
+static struct ahci_disk *polled_disk;
 static uint64_t disk_count;
 static uint64_t commands_issued, service_windows, busy_rejects, failed_commands;
 static uint64_t last_service_us;
@@ -255,6 +256,15 @@ static bool begin_request(struct ahci_disk *disk, struct ahci_request *request) 
         if (disk != NULL && disk->busy) busy_rejects++;
         irq_restore(request->flags);
         return false;
+    }
+    if (polled_disk) {
+        if (disk != polled_disk) {
+            irq_restore(request->flags);
+            return false;
+        }
+        request->services = false;
+        disk->busy = true;
+        return true;
     }
     request->services = scheduler_io_begin();
     /* A service callback may not start storage work on another disk either. */
@@ -523,6 +533,28 @@ static bool ahci_flush(struct block_device *device) {
     struct ahci_disk *disk = device->private_data;
     return disk != NULL && disk->flush_command != 0 &&
         issue_command(disk, disk->flush_command, 0, 0, false);
+}
+
+bool ahci_run_polled(struct block_device *device,bool (*work)(void *),void *context) {
+    uint64_t flags=irq_save();
+    struct ahci_disk *selected=NULL;
+    if (device && work && !polled_disk && device->used && !device->offline && !device->backing) {
+        for (unsigned i=0;i<AHCI_MAX_PORTS;i++) {
+            struct ahci_disk *disk=&disks[i];
+            if (disk->block==device && device->private_data==disk && !disk->busy && !disk->failed) {
+                selected=disk;
+                break;
+            }
+        }
+    }
+    bool ok=false;
+    if (selected) {
+        polled_disk=selected;
+        ok=work(context);
+        polled_disk=NULL;
+    }
+    irq_restore(flags);
+    return ok;
 }
 
 static uint8_t identify_flush_command(const uint8_t *identify) {

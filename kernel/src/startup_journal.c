@@ -1,4 +1,5 @@
 #include <srvros/startup_journal.h>
+#include <srvros/ahci.h>
 #include <srvros/block.h>
 #include <srvros/bootlog.h>
 #include <srvros/console.h>
@@ -122,6 +123,15 @@ fail:
     healthy=false;block_forget(disk);
     console_write("startup-journal: storage failure; earlier committed slots retained\n");
     return false;
+}
+
+static bool checkpoint_held(void *context) {
+    return startup_journal_checkpoint(6,*(const uint64_t *)context);
+}
+bool startup_journal_checkpoint_held(uint64_t flags) {
+    /* A terminal hold consumes only the finalization slot. USB remains
+     * mounted and unsaved, and phase 7 remains absent. */
+    return healthy && claim && disk && next_slot==5 && flags<=15 && ahci_run_polled(disk,checkpoint_held,&flags);
 }
 
 bool startup_journal_close(void) {

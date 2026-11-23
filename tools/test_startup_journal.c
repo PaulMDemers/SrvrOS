@@ -18,6 +18,7 @@ static struct initramfs_file module;
 static unsigned writes,flushes,fail_write,fail_flush;
 static uint64_t fail_read_offset,reason_mask;
 static bool claim_refused,corrupt_readback;
+static unsigned polled_calls;
 static const uint64_t base=1048576+8192;
 void console_write(const char *s) {(void)s;}
 void console_printf(const char *s,...) {
@@ -30,6 +31,10 @@ struct block_device *block_device_at(uint64_t i) {return i<2?&devices[i]:NULL;}
 uint64_t block_claim_raw(struct block_device *d,struct block_device *view) {assert(d==&devices[0] && !view);return claim_refused?0:1;}
 bool block_claim_release(uint64_t token) {assert(token==1);return true;}
 void block_forget(struct block_device *d) {assert(d==&devices[0]);}
+bool ahci_run_polled(struct block_device *d,bool (*work)(void *),void *context) {
+    assert(d==&devices[0]);polled_calls++;
+    return work(context);
+}
 uint64_t bootlog_snapshot(char *out,uint64_t cap,uint64_t *total) {
     const char *s="workspace: USB volume absent, ambiguous or already writable\n";
     assert(cap>=strlen(s));memcpy(out,s,strlen(s));*total=strlen(s)+10000;return strlen(s);
@@ -95,7 +100,7 @@ static void run(unsigned test,const char *output) {
     default:break;
     }
     bool opened=startup_journal_open();assert(!startup_journal_open());
-    if((test>=1 && test<=13) || test>=21) {
+    if((test>=1 && test<=13) || (test>=21 && test<=26)) {
         const unsigned reasons[]={0,3,3,6,8,10,11,12,13,13,13,2,4,13};
         unsigned reason=test<=13?reasons[test]:test==21?5:test==22?7:test==23?9:8;
         assert(!opened && !writes && !flushes && (reason_mask&(1ull<<reason)));
@@ -110,6 +115,16 @@ static void run(unsigned test,const char *output) {
     if(test==19)fail_flush=2;
     if(test==20){assert(!startup_journal_checkpoint(2,0));assert(!startup_journal_checkpoint(1,64));assert(!writes);}
     if(test>=14 && test<=19){assert(!startup_journal_checkpoint(1,0));assert(!startup_journal_checkpoint(1,0));assert(!startup_journal_close());verify_outside();return;}
+    if(test==27){
+        assert(!startup_journal_checkpoint_held(15));
+        for(unsigned phase=1;phase<=5;phase++)assert(startup_journal_checkpoint(phase,15));
+        assert(!startup_journal_checkpoint_held(63) && !polled_calls);
+        assert(startup_journal_checkpoint_held(15) && polled_calls==1 && writes==12 && flushes==12);
+        assert(!startup_journal_checkpoint_held(15) && !startup_journal_close());
+        uint8_t *held=medium+base+SECTOR+5*SLOT_BYTES;
+        assert(le64(held+40)==15 && !memcmp(held+SLOT_BYTES,before+base+SECTOR+6*SLOT_BYTES,2*SLOT_BYTES));
+        verify_outside();return;
+    }
     for(unsigned phase=1;phase<=7;phase++)assert(startup_journal_checkpoint(phase,phase>=3?12:0));
     assert(!startup_journal_checkpoint(8,0));assert(writes==14 && flushes==14);
     verify_outside();
@@ -121,10 +136,10 @@ static void run(unsigned test,const char *output) {
     assert(startup_journal_close());assert(!startup_journal_close());
 }
 int main(int argc,char **argv) {
-    for(unsigned test=0;test<=26;test++) {
+    for(unsigned test=0;test<=27;test++) {
         pid_t pid=fork();assert(pid>=0);
         if(!pid){run(test,test==0 && argc==2?argv[1]:NULL);_exit(0);}
         int status;assert(waitpid(pid,&status,0)==pid && WIFEXITED(status) && !WEXITSTATUS(status));
     }
-    puts("startup-journal: PASS 27 actual writer scenarios, bounded writes, readback/commit ordering, identity and partial-I/O refusals");
+    puts("startup-journal: PASS 28 writer scenarios, bounded writes, held-failure receipt, readback/commit ordering, identity and partial-I/O refusals");
 }

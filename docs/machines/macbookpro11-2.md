@@ -57,6 +57,23 @@ image passed a GPT workspace VM and four independent startup-journal scenarios.
 The native trial starts with a cold Edimax on hub port 2 and leaves the hub,
 both Realtek devices and the workspace connected throughout the desktop test.
 
+The cold connected session `session-000660f4bdb9b8ff-00` reached Demers5
+discovery and stopped after Connect with USB ownership retained. The saved
+boot log confirms the Edimax route at hub port 2. The independent journal
+has valid phases 1–5 and no post-Connect receipt. The exFAT scan was clean
+and all 565 prior workspace files matched after manual recovery. The failed
+image, logs, journal and console photo are in `evidence-5dc51adbf723307d`.
+
+The accepted root run used 24 xHCI commands by startup and began the stream at
+command index 44. This hub run used 31 commands by startup. With the same
+intervening commands it would reach index 51, past the single-session ceiling
+of 47 when 16 commands must fit before Link63. The repair advances to the next
+cycle with exactly completed No-Op commands before the routed stream takes
+ownership. The added host case uses index 51. A terminal USB hold now records
+compact connection state in the bound AHCI journal with scheduler service
+turns disabled, while retaining the xHCI and workspace ownership. The original
+native refusal remains unconfirmed until a connect attempt captures its state.
+
 For the Realtek devices, the observed interfaces are both vendor-specific.
 Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
 has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Ubuntu selected
