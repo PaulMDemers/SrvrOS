@@ -10,6 +10,13 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The current trial optimizes the Air firmware identity check inside framebuffer
+validation. On this Air under Ubuntu, the kernel-compiled matcher took a
+median of 17.6 µs per call, down from 48.8 µs on the same captured DSDT.
+The matcher passed all 35,034 single-byte mutations and 494 checksum-preserving
+changes. The hardware comparison repeats the queue handoff at the same 250 ms
+preparation limit.
+
 Release `f1d4509e69f7f50a` (source `6a0ce5be`, session
 `session-000660eb6b5b1fca-00`) matched all 46 engine and context words
 before and after PCI bus-master reopening to the same post-reset sample.

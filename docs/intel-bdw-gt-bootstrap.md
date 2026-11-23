@@ -346,6 +346,15 @@ Pure witness/reference tests remain valid. Keep exact fresh identity and all
 bounds while addressing serial hashing or redundant guards. See the
 [unit result](machines/macbookair7-2.md#native-firmware-fusion-is-insufficient-for-closing).
 
+The slot 12291 queue-handoff trial splits the Air7,2 DSDT into three equal
+segments of 11,678 bytes. Each guard reads all three and verifies the
+captured FNV-1a state at each boundary, including the original final hash.
+It also computes the whole-table checksum. The three independent hash chains
+allow overlapping multiplies. With the kernel compiler and flags, four
+alternating host trials on the Air measured median costs of 48.8 µs for the
+prior matcher and 17.6 µs for the segmented matcher. The native trial retains
+the 250 ms preparation limit so its closing time can be compared directly.
+
 ### Separate multi-second diagnostic
 
 The user requested three runs with aggregate timeouts of a few seconds to

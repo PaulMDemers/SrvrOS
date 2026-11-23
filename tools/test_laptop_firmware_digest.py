@@ -42,9 +42,9 @@ class Firmware(unittest.TestCase):
             env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1:detect_stack_use_after_return=1',UBSAN_OPTIONS='halt_on_error=1')
             self.call(exe=exe,env=env)
             if CAPTURE.is_file():self.call(CAPTURE,exe=exe,env=env)
-            controls=[('d.sum+=byte;','(void)byte;'),
-                      ('d.hash=(d.hash^byte)*1099511628211ull;','d.hash^=byte;'),
-                      ('for(size_t i=0;i<n;i++) {','for(size_t i=0;i<n;i+=2) {')]
+            controls=[('digest.sum += first + middle + last;', 'digest.sum += first + middle;'),
+                      ('^ byte) * 1099511628211ull;', '^ byte);'),
+                      ('offset < AIR_SEGMENT_BYTES;', 'offset < AIR_SEGMENT_BYTES - 1;')]
             for i,(old,new) in enumerate(controls):
                 self.assertEqual(text.count(old),1)
                 unit=Path(directory)/f'{i}.c';unit.write_text(text.replace(old,new));exe=Path(directory)/str(i)
