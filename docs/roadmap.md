@@ -28,9 +28,11 @@ GLib configures through its pinned internal `intl` fallback and the SDK's
 GIO's resolver object compiles and the target DNS decoder passes in the
 guest. GLib's file-utilities object compiles with the SDK's `ELOOP`
 declaration. The hostname utility object compiles with the SDK limits
-header, and the native hostname calls passed. Static GLib compilation first
-stops at `NSIG` and `SA_NOCLDSTOP` in `gmain.c`. Integrated main-context
-wait follows. Shared-memory and IPC design remains with its runtime owner.
+header, and the native hostname calls passed. GLib's main-loop and wakeup
+objects compile and the native child-watch probe passes. Static GLib first
+stops at missing `creat()` in `gstdio.c`. The `glib-unix.c` PID and
+descriptor-path gates also block an integrated child-watch test.
+Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
 

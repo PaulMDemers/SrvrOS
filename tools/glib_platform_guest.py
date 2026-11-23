@@ -31,6 +31,7 @@ ZLIB_MARKER = b'glib-zlib: ok'
 PROXY_INTL_MARKER = b'glib-proxy-intl: ok'
 RESOLVER_MARKER = b'glib-resolver: ok'
 FILE_POLICY_MARKER = b'glib-file-policy: ok'
+CHILD_WATCH_MARKER = b'glib-child-watch: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -146,6 +147,7 @@ def main():
     parser.add_argument('--proxy-intl-prefix', type=Path, help='target proxy-libintl prefix from browser_glib_iconv.py')
     parser.add_argument('--resolver', action='store_true', help='test the SDK resolver against a private DNS peer')
     parser.add_argument('--file-policy', action='store_true', help='test no-follow opens in initramfs and private exFAT')
+    parser.add_argument('--child-watch', action='store_true', help='test native SIGCHLD wake and targeted reaping')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -182,6 +184,17 @@ def main():
         probes = {'glib-platform': (MARKER, GUI_MARKER)}
         dns_peer = None
         workspace = None
+        if args.child_watch:
+            unit = ROOT / 'tools/test_glib_child_watch_guest.c'
+            receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
+            obj = output / 'child-watch.o'
+            payload = output / 'child-watch.elf'
+            subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
+                            '-c', unit, '-o', obj], cwd=ROOT, check=True, timeout=60)
+            subprocess.run([compiler, obj, '-o', payload], cwd=ROOT, check=True, timeout=60)
+            payloads['glib-child-watch'] = payload
+            probes['glib-child-watch'] = (CHILD_WATCH_MARKER,)
+            receipt['child_watch_payload_sha256'] = digest(payload)
         if args.resolver:
             dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
             unit = ROOT / 'tools/test_glib_resolver_guest.c'

@@ -5,9 +5,9 @@ November 22, 2026. The original target configure stopped at GLib's
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
-the static build graph. The GIO resolver and GLib file and hostname utility
-objects compile. The first static build failure is in `gmain.c`, which uses
-`NSIG` and `SA_NOCLDSTOP`.
+the static build graph. The GIO resolver and GLib file, hostname, main-loop
+and wakeup objects compile. The first static build failure is the missing
+`creat()` declaration in `glib/gstdio.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -261,8 +261,31 @@ Two native platform runs verified `sysconf(_SC_HOST_NAME_MAX) == 63`,
 `gethostname() == "srvros"` matching `uname().nodename`, a terminated one-byte
 result and `EINVAL` for a zero-length buffer. Both runs exited 0 and QEMU
 stopped. Fresh Meson configure and the `ghostutils.c` object build passed.
-The static build first stops at `NSIG` and `SA_NOCLDSTOP` in `glib/gmain.c`.
+That static build first stopped at `NSIG` and `SA_NOCLDSTOP` in
+`glib/gmain.c`.
 See the [hostname receipt](assets/evidence/glib-hostname/receipt.json).
+
+## GLib Unix child watches
+
+The pinned GLib patch uses the SDK signal-mask width for its tables and
+selects `SA_RESTART` for SrvrOS handler registration. A failed registration
+returns a failed watch creation without adding a watch or reference.
+GLib's wakeup uses its existing nonblocking pipe path because SrvrOS's
+synthetic eventfd is mutex-backed. Signal delivery uses the SDK's
+existing libc checkpoints.
+
+Two diskless native probes verified that an unmasked caller at a libc poll
+checkpoint handled `SIGCHLD` and woke a worker that inherited a blocked mask.
+The worker reaped the watched PID with exit 17. The earlier unwatched child
+remained independently reapable with exit 42. Both platform probes also
+passed, QEMU stopped, and the window was released.
+
+Fresh configure and the `gmain.c` and `gwakeup.c` objects passed. The static
+build first stops at missing `creat()` in `glib/gstdio.c:1147`. The focused
+`glib-unix.c` build also found a `GPid`/`pid_t` ABI mismatch and an absent
+descriptor-path backend. These gates block a guest test linked against
+target GLib's `GChildWatchSource`. See the
+[Unix watch receipt](assets/evidence/glib-unix-watch/receipt.json).
 
 ## Verification
 
