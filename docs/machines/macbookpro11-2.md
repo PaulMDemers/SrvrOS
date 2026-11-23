@@ -431,6 +431,18 @@ RF/RX parked, Ubuntu returned, and all 578 existing workspace files were
 preserved. The local archive `evidence-fd232be7e62e2b0c` holds the matching
 payload and evidence.
 
+The working Linux trace `3753a4c3` set CR to `0x02ff` before its
+first bulk completion. SrvrOS's native trace had `0x008a` throughout
+the receive window. The [Realtek register definitions](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h)
+identify bit 4 as `PROTOCOL_EN`, separate from the TX, TX DMA,
+RX DMA and scheduling bits. The next comparison adds just bit 4 to the
+receive configuration, so RX must read back CR low byte `0x9a` before
+posting. MAC TX, both TX DMA gates and scheduling must remain off, with
+all TX queues paused. The radio profile, receive filter and USB endpoint
+parameters carry over from the trace trial. Teardown clears the protocol
+bit with the RX gates. The paired snapshots and explicit gate readback
+will show whether this change is sufficient to restart chip-side RX.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
