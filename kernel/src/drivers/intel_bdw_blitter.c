@@ -146,6 +146,11 @@ static enum intel_gt_write post(void *ctx,uint32_t offset,uint32_t value)
     struct bdw_blitter_request *r=ctx;
     if (offset!=BCS_SUBMIT_PORT || !held(r) || !owner_clock(r) ||
         r->last<r->port.p.last || r->last-r->port.p.begin>BCS_SUBMIT_US) return GT_WRITE_NONE;
+    /* The owner's clock is the last callback before the descriptor store. */
+    if (r->traffic && !intel_bdw_peer_ports_held(&r->traffic->routes)) {
+        r->traffic->phase=BDW_CMD_RETAINED;
+        return GT_WRITE_NONE;
+    }
     r->device.registers[ELSP/4]=value;
     /* Ordered UC read drains the posted DWORD. Queue acceptance is checked
      * independently by the submit core after the fourth write. */

@@ -48,7 +48,7 @@ struct bdw_blitter_device {
 enum bdw_blitter_state { BDW_BLITTER_NEW, BDW_BLITTER_PINNED, BDW_BLITTER_ISSUED,
                          BDW_BLITTER_RETIRED, BDW_BLITTER_RETAINED, BDW_BLITTER_STATUS_PINNED };
 struct bdw_blitter_request {
-    const struct bdw_command_hold *traffic;
+    struct bdw_command_hold *traffic;
     struct bcs_submit_source source;
     struct intel_bdw_bcs_submit port;
     struct scanout_reader reader;

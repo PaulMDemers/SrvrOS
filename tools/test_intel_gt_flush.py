@@ -222,7 +222,8 @@ class FlushAcknowledgements(unittest.TestCase):
         receipt = bootstrap_result(text)["range"]["reopened_pte"]
         self.assertEqual((receipt["pinned"], receipt["restored"], receipt["ro_mask"]), (5, 5, 0))
         for mode, positions, commands in (("slot-protect", range(1,6), 1), ("slot-foreign", (1,3,5), 1),
-                                          ("slot-wp", (1,), 0), ("slot-restore", range(1,6), 2)):
+                                          ("slot-wp", (1,), 0), ("peer-port", range(1,5), 1),
+                                          ("peer-reopened", range(1,5), 2), ("slot-restore", range(1,6), 2)):
             for position in positions:
                 with self.subTest(mode=mode, position=position):
                     result = bootstrap_result(observe(mode, position))

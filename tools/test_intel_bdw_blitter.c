@@ -200,7 +200,7 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
 }
 enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
                      LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
-                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE };
+                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT };
 static enum traffic_fault traffic_fault;
 static struct {
     const struct scanout_transfer *transfer;
@@ -290,6 +290,22 @@ static const struct bdw_command_control command_control={
     .isolate_widi=isolate_widi,.widi_epoch=widi_epoch,.set_execution=permit_bcs
 };
 static struct vmm_reserved_guard route_guard={&route_guard,1};
+static bool peer_protected(uint64_t pa)
+{
+    switch (pa) {
+    case 0xc0002000: return traffic_fault!=PEER_MISSING;
+    case 0xc0012000: return !(controller.bcs && traffic_fault==PEER_OPEN);
+    case 0xc001a000: return !(controller.drains==2 && traffic_fault==PEER_ROLLBACK);
+    case 0xc001c000: return !(traffic_fault==PEER_DURING_SUBMIT && posted==3);
+    default: return false;
+    }
+}
+bool vmm_reserved_guard_readonly_registers_held(const struct vmm_reserved_guard *g,uint64_t root,const uint64_t *pages,unsigned count)
+{
+    assert(g==&route_guard && root==0x9000 && count==4);
+    for (unsigned i=0;i<count;i++) if (!peer_protected(pages[i])) return false;
+    return true;
+}
 bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t pa)
 {
     assert(g==&route_guard && root==0x9000);
@@ -363,6 +379,12 @@ static void run_transfer(enum mapping_case which)
         .guard_epoch=route_guard.epoch,.root=device.root,.mmio=device.mmio,.strap=1u<<20,
         .well_before=1u<<30,.well_after=1u<<30,.codec_before=0x80862808,.codec_after=0x80862808};
     if (!intel_bdw_command_acquire(&mapping,&transfer,&grant,&routes,command_control,&space,now)) {
+        if (traffic_fault==PEER_MISSING) {
+            assert(mapping.traffic.phase==BDW_CMD_UNUSED && !controller.epoch && !posted && !mapping.pages.writes &&
+                   !transfer.command_hold && scanout_transfer_close(&transfer,&grant));
+            assert(display_access_release(&exclusion,true));
+            return;
+        }
         if (traffic_fault==AIR_RESET_REASONS) {
             assert(mapping.traffic.phase==BDW_CMD_REFUSED && !controller.epoch && !posted &&
                    !mapping.pages.writes && !transfer.command_hold && scanout_transfer_close(&transfer,&grant));
@@ -390,6 +412,13 @@ static void run_transfer(enum mapping_case which)
         }
     }
     bool done=intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window);
+    if (traffic_fault==PEER_DURING_SUBMIT) {
+        assert(!done && posted==3 && mapping.request.port.p.writes==3 && !mapping.request.port.p.triggered);
+        assert(mapping.request.state==BDW_BLITTER_RETAINED && mapping.traffic.phase==BDW_CMD_RETAINED);
+        assert(mapping.pages.writes==PAGES && mapping.pages.readers==&mapping.request.reader &&
+               transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
     if (traffic_fault==LOST_RELEASE) {
         assert(!done && posted==4 && invalidates==2 && mapping.verified_pages[1]==PAGES);
         assert(mapping.pages.writes==2*PAGES && !memcmp(originals,entries,sizeof(originals)));
@@ -398,7 +427,7 @@ static void run_transfer(enum mapping_case which)
         return;
     }
     if (traffic_fault!=TRAFFIC_OK) {
-        bool rollback=traffic_fault==STALE_SECOND_DRAIN;
+        bool rollback=traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK;
         assert(!done && mapping.traffic.phase==BDW_CMD_RETAINED && posted==(rollback?4u:0u));
         assert(mapping.pages.writes==PAGES && invalidates==1 && mapping.traffic.drains==1);
         assert(!scanout_transfer_close(&transfer,&grant));
@@ -499,11 +528,12 @@ int main(int argc,char **argv)
 {
     const char *const traffic_failures[]={"missing-engine-ack","early-l3","missing-l3","widi-escapes",
                                          "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
-                                         "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release"};
+                                         "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release",
+                                         "peer-missing","peer-open","peer-rollback","peer-during-submit"};
     for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
         if (strcmp(argv[1],traffic_failures[i])) continue;
         traffic_fault=(enum traffic_fault)(i+1);
-        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==LOST_RELEASE)?MAP_OK:COLD_OK);
+        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK || traffic_fault==LOST_RELEASE)?MAP_OK:COLD_OK);
         printf("PASS %s\n",traffic_failures[i]);
         return 0;
     }

@@ -151,6 +151,9 @@ bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *,uint
  * calls cannot replace a held leaf or create another mapping of its page. */
 bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard *,uint64_t root,
                                                 const struct vmm_alias_span *,unsigned count);
+/* Each page has a unique read-only alias in the same active guard. */
+bool vmm_reserved_guard_readonly_registers_held(const struct vmm_reserved_guard *,uint64_t root,
+                                                const uint64_t *pages,unsigned count);
 /* Adopt the only writable MMIO alias. The VMM freezes its VA and rejects
  * other mappings of its PA until this child retires. No device store occurs. */
 bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *,uint64_t root,uint64_t aperture,

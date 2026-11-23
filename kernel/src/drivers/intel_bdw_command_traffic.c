@@ -12,7 +12,7 @@ static bool identity(struct bdw_command_hold *h)
         (!t->device_publication || t->device_publication==&h->owner->pages) &&
         display_access_held(&t->exclusion) &&
         h->io.traffic.held_epoch(t,&h->owner->pages)==h->epoch &&
-        h->io.widi_epoch(t,&h->owner->pages)==h->widi_epoch;
+        h->io.widi_epoch(t,&h->owner->pages)==h->widi_epoch && intel_bdw_peer_ports_held(&h->routes);
 }
 
 static bool sample_read(void *ctx,uint32_t offset,uint32_t *word)
@@ -113,7 +113,7 @@ bool intel_bdw_command_acquire(struct bdw_blitter_mapping *m,struct scanout_tran
         t->device_publication || !grant->epoch || grant->epoch!=t->epoch || grant->object!=t ||
         grant->owner!=t->owner || !t->pinned || t->manifest.pages!=BDW_BLITTER_GLOBAL_PAGES ||
         (t->state!=TRANSFER_RESERVED && t->state!=TRANSFER_ACTIVE) || !display_access_held(&t->exclusion) ||
-        !intel_bdw_routes_held(routes,t) || !owner || !now || !io.traffic.read || !io.traffic.held_epoch || !io.traffic.request ||
+        !intel_bdw_routes_held(routes,t) || !intel_bdw_peer_ports_held(routes) || !owner || !now || !io.traffic.read || !io.traffic.held_epoch || !io.traffic.request ||
         !io.traffic.release || !io.traffic.select_l3 || !io.isolate_widi || !io.widi_epoch || !io.set_execution) return false;
     if (t->state==TRANSFER_RESERVED ? !scanout_transfer_reservation_matches(t,grant,&t->reservation) :
                                      !scanout_transfer_check(t,grant)) return false;

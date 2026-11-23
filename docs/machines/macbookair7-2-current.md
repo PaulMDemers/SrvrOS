@@ -46,13 +46,20 @@ at zero, and Ubuntu verified a clean USB volume. Four release-bound Q35
 boots covered save/return, missing workspace, and the configuration-table
 fallback with both the production helper and a seven-word test fixture.
 
+The Air reset census and command driver now share a VMM check for the four
+non-blitter submission ports. The driver checks their write protection before
+each blitter descriptor store. The host fixture withheld the fourth word when
+a competing port became writable after the third and retained all seven pages.
+All 53 blitter cases passed on the host and in the SrvrOS Q35 guest. The
+native adapter suite also rejected loss of each of the four ports on either
+side of PCI bus-master reopening. The last physical release predates this change.
+
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
 transfer, and independent WiDi exclusion when global GO reopens. The native reset
 owner binds the captured wireless routes and their VMM guard to these
 seven pages. The command driver now checks distinct engine and L3 flush
-acknowledgements for acquisition and rollback. All 49 driver cases passed on
-the host and in the SrvrOS Q35 guest, including an uncertain release after
+acknowledgements for acquisition and rollback. The driver suite includes an uncertain release after
 all seven original translations were restored. Three i915 comparisons kept
 Pipe A on its original surface. Each saw a gated WiDi clock and open WiDi GO
 together. The Air still needs a hardware owner for the GPM request and the

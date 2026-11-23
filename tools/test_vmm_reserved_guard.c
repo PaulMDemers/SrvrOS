@@ -11,6 +11,8 @@ static struct vmm_physical_span pair[2];
 static struct vmm_unmapped_detail why;
 static unsigned checks,tags,bad_tag,hook,efer_fault,efer_target;
 static bool recursive;
+static uint64_t guard_cr0=1ull<<16;
+uint64_t vmm_test_guard_cr0(void) { return guard_cr0; }
 void console_printf(const char *fmt,...) {(void)fmt;assert(0 && "blocked init reached console");}
 static void vmm_unmapped_efer_hook(void) {
  if(efer_target && efer_calls==efer_target) {
@@ -203,11 +205,13 @@ static void register_window(void) {
 }
 static void readonly_registers(void) {
  const uint64_t reg=0xc0002000, aperture=0xb2200000;
+ const uint64_t other_reg=reg+4096;
  const uint64_t flags=VMM_PAGE_PRESENT|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
  struct vmm_alias_span page={va,reg,1};
  for(unsigned drift=0;drift<2;drift++) {
   setup();
   assert(vmm_reserved_guard_begin_io_page(&guard,root,pair,2,52,&ram[1],1,aperture,&result,&why));
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,&reg,1));
   t[3][0]=reg|flags|VMM_PAGE_WRITABLE;
   assert(!vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
   t[3][0]=t[3][1]=reg|flags;
@@ -215,11 +219,28 @@ static void readonly_registers(void) {
   t[3][1]=0;
   assert(vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
   assert(!vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
+  assert(vmm_reserved_guard_readonly_registers_held(&guard,root,&reg,1));
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,&other_reg,1));
+  assert(!vmm_reserved_guard_readonly_registers_held(&other,root,&reg,1));
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root+4096,&reg,1));
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,NULL,1));
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,&reg,0));
+  const uint64_t bank[]={reg,other_reg}, unknown[]={reg,other_reg+4096};
+  struct vmm_alias_span second={va+8192,other_reg,1};
+  t[3][2]=other_reg|flags;
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,bank,2));
+  assert(vmm_reserved_guard_hold_readonly_registers(&guard,root,&second,1));
+  assert(vmm_reserved_guard_readonly_registers_held(&guard,root,bank,2));
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,unknown,2));
+  guard_cr0=0;
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,&reg,1));
+  guard_cr0=1ull<<16;
   assert(!vmm_map_page(va+4096,reg,flags));
   assert(!vmm_protect_page_in_space(root,va,flags|VMM_PAGE_WRITABLE));
   assert(!vmm_unmap_page(va,NULL) && !vmm_ensure_page_in_space(root,va,reg+4096,flags));
   if(drift)t[3][1]=reg|flags;
   assert(vmm_reserved_guard_close(&guard,&result,&why)==!drift);
+  assert(!vmm_reserved_guard_readonly_registers_held(&guard,root,&reg,1));
   if(drift){assert(reserved_guard.state==VMM_GUARD_FAULT);reset_fault();}
   else assert(vmm_protect_page_in_space(root,va,flags|VMM_PAGE_WRITABLE));
  }

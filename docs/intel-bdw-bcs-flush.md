@@ -447,6 +447,16 @@ guard excludes CPU mappings of the WiDi tail, video and audio register pages.
 The driver checks that guard on the original root while using the captured
 values. Reading the excluded pages again would violate the exclusion.
 
+The blitter also checks the CPU submission ports for render, both video engines
+and VEBox. At each side of PCI bus-master reopening, the native reset census
+checks that the four pages belong to its active VMM guard. Each has a single
+read-only kernel mapping. The command path checks all four together against
+the original address space with supervisor write protection enabled. It does
+this before requesting the drain, across device observations and immediately
+before each descriptor store. If protection is lost after any descriptor
+word, the request and its pages stay pinned. Outstanding device accesses
+still require the separate engine and L3 drain below.
+
 The blitter requires a controller lease before it can promote the transfer.
 It checks the enabled primary surface, all eight L3 bank policies, and open
 engine and arbiter replies before requesting a drain. It checks the five

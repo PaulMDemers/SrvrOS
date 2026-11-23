@@ -345,7 +345,7 @@ static bool slot_queue_boundary(unsigned phase) {
         !gt_slot_live() || !bootstrap_guard() || !bootstrap_tick()) return false;
 
     if ((!phase && !slot_submission_hold()) || slot_ports_pinned != INTEL_ENGINE_COUNT ||
-        gt_bootstrap_native.engine_ro_mask != 31 || !context_wp()) return false;
+        gt_bootstrap_native.engine_ro_mask != 31 || !intel_bdw_peer_ports_held(&command_slots.routes) || !context_wp()) return false;
     struct slot_queue_sample *sample = &slot_queues[phase];
     if (!completion_snapshot(gt_bootstrap_native.a, sample->words, sample->context)) return false;
     ++slot_queue_samples;

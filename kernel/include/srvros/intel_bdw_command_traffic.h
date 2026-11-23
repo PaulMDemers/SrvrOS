@@ -28,6 +28,17 @@ static inline bool intel_bdw_routes_held(const struct bdw_wireless_routes *r,
         vmm_reserved_guard_excludes_io_page(r->guard,r->root,r->mmio+0x65000);
 }
 
+/* Global GO opens all command streamers. Only the blitter may submit.
+ * The Air's four other engine pages have sole, read-only UC aliases. */
+static inline bool intel_bdw_peer_ports_held(const struct bdw_wireless_routes *r)
+{
+    if (!r || !r->guard || r->guard->epoch!=r->guard_epoch || r->mmio>UINT64_MAX-0x1c000)
+        return false;
+    uint64_t pages[4];
+    for (unsigned i=0;i<4;i++) pages[i]=r->mmio+intel_bdw_submission_ports[i];
+    return vmm_reserved_guard_readonly_registers_held(r->guard,r->root,pages,4);
+}
+
 enum bdw_command_phase {
     BDW_CMD_UNUSED, BDW_CMD_ACQUIRING, BDW_CMD_BLOCKED, BDW_CMD_SWITCHING,
     BDW_CMD_EXECUTING, BDW_CMD_RETURNED, BDW_CMD_REFUSED, BDW_CMD_RETAINED

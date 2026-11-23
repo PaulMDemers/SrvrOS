@@ -191,6 +191,17 @@ bool vmm_reserved_guard_exclude_io_range(const struct vmm_reserved_guard *g,uint
  if(bf("widi-alias",1+host_widi_count))return false;
  ++host_widi_count;return true;
 }
+static bool peer_protected(uint64_t page) {
+ for(unsigned i=0;i<host_port_pins;i++)
+  if(page==result.mmio_base+wake_pages[3+i])
+   return (model_engine_ro&(1u<<i)) && !bf("peer-port",i+1) && !(gpu_command==7 && bf("peer-reopened",i+1));
+ return false;
+}
+bool vmm_reserved_guard_readonly_registers_held(const struct vmm_reserved_guard *g,uint64_t root,const uint64_t *pages,unsigned count) {
+ if(!vmm_reserved_guard_io_page_held(g,root,0xb3003000) || !intel_display_test_context_wp() || count!=4)return false;
+ for(unsigned i=0;i<count;i++)if(!peer_protected(pages[i]))return false;
+ return true;
+}
 bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  if(!vmm_reserved_guard_io_page_held(g,root,0xb3003000))return false;
  for(unsigned i=0;i<host_widi_count;i++)

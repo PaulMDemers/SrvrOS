@@ -227,6 +227,26 @@ bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard 
  reserved_guard.state=VMM_GUARD_ACTIVE;
  return unique;
 }
+bool vmm_reserved_guard_readonly_registers_held(const struct vmm_reserved_guard *g,uint64_t root,
+                                                const uint64_t *pages,unsigned count) {
+ if(!pages || !count || count>reserved_guard.readonly_count || !vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page))return false;
+ uint64_t cr0;
+#ifdef SRVROS_VMM_HOST_TEST
+ extern uint64_t vmm_test_guard_cr0(void);
+ cr0=vmm_test_guard_cr0();
+#else
+ __asm__ volatile("mov %%cr0,%0" : "=r"(cr0) : : "memory");
+#endif
+ if(!(cr0&(1ull<<16)))return false;
+ /* Admission inventoried the whole root. All VMM mutators reject writes
+  * to the registered leaf and new aliases of this physical page. */
+ for(unsigned i=0;i<count;i++) {
+  unsigned j=0;
+  while(j<reserved_guard.readonly_count && reserved_guard.readonly[j].physical!=pages[i])++j;
+  if(j==reserved_guard.readonly_count)return false;
+ }
+ return true;
+}
 bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  if(!child || reserved_guard.io_borrower || !vmm_reserved_guard_io_page_held(g,root,page))return false;
  reserved_guard.io_borrower=child;

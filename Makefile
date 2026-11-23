@@ -7440,6 +7440,10 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< unowned-widi-clock
 	$< wireless-audio-reopens
 	$< uncertain-release
+	$< peer-missing
+	$< peer-open
+	$< peer-rollback
+	$< peer-during-submit
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest
