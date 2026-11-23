@@ -1,0 +1,196 @@
+{
+  "scope": "SDK multicast membership declarations for GIO and the multicast runtime boundary",
+  "integration_base": "b5847586b9b74f6ac4b018623a0a7e9056ba5092",
+  "tested_source": "7e99588e20ed6f325dd68d7d35326d4f9bb64c70",
+  "source_sha256": {
+    "tools/test_glib_ip_multicast_loop_guest.c": "93fec1ade8ca97ec62473ef378ee990f595a7a913c4189647dd736afbea5f90e",
+    "userspace/lib/include/netinet/in.h": "2db3f48afdaa2864d906aa51121db3c5f7c55416f1aaa0f713f210905916a877"
+  },
+  "owner_review": "Integration coordinated exact-head PR #544 integration, reviewed the multicast membership declarations and their runtime boundary, and coordinated the private guest. The guest stopped and its VM window was released before static GIO.",
+  "runtime_scope": {
+    "declaration": "The SDK exposes ip_mreq, ipv6_mreq and the four IPv4/IPv6 membership options in netinet/in.h.",
+    "layout": "Target C asserts 8- and 20-byte sizes, 4-byte alignment, member offsets and option numbers 35/36 and 20/21. The guest verifies encoded requests for 239.1.2.3 and ff02::1 with default interfaces.",
+    "membership": "All four join/leave requests return ENOSYS on a valid IPv4 UDP socket and preserve the input. IPv4 unicast TTL and broadcast stay intact. IPv6 socket creation continues to return EAFNOSUPPORT.",
+    "same_runtime_as_merged_544": [
+      "build/kernel/srvros.elf",
+      "build/userspace/init.elf",
+      "build/sysroot/srvros/lib/libsrvros.a"
+    ]
+  },
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "gresolver_object_exit": 0,
+    "static_gio_exit": 1,
+    "static_gio_errors": [
+      "../glib-2.90.1/gio/gsocket.c:3327:36: error: use of undeclared identifier 'FIONREAD'",
+      "../glib-2.90.1/gio/gsocket.c:5515:14: error: invalid application of 'sizeof' to an incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:5520:41: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:5523:15: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:5526:61: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:5540:15: error: call to undeclared function 'sendmmsg'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]",
+      "../glib-2.90.1/gio/gsocket.c:5540:50: error: arithmetic on a pointer to an incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:5582:38: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6041:14: error: invalid application of 'sizeof' to an incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6046:41: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6049:15: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6065:15: error: call to undeclared function 'recvmmsg'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]",
+      "../glib-2.90.1/gio/gsocket.c:6066:32: error: arithmetic on a pointer to an incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6075:36: error: arithmetic on a pointer to an incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6127:43: error: subscript of pointer to incomplete type 'struct mmsghdr'",
+      "../glib-2.90.1/gio/gsocket.c:6128:44: error: subscript of pointer to incomplete type 'struct mmsghdr'"
+    ],
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+      "tools/glib-srvros-file-monitor.patch": "2d14f424f56755d4912bd235a6f524bde4b350576bb6e063f848dab0db168153",
+      "tools/glib-srvros-ip-tos.patch": "eee66b611927b6ec28b5e48584a51e349e2b9796dcdcf228f8d8f582f54633bb",
+      "tools/glib-srvros-ipv6-tclass.patch": "0661791ee733ae2e689ab42d3f9907d61f0cd501995b572ff282b0579f7e2c30",
+      "tools/glib-srvros-resolver-address.patch": "88f30d0864960c8cf4a023dda6822e32a3e6cecf88933152c03a37a4cd2a4f1a",
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/sysroot/srvros/include/sys/socket.h": "f857a27d6c4fd400ef4e38414af9d722a4f1cda5d404df49dec17b1ce6204352",
+      "build/sysroot/srvros/include/netinet/in.h": "2db3f48afdaa2864d906aa51121db3c5f7c55416f1aaa0f713f210905916a877",
+      "build/sysroot/srvros/include/limits.h": "b892cfff849b4e0afd5dbacbcb88fe281bc982760d74280f19a7e2bfada04339",
+      "build/sysroot/srvros/include/srvros/syscall_numbers.h": "78cef0f47a3f329d3d43ea59341656f046aaebdd7fa3502f3a15db9a434cac06",
+      "build/browser-gio-multicast-membership/sdk-kernel-build.log": "7b00831c57d5ba65dddbea1a86881d84694de6c8ca808758168624d40dd77773",
+      "build/browser-gio-multicast-membership/configure-gio.sh": "acee59745ee45428924c0c39b469fd9bf72ad10a4feec400c089082a135b1252",
+      "build/browser-gio-multicast-membership/configure.log": "a8f361b6490e0e98b5adbf45e52594052ae37a4a6538dde56cf68de77ae96384",
+      "build/browser-gio-multicast-membership/configure.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "build/browser-gio-multicast-membership/rerun-static-gio.sh": "8214ceb35cc2076110ef0f4845248c2ecd7f99a98ec42ec7369c9d119412f604",
+      "build/browser-gio-multicast-membership/static-gio.log": "7a2c03d43ced769523c8266b95819f2af6b882a44c920548cc8c3bd4cd12dc0f",
+      "build/browser-gio-multicast-membership/static-gio.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "build/browser-gio-multicast-membership/verify-guest.py": "4be7cfcb8f1ecd6cd79b20cd908d5856b676e74938c308fee33fdbcb67cee5cc",
+      "build/browser-gio-multicast-membership/glib-build/build.ninja": "1e0953770963fae2f90750ec0a92a37032c18aedffb34814fba3c5e09c5df0e7",
+      "build/browser-gio-multicast-membership/glib-build/config.h": "ac60f9657dc1dc86f1292a34cfc5af79b703dd16ab843997fe4bc17ce9370f06",
+      "build/browser-gio-multicast-membership/glib-build/compile_commands.json": "098b062ffe3bf8898c59f5dd9d87dd9f65b5c9e97eb1c2e14353d5afaa56e78f",
+      "build/browser-gio-multicast-membership/glib-build/meson-logs/meson-log.txt": "ba9bd62a0a6b0d7b8dbced88e4f03826dcfeea9970e50d271ac67c2241119b1e",
+      "build/browser-gio-multicast-membership/glib-build/gio/libgio-2.0.a.p/gresolver.c.o": "663c59b68a969735e4fe6ac44cc326a59bb4decead8a734d8219d6ec8eb451b0",
+      "build/browser-gio-multicast-membership/glib-2.90.1/gio/gsocket.c": "371973b1d3f8a683a617b224bf62d66e84ceb4357bf8a746fbd7dd29a6157cc0",
+      "build/browser-gio-multicast-membership/glib-2.90.1/gio/gresolver.c": "dff0383dbb3f57815eebe648b1c5977e788fc4c8568c9c9b9b3c5c6d1c688fc1"
+    }
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest and a private e1000 on an idle local socketpair",
+    "source": "7e99588e20ed6f325dd68d7d35326d4f9bb64c70",
+    "sdk_headers_sha256": "2787635df23ed78e65e1a24e15ca77305a9da70593254d7db5892a62980d6f1c",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "2965fa1fd95c56fb141e5c5c8c7d71601d1785a00972277115230e7244e824dd",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "09a10de0bd0aa8f6929c499ac71534868b333447bc35eb9d452642d36aec9006",
+      "build/userspace/init.elf": "e8bcd1f650af10f7af4fd93fce94640dd80456d07e7e6dcb960ab25d5bf49207",
+      "build/sysroot/srvros/lib/libsrvros.a": "4687d15f5772538225eeb468b950c2e2d130b138478fb281c4694ec04e0be5ab",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_ipv6_unicast_hops_guest.c": "f19e5fadb94fa20260a1bf149f8b37649b68af7d7c9b747d70790708e2f9c374",
+      "tools/test_glib_ip_multicast_loop_guest.c": "93fec1ade8ca97ec62473ef378ee990f595a7a913c4189647dd736afbea5f90e"
+    },
+    "payload_sha256": "61c0aeae09a16bf0909c03c48406faea7391ea341c9e510921506d8e7da2cf3c",
+    "ipv6_unicast_hops_payload_sha256": "83ca6f429a372e95a88d36218961885b3f867d2647194db2f191ccc8316d83ae",
+    "ip_multicast_loop_payload_sha256": "1f0858b245655cc2f9a283466f00cea1ed1a28e204e6ca2a187b4ef69bc68bda",
+    "image_sha256": "a8fd2a7a1444b81093116977cfda78e1006eba032548da84461d46da39fa7fe1",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-sww1dr4e/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:<private-uart>,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-netdev",
+      "socket,id=fixture,fd=4",
+      "-device",
+      "e1000,netdev=fixture"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-ipv6-unicast-hops",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-ipv6-unicast-hops",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-ip-multicast-loop",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-ip-multicast-loop",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "b2274a1f8bd935cba813f8c529fb204797b74a27737bd0427bc5798964f931d2"
+  },
+  "raw_guest_receipt_sha256": "5b57b81e610f2ea3e1ff730534268b25414ca2cac21e617e162d4a8a5532d012",
+  "iso_readback": {
+    "kernel_sha256": "09a10de0bd0aa8f6929c499ac71534868b333447bc35eb9d452642d36aec9006",
+    "initramfs_sha256": "ce2ba394e375b0b1c69935f4e7d07464cb7555e1fa8b0eca6c0618e08cff58aa",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "98fb9a4a1f68d8c067e4e01353d9389d71812613fedfe3f83d1f91797a19c820",
+      "glib-ipv6-unicast-hops": "b2aee70c3aebe53f306df58bee6e136b00086342758de05a228d0e01ec1115fe",
+      "glib-ip-multicast-loop": "e4fd6b9bb37c31c9bf9ef17e634037ef4408b6f0716872e9c1d373efc127979f"
+    },
+    "serial_zero_exits": 6
+  }
+}
