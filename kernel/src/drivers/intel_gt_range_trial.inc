@@ -136,7 +136,48 @@ static struct scanout_transfer_manifest gt_slot_source(unsigned sample) {
 #ifdef SRVROS_INTEL_GT_FLUSH
 #include <srvros/intel_bdw_bcs_port.h>
 #include <srvros/intel_bdw_ggtt.h>
+#include "intel_alias_ram.inc"
 static struct scanout_transfer independent_slot;
+static bool slot_widi_preflight(void);
+static bool slot_verify_reopened(void);
+static struct {
+ struct intel_alias_ram_catalog ram;
+ struct vmm_reserved_guard guard;
+ unsigned pages;
+ bool acquired, closed;
+} slot_widi;
+static const uint32_t slot_widi_pages[]={0x14000,0x6e000,0x65000};
+
+static bool slot_widi_live(void) {
+ uint64_t root=gt_bootstrap_native.root;
+ if(!slot_widi.acquired || slot_widi.closed || slot_widi.pages!=3 ||
+    !intel_hda_gpu_live(&joint.scope) || !vmm_reserved_guard_io_page_held(&slot_widi.guard,root,
+        window_result.aperture_base+(uint64_t)GT_SECOND_SLOT*4096))return false;
+ for(unsigned i=0;i<slot_widi.pages;i++)
+  if(!vmm_reserved_guard_excludes_io_page(&slot_widi.guard,root,result.mmio_base+slot_widi_pages[i]))return false;
+ return true;
+}
+/* The old backing and its aperture alias may have been inherited separately.
+ * Exclude both, then the WiDi tail, video and audio programming pages before
+ * touching the requester. The display HDA owner remains borrowed throughout. */
+static bool slot_widi_begin(uint64_t original) {
+ struct vmm_alias_inventory inventory;
+ struct vmm_physical_span backing_page={.physical=original&~4095ull,.pages=1};
+ uint64_t root=gt_bootstrap_native.root;
+ if(!wake_irq_off() || !intel_hda_gpu_live(&joint.scope) || original!=0x8f004001ull ||
+    !intel_alias_ram_prepare(&slot_widi.ram,memmap_request.response) ||
+    !vmm_reserved_guard_begin_io_page(&slot_widi.guard,root,&backing_page,1,
+       gt_bootstrap_native.cache.cpu.physical_bits,slot_widi.ram.ranges,slot_widi.ram.count,
+       window_result.aperture_base+(uint64_t)GT_SECOND_SLOT*4096,&inventory,NULL))return false;
+ slot_widi.acquired=true;
+ for(unsigned i=0;i<3;i++) {
+  if(!vmm_reserved_guard_exclude_io_range(&slot_widi.guard,root,result.mmio_base+slot_widi_pages[i],1))
+   return false;
+  ++slot_widi.pages;
+ }
+ return slot_widi_live();
+}
+
 static struct {
  uint64_t physical;
  struct intel_bdw_ggtt_page plan;
@@ -189,7 +230,7 @@ static bool independent_matches(unsigned sample) {
 static bool gt_slot_live(void) {
  if(!gt_bootstrap_native.g)return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!intel_bdw_bcs_port_held(&slot_backing) || !independent_matches(gt_slot_checked?1:0))return false;
+ if(!slot_widi_live() || !intel_bdw_bcs_port_held(&slot_backing) || !independent_matches(gt_slot_checked?1:0))return false;
 #endif
  struct scanout_transfer_manifest source=gt_slot_source(gt_slot_checked?1:0);
  return scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source);
@@ -214,6 +255,8 @@ static bool gt_slot_boundary(unsigned phase) {
  struct scanout_transfer_manifest second=independent_source(phase);
  if(!phase && !scanout_transfer_reserve(&independent_slot,&gt_slot_pool,&gt_bootstrap_native.g->exclusion,
                                         &second,&independent_token))return false;
+ if(!phase && (!slot_widi_preflight() || !slot_widi_begin(entries[1])))return false;
+ if(!slot_widi_live())return false;
  if(!phase)slot_backing.port=intel_bdw_bcs_port_claim(&slot_backing);
  if(!slot_backing.port || !independent_matches(phase) || !independent_backing(phase,!phase))return false;
 #endif
@@ -230,8 +273,11 @@ static bool gt_slot_return(void) {
 #endif
     !bootstrap_guard() || !bootstrap_tick())return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
- if(!scanout_transfer_close(&independent_slot,&independent_token))return false;
+ if(!slot_verify_reopened() || slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
+ struct vmm_alias_inventory inventory;
+ if(!slot_widi_live() || !vmm_reserved_guard_close(&slot_widi.guard,&inventory,NULL))return false;
+ slot_widi.closed=true;
+ if(!bootstrap_tick() || !scanout_transfer_close(&independent_slot,&independent_token))return false;
  independent_returned=true;
 #endif
  if(!scanout_transfer_close(&gt_slot,&gt_slot_token))return false;
@@ -269,7 +315,9 @@ static bool gt_range_capture(unsigned phase) {
 }
 static void gt_range_report(void) {
 #if defined(SRVROS_INTEL_GT_FLUSH)
- const unsigned version=4;
+ const unsigned version=5;
+ console_printf("intel-slot-widi: v=1 acquired=%u pages=%u closed=%u device_grant=0\n",
+  (uint64_t)slot_widi.acquired,(uint64_t)slot_widi.pages,(uint64_t)slot_widi.closed);
  console_printf("intel-slot-backing: v=1 physical=%x original=%x planned=%x checks=%u acquired=%u held=%u freed=%u pte_writes=0\n",
   slot_backing.physical,slot_backing.plan.original,slot_backing.plan.replacement,(uint64_t)slot_backing.checks,
   (uint64_t)slot_backing.port,(uint64_t)intel_bdw_bcs_port_held(&slot_backing),(uint64_t)slot_backing.freed);

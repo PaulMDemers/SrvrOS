@@ -807,7 +807,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    console_write("intel-flush: reading eight L3 banks, restoring the selector, then checking traffic across both GT reset pulses. No input needed.\n");
+    console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the original display and slot 12291. No input needed.\n");
 #endif
     console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");
     console_write("intel-bootstrap: unchanged60s means photograph and restart manually. Safe saved outcomes return to Ubuntu.\n");

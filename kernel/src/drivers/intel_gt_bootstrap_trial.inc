@@ -364,7 +364,7 @@ static enum intel_gt_write bootstrap_store(uint32_t offset,uint32_t value,bool p
   gt_bootstrap_native.source.consumer!=&gt_bootstrap_native.reset ||
   !gt_bootstrap_native.reset.registered || gt_bootstrap_native.prepared!=5)return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!bootstrap_smi_check(BOOT_SMI_ENGINE))return GT_WRITE_NONE;
+ if(!gt_slot_live() || !bootstrap_smi_check(BOOT_SMI_ENGINE))return GT_WRITE_NONE;
 #endif
  if(!bootstrap_tick() || !bootstrap_parent() || (preparing &&
   (!gt_bootstrap_native.prepare_phase || gt_bootstrap_native.last<gt_bootstrap_native.prepare_phase ||

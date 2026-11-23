@@ -10,6 +10,13 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The current change joins the WiDi programming-page exclusion to the native
+slot 12291 reservation across GT reset and PCI requester reopening. The
+range-v5 hardware trial also reads WiDi GO and reset-flow state during all four
+engine/cache observations and checks the live PTE after bus mastering
+reopens. Physical qualification of this combined lifetime is pending.
+[Trial and receipt](../device-workflow.md)
+
 On Ubuntu/i915, four trials on this Air held a blitter request for a private
 GPU address. An independent render request completed, while a competing
 submission for that same address waited inside the kernel. Releasing the

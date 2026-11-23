@@ -101,6 +101,42 @@ static bool bf(const char *mode,unsigned n) {
  }return yes;
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
+static const uint64_t host_widi_pages[]={0xc0014000,0xc006e000,0xc0065000};
+static bool host_widi_held;
+static unsigned host_widi_count;
+bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root,
+ const struct vmm_physical_span *spans,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
+ unsigned ranges,uint64_t aperture,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *detail) {
+ (void)detail;
+ assert(!host_widi_held && !g->object && root==gt_bootstrap_native.root && wake_irq && gpu_command==7);
+ assert(count==1 && spans[0].physical==0x8f004000 && spans[0].pages==1 && bits>=36 &&
+        ranges && ram && out && aperture==0xb3003000);
+ if(bf("widi-begin",1))return false;
+ g->object=g;g->epoch=1;host_widi_held=true;return true;
+}
+bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+ return g->object==g && wake_irq && root==gt_bootstrap_native.root && page==0xb3003000 && host_widi_held;
+}
+bool vmm_reserved_guard_exclude_io_range(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,unsigned n) {
+ assert(vmm_reserved_guard_io_page_held(g,root,0xb3003000) && host_widi_count<3 &&
+        n==1 && page==host_widi_pages[host_widi_count] && gpu_command==7);
+ if(bf("widi-alias",1+host_widi_count))return false;
+ ++host_widi_count;return true;
+}
+bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
+ if(!vmm_reserved_guard_io_page_held(g,root,0xb3003000))return false;
+ for(unsigned i=0;i<host_widi_count;i++)
+  if(page==host_widi_pages[i])return true;
+ return false;
+}
+bool vmm_reserved_guard_close(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,
+                             struct vmm_unmapped_detail *detail) {
+ (void)detail;
+ assert(g->object==g && host_widi_held && host_widi_count==3 && out && independent_reopened &&
+        gpu_command==7 && bcommands==2 && gt_bootstrap_native.pci_samples==4);
+ if(bf("widi-retire",1))return false;
+ host_widi_held=false;return true;
+}
 static void intel_display_test_backing_access(void) {
  if(slot_backing.checks && bf("backing-content",slot_backing.checks))test_backing_page[511]^=1;
 }
@@ -506,6 +542,7 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(gt_reopened.reading || gt_widi.reading || gt_widi.sampling)return true;
  if(flush_page(range_pa)) {
   if(bf("flush-alias",++flush_aliases))out->writable=1;
   return true;
@@ -527,6 +564,12 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  return true;
 }
 static bool intel_display_test_range_map(uint64_t physical) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(gt_reopened.reading) {
+  assert(physical==0xc0818000 && !range_pa && gpu_command==7 && slot_reopened_live());
+  range_pa=physical;return true;
+ }
+#endif
 #ifdef SRVROS_INTEL_GT_SLOT
  if(gt_range.completed) {
   assert(gpu_command==3 && gt_slot_live());
@@ -536,6 +579,12 @@ static bool intel_display_test_range_map(uint64_t physical) {
  }
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(gt_widi.reading) {
+  assert(!host_widi_held && slot_widi_preflight_live() && !range_pa && gpu_command==7 &&
+         (physical==0xc0042000 || physical==0xc006e000 || physical==0xc0065000 || physical==0xc0045000));
+  range_pa=physical;return true;
+ }
+ if(gt_widi.sampling){assert(gt_flush_live() && !range_pa && physical==0xc0008000);range_pa=physical;return true;}
  if(flush_page(physical)) {
   assert(gt_flush_live() && !range_pa && wake_irq && gpu_command==3);
   if(bf("flush-map",++flush_maps))return false;
@@ -596,6 +645,7 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
 static bool intel_display_test_range_unmap(uint64_t *physical) {
  assert(bootstrap_parent() && range_pa);
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(gt_reopened.reading || gt_widi.reading || gt_widi.sampling){*physical=range_pa;range_pa=0;return true;}
  if(flush_page(range_pa)) {
   if(bf("flush-unmap",++flush_unmaps))return false;
   *physical=range_pa;range_pa=0;return true;
@@ -621,6 +671,27 @@ static bool intel_display_test_range_unmap(uint64_t *physical) {
 static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(gt_reopened.reading) {
+  assert(slot_reopened_live() && slot_pte_register(offset) && host_widi_count==3);
+  *out=offset==GT_SECOND_PTE_OFFSET ? 0x8f004001 : 0;
+  if(bf("widi-reopened-pte",1+gt_reopened.access.reads))*out^=0x1000;
+  return true;
+ }
+ if(gt_widi.sampling) {
+  assert(host_widi_held && host_widi_count==3 && gt_flush_live() && slot_widi_message(offset));
+  *out=offset==0x8014 && (gt_flush.samples!=1 || !strcmp(bootstrap_mode,"flush-quiet")) ? 0x1f : 0;
+  return !bf("widi-message",1+gt_widi.messages.reads);
+ }
+ if(gt_widi.reading) {
+  assert(slot_widi_preflight_live() && range_pa==result.mmio_base+(offset&~4095u));
+  if(offset==0x42014)*out=bf("widi-video",1)?0:0x20100042;
+  else if(offset==0x6e400)*out=0;
+  else if(offset==0x45404)*out=bf("widi-power",gt_widi.access.reads)?0:0xc0000000;
+  else if(offset==0x65020)*out=bf("widi-codec",gt_widi.access.reads)?0:0x80862808;
+  else {assert(offset==0x65800);*out=bf("widi-audio",1)?1u<<30:0x540;}
+  return true;
+ }
+
  if(offset==0x138064 || offset==0x9120) {
   assert(!range_pa && gt_flush_live());
   *out=offset==0x9120 ? 3u<<25 : (gt_flush.samples==1 ? 3u : 0u);

@@ -15,7 +15,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",), versions=(1, 2, 3, 4),
+        ("live",), versions=(1, 2, 3, 4, 5),
     )
     dual = summary["v"] >= 3
     batches = 3 if dual else 2
@@ -96,7 +96,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
             raise ValueError("Independent slot requester lifetime")
         result["independent_slot"] = second
     backing_rows = [line for line in text.splitlines() if line.startswith("intel-slot-backing:")]
-    if len(backing_rows) != int(summary["v"] == 4):
+    if len(backing_rows) != int(summary["v"] >= 4):
         raise ValueError("Missing or duplicate slot backing receipt")
     if backing_rows:
         b = fields(backing_rows[0], "intel-slot-backing:",
@@ -113,4 +113,52 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
                 or (owner_complete and (checks, b["held"], b["freed"]) != (3, 0, 1))):
             raise ValueError("Invalid backing or submit port lifetime")
         result["slot_backing"] = b
+    guard_rows = [line for line in text.splitlines() if line.startswith("intel-slot-widi:")]
+    if len(guard_rows) != int(summary["v"] >= 5):
+        raise ValueError("Missing or duplicate WiDi guard receipt")
+    producers = [line for line in text.splitlines() if line.startswith("intel-widi-producers:")]
+    messages = [line for line in text.splitlines() if line.startswith("intel-widi-device:")]
+    reopened = [line for line in text.splitlines() if line.startswith("intel-slot-reopened:")]
+    if len(reopened) != len(guard_rows):
+        raise ValueError("Missing or duplicate reopened slot observation")
+    if len(producers) != len(guard_rows) or (not guard_rows and messages):
+        raise ValueError("Unexpected wireless producer evidence")
+    if guard_rows:
+        guard = fields(guard_rows[0], "intel-slot-widi:", "v acquired pages closed device_grant".split())
+        if (guard["device_grant"] or not 0 <= guard["closed"] <= guard["acquired"] <= second["reserved"]
+                or not 0 <= guard["pages"] <= 3 * guard["acquired"]
+                or ((phase or b["acquired"]) and guard["pages"] != 3)
+                or (guard["closed"] and not second["reopen_verified"]) or (b["freed"] and not guard["closed"])
+                or (owner_complete and not guard["closed"])):
+            raise ValueError("Invalid WiDi guard lifetime")
+        words = "strap function well_before codec_before control codec_after well_after".split()
+        prod = fields(producers[0], "intel-widi-producers:",
+                      ("v", "disabled", *words, "maps", "retired", "live", "reads"), (*words, "live"))
+        if (not 0 <= prod["retired"] <= prod["maps"] <= 5 or prod["reads"] > 7
+                or prod["maps"] - prod["retired"] > 1 or (prod["maps"] != prod["retired"] and not prod["live"])
+                or not guard["acquired"] <= prod["disabled"] <= 1
+                or (prod["disabled"] and ((prod["maps"], prod["retired"], prod["live"], prod["reads"]) != (5,5,0,7)
+                    or prod["strap"] & 0xc4100000 != 1 << 20 or prod["function"] >> 31
+                    or not prod["well_before"] & prod["well_after"] & (1 << 30)
+                    or prod["codec_before"] != 0x80862808 or prod["codec_after"] != 0x80862808
+                    or prod["control"] & (1 << 30) or any(prod[k] >= 0xffffffff for k in words)))):
+            raise ValueError("Invalid wireless producer preflight")
+        samples = [fields(line, "intel-widi-device:", ("v","n","win","reset_flow"), ("win","reset_flow"))
+                   for line in messages]
+        if (len(samples) > 4 or [row["n"] for row in samples] != list(range(len(samples)))
+                or any(max(row["win"], row["reset_flow"]) >= 0xffffffff for row in samples)
+                or (samples and guard["pages"] != 3) or (owner_complete and len(samples) != 4)):
+            raise ValueError("Incomplete WiDi device samples")
+        final = fields(reopened[0],"intel-slot-reopened:", "v matched high0 low high1 reads maps retired live".split(),
+                       ("high0","low","high1","live"))
+        if (not 0 <= guard["closed"] <= final["matched"] <= second["reopen_verified"]
+                or not 0 <= final["retired"] <= final["maps"] <= second["reopen_verified"]
+                or (final["maps"] != final["retired"] and not final["live"]) or final["reads"] > final["maps"]*3
+                or (final["matched"] and (final["reads"],final["maps"],final["retired"],final["live"],
+                    final["high0"],final["low"],final["high1"]) != (3,1,1,0,0,0x8f004001,0))):
+            raise ValueError("Invalid reopened slot observation")
+        result["reopened_pte"] = final
+        result["widi_producers"] = prod
+        result["widi_messages"] = samples
+        result["widi_guard"] = guard
     return result

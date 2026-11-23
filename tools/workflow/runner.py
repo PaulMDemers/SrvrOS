@@ -385,6 +385,7 @@ class Runner:
         if trial_profile=='intel-gt-flush-v59':
             manifest['independent_slot'] = 12291
             manifest['slot_backing_version'] = 1
+            manifest['slot_widi_version'] = 1
         if trial_profile==FIRMWARE_IMPORT:
             manifest.update(owned_page_slot=12291, owned_page_version=4)
         self.frozen(manifest)
@@ -679,6 +680,8 @@ class Runner:
                 raise ValueError('Missing independent slot requester evidence')
             if 'slot_backing_version' in manifest and native.get('range',{}).get('slot_backing',{}).get('v') != manifest['slot_backing_version']:
                 raise ValueError('Missing DMA backing and submission-port receipt')
+            if 'slot_widi_version' in manifest and native.get('range',{}).get('widi_guard',{}).get('v') != manifest['slot_widi_version']:
+                raise ValueError('Missing slot WiDi programming guard receipt')
             if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
                 raise ValueError('Missing independent page receipt for this stage')
             if 'owned_page_version' in manifest and native.get('owned_page',{}).get('v') != manifest['owned_page_version']:
@@ -830,6 +833,9 @@ class Runner:
             coverage=native['range']['summary']
             if 'slot_backing' in native['range']:
                 record['slot_backing'] = native['range']['slot_backing']
+            if 'widi_guard' in native['range']:
+                for key in ('widi_guard', 'widi_producers', 'widi_messages', 'reopened_pte'):
+                    record[key] = native['range'][key]
             if 'independent_slot' in native['range']:
                 record['independent_slot'] = native['range']['independent_slot']
                 record['independent_slot_entries'] = [row[129:] for row in native['range']['vectors']]

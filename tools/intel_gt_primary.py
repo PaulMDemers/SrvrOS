@@ -92,7 +92,7 @@ def primary_result(text, parent, protection, retire, display):
 def verify_primary_backing(backing, protection, primary):
     """Cross-check the raw original targets without granting the candidate."""
     retained = protection["vectors"][1]
-    if protection["summary"]["v"] in (3, 4):
+    if protection["summary"]["v"] in (3, 4, 5):
         # The last three entries cover the independent slot and its neighbours.
         if len(retained) != 132:
             raise ValueError("Primary physical backing coverage")

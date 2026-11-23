@@ -52,6 +52,18 @@ verified PCI reopening. The hardware PTE remains at its original value.
 On a failed check the diagnostic retains the resources and reports its
 last completed check. Historical range receipts remain collectable.
 
+Range receipt version 5 verifies the WiDi video-disable fuse, the inactive
+wireless transcoder and wireless audio disabled on the powered display codec.
+While the display HDA controller is under driver control, the VMM excludes
+CPU access to the slot's original backing, aperture address, WiDi queue and
+both wireless control pages. The slot owner keeps that exclusion during GT
+reset, fence restore and PCI bus-master reopening. It samples WiDi GO and
+reset flow alongside the four engine/cache samples, then reads the actual
+slot PTE after reopening before releasing its reservations. The collector
+compares both halves of the PTE with the original and reports device-side
+acknowledgements independently of the CPU exclusion. The trial keeps the
+original panel active and issues zero PTE writes.
+
 The version 9 flush diagnostic adds an eight-bank policy capture on the
 Air7,2. It runs once between five-engine preparation and the first reset.
 It saves and restores the full MCR selector, changes only the slice/bank

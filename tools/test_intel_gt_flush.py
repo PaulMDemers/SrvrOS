@@ -101,6 +101,31 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
                 self.assertEqual(result["range"]["slot"]["returned"], 0)
 
+    def test_wireless_programming_guard_spans_requester_reopening(self):
+        text = observe("pass")
+        base = bootstrap_result(text)["range"]
+        self.assertEqual(base["widi_guard"], dict(v=1, acquired=1, pages=3, closed=1, device_grant=0))
+        self.assertEqual([r["win"] for r in base["widi_messages"]], [0x1f,0,0x1f,0x1f])
+        for altered in ("win=0x1f reset_flow=0","win=0 reset_flow=0x400"):
+            modified = text.replace("n=1 win=0 reset_flow=0","n=1 " + altered)
+            self.assertNotEqual(modified,text)
+            window = bootstrap_result(modified)["flush"]["request_trace"]["windows"][1]
+            self.assertFalse(window["sampled_block_and_flush"])
+        for mode, position, pages in (("widi-video",1,0), ("widi-audio",1,0), ("widi-codec",5,0),
+                                      ("widi-power",6,0), ("widi-begin",1,0), ("widi-alias",3,2),
+                                      ("widi-message",3,3), ("widi-reopened-pte",2,3), ("widi-retire",1,3)):
+            with self.subTest(mode=mode):
+                result = bootstrap_result(observe(mode,position))
+                self.assertFalse(result["complete"])
+                self.assertEqual(result["range"]["widi_guard"]["pages"],pages)
+                self.assertFalse(result["range"]["widi_guard"]["closed"])
+                self.assertFalse(result["range"]["independent_slot"]["returned"])
+        for original, changed in (("device_grant=0","device_grant=1"), ("acquired=1 pages=3","acquired=1 pages=2"),
+                                  ("codec_after=0x80862808","codec_after=0"), ("win=0x1f","win=0xffffffff")):
+            self.assertIn(original,text)
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(original,changed))
+
     def test_backing_checked_at_reset_and_requester_return(self):
         text = observe("pass")
         page = bootstrap_result(text)["range"]["slot_backing"]
@@ -115,7 +140,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = text.replace(row, "").replace("intel-range-summary: v=4 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=5 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -124,7 +149,7 @@ class FlushAcknowledgements(unittest.TestCase):
         source = backing_result(historical_view(text, practical=True, memory=True, range_check=True, primary=True,
                                                 aux=True, flush=True))
         protection = parsed["range"]
-        for version in (3, 4):
+        for version in (3, 4, 5):
             with self.subTest(version=version):
                 protection["summary"]["v"] = version
                 entries = list(protection["vectors"][0])
@@ -235,7 +260,8 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
-        old_power = old_power.replace("intel-range-summary: v=4 ", "intel-range-summary: v=1 ")
+        old_power = re.sub(r"^intel-(?:slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
+        old_power = old_power.replace("intel-range-summary: v=5 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
         old_power = old_power.replace("words0=132 words1=132", "words0=129 words1=129")

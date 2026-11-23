@@ -83,7 +83,7 @@ def bank_result(text, version, samples, reset_started):
     return dict(summary=s, banks=banks)
 
 
-def flush_result(text, parent, reset, translation, primary, retire, memory):
+def flush_result(text, parent, reset, translation, primary, retire, memory, widi=None):
     rows = [line for line in text.splitlines() if line.startswith("intel-flush-")]
     if not rows or not rows[0].endswith(" authority=none"):
         raise ValueError("GT flush receipt coverage or authority")
@@ -115,6 +115,8 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
         offsets = (0, 1, 9, 11, 13, 16, 24, width)
     pages = len(offsets) - 1
     count, reads, maps, retired, live = (summary[key] for key in ("samples", "reads", "maps", "retired", "live"))
+    if widi is not None and not count <= len(widi) <= min(slots, count + 1):
+        raise ValueError("WiDi sample count outside engine observation")
     if (count > slots or not count * width <= reads <= min(slots, count + 1) * width
             or not count * pages <= retired <= maps <= min(slots, count + 1) * pages
             or (maps != retired and not live)
@@ -218,13 +220,13 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
         result["gam"] = gam_state
     trace_rows = [line for line in text.splitlines() if line.startswith("intel-gam-")]
     if traced:
-        result["request_trace"] = request_trace(trace_rows, parent, reset, samples[:count], memory)
+        result["request_trace"] = request_trace(trace_rows, parent, reset, samples[:count], memory, widi)
     elif trace_rows:
         raise ValueError("Foreign GAM trace")
     return result
 
 
-def request_trace(rows, parent, reset, samples, memory):
+def request_trace(rows, parent, reset, samples, memory, widi=None):
     if not rows:
         raise ValueError("Missing GAM trace")
     summary = fields(rows[0], "intel-gam-trace:", ("v", "reads", "spans", "omitted", "max_gap_us"))
@@ -270,6 +272,8 @@ def request_trace(rows, parent, reset, samples, memory):
         allowed = (row["gam_req"] | row["req_close"] | row["gam_go"] | row["go_close"]) & GAM_GO_MASK
         trace_open = any(s["word"] & GAM_GO_MASK for s in observed)
         closed = bool(observed) and not (allowed or trace_open or omitted)
+        if widi is not None:
+            closed = closed and (widi[i]["win"] & 0x11) == 0 and not widi[i]["reset_flow"] & (1 << 10)
         ack = all(row[k] & 0x31 == 0x20 and row[k + "_close"] & 0x31 == 0x20 for k in ENGINES)
         l3 = row["l3"] & 3 == 1 and row["l3_close"] & 3 == 1
         idle = bool(row["gam_eco"] & row["eco_close"] & 1)

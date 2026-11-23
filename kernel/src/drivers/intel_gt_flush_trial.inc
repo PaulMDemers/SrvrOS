@@ -7,6 +7,68 @@ static const uint32_t gt_flush_registers[GT_FLUSH_WORDS] = {
     0x8038, 0x8028, 0x8000, 0x8004, 0x8010, 0x8008, 0x800c, 0x8040, 0x40d0
 };
 
+/* Verify both wireless producers while the display HDA owner is held and
+ * immediately before sealing their programming pages in the sole CPU root. */
+static struct {
+    struct gt_display_access access;
+    uint32_t strap, function, well_before, codec[3], well_after;
+    struct gt_display_access messages;
+    uint32_t device[GT_FLUSH_SAMPLES][2];
+    unsigned samples;
+    bool reading, sampling, disabled;
+} gt_widi;
+static bool slot_widi_preflight_live(void) {
+    return gt_widi.reading && !gt_range.mapped && gt_range_live(0) &&
+        independent_matches(0) && intel_hda_gpu_live(&joint.scope);
+}
+static bool slot_widi_register(uint32_t offset) {
+    return offset==0x42014 || offset==0x6e400 || offset==0x45404 || offset==0x65020 || offset==0x65800;
+}
+static bool slot_widi_observe(const uint32_t *offsets,uint32_t *out,unsigned count) {
+    return gt_held_read_alias(&gt_widi.access,offsets,out,count,slot_widi_preflight_live,slot_widi_register);
+}
+static bool slot_widi_preflight(void) {
+    const uint32_t strap=0x42014, function=0x6e400, well=0x45404;
+    const uint32_t codec[]={0x65020,0x65800,0x65020};
+    if(gt_widi.reading || gt_widi.access.maps || gt_widi.disabled)return false;
+    gt_widi.reading=true;
+    bool ok=slot_widi_observe(&strap,&gt_widi.strap,1) && intel_bdw_air_wireless_video_disabled(gt_widi.strap) &&
+        slot_widi_observe(&function,&gt_widi.function,1) && !(gt_widi.function&(1u<<31)) &&
+        slot_widi_observe(&well,&gt_widi.well_before,1) && (gt_widi.well_before&(1u<<30)) &&
+        slot_widi_observe(codec,gt_widi.codec,3) && gt_widi.codec[0]==0x80862808 &&
+        !(gt_widi.codec[1]&(1u<<30)) && gt_widi.codec[2]==gt_widi.codec[0] &&
+        slot_widi_observe(&well,&gt_widi.well_after,1) && (gt_widi.well_after&(1u<<30));
+    gt_widi.reading=false;
+    gt_widi.disabled=ok && !gt_widi.access.mapped && gt_widi.access.retired==5 && gt_widi.access.reads==7;
+    return gt_widi.disabled;
+}
+/* Read the actual PTE once bus mastering is back, while the original slot,
+ * its private backing and the WiDi programming exclusion are all still held. */
+static struct {
+    struct gt_display_access access;
+    uint32_t raw[3];
+    bool reading, matched;
+} gt_reopened;
+#define GT_SECOND_PTE_OFFSET (0x800000u + 8u * GT_SECOND_SLOT)
+static bool slot_reopened_live(void) {
+    return gt_reopened.reading && independent_reopened && gt_range.completed==2 && !gt_range.mapped &&
+        gt_bootstrap_native.command_writes==2 && gt_bootstrap_native.pci_samples==4 &&
+        bootstrap_parent() && gt_slot_live();
+}
+static bool slot_pte_register(uint32_t reg) {
+    return reg==GT_SECOND_PTE_OFFSET || reg==GT_SECOND_PTE_OFFSET+4;
+}
+static bool slot_verify_reopened(void) {
+    const uint32_t regs[]={GT_SECOND_PTE_OFFSET+4,GT_SECOND_PTE_OFFSET,GT_SECOND_PTE_OFFSET+4};
+    if(gt_reopened.reading || gt_reopened.access.maps)return false;
+    gt_reopened.reading=true;
+    bool ok=gt_held_read_alias(&gt_reopened.access,regs,gt_reopened.raw,3,slot_reopened_live,slot_pte_register);
+    gt_reopened.reading=false;
+    uint64_t entry=((uint64_t)gt_reopened.raw[0]<<32)|gt_reopened.raw[1];
+    gt_reopened.matched=ok && gt_reopened.raw[2]==gt_reopened.raw[0] &&
+        entry==gt_range.words[1][GT_RANGE_TAIL+2] && entry==slot_backing.plan.original;
+    return gt_reopened.matched;
+}
 /* Each span contains consecutive observations of one raw request. Split
  * even identical values across a reset pulse, where MMIO coverage pauses. */
 struct gt_request_span {
@@ -105,13 +167,26 @@ static bool gt_flush_slice_read(unsigned slot, uint32_t offset, uint32_t *value)
 
 #include "intel_gt_l3_banks.inc"
 
+static bool slot_widi_message(uint32_t offset) {
+    return offset==0x8014 || offset==0x8108;
+}
+static bool slot_widi_sample(unsigned n) {
+    static const uint32_t offsets[]={0x8014,0x8108}; /* MSG_IDLE_WIN, RSTFCTLMSG */
+    if(n!=gt_widi.samples || n>=GT_FLUSH_SAMPLES || gt_widi.sampling || !gt_widi.disabled)return false;
+    gt_widi.sampling=true;
+    bool ok=gt_held_read_alias(&gt_widi.messages,offsets,gt_widi.device[n],2,gt_flush_live,slot_widi_message);
+    gt_widi.sampling=false;
+    if(!ok || gt_widi.messages.mapped || gt_widi.messages.retired!=n+1)return false;
+    ++gt_widi.samples;
+    return true;
+}
 static bool gt_flush_sample(unsigned n) {
     if (n >= GT_FLUSH_SAMPLES || n != gt_flush.samples || !gt_flush_live() || !bootstrap_tick())
         return false;
     struct gt_display_access *access = &gt_flush.access;
     gt_flush.begin[n] = gt_bootstrap_native.last;
     uint32_t *slice = gt_flush.slice[n];
-    if (!gt_flush_slice_read(9, 0x9120, &slice[0]) ||
+    if (!slot_widi_sample(n) || !gt_flush_slice_read(9, 0x9120, &slice[0]) ||
         !gt_flush_slice_read(2, 0x138064, &slice[1])) return false;
     if (n == 1 && ((slice[1] & 7u) != 3 || !gt_bank_capture())) return false;
     /* One guarded alias per MMIO page, inside the same observation window. */
@@ -153,6 +228,17 @@ static void gt_flush_report(void) {
             (uint64_t)i, (uint64_t)s->pulse, (uint64_t)s->word, (uint64_t)s->count,
             s->first_begin, s->first_end, s->last_begin, s->last_end);
     }
+    console_printf("intel-widi-producers: v=1 disabled=%u strap=%x function=%x well_before=%x codec_before=%x control=%x codec_after=%x well_after=%x maps=%u retired=%u live=%x reads=%u\n",
+        (uint64_t)gt_widi.disabled,(uint64_t)gt_widi.strap,(uint64_t)gt_widi.function,(uint64_t)gt_widi.well_before,
+        (uint64_t)gt_widi.codec[0],(uint64_t)gt_widi.codec[1],(uint64_t)gt_widi.codec[2],(uint64_t)gt_widi.well_after,
+        (uint64_t)gt_widi.access.maps,(uint64_t)gt_widi.access.retired,gt_widi.access.mapped,(uint64_t)gt_widi.access.reads);
+    for(unsigned n=0;n<gt_widi.samples;n++)
+        console_printf("intel-widi-device: v=1 n=%u win=%x reset_flow=%x\n",(uint64_t)n,
+            (uint64_t)gt_widi.device[n][0],(uint64_t)gt_widi.device[n][1]);
+    console_printf("intel-slot-reopened: v=1 matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
+        (uint64_t)gt_reopened.matched,(uint64_t)gt_reopened.raw[0],(uint64_t)gt_reopened.raw[1],
+        (uint64_t)gt_reopened.raw[2],(uint64_t)gt_reopened.access.reads,(uint64_t)gt_reopened.access.maps,
+        (uint64_t)gt_reopened.access.retired,gt_reopened.access.mapped);
     gt_bank_report();
     console_printf("intel-flush-summary: v=9 samples=%u reads=%u maps=%u retired=%u live=%x authority=none\n",
         (uint64_t)gt_flush.samples, (uint64_t)gt_flush.access.reads, (uint64_t)gt_flush.access.maps,
