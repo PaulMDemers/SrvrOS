@@ -10,9 +10,19 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
-This round gates PCI bus-master reopening and slot return on fresh five-engine
-queue and context reads against the same post-reset epoch. The scope is the
-Air bootstrap driver, its collector and local qualification on PR 301.
+Release `f1d4509e69f7f50a` (source `6a0ce5be`, session
+`session-000660eb6b5b1fca-00`) matched all 46 engine and context words
+before and after PCI bus-master reopening to the same post-reset sample.
+The slot 12291 PTE read back as `0x8f004001`. The driver released the
+reservation and WiDi programming guard with zero PTE writes. All four
+engine and L3 observations lacked a fresh flush acknowledgement.
+
+The run was rejected at the final timing check after returning the GT
+borrow. The clock was at 248.600 ms entering the return and 251.782 ms
+at the failing check against the 250 ms preparation limit. The exit log
+was collected and the offline USB integrity check passed. Across 1,206
+guard calls, framebuffer/endpoint validation consumed 87.095 ms and CPU
+cache validation consumed 57.401 ms. These are full-run totals.
 
 Release `31cf9ad2837cdcb6` (source `b7ce1048`, session
 `session-000660eaf9bfabb7-00`) held all three WiDi programming pages
