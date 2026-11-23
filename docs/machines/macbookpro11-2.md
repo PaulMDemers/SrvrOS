@@ -302,8 +302,23 @@ stop verification. It also exercised profile, channel, silent endpoint and
 stop faults. The firmware, xHCI lifecycle, and both beacon decoder regression
 suites passed. Exact image `8b413096f6defa45` passed the GPT workspace and four
 journal/recovery VM checks with the Realtek absent. The measured capture and
-profile are preserved under `reference-rtl8188cu-radio-5f9db835`. Physical
-discovery is pending. A cold run needs a fresh bound journal and run record.
+profile are preserved under `reference-rtl8188cu-radio-5f9db835`.
+
+The cold candidate `6f8f17af22d37166` uses source `5429c30a` and a freshly
+bound internal journal. The native-path host fixture passed again. The
+exact installed image passed the GPT workspace check and all four VM
+save/refusal checks. The preflight found a clean workspace with 574 files
+and verified recovery release `74da74e0b57afbb8` and Ubuntu as the boot
+default. The installed payload, prior firmware trial and recovery all
+verified after freeing space from one independently archived EFI copy.
+There were no overlapping driver or boot/journal changes in the fetched main
+`61111819` since integration baseline `50f1978a`.
+
+Physical discovery is pending. The local return record is
+`build/bringup/pro112-rtl8188cu-passive-cold/run.json`. Cold-cycle the hub
+with all three adapters in their original ports and keep the workspace drive
+connected. The unattended trial saves its discovery and teardown counters
+before resetting to Ubuntu.
 
 ### Retina desktop default
 
