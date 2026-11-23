@@ -2400,7 +2400,8 @@ int main(int argc,char **argv) {
     int wifi_active_remove_trial=argc==2 && !strcmp(argv[1],"--wifi-active-remove-trial");
     int wifi_managed_trial=wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
-    int retina_trial=argc==2 && !strcmp(argv[1],"--retina-trial");
+    int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
+    int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
@@ -2443,6 +2444,8 @@ int main(int argc,char **argv) {
     } else if(!srv_profile_session_init(&s.profile,s.home,NULL))return 1;
     s.profile_transfer_stop=profile_transfer_stop;
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
+    /* A temporary capture scale does not apply or update the user's saved scale. */
+    s.display.restore_done=retina_screenshot;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     if(audio_io && desk_capture_job_trace(&s.capture,1))return 1;
@@ -2485,6 +2488,7 @@ int main(int argc,char **argv) {
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,wifi_active_remove_trial?"wifi-active-remove-trial":wifi_replug_trial?"wifi-replug-trial":wifi_reattach_trial?"wifi-reattach-trial":wifi_reconnect_trial?"wifi-reconnect-trial":"wifi-managed-trial");
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
+    else if(retina_screenshot) strcpy(s.scene.notice,"Automatic 1.75x screenshot. Leave the workspace connected. Returning to Ubuntu after save.");
     else if(retina_trial) spawn_app(&s,DESK_APP_HELP,"retina-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
@@ -2539,6 +2543,7 @@ int main(int argc,char **argv) {
     struct operation_trace failure_operations={0};
     int idle_phase=0;
     unsigned idle_capture_serial=0;
+    int retina_capture_requested=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
     struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
@@ -2814,6 +2819,13 @@ int main(int argc,char **argv) {
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if(apps) {
             display_tick(&s);
+            if(retina_screenshot && session_output_scale(&s)!=DESK_SCALE_175) {
+                if(info.width!=2880 || info.height!=1800 ||
+                   display_change(&s,2880,1800,DESK_SCALE_175,0)!=DESK_DISPLAY_OK) {
+                    desk_log("retina-screenshot: display unavailable\n");failed=1;break;
+                }
+                display_cleanup(&s);
+            }
             if(s.display.changed) {
                 s.display.changed=0;drag=resize=-1;pixels=canvas.pixels;width=canvas.width;height=canvas.height;scale=session_scale(&s);
                 fenced_present=(info.flags&GFX_FLAG_PRESENT_ACTIVE)!=0;
@@ -3286,6 +3298,13 @@ int main(int argc,char **argv) {
             if(!capture_scheduler)capture->valid=0;
         }
         if(apps && !failed) capture_tick_scaled(&s,&canvas);
+        if(retina_screenshot && !failed) {
+            if(s.capture_finished) { failed=!s.capture_success;quit=1; }
+            else if((uint64_t)srv_ticks()-start>=9000) failed=1;
+            else if(!retina_capture_requested && painted) {
+                capture_request(&s);retina_capture_requested=1;
+            }
+        }
         if(capture) {
             if(capture_scheduler && srv_sched_trace(SRV_SCHED_TRACE_END,&capture->scheduler))capture->valid=0;
             capture->end=(uint64_t)srv_monotonic_us();
@@ -3652,6 +3671,8 @@ int main(int argc,char **argv) {
         desk_log("retina-scales: applied=%u kept=%u reverted=%u timed_out=%u\n",
             s.display.applied_scales,s.display.kept_scales,s.display.reverted_scales,s.display.timed_out_scales);
     }
+    if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
+        !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

@@ -871,7 +871,9 @@ static void retina_desktop_trial(const char *cmdline) {
     } else if (!workspace_log_start()) {
         console_write("retina-trial: logging unavailable; desktop skipped\n");
     } else {
-        bool returned = process_run_elf_args("/fat/bin/deskd", "--retina-trial");
+        const char *args = cmdline_has_token(cmdline,"srvros.retina-screenshot=1") ?
+            "--retina-screenshot" : "--retina-trial";
+        bool returned = process_run_elf_args("/fat/bin/deskd", args);
         xhci_print_input_summary();
         console_printf("retina-trial: desktop returned=%u\n", (uint64_t)returned);
         saved = workspace_log_stop();

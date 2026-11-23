@@ -114,6 +114,11 @@ passed its integrity check, with the Text proof updated and all 541
 other files matching. The native 1.75× screenshot remains open. This
 session has its own evidence archive under the recovery directory.
 
+The remaining screenshot check uses an opt-in automatic Retina recipe
+against the PR #501 display, capture owner and USB workspace paths. It
+renders at 1.75× for a single capture, leaves the saved display preference
+intact, and uses the verified automatic Ubuntu return.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold

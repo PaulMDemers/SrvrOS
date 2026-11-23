@@ -241,7 +241,8 @@ def main():
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
     retina_desktop = bool(desktop and manifest["config_version"].startswith("ram-usb-v1-retina-"))
-    if args.retina_fractional and (not retina_desktop or args.retina_missing_workspace):
+    retina_screenshot = retina_desktop and manifest["config_version"].startswith("ram-usb-v1-retina-shot-")
+    if args.retina_fractional and (not retina_desktop or args.retina_missing_workspace or retina_screenshot):
         parser.error("--retina-fractional requires the Retina desktop trial with a workspace")
     if args.retina_missing_workspace and (not retina_desktop or args.desktop_no_headroom):
         parser.error("--retina-missing-workspace requires the Retina desktop trial")
@@ -398,6 +399,11 @@ def main():
             subprocess.run(["/usr/sbin/tune.exfat","-I","0x"+workspace[1],str(volume)],check=True,stdout=subprocess.DEVNULL)
             fixture=ExfatFixture(volume.read_bytes())
             files={".workspace":f"SRVROS-WORKSPACE-V1 {workspace[1]}\n".encode()}
+            if retina_screenshot:
+                files["desktop.conf"] = (b"srvros-desktop-v7\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\n"
+                    b"wallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=0\n"
+                    b"tap_to_click=1\ntwo_finger_tap=1\ntheme_accent=0\nglass_level=1\ntheme_style=0\n"
+                    b"display_scale=1\ndisplay_width=2880\ndisplay_height=1800\n")
             if battery_filesystem:
                 from battery_filesystem_image import create
                 inner=temp/'inner.exfat';create(inner)
@@ -452,6 +458,39 @@ def main():
                                   retina_missing_workspace=True, returned=True)
                     (logs/"hardware-grub-result.json").write_text(json.dumps(result, indent=2)+"\n")
                     print(f"retina-desktop-smoke: PASS ({release}); absent workspace returns without opening the desktop")
+                    return
+                if retina_screenshot:
+                    import io
+                    from PIL import Image
+
+                    marker = "retina-trial: saved=1 USB unmounted=yes; returning to Ubuntu"
+                    text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)
+                    assert process.wait(timeout=30) == 0 and not has_fatal_exception(text)
+                    with stick.open("rb") as stream:
+                        stream.seek(2048*512)
+                        volume.write_bytes(stream.read(128*1024*1024))
+                    check_clean_image(volume)
+                    stored = ExfatFixture(volume.read_bytes())
+                    folder = re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
+                    assert release.encode() in stored.read(folder+"/boot.log")
+                    exit_log = stored.read(folder+"/exit.log").decode()
+                    assert "retina-screenshot: result=PASS scale=175 completed=1" in exit_log
+                    assert "physical=2880x1800 logical=1646x1029 scale=175 restore=0" in exit_log
+                    assert "retina-trial: desktop returned=1" in exit_log
+                    shot, = re.findall(r"deskd: screenshot saved status=0 path=/work/([^\s]+)",exit_log)
+                    bitmap = stored.read(shot)
+                    with Image.open(io.BytesIO(bitmap)) as image:
+                        assert image.format=="BMP" and image.size==(1646,1029)
+                        image.load()
+                        assert any(lo<hi for lo,hi in image.convert("RGB").getextrema())
+                    assert stored.read("srvros-work/desktop.conf") == files["desktop.conf"]
+                    (logs/"retina-screenshot.bmp").write_bytes(bitmap)
+                    (logs/"retina-screenshot-exit.log").write_text(exit_log)
+                    result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source/"manifest.json"),
+                                  retina_screenshot=True, scale=175, width=1646, height=1029,
+                                  preferences_unchanged=True, saved=True, unmounted=True, automatic_return=True)
+                    (logs/"hardware-grub-result.json").write_text(json.dumps(result,indent=2)+"\n")
+                    print(f"retina-screenshot-smoke: PASS ({release}); BMP decoded and saved 1x preferences preserved")
                     return
                 if args.desktop_no_headroom:
                     text=wait_for(serial,lambda s:"desktop-trial: NOT STARTED" in s and "srv> " in s,process,args.boot_wait)
