@@ -349,15 +349,32 @@ class VM:
             raise RuntimeError(f'{self.label}: expected command refusal: {command}')
         return segment
 
-    def paused_data_hash(self):
+    def paused_data_state(self):
         self.qmp.call('stop')
         try:
             if self.qmp.call('query-status').get('status') != 'paused':
                 raise RuntimeError('QEMU did not pause before inspection')
             _, (offset, size) = proof.partitions(self.disk)
-            return region_hash(self.disk, offset, size)
+            stats = next(item['stats'] for item in self.qmp.call('query-blockstats')
+                         if item.get('device') == 'installed')
+            return region_hash(self.disk, offset, size), stats['wr_operations'], stats['wr_bytes']
         finally:
             self.qmp.call('cont')
+
+    def settled_data_state(self):
+        # Boot and executable access can dirty exFAT's metadata sidecar.
+        # Measure the recovery command after that work has stopped writing,
+        # with no additional sync command inside the measured interval.
+        previous = self.paused_data_state()
+        unchanged = 0
+        for _ in range(6):
+            self.command('/fat/bin/sync')
+            current = self.paused_data_state()
+            unchanged = unchanged + 1 if current == previous else 0
+            if unchanged == 2:
+                return current
+            previous = current
+        raise RuntimeError('guest data partition did not settle before inspection')
 
     def paused_account_snapshot(self):
         self.qmp.call('stop')
@@ -546,8 +563,7 @@ def inspect_and_clear(vm, committed, staged, lock_present, staged_is_database=Tr
     for values in rows.values(): vm.extra_redactions.extend(values[4:6])
     if staged is not None and staged_is_database:
         for values in account_rows(staged).values(): vm.extra_redactions.extend(values[4:6])
-    vm.command('/fat/bin/sync')
-    before = vm.paused_data_hash()
+    before = vm.settled_data_state()
     report = vm.command('/fat/bin/local-enroll recover-store')
     for name, fields in rows.items():
         state = b'enabled' if fields[3] == b'1' else b'suspended'
@@ -558,8 +574,7 @@ def inspect_and_clear(vm, committed, staged, lock_present, staged_is_database=Tr
         if expected not in report: raise RuntimeError('recovery inspection reported wrong marker state')
     assert_report_private(report, rows)
     if staged is not None and staged_is_database: assert_report_private(report, account_rows(staged))
-    vm.command('/fat/bin/sync')
-    after = vm.paused_data_hash()
+    after = vm.paused_data_state()
     if before != after: raise RuntimeError('read-only recovery inspection changed guest data partition')
     result = vm.command('/fat/bin/local-enroll recover-store --clear-pending')
     if b'local-enroll: pending markers cleared' not in result:
@@ -571,7 +586,7 @@ def inspect_and_clear(vm, committed, staged, lock_present, staged_is_database=Tr
         raise RuntimeError('repeated recovery did not report clean no-op')
     assert_report_private(result, rows)
     if staged is not None and staged_is_database: assert_report_private(result, account_rows(staged))
-    return before
+    return before[0]
 
 
 def main():
@@ -936,7 +951,7 @@ def main():
             pid = match.group(1)
             exit_marker = b'bg: pid=' + pid + b' exited status='
             if exit_marker in vm.output[start:]: raise RuntimeError('fixture writer exited before contention test')
-            vm.command('/fat/bin/sync'); live_before = vm.paused_data_hash()
+            live_before = vm.settled_data_state()
             live_committed, live_staged, live_lock = vm.paused_account_snapshot()
             if live_committed != live_suspended or live_staged is None or live_lock is None:
                 raise RuntimeError('parked writer did not retain expected store and markers')
@@ -951,8 +966,7 @@ def main():
                     raise RuntimeError('live account update was not reported as active')
                 assert_report_private(report, live_rows)
                 assert_report_private(report, account_rows(live_staged))
-            vm.command('/fat/bin/sync')
-            if vm.paused_data_hash() != live_before or exit_marker in vm.output[start:]:
+            if vm.paused_data_state() != live_before or exit_marker in vm.output[start:]:
                 raise RuntimeError('live-writer refusal changed data or stopped fixture writer')
             kill_start = len(vm.output)
             vm.send(b'kill ' + pid)
@@ -1064,16 +1078,14 @@ def main():
                 vm.send(('write ' + path + ' pending-fixture').encode('ascii'))
                 vm.wait(b'write: ' + path.encode('ascii') + b' 15 bytes'); vm.wait(b'srv> ')
                 vm.command('/fat/bin/chmod 600 ' + path)
-            vm.command('/fat/bin/sync')
-            invalid_before = vm.paused_data_hash()
+            invalid_before = vm.settled_data_state()
             for command in ('/fat/bin/local-enroll recover-store',
                             '/fat/bin/local-enroll recover-store --clear-pending'):
                 report = vm.command_refused(command)
                 if b'local-enroll: committed account store invalid' not in report:
                     raise RuntimeError('invalid account store recovery did not refuse')
                 assert_report_private(report)
-            vm.command('/fat/bin/sync')
-            if vm.paused_data_hash() != invalid_before:
+            if vm.paused_data_state() != invalid_before:
                 raise RuntimeError('invalid-store inspection or cleanup changed guest data partition')
             vm.finish()
         damaged = account_bytes(target)
@@ -1082,7 +1094,7 @@ def main():
         if any(marker_bytes(target, name) != b'pending-fixture' for name in ('accounts.tmp', 'enroll.lock')):
             raise RuntimeError('invalid-store recovery modified pending marker bytes')
         receipt['cases'].append({'invalid_store_recovery_refused': 'PASS',
-                                 'inspection_data_sha256': invalid_before})
+                                 'inspection_data_sha256': invalid_before[0]})
         receipt['accounts_damaged_sha256'] = sha(damaged)
         # Remove only this test's deliberately created markers in explicit
         # recovery, leaving the malformed committed file for the existing
