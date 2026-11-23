@@ -7,8 +7,8 @@ poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
 the static build graph. GLib, GObject and GModule build as target static
 archives. An executable linked against target GLib passed the child-watch
-probe twice on SrvrOS. The static GIO build stops in `xdgmimealias.c`
-because the SDK lacks `<fnmatch.h>`.
+probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
+Static GIO now stops in `inotify-kernel.c` on `FIONREAD` and `inotify_init()`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -348,8 +348,8 @@ was released.
 The run used the matched SDK and boot inputs verified for PR #522.
 Fresh Meson configuration and static GLib, GObject and GModule builds
 passed. GLib's test diagnostics still warn on the SDK's separate
-`PRI*64` format macros. The static GIO build stops at `gio/xdgmime/xdgmimealias.c:22`,
-which includes `<fnmatch.h>`.
+`PRI*64` format macros. That static GIO build stopped at the missing
+`<fnmatch.h>` in `gio/xdgmime/xdgmimealias.c:22`.
 See the [linked child-watch receipt](assets/evidence/glib-unix-abi/receipt.json).
 
 With an offline configured tree from `tools/browser_glib_iconv.py`,
@@ -369,6 +369,36 @@ ports/srvros/webkit/cc "$stage/linked-child-watch.o" "$obj/glib/libglib-2.0.a" \
 python3 tools/glib_platform_guest.py --child-watch \
   --linked-child-watch "$stage/linked-child-watch.elf"
 ```
+
+## XDG MIME filename patterns
+
+The public SDK `<fnmatch.h>` exports `fnmatch()` for the single-byte C
+locale. It handles literal bytes, `*`, `?`, escaping, sets and ranges,
+negated sets, ASCII character classes, and single-byte collating and
+equivalence entries. The public flags control slash, leading period,
+backslash and ASCII case folding. The matcher uses constant auxiliary
+space.
+
+The host ASan/UBSan suite passed 58 cases and an alternating-star match
+and near miss. A C-locale comparison against the host matcher agreed on
+1,386,528 generated pattern, filename and flag combinations. The SDK
+export audit found only the new `fnmatch` symbol compared with the exact
+prior archive. Its 37 unrelated missing entries were unchanged.
+
+The diskless guest ran both the `fnmatch` and platform probes twice with
+four zero exits. It checked complex MIME-style patterns with flags zero,
+then exercised the public flags and byte-oriented locale behavior. The
+kernel and three packed executables matched the boot ISO readback.
+QEMU stopped and the VM window was released. Reproduce with the built
+SDK, init and boot inputs using `python3 tools/glib_platform_guest.py --fnmatch`.
+
+Fresh configure and all five XDG MIME objects that include
+`<fnmatch.h>` passed. The two actual GIO callers are in
+`xdgmimecache.c` and `xdgmimeglob.c`. The static GIO build next fails
+in `gio/inotify/inotify-kernel.c` at the undeclared `FIONREAD` and
+`inotify_init()`. Meson auto-selects inotify because its
+`inotify_init1()` link probe succeeds. The SDK function returns
+`ENOSYS` at runtime. See the [fnmatch receipt](assets/evidence/glib-fnmatch/receipt.json).
 
 ## Verification
 

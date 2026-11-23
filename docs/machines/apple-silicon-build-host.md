@@ -300,15 +300,19 @@ The private diskless Q35 guest completed both native platform, both native
 child-watch and both linked GLib child-watch runs, with six zero exits.
 ISO readback matched all packed executables and the kernel. The guest
 stopped and released the VM window. Static GLib, GObject and GModule
-archives built. Static GIO stops at missing `<fnmatch.h>`.
+archives built. That static GIO build stopped at missing `<fnmatch.h>`.
 See the [linked child-watch receipt](../assets/evidence/glib-unix-abi/receipt.json).
 
 ## GLib MIME pattern matching — November 22, 2026
 
 The browser topic starts from merged PR #523 at `50f1978a`. The SDK
-adds `fnmatch()` for its single-byte C locale. Verification covers
-the XDG MIME zero-flag call and the public pattern flags in a private
-guest, then reruns the pinned GIO build.
+adds C-locale `fnmatch()`. Both platform and both matcher probes passed
+in a private diskless guest, and readback matched the boot ISO payloads.
+QEMU stopped and the VM window was released. The earlier #523 evidence
+retains its verified hashes. Five XDG MIME object compiles passed. The
+pinned static GIO build then stopped in the auto-selected inotify backend
+on `FIONREAD` and `inotify_init()`.
+See the [fnmatch receipt](../assets/evidence/glib-fnmatch/receipt.json).
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 

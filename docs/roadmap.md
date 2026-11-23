@@ -31,7 +31,9 @@ declaration. The hostname utility object compiles with the SDK limits
 header, and the native hostname calls passed. The SDK's `creat()` passed
 on private exFAT and `gstdio.c` compiles. Static GLib, GObject and GModule
 archives build, and two guest runs verified the linked GLib child watch.
-The next static GIO build gate is XDG MIME's `<fnmatch.h>` requirement.
+All five XDG MIME objects that include `<fnmatch.h>` compile with the
+guest-verified SDK matcher. The next GIO gate is file-monitor backend
+selection. Meson enables inotify after linking the SDK's `ENOSYS` shim.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
