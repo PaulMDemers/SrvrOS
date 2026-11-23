@@ -36,6 +36,7 @@ LINKED_CHILD_WATCH_MARKER = b'glib-linked-child-watch: ok'
 FNMATCH_MARKER = b'glib-fnmatch: ok'
 INET_ADDRESS_MARKER = b'glib-inet-address: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
+GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -45,7 +46,7 @@ def digest(path):
 
 
 def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
-              probe_timeouts=None):
+              probe_timeouts=None, *, idle_nic=False):
     with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp, ExitStack() as stack:
         uart = str(Path(temp) / 'serial')
         argv = ['qemu-system-x86_64', '-name', 'SrvrOS GLib prerequisite probe',
@@ -54,15 +55,16 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
                 '-display', 'none', '-serial',
                 f'unix:{uart},server=on,wait=off', '-monitor', 'none', '-no-reboot']
         pass_fds = ()
-        if dns_peer:
+        if dns_peer or idle_nic:
             a, b = socket.socketpair()
             stack.enter_context(a)
             stack.enter_context(b)
-            stats = output / 'dns-peer.json'
-            peer_argv = [sys.executable, dns_peer, '--fd', str(a.fileno()), '--stats', stats]
-            peer = stack.enter_context(subprocess.Popen(peer_argv, pass_fds=(a.fileno(),)))
-            stack.callback(peer.terminate)
-            a.close()
+            if dns_peer:
+                stats = output / 'dns-peer.json'
+                peer_argv = [sys.executable, dns_peer, '--fd', str(a.fileno()), '--stats', stats]
+                peer = stack.enter_context(subprocess.Popen(peer_argv, pass_fds=(a.fileno(),)))
+                stack.callback(peer.terminate)
+                a.close()
             pass_fds = (b.fileno(),)
             argv += ['-netdev', f'socket,id=fixture,fd={b.fileno()}', '-device', 'e1000,netdev=fixture']
         else:
@@ -76,7 +78,7 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
             try:
                 process = subprocess.Popen(argv, stdout=log, stderr=log, pass_fds=pass_fds)
             finally:
-                if dns_peer:
+                if pass_fds:
                     b.close()
             try:
                 with socket.socket(socket.AF_UNIX) as connection:
@@ -160,6 +162,8 @@ def main():
     parser.add_argument('--inet-address', action='store_true', help='test SDK address classifiers and numeric lookup')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
+    parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
+                        help='boot a linked GIO IPv4 traffic class codec probe')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -213,6 +217,7 @@ def main():
              'linked_child_watch_payload_sha256'),
             ('gio-poll-monitor', args.gio_poll_monitor, GIO_POLL_MONITOR_MARKER,
              'gio_poll_monitor_payload_sha256'),
+            ('gio-ip-tos', args.gio_ip_tos, GIO_IP_TOS_MARKER, 'gio_ip_tos_payload_sha256'),
         )
         for program, path, marker, receipt_key in linked_probes:
             if path is None:
@@ -337,8 +342,11 @@ def main():
             subprocess.run([limine / 'limine', 'bios-install', image], check=True,
                            timeout=30, stdout=log, stderr=log)
         receipt['image_sha256'] = digest(image)
+        if args.gio_ip_tos and not dns_peer:
+            receipt['scope'] += ' and a private e1000 on an idle local socketpair'
         run_guest(image, output, receipt, probes, dns_peer, workspace,
-                  {'gio-poll-monitor': 90} if args.gio_poll_monitor else None)
+                  {'gio-poll-monitor': 90} if args.gio_poll_monitor else None,
+                  idle_nic=args.gio_ip_tos is not None)
         receipt['result'] = 'passed'
     except Exception as error:
         receipt['error'] = str(error)

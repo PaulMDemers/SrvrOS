@@ -1,0 +1,13 @@
+--- gio/giptosmessage.c
++++ gio/giptosmessage.c
+@@ -40,5 +40,9 @@
+ #include <gio/gnetworking.h>
+-
++
++#ifdef __SRVROS__
++#include <netinet/ip.h>
++#endif
++
+ struct _GIPTosMessage
+ {
+   GSocketControlMessage parent_instance;

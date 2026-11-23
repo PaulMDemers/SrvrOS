@@ -1,0 +1,181 @@
+{
+  "scope": "GIO IPv4 ToS control-message codec and current SDK socket-option refusal",
+  "integration_base": "8c5565d4780413d447b2579eabefa3a3aae84a39",
+  "tested_source": "60c38e818a82e67d7ef5f9b892e0fa7cdf5dc22c",
+  "later_main": {
+    "commit": "243861d68ff46f6ac88b43dcd5179599a1923471",
+    "scope": "PR #529 installed console authentication and its test targets. No changes to SDK, boot payloads, provider pins, GIO sources or probe inputs."
+  },
+  "source_sha256": {
+    "tools/browser_glib_iconv.py": "8515dd313d56c86d574c5e24e7296e6c50fc2a0afd2fda77728e712e53cff8fa",
+    "tools/glib-srvros-ip-tos.patch": "eee66b611927b6ec28b5e48584a51e349e2b9796dcdcf228f8d8f582f54633bb",
+    "tools/glib_platform_guest.py": "ea8a43100260eb61d01ae650a160b958cfa00d717a4f45a45e0fd704ab53ba12",
+    "tools/test_glib_gio_ip_tos_guest.c": "a511fdde46caeb6fce927c210c30ae08a6b7bb52b7e01187803d13c417ad1745"
+  },
+  "owner_review": "Integration verified and merged #528, reviewed the bounded GIO scope and coordinated the VM window. Filesystem independently reviewed the include and target fixture. No shared runtime source edits.",
+  "runtime_scope": {
+    "dscp_ecn_round_trips_per_run": 256,
+    "validation": "wrong level/type and zero/oversized payloads refused; neighboring bytes preserved",
+    "socket_check": "real AF_INET/SOCK_DGRAM reports SO_TYPE and refuses getsockopt and setsockopt(IPPROTO_IP, IP_TOS) with ENOSYS",
+    "focused_link": "Meson compilation of both GIO units plus sectioned copies for SDK section GC. Actual target GLib/GObject and provider archives. The probe calls the IPv4 class decoder directly; the generic dispatcher and network ancillary behavior are outside this proof."
+  },
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "giptosmessage_object_exit": 0,
+    "probe_link_exit": 0,
+    "static_gio_exit": 1,
+    "static_gio_errors": [
+      "../glib-2.90.1/gio/gipv6tclassmessage.c:73:10: error: use of undeclared identifier 'IPV6_TCLASS'",
+      "../glib-2.90.1/gio/gipv6tclassmessage.c:87:40: error: use of undeclared identifier 'IPV6_TCLASS'"
+    ],
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+      "tools/glib-srvros-file-monitor.patch": "2d14f424f56755d4912bd235a6f524bde4b350576bb6e063f848dab0db168153",
+      "tools/test_glib_gio_ip_tos_guest.c": "a511fdde46caeb6fce927c210c30ae08a6b7bb52b7e01187803d13c417ad1745",
+      "build/sysroot/srvros/include/netinet/ip.h": "2b4b3f8112ec0a2228e51fe43e3da08c9c6af46e3ef270d0517d54ffd6f4e00d",
+      "build/sysroot/srvros/include/limits.h": "b892cfff849b4e0afd5dbacbcb88fe281bc982760d74280f19a7e2bfada04339",
+      "build/browser-gio-ip-tos/configure-gio.sh": "3084fedc6eaff650796118e652b22eca1d268fc01e423b8abfb16380cc654b67",
+      "build/browser-gio-ip-tos/configure.log": "11cf17b9057dc0e683a8009168b61987944b74cb571eb9a7a2902c5e9774dfc5",
+      "build/browser-gio-ip-tos/configure.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "build/browser-gio-ip-tos/link-probe.py": "fca3bce876ddbe189aec9a31fa0c3b56f12c7cec457f9724ce93a96619e03e01",
+      "build/browser-gio-ip-tos/link-probe.log": "a0b59ea522fb283762744590ec32eb5130a856682c15266a121ffcf1c89511ae",
+      "build/browser-gio-ip-tos/linked-symbols.log": "2b588d7e3740fa5c17fbce2312514240bc4ed3b91a7a565a18cda62588a575e0",
+      "build/browser-gio-ip-tos/giptosmessage.c.o": "2fd8dd809ed52a9c3350f7ae08730713d205ab49a1ec99d56d4b4566fd4b773f",
+      "build/browser-gio-ip-tos/gsocketcontrolmessage.c.o": "9aa3a1f8aed8b4bae91fbe0788a7e001f4595750ee87e2ed0b81e5e3295219d0",
+      "build/browser-gio-ip-tos/gio-ip-tos-guest.o": "39bca15326291d81f3985e843ea99713ccd13149bd3f7ddbe1a7d023287ad242",
+      "build/browser-gio-ip-tos/gio-ip-tos.elf": "33628b1d524c582e3a8de4b8359c97a6d16ee7299a8dc90116527bef0f4fa8b8",
+      "build/browser-gio-ip-tos/rerun-static-gio.sh": "14083b7426e8f22e8acd156162b4e1c152eb7ffa57554248c9e6787fa3a81abf",
+      "build/browser-gio-ip-tos/static-gio.log": "7d19a6c6e8e1ed69562089c94557e596c260e91881bb3142b7aa8761b4ba78e8",
+      "build/browser-gio-ip-tos/static-gio.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "build/browser-gio-ip-tos/glib-build/build.ninja": "390229743c00ff2e7bb1f705d0fd554fecd9ca83f43be319bc82513fae6b4a8a",
+      "build/browser-gio-ip-tos/glib-build/config.h": "ac60f9657dc1dc86f1292a34cfc5af79b703dd16ab843997fe4bc17ce9370f06",
+      "build/browser-gio-ip-tos/glib-build/compile_commands.json": "2338ed7e52d19358a07457198f118ba4e9c4cad59403522ca4910458cbf5a21f",
+      "build/browser-gio-ip-tos/glib-build/meson-logs/meson-log.txt": "c7cdf03a92f119da6cd7a0db2abb0c562fc75cc909d05607594ed52cc0f370d2",
+      "build/browser-gio-ip-tos/glib-build/gio/libgio-2.0.a.p/giptosmessage.c.o": "91835a22a9dee1b03b64cc773d31e9d3d18d61025f7938223bf2c5902e627f15",
+      "build/browser-gio-ip-tos/glib-build/gio/libgio-2.0.a.p/gsocketcontrolmessage.c.o": "44d5e8229c890c697fa4b305a66dc7c211911702ff87755ec1419300b9d11824",
+      "build/browser-gio-ip-tos/glib-build/glib/libglib-2.0.a": "4e699fc2dc185786e562d56620d5fa5b13ee167edbb61c4e77c2a64bd365aae7",
+      "build/browser-gio-ip-tos/glib-build/gobject/libgobject-2.0.a": "1f5d64463c788af5e67e8a479c7116cf0fc6e0dc4e22279d157b24d036fead75",
+      "build/browser-gio-ip-tos/glib-build/subprojects/proxy-libintl-0.5/libintl.a": "0aa7eed79a738b3f3ef2714f2a689b5c2e3ea8bde112fecb44e1d5cf449cfbc4",
+      "build/browser-gio-ip-tos/glib-2.90.1/gio/giptosmessage.c": "003c4556445c9799a5e4bb73659f05a9c5281efdb853e860a947a7695dfd3e51",
+      "build/browser-gio-ip-tos/glib-2.90.1/gio/gsocketcontrolmessage.c": "5dff81ba1ab7af823ad4c21b98880fcba9c5125e7ff6518fa08d3810e95bd413",
+      "build/browser-gio-ip-tos/glib-2.90.1/gio/gipv6tclassmessage.c": "5ad21c984979223185202a100b766ce3d95f3881d78daa1bff0352c2f98cdc1b"
+    }
+  },
+  "initial_guest": {
+    "receipt_sha256": "f36cbafcd1fa9066c8eabf0996aa9f7d94068ecde45efbf9e5ec9178fb8b6340",
+    "result": "Stopped with SDK EMFILE on UDP socket creation when the NIC was absent",
+    "followup": "Retry retained the exact codec ELF and used an isolated virtual NIC so the UDP socket could open"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest with the linked target gio-ip-tos probe and a private e1000 on an idle local socketpair",
+    "source": "60c38e818a82e67d7ef5f9b892e0fa7cdf5dc22c",
+    "sdk_headers_sha256": "1a24881915ab4d04978769eda3102b00dd5365987a80b5fc355d18a005734db1",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "ea8a43100260eb61d01ae650a160b958cfa00d717a4f45a45e0fd704ab53ba12",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "77c4aeeef27b9247b3587a5c863d98812540873aeb375c4cfdab06b05a85c78e",
+      "build/userspace/init.elf": "82b045fcaa8d971ff87eaf740e897440a4d8a3c866d534e5f60ae138770320ec",
+      "build/sysroot/srvros/lib/libsrvros.a": "873d9448be31f5c852162dba55c18201cd17331387510017ae736fd81bf8de39",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "build/browser-gio-ip-tos/gio-ip-tos.elf": "33628b1d524c582e3a8de4b8359c97a6d16ee7299a8dc90116527bef0f4fa8b8"
+    },
+    "payload_sha256": "0143670b3e1c1609e4eb05e9340d6c72137a84be2645e72873c28dbc9af0f2ce",
+    "gio_ip_tos_payload_sha256": "33628b1d524c582e3a8de4b8359c97a6d16ee7299a8dc90116527bef0f4fa8b8",
+    "image_sha256": "8663b080c3689eeec4a83d3020fc9e83807572e137ec86565ce6c80e42b38e64",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-1bfyq53z/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:<private-uart>,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-netdev",
+      "socket,id=fixture,fd=4",
+      "-device",
+      "e1000,netdev=fixture"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "gio-ip-tos",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "gio-ip-tos",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "30f50a9851b715665e1f9e6119224bc2a8264e22699694e0d5679b78689ba1e8"
+  },
+  "raw_guest_receipt_sha256": "f062c836c91d01b80e86769d55f2c98499d97d0a20fd895c496d4b2ffbec4cf8",
+  "iso_readback": {
+    "kernel_sha256": "77c4aeeef27b9247b3587a5c863d98812540873aeb375c4cfdab06b05a85c78e",
+    "initramfs_sha256": "6175856f24394bbacfc8333e8b07027ac6fb561e060a19249eeee1a218db6299",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "e7d8f2e2079a67dd18cc87c8f288b211091b7d7f4d21511d8c2b1e43c3ceb7a3",
+      "gio-ip-tos": "81152ed1c3345dcde5ad600d0b090a7c79454ca8a8e61153d4543c3c89e69db4"
+    },
+    "serial_zero_exits": 4
+  }
+}

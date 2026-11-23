@@ -10,7 +10,8 @@ archives. An executable linked against target GLib passed the child-watch
 probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
 A local-file-only GIO link verified the polling fallback on private exFAT.
 Guest-verified SDK address declarations let `ginetaddress.c` compile.
-Static GIO now stops at missing `IP_TOS` in `giptosmessage.c`.
+A linked guest verified the IPv4 ToS codec. Static GIO next stops at
+`IPV6_TCLASS` in `gipv6tclassmessage.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -472,6 +473,32 @@ compiled `ginetaddress.c`, `ginetaddressmask.c` and `ginetsocketaddress.c`.
 The next failed unit was `gio/giptosmessage.c`, at `IP_TOS` on lines 73
 and 87. [Address build and guest receipt](assets/evidence/gio-inet-address/receipt.json)
 
+## IPv4 traffic class messages
+
+The topic starts from merged OS #528 at `8c5565d4` and reuses the verified
+kernel, init, SDK and static providers. On SrvrOS, `giptosmessage.c` includes
+`<netinet/ip.h>` for the SDK's existing `IP_TOS` constant. The full build
+compiles the source with the pinned target configuration.
+
+Two guest runs verified all 256 DSCP and ECN combinations, the one-byte
+level/type/size contract, and refusal of malformed control messages. The
+focused link uses the real IPv4 message and base class objects, with the
+probe calling the IPv4 class decoder directly.
+The generic ancillary-message dispatcher, packet marking and ancillary
+reception are outside the test. The two platform control runs also passed.
+
+The first boot lacked a NIC, so creating a UDP socket failed with SDK
+`EMFILE`. The successful retry reused the exact codec ELF in a diskless guest
+with a private e1000 on an idle local socketpair. On a valid IPv4 UDP socket,
+both `getsockopt()` and `setsockopt()` for `IP_TOS` returned `ENOSYS`.
+ISO readback matched the kernel and all three packed executables. QEMU
+stopped and the VM window was released.
+
+After guest shutdown, the pinned static GIO build stopped at the undeclared
+`IPV6_TCLASS` on lines 73 and 87 of `gipv6tclassmessage.c`.
+See the [codec and build receipt](assets/evidence/gio-ip-tos/receipt.json)
+and the [upstream GIPTosMessage API](https://docs.gtk.org/gio/class.IPTosMessage.html).
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
@@ -649,6 +676,3 @@ env -u PKG_CONFIG_PATH -u CFLAGS -u CPPFLAGS -u LDFLAGS -u CPATH -u SDKROOT \
 For the diagnostic, copy that source and replace `sys/poll.h` with `poll.h`
 only in the `has_syspoll` check and the adjacent constants-test include in
 `meson.build`. Use that copy and a new output directory with the same flags.
-
-The next configure task is to define and verify the resolver API contract
-for GIO's `res_query()` dependency with the networking owner.
