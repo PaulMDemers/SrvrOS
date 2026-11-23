@@ -247,6 +247,15 @@ workspace save with the dongle absent. Linux capture and summary are also
 preserved in `reference-rtl8188cu-linux-rebind-41bef0af` under the recovery
 archive. Hardware acceptance remains pending, with Ubuntu unarmed.
 
+The cold follow-up uses `f2f26465b6103e42`, the same corrected runtime and
+pinned firmware with a newly bound journal. It passed the GPT save and four
+exact-image journal/recovery VM checks. Installation verified Ubuntu as
+the default, recovery `74da74e0b57afbb8`, and the clean direct USB workspace
+with 572 pre-existing files. All three dongles stay in their hub ports while
+the powered-off hub is cold-reset. The unattended capture records the setup
+steps and result before returning. The local `pro112-rtl8188cu-arm-cold/run.json`
+owns one-shot state and return collection.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
