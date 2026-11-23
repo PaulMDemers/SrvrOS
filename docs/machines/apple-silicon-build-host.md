@@ -35,6 +35,11 @@ After each recovery boot both users retained their exact file contents,
 owners and modes, and cross-user access remained denied. The matched receipt
 and logs are under `build/review/local-signin/proof-lcl_x1yy/`.
 
+Merge review rebuilt runtime `1793cbee` on main `8c5565d4` after #528
+changed the packaged system image. All 14 cases passed again on one fresh
+disposable installation. The matching receipt and logs are under
+`build/review/local-signin/proof-p72hjw9j/`.
+
 ## Interactive isolated console
 
 `device/apple-silicon/interactive-console-session` started from `4c95594e`
