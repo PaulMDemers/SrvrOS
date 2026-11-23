@@ -4015,6 +4015,7 @@ LOCAL_AUTH_OBJ := $(addprefix build/userspace/localauth/,accounts.c.o console.c.
 LOCAL_AUTH_SIGNIN := build/userspace/localauth/signin.c.o
 LOCAL_AUTH_ENROLL := build/userspace/localauth/enroll.c.o
 LOCAL_AUTH_SESSION := build/userspace/localauth/session.c.o
+LOCAL_AUTH_RESET_TEST_OBJ := $(addprefix build/userspace/localauth/,accounts-reset-test.o enroll-reset-test.o)
 
 $(USER_LOCAL_SIGNIN): $(LOCAL_AUTH_SIGNIN) $(LOCAL_AUTH_OBJ) $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(LOCAL_AUTH_SIGNIN) $(LOCAL_AUTH_OBJ) $(USER_LIB_OBJ) -o $@
@@ -4030,7 +4031,15 @@ build/userspace/test_local_signin_session.elf: userspace/localauth/session.c $(U
 	$(CC) $(USER_CFLAGS) -DLOCAL_AUTH_VM_TEST -c $< -o build/userspace/test_local_signin_session.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/test_local_signin_session.o $(USER_LIB_OBJ) -o $@
 
--include $(LOCAL_AUTH_OBJ:.o=.d) $(LOCAL_AUTH_SIGNIN:.o=.d) $(LOCAL_AUTH_ENROLL:.o=.d) $(LOCAL_AUTH_SESSION:.o=.d)
+build/userspace/localauth/%-reset-test.o: userspace/localauth/%.c $(ZIG)
+	mkdir -p $(@D)
+	$(CC) $(USER_CFLAGS) -DLOCAL_AUTH_RESET_VM_TEST -c $< -o $@
+
+LOCAL_AUTH_RESET_TEST_SUPPORT := $(filter-out build/userspace/localauth/accounts.c.o,$(LOCAL_AUTH_OBJ))
+build/userspace/test_local_auth_reset.elf: $(LOCAL_AUTH_RESET_TEST_OBJ) $(LOCAL_AUTH_RESET_TEST_SUPPORT) $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(LOCAL_AUTH_RESET_TEST_OBJ) $(LOCAL_AUTH_RESET_TEST_SUPPORT) $(USER_LIB_OBJ) -o $@
+
+-include $(LOCAL_AUTH_OBJ:.o=.d) $(LOCAL_AUTH_SIGNIN:.o=.d) $(LOCAL_AUTH_ENROLL:.o=.d) $(LOCAL_AUTH_SESSION:.o=.d) $(LOCAL_AUTH_RESET_TEST_OBJ:.o=.d)
 
 .PHONY: test-local-auth-crypto
 test-core: test-local-auth-crypto

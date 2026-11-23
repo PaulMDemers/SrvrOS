@@ -1,5 +1,45 @@
 # Apple Silicon macOS build host
 
+## Console password reset
+
+`device/apple-silicon/console-password-reset` starts from `54b1596c`.
+The scope covers the administrator enrollment command, account-store
+replacement and its one-VM proof. The checkpoint is a password reset
+on the same enrolled identity, both users' file bytes and permissions
+after reboot, and recovery from an interruption on either side of
+account-store replacement. It uses the recovery boot, account lock and
+strict installed-root admission already qualified by #512 and #526.
+
+In the `srvros.auth=recovery` administrator console, run
+`run /fat/bin/local-enroll reset-password NAME`. Enter the new password
+twice at the hidden prompts. A successful reset leaves the user's numeric
+identity, home, and enabled state in place.
+
+If the reset process stops before reporting success, restart into explicit
+recovery on the same installed disk. Keep the committed
+`/fat/etc/local-auth/accounts` file. For a known interrupted reset on a
+healthy volume, discard `/fat/etc/local-auth/accounts.tmp` if present, then
+remove `/fat/etc/local-auth/enroll.lock` if present. The committed store
+contains the old credential if replacement had yet to occur and the new
+credential if replacement completed. The next boot with `srvros.auth=local`
+uses the committed store. If the committed file is missing or the volume
+requires filesystem recovery, handle that recovery before clearing markers.
+
+Runtime `fdbb2567` passed the matched build, authentication crypto checks and
+all 14 sign-in cases on one disposable installed QEMU disk. The stock tool
+replaced the password and kept a disabled account disabled. The diagnostic
+tool stopped the reset process immediately before or after account-store
+replacement. Pending markers blocked sign-in in both cases. Recovery kept
+the committed store byte-for-byte and restored the appropriate credential.
+After each recovery boot both users retained their exact file contents,
+owners and modes, and cross-user access remained denied. The matched receipt
+and logs are under `build/review/local-signin/proof-lcl_x1yy/`.
+
+Merge review rebuilt runtime `1793cbee` on main `8c5565d4` after #528
+changed the packaged system image. All 14 cases passed again on one fresh
+disposable installation. The matching receipt and logs are under
+`build/review/local-signin/proof-p72hjw9j/`.
+
 ## Interactive isolated console
 
 `device/apple-silicon/interactive-console-session` started from `4c95594e`
@@ -24,7 +64,7 @@ retired. The shipped program also passed the Ctrl-C recovery and command
 length checks. Desktop login and profile migration are separate.
 
 Build with
-`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf build/userspace/test_local_auth_reset.elf`.
 Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
 with the local EFI firmware templates. The matched receipt and redacted
 logs are under `build/review/local-signin/proof-o6gc2m2e/`.
@@ -80,7 +120,7 @@ Explicit administrator recovery still opened the missing-metadata fixture.
 The damaged store and writable launcher controls also passed.
 
 Build with
-`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf build/userspace/test_local_auth_reset.elf`.
 Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
 with the local EFI firmware templates. Receipts and redacted console logs
 are saved under `build/review/local-signin/`.

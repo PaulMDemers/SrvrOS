@@ -30,7 +30,11 @@ ACCOUNT_PATH = '/fat/etc/local-auth/accounts'
 PASSWORDS = {'alpha': b'fixture-alpha-pass-91', 'beta': b'fixture-beta-pass-72',
              'disabled': b'fixture-disabled-pass-63'}
 WRONG = b'fixture-incorrect-pass-54'
-SECRETS = tuple(PASSWORDS.values()) + (WRONG,)
+RESET_ALPHA = b'fixture-reset-alpha-pass-23'
+RESET_DISABLED = b'fixture-reset-disabled-pass-36'
+RESET_BEFORE = b'fixture-reset-before-pass-48'
+RESET_AFTER = b'fixture-reset-after-pass-59'
+SECRETS = tuple(PASSWORDS.values()) + (WRONG, RESET_ALPHA, RESET_DISABLED, RESET_BEFORE, RESET_AFTER)
 
 
 def save_json(path, value):
@@ -105,6 +109,41 @@ def copy_esp(source, target):
 def account_bytes(disk):
     _, (offset, size) = proof.partitions(disk)
     return ExfatFixture(proof.data_image(disk, offset, size)).read('etc/local-auth/accounts')
+
+
+def account_rows(raw):
+    lines = raw.splitlines()
+    if not lines or lines[0] != b'SRVROS-LOCAL-AUTH-1':
+        raise RuntimeError('unexpected committed accounts format')
+    rows = {}
+    for line in lines[1:]:
+        fields = line.split(b' ')
+        if len(fields) != 6 or fields[0] in rows:
+            raise RuntimeError('invalid committed account row')
+        rows[fields[0]] = fields
+    return rows
+
+
+def reset_record_matches(before, after):
+    return (before[:4] == after[:4] and
+            before[4] != after[4] and before[5] != after[5])
+
+
+def verify_persisted_files(disk, partition):
+    image = ExfatFixture(proof.data_image(disk, *partition))
+    for name in ('alpha', 'beta'):
+        expected = (name + '-private-persisted').encode()
+        if image.read('home/local-' + name + '/evidence.txt') != expected:
+            raise RuntimeError(f'{name}: persisted file bytes differ')
+
+
+def marker_bytes(disk, name):
+    _, (offset, size) = proof.partitions(disk)
+    fs = ExfatFixture(proof.data_image(disk, offset, size))
+    try:
+        return fs.read('etc/local-auth/' + name)
+    except StopIteration:
+        return None
 
 
 def sidecar_variant(data, variant):
@@ -273,6 +312,14 @@ class VM:
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: command failed: {command}')
 
+    def command_refused(self, command):
+        start = len(self.output); self.send(('run ' + command).encode('ascii'))
+        self.wait(b' exited status='); self.wait(b'\nsrv> ')
+        segment = bytes(self.output[start:])
+        result = re.search(rb'run: pid=\d+ exited status=(\d+)', segment)
+        if not result or int(result.group(1)) == 0 or b'New password: ' in segment:
+            raise RuntimeError(f'{self.label}: expected command refusal: {command}')
+
     def enroll(self, name, uid):
         start = len(self.output)
         self.send(f'run /fat/bin/local-enroll add {name} {uid} {uid}'.encode())
@@ -282,6 +329,26 @@ class VM:
         result = re.search(rb'run: pid=\d+ exited status=(\d+)', self.output[start:])
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: enrollment failed: {name}')
+
+    def reset_password(self, name, password, checkpoint=None):
+        binary = '/fat/signin-test/reset' if checkpoint else '/fat/bin/local-enroll'
+        line = f'run {binary} reset-password {name}'
+        if checkpoint: line += ' --interrupt-' + checkpoint + '-rename'
+        start = len(self.output)
+        self.send(line.encode('ascii'))
+        for prompt in (b'New password: ', b'Confirm password: '):
+            self.wait(prompt)
+            self.send(password)
+            if self.wait(b'\r\n') != b'\r\n':
+                raise RuntimeError('password reset input echoed')
+        self.wait(b' exited status='); self.wait(b'\nsrv> ')
+        segment = bytes(self.output[start:])
+        result = re.search(rb'run: pid=\d+ exited status=(\d+)', segment)
+        expected = 86 if checkpoint else 0
+        if not result or int(result.group(1)) != expected:
+            raise RuntimeError(f'{self.label}: reset exit did not match expected status {expected}')
+        if (b'local-enroll: password reset' in segment) != (checkpoint is None):
+            raise RuntimeError('reset publication message did not match requested outcome')
 
     def attempt(self, name, password, uid=None, session=None, ending='logout', diagnostic=True,
                 interrupt_retry=False):
@@ -434,7 +501,9 @@ def main():
             receipt[name + '_sha256'] = sha(actual)
         diagnostic = runtime_elf((ROOT / 'build/userspace/test_local_signin_session.elf').read_bytes())
         receipt['diagnostic_session_sha256'] = sha(diagnostic)
-        fs.add_directory_files('signin-test', {'session': diagnostic})
+        reset_tool = runtime_elf((ROOT / 'build/userspace/test_local_auth_reset.elf').read_bytes())
+        receipt['diagnostic_reset_sha256'] = sha(reset_tool)
+        fs.add_directory_files('signin-test', {'session': diagnostic, 'reset': reset_tool})
         volume = out / 'fixture.exfat'; volume.write_bytes(fs.data)
         plan, ready = prepare_stage(out / 'local', 'local', volume=volume)
         target = out / 'local/image.img'
@@ -461,6 +530,7 @@ def main():
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != initial_data_hash: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'enroll', args, 'recovery') as vm:
+            vm.command('/fat/bin/chmod 755 /fat/signin-test/reset')
             for name, uid in (('alpha',1001), ('beta',1002), ('disabled',1003)):
                 vm.enroll(name, uid)
             vm.command('/fat/bin/local-enroll disable disabled')
@@ -491,6 +561,39 @@ def main():
                                  'fixture_command_unavailable': 'PASS'})
         save()
 
+        before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        before_reset = account_rows(account_bytes(target))
+        with VM(target, out, 'reset-stock', args, 'recovery') as vm:
+            vm.command_refused('/fat/bin/local-enroll reset-password alpha --interrupt-before-rename')
+            vm.command_refused('/fat/bin/local-enroll reset-password alpha --interrupt-after-rename')
+            vm.reset_password('alpha', RESET_ALPHA)
+            vm.reset_password('disabled', RESET_DISABLED)
+            vm.finish()
+        after_reset = account_rows(account_bytes(target))
+        for name in (b'alpha', b'disabled'):
+            if not reset_record_matches(before_reset[name], after_reset[name]):
+                raise RuntimeError('stock reset changed identity/enabled state or left verifier unchanged')
+        if before_reset.keys() != after_reset.keys() or before_reset[b'beta'] != after_reset[b'beta']:
+            raise RuntimeError('stock reset changed another account')
+        before_swap = region_hash(target, *data); local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'reset-stock-verify', args, 'local') as vm:
+            vm.attempt('alpha', PASSWORDS['alpha'])
+            vm.attempt('disabled', PASSWORDS['disabled'])
+            vm.attempt('disabled', RESET_DISABLED)
+            vm.attempt('alpha', RESET_ALPHA, 1001, diagnostic=False,
+                       session=lambda v: v.session_files('alpha', 1001, peer='beta'))
+            vm.attempt('beta', PASSWORDS['beta'], 1002, diagnostic=False,
+                       session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+            vm.finish()
+        verify_persisted_files(target, data)
+        alpha_password = RESET_ALPHA
+        original_accounts = account_bytes(target)
+        receipt['cases'].append({'stock_password_reset': 'PASS', 'test_flags_refused': 'PASS', 'old_credential_refused': 'PASS',
+            'disabled_remains_disabled': 'PASS', 'other_account_and_files_unchanged': 'PASS'})
+        save()
+
         before_swap = region_hash(target, *data)
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
@@ -506,28 +609,87 @@ def main():
                 vm.attempt('alpha', WRONG, interrupt_retry=True)
                 vm.attempt('unknown', WRONG)
                 vm.attempt('disabled', PASSWORDS['disabled'])
-                vm.attempt('alpha', PASSWORDS['alpha'], 1001,
+                vm.attempt('alpha', alpha_password, 1001,
                     session=lambda v: v.session_files('alpha', 1001, hold=True),
                     ending='crash' if number == 2 else 'logout')
                 vm.attempt('beta', PASSWORDS['beta'], 1002,
                     session=lambda v: v.session_files('beta', 1002, peer='alpha', hold=True),
                     ending='crash' if number == 1 else 'logout')
-                vm.attempt('alpha', PASSWORDS['alpha'], 1001,
+                vm.attempt('alpha', alpha_password, 1001,
                     session=lambda v: v.session_files('alpha', 1001, peer='beta'))
                 vm.finish()
-            image = ExfatFixture(proof.data_image(target, *data))
-            for name in ('alpha', 'beta'):
-                expected = (name + '-private-persisted').encode()
-                if image.read('home/local-' + name + '/evidence.txt') != expected:
-                    raise RuntimeError(f'{name}: persisted file bytes differ after boot {number}')
+            verify_persisted_files(target, data)
             receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS',
                 'interrupt_during_retry_returns_to_login': 'PASS',
                 'alpha': 'PASS', 'beta': 'PASS', 'file_readback': 'PASS',
                 'cross_user_denial': 'PASS', 'worker_logout_and_crash_retired': 'PASS'})
             save()
+        # Stop the reset process on each side of account-store replacement.
+        # All decisions below come from the committed store and actual marker
+        # files on the same disk, with a fresh boot at each admission boundary.
+        for checkpoint, proposed in (('before', RESET_BEFORE), ('after', RESET_AFTER)):
+            old_password = alpha_password
+            committed = account_bytes(target)
+            rows_before = account_rows(committed)
+            before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'reset-' + checkpoint + '-interrupt', args, 'recovery') as vm:
+                vm.reset_password('alpha', proposed, checkpoint=checkpoint)
+                vm.finish()
+            interrupted = account_bytes(target)
+            staged = marker_bytes(target, 'accounts.tmp')
+            if marker_bytes(target, 'enroll.lock') is None:
+                raise RuntimeError('interrupted reset has no transaction lock')
+            if checkpoint == 'before':
+                if interrupted != committed or staged is None:
+                    raise RuntimeError('before-rename reset changed committed store or lacks staged store')
+                candidate = staged
+            else:
+                if interrupted == committed or staged is not None:
+                    raise RuntimeError('after-rename reset did not replace store or retained staged name')
+                candidate = interrupted
+            rows_after = account_rows(candidate)
+            if (rows_before.keys() != rows_after.keys() or
+                not reset_record_matches(rows_before[b'alpha'], rows_after[b'alpha']) or
+                rows_before[b'beta'] != rows_after[b'beta'] or
+                rows_before[b'disabled'] != rows_after[b'disabled']):
+                raise RuntimeError('interrupted reset changed unrelated account or failed to change verifier')
+            before_swap = region_hash(target, *data); local_mode()
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'reset-' + checkpoint + '-pending', args, 'local') as vm:
+                vm.attempt('alpha', old_password); vm.attempt('alpha', proposed); vm.finish()
+            if account_bytes(target) != interrupted:
+                raise RuntimeError('pending reset sign-in changed committed store')
+            before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'reset-' + checkpoint + '-recovery', args, 'recovery') as vm:
+                if staged is not None: vm.command('/fat/bin/rm /fat/etc/local-auth/accounts.tmp')
+                vm.command('/fat/bin/rm /fat/etc/local-auth/enroll.lock')
+                vm.finish()
+            if (account_bytes(target) != interrupted or marker_bytes(target, 'accounts.tmp') is not None or
+                marker_bytes(target, 'enroll.lock') is not None):
+                raise RuntimeError('reset recovery changed committed store or retained transaction markers')
+            accepted, rejected = (old_password, proposed) if checkpoint == 'before' else (proposed, old_password)
+            before_swap = region_hash(target, *data); local_mode()
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'reset-' + checkpoint + '-verified', args, 'local') as vm:
+                vm.attempt('alpha', rejected)
+                vm.attempt('alpha', accepted, 1001,
+                           session=lambda v: v.session_files('alpha', 1001, peer='beta'))
+                vm.attempt('beta', PASSWORDS['beta'], 1002,
+                           session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+                vm.attempt('disabled', RESET_DISABLED)
+                vm.finish()
+            verify_persisted_files(target, data)
+            alpha_password = accepted
+            original_accounts = account_bytes(target)
+            receipt['cases'].append({'reset_interruption': checkpoint, 'real_marker_refusal': 'PASS',
+                'committed_store_preserved_during_recovery': 'PASS', 'expected_credentials': 'PASS',
+                'both_users_data_and_permissions': 'PASS', 'committed_sha256': sha(interrupted)})
+            save()
         if args.interactive_only:
             receipt.update(status='PASS', final_disk_sha256=installation.digest(target),
-                           limitations=['interactive subset only; full security suite not run',
+                           limitations=['interactive and reset subset only; full security suite not run',
                                         'disposable QEMU only', 'no physical or power-loss qualification'])
             print(f'local-signin: interactive subset PASS; evidence {out}', flush=True)
             return
@@ -547,7 +709,7 @@ def main():
             before_swap = region_hash(target, *data); local_mode()
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
             with VM(target, out, 'pending-' + name, args, 'local') as vm:
-                vm.attempt('alpha', PASSWORDS['alpha']); vm.attempt('beta', PASSWORDS['beta'])
+                vm.attempt('alpha', alpha_password); vm.attempt('beta', PASSWORDS['beta'])
                 vm.finish()
             before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
@@ -557,7 +719,7 @@ def main():
             before_swap = region_hash(target, *data); local_mode()
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
             with VM(target, out, 'pending-' + name + '-cleared', args, 'local') as vm:
-                vm.attempt('alpha', PASSWORDS['alpha'], 1001); vm.finish()
+                vm.attempt('alpha', alpha_password, 1001); vm.finish()
             receipt['cases'].append({'pending': name, 'refused': 'PASS', 'cleared_retry': 'PASS'})
             save()
         # Preserve one exact data snapshot. Mutations are made only offline,
@@ -604,7 +766,7 @@ def main():
         local_mode()
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'damaged', args, 'local') as vm:
-            vm.attempt('alpha', PASSWORDS['alpha'])
+            vm.attempt('alpha', alpha_password)
             vm.attempt('beta', PASSWORDS['beta'])
             vm.finish()
         receipt['cases'].append({'damaged_store': 'PASS'})
