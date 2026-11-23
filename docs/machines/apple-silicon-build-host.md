@@ -303,6 +303,13 @@ stopped and released the VM window. Static GLib, GObject and GModule
 archives built. Static GIO stops at missing `<fnmatch.h>`.
 See the [linked child-watch receipt](../assets/evidence/glib-unix-abi/receipt.json).
 
+## GLib MIME pattern matching — November 22, 2026
+
+The browser topic starts from merged PR #523 at `50f1978a`. The SDK
+adds `fnmatch()` for its single-byte C locale. Verification covers
+the XDG MIME zero-flag call and the public pattern flags in a private
+guest, then reruns the pinned GIO build.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
