@@ -142,6 +142,7 @@ struct process_pipe_rights {
 
 struct process_pipe {
     bool used;
+    bool seqpacket;
     uint64_t refs;
     uint64_t read_refs;
     uint64_t write_refs;
@@ -6160,6 +6161,37 @@ static uint64_t pipe_alloc(void) {
     return 0;
 }
 
+/* A packet occupies two little-endian length bytes followed by its payload in
+ * the same ring. The rights queue continues to address the record start. */
+#define PIPE_PACKET_HEADER_SIZE 2u
+_Static_assert(SRV_PIPE_MESSAGE_MAX <= UINT16_MAX, "pipe packet length fits header");
+
+static bool pipe_has_space(const struct process_pipe *pipe, uint64_t length) {
+    uint64_t overhead = pipe->seqpacket ? PIPE_PACKET_HEADER_SIZE : 0;
+    return length + overhead <= PROCESS_PIPE_CAPACITY - pipe->size;
+}
+
+static uint64_t pipe_payload_pos(const struct process_pipe *pipe, uint64_t pos) {
+    return pipe->seqpacket ? (pos + PIPE_PACKET_HEADER_SIZE) % PROCESS_PIPE_CAPACITY : pos;
+}
+
+static uint64_t pipe_packet_length(const struct process_pipe *pipe) {
+    uint64_t pos = pipe->read_pos;
+    return (uint64_t)pipe->buffer[pos] |
+        ((uint64_t)pipe->buffer[(pos + 1) % PROCESS_PIPE_CAPACITY] << 8);
+}
+
+static void pipe_publish_write(struct process_pipe *pipe, uint64_t length) {
+    uint64_t pos = pipe->write_pos;
+    if (pipe->seqpacket) {
+        pipe->buffer[pos] = (uint8_t)length;
+        pipe->buffer[(pos + 1) % PROCESS_PIPE_CAPACITY] = (uint8_t)(length >> 8);
+        pipe->size += PIPE_PACKET_HEADER_SIZE;
+    }
+    pipe->write_pos = (pipe_payload_pos(pipe, pos) + length) % PROCESS_PIPE_CAPACITY;
+    pipe->size += length;
+}
+
 static void pipe_ref(uint64_t handle, bool write_end) {
     struct process_pipe *pipe = pipe_at(handle);
     if (pipe == NULL) {
@@ -6586,7 +6618,7 @@ static bool pipe_write_ready(void *arg) {
         process_signal_pending_current() ||
         pipe == NULL ||
         pipe->read_refs == 0 ||
-        PROCESS_PIPE_CAPACITY-pipe->size >= wait->minimum;
+        pipe_has_space(pipe, wait->minimum);
 }
 
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
@@ -6635,7 +6667,7 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
     return 0;
 }
 
-int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
+static int64_t pipe_pair_open(struct process *process, uint64_t fds_out[2], bool seqpacket) {
     if (process == NULL || fds_out == NULL) {
         return SRV_ERR_INVAL;
     }
@@ -6667,6 +6699,8 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
         pipe_close(pipe_ab, true);
         return SRV_ERR_NFILE;
     }
+    pipes[pipe_ab - 1].seqpacket = seqpacket;
+    pipes[pipe_ba - 1].seqpacket = seqpacket;
 
     struct process_file *first_file = &process->files[first_index];
     struct process_file *second_file = &process->files[second_index];
@@ -6687,6 +6721,14 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
     fds_out[0] = first_index;
     fds_out[1] = second_index;
     return 0;
+}
+
+int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
+    return pipe_pair_open(process, fds_out, false);
+}
+
+int64_t process_file_seqpacket_pair(struct process *process, uint64_t fds_out[2]) {
+    return pipe_pair_open(process, fds_out, true);
 }
 
 static struct process_unix_listener *unix_listener_at(uint64_t handle) {
@@ -6961,7 +7003,7 @@ bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t le
     if(file->type!=PROCESS_FILE_PIPE_DUPLEX &&
        file->type!=(writing?PROCESS_FILE_PIPE_WRITE:PROCESS_FILE_PIPE_READ))return false;
     struct process_pipe *pipe=pipe_at(writing && file->type==PROCESS_FILE_PIPE_DUPLEX?file->aux_handle:file->handle);
-    if(!pipe)return false;
+    if (!pipe || pipe->seqpacket) return false;
     /* Existing byte operations cannot wait on these descriptors. Keep signal
      * dispatch and descriptor release outside an owned storage service window.
      * Called with interrupts disabled; state cannot change before the copy. */
@@ -7026,9 +7068,17 @@ static int64_t pipe_read_common(struct process *process, uint64_t fd, uint8_t *b
             }
             process_irq_restore(irq);return (int64_t)count;
 #else
+            uint64_t consume = count;
+            uint64_t pos = pipe->read_pos;
+            if (pipe->seqpacket && pipe->size) {
+                uint64_t packet = pipe_packet_length(pipe);
+                count = length < packet ? length : packet;
+                consume = packet + PIPE_PACKET_HEADER_SIZE;
+                pos = pipe_payload_pos(pipe, pos);
+            }
             unsigned records = 0;
             while (records < PROCESS_PIPE_RIGHTS_QUEUE && pipe->rights[records].used &&
-                pipe->rights[records].offset < count) records++;
+                pipe->rights[records].offset < consume) records++;
             if (records && !retired) {
                 if (generation == UINT64_MAX) { process_irq_restore(irq); return SRV_ERR_BADF; }
                 process_irq_restore(irq);
@@ -7037,21 +7087,23 @@ static int64_t pipe_read_common(struct process *process, uint64_t fd, uint8_t *b
                 irq = process_irq_save();
                 continue;
             }
-            uint64_t first = PROCESS_PIPE_CAPACITY - pipe->read_pos;
+            uint64_t first = PROCESS_PIPE_CAPACITY - pos;
             if (first > count) first = count;
             if (count) {
                 if (copyout) {
-                    if (!copyout(context, pipe->buffer + pipe->read_pos, first,
+                    if (!copyout(context, pipe->buffer + pos, first,
                         pipe->buffer, count - first)) {
                         process_irq_restore(irq);
                         if (retired) kfree(retired);
                         return SRV_ERR_FAULT;
                     }
                 } else {
-                    copy_bytes(buffer, pipe->buffer + pipe->read_pos, first);
+                    copy_bytes(buffer, pipe->buffer + pos, first);
                     copy_bytes(buffer + first, pipe->buffer, count - first);
                 }
-                pipe_commit_read(pipe, count, retired, records);
+            }
+            if (consume) {
+                pipe_commit_read(pipe, consume, retired, records);
                 scheduler_wake_all(&pipe_wait_queue);
                 process_file_poll_wake();
             }
@@ -7136,16 +7188,17 @@ static int64_t pipe_write_common(struct process *process, uint64_t fd, const uin
     if(file->type!=PROCESS_FILE_PIPE_WRITE || !process_experimental_pipe_simple(pipe)){result=SRV_ERR_NOTSUP;goto out;}
 #endif
     if (!length) { result = 0; goto out; }
+    if (pipe->seqpacket && length > SRV_PIPE_MESSAGE_MAX) { result = SRV_ERR_MSGSIZE; goto out; }
     if (!pipe->read_refs) { result = pipe_broken_write(process, 0); goto out; }
     struct pipe_io_wait wait = {process, fd, process->file_generations[fd],
         file->type == PROCESS_FILE_PIPE_DUPLEX ? file->aux_handle : file->handle,
-        length <= SRV_PIPE_BUF ? length : 1, file->type, true};
+        (pipe->seqpacket || length <= SRV_PIPE_BUF) ? length : 1, file->type, true};
     uint64_t done = 0;
     while (done < length) {
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
         if(!process_experimental_pipe_simple(pipe)){result=done?(int64_t)done:SRV_ERR_NOTSUP;goto out;}
 #endif
-        while (PROCESS_PIPE_CAPACITY-pipe->size < wait.minimum && pipe->read_refs > 0) {
+        while (!pipe_has_space(pipe, wait.minimum) && pipe->read_refs > 0) {
             if (process_should_exit_current()) {
                 result = done > 0 ? (int64_t)done : -1;
                 goto out;
@@ -7178,27 +7231,27 @@ static int64_t pipe_write_common(struct process *process, uint64_t fd, const uin
             goto out;
         }
 
-        uint64_t space = PROCESS_PIPE_CAPACITY - pipe->size;
-        if (space < wait.minimum) {
+        if (!pipe_has_space(pipe, wait.minimum)) {
             result = done > 0 ? (int64_t)done : SRV_ERR_INTR;
             goto out;
         }
+        uint64_t space = PROCESS_PIPE_CAPACITY - pipe->size;
         uint64_t remaining = length - done;
         uint64_t count = remaining < space ? remaining : space;
-        uint64_t first = PROCESS_PIPE_CAPACITY - pipe->write_pos;
+        uint64_t pos = pipe_payload_pos(pipe, pipe->write_pos);
+        uint64_t first = PROCESS_PIPE_CAPACITY - pos;
         if (first > count) first = count;
         if (copyin) {
-            if (!copyin(context, done, pipe->buffer + pipe->write_pos, first,
+            if (!copyin(context, done, pipe->buffer + pos, first,
                 pipe->buffer, count - first)) {
                 result = done ? (int64_t)done : SRV_ERR_FAULT;
                 goto out;
             }
         } else {
-            copy_bytes(pipe->buffer + pipe->write_pos, buffer + done, first);
+            copy_bytes(pipe->buffer + pos, buffer + done, first);
             copy_bytes(pipe->buffer, buffer + done + first, count - first);
         }
-        pipe->write_pos = (pipe->write_pos + count) % PROCESS_PIPE_CAPACITY;
-        pipe->size += count;
+        pipe_publish_write(pipe, count);
         done += count;
         scheduler_wake_all(&pipe_wait_queue);
         process_file_poll_wake();
@@ -7363,7 +7416,7 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
         }
         if ((events & SRV_POLLOUT) != 0 &&
             write_pipe->read_refs != 0 &&
-            write_pipe->size < PROCESS_PIPE_CAPACITY) {
+            pipe_has_space(write_pipe, write_pipe->seqpacket ? 0 : 1)) {
             revents |= SRV_POLLOUT;
         }
         if (write_pipe->read_refs == 0) {
@@ -7685,6 +7738,7 @@ static int64_t process_file_send_rights_locked(struct process *process, uint64_t
     if (pipe == NULL || pipe->read_refs == 0) {
         return -1;
     }
+    if (pipe->seqpacket) return SRV_ERR_NOTSUP;
 
     struct process_pipe_rights *slot = NULL;
     for (uint64_t i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++) {
@@ -7776,6 +7830,11 @@ int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
             if (retired) kfree(retired);
             return SRV_ERR_BADF;
         }
+        if (pipe->seqpacket) {
+            process_irq_restore(irq);
+            if (retired) kfree(retired);
+            return SRV_ERR_NOTSUP;
+        }
         if (!pipe->rights[0].used || pipe->rights[0].offset != 0) {
             bool copied = copyout(context, NULL, 0, 0);
             process_irq_restore(irq);
@@ -7827,7 +7886,7 @@ int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
  * close/reuse wakes the waiter and cannot redirect it to the replacement. */
 struct pipe_message_wait {
     struct process *process;
-    uint64_t fd, generation, handle;
+    uint64_t fd, generation, handle, length;
     bool writing, needs_rights;
     struct process_user_thread *thread;
 };
@@ -7856,19 +7915,26 @@ static bool pipe_message_ready(void *arg) {
     if (!pipe || process->killed || process->exiting || (pending & ~mask)) return true;
     if (!wait->writing) return pipe->size != 0 || pipe->write_refs == 0;
     if (!pipe->read_refs) return true;
-    if (pipe->size == PROCESS_PIPE_CAPACITY) return false;
+    if (!pipe_has_space(pipe, pipe->seqpacket ? wait->length : 1)) return false;
     return !wait->needs_rights || !pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1].used;
 }
 
 int64_t process_file_send_message(struct process *process, uint64_t fd,
     const uint8_t *buffer, uint64_t length, const struct srv_pipe_message *message) {
     if (!message || (!buffer && length) || length > SRV_PIPE_MESSAGE_MAX || message->count > SRV_RIGHTS_MAX ||
-        (message->flags & ~(SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_NOSIGNAL)) || (message->count && !length)) return SRV_ERR_INVAL;
+        (message->flags & ~(SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_NOSIGNAL | PROCESS_PIPE_MSG_OVERSIZE)) ||
+        (message->count && !length)) return SRV_ERR_INVAL;
     uint64_t irq = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (!file) { process_irq_restore(irq); return SRV_ERR_BADF; }
     if (file->type != PROCESS_FILE_PIPE_DUPLEX) { process_irq_restore(irq); return SRV_ERR_NOTSUP; }
-    if (!length) { process_irq_restore(irq); return 0; }
+    struct process_pipe *initial_pipe = pipe_at(file->aux_handle);
+    if (!initial_pipe) { process_irq_restore(irq); return SRV_ERR_BADF; }
+    if (initial_pipe->seqpacket && (message->flags & PROCESS_PIPE_MSG_OVERSIZE)) {
+        process_irq_restore(irq);
+        return SRV_ERR_MSGSIZE;
+    }
+    if (!length && !initial_pipe->seqpacket) { process_irq_restore(irq); return 0; }
     /* Do not retain rights across a wait. Revalidate each source when the
      * pipe becomes writable; a source-only close need not wake this waiter. */
     uint64_t source_generations[SRV_RIGHTS_MAX];
@@ -7883,7 +7949,7 @@ int64_t process_file_send_message(struct process *process, uint64_t fd,
             return SRV_ERR_BADF;
         }
     }
-    struct pipe_message_wait wait = {process, fd, process->file_generations[fd], file->aux_handle,
+    struct pipe_message_wait wait = {process, fd, process->file_generations[fd], file->aux_handle, length,
         true, message->count != 0, process_current_user_thread()};
     if (wait.generation == UINT64_MAX) { process_irq_restore(irq); return SRV_ERR_BADF; }
     for (;;) {
@@ -7893,7 +7959,7 @@ int64_t process_file_send_message(struct process *process, uint64_t fd,
             process_irq_restore(irq);
             return (message->flags & SRV_PIPE_MSG_NOSIGNAL) ? SRV_ERR_PIPE : pipe_broken_write(process, 0);
         }
-        if (pipe->size < PROCESS_PIPE_CAPACITY &&
+        if (pipe_has_space(pipe, pipe->seqpacket ? length : 1) &&
             (!wait.needs_rights || !pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1].used)) {
             struct process_pipe_rights *rights = NULL;
             if (message->count) {
@@ -7916,12 +7982,14 @@ int64_t process_file_send_message(struct process *process, uint64_t fd,
             if (rights) pipe_rights_present = true;
             uint64_t count = PROCESS_PIPE_CAPACITY - pipe->size;
             if (count > length) count = length;
-            uint64_t first = PROCESS_PIPE_CAPACITY - pipe->write_pos;
+            uint64_t pos = pipe_payload_pos(pipe, pipe->write_pos);
+            uint64_t first = PROCESS_PIPE_CAPACITY - pos;
             if (first > count) first = count;
-            copy_bytes(pipe->buffer + pipe->write_pos, buffer, first);
-            copy_bytes(pipe->buffer, buffer + first, count - first);
-            pipe->write_pos = (pipe->write_pos + count) % PROCESS_PIPE_CAPACITY;
-            pipe->size += count;
+            if (count) {
+                copy_bytes(pipe->buffer + pos, buffer, first);
+                copy_bytes(pipe->buffer, buffer + first, count - first);
+            }
+            pipe_publish_write(pipe, count);
             scheduler_wake_all(&pipe_wait_queue);
             process_file_poll_wake();
             process_irq_restore(irq);
@@ -7951,16 +8019,26 @@ int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
     struct process_file *file = process_file_at(process, fd);
     if (!file) { failure = SRV_ERR_BADF; goto fail; }
     if (file->type != PROCESS_FILE_PIPE_DUPLEX) { failure = SRV_ERR_NOTSUP; goto fail; }
-    struct pipe_message_wait wait = {process, fd, process->file_generations[fd], file->handle,
+    struct pipe_message_wait wait = {process, fd, process->file_generations[fd], file->handle, 0,
         false, false, process_current_user_thread()};
     if (wait.generation == UINT64_MAX) { failure = SRV_ERR_BADF; goto fail; }
     for (;;) {
         struct process_pipe *pipe = pipe_message_current(&wait);
         if (!pipe) { failure = SRV_ERR_BADF; goto fail; }
-        if (!length || pipe->size || !pipe->write_refs) {
+        if (pipe->size || !pipe->write_refs || (!pipe->seqpacket && !length)) {
             uint64_t count = length < pipe->size ? length : pipe->size;
+            uint64_t consume = count;
+            uint64_t pos = pipe->read_pos;
+            struct srv_pipe_message result = {0};
             unsigned records = 0;
-            if (count && pipe->rights[0].used) {
+            if (pipe->seqpacket && pipe->size) {
+                uint64_t packet = pipe_packet_length(pipe);
+                count = length < packet ? length : packet;
+                consume = packet + PIPE_PACKET_HEADER_SIZE;
+                pos = pipe_payload_pos(pipe, pos);
+                if (count < packet) result.flags |= SRV_PIPE_MSG_TRUNC;
+                records = pipe->rights[0].used && pipe->rights[0].offset == 0;
+            } else if (count && pipe->rights[0].used) {
                 if (pipe->rights[0].offset) {
                     if (count > pipe->rights[0].offset) count = pipe->rights[0].offset;
                 } else {
@@ -7969,6 +8047,7 @@ int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
                     if (records < PROCESS_PIPE_RIGHTS_QUEUE && pipe->rights[records].used &&
                         count > pipe->rights[records].offset) count = pipe->rights[records].offset;
                 }
+                consume = count;
             }
             /* Detach up to the bounded queue size into heap storage. Never
              * release arbitrary final file references inside the transaction. */
@@ -7979,7 +8058,6 @@ int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
                 irq = process_irq_save();
                 continue;
             }
-            struct srv_pipe_message result = {0};
             for (unsigned r = 0; r < records; r++) {
                 struct process_pipe_rights *rights = &pipe->rights[r];
                 for (uint64_t i = 0; i < rights->count; i++) {
@@ -7997,10 +8075,10 @@ int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
                     result.fds[result.count++] = (int32_t)installed;
                 }
             }
-            uint64_t first = PROCESS_PIPE_CAPACITY - pipe->read_pos;
+            uint64_t first = PROCESS_PIPE_CAPACITY - pos;
             if (first > count) first = count;
             if (count) {
-                copy_bytes(buffer, pipe->buffer + pipe->read_pos, first);
+                copy_bytes(buffer, pipe->buffer + pos, first);
                 copy_bytes(buffer + first, pipe->buffer, count - first);
             }
             if (copyout && !copyout(context, buffer, count, &result)) {
@@ -8009,8 +8087,8 @@ int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
                 goto fail;
             }
             *message = result;
-            if (!(request & SRV_PIPE_MSG_PEEK) && count) {
-                pipe_commit_read(pipe, count, retired, records);
+            if (!(request & SRV_PIPE_MSG_PEEK) && consume) {
+                pipe_commit_read(pipe, consume, retired, records);
                 scheduler_wake_all(&pipe_wait_queue);
                 process_file_poll_wake();
             }
@@ -8073,6 +8151,10 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd) {
         return flags<0?flags:(int64_t)(access|(uint64_t)flags);
     }
     uint64_t *status=endpoint_status_flags(file);
+    if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        struct process_pipe *pipe = pipe_at(file->handle);
+        if (pipe && pipe->seqpacket) access |= SRV_FD_SEQPACKET;
+    }
     return access|((status?*status:file->flags)&SRV_FD_NONBLOCK);
 }
 /* Scalar simple-pipe metadata only, revalidated under IF0. No allocation,
@@ -8428,12 +8510,12 @@ int64_t process_file_stat(struct process *process,
         if (pipe == NULL) {
             return -1;
         }
-        *size_out = pipe->size;
+        *size_out = pipe->seqpacket ? 0 : pipe->size;
         *type_out = 0;
         if (metadata_out != NULL) {
             *metadata_out = (struct vfs_metadata) {
                 .inode = file->handle,
-                .mode = VFS_MODE_IFIFO | 0600,
+                .mode = (pipe->seqpacket ? VFS_MODE_IFSOCK : VFS_MODE_IFIFO) | 0600,
                 .nlink = 1,
             };
         }
