@@ -26,8 +26,9 @@ exFAT disk. GLib's hostname utilities compile and the native hostname checks
 passed. The SDK's `creat()` passed on private exFAT and `gstdio.c` compiles.
 With the corrected `GPid` ABI and an explicit unsupported descriptor-path
 result, a target GLib-linked child-watch test passed twice. Static GLib,
-GObject and GModule archives build. Static GIO next stops at missing
-`<fnmatch.h>` in its XDG MIME code.
+GObject and GModule archives build. XDG MIME objects compile with the
+SDK's guest-verified C-locale `fnmatch()`. Static GIO next stops on
+`FIONREAD` and `inotify_init()` in its inotify backend.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains

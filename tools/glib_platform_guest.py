@@ -33,6 +33,7 @@ RESOLVER_MARKER = b'glib-resolver: ok'
 FILE_POLICY_MARKER = b'glib-file-policy: ok'
 CHILD_WATCH_MARKER = b'glib-child-watch: ok'
 LINKED_CHILD_WATCH_MARKER = b'glib-linked-child-watch: ok'
+FNMATCH_MARKER = b'glib-fnmatch: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -151,6 +152,7 @@ def main():
     parser.add_argument('--child-watch', action='store_true', help='test native SIGCHLD wake and targeted reaping')
     parser.add_argument('--linked-child-watch', type=Path, metavar='ELF',
                         help='boot a previously linked SrvrOS GLib child-watch ELF from this checkout')
+    parser.add_argument('--fnmatch', action='store_true', help='test SDK filename pattern matching')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -211,6 +213,17 @@ def main():
             payloads['glib-linked-child-watch'] = payload
             probes['glib-linked-child-watch'] = (LINKED_CHILD_WATCH_MARKER,)
             receipt['linked_child_watch_payload_sha256'] = payload_hash
+        if args.fnmatch:
+            unit = ROOT / 'tools/test_glib_fnmatch_guest.c'
+            receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
+            obj = output / 'fnmatch.o'
+            payload = output / 'fnmatch.elf'
+            subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
+                            '-c', unit, '-o', obj], cwd=ROOT, check=True, timeout=60)
+            subprocess.run([compiler, obj, '-o', payload], cwd=ROOT, check=True, timeout=60)
+            receipt['fnmatch_payload_sha256'] = digest(payload)
+            payloads['glib-fnmatch'] = payload
+            probes['glib-fnmatch'] = (FNMATCH_MARKER,)
         if args.resolver:
             dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
             unit = ROOT / 'tools/test_glib_resolver_guest.c'
