@@ -248,8 +248,11 @@ and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-curr
    use that lifetime for the compositor. Physical acceptance requires
    repeated flips, rollback and retirement on the internal panel.
 
-The Air7,2 completed step 1 on release `5d1fa7400ba472cc`. The entire
-eligible region had nonzero entries. Release `a773b6292dc27551` exercised
+On the Air7,2, release `5d1fa7400ba472cc` exhausted the eligible CPU-visible
+region. Release `51a95ee689defdf0` also examined a full surface starting at
+GPU address `0x10000000`. All 1,484 translations pointed to the first page
+of the active framebuffer on both passes. A private second surface still
+needs its own backing and GPU address ownership. Release `a773b6292dc27551` exercised
 the allocator portion of step 2 on the Air. The original framebuffer fence
 stayed pinned while the allocator imported both firmware spans and lent
 and recovered slot 8704. The driver-owned path keeps that firmware interval reserved through

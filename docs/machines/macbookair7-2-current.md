@@ -10,12 +10,20 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
-The private-range diagnostic will check all 1,484 entries of a second
-framebuffer candidate beginning immediately beyond BAR2. It uses the existing
-GGTT interval registry, read-only BAR0 probe, display exclusion and USB
-receipt collector. The inherited scanout and slot 12291 stay pinned or
-untouched throughout. The physical result and native mapping authority
-remain pending.
+Release `51a95ee689defdf0` (source `88767a7e`, session
+`session-000660ea03769bd3-00`) found all 53,760 eligible entries in the
+CPU-visible aperture occupied. Immediately above BAR2, all 1,484 entries
+starting at slot 65536 read `0x8c001001` on both passes. The independent
+display-backing capture identifies physical page `0x8c001000` as the first
+page of the active boot framebuffer. Writing pixels through any of those
+GPU addresses would therefore alias the same live page.
+
+The allocator left the candidate unclaimed and issued zero PTE writes.
+The original Pipe A frame counter advanced from 1160 to 1165. Ubuntu
+collected the matching session and the offline exFAT check passed.
+Further progress on rebinding slot 12291 requires control of new GPU
+requests, fresh engine and L3 completion evidence, and WiDi exclusion
+through rollback. This read-only trial exercised none of those operations.
 
 ## Driver-owned one-page trial
 
