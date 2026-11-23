@@ -24,15 +24,17 @@ The framebuffer snapshot was preserved. Admission stopped before GT wake or
 any GPU page-table write. All seven command slots had zero observations. This
 confirms the direct GRUB boot repair. The EFI handoff prerequisite failed.
 
-The saved report cannot distinguish a probe load failure, an allocation or
-ACPI publication failure, or rejection during kernel import. The next trial
-instruments GRUB, the EFI helper and kernel import separately. The two boot-stage
-receipts live on the unit ESP and are diagnostic only. In QEMU the successful
-case records the three EFI service replies and a kernel import of `ready`.
-Removing the helper from the disposable ESP yields GRUB `load-failed`, an
-empty probe record and kernel import `absent`. A separate VM with an
-unavailable ACPI table protocol recorded entry, completed the capture, and
-saved `EFI_NOT_FOUND` at lookup before returning to GRUB.
+Physical release `7ad8a1e15a360b58`, session `session-000660f90e1a5366-00`,
+located the failure. The matching ESP receipt records probe entry and capture
+state 2, step 6. The helper sampled all seven translations twice and matched
+the active framebuffer. Locating the EFI ACPI table protocol then returned
+`EFI_NOT_FOUND` (`0x800000000000000e`) before allocation or publication.
+GRUB recorded `start-failed` and successfully booted SrvrOS. The kernel saw
+17 ACPI tables and zero OEMG records. The original framebuffer was preserved,
+GPU PTE writes remained zero and the offline USB check passed. The missing
+protocol QEMU case reproduced this sequence. The next handoff needs a
+transport available on this firmware, with the same binding and reserved-page
+checks in SrvrOS. The two ESP receipts are diagnostics.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
@@ -55,8 +57,9 @@ before using the reservation. The backing stays reserved across reset and
 PCI reopening and returns to the boot reservation on clean retirement.
 
 The host suite passed all 23 tests. The first OVMF trial recovered all 19 pages.
-The firmware inventory and seven translations still need a successful
-physical handoff on this Air. The first native command still depends on a device-wide drain and
+The firmware capture completed on the Air. Kernel import of the driver inventory,
+raw translations and backing reservation still needs physical verification.
+The first native command still depends on a device-wide drain and
 an independent WiDi hold. [EFI handoff](../intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 
 The blitter can promote that exact reservation when the original owner

@@ -491,12 +491,19 @@ the live surface to a GOP framebuffer. It leaves the display mode in place.
 [UEFI PCI I/O](https://uefi.org/specs/UEFI/2.10/14_Protocols_PCI_Bus_Support.html)
 [UEFI graphics output](https://uefi.org/specs/UEFI/2.10/12_Protocols_Console_Support.html)
 
-The loader reserves 19 ACPI NVS pages and seeds each page. It installs the
+When firmware exposes the EFI ACPI table protocol, the loader reserves 19
+ACPI NVS pages and seeds each page. It installs the
 checksummed OEMG table with ID `BDWBOOT1` and returns control to GRUB. GRUB starts Limine from the release directory.
 SrvrOS verifies the memory map, physical translations and contents before
 using that backing. The kernel compares the panel and command slots with the
 same boot's firmware snapshot across the reset and bus-master transition.
 On a clean return it reseeds the private backing and retains the NVS reservation.
+
+On the reference Air the helper completed the capture but the protocol lookup
+returned `EFI_NOT_FOUND` before page allocation. GRUB continued to Limine,
+and the kernel reported `status=absent catalog=17 oemg=0`. The handoff still
+requires an alternative publication path on this firmware.
+[Physical run](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
 The physical prerequisite records how far the firmware capture progressed,
 which provider was visible and whether the original display and mappings
