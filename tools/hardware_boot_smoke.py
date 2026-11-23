@@ -910,8 +910,8 @@ def main():
                                     shortcut(keys)
                                 marker=f"deskd: bar volume={volume} result=0"
                                 wait_for(serial,lambda s:marker in s[offset:],process,10)
-                            sound_key(("down",),35)
-                            sound_key((),25)
+                            sound_key((),15)
+                            sound_key(("down",),25)
                             sound_key(("down","down"),0)
                             sound_key(("down",),25)
                         if sound_trial:
@@ -1054,8 +1054,9 @@ def main():
                         if sound_trial:
                             exit_log=stored.read(folder+"/exit.log")
                             for receipt in (guide.encode(), b"deskterm: shell exited status=0",
-                                            b"deskd: bar volume=0 result=0", b"deskd: bar volume=25 result=0",
-                                            b"retina-trial: desktop returned=1"):
+                                            b"deskd: bar volume=15 result=0", b"deskd: bar volume=0 result=0",
+                                            b"deskd: bar volume=25 result=0", b"retina-trial: desktop returned=1",
+                                            b"tail_limit=524288\n"):
                                 assert receipt in exit_log, receipt
                             assert re.search(rb"workspace-devices: pcm_state=4 owner=0 handle=[1-9][0-9]* submitted=1152000 position=[0-9]+ queued=0 underruns=0 ",exit_log)
                             from array import array

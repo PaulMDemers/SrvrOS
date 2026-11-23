@@ -132,7 +132,7 @@ static bool sample_jack(void) {
     if(revoke) { stream_cancel(false);stopped=codec.available; }
     else stopped=stop();
     bool ok=stopped && hda_codec_route(&codec,target);
-    log_auto_jack(present,stopped && (playing || revoke),ok);
+    log_auto_jack(present,stopped && playing,ok);
     return ok;
 }
 static bool eligible(void *arg) { (void)arg;return pending_op || stream_ready() || (controller.playing && codec.available) || jack_due(); }

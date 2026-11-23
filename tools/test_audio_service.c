@@ -85,6 +85,12 @@ int main(void) {
     assert(!stream_owner && stream.state==SRV_PCM_CANCELED);
     assert(!strcmp(jack_receipt,"audio-jack: present=0 output=0 playback_stopped=1 ok=1\n"));
     assert(audio_stream_request(42,SRV_PCM_FINISH,handle,NULL,0)==-1);silent();
+    jack_mock_present=true;clock_us+=500000;service();clock_us+=100000;service();
+    assert(codec.output==HDA_HEADPHONES && !controller.playing);
+    handle=audio_stream_request(42,SRV_PCM_OPEN,0,NULL,0);assert(handle>0);
+    jack_mock_present=false;clock_us+=500000;service();clock_us+=100000;service();
+    assert(!stream_owner && stream.state==SRV_PCM_CANCELED && codec.output==HDA_SPEAKERS);
+    assert(!strcmp(jack_receipt,"audio-jack: present=0 output=0 playback_stopped=0 ok=1\n"));
     for(unsigned i=0;i<1000;i++) { setup();assert(!audio_request(SRV_AUDIO_TEST,0));service();assert(!audio_request(SRV_AUDIO_STOP,0));service();silent(); }
     free(pcm);puts("audio-service: PASS queued ownership, Stop priority, ramped stereo/tail, zero gain, DMA progress deadline, failed start/stop/jack and 1000 reuse cycles");
     return 0;

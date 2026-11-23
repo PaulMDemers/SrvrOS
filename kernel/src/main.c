@@ -902,6 +902,7 @@ static void startup_checkpoint(uint32_t phase,uint64_t flags) {
 
 static void retina_desktop_trial(const char *cmdline) {
     bool saved = false;
+    bool sound_trial = cmdline_has_token(cmdline,"srvros.sound-trial=1");
     console_printf("retina-trial: boot options=%s\n", cmdline);
     struct console_display_info display;
     if (console_display_info(&display)) {
@@ -910,10 +911,9 @@ static void retina_desktop_trial(const char *cmdline) {
     /* An untimed trial needs rolling snapshots after the boot log wraps. */
     if (!workspace_active()) {
         console_write("retina-trial: workspace unavailable; desktop skipped\n");
-    } else if (!workspace_log_start()) {
+    } else if (!(sound_trial ? workspace_log_start_full_capture() : workspace_log_start())) {
         console_write("retina-trial: logging unavailable; desktop skipped\n");
     } else {
-        bool sound_trial = cmdline_has_token(cmdline,"srvros.sound-trial=1");
         const char *args = sound_trial ? "--sound-trial --scale=2" :
             cmdline_has_token(cmdline,"srvros.retina-screenshot=1") ? "--retina-screenshot" : "--retina-trial";
         bool returned = process_run_elf_args("/fat/bin/deskd", args);
