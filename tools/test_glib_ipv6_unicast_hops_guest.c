@@ -21,6 +21,7 @@ static int ttl_is(int fd, int expected) {
 
 int main(void) {
     _Static_assert(IPV6_UNICAST_HOPS == 16, "Linux-compatible option value");
+    _Static_assert(IPV6_MULTICAST_LOOP == 19, "Linux-compatible multicast option value");
     errno = 0;
     CHECK("ipv6-stream", socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP) == -1 && errno == EAFNOSUPPORT);
     errno = 0;
@@ -39,6 +40,18 @@ int main(void) {
     errno = 0;
     CHECK("ipv6-get-refused", getsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &output, &length) == -1 &&
           errno == ENOSYS && output == 0x12345678 && length == sizeof(output) && ttl_is(fd, 37));
+    for (int value = 0; value <= 1; ++value) {
+        int input = value;
+        errno = 0;
+        CHECK("ipv6-multicast-set-refused", setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
+              &input, sizeof(input)) == -1 && errno == ENOSYS && input == value && ttl_is(fd, 37));
+        output = 0x12345678;
+        length = sizeof(output);
+        errno = 0;
+        CHECK("ipv6-multicast-get-refused", getsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
+              &output, &length) == -1 && errno == ENOSYS && output == 0x12345678 &&
+              length == sizeof(output) && ttl_is(fd, 37));
+    }
     ttl = -1;
     CHECK("ttl-reset", setsockopt(fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == 0 && ttl_is(fd, 64));
     CHECK("close", close(fd) == 0);

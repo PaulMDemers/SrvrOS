@@ -19,7 +19,8 @@ The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported
 IPv4 UDP `SO_BROADCAST` passed guest packet verification.
 The SDK declares `IP_MULTICAST_LOOP` for GIO. IPv4 UDP calls for this option
 return `ENOSYS`.
-Static GIO next stops at undeclared `IPV6_MULTICAST_LOOP` in `gsocket.c`.
+The SDK also declares `IPV6_MULTICAST_LOOP`. IPv6 sockets return `EAFNOSUPPORT`.
+Static GIO next stops at undeclared `IP_MULTICAST_TTL` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -726,6 +727,30 @@ Fresh pinned GLib configuration passed. Static GIO advanced past
 `IP_MULTICAST_LOOP` and first stopped at undeclared `IPV6_MULTICAST_LOOP`
 in `gio/gsocket.c:1835`.
 [Verification receipt](assets/evidence/gio-ip-multicast-loop/receipt.json)
+
+## IPv6 multicast loopback declaration
+
+After OS #542 landed at `9a9501a4`, the SDK exported
+`IPV6_MULTICAST_LOOP=19` through `<netinet/in.h>`. GIO uses it at the
+`IPPROTO_IPV6` level to control local delivery of outgoing multicast
+datagrams. The SDK follows the Linux option number. IPv6 transport
+remains unsupported in SrvrOS.
+[RFC 3493, section 5.2](https://www.rfc-editor.org/rfc/rfc3493.html#section-5.2)
+[Linux IPv6 socket option constants](https://github.com/torvalds/linux/blob/master/include/uapi/linux/in6.h)
+
+The expanded IPv6 probe passed twice in a private diskless guest with no
+NIC. IPv6 TCP and UDP socket creation returned `EAFNOSUPPORT`. On a valid
+IPv4 TCP socket, the new option returned `ENOSYS` for get and set with
+setter values zero and one. The caller buffers and get length stayed
+intact, and IPv4 TTL and the earlier IPv6 unicast-hop checks passed.
+Both platform controls passed. Kernel, init and SDK library hashes match
+the prior baseline. Integration coordinated the VM, and the guest stopped
+and released its window.
+
+Fresh pinned GLib configuration passed. Static GIO advanced past
+`IPV6_MULTICAST_LOOP` and first stopped at undeclared `IP_MULTICAST_TTL`
+in `gio/gsocket.c:1919`.
+[Verification receipt](assets/evidence/gio-ipv6-multicast-loop/receipt.json)
 
 ## Verification
 

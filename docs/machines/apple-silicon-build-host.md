@@ -585,6 +585,16 @@ Fresh pinned GLib configuration passed. Static GIO next stops at
 `IPV6_MULTICAST_LOOP` in `gsocket.c:1835`.
 [Verification receipt](../assets/evidence/gio-ip-multicast-loop/receipt.json)
 
+## GIO IPv6 multicast-loop declaration — November 23, 2026
+
+Merged OS #542 at `9a9501a4` is the baseline. Integration reviewed the SDK
+declaration and IPv6 socket boundary. Two expanded IPv6 option runs and two
+platform controls passed in a diskless guest with no NIC. ISO readback matched,
+and the prior IPv4 multicast proof remains intact. The guest stopped and
+released its window. Fresh pinned GLib configuration passed. Static GIO next
+stops at undeclared `IP_MULTICAST_TTL` in `gsocket.c:1919`.
+[Verification receipt](../assets/evidence/gio-ipv6-multicast-loop/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
