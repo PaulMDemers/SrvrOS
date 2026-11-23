@@ -5,10 +5,10 @@ November 22, 2026. The original target configure stopped at GLib's
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
-the static build graph. The GIO resolver and GLib file, hostname, main-loop
-and wakeup objects compile. The SDK's `creat()` passes on private exFAT and
-`glib/gstdio.c` compiles. The first static build failure is now in
-`glib/glib-unix.c`, on `GPid` layout and descriptor-path support.
+the static build graph. GLib, GObject and GModule build as target static
+archives. An executable linked against target GLib passed the child-watch
+probe twice on SrvrOS. The static GIO build stops in `xdgmimealias.c`
+because the SDK lacks `<fnmatch.h>`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -305,10 +305,9 @@ readback matched the kernel and all packed executables, and the guest
 removed its test directory. QEMU stopped and the VM window was released.
 
 Fresh configure, the `gstdio.c` object, and the host FD I/O restart test
-passed. The static GLib/GIO build stopped at `glib-unix.c`: GLib's
+passed. That static GLib/GIO build stopped in `glib-unix.c` because GLib's
 `GPid` (`int`) and the SDK's `pid_t` (`long`) differ in size and
-alignment, and `g_unix_fd_query_path()` has no target backend. The linked
-GLib child-watch test remains pending.
+alignment, and `g_unix_fd_query_path()` had no target branch.
 See the [file creation receipt](assets/evidence/glib-creat/receipt.json).
 
 PR #522 was requalified on main `6f4c8b92` at source `dac47528` with a
@@ -319,6 +318,57 @@ from the disposable disk. The host FD I/O restart regression passed.
 Reusing Meson's recorded commands with the rebuilt SDK, `gstdio.c`
 compiled and `glib-unix.c` reproduced the three diagnostics above.
 See the [current-main receipt](assets/evidence/glib-creat/current-main-receipt.json).
+
+## Linked GLib child watch
+
+The port uses GLib's detected 64-bit C type and format for SrvrOS `GPid`.
+The generated header matches the SDK's `pid_t` (`signed long`) and reports
+`G_PID_FORMAT` as `"li"`. GLib's trapped-test diagnostics use that macro.
+The wait-status decoder handles the SDK's exit and signal results and
+compiles the stopped-child branch where its wait macros exist.
+
+The filesystem owner reviewed the explicit `G_FILE_ERROR_NOSYS` result
+for `g_unix_fd_query_path()`. The SDK can resolve directory handles for
+its `*at()` APIs. The checksum-verified WPEWebKit 2.54.2 source had no caller
+of the general descriptor-path API, and GLib's own references were in
+tests. The guest checked a valid `/init` descriptor with and without an
+error output. [Pinned WPE release checksum](https://wpewebkit.org/release/wpewebkit-2.54.2.html)
+
+The static executable checks exact `GPid *` compatibility with `pid_t *`
+and formats a PID value above 32 bits. It observes an unrelated child exit
+without reaping it, attaches a real `GChildWatchSource`, and releases the
+watched child after the initial main-context iteration. The callback
+fires exactly once with the watched PID and exit status 17. The watched
+child is already reaped, and native `waitpid()` separately returns the
+unrelated child with status 42. The linked probe and both native
+regression probes each ran twice, with six zero exits. ISO readback matched
+the kernel and four packed executables. QEMU stopped and the VM window
+was released.
+
+The run used the matched SDK and boot inputs verified for PR #522.
+Fresh Meson configuration and static GLib, GObject and GModule builds
+passed. GLib's test diagnostics still warn on the SDK's separate
+`PRI*64` format macros. The static GIO build stops at `gio/xdgmime/xdgmimealias.c:22`,
+which includes `<fnmatch.h>`.
+See the [linked child-watch receipt](assets/evidence/glib-unix-abi/receipt.json).
+
+With an offline configured tree from `tools/browser_glib_iconv.py`,
+use its generated GLib headers and the target archives from the same run.
+Set `stage` to that configure run's output directory.
+
+```sh
+src="$stage/glib-2.90.1"
+obj="$stage/glib-build"
+ninja -C "$obj" glib/libglib-2.0.a subprojects/proxy-libintl-0.5/libintl.a
+ports/srvros/webkit/cc -std=gnu11 -O2 -Wall -Wextra -Werror -Wformat=2 \
+  -DGLIB_STATIC_COMPILATION -I"$src" -I"$obj" -I"$src/glib" -I"$obj/glib" \
+  -c tools/test_glib_linked_child_watch_guest.c -o "$stage/linked-child-watch.o"
+ports/srvros/webkit/cc "$stage/linked-child-watch.o" "$obj/glib/libglib-2.0.a" \
+  "$obj/subprojects/proxy-libintl-0.5/libintl.a" "$stage/target-pcre2/lib/libpcre2-8.a" \
+  "$stage/target-iconv/lib/libiconv.a" -latomic -pthread -o "$stage/linked-child-watch.elf"
+python3 tools/glib_platform_guest.py --child-watch \
+  --linked-child-watch "$stage/linked-child-watch.elf"
+```
 
 ## Verification
 

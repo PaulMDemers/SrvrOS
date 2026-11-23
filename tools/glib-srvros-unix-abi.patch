@@ -1,0 +1,48 @@
+--- meson.build
++++ meson.build
+@@ -1795,4 +1795,10 @@
+ else
+-  glibconfig_conf.set('g_pid_type', 'int')
+-  glibconfig_conf.set_quoted('g_pid_format', 'i')
++  if host_system == 'srvros'
++    # SrvrOS pid_t is int64_t. Use its detected C type and format.
++    glibconfig_conf.set('g_pid_type', 'gint64')
++    glibconfig_conf.set_quoted('g_pid_format', gint64_format)
++  else
++    glibconfig_conf.set('g_pid_type', 'int')
++    glibconfig_conf.set_quoted('g_pid_format', 'i')
++  endif
+   glibconfig_conf.set_quoted('g_pollfd_format', '%d')
+--- glib/glib-unix.c
++++ glib/glib-unix.c
+@@ -1000,2 +1000,8 @@
+   return g_strdup (file_path);
++#elif defined (__SRVROS__)
++  /* The SDK provides directory handle paths, but no general FD path query. */
++  (void) fd;
++  g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_NOSYS,
++                       "File descriptor path queries are not supported on SrvrOS");
++  return NULL;
+ #elif defined (__GNU__)
+--- glib/gspawn-posix.c
++++ glib/gspawn-posix.c
+@@ -501,2 +501,3 @@
+     }
++#if defined (WIFSTOPPED) && defined (WSTOPSIG)
+   else if (WIFSTOPPED (wait_status))
+@@ -508,2 +509,3 @@
+     }
++#endif
+   else
+--- glib/gtestutils.c
++++ glib/gtestutils.c
+@@ -4362,3 +4362,3 @@
+     {
+-      process_id = g_strdup_printf ("%s [%d]", test_trap_last_subprocess,
++      process_id = g_strdup_printf ("%s [%" G_PID_FORMAT "]", test_trap_last_subprocess,
+                                     test_trap_last_pid);
+@@ -4366,3 +4366,3 @@
+   else if (test_trap_last_pid != 0)
+-    process_id = g_strdup_printf ("%d", test_trap_last_pid);
++    process_id = g_strdup_printf ("%" G_PID_FORMAT, test_trap_last_pid);
+ #else
