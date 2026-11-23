@@ -154,9 +154,8 @@ static bool wifi_scan_capture(struct xhci_device *d){
     return ok;
 }
 
-/* Cache validity only: one root PORTSC read, no USB/RF command or poll loop.
- * Latched connection change retires the owner even if it is connected again.
- * Hub children need an independent live child-port observer before admission. */
+/* Cache validity uses root PORTSC and, for a hub leaf, its observed port state.
+ * No USB/RF commands or polling loops run in the cache query. */
 static bool wifi_scan_service_present(void *context){
     const struct xhci_device *d=context;
     /* The diagnostic configures its own firmware, MCU and RX endpoints. It
@@ -164,9 +163,10 @@ static bool wifi_scan_service_present(void *context){
     if(!xhci.operational || !d->present || !d->firmware.configured || !d->firmware.ready ||
        d->firmware.failed || !d->firmware.mcu.configured || !d->firmware.mcu.rx.configured ||
        !d->wifi_probe_ok || d->ep0_quarantined ||
-       d->parent_slot_id || !d->port_id || d->port_id>xhci.port_count ||
+       !d->port_id || d->port_id>xhci.port_count ||
        !d->firmware.mcu.scan_batch_mode || d->firmware.mcu.failed || d->firmware.mcu.scan.failed ||
        !d->firmware.mcu.scan.batch.complete)return false;
+    if(d->parent_slot_id)return wifi_hub_path_present(d);
     uint32_t state=op_read32(port_offset(d->port_id-1));
     return state!=UINT32_MAX && (state&(XHCI_PORTSC_CCS|XHCI_PORTSC_PED))==(XHCI_PORTSC_CCS|XHCI_PORTSC_PED) &&
         !(state&(XHCI_PORTSC_CSC|XHCI_PORTSC_PR));

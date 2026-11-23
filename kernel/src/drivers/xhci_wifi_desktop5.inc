@@ -26,7 +26,8 @@ static bool wifi_desktop5_unattempted(void){
 static bool wifi_desktop5_present(void *context){
  struct xhci_device *d=wifi_desktop5.device;
  return context==&wifi_desktop5 && d && d->present && !d->removed && !d->retiring &&
-  !d->slot_disabled && xhci.operational && !xhci.stopping;
+  !d->slot_disabled && xhci.operational && !xhci.stopping &&
+  (!d->parent_slot_id || wifi_hub_path_present(d));
 }
 /* xhci_device_snapshot reads this while holding the event IRQ lock. */
 static bool wifi_desktop5_driver_bound(const struct xhci_device *d){
@@ -228,6 +229,7 @@ static bool wifi_desktop5_window(void){
   return true;
  }
  wifi_desktop5.device=wifi_cal5.d;
+ if(!wifi_desktop5_present(&wifi_desktop5))return false;
  const struct wifi_service_provider ops={&wifi_desktop5,"Edimax USB Wi-Fi",wifi_desktop5_present};
  uint64_t flags=event_irq_save();
  wifi_desktop5.owner=wifi_service_publish_connection(&ops,&wifi_join5.peer);

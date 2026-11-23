@@ -7,6 +7,36 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### External USB Wi-Fi hub
+
+The attached USB2 topology on this unit is a Genesys Logic `05e3:0608`
+four-port high-speed single-TT hub. Ubuntu reports the existing Edimax
+`7392:a711` on downstream port 2, Realtek `0bda:8176` on port 1, and
+Netgear `0846:9055` on port 4. All three negotiated 480 Mbit/s. The exFAT
+workspace is on a separate SuperSpeed root port.
+
+The first change covers xHCI port observation, Edimax Wi-Fi cache and owner
+admission, and child removal containment. It keeps the accepted board's
+MediaTek identity and firmware gates. A hub child must have a matched
+downstream port status and a live root-attached high-speed hub before its
+Wi-Fi provider is exposed. The root-only replacement and active-removal
+retirement paths remain separate. The initial native checkpoint is boot,
+hub and three-leaf enumeration, Edimax identity and a clean automatic return
+with the workspace still on its own root port. DHCP and traffic over the hub
+need an independent connected trial. The device branch carries the qualified
+Wi-Fi and audio base at main `50f1978a`. Fetched main was `ddc37b8f`.
+
+For the Realtek devices, the observed interfaces are both vendor-specific.
+Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
+has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Linux binds
+`0846:9055` through `rtw88_8822bu` using `rtw8822b_hw_spec` and exposes 2.4 and
+5 GHz. It presents three bulk OUT, one bulk IN, and one interrupt IN endpoint
+in the captured USB2 configuration. Start with `0bda:8176` for Demers2.4.
+Each chip family needs an exact-identity, read-only probe and its own measured
+firmware, register, RX and TX paths before publishing a Wi-Fi provider. The
+Linux reference entry points are [rtl8192cu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c)
+and [rtw8822bu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtw88/rtw8822bu.c).
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

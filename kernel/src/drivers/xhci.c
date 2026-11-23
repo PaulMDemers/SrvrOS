@@ -151,6 +151,7 @@
 #define USB_FEATURE_C_PORT_RESET 20
 #define USB_HUB_PORT_CONNECTION 0x0001u
 #define USB_HUB_PORT_ENABLE 0x0002u
+#define USB_HUB_PORT_POWER 0x0100u
 #define USB_HUB_PORT_LOW_SPEED 0x0200u
 #define USB_HUB_PORT_HIGH_SPEED 0x0400u
 #define USB_HUB_STATUS_CHANGE_MASK 0xffff0000u
@@ -628,6 +629,7 @@ struct xhci_device {
     uint8_t parent_slot_id;
     uint8_t hub_port_id;
     uint8_t hub_ports,hub_tt_think_time,tt_cleanup_owner;
+    uint32_t hub_port_status;
     bool tt_cleanup_failed;
     uint8_t slot_type;
     uint8_t speed;
@@ -2795,12 +2797,33 @@ static void quarantine_subtree(struct xhci_device *root) {
 static void apply_hub_port_status(struct xhci_device *hub,uint8_t port,uint32_t status) {
     /* Replacement can already have CCS set again. Any change, reset, suspend,
      * overcurrent or lost enable quarantines that port's old descendants. */
-    if((status&3)==3 && !(status&(0xffff0000u|0x1cu)))return;
+    bool unchanged=(status&3)==3 && !(status&(0xffff0000u|0x1cu));
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];
-        if(d->present && d->parent_slot_id==hub->slot_id && d->hub_port_id==port)
-            quarantine_subtree(d);
+        if(!d->present || d->removed || d->retiring || d->slot_disabled ||
+           d->parent_slot_id!=hub->slot_id || d->hub_port_id!=port)continue;
+        d->hub_port_status=status;
+        if(!unchanged)quarantine_subtree(d);
     }
+}
+
+/* Admit a high-speed leaf through one high-speed root-attached USB2 hub.
+ * The status is set only by the matching port observer's completed GET_STATUS.
+ * A connection-change latch retires the old leaf even when CCS is set again. */
+static bool wifi_hub_path_present(const struct xhci_device *d) {
+    if(!xhci.operational || xhci.stopping || !d->addressed || d->removed || d->retiring ||
+       device_by_slot(d->slot_id)!=d || d->speed!=3 || !d->port_id || d->port_id>xhci.port_count ||
+       !d->hub_port_id || d->hub_ports)return false;
+    const struct xhci_device *hub=device_by_slot(d->parent_slot_id);
+    if(!hub || !hub->addressed || !hub->configured || hub->removed || hub->retiring ||
+       hub->control_failed || hub->ep0_quarantined || hub->speed!=3 || hub->parent_slot_id ||
+       hub->hub_port_id || hub->route_string || hub->port_id!=d->port_id ||
+       d->hub_port_id>hub->hub_ports || d->route_string!=child_route_string(0,d->hub_port_id))return false;
+    const uint32_t required=USB_HUB_PORT_CONNECTION|USB_HUB_PORT_ENABLE|USB_HUB_PORT_POWER|USB_HUB_PORT_HIGH_SPEED;
+    if((d->hub_port_status&required)!=required || (d->hub_port_status&(0xffff0000u|USB_HUB_PORT_LOW_SPEED|0x1cu)))return false;
+    uint32_t state=op_read32(port_offset(d->port_id-1));
+    return state!=UINT32_MAX && (state&(XHCI_PORTSC_CCS|XHCI_PORTSC_PED))==(XHCI_PORTSC_CCS|XHCI_PORTSC_PED) &&
+        !(state&(XHCI_PORTSC_CSC|XHCI_PORTSC_PR));
 }
 static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event) {
     int result=control_event_result(d,event);
@@ -4427,6 +4450,9 @@ void xhci_print_status(void) {
                 (uint64_t)device->slot_id, device->wifi_probe_ok ? "read" : "failed",
                 (uint64_t)device->wifi_identity.asic, (uint64_t)device->wifi_identity.mac,
                 (uint64_t)device->ep0_quarantined);
+            if(device->parent_slot_id)console_printf("xhci-wifi-hub: slot=%u parent=%u port=%u status=%x admitted=%u\n",
+                (uint64_t)device->slot_id,(uint64_t)device->parent_slot_id,(uint64_t)device->hub_port_id,
+                (uint64_t)device->hub_port_status,(uint64_t)wifi_hub_path_present(device));
         }
         if(device->network) {
             const struct xhci_network *n=device->network;

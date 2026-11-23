@@ -7249,6 +7249,36 @@ static void test_hub_changes(void) {
     assert(!reset_hub_port(hub,1,&status) && hub->control_failed && hub->control_completion==6 && !xhci.hub_ports_reset);
     puts("xhci-hub-change: PASS asynchronous poll, missed disconnect, descendant/sibling isolation, short/timeout quarantine and stuck reset refusal");
 }
+
+static void test_wifi_hub_path(void) {
+    struct xhci_device *hub=control_fixture();
+    hub->addressed=true;hub->speed=3;hub->hub_ports=4;hub->hub_poll_port=2;
+    struct xhci_device *wifi=&xhci.devices[1],*sibling=&xhci.devices[2];
+    *wifi=(struct xhci_device){.present=true,.addressed=true,.slot_id=2,.port_id=1,
+        .speed=3,.parent_slot_id=1,.hub_port_id=2,.route_string=2,.wifi_probe_ok=true};
+    *sibling=(struct xhci_device){.present=true,.addressed=true,.slot_id=3,.port_id=1,
+        .speed=3,.parent_slot_id=1,.hub_port_id=4,.route_string=4};
+    wifi->firmware.configured=wifi->firmware.ready=true;
+    wifi->firmware.mcu.configured=wifi->firmware.mcu.rx.configured=true;
+    wifi->firmware.mcu.scan_batch_mode=wifi->firmware.mcu.scan.batch.complete=true;
+    assert(!wifi_scan_service_present(wifi));
+    control_model=hub;hub_model_status=0x503;test_time=100;test_time_step=0;
+    service_hub_changes();
+    struct xhci_trb event;assert(poll_event(&event));dispatch_transfer_event(&event);
+    assert(wifi_scan_service_present(wifi) && !wifi_hub_path_present(sibling));
+    wifi_desktop5.device=wifi;assert(wifi_desktop5_present(&wifi_desktop5));
+    wifi->route_string=4;assert(!wifi_scan_service_present(wifi));wifi->route_string=2;
+    hub->ep0_quarantined=true;assert(!wifi_desktop5_present(&wifi_desktop5));hub->ep0_quarantined=false;
+    uint32_t *root=(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS);
+    *root|=XHCI_PORTSC_CSC;assert(!wifi_scan_service_present(wifi));*root&=~XHCI_PORTSC_CSC;
+    apply_hub_port_status(hub,4,0x100);
+    assert(sibling->removed && wifi_scan_service_present(wifi));
+    apply_hub_port_status(hub,2,0x10503); /* Old leaf cannot survive a latched reconnect. */
+    assert(wifi->removed && !wifi_desktop5_present(&wifi_desktop5) && !hub->removed);
+    apply_hub_port_status(hub,2,0x503);assert(!wifi_scan_service_present(wifi));
+    wifi_desktop5.device=NULL;
+    puts("xhci-wifi-hub: PASS live port required, sibling removal isolated, lost route and latched reconnect rejected");
+}
 static struct xhci_device *tt_cleanup_fixture(void) {
     struct xhci_device *d=control_fixture();
     d->parent_slot_id=3;d->hub_port_id=4;d->addressed=true;
@@ -7959,7 +7989,7 @@ int main(int argc, char **argv) {
         test_repeated_init();test_failed_init_restart();test_terminal_stop();test_slot_retirement();test_wifi_root_reattach();
         test_hub_route_depth();test_nested_tt();test_shared_tt_cleanup();test_hid_cancellation();
         test_short_hid_recovery();test_class_recovery_refusal();test_interrupt_recovery();test_ep0_recovery();
-        test_hub_changes();test_start_reset_boundaries();test_backing_reclaim();test_retired_event_drain();
+        test_hub_changes();test_wifi_hub_path();test_start_reset_boundaries();test_backing_reclaim();test_retired_event_drain();
         test_network_retirement();test_interrupt_retirement();test_storage_retirement();test_device_record_lifetime();
         test_command_identity();test_removal_lifetime();test_control_failure();test_strict_control();test_strict_no_data();test_wifi_recovery();test_pa5_refusal();return 0;
     }
@@ -8112,6 +8142,7 @@ int main(int argc, char **argv) {
     test_interrupt_recovery();
     test_ep0_recovery();
     test_hub_changes();
+    test_wifi_hub_path();
     test_start_reset_boundaries();
     test_backing_reclaim();
     test_retired_event_drain();
