@@ -1,0 +1,220 @@
+{
+  "scope": "GIO address-data declarations and numeric IPv4 resolver semantics",
+  "integration_base": "54b1596cf8b85d4e6af6d2a986530b554dde213b",
+  "tested_source": "9950f289df3e1f8470fd4370a0f8da66ca97339a",
+  "owner_review": "Historical Networking chat is archived with no active successor identified by Integration. Filesystem independently reviewed SDK and exact guest.",
+  "source_sha256": {
+    "Makefile": "85771b190efc67a3a20255ad1273be8af71d54b0cb412432d71b139c6ed9e4dd",
+    "tools/glib_platform_guest.py": "9d659e7bf0a1bd143633a616cdb2ff2b046113486cdb1a645735e8da99689ff5",
+    "tools/posix_socket_host_names.h": "487e4a77613c60c34fb9257401fd0684ac63f1df2ab46da2049674036b42582d",
+    "tools/test_glib_inet_address_guest.c": "67baebd3195bee2e136dab0b084ee4736b339e6afa6c6d291948564c2ab8fb71",
+    "tools/test_socket_calls.c": "a95cb0823eaefd82f79cba0cdd761d4bdfba12488b5fbf36328ac81af58e3e0a",
+    "userspace/lib/include/netdb.h": "cc541065c0d1f80b441c7c057e078fd33d7dac05f90a2b07442c05d4e3b08b39",
+    "userspace/lib/include/netinet/in.h": "7b5bd878e53f49859571d1ee2136db9f1ba29902e0b38ba3e49c9709e201424a",
+    "userspace/lib/src/posix_socket.c": "de7d39f1ec192656473184722da320621e9b878aa9b88da89c2f97156ae0ad80"
+  },
+  "fnmatch_fix": {
+    "pr": 527,
+    "stock_builds": [
+      {
+        "source": "c853aaf2c6b73c13cc62d6c788c7e382d711d46c",
+        "tree": "a6a82213dc8ba8a564d4afb5378dfdf8e1f4f456",
+        "build_exit": 0,
+        "receipt_sha256": "5a2327b01b47e142709b6fbcc60f42c12cfb987f60e07d01c7c9bb7c58deee93",
+        "full_build_log_sha256": "dced695f0689cf6c2e6e3f4210742f92d9ff72df1db4ec9f8d36a06c73cfd966",
+        "bundled_matcher_links": {
+          "ggrep": {
+            "elf_sha256": "d8af2f1a7524244e523913e87259616460f30379994c88ff57d2712104d23cf9",
+            "selected_matcher": "build/ports/gnu-grep/libgreputils.a:fnmatch.o: 0000000000000000 T fnmatch"
+          },
+          "ggrep-diagnostic": {
+            "elf_sha256": "e57aae12cd7b2ae013d0926fb614e5d5a9e1c7f5267fe7bae2139b9ef3c84e40",
+            "selected_matcher": "build/ports/gnu-grep/libgreputils.a:fnmatch.o: 0000000000000000 T fnmatch"
+          },
+          "diff": {
+            "elf_sha256": "be8186938ef43f7a8fdc959d5c676fb6b52f0613dfc91d6831fb0c258c9c4dc9",
+            "selected_matcher": "build/ports/diffutils-srvros/libdiffutils.a:libdiffutils_a-fnmatch.o: 0000000000000000 T fnmatch"
+          },
+          "diff-diagnostic": {
+            "elf_sha256": "2f8501c89e1970424c80dd8b83193fe19403ff483af34b42759f732d24d5eeae",
+            "selected_matcher": "build/ports/diffutils-srvros/libdiffutils.a:libdiffutils_a-fnmatch.o: 0000000000000000 T fnmatch"
+          }
+        }
+      },
+      {
+        "source": "54b1596cf8b85d4e6af6d2a986530b554dde213b",
+        "tree": "bcbdef9ce80e3cb2bb6cd25794d4e114a472fabf",
+        "build_exit": 0,
+        "receipt_sha256": "d3e5eb9d4f973986c0ceca1d4aeac543d736ddea7e468f523929927682915e70",
+        "full_build_log_sha256": "83dbcf388de6fbe06610cf1339718293f401458021a0462a96c573f13e2eec41",
+        "bundled_matcher_links": {
+          "ggrep": {
+            "elf_sha256": "b551736161977a9ddacb8e5b4b5377e9dd4840dd8b1b4788b6390c43cfd9c42e",
+            "selected_matcher": "build/ports/gnu-grep/libgreputils.a:fnmatch.o: 0000000000000000 T fnmatch"
+          },
+          "ggrep-diagnostic": {
+            "elf_sha256": "71776aec671067ca35369dc4be17c789af547b3c30143baafa9a682d546b1b46",
+            "selected_matcher": "build/ports/gnu-grep/libgreputils.a:fnmatch.o: 0000000000000000 T fnmatch"
+          },
+          "diff": {
+            "elf_sha256": "b2d39ad2a913a798af2c858db648f13bc18b089b67f86167502f93888203db2e",
+            "selected_matcher": "build/ports/diffutils-srvros/libdiffutils.a:libdiffutils_a-fnmatch.o: 0000000000000000 T fnmatch"
+          },
+          "diff-diagnostic": {
+            "elf_sha256": "7d51ba56ce5db404297c6b0fbbec44424f53e80d3e1eac395d3a1b6100a5ed3a",
+            "selected_matcher": "build/ports/diffutils-srvros/libdiffutils.a:libdiffutils_a-fnmatch.o: 0000000000000000 T fnmatch"
+          }
+        }
+      }
+    ]
+  },
+  "host_checks": {
+    "socket_modes_passed": 55,
+    "numeric_dns_calls": 0,
+    "target_cxx20_header_compile": "passed",
+    "host_libc_test_linker": "Darwin dead_strip equivalent for GNU gc-sections"
+  },
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "ginetaddress_object_exit": 0,
+    "static_gio_exit": 1,
+    "static_gio_errors": [
+      "gio/giptosmessage.c:73:10: error: use of undeclared identifier 'IP_TOS'",
+      "gio/giptosmessage.c:87:38: error: use of undeclared identifier 'IP_TOS'"
+    ],
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+      "tools/glib-srvros-file-monitor.patch": "2d14f424f56755d4912bd235a6f524bde4b350576bb6e063f848dab0db168153",
+      "build/browser-gio-inet-address/glib-build/gio/libgio-2.0.a.p/ginetaddress.c.o": "6b800d4748a31c692ccb6a2e9b3538d91d9978def7711fc97ba0d3251ce34c2e",
+      "build/browser-gio-inet-address/glib-build/gio/libgio-2.0.a.p/ginetaddressmask.c.o": "b45d042899336d6ba8b6ed93c090c9d7e7145169d4270d809b5b245619d79632",
+      "build/browser-gio-inet-address/glib-build/gio/libgio-2.0.a.p/ginetsocketaddress.c.o": "6d90f1aea7f44a24cfc581210a864a5802f31501003abf607632524f2d34094a",
+      "build/browser-gio-inet-address/glib-build/config.h": "ac60f9657dc1dc86f1292a34cfc5af79b703dd16ab843997fe4bc17ce9370f06",
+      "build/browser-gio-inet-address/glib-build/meson-logs/meson-log.txt": "311e320ce2f60606791ddf9e61b3db017eb578c05a564467474e9ee56f6dc602",
+      "build/browser-gio-inet-address/rerun-gio.sh": "ca81bc2091a4291f2c9549c5c7882799ecb2b8875790d151f565a2c32811cf69",
+      "build/browser-gio-inet-address/configure.log": "5e48cd03c705bdede1f2701641f98919cbc7eeda1ef33b6a55311b9cbe42bce1",
+      "build/browser-gio-inet-address/static-gio.log": "6c98d7434bcb0ced8d1289ace1429d2a4a0948133f53e7563e0e5de45276de4f",
+      "build/browser-gio-inet-address/sdk-build.log": "9c7a6f290cd72f50563e42992484dfa0ef7fbe4d0844e8cbb32278ed71b3eb5b",
+      "build/browser-gio-inet-address/sdk-boot-current-main.log": "e54ef3f6083d2b7ed12af47ca1bcc4feb44cfd34a44e62dbe73a454345c5dc16",
+      "build/browser-gio-inet-address/socket-calls.log": "61fd5c4d9982bcae1767ccf0d185f8509aa66b06942f021dd1d3c91c9c06d312",
+      "build/browser-gio-inet-address/headers.cc": "6f48b0a1098b81135beb8a5f9c5fe1e40be417e95e3e35e1a8fb57b7ff941930",
+      "build/browser-gio-inet-address/headers-cxx.o": "92e9456a8b7ece01587e351a3a4fa71ab4998de8afd3c66ac5977fb5f8533b67",
+      "build/browser-gio-inet-address/headers-cxx.log": "420b1d675ee5471263a287a6dd084d33517080219d90e322c14dcf4d18fdad5d",
+      "build/browser-gio-inet-address/ginetaddress.o": "8d47b2727911ad4c96d5f37d4a34b06dc1ef8d365383f47cbfbb9dbe6a9e1b70",
+      "build/browser-gio-inet-address/ginetaddress-object.log": "028135d5e9df0e5a8eadc09d6505c0507d243c20320bd93bd9e1cd230cb710ae",
+      "build/browser-gio-inet-address/inet-address.elf": "c1466cf86843fc55a12a8b5fa1b4531483856096defd9bcd0c56d18a53077b79",
+      "build/browser-gio-inet-address/poll-patch.log": "f04feee6fb5e00437a44750ecd530cd845916c8aa6ae9520e2c5cdb9e7e2fd25",
+      "build/browser-gio-inet-address/unix-watch-patch.log": "ac838a919f7270e088b73871355140b3a13ad7e7165d40a05ca2ff7499ad8348",
+      "build/browser-gio-inet-address/unix-abi-patch.log": "74a8ec2ed89f68f702308efa23b00e3d25cff1c19c40ff869a642a4cefdbf6fb",
+      "build/browser-gio-inet-address/file-monitor-patch.log": "10a64b06e23d6de0b29305f620e8b1e4be717de11d41c1ed6d2c50724b8295f3"
+    }
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "9950f289df3e1f8470fd4370a0f8da66ca97339a",
+    "sdk_headers_sha256": "1a24881915ab4d04978769eda3102b00dd5365987a80b5fc355d18a005734db1",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "9d659e7bf0a1bd143633a616cdb2ff2b046113486cdb1a645735e8da99689ff5",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "77c4aeeef27b9247b3587a5c863d98812540873aeb375c4cfdab06b05a85c78e",
+      "build/userspace/init.elf": "82b045fcaa8d971ff87eaf740e897440a4d8a3c866d534e5f60ae138770320ec",
+      "build/sysroot/srvros/lib/libsrvros.a": "873d9448be31f5c852162dba55c18201cd17331387510017ae736fd81bf8de39",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_inet_address_guest.c": "67baebd3195bee2e136dab0b084ee4736b339e6afa6c6d291948564c2ab8fb71"
+    },
+    "payload_sha256": "0143670b3e1c1609e4eb05e9340d6c72137a84be2645e72873c28dbc9af0f2ce",
+    "inet_address_payload_sha256": "c1466cf86843fc55a12a8b5fa1b4531483856096defd9bcd0c56d18a53077b79",
+    "image_sha256": "2d5c3b229fdedf27d4f5e2e57b11c3917d76ed3ca5301c6453670e0a911544c7",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-_44aykan/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:/tmp/srv-glib-_b6cixu1/serial,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-nic",
+      "none"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-inet-address",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-inet-address",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "1a646bc81bf3412f422e0978f3dacf09805b56eec3b75f869ce370ed215adec5"
+  },
+  "iso_readback": {
+    "kernel_sha256": "77c4aeeef27b9247b3587a5c863d98812540873aeb375c4cfdab06b05a85c78e",
+    "initramfs_sha256": "1ab759932691a6899eb0b7f44fe53846b046dba7b2def47c590f376cab24e9cf",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "e7d8f2e2079a67dd18cc87c8f288b211091b7d7f4d21511d8c2b1e43c3ceb7a3",
+      "glib-inet-address": "e5a3da5131b7720d280b0de64aa1e1e122ce56c03374c1c2633bbc1b53a40eb6"
+    },
+    "serial_zero_exits": 4
+  }
+}

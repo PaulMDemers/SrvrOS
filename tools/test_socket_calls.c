@@ -61,6 +61,7 @@ static const char *dns_mode;
 static bool unix_control;
 static size_t unix_path_length;
 static unsigned dns_sends, dns_receives, dns_polls;
+static unsigned dns_status_calls, dns_fallback_calls;
 static long fake_ms;
 static int stream_error_mode, stream_callback, error_queries, native_error;
 static int pipe_message_mode, pipe_message_calls, pipe_interrupt, pipe_reuse, pipe_right_reuse, pipe_backing_reuse;
@@ -157,8 +158,18 @@ int audit_poll(struct pollfd *fds, nfds_t count, int timeout) {
     fds->revents = POLLIN;
     return 1;
 }
-long srv_net_status_info(struct srv_net_status_info *info) { memset(info,0,sizeof(*info));info->dns_ip=0x0a000203;return 0; }
-long srv_net_dns(const char *name,uint32_t *out) { (void)out;assert(!strcmp(name,"outer.test"));return SRV_ERR_AGAIN; }
+long srv_net_status_info(struct srv_net_status_info *info) {
+    dns_status_calls++;
+    memset(info, 0, sizeof(*info));
+    info->dns_ip = 0x0a000203;
+    return 0;
+}
+long srv_net_dns(const char *name, uint32_t *out) {
+    (void)out;
+    dns_fallback_calls++;
+    assert(!strcmp(name, "outer.test"));
+    return SRV_ERR_AGAIN;
+}
 long srv_pipe_recv_rights(int fd,int *fds,size_t capacity,uint64_t *flags) { (void)fd;(void)fds;(void)capacity;*flags=0;return 0; }
 
 static void replace(void) {
@@ -413,6 +424,24 @@ int main(int argc,char **argv) {
         message.msg_controllen = sizeof(control.bytes);
         assert(message_extract_rights(&message, rights, &count) < 0 && errno == EINVAL && !count);
         puts("socket-calls: rights-const PASS");return 0;
+    }
+    if (!strcmp(argv[1], "addrinfo-numeric")) {
+        dns_mode = "dns-error";
+        struct addrinfo hints = {.ai_family = AF_INET6, .ai_flags = AI_NUMERICHOST};
+        struct addrinfo *info = &hints;
+        assert(getaddrinfo("outer.test", NULL, &hints, &info) == EAI_FAMILY && !info);
+        assert(getaddrinfo("192.0.2.1", NULL, &hints, &info) == EAI_FAMILY && !info);
+        hints.ai_family = AF_INET;
+        assert(getaddrinfo("outer.test", NULL, &hints, &info) == EAI_NONAME && !info);
+        assert(getaddrinfo("", NULL, &hints, &info) == EAI_NONAME && !info);
+        assert(getaddrinfo("192.0.2.1", "443", &hints, &info) == 0 && info);
+        assert(info->ai_family == AF_INET && info->ai_addrlen == sizeof(struct sockaddr_in));
+        struct sockaddr_in *addr = (struct sockaddr_in *)info->ai_addr;
+        assert(ntohl(addr->sin_addr.s_addr) == 0xc0000201u && ntohs(addr->sin_port) == 443);
+        freeaddrinfo(info);
+        assert(!dns_status_calls && !dns_fallback_calls && !dns_sends && !dns_polls);
+        puts("socket-calls: addrinfo-numeric PASS (no DNS calls)");
+        return 0;
     }
     if (!strncmp(argv[1], "dns-", 4)) {
         dns_mode = argv[1];

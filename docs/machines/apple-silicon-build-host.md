@@ -392,9 +392,20 @@ with a private exFAT disk passed the real GLocalFile polling lifecycle
 and directory refusal twice, with two passing platform controls.
 The filesystem owner independently verified the stopped guest and ISO
 readback. The VM window was released. That local-file-only link faults on
-unavailable unrelated services. The full static GIO build stops in
+unavailable unrelated services. That full static GIO build stopped in
 `ginetaddress.c` on `AI_NUMERICHOST` and missing IPv6 address declarations.
 See the [polling receipt](../assets/evidence/gio-poll-monitor/receipt.json).
+
+## GIO address declarations — November 22, 2026
+
+PR #527 restored the bundled matchers in GNU Grep and Diff. Integration
+verified full builds at `c853aaf2` and `54b1596c`. The browser topic
+rebuilds the SDK, kernel and init on `54b1596c`. All 55 socket checks passed,
+including the zero-DNS-call check for numeric IPv4 lookup. A diskless
+Q35 guest passed both address probes and both platform runs. ISO readback
+matched the exact kernel and three executables, and the guest stopped.
+Pinned static GIO compiles `ginetaddress.c` and stops at missing `IP_TOS`.
+[Address receipt](../assets/evidence/gio-inet-address/receipt.json)
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 

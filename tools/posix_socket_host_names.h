@@ -96,6 +96,9 @@
 #ifndef in6addr_any
 #define in6addr_any audit_in6addr_any
 #endif
+#ifndef in6addr_loopback
+#define in6addr_loopback audit_in6addr_loopback
+#endif
 uint16_t htons(uint16_t value);
 uint16_t ntohs(uint16_t value);
 uint32_t htonl(uint32_t value);

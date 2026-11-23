@@ -34,6 +34,7 @@ FILE_POLICY_MARKER = b'glib-file-policy: ok'
 CHILD_WATCH_MARKER = b'glib-child-watch: ok'
 LINKED_CHILD_WATCH_MARKER = b'glib-linked-child-watch: ok'
 FNMATCH_MARKER = b'glib-fnmatch: ok'
+INET_ADDRESS_MARKER = b'glib-inet-address: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
@@ -156,6 +157,7 @@ def main():
     parser.add_argument('--linked-child-watch', type=Path, metavar='ELF',
                         help='boot a previously linked SrvrOS GLib child-watch ELF from this checkout')
     parser.add_argument('--fnmatch', action='store_true', help='test SDK filename pattern matching')
+    parser.add_argument('--inet-address', action='store_true', help='test SDK address classifiers and numeric lookup')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     args = parser.parse_args()
@@ -227,17 +229,21 @@ def main():
             payloads[program] = payload
             probes[program] = (marker,)
             receipt[receipt_key] = payload_hash
-        if args.fnmatch:
-            unit = ROOT / 'tools/test_glib_fnmatch_guest.c'
+        sdk_probes = (('fnmatch', args.fnmatch, FNMATCH_MARKER),
+                      ('inet-address', args.inet_address, INET_ADDRESS_MARKER))
+        for name, enabled, marker in sdk_probes:
+            if not enabled:
+                continue
+            unit = ROOT / f"tools/test_glib_{name.replace('-', '_')}_guest.c"
             receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
-            obj = output / 'fnmatch.o'
-            payload = output / 'fnmatch.elf'
+            obj = output / f'{name}.o'
+            payload = output / f'{name}.elf'
             subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
                             '-c', unit, '-o', obj], cwd=ROOT, check=True, timeout=60)
             subprocess.run([compiler, obj, '-o', payload], cwd=ROOT, check=True, timeout=60)
-            receipt['fnmatch_payload_sha256'] = digest(payload)
-            payloads['glib-fnmatch'] = payload
-            probes['glib-fnmatch'] = (FNMATCH_MARKER,)
+            receipt[f"{name.replace('-', '_')}_payload_sha256"] = digest(payload)
+            payloads[f'glib-{name}'] = payload
+            probes[f'glib-{name}'] = (marker,)
         if args.resolver:
             dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
             unit = ROOT / 'tools/test_glib_resolver_guest.c'

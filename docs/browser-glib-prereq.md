@@ -9,8 +9,8 @@ the static build graph. GLib, GObject and GModule build as target static
 archives. An executable linked against target GLib passed the child-watch
 probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
 A local-file-only GIO link verified the polling fallback on private exFAT.
-The full static GIO build now stops in `ginetaddress.c` on SDK networking
-declarations, starting with `AI_NUMERICHOST`.
+Guest-verified SDK address declarations let `ginetaddress.c` compile.
+Static GIO now stops at missing `IP_TOS` in `giptosmessage.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -433,9 +433,44 @@ whole-second mtime, so same-size writes in one second and short-lived
 changes between polls can be missed. A done hint describes observation,
 and provides no storage durability guarantee.
 
-The full build reached `gio/ginetaddress.c:461` and stopped at
+That full build reached `gio/ginetaddress.c:461` and stopped at
 `AI_NUMERICHOST`, followed by missing IPv6 address constants and
 predicates. See the [polling build and guest receipt](assets/evidence/gio-poll-monitor/receipt.json).
+
+## GIO address declarations
+
+PR #527 retained the bundled GNU matcher in the production and diagnostic
+Grep and Diffutils links. Integration verified all four links in full
+builds at the merge and at main `54b1596c`. The address probe uses the
+SDK, kernel and init rebuilt on that newer baseline.
+[Earlier CLI receipt](assets/evidence/earlier-cli/receipt.json)
+
+The SDK supplies the IPv4 multicast predicate, IPv6 unspecified and
+loopback data, and IPv6 address classification over the network-order
+bytes. The classifiers cover link-local and site-local prefixes and the
+multicast scopes used by GIO. `getaddrinfo()` supports numeric IPv4 lookup with
+`AI_NUMERICHOST` and returns `EAI_NONAME` for nonnumeric input. A numeric
+request for an unsupported family returns `EAI_FAMILY` before either
+resolver path can run. [RFC 3493](https://www.rfc-editor.org/rfc/rfc3493) ·
+[RFC 4291](https://www.rfc-editor.org/rfc/rfc4291)
+
+Integration found the historical networking chat archived and identified
+no active successor. The filesystem owner independently reviewed the
+SDK contract and the stopped guest. The host socket suite passed 55
+modes. Numeric cases left both the UDP DNS and native DNS fallback
+counters at zero. The C and C++ target header checks passed.
+
+Both address and both platform probes passed in the normal diskless
+guest. The native probes checked the IPv4 multicast boundaries, exact
+IPv6 constants, prefix and scope classification with single evaluation,
+numeric IPv4 result shape and both numeric error cases. ISO readback
+matched the kernel and all three packed executables. QEMU stopped and
+the VM window was released.
+
+The fresh post-guest configure retained the polling fallback. Static GIO
+compiled `ginetaddress.c`, `ginetaddressmask.c` and `ginetsocketaddress.c`.
+The next failed unit was `gio/giptosmessage.c`, at `IP_TOS` on lines 73
+and 87. [Address build and guest receipt](assets/evidence/gio-inet-address/receipt.json)
 
 ## Verification
 
