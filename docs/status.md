@@ -22,8 +22,8 @@ GIO now links the SDK's `res_query()` and Meson generates the static GLib
 build graph. The native resolver and DNS decoder passed twice in the diskless
 guest against a private DNS peer. GIO's resolver and GLib's file-utilities
 objects compile. No-follow file checks passed on initramfs and a private
-exFAT disk. The static build first stops on missing `_POSIX_HOST_NAME_MAX`
-in GLib's hostname utilities.
+exFAT disk. GLib's hostname utilities compile and the native hostname checks
+passed. The static build first stops at `NSIG` and `SA_NOCLDSTOP` in `gmain.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains

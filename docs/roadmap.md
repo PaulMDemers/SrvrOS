@@ -27,9 +27,10 @@ GLib configures through its pinned internal `intl` fallback and the SDK's
 `C_IN` and `res_query()` checks. It generates the static build graph.
 GIO's resolver object compiles and the target DNS decoder passes in the
 guest. GLib's file-utilities object compiles with the SDK's `ELOOP`
-declaration. The static build first stops on `_POSIX_HOST_NAME_MAX` in
-the hostname utilities. Static GLib compilation and integrated main-context
-wait follow. Shared-memory and IPC design remains with its runtime owner.
+declaration. The hostname utility object compiles with the SDK limits
+header, and the native hostname calls passed. Static GLib compilation first
+stops at `NSIG` and `SA_NOCLDSTOP` in `gmain.c`. Integrated main-context
+wait follows. Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
 
