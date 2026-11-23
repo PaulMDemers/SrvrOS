@@ -17,7 +17,8 @@ The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
 IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
-Static GIO next stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c`.
+The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported.
+Static GIO next stops at undeclared `SO_BROADCAST` in `gsocket.c`.
 The normal guest also verified native wait, character
 conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.

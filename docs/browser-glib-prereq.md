@@ -15,7 +15,8 @@ The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
 IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
-Static GIO next stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c`.
+The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported.
+Static GIO next stops at undeclared `SO_BROADCAST` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -649,6 +650,30 @@ signal image's refusal of the new syscall. The option covers IPv4 unicast.
 Fresh pinned GLib configure passed, and the static GIO build advanced past
 `IP_TTL` to undeclared `IPV6_UNICAST_HOPS` at `gio/gsocket.c:1686`.
 [Verification receipt](assets/evidence/gio-ip-ttl/receipt.json)
+
+## IPv6 unicast hop-limit declaration
+
+After OS #539 landed at `d0a4ada4`, the SDK exported
+`IPV6_UNICAST_HOPS=16` through `<netinet/in.h>`. GIO uses the identifier
+at the `IPPROTO_IPV6` level in its TTL getter and setter. RFC 3493 defines
+the option, and the SDK follows the Linux UAPI number.
+[RFC 3493 §5.1](https://www.rfc-editor.org/rfc/rfc3493#section-5.1)
+[Linux IPv6 socket constants](https://github.com/torvalds/linux/blob/master/include/uapi/linux/in6.h)
+
+Two runs in a private diskless guest with no NIC verified that `AF_INET6`
+TCP and UDP socket creation returns `EAFNOSUPPORT`. The IPv6 option on a
+valid IPv4 TCP socket returns `ENOSYS` for get and set. The get output
+and length stayed unchanged. The same socket's IPv4 TTL was 64 by default,
+changed to 37, stayed at 37 across the refused calls and reset to 64.
+Both platform controls passed. The kernel, init and SDK library hashes
+match the IPv4 TTL baseline. IPv6 transport remains unsupported.
+Integration reviewed the shared runtime boundary and coordinated the VM.
+The guest stopped and the reserved window was released.
+
+Fresh pinned GLib configuration passed. Static GIO advanced past both uses
+of `IPV6_UNICAST_HOPS` and stopped at undeclared `SO_BROADCAST` in
+`gio/gsocket.c:1765`.
+[Verification receipt](assets/evidence/gio-ipv6-unicast-hops/receipt.json)
 
 ## Verification
 
