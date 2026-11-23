@@ -11,7 +11,8 @@ probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
 A local-file-only GIO link verified the polling fallback on private exFAT.
 Guest-verified SDK address declarations let `ginetaddress.c` compile.
 Linked guests verified the IPv4 ToS and IPv6 traffic-class codecs.
-Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
+The linked resolver passed its IPv4 literal checks. Static GIO next stops
+in `gsocket.c` at `SOCK_SEQPACKET` and other missing socket declarations.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -521,6 +522,38 @@ The post-guest static GIO build stopped at the undeclared `inet_aton()` call
 in `gio/gresolver.c:461`.
 See the [codec and build receipt](assets/evidence/gio-ipv6-tclass/receipt.json)
 and the [upstream GIPv6TclassMessage API](https://docs.gtk.org/gio/class.IPv6TclassMessage.html).
+
+## GIO IPv4 numbers-and-dots parsing
+
+From merged OS #531 at `0117e6cf`, the SDK exports `inet_aton()` in
+`<arpa/inet.h>`. It accepts one to four IPv4 parts in decimal, octal
+or hexadecimal and returns network-order bytes. It checks component
+widths and overflow, allows trailing ASCII whitespace, and rejects
+trailing text. A null destination validates the input. Failed parses
+preserve the destination and `errno`. [OpenBSD interface reference](https://man.openbsd.org/inet_aton.3)
+
+GResolver checks IPv4 spelling before returning an address because the
+SDK's `inet_pton()` accepts padded decimal octets. GResolver rejects those
+spellings and uses `inet_aton()` to identify abbreviated and mixed-base
+forms. The SDK's `inet_pton()` and existing resolver entry points retain
+their previous parsing behavior.
+
+Two guest runs passed the SDK cases. Two linked public GResolver runs
+returned canonical IPv4, rejected five legacy or padded forms with
+`NOT_FOUND` before calling the backend, and sent an ordinary hostname
+to the test backend exactly once. Both platform controls passed. ISO
+readback matched the kernel and executables. The diskless guest stopped
+and the VM window was released.
+
+The host parser passed address and undefined-behavior sanitizer checks.
+All 55 socket and 23 libc DNS cases passed. A target C++ object linked
+against the new C symbol. The ARM host could not compile the x86 kernel
+DNS fixture.
+
+The production static target compiled `gresolver.c` and next stopped in
+`gsocket.c`. The first error was the undeclared `SOCK_SEQPACKET` at line 523.
+The compiler also reported missing errno, backlog and socket-option
+declarations. [Verification receipt](assets/evidence/gio-inet-aton/receipt.json)
 
 ## Verification
 
