@@ -10,8 +10,8 @@ archives. An executable linked against target GLib passed the child-watch
 probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
 A local-file-only GIO link verified the polling fallback on private exFAT.
 Guest-verified SDK address declarations let `ginetaddress.c` compile.
-A linked guest verified the IPv4 ToS codec. Static GIO next stops at
-`IPV6_TCLASS` in `gipv6tclassmessage.c`.
+Linked guests verified the IPv4 ToS and IPv6 traffic-class codecs.
+Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -498,6 +498,29 @@ After guest shutdown, the pinned static GIO build stopped at the undeclared
 `IPV6_TCLASS` on lines 73 and 87 of `gipv6tclassmessage.c`.
 See the [codec and build receipt](assets/evidence/gio-ip-tos/receipt.json)
 and the [upstream GIPTosMessage API](https://docs.gtk.org/gio/class.IPTosMessage.html).
+
+## IPv6 traffic class messages
+
+From merged OS #530 at `66fbf299`, GIO's `gipv6tclassmessage.c` includes
+the SDK's `<netinet/ip6.h>` on SrvrOS for its existing `IPV6_TCLASS`
+declaration. The standard target graph compiles the source. The focused
+guest link uses the real IPv6 codec and GSocketControlMessage base
+objects and calls the IPv6 class decoder directly.
+
+Two runs verified all 256 DSCP/ECN combinations and the aligned native
+`int` payload. The decoder rejected incorrect levels, types and sizes.
+IPv6 UDP and TCP socket creation returned `EAFNOSUPPORT`. This proof
+covers the class codec and the SDK's socket refusal. The generic
+ancillary-message dispatcher and IPv6 transport are outside its scope.
+
+Both platform controls also passed. The guest used one CPU and 512 MiB
+with no disk or NIC. ISO readback matched the kernel and all three
+packed executables. The guest stopped and the VM window was released.
+
+The post-guest static GIO build stopped at the undeclared `inet_aton()` call
+in `gio/gresolver.c:461`.
+See the [codec and build receipt](assets/evidence/gio-ipv6-tclass/receipt.json)
+and the [upstream GIPv6TclassMessage API](https://docs.gtk.org/gio/class.IPv6TclassMessage.html).
 
 ## Verification
 

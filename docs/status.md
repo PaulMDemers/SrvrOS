@@ -30,8 +30,9 @@ GObject and GModule archives build. XDG MIME objects compile with the
 SDK's guest-verified C-locale `fnmatch()`. A local-file-only GIO link verified
 the polling fallback on private exFAT, including cancellation and directory
 refusal. The SDK address declarations and numeric IPv4 lookup passed in
-the guest, and `ginetaddress.c` compiles. A linked guest verified the IPv4 ToS
-codec. Static GIO next stops at `IPV6_TCLASS` in `gipv6tclassmessage.c`.
+the guest, and `ginetaddress.c` compiles. Linked guests verified the IPv4
+ToS and IPv6 traffic-class codecs.
+Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains

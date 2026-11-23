@@ -37,6 +37,7 @@ FNMATCH_MARKER = b'glib-fnmatch: ok'
 INET_ADDRESS_MARKER = b'glib-inet-address: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
+GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -164,6 +165,8 @@ def main():
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
                         help='boot a linked GIO IPv4 traffic class codec probe')
+    parser.add_argument('--gio-ipv6-tclass', type=Path, metavar='ELF',
+                        help='boot a linked GIO IPv6 traffic class codec probe')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -218,6 +221,8 @@ def main():
             ('gio-poll-monitor', args.gio_poll_monitor, GIO_POLL_MONITOR_MARKER,
              'gio_poll_monitor_payload_sha256'),
             ('gio-ip-tos', args.gio_ip_tos, GIO_IP_TOS_MARKER, 'gio_ip_tos_payload_sha256'),
+            ('gio-ipv6-tclass', args.gio_ipv6_tclass, GIO_IPV6_TCLASS_MARKER,
+             'gio_ipv6_tclass_payload_sha256'),
         )
         for program, path, marker, receipt_key in linked_probes:
             if path is None:
