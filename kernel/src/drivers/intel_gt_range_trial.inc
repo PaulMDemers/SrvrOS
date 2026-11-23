@@ -364,7 +364,8 @@ static bool gt_range_capture(unsigned phase) {
 static void gt_range_report(void) {
 #if defined(SRVROS_INTEL_GT_FLUSH)
  const unsigned version=8;
- console_printf("intel-command-slots: v=1 first=%u pages=%u samples=%u reserved=%u returned=%u ram=%x freed=%u mapped=%u pinned=%u observations=%u retired=%u device_grant=0\n",
+ air_boot_report();
+ console_printf("intel-command-slots: v=2 first=%u pages=%u samples=%u reserved=%u returned=%u ram=%x boot_returned=%u mapped=%u pinned=%u observations=%u retired=%u device_grant=0\n",
   (uint64_t)GT_COMMAND_FIRST,(uint64_t)GT_COMMAND_PAGES,(uint64_t)command_slots.samples,
   (uint64_t)(command_slots.token.object!=NULL),(uint64_t)command_slots.returned,command_slots.physical,
   (uint64_t)command_slots.ram_returned,(uint64_t)command_aperture.mapped,(uint64_t)command_aperture.pinned,

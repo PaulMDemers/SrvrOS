@@ -4,7 +4,7 @@ import sys
 # Frozen into each new full-GT flush manifest. Historical runs use the
 # versions saved in their own manifests.
 FLUSH_RECEIPTS = dict(independent_slot=12291, slot_backing_version=1,
-                      slot_widi_version=1, slot_reopened_version=3, command_slots_version=1,
+                      slot_widi_version=1, slot_reopened_version=3, command_slots_version=2,
                       range_version=8)
 
 
@@ -41,6 +41,8 @@ def jobs(dependencies, *, primary=False, aux=False, flush=False):
                           'test_hardware_desktop', 'test_device_workflow', timeout=300)
     variant = 'flush' if flush else 'aux' if aux else 'primary' if primary else 'range'
     images = (f'build/intel-gt-{variant}/srvros.elf', 'build/initramfs.tar')
+    if flush:
+        images += ('build/intel-gt-flush/BOOTX64.EFI',)
     image = dict(name='range-image', argv=['make', *images], inputs=dependencies,
                  outputs=list(images), cache=False, timeout=1800)
     inherited = checks('original-memory', 'test_intel_gt_memory',

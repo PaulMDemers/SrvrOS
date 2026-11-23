@@ -785,6 +785,9 @@ bool intel_gt_wake_probe_report(void) {
     f.recipe=cmd && !cmd->revision && intel_gt_boot_recipe(cmd->cmdline);
 #endif
     f.prerequisites=gt_saved_complete && fw_saved_complete;
+#ifdef SRVROS_INTEL_GT_FLUSH
+    f.prerequisites=f.prerequisites && air_boot_display(result.mmio_base,window_result.aperture_base);
+#endif
 #if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
     /* Retained faults survive this reporting call until reset. Ownership and
      * captured callback contexts must not point into an expired stack frame. */

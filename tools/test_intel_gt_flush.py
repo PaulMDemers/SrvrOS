@@ -102,6 +102,21 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
                 self.assertEqual(result["range"]["slot"]["returned"], 0)
 
+    def test_same_boot_efi_handoff(self):
+        subprocess.run([ROOT / TARGET, "efi-import"], check=True, timeout=10)
+        text = observe("pass")
+        proof = bootstrap_result(text)["range"]
+        self.assertEqual(proof["efi_handoff"]["summary"]["ram"], proof["command_slots"]["ram"])
+        for old, new in (("table=1 state=2", "table=0 state=2"),
+                         ("protocols=0 files=0", "protocols=1 files=0"),
+                         ("slot=11750 pte=", "slot=11751 pte="),
+                         ("backing=1 drivers=", "backing=0 drivers=")):
+            with self.subTest(field=old), self.assertRaises(ValueError):
+                bootstrap_result(text.replace(old, new))
+        legacy = re.sub(r"^intel-efi-[^\n]*\n", "", text, flags=re.M)
+        legacy = legacy.replace("intel-command-slots: v=2 ", "intel-command-slots: v=1 ").replace("boot_returned=", "freed=")
+        self.assertNotIn("efi_handoff", bootstrap_result(legacy)["range"])
+
     def test_command_slots_span_reset_and_reopening(self):
         good = bootstrap_result(observe("pass"))["range"]["command_slots"]
         self.assertEqual((good["samples"], good["returned"], good["device_grant"]), (3, 1, 0))
@@ -149,7 +164,7 @@ class FlushAcknowledgements(unittest.TestCase):
         for phase in range(3):
             result = bootstrap_result(observe("command-ram-alias", phase+1))
             slots = result["range"]["command_slots"]
-            self.assertEqual((slots["samples"], slots["reserved"], slots["returned"], slots["freed"]),
+            self.assertEqual((slots["samples"], slots["reserved"], slots["returned"], slots["boot_returned"]),
                              (phase, 1, 0, 0))
             self.assertFalse(result["complete"])
 
@@ -455,7 +470,7 @@ class FlushAcknowledgements(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             build = root / "build"
-            for name in ("limine-binary/BOOTX64.EFI", "intel-gt-flush/srvros.elf", "initramfs.tar"):
+            for name in ("limine-binary/BOOTX64.EFI", "intel-gt-flush/BOOTX64.EFI", "intel-gt-flush/srvros.elf", "initramfs.tar"):
                 path = build / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)

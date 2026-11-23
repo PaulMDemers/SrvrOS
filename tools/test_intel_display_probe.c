@@ -595,23 +595,55 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     default:return 0;
     }
 }
-uint64_t acpi_table_count(void){return extra_table?2:1;}
-const struct acpi_table_info *acpi_table_at(uint64_t i){return i==0?&dsdt:i==1 && extra_table?&extra_dmar:NULL;}
 #ifdef SRVROS_INTEL_GT_FLUSH
 #define TEST_BACKING_PA 0x01000000ull
+#define TEST_COMMAND_PA 0x75000000ull
+static struct air_gpu_boot test_boot_record;
+static struct acpi_table_info test_boot_table;
+static struct limine_memmap_entry test_nvs;
+static struct limine_memmap_entry *test_boot_ranges[16];
 static uint64_t test_backing_page[512] __attribute__((aligned(4096)));
-static bool test_backing_allocated, test_command_allocated;
-#define TEST_COMMAND_PA 0x01200000ull
 static uint32_t test_command_ram[GT_COMMAND_FRAMES*1024] __attribute__((aligned(4096)));
-uint64_t pmm_alloc_frames_tagged(uint64_t count,enum pmm_frame_tag tag) {
- assert(count==GT_COMMAND_FRAMES && tag==PMM_FRAME_DMA && !test_command_allocated);
- test_command_allocated=true;
- return TEST_COMMAND_PA;
+static bool test_backing_allocated;
+static void test_prepare_boot(void) {
+    test_boot_record=(struct air_gpu_boot){
+        .length=sizeof(test_boot_record),.revision=1,.oem_revision=1,.pci_id=0x16268086,.subsystem=0x011b106b,
+        .state=AIR_BOOT_CAPTURED,.step=6,.first=AIR_BOOT_SLOT,.mmio=0xc0000000,.aperture=0xb0000000,
+        .framebuffer=0xb0000000,.framebuffer_bytes=6144*900,.plane=0xd8000400,.ram=TEST_COMMAND_PA};
+    memcpy(test_boot_record.signature,"OEMG",4);
+    memcpy(test_boot_record.oem,"SRVROS",6);
+    memcpy(test_boot_record.table_id,"BDWBOOT1",8);
+    for(unsigned i=0;i<AIR_BOOT_PAGES;i++)test_boot_record.entries[i]=0x8ede1001ull+i*4096;
+    uint8_t sum=0;
+    for(unsigned i=0;i<sizeof(test_boot_record);i++)sum+=((uint8_t *)&test_boot_record)[i];
+    test_boot_record.checksum=0-sum;
+    test_boot_table=(struct acpi_table_info){.signature="OEMG",.length=sizeof(test_boot_record),
+        .physical_address=(uintptr_t)&test_boot_record};
+    test_nvs=(struct limine_memmap_entry){.base=TEST_COMMAND_PA,.length=sizeof(test_command_ram),.type=LIMINE_MEMMAP_ACPI_NVS};
+    assert(memory.entry_count<16);
+    for(unsigned i=0;i<memory.entry_count;i++)test_boot_ranges[i]=memory.entries[i];
+    test_boot_ranges[memory.entry_count++]=&test_nvs;
+    memory.entries=test_boot_ranges;
+    memset(test_command_ram,0,sizeof(test_command_ram));
+    for(unsigned i=0;i<AIR_BOOT_FRAMES;i++)((uint64_t *)test_command_ram)[512*i]=AIR_BOOT_MARKER^TEST_COMMAND_PA^i;
 }
-void pmm_free_frame_range(uint64_t pa,uint64_t count) {
- assert(pa==TEST_COMMAND_PA && count==GT_COMMAND_FRAMES && test_command_allocated);
- test_command_allocated=false;
+#endif
+uint64_t acpi_table_count(void){
+#ifdef SRVROS_INTEL_GT_FLUSH
+ return extra_table?3:2;
+#else
+ return extra_table?2:1;
+#endif
 }
+const struct acpi_table_info *acpi_table_at(uint64_t i){
+ if(i==0)return &dsdt;
+ if(i==1 && extra_table)return &extra_dmar;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(i==(extra_table?2u:1u))return &test_boot_table;
+#endif
+ return NULL;
+}
+#ifdef SRVROS_INTEL_GT_FLUSH
 uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
  assert(tag==PMM_FRAME_DMA && !test_backing_allocated);
  test_backing_allocated=true;
@@ -619,7 +651,7 @@ uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag) {
  if(pa>=TEST_COMMAND_PA && pa<TEST_COMMAND_PA+sizeof(test_command_ram) && !(pa&4095))
-  return tag==(test_command_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);
+  return tag==PMM_FRAME_RESERVED;
  return pa==TEST_BACKING_PA && tag==(test_backing_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);
 }
 void pmm_free_frame(uint64_t pa) {
@@ -629,7 +661,7 @@ void pmm_free_frame(uint64_t pa) {
 #endif
 void *pmm_phys_to_virt(uint64_t p){
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(p==TEST_COMMAND_PA) return test_command_ram;
+ if(p>=TEST_COMMAND_PA && p<TEST_COMMAND_PA+sizeof(test_command_ram)) return (uint8_t *)test_command_ram+(p-TEST_COMMAND_PA);
  if(p==TEST_BACKING_PA){intel_display_test_backing_access();return test_backing_page;}
 #endif
  return (void *)(uintptr_t)p;}
@@ -638,6 +670,7 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(v>=(uintptr_t)test_command_ram && v<(uintptr_t)test_command_ram+sizeof(test_command_ram)){*p=TEST_COMMAND_PA+v-(uintptr_t)test_command_ram;return true;}
  if(v==(uintptr_t)test_backing_page){*p=TEST_BACKING_PA;return true;}
 #endif
  assert(v==fb_virtual);*p=0xb0000000;return true;}
@@ -1163,6 +1196,9 @@ int main(int argc,char **argv) {
     if(fw_mode){ram.length=0x10000000;firmware_region=(struct limine_memmap_entry){.base=0x12345000,.length=0x3000,.type=3};memory.entry_count=4;if(!strcmp(argv[1],"--fw-usable"))firmware_region.type=0;if(!strcmp(argv[1],"--fw-short"))firmware_region.length=4096;}
 #ifdef SRVROS_INTEL_PREPARE_RESET
     if(wake_mode)console_printf("cmdline: %s\n",wake_cmd.cmdline);
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+    test_prepare_boot();
 #endif
     intel_display_probe_boot(&frame);
     assert(result.status==INTEL_CAPTURE_OBSERVED && map_calls==9 && unmap_calls==9 && mmio_reads==116);

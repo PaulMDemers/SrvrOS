@@ -114,7 +114,7 @@ static bool bf(const char *mode,unsigned n) {
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
 static bool intel_display_test_command_ram(uint64_t base,volatile const uint32_t *ram) {
- return base==TEST_COMMAND_PA && ram==test_command_ram && test_command_allocated &&
+ return base==TEST_COMMAND_PA && ram==test_command_ram && air_boot_buffer &&
         !bf("command-ram-alias",command_slots.samples+1);
 }
 static const uint64_t host_widi_pages[]={0xc0014000,0xc006e000,0xc0065000};
@@ -866,7 +866,44 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  return true;
 }
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+static int test_efi_import(void) {
+ reset();
+ test_prepare_boot();
+ air_boot_import();
+ assert(air_boot_buffer && air_boot.ram==TEST_COMMAND_PA);
+ test_command_ram[GT_COMMAND_FRAMES*1024-1]=1;
+ assert(!air_boot_pristine());
+ air_boot_buffer=false;
+ air_boot_import();
+ assert(!air_boot_buffer);
+ test_command_ram[GT_COMMAND_FRAMES*1024-1]=0;
+ test_nvs.type=LIMINE_MEMMAP_USABLE;
+ air_boot_import();
+ assert(!air_boot_buffer);
+ test_nvs.type=LIMINE_MEMMAP_ACPI_NVS;
+ test_boot_record.entries[6]^=4096;
+ air_boot_import();
+ assert(!air_boot_buffer);
+ test_boot_record.entries[6]^=4096;
+ air_boot_import();
+ assert(air_boot_buffer);
+ result.after.id=0x16268086; result.after.subsystem=0x011b106b;
+ result.fb.physical=test_boot_record.framebuffer; result.fb.height=900; result.fb.pitch=6144;
+ for(unsigned n=0;n<2;n++) result.sample[n].pipe[0][2]=test_boot_record.plane;
+ assert(air_boot_matches(test_boot_record.mmio,test_boot_record.aperture,test_boot_record.entries));
+ test_boot_record.entries[6]^=4096;
+ assert(!air_boot_matches(test_boot_record.mmio,test_boot_record.aperture,test_boot_record.entries));
+ result.sample[1].pipe[0][4]+=4096;
+ assert(!air_boot_display(test_boot_record.mmio,test_boot_record.aperture));
+ puts("EFI staged memory, display and seven-entry handoff: PASS");
+ return 0;
+}
+#endif
 int main(int argc,char **argv) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(argc==2 && !strcmp(argv[1],"efi-import"))return test_efi_import();
+#endif
 #ifdef SRVROS_INTEL_GT_ARENA
  if(argc>1 && !strncmp(argv[1],"arena-core-",11))return arena_core_case(argv[1]);
 #endif

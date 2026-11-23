@@ -93,17 +93,15 @@ static bool command_ram_owned(void)
 {
     uint64_t base=command_slots.physical;
     if (!wake_irq_off() || vmm_current_address_space()!=gt_bootstrap_native.root ||
-        !intel_scanout_trial_ram(base,GT_COMMAND_FRAMES) || command_slots.ram_returned) return false;
-    for (unsigned i=0;i<GT_COMMAND_FRAMES;i++)
-        if (!pmm_frame_has_tag(base+i*4096,PMM_FRAME_DMA)) return false;
-    return true;
+        !base || base!=air_boot.ram || !air_boot_buffer || command_slots.ram_returned) return false;
+    return air_boot_reserved();
 }
 
 static bool command_ram_check(bool initialize)
 {
     if (initialize) {
         if (command_slots.physical) return false;
-        command_slots.physical=pmm_alloc_frames_tagged(GT_COMMAND_FRAMES,PMM_FRAME_DMA);
+        command_slots.physical=air_boot.ram;
     }
     if (!command_ram_owned()) return false;
     uint64_t base=command_slots.physical;
@@ -121,6 +119,7 @@ static bool command_ram_check(bool initialize)
 #endif
     struct bdw_blitter_image *image=&command_slots.image;
     if (initialize) {
+        if (!air_boot_pristine()) return false;
 #if defined(__x86_64__) || !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
         uint32_t eax=1,ebx,ecx,edx;
         __asm__ volatile("cpuid":"+a"(eax),"=b"(ebx),"=c"(ecx),"=d"(edx));
@@ -151,9 +150,13 @@ static bool command_ram_check(bool initialize)
 static bool command_ram_release(void)
 {
     if (!command_slots.returned || !command_ram_owned()) return false;
-    pmm_free_frame_range(command_slots.physical,GT_COMMAND_FRAMES);
-    for (unsigned i=0;i<GT_COMMAND_FRAMES;i++)
-        if (!pmm_frame_has_tag(command_slots.physical+i*4096,PMM_FRAME_FREE)) return false;
+    /* The boot owner keeps these ACPI NVS pages until machine reset. */
+    volatile uint64_t *ram=pmm_phys_to_virt(command_slots.physical);
+    for (unsigned i=0;i<GT_COMMAND_FRAMES*512;i++)
+        ram[i]=i%512 ? 0 : AIR_BOOT_MARKER^command_slots.physical^(i/512);
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    for (unsigned i=0;i<GT_COMMAND_FRAMES*512;i++)
+        if (ram[i]!=(i%512 ? 0 : AIR_BOOT_MARKER^command_slots.physical^(i/512))) return false;
     command_slots.ram_returned=true;
     return true;
 }
@@ -263,6 +266,7 @@ static bool command_slots_sample(unsigned phase) {
         if (raw[3*i]!=raw[3*i+2] || words[i]!=0x8ede1001ull+i*4096) return false;
     }
     struct scanout_transfer_manifest source=command_slots_source(words);
+    if (!air_boot_matches(source.mmio,source.aperture,words)) return false;
     if (!phase) {
         /* Pin the observed firmware entries for the rest of this boot. Return
          * the child to its lender after the trial, never to the free pool. */

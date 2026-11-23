@@ -113,9 +113,16 @@ static uint64_t now(void *p) {
  return at;
 }
 
+#ifdef SRVROS_INTEL_GT_FLUSH
+#include "intel_air_boot.inc"
+#endif
 void intel_display_probe_boot(struct limine_framebuffer *fb) {
     if(attempted) return;
     attempted=true;
+#ifdef SRVROS_INTEL_GT_FLUSH
+    air_boot_import();
+    console_printf("intel-efi-boot: imported=%u backing=%u\n",(uint64_t)(air_boot.revision==1),(uint64_t)air_boot_buffer);
+#endif
     console_write("intel-display-observe: beginning exact Air7,2 read-only observation\n");
     struct adapter a={.cr3=vmm_kernel_address_space()};
     for(uint64_t i=0;i<pci_device_count();i++) {

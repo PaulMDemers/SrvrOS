@@ -480,3 +480,25 @@ the sample.
 ```sh
 sudo python3 tools/intel_bdw_slot_loan_host.py build/tests/intel-bdw-engine-drain-host --user "$USER" --command-traffic
 ```
+
+## EFI handoff on the Air7,2
+
+The Air flush loader runs while the boot display driver is still attached.
+It inventories the GPU controller protocols and PCI I/O driver opens, including
+firmware file GUIDs when the binding exposes them. It samples the seven GGTT
+entries twice, brackets each sample with the primary plane state, and matches
+the live surface to a GOP framebuffer. It leaves the display mode in place.
+[UEFI PCI I/O](https://uefi.org/specs/UEFI/2.10/14_Protocols_PCI_Bus_Support.html)
+[UEFI graphics output](https://uefi.org/specs/UEFI/2.10/12_Protocols_Console_Support.html)
+
+The loader reserves 19 ACPI NVS pages and seeds each page. It installs the
+checksummed OEMG table with ID `BDWBOOT1` and starts the embedded Limine.
+SrvrOS verifies the memory map, physical translations and contents before
+using that backing. The kernel compares the panel and command slots with the
+same boot's firmware snapshot across the reset and bus-master transition.
+On a clean return it reseeds the private backing and retains the NVS reservation.
+
+The physical prerequisite records how far the firmware capture progressed,
+which provider was visible and whether the original display and mappings
+survived. Device-wide traffic exclusion, fresh engine and L3 acknowledgements,
+and continuous WiDi exclusion remain prerequisites for native submission.

@@ -2,8 +2,48 @@
 import base64
 import re
 import struct
+import uuid
 
 from intel_gt_bootstrap import fields
+
+
+def boot_handoff(text, slots):
+    def rows(prefix, keys, hexkeys=()):
+        return [fields(line, prefix, keys.split(), hexkeys) for line in text.splitlines() if line.startswith(prefix)]
+    summaries = rows("intel-efi-handoff:", "v table state step backing drivers children protocols files ram grants", ("ram",))
+    if len(summaries) != 1:
+        raise ValueError("Missing or ambiguous boot producer")
+    h = summaries[0]
+    if (h["table"] > 1 or h["state"] > 2 or h["step"] > 6 or h["grants"] or h["backing"] > h["table"]
+            or h["protocols"] > 32 or h["files"] > min(4,h["drivers"])
+            or bool(h["ram"]) != bool(h["table"])
+            or (h["ram"] and (h["ram"] % 4096 or h["ram"] < 0x100000 or h["ram"] > (1<<32)-19*4096))
+            or (not h["table"] and any(h[k] for k in ("state","step","drivers","children","protocols","files")))):
+        raise ValueError("Invalid EFI handoff state")
+    ids = rows("intel-efi-guid:", "v kind index low high", ("low","high"))
+    expected = [(kind, i) for kind, count in enumerate((h["protocols"], h["files"])) for i in range(count)]
+    if [(r["kind"],r["index"]) for r in ids] != expected:
+        raise ValueError("Incomplete EFI protocol or bound-driver inventory")
+    for row in ids:
+        row["guid"] = str(uuid.UUID(bytes_le=struct.pack("<QQ", row["low"], row["high"])))
+    keys = "id subsystem mmio aperture framebuffer bytes plane surface"
+    surfaces = rows("intel-efi-display:", "v "+keys, tuple(k for k in keys.split() if k!="bytes"))
+    entries = rows("intel-efi-entry:", "v slot pte", ("pte",))
+    captured = h["state"]==2
+    if len(surfaces)!=int(captured) or len(entries)!=7*int(captured):
+        raise ValueError("Incomplete firmware display or GGTT snapshot")
+    if captured:
+        d = surfaces[0]
+        if (h["step"]!=6 or d["id"]!=0x16268086 or d["subsystem"]!=0x011b106b
+                or not d["mmio"] or not d["aperture"] or not d["plane"] & (1<<31)
+                or d["surface"] % 4096 or d["framebuffer"]!=d["aperture"]+d["surface"]
+                or not d["bytes"] or d["surface"]+d["bytes"]>11744*4096
+                or any(row["slot"]!=11744+i or not row["pte"] & 1 for i,row in enumerate(entries))):
+            raise ValueError("Invalid boot display or command mappings")
+    if slots["samples"] and (not captured or not h["backing"] or h["ram"]!=slots["ram"]
+                             or any(row["pte"]!=0x8ede1001+i*4096 for i,row in enumerate(entries))):
+        raise ValueError("Kernel command reservation disagrees with its boot producer")
+    return dict(summary=h, guids=ids, display=surfaces, entries=entries)
 
 
 def range_result(text, parent, reset, memory, retire, owner_complete, post):
@@ -204,25 +244,29 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
     if len(commands) != int(summary["v"] >= 7):
         raise ValueError("Command slot reservation receipt coverage")
     if commands:
+        returned_key="boot_returned" if commands[0].startswith("intel-command-slots: v=2 ") else "freed"
         slots = fields(commands[0], "intel-command-slots:",
-                       "v first pages samples reserved returned ram freed mapped pinned observations retired device_grant".split(), ("ram",))
+                       f"v first pages samples reserved returned ram {returned_key} mapped pinned observations retired device_grant".split(), ("ram",),
+                       versions=(2,) if returned_key=="boot_returned" else (1,))
         samples = slots["samples"]
         if ((slots["first"], slots["pages"], slots["device_grant"]) != (11744, 7, 0)
                 or samples > 3 or slots["reserved"] not in (0, 1) or int(samples > 0) > slots["reserved"]
                 or (slots["ram"] and (not slots["reserved"] or slots["ram"] < 0x100000
                     or slots["ram"] % 4096 or slots["ram"] > (1 << 32) - 19*4096))
-                or (samples and not slots["ram"]) or not 0 <= slots["freed"] <= slots["returned"]
+                or (samples and not slots["ram"]) or not 0 <= slots[returned_key] <= slots["returned"]
                 or not 0 <= slots["pinned"] <= slots["mapped"] <= 7
                 or not 0 <= slots["retired"] <= slots["mapped"]
                 or (slots["retired"] and not guard["closed"])
                 or not int(samples > 0) + int(samples == 3) <= slots["observations"] <= 2
                 or (slots["observations"] and slots["pinned"] != 7)
                 or (slots["observations"] == 2 and parent["pci_samples"] != 4)
-                or (owner_complete and (not slots["freed"] or slots["retired"] != 7))
+                or (owner_complete and (not slots[returned_key] or slots["retired"] != 7))
                 or not phase <= samples <= phase + 1
                 or (samples == 3 and parent["pci_samples"] != 4)
                 or not 0 <= slots["returned"] <= int(samples == 3)
                 or (owner_complete and not slots["returned"])):
             raise ValueError("Command slot reservation lifetime")
         result["command_slots"] = slots
+        if slots["v"]==2:
+            result["efi_handoff"] = boot_handoff(text, slots)
     return result

@@ -7453,3 +7453,11 @@ $(SCANOUT_GUEST_DIR)/blitter: $(BDW_BLITTER_GUEST_OBJECTS) $(USER_CRT0_OBJ) $(US
 .PHONY: smoke-intel-bdw-blitter
 smoke-intel-bdw-blitter: $(SCANOUT_GUEST_DIR)/blitter $(KERNEL) $(USER_INIT) $(LIMINE_DIR)/.ready
 	$(PYTHON) tools/scanout_owned_page_smoke.py --qemu $(QEMU) --blitter
+
+# The Air flush profile observes the firmware producer before Limine takes over.
+$(LIMINE_DIR)/BOOTX64.EFI: | $(LIMINE_DIR)/.ready
+	@test -f $@
+
+build/intel-gt-flush/BOOTX64.EFI: boot/air-handoff/main.zig kernel/include/srvros/air_gpu_boot.h $(LIMINE_DIR)/BOOTX64.EFI $(ZIG)
+	@mkdir -p $(@D)
+	$(ZIG) build-exe -target x86_64-uefi -O ReleaseSmall -Ikernel/include --dep limine -Mroot=$< -Mlimine=$(LIMINE_DIR)/BOOTX64.EFI -femit-bin=$@

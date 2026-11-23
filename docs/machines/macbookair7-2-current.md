@@ -22,16 +22,18 @@ Pipe A on its original surface. Each saw a gated WiDi clock and open WiDi GO
 together. The Air still needs a hardware owner for the GPM request and the
 independent WiDi hold. [Register evidence and test](../intel-bdw-bcs-flush.md#command-submission-while-widi-stays-excluded)
 
-The native reset owner now imports the seven original GGTT entries at slots
-11744–11750. It allocates 19 DMA frames for the command image and its private
-page tables. The firmware reservation, private RAM and submission port span
-the full GT reset and the reopening of PCI bus mastering. The driver compares
-all seven PTEs and rechecks the image at each boundary. Seven pinned,
-read-only aperture views let the reset owner compare the original words
-across its GGTT invalidation. All 21 reset-owner tests passed locally,
-including seventh-page mapping, pinning, content drift and retirement faults.
-The firmware keeps
-the interval after the child returns it.
+The Air7,2 flush diagnostic now starts before Limine. Its EFI loader records
+the graphics controller's protocols and bound driver identities when firmware
+exposes them. It captures slots 11744–11750 twice against the active GOP
+framebuffer and reserves 19 pages for the command image and page tables.
+SrvrOS checks the EFI record, page contents, original panel and seven mappings
+before using the reservation. The backing stays reserved across reset and
+PCI reopening and returns to the boot reservation on clean retirement.
+
+The host suite passed all 23 tests. The first OVMF trial recovered all 19 pages.
+The next physical trial checks the firmware inventory and seven translations
+on this Air. The first native command still depends on a device-wide drain and
+an independent WiDi hold. [EFI handoff](../intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 
 The blitter can promote that exact reservation when the original owner
 supplies live DMA, cache and reader assurances. It then installs seven PTEs,

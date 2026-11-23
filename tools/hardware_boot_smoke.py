@@ -873,6 +873,9 @@ def main():
                                     assert not any(value for row in proof['aux']['packets'] for key,value in row.items() if key not in ('v','n'))
                                 if flush:
                                     assert proof['diagnostic_flush'] and not proof['flush']['samples']
+                                    if proof['range'].get('command_slots',{}).get('v')==2:
+                                        boot_owner=proof['range']['efi_handoff']['summary']
+                                        assert (boot_owner['table'],boot_owner['backing'],boot_owner['state'],boot_owner['grants'])==(1,1,0,0)
                                     assert not any(value for key,value in proof['flush']['summary'].items() if key!='v')
                                     assert not any(value for row in proof['flush']['partial'] for key,value in row.items() if key not in ('v','n'))
                                     smi = proof['flush'].get('smi_guard')
