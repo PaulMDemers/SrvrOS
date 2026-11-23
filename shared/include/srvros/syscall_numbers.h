@@ -274,6 +274,8 @@ struct srv_file_change {
 #define SRV_FD_READ 0x04
 #define SRV_FD_WRITE 0x08
 #define SRV_FD_APPEND 0x10
+/* Duplex pair creation and read-only endpoint status. */
+#define SRV_FD_SEQPACKET 0x20
 
 /* SYS_NET_CONNECT only, not a descriptor status flag. Requires NONBLOCK.
  * Old kernels may ignore unknown connect flags: negotiate TCP_TRY first. */
@@ -372,6 +374,7 @@ struct srv_winsize {
 #define SRV_ERR_NOSPC -28
 #define SRV_ERR_SPIPE -29
 #define SRV_ERR_OVERFLOW -75
+#define SRV_ERR_MSGSIZE -90
 
 #define SRV_RIGHTS_MAX 4
 #define SRV_PIPE_MESSAGE_SEND 0u
@@ -383,6 +386,7 @@ struct srv_winsize {
 #define SRV_PIPE_MSG_CTRUNC 0x04u
 #define SRV_PIPE_MSG_PEEK 0x08u
 #define SRV_PIPE_MSG_NOSIGNAL 0x10u
+#define SRV_PIPE_MSG_TRUNC 0x20u
 
 struct srv_pipe_message {
     int32_t fds[SRV_RIGHTS_MAX];

@@ -1069,8 +1069,13 @@ static void message_rights_regression(void) {
     /* Predicate observes the waiting thread, even from another context. */
     struct process_user_thread *waiting_thread = &subject.user_threads[0];
     waiting_thread->used = true; waiting_thread->owner = &subject;
-    struct pipe_message_wait wait = {&subject, recv_fd, subject.file_generations[recv_fd],
-        subject.files[recv_fd].handle, false, false, waiting_thread};
+    struct pipe_message_wait wait = {
+        .process = &subject,
+        .fd = recv_fd,
+        .generation = subject.file_generations[recv_fd],
+        .handle = subject.files[recv_fd].handle,
+        .thread = waiting_thread,
+    };
     waiting_thread->pending_signals = 1ull << SRV_SIGNAL_WINCH;
     waiting_thread->signal_mask = 0;
     assert(pipe_message_ready(&wait));

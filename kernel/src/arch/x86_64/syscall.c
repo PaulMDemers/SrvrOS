@@ -1976,14 +1976,21 @@ static int64_t syscall_dup2(uint64_t old_fd, uint64_t new_fd) {
 }
 
 static int64_t syscall_pipe_flags(int32_t *fds_out,uint64_t flags,bool duplex) {
-    if(flags&~(SRV_FD_NONBLOCK|SRV_FD_CLOEXEC)) return SRV_ERR_INVAL;
+    uint64_t allowed = SRV_FD_NONBLOCK | SRV_FD_CLOEXEC;
+    if (duplex) allowed |= SRV_FD_SEQPACKET;
+    if (flags & ~allowed) return SRV_ERR_INVAL;
     uint64_t fds[2];
     int32_t copy[2];
     uint64_t irq=irq_save();
     if (fds_out == NULL || !user_buffer_ok(fds_out, sizeof(copy), true)) {
         irq_restore(irq);return SRV_ERR_FAULT;
     }
-    int64_t result=duplex?process_file_pipe_pair(process_current(),fds):process_file_pipe(process_current(),fds);
+    struct process *process = process_current();
+    int64_t result;
+    if (flags & SRV_FD_SEQPACKET)
+        result = process_file_seqpacket_pair(process, fds);
+    else
+        result = duplex ? process_file_pipe_pair(process, fds) : process_file_pipe(process, fds);
     if (result < 0) {
         irq_restore(irq);return result;
     }
@@ -2131,11 +2138,16 @@ static int64_t syscall_pipe_message_prepared(uint64_t fd, const struct srv_pipe_
     else if (!pipe_message_copy_from_user(out.iov, out.layout.iov, out.layout.iov_count * sizeof(out.iov[0])))
         return SRV_ERR_FAULT;
     uint64_t length = 0;
+    bool oversized = false;
     for (uint64_t i = 0; i < out.layout.iov_count; i++) {
         uint64_t room = SRV_PIPE_MESSAGE_MAX - length;
+        if (out.iov[i].length > room) oversized = true;
         length += out.iov[i].length < room ? out.iov[i].length : room;
     }
     if (!receiving) {
+        /* Preserve the stream prefix while checking packet size against the
+         * actual endpoint inside the send transaction. */
+        if (oversized) message.flags |= PROCESS_PIPE_MSG_OVERSIZE;
         uint64_t copied = 0;
         for (uint64_t i = 0; i < out.layout.iov_count && copied < length; i++) {
             uint64_t count = out.iov[i].length < length - copied ? out.iov[i].length : length - copied;
