@@ -205,6 +205,48 @@ static bool cmdline_has_token(const char *cmdline, const char *token) {
     return false;
 }
 
+enum local_auth_boot { LOCAL_AUTH_DEFAULT, LOCAL_AUTH_SIGNIN, LOCAL_AUTH_RECOVERY, LOCAL_AUTH_INVALID };
+
+static enum local_auth_boot local_auth_boot_mode(const char *cmdline) {
+    static const char key[] = "srvros.auth=";
+    bool seen = false;
+    for (const char *p = cmdline; p && *p;) {
+        while (*p && char_is_separator(*p)) p++;
+        const char *start = p;
+        while (!char_is_separator(*p)) p++;
+        size_t length = (size_t)(p - start);
+        size_t i = 0;
+        while (i < sizeof(key) - 1 && i < length && start[i] == key[i]) i++;
+        if (i != sizeof(key) - 1) continue;
+        if (seen) return LOCAL_AUTH_INVALID;
+        seen = true;
+    }
+    if (!seen) return LOCAL_AUTH_DEFAULT;
+    if (cmdline_has_token(cmdline, "srvros.auth=local")) return LOCAL_AUTH_SIGNIN;
+    if (cmdline_has_token(cmdline, "srvros.auth=recovery")) return LOCAL_AUTH_RECOVERY;
+    return LOCAL_AUTH_INVALID;
+}
+
+static bool trusted_local_signin(void) {
+    static const char *const parents[] = {"/", "/fat", "/fat/bin", "/fat/etc"};
+    for (size_t i = 0; i < sizeof(parents) / sizeof(parents[0]); i++) {
+        const struct vfs_node *node = vfs_lookup(parents[i]);
+        if (!node || node->type != VFS_NODE_DIRECTORY || node->metadata.uid != 0 ||
+            (node->metadata.mode & 0022)) return false;
+    }
+    const struct vfs_node *store = vfs_lookup("/fat/etc/local-auth");
+    const struct vfs_node *accounts = vfs_lookup("/fat/etc/local-auth/accounts");
+    /* Recovery may reconstruct default metadata on an unprovisioned disk.
+     * Only an administrator-provisioned private store enables sign-in. */
+    if (!store || store->type != VFS_NODE_DIRECTORY || store->metadata.uid != 0 ||
+        store->metadata.gid != 0 || (store->metadata.mode & 07777) != 0700 ||
+        !accounts || accounts->type != VFS_NODE_FILE || accounts->metadata.uid != 0 ||
+        accounts->metadata.gid != 0 || (accounts->metadata.mode & 07777) != 0600) return false;
+    const struct vfs_node *program = vfs_lookup("/fat/bin/local-signin");
+    return program && program->type == VFS_NODE_FILE && program->metadata.uid == 0 &&
+        program->metadata.gid == 0 && (program->metadata.mode & 07777) == 0755;
+}
+
 /* Exact new probe recipes reject duplicate tokens before capture admission. */
 static bool cmdline_tokens_unique(const char *text) {
     if (!text) return false;
@@ -1064,10 +1106,20 @@ void kmain(void) {
     }
     struct block_device *installed_volume = NULL;
     const char *installed_reason = NULL;
+    enum local_auth_boot auth_mode = local_auth_boot_mode(cmdline);
+    if (auth_mode == LOCAL_AUTH_INVALID) {
+        boot_set_framebuffer_quiet(false);
+        console_write("local-auth: invalid boot option. Restart in explicit recovery mode.\n");
+        console_sync();
+        halt_forever();
+    }
     enum installed_root_result installed = installed_root_select(cmdline,
         &installed_volume, &installed_reason);
     if (installed == INSTALLED_ROOT_SELECTED) {
-        if (!exfat_mount_block_device_clean("/fat", installed_volume)) {
+        bool mounted = auth_mode == LOCAL_AUTH_SIGNIN
+            ? exfat_mount_block_device_auth("/fat", installed_volume)
+            : exfat_mount_block_device_clean("/fat", installed_volume);
+        if (!mounted) {
             installed = INSTALLED_ROOT_INVALID;
             installed_reason = "filesystem-recovery";
         } else if (!exfat_is_writable("/fat")) {
@@ -1189,6 +1241,19 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
+    if (auth_mode == LOCAL_AUTH_SIGNIN) {
+        boot_set_framebuffer_quiet(false);
+        console_clear();
+        if (installed == INSTALLED_ROOT_SELECTED && timer_running && trusted_local_signin()) {
+            console_write("local-auth: console sign-in\n");
+            (void)process_run_elf("/fat/bin/local-signin");
+        }
+        console_write("local-auth: sign-in unavailable. Restart in explicit recovery mode.\n");
+        console_sync();
+        halt_forever();
+    }
+    if (auth_mode == LOCAL_AUTH_RECOVERY)
+        console_write("local-auth: recovery console\n");
 #ifdef SRVROS_AP_PROBE
     if(timer_running && cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
        cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))

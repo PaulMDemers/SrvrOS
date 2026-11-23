@@ -18,6 +18,56 @@ The proof uses new synthetic EFI images on a private APFS volume backed by a
 new sparsebundle. Check at least 8 GiB available before startup and hold 4 GiB
 on the evidence volume and its backing filesystem, with 2 GiB internal free.
 
+## Local console sign-in
+
+`device/apple-silicon/local-console-signin` starts from `b95bc096`, the
+merged kernel isolation milestone. It covers opt-in installed boot,
+administrator enrollment, console authentication and a restricted session
+in a disposable VM. The checkpoint is two accounts signing in on consecutive
+boots of the same installation, with wrong, unknown, disabled and damaged
+account cases refused. This work uses the existing kernel credential drop.
+Portable profile migration continues on its own path.
+
+Use `srvros.auth=recovery` on the EFI entry for the same installed root to
+provision accounts. From its administrator monitor, run
+`run /fat/bin/local-enroll add NAME UID GID` and enter a 15–128 character
+printable ASCII password twice. `run /fat/bin/local-enroll disable NAME`
+disables the account. The store lives at `/fat/etc/local-auth/accounts`.
+Enrollment uses an exclusive lock and publishes a synced replacement. An
+interrupted enrollment can leave a lock, staged store, or private home for
+the administrator to inspect in recovery. Sign-in refuses an outstanding
+lock or staged store until that inspection is complete.
+
+Use `srvros.auth=local` on the installed EFI entry to reach sign-in. The
+restricted session reports its kernel identity and assigned home, then
+returns to sign-in. The boot mode assumes a trusted EFI configuration and
+administrator control of recovery. It requires complete, preexisting
+exFAT ownership metadata for installed-root admission and a private,
+administrator-provisioned account store. The VM qualification uses synthetic
+credentials, a disposable image, and a diagnostic session executable.
+
+Runtime `5e8014a8` passed enrollment, two consecutive sign-in boots on one
+installed data disk, and controlled damage through explicit recovery. Both
+users reached only their assigned homes. Wrong, unknown and disabled
+credentials and the damaged store produced refusals. Separate boots refused
+a writable sign-in executable and a writable executable directory. The host
+Argon2id vector, allocation and wipe checks passed. Serial transcripts
+contained none of the fixture passwords.
+
+The review refresh for [SrvrOS #512](https://github.com/PaulMDemers/SrvrOS/pull/512)
+qualified runtime `7ce2f85d` with current libc and CLI tools. Both users
+passed on consecutive boots. A staged account database or enrollment lock
+blocked valid credentials until cleared in recovery. Missing and incomplete
+exFAT metadata refused installed-root admission without changing the disk.
+Explicit administrator recovery still opened the missing-metadata fixture.
+The damaged store and writable launcher controls also passed.
+
+Build with
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
+Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
+with the local EFI firmware templates. Receipts and redacted console logs
+are saved under `build/review/local-signin/`.
+
 ## Local kernel isolation
 
 `device/apple-silicon/kernel-local-isolation` starts from integrated main

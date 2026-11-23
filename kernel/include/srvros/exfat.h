@@ -44,6 +44,9 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
 /* Installed-root admission: no writes or flushes during mount; reject media
  * needing recovery, including any pending metadata temporary sidecar. */
 bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device *device);
+/* Clean admission plus a preexisting sidecar covering every live non-internal
+ * mount node, validated atomically before mount publication or media writes. */
+bool exfat_mount_block_device_auth(const char *mountpoint, struct block_device *device);
 /* Refuses active backend operations and linked process files/directories/cwds.
  * Mount lifecycle is serialized through the CPU0 storage owner. */
 bool exfat_unmount(const char *mountpoint);
