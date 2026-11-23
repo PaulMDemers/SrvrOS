@@ -134,6 +134,15 @@ with the 2880 × 1800 framebuffer for the attended fractional workflow
 return (`b03534015293d497`). The physical results above apply to the
 archived releases and sessions.
 
+PR #501 merged at `6f4c8b92`. The exact merged image `bb43014ec2e628ef`
+passed its unattended screenshot regression on the MacBook in session
+`session-000660e7491ea406-00`. The firmware selected 2×, the capture
+desktop rendered at 1.75×, and the capture owner saved one decodable
+1646 × 1029 BMP. The saved 1× preference and all 549 existing workspace
+files matched. The framed `exit.log`, the clean exFAT check and the new
+Ubuntu boot complete the return evidence. The recovery directory holds
+the exact image and `evidence-bb43014ec2e628ef`.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
