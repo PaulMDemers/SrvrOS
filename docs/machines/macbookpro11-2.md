@@ -136,6 +136,14 @@ AP credential. It saves the probe receipt in phase 2 of the independent
 journal and in the workspace logs, then returns to Ubuntu. Discovery,
 WPA and traffic on Demers2.4 remain future checkpoints.
 
+Source `b9ce14a6` passed the production xHCI path in a three-adapter hub
+fixture, including exact EP0 setup and completions, sibling isolation and
+ten refusal cases. The existing routed Edimax traffic and retirement test
+also passed. Exact VM image `8dfdc1b4ff15b4e1` passed GPT workspace fallback
+and all four independent-journal scenarios with the Realtek absent. A
+physical run requires a newly bound, empty internal journal and its own
+qualification and run record. No boot was armed for this implementation.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
