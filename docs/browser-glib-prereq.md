@@ -8,7 +8,9 @@ proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
 the static build graph. GLib, GObject and GModule build as target static
 archives. An executable linked against target GLib passed the child-watch
 probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
-Static GIO now stops in `inotify-kernel.c` on `FIONREAD` and `inotify_init()`.
+A local-file-only GIO link verified the polling fallback on private exFAT.
+The full static GIO build now stops in `ginetaddress.c` on SDK networking
+declarations, starting with `AI_NUMERICHOST`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -394,11 +396,46 @@ SDK, init and boot inputs using `python3 tools/glib_platform_guest.py --fnmatch`
 
 Fresh configure and all five XDG MIME objects that include
 `<fnmatch.h>` passed. The two actual GIO callers are in
-`xdgmimecache.c` and `xdgmimeglob.c`. The static GIO build next fails
+`xdgmimecache.c` and `xdgmimeglob.c`. That static GIO build failed
 in `gio/inotify/inotify-kernel.c` at the undeclared `FIONREAD` and
 `inotify_init()`. Meson auto-selects inotify because its
 `inotify_init1()` link probe succeeds. The SDK function returns
 `ENOSYS` at runtime. See the [fnmatch receipt](assets/evidence/glib-fnmatch/receipt.json).
+
+## Local file monitoring
+
+The SrvrOS port selects GIO's existing five-second individual-file polling
+fallback in the automatic backend choice. The SDK's `inotify_init1()`
+continues to link and return `ENOSYS`. A fresh configure recorded the polling
+selection and generated no native monitor backend defines or inotify targets.
+
+Two linked SrvrOS probes on a disposable exFAT disk verified the
+`GLocalFile` and `GPollFileMonitor` types. Public GIO directory monitoring
+returned `G_IO_ERROR_FAILED`. The file monitor emitted creation and a done
+hint, a change and a done hint after an in-place equal-size rewrite with
+a confirmed newer mtime, and deletion. It stayed quiet for seven seconds
+after cancellation and recreation. The fixture was removed before exit.
+Both platform controls also passed. Boot ISO readback matched the kernel
+and all three packed executables. QEMU stopped and the VM window was released.
+
+The guest uses a private local-file link because full static GIO is still
+blocked. It retains actual GFile dispatch, local VFS registration, local
+monitor extension lookup, metadata queries, GTask and the upstream polling
+implementation. The proof-only build supplies declarations for existing
+SDK fields, limits module registration to local services, and makes every
+unavailable network, D-Bus or mount reference fault if called. These inputs
+are recorded separately from the production configure and build. The
+filesystem owner reviewed the scope and independently verified the stopped
+guest and ISO readback.
+
+Size and mtime changes are observable once sampled. SrvrOS reports
+whole-second mtime, so same-size writes in one second and short-lived
+changes between polls can be missed. A done hint describes observation,
+and provides no storage durability guarantee.
+
+The full build reached `gio/ginetaddress.c:461` and stopped at
+`AI_NUMERICHOST`, followed by missing IPv6 address constants and
+predicates. See the [polling build and guest receipt](assets/evidence/gio-poll-monitor/receipt.json).
 
 ## Verification
 

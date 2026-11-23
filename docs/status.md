@@ -27,8 +27,10 @@ passed. The SDK's `creat()` passed on private exFAT and `gstdio.c` compiles.
 With the corrected `GPid` ABI and an explicit unsupported descriptor-path
 result, a target GLib-linked child-watch test passed twice. Static GLib,
 GObject and GModule archives build. XDG MIME objects compile with the
-SDK's guest-verified C-locale `fnmatch()`. Static GIO next stops on
-`FIONREAD` and `inotify_init()` in its inotify backend.
+SDK's guest-verified C-locale `fnmatch()`. A local-file-only GIO link verified
+the polling fallback on private exFAT, including cancellation and directory
+refusal. Full static GIO next stops in `ginetaddress.c` on `AI_NUMERICHOST`
+and missing IPv6 address declarations.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains

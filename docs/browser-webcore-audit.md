@@ -9,8 +9,9 @@ Configure processes bundled GVDB and proxy-libintl, finds `C_IN` in the
 SrvrOS SDK and completes static configuration after linking `res_query()`.
 Static GLib, GObject and GModule archives build, and a target GLib-linked
 child watch passed twice in the guest. XDG MIME compiles with the SDK's
-guest-verified `fnmatch()`. Static GIO first stops in the auto-selected
-inotify backend on `FIONREAD` and `inotify_init()`. The normal guest also
+guest-verified `fnmatch()`. GIO selects file polling on SrvrOS, verified on
+private exFAT by a local-file-only link. The full static GIO build stops in
+`ginetaddress.c` on missing SDK networking declarations. The normal guest also
 verified native wait, character conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.
