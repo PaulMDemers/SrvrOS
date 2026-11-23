@@ -595,6 +595,17 @@ released its window. Fresh pinned GLib configuration passed. Static GIO next
 stops at undeclared `IP_MULTICAST_TTL` in `gsocket.c:1919`.
 [Verification receipt](../assets/evidence/gio-ipv6-multicast-loop/receipt.json)
 
+## GIO multicast TTL declarations — November 23, 2026
+
+Merged OS #543 at `07879c52` is the baseline. Integration reviewed the SDK
+declarations and coordinated a private idle-e1000 diskless guest. The two
+socket probes and the platform controls passed twice each. ISO readback
+matched, and the earlier IPv6 multicast-loop ISO and serial hashes match.
+The guest stopped and released its window. Fresh pinned GLib configuration
+passed. Static GIO next stops at incomplete `struct ip_mreq` in
+`gsocket.c:2495`.
+[Verification receipt](../assets/evidence/gio-multicast-ttl/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
