@@ -311,6 +311,15 @@ alignment, and `g_unix_fd_query_path()` has no target backend. The linked
 GLib child-watch test remains pending.
 See the [file creation receipt](assets/evidence/glib-creat/receipt.json).
 
+PR #522 was requalified on main `6f4c8b92` at source `dac47528` with a
+rebuilt SDK, kernel and init. The new private exFAT guest passed both
+file-policy runs and both platform runs. ISO readback matched all boot
+payloads, and a read-only check confirmed the test entries were removed
+from the disposable disk. The host FD I/O restart regression passed.
+Reusing Meson's recorded commands with the rebuilt SDK, `gstdio.c`
+compiled and `glib-unix.c` reproduced the three diagnostics above.
+See the [current-main receipt](assets/evidence/glib-creat/current-main-receipt.json).
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
