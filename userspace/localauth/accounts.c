@@ -96,11 +96,23 @@ static int load(struct database *db,bool allow_missing) {
     int fd=open(AUTH_DB,O_RDONLY|O_NOFOLLOW);
     if(fd<0) { if(allow_missing && errno==ENOENT){db->count=0;return 0;}return -1; }
     if(!safe_fd(fd)){close(fd);return -1;}
-    char data[DB_SIZE];size_t n=0;
-    while(n<sizeof(data)) {ssize_t k=read(fd,data+n,sizeof(data)-n);if(k<0){close(fd);return -1;}if(!k)break;n+=(size_t)k;}
+    char data[DB_SIZE];size_t n=0;bool read_ok=true;
+    while(n<sizeof(data)) {
+        ssize_t k=read(fd,data+n,sizeof(data)-n);
+        if(k<0) {read_ok=false;break;}
+        if(!k)break;
+        n+=(size_t)k;
+    }
     int close_result=close(fd);
-    if(close_result<0 || n==sizeof(data))return -1;
-    return parse(db,data,n);
+    int result=read_ok && close_result==0 && n<sizeof(data)?parse(db,data,n):-1;
+    local_auth_wipe(data,sizeof(data));
+    return result;
+}
+int local_account_validate_store(void) {
+    struct database db={0};
+    int result=load(&db,false);
+    local_auth_wipe(&db,sizeof(db));
+    return result;
 }
 /* A pending administrator transaction requires explicit recovery.  The
  * opt-in sign-in boot and recovery enrollment do not run concurrently. */
