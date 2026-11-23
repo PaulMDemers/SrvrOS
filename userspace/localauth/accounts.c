@@ -121,9 +121,9 @@ int local_account_lookup(const char *name,struct local_account *out) {
 static int write_all(int fd,const char *p,size_t n) {
     while(n){ssize_t w=write(fd,p,n);if(w<=0)return -1;p+=w;n-=(size_t)w;}return 0;
 }
-static int save(const struct database *db,bool reset) {
-#ifndef LOCAL_AUTH_RESET_VM_TEST
-    (void)reset;
+static int save(const struct database *db,bool test_checkpoints) {
+#ifndef LOCAL_AUTH_ACCOUNT_VM_TEST
+    (void)test_checkpoints;
 #endif
     int fd=open(AUTH_TEMP,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600);
     if(fd<0)return -1;
@@ -136,12 +136,12 @@ static int save(const struct database *db,bool reset) {
     }
     if(ok && fsync(fd)<0)ok=false;
     if(close(fd)<0)ok=false;
-#ifdef LOCAL_AUTH_RESET_VM_TEST
-    if(ok && reset) local_auth_reset_checkpoint(LOCAL_AUTH_RESET_BEFORE_RENAME);
+#ifdef LOCAL_AUTH_ACCOUNT_VM_TEST
+    if(ok && test_checkpoints) local_auth_account_checkpoint(LOCAL_AUTH_ACCOUNT_BEFORE_RENAME);
 #endif
     if(ok && rename(AUTH_TEMP,AUTH_DB)==0) {
-#ifdef LOCAL_AUTH_RESET_VM_TEST
-        if(reset) local_auth_reset_checkpoint(LOCAL_AUTH_RESET_AFTER_RENAME);
+#ifdef LOCAL_AUTH_ACCOUNT_VM_TEST
+        if(test_checkpoints) local_auth_account_checkpoint(LOCAL_AUTH_ACCOUNT_AFTER_RENAME);
 #endif
         return 0;
     }
@@ -162,6 +162,12 @@ static int begin(void) {
     return 0;
 }
 static int end(int result) { return unlink(AUTH_LOCK)==0?result:-1; }
+/* A failed replacement can already be visible; keep the admission guard. */
+static int finish_account_update(struct database *db) {
+    int result=save(db,true);
+    local_auth_wipe(db,sizeof(*db));
+    return result<0 ? result : end(result);
+}
 
 static bool random_salt(uint8_t salt[16]) {
     size_t got=0;
@@ -215,11 +221,23 @@ int local_account_reset_password(const char *name,const char *password) {
         memcpy(account->salt,salt,sizeof(salt));
         memcpy(account->verifier,verifier,sizeof(verifier));
         local_auth_wipe(verifier,sizeof(verifier));
-        result=save(&db,true);
-        local_auth_wipe(&db,sizeof(db));
-        /* Replacement may report an I/O error after publishing. Retain the
-         * lock whenever saving failed so admission requires explicit recovery. */
-        return result<0 ? result : end(result);
+        return finish_account_update(&db);
+    }
+done:
+    local_auth_wipe(&db,sizeof(db));
+    return end(result);
+}
+
+int local_account_enable(const char *name) {
+    if(!valid_name(name) || begin()<0)return -1;
+    struct database db;int result=-1;
+    if(load(&db,false)<0)goto done;
+    for(size_t i=0;i<db.count;i++) {
+        struct local_account *account=&db.accounts[i];
+        if(strcmp(account->name,name))continue;
+        if(account->enabled) {result=0;goto done;}
+        account->enabled=true;
+        return finish_account_update(&db);
     }
 done:
     local_auth_wipe(&db,sizeof(db));

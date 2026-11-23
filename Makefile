@@ -4033,7 +4033,7 @@ build/userspace/test_local_signin_session.elf: userspace/localauth/session.c $(U
 
 build/userspace/localauth/%-reset-test.o: userspace/localauth/%.c $(ZIG)
 	mkdir -p $(@D)
-	$(CC) $(USER_CFLAGS) -DLOCAL_AUTH_RESET_VM_TEST -c $< -o $@
+	$(CC) $(USER_CFLAGS) -DLOCAL_AUTH_ACCOUNT_VM_TEST -c $< -o $@
 
 LOCAL_AUTH_RESET_TEST_SUPPORT := $(filter-out build/userspace/localauth/accounts.c.o,$(LOCAL_AUTH_OBJ))
 build/userspace/test_local_auth_reset.elf: $(LOCAL_AUTH_RESET_TEST_OBJ) $(LOCAL_AUTH_RESET_TEST_SUPPORT) $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld

@@ -13,10 +13,10 @@ static int parse_id(const char *s,uint32_t *out) {
     while(*s){if(*s<'0' || *s>'9')return -1;n=n*10+(unsigned)(*s++-'0');if(n>=UINT32_MAX)return -1;}
     if(!n)return -1;*out=(uint32_t)n;return 0;
 }
-#ifdef LOCAL_AUTH_RESET_VM_TEST
-static enum local_auth_reset_phase interrupt_phase;
+#ifdef LOCAL_AUTH_ACCOUNT_VM_TEST
+static enum local_auth_account_phase interrupt_phase;
 static bool interrupt_enabled;
-void local_auth_reset_checkpoint(enum local_auth_reset_phase phase) {
+void local_auth_account_checkpoint(enum local_auth_account_phase phase) {
     if(interrupt_enabled && phase==interrupt_phase) _exit(86);
 }
 #endif
@@ -27,21 +27,33 @@ int main(int argc,char **argv) {
         fprintf(stderr,"local-enroll: disable failed\n");return 1;
     }
     bool reset=argc>=2 && !strcmp(argv[1],"reset-password");
+    bool enable=argc>=2 && !strcmp(argv[1],"enable");
     uint32_t uid=0,gid=0;
-    bool valid_reset=reset && argc==3;
-#ifdef LOCAL_AUTH_RESET_VM_TEST
-    if(reset && argc==4) {
+    bool valid_action=(reset || enable) && argc==3;
+#ifdef LOCAL_AUTH_ACCOUNT_VM_TEST
+    if((reset || enable) && argc==4) {
         if(!strcmp(argv[3],"--interrupt-before-rename")) {
-            interrupt_phase=LOCAL_AUTH_RESET_BEFORE_RENAME;interrupt_enabled=true;valid_reset=true;
+            interrupt_phase=LOCAL_AUTH_ACCOUNT_BEFORE_RENAME;interrupt_enabled=true;valid_action=true;
         } else if(!strcmp(argv[3],"--interrupt-after-rename")) {
-            interrupt_phase=LOCAL_AUTH_RESET_AFTER_RENAME;interrupt_enabled=true;valid_reset=true;
+            interrupt_phase=LOCAL_AUTH_ACCOUNT_AFTER_RENAME;interrupt_enabled=true;valid_action=true;
         }
     }
 #endif
     bool valid_add=argc==5 && !strcmp(argv[1],"add") &&
         parse_id(argv[3],&uid)==0 && parse_id(argv[4],&gid)==0;
-    if(!valid_reset && !valid_add) {
-        fprintf(stderr,"usage: local-enroll add NAME UID GID | disable NAME | reset-password NAME\n");return 1;
+    if(!valid_action && !valid_add) {
+        fprintf(stderr,"usage: local-enroll add NAME UID GID | disable NAME | enable NAME | reset-password NAME\n");return 1;
+    }
+    if(enable) {
+        mode_t old=umask(0);
+        int result=local_account_enable(argv[2]);
+        umask(old);
+        if(result<0) {
+            fprintf(stderr,"local-enroll: enable failed\n");
+            return 1;
+        }
+        puts("local-enroll: account enabled");
+        return 0;
     }
     char first[LOCAL_AUTH_PASSWORD_MAX+1]={0},second[LOCAL_AUTH_PASSWORD_MAX+1]={0};
     int ok=local_auth_read_secret("New password: ",first,sizeof(first))==0 &&
