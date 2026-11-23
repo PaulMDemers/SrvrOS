@@ -276,6 +276,7 @@ def main():
     wifi_5ghz_prereq=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v108-","ram-usb-wifi-fw-v109-","ram-usb-wifi-fw-v110-","ram-usb-wifi-fw-v111-","ram-usb-wifi-fw-v112-","ram-usb-wifi-fw-v113-","ram-usb-wifi-fw-v114-","ram-usb-wifi-fw-v115-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-","ram-usb-wifi-fw-v155-","ram-usb-wifi-fw-v144-","ram-usb-wifi-fw-v145-","ram-usb-wifi-fw-v146-")))
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
+    rtl8188cu = manifest["config_version"].startswith("ram-usb-rtl8188cu-v1-")
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     wifi_nop5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v134-"))
     wifi_stream5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-","ram-usb-wifi-fw-v155-")))
@@ -597,7 +598,7 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or rtl8188cu or posix_capture or ap_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -624,7 +625,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
+                        if not (audio_listen or storage_only_capture or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or rtl8188cu or posix_capture or ap_capture or hsw_capture or hfw_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -632,6 +633,11 @@ def main():
                             assert b"Expected internal keyboard: 05ac:0291" not in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    if rtl8188cu:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert b"rtl8188cu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log
+                        assert b"laptop-capture: completed=NO" in exit_log
+                        assert b"wifi-firmware: slot=" not in exit_log and b"rtl8188cu-identity:" not in exit_log
                     if wifi_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         if wifi_5ghz_prereq:

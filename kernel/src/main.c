@@ -934,6 +934,29 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
+static bool rtl8188cu_recipe(const char *cmdline) {
+    static const struct { const char *prefix; unsigned hex_digits; } tokens[] = {
+        {"srvros.storage=ram",0},
+        {"srvros.workspace-volume=",8},
+        {"srvros.desktop-release=",16},
+        {"srvros.capture=wifi-rtl8188cu",0},
+        {"srvros.startup-journal=1",0},
+        {"srvros.capture-failure=reboot",0},
+    };
+    for(size_t i=0;i<sizeof tokens/sizeof tokens[0];i++) {
+        while(*cmdline && char_is_separator(*cmdline))cmdline++;
+        for(const char *p=tokens[i].prefix;*p;p++)
+            if(*cmdline++!=*p)return false;
+        for(unsigned n=0;n<tokens[i].hex_digits;n++) {
+            char c=*cmdline++;
+            if(!((c>='0' && c<='9') || (c>='a' && c<='f')))return false;
+        }
+        if(!char_is_separator(*cmdline))return false;
+    }
+    while(*cmdline && char_is_separator(*cmdline))cmdline++;
+    return !*cmdline;
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -941,7 +964,9 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
-    if(startup_journal_requested && (!(wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
+    bool rtl8188cu_capture=cmdline_has_token(cmdline,"srvros.capture=wifi-rtl8188cu");
+    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline))halt_forever();
+    if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
         (startup_diagnostic && reconnect_journal)))halt_forever();
     boot_verbose = boot_debug_requested(cmdline);
@@ -1070,6 +1095,8 @@ void kmain(void) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
             boot_status("Demers5 desktop trial: calibrating. The desktop will open Help when ready.\n");
+        else if(rtl8188cu_capture)
+            boot_status("Realtek 2.4 GHz trial: reading USB identity and saving results. No input required.\n");
         else
             boot_status(reconnect_journal?
                 "Wi-Fi calibration and two-connection trial: independent checkpoints; no input required\n":
@@ -1114,6 +1141,7 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.wifi-mac-startup=1"));
     xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
+    bool rtl8188cu_identified=rtl8188cu_capture && xhci_rtl8188cu_capture_identity();
     if(startup_journal_requested)startup_checkpoint(2,0);
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -1415,14 +1443,14 @@ void kmain(void) {
     if(startup_journal_requested)startup_checkpoint(3,(init_ready?4u:0u)|(timer_running?8u:0u));
     workspace_boot(cmdline);
     if(startup_journal_requested)startup_checkpoint(4,(workspace_active()?1u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u));
-    if (automatic_probe || automatic_wifi) {
+    if (automatic_probe || automatic_wifi || rtl8188cu_capture) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
         xhci_print_boot_diagnostic();
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_only || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
+    if(rtl8188cu_capture || automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_only || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         if(wifi_5ghz_prereq)console_write("wifi-5ghz-prereq-progress: common init then read-only MAC/PA/RF selectors; no band/tune/RX/network OUT; warm-state inventory\n");
         bool started=false;
@@ -1759,6 +1787,7 @@ void kmain(void) {
                 after.switches-before.switches,after.preemptions-before.preemptions,sampled?"yes":"NO");
             thermal_print_status();smc_print_status();audio_print_status();
         }
+        if(rtl8188cu_capture)sampled=rtl8188cu_identified;
         console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();

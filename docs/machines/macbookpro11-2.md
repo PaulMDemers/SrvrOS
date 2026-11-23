@@ -115,6 +115,27 @@ firmware, register, RX and TX paths before publishing a Wi-Fi provider. The
 Linux reference entry points are [rtl8192cu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c)
 and [rtw8822bu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtw88/rtw8822bu.c).
 
+#### RTL8188CUS identity checkpoint
+
+The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
+1 of this Genesys hub. Keep the Edimax and Netgear adapters in ports 2 and
+4 respectively. The device branch starts at native Edimax acceptance
+`7d7a9c02`. Fetched main `87503968` adds unrelated userspace work. The scope
+is xHCI EP0, capture dispatch and its journaled boot recipe.
+
+Ubuntu read `SYS_CFG=0x04400737`, `9346CR=0x20` and `MCUFWDL=0xc6` using
+device-recipient vendor IN request 5 while the Linux driver was live.
+The firmware status is a warm reference. Native cold values can differ.
+Ubuntu's scan cache on this adapter lists Demers2.4 on channel 10 with WPA2.
+The [Linux CU identity routine](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/mac.c)
+uses SYS_CFG to report the silicon family. SrvrOS checks the hub port and
+matches the complete configuration descriptor before the standard USB
+configuration request and the three bounded register reads. This image
+does not upload firmware, enable RF, publish a network provider or use an
+AP credential. It saves the probe receipt in phase 2 of the independent
+journal and in the workspace logs, then returns to Ubuntu. Discovery,
+WPA and traffic on Demers2.4 remain future checkpoints.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

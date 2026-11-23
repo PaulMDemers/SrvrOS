@@ -14,6 +14,38 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_rtl8188cu_identity_stage(self):
+        import struct
+        import tarfile
+        import startup_journal as journal
+
+        descriptor = (journal.magic("SRVRSTARTDESC1") +
+                      struct.pack("<QQQQ",100000,2097152,1048576,10485760) +
+                      bytes(range(16)) + bytes(64))
+        path = self.root / "rtl8188cu-journal"
+        path.write_bytes(descriptor)
+        for name in ("limine-binary/BOOTX64.EFI","kernel/srvros.elf"):
+            binary = self.root / "build" / name
+            binary.parent.mkdir(parents=True,exist_ok=True)
+            binary.write_bytes(b"fixture")
+        with tarfile.open(self.root / "build/initramfs.tar","w",format=tarfile.USTAR_FORMAT):
+            pass
+        args = dict(rtl8188cu_identity=True,laptop_probe_volume="12345678",startup_journal=path)
+        with patch.object(boot,"ROOT",self.root), patch.object(
+                boot.subprocess,"check_output",side_effect=["test-revision\n",""]):
+            release = boot.stage(**args)
+            payload = self.stage / release
+            self.assertEqual(boot.verify(payload)["config_version"],
+                             "ram-usb-rtl8188cu-v1-laptop-probe-12345678-auto-return")
+            self.assertEqual(journal.verify_initramfs(payload / "initramfs.tar"),descriptor)
+            self.assertIn(f"cmdline: srvros.storage=ram srvros.workspace-volume=12345678 "
+                          f"srvros.desktop-release={release} srvros.capture=wifi-rtl8188cu "
+                          "srvros.startup-journal=1 srvros.capture-failure=reboot\n",
+                          (payload / "limine.conf").read_text())
+        for invalid in (dict(startup_journal=None),dict(wifi_capture=True),dict(hold_on_failure=True)):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                boot.stage(**dict(args,**invalid))
+
     def test_early5_stage_and_profile(self):
         import struct
         import tarfile

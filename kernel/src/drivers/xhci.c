@@ -602,6 +602,7 @@ struct xhci_device {
     bool present;
     bool ep0_quarantined;
     bool wifi_probe_attempted, wifi_probe_ok;
+    bool rtl8188cu_probe_attempted;
     struct mt76_identity wifi_identity;
     bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
     uint32_t wifi_efuse_control;
@@ -2810,7 +2811,7 @@ static void apply_hub_port_status(struct xhci_device *hub,uint8_t port,uint32_t 
 /* Admit a high-speed leaf through one high-speed root-attached USB2 hub.
  * The status is set only by the matching port observer's completed GET_STATUS.
  * A connection-change latch retires the old leaf even when CCS is set again. */
-static bool wifi_hub_path_present(const struct xhci_device *d) {
+static bool wifi_hub_route_present(const struct xhci_device *d) {
     if(!xhci.operational || xhci.stopping || !d->addressed || d->removed || d->retiring ||
        device_by_slot(d->slot_id)!=d || d->speed!=3 || !d->port_id || d->port_id>xhci.port_count ||
        !d->hub_port_id || d->hub_ports)return false;
@@ -2819,12 +2820,114 @@ static bool wifi_hub_path_present(const struct xhci_device *d) {
        hub->control_failed || hub->ep0_quarantined || hub->speed!=3 || hub->parent_slot_id ||
        hub->hub_port_id || hub->route_string || hub->port_id!=d->port_id ||
        d->hub_port_id>hub->hub_ports || d->route_string!=child_route_string(0,d->hub_port_id))return false;
-    const uint32_t required=USB_HUB_PORT_CONNECTION|USB_HUB_PORT_ENABLE|USB_HUB_PORT_POWER|USB_HUB_PORT_HIGH_SPEED;
-    if((d->hub_port_status&required)!=required || (d->hub_port_status&(0xffff0000u|USB_HUB_PORT_LOW_SPEED|0x1cu)))return false;
     uint32_t state=op_read32(port_offset(d->port_id-1));
     return state!=UINT32_MAX && (state&(XHCI_PORTSC_CCS|XHCI_PORTSC_PED))==(XHCI_PORTSC_CCS|XHCI_PORTSC_PED) &&
         !(state&(XHCI_PORTSC_CSC|XHCI_PORTSC_PR));
 }
+
+static bool wifi_hub_path_present(const struct xhci_device *d) {
+    const uint32_t required=USB_HUB_PORT_CONNECTION|USB_HUB_PORT_ENABLE|USB_HUB_PORT_POWER|USB_HUB_PORT_HIGH_SPEED;
+    return (d->hub_port_status&required)==required &&
+        !(d->hub_port_status&(0xffff0000u|USB_HUB_PORT_LOW_SPEED|0x1cu)) && wifi_hub_route_present(d);
+}
+
+/* Captured 0bda:8176 rev 0200, configuration 1, interface 0 alt 0.
+ * Compare the endpoint descriptors before granting even vendor reads. */
+static bool rtl8188cu_config_matches(const uint8_t *actual) {
+    static const uint8_t configuration[] = {
+        9, USB_DESC_CONFIGURATION, 46, 0, 1, 1, 0, 0x80, 250,
+        9, USB_DESC_INTERFACE, 0, 0, 4, 0xff, 0xff, 0xff, 0,
+        7, USB_DESC_ENDPOINT, 0x81, 2, 0, 2, 0,
+        7, USB_DESC_ENDPOINT, 0x02, 2, 0, 2, 0,
+        7, USB_DESC_ENDPOINT, 0x03, 2, 0, 2, 0,
+        7, USB_DESC_ENDPOINT, 0x84, 3, 64, 0, 1,
+    };
+    for (size_t i=0; i<sizeof configuration; i++)
+        if (actual[i]!=configuration[i]) return false;
+    return true;
+}
+
+enum rtl8188cu_register {
+    RTL8188CU_BOOT_SOURCE = 0x0a,
+    RTL8188CU_MCU_STATUS = 0x80,
+    RTL8188CU_SYS_CFG = 0xf0,
+};
+
+static bool rtl8188cu_read(struct xhci_device *d,enum rtl8188cu_register reg,uint32_t *value) {
+    const uint16_t length=reg==RTL8188CU_SYS_CFG?4:1;
+    const struct usb_setup_packet setup={.request_type=0xc0,.request=5,.value=reg,.length=length};
+    int actual;
+    if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,length,true,&actual) ||
+       actual!=length)return false;
+    *value=0;
+    for(unsigned i=0;i<length;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    return true;
+}
+
+static bool rtl8188cu_check_port(struct xhci_device *d,struct xhci_device *hub) {
+    uint32_t status;
+    if(!hub_get_port_status(hub,d->hub_port_id,&status))return false;
+    apply_hub_port_status(hub,d->hub_port_id,status);
+    return wifi_hub_path_present(d);
+}
+
+static const char *rtl8188cu_probe(struct xhci_device *d,struct xhci_device *hub) {
+    if(!rtl8188cu_check_port(d,hub))return "port";
+    zero_bytes(d->descriptor_buffer,46);
+    if(!get_descriptor(d,USB_DESC_CONFIGURATION,0,0,46) ||
+       !rtl8188cu_config_matches(d->descriptor_buffer))return "descriptor";
+    if(!set_configuration(d,1))return "configuration";
+
+    uint32_t sys_cfg=0,boot=0,mcu=0;
+    if(!rtl8188cu_read(d,RTL8188CU_SYS_CFG,&sys_cfg))return "sys-cfg";
+    /* Linux uses these three bits for test silicon, 92C and UMC. This
+     * probe only admits the normal TSMC 88C observed in Ubuntu. */
+    if(!sys_cfg || (sys_cfg&((1u<<23)|(1u<<27)|(1u<<19)))) {
+        console_printf("rtl8188cu-identity: unsupported sys_cfg=%x\n",(uint64_t)sys_cfg);
+        return "silicon";
+    }
+    if(!rtl8188cu_read(d,RTL8188CU_BOOT_SOURCE,&boot))return "boot-source";
+    if(!rtl8188cu_read(d,RTL8188CU_MCU_STATUS,&mcu))return "mcu-status";
+    if(!rtl8188cu_check_port(d,hub))return "port-after";
+    console_printf("rtl8188cu-identity: slot=%u parent=%u port=%u sys_cfg=%x boot=%x mcu_status=%x\n",
+        (uint64_t)d->slot_id,(uint64_t)hub->slot_id,(uint64_t)d->hub_port_id,
+        (uint64_t)sys_cfg,(uint64_t)boot,(uint64_t)mcu);
+    return NULL;
+}
+
+bool xhci_rtl8188cu_capture_identity(void) {
+    struct xhci_device *target=NULL;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=&xhci.devices[i];
+        if(!d->present || d->removed || d->slot_disabled ||
+           d->vendor_id!=0x0bda || d->product_id!=0x8176)continue;
+        if(target) {
+            console_write("rtl8188cu-probe: result=ambiguous\n");
+            return false;
+        }
+        target=d;
+    }
+    const char *failure="absent";
+    if(target) {
+        uint64_t flags=event_irq_save();
+        struct xhci_device *hub=device_by_slot(target->parent_slot_id);
+        failure="admission";
+        if(hub && hub->vendor_id==0x05e3 && hub->product_id==0x0608 && hub->hub_ports==4 &&
+           target->hub_port_id==1 && target->device_bcd==0x0200 && target->configuration_count==1 &&
+           target->ep0_max_packet==64 && target->descriptor_buffer && target->descriptor_buffer_phys &&
+           !target->configured && !target->control_failed && !target->control_pending &&
+           !target->ep0_quarantined && !target->rtl8188cu_probe_attempted && !hub->control_pending &&
+           !xhci.sync_users && wifi_hub_route_present(target)) {
+            target->rtl8188cu_probe_attempted=true;
+            failure=rtl8188cu_probe(target,hub);
+        }
+        event_irq_restore(flags);
+    }
+    console_printf("rtl8188cu-probe: result=%s register_writes=0 firmware=0 rf=0\n",
+        failure?failure:"identified");
+    return !failure;
+}
+
 static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event) {
     int result=control_event_result(d,event);
     if(!result)return;

@@ -7279,6 +7279,104 @@ static void test_wifi_hub_path(void) {
     wifi_desktop5.device=NULL;
     puts("xhci-wifi-hub: PASS live port required, sibling removal isolated, lost route and latched reconnect rejected");
 }
+
+static unsigned rtl_probe_case,rtl_probe_hub_requests,rtl_probe_device_requests;
+static const uint8_t rtl_probe_config[]={
+    9,2,46,0,1,1,0,0x80,250,9,4,0,0,4,0xff,0xff,0xff,0,
+    7,5,0x81,2,0,2,0,7,5,2,2,0,2,0,7,5,3,2,0,2,0,7,5,0x84,3,64,0,1
+};
+
+static void rtl_probe_model(uint64_t offset,uint32_t value) {
+    if(value!=1 || offset<=xhci.db_base || offset>xhci.db_base+4*4)return;
+    unsigned slot=(unsigned)(offset-xhci.db_base)/4;
+    assert(slot==1 || slot==2);
+    struct xhci_device *d=&xhci.devices[slot-1];
+    bool strict=strict_control.device==d;
+    uint64_t setup_ptr=strict?strict_control.setup:d->control_td[0];
+    uint64_t status_ptr=strict?strict_control.status:d->control_td[d->control_td_count-1];
+    const struct xhci_trb *setup=(const struct xhci_trb *)(uintptr_t)setup_ptr;
+    uint32_t control=(32u<<10)|(slot<<24)|(1u<<16)|(xhci.event_cycle?1u:0u);
+    unsigned event=xhci.event_dequeue;
+    if(slot==1) {
+        assert(!strict && setup->parameter_low==0x000000a3 && setup->parameter_high==0x00040001);
+        rtl_probe_hub_requests++;
+        uint32_t status=0x503;
+        if(rtl_probe_case==5 || (rtl_probe_case==9 && rtl_probe_hub_requests==2))status|=1u<<16;
+        for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=status>>(8*i);
+    } else {
+        switch(++rtl_probe_device_requests) {
+        case 1:
+            assert(!strict && setup->parameter_low==0x02000680 && setup->parameter_high==0x002e0000);
+            memcpy(d->descriptor_buffer,rtl_probe_config,sizeof rtl_probe_config);
+            if(rtl_probe_case==6)d->descriptor_buffer[20]^=1;
+            break;
+        case 2:
+            assert(!strict && setup->parameter_low==0x00010900 && setup->parameter_high==0);
+            break;
+        case 3:
+            assert(strict && setup->parameter_low==0x00f005c0 && setup->parameter_high==0x00040000);
+            d->descriptor_buffer[0]=0x37;d->descriptor_buffer[1]=7;d->descriptor_buffer[2]=0x40;
+            d->descriptor_buffer[3]=rtl_probe_case==8?0x0c:0x04;
+            if(rtl_probe_case==7) {
+                uint64_t data_ptr=strict_control.data;
+                xhci.event_ring[event++]=(struct xhci_trb){.parameter_low=(uint32_t)data_ptr,
+                    .parameter_high=data_ptr>>32,.status=(13u<<24)|1,.control=control};
+            }
+            if(rtl_probe_case==10) {
+                xhci.event_ring[event]=(struct xhci_trb){.parameter_low=(uint32_t)setup_ptr,
+                    .parameter_high=setup_ptr>>32,.status=6u<<24,.control=control};
+                return;
+            }
+            break;
+        case 4:
+            assert(strict && setup->parameter_low==0x000a05c0 && setup->parameter_high==0x00010000);
+            d->descriptor_buffer[0]=0x20;
+            break;
+        case 5:
+            assert(strict && setup->parameter_low==0x008005c0 && setup->parameter_high==0x00010000);
+            d->descriptor_buffer[0]=0;
+            break;
+        default:assert(false);
+        }
+    }
+    xhci.event_ring[event]=(struct xhci_trb){.parameter_low=(uint32_t)status_ptr,
+        .parameter_high=status_ptr>>32,.status=1u<<24,.control=control};
+}
+
+static void test_rtl8188cu_probe(void) {
+    static const unsigned hub_calls[]={2,0,0,0,0,1,1,1,1,2,1};
+    static const unsigned device_calls[]={5,0,0,0,0,0,1,3,3,5,3};
+    for(rtl_probe_case=0;rtl_probe_case<sizeof hub_calls/sizeof hub_calls[0];rtl_probe_case++) {
+        rtl_probe_hub_requests=rtl_probe_device_requests=0;
+        struct xhci_device *hub=control_fixture();
+        hub->addressed=true;hub->speed=3;hub->hub_ports=4;hub->vendor_id=0x05e3;hub->product_id=0x0608;
+        struct xhci_device *rtl=&xhci.devices[1],*edimax=&xhci.devices[2],*netgear=&xhci.devices[3];
+        *rtl=(struct xhci_device){.present=true,.addressed=true,.slot_id=2,.port_id=1,
+            .speed=3,.parent_slot_id=1,.hub_port_id=1,.route_string=1,.vendor_id=0x0bda,
+            .product_id=0x8176,.device_bcd=0x0200,.configuration_count=1,.ep0_max_packet=64};
+        *edimax=(struct xhci_device){.present=true,.addressed=true,.slot_id=3,.port_id=1,
+            .speed=3,.parent_slot_id=1,.hub_port_id=2,.route_string=2,.vendor_id=0x7392,.product_id=0xa711};
+        *netgear=(struct xhci_device){.present=true,.addressed=true,.slot_id=4,.port_id=1,
+            .speed=3,.parent_slot_id=1,.hub_port_id=4,.route_string=4,.vendor_id=0x0846,.product_id=0x9055};
+        assert(allocate_device_runtime(rtl));
+        if(rtl_probe_case==1)rtl->present=false;
+        if(rtl_probe_case==2){netgear->vendor_id=0x0bda;netgear->product_id=0x8176;}
+        if(rtl_probe_case==3)rtl->device_bcd=0x0100;
+        if(rtl_probe_case==4)rtl->route_string=2;
+        native_boundary_mmio_hook=rtl_probe_model;
+        assert(xhci_rtl8188cu_capture_identity()==(rtl_probe_case==0));
+        assert(!xhci_rtl8188cu_capture_identity());
+        assert(rtl_probe_hub_requests==hub_calls[rtl_probe_case]);
+        assert(rtl_probe_device_requests==device_calls[rtl_probe_case]);
+        assert(!hub->removed && !edimax->removed && !netgear->removed &&
+            !edimax->control_success && !netgear->control_success);
+        assert(!xhci.sync_users && !strict_control.device && !network_count);
+        assert(rtl->ep0_quarantined==(rtl_probe_case==10));
+        assert(rtl->removed==(rtl_probe_case==5 || rtl_probe_case==9));
+    }
+    native_boundary_mmio_hook=NULL;
+    puts("rtl8188cu: PASS native hub and EP0 path, three exact reads, sibling isolation and 10 refusal cases");
+}
 static struct xhci_device *tt_cleanup_fixture(void) {
     struct xhci_device *d=control_fixture();
     d->parent_slot_id=3;d->hub_port_id=4;d->addressed=true;
@@ -7984,6 +8082,7 @@ static void test_repeated_init(void) {
     puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
 }
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--rtl8188cu-identity")){test_rtl8188cu_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-root-reattach")){test_wifi_root_reattach();return 0;}
     if(argc==2 && !strcmp(argv[1],"--integration-lifecycle")){
         test_repeated_init();test_failed_init_restart();test_terminal_stop();test_slot_retirement();test_wifi_root_reattach();
