@@ -41,6 +41,7 @@ EPROTOTYPE_MARKER = b'glib-eprototype: ok'
 SOMAXCONN_MARKER = b'glib-somaxconn: ok'
 IP_TTL_MARKER = b'glib-ip-ttl: ok'
 IPV6_UNICAST_HOPS_MARKER = b'glib-ipv6-unicast-hops: ok'
+SO_BROADCAST_MARKER = b'glib-so-broadcast: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
@@ -54,7 +55,7 @@ def digest(path):
 
 
 def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
-              probe_timeouts=None, *, idle_nic=False, ttl_peer=None):
+              probe_timeouts=None, *, idle_nic=False, ttl_peer=None, broadcast_peer=None):
     with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp, ExitStack() as stack:
         uart = str(Path(temp) / 'serial')
         argv = ['qemu-system-x86_64', '-name', 'SrvrOS GLib prerequisite probe',
@@ -63,13 +64,14 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
                 '-display', 'none', '-serial',
                 f'unix:{uart},server=on,wait=off', '-monitor', 'none', '-no-reboot']
         pass_fds = ()
-        wire_peer = dns_peer or ttl_peer
+        wire_peer = dns_peer or ttl_peer or broadcast_peer
+        capture_kind = 'ipv4_ttl' if ttl_peer else 'ipv4_broadcast' if broadcast_peer else None
         if wire_peer or idle_nic:
             a, b = socket.socketpair()
             stack.enter_context(a)
             stack.enter_context(b)
             if wire_peer:
-                peer_kind = 'dns_peer' if dns_peer else 'ipv4_ttl_peer'
+                peer_kind = 'dns_peer' if dns_peer else f'{capture_kind}_peer'
                 stats = output / (peer_kind.replace('_', '-') + '.json')
                 peer_argv = [sys.executable, wire_peer, '--fd', str(a.fileno()), '--stats', stats]
                 peer = stack.enter_context(subprocess.Popen(peer_argv, pass_fds=(a.fileno(),)))
@@ -79,9 +81,10 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
             argv += ['-netdev', f'socket,id=fixture,fd={b.fileno()}', '-device', 'e1000,netdev=fixture']
         else:
             argv += ['-nic', 'none']
-        if ttl_peer:
-            capture = output / 'ipv4-ttl.pcap'
-            argv += ['-object', f'filter-dump,id=ttl-capture,netdev=fixture,file={capture}']
+        if capture_kind:
+            capture = output / (capture_kind.replace('_', '-') + '.pcap')
+            capture_id = 'ttl-capture' if ttl_peer else 'broadcast-capture'
+            argv += ['-object', f'filter-dump,id={capture_id},netdev=fixture,file={capture}']
         if workspace:
             argv += ['-drive', f'if=none,id=workspace,file={workspace},format=raw',
                      '-device', 'ich9-ahci,id=workspace-ahci',
@@ -146,8 +149,8 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
                     receipt[f'{peer_kind}_exit'] = peer_exit
                     if stats.is_file():
                         receipt[f'{peer_kind}_sha256'] = digest(stats)
-                if ttl_peer and capture.is_file():
-                    receipt['ipv4_ttl_capture_sha256'] = digest(capture)
+                if capture_kind and capture.is_file():
+                    receipt[f'{capture_kind}_capture_sha256'] = digest(capture)
         if dns_peer:
             expected = dict.fromkeys(('good', 'large', 'missing', 'nodata', 'temporary',
                                       'truncated', 'mismatch', 'legacy', 'malformed', 'service'), 2)
@@ -159,11 +162,11 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
                 observed['deliberate_malformed_replies'] != 2):
                 raise RuntimeError(f'unexpected DNS fixture traffic: {observed}')
             receipt['dns_peer_queries'] = observed['queries']
-        if ttl_peer:
+        if capture_kind:
             observed = json.loads(stats.read_text()) if stats.is_file() else {}
             if peer_exit or observed.get('result') != 'passed':
-                raise RuntimeError(f'IPv4 TTL wire probe failed: {observed}')
-            receipt['ipv4_ttl_wire'] = observed
+                raise RuntimeError(f'{peer_kind} wire probe failed: {observed}')
+            receipt[f'{capture_kind}_wire'] = observed
 
 
 def main():
@@ -186,6 +189,7 @@ def main():
     parser.add_argument('--somaxconn', action='store_true', help='test the Unix listener backlog and its public ceiling')
     parser.add_argument('--ip-ttl', action='store_true', help='test per-socket IPv4 TTL against a private peer')
     parser.add_argument('--ipv6-unicast-hops', action='store_true', help='test IPv6 unicast option refusal without network')
+    parser.add_argument('--so-broadcast', action='store_true', help='test IPv4 UDP broadcast against a private peer')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
@@ -195,8 +199,8 @@ def main():
     parser.add_argument('--gio-resolver-address', type=Path, metavar='ELF',
                         help='boot a linked GIO resolver address handling probe')
     args = parser.parse_args()
-    if args.ip_ttl and args.resolver:
-        parser.error('--ip-ttl and --resolver use separate private peers')
+    if sum((args.ip_ttl, args.resolver, args.so_broadcast)) > 1:
+        parser.error('--ip-ttl, --resolver and --so-broadcast use separate private peers')
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
     StorageGuard(base).preflight()
@@ -277,7 +281,8 @@ def main():
                       ('eprototype', args.eprototype, EPROTOTYPE_MARKER),
                       ('somaxconn', args.somaxconn, SOMAXCONN_MARKER),
                       ('ip-ttl', args.ip_ttl, IP_TTL_MARKER),
-                      ('ipv6-unicast-hops', args.ipv6_unicast_hops, IPV6_UNICAST_HOPS_MARKER))
+                      ('ipv6-unicast-hops', args.ipv6_unicast_hops, IPV6_UNICAST_HOPS_MARKER),
+                      ('so-broadcast', args.so_broadcast, SO_BROADCAST_MARKER))
         for name, enabled, marker in sdk_probes:
             if not enabled:
                 continue
@@ -385,14 +390,20 @@ def main():
                            timeout=30, stdout=log, stderr=log)
         receipt['image_sha256'] = digest(image)
         ttl_peer = ROOT / 'tools/ipv4_ttl_test_peer.py' if args.ip_ttl else None
+        broadcast_peer = ROOT / 'tools/ipv4_broadcast_test_peer.py' if args.so_broadcast else None
         if ttl_peer:
             receipt['inputs_sha256'][str(ttl_peer.relative_to(ROOT))] = digest(ttl_peer)
             receipt['scope'] += ' and a private e1000 IPv4 TTL peer'
+        elif broadcast_peer:
+            for path in (broadcast_peer, ROOT / 'tools/ipv4_ttl_test_peer.py'):
+                receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
+            receipt['scope'] += ' and a private e1000 IPv4 broadcast peer'
         elif args.gio_ip_tos and not dns_peer:
             receipt['scope'] += ' and a private e1000 on an idle local socketpair'
         probe_timeouts = {'gio-poll-monitor': 90, 'glib-ip-ttl': 30}
         run_guest(image, output, receipt, probes, dns_peer, workspace,
-                  probe_timeouts, idle_nic=args.gio_ip_tos is not None, ttl_peer=ttl_peer)
+                  probe_timeouts, idle_nic=args.gio_ip_tos is not None,
+                  ttl_peer=ttl_peer, broadcast_peer=broadcast_peer)
         receipt['result'] = 'passed'
     except Exception as error:
         receipt['error'] = str(error)

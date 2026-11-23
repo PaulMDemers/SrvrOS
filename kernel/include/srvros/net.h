@@ -53,6 +53,8 @@ int64_t net_udp_send_checked(uint64_t handle, uint32_t ip, uint16_t port,
 int64_t net_ipv4_ttl(uint64_t handle, bool set, uint8_t ttl);
 int64_t net_connect_with_ttl(uint32_t ip, uint16_t port, bool nonblock, uint8_t ttl);
 int64_t net_listen_with_ttl(uint16_t port, uint8_t ttl);
+/* Serialized with native UDP descriptor lookup and option updates on CPU0. */
+int64_t net_udp_broadcast(uint64_t handle, bool set, bool enabled);
 
 void net_init(void);
 /* Explicit one-shot native probe:register the secured provider first. Refuses

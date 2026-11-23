@@ -3258,6 +3258,22 @@ static int64_t syscall_net_ipv4_ttl(uint64_t op, uint64_t a, uint64_t b, uint64_
     return fd == -1 ? SRV_ERR_MFILE : fd;
 }
 
+static int64_t syscall_net_udp_broadcast(uint64_t op, uint64_t fd, uint64_t enabled) {
+    if ((op != SRV_NET_BROADCAST_GET && op != SRV_NET_BROADCAST_SET) || enabled > 1 ||
+        (op == SRV_NET_BROADCAST_GET && enabled)) return SRV_ERR_INVAL;
+
+    uint64_t irq = irq_save();
+    struct process_file *file = process_file_at(process_current(), fd);
+    int64_t result = SRV_ERR_BADF;
+    if (file) {
+        result = file->type == PROCESS_FILE_NET_UDP
+            ? net_udp_broadcast(file->handle, op == SRV_NET_BROADCAST_SET, enabled != 0)
+            : SRV_ERR_NOTSUP;
+    }
+    irq_restore(irq);
+    return result;
+}
+
 static int64_t syscall_net_dhcp(void) {
     return net_dhcp_request();
 }
@@ -4043,7 +4059,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
     case SYS_NET_ERROR:case SYS_NET_LIST:case SYS_NET_STATUS_INFO:case SYS_NET_ARP_LIST:case SYS_NET_PING:
-    case SYS_NET_IPV4_TTL:
+    case SYS_NET_IPV4_TTL:case SYS_NET_UDP_BROADCAST:
     case SYS_NET_PEEK:case SYS_UNIX_BIND:case SYS_UNIX_LISTEN:case SYS_UNIX_CONNECT:case SYS_UNIX_ACCEPT:
     case SYS_UNIX_UNLINK:case SYS_SOCKET_TRY_IO:return false;
     case SYS_PREAD:case SYS_PWRITE:case SYS_PIPE_MESSAGE:
@@ -4156,6 +4172,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
         return;
     case SYS_NET_IPV4_TTL:
         frame->rax = (uint64_t)syscall_net_ipv4_ttl(frame->rdi, frame->rsi, frame->rdx, frame->rcx, frame->r8);
+        return;
+    case SYS_NET_UDP_BROADCAST:
+        frame->rax = (uint64_t)syscall_net_udp_broadcast(frame->rdi, frame->rsi, frame->rdx);
         return;
     case SYS_NET_DHCP:
         frame->rax = (uint64_t)syscall_net_dhcp();

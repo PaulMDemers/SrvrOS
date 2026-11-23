@@ -173,6 +173,7 @@
 #define SYS_FILE_VERIFY 170 /* 169 is used by the active Wi-Fi device branch. */
 #define SYS_PROCESS_CREDENTIALS 171
 #define SYS_NET_IPV4_TTL 172
+#define SYS_NET_UDP_BROADCAST 173
 
 /* Device branch Wi-Fi call moved from163;matched image required. */
 #define SYS_WIFI 169
@@ -442,6 +443,10 @@ struct srv_pipe_message_layout {
 #define SRV_NET_TTL_SET 2u      /* fd, ttl */
 #define SRV_NET_TTL_CONNECT 3u  /* IPv4 address, port, nonblocking flag, ttl */
 #define SRV_NET_TTL_LISTEN 4u   /* port, ttl */
+
+/* SYS_NET_UDP_BROADCAST takes an operation, native UDP fd, and value. */
+#define SRV_NET_BROADCAST_GET 0u /* Pass value 0. Returns the enabled bit. */
+#define SRV_NET_BROADCAST_SET 1u /* Pass 0 or 1. Returns 0 on success. */
 
 struct srv_net_abi_header {
     uint64_t abi_version;

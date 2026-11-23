@@ -165,6 +165,7 @@ struct udp_socket {
     struct process *owner;
     uint16_t local_port;
     uint8_t ipv4_ttl;
+    bool broadcast_enabled;
     uint8_t head;
     uint8_t tail;
     uint8_t count;
@@ -179,6 +180,7 @@ struct arp_cache_entry {
 };
 
 static uint8_t local_ip_bytes[4] = {10, 0, 2, 15};
+static const uint8_t broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 static uint8_t dhcp_server_ip_bytes[4];
 static uint8_t dhcp_router_ip_bytes[4];
 static uint8_t dhcp_dns_ip_bytes[4];
@@ -696,8 +698,11 @@ static uint32_t default_gateway_ip(void) {
     return ((uint32_t)10 << 24) | ((uint32_t)0 << 16) | ((uint32_t)2 << 8) | 2;
 }
 
+/* The current single-interface route uses a fixed /24. */
+static const uint32_t ipv4_link_mask = 0xffffff00u;
+
 static uint32_t route_next_hop(uint32_t remote_ip) {
-    if ((remote_ip & 0xffffff00u) == (local_ip & 0xffffff00u)) {
+    if ((remote_ip & ipv4_link_mask) == (local_ip & ipv4_link_mask)) {
         return remote_ip;
     }
     return default_gateway_ip();
@@ -781,7 +786,6 @@ static void append_dhcp_option_ip(uint8_t *packet, uint64_t *offset, uint8_t opt
 }
 
 static bool send_dhcp_message(uint8_t message_type, const uint8_t *requested_ip, const uint8_t *server_ip) {
-    static const uint8_t broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     static const uint8_t zero_ip[4] = {0, 0, 0, 0};
     uint8_t packet[300];
     clear_bytes(packet, sizeof(packet));
@@ -4135,6 +4139,14 @@ int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     return 0;
 }
 
+int64_t net_udp_broadcast(uint64_t socket_id, bool set, bool enabled) {
+    struct udp_socket *socket = find_udp_socket(socket_id);
+    if (!socket) return SRV_ERR_BADF;
+    if (!set) return socket->broadcast_enabled;
+    socket->broadcast_enabled = enabled;
+    return 0;
+}
+
 int64_t net_udp_send_checked(uint64_t socket_id,
     uint32_t remote_ip,
     uint16_t remote_port,
@@ -4151,8 +4163,16 @@ int64_t net_udp_send_checked(uint64_t socket_id,
         return -1;
     }
 
+    bool broadcast = remote_ip == UINT32_MAX || (local_ip && remote_ip == (local_ip | ~ipv4_link_mask));
+    if (broadcast && !socket->broadcast_enabled) return SRV_ERR_ACCES;
+
     if (socket->local_port == 0 && net_udp_bind(socket_id, 0) < 0) {
         return -1;
+    }
+
+    if (broadcast) {
+        return send_udp_packet(broadcast_mac, local_ip_bytes, remote_ip, socket->local_port,
+            remote_port, buffer, (uint16_t)length, socket->ipv4_ttl) ? (int64_t)length : -1;
     }
 
     if (remote_ip == local_ip) {

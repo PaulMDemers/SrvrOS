@@ -96,12 +96,15 @@ int main(void) {
     struct isr_frame f={.rax=SYS_NET_IPV4_TTL,.rdi=SRV_NET_TTL_CONNECT};
     syscall_dispatch(&f);
     assert((int64_t)f.rax==SRV_ERR_NOTSUP && !backends && !fd_checks);
+    f=(struct isr_frame){.rax=SYS_NET_UDP_BROADCAST,.rdi=SRV_NET_BROADCAST_SET,.rdx=1};
+    syscall_dispatch(&f);
+    assert((int64_t)f.rax==SRV_ERR_NOTSUP && !backends && !fd_checks);
     assert(!irq_saves && !irq_restores && !io_safety && !io_waits && !io_begins && !io_ends);
     f=(struct isr_frame){.rax=SYS_WRITE,.rdi=1};
     assert(signal_experimental_raw_allowed(&f) && fd_checks==1);
     f.rdi=9;assert(!signal_experimental_raw_allowed(&f) && fd_checks==2);
     f.rax=SYS_RANDOM;assert(signal_experimental_raw_allowed(&f));
-    puts("signal-admission: experimental scope/stream/IPv4 TTL denied before effects");
+    puts("signal-admission: experimental scope/stream/IPv4 TTL/UDP broadcast denied before effects");
 #else
     backends=copies=handles=0;irq_saves=irq_restores=io_safety=io_waits=io_begins=io_ends=0;
     io_admit=false;struct isr_frame f={.rax=SYS_FILE_STREAM,.rdi=1};
