@@ -292,6 +292,12 @@ static bool intel_display_test_bootstrap_command(unsigned value) {
  assert(bootstrap_parent() && hda_command==2 && wake_irq && !display_access_allowed());
 #ifdef SRVROS_INTEL_GT_FLUSH
  assert(gt_slot_live() && !independent_returned && test_backing_allocated);
+ if(value==7) {
+  const struct intel_bdw_gt_bootstrap *reset=&gt_bootstrap_native.reset;
+  assert(reset->binding.blitter_port_owner==&slot_backing);
+  assert(intel_bdw_bcs_port_held(reset->binding.blitter_port_owner));
+  assert(intel_bdw_reset_epoch_live(reset,&gt_bootstrap_native.post));
+ }
  assert(!intel_bdw_bcs_port_claim(&gpu_command) && !intel_bdw_bcs_port_release(&gpu_command));
  struct scanout_interval competing={0};
  assert(!scanout_interval_claim(&competing,result.mmio_base,window_result.aperture_base,
@@ -833,6 +839,7 @@ int main(int argc,char **argv) {
  if(intel_display_test_bootstrap_expected()) {
   assert(gt_bootstrap_native.complete && gt_bootstrap_native.returned && !gt_bootstrap_native.failed);
   assert(!gt_bootstrap_native.borrow.active && !r->registered && !r->retained && r->complete);
+  assert(!intel_bdw_reset_epoch_live(r,&gt_bootstrap_native.post));
   assert(gt_bootstrap_native.epoch_calls==1 && gt_bootstrap_native.epoch==(ring_fixture_disabled?0u:1u) &&
    gt_bootstrap_native.post.engine_epoch==gt_bootstrap_native.epoch+1);
   assert(gt_bootstrap_native.maintained==1 && gt_bootstrap_native.maintain_after==gt_bootstrap_native.maintain_before+1);

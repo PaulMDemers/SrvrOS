@@ -48,7 +48,10 @@ def main():
     parser.add_argument('--blitter', action='store_true', help='Run the Broadwell command driver fixture')
     args = parser.parse_args()
     program = 'blitter' if args.blitter else 'ownedpage'
-    cases = [('', 'PASS Broadwell blitter driver (18 cases)')] if args.blitter else [
+    cases = [('', 'PASS Broadwell blitter driver (30 cases)'),
+             ('warm-lost-completion', 'PASS warm mapping retains lost completion'),
+             ('cold-init-fault', 'PASS cold initialization retains selected status page'),
+             ('cold-rollback-fault', 'PASS cold rollback retains changed reset epoch')] if args.blitter else [
         (mode, f'PASS {mode}') for mode in OWNED_PAGE_MODES]
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)

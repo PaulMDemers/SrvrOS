@@ -7420,6 +7420,9 @@ build/tests/intel-bdw-blitter$(HOST_EXE): tools/test_intel_bdw_blitter.c $(BDW_B
 .PHONY: test-intel-bdw-blitter
 test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$<
+	$< warm-lost-completion
+	$< cold-init-fault
+	$< cold-rollback-fault
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest

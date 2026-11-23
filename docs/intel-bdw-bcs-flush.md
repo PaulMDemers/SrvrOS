@@ -355,3 +355,36 @@ The third invocation samples the six hardware status slots around the fence
 using separate 32-bit MMIO reads. i915 owns the live rings, address tables and
 context throughout this comparison. The exclusive device owner and first
 cold-boot ELSP submission still require acceptance under SrvrOS.
+
+#### Cold entry after a full GT reset
+
+The Air flush adapter claims the blitter submission port before the reset.
+It records the lender in the reset binding and checks the claim during the reset
+protocol. The kernel driver can use this path when the same owner supplies a
+live transfer for the command pages. The original GT borrow must still be active.
+
+The driver compares the live blitter's ring registers, execution-list status,
+active context and parser mode with the driver's post-reset census. With the
+legacy ring disabled, the parser idle, status interrupts masked and the old
+status-page address zero, it installs the private status page. It initializes
+the six-slot completion cursor, enables execution lists with a masked write
+and clears STOP_RING if needed. These writes precede the first descriptor.
+Broadwell requires the scheduling-mode change to occur after full reset and
+before submission. [Intel Broadwell register reference, pp. 157 and 177](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+[Linux i915 execution-list initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_execlists_submission.c#L2631-L2667)
+
+On successful cold submission, `intel_bdw_blitter_map_and_run` leaves the
+request in `BDW_BLITTER_STATUS_PINNED`. The GPU can still address its status
+page after the command completes. Keep the request, DMA backing, FIFO loan
+and transfer alive. To return the mapping, pass the next full reset and its
+post-reset census to `intel_bdw_blitter_detach`. The driver checks that the
+same owner has disabled the queue, detached the status page and drained its
+readers. It rechecks the reset epoch while restoring each original entry.
+A lost epoch during rollback retains the remaining mappings and the port.
+
+The physical reset capture on this Air recorded an idle parser (MI_MODE
+`0x200`), disabled ring, execution-list status `1`, and zero active context
+and BLT_MODE before and after PCI bus mastering reopened. That capture did
+not sample HWSTAM or HWS_PGA. Both registers are checked live at admission.
+Executing this sequence under SrvrOS still depends on the device-wide hold
+that permits publishing the seven command-page translations.

@@ -2,6 +2,7 @@
 #define SRVROS_INTEL_BDW_BLITTER_H
 
 #include <srvros/intel_bdw_bcs_context.h>
+#include <srvros/intel_bdw_gt_bootstrap.h>
 #include <srvros/intel_bdw_bcs_submit.h>
 #include <srvros/intel_bdw_private_vm.h>
 #include <srvros/scanout_publish.h>
@@ -21,7 +22,7 @@ bool intel_bdw_blitter_prepare(struct bdw_blitter_image *,const struct intel_bdw
                               uint64_t physical,uint64_t epoch);
 bool intel_bdw_blitter_verify(const struct bdw_blitter_image *);
 
-/* A single already initialized BCS engine. held() revalidates exclusive
+/* One BCS engine. The warm path adopts an initialized queue. held() revalidates exclusive
  * submission, the pinned UC BCS register page at BAR0+0x22000, forcewake,
  * DMA domain, coherent CPU aliases, private PAT and original HWSP lifetime.
  * The original HWSP stays pinned across installation and restoration. A firmware
@@ -32,12 +33,18 @@ struct bdw_blitter_device {
     bool (*held)(void *,const struct bdw_blitter_image *);
     uint64_t (*now)(void *);
     uint64_t mmio,root,outer,gt,hda,prepare;
+    /* Cold entry: the same exclusive owner has blocked all submissions since
+     * this full reset. Supply both original records; keep them alive through
+     * detachment. Cold boot starts with HWSP zero and the legacy ring disabled. */
+    const void *port_owner; /* Current device-side adapter’s software FIFO claim. */
+    const struct intel_bdw_gt_bootstrap *reset;
+    const struct intel_completion_result *post_reset;
     uint32_t original_hwsp;
     uint32_t csb_head; /* Last hardware event consumed by this queue owner. */
 };
 
 enum bdw_blitter_state { BDW_BLITTER_NEW, BDW_BLITTER_PINNED, BDW_BLITTER_ISSUED,
-                         BDW_BLITTER_RETIRED, BDW_BLITTER_RETAINED };
+                         BDW_BLITTER_RETIRED, BDW_BLITTER_RETAINED, BDW_BLITTER_STATUS_PINNED };
 struct bdw_blitter_request {
     struct bcs_submit_source source;
     struct intel_bdw_bcs_submit port;
@@ -50,7 +57,9 @@ struct bdw_blitter_request {
     uint64_t last;
 };
 
-/* One request per zero-initialized object. Success requires a fresh context
+/* One request per zero-initialized object. Call cold requests via map_and_run
+ * so there is a registered port lender and a path to detach the HWSP.
+ * Success requires a fresh context
  * completion, queue idle and both result cache lines. Uncertain hardware
  * keeps its registered GPU reader and backing until external device recovery. */
 bool intel_bdw_blitter_run(struct bdw_blitter_request *,const struct bdw_blitter_image *,
@@ -76,6 +85,9 @@ struct bdw_blitter_mapping {
     struct scanout_space_token range;
     struct bdw_blitter_request request;
     struct bdw_blitter_window window;
+    const struct intel_bdw_gt_bootstrap *detach_reset;
+    const struct intel_completion_result *detach_post;
+    uint64_t detach_clock;
     struct bdw_blitter_device device;
     const struct bdw_blitter_image *image;
     struct scanout_transfer *transfer;
@@ -86,4 +98,9 @@ struct bdw_blitter_mapping {
 bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *,const struct bdw_blitter_image *,
                                   const struct bdw_blitter_device *,struct scanout_transfer *,
                                   const struct scanout_transfer_token *,const struct bdw_blitter_window *);
+/* Cold map_and_run returns true after command completion with STATUS_PINNED.
+ * Keep the live transfer, hardware status page and DMA allocation until a new
+ * full reset on the same device has detached the status writer. */
+bool intel_bdw_blitter_detach(struct bdw_blitter_mapping *,const struct intel_bdw_gt_bootstrap *,
+                              const struct intel_completion_result *);
 #endif

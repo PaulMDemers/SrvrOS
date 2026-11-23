@@ -3,6 +3,9 @@
  * cooperation is an explicit boot policy, not an inference about SMM/DMA. */
 #include <srvros/intel_bdw_gt_bootstrap.h>
 #include <srvros/intel_pci_requester.h>
+#ifdef SRVROS_INTEL_GT_FLUSH
+#include <srvros/intel_bdw_bcs_port.h>
+#endif
 #include <stddef.h>
 #if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
 static bool context_wp(void)
@@ -448,6 +451,9 @@ static bool bootstrap_core_io(void);
 static bool bootstrap_proof(void *ctx,const struct bdw_boot_source *source,struct bdw_boot_proof *out) {
  if(ctx!=&gt_bootstrap_native || source!=&gt_bootstrap_native.source || !out || !bootstrap_guard() ||
  gt_bootstrap_native.command_writes!=1 || gt_bootstrap_native.prepared!=5 || !bootstrap_core_io())return false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!intel_bdw_bcs_port_held(source->binding.blitter_port_owner))return false;
+#endif
  *out=(struct bdw_boot_proof){source,gt_bootstrap_native.g,&gt_bootstrap_native,&gt_bootstrap_native.borrow,
   gt_bootstrap_native.root,gt_bootstrap_native.g->engine_epoch,1,gt_bootstrap_native.last,BDW_BOOT_REQUIRED};
  const struct intel_bdw_gt_bootstrap *r=&gt_bootstrap_native.reset;
@@ -655,6 +661,10 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
   .aperture_bytes=window_result.aperture_bytes,.epoch=gt_bootstrap_native.epoch,.sequence=1,
   .prepare=gt_bootstrap_native.begin,.gt=gt_bootstrap_native.gt_origin,.hda=gt_bootstrap_native.hda_origin,.outer=gt_bootstrap_native.outer_origin,
   .vendor=0x8086,.device=0x1626,.policy=BDW_BOOT_POLICY};
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!slot_backing.port || !intel_bdw_bcs_port_held(&slot_backing))goto fail;
+ binding->blitter_port_owner=&slot_backing;
+#endif
  for(unsigned i=0;i<32;i++)binding->fences[i]=backing.sample[1].fence[i];
  if(!intel_bdw_gt_bootstrap_run(&gt_bootstrap_native.reset,&gt_bootstrap_native.source,
   (struct bdw_boot_io){&gt_bootstrap_native,bootstrap_proof,bootstrap_read,bootstrap_write,bootstrap_epoch,
@@ -667,11 +677,7 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #endif
  if(!bootstrap_guard() || !intel_completion_observe(&gt_bootstrap_native.post,g,
   (struct intel_completion_io){a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE}))goto fail;
- gt_bootstrap_native.post_bound=gt_bootstrap_native.post.object==&gt_bootstrap_native.post &&
-  gt_bootstrap_native.post.parent==g && gt_bootstrap_native.post.engine_epoch==gt_bootstrap_native.epoch+1 &&
-  gt_bootstrap_native.post.complete && gt_bootstrap_native.post.stable && !gt_bootstrap_native.post.enabled &&
-  !gt_bootstrap_native.post.pending && !gt_bootstrap_native.post.flip_wait && !gt_bootstrap_native.post.tlb_pending &&
-  gt_bootstrap_native.post.begin_us>=gt_bootstrap_native.reset.end;
+ gt_bootstrap_native.post_bound=intel_bdw_reset_epoch_live(&gt_bootstrap_native.reset,&gt_bootstrap_native.post);
  if(!gt_bootstrap_native.post_bound)goto fail;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
  if(!bootstrap_memory_run() || !bootstrap_memory_returned())goto fail;

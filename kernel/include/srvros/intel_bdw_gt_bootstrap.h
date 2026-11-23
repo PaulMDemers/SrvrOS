@@ -1,7 +1,7 @@
 #ifndef SRVROS_INTEL_BDW_GT_BOOTSTRAP_H
 #define SRVROS_INTEL_BDW_GT_BOOTSTRAP_H
 #include <srvros/intel_diagnostic_timing.h>
-#include <srvros/intel_gt_access.h>
+#include <srvros/intel_completion_audit.h>
 
 #define BDW_BOOT_FENCES 32u
 #define BDW_BOOT_GDRST 0x941cu
@@ -25,6 +25,7 @@ struct bdw_boot_binding {
  uint64_t prepare,gt,hda,outer;
  uint32_t vendor,device,policy;
  uint64_t fences[BDW_BOOT_FENCES];
+ const void *blitter_port_owner; /* Optional pre-reset exclusive submission claim. */
 };
 struct bdw_boot_source {
  const struct bdw_boot_source *object;
@@ -74,6 +75,29 @@ struct intel_bdw_gt_bootstrap {
  bool busy,registered,epoch_attempted,epoch_advanced,preserved,retained,uncertain,complete;
  uint64_t fence_before[BDW_BOOT_FENCES],fence_after[BDW_BOOT_FENCES],fence_final[BDW_BOOT_FENCES];
 };
+/* The native bootstrap owns this borrow through the post-reset queue census.
+ * A saved log, copied receipt or returned parent cannot stand in for it. */
+static inline bool intel_bdw_reset_epoch_live(const struct intel_bdw_gt_bootstrap *reset,
+                                             const struct intel_completion_result *post)
+{
+ if (!reset || reset->object != reset || reset->stage != BDW_BOOT_DONE ||
+     !reset->complete || !reset->preserved || !reset->epoch_advanced ||
+     reset->retained || reset->uncertain || reset->registered || reset->busy ||
+     reset->reason || reset->reset_completed != 2 || !reset->source ||
+     reset->source->object != reset->source || reset->source->consumer != reset ||
+     !post || post->object != post || !post->complete || !post->stable || post->reason ||
+     post->enabled || post->pending || post->flip_wait || post->tlb_pending ||
+     !reset->end || post->begin_us < reset->end || post->end_us <= post->begin_us)
+     return false;
+ const struct intel_gt_access *gt = post->parent;
+ const struct intel_gt_borrow *borrow = reset->binding.lifetime;
+ return gt && gt == reset->binding.owner && gt->object == gt && gt->pinned &&
+        gt->state == GT_ACCESS_AWAKE && !gt->reason &&
+        reset->binding.epoch < UINT32_MAX && post->engine_epoch == reset->binding.epoch + 1 &&
+        gt->engine_epoch == post->engine_epoch && gt->borrows == 1 &&
+        borrow && gt->dependents == borrow && borrow->object == borrow &&
+        borrow->active && borrow->parent == gt && !borrow->next && display_access_held(&gt->exclusion);
+}
 /* Distinct full-GT reset/fence-restoration protocol. Only the separate native
  * bootstrap image may call it. Caller already owns the original five-engine preparation,
  * requester/GT/HDA/backing/exclusion and all fenced clients. The core registers

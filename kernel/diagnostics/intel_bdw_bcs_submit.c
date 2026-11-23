@@ -137,14 +137,13 @@ static bool overlap(const void *a,uint64_t an,const void *b,uint64_t bn) {
  uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;
  return !a || !b || x>UINTPTR_MAX-an || y>UINTPTR_MAX-bn || (x<y+bn && y<x+an);
 }
-bool intel_bdw_bcs_submit_run(struct intel_bdw_bcs_submit *r,struct bcs_submit_source *source,struct bcs_submit_io io) {
- if(!intel_bdw_bcs_port_claim(&poster))return false;
+static bool submit(struct intel_bdw_bcs_submit *r,struct bcs_submit_source *source,struct bcs_submit_io io,bool standalone) {
  if(!r || r->object || r->source || r->busy || r->issued || r->retained || r->reason || r->end || r->p.state ||
  r->p.begin || r->p.last || r->p.proofs || r->p.attempts || r->p.writes || r->p.triggered || r->p.uncertain ||
  r->words[0] || r->words[1] || r->words[2] || r->words[3] ||
  r->clock_at || r->clock_previous || r->clock_reason || !valid(source) || source->consumer ||
  io.ctx!=source->binding.provider || !io.ownership || !io.write || !io.now || overlap(r,sizeof(*r),source,sizeof(*source))) {
-  intel_bdw_bcs_port_release(&poster);
+  if(standalone)intel_bdw_bcs_port_release(&poster);
   return false;
  }
  *r=(struct intel_bdw_bcs_submit){.object=r,.source=source,.binding=source->binding,.io=io,.original_io=io,
@@ -166,7 +165,18 @@ done:
   * A known empty prefix is also reusable. Unconfirmed post-trigger state or
   * a partial descriptor quarantines the FIFO even for a different source. */
  bool issued=r->issued;
- if(issued || (!r->p.writes && !r->p.uncertain))
+ if(standalone && (issued || (!r->p.writes && !r->p.uncertain)))
   intel_bdw_bcs_port_release(&poster);
  return issued;
+}
+
+bool intel_bdw_bcs_submit_run(struct intel_bdw_bcs_submit *r,struct bcs_submit_source *source,struct bcs_submit_io io)
+{
+ return intel_bdw_bcs_port_claim(&poster) && submit(r,source,io,true);
+}
+
+bool intel_bdw_bcs_submit_lent(struct intel_bdw_bcs_submit *r,struct bcs_submit_source *source,
+                               struct bcs_submit_io io,const void *owner)
+{
+ return intel_bdw_bcs_port_lent(owner,r) && submit(r,source,io,false);
 }

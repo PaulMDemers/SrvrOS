@@ -77,6 +77,10 @@ struct intel_bdw_bcs_submit {
  * All failures retain registration/backing, even a definitely unissued prefix.
  * No retry/rollback/cancel/free API. Success also keeps source registered until
  * the independent original context/completion owner establishes retirement.
- * Pure trusted-provider protocol only; no native adapter/image/caller exists. */
+ * The Broadwell blitter driver supplies the submission adapter. */
 bool intel_bdw_bcs_submit_run(struct intel_bdw_bcs_submit *,struct bcs_submit_source *,struct bcs_submit_io);
+/* The caller has already borrowed the port with this exact request identity.
+ * The mapping owner returns that loan after hardware retirement and rollback. */
+bool intel_bdw_bcs_submit_lent(struct intel_bdw_bcs_submit *,struct bcs_submit_source *,
+                               struct bcs_submit_io,const void *port_owner);
 #endif

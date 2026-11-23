@@ -10,6 +10,27 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The Air driver can now initialize a cold blitter queue under its own full GT
+reset. It takes the original submission port on loan, installs the private
+status page, initializes both completion cursors, and posts the first command.
+The owner keeps the port and mappings pinned after command retirement.
+Rollback requires the next full reset on the same device, an idle queue, a
+detached status page and an independent reader drain.
+
+All 33 driver cases passed on the host and in the SrvrOS Q35 guest.
+The same cases passed under the host address and undefined-behavior
+sanitizers. Changing the reset epoch after the first PTE was restored
+prevented the second store and held the FIFO and backing for recovery.
+Raw results are in `build/air-cold-queue/`.
+
+The last physical reset capture recorded an idle blitter with MI_MODE
+`0x200`, BLT_MODE zero and execution-list status one on both sides of PCI
+bus-master reopening. The new initialization and rollback still need physical
+qualification. Next, carry a live transfer for the seven command entries
+through the same reset-owner lifetime and prove translation invalidation
+before the first descriptor. The Air6,1 and Pro11,2 paths are independent.
+[Cold queue lifetime](../intel-bdw-bcs-flush.md#cold-entry-after-a-full-gt-reset)
+
 The Broadwell blitter driver now prepares a standalone request for the Air.
 The kernel mapping path takes a transferred GPU interval, installs seven
 global entries, selects the request’s engine status page and posts the
@@ -29,9 +50,8 @@ batch and its SrvrOS ring dispatch instructions. All six verified 4,096 bytes
 and advanced the original eDP CRTC. A separate read-only device comparison
 captured three fresh blitter context completions. The status-buffer write
 cursor advanced by two each time, including a wrap from slot 5 to slot 1.
-The native submission diagnostic uses the new image builder. Cold-boot
-execution still needs the device owner to transfer the command interval and
-supply an initialized, exclusively held blitter. The original panel and slot
+The native submission diagnostic uses the new image builder. The new cold
+entry can initialize the blitter once the device owner transfers the command interval. The original panel and slot
 12291 remain under their existing owners.
 [Driver and qualification procedure](../intel-bdw-bcs-flush.md#first-native-blitter-request)
 

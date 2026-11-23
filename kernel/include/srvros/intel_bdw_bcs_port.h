@@ -9,4 +9,9 @@ bool intel_bdw_bcs_port_claim(const void *owner);
 bool intel_bdw_bcs_port_held(const void *owner);
 bool intel_bdw_bcs_port_release(const void *owner);
 
+/* Lend the claimed FIFO to one request. The parent stays visible to its
+ * hardware guards and cannot release the port until that request returns. */
+bool intel_bdw_bcs_port_lend(const void *owner,const void *request);
+bool intel_bdw_bcs_port_lent(const void *owner,const void *request);
+bool intel_bdw_bcs_port_return(const void *owner,const void *request);
 #endif

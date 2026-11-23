@@ -1,8 +1,10 @@
 #include <srvros/intel_bdw_blitter.h>
 #include <srvros/intel_bdw_ggtt.h>
+#include <srvros/intel_bdw_bcs_port.h>
 
 enum { PAGE = 4096, HWS_PGA = 0x80, ELSP = 0x230, STATUS = 0x234,
        ACTIVE_ID = 0x238, MODE = 0x29c, CSB = 0x370, CSB_PTR = 0x3a0,
+       HWSTAM = 0x98, RING_CTL = 0x3c, MI_MODE = 0x9c, STOP_RING = 1u<<8,
        CSB_SLOTS = 6, EXEC_LISTS = 1u<<15, QUEUE_BUSY = (3u<<14)|0x1cu };
 
 static uint64_t vm_base(const struct bdw_blitter_image *image)
@@ -50,10 +52,24 @@ static uint32_t reg(const struct bdw_blitter_request *r,unsigned offset)
     return r->device.registers[offset/4];
 }
 
+static bool reset_matches(const struct bdw_blitter_device *device)
+{
+    const struct intel_bdw_gt_bootstrap *reset = device->reset;
+    return intel_bdw_reset_epoch_live(reset,device->post_reset) &&
+           reset->binding.blitter_port_owner == device->port_owner &&
+           reset->source->binding.blitter_port_owner == device->port_owner &&
+           reset->binding.root == device->root && reset->binding.mmio == device->mmio &&
+           reset->binding.vendor == 0x8086 && reset->binding.device == 0x1626 &&
+           reset->binding.provider == device->owner && reset->binding.outer == device->outer &&
+           reset->binding.hda == device->hda && reset->binding.gt == device->gt &&
+           reset->binding.prepare == device->prepare;
+}
+
 static bool held(const struct bdw_blitter_request *r)
 {
     const struct scanout_publication *p=r->pages;
-    return r->device.held(r->device.owner,r->image) && p->state==PUB_PUBLISHED &&
+    return r->device.held(r->device.owner,r->image) && (!r->device.reset || (reset_matches(&r->device) &&
+           intel_bdw_bcs_port_lent(r->device.port_owner,&r->port))) && p->state==PUB_PUBLISHED &&
            p->object==p && !p->busy && p->readers==&r->reader && !r->reader.next &&
            p->epoch==r->reader.binding.epoch && (!p->hold_live || p->hold_live(p)) &&
            r->reader.binding.object==p && p->io.guard(p->io.ctx);
@@ -61,7 +77,7 @@ static bool held(const struct bdw_blitter_request *r)
 
 /* Verify live translations as well as the publication's recorded values.
  * The HWSP is a global address, distinct from the context's status page. */
-static bool bound(struct bdw_blitter_request *r,uint32_t hwsp)
+static bool translations_held(struct bdw_blitter_request *r)
 {
     struct scanout_publication *p=r->pages;
     if (!held(r) || p->range.first!=r->image->config.ring_gpu/PAGE ||
@@ -71,7 +87,12 @@ static bool bound(struct bdw_blitter_request *r,uint32_t hwsp)
         if (p->after[i]!=expected || !p->io.read(p->io.ctx,p->range.first+i,&value) || value!=expected)
             return false;
     }
-    if (!held(r)) return false;
+    return held(r);
+}
+
+static bool bound(struct bdw_blitter_request *r,uint32_t hwsp)
+{
+    if (!translations_held(r)) return false;
     uint32_t mode=reg(r,MODE);
     return mode!=UINT32_MAX && (mode&EXEC_LISTS) &&
            reg(r,HWS_PGA)==hwsp;
@@ -98,6 +119,46 @@ static bool switch_hwsp(struct bdw_blitter_request *r,uint32_t from,uint32_t to)
     if (!bound(r,from) || (reg(r,STATUS)&QUEUE_BUSY) || !owner_clock(r)) return false;
     r->device.registers[HWS_PGA/4]=to;
     return reg(r,HWS_PGA)==to && held(r);
+}
+
+/* The hardware mask is in the high half of BLT_MODE and MI_MODE. Only
+ * change execlist mode once, in the full-reset epoch before first submit.
+ * The published private status page remains a GPU writer after retirement. */
+static bool cold_queue_idle(struct bdw_blitter_request *r)
+{
+    return translations_held(r) && !(reg(r,RING_CTL)&1) && !(reg(r,STATUS)&QUEUE_BUSY) &&
+           reg(r,ACTIVE_ID)==0 && owner_clock(r);
+}
+
+static bool reset_queue_matches(const struct bdw_blitter_device *d,const struct intel_completion_result *p)
+{
+    /* The native census orders RCS, VCS0, VECS, VCS1 and BCS. Compare
+     * the live BCS geometry and queue identity with its post-reset sample. */
+    static const unsigned offsets[]={0x30,0x34,0x38,RING_CTL,STATUS,ACTIVE_ID};
+    for (unsigned i=0;i<sizeof(offsets)/sizeof(offsets[0]);i++)
+        if (d->registers[offsets[i]/4]!=p->words[1][4][i]) return false;
+    uint32_t mi=d->registers[MI_MODE/4];
+    return (mi&(1u<<9)) && mi==p->context[1][3] &&
+           d->registers[MODE/4]==p->context[1][5] && d->registers[HWSTAM/4]==UINT32_MAX;
+}
+
+static bool start_cold_queue(struct bdw_blitter_request *r)
+{
+    const uint32_t reset_cursors = (CSB_SLOTS-1)*0x101u;
+    if (!cold_queue_idle(r) || !reset_queue_matches(&r->device,r->device.post_reset) || reg(r,HWS_PGA) || (reg(r,MODE)&EXEC_LISTS)) return false;
+    r->device.registers[HWS_PGA/4]=request_hwsp(r);
+    if (reg(r,HWS_PGA)!=request_hwsp(r) || !cold_queue_idle(r)) return false;
+    r->device.registers[CSB_PTR/4]=0xffff0000u | reset_cursors;
+    if ((reg(r,CSB_PTR)&0xffffu)!=reset_cursors || !cold_queue_idle(r)) return false;
+    r->device.registers[MODE/4]=((uint32_t)EXEC_LISTS<<16) | EXEC_LISTS;
+    if (!bound(r,request_hwsp(r)) || !cold_queue_idle(r)) return false;
+    if (reg(r,MI_MODE)&STOP_RING) {
+        r->device.registers[MI_MODE/4]=STOP_RING<<16;
+        if ((reg(r,MI_MODE)&STOP_RING) || !cold_queue_idle(r)) return false;
+    }
+    if ((reg(r,CSB_PTR)&0xffffu)!=reset_cursors || !bound(r,request_hwsp(r))) return false;
+    r->csb_start=r->csb_read=CSB_SLOTS-1;
+    return true;
 }
 
 static uint64_t clock_now(void *ctx)
@@ -190,14 +251,20 @@ static bool device_ready(const struct bdw_blitter_device *d,const struct bdw_bli
         !d->held(d->owner,image)) return false;
     uint32_t ptr=d->registers[CSB_PTR/4],mode=d->registers[MODE/4];
     uint64_t gpu=image->config.ring_gpu;
-    return d->original_hwsp && !(d->original_hwsp & (PAGE-1)) &&
+    if (d->reset || d->post_reset) {
+        return reset_matches(d) && d->reset->binding.aperture_bytes==image->config.aperture_bytes &&
+               reset_queue_matches(d,d->post_reset) && intel_bdw_bcs_port_held(d->port_owner) && !d->original_hwsp && !d->registers[HWS_PGA/4] &&
+               !(mode&EXEC_LISTS) && !(d->registers[RING_CTL/4]&1) &&
+               !(d->registers[STATUS/4]&QUEUE_BUSY) && !d->registers[ACTIVE_ID/4];
+    }
+    return !d->port_owner && d->original_hwsp && !(d->original_hwsp & (PAGE-1)) &&
            (d->original_hwsp<gpu || d->original_hwsp>=gpu+BDW_BLITTER_GLOBAL_PAGES*PAGE) &&
            d->registers[HWS_PGA/4]==d->original_hwsp && mode!=UINT32_MAX && (mode&EXEC_LISTS) &&
            !(d->registers[STATUS/4]&QUEUE_BUSY) && (ptr&15u)==d->csb_head &&
            d->csb_head<CSB_SLOTS && ((ptr>>8)&15u)<CSB_SLOTS;
 }
 
-bool intel_bdw_blitter_run(struct bdw_blitter_request *r,const struct bdw_blitter_image *image,
+static bool run_request(struct bdw_blitter_request *r,const struct bdw_blitter_image *image,
                           const struct bdw_blitter_device *device,struct scanout_publication *p,
                           const struct scanout_publish_token *token)
 {
@@ -205,14 +272,18 @@ bool intel_bdw_blitter_run(struct bdw_blitter_request *r,const struct bdw_blitte
         !p->space->originals || p->readers || !device_ready(device,image) ||
         !scanout_publish_pin_reader(p,token,&r->reader)) return false;
     r->image=image; r->device=*device; r->pages=p; r->state=BDW_BLITTER_PINNED;
-    if (!bound(r,device->original_hwsp))
-        goto retained;
-    uint32_t ptr=reg(r,CSB_PTR);
-    r->csb_start=ptr&15u;
-    r->csb_read=(ptr>>8)&15u;
-    if (r->csb_start>=CSB_SLOTS || r->csb_read>=CSB_SLOTS ||
-        r->csb_start!=device->csb_head || (reg(r,STATUS)&QUEUE_BUSY)) goto retained;
-    if (!switch_hwsp(r,device->original_hwsp,request_hwsp(r))) goto retained;
+    if (device->reset) {
+        r->last=device->post_reset->end_us;
+        if (!start_cold_queue(r)) goto retained;
+    } else {
+        if (!bound(r,device->original_hwsp)) goto retained;
+        uint32_t ptr=reg(r,CSB_PTR);
+        r->csb_start=ptr&15u;
+        r->csb_read=(ptr>>8)&15u;
+        if (r->csb_start>=CSB_SLOTS || r->csb_read>=CSB_SLOTS ||
+            r->csb_start!=device->csb_head || (reg(r,STATUS)&QUEUE_BUSY) ||
+            !switch_hwsp(r,device->original_hwsp,request_hwsp(r))) goto retained;
+    }
     const struct intel_bdw_bcs_context_config *c=&image->config;
     r->source.object=&r->source;
     r->source.binding=(struct bcs_submit_binding){.owner=device->owner,.provider=r,.lifetime=p,.context=image,
@@ -222,10 +293,17 @@ bool intel_bdw_blitter_run(struct bdw_blitter_request *r,const struct bdw_blitte
         .completion_physical=image->physical+3*PAGE,.aperture_bytes=c->aperture_bytes,.fence_begin=c->fence_begin,
         .fence_end=c->fence_end,.prepare=device->prepare,.gt=device->gt,.hda=device->hda,.outer=device->outer,
         .admitted_at=clock_now(r),.vendor=c->vendor,.device=c->device,.tail=24};
-    if (!intel_bdw_bcs_submit_run(&r->port,&r->source,(struct bcs_submit_io){r,port_proof,post,clock_now}))
-        goto retained;
+    struct bcs_submit_io io={r,port_proof,post,clock_now};
+    bool issued=device->reset ? intel_bdw_bcs_submit_lent(&r->port,&r->source,io,device->port_owner)
+                              : intel_bdw_bcs_submit_run(&r->port,&r->source,io);
+    if (!issued) goto retained;
     r->state=BDW_BLITTER_ISSUED;
-    if (!retire(r) || !switch_hwsp(r,request_hwsp(r),device->original_hwsp) ||
+    if (!retire(r)) goto retained;
+    if (device->reset) {
+        r->state=BDW_BLITTER_STATUS_PINNED;
+        return true;
+    }
+    if (!switch_hwsp(r,request_hwsp(r),device->original_hwsp) ||
         !p->io.readers_retired || !p->io.readers_retired(p->io.ctx) ||
         !bound(r,device->original_hwsp) || !owner_clock(r) || !scanout_publish_unpin_reader(p,&r->reader)) goto retained;
     r->state=BDW_BLITTER_RETIRED;
@@ -235,12 +313,42 @@ retained:
     return false;
 }
 
+bool intel_bdw_blitter_run(struct bdw_blitter_request *r,const struct bdw_blitter_image *image,
+                          const struct bdw_blitter_device *device,struct scanout_publication *pages,
+                          const struct scanout_publish_token *token)
+{
+    /* Only the mapping owner can detach a cold engine's status page. */
+    return device && !device->reset && !device->post_reset && run_request(r,image,device,pages,token);
+}
+
+/* A cold mapping outlives its first command. During final rollback check the
+ * replacement reset epoch, its clocks and the now-disabled status writer on
+ * every access to the seven PTEs, including the flush and final readback. */
+static bool mapping_epoch_held(struct bdw_blitter_mapping *m)
+{
+    if (!m->device.reset) return true;
+    if (!intel_bdw_bcs_port_lent(m->device.port_owner,&m->request.port)) return false;
+    if (!m->detach_reset) return reset_matches(&m->device);
+    const struct bdw_boot_binding *b=&m->detach_reset->binding;
+    const struct intel_completion_result *post=m->detach_post;
+    if (!intel_bdw_reset_epoch_live(m->detach_reset,post) || b->blitter_port_owner!=m->device.port_owner ||
+        !reset_queue_matches(&m->device,post) || reg(&m->request,HWS_PGA) ||
+        (reg(&m->request,MODE)&EXEC_LISTS) || (reg(&m->request,RING_CTL)&1) ||
+        (reg(&m->request,STATUS)&QUEUE_BUSY) || reg(&m->request,ACTIVE_ID)) return false;
+    uint64_t at=m->device.now(m->device.owner);
+    if (at<m->detach_clock || at<post->end_us || at-post->end_us>SCANOUT_TRANSFER_DEADLINE_US ||
+        at-b->prepare>INTEL_DIAGNOSTIC_PREPARE_US || at-b->gt>INTEL_DIAGNOSTIC_GT_TOTAL_US ||
+        at-b->hda>INTEL_DIAGNOSTIC_HDA_US || at-b->outer>INTEL_DIAGNOSTIC_OUTER_US) return false;
+    m->detach_clock=at;
+    return true;
+}
+
 static bool window_held(void *ctx)
 {
     struct bdw_blitter_mapping *m=ctx;
     return m->transfer->device_publication==&m->pages &&
            scanout_transfer_check(m->transfer,&m->grant) && m->device.held(m->device.owner,m->image) &&
-           m->window.held(m->window.owner,&m->window,m->transfer);
+           m->window.held(m->window.owner,&m->window,m->transfer) && mapping_epoch_held(m);
 }
 
 static bool read_entry(void *ctx,uint32_t index,uint64_t *value)
@@ -285,6 +393,16 @@ static uint64_t mapping_clock(void *ctx)
     return m->device.now(m->device.owner);
 }
 
+static bool return_mapping(struct bdw_blitter_mapping *m)
+{
+    struct scanout_transfer *t=m->transfer;
+    if (!scanout_transfer_check(t,&m->grant) || !scanout_publish_restore(&m->pages,&m->publication) ||
+        !window_held(m) ||
+        !scanout_space_release(&t->space,&m->range)) return false;
+    t->device_publication=0;
+    return true;
+}
+
 bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bdw_blitter_image *image,
                                   const struct bdw_blitter_device *device,struct scanout_transfer *t,
                                   const struct scanout_transfer_token *grant,const struct bdw_blitter_window *window)
@@ -319,6 +437,10 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
         scanout_space_release(&t->space,&m->range);
         return false;
     }
+    if (device->reset && !intel_bdw_bcs_port_lend(device->port_owner,&m->request.port)) {
+        scanout_space_release(&t->space,&m->range);
+        return false;
+    }
     /* Keep transfer close from releasing the parent across provider callbacks,
      * including a partially issued PTE store or uncertain context save. */
     m->image=image; m->device=*device; m->window=*window; m->grant=*grant; m->transfer=t;
@@ -327,13 +449,41 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
                                  BDW_BLITTER_GLOBAL_PAGES,&io,&m->publication) ||
         !scanout_publish_apply(&m->pages,&m->publication)) {
         if (!m->pages.exposed && t->device_publication==&m->pages && scanout_transfer_check(t,grant) &&
-            scanout_space_release(&t->space,&m->range)) t->device_publication=0;
+            scanout_space_release(&t->space,&m->range)) {
+            if (!device->reset || intel_bdw_bcs_port_return(device->port_owner,&m->request.port))
+                t->device_publication=0;
+        }
         return false;
     }
-    if (!scanout_transfer_check(t,grant) || !intel_bdw_blitter_run(&m->request,image,device,&m->pages,&m->publication) ||
-        !scanout_transfer_check(t,grant) || !scanout_publish_restore(&m->pages,&m->publication) ||
-        !scanout_transfer_check(t,grant) || t->device_publication!=&m->pages ||
-        !scanout_space_release(&t->space,&m->range)) return false;
-    t->device_publication=0;
+    if (!scanout_transfer_check(t,grant) ||
+        !run_request(&m->request,image,device,&m->pages,&m->publication)) return false;
+    return m->request.state==BDW_BLITTER_STATUS_PINNED || return_mapping(m);
+}
+
+bool intel_bdw_blitter_detach(struct bdw_blitter_mapping *m,const struct intel_bdw_gt_bootstrap *reset,
+                              const struct intel_completion_result *post)
+{
+    if (!m || m->request.state!=BDW_BLITTER_STATUS_PINNED || !intel_bdw_reset_epoch_live(reset,post))
+        return false;
+    struct bdw_blitter_request *r=&m->request;
+    const struct intel_bdw_gt_bootstrap *original=r->device.reset;
+    if (!original || original==reset || reset->binding.epoch!=original->binding.epoch+1 ||
+        original->binding.owner!=reset->binding.owner || original->binding.provider!=reset->binding.provider ||
+        reset->binding.root!=r->device.root || reset->binding.mmio!=r->device.mmio ||
+        reset->binding.blitter_port_owner!=r->device.port_owner ||
+        reset->source->binding.blitter_port_owner!=r->device.port_owner ||
+        reset->begin<=r->last || !r->pages || r->pages!=&m->pages ||
+        (m->detach_reset && (reset!=m->detach_reset || post!=m->detach_post))) return false;
+    m->detach_reset=reset;
+    m->detach_post=post;
+    /* The new full reset must have removed both the private HWSP and the
+     * active queue. Drain outstanding readers before removing its last pin. */
+    if (!readers_done(m) || !window_held(m) || !scanout_publish_unpin_reader(&m->pages,&r->reader))
+        return false;
+    if (!return_mapping(m) || !intel_bdw_bcs_port_return(r->device.port_owner,&r->port)) {
+        r->state=BDW_BLITTER_RETAINED;
+        return false;
+    }
+    r->state=BDW_BLITTER_RETIRED;
     return true;
 }
