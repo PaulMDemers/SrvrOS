@@ -124,6 +124,16 @@ archived as `82f7537a4191fa5f` and `evidence-82f7537a4191fa5f` in the
 unit's recovery directory. This completes the physical fractional
 scaling checks.
 
+For PR #501, source `f5030aeb` integrates main `e2b463d8` and
+pins SrvrApps `5651aae`, which retains both the Retina Settings work
+and main's Preview and Profiles changes. The focused host checks passed
+for display identity, presentation, Settings, Help, workspace logging,
+profile streams and the desktop session. Exact-image QEMU checks passed
+with the 2880 × 1800 framebuffer for the attended fractional workflow
+(`8880ceaeaa9117bf`), automatic screenshot, and missing-workspace
+return (`b03534015293d497`). The physical results above apply to the
+archived releases and sessions.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
