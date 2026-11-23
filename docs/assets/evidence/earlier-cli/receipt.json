@@ -1,31 +1,32 @@
 {
+  "apps_pin": "5651aae15c68b2e987e8e79a57a1d625193e30e1",
   "artifacts": {
     "byacc": {
-      "elf": "0c0371a2411802bf9471847172c695c15823c8e1dbeb0638abd136940523147d",
+      "elf": "4c8221bc70fb1b15713ccfd6abd3ba1687e1aec9a953163bc28ca473d9b43443",
       "staged": "daeb67bb24352115ccb44fc8348f35ddb2a857f41372cd63c9a54b3803766f8f"
     },
     "lua": {
-      "elf": "3bf852371d69b1b3e217bd026e21784e973ff5a8c1e0f3ecb8e4b70d09dc469f",
+      "elf": "f60fc61f6de6ed6e76386eb64c68db6265f1b08d6f913012702149a004dd5a7e",
       "staged": "b0f0077e2d5c2830b637df60788ac47a5aea3596ba413f2297b129d3bfec2085"
     },
     "miniunz": {
-      "elf": "b700ce5c5ccdafa04e96538709b3ed184a47cc3400a048ab7dfcaeca962b8369",
+      "elf": "404161caa334dfea699d20dddfab689742a38501aeda976bf970a8d019068af2",
       "staged": "d97c7c06ce5e2cded779283199910d5ed5ba639d7cc6e3600de081046c47d848"
     },
     "minizip": {
-      "elf": "c1d7dc01d5bc87dc403538ad6daeca5b57f697c5b00c6ee8dbeb8d4b51f760a5",
+      "elf": "107e5f19afcfc70547c1863dadd3a4af66b77e3f41fe5cd993befef9dfbcf93a",
       "staged": "385e4ff34968d8012eb0f85615640a80e4be37b2cf8b2aed101bff403f3c5d9c"
     }
   },
   "boot_sha256": {
-    "initramfs.tar": "18f2d90d091873ca7710f80e57900e267d03320bb6da2b339623d101074b0034",
-    "srvros.elf": "df6273b221eda6cc0a98a1136f4df223c275fb4e833be4595636fce57af66126"
+    "initramfs.tar": "8d8dc71d3a003c6c9066aa53b867b7049066ba50c9c184e3494d27080215c25e",
+    "srvros.elf": "16a7c6baccb9ec00fbcfd71442453cb349f5761fdaef13842eb3708ef9a11ce0"
   },
-  "build_manifest_sha256": "bc332e29b16e6efa7384c37e73d6b045be428b12911bb9b9c4bd89a593ecc77f",
+  "build_manifest_sha256": "ae59aee3fce678c2ba31ec2a5f80e7b0e0d7d62ac3dbc94af70228b9cbadaa3d",
   "cli_regression": {
     "commands": 498,
     "filesystem": "clean",
-    "log_sha256": "1ba9cbe7bf9f4a9b3413d3971eba13cbffe62f19f7b30c904c734885d83443a4",
+    "log_sha256": "b910a32e98418080150a5641b2b928f109bde6451c6dea5dddd4d8545a0a9bf5",
     "status": "PASS"
   },
   "focused_guest": {
@@ -38,11 +39,15 @@
         "byacc-retry.c",
         "byacc-retry.h"
       ],
-      "host_output_failure_status": 1,
       "native_reference_sha256": "6a24242ee7bdf8ae01c6acab8caa5c86c9aa99c156106352cc906351cc33a349",
       "native_version": "2.0 20260126",
       "parser_vectors": 3,
-      "vendored_host_output_failure_status": 0
+      "retained_host_output_failure": {
+        "log_sha256": "272b45c71ed1f619b662e91cb0a8eafbe0f0c293777c3cfe3616186a345b5897",
+        "scope": "Prior native check of unchanged adapter and Byacc source.",
+        "status": 1,
+        "vendored_status": 0
+      }
     },
     "fsck": "clean",
     "lua": {
@@ -52,7 +57,7 @@
       "native_version": "5.4.8"
     },
     "readback_items": 99,
-    "receipt_sha256": "df02e72f379c73241f8b41f0b9790c0f02a514787bd7ee9a1c1d52ccd410ecac",
+    "receipt_sha256": "621a745782c02851f96b160e38c64e7385569363b75fa799ee49c7a365e58df2",
     "status": "PASS",
     "zip": {
       "checks": "CRC, binary and empty members, independent ZIP reader, ordinary output refusal, named extraction, retry and DOS epoch fallback",
@@ -74,25 +79,48 @@
       }
     }
   },
+  "link_prerequisite": {
+    "blocked_main_base": "4c95594eb1154c29fec67c8fa2c0bd2fca3c6d41",
+    "candidate_commit": "4ab398929597e726cec32f0a62f7ac0bc58f04c6",
+    "failure": "Duplicate strong fnmatch definitions from native SDK and bundled GNU objects.",
+    "guest_smoke": {
+      "artifacts": {
+        "diff": {
+          "elf": "e8e33f90f2d3cc6a67a9aa34a7d7d1ab73024e9fd4993a1832c06fe48a7b3ac0",
+          "staged": "666b5f5f30bdd63064a918d3ccb2942c0fb574217ff00cbe54ef723aebf44211"
+        },
+        "ggrep": {
+          "elf": "91145a75a737377a9ed3ea4d365c4a6e0ab7bbefb2dc12f8987607dca5bff68b",
+          "staged": "29a986fcf94ec1839641367f924aad0aa0ac7bc14ebeb082fa084189a76278b7"
+        }
+      },
+      "checks": "GNU Grep ERE output and status, and unified Diff output and status",
+      "filesystem": "clean",
+      "receipt_sha256": "10d9a82d91d09eb7756533c2427cea9b6c7de372082efccd0a3a7e9b25c723e8",
+      "status": "PASS"
+    },
+    "link_check": "PASS for both production and diagnostic binaries",
+    "resolution": "Grep and Diff production and diagnostic links retain the bundled GNU matcher. Other links retain the SDK object."
+  },
   "lua_upstream_portable_soft": {
     "bitwise": {
-      "log_sha256": "3f1e5dcd74cd0d88549b4c7a92591603af994f5e55ece5df335e8e995f495352",
+      "log_sha256": "57feb8499b96e31545560dbd83e2182dc58d086897b36b6375b07be8429ac6fd",
       "status": "PASS"
     },
     "files": {
-      "log_sha256": "cd5fc7387644c02f127fe9b8d613b3296a4a5895c565f250549b4a0a331bf487",
+      "log_sha256": "75d26dd0f10f68add013ec2f9e4096d186d16788721cd2005be5c8caefad533e",
       "status": "PASS"
     },
     "strings": {
-      "log_sha256": "ac4ab7d12a441cda9ff8a5155774468631f58d799b3bfbcecf369e835882b73f",
+      "log_sha256": "eda9998792dc5b2411bd73398a3aac959b5867ab9348ba93629d713d03ef87d5",
       "status": "PASS"
     },
     "utf8": {
-      "log_sha256": "5e30e50d407cf89ba855ef43ca91930f00de6eb7edeac5e3924e488d21c48e27",
+      "log_sha256": "5de4dc904fdcc2a7f1fcbce651baa4c72f147c1f5a17a5c230e0e2335ccdd498",
       "status": "PASS"
     }
   },
-  "os_base": "e2b463d867a05d0a66421dfa9ed3c38feed5863e",
+  "os_base": "5a83f3b0e9954aef21e286a847807e1d7922daa0",
   "pins": {
     "berkeley_yacc_tree": "f988237fdfd14335e8bbe22a354bde0650e0b4d5",
     "lua": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
@@ -101,28 +129,30 @@
   "ports_pin": "f79db5fa2f2744191315f0941e9578e1681b9a49",
   "ports_regression": {
     "filesystem": "clean",
-    "log_sha256": "f13431653ad56c1474712f9509aa7e759f2cd73c3cef9583e1ac4f50daec5e77",
+    "log_sha256": "a629a836a8f5d361c06314def1bf38fab7d4737365c2089b8e3b4db49d38865b",
     "status": "PASS"
   },
   "reproducibility": {
     "compared_artifacts": 72,
-    "manifest_sha256": "99c7e1820abc3c136ba2e5fffb28807d0f4ef661c7bd8b30f0c366c43646818c",
-    "scope": "Two clean component builds on the same matched SDK.",
+    "manifest_sha256": "77262b412157daa2226111bf79766eb5f64a47d8903dcfcb4fa653fb28745983",
+    "rebuild_base": "4c95594eb1154c29fec67c8fa2c0bd2fca3c6d41",
+    "scope": "Two clean component builds on the same SDK. All 72 hashes matched the 5a83f3b0 candidate after build.",
     "status": "PASS"
   },
   "scope": "Apple Silicon host with matched x86-64 guests. Lua portable/soft tests and ordinary CLI workflows, Berkeley Yacc native and guest file behavior, and flat-name ZIP32 interchange.",
-  "source": "743a72634e084a1fbd9667b5807d326f3dbf5705",
-  "source_disk_sha256": "843d9cb9f55d516c75ec32538c2b89e36b95a2dc11f2dfc25cc7a0d45979a657",
-  "status": "PASS scoped earlier CLI qualification and regressions",
+  "source": "4ab398929597e726cec32f0a62f7ac0bc58f04c6",
+  "source_disk_sha256": "a6174e1dc290c0b1400b83a1288b05a5026c62ce3a7ed1de2b6326783aadb69a",
+  "status": "PASS current-main earlier CLI qualification and regressions",
   "terminal": {
     "fsck": "clean",
-    "receipt_sha256": "0806bd535c567ea114270d4da8eb56db867afebfc887e6dfdf916ee2bd0bcc6d",
+    "receipt_sha256": "8bfc0c7968138e5699bf40a8a2d3eba700dbff2bc52591b7aa5f559612a24b09",
     "screenshots_sha256": {
-      "01-lua-repl.png": "cc6d5bc46fd073fb39e0a051a6ada126136549605e0bd3b11487615bd71dcb98",
-      "02-byacc-header.png": "a2884cadf78ab128f8bf9d20da437554a01fba2190913fa7b86262332336e133",
-      "03-minizip-list.png": "5f15d9f7f63d01ebe3328395563c5dea6da2b811d75ec3532d19920baaa4443c"
+      "01-lua-repl.png": "24cc502e90c455a5e056ef407c77437f1d7a50af75fcb8c51ab493f4cef696ed",
+      "02-byacc-header.png": "f84405e185177e0407d45e4c1fd51bcca201bd8e77f17cec062fef2cb7535c97",
+      "03-minizip-list.png": "6838afb00910f3dc7f352dfc8015fa50119120c4fc57b568bfea40f76c5eb5fc"
     },
     "status": "PASS functional and visual checks",
-    "visual_note": "Lua renders the full release banner, Yacc shows the generated token header and MiniUnz shows valid fallback dates. The Lua exit status display shows a stray glyph. Offline status readback was zero."
-  }
+    "visual_note": "All three current Terminal captures rendered legibly at 1280 \u00d7 800. Lua displays the full 5.4.8 banner, prints `lua terminal 42`, and shows `status 0` on exit. The Byacc capture shows `#define WORD 257`, and the MiniUnz capture shows the alpha.txt and beta.txt rows with 01-01-80 dates and CRCs."
+  },
+  "widgets_pin": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
 }
