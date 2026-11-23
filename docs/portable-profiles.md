@@ -18,9 +18,8 @@ bytes, or `import` for a direct transfer. The default bundle extension is
 The authenticated desktop work starts with an existing destination account.
 The destination account store supplies the UID, GID, and private home after
 sign-in. A portable profile's UUID and display name identify the transferred
-data. Bundle input cannot supply credentials, a destination home, an owner,
-or file permissions. `profile-local.json` is profile bookkeeping. It carries
-no sign-in authority.
+data. The v2 manifest also allows portable preferences and selected documents.
+The desktop treats `profile-local.json` as profile bookkeeping.
 
 The first integrated import should stage a fresh profile under the signed-in
 account's private home, bind confirmation to the reviewed v2 bytes, and

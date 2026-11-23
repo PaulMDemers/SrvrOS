@@ -4,9 +4,9 @@
 
 `device/apple-silicon/authenticated-desktop-foundation` starts from main
 `87503968`. The local account verifier now returns the authenticated UID,
-GID, and private home without exposing stored password material to the
-session launcher. Console sign-in uses the same verifier and retains its
-session and retry behavior.
+GID, and private home. The account module keeps the password verifier
+private. Console sign-in uses this check and retains its session and retry
+behavior.
 
 The desktop compositor and application launch path still need a scoped
 display and input contract for an unprivileged UID. Keep the sign-in broker
@@ -15,6 +15,17 @@ the session and its applications, and release its display and input state.
 The [portable data contract](../portable-profiles.md#using-portable-data-with-a-local-account)
 records how the destination account supplies access and what the first
 integrated migration needs to verify.
+
+Clean source `d6cc9cf8` passed 21 installed console cases on one disposable
+QEMU VM using the stock kernel and a focused image of the console tools.
+The detailed receipt is under `build/review/local-signin/desktop-foundation-fixture-nV7IwV/`
+in `build/review/local-signin/proof-fng0rbh3/receipt.json` (SHA-256
+`41c80c2a4bad453909c290289ee54e9134acbd07bba2b8c1519cd087bc392096`).
+The ordinary image build was blocked by the GNU port typedef conflict
+tracked in [SrvrOS #549](https://github.com/PaulMDemers/SrvrOS/pull/549).
+The native crypto check, 23 streaming-profile checks, and 36 other host
+profile checks passed. The graphical sign-in and account-owned import
+workflow still need end-to-end VM verification.
 
 ## Installed console authentication
 
