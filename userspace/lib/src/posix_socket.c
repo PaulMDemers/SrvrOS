@@ -264,6 +264,27 @@ static int ipv4_ttl_option(int fd, struct posix_socket *socket, int set, int *va
     return 0;
 }
 
+/* The kernel owns this option on the native UDP endpoint, including aliases. */
+static int udp_broadcast_option(int fd, struct posix_socket *socket, int set, int *value) {
+    if (!socket && fd >= POSIX_SOCKET_BASE) { errno = EBADF; return -1; }
+    if (socket && (socket->domain != AF_INET || socket->type != SOCK_DGRAM)) {
+        errno = ENOPROTOOPT;
+        return -1;
+    }
+    int native_fd = socket ? socket->listener_fd : fd;
+    if (native_fd < 0) { errno = EBADF; return -1; }
+    long result = srv_syscall5(SYS_NET_UDP_BROADCAST,
+        set ? SRV_NET_BROADCAST_SET : SRV_NET_BROADCAST_GET,
+        native_fd, set ? (*value != 0) : 0, 0, 0);
+    if (result < 0) {
+        errno = (result == -1 || result == -ENOSYS || result == SRV_ERR_NOTSUP)
+            ? ENOPROTOOPT : (int)-result;
+        return -1;
+    }
+    if (!set) *value = (int)result;
+    return 0;
+}
+
 static int real_net_fd(int fd) {
     uint32_t ip = 0;
     uint16_t port = 0;
@@ -353,9 +374,9 @@ static long socket_try_operation(int fd, uint64_t operation, void *buffer,
         int error = result == SRV_ERR_PIPE ? EPIPE : result == SRV_ERR_BADF ? EBADF :
             result == SRV_ERR_FAULT ? EFAULT : result == SRV_ERR_INVAL ? EINVAL :
             result == SRV_ERR_NOTSUP ? EOPNOTSUPP : EIO;
-        if (result == SRV_ERR_PIPE) {
+        if (result == SRV_ERR_PIPE || (operation == SRV_SOCKET_UDP_SEND && result == SRV_ERR_ACCES)) {
             (void)__posix_signal_dispatch_pending();
-            errno = EPIPE; /* A handled SIGPIPE must not replace EPIPE with EINTR. */
+            errno = result == SRV_ERR_PIPE ? EPIPE : EACCES;
         } else {
             errno = errno_from_blocking_result(result, error);
         }
@@ -396,7 +417,12 @@ static long udp_send_sys(int fd, uint32_t ip, uint16_t port, const void *buffer,
     }
     long result = srv_net_udp_sendto(fd, ip, port, buffer, length);
     if (result < 0) {
-        errno = errno_from_blocking_result(result, EIO);
+        if (result == SRV_ERR_ACCES) {
+            (void)__posix_signal_dispatch_pending();
+            errno = EACCES;
+        } else {
+            errno = errno_from_blocking_result(result, EIO);
+        }
         return -1;
     }
     return result;
@@ -1764,6 +1790,12 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {
     struct posix_socket *socket = socket_at(fd);
+    if (level == SOL_SOCKET && option_name == SO_BROADCAST) {
+        if (!option_value || option_len < sizeof(int)) { errno = EINVAL; return -1; }
+        int value;
+        memcpy(&value, option_value, sizeof(value));
+        return udp_broadcast_option(fd, socket, 1, &value);
+    }
     if (level == IPPROTO_IP && option_name == IP_TTL) {
         if (!option_value || option_len < sizeof(int)) { errno = EINVAL; return -1; }
         int value;
@@ -1865,6 +1897,14 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
 
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
     struct posix_socket *socket = socket_at(fd);
+    if (level == SOL_SOCKET && option_name == SO_BROADCAST) {
+        if (!option_value || !option_len || *option_len < sizeof(int)) { errno = EINVAL; return -1; }
+        int value;
+        if (udp_broadcast_option(fd, socket, 0, &value) < 0) return -1;
+        memcpy(option_value, &value, sizeof(value));
+        *option_len = sizeof(value);
+        return 0;
+    }
     if (level == IPPROTO_IP && option_name == IP_TTL) {
         if (!option_value || !option_len || *option_len < sizeof(int)) { errno = EINVAL; return -1; }
         int value;
