@@ -33,3 +33,7 @@ This interface provides neither named shared memory nor a disk-backed mapping.
 Memory descriptors support mapping, metadata, duplication and transfer. They
 have no byte I/O, resizing, or cross-process futex contract. The isolated
 installed-account and experimental signal profiles do not admit this interface.
+
+The matched build and two normal QEMU runs verified bitmap and payload
+transfer, live updates, permission enforcement and quota recycling.
+See the [shared-memory verification receipt](assets/evidence/shm-runtime/receipt.json).
