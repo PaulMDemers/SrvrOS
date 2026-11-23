@@ -1,8 +1,8 @@
 {
   "artifacts": {
-    "binary_sha256": "e1a62261f61cc71d7afd157b4ae2ae07308fbea8860f092e8c9188e761c65e2f",
-    "diagnostic_sha256": "2a844216589a2ba35d653e02029d18c5d3365b16d6f74facc38088a766c04b52",
-    "probe_sha256": "0676f69edb47643521510e09d91df5077a837c2250c9e1ba8c0999fbaeec618e",
+    "binary_sha256": "dced16936b9690a7ac6d619d8cc6d45d8232619263eb9b50f09af37941568bc7",
+    "diagnostic_sha256": "c88f6bff43034afc06d3f8912399d1cb771f2bd78524b32ba4ae619a52b9bc3d",
+    "probe_sha256": "f0f5eca0cdf0ed5de42b691009c5d7aedae431872c990c6f5f40fb16b92abf4b",
     "staged_sha256": "fe66bb779ad620ea9368b11e846edd71db529a04e422dcc180208304408966b9"
   },
   "checks": {
@@ -15,7 +15,7 @@
     "host_differential_comparisons": 576,
     "host_log_sha256": "2e371d7774679d6c1e1b4f939d3b31327a7d251bd809ab4647fd0d8b0869e4ac",
     "host_seed": 912,
-    "receipt_sha256": "6b28d1eecb2c943c670f6bb4911b20350197098a57e6abb905689777dd30c8f3",
+    "receipt_sha256": "0336fb164afd3884a64b211756508746ceb8c6a2f2760e87243d26cc0d7648b5",
     "status": "PASS",
     "stdout_write_failure_status": 2
   },
@@ -30,15 +30,15 @@
       "Terminal keyboard Ctrl-C in both phases, followed by successful numeric stable field sorting"
     ],
     "screenshots_sha256": {
-      "01-stdin-interrupt.png": "029d4b771da0aa848c779210abcabc8b019486c0d3d01dd25ff1a190c7cbb7c5",
-      "02-sorting.png": "5159dfe36eb7a53c24e6218f88a41258bfb7b21713e33b74e75eb41e496a51a2",
-      "03-recovery.png": "9a239ec876bee07add69db0dc1ac347d8df63c6bd0e8468d0dc29c55e411ce54"
+      "01-stdin-interrupt.png": "e509532b28d2670020fb7adb144e1082e0f64b9479db4f25afced14a23259887",
+      "02-sorting.png": "f56f1de1159c48000fb56ffca3b717886db8ae01025d4e264d66ba2f587c71dc",
+      "03-recovery.png": "ab57416c0e2bb78528fbb13855def067b3579e72fdf17fe425c270f2b1b30b33"
     },
     "status": "PASS",
     "stdin_signal_status": 130,
-    "terminal_receipt_sha256": "370035a7812b20482f09f929c3f774c95f37b0f5aa79045190a6af45d6da7d0b"
+    "terminal_receipt_sha256": "b95747dca8b7fbf9c933f49fa37a8b2ab131c2246b0cc7c71f7fa4d129a537a2"
   },
-  "current_main_recheck": {
+  "historical_installed_console_base_recheck": {
     "cli_regression_scope": "Full 498-command run is from ddc37b8f. Neither changed account binary is invoked by that harness. This recheck reran focused, Terminal, and ports checks on the c8ce64a9 image.",
     "component_hashes_identical_to_full_qualification": 11,
     "disk_sha256": "4b8e71c932035f7da4c8b350cae580e33b8daf4a8709116468ef6673e7167163",
@@ -61,12 +61,12 @@
     "terminal_receipt_sha256": "5c99cc957e2ae14a21b5064b357938ca49e5d575e8b6bb9245b8945d737761b3"
   },
   "matched_build": {
-    "disk_sha256": "3a10c7a217cc0e59437e747d4c39f0151b33a886b31f2eea1fae88aa5745d223",
+    "disk_sha256": "12e681fa3bf416489aaaeb2952376fabd3ecd8f50e0a2c5c54c61c5884bd82f4",
     "host": "Apple Silicon macOS",
-    "initramfs_sha256": "ae8dd72caa2fc98cc69cfe4929fa5452f031491895b53056eab53a3003e77670",
-    "iso_sha256": "2ad4b4fb42f709c92e71808b2f76d74954567fc13393483b9ce00305da9f11b8",
-    "kernel_sha256": "ba3f9e8a3cf560c0adbdca9eb8525276407a3a53d3a2c422d0abc2683416bd40",
-    "manifest_sha256": "836cbea48297af2246c2047d09de435d8cb8c9af27109bbcd52d49549b7f1bc0",
+    "initramfs_sha256": "af173f0f8f8c7455666267a543b6d6e56964be5b701bf107f3375a625a625402",
+    "iso_sha256": "96f7b788a0a567d149dfd8f31da97770fd3ebbaaec61dd69644efc46235f9f60",
+    "kernel_sha256": "f26a269e4bf5b4e5bc4201482f876f6c9884f13b365b1016ec2033d876b6d2b5",
+    "manifest_sha256": "65fc11002281c7e3538f30a92af53479391d9cea1bd0906700784172c3539d2b",
     "target": "x86-64"
   },
   "memory": {
@@ -81,38 +81,43 @@
     "scope": "Mapped SDK heap arena. Stack and executable mappings are separate.",
     "status": "PASS"
   },
-  "os_base": "ddc37b8f603b77a3ba080a9ffbe96e1b91befb31",
+  "os_base": "8750396839ec272dfdc1db7e0302ee3624fd4e6a",
   "pin_verification": {
     "deployed_pro_checkpoint_preserved": true,
-    "durable_ref": "refs/heads/pins/srvros-gnu-sort",
+    "durable_ref": "refs/heads/pins/srvros-gnu-sort-stat-types",
     "independent_exact_gitlink_checkout": "PASS",
-    "pin_fetch_log_sha256": "72b74b359ebf512864ce341d081ddd92e51a11246b7f3825f62f457950230652"
+    "pin_fetch_log_sha256": "dcc7906b13d0d07e63d61bf4cc37364a9280d61395bd54a8f9bc20f60d641343",
+    "sdk_metadata_compatibility_commit": "2df0e5b3459abab0fdd2f6687f0fe9432604a7c0",
+    "sdk_metadata_compatibility_os_pr": "https://github.com/PaulMDemers/SrvrOS/pull/549",
+    "sdk_metadata_compatibility_ports_pr": "https://github.com/PaulMDemers/SrvrPorts/pull/20",
+    "srvrports_merge_commit": "2908a2242f9b1040f84beb1d236dafe19f2d369f",
+    "srvrports_pr": "https://github.com/PaulMDemers/SrvrPorts/pull/19"
   },
-  "ports_pin": "cde4d9bd2e5e601c2f5cb57338d1d46e1b0bf683",
+  "ports_pin": "e733d76d1660eb835c9df387ea9fd936c9cc63d1",
   "regressions": {
     "cli": {
       "commands": 498,
       "filesystem": "clean",
-      "log_sha256": "393645686d62d21b2c7465d5ab741fb64db024fe360b83019d94580fd0405405",
+      "log_sha256": "6a3fbfa308a4a2d9a53606a729700cff7ce6cb6eb9f303fd505e82d0d677ad4e",
       "status": "PASS"
     },
     "ports": {
       "filesystem": "clean",
-      "log_sha256": "a613c9ac93f742483e1ff65303c9c366e9e03b15abff1cde54b041cd5e84532a",
+      "log_sha256": "49fb39597e16ad88e15df152bc900de9ba54a62b6861105638cf24b5c954b8eb",
       "status": "PASS"
     }
   },
   "reproducibility": {
     "components": 11,
-    "manifest_sha256": "25fd67ed3282d997b0162a467a9dc2233581f2fc579d13d6bc12cf62ecfba496",
-    "prior_base": "e77f468f2341aed2bdd881d81685234eae3e6fb1",
-    "prior_component_comparison": "6/11 match prior base; both fresh builds match each other.",
-    "prior_component_comparison_sha256": "9442b02478470651501c47df85c25a539978e939cf2edfc264d79b5e279db525",
-    "scope": "Two clean sort component builds against the same matched SDK on ddc37b8f.",
+    "manifest_sha256": "ab1ec37e5f04e1052398c93c733adcd15df8efc71de0d1e2b76ac8d7948e4b3c",
+    "prior_base": "c8ce64a9e3136758adc87753670bb8cfe8123203",
+    "prior_component_comparison": "5/11 match prior base; both fresh builds match each other.",
+    "prior_component_comparison_sha256": "2c80fb26ff9386d7bac5c6b3b27dfb2bbcc8be17807f3c0b62b8750ea564545f",
+    "scope": "Two clean sort component builds against the same matched SDK on 87503968.",
     "status": "PASS"
   },
   "scope": "Bounded C-locale, sequential in-memory ordering of one regular file or finite stdin. Guest Q35 evidence.",
-  "source": "da925ee90196090bca70a773605c794f89577059",
+  "source": "b9e25455b940eb15608592a5a5536487a16c44b7",
   "status": "PASS bounded GNU sort qualification and regressions",
   "upstream": {
     "archive_sha256": "a480198559733e9b3da999e90543ac6f888a2caa544d8d664c5a1f17e528e210",
