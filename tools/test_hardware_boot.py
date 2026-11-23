@@ -2577,6 +2577,13 @@ class InstallTests(unittest.TestCase):
         for flag in ("srvros.aml", "srvros.audio", "srvros.laptop-services", "srvros.usb-network"):
             self.assertNotIn(flag,cfg)
         self.assertNotIn("srvros.usb-wifi",boot.limine_config("0123456789abcdef","ram-usb-v19-laptop-probe-37d8c5d0-auto-return"))
+        for filename in ("limine-binary/BOOTX64.EFI","kernel/srvros.elf","initramfs.tar"):
+            path=self.root/"build"/filename
+            path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes(b"fixture")
+        with patch.object(boot,"ROOT",self.root),patch.object(boot.subprocess,"check_output",side_effect=["test-revision\n",""]):
+            release=boot.stage(wifi_capture=True,laptop_probe_volume="37d8c5d0")
+        self.assertEqual(boot.verify(self.stage/release)["config_version"],version)
         with self.assertRaises(ValueError): boot.stage(wifi_capture=True)
         with self.assertRaises(ValueError): boot.stage(wifi_capture=True,hold_on_failure=True,laptop_probe_volume="37d8c5d0")
         with self.assertRaises(ValueError): boot.stage(wifi_capture=True,idle_capture=True,laptop_probe_volume="37d8c5d0")

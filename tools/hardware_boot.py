@@ -989,6 +989,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if ap_ownership_test: version=f"ram-usb-v1-ap-owner-laptop-probe-{laptop_probe_volume}"
         if posix_capture: version=f"ram-usb-v1-posix-laptop-probe-{laptop_probe_volume}"
         if storage_wait_capture: version=f"ram-usb-v1-storage-wait-laptop-probe-{laptop_probe_volume}"
+        if wifi_capture: version=f"ram-usb-v39-laptop-probe-{laptop_probe_volume}"
         if wifi_calibration: version=f"ram-usb-wifi-cal-v1-laptop-probe-{laptop_probe_volume}"
         if wifi_desktop_owner:
             version=f"ram-usb-wifi-fw-v{155 if wifi_desktop_active_remove else 154 if wifi_desktop_replug else 153 if wifi_desktop_reattach else 152 if wifi_desktop_reconnect else 151}-laptop-probe-{laptop_probe_volume}"
