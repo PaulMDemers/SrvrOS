@@ -1,5 +1,36 @@
 # Disk installation and recovery
 
+## Install with console sign-in
+
+For a new identity-bound installation that should start at the local console
+sign-in, select `--console-auth` when preparing the image.
+
+```sh
+python3 tools/installation_image.py prepare CONSOLE-STAGE \
+  --kernel build/kernel/srvros.elf --bootx64 build/limine-binary/BOOTX64.EFI \
+  --init build/userspace/init.elf --exfat build/srvros.exfat \
+  --identity-bound --console-auth
+python3 tools/installation_image.py apply CONSOLE-STAGE
+```
+
+The installer records the policy in the plan and selects console sign-in in
+the normal EFI entry. Administrator enrollment takes place in an explicit
+recovery boot. Use the installed exFAT partition GUID from the plan to
+generate a Limine configuration for administrator-controlled recovery media.
+
+```sh
+python3 tools/installation_image.py console-recovery-config ROOT_GUID
+```
+
+Use that configuration with the matching kernel and bootstrap on the
+recovery media. In the administrator console, enroll local accounts with
+`run /fat/bin/local-enroll add NAME UID GID`, then reboot through the
+installed EFI entry. When the committed account store is missing, malformed,
+or untrusted, normal boot stops before accepting credentials. Recovery
+requires administrator control of the EFI configuration and recovery media.
+See the [account-store recovery procedure](machines/apple-silicon-build-host.md#console-account-store-recovery)
+for pending account-update markers.
+
 ## Restore a streaming-v2 bundle into a fresh image
 
 Use `installation_image.py prepare` and `apply` to restore a selected portable

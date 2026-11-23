@@ -1,5 +1,14 @@
 # Apple Silicon macOS build host
 
+## Installed console authentication
+
+`device/apple-silicon/installed-console-auth` starts from `b5847586`.
+The scope is an explicit identity-bound installer mode that generates a
+normal EFI entry for console sign-in, with an administrator-controlled
+recovery configuration for the same root. Qualification uses one
+disposable installation to check the default boot, fail-closed account-store
+admission, administrator recovery and both users' file permissions.
+
 ## Console account-store recovery
 
 `device/apple-silicon/console-account-recovery` starts from `1f4f73b3`.
