@@ -412,6 +412,25 @@ on the hub and the workspace drive connected. Progress, saving and Ubuntu
 return follow the unattended recipe. On return compare chip samples and
 the post-stop dequeue with the posted TRB, timestamps and transfer events.
 
+Cold session `session-000660f969266ceb-00` reproduced `rx-timeout` after
+verified firmware startup, 256 packet-buffer links and channel 10 tuning.
+All five Realtek reads succeeded at each of the three phases. CR stayed
+`0x008a`, RCR `0x00002009`, RX FIFO pointer and RX DMA status zero, and
+RXPKT_NUM `0x00020000` (the Linux register definition labels bit 17 RX DMA
+idle). The endpoint context was running with the first TRB pending and
+zero transfer events through the four-second window. Stop Endpoint moved
+it to Stopped at that same TRB, cycle 1, and generated the only transfer
+event, code 26 with 4,096 bytes of residue. No bytes transferred before
+stop. These observations favor investigating the chip's MAC/RF receive
+setup and filter against the working Linux trace. The samples do not
+establish which chip setting prevented frames from reaching the USB path.
+
+The workspace and independent journal contain the same complete trace.
+The 28,603-byte exit snapshot verified, all seven journal phases completed,
+RF/RX parked, Ubuntu returned, and all 578 existing workspace files were
+preserved. The local archive `evidence-fd232be7e62e2b0c` holds the matching
+payload and evidence.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
