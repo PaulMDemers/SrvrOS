@@ -443,6 +443,18 @@ parameters carry over from the trace trial. Teardown clears the protocol
 bit with the RX gates. The paired snapshots and explicit gate readback
 will show whether this change is sufficient to restart chip-side RX.
 
+Cold candidate `e474b0e82dd86947`, source `fdf033f1`, compiled and passed
+the production xHCI RX fixture, including the corrected fault injection
+for a dropped protocol bit. Firmware and integration lifecycle tests
+also passed. The installed image passed the exact GPT workspace boot and
+four journal/recovery VM cases. Preflight verified all three hub leaves,
+580 existing files on the clean workspace, Ubuntu default and recovery
+`74da74e0b57afbb8`. The earlier payload cleared from the EFI partition
+has a byte-verified copy in its recovery archive. The fresh journal and
+one-shot record are in `build/bringup/pro112-rtl8188cu-rx-protocol/run.json`.
+The unattended trial should log the `0x9a` gate, paired RX samples, beacon
+outcome and teardown before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
