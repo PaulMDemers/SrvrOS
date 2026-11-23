@@ -124,6 +124,10 @@ int open(const char *path, int flags, ...) {
     return (int)fd;
 }
 
+int creat(const char *path, mode_t mode) {
+    return open(path, O_WRONLY | O_CREAT | O_TRUNC, (int)(mode & 07777u));
+}
+
 int open64(const char *path, int flags, ...) {
     mode_t create_mode = 0666;
     if ((flags & O_CREAT) != 0) {
