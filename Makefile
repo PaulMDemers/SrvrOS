@@ -5288,6 +5288,11 @@ include ports/srvros/diffutils/build.mk
 include ports/srvros/patch/build.mk
 include ports/srvros/grep/build.mk
 include ports/srvros/sha256sum/build.mk
+
+# Grep and Diff retain their bundled GNU matcher, including GNU-only flags.
+GGREP_LINK_INPUTS := $(filter-out build/userspace/lib/src/posix_fnmatch.c.o,$(GGREP_LINK_INPUTS))
+$(USER_DIFF) build/userspace/diff-diagnostic.elf: private USER_LIB_OBJ := $(filter-out build/userspace/lib/src/posix_fnmatch.c.o,$(USER_LIB_OBJ))
+$(USER_DIFF) $(USER_GGREP) build/userspace/diff-diagnostic.elf build/userspace/ggrep-diagnostic.elf: Makefile
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
