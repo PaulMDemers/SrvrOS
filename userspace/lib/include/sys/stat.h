@@ -16,6 +16,7 @@ extern "C" {
 #define S_IFREG 0100000
 #define S_IFLNK 0120000
 #define S_IFSOCK 0140000
+#define S_ISVTX 01000
 #define S_IRUSR 0400
 #define S_IWUSR 0200
 #define S_IXUSR 0100

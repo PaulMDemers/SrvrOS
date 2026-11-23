@@ -1,8 +1,6 @@
 --- meson.build
 +++ meson.build
-@@ -834,6 +834,15 @@
- endif
- 
+@@ -836,4 +836,13 @@
  foreach f : functions
 +  if host_system == 'srvros' and f in ['recvmmsg', 'sendmmsg']
 +    # The SDK links private Node shims before exposing the public socket API.

@@ -44,6 +44,7 @@ IPV6_UNICAST_HOPS_MARKER = b'glib-ipv6-unicast-hops: ok'
 SO_BROADCAST_MARKER = b'glib-so-broadcast: ok'
 IP_MULTICAST_LOOP_MARKER = b'glib-ip-multicast-loop: ok'
 FIONREAD_MARKER = b'glib-fionread: ok'
+LINKED_GOBJECT_MARKER = b'glib-linked-gobject: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
@@ -194,6 +195,8 @@ def main():
     parser.add_argument('--so-broadcast', action='store_true', help='test IPv4 UDP broadcast against a private peer')
     parser.add_argument('--ip-multicast-loop', action='store_true', help='test explicit IPv4 multicast loop option refusal')
     parser.add_argument('--fionread', action='store_true', help='test non-consuming readable-byte queries')
+    parser.add_argument('--linked-gobject', type=Path, metavar='ELF',
+                        help='boot a probe linked to the target GLib and GObject archives')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
@@ -255,6 +258,8 @@ def main():
         linked_probes = (
             ('glib-linked-child-watch', args.linked_child_watch, LINKED_CHILD_WATCH_MARKER,
              'linked_child_watch_payload_sha256'),
+            ('glib-linked-gobject', args.linked_gobject, LINKED_GOBJECT_MARKER,
+             'linked_gobject_payload_sha256'),
             ('gio-poll-monitor', args.gio_poll_monitor, GIO_POLL_MONITOR_MARKER,
              'gio_poll_monitor_payload_sha256'),
             ('gio-ip-tos', args.gio_ip_tos, GIO_IP_TOS_MARKER, 'gio_ip_tos_payload_sha256'),
