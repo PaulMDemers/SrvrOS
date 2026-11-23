@@ -38,7 +38,11 @@ The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
 It uses the range probe's two existing deadlines and the common display and
 CPU guards. Its version 13 result records the aperture searched, allocation,
 reread and return, including an exhausted search or an active reader that
-prevented the search. This is an unattended software reservation trial with
+prevented the search. With private-range receipt v2 an exhausted aperture
+search also triggers two full reads of the 1,484 GPU-only entries beginning
+at slot 65536. The collector checks occupancy, the second comparison, and
+the outcome of a software reservation when every entry was zero.
+This is an unattended software reservation trial with
 the original primary plane active. [Implementation milestones](intel-bdw-primary-flip.md#driver-owned-second-surface-on-air72)
 
 On Air7,2 the `intel-gt-flush-v59` range receipt version 4 also reports

@@ -222,6 +222,17 @@ and translation retirement. [Air7,2 hardware result](machines/macbookair7-2-curr
    The trial rereads all 1,484 entries under the lease, rechecks the fences
    and original display, then returns the lease. A complete search can also
    report exhaustion or a conflicting display reader.
+
+   On exhaustion, private-range receipt v2 also compares two complete PTE
+   vectors at GPU address `0x10000000`, immediately above the CPU aperture.
+   This covers 1,484 pages including fetch padding. It records how many
+   entries are present, nonzero, or identical to the first. A uniformly
+   populated vector remains occupied. Only an entirely zero vector can
+   receive a temporary software lease, and the driver compares every entry
+   again before returning it. Both walks use the existing read-only BAR0
+   mapping and two-second pass deadline. The receipt covers this interval
+   only. GPU submission, cache retirement and scanout authorization are
+   separate milestones.
 2. **Give the native driver control of who can use that interval.** Retain
    the exact lease and the boot display fence. Account for inherited engine
    contexts, pending work, firmware and display-proxy users before admitting

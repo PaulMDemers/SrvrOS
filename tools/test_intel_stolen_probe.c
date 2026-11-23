@@ -435,10 +435,19 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
     *out=2; /* Invalid, but already occupied. */
    return true;
   }
+  if(stolen.gpu_range.reading) {
+   unsigned slot=(offset-0x800000)/8;
+   assert(slot>=65536 && slot<65536+1484 && model.guard_live && model.held);
+   uint64_t raw=model.mode==57?0x12345001:0;
+   if(model.mode==57 && slot==65536+1483)raw=2;
+   if(model.mode==92 && stolen.gpu_range.claimed && slot==65536+1483)raw=1;
+   *out=(offset&4)?(uint32_t)(raw>>32):(uint32_t)raw;
+   return true;
+  }
   if(stolen.private_range.scanning) {
    unsigned slot=(offset-0x800000)/8;
    assert(slot>=stolen.private_range.begin && slot<65536 && model.guard_live && model.held);
-   uint64_t entry=(slot==stolen.private_range.begin+64 || model.mode==57)?0x12345001:0;
+   uint64_t entry=(slot==stolen.private_range.begin+64 || model.mode==57 || model.mode>=90)?0x12345001:0;
    if(slot==stolen.private_range.begin+128)entry=2; /* Encoded non-present */
    if(model.mode==58 && stolen.private_range.claimed && slot==stolen.private_range.first+1483)entry=1;
    *out=(offset&4)?(uint32_t)(entry>>32):(uint32_t)entry;
@@ -609,13 +618,21 @@ int main(int argc,char **argv) {
    assert(scanout_interval_claim(&competing,0xc0000000,0xb0000000,0x10000000,0x2200000,
                                  (struct scanout_space_range){11776+192,64}));
   }
+  else if(!strcmp(argv[1],"--private-high-free"))model.mode=90;
+  else if(!strcmp(argv[1],"--private-high-conflict")){
+   model.mode=91;
+   assert(scanout_interval_protect_boot_framebuffer(0xc0000000,0xb0000000,0x10000000,0x2200000));
+   assert(scanout_interval_claim_gpu_only(&competing,0xc0000000,0xb0000000,0x10000000,0x2200000,
+                                         0x800000,(struct scanout_space_range){65536+1483,1}));
+  }
+  else if(!strcmp(argv[1],"--private-high-change"))model.mode=92;
   else if(!strcmp(argv[1],"--private-full"))model.mode=57;
   else if(!strcmp(argv[1],"--private-change"))model.mode=58;
   else if(!strcmp(argv[1],"--private-guard"))model.mode=62;
   else if(!strcmp(argv[1],"--private-reader"))model.mode=60;
   else assert(!strcmp(argv[1],"--private-report"));
   bool ok=intel_stolen_probe_report(private_command);
-  assert(ok==(model.mode!=58 && model.mode!=62) && !model.mapped && !model.held && !model.guard_live);
+  assert(ok==(model.mode!=58 && model.mode!=62 && model.mode!=92) && !model.mapped && !model.held && !model.guard_live);
   assert(fixture_flags==(1ull<<9));
   if(model.mode==62)assert(stolen.fail==33 && !stolen.private_range.scanned && stolen.guard.closed);
   if(model.mode==61){
@@ -624,6 +641,16 @@ int main(int argc,char **argv) {
                                 (struct scanout_space_range){11776+192,64}));
    scanout_interval_release(&competing);
   }
+  if(model.mode==90)assert(stolen.gpu_range.claimed && stolen.gpu_range.returned && stolen.gpu_range.matched==1484);
+  if(model.mode==91){
+   assert(stolen.gpu_range.conflict && !stolen.gpu_range.claimed && stolen.gpu_range.matched==1484);
+   assert(scanout_interval_held(&competing,0xc0000000,0xb0000000,0x10000000,0x2200000,
+                               (struct scanout_space_range){65536+1483,1}));
+   scanout_interval_release(&competing);
+  }
+  if(model.mode==92)assert(stolen.gpu_range.matched==1483 && stolen.gpu_range.returned && !ok);
+  if(model.mode==57)assert(stolen.gpu_range.present==1483 && stolen.gpu_range.occupied==1484 &&
+                          stolen.gpu_range.matched==1484 && !stolen.gpu_range.claimed);
   if(model.mode==57)assert(stolen.private_range.exhausted && !stolen.private_range.claimed);
   if(model.mode==58)assert(stolen.private_range.verified==1483 && stolen.private_range.returned);
   if(model.mode==60)assert(stolen.private_range.reader_conflict && !stolen.private_range.scanned);

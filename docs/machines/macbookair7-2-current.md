@@ -8,6 +8,15 @@ keyboard/trackpad, secondary click, window navigation, saved Home documents,
 brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
+## Current Air7,2 work on PR 301
+
+The private-range diagnostic will check all 1,484 entries of a second
+framebuffer candidate beginning immediately beyond BAR2. It uses the existing
+GGTT interval registry, read-only BAR0 probe, display exclusion and USB
+receipt collector. The inherited scanout and slot 12291 stay pinned or
+untouched throughout. The physical result and native mapping authority
+remain pending.
+
 ## Driver-owned one-page trial
 
 The slot 12291 verifier now samples GAM request and response on both sides

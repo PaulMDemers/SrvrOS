@@ -356,7 +356,7 @@ def stolen_result(text,*,native=False,required_version=None):
         raise ValueError('stolen lifetime receipt')
     # Private mode scans at most 105 table pages above 46 MiB and revisits
     # at most four to recheck the selected surface.
-    extra_limit=109 if wire==13 else 0
+    extra_limit=115 if wire==13 else 0
     if s['maps']>128+extra_limit or s['retired']>s['maps'] or s['cache_checks']>256+2*extra_limit or s['meta_reads']>8 or s['checked']>65536 or (not s['retained'] and s['maps']!=s['retired']):
         raise ValueError('stolen mapping progress')
     for f in rows['facts']:
@@ -430,7 +430,7 @@ def stolen_result(text,*,native=False,required_version=None):
     if private:
         from intel_gt_bootstrap import fields
         h=fields(private[0],'intel-private-range:',
-                 'v begin first scanned occupied checked batches maps claimed returned exhausted reader_conflict writes'.split())
+                 'v begin first scanned occupied checked batches maps claimed returned exhausted reader_conflict writes'.split(), versions=(1,2))
         if (any(h[k]>1 for k in ('claimed','returned','exhausted','reader_conflict')) or h['writes'] or
                 h['returned']>h['claimed'] or h['occupied']>h['scanned'] or h['scanned']>65536-h['begin'] or
                 h['checked']>1484 or (h['claimed'] and (h['first']%64 or h['first']<h['begin'] or
@@ -461,6 +461,36 @@ def stolen_result(text,*,native=False,required_version=None):
                 raise ValueError('private range MMIO coverage')
             extra_aliases=2*batches
         result['private_range']=h
+    upper=[line for line in text.splitlines() if line.startswith('intel-gpu-surface:')]
+    if len(upper)!=int(bool(private) and h['v']==2):
+        raise ValueError('missing or unexpected GPU-only surface receipt')
+    if upper:
+        keys='v first pages sampled matched occupied present first_pte same_first claimed conflict returned writes'.split()
+        u=fields(upper[0],'intel-gpu-surface:',keys,hexkeys=('first_pte',))
+        if u['writes'] or any(u[k]>1 for k in ('claimed','conflict','returned')) or u['returned']>u['claimed']:
+            raise ValueError('GPU-only surface authority')
+        if not u['pages']:
+            if any(u[k] for k in keys if k!='v') or (complete and h['exhausted']):
+                raise ValueError('missing GPU-only observation')
+        else:
+            aperture=rows['facts'][1]['aperture']
+            if (not h['exhausted'] or (u['first'],u['pages'])!=(aperture//4096,1484) or
+                u['first']+u['pages']>rows['facts'][1]['ggtt']//8 or
+                not u['matched']<=u['sampled']<=u['pages'] or
+                not u['present']<=u['occupied']<=u['sampled'] or
+                u['same_first']>u['sampled'] or bool(u['sampled'])!=bool(u['same_first']) or
+                u['same_first']>(u['present'] if u['first_pte']&1 else
+                                 u['occupied']-u['present'] if u['first_pte'] else u['sampled']-u['occupied']) or
+                ((u['claimed'] or u['conflict']) and (u['occupied'] or u['sampled']!=u['pages'])) or
+                u['claimed']+u['conflict']>1):
+                raise ValueError('GPU-only range or PTE counts')
+            if complete:
+                if (u['matched']!=u['pages'] or u['returned']!=u['claimed'] or
+                    u['claimed']+u['conflict']!=int(u['occupied']==0)):
+                    raise ValueError('incomplete GPU-only surface verification')
+                extra_maps+=2*((u['pages']+511)//512)
+                extra_aliases+=4*((u['pages']+63)//64)
+        result['gpu_surface']=u
     guards=[line for line in text.splitlines() if line.startswith('intel-submission-guard:')]
     if len(guards)!=int(wire==15):
         raise ValueError('missing or unexpected submission guard')
@@ -747,6 +777,9 @@ def stolen_result(text,*,native=False,required_version=None):
             if wire==13 and h['scanned']:
                 first=0x800000+h['begin']*8
                 offsets.update(range(first,first+((h['scanned']+511)//512)*4096,4096))
+            if upper and u['sampled']:
+                start=0x800000+u['first']*8
+                offsets.update(range(start,start+u['sampled']*8,4096))
             for sample in cache['rows']['sample']:
                 n=sample['sample'];regions=_snapshot(sample,[r for r in cache['rows']['variable'] if r['sample']==n],[r for r in cache['rows']['fixed'] if r['sample']==n])
                 if any(_page(sample,regions,window['summary']['mmio']+offset,3)!=(0,0,0) for offset in offsets):
@@ -764,7 +797,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-owned-page:','intel-owned-widi:','intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-gpu-surface:','intel-owned-page:','intel-owned-widi:','intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')

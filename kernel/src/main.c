@@ -1052,7 +1052,7 @@ void kmain(void) {
                 if(cmdline_has_token(cmdline,"srvros.intel-scanout=firmware-import"))
                     console_write("intel-scanout: reserving firmware spans and borrowing one page. Panel stays active. No input.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-scanout=private-range"))
-                    console_write("intel-scanout: searching for a separate framebuffer interval; panel stays on, no input needed.\n");
+                    console_write("intel-scanout: checking framebuffer space inside and above the CPU aperture. Panel stays on. No input needed.\n");
                 bool checkpoint=started && workspace_log_pause();
                 bool stolen_ok=checkpoint && intel_stolen_probe_report(cmdline);sampled=sampled && stolen_ok;
                 if(!checkpoint)console_write("intel-stolen: checkpoint failed; census refused\n");

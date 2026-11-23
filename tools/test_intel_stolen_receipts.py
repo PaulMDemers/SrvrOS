@@ -91,6 +91,24 @@ class Receipts(unittest.TestCase):
                             line.replace('returned=1','returned=0'),line.replace('claimed=1','claimed=0'),
                             line.replace('scanned=1676','scanned=1675'),line.replace('writes=0','writes=1')):
                     with self.assertRaises(ValueError):stolen_result(raw.replace(line,bad),required_version=13)
+    def test_gpu_only_surface_receipts(self):
+        exe=ROOT/'build/tests/intel-stolen-probe'
+        for case, occupied, claimed, conflict, matched in (
+                ('full',1484,0,0,1484),('high-free',0,1,0,1484),
+                ('high-conflict',0,0,1,1484),('high-change',0,1,0,1483)):
+            with self.subTest(case=case):
+                raw=subprocess.check_output([str(exe),'--private-'+case],text=True)
+                result=stolen_result(raw,required_version=13)
+                self.assertEqual(result['complete'],matched==1484)
+                row=result['gpu_surface']
+                self.assertEqual((row['first'],row['occupied'],row['claimed'],row['returned'],
+                                  row['conflict'],row['matched']),(65536,occupied,claimed,claimed,conflict,matched))
+                line=next(l for l in raw.splitlines() if l.startswith('intel-gpu-surface:'))
+                for bad in ('',line+'\n'+line,line.replace('first=65536','first=65535'),
+                            line.replace('writes=0','writes=1'),line.replace('sampled=1484','sampled=1482')):
+                    with self.assertRaises(ValueError):
+                        stolen_result(raw.replace(line,bad),required_version=13)
+
     def test_imported_firmware_page_roundtrip(self):
         raw=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),'--firmware-import'],text=True)
         result=stolen_result(raw,required_version=14)

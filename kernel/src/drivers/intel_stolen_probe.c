@@ -81,6 +81,12 @@ static struct {
   bool selected, scanning, claimed, returned, exhausted, reader_conflict;
  } private_range;
  struct {
+  struct scanout_interval lease;
+  uint64_t original[SCANOUT_TRANSFER_PAGES];
+  unsigned first, pages, sampled, matched, occupied, present, same_first;
+  bool reading, claimed, returned, conflict;
+ } gpu_range;
+ struct {
   struct scanout_interval firmware;
   struct scanout_transfer page;
   struct scanout_transfer_token token;
@@ -265,6 +271,9 @@ static bool allowed(uint32_t page) {
   for(unsigned i=0;i<3;i++)
    if(page==stolen.import.command_page && page==0x800000u+8*command_slots[i])return true;
  }
+ if(stolen.gpu_range.reading && stolen.guard.checked && !stolen.guard.closed &&
+    page>=0x800000u+8*stolen.gpu_range.first &&
+    page<0x800000u+8*(stolen.gpu_range.first+stolen.gpu_range.pages))return true;
  if(stolen.private_range.scanning && stolen.guard.checked && !stolen.guard.closed &&
     page>=0x800000u+8*stolen.private_range.begin && page<0x800000u+8*SCANOUT_SPACE_PAGES)return true;
  if((page==0x6e000 || page==0x65000 || page==0x45000) && stolen.import.selected && stolen.guard.pinned &&
@@ -728,6 +737,55 @@ static bool private_batch(unsigned first,unsigned count,uint64_t *values) {
  return true;
 }
 
+/* A display-sized window in GPU address space, outside the CPU aperture.
+ * Compare both complete vectors, including occupied entries. Never read
+ * through the translations or treat a common scratch PTE as available. */
+static bool observe_gpu_surface(unsigned pages) {
+ const struct bdw_stolen_facts *f=&stolen.facts[1];
+ unsigned first=f->aperture_bytes/4096;
+ if(first!=SCANOUT_SPACE_PAGES || !pages || pages>SCANOUT_TRANSFER_PAGES ||
+    first+pages>f->ggtt_bytes/8 || !private_display_clear() ||
+    !intel_window_handoff_revalidate(&stolen.source))return refuse(32);
+ stolen.gpu_range.first=first;
+ stolen.gpu_range.pages=pages;
+ struct scanout_space_range span={first,pages};
+ for(unsigned pass=0;pass<2;pass++) {
+  if(pass && !stolen.gpu_range.occupied) {
+   stolen.gpu_range.claimed=scanout_interval_claim_gpu_only(&stolen.gpu_range.lease,
+      stolen.source.mmio,stolen.source.aperture,f->aperture_bytes,f->fence_end,f->ggtt_bytes,span);
+   stolen.gpu_range.conflict=!stolen.gpu_range.claimed;
+  }
+  stolen.gpu_range.reading=true;
+  for(unsigned i=0;i<pages;i+=64) {
+   uint64_t batch[64];
+   unsigned count=pages-i<64?pages-i:64;
+   if(!private_batch(first+i,count,batch))goto fail;
+   for(unsigned j=0;j<count;j++) {
+    uint64_t raw=batch[j];
+    if(!pass) {
+     stolen.gpu_range.original[i+j]=raw;
+     ++stolen.gpu_range.sampled;
+     stolen.gpu_range.occupied+=raw!=0;
+     stolen.gpu_range.present+=raw&1;
+     stolen.gpu_range.same_first+=raw==stolen.gpu_range.original[0];
+    } else {
+     if(raw!=stolen.gpu_range.original[i+j])goto fail;
+     ++stolen.gpu_range.matched;
+    }
+   }
+  }
+  if(!unmap())goto fail;
+  stolen.gpu_range.reading=false;
+  if(!intel_window_handoff_revalidate(&stolen.source) ||
+     (stolen.gpu_range.claimed && !scanout_interval_held(&stolen.gpu_range.lease,
+      stolen.source.mmio,stolen.source.aperture,f->aperture_bytes,f->fence_end,span)))goto fail;
+ }
+ return true;
+fail:
+ stolen.gpu_range.reading=false;
+ return refuse(32);
+}
+
 static bool reserve_private_range(unsigned pages) {
  struct scanout_interval *lease=&stolen.private_range.lease;
  const struct bdw_stolen_range *last=&stolen.plan.range[2];
@@ -1167,7 +1225,10 @@ static bool observe_scanout_range(void) {
   if(raw!=stolen.range.transfer.original[i] || raw!=stolen.pte[0][1][i])return refuse(32);
   stolen.range.digest=hash_word(stolen.range.digest,raw);++stolen.range.checked;
  }
- if(stolen.private_range.selected && !reserve_private_range(pages))return false;
+ if(stolen.private_range.selected) {
+  if(!reserve_private_range(pages))return false;
+  if(stolen.private_range.exhausted && !observe_gpu_surface(pages))return false;
+ }
  if(!range_fences() || !unmap() || !handoff_readers(true) || !unmap() ||
     !handoff_config(1) || !equal_bytes(stolen.handoff.config[0],stolen.handoff.config[1],sizeof(stolen.handoff.config[0])) ||
     !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source) ||
@@ -1294,6 +1355,10 @@ done:
  if(stolen.range.token.object && stolen.range.transfer.state!=TRANSFER_CLOSED && !stolen.uncertain &&
     !scanout_transfer_close(&stolen.range.transfer,&stolen.range.token)){
   stolen.uncertain=true;ok=false;refuse(32);
+ }
+ if(stolen.gpu_range.claimed && !stolen.uncertain) {
+  scanout_interval_release(&stolen.gpu_range.lease);
+  stolen.gpu_range.returned=true;
  }
  if(stolen.private_range.claimed && !stolen.uncertain) {
   scanout_interval_release(&stolen.private_range.lease);
@@ -1463,11 +1528,17 @@ report:
    (uint64_t)stolen.owned_page.frame[0],(uint64_t)stolen.owned_page.frame[1],(uint64_t)stolen.owned_page.frame_reads,a[0],a[1],a[2],b[0],b[1],b[2]);
  }
  if(stolen.private_range.selected)
-  console_printf("intel-private-range: v=1 begin=%u first=%u scanned=%u occupied=%u checked=%u batches=%u maps=%u claimed=%u returned=%u exhausted=%u reader_conflict=%u writes=0\n",
+  console_printf("intel-private-range: v=2 begin=%u first=%u scanned=%u occupied=%u checked=%u batches=%u maps=%u claimed=%u returned=%u exhausted=%u reader_conflict=%u writes=0\n",
    (uint64_t)stolen.private_range.begin,(uint64_t)stolen.private_range.first,(uint64_t)stolen.private_range.scanned,
    (uint64_t)stolen.private_range.nonzero,(uint64_t)stolen.private_range.verified,(uint64_t)stolen.private_range.batches,
    (uint64_t)stolen.private_range.maps,(uint64_t)stolen.private_range.claimed,(uint64_t)stolen.private_range.returned,
    (uint64_t)stolen.private_range.exhausted,(uint64_t)stolen.private_range.reader_conflict);
+ if(stolen.private_range.selected)
+  console_printf("intel-gpu-surface: v=1 first=%u pages=%u sampled=%u matched=%u occupied=%u present=%u first_pte=%x same_first=%u claimed=%u conflict=%u returned=%u writes=0\n",
+   (uint64_t)stolen.gpu_range.first,(uint64_t)stolen.gpu_range.pages,(uint64_t)stolen.gpu_range.sampled,
+   (uint64_t)stolen.gpu_range.matched,(uint64_t)stolen.gpu_range.occupied,(uint64_t)stolen.gpu_range.present,
+   stolen.gpu_range.original[0],(uint64_t)stolen.gpu_range.same_first,(uint64_t)stolen.gpu_range.claimed,
+   (uint64_t)stolen.gpu_range.conflict,(uint64_t)stolen.gpu_range.returned);
  if(stolen.range.selected)
   console_printf("intel-stolen-range: v=4 aperture_page=%x aperture_alias=%u frame0=%u frame1=%u frame_reads=%u protected_pages=%u reservation=%u returned=%u epoch=%u slot=%u pages=%u checked=%u fences=%u closing_readers=%u hash=%x verified=%u missing=%u assurances=0 obligations=255 writes=0\n",
    stolen.range.excluded_aperture_page,(uint64_t)stolen.range.aperture_alias,(uint64_t)stolen.range.frame[0],(uint64_t)stolen.range.frame[1],
