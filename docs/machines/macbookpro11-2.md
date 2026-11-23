@@ -239,6 +239,14 @@ upload, download disabled and a new MCU-ready/RAM-selected transition.
 The checksum bit's pre-upload value is logged as an observation. The
 existing exact adapter identity, live hub route and RF/TX gates stay in place.
 
+Source `e4988fdb` passed the native xHCI fixture with the real pinned image
+and the observed `0x05` arm readback, all 260 writes, the ready transition
+and eleven fault cases. It also passed the xHCI lifecycle suite. Exact VM
+image `b31e8ee110905979` passed four journal/recovery checks and the GPT
+workspace save with the dongle absent. Linux capture and summary are also
+preserved in `reference-rtl8188cu-linux-rebind-41bef0af` under the recovery
+archive. Hardware acceptance remains pending, with Ubuntu unarmed.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
