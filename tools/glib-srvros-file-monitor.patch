@@ -1,0 +1,13 @@
+--- gio/meson.build
++++ gio/meson.build
+@@ -827,5 +827,9 @@
+ file_monitor_backend = get_option('file_monitor_backend')
+ if file_monitor_backend == 'auto'
+-  if glib_conf.has('HAVE_SYS_INOTIFY_H') and have_func_inotify_init1
++  if host_system == 'srvros'
++    # SrvrOS exposes an inotify compatibility stub which returns ENOSYS.
++    file_monitor_backend = 'poll'
++    message('SrvrOS GIO file monitor: polling fallback')
++  elif glib_conf.has('HAVE_SYS_INOTIFY_H') and have_func_inotify_init1
+     file_monitor_backend = 'inotify'
+   elif have_func_kqueue and have_func_kevent
