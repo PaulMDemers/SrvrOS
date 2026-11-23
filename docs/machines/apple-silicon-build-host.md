@@ -615,6 +615,17 @@ passed. Static GIO next stops at incomplete `struct ip_mreq` in
 `gsocket.c:2495`.
 [Verification receipt](../assets/evidence/gio-multicast-ttl/receipt.json)
 
+## GIO multicast membership declarations — November 23, 2026
+
+Merged OS #544 at `b5847586` is the baseline. Integration reviewed the SDK
+membership layouts and option identifiers and coordinated an isolated diskless
+guest. The UDP probe confirmed the layouts and the existing runtime refusal.
+Both socket probes and the platform control passed twice each. ISO readback
+matched, and the guest stopped and released its window. Fresh pinned GLib
+configuration passed. Static GIO first stops at undeclared `FIONREAD` in
+`gsocket.c:3327`.
+[Verification receipt](../assets/evidence/gio-multicast-membership/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

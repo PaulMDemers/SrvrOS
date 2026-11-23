@@ -1,7 +1,10 @@
 /* IPv4 multicast-loop option refusal with native UDP controls. */
+#include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -20,6 +23,14 @@ int main(void) {
     _Static_assert(IP_MULTICAST_LOOP == 34, "Linux-compatible option value");
     _Static_assert(IP_MULTICAST_TTL == 33, "Linux-compatible IPv4 multicast TTL");
     _Static_assert(IPV6_MULTICAST_HOPS == 18, "Linux-compatible IPv6 multicast hops");
+    _Static_assert(IP_ADD_MEMBERSHIP == 35 && IP_DROP_MEMBERSHIP == 36, "IPv4 membership options");
+    _Static_assert(IPV6_JOIN_GROUP == 20 && IPV6_LEAVE_GROUP == 21, "IPv6 membership options");
+    _Static_assert(sizeof(struct ip_mreq) == 8 && _Alignof(struct ip_mreq) == 4 &&
+                   offsetof(struct ip_mreq, imr_multiaddr) == 0 &&
+                   offsetof(struct ip_mreq, imr_interface) == 4, "IPv4 membership layout");
+    _Static_assert(sizeof(struct ipv6_mreq) == 20 && _Alignof(struct ipv6_mreq) == 4 &&
+                   offsetof(struct ipv6_mreq, ipv6mr_multiaddr) == 0 &&
+                   offsetof(struct ipv6_mreq, ipv6mr_interface) == 16, "IPv6 membership layout");
     int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     CHECK("socket", fd >= 0);
     CHECK("default-controls", get_int(fd, IPPROTO_IP, IP_TTL, 64) &&
@@ -46,6 +57,26 @@ int main(void) {
             CHECK("controls-preserved", get_int(fd, IPPROTO_IP, IP_TTL, 37) &&
                   get_int(fd, SOL_SOCKET, SO_BROADCAST, 1));
         }
+    }
+    struct ip_mreq ipv4 = {.imr_multiaddr = {.s_addr = htonl(0xef010203u)},
+                           .imr_interface = {.s_addr = INADDR_ANY}};
+    const unsigned char ipv4_bytes[8] = { 239, 1, 2, 3, 0, 0, 0, 0 };
+    struct ipv6_mreq ipv6 = {.ipv6mr_multiaddr = {.s6_addr = {0xff, 0x02, [15] = 1}},
+                             .ipv6mr_interface = 0};
+    const unsigned char ipv6_bytes[20] = { 0xff, 0x02, [15] = 1 };
+    CHECK("membership-bytes", memcmp(&ipv4, ipv4_bytes, sizeof(ipv4)) == 0 &&
+          memcmp(&ipv6, ipv6_bytes, sizeof(ipv6)) == 0);
+    const int v4_options[] = { IP_ADD_MEMBERSHIP, IP_DROP_MEMBERSHIP };
+    const int v6_options[] = { IPV6_JOIN_GROUP, IPV6_LEAVE_GROUP };
+    for (unsigned i = 0; i < 2; ++i) {
+        errno = 0;
+        CHECK("ipv4-membership-refused", setsockopt(fd, IPPROTO_IP, v4_options[i], &ipv4, sizeof(ipv4)) == -1 &&
+              errno == ENOSYS && memcmp(&ipv4, ipv4_bytes, sizeof(ipv4)) == 0);
+        errno = 0;
+        CHECK("ipv6-membership-refused", setsockopt(fd, IPPROTO_IPV6, v6_options[i], &ipv6, sizeof(ipv6)) == -1 &&
+              errno == ENOSYS && memcmp(&ipv6, ipv6_bytes, sizeof(ipv6)) == 0);
+        CHECK("membership-controls-preserved", get_int(fd, IPPROTO_IP, IP_TTL, 37) &&
+              get_int(fd, SOL_SOCKET, SO_BROADCAST, 1));
     }
     ttl = -1; broadcast = 0;
     CHECK("reset-controls", setsockopt(fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == 0 &&

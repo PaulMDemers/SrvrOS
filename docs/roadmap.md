@@ -47,7 +47,8 @@ The SDK declares `IP_MULTICAST_LOOP` for GIO. IPv4 UDP calls for this option
 return `ENOSYS`.
 The SDK also declares `IPV6_MULTICAST_LOOP`. IPv6 sockets return `EAFNOSUPPORT`.
 The SDK declares `IP_MULTICAST_TTL` and `IPV6_MULTICAST_HOPS` for GIO.
-Static GIO next stops at incomplete `struct ip_mreq` in `gsocket.c`.
+The SDK declares both multicast membership request layouts and join/leave options.
+Static GIO next stops at undeclared `FIONREAD` in `gsocket.c`.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026

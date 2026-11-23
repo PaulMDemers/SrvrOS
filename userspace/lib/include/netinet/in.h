@@ -30,14 +30,28 @@ struct sockaddr_in6 {
     uint32_t sin6_scope_id;
 };
 
+struct ip_mreq {
+    struct in_addr imr_multiaddr;
+    struct in_addr imr_interface;
+};
+
+struct ipv6_mreq {
+    struct in6_addr ipv6mr_multiaddr;
+    unsigned int ipv6mr_interface;
+};
+
 #define IP_TTL 2
 /* Public option identifiers also let callers handle unavailable features. */
 #define IP_MULTICAST_TTL 33
 #define IP_MULTICAST_LOOP 34
+#define IP_ADD_MEMBERSHIP 35
+#define IP_DROP_MEMBERSHIP 36
 /* Source compatibility for callers that handle unsupported IPv6 sockets. */
 #define IPV6_UNICAST_HOPS 16
 #define IPV6_MULTICAST_HOPS 18
 #define IPV6_MULTICAST_LOOP 19
+#define IPV6_JOIN_GROUP 20
+#define IPV6_LEAVE_GROUP 21
 
 #define INADDR_ANY 0x00000000u
 #define INADDR_LOOPBACK 0x7f000001u

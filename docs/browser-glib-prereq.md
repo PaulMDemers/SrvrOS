@@ -21,7 +21,8 @@ The SDK declares `IP_MULTICAST_LOOP` for GIO. IPv4 UDP calls for this option
 return `ENOSYS`.
 The SDK also declares `IPV6_MULTICAST_LOOP`. IPv6 sockets return `EAFNOSUPPORT`.
 The SDK declares `IP_MULTICAST_TTL` and `IPV6_MULTICAST_HOPS` for GIO.
-Static GIO next stops at incomplete `struct ip_mreq` in `gsocket.c`.
+The SDK declares both multicast membership request layouts and join/leave options.
+Static GIO next stops at undeclared `FIONREAD` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -776,6 +777,31 @@ Fresh pinned GLib configuration passed. Static GIO advanced past both
 multicast TTL options and first stopped at incomplete `struct ip_mreq`
 in `gio/gsocket.c:2495`.
 [Verification receipt](assets/evidence/gio-multicast-ttl/receipt.json)
+
+## Multicast membership declarations
+
+After OS #544 landed at `b5847586`, the SDK added `struct ip_mreq`,
+`struct ipv6_mreq`, `IP_ADD_MEMBERSHIP`, `IP_DROP_MEMBERSHIP`,
+`IPV6_JOIN_GROUP`, and `IPV6_LEAVE_GROUP` to `<netinet/in.h>`.
+GIO uses these layouts and option identifiers in its group join and leave
+paths. The SDK follows the Linux option numbers and the IPv6 layout in
+RFC 3493. Multicast group membership remains unsupported.
+[Linux IPv4 options and layout](https://github.com/torvalds/linux/blob/master/include/uapi/linux/in.h)
+[Linux IPv6 option numbers](https://github.com/torvalds/linux/blob/master/include/uapi/linux/in6.h)
+[RFC 3493, section 5.2](https://www.rfc-editor.org/rfc/rfc3493.html#section-5.2)
+
+The x86-64 UDP probe verified sizes of 8 and 20 bytes, 4-byte alignment,
+the member offsets and the encoded request bytes. All four membership
+calls on a valid IPv4 UDP socket returned `ENOSYS` and preserved the
+request and the working IPv4 TTL and broadcast settings. The IPv6 and
+platform controls also passed. All six checks passed in one diskless
+guest with a private idle e1000. ISO readback matched, and Integration
+coordinated the window. The guest stopped and the window was released.
+
+Fresh pinned GLib configuration passed. Static GIO compiled past the
+membership declarations and first stopped at undeclared `FIONREAD` in
+`gio/gsocket.c:3327`.
+[Verification receipt](assets/evidence/gio-multicast-membership/receipt.json)
 
 ## Verification
 
