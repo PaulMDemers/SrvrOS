@@ -103,7 +103,8 @@ bool scanout_publish_prepare(struct scanout_publication *p,struct scanout_publis
        (input<end && base<input+pages*sizeof(*entries)) || (output<end && base<output+sizeof(*out)))return false;
     if(!range_valid(owner,space,range,pages,SPACE_RESERVED,true))return false;
     struct scanout_publish_io callbacks=*io;struct scanout_space_token lease=*range;
-    p->object=p;p->epoch=++pool->epoch;p->owner=owner;p->space=space;p->range=lease;p->io=callbacks;p->hold_live=0;
+    p->object=p;p->epoch=++pool->epoch;p->owner=owner;p->space=space;p->range=lease;p->io=callbacks;
+    p->hold_live=0;p->release_hold=0;
     p->state=PUB_PREPARING;p->error=PUB_OK;p->pages=pages;p->reads=p->writes=p->flushes=0;
     p->busy=false;p->exposed=false;p->last_us=p->phase_us=0;
     for(uint32_t i=0;i<pages;i++)p->after[i]=entries[i];
@@ -143,6 +144,14 @@ bool scanout_publish_restore(struct scanout_publication *p,const struct scanout_
     if(!tick(p))return false;
     if(!p->io.readers_retired(p->io.ctx))return fail(p,PUB_GUARD);
     if(!tick(p) || p->last_us==p->phase_us)return fail(p,PUB_CLOCK);
+    if(p->hold_live || p->release_hold) {
+        p->state=PUB_RELEASING;
+        if(!range_live(p,SPACE_EXPOSED,false) || !p->hold_live || !p->release_hold ||
+           !p->release_hold(p))return fail(p,PUB_GUARD);
+        p->hold_live=0;
+        p->release_hold=0;
+        if(!tick(p))return false;
+    }
     if(!range_live(p,SPACE_EXPOSED,false) || !scanout_space_retire(p->space,&p->range,SCANOUT_SPACE_RETIRE_ALL))return fail(p,PUB_LEASE);
     p->state=PUB_RETIRED;p->busy=false;return true;
 }

@@ -7,7 +7,7 @@
  * or external reset. Entry vector/output must not alias the transaction object. */
 #define SCANOUT_PUBLISH_PAGES 1536u
 #define SCANOUT_PUBLISH_DEADLINE_US 100000u
-enum scanout_publish_state {PUB_EMPTY,PUB_PREPARING,PUB_PREPARED,PUB_WRITING,PUB_PUBLISHED,PUB_RESTORING,PUB_RETIRED,PUB_CANCELLED,PUB_FAULT};
+enum scanout_publish_state {PUB_EMPTY,PUB_PREPARING,PUB_PREPARED,PUB_WRITING,PUB_PUBLISHED,PUB_RESTORING,PUB_RETIRED,PUB_CANCELLED,PUB_FAULT,PUB_RELEASING};
 enum scanout_publish_error {PUB_OK,PUB_IO,PUB_CHANGED,PUB_CLOCK,PUB_GUARD,PUB_LEASE};
 struct scanout_publish_io {
     void *ctx;
@@ -36,6 +36,9 @@ struct scanout_publication {
      * first exposed store. Every subsequent I/O boundary, including the
      * last reader callback, requires that same publication to retain it. */
     bool (*hold_live)(const struct scanout_publication *);
+    /* Paired with hold_live by the device writer. Called once after final
+     * reader retirement while the address lease and backing are still pinned. */
+    bool (*release_hold)(const struct scanout_publication *);
     uint32_t state,error,pages,reads,writes,flushes;
     bool busy,exposed;
     uint64_t before[SCANOUT_PUBLISH_PAGES],after[SCANOUT_PUBLISH_PAGES];

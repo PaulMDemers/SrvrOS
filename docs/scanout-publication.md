@@ -75,10 +75,13 @@ The adapter must exclude new readers throughout restoration.
 
 Restore verifies the current vector still equals the published one. It then
 writes every exact original64-bit value, completes posted writes/translations,
-compares all originals, checks the guard and reconfirms reader retirement. Only
-then does it call address retirement with all three proof bits: original entries
-restored, translations retired and readers retired. It releases no address or
-RAM itself. The address owner and separate RAM lifetime must both permit release.
+compares all originals, checks the guard and reconfirms reader retirement.
+When the writer attached a device hold, the publisher enters Releasing and
+calls its release callback under the same restore deadline. The address lease
+remains exposed and the backing RAM stays pinned while the callback runs.
+A failed release faults the publication and quarantines the address. On
+success the publisher retires the lease with proofs for the restored entries,
+translations and readers. The memory owner can then release the address and RAM.
 Closing an arena prevents publication but permits an already published range's
 clean restore/retirement and final release.
 

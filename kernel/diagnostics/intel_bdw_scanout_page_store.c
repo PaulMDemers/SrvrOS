@@ -148,21 +148,19 @@ static bool acquire_traffic(struct traffic_check *check)
     return false;
 }
 
-bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const struct scanout_memory_token *token)
+static bool release_page_hold(const struct scanout_publication *p)
 {
-    if (!m || !token || m->object!=m || token->object!=m || token->epoch!=m->epoch ||
-        token->owner!=m->owner || m->busy || m->state!=MEM_RELEASED ||
-        m->publication.state!=PUB_RETIRED || m->publication.busy ||
-        borrow.retiring || borrow.publication!=&m->publication) return false;
+    if (borrow.retiring || borrow.publication!=p || !p->busy || p->state!=PUB_RELEASING)
+        return false;
     /* Provider calls can reenter. Consume this retirement before consulting
      * the hold or clock, including when either callback reports uncertainty. */
     borrow.retiring=true;
-    if (!page_hold_live(&m->publication)) return false;
+    if (!page_hold_live(p)) return false;
     uint64_t now=borrow.transfer->io.now(borrow.transfer->io.ctx);
     struct traffic_check check={now,now,borrow.block_epoch};
-    if (!now || now < m->publication.last_us || !original_plane(&check) ||
+    if (!now || now < p->last_us || !original_plane(&check) ||
         !l3_flush_covers_all_lines(&check) || !intel_bdw_traffic_still_blocked(&check, read_traffic) ||
-        !traffic_live(&check)) return false;
+        !traffic_live(&check) || *borrow.entry!=p->before[0]) return false;
     uint64_t released_at = check.last;
     if (borrow.traffic.release(borrow.transfer,borrow.publication,borrow.block_epoch)!=GT_WRITE_DONE)
         return false;
@@ -174,7 +172,9 @@ bool intel_bdw_scanout_retire_test_page(const struct scanout_memory *m,const str
         bool open;
         if (!bdw_traffic_reopened(&sample,&open)) return false;
         if (!open || check.last == released_at) continue;
-        if (!original_plane(&check) || !traffic_live(&check) || !vmm_reserved_guard_unpin_io_page(
+        if (!p->io.guard(p->io.ctx) || !original_plane(&check) ||
+            !traffic_live(&check) || *borrow.entry!=p->before[0] ||
+            !vmm_reserved_guard_unpin_io_page(
                 borrow.guard,borrow.root,borrow.aperture,&borrow)) return false;
         borrow.transfer->device_publication=NULL;
         borrow=(struct page_borrow){0};
@@ -229,11 +229,13 @@ static bool store_page(struct scanout_memory *m, const struct scanout_memory_tok
             !vmm_reserved_guard_register_pinned(cpu_guard, root, aperture, physical, alias, &borrow))
             return false;
     } else {
-        if (p->hold_live || borrow.publication || t->device_publication || !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
+        if (p->hold_live || p->release_hold || borrow.publication || t->device_publication ||
+            !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
         borrow = (struct page_borrow){.publication=p,.guard=cpu_guard,.epoch=p->epoch,.guard_epoch=cpu_guard->epoch,
             .root=root,.aperture=aperture,.alias=alias,.reg=physical,.entry=reg,.firmware=firmware,.layout=layout,.transfer=t,.traffic=traffic,.transfer_epoch=t->epoch};
         t->device_publication=p;
         p->hold_live=page_hold_live;
+        p->release_hold=release_page_hold;
     }
     uint64_t start=t->io.now(t->io.ctx);
     if (!start || start<t->last_us || start<p->phase_us || start-p->phase_us>SCANOUT_PUBLISH_DEADLINE_US)

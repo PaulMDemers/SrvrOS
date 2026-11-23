@@ -255,7 +255,11 @@ grant, an outstanding reader, owner loss, plane movement and failed rollback
 invalidation. The MMIO cases run the Intel writer with the target entry at
 byte 24 of its register page, check both posted invalidations and reader
 retirement, and inject a wrong alias, missing L3 acknowledgement, lost CPU
-port exclusion and reopened WiDi. The guest serial transcript is in
+port exclusion and reopened WiDi. Rollback now verifies the original PTE
+immediately before releasing the device block and again after all six
+clients reopen. The address and RAM remain reserved during those checks.
+A changed entry or release timeout quarantines the address and retains
+the RAM. The guest serial transcript is in
 `build/tests/scanout-guest/serial.log`.
 
 The native reservation trial on release `ec94f04d158f8a13` held slot 12291
@@ -279,6 +283,22 @@ pages on its own guard borrow and rechecks the video fuse alongside Pipe A
 through both PTE exchanges and translation invalidations.
 This trial supplies CPU and display observations. The GPU traffic hold
 remains a separate prerequisite for a native PTE write.
+
+The read-only image always emits `firmware_transfer=0`. Its
+`first_unmet=firmware-transfer` field identifies an unimplemented
+prerequisite. The image sends no firmware request that could have been
+accepted or refused. In Linux i915, the OpRegion driver-ready bit tells
+firmware the OS can handle ACPI video notifications. GGTT allocation and
+initial framebuffer reservations have their own driver lifetimes.
+[i915 OpRegion registration](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_opregion.c#L1094-L1144)
+
+For a native trial, establish submission and reader ownership while the
+independent slot is still reserved. `scanout_transfer_activate` requires the
+live provider to validate those rights before the writer can run. The
+writer's later traffic request drains work for an individual PTE change.
+Using that later request as the initial transfer proof would create a
+circular dependency. A hardware trial can exercise acquisition and release
+of the native hold with the PTE untouched before enabling replacement.
 
 Release `7b0c251bb4317d66` verified the CPU-side aperture and submission
 exclusions through return of the slot on the Air, with the original panel

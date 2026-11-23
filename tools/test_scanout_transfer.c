@@ -24,6 +24,7 @@ static struct scanout_memory_token at,bt;
 static uint64_t input[SCANOUT_TRANSFER_PAGES];
 static _Alignas(4096) uint64_t table[SCANOUT_SPACE_PAGES];
 static const char *page_failure = "";
+static const char *release_failure;
 static struct vmm_reserved_guard cpu_guard;
 /* Expected register page and aperture are independent of the driver planner. */
 static uint64_t expected_register(void) {
@@ -345,10 +346,6 @@ static unsigned traffic_reads,block_requests,block_releases,l3_reads,request_rea
 static bool block_revoked,block_active,retire_reentered;
 static uint64_t held_block(const struct scanout_transfer *t,const struct scanout_publication *p) {
     assert(t==&transfer && p==&a.publication);
-    if (p->state==PUB_RETIRED && !strcmp(page_failure,"reenter") && !retire_reentered) {
-        retire_reentered=true;
-        assert(!intel_bdw_scanout_retire_test_page(&a,&at));
-    }
     if (!block_active || block_revoked || !strcmp(page_failure,"no-block") ||
         (!strcmp(page_failure,"lost-block") && traffic_reads>=6)) return 0;
     return !strcmp(page_failure,"new-block") ? 2 : 1;
@@ -364,7 +361,17 @@ static enum intel_gt_write request_block(const struct scanout_transfer *t,const 
 }
 static enum intel_gt_write release_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch) {
     assert(t==&transfer && p==&a.publication && borrower && block_active && !block_releases);
-    assert(epoch==1 && p->state==PUB_RETIRED && table[manifest.first]==input[0] && cached_translation==input[0]);
+    assert(epoch==1 && p->state==PUB_RELEASING && p->busy && a.busy && !model.releases);
+    assert(p->space->leases[p->range.slot].use==SPACE_EXPOSED);
+    assert(table[manifest.first]==input[0] && cached_translation==input[0]);
+    if (!strcmp(page_failure,"reenter")) {
+        assert(!scanout_memory_close(&a,&at));
+        assert(!scanout_publish_restore(&a.publication,&a.publication_token));
+        assert(!scanout_transfer_close(&transfer,&token));
+        retire_reentered=true;
+    }
+    if (!strcmp(page_failure,"owned-mmio-reopen-pte")) table[manifest.first]=a.entries[0];
+    if (!strcmp(page_failure,"owned-mmio-reopen-owner")) ++model.source_epoch;
     if (!strcmp(page_failure,"frozen-release")) model.stuck=true;
     ++block_releases;
     block_active=!strcmp(page_failure,"still-held");
@@ -543,6 +550,11 @@ static bool flush_test_page(void *ctx) {
 }
 static bool readers(void *ctx) {
     assert(ctx==&model);
+    if(a.publication.state==PUB_RESTORING) {
+        if(a.publication.release_hold)assert(!a.publication.release_hold(&a.publication));
+        if(release_failure)page_failure=release_failure;
+        if(!strcmp(page_failure,"owned-mmio-retire-pte"))table[manifest.first]=a.entries[0];
+    }
     if(!strcmp(page_failure,"retirement-block") && a.publication.state==PUB_RESTORING)
         block_revoked=true;
     return !model.pending;
@@ -778,9 +790,17 @@ static void owned_page_case(const char *mode)
                 if (!strcmp(mode,"owned-mmio-rollback-backing")) page_failure="inherited-backing-loss";
                 assert(!scanout_memory_close(&a,&at) && !model.releases && !block_releases && ggtt_posts==1);
                 assert(block_active && table[target]==(a.physical|1) && !scanout_transfer_close(&transfer,&token));
+            } else if (!strcmp(mode,"owned-mmio-retire-pte") || !strcmp(mode,"owned-mmio-reopen-pte") ||
+                       !strcmp(mode,"owned-mmio-release-timeout") || !strcmp(mode,"owned-mmio-reopen-owner")) {
+                if (!strcmp(mode,"owned-mmio-release-timeout")) release_failure="frozen-release";
+                assert(!scanout_memory_close(&a,&at) && ggtt_posts==2 && !model.releases);
+                assert(a.state==MEM_FAULT && a.publication.state==PUB_FAULT);
+                assert(a.space->leases[a.range.slot].use==SPACE_QUARANTINED && borrower);
+                assert(block_releases==(unsigned)(strcmp(mode,"owned-mmio-retire-pte")!=0));
+                assert(!scanout_transfer_close(&transfer,&token) && !scanout_memory_close(&a,&at));
             } else {
                 assert(scanout_memory_close(&a,&at) && ggtt_posts==2 && table[target]==input[0]);
-                assert(block_active && !block_releases && intel_bdw_scanout_retire_test_page(&a,&at));
+                assert(model.releases==1 && !transfer.device_publication);
                 assert(block_requests==1 && block_releases==1 && !block_active && !borrower);
                 close_clean();
             }
@@ -961,7 +981,7 @@ int main(int argc,char **argv) {
         assert(cached_translation==(posted?table[8704]:retired_fault?input[0]:previous));
         assert(a.state==MEM_FAULT && !model.releases && model.writes==(unsigned)restoring+written);
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&exclusion,true));
-        assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+        assert(!scanout_memory_close(&a,&at));
         if (restoring || written || store_uncertain) assert(borrower);
         if (store_uncertain) assert(!block_releases && block_requests==1 && ggtt_posts==(unsigned)restoring+posted);
         if (!strcmp(page_failure,"sa-store-widi")) assert(ggtt_phase==1);
@@ -1031,17 +1051,15 @@ int main(int argc,char **argv) {
         uint64_t left=table[8703],right=table[8705];
         assert(scanout_memory_apply(&a,&at));assert(table[8704]==(a.physical|1));
         assert(selector==0x43001122u);
-        assert(borrower && !intel_bdw_scanout_retire_test_page(&a,&at));
+        assert(borrower && !model.releases);
         assert(cached_translation==table[8704]);
         assert(table[8703]==left && table[8705]==right);
         assert(!scanout_transfer_close(&transfer,&token) && !model.calls[TRANSFER_RETIRE]);
-        assert(scanout_memory_close(&a,&at) && model.releases==1 && table[8704]==input[0]);
-        assert(!scanout_transfer_close(&transfer,&token) && !block_releases);
         assert(block_requests==1 && l3_reads>=2);
-        page_failure=unblock?mode+8:"reenter";
+        release_failure=unblock?mode+8:"reenter";
         if (unblock) {
-            assert(!intel_bdw_scanout_retire_test_page(&a,&at));
-            assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+            assert(!scanout_memory_close(&a,&at) && !model.releases);
+            assert(!scanout_memory_close(&a,&at) && a.space->leases[a.range.slot].use==SPACE_QUARANTINED);
             assert(block_releases==(unsigned)(strncmp(page_failure,"l3-",3)!=0 && strcmp(page_failure,"engine-reset-reason")!=0 &&
                                                strcmp(page_failure,"widi-open")!=0));
             assert(borrower && transfer.device_publication==&a.publication && transfer.pinned);
@@ -1050,9 +1068,9 @@ int main(int argc,char **argv) {
             assert(table[8703]==left && table[8705]==right && model.writes==2 && model.flushes==2);
             puts("PASS failed unblock retains the original publication and exclusion");return 0;
         }
-        assert(borrower && intel_bdw_scanout_retire_test_page(&a,&at) && !borrower);
+        assert(scanout_memory_close(&a,&at) && !borrower && model.releases==1);
         assert(retire_reentered && block_releases==1 && !transfer.device_publication);
-        assert(!intel_bdw_scanout_retire_test_page(&a,&at));
+        assert(!scanout_memory_close(&a,&at));
         assert(cached_translation==input[0]);
         assert(table[8703]==left && table[8705]==right);
         assert(model.writes==2 && model.flushes==2);
