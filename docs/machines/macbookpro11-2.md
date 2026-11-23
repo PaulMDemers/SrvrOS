@@ -194,8 +194,8 @@ Every transition selected the expected output, and the operator confirmed
 automatic switching. Five Settings tones completed. The matching snapshots
 verify that Help opened and that the desktop exited cleanly. Ubuntu returned
 with the one-shot entry cleared, exFAT clean, and all 556 prior workspace
-files preserved. Physical top-bar volume, mute and manual selection, and
-unplug during active playback still need coverage. The recovery archive
+files preserved. The follow-up below covers physical top-bar volume, mute,
+manual selection, and unplug during active playback. The recovery archive
 holds the trial evidence and exact payload under `evidence-135f2b31e959ab38`.
 
 The follow-up image `ef8b00c5e4eb9e42` (`9673cec3`, Apps `037912b`) opens a
@@ -211,11 +211,14 @@ automatic-routing payload were verified before arming the one-shot boot.
 
 The follow-up native session `session-000660e887789241-00` saved startup,
 Help launch, and 12 minutes of periodic diagnostics. Its last snapshot
-contained 518185 bytes, just below the 512 KiB limit. There is no `exit.log`
-and the available logs contain zero Settings test tones, Sound menu actions,
-or active PCM streams. The operator reported that sound appeared to work.
-The workspace was clean with all 560 prior files intact. The outstanding
-physical checks remain open. This candidate selected the full-prefix capture
+contained 518185 bytes, just below the 512 KiB limit. The operator confirmed
+that sound worked as expected, completed the full hardware checklist covering
+volume, mute/unmute, manual speaker/headphone selection, and unplug during
+playback, and returned to Ubuntu through SrvrOS > Return to console. The
+archived `operator-confirmation.json` records these observations. The saved
+snapshots end before the Sound actions and lack the final `exit.log`, so the
+checklist and return are operator-confirmed. The workspace was clean with
+all 560 prior files intact. This candidate selected the full-prefix capture
 used by bounded diagnostics, which refuses writes once the ring wraps. Sound
 now uses its own 512 KiB rolling policy. The host regression checks that
 periodic and final saves survive rollover and that full-prefix captures still
