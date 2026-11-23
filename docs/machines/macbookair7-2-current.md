@@ -10,6 +10,20 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The shared Broadwell writer now checks the WiDi reset-flow acknowledgement
+during acquisition, both changes to slot 12291, and release. All 42 Q35
+owned-page cases passed, including six new reset-flow faults. On this Air under
+Ubuntu/i915, five competing GPU requests stayed pending through replacement
+and rollback, then all five completed. The original PTE and all 1,024 words
+returned, the protected slot 8704 stayed intact, and eDP advanced.
+
+In the separate five-engine hold trace, all 560 register sweeps saw WiDi GO
+open and both reset-ack samples clear. The held interval contained 443 sweeps
+with a maximum sampling gap of 35 µs. The four rollback checkpoints also had
+WiDi GO open. The i915 result validates rebind under an established driver
+owner. SrvrOS still needs a native device-side handoff before its first store.
+Raw host logs and the Q35 output are in `build/air-widi-reset-flow/`.
+
 Release `7aa6d9b2ca48e720` (source `937b8a24`, session
 `session-000660ec70119182-00`) held all five CPU submission-register pages
 read-only while PCI bus mastering reopened. Both 46-word queue snapshots

@@ -295,6 +295,13 @@ matching request still permits traffic disqualifies a later PTE exchange.
 The MMIO writer requires both excluded
 pages on its own guard borrow and rechecks the video fuse alongside Pipe A
 through both PTE exchanges and translation invalidations.
+The shared traffic verifier also reads WiDi’s independent reset-flow
+acknowledgement (RSTFCTLMSG bit 10) on both sides of the engine observations.
+A reset already in progress prevents acquisition. A reset observed before
+rollback keeps the page and its address reserved. A reset observed during
+release prevents reuse even after the original entry has been restored.
+[Broadwell register reference, RSTFCTLMSG, p. 1334](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 During acquisition the verifier brackets the L3, engine and GAM-idle reads
 with GAM request and response samples. A flush pulse observed while WiDi
 still has permission cannot be reused after WiDi closes. A later low-to-high

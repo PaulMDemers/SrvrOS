@@ -5704,6 +5704,11 @@ build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c $(SCANOUT
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(SCANOUT_TRANSFER_HOST_SOURCES) -o $@
 
+# Linux i915 comparator used on the physical Broadwell host.
+build/tests/intel-bdw-engine-drain-host: tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c tools/intel_bdw_i915_host.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $(filter %.c,$^) -o $@
+
 SCANOUT_GUEST_DIR := build/tests/scanout-guest
 SCANOUT_GUEST_OBJECTS := $(addprefix $(SCANOUT_GUEST_DIR)/,$(patsubst %.c,%.o,tools/test_scanout_transfer.c $(SCANOUT_TRANSFER_HOST_SOURCES)))
 $(SCANOUT_GUEST_DIR)/%.o: %.c $(KERNEL_HEADERS) $(USER_SYSROOT_HEADERS) $(ZIG)

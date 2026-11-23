@@ -429,6 +429,16 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
             }
         }
         break;
+    case 0x8108:
+        if (!strcmp(page_failure,"owned-mmio-unreadable-reset") && ggtt_phase==1) return false;
+        *word = 0;
+        if ((!strcmp(page_failure,"owned-mmio-admission-reset") && !block_active) ||
+            (!strcmp(page_failure,"owned-mmio-acquire-reset") && block_active && l3_reads==1) ||
+            (!strcmp(page_failure,"owned-mmio-store-reset") && ggtt_phase==1) ||
+            (!strcmp(page_failure,"owned-mmio-rollback-reset") && a.publication.state==PUB_RESTORING && ggtt_phase==1) ||
+            (!strcmp(page_failure,"owned-mmio-reopen-reset") && block_releases))
+            *word = 1u<<10;
+        break;
     case 0x8014:
         *word = block_active ? 0 : 0x10;
         if (!strcmp(page_failure,"pre-store-widi") && ggtt_phase==1) *word=0x10;
@@ -836,12 +846,13 @@ static void owned_page_case(const char *mode)
             assert(intel_bdw_bcs_port_claim(&model));
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && !block_requests);
             assert(!borrower && intel_bdw_bcs_port_release(&model));
-        } else if (!strcmp(mode,"owned-mmio-l3-before-widi") || !strcmp(mode,"owned-mmio-l3-across-widi") ||
+        } else if (!strcmp(mode,"owned-mmio-acquire-reset") || !strcmp(mode,"owned-mmio-store-reset") ||
+                   !strcmp(mode,"owned-mmio-unreadable-reset") || !strcmp(mode,"owned-mmio-l3-before-widi") || !strcmp(mode,"owned-mmio-l3-across-widi") ||
                    !strcmp(mode,"owned-mmio-l3-before-widi-response") || !strcmp(mode,"owned-mmio-acquire-reopen")) {
             assert(!scanout_memory_apply(&a,&at));
             assert(block_requests==1 && !model.writes && !ggtt_posts && table[target]==input[0]);
             assert(borrower && !block_releases && !model.releases);
-        } else if (!strcmp(mode,"owned-mmio-admission-drift") || !strcmp(mode,"owned-mmio-parked-queues")) {
+        } else if (!strcmp(mode,"owned-mmio-admission-reset") || !strcmp(mode,"owned-mmio-admission-drift") || !strcmp(mode,"owned-mmio-parked-queues")) {
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
             assert(block_requests==(unsigned)(!strcmp(mode,"owned-mmio-parked-queues")));
         } else if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3") ||
@@ -854,7 +865,7 @@ static void owned_page_case(const char *mode)
             model.pending=true;
             assert(!scanout_memory_close(&a,&at) && block_active && !model.releases && !block_releases);
             model.pending=false;
-            if (!strcmp(mode,"owned-mmio-rollback-early-open") || !strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss") || !strcmp(mode,"owned-mmio-rollback-fuse")) {
+            if (!strcmp(mode,"owned-mmio-rollback-reset") || !strcmp(mode,"owned-mmio-rollback-early-open") || !strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss") || !strcmp(mode,"owned-mmio-rollback-fuse")) {
                 if (!strcmp(mode,"owned-mmio-rollback-early-open")) page_failure="rollback-early-open";
                 if (!strcmp(mode,"owned-mmio-rollback-fuse")) page_failure="wireless-fuse-lost";
                 if (!strcmp(mode,"owned-mmio-widi-loss")) page_failure="widi-open";
@@ -862,7 +873,7 @@ static void owned_page_case(const char *mode)
                 if (!strcmp(mode,"owned-mmio-rollback-backing")) page_failure="inherited-backing-loss";
                 assert(!scanout_memory_close(&a,&at) && !model.releases && !block_releases && ggtt_posts==1);
                 assert(block_active && table[target]==(a.physical|1) && !scanout_transfer_close(&transfer,&token));
-            } else if (!strcmp(mode,"owned-mmio-retire-pte") || !strcmp(mode,"owned-mmio-reopen-pte") ||
+            } else if (!strcmp(mode,"owned-mmio-reopen-reset") || !strcmp(mode,"owned-mmio-retire-pte") || !strcmp(mode,"owned-mmio-reopen-pte") ||
                        !strcmp(mode,"owned-mmio-release-timeout") || !strcmp(mode,"owned-mmio-reopen-owner")) {
                 if (!strcmp(mode,"owned-mmio-release-timeout")) release_failure="frozen-release";
                 assert(!scanout_memory_close(&a,&at) && ggtt_posts==2 && !model.releases);

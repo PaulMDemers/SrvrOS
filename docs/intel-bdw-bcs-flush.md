@@ -174,10 +174,7 @@ Build on the Air's Ubuntu installation. The privileged shell opens a fresh
 software timeline. The render user runs the probe and opens the DRM devices.
 
 ```sh
-mkdir -p build/tests
-cc -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include \
-  tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c \
-  -o build/tests/intel-bdw-engine-drain-host
+make build/tests/intel-bdw-engine-drain-host
 sudo sh -c 'exec 3<>/sys/kernel/debug/sync/sw_sync; exec setpriv --reuid="$SUDO_UID" --regid="$SUDO_GID" --init-groups timeout 20 "$1" 3' sh "$PWD/build/tests/intel-bdw-engine-drain-host"
 ```
 

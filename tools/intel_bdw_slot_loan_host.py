@@ -47,15 +47,17 @@ def observe_hold(stack, client, console, power, messages, footprint):
         begin = now()
         request = struct.unpack_from('<I', power, 0xd0)[0]
         response = struct.unpack_from('<I', messages, 0x28)[0]
+        reset_before = struct.unpack_from('<I', messages, 0x108)[0]
         l3 = struct.unpack_from('<I', messages, 0x38)[0]
         engines = tuple(struct.unpack_from('<I', messages, i * 4)[0] for i in range(5))
         widi = struct.unpack_from('<I', messages, 0x14)[0]
+        reset_after = struct.unpack_from('<I', messages, 0x108)[0]
         response_after = struct.unpack_from('<I', messages, 0x28)[0]
         request_after = struct.unpack_from('<I', power, 0xd0)[0]
-        if 0xffffffff in (request, response, l3, *engines, widi, response_after, request_after):
+        if 0xffffffff in (request, response, l3, *engines, widi, reset_before, reset_after, response_after, request_after):
             raise ValueError('Floating traffic register')
         state = (request, response, *(v & 0x31 for v in engines), widi & 0x11,
-                 l3 & 3, response_after, request_after)
+                 l3 & 3, reset_before & 0x400, reset_after & 0x400, response_after, request_after)
         if footprint() != baseline:
             raise ValueError('Original plane or sampled GGTT entry changed')
         samples.append((begin, now(), state))
@@ -87,7 +89,7 @@ def observe_hold(stack, client, console, power, messages, footprint):
         gap = max(b-a for a, b in zip([start, *begins], [*ends, stop]))
         print(f'phase={phase} start_us={start} end_us={stop} sweeps={len(inside)} max_gap_us={gap}')
         for state, count in sorted(Counter(state for _, _, state in inside).items()):
-            print('  req resp rcs vcs0 vcs1 bcs vecs widi l3 resp_end req_end =',
+            print('  req resp rcs vcs0 vcs1 bcs vecs widi l3 widi_reset_begin widi_reset_end resp_end req_end =',
                   *(hex(word) for word in state), f'samples={count}')
     # Boundary sweeps can contain transient replies too. Include them in the
     # overall histogram even when they cannot be attributed to a single phase.
@@ -232,14 +234,17 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
 
         def traffic_messages():
             request = struct.unpack_from('<I', power, 0xd0)[0]
+            reset_before = struct.unpack_from('<I', messages, 0x108)[0]
             engines = struct.unpack_from('<5I', messages, 0)
             widi = struct.unpack_from('<I', messages, 0x14)[0]
             response = struct.unpack_from('<I', messages, 0x28)[0]
             l3 = struct.unpack_from('<I', messages, 0x38)[0]
-            if 0xffffffff in (request, response, *engines, widi, l3):
+            reset_after = struct.unpack_from('<I', messages, 0x108)[0]
+            if 0xffffffff in (request, response, *engines, widi, l3, reset_before, reset_after):
                 raise ValueError('Invalid power-manager message read')
             words = ','.join(hex(word) for word in engines)
-            return f'gam_request={request:#x} widi={widi:#x} l3_message={l3:#x} gam_response={response:#x} engines={words}'
+            return (f'gam_request={request:#x} widi={widi:#x} l3_message={l3:#x} gam_response={response:#x} '
+                    f'engines={words} reset_flow_before={reset_before:#x} reset_flow_after={reset_after:#x}')
 
         original_plane = None if independent else primary()
         client_mode = '--independent-slot' if independent else '--slot-loan'
@@ -299,7 +304,8 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
                     pte, l3, scratch = sample()
                     if independent and phase == checked == 3 and len(entries) == 3 and pte == entries[0]:
                         checked += 1
-                        print(f'resumed=1 slot={slot} restored_pte={pte:#018x} protected_pte={protected:#018x}', flush=True)
+                        print(f'resumed=1 slot={slot} restored_pte={pte:#018x} protected_pte={protected:#018x} '
+                              f'{traffic_messages()}', flush=True)
                         print(phase, file=client.stdin, flush=True)
                         continue
                     if phase != checked or len(entries) != phase + 1 or entries[phase] != pte:

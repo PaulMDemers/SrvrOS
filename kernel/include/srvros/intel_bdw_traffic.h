@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 #define BDW_GAM_CLIENTS 0x5fu
+#define BDW_RSTFCTLMSG 0x8108u
+#define BDW_PREP_RST_WIDI_ACK (1u << 10)
 #define BDW_TRAFFIC_BLOCK_US 10000u
 
 /* One original request. The caller guards each read and rejects all-ones
@@ -17,8 +19,11 @@ struct bdw_traffic_sample {
 
 static inline bool bdw_traffic_gam(struct bdw_traffic_sample *a, uint32_t allowed, bool *matches)
 {
-    uint32_t request, response;
-    if (!a->read(a->ctx, 0x40d0, &request) || !a->read(a->ctx, 0x8028, &response))
+    /* RSTFCTLMSG is independent of WiDi GO. An acknowledged WiDi
+     * reset can change the reader underneath an otherwise stable GAM sample. */
+    uint32_t request, response, reset_flow;
+    if (!a->read(a->ctx, 0x40d0, &request) || !a->read(a->ctx, 0x8028, &response) ||
+        !a->read(a->ctx, BDW_RSTFCTLMSG, &reset_flow) || (reset_flow & BDW_PREP_RST_WIDI_ACK))
         return false;
     *matches = (request & BDW_GAM_CLIENTS) == allowed && (response & BDW_GAM_CLIENTS) == allowed;
     if (!allowed) {
@@ -173,7 +178,7 @@ static inline bool intel_bdw_traffic_still_blocked(void *ctx, bool (*read)(void 
     static const struct { uint32_t offset, mask, expected; } checks[] = {
         /* Bracket the queue and flush reads with a closed arbiter. A late
          * closure cannot authenticate acknowledgements sampled before it. */
-        {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0},
+        {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0}, {BDW_RSTFCTLMSG, BDW_PREP_RST_WIDI_ACK, 0},
         /* Both video engines' reference and prefetch queues. */
         {0x12870, 0xff0000, 0}, {0x12878, 0xff0000, 0},
         {0x1c870, 0xff0000, 0}, {0x1c878, 0xff0000, 0},
@@ -182,7 +187,8 @@ static inline bool intel_bdw_traffic_still_blocked(void *ctx, bool (*read)(void 
         {0x800c, 0x31, 0x20}, {0x8010, 0x31, 0x20},
         {0x8014, 0x11, 0}, /* WiDi GO acknowledged closed, pipe reports busy. */
         /* GAM idle, no L3 unblock, no new requests or grants. */
-        {0x8040, 1, 1}, {0x8038, 2, 0}, {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0}
+        {0x8040, 1, 1}, {0x8038, 2, 0}, {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0},
+        {BDW_RSTFCTLMSG, BDW_PREP_RST_WIDI_ACK, 0}
     };
     if (!read) return false;
     for (unsigned i = 0; i < sizeof(checks) / sizeof(checks[0]); ++i) {
