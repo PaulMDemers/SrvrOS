@@ -200,6 +200,18 @@ pre-existing files. Keep the Realtek, Edimax, and Netgear in hub ports 1,
 firmware receipt before automatic return. The local
 `pro112-rtl8188cu-firmware-cold/run.json` owns boot state and collection.
 
+Native session `session-000660f64fb55444-00` confirmed the Realtek identity
+and all three hub routes. The digital power, parked RF/TX and CPU-enable
+checks completed. Download arming failed before any firmware bytes were
+sent, with `MCUFWDL` reported as `0x05`. The result does not distinguish
+the two register updates from the final arm readback. Cleanup verified
+download disabled and EP0 was not quarantined. Both `exit.log` and the
+internal journal captured the refusal. All seven checkpoints and all 570
+pre-existing workspace files verified, and SrvrOS returned to Ubuntu.
+The exact failed image and receipts are under `evidence-fb60c770af22c79b`.
+Firmware startup remains unaccepted. The next diagnostic should capture
+each arm transaction and compare its status transition with Linux.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
