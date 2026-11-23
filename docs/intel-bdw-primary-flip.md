@@ -338,7 +338,12 @@ page is bound, the replacement is bound and the original binding is restored.
 The observer reads the status on either side of the context ID, checks the
 executing list is valid and requires the same context at all three points.
 
-i915 rebinds two private 40 MiB objects and chooses their addresses. The
+Add `--competing-context` to submit an independent request on each engine
+from a higher-priority context. The client verifies the priorities, waits
+for a vblank, checks each fence and scratch marker through rollback, and
+requires all five requests to complete correctly after release. This mode
+uses two 16 MiB objects to reduce aperture pressure. The standard comparison
+uses two 40 MiB objects. i915 chooses their addresses. The
 client checks the single 4 KiB page at slot 12291. Before the trial, the client faults in up to
 sixteen private 4 MiB objects to establish an occupied interval separating
 the target from slot 8704. The observer records the protected PTE and

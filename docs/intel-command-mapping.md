@@ -83,6 +83,13 @@ same borrower and guard epoch around every device operation. This covers CPU map
 The caller owns both backing allocations and the
 original framebuffer fence.
 
+The hardware-window path claims the blitter submit port before it starts a
+publication and retains the claim through traffic reopening, range release
+and RAM-owner retirement. A competing CPU submitter must wait. If the mapping
+faults after admission, recovery retains the claim with the mapping. This
+protects against partial descriptors from SrvrOS submitters. The hardware
+client block below also covers outstanding requests.
+
 Before the first store the backend samples open traffic, checks the L3
 flush policy on each of the eight powered banks, and asks the device
 owner to block traffic. During that request it must observe five new

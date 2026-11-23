@@ -345,6 +345,7 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
 }
 static unsigned traffic_reads,block_requests,block_releases,l3_reads,request_reads;
 static bool block_revoked,block_active,retire_reentered;
+static bool baseline_l3_sampled, rollback_media_sampled;
 static uint64_t held_block(const struct scanout_transfer *t,const struct scanout_publication *p) {
     assert(t==&transfer && p==&a.publication);
     if (!block_active || block_revoked || !strcmp(page_failure,"no-block") ||
@@ -500,6 +501,23 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x8028: *word=(!block_active || !strcmp(page_failure,"gam-response")) ? 0x5f : 0; break;
     default: assert(0); return false;
+    }
+    if (!strcmp(page_failure,"owned-mmio-admission-drift") && !block_active) {
+        if (offset==0x8038) baseline_l3_sampled=true;
+        if (offset==0x40d0 && baseline_l3_sampled) *word=0;
+    }
+    if (!strcmp(page_failure,"rollback-early-open")) {
+        if (offset==0x12870) rollback_media_sampled=true;
+        if (offset==0x40d0 && !rollback_media_sampled) *word=0x5f;
+    }
+    /* Air7,2 with independently queued i915 work and five parked engines. */
+    if (!strcmp(page_failure,"owned-mmio-parked-queues")) {
+        if (offset==0x40d0) *word=0xff;
+        if (offset==0x8028) *word=0x7f;
+        if (offset==0x8000) *word=0xc00010;
+        if (offset>=0x8004 && offset<=0x8010) *word=0x10;
+        if (offset==0x8014) *word=0x1f;
+        if (offset==0x8038) *word=0;
     }
     if (block_active && offset==0x40d0) ++request_reads;
     if (block_active && request_reads==1) {
@@ -780,6 +798,9 @@ static void owned_page_case(const char *mode)
             assert(intel_bdw_bcs_port_claim(&model));
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && !block_requests);
             assert(!borrower && intel_bdw_bcs_port_release(&model));
+        } else if (!strcmp(mode,"owned-mmio-admission-drift") || !strcmp(mode,"owned-mmio-parked-queues")) {
+            assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
+            assert(block_requests==(unsigned)(!strcmp(mode,"owned-mmio-parked-queues")));
         } else if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3") ||
             !strcmp(mode,"owned-mmio-premature-widi-response") || !strcmp(mode,"owned-mmio-cursor") || !strcmp(mode,"owned-mmio-sprite")) {
             if (!strcmp(mode,"owned-mmio-no-l3")) page_failure="missing-l3";
@@ -790,7 +811,8 @@ static void owned_page_case(const char *mode)
             model.pending=true;
             assert(!scanout_memory_close(&a,&at) && block_active && !model.releases && !block_releases);
             model.pending=false;
-            if (!strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss") || !strcmp(mode,"owned-mmio-rollback-fuse")) {
+            if (!strcmp(mode,"owned-mmio-rollback-early-open") || !strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss") || !strcmp(mode,"owned-mmio-rollback-fuse")) {
+                if (!strcmp(mode,"owned-mmio-rollback-early-open")) page_failure="rollback-early-open";
                 if (!strcmp(mode,"owned-mmio-rollback-fuse")) page_failure="wireless-fuse-lost";
                 if (!strcmp(mode,"owned-mmio-widi-loss")) page_failure="widi-open";
                 if (!strcmp(mode,"owned-mmio-reader-loss")) page_failure="reader-hold-lost";

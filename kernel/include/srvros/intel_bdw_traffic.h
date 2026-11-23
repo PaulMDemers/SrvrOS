@@ -125,12 +125,13 @@ static inline bool intel_bdw_traffic_l3_policy(struct bdw_traffic_sample *s, boo
  * unreadable registers, and require both L3 messages to settle. */
 static inline bool bdw_traffic_reopened(struct bdw_traffic_sample *s, bool *open)
 {
-    bool arbiter, pipelines;
+    bool arbiter, pipelines, closing;
     uint32_t l3;
     if (!bdw_traffic_gam(s,BDW_GAM_CLIENTS,&arbiter) ||
-        !bdw_traffic_engines(s,false,&pipelines) || !s->read(s->ctx,0x8038,&l3))
+        !bdw_traffic_engines(s,false,&pipelines) || !s->read(s->ctx,0x8038,&l3) ||
+        !bdw_traffic_gam(s,BDW_GAM_CLIENTS,&closing))
         return false;
-    *open = arbiter && pipelines && !(l3 & 3u);
+    *open = arbiter && pipelines && !(l3 & 3u) && closing;
     return true;
 }
 
@@ -140,7 +141,8 @@ static inline bool intel_bdw_traffic_open(struct bdw_traffic_sample *s)
     uint32_t l3;
     return bdw_traffic_gam(s,BDW_GAM_CLIENTS,&arbiter) && arbiter &&
            bdw_traffic_engines(s,false,&pipelines) && pipelines &&
-           s->read(s->ctx,0x8038,&l3) && !(l3 & 3u);
+           s->read(s->ctx,0x8038,&l3) && !(l3 & 3u) &&
+           bdw_traffic_gam(s,BDW_GAM_CLIENTS,&arbiter) && arbiter;
 }
 
 static inline bool intel_bdw_traffic_poll(struct bdw_traffic_sample *s,bool *drained)
@@ -164,6 +166,9 @@ static inline bool intel_bdw_traffic_poll(struct bdw_traffic_sample *s,bool *dra
 static inline bool intel_bdw_traffic_still_blocked(void *ctx, bool (*read)(void *, uint32_t, uint32_t *))
 {
     static const struct { uint32_t offset, mask, expected; } checks[] = {
+        /* Bracket the queue and flush reads with a closed arbiter. A late
+         * closure cannot authenticate acknowledgements sampled before it. */
+        {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0},
         /* Both video engines' reference and prefetch queues. */
         {0x12870, 0xff0000, 0}, {0x12878, 0xff0000, 0},
         {0x1c870, 0xff0000, 0}, {0x1c878, 0xff0000, 0},

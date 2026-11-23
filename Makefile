@@ -6792,7 +6792,7 @@ test-intel-bdw-bcs-submit: $(ZIG) build/tests/intel-bdw-bcs-submit$(HOST_EXE) bu
 test-core: test-intel-bdw-bcs-submit
 
 # Host-qualified command arena/GPU interval composition; no native provider.
-COMMAND_MAPPING_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_command_mapping.c kernel/diagnostics/intel_command_memory.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
+COMMAND_MAPPING_HOST_SOURCES := kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_command_mapping.c kernel/diagnostics/intel_command_memory.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
 .PHONY: test-intel-command-mapping
 build/tests/intel-command-mapping$(HOST_EXE): tools/test_intel_command_mapping.c tools/fixture_server.h $(COMMAND_MAPPING_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)

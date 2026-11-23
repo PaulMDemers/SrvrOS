@@ -10,6 +10,26 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+On November 22 the i915 comparison queued one independent request on each of
+the five engines while two lower-priority contexts held the queues. The kernel
+reported priorities −1023, −1023 and 0. None of the five scratch markers or
+fences completed before replacement, after replacement or after rollback of
+slot 12291. All five then completed after release. All 1,024 original words
+returned, slot 8704 retained its PTE, and eDP CRTC 52 advanced from 126288 to
+126289. At each checkpoint GAM request/response were `0xff/0x7f`, WiDi was
+`0x1f` and the L3 message was zero. Queue exclusion worked under i915 while
+the power manager still allowed traffic. Two attempts with 40 MiB allocations
+were rejected when i915 placed the replacement across slot 8704. The completed
+priority-readback trial used 16 MiB allocations on the text VT.
+
+The SrvrOS hardware-window command mapper now claims the same blitter submit
+port as the one-page writer. Both sample the arbiter on either side of engine
+and L3 checks. The Q35 guest passed 28 one-page cases, including rejection of
+the permissive Air sample and retention of the private page if the block opens
+during rollback. The native slot-write trial still needs a device-side owner
+that closes all six clients and witnesses fresh replies with the panel active.
+[One-page qualification](../intel-bdw-primary-flip.md)
+
 Release `6c37f322e69fefa6` (source `f34f8a09`, session
 `session-000660e88ddc04f8-00`) held a private 4 KiB page and the blitter
 submit port through GT reset and PCI bus-master reopening. All 512 marker

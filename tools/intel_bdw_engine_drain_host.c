@@ -139,17 +139,17 @@ static uint64_t frame(int card, uint32_t crtc)
 
 /* The observer checks the real GGTT binding before returning the offset
  * into our private object. i915 owns all page-table changes in this test. */
-static uint32_t bind_slot(int fd, uint32_t handle, unsigned phase, uint64_t seed)
+static uint32_t bind_slot(int fd, uint32_t handle, unsigned phase, uint64_t seed, unsigned bytes)
 {
     struct drm_i915_gem_mmap_offset off = {.handle = handle, .flags = I915_MMAP_OFFSET_GTT};
     call(fd, DRM_IOCTL_I915_GEM_MMAP_OFFSET, &off, "GGTT mapping offset");
-    volatile uint32_t *map = mmap(NULL, SLOT_BO_BYTES, PROT_READ | PROT_WRITE, MAP_SHARED, fd, off.offset);
+    volatile uint32_t *map = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, off.offset);
     require(map != MAP_FAILED, "Cannot map the private GGTT object");
     (void)map[0];  /* Fault in the binding before asking the observer. */
-    printf("BIND %u %u\n", phase, SLOT_BO_BYTES);
+    printf("BIND %u %u\n", phase, bytes);
     fflush(stdout);
     unsigned offset;
-    require(scanf("%u", &offset) == 1 && !(offset & 4095) && offset <= SLOT_BO_BYTES - 4096,
+    require(scanf("%u", &offset) == 1 && !(offset & 4095) && offset <= bytes - 4096,
             "Observer could not identify the target in this binding");
     uint32_t words[1024];
     for (unsigned i = 0; i < 1024; ++i) {
@@ -163,7 +163,7 @@ static uint32_t bind_slot(int fd, uint32_t handle, unsigned phase, uint64_t seed
                                      .data_ptr = (uintptr_t)backing};
     call(fd, DRM_IOCTL_I915_GEM_PREAD, &rd, "verify private backing through GEM");
     require(!memcmp(words, backing, sizeof(words)), "GGTT and GEM backing disagree");
-    require(!munmap((void *)map, SLOT_BO_BYTES), "Cannot release CPU aperture view");
+    require(!munmap((void *)map, bytes), "Cannot release CPU aperture view");
     return offset;
 }
 
@@ -235,16 +235,51 @@ static void separate_slots(int fd)
     require(false, "No separator within the trial allocation budget");
 }
 
-static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t seed)
+static void check_competing_context(const struct submission probes[], unsigned phase)
 {
-    struct drm_i915_gem_create a = {.size = SLOT_BO_BYTES}, b = {.size = SLOT_BO_BYTES};
+    unsigned executed = 0;
+    for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i) {
+        const struct submission *s = &probes[i];
+        int status = fence_status(s->fence);
+        require(status >= 0, "Independent request failed on the GPU");
+        if (status || __atomic_load_n(s->view, __ATOMIC_ACQUIRE) ||
+            __atomic_load_n(&s->view[RESULT_MARKER_OFFSET / 8], __ATOMIC_ACQUIRE))
+            executed |= 1u << i;
+    }
+    printf("independent_context phase=%u executed_mask=%#x\n", phase, executed);
+    fflush(stdout);
+    require(!executed, "Independent work ran while the original queues were parked");
+}
+
+static int64_t context_priority(int fd, uint32_t context)
+{
+    struct drm_i915_gem_context_param priority = {.ctx_id = context, .param = I915_CONTEXT_PARAM_PRIORITY};
+    call(fd, DRM_IOCTL_I915_GEM_CONTEXT_GETPARAM, &priority, "read context priority");
+    return (int64_t)priority.value;
+}
+
+static void lower_holder_priority(int fd, uint32_t context)
+{
+    struct drm_i915_gem_context_param priority = {
+        .ctx_id = context, .param = I915_CONTEXT_PARAM_PRIORITY, .value = I915_CONTEXT_MIN_USER_PRIORITY,
+    };
+    call(fd, DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM, &priority, "lower holder priority");
+}
+
+static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t seed, bool compete)
+{
+    if (compete) lower_holder_priority(fd, ctx);
+    /* The occupied separator lies between 34 and 48 MiB. A smaller loan
+     * avoids evicting it when the five independent requests are resident. */
+    const unsigned bytes = compete ? 16u * 1024 * 1024 : SLOT_BO_BYTES;
+    struct drm_i915_gem_create a = {.size = bytes}, b = {.size = bytes};
     call(fd, DRM_IOCTL_I915_GEM_CREATE, &a, "original GGTT object");
     call(fd, DRM_IOCTL_I915_GEM_CREATE, &b, "replacement GGTT object");
     struct drm_i915_gem_caching cache = {.handle = a.handle};
     call(fd, DRM_IOCTL_I915_GEM_GET_CACHING, &cache, "original cache policy");
     set_cache(fd, b.handle, cache.caching);
     unsigned alternate = cache.caching == I915_CACHING_CACHED ? I915_CACHING_NONE : I915_CACHING_CACHED;
-    uint32_t initial_offset = bind_slot(fd, a.handle, 0, seed);
+    uint32_t initial_offset = bind_slot(fd, a.handle, 0, seed, bytes);
     uint32_t gate_handle = create_page(fd);
     struct drm_i915_gem_mmap_offset off = {.handle = gate_handle, .flags = I915_MMAP_OFFSET_WB};
     call(fd, DRM_IOCTL_I915_GEM_MMAP_OFFSET, &off, "semaphore WB offset");
@@ -266,6 +301,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     struct drm_i915_gem_context_create second = {0};
     call(fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &second, "create second render context");
     require(second.ctx_id != ctx, "Render context identity did not change");
+    if (compete) lower_holder_priority(fd, second.ctx_id);
     struct submission *render = &work[BDW_BARRIER_RCS];
     *render = submit(fd, second.ctx_id, BDW_BARRIER_RCS, BDW_BARRIER_ENGINES, seed, -1, gate_handle);
     observe_marker(render->view, render->data, render->marker);
@@ -283,16 +319,43 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
             "Missing fresh render flush after the five engine drains");
     assert_waiting(work, gate);
     puts("All five drain markers preceded the final render flush");
+    struct submission probes[BDW_BARRIER_ENGINES];
+    if (compete) {
+        struct drm_i915_gem_context_create challenger = {0};
+        call(fd, DRM_IOCTL_I915_GEM_CONTEXT_CREATE, &challenger, "create competing context");
+        int64_t first_priority = context_priority(fd, ctx);
+        int64_t second_priority = context_priority(fd, second.ctx_id);
+        int64_t challenge_priority = context_priority(fd, challenger.ctx_id);
+        require(challenge_priority > first_priority && challenge_priority > second_priority,
+                "Independent context must outrank both parked contexts");
+        printf("context_priority original=%lld render=%lld challenger=%lld\n",
+               (long long)first_priority, (long long)second_priority, (long long)challenge_priority);
+        for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i)
+            probes[i] = submit(fd, challenger.ctx_id, i, 2 * BDW_BARRIER_ENGINES + i, seed, -1, 0);
+        /* Give the scheduler a vblank before the first mapping change. None
+         * of these requests shares a GEM object or fence with the parked work. */
+        uint64_t frame0 = frame(card, crtc);
+        uint64_t until = monotonic_us() + COMPLETION_TIMEOUT_US;
+        uint64_t current;
+        do {
+            const struct timespec pause = {.tv_nsec = 500000};
+            nanosleep(&pause, NULL);
+            current = frame(card, crtc);
+            require(monotonic_us() < until && current >= frame0, "Panel stalled with competing requests queued");
+        } while (current == frame0);
+    }
     uint64_t first = frame(card, crtc);
     confirm_mapping(0);
     assert_waiting(work, gate);
+    if (compete) check_competing_context(probes, 0);
     set_cache(fd, a.handle, alternate);
-    bind_slot(fd, b.handle, 1, seed);
+    bind_slot(fd, b.handle, 1, seed, bytes);
     confirm_mapping(1);
     assert_waiting(work, gate);
+    if (compete) check_competing_context(probes, 1);
     set_cache(fd, b.handle, alternate);
     set_cache(fd, a.handle, cache.caching);
-    require(bind_slot(fd, a.handle, 2, seed) == initial_offset, "Rollback changed object offset");
+    require(bind_slot(fd, a.handle, 2, seed, bytes) == initial_offset, "Rollback changed object offset");
     uint64_t last = frame(card, crtc);
     uint64_t until = monotonic_us() + COMPLETION_TIMEOUT_US;
     while (last == first && monotonic_us() < until) {
@@ -303,6 +366,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(first < last && active_edp(card) == crtc, "Original panel stopped advancing");
     confirm_mapping(2);
     assert_waiting(work, gate);
+    if (compete) check_competing_context(probes, 2);
     close(signal_fd);
     int status;
     require(waitpid(watcher, &status, 0) == watcher && WIFEXITED(status) && !WEXITSTATUS(status),
@@ -312,7 +376,9 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
         require(__atomic_load_n(&work[i].view[BDW_QUEUE_RESUMED / 8], __ATOMIC_ACQUIRE) == work[i].data,
                 "Missing post-release marker");
         printf("%s flushed, held and resumed\n", engines[i].name);
+        if (compete) verify(fd, &probes[i]);
     }
+    if (compete) puts("All five independent requests completed after release");
     printf("eDP CRTC %u advanced %llu -> %llu; 1024 original words restored\n", crtc,
            (unsigned long long)first, (unsigned long long)last);
 }
@@ -388,11 +454,12 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
 
 int main(int argc, char **argv)
 {
-    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--independent-slot|--private-image");
+    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--independent-slot|--competing-context|--private-image");
     char *end;
     long timeline = strtol(argv[1], &end, 10);
     bool slot_trial = !strcmp(argv[1], "--slot-loan");
-    bool independent_trial = !strcmp(argv[1], "--independent-slot");
+    bool compete = !strcmp(argv[1], "--competing-context");
+    bool independent_trial = compete || !strcmp(argv[1], "--independent-slot");
     bool image_trial = !strcmp(argv[1], "--private-image");
     if (!slot_trial && !independent_trial && !image_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
     int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
@@ -419,7 +486,7 @@ int main(int argc, char **argv)
             require(scanf("%u", &ready) == 1 && ready == 1, "Observer did not establish the baseline");
             separate_slots(fd);
         }
-        slot_loan(fd, card, crtc, context.ctx_id, seed);
+        slot_loan(fd, card, crtc, context.ctx_id, seed, compete);
         if (independent_trial) confirm_mapping(3); /* Before i915 closes any trial object. */
         return EXIT_SUCCESS;
     }

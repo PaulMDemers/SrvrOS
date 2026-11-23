@@ -1,4 +1,5 @@
 #include <srvros/intel_command_mapping.h>
+#include <srvros/intel_bdw_bcs_port.h>
 #include <srvros/intel_bdw_traffic.h>
 #include <srvros/intel_ggtt_invalidate.h>
 #include <srvros/vmm.h>
@@ -133,7 +134,7 @@ static bool window_pinned(const struct intel_command_mapping *r)
  const struct command_map_window *w=&r->window;
  uint64_t off=0x800000ull+8ull*r->range.first;
  uint64_t aperture=r->manifest.aperture+4096ull*r->range.first;
- return w->guard && r->range.pages==4 && (off&4095)<=4096-32 &&
+ return w->guard && intel_bdw_bcs_port_held(r) && r->range.pages==4 && (off&4095)<=4096-32 &&
         r->manifest.mmio<=UINT64_MAX-(off&~4095ull) && aperture>=r->manifest.aperture &&
         !(w->aperture_pin&4095) && w->aperture_pin>=r->manifest.aperture &&
         w->aperture_pin-r->manifest.aperture<r->manifest.aperture_bytes && w->guard_epoch==w->guard->epoch &&
@@ -447,6 +448,10 @@ static bool mapping_run(struct intel_command_mapping *r,struct intel_command_mem
  t->manifest.source_epoch!=cpu->lease.epoch || io.ctx!=cpu->lease.provider || io.ctx!=t->io.ctx || io.now!=t->io.now ||
  !io.ownership || (window ? (io.read || io.write) : (!io.read || !io.write)) || !io.complete || !io.readers_retired || !io.now || !io.pause ||
  (cpu->lease.root>=cpu->physical && cpu->lease.root<cpu->physical+16384))return false;
+ /* A partially posted descriptor can still reference the old mappings.
+  * Claim the hardware port before starting either publication. A fault
+  * after this point leaves the claim with the quarantined window. */
+ if(window && !intel_bdw_bcs_port_claim(r))return false;
  *r=(struct intel_command_mapping){.object=r,.cpu=cpu,.transfer=t,.token=*token,.manifest=t->manifest,.transfer_io=t->io,
  .lease=cpu->lease,.cpu_io=cpu->io,.io=io,.original_io=io,.physical=cpu->physical,.serial=cpu->serial,.cpu_end=cpu->end,
  .last=cpu->end,.state=COMMAND_MAP_OPENING,.busy=true};
@@ -499,6 +504,7 @@ static bool mapping_run(struct intel_command_mapping *r,struct intel_command_mem
  r->publication.flushes!=2 || r->reader_checks!=r->polls+1 || r->uncertain)goto source_fail;
  if(window && !window_release(r))goto source_fail;
  if(!scanout_space_release(&t->space,&r->range) || !intel_command_memory_consumer_end(cpu,r))goto source_fail;
+ if(window && !intel_bdw_bcs_port_release(r))goto source_fail;
  r->registered=false;r->end=r->last;r->complete=true;r->state=COMMAND_MAP_CLOSED;
  goto done;
 source_fail:

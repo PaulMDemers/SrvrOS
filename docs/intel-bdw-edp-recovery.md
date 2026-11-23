@@ -637,6 +637,12 @@ The register descriptions do not establish a CPU protocol for acquiring
 and holding ownership by overwriting the message bits.
 [Intel Broadwell register reference, pp. 587–592, 805–814, 859](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
+Broadwell's `MI_MODE[8]` Stop Rings has a documented erratum. Stopping a
+running batch can reset its memory access type, so software cannot use this
+bit to pause the command streamer and then resume that batch after the PTE
+exchange. Intel permits its use before an engine reset. [Intel Broadwell
+register reference, p. 1322](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
 A second candidate is i915's software RC6 park request. Linux v6.12 issues
 it after enabling RC6 on the initialized GT. On Broadwell, i915 uses the
 render-forcewake domain to read offsets below `0x40000`, including the

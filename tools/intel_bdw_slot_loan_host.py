@@ -18,7 +18,7 @@ TRANSITION = re.compile(r'i915_vma_(?:un)?bind: obj=\w+, offset=(0x[\da-f]+) siz
 PCI = Path('/sys/bus/pci/devices/0000:00:02.0')
 
 
-def trial(binary, user, instance, independent, console, bcs_queue=False):
+def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False):
     slot = INDEPENDENT_SLOT if independent else FIRMWARE_SLOT
     panel = PCI / 'drm'
     edp, = panel.glob('card*/card*-eDP-1/enabled')
@@ -148,8 +148,9 @@ def trial(binary, user, instance, independent, console, bcs_queue=False):
             return f'gam_request={request:#x} widi={widi:#x} l3_message={l3:#x} gam_response={response:#x} engines={words}'
 
         original_plane = None if independent else primary()
+        client_mode = '--independent-slot' if independent else '--slot-loan'
         client = stack.enter_context(subprocess.Popen(
-            [str(binary), '--independent-slot' if independent else '--slot-loan'], user=user.pw_uid, group=user.pw_gid,
+            [str(binary), '--competing-context' if compete else client_mode], user=user.pw_uid, group=user.pw_gid,
             extra_groups=os.getgrouplist(user.pw_name, user.pw_gid),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True))
         entries, bindings = [], []
@@ -285,17 +286,22 @@ if __name__ == '__main__':
     ap.add_argument('--independent-slot', action='store_true', help='Rebind slot 12291 while protecting slot 8704')
     ap.add_argument('--bcs-queue', action='store_true',
                     help='Verify the active blitter execlist and context across the held checkpoints')
+    ap.add_argument('--competing-context', action='store_true',
+                    help='Challenge the queue hold with five independent requests before changing slot 12291')
     ap.add_argument('--console', type=int, choices=range(1, 64), metavar='VT',
                     help='Use a text VT during the independent trial and return to the previous VT')
     args = ap.parse_args()
     if args.console is not None and not args.independent_slot:
         ap.error('--console requires --independent-slot')
+    if args.competing_context and not args.independent_slot:
+        ap.error('--competing-context requires --independent-slot')
     account = pwd.getpwnam(args.user)
     if os.geteuid() or account.pw_uid == 0:
         ap.error('Use a privileged trace observer and an unprivileged GPU client')
     inst = Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
     try:
-        trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console, args.bcs_queue)
+        trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console, args.bcs_queue,
+              args.competing_context)
     finally:
         (inst / 'tracing_on').write_text('0')
         inst.rmdir()

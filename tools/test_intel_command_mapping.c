@@ -2,6 +2,7 @@
  * synthetic in this host fixture; this is never native acceptance. */
 #define _POSIX_C_SOURCE 200809L
 #include <srvros/intel_command_mapping.h>
+#include <srvros/intel_bdw_bcs_port.h>
 #include <srvros/vmm.h>
 #include <assert.h>
 #include <stdio.h>
@@ -165,6 +166,7 @@ bool intel_cache_probe_uc_page(uint64_t physical)
 static uint64_t held_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
 {
  assert(t==&transfer && p==&mapping.publication);
+ assert(intel_bdw_bcs_port_held(&mapping) && !intel_bdw_bcs_port_claim(&other));
  if(active_block && mapping.attempts && fault("window-epoch",mapping.attempts))return 22;
  return active_block ? 21 : 0;
 }
@@ -272,6 +274,7 @@ static void test_joint(struct command_map_io provider,struct command_map_window 
  assert(scanout_memory_layout(16,1,64,false,&layout) && scanout_memory_create(&memory,&pool,second.owner,&layout,
       0x100000000ull,(struct scanout_memory_io){&m,slot_allocate,slot_validate,slot_release},&slot.token));
  bool ok=intel_command_mapping_run_slot(&mapping,&cpu,&transfer,&token,provider,window,&slot);
+ assert(intel_bdw_bcs_port_held(&mapping)==!ok);
  assert(table[5]==0xbad5001 && selector==0x40000000 && requests==(mode("joint-good") || m.at!=0));
  if(mode("joint-good")){
   assert(ok && mapping.complete && memory.state==MEM_RELEASED && !slot_allocated && !active_block && releases==1 && invalidations==4);
@@ -290,8 +293,16 @@ static void test_window(struct command_map_io provider)
     .select_l3=steer,.invalidate_ggtt=invalidate}};
  provider.read=NULL;provider.write=NULL;m.active=true;
  if(!strncmp(m.mode,"joint-",6)){test_joint(provider,&window);return;}
+ if(mode("window-port-busy")){
+  assert(intel_bdw_bcs_port_claim(&other));
+  assert(!intel_command_mapping_run_window(&mapping,&cpu,&transfer,&token,provider,&window,window_child,&m));
+  assert(!mapping.object && !mapping.registered && !requests && !invalidations && !m.children);
+  assert(intel_bdw_bcs_port_release(&other));
+  puts("command-mapping: PASS complete=0 busy port");return;
+ }
  table[0]=0xbad1001;table[5]=0xbad5001;
  bool ok=intel_command_mapping_run_window(&mapping,&cpu,&transfer,&token,provider,&window,window_child,&m);
+ assert(intel_bdw_bcs_port_held(&mapping)==!ok);
  assert(table[0]==0xbad1001 && table[5]==0xbad5001 && selector==0x40000000);
  if(mode("window-good")){
   assert(ok && mapping.complete && mapping.writes==8 && !active_block && releases==1 && m.children==1);
