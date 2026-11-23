@@ -29,6 +29,13 @@ Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
 with the local EFI firmware templates. The matched receipt and redacted
 logs are under `build/review/local-signin/proof-o6gc2m2e/`.
 
+Merge review on main `c853aaf2` retained SrvrOS #527's targeted GNU tool links.
+Runtime `43a05597` passed the matched build, focused host checks, and all 11
+local sign-in cases. The privileged broker now survives Ctrl-C during a
+failed sign-in delay. Each private session still responds to Ctrl-C and the
+broker returns to the login prompt after retirement. The review receipt and
+logs are under `build/review/local-signin/proof-16qea41t/`.
+
 ## Local console sign-in
 
 `device/apple-silicon/local-console-signin` starts from `b95bc096`, the
