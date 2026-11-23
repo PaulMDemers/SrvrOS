@@ -55,15 +55,20 @@ static void open_srvros_libs(lua_State *L) {
     lua_pop(L, 1);
 }
 
+static int report_chunk_error(lua_State *L, const char *phase) {
+    const char *message = lua_type(L, -1) == LUA_TSTRING ? lua_tostring(L, -1) : NULL;
+    fprintf(stderr, "lua: %s error: %s\n", phase,
+        message ? message : "non-string error object");
+    lua_pop(L, 1);
+    return 1;
+}
+
 static int run_chunk(lua_State *L, int status) {
     if (status != LUA_OK) {
-        printf("lua: load error: %s\n", lua_tostring(L, -1));
-        return 1;
+        return report_chunk_error(L, "load");
     }
-    status = lua_pcall(L, 0, LUA_MULTRET, 0);
-    if (status != LUA_OK) {
-        printf("lua: runtime error: %s\n", lua_tostring(L, -1));
-        return 1;
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+        return report_chunk_error(L, "runtime");
     }
     return 0;
 }
@@ -82,14 +87,6 @@ static int run_repl_line(lua_State *L, const char *line) {
 static int run_repl(lua_State *L) {
     printf("Lua %s srvros interactive profile\n", LUA_VERSION_RELEASE);
     int result = 0;
-    if (!isatty(STDIN_FILENO)) {
-        char line[512];
-        while (fgets(line, sizeof(line), stdin) != 0) {
-            result |= run_repl_line(L, line);
-        }
-        return result != 0 ? 1 : 0;
-    }
-
     linenoiseHistorySetMaxLen(64);
     linenoiseHistoryLoad("/fat/lua.history");
     while (1) {
@@ -114,7 +111,7 @@ static int run_repl(lua_State *L) {
 int main(int argc, char **argv) {
     lua_State *L = luaL_newstate();
     if (L == 0) {
-        printf("lua: cannot create state\n");
+        fputs("lua: cannot create state\n", stderr);
         return 1;
     }
     open_srvros_libs(L);
@@ -129,11 +126,18 @@ int main(int argc, char **argv) {
     if (argc >= 3 && strcmp(argv[1], "-e") == 0) {
         result = run_chunk(L, luaL_loadstring(L, argv[2]));
     } else if (argc >= 2) {
-        result = run_chunk(L, luaL_loadfilex(L, argv[1], 0));
-    } else {
+        result = run_chunk(L, luaL_loadfilex(L, argv[1], NULL));
+    } else if (isatty(STDIN_FILENO)) {
         result = run_repl(L);
+    } else {
+        result = run_chunk(L, luaL_loadfilex(L, NULL, NULL));
     }
 
     lua_close(L);
+    int output_failed = ferror(stdout);
+    if (fclose(stdout) == EOF || output_failed) {
+        fputs("lua: standard output error\n", stderr);
+        return 1;
+    }
     return result;
 }

@@ -953,18 +953,18 @@ ZLIB_DEP := $(ZLIB_C:%.c=build/%.c.d)
 
 MINIZIP_C := \
 	ports/upstream/zlib/contrib/minizip/ioapi.c \
-	ports/upstream/zlib/contrib/minizip/zip.c \
-	ports/upstream/zlib/contrib/minizip/minizip.c
-MINIZIP_OBJ := $(MINIZIP_C:%.c=build/%.c.o)
-MINIZIP_DEP := $(MINIZIP_C:%.c=build/%.c.d)
+	ports/upstream/zlib/contrib/minizip/zip.c
+MINIZIP_PROGRAM_DIR := build/ports/srvros/minizip
+MINIZIP_PATCHED_C := $(MINIZIP_PROGRAM_DIR)/minizip.c
+MINIZIP_OBJ := $(MINIZIP_C:%.c=build/%.c.o) $(MINIZIP_PATCHED_C:.c=.c.o)
+MINIZIP_DEP := $(MINIZIP_OBJ:.o=.d)
 
 MINIUNZ_C := \
 	ports/upstream/zlib/contrib/minizip/ioapi.c \
 	ports/upstream/zlib/contrib/minizip/unzip.c
-MINIUNZ_PATCHED_C := build/ports/srvros/minizip/miniunz.c
-MINIUNZ_PATCHED_OBJ := build/ports/srvros/minizip/miniunz.c.o
-MINIUNZ_OBJ := $(MINIUNZ_C:%.c=build/%.c.o) $(MINIUNZ_PATCHED_OBJ)
-MINIUNZ_DEP := $(MINIUNZ_C:%.c=build/%.c.d) $(MINIUNZ_PATCHED_OBJ:.o=.d)
+MINIUNZ_PATCHED_C := $(MINIZIP_PROGRAM_DIR)/miniunz.c
+MINIUNZ_OBJ := $(MINIUNZ_C:%.c=build/%.c.o) $(MINIUNZ_PATCHED_C:.c=.c.o)
+MINIUNZ_DEP := $(MINIUNZ_OBJ:.o=.d)
 
 CJSON_C := ports/upstream/cjson/cJSON.c
 CJSON_OBJ := $(CJSON_C:%.c=build/%.c.o)
@@ -995,7 +995,6 @@ BYACC_C := \
 	ports/upstream/byacc/graph.c \
 	ports/upstream/byacc/lalr.c \
 	ports/upstream/byacc/lr0.c \
-	ports/upstream/byacc/main.c \
 	ports/upstream/byacc/mkpar.c \
 	ports/upstream/byacc/mstring.c \
 	ports/upstream/byacc/output.c \
@@ -1004,8 +1003,9 @@ BYACC_C := \
 	ports/upstream/byacc/verbose.c \
 	ports/upstream/byacc/warshall.c \
 	ports/upstream/byacc/yaccpar.c
-BYACC_OBJ := $(BYACC_C:%.c=build/%.c.o)
-BYACC_DEP := $(BYACC_C:%.c=build/%.c.d)
+BYACC_MAIN := build/ports/srvros/byacc/main.c
+BYACC_OBJ := $(BYACC_C:%.c=build/%.c.o) $(BYACC_MAIN:.c=.c.o)
+BYACC_DEP := $(BYACC_OBJ:.o=.d)
 
 LUA_SRVROS_DIR := build/ports/lua-srvros
 LUA_PREPARED := $(LUA_SRVROS_DIR)/.prepared
@@ -1668,11 +1668,11 @@ build/ports/upstream/zlib/contrib/minizip/%.c.o: ports/upstream/zlib/contrib/min
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/zlib -I ports/upstream/zlib/contrib/minizip -DMINIZIP_FOPEN_NO_64 -DZ_BUFSIZE=16384 -Wno-error -Wno-unused-parameter -Wno-sign-compare -c $< -o $@
 
-$(MINIUNZ_PATCHED_C): ports/upstream/zlib/contrib/minizip/miniunz.c
+$(MINIZIP_PATCHED_C) $(MINIUNZ_PATCHED_C): $(MINIZIP_PROGRAM_DIR)/%.c: ports/upstream/zlib/contrib/minizip/%.c tools/prepare_minizip_port.py
 	mkdir -p $(dir $@)
-	$(PYTHON) -c "from pathlib import Path; src=Path('$<'); dst=Path('$@'); text=src.read_text(); text=text.replace('char filename_inzip[65536+1];', 'char filename_inzip[MAXFILENAME+1];'); dst.write_text(text)"
+	$(PYTHON) tools/prepare_minizip_port.py $< $@
 
-$(MINIUNZ_PATCHED_OBJ): $(MINIUNZ_PATCHED_C) $(ZIG)
+$(MINIZIP_PATCHED_C:.c=.c.o) $(MINIUNZ_PATCHED_C:.c=.c.o): $(MINIZIP_PROGRAM_DIR)/%.c.o: $(MINIZIP_PROGRAM_DIR)/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/zlib -I ports/upstream/zlib/contrib/minizip -DMINIZIP_FOPEN_NO_64 -DZ_BUFSIZE=16384 -Wno-error -Wno-unused-parameter -Wno-sign-compare -c $< -o $@
 
@@ -1697,6 +1697,14 @@ build/ports/upstream/sqlite/%.c.o: ports/upstream/sqlite/%.c $(ZIG)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/sqlite -DSQLITE_OS_OTHER=1 -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_DEFAULT_MEMSTATUS=0 -DSQLITE_OMIT_SHARED_CACHE -DSQLITE_OMIT_LOCALTIME -Wno-error -Wno-unused-parameter -Wno-sign-compare -c $< -o $@
 
 build/ports/upstream/byacc/%.c.o: ports/upstream/byacc/%.c $(ZIG) ports/srvros/byacc_config.h
+	mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -I ports/upstream/byacc -include ports/srvros/byacc_config.h -Wno-error -c $< -o $@
+
+$(BYACC_MAIN): ports/upstream/byacc/main.c tools/prepare_byacc_port.py
+	mkdir -p $(dir $@)
+	$(PYTHON) tools/prepare_byacc_port.py $< $@
+
+$(BYACC_MAIN:.c=.c.o): $(BYACC_MAIN) $(ZIG) ports/srvros/byacc_config.h
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/byacc -include ports/srvros/byacc_config.h -Wno-error -c $< -o $@
 
@@ -7030,3 +7038,9 @@ build/userspace/test_sha256sum_probe.elf: tools/test_sha256sum_probe.c $(USER_CR
 	mkdir -p build/userspace/sha256sum-probe
 	$(CC) $(USER_CFLAGS) -c $< -o build/userspace/sha256sum-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/sha256sum-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+# Disposable Lua stream-error probe, outside the normal image.
+build/userspace/test_earlier_lua_io.elf: tools/test_earlier_lua_io.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/earlier-cli-probe
+	$(CC) $(USER_CFLAGS) -c $< -o build/userspace/earlier-cli-probe/lua-io.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/earlier-cli-probe/lua-io.o $(USER_LIB_OBJ) -o $@
