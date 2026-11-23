@@ -3,7 +3,7 @@
 November 5, 2026. Status: source/configuration audit and owner design review complete; target
 implementation remains unqualified behind the explicit gates below.
 
-November 22 follow-up. The pinned GLib configure now detects the SDK poll
+November 23 follow-up. The pinned GLib configure now detects the SDK poll
 constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
 Configure processes bundled GVDB and proxy-libintl, finds `C_IN` in the
 SrvrOS SDK and completes static configuration after linking `res_query()`.
@@ -16,7 +16,8 @@ verified the IPv4 ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
-Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
+IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
+Static GIO next stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c`.
 The normal guest also verified native wait, character
 conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
