@@ -327,8 +327,34 @@ journal phases, the verified `exit.log`, clean unmount, automatic Ubuntu
 return path and preservation of all 574 existing files were recorded.
 The local return record is `build/bringup/pro112-rtl8188cu-passive-cold/run.json`.
 The logs and exact failed payload are preserved in local recovery archive
-`evidence-6f8f17af22d37166`. The next comparison is the device RX enable and
-first bulk IN completion against Linux on the same adapter and hub path.
+`evidence-6f8f17af22d37166`.
+
+Ubuntu's `rtl8192cu` trace on the same adapter and hub contained 3,572
+correlated vendor-control transfers with no drops or pending controls and 442
+successful bulk IN completions. The first USB receive request completed in
+307 us with 322 bytes. The first observed channel-10 dwell had 12 completions,
+starting 10.898 ms after its first tune write completed. This trace uses the
+concurrent Linux scan because the explicit passive request reported busy.
+Only receive transfer metadata was saved for bulk IN. The trace and comparison
+are preserved in `reference-rtl8188cu-rx-3753a4c3`.
+
+Before starting bulk IN, Linux programmed all 256 packet-buffer linked-list
+entries via `0x01e0`, waited for each operation to clear and set the FIFO
+boundary to `0xf9` and RX limit to `0x27ff`. SrvrOS had set the RX limit
+without programming the page links or the FIFO boundary. The updated passive
+recipe programs and checks that layout before enabling RF or opening bulk IN.
+All TX queues stay paused and MAC TX and TX DMA stay disabled. The diagnostic
+records the link count, first completion latency and a distinct `rx-timeout`
+when a quiet window sees no USB completions. Linux uses eight queued 15,360-byte
+receives and a broader filter. The comparison leaves SrvrOS's receive depth,
+buffer size and filter unchanged so the cold test can isolate the buffer
+layout. A fresh native run is needed to confirm the effect.
+
+The kernel build, full xHCI host suite, Realtek firmware and passive
+native-path fixtures, integration lifecycle and both receive decoder suites
+passed. The fixture checks every observed page link, buffer bounds before
+endpoint configuration, refusal on a stuck link operation, and continued
+TX closure. The correction is ready for exact-image qualification.
 
 ### Retina desktop default
 

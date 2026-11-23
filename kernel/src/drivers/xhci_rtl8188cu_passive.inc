@@ -6,12 +6,16 @@
 #define RTL_CU_RX_ENABLE 0x8au
 #define RTL_CU_TX_PAUSE 0x0522u
 #define RTL_CU_CHANNEL 10u
+#define RTL_CU_LLT 0x01e0u
+#define RTL_CU_LLT_WRITE (1u<<30)
+#define RTL_CU_LLT_BUSY (3u<<30)
+#define RTL_CU_PACKET_BOUNDARY 0xf9u
 
 static struct {
     struct xhci_device *owner;
     struct xhci_bulk_endpoint ep;
     uint8_t *buffer;
-    uint64_t physical,trb;
+    uint64_t physical,trb,started_us,first_completion_us;
     unsigned posted,completed,actual,beacons,matches,rejected;
     bool configured,pending,failed;
 } rtl_passive;
@@ -45,6 +49,34 @@ static bool rtl_cu_tx_parked(struct xhci_device *d) {
         rtl8188cu_read(d,RTL_CU_TX_PAUSE,1,&pause) && pause==0xff;
 }
 
+/* The CU packet buffer needs its page links even with MAC TX and TX DMA
+ * closed. Use the layout captured on this exact board and set both bounds
+ * while MAC RX is still off. */
+static bool rtl_cu_packet_buffer(struct xhci_device *d,struct xhci_device *hub,
+                                 unsigned *linked) {
+    uint32_t mac,value;
+    if(!rtl_cu_tx_parked(d) ||
+       !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) || (mac&RTL_CU_RX_ENABLE))return false;
+    const uint64_t start=timer_monotonic_us();
+    for(unsigned page=0;page<256;page++) {
+        unsigned next=page+1;
+        if(page==RTL_CU_PACKET_BOUNDARY-1)next=0xff;
+        if(page==0xff)next=RTL_CU_PACKET_BOUNDARY;
+        if(timer_monotonic_us()-start>=1000000 ||
+           ((page&63)==0 && !rtl8188cu_check_port(d,hub)) ||
+           !rtl8188cu_write_value(d,RTL_CU_LLT,4,RTL_CU_LLT_WRITE|(page<<8)|next) ||
+           !rtl8188cu_poll(d,RTL_CU_LLT,4,RTL_CU_LLT_BUSY,0,8,&value) ||
+           ((value>>8)&0xff)!=page)return false;
+        (*linked)++;
+    }
+    return rtl8188cu_write_value(d,0x114,1,RTL_CU_PACKET_BOUNDARY) &&
+           rtl8188cu_write_value(d,0x116,2,0x27ff) &&
+           rtl8188cu_write_value(d,0x104,1,0x11) &&
+           rtl8188cu_read(d,0x114,1,&value) && value==RTL_CU_PACKET_BOUNDARY &&
+           rtl8188cu_read(d,0x116,2,&value) && value==0x27ff &&
+           rtl8188cu_read(d,0x104,1,&value) && value==0x11;
+}
+
 static bool rtl_cu_rf_read(struct xhci_device *d,unsigned reg,uint32_t *value) {
     uint32_t mode,config;
     const uint32_t edge=1u<<31;
@@ -59,7 +91,7 @@ static bool rtl_cu_rf_read(struct xhci_device *d,unsigned reg,uint32_t *value) {
 static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
                                  const uint8_t *blob,unsigned *writes,uint32_t *channel) {
     uint32_t state;
-    if(!rtl8188cu_write_value(d,RTL_CU_TX_PAUSE,1,0xff) || !rtl_cu_tx_parked(d) ||
+    if(!rtl_cu_tx_parked(d) ||
        !rtl8188cu_update(d,RTL8188CU_ISOLATION,2,1u<<9,0) ||
        !rtl8188cu_update(d,0x600,1,1u<<6,0) ||
        !rtl8188cu_poll(d,0x600,1,1u<<7,0,32,&state) ||
@@ -85,8 +117,6 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl8188cu_update(d,0x900,4,1,0) ||
        !rtl8188cu_write_value(d,0x840,4,0x0180740a) ||
        !rtl_cu_rf_read(d,0x18,channel) || (*channel&0x3ff)!=RTL_CU_CHANNEL ||
-       !rtl8188cu_write_value(d,0x104,1,0x11) ||
-       !rtl8188cu_write_value(d,0x116,2,0x27ff) ||
        !rtl8188cu_update(d,0x10c,1,4,0) || !rtl8188cu_update(d,0xfe55,1,8,0) ||
        !rtl8188cu_write_value(d,0x60f,1,0) ||
        !rtl8188cu_write_value(d,0x608,4,0x2009) ||
@@ -132,6 +162,7 @@ static bool rtl8188cu_passive_event(const struct xhci_device *d,uint8_t dci,uint
         return true;
     }
     rtl_passive.actual=RTL_CU_RX_BYTES-remaining;
+    if(!rtl_passive.completed)rtl_passive.first_completion_us=timer_monotonic_us()-rtl_passive.started_us;
     rtl_passive.pending=false;rtl_passive.completed++;
     return true;
 }
@@ -170,6 +201,7 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
        (mac&(RTL_CU_RX_ENABLE|RTL8188CU_TX_ENABLE))!=RTL_CU_RX_ENABLE)return false;
     console_write("rtl8188cu-passive-progress: listening on channel 10; no input required\n");
     uint64_t start=timer_monotonic_us(),last=start,clock=start,stalled=0;
+    rtl_passive.started_us=start;
     rtl_cu_rx_post(d);
     for(uint64_t spins=0;;spins++) {
         struct xhci_trb event;
@@ -215,9 +247,9 @@ static bool rtl_cu_rx_stop(struct xhci_device *d) {
 
 bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
     const char *result="admission";
-    unsigned writes=0;
+    unsigned writes=0,linked=0;
     uint32_t channel=0,mac=0,rf=0;
-    bool stopped=false,parked=false,window=false;
+    bool buffer_ready=false,stopped=false,parked=false,window=false;
     uint64_t flags=event_irq_save();
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];
@@ -227,14 +259,19 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
            xhci.sync_users || strict_control.device || !rtl_cu_profile_valid(blob,size))break;
         rtl_passive.owner=d;
         d->rtl8188cu_firmware_active=true;
-        result="setup";
         bool touched=rtl8188cu_check_port(d,hub) && rtl8188cu_radio_parked(d);
-        if(touched && rtl_cu_radio_prepare(d,hub,blob,&writes,&channel)) {
-            result="rx-endpoint";
-            if(rtl_cu_rx_configure(d)) {
-                window=rtl_cu_listen(d,hub);
-                stopped=rtl_cu_rx_stop(d);
-                result="window";
+        result="packet-buffer";
+        buffer_ready=touched && rtl8188cu_write_value(d,RTL_CU_TX_PAUSE,1,0xff) &&
+            rtl_cu_packet_buffer(d,hub,&linked);
+        if(buffer_ready) {
+            result="setup";
+            if(rtl_cu_radio_prepare(d,hub,blob,&writes,&channel)) {
+                result="rx-endpoint";
+                if(rtl_cu_rx_configure(d)) {
+                    window=rtl_cu_listen(d,hub);
+                    stopped=rtl_cu_rx_stop(d);
+                    result=window && !rtl_passive.completed?"rx-timeout":"window";
+                }
             }
         }
         if(touched && !d->control_failed && !d->ep0_quarantined && rtl8188cu_check_port(d,hub)) {
@@ -245,10 +282,14 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
                 !(mac&(RTL_CU_RX_ENABLE|RTL8188CU_TX_ENABLE)) && !(rf&RTL8188CU_RF_ENABLE);
         }
         d->rtl8188cu_firmware_active=false;
-        if(window && stopped && parked)result=rtl_passive.matches>=2?"target":"target-absent";
+        if(window && stopped && parked && rtl_passive.completed)
+            result=rtl_passive.matches>=2?"target":"target-absent";
         break;
     }
     event_irq_restore(flags);
+    if(rtl_passive.owner)
+        console_printf("rtl8188cu-packet-buffer: ready=%u linked=%u first_completion_us=%u\n",
+            (uint64_t)buffer_ready,(uint64_t)linked,rtl_passive.first_completion_us);
     console_printf("rtl8188cu-passive: result=%s writes=%u rf_channel=%x posted=%u completed=%u beacons=%u target=%u rejected=%u stopped=%u parked=%u\n",
         result,(uint64_t)writes,(uint64_t)channel,(uint64_t)rtl_passive.posted,(uint64_t)rtl_passive.completed,
         (uint64_t)rtl_passive.beacons,(uint64_t)rtl_passive.matches,(uint64_t)rtl_passive.rejected,(uint64_t)stopped,(uint64_t)parked);
