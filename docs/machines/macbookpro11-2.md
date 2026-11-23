@@ -219,7 +219,10 @@ physical checks remain open. This candidate selected the full-prefix capture
 used by bounded diagnostics, which refuses writes once the ring wraps. Sound
 now uses its own 512 KiB rolling policy. The host regression checks that
 periodic and final saves survive rollover and that full-prefix captures still
-refuse incomplete evidence.
+refuse incomplete evidence. The incomplete native session and its verified
+payload are archived under `evidence-ef8b00c5e4eb9e42`. Exact-image stage
+`3c54e0dbec042f92` (`9f68c6a8`) passes normal Sound desktop and absent-workspace
+VM return checks. Physical validation of the corrected logger is pending.
 
 ### Wi-Fi release qualification
 
