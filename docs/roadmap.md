@@ -1,10 +1,36 @@
 # Roadmap
 
-Updated November 4, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 22, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
+
+## Current browser work — WebCore audit, November 5, 2026
+
+The user explicitly resumed the next browser milestone after the completed
+workspace reset: dependency/configuration audit and software-backend design
+review only. The [WebCore audit](browser-webcore-audit.md) records checksum-pinned
+WPE2.54.2 findings, a proposed CPU SHM frame adapter, runtime gaps and owner review.
+Source inspection confirms a noncomposited Skia raster path; the first mandatory
+WPE target-library lookup is GLib. Current MAP_SHARED/IPC and signal/session
+qualification boundaries prevent claiming that stock WPE can run. A full target
+configure, dependency/engine build and rendered page are not accepted by this
+audit. Runtime and SrvrUI owner reviews are complete with explicit shared-memory, IPC,
+wait and frame-completion implementation gates. No shared implementation or
+production capability change is in scope.
+
+The November 22 [GLib prerequisite probe](browser-glib-prereq.md) verifies
+native wait primitives and the iconv, PCRE2, libffi, zlib and proxy-libintl
+providers in the normal guest. Host GLib dispatches wakes and timers. Target
+GLib configures through its pinned internal `intl` fallback and the SDK's
+`C_IN` and `res_query()` checks. It generates the static build graph.
+GIO's resolver object compiles and the target DNS decoder passes in the
+guest. GLib's file-utilities object compiles with the SDK's `ELOOP`
+declaration. The hostname utility object compiles with the SDK limits
+header, and the native hostname calls passed. Static GLib compilation first
+stops at `NSIG` and `SA_NOCLDSTOP` in `gmain.c`. Integrated main-context
+wait follows. Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
 

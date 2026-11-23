@@ -189,6 +189,7 @@ struct exfat_file_slot { struct exfat_file file; char path[EXFAT_MAX_PATH]; };
 struct exfat_mount {
     bool used;
     bool ready;
+    bool credential_mount;
     uint64_t block_claim;
     struct exfat_volume volume;
     struct exfat_file_slot *file_blocks[EXFAT_MAX_FILES/EXFAT_NODE_BLOCK];
@@ -1498,6 +1499,15 @@ static struct exfat_mount *find_mount_for_path(const char *path) {
     return NULL;
 }
 
+/* Recovery and removable volumes can have provisional UID/GID and mode
+ * values. The isolated path trusts only the clean installed filesystem. */
+static bool exfat_local_access(const char *path) {
+    struct exfat_mount *mount=find_mount_for_path(path);
+    if(!mount) return true;
+    return mount->ready && mount->credential_mount && !mount->volume.write_blocked &&
+        !metadata_path_is_internal(mount,path) && vfs_lookup("/fat/.srvros/meta");
+}
+
 static bool parse_u64_field(const uint8_t *data,
     uint64_t size,
     uint64_t *offset,
@@ -1926,10 +1936,20 @@ static bool decode_metadata_records(struct exfat_mount *mount, const uint8_t *da
 }
 
 static bool parse_metadata_records(struct exfat_mount *mount, const uint8_t *data,
-    uint64_t size, uint64_t magic_length, bool apply) {
+    uint64_t size, uint64_t magic_length, bool complete) {
     uint64_t count = 0, decoded = 0;
     if (!decode_metadata_records(mount, data, size, magic_length, NULL, 0, &count)) return false;
-    if (!apply || !count) return true;
+    if (complete) {
+        uint64_t expected=0;
+        /* Match exactly the enumeration and exclusion used by serialization. */
+        for (uint64_t i=0;i<vfs_count();i++) {
+            const struct vfs_node *node=vfs_node_at(i);
+            if (node && path_under_mount(mount,node->path) &&
+                !metadata_path_is_internal(mount,node->path)) expected++;
+        }
+        if (count!=expected) return false;
+    }
+    if (!count) return true;
     /* Newly imported identities must not change under a live file/stream
      * client. The metadata file's own read buffer is a private copy. */
     if (process_has_open_vfs_prefix(mount->mountpoint) || exfat_stream_busy(mount->mountpoint, true)) return false;
@@ -1942,7 +1962,7 @@ static bool parse_metadata_records(struct exfat_mount *mount, const uint8_t *dat
     return ok;
 }
 
-static bool parse_metadata_file(struct exfat_mount *mount, const char *path, bool apply) {
+static bool parse_metadata_file(struct exfat_mount *mount, const char *path, bool complete) {
     const struct vfs_node *node = vfs_lookup(path);
     const uint8_t *data = NULL;
     uint64_t size = 0;
@@ -1958,13 +1978,15 @@ static bool parse_metadata_file(struct exfat_mount *mount, const char *path, boo
         return false;
     }
 
-    bool ok = parse_metadata_records(mount, data, size, magic_length, false);
-    if (ok && apply) ok = parse_metadata_records(mount, data, size, magic_length, true);
+    bool ok = parse_metadata_records(mount, data, size, magic_length, complete);
     vfs_release_data(node, data);
     return ok;
 }
 
-static bool load_mount_metadata(struct exfat_mount *mount, bool clean) {
+enum exfat_admission { EXFAT_ADMIT_LEGACY, EXFAT_ADMIT_CLEAN, EXFAT_ADMIT_AUTH };
+
+static bool load_mount_metadata(struct exfat_mount *mount, enum exfat_admission admission) {
+    bool clean = admission != EXFAT_ADMIT_LEGACY;
     char path[EXFAT_MAX_PATH];
     char temp_path[EXFAT_MAX_PATH];
     if (mount == NULL ||
@@ -1995,11 +2017,13 @@ static bool load_mount_metadata(struct exfat_mount *mount, bool clean) {
         return !clean;
     }
     if (clean) {
-        bool ok = !name_conflicts(path, NULL) || parse_metadata_file(mount, path, true);
+        bool complete = admission == EXFAT_ADMIT_AUTH;
+        bool ok = (!complete && !name_conflicts(path, NULL)) ||
+            parse_metadata_file(mount, path, complete);
         metadata_syncing = false;
         return ok;
     }
-    if (parse_metadata_file(mount, temp_path, true)) {
+    if (parse_metadata_file(mount, temp_path, false)) {
         if (vfs_lookup(path) != NULL) {
             bool published;
             (void)exfat_replace_file(temp_path, path, &published);
@@ -2007,7 +2031,7 @@ static bool load_mount_metadata(struct exfat_mount *mount, bool clean) {
             (void)exfat_rename(temp_path, path);
         }
     } else {
-        if (vfs_lookup(path) && !parse_metadata_file(mount, path, true)) {
+        if (vfs_lookup(path) && !parse_metadata_file(mount, path, false)) {
             /* Never replace an existing sidecar with freshly imported defaults
              * after a parse,allocation or identity-collision refusal. */
             mount->volume.write_blocked = true;
@@ -3107,14 +3131,15 @@ static bool build_file_entry_set(uint8_t *entries,
 /* Set creation permissions before any service window after VFS publication.
  * vfs_set_metadata deliberately does not trigger a second metadata transaction;
  * the surrounding mutation persists the initialized metadata below. */
-static bool initialize_mode(const char *path,uint64_t mode) {
-    if(mode==UINT64_MAX) return true;
+static bool initialize_owner_mode(const char *path,uint64_t mode,uint64_t uid,uint64_t gid) {
+    if(mode==UINT64_MAX && uid==0 && gid==0) return true;
     const struct vfs_node *node=vfs_lookup(path);if(!node) return false;
     struct vfs_metadata metadata=node->metadata;
-    metadata.mode=(metadata.mode&VFS_MODE_IFMT)|(mode&07777);
+    if(mode!=UINT64_MAX) metadata.mode=(metadata.mode&VFS_MODE_IFMT)|(mode&07777);
+    metadata.uid=uid; metadata.gid=gid;
     return vfs_set_metadata(path,&metadata);
 }
-static bool create_file(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
+static bool create_file(const char *path, const uint8_t *data, uint64_t size,uint64_t mode,uint64_t uid,uint64_t gid) {
     const char *name = NULL;
     struct exfat_directory *parent = NULL;
     struct exfat_mount *mount = find_mount_and_parent_directory(path, &parent, &name);
@@ -3185,14 +3210,15 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size,uin
         (void)free_file_clusters(&scratch);
         return false;
     }
-    if(!initialize_mode(path,mode)) return false;
+    if(!initialize_owner_mode(path,mode,uid,gid)) return false;
     if (!metadata_path_is_internal(mount, path)) {
-        (void)exfat_sync_mount_metadata(mount);
+        bool synced=exfat_sync_mount_metadata(mount);
+        if(!synced && (uid || gid)) return false;
     }
     return true;
 }
 
-static bool exfat_create_directory_impl(const char *path,uint64_t mode) {
+static bool exfat_create_directory_impl(const char *path,uint64_t mode,uint64_t uid,uint64_t gid) {
     const char *name = NULL;
     struct exfat_directory *parent = NULL;
     struct exfat_mount *mount = find_mount_and_parent_directory(path, &parent, &name);
@@ -3281,9 +3307,10 @@ static bool exfat_create_directory_impl(const char *path,uint64_t mode) {
         release_created_clusters(&mount->volume, first_cluster, 1);
         return false;
     }
-    if(!initialize_mode(path,mode)) return false;
+    if(!initialize_owner_mode(path,mode,uid,gid)) return false;
     if (ok && !metadata_path_is_internal(mount, path)) {
-        (void)exfat_sync_mount_metadata(mount);
+        bool synced=exfat_sync_mount_metadata(mount);
+        if(!synced && (uid || gid)) return false;
     }
     return true;
 }
@@ -3804,7 +3831,7 @@ bool exfat_unmount(const char *mountpoint) {
     fs_leave(&scope);return ok;
 }
 
-static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
+static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_t size,uint64_t mode,uint64_t uid,uint64_t gid) {
     if (path == NULL || (data == NULL && size != 0)) {
         return false;
     }
@@ -3812,7 +3839,7 @@ static bool exfat_write_file_impl(const char *path, const uint8_t *data, uint64_
     if (find_file(path) != NULL) {
         return overwrite_file(path, data, size);
     }
-    return create_file(path, data, size,mode);
+    return create_file(path, data, size,mode,uid,gid);
 }
 
 static bool exfat_delete_file_impl(const char *path) {
@@ -4375,8 +4402,9 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
         clear_mount(mount);
         return false;
     }
-    (void)load_mount_metadata(mount, false);
+    (void)load_mount_metadata(mount, EXFAT_ADMIT_LEGACY);
     vfs_set_metadata_changed_callback(exfat_metadata_changed);
+    vfs_set_access_guard(exfat_local_access);
 
     console_printf("exfat: mounted %s files=%u cluster=%u bytes\n",
         mountpoint,
@@ -4391,7 +4419,9 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
 static bool host_inspection_readonly;
 #endif
 
-static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim, bool clean) {
+static bool mount_block_device(const char *mountpoint, struct block_device *device,
+    uint64_t claim, enum exfat_admission admission) {
+    bool clean = admission != EXFAT_ADMIT_LEGACY;
     uint64_t size = block_device_size(device);
     if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(struct exfat_boot_sector)) {
         return false;
@@ -4437,7 +4467,7 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         if (!check_mount(mount, &check)) mount->volume.write_blocked = true;
     }
 #ifdef SRVROS_EXFAT_HOST_TEST
-    /* load_mount_metadata(false) must return before parsing/replaying sidecars.
+    /* Legacy metadata loading must return before parsing/replaying sidecars.
      * The diagnostic caller also supplies no write/flush capabilities. */
     if (host_inspection_readonly) mount->volume.write_blocked = true;
 #endif
@@ -4445,13 +4475,15 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         console_printf("exfat: %s requires filesystem recovery or unsupported bitmap; writes disabled\n", mountpoint);
     struct block_device *parent = block_parent(device);
     if (clean && (mount->volume.write_blocked || !block_device_online(device) ||
-        !device->write || !parent || !parent->flush || !load_mount_metadata(mount, true))) {
+        !device->write || !parent || !parent->flush || !load_mount_metadata(mount, admission))) {
         vfs_unregister_prefix(mountpoint);
         clear_mount(mount);
         return false;
     }
-    if (!clean) (void)load_mount_metadata(mount, false);
+    if (!clean) (void)load_mount_metadata(mount, admission);
+    mount->credential_mount=clean && streq(mountpoint,"/fat");
     vfs_set_metadata_changed_callback(exfat_metadata_changed);
+    vfs_set_access_guard(exfat_local_access);
 
     console_printf("exfat: mounted %s from %s files=%u cluster=%u bytes\n",
         mountpoint,
@@ -4466,19 +4498,23 @@ bool exfat_mount_image(const char *mountpoint,const uint8_t *image,uint64_t size
     struct fs_scope scope;if(!fs_enter(&scope))return false;
     bool ok=mount_image_impl(mountpoint,image,size);fs_leave(&scope);return ok;
 }
-bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
+static bool mount_claimed_device(const char *mountpoint, struct block_device *device,
+    enum exfat_admission admission) {
     struct fs_scope scope;if(!fs_enter(&scope))return false;
     uint64_t claim=block_claim_mount(device);
-    bool ok=claim && mount_block_device(mountpoint,device,claim,false);
+    bool ok=claim && mount_block_device(mountpoint,device,claim,admission);
     if(claim && !ok)(void)block_claim_release(claim);
     fs_leave(&scope);return ok;
 }
+bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
+    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_LEGACY);
+}
 bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device *device) {
-    struct fs_scope scope;if(!fs_enter(&scope))return false;
-    uint64_t claim=block_claim_mount(device);
-    bool ok=claim && mount_block_device(mountpoint,device,claim,true);
-    if(claim && !ok)(void)block_claim_release(claim);
-    fs_leave(&scope);return ok;
+    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_CLEAN);
+}
+
+bool exfat_mount_block_device_auth(const char *mountpoint, struct block_device *device) {
+    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_AUTH);
 }
 
 #ifdef SRVROS_EXFAT_HOST_TEST
@@ -4510,7 +4546,7 @@ static bool mutation_shape(const char *path,uint64_t size) {
 /* Public mutation boundaries. Failed or interrupted metadata updates are never
  * silently declared clean; recovery is performed offline with a filesystem checker. */
 static bool write_file_mode_result(const char *path, const uint8_t *data, uint64_t size,
-    uint64_t mode, bool *retryable) {
+    uint64_t mode, uint64_t uid, uint64_t gid, bool *retryable) {
     if (retryable) *retryable = false;
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
     if(path && exfat_stream_busy(path,false)) return false;
@@ -4519,28 +4555,34 @@ static bool write_file_mode_result(const char *path, const uint8_t *data, uint64
     struct mutation_scope scope;
     if (!mutation_begin_result(find_mount_for_path(path), &scope, path, find_file(path)?0:1, 0, retryable,"write")) return false;
     return mutation_end_result(&scope, mutation_capacity(find_mount_for_path(path), path,
-        find_file(path) ? 0 : 1, 0) && exfat_write_file_impl(path, data, size,mode), retryable);
+        find_file(path) ? 0 : 1, 0) && exfat_write_file_impl(path, data, size,mode,uid,gid), retryable);
 }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
-    return write_file_mode_result(path,data,size,UINT64_MAX,NULL);
+    return write_file_mode_result(path,data,size,UINT64_MAX,0,0,NULL);
 }
 bool exfat_write_file_retryable(const char *path, const uint8_t *data, uint64_t size, bool *retryable) {
-    return write_file_mode_result(path,data,size,UINT64_MAX,retryable);
+    return write_file_mode_result(path,data,size,UINT64_MAX,0,0,retryable);
 }
 bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size,uint64_t mode) {
-    return write_file_mode_result(path,data,size,mode,NULL);
+    return write_file_mode_result(path,data,size,mode,0,0,NULL);
+}
+bool exfat_write_file_owned(const char *path,const uint8_t *data,uint64_t size,uint64_t mode,uint64_t uid,uint64_t gid) {
+    return write_file_mode_result(path,data,size,mode,uid,gid,NULL);
 }
 bool exfat_create_directory(const char *path) {
     return exfat_create_directory_mode(path,UINT64_MAX);
 }
 bool exfat_create_directory_mode(const char *path,uint64_t mode) {
+    return exfat_create_directory_owned(path,mode,0,0);
+}
+bool exfat_create_directory_owned(const char *path,uint64_t mode,uint64_t uid,uint64_t gid) {
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
     if(path && exfat_stream_busy(path,false)) return false;
     if (!valid_ascii_basename(path) || !mutation_shape(path,0) || name_conflicts(path, NULL)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, 0, 1,"mkdir")) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path, 0, 1) &&
-        exfat_create_directory_impl(path,mode));
+        exfat_create_directory_impl(path,mode,uid,gid));
 }
 bool exfat_delete_file(const char *path) {
     if (!path || exfat_stream_busy(path,false)) return false;

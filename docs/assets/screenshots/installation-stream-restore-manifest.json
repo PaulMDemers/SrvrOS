@@ -1,0 +1,195 @@
+{
+  "checks": {
+    "docs": "PASS",
+    "installation_optional_skipped": 1,
+    "installation_passed": 95,
+    "matched_all_build": "PASS",
+    "profile_image_passed": 7,
+    "storage_admission": "PASS",
+    "v1_bundle_passed": 13,
+    "workspace_passed": 43
+  },
+  "earlier_failure": {
+    "local_path": ".local/installation-stream-v2-evidence/proof-r6diie_5",
+    "observed": "Installed-root clean admission refused the sidecar with /fat inode 1 and /fat/bin inode 2, which collide with the guest bootstrap VFS. The host writer now keeps both bootstrap nodes registered during native provisioning.",
+    "receipt_sha256": "ea5dfba1bd56fedb6527d7c15cabea151cb2eca8240106d8858e8655829bfe54",
+    "source": "c09edb673ecd0afa2a162854d3395f5018ba727e"
+  },
+  "input_sha256": {
+    "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "driver": "b2ac8f6449b15093471e611cd5d412cb4df801378b74dd17e3805e0d6dd3c524",
+    "exfat": "a82ac8eb59d542d12b7467fcaee238eabfab0554adeec797df1e3073a0f3d72a",
+    "fs_driver": "fea7c2665b6004869061402092f048a343cadf71c7e641f0b3cd3eb044002ad2",
+    "init": "7bb74b2a9820f6b9d2355b95a4941c419cedcc4ed97b3cdbccd972341f0a1ff4",
+    "inspect_driver": "e4f42967338652fff5581af3c22fa105d3244bc92e9bf9c749d50951e3e7ce9e",
+    "kernel": "2f094ffb63ce2cf959eb11d390d43c9d05274a92c1afd14885c1fa3d1687557c"
+  },
+  "integrated_main": "b275e57d3053d8b5294ba2dfbfbe586a87e07450",
+  "limits": [
+    "no physical media or power-loss claim",
+    "16 MiB selected document; not a 64 MiB aggregate test",
+    "offline ExfatFixture allocation audit loads the data partition into evidence-tool RAM"
+  ],
+  "main_refresh": {
+    "docs": "PASS",
+    "focused_tests": "7 passed",
+    "identical_manifest_artifacts": 3,
+    "identical_submodule_pins": true,
+    "main": "c477c26e773b9f7b43c99e409e83e3554e298b22",
+    "matched_guest_proof_source": "afb305b6c6c5853c05c47b62d3d6ab6785e692e2",
+    "proof_inputs_identical": 7,
+    "proof_tools_identical": 12,
+    "refreshed_source": "d4b09b4dd9dd93f81aeabb0760cbeed1a1ee7f5e",
+    "status": "PASS"
+  },
+  "memory": {
+    "existing_gpt_image_sized_allocation": true,
+    "native_payload_buffers_bytes": [
+      32768,
+      32768
+    ],
+    "scope": "Python heap only; excludes native driver, evidence checks, and GPT assembly",
+    "traced_python_allocations_peak_bytes": 2378362
+  },
+  "pins": {
+    ".": "afb305b6c6c5853c05c47b62d3d6ab6785e692e2",
+    "ports": "276eb1b05206a0da2efe832a8d96a26d3b1e663b",
+    "ports/upstream/awk": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+    "ports/upstream/cjson": "c859b25da02955fef659d658b8f324b5cde87be3",
+    "ports/upstream/inih": "26254ee9de7681f8825433415443e7116ff24b98",
+    "ports/upstream/libuv": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+    "ports/upstream/linenoise": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+    "ports/upstream/lua": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+    "ports/upstream/node": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+    "ports/upstream/zlib": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+    "userspace/apps": "73e554639082698126d0f5940b0991d2f7dc73b7",
+    "userspace/widgets": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
+  },
+  "profile_stream_dependency": "3ab8a6f71ec90325fcfb6dea3dad43251ddf4207",
+  "proof": {
+    "archived_data_snapshots_verified": 3,
+    "audit_sha256": "2e6831e3d384305c3f2a121f492306c280fab6820687384c6e26732c7e28f357",
+    "base_binaries_verified": 166,
+    "boots": [
+      {
+        "allocation": "clean",
+        "binding": {
+          "alias": "recovered_b",
+          "gid": 3051,
+          "home": "/fat/home/recovered_b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 3050
+        },
+        "disk_sha256": "4b03f34419ca216e199b572f1b949eca4820f32aa3db420fd7622f76b0963ce8",
+        "documents": {
+          "Documents/binary.profile-import.dat": {
+            "sha256": "ed231d85a68b071fe94b60a4b2563217dd131410f8c91a828d31a649efd945d8",
+            "size": 20
+          },
+          "Documents/large.bin": {
+            "sha256": "341aacac661ccb210720bedaa9ead5d668fe5ea41a73532fc147c71e34040df1",
+            "size": 16777216
+          },
+          "Documents/migration.txt": {
+            "sha256": "0bb4ea865cafd90717ab7028e7f0ec711e0e270ba27557bb2a3ec9dbd5790e54",
+            "size": 24
+          }
+        },
+        "label": "b1",
+        "protected_regions": {
+          "after_data_sha256": "71d4648e58bdbd656c8c81ca4e906a9905dcdae9f95de30a06bb644c3b6a6805",
+          "before_data_sha256": "40c08a222a92212fec6959ddf3f74a61ff7b46e1cf8e2e22afe6548a6000ccb4"
+        }
+      },
+      {
+        "allocation": "clean",
+        "binding": {
+          "alias": "recovered_b",
+          "gid": 3051,
+          "home": "/fat/home/recovered_b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 3050
+        },
+        "disk_sha256": "4659bb54017342107564a69f623bd2b710d5c783d6de7283a37e66645d1bce33",
+        "documents": {
+          "Documents/binary.profile-import.dat": {
+            "sha256": "ed231d85a68b071fe94b60a4b2563217dd131410f8c91a828d31a649efd945d8",
+            "size": 20
+          },
+          "Documents/large.bin": {
+            "sha256": "341aacac661ccb210720bedaa9ead5d668fe5ea41a73532fc147c71e34040df1",
+            "size": 16777216
+          },
+          "Documents/migration.txt": {
+            "sha256": "0bb4ea865cafd90717ab7028e7f0ec711e0e270ba27557bb2a3ec9dbd5790e54",
+            "size": 24
+          }
+        },
+        "label": "b2",
+        "protected_regions": {
+          "after_data_sha256": "71d4648e58bdbd656c8c81ca4e906a9905dcdae9f95de30a06bb644c3b6a6805",
+          "before_data_sha256": "40c08a222a92212fec6959ddf3f74a61ff7b46e1cf8e2e22afe6548a6000ccb4"
+        }
+      }
+    ],
+    "final_image_sha256": "4659bb54017342107564a69f623bd2b710d5c783d6de7283a37e66645d1bce33",
+    "gpt": {
+      "disk_guid": "beae8dda-c931-4045-8374-15690230d84c",
+      "esp_partition_guid": "85ba6edd-1347-4e00-ae50-96212185d69a",
+      "exfat_partition_guid": "19565d45-bc5b-43b8-b501-be6c8420827c"
+    },
+    "independent_filesystem_verification_sha256": "b6801821856e5e643c3ce3f3bcfcd385bf804be901515f866545558abff3a1df",
+    "internal_temp_floor_bytes": 2147483648,
+    "local_path": ".local/installation-stream-v2-evidence/proof-l5mr8pc2",
+    "minimum_free_bytes": 11802091520,
+    "native_inspection": {
+      "consistent": true,
+      "flushes": 0,
+      "used": true,
+      "writes": 0
+    },
+    "output_floor_bytes": 4294967296,
+    "owned_qemu_remaining": 0,
+    "preserved_source_and_template": true,
+    "receipt_sha256": "78ea69e45f8b53b604ad3f86934cd99b8cc811f32b16ec5c0b33a1550eb4ffa9",
+    "source_bundle_sha256": "2f7b64f22e4feebc4f130af1ec7f9da366d8b11a9b39fda65fbb4a70d670bac4",
+    "status": "PASS",
+    "template_sha256": "a94864bb27e80dfceae80dba3864d583f038eca7d7448f91d472711ce9a29333"
+  },
+  "screenshot": {
+    "height": 800,
+    "matching_pixels_verified": true,
+    "path": "installation-stream-restore-b2.png",
+    "png_sha256": "e09f670a8d1e1a34625f60f12b3405c242d4d5f74ed1b1e935a7bdde21755277",
+    "ppm_sha256": "c4804e76b2265a6eeefb84762db896cd8cc40a50cae845756aa4923131e46e31",
+    "rendered_review": "Text displays the restored 24-byte document after reboot at the destination HOME.",
+    "width": 1280
+  },
+  "status": "qualified-for-review",
+  "tested_source": "afb305b6c6c5853c05c47b62d3d6ab6785e692e2",
+  "tool_sha256": {
+    "exfat_test_image.py": "43caec710a0076a7d2b0fb2812987bbf0138b188467d8863f6260291cc381359",
+    "installation_export_recovery_smoke.py": "1768f4c6d6cb4b1b2c18ed2f3196966de89342770dd4e36435780f1445ab9fdb",
+    "installation_image.py": "99afcee4de8450a3d24b4ef5d561a711e2a59e908be671f6107a0ce674708d15",
+    "installation_inspection.py": "57de0b498decaa2b94f02ab785cc37026aaacc10f04326f64df5bf5491804524",
+    "installation_stream_restore_smoke.py": "033475a7a27cbc3e773e1472a527860c85741047edec646d105eae1c35dffe1f",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_chooser_smoke.py": "2f83858309cb316efc8b21f4dbb2fa11e15014e517bd7afd9d793f96c1910b4d",
+    "profile_create_smoke.py": "6a38599440cebde02d3bedb74a8e3ee44737a95f8dbe67adbe2f653e2ae63062",
+    "profile_image.py": "02411670be16f7448f2834ff9c3c60bf0797dc863d10bb0dcd78a1bbcabac7fb",
+    "profile_image_driver.c": "2d48c967b28b1b66a7513e08eadd7cfc6ff92d887225369640219b1919f4829f",
+    "profile_stream.py": "5d769c7b12eb98c9daf890842a7f72dae597b90c45b6e07318f7bc07897823f2",
+    "profile_transfer_smoke.py": "fe5f5409b994fcd007fafe0246e2858fdf8de72ab17e39cf66430e54cb1fd8db"
+  },
+  "v1_compatibility_boot": {
+    "bundle_sha256": "be9d55d9ad2611d9852a5e2d699efaff04a79887d6584214862925dc31722093",
+    "documents_verified": 2,
+    "installed_root": "ahci0p2",
+    "local_path": ".local/installation-stream-v2-evidence/v1-control-sg912224",
+    "owned_qemu_remaining": 0,
+    "receipt_sha256": "28694f999b04278bd2ad90c0c34af3495b533bc3f226170f0c918ecb0261648a",
+    "source_and_base_preserved": true,
+    "status": "PASS",
+    "tested_source": "afb305b6c6c5853c05c47b62d3d6ab6785e692e2"
+  }
+}

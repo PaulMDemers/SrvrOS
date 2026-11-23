@@ -1,5 +1,6 @@
 #include "signal_runtime.h"
 #include <srvros/path_limits.h>
+#include <srvros/process_credentials.h>
 #include <srvros/vector_io.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -66,6 +67,8 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
 }
 
 int __posix_translate_open_flags(int flags, uint64_t *srv_flags) {
+    /* The VFS admits only regular files and directories. Supporting link
+     * nodes would require enforcing O_NOFOLLOW at kernel open admission. */
     if(flags&~(O_ACCMODE|O_CREAT|O_EXCL|O_TRUNC|O_APPEND|O_NONBLOCK|O_NOFOLLOW|O_DIRECTORY|O_CLOEXEC)) { errno=EINVAL;return -1; }
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
@@ -889,24 +892,15 @@ int statvfs(const char *path, struct statvfs *buf) {
 }
 
 int access(const char *path, int mode) {
-    struct stat st;
     if ((mode & ~(R_OK | W_OK | X_OK)) != 0) {
         errno = EINVAL;
         return -1;
     }
-    if (stat(path, &st) < 0) {
-        return -1;
-    }
-    if ((mode & R_OK) != 0 && (st.st_mode & S_IRUSR) == 0) {
-        errno = EACCES;
-        return -1;
-    }
-    if ((mode & W_OK) != 0 && (st.st_mode & S_IWUSR) == 0) {
-        errno = EACCES;
-        return -1;
-    }
-    if ((mode & X_OK) != 0 && (st.st_mode & S_IXUSR) == 0) {
-        errno = EACCES;
+    char full[POSIX_PATH_MAX];
+    if (__posix_make_path(path,full,sizeof(full))<0)return -1;
+    long result=srv_syscall3(SYS_PROCESS_CREDENTIALS,SRV_PROCESS_CREDENTIALS_ACCESS,(long)full,mode);
+    if(result<0) {
+        errno=(int)-result;
         return -1;
     }
     return 0;
@@ -1015,17 +1009,13 @@ int symlink(const char *target, const char *link_path) {
     return -1;
 }
 
-static int path_exists_for_metadata(const char *path) {
-    struct stat st;
-    return stat(path, &st);
-}
-
 int chown(const char *path, uid_t owner, gid_t group) {
-    if (path_exists_for_metadata(path) < 0) {
-        return -1;
-    }
-    if ((owner != (uid_t)-1 && owner != 0) || (group != (gid_t)-1 && group != 0)) {
-        errno = EPERM;
+    char full[POSIX_PATH_MAX];
+    if(__posix_make_path(path,full,sizeof(full))<0)return -1;
+    long result=srv_syscall4(SYS_PROCESS_CREDENTIALS,SRV_PROCESS_CREDENTIALS_CHOWN,(long)full,
+        owner==(uid_t)-1?-1L:(long)owner,group==(gid_t)-1?-1L:(long)group);
+    if(result<0) {
+        errno=(int)-result;
         return -1;
     }
     return 0;
@@ -1036,12 +1026,13 @@ int lchown(const char *path, uid_t owner, gid_t group) {
 }
 
 int fchown(int fd, uid_t owner, gid_t group) {
+    if(geteuid()!=0) { errno=EPERM;return -1; }
     struct stat st;
     if (fstat(fd, &st) < 0) {
         return -1;
     }
-    if ((owner != (uid_t)-1 && owner != 0) || (group != (gid_t)-1 && group != 0)) {
-        errno = EPERM;
+    if ((owner != (uid_t)-1 && owner != st.st_uid) || (group != (gid_t)-1 && group != st.st_gid)) {
+        errno = ENOTSUP;
         return -1;
     }
     return 0;

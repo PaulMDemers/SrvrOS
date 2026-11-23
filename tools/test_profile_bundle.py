@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-"""Offline fixture tests for portable profile bundles; no guest or security claim."""
-import base64
+"""Host metadata and local-store tests for v2 portable profile streams."""
 import copy
 import fcntl
 import hashlib
@@ -12,24 +10,51 @@ import sys
 import tempfile
 import unittest
 import uuid
-from unittest import mock
 
 import profile_bundle as p
+import profile_stream as s
 
 REPO = Path(__file__).resolve().parents[1]
-REVIEW = REPO / 'build/review/profiles'
+REVIEW = REPO / '.local/profile-stream/host-tests'
+DOC = 'Documents/folder/binary.dat'
+DATA = b'\x00\xff\x80data\n'
 
 
-def entry(path, data=b'hello'):
-    return {'path': path, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
-            'data_base64': base64.b64encode(data).decode()}
-
-
-def bundle():
-    return {'format': p.FORMAT, 'schema_version': p.VERSION,
+def metadata():
+    return {'format': p.FORMAT, 'schema_version': 2,
             'profile': {'id': str(uuid.uuid4()), 'display_name': 'Readable Name'},
-            'preferences': {'text_size': 16, 'wallpaper': 1},
-            'documents': [entry('Documents/folder/binary.dat', b'\x00\xff\x80data\n')]}
+            'preferences': {'text_size': 16, 'wallpaper': 1}}
+
+
+def seed(root, value, alias='alice', uid=1001, gid=1001, extra=None):
+    who = value['profile']
+    def populate(home):
+        path = home / DOC
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(DATA)
+        for name, content in (extra or {}).items():
+            target = home / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+    return p.install_profile(root, who, value['preferences'], p.binding(alias, uid, gid), populate)
+
+
+def make_raw(value, payload=b'', *, indent=None, sort_keys=False):
+    encoded = json.dumps(value, sort_keys=sort_keys, indent=indent,
+                         separators=None if indent else (',', ':'), ensure_ascii=True).encode()
+    return s.HEADER.pack(s.MAGIC, len(encoded), 0) + encoded + payload
+
+
+def snapshot(root):
+    result = {}
+    for path in sorted(root.rglob('*')):
+        st = path.lstat()
+        row = [st.st_dev, st.st_ino, st.st_mode, st.st_nlink, st.st_size,
+               st.st_mtime_ns, st.st_ctime_ns]
+        if path.is_file() and not path.is_symlink():
+            row.append(hashlib.sha256(path.read_bytes()).hexdigest())
+        result[str(path.relative_to(root))] = row
+    return result
 
 
 class ProfileBundleTests(unittest.TestCase):
@@ -38,205 +63,193 @@ class ProfileBundleTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir=REVIEW)
         self.base = Path(self.temp.name)
         self.a, self.b = self.base / 'install-a', self.base / 'install-b'
-        p.init_store(self.a)
-        p.init_store(self.b)
+        p.init_store(self.a); p.init_store(self.b)
+        self.value = metadata()
+        self.source = seed(self.a, self.value)
         self.addCleanup(self.temp.cleanup)
 
-    def test_round_trip_and_environment(self):
-        initial = bundle()
-        src = p.import_bundle(self.a, initial, 'alice', 1001, 1001)
-        exported = p.export_bundle(self.a, initial['profile']['id'], ['Documents/folder/binary.dat'])
-        dst = p.import_bundle(self.b, exported, 'local_b', 2050, 2050)
-        self.assertNotEqual(src['home'], dst['home'])
-        self.assertEqual((src['uid'], dst['uid']), (1001, 2050))
-        self.assertEqual(p.export_bundle(self.b, initial['profile']['id'], ['Documents/folder/binary.dat']), exported)
-        self.assertEqual(exported, initial)
-        serialized = json.dumps(exported)
-        for local_value in (src['home'], dst['home'], 'alice', 'local_b'):
-            self.assertNotIn(local_value, serialized)
-        for local_key in ('uid', 'gid', 'alias'):
-            self.assertNotIn('\"' + local_key + '\"', serialized)
-        env = p.environment(self.b, initial['profile']['id'])
-        self.assertEqual(env['HOME'], dst['home'])
-        self.assertEqual(env['SRVROS_PROFILE_ID'], initial['profile']['id'])
-        self.assertEqual(env['XDG_DATA_HOME'], dst['home'] + '/.local/share')
-        self.assertEqual(exported['profile']['display_name'], 'Readable Name')
+    def export(self, root, target, docs=(DOC,)):
+        return s.export_bundle(root, self.value['profile']['id'], list(docs), target)
 
-    def test_c_provider_matches_both_installations(self):
+    def test_round_trip_is_stream_v2_and_keeps_destination_local_binding(self):
+        source_file = self.base / 'source.srvrprofile'
+        self.export(self.a, source_file)
+        with s.open_bundle(source_file, require_canonical=True) as opened:
+            self.assertEqual(opened.metadata['schema_version'], 2)
+            self.assertEqual(opened.metadata['profile'], self.value['profile'])
+            self.assertEqual(opened.metadata['preferences'], self.value['preferences'])
+            self.assertEqual(opened.metadata['documents'], [
+                {'path': DOC, 'size': len(DATA), 'sha256': hashlib.sha256(DATA).hexdigest()}])
+            self.assertEqual(opened.sha256, hashlib.sha256(source_file.read_bytes()).hexdigest())
+        result = s.import_bundle(self.b, source_file, 'local_b', 2050, 2051)
+        self.assertNotEqual(self.source['home'], result['home'])
+        self.assertEqual((Path(result['home']) / DOC).read_bytes(), DATA)
+        env = p.environment(self.b, self.value['profile']['id'])
+        self.assertEqual(env['HOME'], result['home'])
+        self.assertEqual(env['SRVROS_PROFILE_ID'], self.value['profile']['id'])
+        self.assertEqual(env['XDG_DATA_HOME'], result['home'] + '/.local/share')
+        binding = p.local_binding(Path(result['home']).parent)
+        self.assertEqual(binding, {'alias': 'local_b', 'uid': 2050, 'gid': 2051})
+
+    def test_cli_inspect_reports_v2_and_selected_metadata_only(self):
+        target = self.base / 'selected.srvrprofile'
+        self.export(self.a, target)
+        proc = subprocess.run([sys.executable, str(REPO / 'tools/profile_stream.py'),
+                               'inspect', str(target)], capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(proc.stdout)
+        self.assertEqual(result['bundle_version'], 2)
+        self.assertEqual(result['documents'], [DOC])
+        self.assertNotIn('data_base64', proc.stdout)
+        self.assertNotIn(self.source['home'], proc.stdout)
+
+    def test_c_provider_matches_both_stores(self):
         binary = REPO / 'build/tests/profile-paths-host'
         if not binary.is_file():
             self.skipTest('build/tests/profile-paths-host is not built')
-        x = bundle()
-        for root, alias, uid in ((self.a, 'alice', 1001), (self.b, 'other', 2050)):
-            p.import_bundle(root, x, alias, uid, uid)
-            env = p.environment(root, x['profile']['id'])
+        target = self.base / 'stream.srvrprofile'
+        self.export(self.a, target)
+        s.import_bundle(self.b, target, 'other', 2050, 2050)
+        for root, identifier in ((self.a, self.value['profile']['id']),
+                                 (self.b, self.value['profile']['id'])):
+            env = p.environment(root, identifier)
             result = subprocess.run([str(binary), env['HOME']], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.splitlines(), [env['HOME'], env['XDG_CONFIG_HOME'],
-                                                          env['XDG_DATA_HOME'], env['XDG_CACHE_HOME']])
+                env['XDG_DATA_HOME'], env['XDG_CACHE_HOME']])
 
-    def test_busy_and_invalid_import_leave_store_unchanged(self):
-        x = bundle()
-        with open(self.a / '.lock', 'rb') as lock:
+    def test_busy_and_invalid_stream_import_leave_store_unchanged(self):
+        target = self.base / 'stream.srvrprofile'; self.export(self.a, target)
+        before = snapshot(self.b)
+        with (self.b / '.lock').open('rb') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             with self.assertRaises(p.ProfileError):
-                p.import_bundle(self.a, x, 'alice', 1001, 1001)
-        bad = copy.deepcopy(x)
-        bad['documents'][0]['sha256'] = '0' * 64
-        with self.assertRaises(p.ProfileError):
-            p.import_bundle(self.a, bad, 'alice', 1001, 1001)
-        self.assertEqual(list((self.a / 'staging').iterdir()), [])
-        self.assertEqual(list((self.a / 'profiles').iterdir()), [])
+                s.import_bundle(self.b, target, 'bob', 1002, 1002)
+        self.assertEqual(snapshot(self.b), before)
+        for bad in (self.base / 'legacy.json', self.base / 'truncated'):
+            bad.write_bytes(p.encode_json({'format': p.FORMAT, 'schema_version': 1,
+                'profile': self.value['profile'], 'preferences': self.value['preferences'],
+                'documents': [{'path': DOC, 'size': len(DATA),
+                    'sha256': hashlib.sha256(DATA).hexdigest(), 'data_base64': 'AA=='}]}))
+            if bad.name == 'truncated': bad.write_bytes(target.read_bytes()[:-1])
+            with self.subTest(path=bad.name), self.assertRaises((p.ProfileError, OSError)):
+                s.import_bundle(self.b, bad, 'bob', 1002, 1002)
+            self.assertEqual(snapshot(self.b), before)
 
     def test_init_rejects_symlinks_without_mutation(self):
-        target = self.base / 'target'
-        target.mkdir()
-        link = self.base / 'link'
-        link.symlink_to(target, target_is_directory=True)
+        target = self.base / 'target'; target.mkdir()
+        link = self.base / 'link'; link.symlink_to(target, target_is_directory=True)
         for root in (link, link / 'nested' / 'store'):
             with self.subTest(root=root), self.assertRaises((p.ProfileError, OSError)):
                 p.init_store(root)
             self.assertEqual(list(target.iterdir()), [])
 
-    def test_resource_limits_and_json_depth(self):
-        for raw in (b'9' * 5000, b'[' * 2000 + b']' * 2000, b' ' * (p.MAX_BUNDLE + 1)):
-            with self.subTest(length=len(raw)), self.assertRaises(p.ProfileError):
-                p.decode_json(raw)
-        x = bundle()
-        x['documents'] = [entry('Documents/f' + str(i), b'') for i in range(p.MAX_FILES + 1)]
-        with self.assertRaises(p.ProfileError): p.validate_bundle(x)
-        x['documents'] = [entry('Documents/too-big', b'x' * (p.MAX_FILE + 1))]
-        with self.assertRaises(p.ProfileError): p.validate_bundle(x)
-        chunk = b'x' * p.MAX_FILE
-        document = entry('Documents/f0', chunk)
-        x['documents'] = [dict(document, path='Documents/f' + str(i))
-                          for i in range(p.MAX_TOTAL // p.MAX_FILE + 1)]
-        with self.assertRaises(p.ProfileError): p.validate_bundle(x)
-
-    def test_json_and_schema(self):
-        for raw in (b'{', b'{"a":1,"a":2}', b'\xff', b'{"x":NaN}'):
-            with self.subTest(raw=raw), self.assertRaises(p.ProfileError): p.decode_json(raw)
+    def test_json_and_schema_limits(self):
+        for raw in (b'9' * 5000, b'[' * 2000 + b']' * 2000,
+                    b' ' * (p.MAX_JSON + 1), b'{', b'{"a":1,"a":2}',
+                    b'\xff', b'{"x":NaN}'):
+            with self.subTest(length=len(raw)), self.assertRaises(p.ProfileError): p.decode_json(raw)
+        manifest = {'format': p.FORMAT, 'schema_version': 2,
+                    'profile': self.value['profile'], 'preferences': {}, 'documents': []}
         variations = []
-        x = bundle(); x['extra'] = 1; variations.append(x)
-        x = bundle(); x['schema_version'] = True; variations.append(x)
-        x = bundle(); x['schema_version'] = 2; variations.append(x)
-        x = bundle(); x['profile']['uid'] = 1001; variations.append(x)
-        x = bundle(); del x['profile']['display_name']; variations.append(x)
-        x = bundle(); x['profile']['id'] = 'bad'; variations.append(x)
-        x = bundle(); x['preferences']['display_width'] = 800; variations.append(x)
-        x = bundle(); x['preferences']['password'] = 'not-exportable'; variations.append(x)
-        x = bundle(); x['preferences']['text_size'] = True; variations.append(x)
-        for x in variations:
-            with self.subTest(x=x), self.assertRaises(p.ProfileError): p.validate_bundle(x)
+        bad = copy.deepcopy(manifest); bad['schema_version'] = 1; variations.append(bad)
+        bad = copy.deepcopy(manifest); bad['schema_version'] = True; variations.append(bad)
+        bad = copy.deepcopy(manifest); bad['extra'] = 1; variations.append(bad)
+        bad = copy.deepcopy(manifest); bad['preferences'] = {'password': 'not-exportable'}; variations.append(bad)
+        bad = copy.deepcopy(manifest); bad['preferences'] = {'text_size': True}; variations.append(bad)
+        bad = copy.deepcopy(manifest); bad['profile']['uid'] = 1001; variations.append(bad)
+        for value in variations:
+            with self.subTest(value=value), self.assertRaises(p.ProfileError): s.validate_manifest(value)
 
-    def test_document_paths_integrity_and_collisions(self):
+    def test_v1_json_and_bad_framing_are_rejected(self):
+        doc = {'path': DOC, 'size': 0, 'sha256': hashlib.sha256(b'').hexdigest()}
+        valid = {'format': p.FORMAT, 'schema_version': 2, 'profile': self.value['profile'],
+                 'preferences': {}, 'documents': []}
+        cases = [
+            p.encode_json({'format': p.FORMAT, 'schema_version': 1, 'profile': self.value['profile'],
+                           'preferences': {}, 'documents': []}),
+            make_raw(valid)[:-1], make_raw(valid) + b'x',
+            s.HEADER.pack(s.MAGIC, 65537, 0) + b'x' * 65537,
+            s.HEADER.pack(s.MAGIC, 1, 1) + b'{}',
+            make_raw(dict(valid, documents=[dict(doc, data_base64='')]))]
+        for index, raw in enumerate(cases):
+            path = self.base / ('invalid-' + str(index)); path.write_bytes(raw)
+            with self.subTest(index=index), self.assertRaises((p.ProfileError, OSError)):
+                with s.open_bundle(path): pass
+
+    def test_noncanonical_v2_manifest_remains_readable(self):
+        value = {'format': p.FORMAT, 'schema_version': 2, 'profile': self.value['profile'],
+                 'preferences': {}, 'documents': []}
+        path = self.base / 'noncanonical.srvrprofile'
+        path.write_bytes(make_raw(value, indent=2, sort_keys=False))
+        with s.open_bundle(path) as opened:
+            self.assertEqual(opened.metadata, value)
+        with self.assertRaises(p.ProfileError):
+            with s.open_bundle(path, require_canonical=True): pass
+
+    def test_document_paths_and_case_collisions(self):
         for path in ('../Documents/a', '/Documents/a', 'Documents/../a', 'Documents/./a',
-                     'Documents/.hidden', 'Documents/a\\b', 'Documents//a', 'Documents/a/'):
-            x = bundle(); x['documents'] = [entry(path)]
-            with self.subTest(path=path), self.assertRaises(p.ProfileError): p.validate_bundle(x)
-        for key, value in (('data_base64', '!'), ('sha256', '0' * 64), ('size', 99)):
-            x = bundle(); x['documents'][0][key] = value
-            with self.subTest(key=key), self.assertRaises(p.ProfileError): p.validate_bundle(x)
+                     'Documents/.hidden', 'Documents/a\\b', 'Documents//a', 'Documents/a/',
+                     'Documents/a' * 100):
+            with self.subTest(path=path), self.assertRaises(p.ProfileError): p.document_path(path)
         for paths in (('Documents/a', 'Documents/a'), ('Documents/a', 'Documents/a/b'),
                       ('Documents/A', 'Documents/a'), ('Documents/Folder/a', 'Documents/folder/b')):
-            x = bundle(); x['documents'] = [entry(q) for q in paths]
-            with self.subTest(paths=paths), self.assertRaises(p.ProfileError): p.validate_bundle(x)
+            manifest = {'format': p.FORMAT, 'schema_version': 2,
+                        'profile': self.value['profile'], 'preferences': {},
+                        'documents': [{'path': q, 'size': 0, 'sha256': hashlib.sha256(b'').hexdigest()}
+                                      for q in paths]}
+            with self.subTest(paths=paths), self.assertRaises(p.ProfileError): s.validate_manifest(manifest)
 
-    def test_conflicts_do_not_mutate_store(self):
-        existing = bundle(); p.import_bundle(self.a, existing, 'alice', 1001, 1001)
-        before = sorted(str(q.relative_to(self.a)) for q in self.a.rglob('*'))
-        for candidate, alias, uid in ((existing, 'other', 2000), (bundle(), 'alice', 2000),
-                                      (bundle(), 'other', 1001)):
+    def test_conflicts_and_source_types_do_not_mutate_store(self):
+        stream_path = self.base / 'stream.srvrprofile'; self.export(self.a, stream_path)
+        before = snapshot(self.a)
+        for alias, uid, gid in (('alice', 2000, 2000), ('other', 1001, 2000)):
             with self.subTest(alias=alias, uid=uid), self.assertRaises(p.ProfileError):
-                p.import_bundle(self.a, candidate, alias, uid, 2000)
-            self.assertEqual(before, sorted(str(q.relative_to(self.a)) for q in self.a.rglob('*')))
-            self.assertEqual(p.export_bundle(self.a, existing['profile']['id'], ['Documents/folder/binary.dat']), existing)
-
-    def test_source_file_types_and_explicit_omissions(self):
-        x = bundle(); src = p.import_bundle(self.a, x, 'alice', 1001, 1001)
-        home = Path(src['home']); docs = home / 'Documents'
-        for rel in ('.cache/secret', 'session', 'credentials', 'display.conf', 'Documents/unselected'):
-            target = home / rel; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(b'SECRET')
-        exported = p.export_bundle(self.a, x['profile']['id'], ['Documents/folder/binary.dat'])
-        self.assertEqual([item['path'] for item in exported['documents']], ['Documents/folder/binary.dat'])
-        self.assertEqual(exported['preferences'], x['preferences'])
-        (docs / 'symlink').symlink_to(docs / 'folder/binary.dat')
+                s.import_bundle(self.a, stream_path, alias, uid, gid)
+            self.assertEqual(snapshot(self.a), before)
+        docs = Path(self.source['home']) / 'Documents'
+        (docs / 'symlink').symlink_to(docs / 'folder' / 'binary.dat')
         (docs / 'linked_dir').symlink_to(docs / 'folder', target_is_directory=True)
-        os.link(docs / 'folder/binary.dat', docs / 'hardlink')
+        os.link(docs / 'folder' / 'binary.dat', docs / 'hardlink')
         os.mkfifo(docs / 'fifo')
-        for path in ('Documents/symlink', 'Documents/linked_dir/binary.dat', 'Documents/hardlink', 'Documents/fifo'):
+        for path in ('Documents/symlink', 'Documents/linked_dir/binary.dat',
+                     'Documents/hardlink', 'Documents/fifo'):
             with self.subTest(path=path), self.assertRaises((p.ProfileError, OSError)):
-                p.export_bundle(self.a, x['profile']['id'], [path])
+                s.export_bundle(self.a, self.value['profile']['id'], [path], self.base / 'bad')
+            self.assertFalse((self.base / 'bad').exists())
 
-    def test_legacy_projection(self):
-        x = bundle(); src = p.import_bundle(self.a, x, 'alice', 1001, 1001)
+    def test_legacy_desktop_projection_still_emits_v2(self):
         contents = ("srvros-desktop-v7\ntext_size=20\nclock_flags=3\nwallpaper=2\n"
                     "theme_accent=1\nglass_level=2\ntheme_style=1\n"
                     "utc_offset_minutes=330\npointer_speed=4\npointer_acceleration=1\n"
                     "disable_while_typing=1\ntap_to_click=1\ntwo_finger_tap=1\n"
                     "display_scale=2\ndisplay_width=1280\ndisplay_height=800\n")
-        desktop = Path(src['home']) / 'desktop.conf'
-        desktop.write_text(contents)
-        projected = p.export_bundle(self.a, x['profile']['id'], [], legacy_desktop=True)
-        expected = {'text_size': 20, 'clock_flags': 3, 'wallpaper': 2,
-                    'theme_accent': 1, 'glass_level': 2, 'theme_style': 1}
-        self.assertEqual(projected['preferences'], expected)
-        self.assertEqual(desktop.read_text(), contents)
-        target = self.base / 'legacy.json'
-        result = subprocess.run([sys.executable, str(REPO / 'tools/profile_bundle.py'), 'export',
-                                 str(self.a), x['profile']['id'], str(target), '--legacy-desktop'],
-                                capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(target.read_text()), projected)
-        dst = p.import_bundle(self.b, projected, 'other', 2050, 2050)
-        self.assertEqual(json.loads((Path(dst['home']) / p.PREF_PATH).read_text()), expected)
-        self.assertEqual(desktop.read_text(), contents)
-        (Path(src['home']) / 'desktop.conf').write_text(contents + 'extra=1\n')
-        with self.assertRaises(p.ProfileError): p.export_bundle(self.a, x['profile']['id'], [], legacy_desktop=True)
+        Path(self.source['home'], 'desktop.conf').write_text(contents)
+        target = self.base / 'legacy-settings-projected.srvrprofile'
+        s.export_bundle(self.a, self.value['profile']['id'], [], target, legacy_desktop=True)
+        with s.open_bundle(target, require_canonical=True) as opened:
+            self.assertEqual(opened.metadata['schema_version'], 2)
+            self.assertEqual(opened.metadata['preferences'], {'text_size': 20, 'clock_flags': 3,
+                'wallpaper': 2, 'theme_accent': 1, 'glass_level': 2, 'theme_style': 1})
+        self.assertEqual(Path(self.source['home'], 'desktop.conf').read_text(), contents)
 
     def test_checkpoint_recovery_and_retry(self):
-        for fail_at in ('stage', 'metadata', 'document:Documents/folder/binary.dat', 'before-publish', 'after-publish'):
+        stream_path = self.base / 'stream.srvrprofile'; self.export(self.a, stream_path)
+        for fail_at in ('stage', 'metadata', 'document:' + DOC, 'before-publish', 'after-publish'):
             with self.subTest(fail_at=fail_at):
                 root = self.base / ('checkpoint-' + fail_at.replace('/', '_').replace(':', '_'))
-                p.init_store(root); x = bundle()
+                p.init_store(root)
                 def checkpoint(name):
                     if name == fail_at: raise RuntimeError(name)
-                with self.assertRaises(RuntimeError): p.import_bundle(root, x, 'alice', 1001, 1001, checkpoint)
+                with self.assertRaises(RuntimeError): s.import_bundle(root, stream_path, 'alice', 1001, 1001, checkpoint)
                 if fail_at == 'after-publish':
                     self.assertEqual(p.recover(root)['discarded_unpublished_imports'], 0)
-                    with self.assertRaises(p.ProfileError): p.import_bundle(root, x, 'alice', 1001, 1001)
-                    self.assertEqual(p.export_bundle(root, x['profile']['id'], ['Documents/folder/binary.dat']), x)
+                    with self.assertRaises(p.ProfileError): s.import_bundle(root, stream_path, 'alice', 1001, 1001)
                 else:
-                    with self.assertRaises(p.ProfileError): p.import_bundle(root, x, 'alice', 1001, 1001)
+                    with self.assertRaises(p.ProfileError): s.import_bundle(root, stream_path, 'alice', 1001, 1001)
                     self.assertEqual(p.recover(root)['discarded_unpublished_imports'], 1)
-                    p.import_bundle(root, x, 'alice', 1001, 1001)
-                    self.assertEqual(p.export_bundle(root, x['profile']['id'], ['Documents/folder/binary.dat']), x)
-
-    def test_write_failure_recovery(self):
-        x = bundle()
-        x['documents'].append(entry('Documents/second', b'second'))
-        original = p.write_new
-        def failing(path, data):
-            if Path(path).name == 'second':
-                raise OSError('injected write failure')
-            return original(path, data)
-        with mock.patch.object(p, 'write_new', side_effect=failing):
-            with self.assertRaises(OSError): p.import_bundle(self.a, x, 'alice', 1001, 1001)
-        self.assertEqual(list((self.a / 'profiles').iterdir()), [])
-        self.assertEqual(p.recover(self.a)['discarded_unpublished_imports'], 1)
-        p.import_bundle(self.a, x, 'alice', 1001, 1001)
-        self.assertEqual(p.export_bundle(self.a, x['profile']['id'],
-                         ['Documents/folder/binary.dat', 'Documents/second']), x)
-
-    def test_publish_no_overwrite_and_cli_inspect_failure(self):
-        target = self.base / 'bundle.json'; target.write_bytes(b'existing')
-        with self.assertRaises(p.ProfileError): p.publish_bundle(target, bundle())
-        self.assertEqual(target.read_bytes(), b'existing')
-        target.write_bytes(b'{broken')
-        result = subprocess.run([sys.executable, str(REPO / 'tools/profile_bundle.py'), 'inspect', str(target)],
-                                capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn('profile:', result.stderr)
+                    s.import_bundle(root, stream_path, 'alice', 1001, 1001)
+                self.assertEqual((Path(p.environment(root, self.value['profile']['id'])['HOME']) / DOC).read_bytes(), DATA)
 
 
 if __name__ == '__main__': unittest.main()

@@ -23,6 +23,7 @@ import uuid
 
 import installation_image as image
 import profile_bundle as profiles
+import profile_stream_fixture
 import profile_image
 import source_provenance
 from test_installation_image import exfat_fixture
@@ -182,9 +183,9 @@ def setup(root, variant):
     driver = root / 'driver'
     driver.write_text('#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[1], "r+b") as f:\n f.seek(-1,2); f.write(b"X")\n')
     driver.chmod(0o755)
-    bundle = root / 'bundle.json'
-    bundle.write_bytes(profiles.encode_json({'format': profiles.FORMAT, 'schema_version': 1,
-        'profile': {'id': str(uuid.uuid4()), 'display_name': 'A'}, 'preferences': {}, 'documents': []}))
+    bundle = root / 'bundle.srvrprofile'
+    profile_stream_fixture.write_stream(bundle,
+        {'id': str(uuid.uuid4()), 'display_name': 'A'}, {}, [])
     options = {}
     if variant == 'profile':
         options = dict(profile_bundle=bundle, profile_home='/fat/home/alice', profile_alias='alice',

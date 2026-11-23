@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import shutil
 import stat
+import io
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,8 @@ import installation_export_publication as publication
 import installation_image as image
 import installation_inspection as inspection
 import profile_bundle as p
+import profile_stream
+import profile_stream_fixture
 import profile_chooser_smoke as c
 import profile_create_smoke as create
 import profile_desktop_smoke as d
@@ -49,7 +52,7 @@ import installation_export as export
 import installation_export_publication as pub
 mode,stage,out,attempt,who,home,inspect_driver,export_driver=sys.argv[2:]
 real_write,real_sync,real_link,real_unlink,real_close=os.write,os.fsync,os.link,os.unlink,os.close
-armed=False;after_unlink=False;triggered=[];bid=None;size=None
+armed=False;after_unlink=False;triggered=[];bid=None;size=None;short_started=False
 def checkpoint(name):
  global armed,after_unlink,bid,size
  if name=='recorded':
@@ -57,9 +60,12 @@ def checkpoint(name):
  if name=='unlinked':after_unlink=True
 def candidate(fd):return armed and pub.identity(os.fstat(fd))==bid
 def write(fd,data):
+ global short_started
  if mode in ('write','short-write') and candidate(fd):
   triggered.append(mode)
-  if mode=='short-write':return real_write(fd,data[:1])
+  if mode=='short-write':
+   if not short_started:short_started=True;return real_write(fd,data[:1])
+   return 0
   raise OSError('injected payload write')
  if mode=='ack-write' and after_unlink and stat.S_ISREG(os.fstat(fd).st_mode) and not candidate(fd):
   triggered.append(mode);return real_write(fd,data[:1])
@@ -166,7 +172,7 @@ def main():
             ('installation_export_recovery_smoke.py', 'installation_export_publication.py',
              'installation_export.py', 'installation_image.py', 'installation_inspection.py',
              'profile_create_smoke.py', 'profile_chooser_smoke.py', 'profile_switch_smoke.py',
-             'profile_transfer_smoke.py', 'profile_bundle.py', 'exfat_test_image.py')}
+             'profile_transfer_smoke.py', 'profile_bundle.py', 'profile_stream.py', 'profile_stream_fixture.py', 'exfat_test_image.py')}
         require(shutil.disk_usage(out).free >= 8 * GIB, 'need 8 GiB free for bounded two-disk proof')
         receipt['space'] = {'free_before': shutil.disk_usage(out).free, 'reserve': 4 * GIB}
         inputs = {name: ROOT / path for name, path in {
@@ -203,8 +209,15 @@ def main():
             folder = out / name; folder.mkdir(); return folder
         normal = case('normal')
         result = call(export_args(normal)); require(result['state'] == 'exported', 'normal tracked export failed')
-        expected_bytes = (normal / 'output.json').read_bytes(); bundle = p.decode_json(expected_bytes)
-        payloads = p.validate_bundle(bundle); identity = bundle['profile']
+        expected_path = normal / 'output.json'; expected_bytes = expected_path.read_bytes()
+        with profile_stream.open_bundle(expected_path, require_canonical=True) as opened:
+            bundle = opened.metadata; payloads = {}
+            for entry in bundle['documents']:
+                sink = io.BytesIO(); opened.copy_document(entry, sink); payloads[entry['path']] = sink.getvalue()
+        identity = bundle['profile']
+        fixture_path = out / 'expected.srvrprofile'
+        profile_stream_fixture.write_stream(fixture_path, identity, bundle['preferences'], list(payloads.items()))
+        require(fixture_path.read_bytes() == expected_bytes, 'canonical fixture differs from exported bytes')
         require(identity['id'] == args.profile_id and payloads == dict(zip(DOCS, (create.TEXT, create.BINARY))) and
                 bundle['preferences'] == create.DEFAULTS, 'source is not the qualified synthetic default-profile fixture')
         receipt['export'] = {'sha256': hashlib.sha256(expected_bytes).hexdigest(), 'profile': identity,
@@ -244,10 +257,10 @@ def main():
         # Fixture publication for corruption cases uses the already admitted
         # exact snapshot; only these new output/record files are mutated.
         record = json.loads((normal / 'attempt/intent.json').read_bytes())
-        for kind in ('torn-record', 'torn-ack', 'wrong-hash', 'wrong-inode', 'extra-link', 'symlink', 'unknown', 'parent', 'mode', 'future-v2'):
+        for kind in ('torn-record', 'torn-ack', 'wrong-hash', 'wrong-inode', 'extra-link', 'symlink', 'unknown', 'parent', 'mode', 'future-schema'):
             folder = case('refuse-' + kind); dest = folder / 'dest'; dest.mkdir()
             attempt, output = folder / 'attempt', dest / 'output.json'
-            require(publication.publish(attempt, output, bundle, record['source_snapshot'])['state'] == 'complete', 'refusal fixture failed')
+            require(publication.publish_stream(attempt, output, fixture_path, record['source_snapshot'])['state'] == 'complete', 'refusal fixture failed')
             if kind == 'torn-record': (attempt / 'intent.json').write_bytes(b'{')
             elif kind == 'torn-ack': (attempt / 'complete.json').write_bytes(b'{')
             elif kind == 'wrong-hash': output.write_bytes(expected_bytes.upper())
@@ -260,7 +273,9 @@ def main():
             elif kind == 'parent': dest.rename(folder / 'moved'); dest.mkdir()
             elif kind == 'mode': attempt.chmod(0o755)
             else:
-                altered = p.encode_json(dict(bundle, schema_version=2)); output.write_bytes(altered)
+                manifest = p.encode_json(dict(bundle, schema_version=3))
+                altered = profile_stream.HEADER.pack(profile_stream.MAGIC, len(manifest), 0) + manifest + b''.join(payloads.values())
+                output.write_bytes(altered)
                 value = json.loads((attempt / 'intent.json').read_bytes()); value['sha256'] = hashlib.sha256(altered).hexdigest(); value['size'] = len(altered)
                 encoded = p.encode_json(value); (attempt / 'intent.json').write_bytes(encoded)
                 (attempt / 'intent.sha256').write_text(hashlib.sha256(encoded).hexdigest() + '\n')

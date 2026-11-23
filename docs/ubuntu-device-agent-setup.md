@@ -250,6 +250,34 @@ This checks boot and console input; the v7 rehearsal does not attach the
 prepared physical workspace or establish USB persistence. Use the desktop
 rehearsal below for disposable workspace coverage, then validate the real drive.
 
+### Qualify a Retina candidate
+
+With the Retina kernel, initramfs and Limine EFI loader already built,
+run the fractional-display and missing-workspace rehearsals together:
+
+```sh
+tools/trial qualify retina --uuid "$SRVROS_USB_UUID"
+```
+
+The command stages the built inputs once into a private directory. Both
+QEMU cases must report the same release and staged manifest hash. The
+present case attaches a disposable GPT workspace and exercises fractional
+scaling, Text, screenshot and clean return. The missing case boots without
+the workspace and checks that the guest skips the desktop and returns.
+The command saves `qualification.json`, both case results and their logs
+under a unique `build/trial-qualifications/retina-*` directory. Exit 0
+means both rehearsals passed. Inspect the receipt and per-case logs on a
+failure. Each invocation has its own staging selector and output paths.
+
+Omit `--uuid` for a VM-only UUID. To qualify another built checkout, pass
+`--source-root PATH`; its staging code and smoke harness must support the
+Retina recipe. The manifest records the Git checkout at staging time and
+hashes of the actual payload. Source revisions alone cannot identify when
+existing build outputs were compiled. Use `--stage-parent PATH` to store the
+payload on a separate filesystem; using tmpfs makes that copy temporary.
+The receipt and VM evidence stay in the invoking checkout. This command
+runs VMs only. The existing device workflow owns install and native tests.
+
 ### Attended movement, dock and keyboard trial (Air7,2)
 
 The explicit navigation profile opens the complete **Window navigation trial**
@@ -795,7 +823,68 @@ A first boot can instead be selected manually from the GRUB menu. The helper is
 not a macOS boot installer, and no raw USB image needs to be written over the
 exFAT logging drive for this Ubuntu/GRUB workflow.
 
+### Prepare the installed Retina return record
+
+After installing the VM-qualified image and retaining the unit’s known-good
+previous release, run the preflight on Ubuntu with the USB workspace
+attached and unmounted. Use the accepted recovery release and backup
+directory from this unit’s handoff.
+
+```sh
+tools/trial prepare-return "$QUALIFICATION_JSON" --sudo \
+  --recovery-release "$RECOVERY_RELEASE" --recovery-archive "$RECOVERY_ARCHIVE"
+```
+
+The command reads the two VM results and checks that guest Help opened the
+Retina checklist. It compares the installed payload hashes with the qualified
+payload and the previous release with the independent backup. The installed
+and qualification checkout revisions are recorded separately. It checks the
+Ubuntu default, the generated GRUB release entries and pending GRUB/firmware
+one-shot selections. Inspection runs `fsck.exfat -n`, mounts the UUID-matched
+GPT workspace read-only to capture file hashes, prior sessions and node
+headroom, then unmounts it. Only host inspection uses sudo. The invoking user
+owns the saved files.
+
+The printed record is under `build/trial-runs/retina-*/run.json`; pass its
+directory to `tools/trial collect` after a return. Exit 0 means the installed
+trial is verified and unarmed. Exit 1 means a prior file already occupies the
+guest Help proof filename. The record contains the complete checklist with a
+fresh filename. Deliver it to the operator and confirm they captured it before
+any attended reboot. Exit 2 means an inspection failed. Installation, arming
+and reboot remain explicit, separate actions.
+
 ## 7. Test, return and collect
+
+For a native desktop or laptop-probe run with a pre-boot session list, use
+the exact run directory from the handoff. After Ubuntu returns with its
+USB workspace mounted, collect the evidence into a private directory under
+`build/trial-collections/` with:
+
+```sh
+tools/trial collect "$RUN_DIR" --save
+```
+
+Omit `--save` for a JSON report on stdout. The command reads the recorded
+model and volume UUID, checks the marker, excludes pre-existing sessions,
+and matches the release in boot-option records. An unidentified new session
+beside a matching one makes the selection ambiguous. The live report checks
+prior file hashes and the installed recovery against the archive when the
+record contains those bindings. A null workspace comparison means no
+fingerprint baseline was supplied. Read failures remain visible. Use the
+recipe's offline filesystem, metadata, journal and physical acceptance
+checks as applicable.
+
+Use `tools/trial collect "$RUN_DIR" --archive` to replay the run's
+`return-evidence/sessions` or single legacy `collection/collection-*`
+directory without a device. The report keeps prior recipe results under
+`previously_reported` and independently checks the archived snapshots.
+Exit 0 means a unique match, a framed exit snapshot and the presence of
+all declared receipt markers. A failed trial can produce a complete log.
+Exit 1 means missing or ambiguous evidence. Exit 2 means an input or
+collection error. Inspect the workspace changes, recovery checks,
+attention counts and recipe verdict separately. A saved bundle includes
+the matched session logs and JSON report. Move accepted evidence into
+the unit's persistent recovery archive before cleaning the build tree.
 
 The desktop profile opens persistent Help instructions and has **no timed exit**.
 Do the recorded tests; save screenshots with Command-Shift-3. Return through
@@ -943,6 +1032,28 @@ The Air's [recovery record](machines/macbookair7-2.md#allocation-check-discrepan
 does not authorize applying that repair to another machine's unexplained error.
 The [exfatprogs rescue implementation](https://github.com/exfatprogs/exfatprogs/blob/1.3.2/fsck/fsck.c)
 handles orphan recovery separately from ordinary read-only checking.
+
+### Compare two recorded returns
+
+Run `tools/trial compare "$RUN_A" "$RUN_B"` for a Markdown table with
+evidence links, or append `--json` for structured values and paths.
+Each input can be an archived native run directory, a directory created by
+`trial collect --save`, or its `return.json`. Comparison runs offline.
+Archived runs go through release/session matching. Saved bundles must
+reproduce their recorded log sizes, hashes, boot identity, exit framing
+and marker presence.
+
+The report gives the first unequal check observed on both sides in the
+displayed stage order. One-sided observations stay visible. The order
+describes the comparison and establishes no cause. For single Wi-Fi active
+removal, the command reads the connection, traffic and cleanup measurements
+from the framed exit logs and cross-checks overlapping recipe measurements.
+Known successful checks are grouped. Additional recipe fields retain their
+recorded values and verdicts.
+
+Exit 0 means both inputs have complete log capture, including when their
+outcomes differ. Exit 1 prints a comparison with incomplete capture. Exit 2
+reports an invalid input or conflicting evidence.
 
 ## 8. Unattended filesystem confidence tests
 

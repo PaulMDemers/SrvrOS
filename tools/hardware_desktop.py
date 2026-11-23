@@ -33,6 +33,16 @@ def session_releases(text):
     return sorted(releases)
 
 
+def check_large_radio_identity(text, release, cal5_cleanup_capture):
+    required={"srvros.desktop-release="+release,"srvros.wifi-held-channel=1","srvros.capture=wifi-firmware","srvros.capture-failure=reboot"}
+    if cal5_cleanup_capture:
+        required |= {"srvros.wifi-cal5-cleanup=1","srvros.wifi-cal5=1","srvros.wifi-stack5=1","srvros.wifi-stream5=1"}
+    records=(line[len(prefix):].split() for line in text.splitlines()
+             for prefix in ("cmdline: ","laptop-capture: boot options=") if line.startswith(prefix))
+    if session_releases(text)!=[release] or not any(required.issubset(tokens) for tokens in records):
+        raise ValueError("Large radio log lacks matching boot identity/profile")
+
+
 def device_snapshot(line):
     if not line.startswith("workspace-devices: "):
         return None
@@ -688,13 +698,7 @@ def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=F
                 http_reconnect5_identity(payload[name].decode("utf-8",errors="strict"),radio_capture[1],volume)
             if len(payload[name])>MAX_LOG_BYTES:
                 text=payload[name].decode("utf-8",errors="strict")
-                required={"srvros.desktop-release="+radio_capture[1],"srvros.wifi-held-channel=1","srvros.capture=wifi-firmware","srvros.capture-failure=reboot"}
-                if cal5_cleanup_capture:
-                    required |= {"srvros.wifi-cal5-cleanup=1","srvros.wifi-cal5=1","srvros.wifi-stack5=1","srvros.wifi-stream5=1"}
-                records=(line[len(prefix):].split() for line in text.splitlines()
-                         for prefix in ("cmdline: ","laptop-capture: boot options=") if line.startswith(prefix))
-                if session_releases(text)!=[radio_capture[1]] or not any(required.issubset(tokens) for tokens in records):
-                    raise ValueError("Large radio log lacks matching boot identity/profile")
+                check_large_radio_identity(text, radio_capture[1], cal5_cleanup_capture)
         if http5_capture and folder.name==radio_capture[0] and not any(name in payload for name in FILES):
             raise ValueError("Selected HTTP session has no boot/exit identity snapshot")
         if (reconnect5_capture or http_reconnect5_capture) and folder.name==radio_capture[0] and not {"boot.log","exit.log"}<=set(payload):

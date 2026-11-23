@@ -1,9 +1,47 @@
 # Current status
 
-Updated 2026-11-04. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-22. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
+
+## Current browser audit
+
+The user resumed browser work after the completed closeout. The source-backed
+[WebCore dependency and software-backend audit](browser-webcore-audit.md) is
+complete with runtime and SrvrUI owner review. A CPU/SHM rendering path exists
+in the pinned source; missing GLib dependencies, shared-memory/IPC, combined
+wait policy and frame completion/cancellation remain explicit implementation
+gates. No full target configure, engine build or rendered page is claimed.
+The GLib 2.90.1 cross-configure computes the SrvrOS poll constants,
+configures bundled GVDB, and detects GNU libiconv 1.19, PCRE2 10.49,
+libffi 3.8.0 and zlib 1.4. It configures the internal proxy-libintl 0.5
+fallback. The normal guest passed all six dependency probes twice. The
+SDK exports `<arpa/nameser.h>` and passes GIO's `C_IN` compile check.
+GIO now links the SDK's `res_query()` and Meson generates the static GLib
+build graph. The native resolver and DNS decoder passed twice in the diskless
+guest against a private DNS peer. GIO's resolver and GLib's file-utilities
+objects compile. No-follow file checks passed on initramfs and a private
+exFAT disk. GLib's hostname utilities compile and the native hostname checks
+passed. The static build first stops at `NSIG` and `SA_NOCLDSTOP` in `gmain.c`.
+See the [GLib probe record](browser-glib-prereq.md).
+
+The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
+open and draft under its own acceptance ledger.
+
+## Offline profile restoration
+
+[OS #502](https://github.com/PaulMDemers/SrvrOS/pull/502) adds streaming-v2
+bundle admission and restoration into a fresh offline installation. Two EFI
+boots verified the restored identity, local binding, preferences and exact bytes
+of all three selected documents, including a 16 MiB file. A separate v1 restore
+boot passed. The current-main refresh reproduced the proof inputs byte for byte.
+Profiles, the guest CLI and offline tools now use streaming v2 for every
+portable bundle. Offline export requires a publication directory so it can
+reconcile an interrupted attempt. See the
+[v2-only qualification](assets/evidence/portable-v2-only/manifest.json).
+See the [installation guide](disk-installation.md) and
+[qualification manifest](assets/screenshots/installation-stream-restore-manifest.json).
 
 ## Final local integration and workspace reset
 
@@ -31,12 +69,12 @@ the workspace are preserved. Historical local paths and retention statements
 below describe earlier checkpoints and do not promise post-reset availability.
 Hosted Actions remain disabled; verification uses the recorded local checks.
 
-Physical-device PRs #301 and #19 remain separate unfinished work with remote
-source preserved. #301 has a bounded native read-only GGTT survey, with no managed
-mapping or page-flip authority. #19 now places Wi-Fi at syscall 169, preserving
+At the November 4 workspace cleanup, physical-device PRs #301 and #19 were
+separate unfinished work with remote source preserved. At that checkpoint, #301 had a bounded native read-only GGTT survey, with no managed
+mapping or page-flip authority. #19 placed Wi-Fi at syscall 169, preserving
 signals 164–167 and profile streaming 168; corrected physical power and combined
-integration qualification remain pending. Neither PR is silently accepted or
-merged by this workspace cleanup.
+integration qualification were pending. The workspace cleanup did not merge
+or qualify either PR.
 
 ## November 4 integration closeout
 
@@ -58,16 +96,15 @@ hardware qualification.
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
 | Browser | The initial GC abort was attributed to unavailable entropy. Provider-only entropy and bounded no-JIT JavaScript/GC checks now pass on the reconciled current-main kernels; Ports #9 and OS #334 deliver the milestone. See [browser work](browser-port.md). No full browser or production capability acceptance is claimed. |
 
-Offline installation export and export-publication recovery remain canonical
-v1. The separate guest profile v2 streaming milestone does not add offline v2
-installation admission or export; that later work is deferred. See the
-[installation format boundary](disk-installation.md).
+At that closeout, offline installation export and export-publication recovery
+used canonical v1, and offline v2 admission and export were deferred. The
+[installation guide](disk-installation.md) records the later restore workflow.
 
 The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
 completed delivery and explicit exceptions. Physical-device PRs #301 and #19 retain separate owners and
-acceptance ledgers. They are not silently included in this closeout. #301 retains its current-main
-integration gate. #19 has moved its former syscall 164 proposal to 169, but
-remains draft with unfinished integration and native qualification. Profile
+acceptance ledgers. At that closeout, #301 retained its current-main integration
+gate and #19 was still draft. #19 had moved its former syscall 164 proposal to
+169, with integration and native qualification pending at that point. Profile
 streaming uses 168 and signals reserve 164–167. Local chat tools
 cannot reach those physical-device owners; no new device trial is scheduled here.
 
@@ -195,7 +232,7 @@ lifetime and crash recovery remain under audit.
 | Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback completed on hardware with zero reported underruns; prompted headphone/speaker controls reported successful in the v58 trial |
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | Air7,2 native ordinary Home battery service, AC transitions and cached indicator accepted; default startup remains opt-in. No accepted suspend/resume |
-| Wi-Fi / Bluetooth / NVMe | Pro USB Wi-Fi firmware/MCU/baseband diagnostics ongoing in PR19; no accepted Wi-Fi connectivity, Bluetooth or NVMe support |
+| Wi-Fi / Bluetooth / NVMe | Merged Pro MT7610 work has bounded native WPA2/CCMP, DHCP/DNS and HTTP qualification on the tested 5 GHz setup. Bluetooth and NVMe remain open. [PR #19](https://github.com/PaulMDemers/SrvrOS/pull/19) |
 | POSIX / ports | [Portable C profile](posix-supported-profile.md): thread-local errno/TLS, shared files/descriptors, positional/vectored I/O, ordered spawn, bounded fork, readiness/time and stream contracts implemented with host/VM regressions; not full POSIX, Linux or Node compatibility |
 | Isolation / security | Separate user processes exist, but no security boundary suitable for untrusted workloads or exposed production services |
 

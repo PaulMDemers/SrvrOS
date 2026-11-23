@@ -38,6 +38,7 @@
 #include <srvros/virtio_rng.h>
 #include <srvros/random.h>
 #include <srvros/process.h>
+#include <srvros/process_credentials.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
 #include <srvros/service_window.h>
@@ -1153,6 +1154,42 @@ static int64_t copy_storage_path(const char *input,char *out,uint64_t capacity,b
     return vfs_namespace_system_path(normalized,out,capacity);
 }
 
+static int64_t syscall_process_credentials(uint64_t operation,uint64_t first,uint64_t second,uint64_t third) {
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(operation==SRV_PROCESS_CREDENTIALS_GET) {
+        struct srv_process_credentials out={.uid=credentials.uid,.gid=credentials.gid};
+        return copy_to_user((void *)(uintptr_t)first,&out,sizeof(out))?0:SRV_ERR_FAULT;
+    }
+    if(operation==SRV_PROCESS_CREDENTIALS_DROP) {
+        if(first>=UINT32_MAX || second>=UINT32_MAX)return SRV_ERR_INVAL;
+        return process_drop_credentials(first,second);
+    }
+    if(operation!=SRV_PROCESS_CREDENTIALS_CHOWN && operation!=SRV_PROCESS_CREDENTIALS_ACCESS)
+        return SRV_ERR_INVAL;
+    if(operation==SRV_PROCESS_CREDENTIALS_CHOWN && credentials.uid)return SRV_ERR_PERM;
+    if(operation==SRV_PROCESS_CREDENTIALS_ACCESS && second>7)return SRV_ERR_INVAL;
+    char path[MAX_PATH_LENGTH];
+    int64_t result=copy_storage_path((const char *)(uintptr_t)first,path,sizeof(path),false);
+    if(result<0)return result;
+    if(operation==SRV_PROCESS_CREDENTIALS_ACCESS) {
+        if(credentials.uid)return vfs_check_access(path,credentials.uid,credentials.gid,(unsigned)second);
+        /* Preserve the existing privileged libc access() convention. */
+        struct vfs_metadata metadata;
+        if(!vfs_stat(path,&metadata,NULL,NULL))return SRV_ERR_NOENT;
+        return ((metadata.mode>>6)&second)==second?0:SRV_ERR_ACCES;
+    }
+    if((second>=UINT32_MAX && second!=UINT64_MAX) || (third>=UINT32_MAX && third!=UINT64_MAX))
+        return SRV_ERR_INVAL;
+    const struct vfs_node *node=vfs_lookup(path);
+    if(!node)return SRV_ERR_NOENT;
+    uint64_t uid=second==UINT64_MAX?node->metadata.uid:second;
+    uint64_t gid=third==UINT64_MAX?node->metadata.gid:third;
+    if(uid==node->metadata.uid && gid==node->metadata.gid)return 0;
+    if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
+    process_revoke_reserved_append_path(path);
+    return vfs_chown(path,uid,gid)?0:SRV_ERR_IO;
+}
+
 /* The scalar request and path are copied once; only the caller-owned immutable
  * expected byte region is sampled in bounded, independently checked chunks. */
 static bool verify_expected_copy(void *context,void *destination,uint64_t offset,size_t length) {
@@ -1184,8 +1221,16 @@ static int64_t syscall_file_stream(const struct srv_file_stream_request *user) {
            (op==SRV_FILE_STREAM_OPEN_READ && request.mode) || (request.mode&~07777ull))return SRV_ERR_INVAL;
         char path[MAX_PATH_LENGTH];int64_t result=copy_storage_path((const char *)(uintptr_t)request.path,path,sizeof(path),false);
         if(result<0)return result;
-        return file_stream_open(owner,path,op==SRV_FILE_STREAM_CREATE_APPEND,
-            op==SRV_FILE_STREAM_CREATE_APPEND?process_creation_mode(request.mode):0);
+        bool create=op==SRV_FILE_STREAM_CREATE_APPEND;
+        struct process_credentials credentials=process_get_credentials(process_current());
+        uint64_t mode=create?process_creation_mode(request.mode):0;
+        if(credentials.uid) {
+            result=create?vfs_check_parent_access(path,credentials.uid,credentials.gid,3):
+                vfs_check_access(path,credentials.uid,credentials.gid,4);
+            if(result<0)return result;
+            mode&=0777;
+        }
+        return file_stream_open(owner,path,create,mode,credentials.uid,credentials.gid);
     }
     if(!request.handle || request.path || request.mode)return SRV_ERR_INVAL;
     if(op==SRV_FILE_STREAM_PREAD || op==SRV_FILE_STREAM_APPEND) {
@@ -1231,6 +1276,11 @@ static int64_t syscall_open(const char *user_path) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_access(path,credentials.uid,credentials.gid,4);
+        if(error<0)return error;
+    }
 
     if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     const struct vfs_node *node = vfs_lookup(path);
@@ -1431,6 +1481,10 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint
     int64_t result;
 
     if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
+    if(process_get_credentials(process_current()).uid &&
+        (request.flags!=SRV_EXEC_REPLACE || request.stdin_fd!=-1 || request.stdout_fd!=-1 ||
+         request.stderr_fd!=-1 || request.process_group || request.foreground || request.file_action_count))
+        return SRV_ERR_PERM;
     if(scope_token && (!(request.flags&SRV_EXEC_BACKGROUND) || (request.flags&SRV_EXEC_REPLACE))) return SRV_ERR_INVAL;
     if(request.flags&~(SRV_EXEC_BACKGROUND|SRV_EXEC_REPLACE|SRV_EXEC_SET_SIGNAL_DEFAULT|SRV_EXEC_SET_SIGNAL_MASK|SRV_EXEC_INHERIT_FILES)) return SRV_ERR_INVAL;
     if((request.flags&SRV_EXEC_REPLACE) && (request.file_action_count || (request.flags&SRV_EXEC_INHERIT_FILES))) return SRV_ERR_INVAL;
@@ -1634,6 +1688,11 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     if(!info) return SRV_ERR_FAULT;
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_access(path,credentials.uid,credentials.gid,0);
+        if(error<0)return error;
+    }
 
     if (!vfs_stat(path, &metadata, &copy.size, &copy.type)) {
         return SRV_ERR_NOENT;
@@ -1689,6 +1748,15 @@ static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_access(path,credentials.uid,credentials.gid,0);
+        if(error<0)return error;
+        struct vfs_metadata metadata;
+        if(!vfs_stat(path,&metadata,NULL,NULL))return SRV_ERR_NOENT;
+        if(metadata.uid!=credentials.uid)return SRV_ERR_PERM;
+        mode&=0777;
+    }
     if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
     process_revoke_reserved_append_path(path);
@@ -1707,6 +1775,11 @@ static int64_t syscall_unlink(const char *user_path) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_parent_access(path,credentials.uid,credentials.gid,3);
+        if(error<0)return error;
+    }
     return process_unlink_file(path);
 }
 
@@ -1714,6 +1787,14 @@ static int64_t syscall_mkdir(const char *user_path,uint64_t mode) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),true);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_parent_access(path,credentials.uid,credentials.gid,3);
+        if(error<0)return error;
+        if(vfs_lookup(path))return SRV_ERR_EXIST;
+        mode=process_creation_mode(mode==UINT64_MAX?0777:mode)&0777;
+        return exfat_create_directory_owned(path,mode,credentials.uid,credentials.gid)?0:SRV_ERR_IO;
+    }
     if(vfs_lookup(path)) return SRV_ERR_EXIST;
     return exfat_create_directory_mode(path,mode==UINT64_MAX?mode:process_creation_mode(mode)) ? 0 : SRV_ERR_IO;
 }
@@ -1722,6 +1803,11 @@ static int64_t syscall_rmdir(const char *user_path) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_parent_access(path,credentials.uid,credentials.gid,3);
+        if(error<0)return error;
+    }
     if(vfs_namespace_system_protects(path)) return SRV_ERR_BUSY;
     const struct vfs_node *directory=vfs_lookup(path);
     if(!directory) return SRV_ERR_NOENT;
@@ -1743,6 +1829,13 @@ static int64_t syscall_rename(const char *user_old_path, const char *user_new_pa
     if(error) return error;
     error=copy_storage_path(user_new_path,new_path,sizeof(new_path),false);
     if(error) return error;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        error=vfs_check_parent_access(old_path,credentials.uid,credentials.gid,3);
+        if(error<0)return error;
+        error=vfs_check_parent_access(new_path,credentials.uid,credentials.gid,3);
+        if(error<0)return error;
+    }
     return process_rename_file(old_path,new_path);
 }
 
@@ -3947,6 +4040,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
     case SYS_FILE_VERIFY:
         frame->rax=(uint64_t)syscall_file_verify((const struct srv_file_verify_request *)frame->rdi);
         return;
+    case SYS_PROCESS_CREDENTIALS:
+        frame->rax=(uint64_t)syscall_process_credentials(frame->rdi,frame->rsi,frame->rdx,frame->rcx);
+        return;
     case SYS_FILE_STREAM:
         frame->rax=(uint64_t)syscall_file_stream((const struct srv_file_stream_request *)frame->rdi);
         return;
@@ -4482,8 +4578,10 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
  * backend I/O and publication. Spawn/exec retain their existing image-specific
  * scopes: wrapping their entire lifetime would defeat private-image admission.
  * This does not change syscall_io_safe or make filesystem operations I/O-safe. */
-static bool namespace_syscall(uint64_t number) {
-    switch(number) {
+static bool namespace_syscall(const struct isr_frame *frame) {
+    switch(frame->rax) {
+    case SYS_PROCESS_CREDENTIALS: return frame->rdi==SRV_PROCESS_CREDENTIALS_CHOWN ||
+        frame->rdi==SRV_PROCESS_CREDENTIALS_ACCESS;
     case SYS_FILE_VERIFY: case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
     case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS:
     case SYS_CHMOD: case SYS_UTIME: case SYS_UNLINK: case SYS_MKDIR:
@@ -4492,7 +4590,42 @@ static bool namespace_syscall(uint64_t number) {
     default: return false;
     }
 }
+
+/* The isolated local execution path exposes only reviewed entry points.
+ * In particular, replace-only exec and checked pathname operations are
+ * narrower than the privileged launch, file and device interfaces. */
+static bool isolated_syscall_allowed(const struct isr_frame *frame) {
+    switch(frame->rax) {
+    case SYS_PROCESS_CREDENTIALS:
+    case SYS_EXIT: case SYS_FORK: case SYS_EXEC:
+    case SYS_GETPID: case SYS_GETPPID: case SYS_EXEPATH:
+    case SYS_YIELD: case SYS_SLEEP_TICKS: case SYS_REALTIME_US: case SYS_MONOTONIC_US:
+    case SYS_SBRK: case SYS_MUNMAP: case SYS_MPROTECT:
+    case SYS_THREAD_SELF: case SYS_FUTEX_WAIT: case SYS_FUTEX_WAKE:
+    case SYS_SIGNAL_PENDING: case SYS_SIGNAL_CONSUME: case SYS_SIGNAL_MASK:
+    case SYS_PATH_CONTEXT: case SYS_STAT: case SYS_UMASK: case SYS_CHMOD:
+    case SYS_OPEN: case SYS_OPEN_MODE: case SYS_CLOSE: case SYS_FSTAT: case SYS_SEEK:
+    case SYS_WRITE: case SYS_PREAD: case SYS_PWRITE: case SYS_FTRUNCATE: case SYS_FSYNC:
+    case SYS_MKDIR: case SYS_MKDIR_MODE: case SYS_UNLINK: case SYS_RMDIR: case SYS_RENAME:
+    case SYS_FILE_STREAM:
+        return true;
+    case SYS_READ:
+        return !process_fd_is_console(process_current(),frame->rdi,true);
+    case SYS_WAIT:
+        return (frame->rdx&SRV_WAIT_POSIX)!=0;
+    case SYS_MMAP:
+        return (frame->rcx&(SRV_MAP_ANONYMOUS|SRV_MAP_PRIVATE|SRV_MAP_SHARED))==
+            (SRV_MAP_ANONYMOUS|SRV_MAP_PRIVATE) && frame->r8==UINT64_MAX;
+    default:
+        return false;
+    }
+}
+
 void syscall_dispatch(struct isr_frame *frame) {
+    if(process_get_credentials(process_current()).uid && !isolated_syscall_allowed(frame)) {
+        frame->rax=(uint64_t)SRV_ERR_PERM;
+        return;
+    }
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     /* Unsupported extensions must not wait for namespace I/O ownership. */
     if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM || frame->rax==SYS_FILE_VERIFY) {
@@ -4507,7 +4640,7 @@ void syscall_dispatch(struct isr_frame *frame) {
             frame->rax=(uint64_t)result;return;
         }
     }
-    if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
+    if(!namespace_syscall(frame)) { syscall_dispatch_impl(frame);return; }
     uint64_t flags=irq_save();
     scheduler_io_set_user_safe(false);scheduler_io_wait();
     bool held=scheduler_io_begin();

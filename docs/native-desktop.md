@@ -396,9 +396,10 @@ provide power-loss atomicity.
   unreadable, non-text, oversized or observably changed files are skipped and
   counted. It does not index content or provide an atomic filesystem snapshot.
 - Preview accepts files up to 8 MiB, dimensions up to 4096 and four million
-  pixels. EXIF orientation, color management and animated images are not yet
-  implemented. Sketch is a small bitmap editor with four undo steps, not a
-  layered graphics application.
+  pixels. JPEGs follow EXIF orientation, including mirrors. JPEGs with absent
+  or invalid orientation metadata display in their stored orientation. Preview
+  displays still images without color management. Sketch is a small bitmap
+  editor with four undo steps.
 - Terminal implements a bounded ANSI/VT subset. Resizing does not reflow saved
   lines; combining and double-width glyph semantics remain open.
 - Notification history and calculator/stopwatch history belong to the session.

@@ -12,12 +12,13 @@ import unittest
 from unittest import mock
 
 import installation_export as export
-import profile_bundle
+import profile_stream
+from profile_desktop_smoke import decode_fixture_bundle
 import profile_image
 import test_installation_inspection as fixtures
 from test_installation_inspection import (INSPECT_DRIVER, PROFILE_DRIVER, ROOT,
     add_profile_file, mutate_profile_file, snapshot)
-from test_profile_image import bundle
+from test_profile_image import bundle, DATA
 
 EXPORT_DRIVER = ROOT / 'build/tests/installation-export-driver'
 PROFILE_ID = bundle()['profile']['id']
@@ -33,7 +34,8 @@ class InstalledExportTests(unittest.TestCase):
     publish = fixtures.InstalledInspectionTests.publish
 
     def call(self, output=None, documents=None, **changes):
-        args = dict(stage=self.stage, output=output or self.root / 'export.json',
+        self.attempt_count = getattr(self, 'attempt_count', 0) + 1
+        args = dict(publication_dir=self.root / f'attempt-{self.attempt_count}', stage=self.stage, output=output or self.root / 'export.json',
                     profile_id=PROFILE_ID, home=HOME,
                     documents=[] if documents is None else documents,
                     inspect_driver=INSPECT_DRIVER, export_driver=EXPORT_DRIVER)
@@ -48,8 +50,7 @@ class InstalledExportTests(unittest.TestCase):
         self.assertEqual(result['state'], 'exported' if success else 'refused', result)
         if success:
             self.assertTrue(result['read_only_source'])
-            value = profile_bundle.decode_json(output.read_bytes())
-            profile_bundle.validate_bundle(value)
+            value, self.payloads = decode_fixture_bundle(output.read_bytes())
             return value
         self.assertTrue(result.get('reason'), result)
         self.assertFalse(output.exists())
@@ -68,7 +69,7 @@ class InstalledExportTests(unittest.TestCase):
         result = self.check(True, documents=['Documents/notes.txt', 'Documents/binary.dat'])
         self.assertEqual(result['profile'], bundle()['profile'])
         self.assertEqual(result['preferences'], {'text_size': 16})
-        payloads = profile_bundle.validate_bundle(result)
+        payloads = self.payloads
         self.assertEqual(payloads, {'Documents/notes.txt': b'PORTABLE DATA',
                                     'Documents/binary.dat': b'\x00\xff\x80\n'})
         serialized = json.dumps(result)
@@ -76,12 +77,12 @@ class InstalledExportTests(unittest.TestCase):
             self.assertNotIn(value, serialized)
 
     def test_no_documents_and_legacy_identity(self):
-        validate = profile_image.validate_request
+        validate = profile_image.profile_layout
         def legacy(*args, **kwargs):
             metadata, files, directories = validate(*args, **kwargs)
             del files[metadata['home'] + '/identity.json']
             return metadata, files, directories
-        with mock.patch.object(profile_image, 'validate_request', side_effect=legacy):
+        with mock.patch.object(profile_image, 'profile_layout', side_effect=legacy):
             self.publish()
         value = self.check(True)
         self.assertEqual(value['profile'], {'id': PROFILE_ID, 'display_name': 'alice'})
@@ -102,7 +103,7 @@ class InstalledExportTests(unittest.TestCase):
         recovered = publication.reconcile(attempt)
         self.assertEqual(recovered['state'], 'complete', recovered)
         self.assertEqual(recovered['source_snapshot']['image_sha256'], export.image.digest(self.stage / 'image.img'))
-        self.assertEqual(profile_bundle.decode_json((self.root / 'export.json').read_bytes()), bundle())
+        self.assertEqual(decode_fixture_bundle((self.root / 'export.json').read_bytes()), (bundle(), {'Documents/notes.txt': DATA}))
         self.assertEqual(snapshot(self.stage), before)
         for path in (self.stage / 'publication', self.stage, self.root):
             result = self.call(output=self.root / 'other.json', publication_dir=path)
@@ -173,17 +174,25 @@ class InstalledExportTests(unittest.TestCase):
             with self.subTest(flags=flags, offset=offset, length=length, home=home, documents=documents):
                 fd = os.open(self.stage / 'image.img', flags)
                 try:
-                    proc = subprocess.run([str(EXPORT_DRIVER), '--fd', str(fd), str(offset), str(length),
+                    proc = subprocess.run([str(EXPORT_DRIVER), '--stream-fd', str(fd), str(offset), str(length),
                                            home, *documents], pass_fds=(fd,), capture_output=True)
                 finally:
                     os.close(fd)
                 self.assertNotEqual(proc.returncode, 0, proc.stdout)
+        fd = os.open(self.stage / 'image.img', os.O_RDONLY)
+        try:
+            legacy = subprocess.run([str(EXPORT_DRIVER), '--fd', str(fd), str(spec['offset_bytes']),
+                                     str(spec['size_bytes']), HOME], pass_fds=(fd,), capture_output=True)
+        finally:
+            os.close(fd)
+        self.assertNotEqual(legacy.returncode, 0)
+        self.assertEqual(legacy.stdout, b'')
         self.assertEqual(snapshot(self.stage), before)
 
     def test_malformed_driver_frames_are_refused(self):
         self.publish()
         fake = self.root / 'fake-driver'
-        magic = b'srvros-installed-export-v1\n'
+        magic = b'srvros-installed-export-v2\n'
         cases = (b'bad header', magic, magic + struct.pack('<Q', 513) + b'x' * 513,
                  magic + struct.pack('<Q', 2) + b'{',
                  magic + struct.pack('<Q', 2) + b'{}' + b'extra')
@@ -197,14 +206,14 @@ class InstalledExportTests(unittest.TestCase):
         self.publish()
         fake = self.root / 'fake-driver'
         fake.write_text('#!/usr/bin/env python3\nimport sys\nsys.stdout.buffer.write(' +
-                        repr(b'srvros-installed-export-v1\n' + struct.pack('<Q', 2) + b'{}') + ')\n')
+                        repr(b'srvros-installed-export-v2\n' + struct.pack('<Q', 2) + b'{}') + ')\n')
         fake.chmod(0o755)
-        real = export.driver_bytes
+        real = export.encode_stream
         def changed(*args):
             frames = real(*args)
             fake.write_text(fake.read_text() + '# changed\n')
             return frames
-        with mock.patch.object(export, 'driver_bytes', side_effect=changed):
+        with mock.patch.object(export, 'encode_stream', side_effect=changed):
             self.check(False, export_driver=fake)
 
     def test_publication_failures_never_report_success(self):
@@ -227,41 +236,48 @@ class InstalledExportTests(unittest.TestCase):
                 self.assertTrue(result.get('reason'))
                 self.assertEqual(snapshot(self.stage), before)
                 if output.exists():
-                    profile_bundle.validate_bundle(profile_bundle.decode_json(output.read_bytes()))
+                    decode_fixture_bundle(output.read_bytes())
                     output.unlink()
                 self.assertFalse(list(self.root.glob('.profile-export-*')))
 
     def test_native_selected_file_and_aggregate_limits(self):
-        # A larger private filesystem accommodates nine independent 1 MiB files.
         from test_storage_leases import empty_image
         with tempfile.TemporaryDirectory(prefix='.profile-image-', dir=self.root) as temp:
             image = Path(temp) / 'image'
-            image.write_bytes(empty_image(32 * 1024 * 1024).data)
-            for operation, path in (('ensure-home', '/fat/home'), ('mkdir', '/fat/bin'),
-                                    ('mkdir', '/fat/var')):
+            image.write_bytes(empty_image(96 * 1024 * 1024).data)
+            for operation, path in (('ensure-home', '/fat/home'), ('mkdir', '/fat/bin'), ('mkdir', '/fat/var')):
                 subprocess.run([str(PROFILE_DRIVER), str(image), operation, path], check=True,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.exfat.write_bytes(image.read_bytes())
         self.publish()
-        data = b'x' * profile_bundle.MAX_FILE
-        names = [f'Documents/limit{i}.bin' for i in range(9)]
-        for name in names:
-            add_profile_file(self.stage, PROFILE_DRIVER, HOME + '/' + name, data)
-        first = self.check(True, documents=names[:1])
-        self.assertEqual(profile_bundle.validate_bundle(first)[names[0]], data)
-        (self.root / 'export.json').unlink()
-        eight = self.check(True, documents=names[:8])
-        self.assertEqual(sum(len(v) for v in profile_bundle.validate_bundle(eight).values()),
-                         profile_bundle.MAX_TOTAL)
-        (self.root / 'export.json').unlink()
-        result = self.check(False, documents=names)
-        self.assertIn('driver', result['reason'].lower())
-        # The native driver must reject the aggregate before emitting even a header.
+        data = b'x' * profile_stream.MAX_FILE
+        names = [f'Documents/limit{i}.bin' for i in range(4)]
         spec = json.loads((self.stage / 'plan.json').read_bytes())['layout']['exfat']
+        with tempfile.TemporaryDirectory(prefix='.profile-image-', dir=self.root) as temp:
+            temp = Path(temp); disk_image = temp / 'image'; source = temp / 'payload'
+            with (self.stage / 'image.img').open('rb') as disk:
+                disk.seek(spec['offset_bytes']); disk_image.write_bytes(disk.read(spec['size_bytes']))
+            source.write_bytes(data); source.chmod(0o600)
+            for name in names:
+                subprocess.run([str(PROFILE_DRIVER), str(disk_image), 'write-stream', HOME + '/' + name, str(source)],
+                               check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            source.write_bytes(b'x'); source.chmod(0o600)
+            subprocess.run([str(PROFILE_DRIVER), str(disk_image), 'write-stream', HOME + '/Documents/extra', str(source)],
+                           check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            with (self.stage / 'image.img').open('r+b') as disk:
+                disk.seek(spec['offset_bytes']); disk.write(disk_image.read_bytes())
+        self.check(True, documents=names[:1])
+        self.assertEqual(self.payloads[names[0]], data)
+        (self.root / 'export.json').unlink()
+        self.check(True, documents=names)
+        self.assertEqual(sum(map(len, self.payloads.values())), profile_stream.MAX_TOTAL)
+        (self.root / 'export.json').unlink()
+        result = self.check(False, documents=names + ['Documents/extra'])
+        self.assertIn('driver', result['reason'].lower())
         fd = os.open(self.stage / 'image.img', os.O_RDONLY)
         try:
-            proc = subprocess.run([str(EXPORT_DRIVER), '--fd', str(fd), str(spec['offset_bytes']),
-                                   str(spec['size_bytes']), HOME, *names],
+            proc = subprocess.run([str(EXPORT_DRIVER), '--stream-fd', str(fd), str(spec['offset_bytes']),
+                                   str(spec['size_bytes']), HOME, *names, 'Documents/extra'],
                                   pass_fds=(fd,), capture_output=True)
         finally:
             os.close(fd)
@@ -272,8 +288,8 @@ class InstalledExportTests(unittest.TestCase):
         self.publish()
         fake = self.root / 'fake-driver'
         # A frame header alone is sufficient to test the advertised per-file cap.
-        payload = (b'srvros-installed-export-v1\n' + struct.pack('<Q', 2) + b'{}' +
-                   struct.pack('<Q', profile_bundle.MAX_FILE + 1))
+        payload = (b'srvros-installed-export-v2\n' + struct.pack('<Q', 2) + b'{}' +
+                   struct.pack('<Q', profile_stream.MAX_FILE + 1))
         fake.write_text('#!/usr/bin/env python3\nimport sys\nsys.stdout.buffer.write(' + repr(payload) + ')\n')
         fake.chmod(0o755)
         result = self.check(False, documents=['Documents/notes.txt'], export_driver=fake)
@@ -283,7 +299,7 @@ class InstalledExportTests(unittest.TestCase):
         self.publish()
         image = self.stage / 'image.img'
         before = snapshot(self.stage)
-        real = export.driver_bytes
+        real = export.encode_stream
         old = None
         def changed(*args):
             nonlocal old
@@ -295,7 +311,7 @@ class InstalledExportTests(unittest.TestCase):
                 stream.write(bytes([old[0] ^ 1]))
             return frames
         try:
-            with mock.patch.object(export, 'driver_bytes', side_effect=changed):
+            with mock.patch.object(export, 'encode_stream', side_effect=changed):
                 result = self.call(documents=['Documents/notes.txt'])
             self.assertIsNotNone(old, 'native driver was not reached')
             self.assertEqual(result['state'], 'refused', result)
@@ -306,77 +322,6 @@ class InstalledExportTests(unittest.TestCase):
                 with image.open('r+b') as stream:
                     stream.seek(100)
                     stream.write(old)
-        self.assertEqual(snapshot(self.stage), before)
-
-    def test_publication_write_and_post_link_failures(self):
-        self.publish()
-        output = self.root / 'export.json'
-        before = snapshot(self.stage)
-        real_fdopen, real_unlink, real_close = os.fdopen, os.unlink, os.close
-
-        class FaultStream:
-            def __init__(self, stream, short):
-                self.stream, self.short = stream, short
-            def __enter__(self):
-                self.stream.__enter__()
-                return self
-            def __exit__(self, *args):
-                return self.stream.__exit__(*args)
-            def write(self, data):
-                if self.short:
-                    return self.stream.write(data[:1])
-                raise OSError('injected write failure')
-            def __getattr__(self, name):
-                return getattr(self.stream, name)
-
-        for short in (False, True):
-            with self.subTest(short=short):
-                triggered = []
-                def faulty_fdopen(*args, **kwargs):
-                    stream = real_fdopen(*args, **kwargs)
-                    mode = args[1] if len(args) > 1 else kwargs.get('mode', 'r')
-                    if mode == 'wb':
-                        triggered.append(True)
-                        return FaultStream(stream, short)
-                    return stream
-                with mock.patch.object(export.os, 'fdopen', side_effect=faulty_fdopen):
-                    result = self.call(output=output)
-                self.assertTrue(triggered, 'publication stream was not reached')
-                self.assertEqual(result['state'], 'refused', result)
-                self.assertIn('short' if short else 'injected write', result['reason'].lower())
-                self.assertFalse(result.get('visible_uncertain', False))
-                self.assertFalse(output.exists())
-                self.assertEqual(snapshot(self.stage), before)
-
-        failed = False
-        def unlink_once(path, *args, **kwargs):
-            nonlocal failed
-            if not failed and Path(path).name.startswith('.profile-export-'):
-                failed = True
-                raise OSError('injected unlink failure')
-            return real_unlink(path, *args, **kwargs)
-        with mock.patch.object(export.os, 'unlink', side_effect=unlink_once):
-            result = self.call(output=output)
-        self.assertTrue(failed)
-        self.assertEqual(result['state'], 'refused', result)
-        self.assertTrue(result.get('visible_uncertain'), result)
-        self.assertTrue(output.exists())
-        output.unlink()
-
-        closed = False
-        def close_directory(fd):
-            nonlocal closed
-            if not closed and stat.S_ISDIR(os.fstat(fd).st_mode):
-                closed = True
-                real_close(fd)
-                raise OSError('injected directory close failure')
-            return real_close(fd)
-        with mock.patch.object(export.os, 'close', side_effect=close_directory):
-            result = self.call(output=output)
-        self.assertTrue(closed)
-        self.assertEqual(result['state'], 'refused', result)
-        self.assertTrue(result.get('visible_uncertain'), result)
-        self.assertTrue(output.exists())
         self.assertEqual(snapshot(self.stage), before)
 
     def test_native_long_document_path_reaches_lookup(self):
@@ -393,7 +338,7 @@ class InstalledExportTests(unittest.TestCase):
             for path, reason in ((document, b'export-document'),
                                  (document + 'c', b'export-path')):
                 with self.subTest(length=len(path)):
-                    proc = subprocess.run([str(EXPORT_DRIVER), '--fd', str(fd),
+                    proc = subprocess.run([str(EXPORT_DRIVER), '--stream-fd', str(fd),
                         str(spec['offset_bytes']), str(spec['size_bytes']), HOME, path],
                         pass_fds=(fd,), capture_output=True)
                     self.assertNotEqual(proc.returncode, 0)
@@ -410,11 +355,12 @@ class InstalledExportTests(unittest.TestCase):
         proc = subprocess.run([sys.executable, str(ROOT / 'tools/installation_image.py'),
             'export-profile', str(self.stage), str(output), '--profile-id', PROFILE_ID,
             '--home', HOME, '--document', 'Documents/notes.txt',
-            '--inspect-driver', str(INSPECT_DRIVER), '--export-driver', str(EXPORT_DRIVER)],
+            '--inspect-driver', str(INSPECT_DRIVER), '--export-driver', str(EXPORT_DRIVER),
+            '--publication-dir', str(self.root / 'cli-attempt')],
             cwd=self.root, capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(json.loads(proc.stdout)['state'], 'exported')
-        self.assertEqual(profile_bundle.decode_json(output.read_bytes()), bundle())
+        self.assertEqual(decode_fixture_bundle(output.read_bytes()), (bundle(), {'Documents/notes.txt': DATA}))
         self.assertEqual(snapshot(self.stage), before)
 
 

@@ -25,6 +25,8 @@ from pack_runtime_elf import runtime_elf
 from uefi_usb_smoke import default_ovmf_path
 import installation_image
 import profile_bundle
+import profile_stream
+import profile_stream_fixture
 import profile_image
 import source_provenance
 
@@ -251,16 +253,49 @@ def machine_preferences(speed, offset):
             'display_width=1280\ndisplay_height=800\n').encode()
 
 
+def fixture_documents():
+    return {'Documents/migration.txt': SOURCE, 'Documents/binary.dat': BINARY}
+
+
 def make_bundle():
-    import base64
-    def doc(path, data):
-        return {'path': path, 'size': len(data), 'sha256': digest(data),
-                'data_base64': base64.b64encode(data).decode()}
-    return {'format': profile_bundle.FORMAT, 'schema_version': 1,
-            'profile': {'id': ID, 'display_name': 'Portable profile'},
-            'preferences': {'text_size': 16, 'clock_flags': 3, 'wallpaper': 0,
-                            'theme_accent': 0, 'glass_level': 1, 'theme_style': 0},
-            'documents': [doc('Documents/migration.txt', SOURCE), doc('Documents/binary.dat', BINARY)]}
+    return profile_stream_fixture.manifest({'id': ID, 'display_name': 'Portable profile'},
+        {'text_size': 16, 'clock_flags': 3, 'wallpaper': 0, 'theme_accent': 0, 'glass_level': 1, 'theme_style': 0},
+        fixture_documents().items())
+
+
+def write_fixture_bundle(path, manifest):
+    docs = fixture_documents()
+    selected = [(doc['path'], docs[doc['path']]) for doc in manifest['documents']]
+    written = profile_stream_fixture.write_stream(path, manifest['profile'], manifest['preferences'], selected)
+    if written != manifest:
+        raise RuntimeError('fixture bytes differ from manifest')
+
+
+def provision_fixture(source, target, manifest, home, alias, uid, gid, driver, machine=None):
+    with tempfile.TemporaryDirectory(dir=target.parent) as work:
+        path = Path(work) / 'profile.srvrprofile'
+        write_fixture_bundle(path, manifest)
+        with profile_stream.open_bundle(path) as bundle:
+            return profile_image.provision(source, target, bundle, home, alias, uid, gid, driver, machine)
+
+
+def decode_fixture_bundle(raw):
+    magic, size, reserved = profile_stream.HEADER.unpack_from(raw)
+    if magic != profile_stream.MAGIC or reserved or not 0 < size <= profile_stream.MAX_MANIFEST:
+        raise RuntimeError('invalid streaming fixture header')
+    offset = profile_stream.HEADER.size + size
+    manifest = profile_bundle.decode_json(raw[profile_stream.HEADER.size:offset])
+    if offset + profile_stream.validate_manifest(manifest) != len(raw):
+        raise RuntimeError('invalid streaming fixture length')
+    documents = {}
+    for doc in manifest['documents']:
+        end = offset + doc['size']
+        data = raw[offset:end]
+        if digest(data) != doc['sha256']:
+            raise RuntimeError('fixture document hash mismatch: ' + doc['path'])
+        documents[doc['path']] = data
+        offset = end
+    return manifest, documents
 
 
 def main():
@@ -293,17 +328,19 @@ def main():
         receipt['stores'] = {}
         receipt['installations'] = {}
         bundle = make_bundle()
+        bundle_path = out / 'source.srvrprofile'
+        write_fixture_bundle(bundle_path, bundle)
         stores = []
         for installation, home, alias, uid, gid, speed, offset_minutes in (
                 ('a', '/fat/home/local-a', 'local_a', 1001, 1001, 4, -300),
                 ('b', '/fat/home/local-b', 'local_b', 2050, 2051, 2, 60)):
             store = out / ('store-' + installation); profile_bundle.init_store(store)
-            local = profile_bundle.import_bundle(store, bundle, alias, uid, gid)
+            local = profile_stream.import_bundle(store, bundle_path, alias, uid, gid)
             stores.append(local)
             receipt['stores'][installation] = {'root': str(store), **local}
             volume = out / ('provisioned-' + installation + '.exfat')
             seed_machine = machine_preferences(speed, offset_minutes)
-            profile_image.provision(base_volume, volume, bundle, home, alias, uid, gid, profile_driver,
+            provision_fixture(base_volume, volume, bundle, home, alias, uid, gid, profile_driver,
                                     seed_machine)
             # The write adapter accepts only its private, single-link staging image.
             # Complete the malformed-marker home so startup reaches the marker check.
@@ -376,8 +413,8 @@ def main():
                     (host_home / 'Documents/migration.txt').write_bytes(document)
                     (host_home / 'Documents/binary.dat').write_bytes(binary)
                     (host_home / profile_bundle.PREF_PATH).write_bytes(portable)
-                    bundle = profile_bundle.export_bundle(store, ID, ['Documents/migration.txt', 'Documents/binary.dat'])
-                    profile_bundle.publish_bundle(out / 'export.json', bundle)
+                    profile_stream.export_bundle(store, ID, ['Documents/migration.txt', 'Documents/binary.dat'],
+                                                 out / 'export.srvrprofile')
             receipt['disk_' + installation + '_sha256'] = digest(disk.read_bytes())
         receipt.update(status='PASS',
                        limits=['disposable QEMU images only', 'no authentication or access-control claim',

@@ -1,5 +1,299 @@
 # Apple Silicon macOS build host
 
+## Local console sign-in
+
+`device/apple-silicon/local-console-signin` starts from `b95bc096`, the
+merged kernel isolation milestone. It covers opt-in installed boot,
+administrator enrollment, console authentication and a restricted session
+in a disposable VM. The checkpoint is two accounts signing in on consecutive
+boots of the same installation, with wrong, unknown, disabled and damaged
+account cases refused. This work uses the existing kernel credential drop.
+Portable profile migration continues on its own path.
+
+Use `srvros.auth=recovery` on the EFI entry for the same installed root to
+provision accounts. From its administrator monitor, run
+`run /fat/bin/local-enroll add NAME UID GID` and enter a 15–128 character
+printable ASCII password twice. `run /fat/bin/local-enroll disable NAME`
+disables the account. The store lives at `/fat/etc/local-auth/accounts`.
+Enrollment uses an exclusive lock and publishes a synced replacement. An
+interrupted enrollment can leave a lock, staged store, or private home for
+the administrator to inspect in recovery. Sign-in refuses an outstanding
+lock or staged store until that inspection is complete.
+
+Use `srvros.auth=local` on the installed EFI entry to reach sign-in. The
+restricted session reports its kernel identity and assigned home, then
+returns to sign-in. The boot mode assumes a trusted EFI configuration and
+administrator control of recovery. It requires complete, preexisting
+exFAT ownership metadata for installed-root admission and a private,
+administrator-provisioned account store. The VM qualification uses synthetic
+credentials, a disposable image, and a diagnostic session executable.
+
+Runtime `5e8014a8` passed enrollment, two consecutive sign-in boots on one
+installed data disk, and controlled damage through explicit recovery. Both
+users reached only their assigned homes. Wrong, unknown and disabled
+credentials and the damaged store produced refusals. Separate boots refused
+a writable sign-in executable and a writable executable directory. The host
+Argon2id vector, allocation and wipe checks passed. Serial transcripts
+contained none of the fixture passwords.
+
+The review refresh for [SrvrOS #512](https://github.com/PaulMDemers/SrvrOS/pull/512)
+qualified runtime `7ce2f85d` with current libc and CLI tools. Both users
+passed on consecutive boots. A staged account database or enrollment lock
+blocked valid credentials until cleared in recovery. Missing and incomplete
+exFAT metadata refused installed-root admission without changing the disk.
+Explicit administrator recovery still opened the missing-metadata fixture.
+The damaged store and writable launcher controls also passed.
+
+Build with
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
+Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
+with the local EFI firmware templates. Receipts and redacted console logs
+are saved under `build/review/local-signin/`.
+
+## Local kernel isolation
+
+`device/apple-silicon/kernel-local-isolation` starts from integrated main
+`e186c911` after the portable-profile merges. Its scope is kernel process
+credentials, checked pathname operations, durable exFAT ownership, and a
+two-user proof in a disposable installed x86_64 guest on this host. A trusted
+test launcher provisions both identities. The fixture exercises initial boot
+and reboot using the same owned disk. Authentication, profile migration and
+physical boot are separate work.
+
+Runtime `3eb669c7` on main `60d8bd68` passed both QEMU EFI boots. UID/GID
+1001 and 1002 persisted through fork and exec. Each identity read and wrote its
+own files and streams and was refused access to the other's private home,
+including through namespace aliases and parent traversal. A reboot preserved
+the exact file bytes, UID/GID and permission modes for both identities. Both
+exFAT filesystems passed the guest allocation checks on each boot. Restricted
+storage access requires the clean installed volume and its metadata. The
+isolated execution path uses a trusted launcher and a limited syscall set.
+
+[SrvrOS #509](https://github.com/PaulMDemers/SrvrOS/pull/509) review added a
+guard against credential drops by the designated system reaper. Host tests
+verified that the reaper retains its credentials and ordinary children can
+still drop theirs. The clean runtime at `948a5332` passed both EFI boots and
+the focused host checks on the same main baseline.
+
+To reproduce on this host, build with
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_isolation.elf`.
+Run `python3 tools/local_isolation_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
+with the local x86_64 EFI firmware templates. The harness writes its receipt
+and guest logs under `build/review/local-isolation/`.
+
+## V2-only portable profiles
+
+The current follow-up to OS #504 consolidates Profiles, the guest command, the
+host codec and offline installation tooling on the v2 wire format. The scope
+includes the matching Apps pin and v2 recovery at every current entry point.
+Keep prior qualification receipts attributable to their original commits.
+Authentication and permission enforcement remain separate.
+
+The matched current-main proof at `de748bb0` with Apps pin `1531a154` passes
+both the offline export-to-reboot round trip and the graphical export, import
+interruption, and chooser recovery workflow. The independent byte audit
+verified seven archived exFAT snapshots. See the
+[v2-only qualification](../assets/evidence/portable-v2-only/manifest.json).
+
+Merge review brought the four GCC guard fixes already in the tested Apps source
+into [Apps #13](https://github.com/PaulMDemers/SrvrApps/pull/13). OS pins
+`13c0d502`, which contains the reviewed Apps head `9d07ee28` and has the same
+complete application tree as the qualified pin `1531a154`.
+
+## Original opt-in offline v2 profile export proof
+
+On `device/apple-silicon/offline-export-v2`, source `d5476ffd` uses the merged
+OS #502 restore path and the OS #367 wire format. The matched `d4b09b4d`
+runtime artifact hashes, source tree IDs and submodule pins match the disposable
+proof. The export driver was built from the new source. Default v1 bytes match
+the canonical fixture. Host checks cover all eight publication checkpoints.
+
+A real v2 export stopped at `written` and reported a private `prepared` attempt.
+A fresh reconciliation process published it. Two EFI boots of the restored
+installation preserved all three documents, including a 16 MiB file, with the
+new local binding and distinct machine preferences. An independent audit
+compared exact bytes across A, the export, and B before and after both boots.
+Used-image inspection attempted zero source writes and flushes. Both owned
+guests stopped. See the
+[qualification manifest](../assets/evidence/offline-profile-v2-export/manifest.json).
+Authentication and permission enforcement remain separate.
+
+## Preview JPEG orientation — November 22, 2026
+
+The isolated `app/preview-exif` candidate `41c33fec` uses SrvrApps
+`778998d0` for the matching Help update. The host regression reproduced
+the original mirror pixel mismatch and now passes all eight orientations in
+both EXIF byte orders, including fallback for invalid metadata. Focused
+desktop checks, ASan/UBSan and the ordinary image build pass.
+
+A disposable 1280×800 QEMU guest passed the Preview stress smoke, including
+cancellation and reopen at the maximum pixel count, compact layout, and
+opening from Files. Exact displayed RGB comparisons passed for rotation,
+mirroring, and invalid-orientation fallback. The acceptance receipt is under
+`.local/app-proof/preview-exif/` in the isolated checkout.
+
+## Offline streaming-v2 installation restore — November 22, 2026
+
+Installation checkout `SrvrOS-installation-stream-v2` starts from integrated
+main `b275e57d`, which includes the qualified [PR367](https://github.com/PaulMDemers/SrvrOS/pull/367)
+stream codec and bounded exFAT runtime. This milestone owns host plan admission,
+the native private-image adapter and a fresh-installed reboot proof. It uses a
+new synthetic bundle and new disposable images. The WebCore checkout, previous
+installation evidence and other tasks' guests remain outside the work scope.
+The [installation guide](../disk-installation.md#restore-a-streaming-v2-bundle-into-a-fresh-image)
+documents the operator flow and refusal boundaries.
+
+Matched source `afb305b6` passes 95 installation tests with one optional skip,
+43 workspace tests, v1 bundle and profile image checks, and the full build.
+Two sequential EFI boots restore and reopen the same profile at a new HOME
+with its six preferences, local bindings and exact selected documents. The
+filesystem reviewer verifies the exact bytes in both saved partitions,
+including a 16 MiB document and a valid filename containing `.profile-import`.
+The audit also verifies 166 installed binaries and all three allocation
+snapshots. Used-image inspection passes with zero writes and flushes. The
+synthetic input, base template and regions outside the installed data partition
+retain their hashes. Both owned VMs stopped with over 10 GiB of free space.
+A separate fresh v1 EFI boot with the same writer also passes exact selected
+document, identity, preference, allocation and preservation checks.
+
+The first proof at `c09edb67` failed installed-root admission because its native
+writer assigned exFAT entries inode IDs already in use by the guest's `/` and
+`/init`. The corrected writer models those bootstrap identities and treats
+journal-like names under Documents as ordinary files.
+Both results retain their source attribution in the
+[manifest](../assets/screenshots/installation-stream-restore-manifest.json).
+Verified [reboot screenshot](../assets/screenshots/installation-stream-restore-b2.png).
+The proof is limited to synthetic installed images and a 16 MiB selected
+document. The profile admission and copy audit measured Python heap allocation
+separately from the native driver and whole-image assembly.
+
+## GLib platform prerequisite probe — November 22, 2026
+
+The browser audit branch incorporates actual OS main `b275e57d` at `14edc87b`.
+The rebuilt SDK and normal diskless guest execute the pthread, pipe, timer,
+eventfd and GUI wait prerequisites twice. Both cases exit successfully and
+QEMU stops. Installed GLib 2.90.1 verifies the main-context handoff on the Mac.
+Stock target GLib configure stops on its `sys/poll.h` check. A disposable
+`poll.h` diagnostic passes the poll and thread checks and stops at `iconv`.
+The source pin, exact procedure and evidence are in the
+[GLib prerequisite record](../browser-glib-prereq.md).
+
+Runtime coordination and review used the same checked-out SDK. The independent
+native experiment and the browser fixture were consolidated into one guest
+runner. The tested scope is native SDK prerequisites and host GLib behavior.
+Target GLib and the GUI integration remain gated on the dependency and wait
+work described in the probe record. The build and VM slot was returned to
+integration for the CLI queue.
+
+## GLib PCRE2 and libffi dependencies — November 22, 2026
+
+The browser topic starts from OS main `28eb6291` plus the verified PCRE2
+commit `9172c3d9`. It uses the same SDK, normal kernel and Limine bytes as
+the original prerequisite probe. Static PCRE2 10.49 and libffi 3.8.0 pass
+in the diskless x86-64 guest. Both libffi probes cover call and callback
+ABI, legacy raw callbacks, thread publication and 128-slot exhaustion
+and reuse. The fixture's exact ELF has RX stubs and RW/NX dispatch data.
+All eight runs exit 0, QEMU stops, and the browser VM window is returned
+to integration. The PCRE2/libffi changes are limited to browser build
+recipes, fixtures and the libffi source patch. Target GLib configure
+reaches zlib. See the [GLib prerequisite record](../browser-glib-prereq.md).
+
+## GLib zlib dependency — November 22, 2026
+
+The browser topic starts at main `7373d4d5` and uses the same matched SDK
+and normal boot inputs. Browser-local zlib 1.4 passes the checksum, streaming
+gzip and pipe I/O probe twice in a diskless x86-64 guest. All ten fixture
+runs exit 0. The guest stops and the VM window is returned to integration.
+GLib detects the target zlib package and stops at the `intl` fallback.
+See the [zlib receipt](../assets/evidence/glib-zlib/receipt.json).
+
+## GLib proxy-libintl fallback — November 22, 2026
+
+The combined topic uses the zlib change rebased onto OS main `288886bd`
+and retains the verified SDK and normal guest boot inputs. Meson builds the
+exact proxy-libintl 0.5 wrap source with `STUB_ONLY` for the target probe.
+The guest checks message, plural and domain behavior. All twelve fixture
+runs exit 0. The guest stops and the VM window returns to integration.
+GLib selects the internal fallback and stops at GIO's `C_IN` header
+check. See the [proxy-libintl receipt](../assets/evidence/glib-proxy-intl/receipt.json).
+
+## GIO resolver header — November 22, 2026
+
+Main `e186c911` supplies the verified dependency set. The browser topic
+exports `<arpa/nameser.h>` with `C_IN = 1`. The rebuilt SDK passes strict
+target C and C++ checks, and its runtime inputs match the prior hashes.
+The rerun passes GIO's primary `C_IN` compile check and stops at
+`res_query()`. The VM window stays available. See the
+[GIO header receipt](../assets/evidence/gio-nameser/receipt.json).
+
+## GIO resolver guest — November 22, 2026
+
+PR #511 at `c7c06f15` restored 161 SDK and boot files from the verified
+browser checkpoint and matched the pinned Zig binary. One diskless,
+single-CPU Q35 guest passed both platform and both resolver runs. The private
+DNS peer handled 24 queries. The guest returned to its monitor after each
+probe, and both processes stopped. Kernel, init and probe bytes were verified
+by reading the boot ISO. The VM window was returned to integration.
+See the [resolver receipt](../assets/evidence/gio-res-query/receipt.json).
+
+## GIO DNS decoding — November 22, 2026
+
+The browser topic extends the tested PR #511 SDK with the DNS wire declarations
+and bounded name expansion used by GLib 2.90.1. The scope is the public
+nameser and resolver headers, userspace decoder, and resolver guest probe.
+Kernel networking and the DNS exchange use the verified baseline. Four
+fixture runs passed in the private diskless Q35 guest and the window was
+returned to integration. The GIO resolver object compiles. The first static
+GLib/GIO build failure is missing `ELOOP` in `gfileutils.c`. See the
+[wire decoder receipt](../assets/evidence/gio-dns-wire/receipt.json).
+
+## GLib file open policy — November 22, 2026
+
+The browser topic starts from merged PR #515. The scope is the SDK
+`ELOOP` declaration and the existing link-free `O_NOFOLLOW` contract for
+initramfs and exFAT. The filesystem owner approved the contract. Two
+file-policy and two platform probes exited 0 with an initramfs archive-link
+fixture and private exFAT workspace. QEMU stopped and the window returned
+to integration. GLib's `gfileutils.c` object compiles. The first static build
+failure is `_POSIX_HOST_NAME_MAX` in `ghostutils.c`. See the
+[file-policy receipt](../assets/evidence/glib-file-policy/receipt.json).
+
+## GLib hostname utilities — November 22, 2026
+
+The browser topic extends merged PR #517 by supplying the existing SDK
+`<limits.h>` to the pinned GLib C build. The native platform fixture
+checked the SDK hostname limit, `gethostname()` and `uname()` in two
+diskless Q35 executions. QEMU stopped and the window was released.
+The exact GLib hostname object compiled. The static build stops at
+`NSIG` and `SA_NOCLDSTOP` in `gmain.c`. See the
+[hostname receipt](../assets/evidence/glib-hostname/receipt.json).
+
+## WebCore dependency and software-backend audit — November 5, 2026
+
+The user resumed browser work with a source/configuration audit and backend
+design review. Baseline is clean actual main88bdc382, Ports89f22a96, UI3a695ce5
+and Apps24bc4541. Dedicated branch: device/apple-silicon/webcore-audit. Scope is
+the checksum-pinned WPEWebKit2.54.2 dependency/configuration graph and a proposed
+CPU-rendered local-page integration contract. This does not authorize a WebCore
+port, runtime/UI implementation, production signal-capability changes, native
+GPU work, full engine build, VM or hardware acceptance.
+
+Integration/runtime and SrvrUI read-only reviews are complete. The
+[durable audit](../browser-webcore-audit.md) records the dependency matrix and
+real noncomposited-Skia/SHM source path, without target rendering acceptance.
+The pinned archive and31 source-file hashes plus15 local contract hashes were
+verified; an isolated no-compiler FindGLib probe stops at missing glib-2.0.
+The initial collector diagnostic mismatch is preserved. Full WPE configure,
+compile, VM and hardware checks were not run.
+
+Owner findings correct release-versus-publication and WPE notification lifetime
+assumptions, and specify dirty/retry/resize/input/density and bounded wait gates.
+MAP_SHARED/IPC, honest frame outcomes/cancellation and GLib wait integration
+remain separately owned implementation dependencies. No shared code changed.
+The sole checkout is reused; bounded generated inputs are under ignored
+build/browser-webcore-audit. The next proposed slice is a pinned GLib
+prerequisite probe, not work started by this audit.
+
 ## Final integration and source-only workspace reset — November 4, 2026
 
 The local closeout includes the experimental no-JIT milestone through Ports #9
@@ -6047,3 +6341,51 @@ Ports9 merged at `89f22a967415297cc6af9229c2bee950932b4aee`; its tree equals rev
 `eb8468df24044d63626a0c0f76b90f024dffc244`. The OS pin now names that actual
 merge commit. Relative to the qualified af1421b port implementation, only
 PORT.md documentation changed; this pin promotion adds no runtime code.
+
+### GNU Grep queue resumption, November 22, 2026
+
+The user resumed the bounded CLI queue. Separate `SrvrOS-ports-grep` at OS
+`b275e57d` owns the GNU Grep 3.12 source, port-local SDK build and guest fixtures.
+`ggrep` preserves existing compact `grep` callers and adds single-file or finite
+stdin search with fixed strings, genuine BRE and ERE, C locale, count/quiet
+and explicit admission limits. GNU's direct release signature and SHA-256
+were verified against the published signer fingerprint. The compiler/guest
+window follows the browser owner's release. No protected checkout or VM was
+used. The OS pin's Pro checkpoint logging call needs owner coordination before
+using a new Ports main pin. This is separate from the Grep port.
+
+GNU Grep qualified on clean `0241ba87` with composite Ports `9fdd187`.
+The 19 GNU reference cases, 14 refusals, five disposable guests, Terminal
+walkthrough, 498-command CLI and ports regressions pass. Two clean component
+rebuilds match the same SDK objects and native tests record five PASS and one
+SKIP. The heap, interrupt and evidence scope is recorded in
+[the Grep receipt](../assets/evidence/ggrep/receipt.json). Exact tested source,
+boot payload and prior failed receipts are retained outside build cleanup.
+
+Ports #15 merged `f96d91c3` with its reviewed tree verified. OS #503 stays
+draft on the qualified composite until the Pro checkpoint logging owner
+approves its separate landing path. The candidate keeps the OS-main logging
+behavior. Current main `28eb6291` is reconciled with host-only incoming changes.
+All Grep guests stopped. The integration checkout and review VM were untouched.
+
+### Grep pin reconciliation, November 22, 2026
+
+Ports #16 proposes the checkpoint logging line already deployed in OS pin
+`276eb1b`. The exact source file matches the deployed one, and the only other
+change relative to the prior qualified composite is Grep port documentation.
+Integration agreed with the separate review path. The owner review request is
+posted on Pro bringup PR19. Owner disposition is pending.
+
+The rebased OS candidate `b69f84cb` on actual main `b95bc096` with proposed
+Ports `9d42e0f` passes the clean matched build, two Grep boots, ports regression,
+Terminal functional and expert review, and all 498 CLI commands with clean
+filesystem checks. The [pin receipt](../assets/evidence/ggrep/pin-receipt.json)
+records artifact hashes and scope. A verified archive outside build retains
+403 entries. The four older raw guest disk copies were retired after matching
+readback from the earlier qualification archive. All owned guest and build
+processes stopped. The integration checkout and review VM are untouched.
+Integration approved landing OS #503 with Ports `9d42e0f` on the durable
+`pins/srvros-503-ggrep` ref. A fresh independent OS clone initialized the exact
+Ports gitlink and fetched the dedicated ref. Ports #16 remains open for owner
+review of promotion to Ports main. The archive was retired during cleanup.
+Compact evidence and manifests survive. Start sha256sum after OS delivery.

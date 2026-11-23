@@ -54,7 +54,7 @@ class StreamTests(unittest.TestCase):
             with s.open_bundle(path):
                 pass
 
-    def test_roundtrip_and_legacy(self):
+    def test_roundtrip_v2_and_reject_legacy_json(self):
         doc = self.doc('a', 100000)
         path = self.base / 'v2'
         s.export_bundle(self.store, self.ident, [doc], path)
@@ -64,12 +64,26 @@ class StreamTests(unittest.TestCase):
         other = self.base / 'other'; v1.init_store(other)
         result = s.import_bundle(other, path, 'bob', 200, 201)
         self.assertEqual((Path(result['home']) / doc).read_bytes(), (self.home / doc).read_bytes())
-        legacy = self.base / 'legacy'
-        v1.publish_bundle(legacy, v1.export_bundle(self.store, self.ident, [doc]))
-        with s.open_bundle(legacy) as bundle:
-            self.assertTrue(bundle.legacy)
+        legacy = self.base / 'legacy.json'
+        legacy.write_text(json.dumps({'format': v1.FORMAT, 'schema_version': 1,
+            'profile': {'id': self.ident, 'display_name': 'Old'}, 'preferences': {},
+            'documents': [{'path': doc, 'size': 0, 'sha256': hashlib.sha256(b'').hexdigest(),
+                           'data_base64': ''}]}))
+        with self.assertRaises(v1.ProfileError):
+            with s.open_bundle(legacy): pass
         third = self.base / 'third'; v1.init_store(third)
-        s.import_bundle(third, legacy, 'carol', 300, 300)
+        with self.assertRaises(v1.ProfileError): s.import_bundle(third, legacy, 'carol', 300, 300)
+        self.assertEqual(list((third / 'profiles').iterdir()), [])
+
+    def test_noncanonical_v2_manifest_is_accepted_for_restore(self):
+        manifest = self.valid()
+        raw = json.dumps(manifest, indent=2, sort_keys=False).encode()
+        path = self.base / 'noncanonical'
+        path.write_bytes(s.HEADER.pack(s.MAGIC, len(raw), 0) + raw)
+        with s.open_bundle(path) as opened:
+            self.assertEqual(opened.metadata, manifest)
+        with self.assertRaises(v1.ProfileError):
+            with s.open_bundle(path, require_canonical=True): pass
 
     def test_caps_and_memory(self):
         docs = [self.doc(str(i), s.MAX_FILE) for i in range(4)]
@@ -218,10 +232,10 @@ class StreamTests(unittest.TestCase):
         home = Path(guest_temp.name).resolve() / 'guestuser'
         guest_run('import', host_bundle, home, 'guestuser', 1001, 1001)
         self.assertEqual((home / doc).read_bytes(), (self.home / doc).read_bytes())
-        review = json.loads(guest_run('preview-export-auto', home, doc))
-        self.assertEqual(review['bundle_version'], 2)
+        review = json.loads(guest_run('preview-export', home, doc))
+        self.assertNotIn('bundle_version', review)
         guest_bundle = self.base / 'guest.bundle'
-        guest_run('export-auto-reviewed', home, guest_bundle, review['sha256'], doc)
+        guest_run('export-reviewed', home, guest_bundle, review['sha256'], doc)
         destination = self.base / 'guest-import'; v1.init_store(destination)
         imported = s.import_bundle(destination, guest_bundle, 'hostuser', 2001, 2001)
         self.assertEqual((Path(imported['home']) / doc).read_bytes(), (self.home / doc).read_bytes())

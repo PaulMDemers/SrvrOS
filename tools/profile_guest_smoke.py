@@ -230,7 +230,7 @@ def main():
         machine_a = d.machine_preferences(4, -300)
         machine_b = d.machine_preferences(2, 60)
         source = out / 'source.exfat'
-        profile_image.provision(base_volume, source, d.make_bundle(), A, 'local_a', 1001, 1001,
+        d.provision_fixture(base_volume, source, d.make_bundle(), A, 'local_a', 1001, 1001,
                                 profile_driver, machine_a)
         # B starts with no imported profile; only its machine-scoped settings are seeded.
         target = out / 'destination.exfat'
@@ -271,8 +271,7 @@ def main():
         boot(disks['a'], disks['transport'], out, 'a-export', args, 'export')
         exported = check_allocation(disks['transport'], out, 'transport-export').read('transfer.json')
         (out / 'guest-export.json').write_bytes(exported)
-        bundle = profile_bundle.decode_json(exported)
-        payloads = profile_bundle.validate_bundle(bundle)
+        bundle, payloads = d.decode_fixture_bundle(exported)
         if (bundle['profile']['id'] != d.ID or payloads.get('Documents/migration.txt') != d.EDITED or
             payloads.get('Documents/binary.dat') != d.BINARY or
             bundle['preferences'] != dict(d.make_bundle()['preferences'], theme_style=1)):

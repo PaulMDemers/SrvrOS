@@ -554,7 +554,8 @@ serial: yes
 """
 
 
-def verify(directory, expected_release=None):
+def verify_files(directory, expected_release=None):
+    """Verify the complete payload and its manifest file hashes."""
     loader = directory / "loader"
     if directory.is_symlink() or loader.is_symlink() or not loader.is_dir():
         raise ValueError("Boot payload must have a real loader directory")
@@ -578,6 +579,12 @@ def verify(directory, expected_release=None):
         path = directory / name
         if digest(path) != hashes[name]:
             raise ValueError(f"Boot artifact failed verification: {path}")
+    return manifest
+
+
+def verify(directory, expected_release=None):
+    manifest = verify_files(directory, expected_release)
+    hashes = manifest["sha256"]
     payload = {name: hashes[name] for name in FILES if not name.endswith("limine.conf")}
     # Older installs have no config_version field. Verify against their original
     # recipe so a config update can retain the working previous release.

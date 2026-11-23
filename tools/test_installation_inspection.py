@@ -18,9 +18,11 @@ import installation_inspection as inspection
 from installation_io_faults import build
 from exfat_test_image import ExfatFixture
 from test_profile_image import bundle
+from test_profile_image import DATA as PROFILE_DATA
 from test_storage_leases import empty_image
 import profile_bundle
 import profile_image
+import profile_stream_fixture
 
 ROOT = Path(__file__).resolve().parents[1]
 INSPECT_DRIVER = ROOT / 'build/tests/installation-inspect-driver'
@@ -101,14 +103,16 @@ class InstalledInspectionTests(unittest.TestCase):
         # Seed the namespace targets on an unpublished private image before prepare.
         with tempfile.TemporaryDirectory(prefix='.profile-image-', dir=self.root) as temp:
             image = Path(temp) / 'image'
-            image.write_bytes(empty_image(4 * 1024 * 1024).data)
+            image.write_bytes(empty_image(32 * 1024 * 1024).data)
             for operation, path in (('ensure-home', '/fat/home'), ('mkdir', '/fat/bin'),
                                     ('mkdir', '/fat/var')):
                 subprocess.run([str(PROFILE_DRIVER), str(image), operation, path], check=True,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.exfat.write_bytes(image.read_bytes())
-        self.bundle = self.root / 'bundle.json'
-        self.bundle.write_bytes(profile_bundle.encode_json(bundle()))
+        self.bundle = self.root / 'bundle.srvrprofile'
+        value = bundle()
+        profile_stream_fixture.write_stream(self.bundle, value['profile'], value['preferences'],
+                                            [('Documents/notes.txt', PROFILE_DATA)])
 
     def publish(self, profile=True, identity=True):
         opts = {'identity_bound': identity}
@@ -150,12 +154,12 @@ class InstalledInspectionTests(unittest.TestCase):
         self.check_inspection(True, cli=True)
 
     def test_older_v2_profile_without_identity_pristine_and_used(self):
-        validate = profile_image.validate_request
-        def legacy_request(*args, **kwargs):
-            metadata, files, directories = validate(*args, **kwargs)
+        layout = profile_image.profile_layout
+        def legacy_layout(*args, **kwargs):
+            metadata, files, directories = layout(*args, **kwargs)
             del files[metadata['home'] + '/identity.json']
             return metadata, files, directories
-        with mock.patch.object(profile_image, 'validate_request', side_effect=legacy_request):
+        with mock.patch.object(profile_image, 'profile_layout', side_effect=legacy_layout):
             self.publish()
         pristine = self.check_inspection(True)
         self.assertFalse(pristine['used'])
@@ -169,25 +173,25 @@ class InstalledInspectionTests(unittest.TestCase):
         self.assertFalse(used['profiles'][0]['identity_present'])
 
     def test_portable_preferences_guest_size_boundary(self):
-        validate = profile_image.validate_request
+        layout = profile_image.profile_layout
         for size in (512, 513):
             with self.subTest(size=size):
                 if self.stage.exists():
                     import shutil
                     shutil.rmtree(self.stage)
-                def padded_request(*args, **kwargs):
-                    metadata, files, directories = validate(*args, **kwargs)
+                def padded_layout(*args, **kwargs):
+                    metadata, files, directories = layout(*args, **kwargs)
                     path = metadata['home'] + '/' + profile_bundle.PREF_PATH
                     canonical = files[path]
                     self.assertLess(len(canonical), size)
                     files[path] = canonical + b' ' * (size - len(canonical))
                     return metadata, files, directories
-                with mock.patch.object(profile_image, 'validate_request', side_effect=padded_request):
+                with mock.patch.object(profile_image, 'profile_layout', side_effect=padded_layout):
                     self.publish()
                 self.check_inspection(size == 512)
 
     def test_portable_preferences_guest_lexical_grammar(self):
-        validate = profile_image.validate_request
+        layout = profile_image.profile_layout
         cases = (
             (b'{"text_size":16}', True),
             (b' \t\r\n{"text_size":16}\r\n\t ', True),
@@ -203,11 +207,11 @@ class InstalledInspectionTests(unittest.TestCase):
                 if self.stage.exists():
                     import shutil
                     shutil.rmtree(self.stage)
-                def custom_request(*args, **kwargs):
-                    metadata, files, directories = validate(*args, **kwargs)
+                def custom_layout(*args, **kwargs):
+                    metadata, files, directories = layout(*args, **kwargs)
                     files[metadata['home'] + '/' + profile_bundle.PREF_PATH] = payload
                     return metadata, files, directories
-                with mock.patch.object(profile_image, 'validate_request', side_effect=custom_request):
+                with mock.patch.object(profile_image, 'profile_layout', side_effect=custom_layout):
                     self.publish()
                 self.check_inspection(valid)
                 self.check_inspection(valid, cli=True)

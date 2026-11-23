@@ -16,6 +16,18 @@ from displayd_resolution_smoke import build_iso
 from desktop_foundation_smoke import QMP
 
 
+def jpeg_with_exif_orientation(jpeg, orientation):
+    """Insert a minimal little-endian EXIF orientation tag after JPEG SOI."""
+    assert jpeg[:2] == b"\xff\xd8"
+    # TIFF header + one IFD entry for Orientation (SHORT, count 1).
+    tiff = (b"II" + struct.pack("<H", 42) + struct.pack("<I", 8) +
+            struct.pack("<H", 1) + struct.pack("<HHI", 0x0112, 3, 1) +
+            struct.pack("<H", orientation) + b"\0\0" + struct.pack("<I", 0))
+    payload = b"Exif\0\0" + tiff
+    segment = b"\xff\xe1" + struct.pack(">H", len(payload) + 2) + payload
+    return jpeg[:2] + segment + jpeg[2:]
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--stress",action="store_true",help="also exercise maximum-size images and cancellation")
@@ -34,6 +46,12 @@ def main():
         files={"Landscape.png":png,"Bad.png":b"not an image", "Oversize.png":png[:16]+struct.pack(">II",4096,4096)+png[24:]}
         if args.stress: files["Maximum.png"]=image_pattern(4096,1024)
         files.update({"Sample."+extension:(root/f"tools/fixtures/images/pattern.{extension}").read_bytes() for extension in ("png","jpg","bmp")})
+        sample_jpeg=files["Sample.jpg"]
+        files["LandscapeExif90.jpg"] = jpeg_with_exif_orientation(sample_jpeg, 6)
+        files["LandscapeExifMirror.jpg"] = jpeg_with_exif_orientation(sample_jpeg, 2)
+        # Orientation values outside the EXIF 1..8 range must not prevent a
+        # valid JPEG from decoding; retain the untransformed dimensions.
+        files["LandscapeExifMalformed.jpg"] = jpeg_with_exif_orientation(sample_jpeg, 9)
         fixture.add_directory_files("pictures",files)
         for name,data in files.items(): assert fixture.read("pictures/"+name)==data
         (tmp/"disk.exfat").write_bytes(fixture.data)
@@ -128,8 +146,11 @@ def main():
                     wait(b"deskd: retired pid=");qmp.key("esc")
                     wait(b"deskview: action=2");shot("preview-canceled")
                     open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
-                    click(width//2-150,height-50);type_text("Preview remained responsive.")
-                    wait(b"loaded path=/fat/pictures/Maximum.png width=4096 height=1024",90)
+                    load_progress=consumed
+                    shortcut("meta_l-spc");wait(b"launcher opened");type_text("Text window");qmp.key("ret");wait(b"launcher window=")
+                    type_text("Preview remained responsive.")
+                    consumed=load_progress
+                    wait_all([b"launcher window=",b"loaded path=/fat/pictures/Maximum.png width=4096 height=1024"],90)
                     shortcut("ctrl-l");type_text("/fat/preview-input-proof.txt");shortcut("ctrl-s")
                     wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text("Maximum.png");qmp.key("ret");wait(b"launcher window=")
@@ -138,6 +159,16 @@ def main():
                 open_name("Bad.png");wait(b"image-result transport=1 status=3 retained=1");shot("preview-invalid")
                 open_name("Oversize.png");wait(b"image-result transport=1 status=4 retained=1")
                 open_name("Sample.jpg");wait(b"loaded path=/fat/pictures/Sample.jpg width=19 height=13")
+                shot("preview-exif-original")
+                open_name("LandscapeExif90.jpg")
+                wait(b"loaded path=/fat/pictures/LandscapeExif90.jpg width=13 height=19")
+                shot("preview-exif-90")
+                open_name("LandscapeExifMirror.jpg")
+                wait(b"loaded path=/fat/pictures/LandscapeExifMirror.jpg width=19 height=13")
+                shot("preview-exif-mirror")
+                open_name("LandscapeExifMalformed.jpg")
+                wait(b"loaded path=/fat/pictures/LandscapeExifMalformed.jpg width=19 height=13")
+                shot("preview-exif-malformed")
                 open_name("Sample.bmp");wait(b"loaded path=/fat/pictures/Sample.bmp width=19 height=13")
                 open_name("Sample.png");wait(b"loaded path=/fat/pictures/Sample.png width=19 height=13")
                 shortcut("ctrl-o");wait(b"deskview: picker ready");shortcut("esc")
@@ -149,12 +180,14 @@ def main():
                 # Global View menu and compact client surface.
                 shortcut("f10");shortcut("right");shortcut("right");shortcut("down");shortcut("ret")
                 wait(b"deskview: action=4 scale=65536")
-                qmp.mouse(813-pointer[0],648-pointer[1]);pointer[:]=[813,648]
+                qmp.mouse(819-pointer[0],654-pointer[1]);pointer[:]=[819,654]
                 qmp.mouse(0,0,1);qmp.mouse(-470,-270,1);qmp.mouse(0,0,0);pointer[0]-=470;pointer[1]-=270;time.sleep(.5)
-                qmp.key("0");wait(b"fit=1");shot("preview-compact")
+                wait_all([b"edges=10 frame=56,88,292,295",b"size=290x250"])
+                click(203,158);wait(b"deskview: action=3");wait(b"fit=1");shot("preview-compact")
                 shortcut("ctrl-w");wait(b"deskview: exited failure=0")
                 # Files associates the image extension with Preview.
-                click(width//2-250,height-50);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
+                shortcut("meta_l-spc");wait(b"launcher opened");type_text("Files new app");qmp.key("ret")
+                wait(b"launcher application=1");wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
                 shortcut("ctrl-l");type_text("/fat/pictures");qmp.key("ret");wait(b"file-result role=files op=3 status=0")
                 qmp.key("home");qmp.key("down");qmp.key("ret")
                 wait(b"deskview: starting");wait(b"loaded path=/fat/pictures/Landscape.png width=1600 height=1000");shot("preview-files-launch")
@@ -166,7 +199,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-preview: PASS launcher, PNG/JPEG/BMP, fit/actual/zoom/pan, invalid/oversized input retention, picker clipboard, global View menu, compact layout, Files association and clean exit. Maximum-image/cancel stress: {args.stress}. Evidence: {out}")
+    print(f"desktop-preview: PASS launcher, PNG/JPEG/BMP, EXIF rotation/mirror/malformed orientation, fit/actual/zoom/pan, invalid/oversized input retention, picker clipboard, global View menu, compact layout, Files association and clean exit. Maximum-image/cancel stress: {args.stress}. Evidence: {out}")
 
 
 if __name__=="__main__": main()
