@@ -106,6 +106,18 @@ TMPDIR=/private/tmp TZ=UTC python3 tools/file_magic_smoke.py \
   --database "$PWD/build/ports/file-magic/bounded.magic.mgc"
 ```
 
+## Bounded GNU sort
+
+Use `gsort` for C-locale bytewise or decimal numeric ordering on one regular
+file or finite stdin. The command writes to stdout. For example,
+`gsort -t , -k 2,2 -n -s report.txt` orders the second field numerically and
+preserves the input order of ties.
+
+The profile accepts at most 256 KiB, 8,192 records, and 64 KiB per record
+including the newline. It uses the sequential in-memory engine from GNU
+Coreutils 9.12. See the [port contract](../ports/srvros/gnu-sort/PORT.md) for
+limits, status codes, and source provenance.
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and
