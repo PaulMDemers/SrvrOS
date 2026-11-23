@@ -273,13 +273,13 @@ address. The driver reserves a full zeroed page for the engine.
 Only command words are copied to the RCS batch page. Its pointer stays in
 the context metadata.
 
-In the private address space, VA `0x1000` holds five batches at 256-byte
+In the five-engine image, VA `0x1000` holds five batches at 256-byte
 intervals. VAs `0x2000` through `0x6000` each hold one writable completion
 page. VA `0x7000` holds the CPU-controlled semaphore. Commands and the
 semaphore are read-only to the GPU. Four aligned page directories and one
 leaf table complete the allocation. Only the first directory has a present
 entry. The blitter context names all four directories, enables legacy PPGTT
-and starts its batch at VA `0x1100`. Broadwell still fetches that context
+and starts its held batch at VA `0x1100`. Broadwell still fetches that context
 and the ring through the global table. Activating it requires the global
 bindings, compatible GPU private PAT entry 3, the correct DMA domain and
 exclusive submission. [Intel Broadwell context descriptor, pp. 107–110](https://cdrdv2-public.intel.com/690870/intel-gfx-prm-osrc-bdw-vol-02d-commandreference-structures.pdf)
@@ -317,3 +317,41 @@ before replacement, after replacement and after restoring slot 12291.
 
 This exercises the engine commands on silicon. Native page-table installation, WiDi and
 the power manager's L3 acknowledgement require separate physical evidence.
+
+### First native blitter request
+
+The isolated Air submission image uses a two-page private address space for
+its first request. The ring dispatches to VA `0x1700` on a read-only command
+page. The blitter stores a 64-bit value at `0x3000`, then uses MI_FLUSH_DW
+to store its complement at `0x3040` and ends the batch. This request can
+finish before a CPU release gate or any other engine exists.
+
+The kernel driver takes a live GPU range transfer and a pinned, uncached
+GGTT register page. It compares each original entry before installing seven
+global mappings. The provider must complete the translation invalidation
+and maintain hardware ownership. The driver then pins the published range,
+checks all seven live entries, verifies execlist mode and selects the private
+engine status page. Four ordered DWORD stores post the private context to the
+BCS submission port. A fresh context-complete/active-to-idle event,
+the expected context ID, an idle queue and a complete scratch-page comparison
+are required before restoring the original engine status address. The driver
+waits for reader retirement before restoring the original entries. An
+uncertain descriptor or completion keeps the range and backing registered.
+[Broadwell register reference, context status and execlist status](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+Run `make test-intel-bdw-blitter` for the host driver tests and
+`make smoke-intel-bdw-blitter` to run the same driver with modeled registers
+inside a SrvrOS Q35 guest. For the physical instruction comparison on
+Air7,2 under Ubuntu, use the regular desktop account for the client.
+
+```sh
+make build/tests/intel-bdw-engine-drain-host
+build/tests/intel-bdw-engine-drain-host --first-marker
+build/tests/intel-bdw-engine-drain-host --marker-dispatch
+sudo python3 tools/intel_bdw_slot_loan_host.py --marker-csb --user "$(id -un)" build/tests/intel-bdw-engine-drain-host
+```
+
+The third invocation samples the six hardware status slots around the fence
+using separate 32-bit MMIO reads. i915 owns the live rings, address tables and
+context throughout this comparison. The exclusive device owner and first
+cold-boot ELSP submission still require acceptance under SrvrOS.

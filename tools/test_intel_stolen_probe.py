@@ -23,6 +23,10 @@ class StolenProbe(unittest.TestCase):
         p=subprocess.run([str(ROOT/TARGET)],check=True,capture_output=True,text=True,timeout=120)
         self.assertIn('actual-adapter=1 hardware=0 writes=0 ownership=0',p.stdout)
         print(p.stdout.strip(),flush=True)
+    def test_first_marker_and_command_range_return(self):
+        for mode in ('command-full', 'tail-drift', 'tail-unreadable', 'vm-writable', 'vm-stale'):
+            with self.subTest(mode=mode):
+                subprocess.run([str(ROOT/TARGET), '--submission-'+mode], check=True, capture_output=True, timeout=120)
     def test_actual_recipe_boot_dispatch_and_ordinary_isolation(self):
         target='build/tests/boot-stolen'
         subprocess.run([str(ROOT/target)],check=True,capture_output=True,timeout=120)

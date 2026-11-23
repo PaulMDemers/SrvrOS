@@ -14,6 +14,9 @@ enum {
     /* Alternative RCS entry with all five scratch pages resident in one VM. */
     BDW_PRIVATE_GATHER_BATCH = BDW_BARRIER_ENGINES * BDW_PRIVATE_QUEUE_BYTES,
     BDW_PRIVATE_GATHER_BYTES = 512,
+    /* Standalone BCS request. Only the batch and its result page are resident. */
+    BDW_PRIVATE_MARKER_BATCH = BDW_PRIVATE_GATHER_BATCH + BDW_PRIVATE_GATHER_BYTES,
+    BDW_PRIVATE_MARKER_BYTES = 48,
     BDW_PRIVATE_GATHER_RESULT = 256,
     BDW_PRIVATE_GATE = 1 + BDW_BARRIER_ENGINES,
     BDW_PRIVATE_PT, BDW_PRIVATE_PD, BDW_PRIVATE_PAGES=BDW_PRIVATE_PD+4
@@ -26,4 +29,7 @@ struct bdw_private_vm_image {
 };
 bool intel_bdw_private_vm_build(volatile struct bdw_private_vm_image *, uint64_t dma_base, uint64_t epoch);
 bool intel_bdw_private_vm_verify(volatile const struct bdw_private_vm_image *, uint64_t dma_base, uint64_t epoch);
+/* First submission maps only its read-only command page and writable BCS result. */
+bool intel_bdw_marker_vm_build(volatile struct bdw_private_vm_image *, uint64_t dma_base, uint64_t epoch);
+bool intel_bdw_marker_vm_verify(volatile const struct bdw_private_vm_image *, uint64_t dma_base, uint64_t epoch);
 #endif

@@ -18,7 +18,7 @@ BUILD = ROOT / 'build'
 FIXTURE = BUILD / 'tests/scanout-guest'
 
 
-def make_iso(directory):
+def make_iso(directory, program="ownedpage"):
     tree = directory / 'tree'
     boot = tree / 'boot'
     config = boot / 'limine'
@@ -33,7 +33,7 @@ def make_iso(directory):
         '    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n')
     with tarfile.open(boot / 'initramfs.tar', 'w', format=tarfile.USTAR_FORMAT) as archive:
         archive.add(BUILD / 'userspace/init.elf', arcname='init')
-        archive.add(FIXTURE / 'ownedpage', arcname='ownedpage')
+        archive.add(FIXTURE / program, arcname=program)
     iso = directory / 'owned-page.iso'
     subprocess.run(['xorriso', '-as', 'mkisofs', '-R', '-r', '-J', '-b',
                     'boot/limine/limine-bios-cd.bin', '-no-emul-boot', '-boot-load-size',
@@ -45,15 +45,19 @@ def make_iso(directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
+    parser.add_argument('--blitter', action='store_true', help='Run the Broadwell command driver fixture')
     args = parser.parse_args()
+    program = 'blitter' if args.blitter else 'ownedpage'
+    cases = [('', 'PASS Broadwell blitter driver (18 cases)')] if args.blitter else [
+        (mode, f'PASS {mode}') for mode in OWNED_PAGE_MODES]
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)
-        iso = make_iso(directory)
+        iso = make_iso(directory, program)
         serial = directory / 'serial'
         cmd = [args.qemu, '-M', 'q35', '-m', '512', '-boot', 'd', '-cdrom', iso,
                '-display', 'none', '-monitor', 'none', '-nic', 'none', '-no-reboot',
                '-serial', f'unix:{serial},server=on,wait=on']
-        with (FIXTURE / 'serial.log').open('wb') as log, socket.socket(socket.AF_UNIX) as sock:
+        with (FIXTURE / ('blitter-serial.log' if args.blitter else 'serial.log')).open('wb') as log, socket.socket(socket.AF_UNIX) as sock:
             proc = subprocess.Popen(cmd)
             try:
                 end = time.monotonic() + 10
@@ -65,14 +69,14 @@ def main():
                 log.write(boot)
                 if b'srv> ' not in boot:
                     raise RuntimeError('SrvrOS monitor did not start')
-                for mode in OWNED_PAGE_MODES:
-                    sock.sendall(f'run /ownedpage {mode}\n'.encode())
+                for mode, expected in cases:
+                    sock.sendall(f'run /{program} {mode}\n'.encode())
                     result = receive_run(sock, 25)
                     log.write(result)
-                    if (f'PASS {mode}'.encode() not in result.splitlines() or
+                    if (expected.encode() not in result.splitlines() or
                             not re.search(rb'^run: pid=\d+ exited status=0\r?$', result, re.M)):
                         raise RuntimeError(f'{mode} failed; see {log.name}')
-                    print(f'PASS {mode}', flush=True)
+                    print(expected, flush=True)
             finally:
                 proc.terminate()
                 try:

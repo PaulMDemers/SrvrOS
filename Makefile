@@ -5705,7 +5705,7 @@ build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c $(SCANOUT
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(SCANOUT_TRANSFER_HOST_SOURCES) -o $@
 
 # Linux i915 comparator used on the physical Broadwell host.
-build/tests/intel-bdw-engine-drain-host: tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c tools/intel_bdw_i915_host.h $(KERNEL_HEADERS)
+build/tests/intel-bdw-engine-drain-host: tools/intel_bdw_engine_drain_host.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c tools/intel_bdw_i915_host.h $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $(filter %.c,$^) -o $@
 
@@ -6898,8 +6898,8 @@ build/intel-stolen/%.o: kernel/diagnostics/intel_bdw_%.c $(KERNEL_HEADERS) $(ZIG
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 INTEL_STOLEN_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/drivers/intel_stolen_probe.c.o,$(KERNEL_OBJ))
-build/intel-stolen/srvros.elf: build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o build/intel-joint/page.o build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o $(INTEL_STOLEN_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o build/intel-joint/page.o build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o $(INTEL_STOLEN_BASE) -o $@
+build/intel-stolen/srvros.elf: build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o build/intel-joint/page.o build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o build/intel-stolen/bcs_submit.o build/intel-stolen/bcs_port.o $(INTEL_STOLEN_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-stolen/main.o build/intel-stolen/probe.o build/intel-stolen/layout.o build/intel-bcs-context/context.o build/intel-joint/page.o build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o build/intel-stolen/bcs_submit.o build/intel-stolen/bcs_port.o $(INTEL_STOLEN_BASE) -o $@
 
 # Isolated full-GT reset/fence-preservation protocol. Host only: no native
 # image/adapter is enabled by this target or by the existing BCS8-only writer.
@@ -7367,7 +7367,7 @@ build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-STOLEN_ADAPTER_HOST_SOURCES := kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
+STOLEN_ADAPTER_HOST_SOURCES := kernel/src/drivers/intel_bdw_blitter.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
 build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -Wl,--gc-sections -o $@
@@ -7412,3 +7412,24 @@ build/tests/vmm-reserved-guard$(HOST_EXE): tools/test_vmm_reserved_guard.c tools
 
 # These host fixtures include the actual VMM source; follow its private engine.
 build/tests/vmm-user-range-host$(HOST_EXE) build/tests/vmm-prepare-host$(HOST_EXE) build/tests/vmm-diagnostic-range$(HOST_EXE) build/tests/vmm-kernel-alias$(HOST_EXE) build/tests/vmm-alias-inventory$(HOST_EXE) build/tests/vmm-physical-unmapped$(HOST_EXE): kernel/src/memory/vmm_reserved_guard.inc
+
+BDW_BLITTER_SOURCES := kernel/src/drivers/intel_bdw_blitter.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/display_access.c
+build/tests/intel-bdw-blitter$(HOST_EXE): tools/test_intel_bdw_blitter.c $(BDW_BLITTER_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -DSRVROS_BCS_SUBMIT_HOST_TEST -Ikernel/include $< $(BDW_BLITTER_SOURCES) -o $@
+.PHONY: test-intel-bdw-blitter
+test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
+	$<
+test-core: test-intel-bdw-blitter
+
+BDW_BLITTER_GUEST := build/tests/blitter-guest
+BDW_BLITTER_GUEST_OBJECTS := $(addprefix $(BDW_BLITTER_GUEST)/,$(patsubst %.c,%.o,tools/test_intel_bdw_blitter.c $(BDW_BLITTER_SOURCES)))
+$(BDW_BLITTER_GUEST)/%.o: %.c $(KERNEL_HEADERS) $(USER_SYSROOT_HEADERS) $(ZIG)
+	@mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -UNDEBUG -DSRVROS_BCS_SUBMIT_HOST_TEST -Ikernel/include -c $< -o $@
+$(SCANOUT_GUEST_DIR)/blitter: $(BDW_BLITTER_GUEST_OBJECTS) $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld
+	@mkdir -p $(@D)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(BDW_BLITTER_GUEST_OBJECTS) $(USER_LIB_A) -o $@
+.PHONY: smoke-intel-bdw-blitter
+smoke-intel-bdw-blitter: $(SCANOUT_GUEST_DIR)/blitter $(KERNEL) $(USER_INIT) $(LIMINE_DIR)/.ready
+	$(PYTHON) tools/scanout_owned_page_smoke.py --qemu $(QEMU) --blitter

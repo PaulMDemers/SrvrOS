@@ -99,7 +99,47 @@ def observe_hold(stack, client, console, power, messages, footprint):
         print('  all', *(hex(word) for word in state), f'samples={count}')
 
 
-def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False, observe=False):
+def observe_marker_csb(binary, user, blitter):
+    def snapshot():
+        # The registers require separate DWORD loads for status and context ID.
+        word = lambda offset: struct.unpack_from('<I', blitter, offset)[0]
+        ptr = word(0x3a0)
+        entries = [(word(0x370+8*i), word(0x374+8*i)) for i in range(6)]
+        if word(0x3a0) != ptr or (ptr & 15) >= 6 or word(0x234) & 0xc01c:
+            raise ValueError('Unstable or busy BCS queue')
+        return ptr, entries
+
+    with subprocess.Popen([str(binary), '--marker-csb'], user=user.pw_uid, group=user.pw_gid,
+                          extra_groups=os.getgrouplist(user.pw_name, user.pw_gid),
+                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as client:
+        try:
+            snapshots = []
+            for phase in range(2):
+                ready, _, _ = select.select([client.stdout], [], [], 5)
+                if not ready or client.stdout.readline().strip() != f'CHECK {phase}':
+                    raise RuntimeError('Missing blitter marker checkpoint')
+                snapshots.append(snapshot())
+                print(phase, file=client.stdin, flush=True)
+            output, _ = client.communicate(timeout=5)
+        finally:
+            if client.poll() is None:
+                client.kill()
+        if client.returncode:
+            raise RuntimeError('Device marker comparison failed')
+    before, _ = snapshots[0]
+    after, entries = snapshots[1]
+    first = ((before & 15)+1) % 6
+    last = (first+1) % 6
+    enter, _ = entries[first]
+    done, context = entries[last]
+    if ((after & 15) != last or (before >> 8) != (after >> 8) or
+            (enter & 0x801f) != 1 or (done & 0x801f) != 0x18 or not context):
+        raise ValueError(f'Unexpected CSB events {before:#x} -> {after:#x} {entries}')
+    print(output, end='')
+    print(f'BCS CSB {before:#x} -> {after:#x}, enter={enter:#x} complete={done:#x} context={context:#x}')
+
+
+def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False, observe=False, marker_csb=False):
     slot = INDEPENDENT_SLOT if independent or observe else FIRMWARE_SLOT
     panel = PCI / 'drm'
     edp, = panel.glob('card*/card*-eDP-1/enabled')
@@ -108,7 +148,7 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
         (PCI / 'device').read_text().strip() != '0x1626' or
         (PCI / 'driver').resolve().name != 'i915' or edp.read_text().strip() != 'enabled'):
         raise ValueError('Requires the Air7,2 with an active i915 eDP panel')
-    if not observe:
+    if not observe and not marker_csb:
         for event in ('i915_vma_bind', 'i915_vma_unbind'):
             (instance / 'events/i915' / event / 'enable').write_text('1')
         (instance / 'tracing_on').write_text('1')
@@ -126,6 +166,9 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
         def mmio_page(address):
             return stack.enter_context(mmap.mmap(bar.fileno(), 4096, flags=mmap.MAP_SHARED,
                                                  prot=mmap.PROT_READ, offset=address & ~4095))
+
+        if marker_csb:
+            return observe_marker_csb(binary, user, mmio_page(0x22000))
 
         ptes = mmio_page(offset)
         protected_offset = 0x800000 + FIRMWARE_SLOT * 8
@@ -378,6 +421,7 @@ if __name__ == '__main__':
     ap.add_argument('--independent-slot', action='store_true', help='Rebind slot 12291 while protecting slot 8704')
     ap.add_argument('--observe-hold', action='store_true',
                     help='Trace acquisition and release of five private queues with both slots left in place')
+    ap.add_argument('--marker-csb', action='store_true', help='Read fresh blitter status events around one request')
     ap.add_argument('--bcs-queue', action='store_true',
                     help='Verify the active blitter execlist and context across the held checkpoints')
     ap.add_argument('--competing-context', action='store_true',
@@ -385,6 +429,8 @@ if __name__ == '__main__':
     ap.add_argument('--console', type=int, choices=range(1, 64), metavar='VT',
                     help='Use a text VT during the independent trial and return to the previous VT')
     args = ap.parse_args()
+    if args.marker_csb and (args.observe_hold or args.independent_slot or args.bcs_queue or args.competing_context or args.console):
+        ap.error('--marker-csb runs a standalone request')
     if args.observe_hold and (args.independent_slot or args.competing_context or args.bcs_queue):
         ap.error('--observe-hold is independent of slot loans')
     if args.console is not None and not (args.independent_slot or args.observe_hold):
@@ -394,10 +440,10 @@ if __name__ == '__main__':
     account = pwd.getpwnam(args.user)
     if os.geteuid() or account.pw_uid == 0:
         ap.error('Use a privileged trace observer and an unprivileged GPU client')
-    inst = None if args.observe_hold else Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
+    inst = None if args.observe_hold or args.marker_csb else Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
     try:
         trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console, args.bcs_queue,
-              args.competing_context, args.observe_hold)
+              args.competing_context, args.observe_hold, args.marker_csb)
     finally:
         if inst is not None:
             (inst / 'tracing_on').write_text('0')

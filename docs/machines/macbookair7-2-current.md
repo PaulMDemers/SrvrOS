@@ -10,6 +10,31 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The Broadwell blitter driver now prepares a standalone request for the Air.
+The kernel mapping path takes a transferred GPU interval, installs seven
+global entries, selects the request’s engine status page and posts the
+context descriptor. It waits for a fresh completion for that context, checks
+both result cache lines and all padding, restores the original status page
+and returns the original translations. A lost completion keeps the DMA
+allocation and address interval pinned.
+
+All 18 driver cases passed on the host and in a SrvrOS Q35 guest with modeled
+registers. These include exact rollback of all seven entries, refusal of a
+pre-existing GPU alias, and retaining the mapping when completion is lost.
+The host cases also passed with address and undefined-behavior sanitizers.
+Local build, guest and hardware comparison logs are in `build/air-first-marker/`.
+
+On the Air under Ubuntu/i915, three paired runs executed both the direct
+batch and its SrvrOS ring dispatch instructions. All six verified 4,096 bytes
+and advanced the original eDP CRTC. A separate read-only device comparison
+captured three fresh blitter context completions. The status-buffer write
+cursor advanced by two each time, including a wrap from slot 5 to slot 1.
+The native submission diagnostic uses the new image builder. Cold-boot
+execution still needs the device owner to transfer the command interval and
+supply an initialized, exclusively held blitter. The original panel and slot
+12291 remain under their existing owners.
+[Driver and qualification procedure](../intel-bdw-bcs-flush.md#first-native-blitter-request)
+
 The Air executed the new SrvrOS render batch under Ubuntu/i915. RCS copied
 the complete 64-bit post-flush markers from BCS, both video engines and VECS
 before publishing its final PIPE_CONTROL marker. Three consecutive trials
@@ -1571,7 +1596,8 @@ The [submit port](../intel-bdw-bcs-submit.md) and actual joined flush/nonce core
 pass2,519 port,2,326 flush and35 joined cases per policy,24 new plus24 existing
 controls, fatal sanitizers and native frames. Port issuance is separate from
 command completion and retirement; all partial/uncertain effects retain backing.
-No native image calls these submission/completion cores.
+The new blitter driver uses the submit port. Calling it during a physical
+SrvrOS boot requires the live range and exclusive engine owner described above.
 
 The [CPU image codec](../intel-bdw-bcs-context.md) passes4,463 decode/all-word-
 corruption/input cases and11 controls. The actual context adapter passes72 new
