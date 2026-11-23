@@ -12,7 +12,9 @@ import hardware_boot as boot
 from fixture_compile import compile_fixture, recipe
 from hardware_desktop import session_log_limit
 from hardware_boot_smoke import shared_receipt
-from intel_gt_bootstrap import bootstrap_result
+from intel_display_backing import backing_result
+from intel_gt_bootstrap import bootstrap_result, historical_view
+from intel_gt_primary import verify_primary_backing
 from intel_gt_flush import MEDIA_WORDS
 from intel_gt_preflight import gt_result
 from test_intel_gt_primary import run
@@ -115,6 +117,25 @@ class FlushAcknowledgements(unittest.TestCase):
                 bootstrap_result(text.replace(row, bad))
         legacy = text.replace(row, "").replace("intel-range-summary: v=4 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
+
+    def test_primary_backing_with_independent_slot(self):
+        text = observe("pass")
+        parsed = bootstrap_result(text)
+        source = backing_result(historical_view(text, practical=True, memory=True, range_check=True, primary=True,
+                                                aux=True, flush=True))
+        protection = parsed["range"]
+        for version in (3, 4):
+            with self.subTest(version=version):
+                protection["summary"]["v"] = version
+                entries = list(protection["vectors"][0])
+                protection["vectors"][1] = entries
+                verify_primary_backing(source, protection, parsed["primary"])
+                entries[128] = source["ptes"][0]
+                with self.assertRaisesRegex(ValueError, "aliases primary"):
+                    verify_primary_backing(source, protection, parsed["primary"])
+                entries.pop()
+                with self.assertRaisesRegex(ValueError, "backing coverage"):
+                    verify_primary_backing(source, protection, parsed["primary"])
 
     def test_live_slice_power(self):
         text = observe("pass")
