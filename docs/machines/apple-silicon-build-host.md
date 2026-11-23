@@ -1,5 +1,27 @@
 # Apple Silicon macOS build host
 
+## Re-enable suspended console accounts
+
+`device/apple-silicon/console-account-enable` starts from `66fbf299`.
+The scope is administrator re-enabling through the installed recovery
+console and the locked local account store qualified by #529. The checkpoint
+is restored access after reboot, unchanged file bytes and permissions for
+both users, and recovery from a process interruption on either side of
+account-store replacement on one disposable installation.
+
+From the `srvros.auth=recovery` administrator console, run
+`run /fat/bin/local-enroll enable NAME`, then reboot with
+`srvros.auth=local`. The account keeps its current password, numeric
+identity, and private home. A password reset performed while suspended
+takes effect at sign-in after an explicit enable.
+
+If enable was interrupted, reboot into explicit recovery and use the
+[account-store marker cleanup below](#console-password-reset). Keep the
+committed account store. If replacement had yet to occur, the account
+will stay suspended until the administrator retries enable. If replacement
+completed, clearing the pending markers lets the committed enabled state take
+effect.
+
 ## Console password reset
 
 `device/apple-silicon/console-password-reset` starts from `54b1596c`.
