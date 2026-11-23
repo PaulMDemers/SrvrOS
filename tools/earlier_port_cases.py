@@ -182,7 +182,8 @@ ZIP_EXTRACTED = {
     for directory in ("zip-host-out", "zip-retry")
     for name, data in ZIP_MEMBERS.items()
 }
-ZIP_PRESERVED = {"zip-blocked/keep.txt": ZIP_MEMBERS["zip-note.txt"]}
+ZIP_PRESERVED = {"zip-blocked/keep.txt": ZIP_MEMBERS["zip-note.txt"],
+                 "zip-member-out/zip-note.txt": ZIP_MEMBERS["zip-note.txt"]}
 
 
 def zip_fixture() -> bytes:
@@ -203,7 +204,7 @@ def zip_cases():
     }
     commands = [
         "cd /fat/earlier-cli",
-        "mkdir -p zip-host-out zip-retry zip-blocked/zip-payload.bin",
+        "mkdir -p zip-host-out zip-retry zip-member-out zip-blocked/zip-payload.bin",
         "cp zip-note.txt zip-blocked/keep.txt",
     ]
     expected = {}
@@ -212,6 +213,7 @@ def zip_cases():
     successful = (
         ("zip-list", "miniunz -l zip-host.zip"),
         ("zip-extract", "miniunz zip-host.zip -d zip-host-out"),
+        ("zip-member-extract", "miniunz zip-host.zip zip-note.txt -d zip-member-out"),
         ("zip-deflate", f"minizip -o zip-guest-deflate.zip {inputs}"),
         ("zip-stored", f"minizip -o -0 zip-guest-stored.zip {inputs}"),
     )
@@ -261,8 +263,11 @@ def verify_zip_guest(read_file):
             if archive.namelist() != list(ZIP_MEMBERS) or archive.testzip() is not None:
                 raise RuntimeError(f"ZIP member names or CRC differ for {name}")
             for member, expected in ZIP_MEMBERS.items():
-                if archive.getinfo(member).compress_type != mode or archive.read(member) != expected:
+                entry = archive.getinfo(member)
+                if entry.compress_type != mode or archive.read(member) != expected:
                     raise RuntimeError(f"ZIP method or contents differ for {name}/{member}")
+                if entry.date_time != (1980, 1, 1, 0, 0, 0):
+                    raise RuntimeError(f"ZIP fallback date differs for {name}/{member}")
         hashes[name] = sha256(data).hexdigest()
 
     if b"error opening zip-payload.bin" not in read_file("zip-output-blocked.log"):

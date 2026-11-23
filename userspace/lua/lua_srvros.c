@@ -85,7 +85,7 @@ static int run_repl_line(lua_State *L, const char *line) {
 }
 
 static int run_repl(lua_State *L) {
-    printf("Lua %s srvros interactive profile\n", LUA_VERSION_RELEASE);
+    printf("%s (SrvrOS interactive profile)\n", LUA_RELEASE);
     int result = 0;
     linenoiseHistorySetMaxLen(64);
     linenoiseHistoryLoad("/fat/lua.history");

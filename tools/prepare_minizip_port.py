@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Apply SrvrOS file-status and stack adaptations to a pinned MiniZip CLI."""
+"""Apply SrvrOS file-status and filename adaptations to pinned MiniZip sources."""
 
 import argparse
 from pathlib import Path
 
 
 WRITER_EDITS = (
+    (
+        "                filetime(filenameinzip,&zi.tmz_date,&zi.dosDate);",
+        "                if (!filetime(filenameinzip,&zi.tmz_date,&zi.dosDate))\n"
+        "                    zi.dosDate = 0x00210000UL; /* 1980-01-01 00:00:00 */",
+        1,
+    ),
     (
         '''
                         if (size_read < size_buf)
@@ -76,6 +82,38 @@ READER_EDITS = (
     ),
     (
         '''
+        if (file_info.uncompressed_size>0)
+''',
+        '''
+        if (file_info.size_filename >= sizeof(filename_inzip))
+        {
+            printf("ZIP member name exceeds %d bytes\\n", MAXFILENAME);
+            err = UNZ_BADZIPFILE;
+            break;
+        }
+        if (file_info.uncompressed_size>0)
+''',
+        1,
+    ),
+    (
+        '''
+    size_buf = WRITEBUFFERSIZE;
+    buf = (void*)malloc(size_buf);
+''',
+        '''
+    if (file_info.size_filename >= sizeof(filename_inzip))
+    {
+        printf("ZIP member name exceeds %d bytes\\n", MAXFILENAME);
+        return UNZ_BADZIPFILE;
+    }
+
+    size_buf = WRITEBUFFERSIZE;
+    buf = (void*)malloc(size_buf);
+''',
+        1,
+    ),
+    (
+        '''
     return 0;
 }
 
@@ -116,8 +154,40 @@ static int do_extract_currentfile''',
 )
 
 
+# Compile this copy of unzip.c only for the miniunz executable.
+LOOKUP_EDITS = (
+    (
+        '''
+        char szCurrentFileName[UNZ_MAXFILENAMEINZIP+1];
+        err = unzGetCurrentFileInfo64(file,NULL,
+                                    szCurrentFileName,sizeof(szCurrentFileName)-1,
+                                    NULL,0,NULL,0);
+        if (err == UNZ_OK)
+        {
+            if (unzStringFileNameCompare(szCurrentFileName,
+''',
+        '''
+        char szCurrentFileName[UNZ_MAXFILENAMEINZIP+1];
+        unz_file_info64 file_info;
+        err = unzGetCurrentFileInfo64(file,&file_info,
+                                    szCurrentFileName,sizeof(szCurrentFileName),
+                                    NULL,0,NULL,0);
+        if (err == UNZ_OK)
+        {
+            if (file_info.size_filename < sizeof(szCurrentFileName) &&
+                unzStringFileNameCompare(szCurrentFileName,
+''',
+        1,
+    ),
+)
+
+
 def prepare(source: Path, output: Path) -> None:
-    edits = {"minizip.c": WRITER_EDITS, "miniunz.c": READER_EDITS}
+    edits = {
+        "minizip.c": WRITER_EDITS,
+        "miniunz.c": READER_EDITS,
+        "unzip.c": LOOKUP_EDITS,
+    }
     if source.name not in edits:
         raise ValueError(f"unexpected MiniZip CLI source: {source}")
     if source.resolve() == output.resolve():

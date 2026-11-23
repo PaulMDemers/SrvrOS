@@ -959,11 +959,8 @@ MINIZIP_PATCHED_C := $(MINIZIP_PROGRAM_DIR)/minizip.c
 MINIZIP_OBJ := $(MINIZIP_C:%.c=build/%.c.o) $(MINIZIP_PATCHED_C:.c=.c.o)
 MINIZIP_DEP := $(MINIZIP_OBJ:.o=.d)
 
-MINIUNZ_C := \
-	ports/upstream/zlib/contrib/minizip/ioapi.c \
-	ports/upstream/zlib/contrib/minizip/unzip.c
-MINIUNZ_PATCHED_C := $(MINIZIP_PROGRAM_DIR)/miniunz.c
-MINIUNZ_OBJ := $(MINIUNZ_C:%.c=build/%.c.o) $(MINIUNZ_PATCHED_C:.c=.c.o)
+MINIUNZ_PATCHED_C := $(addprefix $(MINIZIP_PROGRAM_DIR)/,miniunz.c unzip.c)
+MINIUNZ_OBJ := build/ports/upstream/zlib/contrib/minizip/ioapi.c.o $(MINIUNZ_PATCHED_C:.c=.c.o)
 MINIUNZ_DEP := $(MINIUNZ_OBJ:.o=.d)
 
 CJSON_C := ports/upstream/cjson/cJSON.c
