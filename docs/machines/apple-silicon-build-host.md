@@ -314,6 +314,13 @@ pinned static GIO build then stopped in the auto-selected inotify backend
 on `FIONREAD` and `inotify_init()`.
 See the [fnmatch receipt](../assets/evidence/glib-fnmatch/receipt.json).
 
+## GIO file monitoring — November 22, 2026
+
+The browser topic starts from merged PR #524 at `4c95594e`. It selects
+GIO's own file polling fallback for SrvrOS, using the existing runtime
+metadata and main-context APIs. The checkpoint is an exact target GIO
+build and a private guest proof of the selected backend.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

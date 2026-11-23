@@ -34,6 +34,7 @@ FILE_POLICY_MARKER = b'glib-file-policy: ok'
 CHILD_WATCH_MARKER = b'glib-child-watch: ok'
 LINKED_CHILD_WATCH_MARKER = b'glib-linked-child-watch: ok'
 FNMATCH_MARKER = b'glib-fnmatch: ok'
+GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -42,7 +43,8 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None):
+def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None,
+              probe_timeouts=None):
     with tempfile.TemporaryDirectory(prefix='srv-glib-', dir='/tmp') as temp, ExitStack() as stack:
         uart = str(Path(temp) / 'serial')
         argv = ['qemu-system-x86_64', '-name', 'SrvrOS GLib prerequisite probe',
@@ -95,7 +97,8 @@ def run_guest(image, output, receipt, probes, dns_peer=None, workspace=None):
                     for name, markers in probes.items():
                         for attempt in (1, 2):
                             connection.sendall(f'run /{name}\n'.encode())
-                            result = receive_run(connection, 15)
+                            timeout = probe_timeouts.get(name, 15) if probe_timeouts else 15
+                            result = receive_run(connection, timeout)
                             serial.write(result)
                             exits = list(re.finditer(rb'(?m)^run: pid=\d+ exited status=(\d+)\r?\n', result))
                             if len(exits) != 1 or FAULT.search(result):
@@ -153,6 +156,8 @@ def main():
     parser.add_argument('--linked-child-watch', type=Path, metavar='ELF',
                         help='boot a previously linked SrvrOS GLib child-watch ELF from this checkout')
     parser.add_argument('--fnmatch', action='store_true', help='test SDK filename pattern matching')
+    parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
+                        help='boot a linked GIO monitor probe with a private exFAT disk')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -161,7 +166,8 @@ def main():
     print(f'GLib prerequisite evidence: {output}', flush=True)
     receipt = {'result': 'failed', 'guest_stopped': False,
                'scope': ('native SrvrOS prerequisites with a disposable exFAT disk'
-                         if args.file_policy else 'native SrvrOS prerequisites in a normal diskless guest')}
+                         if args.file_policy or args.gio_poll_monitor
+                         else 'native SrvrOS prerequisites in a normal diskless guest')}
     try:
         compiler = ROOT / 'ports/srvros/webkit/cc'
         source = ROOT / 'tools/test_glib_platform_guest.c'
@@ -200,19 +206,27 @@ def main():
             payloads['glib-child-watch'] = payload
             probes['glib-child-watch'] = (CHILD_WATCH_MARKER,)
             receipt['child_watch_payload_sha256'] = digest(payload)
-        if args.linked_child_watch:
-            linked = args.linked_child_watch.resolve(strict=True)
+        linked_probes = (
+            ('glib-linked-child-watch', args.linked_child_watch, LINKED_CHILD_WATCH_MARKER,
+             'linked_child_watch_payload_sha256'),
+            ('gio-poll-monitor', args.gio_poll_monitor, GIO_POLL_MONITOR_MARKER,
+             'gio_poll_monitor_payload_sha256'),
+        )
+        for program, path, marker, receipt_key in linked_probes:
+            if path is None:
+                continue
+            linked = path.resolve(strict=True)
             linked_input = str(linked.relative_to(ROOT))
-            payload = output / 'linked-child-watch.elf'
-            receipt['scope'] += ' with a linked target GLib child-watch probe'
+            payload = output / f"{program.removeprefix('glib-')}.elf"
+            receipt['scope'] += f' with the linked target {program} probe'
             receipt['inputs_sha256'][linked_input] = digest(linked)
             shutil.copyfile(linked, payload)
             payload_hash = digest(payload)
             if payload_hash != receipt['inputs_sha256'][linked_input]:
-                raise RuntimeError('linked child-watch payload changed during staging')
-            payloads['glib-linked-child-watch'] = payload
-            probes['glib-linked-child-watch'] = (LINKED_CHILD_WATCH_MARKER,)
-            receipt['linked_child_watch_payload_sha256'] = payload_hash
+                raise RuntimeError(f'{program} payload changed during staging')
+            payloads[program] = payload
+            probes[program] = (marker,)
+            receipt[receipt_key] = payload_hash
         if args.fnmatch:
             unit = ROOT / 'tools/test_glib_fnmatch_guest.c'
             receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
@@ -239,9 +253,7 @@ def main():
             receipt['resolver_payload_sha256'] = digest(resolver)
         if args.file_policy:
             unit = ROOT / 'tools/test_glib_file_policy_guest.c'
-            generator = ROOT / 'tools/mk_exfat_image.py'
-            for path in (unit, generator, ROOT / 'tools/audio_fixture.py'):
-                receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
+            receipt['inputs_sha256'][str(unit.relative_to(ROOT))] = digest(unit)
             obj = output / 'file-policy.o'
             payload = output / 'file-policy.elf'
             subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
@@ -250,6 +262,10 @@ def main():
             payloads['glib-file-policy'] = payload
             probes['glib-file-policy'] = (FILE_POLICY_MARKER,)
             receipt['file_policy_payload_sha256'] = digest(payload)
+        if args.file_policy or args.gio_poll_monitor:
+            generator = ROOT / 'tools/mk_exfat_image.py'
+            for path in (generator, ROOT / 'tools/audio_fixture.py'):
+                receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
             workspace = output / 'workspace.exfat'
             with (output / 'workspace.log').open('wb') as log:
                 subprocess.run([sys.executable, generator, workspace], cwd=ROOT, check=True,
@@ -315,7 +331,8 @@ def main():
             subprocess.run([limine / 'limine', 'bios-install', image], check=True,
                            timeout=30, stdout=log, stderr=log)
         receipt['image_sha256'] = digest(image)
-        run_guest(image, output, receipt, probes, dns_peer, workspace)
+        run_guest(image, output, receipt, probes, dns_peer, workspace,
+                  {'gio-poll-monitor': 90} if args.gio_poll_monitor else None)
         receipt['result'] = 'passed'
     except Exception as error:
         receipt['error'] = str(error)
