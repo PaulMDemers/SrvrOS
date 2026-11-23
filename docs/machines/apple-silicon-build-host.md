@@ -326,6 +326,14 @@ unavailable unrelated services. The full static GIO build stops in
 `ginetaddress.c` on `AI_NUMERICHOST` and missing IPv6 address declarations.
 See the [polling receipt](../assets/evidence/gio-poll-monitor/receipt.json).
 
+## GIO address declarations — November 22, 2026
+
+The browser topic starts at `c853aaf2` after merged PR #527 restored
+the bundled matchers in GNU Grep and Diff. The SDK slice supplies address
+constants and predicates, and enforces `AI_NUMERICHOST` within the current
+IPv4 resolver contract. The checkpoint is a resolver audit, a private
+target guest and a pinned static GIO rerun.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

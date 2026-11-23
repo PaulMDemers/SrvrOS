@@ -72,7 +72,8 @@ static uint64_t socket_descriptor_flags[POSIX_SOCKET_MAX];
 static uint64_t socket_generations[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
 static struct real_socket_options *real_option_slots[SRV_OPEN_MAX];
-const struct in6_addr in6addr_any = {0};
+const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
 
 int __posix_socket_fork_ready(void) {
     for(unsigned i=0;i<POSIX_SOCKET_MAX;i++) if(socket_slots[i]) return 0;
@@ -2383,9 +2384,16 @@ int getaddrinfo(const char *node,
         return EAI_SERVICE;
     }
     *res = 0;
-    if (node == 0 || node[0] == '\0') {
+    int numeric_only = hints != 0 && (hints->ai_flags & AI_NUMERICHOST);
+    /* This resolver constructs only sockaddr_in results. A numeric caller
+     * requesting another family must not get an IPv4 result or trigger DNS. */
+    if (numeric_only && hints->ai_family != AF_UNSPEC && hints->ai_family != AF_INET) {
+        return EAI_FAMILY;
+    }
+    if (node == 0 || (!numeric_only && node[0] == '\0')) {
         address.s_addr = 0;
     } else if (inet_pton(AF_INET, node, &address) != 1) {
+        if (numeric_only) return EAI_NONAME;
         uint32_t resolved = 0;
         if (resolve_dns_udp(node, &resolved) == 0) {
             address.s_addr = resolved;
@@ -2436,6 +2444,8 @@ const char *gai_strerror(int errcode) {
         return "temporary resolver failure";
     case EAI_NONAME:
         return "name not found";
+    case EAI_FAMILY:
+        return "address family not supported";
     case EAI_MEMORY:
         return "out of memory";
     case EAI_SERVICE:
