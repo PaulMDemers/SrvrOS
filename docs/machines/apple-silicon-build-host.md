@@ -25,6 +25,16 @@ credential if replacement completed. The next boot with `srvros.auth=local`
 uses the committed store. If the committed file is missing or the volume
 requires filesystem recovery, handle that recovery before clearing markers.
 
+Runtime `fdbb2567` passed the matched build, authentication crypto checks and
+all 14 sign-in cases on one disposable installed QEMU disk. The stock tool
+replaced the password and kept a disabled account disabled. The diagnostic
+tool stopped the reset process immediately before or after account-store
+replacement. Pending markers blocked sign-in in both cases. Recovery kept
+the committed store byte-for-byte and restored the appropriate credential.
+After each recovery boot both users retained their exact file contents,
+owners and modes, and cross-user access remained denied. The matched receipt
+and logs are under `build/review/local-signin/proof-lcl_x1yy/`.
+
 ## Interactive isolated console
 
 `device/apple-silicon/interactive-console-session` started from `4c95594e`
