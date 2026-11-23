@@ -18,13 +18,16 @@ advancing eDP frame counter and preserved the primary surface and both PTEs.
 Maximum gaps across the three traces were 54 µs during acquisition, 67 µs
 during the hold and 33 µs during release. Shorter pulses remain unresolved.
 
-The automated `intel-prepare-gam-v1` trial samples the native GAM request on
-both sides of four five-engine control snapshots, with PCI bus mastering enabled.
-The snapshots cover entry, two held observations and cancellation. The report
-preserves all eight raw DWORDs and the existing engine and display evidence.
-Both GGTT slots remain untouched. This experiment tests whether engine prepare
-changes GAM permission. A subsequent slot write requires independent engine,
-WiDi and L3 evidence and a request the driver can maintain through rollback.
+On the Air, SrvrOS release `5a6a18d4a1777ca7` (source `a4e4085e`,
+session `session-000660e9697155cb-00`) completed the five-engine prepare,
+hold and cancellation sequence in 93.015 ms with PCI bus mastering enabled.
+All five controls went from 0 to 3, stayed at 3 for both held snapshots, then
+returned to 0. The GAM request read `0xff` on both sides of every snapshot.
+All six clients, including WiDi, still had permission at those observations.
+Engine preparation alone therefore cannot authorize a write to slot 12291.
+This run measured the GAM request and engine controls. It did not measure
+L3 acknowledgements. Both display snapshots matched, the driver issued zero
+reset or PTE writes, and the returned USB session passed the offline check.
 
 On November 22 the i915 comparison queued one independent request on each of
 the five engines while two lower-priority contexts held the queues. The kernel
