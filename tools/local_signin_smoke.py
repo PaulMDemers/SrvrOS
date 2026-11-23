@@ -34,7 +34,8 @@ RESET_ALPHA = b'fixture-reset-alpha-pass-23'
 RESET_DISABLED = b'fixture-reset-disabled-pass-36'
 RESET_BEFORE = b'fixture-reset-before-pass-48'
 RESET_AFTER = b'fixture-reset-after-pass-59'
-SECRETS = tuple(PASSWORDS.values()) + (WRONG, RESET_ALPHA, RESET_DISABLED, RESET_BEFORE, RESET_AFTER)
+ENABLE_PASSWORD = b'fixture-suspended-reset-pass-81'
+SECRETS = tuple(PASSWORDS.values()) + (WRONG, RESET_ALPHA, RESET_DISABLED, RESET_BEFORE, RESET_AFTER, ENABLE_PASSWORD)
 
 
 def save_json(path, value):
@@ -127,6 +128,18 @@ def account_rows(raw):
 def reset_record_matches(before, after):
     return (before[:4] == after[:4] and
             before[4] != after[4] and before[5] != after[5])
+
+
+def require_enabled_transition(before, after, name, old, new):
+    previous, current = account_rows(before), account_rows(after)
+    key = name.encode('ascii')
+    if previous.keys() != current.keys() or key not in previous:
+        raise RuntimeError('enable transition changed account set')
+    expected = list(previous[key])
+    if expected[3] != old: raise RuntimeError('unexpected pre-transition enabled state')
+    expected[3] = new
+    if current[key] != expected or any(previous[k] != current[k] for k in previous if k != key):
+        raise RuntimeError('enable transition changed fields other than enabled flag')
 
 
 def verify_persisted_files(disk, partition):
@@ -350,6 +363,21 @@ class VM:
         if (b'local-enroll: password reset' in segment) != (checkpoint is None):
             raise RuntimeError('reset publication message did not match requested outcome')
 
+    def enable_account(self, name, checkpoint=None):
+        binary = '/fat/signin-test/reset' if checkpoint else '/fat/bin/local-enroll'
+        line = f'run {binary} enable {name}'
+        if checkpoint: line += ' --interrupt-' + checkpoint + '-rename'
+        start = len(self.output); self.send(line.encode('ascii'))
+        self.wait(b' exited status='); self.wait(b'\nsrv> ')
+        segment = bytes(self.output[start:])
+        result = re.search(rb'run: pid=\d+ exited status=(\d+)', segment)
+        if not result or int(result.group(1)) != (86 if checkpoint else 0):
+            raise RuntimeError(f'{self.label}: unexpected enable exit status')
+        if b'New password: ' in segment or b'Confirm password: ' in segment:
+            raise RuntimeError('enable unexpectedly requested a password')
+        if (b'local-enroll: account enabled' in segment) != (checkpoint is None):
+            raise RuntimeError('enable publication message did not match requested outcome')
+
     def attempt(self, name, password, uid=None, session=None, ending='logout', diagnostic=True,
                 interrupt_retry=False):
         start = len(self.output)
@@ -474,7 +502,7 @@ def main():
     parser.add_argument('--ovmf-vars', required=True)
     parser.add_argument('--boot-wait', type=int, default=120)
     parser.add_argument('--interactive-only', action='store_true',
-                        help='run enrollment and the two interactive boots only')
+                        help='run enrollment, interactive boots, reset and enable cases only')
     args = parser.parse_args()
     for name in (args.ovmf, args.ovmf_vars):
         if not Path(name).is_file() or ',' in name:
@@ -687,11 +715,132 @@ def main():
                 'committed_store_preserved_during_recovery': 'PASS', 'expected_credentials': 'PASS',
                 'both_users_data_and_permissions': 'PASS', 'committed_sha256': sha(interrupted)})
             save()
+        # A disabled account can be reset without becoming enabled.  Stock
+        # enable must only toggle its flag and must not accept test controls.
+        old_alpha_password = alpha_password
+        enabled_before = account_bytes(target)
+        before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'enable-suspend', args, 'recovery') as vm:
+            vm.command('/fat/bin/local-enroll disable alpha'); vm.finish()
+        suspended = account_bytes(target)
+        require_enabled_transition(enabled_before, suspended, 'alpha', b'1', b'0')
+        with VM(target, out, 'enable-suspended-reset', args, 'recovery') as vm:
+            vm.command_refused('/fat/bin/local-enroll enable alpha --interrupt-before-rename')
+            vm.command_refused('/fat/bin/local-enroll enable alpha --interrupt-after-rename')
+            vm.reset_password('alpha', ENABLE_PASSWORD); vm.finish()
+        suspended_reset = account_bytes(target)
+        previous, current = account_rows(suspended), account_rows(suspended_reset)
+        if (previous.keys() != current.keys() or not reset_record_matches(previous[b'alpha'], current[b'alpha']) or
+            previous[b'alpha'][3] != b'0' or previous[b'beta'] != current[b'beta'] or
+            previous[b'disabled'] != current[b'disabled']):
+            raise RuntimeError('reset while suspended changed enabled state or another account')
+        if marker_bytes(target, 'accounts.tmp') is not None or marker_bytes(target, 'enroll.lock') is not None:
+            raise RuntimeError('successful suspended reset retained transaction markers')
+        before_swap = region_hash(target, *data); local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'enable-suspended-refusal', args, 'local') as vm:
+            vm.attempt('alpha', old_alpha_password); vm.attempt('alpha', ENABLE_PASSWORD)
+            vm.attempt('beta', PASSWORDS['beta'], 1002,
+                       session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+            vm.finish()
+        before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'enable-stock', args, 'recovery') as vm:
+            vm.enable_account('alpha'); vm.finish()
+        stock_enabled = account_bytes(target)
+        require_enabled_transition(suspended_reset, stock_enabled, 'alpha', b'0', b'1')
+        if marker_bytes(target, 'accounts.tmp') is not None or marker_bytes(target, 'enroll.lock') is not None:
+            raise RuntimeError('successful enable retained transaction markers')
+        before_swap = region_hash(target, *data); local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'enable-stock-verified', args, 'local') as vm:
+            vm.attempt('alpha', old_alpha_password)
+            vm.attempt('alpha', ENABLE_PASSWORD, 1001,
+                       session=lambda v: v.session_files('alpha', 1001, peer='beta'))
+            vm.attempt('beta', PASSWORDS['beta'], 1002,
+                       session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+            vm.finish()
+        verify_persisted_files(target, data)
+        alpha_password = ENABLE_PASSWORD
+        receipt['cases'].append({'stock_enable': 'PASS', 'suspended_reset_remains_suspended': 'PASS',
+            'test_flags_refused': 'PASS', 'unchanged_account_fields': 'PASS',
+            'both_users_data_and_permissions': 'PASS'})
+        save()
+        for checkpoint in ('before', 'after'):
+            enabled = account_bytes(target)
+            before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'enable-' + checkpoint + '-suspend', args, 'recovery') as vm:
+                vm.command('/fat/bin/local-enroll disable alpha'); vm.finish()
+            suspended = account_bytes(target)
+            require_enabled_transition(enabled, suspended, 'alpha', b'1', b'0')
+            with VM(target, out, 'enable-' + checkpoint + '-interrupt', args, 'recovery') as vm:
+                vm.enable_account('alpha', checkpoint=checkpoint); vm.finish()
+            interrupted = account_bytes(target)
+            staged = marker_bytes(target, 'accounts.tmp')
+            if marker_bytes(target, 'enroll.lock') is None:
+                raise RuntimeError('interrupted enable has no transaction lock')
+            if checkpoint == 'before':
+                if interrupted != suspended or staged is None:
+                    raise RuntimeError('before-rename enable changed store or lacks staged store')
+                candidate = staged
+            else:
+                if interrupted == suspended or staged is not None:
+                    raise RuntimeError('after-rename enable did not replace store or retained staged name')
+                candidate = interrupted
+            require_enabled_transition(suspended, candidate, 'alpha', b'0', b'1')
+            before_swap = region_hash(target, *data); local_mode()
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'enable-' + checkpoint + '-pending', args, 'local') as vm:
+                vm.attempt('alpha', alpha_password); vm.attempt('beta', PASSWORDS['beta']); vm.finish()
+            if account_bytes(target) != interrupted:
+                raise RuntimeError('pending enable sign-in changed committed store')
+            before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'enable-' + checkpoint + '-recovery', args, 'recovery') as vm:
+                if staged is not None: vm.command('/fat/bin/rm /fat/etc/local-auth/accounts.tmp')
+                vm.command('/fat/bin/rm /fat/etc/local-auth/enroll.lock')
+                vm.finish()
+            if (account_bytes(target) != interrupted or marker_bytes(target, 'accounts.tmp') is not None or
+                marker_bytes(target, 'enroll.lock') is not None):
+                raise RuntimeError('enable recovery changed committed store or retained markers')
+            before_swap = region_hash(target, *data); local_mode()
+            if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            if checkpoint == 'before':
+                with VM(target, out, 'enable-before-still-disabled', args, 'local') as vm:
+                    vm.attempt('alpha', alpha_password)
+                    vm.attempt('beta', PASSWORDS['beta'], 1002,
+                               session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+                    vm.finish()
+                before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+                if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+                with VM(target, out, 'enable-before-retry', args, 'recovery') as vm:
+                    vm.enable_account('alpha'); vm.finish()
+                retried = account_bytes(target)
+                require_enabled_transition(interrupted, retried, 'alpha', b'0', b'1')
+                if marker_bytes(target, 'accounts.tmp') is not None or marker_bytes(target, 'enroll.lock') is not None:
+                    raise RuntimeError('retried enable retained transaction markers')
+                before_swap = region_hash(target, *data); local_mode()
+                if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+            with VM(target, out, 'enable-' + checkpoint + '-verified', args, 'local') as vm:
+                vm.attempt('alpha', alpha_password, 1001,
+                           session=lambda v: v.session_files('alpha', 1001, peer='beta'))
+                vm.attempt('beta', PASSWORDS['beta'], 1002,
+                           session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+                vm.attempt('disabled', RESET_DISABLED)
+                vm.finish()
+            verify_persisted_files(target, data)
+            original_accounts = account_bytes(target)
+            receipt['cases'].append({'enable_interruption': checkpoint, 'real_marker_refusal': 'PASS',
+                'committed_store_preserved_during_recovery': 'PASS', 'expected_enabled_state': 'PASS',
+                'both_users_data_and_permissions': 'PASS', 'committed_sha256': sha(interrupted)})
+            save()
         if args.interactive_only:
             receipt.update(status='PASS', final_disk_sha256=installation.digest(target),
-                           limitations=['interactive and reset subset only; full security suite not run',
+                           limitations=['interactive, reset and enable subset only; full security suite not run',
                                         'disposable QEMU only', 'no physical or power-loss qualification'])
-            print(f'local-signin: interactive subset PASS; evidence {out}', flush=True)
+            print(f'local-signin: interactive, reset and enable subset PASS; evidence {out}', flush=True)
             return
         # Pending transaction markers must block even a correct committed
         # credential. Clear only the marker this invocation created, and prove
