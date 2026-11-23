@@ -1,0 +1,357 @@
+{
+  "scope": "Pinned full static GLib and GIO build, and linked normal x86-64 SrvrOS GioUnix enumeration and lookup",
+  "integration_base": "ddc37b8f603b77a3ba080a9ffbe96e1b91befb31",
+  "cold_build_source": "ee0eb5cdaef090319295d39fe55a0eb6c0dd4a65",
+  "tested_source": "3378a11c2ffcff403c159111dd876a3e54c31f6d",
+  "owner_review": [
+    "Integration coordinated runtime ownership and the VM windows.",
+    "Filesystem reviewed visibility, projections and read-only semantics."
+  ],
+  "gobject_and_socket_groundwork": {
+    "gtk_topic_preserved_at": "9973e10cd35fc89808aa231fd5e088829055390e",
+    "reused_changes": {
+      "e921b45a": "457f0ca3",
+      "4006dfff": "029f7ba3",
+      "83bb1136 GIO datagram hunk": "2ac92632"
+    }
+  },
+  "source_sha256": {
+    "kernel/include/srvros/exfat.h": "0391c2f86194751ce2d9d861872d8a579a36f52a8c003378374a73df9da39e00",
+    "kernel/include/srvros/net.h": "d70cddd3550aea68dea1a51331979e6e40a273110867d2af51c0b8ee931db773",
+    "kernel/include/srvros/process.h": "c566c214034ad0e69d7af5a3345244cbb90967007e8c7d32dce6cc5a09c886e9",
+    "kernel/src/arch/x86_64/syscall.c": "3d426095c04fd7a105196c96e58feb90ccbdd8c206056075513586d4ffa6fbf3",
+    "kernel/src/fs/exfat.c": "98c4805047b0c2ef2443bf54be71dab49ca167af63a09505297a568168e4eb34",
+    "kernel/src/net.c": "00a212ab6815118d4362f32ffdc16695a1bcea20a79bc0f169fd6d6981b658db",
+    "kernel/src/process.c": "f184a3399543ec40e3e6ff927c3eee41341725c75beba5ade8b1e41812c3ce58",
+    "shared/include/srvros/mount_snapshot.h": "b7eb1767fa4539a972a04e5c09d2044a22e931ca5093d9af00e49f8b0043288b",
+    "shared/include/srvros/syscall_numbers.h": "249fa120f6adf654d306dd07827b05553a58fdeb69cd01a6aaa0f76ebe645eb6",
+    "tools/browser_glib_iconv.py": "bd06f13f62e5e272c9cff537d33bdf8fd9a18e01a5d97aa34cac578b5092dba6",
+    "tools/browser_storage.py": "cd4febea4042eebac792bdced8529ce3ae452a87ccceb9630f2dbf783602e15c",
+    "tools/glib-srvros-file-monitor.patch": "2d14f424f56755d4912bd235a6f524bde4b350576bb6e063f848dab0db168153",
+    "tools/glib-srvros-ip-tos.patch": "eee66b611927b6ec28b5e48584a51e349e2b9796dcdcf228f8d8f582f54633bb",
+    "tools/glib-srvros-ipv6-tclass.patch": "0661791ee733ae2e689ab42d3f9907d61f0cd501995b572ff282b0579f7e2c30",
+    "tools/glib-srvros-mounts.patch": "f67ac0223088ae4b87f1ec81872142bb96b8753805f4f92e7763596464134553",
+    "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+    "tools/glib-srvros-resolver-address.patch": "88f30d0864960c8cf4a023dda6822e32a3e6cecf88933152c03a37a4cd2a4f1a",
+    "tools/glib-srvros-socket-probes.patch": "c87a89b865e0b28d00e87a1cf69ece48700cb73432719cd9ee166dfdf7a01679",
+    "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+    "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+    "tools/glib_platform_guest.py": "43c2fe1d54a57490e7a205227f7572ec8c51545bd069b32932698a177aaf48ce",
+    "tools/test_exfat_metadata_restore.c": "8a55ffea308d5a9145ade2516e3342f2ba60675f2f88d4ca321d8ebaeb3d2a60",
+    "tools/test_glib_fionread_guest.c": "39d95594cb16fa2dfcb677f3117bf11502d942df2d4c9c53777088fbcd2e91b2",
+    "tools/test_glib_inet_address_guest.c": "d5c4bc7b7903ede1b46598c328153588f14f66e17feffa0508baa6d060f8abde",
+    "tools/test_glib_linked_gobject_guest.c": "d645cf49d0480fbc9cf55f3e92a6f2a6ff3bc53b748d69f2c04812401ca17da2",
+    "tools/test_glib_linked_mounts_guest.c": "fc33ee1c8e05faff9dd8ee98e333992d4d8734c8cd1e635afefd58a4d3a502e7",
+    "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+    "tools/test_net_transfer.c": "8576f72a7bdb8eb02299b14f4be7a6f43a09ac1ef37892c7f4cfd2e4812f52ea",
+    "tools/test_signal_experimental_admission.py": "1d72e655f35c3c2c8bebfbd1cce90b7f8a590ab746d7064f887bfc4bbf321a9d",
+    "userspace/lib/include/dirent.h": "dfed16d260e973f069b00c8f1d8345c44b0b7b3d4ca70ae2fbd7d327a4b0b66d",
+    "userspace/lib/include/netinet/in.h": "c49598bee79a52b3ea6d1946bce4d14ab9984f40dfebd404f7913f201af2d330",
+    "userspace/lib/include/srvros/sys.h": "023617b4427c3cd9f9f2897e8921ed685dfb9691f8095dbe4a52c62ce207c8c2",
+    "userspace/lib/include/sys/ioctl.h": "575e0b28d0f8aa24ca7e85b498de30b27aea5c18f58123ede6d1dc8cc1018ad6",
+    "userspace/lib/include/sys/stat.h": "b8ad221dfe7832882fc752b60816922ed0faa5e38b663ba377aef4f4b5a4fb29",
+    "userspace/lib/include/sys/types.h": "e2802959b6bf918e856e2b43cc3adf6de689a8831d9ac44d74afc2dfbd54dad8",
+    "userspace/lib/src/posix_ioctl.c": "5d2a566132d12744c865f9087b5e4f23bbd45fe4ea2f00de8bacc439e6c67742",
+    "userspace/lib/src/sys.c": "70f692d3c523190666e1e20457e94cf6cec75fc3214564edd994780b83620b22"
+  },
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "static_gio_exit": 0,
+    "static_steps": 390,
+    "post_guest_static_graph_exit": 0,
+    "file_monitor_backend": "polling",
+    "probe_link_exit": 0,
+    "archive_sha256": {
+      "build/browser-gio-unix-mounts/glib-build/glib/libglib-2.0.a": "5558cf4e96649e6e9561de402149430ff2412da670762452a0b182328978a373",
+      "build/browser-gio-unix-mounts/glib-build/gobject/libgobject-2.0.a": "127745ba08d489ae7d76fc6d5873c4c86bbab9e9e6ab05c3842edee028f4ed82",
+      "build/browser-gio-unix-mounts/glib-build/gmodule/libgmodule-2.0.a": "27b4d54e0bf2c759789afd54e0fe1e025dff91fd7d8292b3d14b080733c55d8a",
+      "build/browser-gio-unix-mounts/glib-build/gio/libgio-2.0.a": "f40c3581bb463aa25f82914cec9821ec9a9587b3b252db5214294cfc6467ef2c",
+      "build/browser-gio-unix-mounts/glib-build/subprojects/proxy-libintl-0.5/libintl.a": "87dee3e960609a793acee7e83255066b54ef6e2f80f595f15bf2a74ff45e78a3"
+    },
+    "staged_provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/browser-gio-unix-mounts/sdk-kernel-build.log": "4c8fcb0b08fe6525c0f8223d13ac3cda1cbf2b6e4e526cbfcca657518acdb644",
+      "build/browser-gio-unix-mounts/configure-gio.sh": "19c0f4b8682525f605281253e025e29e9a74c79834085c2f22db06fbf17119f9",
+      "build/browser-gio-unix-mounts/configure.log": "609f4f46a607902fba0aad11f8790fedfbbb247226fdf03631b9b0739fd37fbb",
+      "build/browser-gio-unix-mounts/rerun-static-gio.sh": "8656bef2280df8f84d1adc78beb578c374f13dcf1ebe846613402e40ac751363",
+      "build/browser-gio-unix-mounts/static-gio.log": "5947a3477620061865808880bcf57ad4b1399431bd0a75ab197b0417d9ec3842",
+      "build/browser-gio-unix-mounts/static-gio-post-guest.log": "792044bb82fb939db83dc55c732029c7bcfb5d0c702a20ee2f22b76dec202e92",
+      "build/browser-gio-unix-mounts/proxy-intl-link-build.log": "439104bc10272b7575e69eaf1b726682e97581d5a6428b503b68f08c99a2c007",
+      "build/browser-gio-unix-mounts/link-gio-probe.sh": "df1c965257f651702d085966d3bcfc1c25ea7047dbc6902dbf7d5c605d868404",
+      "build/browser-gio-unix-mounts/link-gio-probe.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "build/browser-gio-unix-mounts/probe-0.elf": "b58ded1f24584fb2533434e8c080f118218c375fee22c1652a245b53c60d8faa",
+      "build/browser-gio-unix-mounts/probe-1.elf": "30e8710763c189d7436d3792566724d70fdcd7250e2b518eae246bd434c78e69",
+      "build/browser-gio-unix-mounts/verify-guest.py": "d7116cf4f80d89ead4f6993eb5e133129c043b946b945dd1d015ca932b859ef2",
+      "build/browser-gio-unix-mounts/host-mounts.log": "01d92c63a8e597d6c43e9ba1736edacfcdfe2ef6e38f714ae97fd9effed79b41",
+      "build/browser-gio-unix-mounts/host-signal-admission.log": "a67d20ecb53497db90a98f675a2790bd8af256a3a881c6b330b0973ae87e0dd6",
+      "build/browser-gio-unix-mounts/root-guest-final.log": "3f1f19c209f882d3216c684fb67df673bd46e777001802a28faf2e45942e3aa2",
+      "build/browser-gio-unix-mounts/exfat-guest-final.log": "4ae23b706a6fcf5d1cd5dae26430ef3a27e02bda5ad768af754412db062245d8",
+      "build/browser-gio-unix-mounts/glib-build/config.h": "e1336dc993f214aa240dc7d0be330bc162268a1d3a17ea0691e4898ab53e8c0f",
+      "build/browser-gio-unix-mounts/glib-2.90.1/gio/gunixmounts.c": "07b6f2a373c5b8c990319f1124cb8abeb5157ec2fd702173fe2d1fdc8096ac1c"
+    }
+  },
+  "host_checks": {
+    "snapshot_and_exfat_exit": 0,
+    "snapshot": "Mount/unmount, trusted projections, credential filtering and no media reads, writes or flushes",
+    "signal_admission_exit": 0,
+    "signal_admission": "Strict and sanitizer runs denied mount snapshot in the experimental dispatcher before effects"
+  },
+  "guests": {
+    "diskless": {
+      "directory": "build/browser-glib-prereq/guest-hr_c9emg",
+      "raw_receipt_sha256": "b2a85cdc445109907c150235fb50590b153681657751d0b15012c3ec8634e951",
+      "iso_readback_sha256": "1dace083e9e7d1ecbc06ea1861063377f9a363d2120b7cc3f593242c0d65f680",
+      "iso_readback": {
+        "kernel_sha256": "a742d06dd13f904782cd8a11d20e295af7c4dcf9f702f3a6fc7cf35a7ee6d682",
+        "initramfs_sha256": "621fe57c38693af12dcd11834535b994e313ab61e0d0c0abc4150a2c1c310dd4",
+        "packed_elf_sha256": {
+          "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+          "glib-platform": "98fb9a4a1f68d8c067e4e01353d9389d71812613fedfe3f83d1f91797a19c820",
+          "gio-mounts": "4e36d5adb9413b20ac15d3a6fd82c0c2ceb37a6ca34d182aa5967cff1792bb82"
+        },
+        "serial_zero_exits": 4
+      },
+      "guest": {
+        "result": "passed",
+        "guest_stopped": true,
+        "scope": "native SrvrOS prerequisites in a normal diskless guest with the linked target gio-mounts probe",
+        "source": "3378a11c2ffcff403c159111dd876a3e54c31f6d",
+        "sdk_headers_sha256": "5a316b0d3acb6a9b5732ca986bb5560d0e917df0a15475b7dea3bceaa7519c53",
+        "inputs_sha256": {
+          "tools/glib_platform_guest.py": "43c2fe1d54a57490e7a205227f7572ec8c51545bd069b32932698a177aaf48ce",
+          "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+          "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+          "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+          "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+          "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+          "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+          "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+          "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+          "build/kernel/srvros.elf": "a742d06dd13f904782cd8a11d20e295af7c4dcf9f702f3a6fc7cf35a7ee6d682",
+          "build/userspace/init.elf": "dfc0a79256778f5629fda7f75f371b856691f405083af8bfd96d81b249ba7c7e",
+          "build/sysroot/srvros/lib/libsrvros.a": "681a6bbfa02a0e9f5766eb294efc922749efc6aec12caf173e67f4b6f912e285",
+          "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+          "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+          "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+          "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+          "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+          "build/browser-gio-unix-mounts/probe-0.elf": "b58ded1f24584fb2533434e8c080f118218c375fee22c1652a245b53c60d8faa"
+        },
+        "payload_sha256": "70a2f92ff1a9ae19abdf0adcd4677780e08516f8893e2cb41e8ef91a67a3191d",
+        "gio_mounts_payload_sha256": "b58ded1f24584fb2533434e8c080f118218c375fee22c1652a245b53c60d8faa",
+        "image_sha256": "1177e76dcbc3401f62924f55f67ce1a6dd69143bc10bcce918381b4ab61d9130",
+        "qemu_argv": [
+          "qemu-system-x86_64",
+          "-name",
+          "SrvrOS GLib prerequisite probe",
+          "-machine",
+          "q35",
+          "-accel",
+          "tcg,thread=single",
+          "-cpu",
+          "qemu64",
+          "-smp",
+          "1",
+          "-m",
+          "512M",
+          "-cdrom",
+          "build/browser-glib-prereq/guest-hr_c9emg/guest.iso",
+          "-boot",
+          "d",
+          "-display",
+          "none",
+          "-serial",
+          "unix:<guest-socket>,server=on,wait=off",
+          "-monitor",
+          "none",
+          "-no-reboot",
+          "-nic",
+          "none"
+        ],
+        "tests": [
+          {
+            "program": "glib-platform",
+            "attempt": 1,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "glib-platform",
+            "attempt": 2,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "gio-mounts",
+            "attempt": 1,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "gio-mounts",
+            "attempt": 2,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          }
+        ],
+        "serial_sha256": "7e54629bdd2494f481802b820f81dcc2c6097ad2c19869ef8975f18727a3f599"
+      }
+    },
+    "disposable_exfat": {
+      "directory": "build/browser-glib-prereq/guest-hgskd7vj",
+      "raw_receipt_sha256": "403a8991f630d31c76000799bc556516c7bfd337c6a26c02477cfe8575320d12",
+      "iso_readback_sha256": "65858cc0d90cf831576439c24fa00af8021a65e367dcc2d005c4a90416afb41b",
+      "iso_readback": {
+        "kernel_sha256": "a742d06dd13f904782cd8a11d20e295af7c4dcf9f702f3a6fc7cf35a7ee6d682",
+        "initramfs_sha256": "4f09f9340a64a9e812eda5c63339e2d16d6e7575cb7651caa6b28e6534cf3a1a",
+        "packed_elf_sha256": {
+          "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+          "glib-platform": "98fb9a4a1f68d8c067e4e01353d9389d71812613fedfe3f83d1f91797a19c820",
+          "gio-mounts": "9ac03bcc68ee799a11e9f7d1a3c94d5f6352a89ff7d192e831441c54dc9f6098",
+          "glib-fionread": "6dc254436dea112012e007f1d8453629ce5b52e5cd3fb7a42930399581baf6c7"
+        },
+        "serial_zero_exits": 6
+      },
+      "retained_workspace": {
+        "path": "workspace.exfat.gz",
+        "sha256": "af20d403d15c62035bb81617e56d531b28e3f8ed065aab609c221ecb6332d26e",
+        "decoded_sha256": "8165e9b855ad6601ca7be5667322e63a099272ef74123a7bdc84c8be76382ac4"
+      },
+      "guest": {
+        "result": "passed",
+        "guest_stopped": true,
+        "scope": "native SrvrOS prerequisites with a disposable exFAT disk with the linked target gio-mounts probe and a private e1000 on an idle local socketpair",
+        "source": "3378a11c2ffcff403c159111dd876a3e54c31f6d",
+        "sdk_headers_sha256": "5a316b0d3acb6a9b5732ca986bb5560d0e917df0a15475b7dea3bceaa7519c53",
+        "inputs_sha256": {
+          "tools/glib_platform_guest.py": "43c2fe1d54a57490e7a205227f7572ec8c51545bd069b32932698a177aaf48ce",
+          "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+          "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+          "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+          "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+          "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+          "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+          "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+          "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+          "build/kernel/srvros.elf": "a742d06dd13f904782cd8a11d20e295af7c4dcf9f702f3a6fc7cf35a7ee6d682",
+          "build/userspace/init.elf": "dfc0a79256778f5629fda7f75f371b856691f405083af8bfd96d81b249ba7c7e",
+          "build/sysroot/srvros/lib/libsrvros.a": "681a6bbfa02a0e9f5766eb294efc922749efc6aec12caf173e67f4b6f912e285",
+          "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+          "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+          "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+          "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+          "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+          "build/browser-gio-unix-mounts/probe-1.elf": "30e8710763c189d7436d3792566724d70fdcd7250e2b518eae246bd434c78e69",
+          "tools/test_glib_fionread_guest.c": "39d95594cb16fa2dfcb677f3117bf11502d942df2d4c9c53777088fbcd2e91b2",
+          "tools/mk_exfat_image.py": "ec2d611a7b45e028dfa0e772b9e0e20030d3d2c5cf1072f1d343ce05bc62c3f2",
+          "tools/audio_fixture.py": "e194bb1ee22eddcd6b14ae0edfdb6c752eb44fa8c333ab707dff7d42d1956a92"
+        },
+        "payload_sha256": "70a2f92ff1a9ae19abdf0adcd4677780e08516f8893e2cb41e8ef91a67a3191d",
+        "gio_mounts_payload_sha256": "30e8710763c189d7436d3792566724d70fdcd7250e2b518eae246bd434c78e69",
+        "fionread_payload_sha256": "0953e44676bc72d43c4de3552a2df0ece7fb53b6a089ac39f11ed8adff28a554",
+        "workspace_before_sha256": "759172eb86c46cbe8d8b8f2279d49e432d18050915efd4fadd040fb23e6cdf7a",
+        "image_sha256": "2683c43096c9660b80ac08c0240d7d612d2f1aafa481dcea7e84f7cd3675ce5f",
+        "qemu_argv": [
+          "qemu-system-x86_64",
+          "-name",
+          "SrvrOS GLib prerequisite probe",
+          "-machine",
+          "q35",
+          "-accel",
+          "tcg,thread=single",
+          "-cpu",
+          "qemu64",
+          "-smp",
+          "1",
+          "-m",
+          "512M",
+          "-cdrom",
+          "build/browser-glib-prereq/guest-hgskd7vj/guest.iso",
+          "-boot",
+          "d",
+          "-display",
+          "none",
+          "-serial",
+          "unix:<guest-socket>,server=on,wait=off",
+          "-monitor",
+          "none",
+          "-no-reboot",
+          "-netdev",
+          "socket,id=fixture,fd=4",
+          "-device",
+          "e1000,netdev=fixture",
+          "-drive",
+          "if=none,id=workspace,file=build/browser-glib-prereq/guest-hgskd7vj/workspace.exfat,format=raw",
+          "-device",
+          "ich9-ahci,id=workspace-ahci",
+          "-device",
+          "ide-hd,drive=workspace,bus=workspace-ahci.0"
+        ],
+        "tests": [
+          {
+            "program": "glib-platform",
+            "attempt": 1,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "glib-platform",
+            "attempt": 2,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "gio-mounts",
+            "attempt": 1,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "gio-mounts",
+            "attempt": 2,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "glib-fionread",
+            "attempt": 1,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          },
+          {
+            "program": "glib-fionread",
+            "attempt": 2,
+            "exit_status": 0,
+            "returned_to_monitor": true
+          }
+        ],
+        "serial_sha256": "0fb0877f069376a796780a79924d554c499bfda44945e9e49ab9d8e6e9019570",
+        "workspace_after_sha256": "8165e9b855ad6601ca7be5667322e63a099272ef74123a7bdc84c8be76382ac4"
+      }
+    }
+  },
+  "initial_mounted_probe": {
+    "directory": "build/browser-glib-prereq/guest-bc4f4c6b",
+    "source": "ee0eb5cdaef090319295d39fe55a0eb6c0dd4a65",
+    "raw_receipt_sha256": "b9ecf2735990a92f3d4aeb3ffaa6c043305adad2e22ff30f73ecb4b56219dd5d",
+    "serial_sha256": "a28693391a6c98e832b191d6c0bd6301a9c29347d8496a9b143466309080486f",
+    "result": "Wrong expected row count in fixture. Mounted boot activated four real projections alongside /fat and /. The final probe verifies all six rows."
+  },
+  "runtime_scope": [
+    "Root-only and mounted enumeration, per-row metadata, exact lookups, backing mount and projection descendant lookup, missing-path refusal, and no fstab or file-parser results.",
+    "Non-root rows require read and search access on the backing root. The diskless and mounted linked guests run as the monitor's normal user context; individual credential cases are covered by the host fixture.",
+    "The disposable disk recorded ordinary boot.log persistence. The host regression measures snapshot-specific I/O.",
+    "The GIO adapter uses snapshot polling. Live monitor events and mount/eject actions were outside the verification scope."
+  ]
+}
