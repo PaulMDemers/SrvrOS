@@ -310,9 +310,21 @@ adds C-locale `fnmatch()`. Both platform and both matcher probes passed
 in a private diskless guest, and readback matched the boot ISO payloads.
 QEMU stopped and the VM window was released. The earlier #523 evidence
 retains its verified hashes. Five XDG MIME object compiles passed. The
-pinned static GIO build then stopped in the auto-selected inotify backend
+pinned static GIO build at that point stopped in the auto-selected inotify backend
 on `FIONREAD` and `inotify_init()`.
 See the [fnmatch receipt](../assets/evidence/glib-fnmatch/receipt.json).
+
+## GIO file monitoring — November 22, 2026
+
+The browser topic starts from merged PR #524 at `4c95594e`. It selects
+GIO's own file polling fallback for SrvrOS. A one-CPU 512 MiB guest
+with a private exFAT disk passed the real GLocalFile polling lifecycle
+and directory refusal twice, with two passing platform controls.
+The filesystem owner independently verified the stopped guest and ISO
+readback. The VM window was released. That local-file-only link faults on
+unavailable unrelated services. The full static GIO build stops in
+`ginetaddress.c` on `AI_NUMERICHOST` and missing IPv6 address declarations.
+See the [polling receipt](../assets/evidence/gio-poll-monitor/receipt.json).
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 

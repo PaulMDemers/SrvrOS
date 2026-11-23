@@ -157,6 +157,7 @@ def main():
         (ROOT / 'tools/glib-srvros-poll.patch', 'glib-patch.log'),
         (ROOT / 'tools/glib-srvros-unix-watch.patch', 'glib-unix-watch-patch.log'),
         (ROOT / 'tools/glib-srvros-unix-abi.patch', 'glib-unix-abi-patch.log'),
+        (ROOT / 'tools/glib-srvros-file-monitor.patch', 'glib-file-monitor-patch.log'),
     )
     meson = args.meson.resolve()
     env = {key: value for key, value in os.environ.items()
