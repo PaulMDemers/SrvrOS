@@ -64,13 +64,18 @@ static bool wifi_desktop5_io_safe(void){
  return !wifi_desktop5.gate && !xhci.command_pending && !strict_control.device &&
   (!xhci.sync_users || wifi_stream5_storage_shared());
 }
+static bool wifi_desktop5_hub_trial(void){
+ return wifi_desktop5.device && wifi_desktop5.device->parent_slot_id &&
+  !wifi_desktop5.reconnect && !wifi_desktop5.replug && !wifi_desktop5.active_remove;
+}
 static bool wifi_desktop5_verify_data(uint64_t epoch){
  struct srv_net_status_info status;
  uint32_t resolved=0;
  bool dhcp=net_status_info(&status)==0 && status.dhcp_configured && status.local_ip && status.router_ip;
  bool ping=dhcp && net_ping(status.router_ip,(uint16_t)(0x5300u+epoch),200,NULL)==0;
  bool dns=dhcp && net_dns_resolve("example.com",&resolved)==0 && resolved;
- console_printf("wifi-desktop-replug5-data: version=1 epoch=%u dhcp=%u gateway_ping=%u dns=%u\n",
+ console_printf("%s: version=1 epoch=%u dhcp=%u gateway_ping=%u dns=%u\n",
+  wifi_desktop5_hub_trial()?"wifi-desktop-hub5-data":"wifi-desktop-replug5-data",
   epoch,(uint64_t)dhcp,(uint64_t)ping,(uint64_t)dns);
  return ping && dns;
 }
@@ -120,7 +125,7 @@ static bool wifi_desktop5_data(void *context,struct mt76_net5 *provider){
   net_bounded_probe_init_connection(scope,io,&provider->ops,provider->epoch,now+WIFI_STACK5_TOTAL_US) &&
   net_dhcp_request_bounded(scope)>0 && net_bounded_connection_start_worker(scope,wifi_desktop5_io_safe);
  if(!live && scope->identity && !scope->closed)(void)net_bounded_probe_finish(scope);
- if(live && (wifi_desktop5.replug || wifi_desktop5.active_remove))
+ if(live && (wifi_desktop5.replug || wifi_desktop5.active_remove || wifi_desktop5_hub_trial()))
   wifi_desktop5.data_verified[slot]=wifi_desktop5_verify_data(provider->epoch);
  if(live && wifi_desktop5.active_remove && wifi_desktop5.data_verified[slot])
   wifi_desktop5.endurance_passed=wifi_desktop5_endurance();
@@ -340,6 +345,13 @@ static bool wifi_desktop5_run(void *context,bool (*begin)(void *),bool (*running
  console_printf("wifi-desktop5-final: started=%u connected=%u requested_disconnect=%u retired=%u return_safe=%u\n",
   (uint64_t)wifi_desktop5.started,(uint64_t)wifi_desktop5.connected,(uint64_t)(wifi_desktop5.disconnect.serial!=0),
   (uint64_t)(wifi_desktop5.replug?wifi_stack5.detached:good),(uint64_t)wifi_desktop5.return_safe);
+ if(wifi_desktop5_hub_trial()){
+  bool complete=good && wifi_desktop5.disconnect.serial && wifi_desktop5.data_verified[0];
+  console_printf("wifi-desktop-hub5-final: version=1 complete=%u parent=%u port=%u data=%u disconnected=%u retired=%u\n",
+   (uint64_t)complete,(uint64_t)wifi_desktop5.device->parent_slot_id,(uint64_t)wifi_desktop5.device->hub_port_id,
+   (uint64_t)wifi_desktop5.data_verified[0],(uint64_t)(wifi_desktop5.disconnect.serial!=0),(uint64_t)wifi_stack5.retired);
+  good=complete;
+ }
  if(wifi_desktop5.return_safe || !wifi_desktop5.started)wifi_desktop5_gate_end();
  wifi_desktop5.context=NULL;wifi_desktop5.begin=NULL;wifi_desktop5.running=NULL;
  wifi_stack5.context=NULL;wifi_stack5.exercise=NULL;

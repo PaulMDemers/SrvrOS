@@ -6458,6 +6458,7 @@ test-xhci-wifi-paired: build/tests/xhci-stack5-host$(HOST_EXE)
 	$< --paired-case 5
 test-xhci-wifi-desktop: build/tests/xhci-stack5-host$(HOST_EXE)
 	$< --desktop-case
+	$< --desktop-hub
 	$< --desktop-removed
 	$< --desktop-rf
 	$< --desktop-reconnect
