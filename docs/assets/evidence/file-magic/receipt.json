@@ -62,6 +62,20 @@
     "scope": "Mapped SDK heap arena. The embedded database, input buffer, stack and executable mappings occupy separate storage.",
     "status": "PASS"
   },
+  "merge_base_equivalence": {
+    "change": "PR #531 adds browser probe tooling and documentation.",
+    "identical_artifacts": [
+      "kernel",
+      "initramfs",
+      "exFAT image",
+      "ISO",
+      "33 classifier components"
+    ],
+    "manifest_sha256": "9b5e46d307cf6ed896b101d01093b638baf823e19f853a1a95c8bcce834626de",
+    "matched_source": "3dc1f6756369f5a50e4f23d2184145e83517c101",
+    "os_base": "0117e6cf833d5463e81aa0ae4f319516c51aadd9",
+    "payload_readback_log_sha256": "041f52a1467b1181d071493994a4b20d6098d188949f4a48a187ec1825c43046"
+  },
   "os_base": "9527111dfc53a73d6928e3aef2a7401c0911f3e1",
   "ports_pin": "5924615de815f5449234ff2ee8f667d0dc65faa7",
   "regressions": {
