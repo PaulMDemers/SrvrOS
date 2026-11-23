@@ -4835,6 +4835,21 @@ int64_t net_respond(uint64_t handle, const char *data, uint64_t length, bool non
     return net_respond_checked(handle, data, length, nonblock, NULL);
 }
 
+int64_t net_readable_bytes(uint64_t handle) {
+    if (handle_type(handle) == NET_HANDLE_CONNECTION) {
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
+        if (!connection) return SRV_ERR_BADF;
+        return connection->rx_length > connection->rx_offset ?
+            (int64_t)(connection->rx_length - connection->rx_offset) : 0;
+    }
+    if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
+        struct udp_socket *socket = find_udp_socket(handle);
+        if (!socket) return SRV_ERR_BADF;
+        return socket->count ? socket->queue[socket->head].length : 0;
+    }
+    return SRV_ERR_NOTTY;
+}
+
 uint16_t net_poll_events(uint64_t handle, uint16_t events) {
     if (!initialized) {
         return SRV_POLLNVAL;

@@ -22,7 +22,10 @@ return `ENOSYS`.
 The SDK also declares `IPV6_MULTICAST_LOOP`. IPv6 sockets return `EAFNOSUPPORT`.
 The SDK declares `IP_MULTICAST_TTL` and `IPV6_MULTICAST_HOPS` for GIO.
 The SDK declares both multicast membership request layouts and join/leave options.
-Static GIO next stops at undeclared `FIONREAD` in `gsocket.c`.
+The pinned GLib build now produces all four target static archives, including
+`libgio-2.0.a`. A linked GioUnix probe passed on SrvrOS with and without
+a mounted exFAT volume. The mounted guest also verified the active
+`/bin`, `/usr`, `/var` and `/home` projections backed by `/fat`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -802,6 +805,44 @@ Fresh pinned GLib configuration passed. Static GIO compiled past the
 membership declarations and first stopped at undeclared `FIONREAD` in
 `gio/gsocket.c:3327`.
 [Verification receipt](assets/evidence/gio-multicast-membership/receipt.json)
+
+## Static GIO and mount enumeration
+
+The topic starts from merged OS #545 at `ddc37b8f` and reuses the GIO
+socket and SDK address/metadata changes already tested on the GTK topic.
+It adds the native readable-byte query to the GIO datagram path.
+Pinned GLib 2.90.1 configured with the selected file-polling backend.
+All 390 build steps completed and produced static GLib, GObject, GModule
+and GIO archives. Both mount executables linked using those archives and
+the pinned target dependencies.
+
+The native versioned snapshot reads the ready mount table under filesystem
+exclusion. It reports the base VFS, ready exFAT volumes and active system
+namespace projections. It uses the effective exFAT write-admission state
+for readonly flags. Source labels are opaque, and projections share the
+label of their backing volume. Visibility requires read and search access
+at the underlying root. This can hide search-only roots even when a
+particular descendant is accessible. GIO checks the supplied path before
+normalizing it, then chooses the longest visible component-boundary match.
+SrvrOS has no configured mount table or file-based mount parser.
+
+Two linked runs per boot verified root-only enumeration without a disk
+and six rows with a disposable exFAT disk. The mounted guest checked
+`/fat` plus `/bin`, `/usr`, `/var` and `/home`, including the projections'
+backing roots and source labels. It found `/fat/hello.html` on `/fat`
+and `/usr/hello.html` on the `/usr` projection. Both guests passed their
+platform controls. The mounted guest also passed two readable-byte
+controls using a private idle e1000 peer. ISO readback matched the kernel,
+init and all packaged probe payloads. Both guests stopped after testing.
+
+Host regressions checked mount and unmount transitions, credential
+filtering, zero media reads, writes or flushes during a snapshot, and
+early refusal by the experimental signal dispatcher. The guest disk
+recorded normal boot logging. The GIO adapter selects the existing
+snapshot poller for live mount changes. This milestone verified enumeration
+and lookup. Live monitor signal delivery and mounting or ejecting through
+GIO remain unqualified.
+[Verification receipt](assets/evidence/gio-unix-mounts/receipt.json)
 
 ## Verification
 

@@ -4,9 +4,11 @@
 #include <srvros/exfat.h>
 #include <srvros/sync_timing.h>
 #include <srvros/exfat_stream.h>
+#include <srvros/mount_snapshot.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/heap.h>
 #include <srvros/vfs.h>
+#include <srvros/vfs_namespace.h>
 #include <srvros/scheduler.h>
 #include <srvros/process.h>
 #include <srvros/timer.h>
@@ -3791,17 +3793,70 @@ void exfat_check_print(const char *mountpoint) {
         ok ? "ok" : "failed");
 }
 
+static bool mount_is_writable(const struct exfat_mount *mount) {
+    struct block_device *device = mount->volume.device;
+    struct block_device *parent = block_parent(device);
+    return device && !mount->volume.write_blocked && block_device_online(device) &&
+           device->write && parent && parent->flush;
+}
+
 bool exfat_is_writable(const char *mountpoint) {
     if (!mountpoint) return false;
     for (uint64_t i = 0; i < EXFAT_MAX_VOLUMES; i++) {
         struct exfat_mount *mount = &mounts[i];
         if (mount->used && streq(mount->mountpoint, mountpoint)) {
-            struct block_device *parent = block_parent(mount->volume.device);
-            return !mount->volume.write_blocked && block_device_online(mount->volume.device) &&
-                mount->volume.device->write && parent && parent->flush;
+            return mount_is_writable(mount);
         }
     }
     return false;
+}
+
+static bool append_mount_snapshot_entry(struct srv_mount_snapshot *snapshot, const char *path,
+    const char *root, const struct exfat_mount *mount, uint32_t flags) {
+    if (snapshot->count >= SRV_MOUNT_SNAPSHOT_MAX) return false;
+    struct srv_mount_entry *entry = &snapshot->entries[snapshot->count];
+    const char *source = "srvros-vfs";
+    entry->filesystem = SRV_MOUNT_VFS;
+    if (mount) {
+        entry->filesystem = SRV_MOUNT_EXFAT;
+        source = mount->volume.device ? mount->volume.device->name : "srvros-image";
+        if (!mount_is_writable(mount)) flags |= SRV_MOUNT_READONLY;
+    }
+    entry->flags = flags;
+    if (!append_path_piece(entry->mount_path, sizeof(entry->mount_path), path) ||
+        !append_path_piece(entry->root_path, sizeof(entry->root_path), root) ||
+        !append_path_piece(entry->source, sizeof(entry->source), source)) return false;
+    snapshot->count++;
+    return true;
+}
+
+int64_t exfat_mount_snapshot(struct srv_mount_snapshot *snapshot, uint64_t uid, uint64_t gid) {
+    struct fs_scope scope;
+    if (!fs_enter(&scope)) return SRV_ERR_AGAIN;
+
+    int64_t result = SRV_ERR_OVERFLOW;
+    if (!append_mount_snapshot_entry(snapshot, "/", "/", NULL, 0)) goto done;
+    for (unsigned i = 0; i < EXFAT_MAX_VOLUMES; i++) {
+        struct exfat_mount *mount = &mounts[i];
+        if (!mount->used || !mount->ready || vfs_check_access(mount->mountpoint, uid, gid, 5u) < 0) continue;
+        if (!append_mount_snapshot_entry(snapshot, mount->mountpoint, "/", mount, 0)) goto done;
+    }
+    for (unsigned i = 0; ; i++) {
+        char path[SRV_PATH_MAX];
+        const struct vfs_node *node;
+        int status = vfs_namespace_system_root(i, path, sizeof(path), &node);
+        if (status < 0) goto done;
+        if (!status) break;
+        const struct exfat_mount *mount = find_mount_for_path(node->path);
+        if (!mount || !mount->ready || vfs_check_access(node->path, uid, gid, 5u) < 0) continue;
+        const char *root = node->path + ascii_length(mount->mountpoint);
+        if (!append_mount_snapshot_entry(snapshot, path, *root ? root : "/", mount,
+                                         SRV_MOUNT_PROJECTION)) goto done;
+    }
+    result = 0;
+done:
+    fs_leave(&scope);
+    return result;
 }
 
 static bool unmount_impl(const char *mountpoint) {

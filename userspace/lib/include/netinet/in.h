@@ -74,6 +74,10 @@ static inline int __srvros_in6_is_loopback(const unsigned char *address) {
     return __srvros_in6_is_zero(address, 15) && address[15] == 1;
 }
 
+static inline int __srvros_in6_is_v4mapped(const unsigned char *address) {
+    return __srvros_in6_is_zero(address, 10) && address[10] == 0xff && address[11] == 0xff;
+}
+
 static inline int __srvros_in6_has_prefix(const unsigned char *address,
                                         unsigned first, unsigned mask, unsigned value) {
     return address[0] == first && (address[1] & mask) == value;
@@ -81,6 +85,7 @@ static inline int __srvros_in6_has_prefix(const unsigned char *address,
 
 #define IN6_IS_ADDR_UNSPECIFIED(address) __srvros_in6_is_zero((const unsigned char *)(address), 16)
 #define IN6_IS_ADDR_LOOPBACK(address) __srvros_in6_is_loopback((const unsigned char *)(address))
+#define IN6_IS_ADDR_V4MAPPED(address) __srvros_in6_is_v4mapped((const unsigned char *)(address))
 #define IN6_IS_ADDR_LINKLOCAL(address) \
     __srvros_in6_has_prefix((const unsigned char *)(address), 0xfe, 0xc0, 0x80)
 #define IN6_IS_ADDR_SITELOCAL(address) \

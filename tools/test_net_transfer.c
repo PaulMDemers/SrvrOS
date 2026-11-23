@@ -55,19 +55,24 @@ static struct tcp_connection *connection(void) {
 int main(void) {
     reset();int64_t udp=net_udp_open();assert(udp>0 && !net_udp_bind(udp,9000));
     udp_deliver(9000,123,456,(const uint8_t *)"abc",3);
+    assert(net_readable_bytes(udp)==3);
     refuse=true;assert(net_udp_recv_checked(udp,2,true,&transfer)==SRV_ERR_FAULT);
     assert(find_udp_socket(udp)->count==1 && output[0]=='?');
     refuse=false;assert(net_udp_recv_checked(udp,2,true,&transfer)==2 && !memcmp(output,"ab",2));
-    assert(!find_udp_socket(udp)->count);
+    assert(!find_udp_socket(udp)->count && net_readable_bytes(udp)==0);
     assert(!net_hold(udp));unsigned before=wakes;assert(!net_close(udp) && wakes>before);
     wait_hook=replaced;assert(net_udp_recv_checked(udp,2,false,&transfer)==SRV_ERR_BADF);
     assert(find_udp_socket(udp));
 
     reset();struct tcp_connection *c=connection();uint64_t h=make_handle(NET_HANDLE_CONNECTION,42);
+    assert(net_readable_bytes(h)==6);
     refuse=true;assert(net_read_checked(h,2,true,false,&transfer)==SRV_ERR_FAULT && !c->rx_offset && !frames);
     refuse=false;assert(net_read_checked(h,2,true,true,&transfer)==2 && !c->rx_offset && !frames);
+    assert(net_readable_bytes(h)==6);
     assert(net_read_checked(h,2,true,false,&transfer)==2 && c->rx_offset==2 && remaining==4);
+    assert(net_readable_bytes(h)==4);
     c->rx_offset=c->rx_length;wait_hook=replaced;
+    assert(net_readable_bytes(h)==0 && net_readable_bytes(make_handle(NET_HANDLE_CONNECTION,43))==SRV_ERR_BADF);
     assert(net_read_checked(h,2,false,false,&transfer)==SRV_ERR_BADF && c->refs==1);
     current=true;c->peer_window=0;wait_hook=replaced;before=frames;
     assert(net_respond_checked(h,"x",1,false,&transfer)==SRV_ERR_BADF && frames==before);

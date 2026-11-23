@@ -338,6 +338,8 @@ typedef bool (*process_rights_copyout)(void *context, const int32_t *fds,
 int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
     uint64_t capacity, process_rights_copyout copyout, void *context);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
+/* Caller excludes concurrent updates while taking and copying the snapshot. */
+int64_t process_file_readable_bytes(struct process *process, uint64_t fd);
 /* GUI wait snapshots only explicit nonblocking pipe/PTY endpoints. Replaced
  * descriptor numbers report NVAL; readiness is suppressed during owned I/O. */
 int process_file_watch_capture(struct process *process,int64_t fd,uint16_t events,uint64_t *generation);

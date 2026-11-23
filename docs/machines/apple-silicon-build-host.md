@@ -642,6 +642,19 @@ configuration passed. Static GIO first stops at undeclared `FIONREAD` in
 `gsocket.c:3327`.
 [Verification receipt](../assets/evidence/gio-multicast-membership/receipt.json)
 
+## GIO Unix mount enumeration — November 23, 2026
+
+Merged OS #545 at `ddc37b8f` is the baseline. The topic includes the reviewed
+GIO socket and metadata groundwork from the GTK branch. Integration and
+Filesystem reviewed the scoped snapshot of ready mounts and active system
+namespace projections. Pinned GLib 2.90.1 configured and completed all
+390 static build steps. Both linked GioUnix probes passed twice in
+private guests. The diskless boot reported only the base VFS. The
+mounted boot reported `/fat` and its four live projections. The ISO
+readbacks and host filesystem and signal-admission checks passed. Both
+guests stopped and released their windows.
+[Verification receipt](../assets/evidence/gio-unix-mounts/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
