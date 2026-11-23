@@ -43,5 +43,6 @@ bool mouse_scan(struct mouse_event *event);
 struct scheduler_wait_queue;
 struct scheduler_wait_queue *mouse_wait_queue(void);
 bool mouse_pending(void);
+void mouse_discard_pending(void);
 
 #endif

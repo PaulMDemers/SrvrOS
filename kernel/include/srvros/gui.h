@@ -50,7 +50,7 @@ struct gui_message {
     char text[GUI_TEXT_MAX];
 };
 
-int64_t gui_register_server(void);
+int64_t gui_register_server(bool scoped);
 int64_t gui_audio_request(uint64_t operation,uint64_t value);
 int64_t gui_brightness(uint64_t percent); /* 0 query; 5..100 set; server only. */
 int64_t gui_pointer_config(uint64_t speed,uint64_t options);

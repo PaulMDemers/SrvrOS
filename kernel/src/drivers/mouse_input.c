@@ -101,6 +101,12 @@ void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,
 bool mouse_pending(void) {
     uint64_t flags=lock();bool pending=count!=0;unlock(flags);return pending;
 }
+void mouse_discard_pending(void) {
+    uint64_t flags=lock();
+    head=count=0;
+    for(unsigned i=0;i<MOUSE_SOURCES;i++) blocked[i]=source_buttons[i];
+    unlock(flags);
+}
 bool mouse_scan(struct mouse_event *out) {
     if (!out) return false;
     uint64_t flags=lock();

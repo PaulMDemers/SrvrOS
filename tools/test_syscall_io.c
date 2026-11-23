@@ -171,7 +171,11 @@ int64_t process_scope_terminate(uint64_t token) {
     return scope_revoked?0:SRV_ERR_BUSY;
 }
 int64_t process_scope_create(uint64_t *out) {scope_live=true;scope_revoked=false;*out=scope_next++;return 0;}
-int64_t process_scope_reserve(uint64_t token) {if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;scope_pending=true;return 0;}
+int64_t process_scope_reserve(uint64_t token,bool display) {
+    (void)display;
+    if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;
+    scope_pending=true;return 0;
+}
 void process_scope_cancel_reservation(uint64_t token) {(void)token;scope_pending=false;}
 int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out) {
     if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;

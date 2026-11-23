@@ -21,15 +21,17 @@ void process_file_poll_wake(void) { poll_wakes++; }
 int audio_request(unsigned op,unsigned value) { return op==1 && value==0?0:-1; }
 int backlight_percent(unsigned value) { brightness_calls++;return value?(int)value:14; }
 static uint64_t current_pid=1;
-static bool keyboard_events,keys_pending,pointer_pending;
+static bool keyboard_events,keys_pending,pointer_pending,display_scope;
 bool keyboard_events_pending(void) { return keys_pending; }
 bool mouse_pending(void) { return pointer_pending; }
+void mouse_discard_pending(void) { pointer_pending=false; }
 static unsigned pointer_speed=3;static bool pointer_accel,pointer_typing;static unsigned pointer_flags;
 void mouse_trackpad_settings(unsigned speed,unsigned options) { pointer_speed=speed;pointer_flags=options;pointer_accel=options&SRV_POINTER_ACCELERATION;pointer_typing=options&SRV_POINTER_DISABLE_WHILE_TYPING; }
 void keyboard_set_event_mode(bool enabled) { keyboard_events=enabled; }
 bool keyboard_read_event(struct srv_key_event *event) { (void)event; return keyboard_events; }
 struct process *process_current(void) { return (struct process *)(uintptr_t)current_pid; }
 uint64_t process_pid(const struct process *p) { return (uintptr_t)p; }
+bool process_scope_display_allowed(const struct process *p) { return display_scope && process_pid(p)==1; }
 static unsigned heap_calls,heap_live,heap_fail_at,retire_at;
 static uint64_t retire_pid;
 static void (*allocation_hook)(void);
@@ -117,13 +119,13 @@ static unsigned hook_count;
 static void competing_send(void) {
     for(unsigned i=0;i<hook_count;i++)assert(gui_send(&hook_message)==0);
 }
-static void competing_register(void) { assert(gui_register_server()==0); }
+static void competing_register(void) { assert(gui_register_server(false)==0); }
 static void replace_server(void) {
-    gui_process_cleanup(1);current_pid=3;assert(gui_register_server()==0);current_pid=1;
+    gui_process_cleanup(1);current_pid=3;assert(gui_register_server(false)==0);current_pid=1;
 }
 static void dynamic_queues(void) {
     assert(!queues && !queue_bytes && !heap_live && !server_pid);
-    current_pid=1;assert(gui_register_server()==0);
+    current_pid=1;assert(gui_register_server(false)==0);
     struct gui_message message={.type=1},got;
     unsigned records=DESK_GUI_QUEUE_BYTES/sizeof(struct gui_queue);
     assert(records>64);
@@ -185,16 +187,16 @@ static void dynamic_queues(void) {
     gui_process_cleanup(3);assert(!queue_bytes && !heap_live);
     /* Registration may also allocate concurrently or lose its owner. */
     current_pid=1;allocation_hook=competing_register;
-    assert(gui_register_server()==-1 && server_pid==1);
+    assert(gui_register_server(false)==-1 && server_pid==1);
     assert(queue_bytes==sizeof(struct gui_queue) && heap_live==1);gui_process_cleanup(1);
     retire_at=heap_calls+1;retire_pid=1;
-    assert(gui_register_server()==-1 && !server_pid && !queues && !queue_bytes && !heap_live);
+    assert(gui_register_server(false)==-1 && !server_pid && !queues && !queue_bytes && !heap_live);
     retire_at=0;
     puts("gui-queues: PASS byte quota beyond 32 FIFOs, allocation/retirement rollback, competing publication/full FIFO, atomic release and server replacement");
 }
 
 static void protocol_tests(void) {
-    current_pid=1; assert(gui_register_server()==0);
+    current_pid=1; assert(gui_register_server(false)==0);
     assert(gui_audio_request(1,0)==0 && gui_audio_request(0x100000001ull,0)==-1);
     assert(gui_brightness(0)==14 && gui_brightness(50)==50 && brightness_calls==2);
     assert(gui_brightness(1)==-1 && gui_brightness(101)==-1 && brightness_calls==2);
@@ -266,7 +268,7 @@ static void protocol_tests(void) {
     assert(gui_surface_destroy(2,id)==0);
     /* A freed table slot is a new surface lifetime, not the old window's
      * binding. Reopen in the same process before process cleanup can mask it. */
-    current_pid=1; assert(gui_register_server()==0);
+    current_pid=1; assert(gui_register_server(false)==0);
     current_pid=2; id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
     commit=packet_message(DESK_COMMIT,0,id,1);packet_window(&commit,3);
     ((struct desk_packet *)commit.text)->width=1;((struct desk_packet *)commit.text)->height=1;
@@ -278,7 +280,7 @@ static void protocol_tests(void) {
     current_pid=2;assert(gui_surface_destroy(2,id)==0);
     gui_process_cleanup(1);
     gui_process_cleanup(2);
-    current_pid=1; assert(gui_register_server()==0);
+    current_pid=1; assert(gui_register_server(false)==0);
     current_pid=2; id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
     commit=packet_message(DESK_COMMIT,0,id,1); assert(gui_send(&commit)==0);
     gui_process_cleanup(2);
@@ -290,14 +292,14 @@ static void protocol_tests(void) {
 }
 
 int main(void) {
-    assert(gui_register_server()==0);
-    assert(gui_register_server()==0);
+    assert(gui_register_server(false)==0);
+    assert(gui_register_server(false)==0);
     current_pid=2;
     int64_t surface=gui_surface_create(2,8,8,0);
     assert(surface>0);
     uint32_t pixels[64]={0};
     assert(gui_surface_copy(3,surface,0,0,8,8,pixels,8)==-1);
-    assert(gui_register_server()==-1);
+    assert(gui_register_server(false)==-1);
     assert(server_pid==1);
     assert(gui_surface_copy(1,surface,0,0,8,8,pixels,8)==0);
     assert(gui_surface_copy(3,surface,0,0,8,8,pixels,8)==-1);
@@ -310,7 +312,7 @@ int main(void) {
     assert(gui_recv(&message)==1 && message.source_pid==2 && message.target_pid==1);
     gui_process_cleanup(1);
     current_pid=3;
-    assert(gui_register_server()==0);
+    assert(gui_register_server(false)==0);
     assert(gui_surface_copy(1,surface,0,0,8,8,pixels,8)==-1);
     gui_process_cleanup(2);
     assert(gui_surface_copy(3,surface,0,0,8,8,pixels,8)==-1);
@@ -318,10 +320,10 @@ int main(void) {
     assert(server_pid==0);
     heap_fail_at=heap_calls+1;
     current_pid=100;
-    assert(gui_register_server()==-1 && server_pid==0);
+    assert(gui_register_server(false)==-1 && server_pid==0);
     heap_fail_at=0;
     protocol_tests();
-    current_pid=1; assert(gui_register_server()==0);
+    current_pid=1; assert(gui_register_server(false)==0);
     assert(gui_server_ready()==0);
     keys_pending=true;assert(gui_server_ready()==1 && keys_pending);keys_pending=false;
     pointer_pending=true;assert(gui_server_ready()==1 && pointer_pending);pointer_pending=false;
@@ -377,9 +379,18 @@ int main(void) {
     current_pid=2;unsigned wakes_before=poll_wakes;
     gui_process_cleanup(1);
     assert(poll_wakes>wakes_before && gui_client_ready(1)==-1);
-    current_pid=3;assert(gui_register_server()==0);
+    current_pid=3;assert(gui_register_server(false)==0);
     current_pid=2;assert(gui_client_ready(1)==-1 && gui_client_ready(3)==0);
     gui_process_cleanup(3);dynamic_queues();dynamic_surfaces();surface_service_windows();
+    current_pid=1;pointer_pending=true;
+    assert(gui_register_server(true)==-1 && !server_pid && pointer_pending);
+    display_scope=true;
+    assert(gui_register_server(true)==0 && scoped_server && keyboard_events && !pointer_pending);
+    current_pid=2;
+    assert(gui_register_server(true)==-1 && gui_keyboard_mode(0)==-1);
+    pointer_pending=true;display_scope=false;
+    gui_process_cleanup(1);
+    assert(!server_pid && !scoped_server && !keyboard_events && !pointer_pending);
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;
 }

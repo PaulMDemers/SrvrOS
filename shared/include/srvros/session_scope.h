@@ -9,6 +9,8 @@
  * EXEC returns the detached root PID; REAP_RETIRED returns one if it reaps an orphan or
  * zero if none is claimable. Other successful operations return zero.
  * Only the creating process owns the token; a scope member cannot create one.
+ * EXEC_DISPLAY uses the EXEC payload and requires a privileged owner. Its root
+ * alone may use scoped display and input after dropping credentials.
  * TERMINATE lets the privileged owner request cancellation of active members
  * after revocation, without reaping them. Revoked plus zero members proves retirement,
  * not successful durable saves.
@@ -21,6 +23,7 @@
 #define SRV_SCOPE_REAP_RETIRED 5u
 #define SRV_SCOPE_RELEASE 6u
 #define SRV_SCOPE_TERMINATE 7u
+#define SRV_SCOPE_EXEC_DISPLAY 8u
 
 struct srv_exec_request;
 struct srv_scope_exec {

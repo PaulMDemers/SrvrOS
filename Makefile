@@ -5624,6 +5624,11 @@ build/userspace/test_local_isolation.elf: tools/test_local_isolation.c $(USER_CR
 	$(CC) $(USER_CFLAGS) -c $< -o build/userspace/test_local_isolation.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/test_local_isolation.o $(USER_LIB_OBJ) -o $@
 
+build/userspace/test_desktop_scope.elf: tools/test_desktop_scope.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p $(@D)
+	$(CC) $(USER_CFLAGS) -c $< -o build/userspace/test_desktop_scope.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/test_desktop_scope.o $(USER_LIB_OBJ) -o $@
+
 # Diagnostic helper injected only into disposable less-test images.
 build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/src/terminal.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
 	mkdir -p build/userspace/less-probe

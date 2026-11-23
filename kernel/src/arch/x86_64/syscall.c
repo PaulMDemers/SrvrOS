@@ -1584,11 +1584,11 @@ static int64_t syscall_session_scope(uint64_t op,uint64_t token,void *payload) {
         }
         return 0;
     }
-    if(op==SRV_SCOPE_EXEC) {
+    if(op==SRV_SCOPE_EXEC || op==SRV_SCOPE_EXEC_DISPLAY) {
         struct srv_scope_exec request;
         if(!payload || !copy_from_user(&request,payload,sizeof(request))) return SRV_ERR_FAULT;
         if(request.version!=SRV_SCOPE_VERSION || request.size!=sizeof(request) || request.reserved) return SRV_ERR_INVAL;
-        int64_t result=process_scope_reserve(token);if(result) return result;
+        int64_t result=process_scope_reserve(token,op==SRV_SCOPE_EXEC_DISPLAY);if(result) return result;
         result=syscall_exec((const struct syscall_exec_request *)request.request,token);
         process_scope_cancel_reservation(token);return result;
     }
@@ -2674,7 +2674,10 @@ static int64_t syscall_gfx_mode_set(uint64_t index) {
 
 static bool gfx_write_allowed(void) {
     struct process *p = process_current();
-    return display_present_can_write(p ? process_pid(p) : 0);
+    uint64_t pid=p?process_pid(p):0;
+    if(process_get_credentials(p).uid && (!process_scope_display_allowed(p) ||
+        !gui_server_is_owner(pid) || !console_framebuffer_muted_by(pid))) return false;
+    return display_present_can_write(pid);
 }
 static int64_t syscall_gfx_present(unsigned operation) {
     struct process *p = process_current();
@@ -2809,7 +2812,15 @@ static int64_t syscall_gfx_console_mute(uint64_t muted) {
     if (process == NULL) {
         return -1;
     }
-    console_set_framebuffer_muted_owner(process_pid(process), muted != 0);
+    uint64_t pid=process_pid(process);
+    if(process_get_credentials(process).uid) {
+        uint64_t flags=irq_save();
+        bool changed=muted==1 && process_scope_display_allowed(process) && gui_server_is_owner(pid) &&
+            console_claim_scoped_framebuffer(pid);
+        irq_restore(flags);
+        return changed?0:SRV_ERR_PERM;
+    }
+    console_set_framebuffer_muted_owner(pid, muted != 0);
     return 0;
 }
 
@@ -3010,7 +3021,7 @@ static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {
 }
 
 static int64_t syscall_gui_register(void) {
-    return gui_register_server();
+    return gui_register_server(process_get_credentials(process_current()).uid!=0);
 }
 
 static int64_t syscall_gui_send(const struct gui_message *message) {
@@ -4710,8 +4721,21 @@ static bool namespace_syscall(const struct isr_frame *frame) {
  * narrower than the privileged launch, file and device interfaces. */
 static bool isolated_syscall_allowed(const struct isr_frame *frame) {
     switch(frame->rax) {
+    case SYS_GUI_REGISTER: case SYS_GFX_INFO:
+        return process_scope_display_allowed(process_current());
+    case SYS_GUI_KEYBOARD_MODE:
+        if(frame->rdi!=1) return false;
+        /* fall through */
+    case SYS_GUI_KEYBOARD_READ: case SYS_MOUSE_SCAN: case SYS_GFX_CONSOLE_MUTE:
+    case SYS_GFX_PRESENT_BEGIN: case SYS_GFX_PRESENT: case SYS_GFX_PRESENT_END:
+    case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: {
+        struct process *process=process_current();
+        return process_scope_display_allowed(process) && gui_server_is_owner(process_pid(process));
+    }
+    case SYS_EXEC:
+        return !process_scope_display_allowed(process_current());
     case SYS_PROCESS_CREDENTIALS:
-    case SYS_EXIT: case SYS_FORK: case SYS_EXEC:
+    case SYS_EXIT: case SYS_FORK:
     case SYS_GETPID: case SYS_GETPPID: case SYS_EXEPATH:
     case SYS_YIELD: case SYS_SLEEP_TICKS: case SYS_REALTIME_US: case SYS_MONOTONIC_US:
     case SYS_SBRK: case SYS_MUNMAP: case SYS_MPROTECT:
