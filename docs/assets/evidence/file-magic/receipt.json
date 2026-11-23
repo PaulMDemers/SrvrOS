@@ -1,0 +1,88 @@
+{
+  "apps_pin": "5651aae15c68b2e987e8e79a57a1d625193e30e1",
+  "artifacts": {
+    "binary_sha256": "4386c2d1798245e928661bb31bd8100b84b4fc52e53045e5c063119e4e72ca9f",
+    "database_sha256": "1ac18f5aeee092a9ab01a7ba5b714b17651e190c29e0192136e858863c1fcbf6",
+    "diagnostic_sha256": "366451843b9097ea554d4a93182133e4e77a3591530ccaeb04ab6b949147a464",
+    "probe_sha256": "bb7d01a18317f6e3699edb71b79d59c5fc18fa5107d1fd4e450c383839014646",
+    "staged_sha256": "94e5ff3501f97b3a048d607f6e5e1639066298781057cc11bec3cc2bf2f8921b"
+  },
+  "checks": {
+    "diagnostic_controls_absent_in_release": true,
+    "docs": "PASS"
+  },
+  "compatibility": {
+    "comparisons": 52,
+    "filesystem": "clean",
+    "native_reference_sha256": "c7a6973c228303067db18df0fe0fd8016f9d7a30857d86d4cce44c549eed7205",
+    "receipt_sha256": "4c543413b0021b89d7b89d0a5c6da44f2e410e723ab4d8cc430729ff692372b3",
+    "status": "PASS",
+    "stdout_write_failure_status": 2
+  },
+  "ctrl_c": {
+    "filesystem": "clean",
+    "probe_log_sha256": "85ed73491d7ac3a35f8cde84792f12ff6a37b2a3e65c7eb85dc0dcb89098fc06",
+    "retry_status": 0,
+    "scope": "Direct SIGINT and real Terminal Ctrl-C interrupted repeated genuine softmagic classification using the production checkpoint cadence. Terminal regained its prompt and reported image/png on retry.",
+    "screenshots_sha256": {
+      "01-description.png": "4c61ffe8438c7d7701a5f482f28bf4a49ece08ea1b74d8b37304e31820f13b6f",
+      "02-matching.png": "c9b9c2df96b385983a1d6091aa9b7d88a844c6bd1ea0216ffafaca85256fd0ee",
+      "03-recovery.png": "e7def4ff473a0cd87c4c528a5e51ade99fa7edec781d7ef4a7bf2b5be48365c0"
+    },
+    "signal_exit_status": 130,
+    "status": "PASS",
+    "terminal_receipt_sha256": "80dc0ec720a024a54382d75f8859647146ba1afcec33d762508c6c2253f0d894",
+    "visual_check": "The Terminal captures show the PNG description, active-rule marker, Ctrl-C, status 130, and the image/png retry."
+  },
+  "matched_build": {
+    "disk_sha256": "6adb479c98a59df99b9e6af68c6fc619dfa2443bbd04dfba752070df482f9a97",
+    "host": "Apple Silicon macOS",
+    "initramfs_sha256": "5f4d5280f5c459c29f592f50473e6c644301d56c68271f9e126907422caee2ae",
+    "iso_sha256": "55c7f7b5d0918a6b080e6ab9503a36c3e1473afffe3f4c933257aab497f11b30",
+    "kernel_sha256": "dfa55a4619235cda6ae69246fa364bff9bb2a54a655cd26742017e9bd200a5fd",
+    "manifest_sha256": "42eea7bd3c6b0382ce41032f40af17cd3e0b5a9c98fb9ff9991ed2acb04e0f2b",
+    "target": "x86-64"
+  },
+  "memory": {
+    "arena_limit_bytes": 16777216,
+    "forced_refusal_status": 2,
+    "fresh_retry_status": 0,
+    "mapped_high_water_bytes": {
+      "limit": 987136,
+      "png": 135168
+    },
+    "scope": "Mapped SDK heap arena. The embedded database, input buffer, stack and executable mappings occupy separate storage.",
+    "status": "PASS"
+  },
+  "os_base": "8c5565d4780413d447b2579eabefa3a3aae84a39",
+  "ports_pin": "5924615de815f5449234ff2ee8f667d0dc65faa7",
+  "regressions": {
+    "cli": {
+      "commands": 498,
+      "filesystem": "clean",
+      "log_sha256": "edd962a8e5043da0f85206e5f1b603a79fdd43c467d3508978f83d5b07f1d720",
+      "status": "PASS"
+    },
+    "ports": {
+      "filesystem": "clean",
+      "log_sha256": "dc820f5406897ae83f8bb4f5a2469e8e72bddd21a90d4f418b9f01dde08d3e77",
+      "status": "PASS"
+    }
+  },
+  "reproducibility": {
+    "compared_components": 33,
+    "manifest_sha256": "2fd3a2bc7bcdf1b2c95f85ff1a018868610b78b91c454b9790105cdc06e1183d",
+    "scope": "Two clean classifier component builds against the same matched SDK.",
+    "status": "PASS"
+  },
+  "scope": "Bounded C-locale offline classification of one regular file. Guest Q35 evidence.",
+  "source": "84edf9657e5e3065f9b1865c966d56befd4e1d7c",
+  "status": "PASS bounded file-magic qualification and regressions",
+  "upstream": {
+    "archive_sha256": "ed14656883b23a364b4057c05595d93252da9bc473d30106519519d0da141283",
+    "signature_key_fingerprint": "BE04995BA8F90ED0C0C176C471112AB16CB33B3A",
+    "signature_status": "verified",
+    "version": "file 5.48"
+  },
+  "widgets_pin": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
+}

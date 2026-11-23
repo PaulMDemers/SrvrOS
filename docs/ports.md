@@ -93,7 +93,18 @@ plain text, empty files, and unknown binary data. The command is read-only and
 ships a compiled selection of upstream magic rules. It excludes custom rules,
 stdin, decompression, special files, and deep ELF and compound-document checks.
 See the [port contract](../ports/srvros/file-magic/PORT.md) for the build and
-runtime limits.
+runtime limits and the [qualification receipt](assets/evidence/file-magic/receipt.json)
+for the exact build, host comparisons, heap measurements, and Terminal capture.
+
+To repeat the focused guest checks on Apple Silicon:
+
+```sh
+sh tools/macos/build.sh -j2 all build/userspace/file-magic-diagnostic.elf \
+  build/userspace/test_file_magic_probe.elf build/tests/file-magic-reference
+TMPDIR=/private/tmp TZ=UTC python3 tools/file_magic_smoke.py \
+  --reference "$PWD/build/tests/file-magic-reference" \
+  --database "$PWD/build/ports/file-magic/bounded.magic.mgc"
+```
 
 ## Foundation Added
 
