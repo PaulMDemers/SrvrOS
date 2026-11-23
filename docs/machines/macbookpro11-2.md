@@ -174,7 +174,7 @@ The host audio-service and desktop session tests passed, including debouncing,
 manual selection, active-stream teardown, and reversible mute. Exact-stage
 QEMU release `65f696dade05f148` exercised volume and mute from the desktop at
 2×, verified a stereo test tone after unmuting, and saved logs with a clean
-USB unmount. Physical automatic routing is pending.
+USB unmount.
 
 The attended `--desktop-sound-trial` image `135f2b31e959ab38` uses source
 `b41867a3`, Apps `ded4bac` and main `50f1978a`. It opens the dedicated Help
@@ -185,7 +185,18 @@ reboots. Exact-image VM runs verified the Help page, Sound controls, stereo
 WAV playback with zero underruns, the saved exit snapshot and automatic
 return. The same image also returned with the workspace absent. The
 installed recovery and exact manual headphone payload were verified before
-the trial; physical listening and jack transitions await this run.
+the trial.
+
+Native session `session-000660e847ee9ea7-00` accepts automatic CS4208
+routing on this unit. The boot and rolling snapshots verify headphone
+selection at startup, followed by unplug, replug, and unplug in one boot.
+Every transition selected the expected output, and the operator confirmed
+automatic switching. Five Settings tones completed. The matching snapshots
+verify that Help opened and that the desktop exited cleanly. Ubuntu returned
+with the one-shot entry cleared, exFAT clean, and all 556 prior workspace
+files preserved. Physical top-bar volume, mute and manual selection, and
+unplug during active playback still need coverage. The recovery archive
+holds the trial evidence and exact payload under `evidence-135f2b31e959ab38`.
 
 ### Wi-Fi release qualification
 
