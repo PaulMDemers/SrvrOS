@@ -19,8 +19,8 @@ static int display_mode_index(unsigned width,unsigned height) {
 static void display_reply(struct session *s,int i,uint64_t serial,unsigned result) {
     struct desk_display_state state={0};struct display_runtime *d=&s->display;
     if(!d->info)return;
-    state.width=d->info->width;state.height=d->info->height;state.scale=session_scale(s);
-    state.capabilities=DESK_DISPLAY_CAP_SCALE;
+    state.width=d->info->width;state.height=d->info->height;state.scale=session_output_scale(s);
+    state.capabilities=DESK_DISPLAY_CAP_SCALE|DESK_DISPLAY_CAP_FRACTIONAL_SCALE;
     if(d->info->flags&GFX_FLAG_MODE_SET)state.capabilities|=DESK_DISPLAY_CAP_MODE_SET;
     int count=gfx_mode_count();if(count>GFX_MODE_MAX)count=GFX_MODE_MAX;
     for(int n=0;n<count;n++) {struct gfx_mode m={0};if(gfx_mode_get(n,&m))break;
@@ -81,12 +81,20 @@ static void display_cleanup(struct session *s) {
     if(d->windows)munmap(d->windows,d->windows_bytes);
     d->previous_canvas=(struct desk_canvas){0};d->windows=NULL;d->windows_bytes=0;d->window_count=0;
 }
+static uint32_t *display_canvas_alloc(unsigned width,unsigned height,unsigned scale) {
+    if(!desk_scale_fractional(scale) || (width<=3840 && height<=2160))return desk_pixels_alloc(width,height);
+    /* The fraction is drawn into a full 2x canvas, which can exceed scanout
+     * dimensions. The 3840x2160 display cap bounds it to 6144x3456. */
+    void *pixels=mmap(NULL,(size_t)width*height*4,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    return pixels==MAP_FAILED?NULL:pixels;
+}
 /* Prepare the CPU backing before touching scanout. Kernel mode changes either
  * succeed with fenced presentation or report their actual safe recovery state. */
 static unsigned display_change(struct session *s,unsigned pw,unsigned ph,unsigned scale,int restore) {
     struct display_runtime *d=&s->display;struct desk_canvas next={0};
-    if(!d->canvas || !d->info || (scale!=1 && scale!=2) || pw>3840 || ph>2160 || pw<640 || ph<480)return DESK_DISPLAY_INVALID;
-    unsigned width=(pw+scale-1)/scale,height=(ph+scale-1)/scale;
+    if(!d->canvas || !d->info || !desk_scale_valid(scale) || pw>3840 || ph>2160 || pw<640 || ph<480)return DESK_DISPLAY_INVALID;
+    unsigned width=desk_scale_logical(pw,scale),height=desk_scale_logical(ph,scale);
+    unsigned density=desk_scale_density(scale);
     if(width<640 || height<480)return DESK_DISPLAY_INVALID;
     int mode=display_mode_index(pw,ph);
     int mode_change=pw!=d->info->width || ph!=d->info->height;
@@ -94,17 +102,21 @@ static unsigned display_change(struct session *s,unsigned pw,unsigned ph,unsigne
     uint64_t needed=s->cache_bytes;
     if(!restore)for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid) {
         struct desk_rect r=display_fit(desktop_window_at(&s->scene,i)->frame,width,height);
-        needed+=(uint64_t)(r.w-2)*(r.h-45)*4*scale*scale;
+        needed+=(uint64_t)(r.w-2)*(r.h-45)*4*density*density;
         if(needed>DESKD_CACHE_BUDGET)return DESK_DISPLAY_FAILED;
     }
-    int reuse=restore && d->previous_canvas.pixels && d->previous_canvas.width==(int)width && d->previous_canvas.height==(int)height && desk_canvas_scale(&d->previous_canvas)==scale;
+    int reuse=restore && d->previous_canvas.pixels && d->previous_canvas.width==(int)width && d->previous_canvas.height==(int)height && desk_canvas_scale(&d->previous_canvas)==density;
+    if(desk_scale_fractional(scale) && !d->fractional_band) {
+        d->fractional_band=desk_pixels_alloc(DESKTOP_OUTPUT_WIDTH_MAX,DESKTOP_OUTPUT_BAND_ROWS);
+        if(!d->fractional_band)return DESK_DISPLAY_FAILED;
+    }
     if(reuse)next=d->previous_canvas;
     else {
-        uint32_t *pixels=desk_pixels_alloc(width*scale,height*scale);if(!pixels)return DESK_DISPLAY_FAILED;
-        if(desk_canvas_init_scaled(&next,pixels,width,height,width*scale,scale)) {desk_pixels_free(pixels,width*scale,height*scale);return DESK_DISPLAY_FAILED;}
+        uint32_t *pixels=display_canvas_alloc(width*density,height*density,scale);if(!pixels)return DESK_DISPLAY_FAILED;
+        if(desk_canvas_init_scaled(&next,pixels,width,height,width*density,density)) {desk_pixels_free(pixels,width*density,height*density);return DESK_DISPLAY_FAILED;}
     }
     if(mode_change && gfx_mode_set(mode)) {
-        if(!reuse)desk_pixels_free(next.pixels,width*scale,height*scale);
+        if(!reuse)desk_pixels_free(next.pixels,width*density,height*density);
         /* Try restoring the prior presentation once. A successful recovery is
          * still a failed request, with the existing desktop untouched. */
         int prior=display_mode_index(d->info->width,d->info->height);
@@ -114,17 +126,17 @@ static unsigned display_change(struct session *s,unsigned pw,unsigned ph,unsigne
         /* An inherited VGA recovery remains usable without a fenced presenter.
          * Reconcile it through the same bounded canvas path on the next turn. */
         *d->info=actual;d->abort=d->trial;
-        unsigned recovery_scale=session_scale(s);
-        if((actual.width+recovery_scale-1)/recovery_scale<640 || (actual.height+recovery_scale-1)/recovery_scale<480)recovery_scale=1;
+        unsigned recovery_scale=session_output_scale(s);
+        if(desk_scale_logical(actual.width,recovery_scale)<640 || desk_scale_logical(actual.height,recovery_scale)<480)recovery_scale=1;
         if(display_change(s,actual.width,actual.height,recovery_scale,restore)!=DESK_DISPLAY_OK)d->fatal=1;
         return DESK_DISPLAY_FAILED;
     }
     struct gfx_info actual={0};if(gfx_info(&actual) || actual.width!=pw || actual.height!=ph) {
-        if(!reuse)desk_pixels_free(next.pixels,width*scale,height*scale);
+        if(!reuse)desk_pixels_free(next.pixels,width*density,height*density);
         d->fatal=1;return DESK_DISPLAY_FAILED;
     }
     unsigned previous_scale=session_scale(s);int old_width=d->canvas->width,old_height=d->canvas->height;
-    struct desk_canvas previous=*d->canvas;*d->canvas=next;*d->info=actual;s->scale=scale;
+    struct desk_canvas previous=*d->canvas;*d->canvas=next;*d->info=actual;s->scale=density;d->scale=scale;
     if(reuse)d->previous_canvas=(struct desk_canvas){0};
     if(!restore && !d->previous_canvas.pixels)d->previous_canvas=previous;
     else desk_pixels_free(previous.pixels,desk_canvas_pixel_width(&previous),desk_canvas_pixel_height(&previous));
@@ -141,6 +153,10 @@ static unsigned display_revert(struct session *s) {
     }
     return result;
 }
+/* One bit per quarter step from 1x through 2x, retained after log wrap. */
+static unsigned display_scale_bit(const struct session *s) {
+    return 1u << (desk_scale_quarters(session_output_scale(s))-4);
+}
 static void display_received(struct session *s,int i,const struct desk_packet *p) {
     struct client *c=session_client(s,i);struct display_runtime *d=&s->display;
     unsigned result=DESK_DISPLAY_OK;
@@ -149,7 +165,7 @@ static void display_received(struct session *s,int i,const struct desk_packet *p
     if(!s->scene.apps || desktop_window_at(&s->scene,i)->application!=DESK_APP_SETTINGS || s->scene.focus!=i || s->exiting)result=DESK_DISPLAY_INVALID;
     else if(p->value==DESK_DISPLAY_APPLY) {
         if(d->trial || !display_ready(s) || s->preferences.loading)result=DESK_DISPLAY_BUSY;
-        else if(p->width==d->info->width && p->height==d->info->height && p->x==(int)session_scale(s))result=DESK_DISPLAY_INVALID;
+        else if(p->width==d->info->width && p->height==d->info->height && p->x==(int)session_output_scale(s))result=DESK_DISPLAY_INVALID;
         else {
             d->window_count=session_capacity(s);d->windows_bytes=(size_t)d->window_count*sizeof(*d->windows);
             d->windows=mmap(NULL,d->windows_bytes,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
@@ -157,21 +173,28 @@ static void display_received(struct session *s,int i,const struct desk_packet *p
             else {
                 for(int n=0;n<d->window_count;n++) {const struct desktop_window *w=desktop_window_at(&s->scene,n);
                     d->windows[n]=(struct display_window_backup){session_client(s,n)->identity,w->frame,w->restore,w->maximized};}
-                d->previous_info=*d->info;d->previous_scale=session_scale(s);d->owner=c->identity;
+                d->previous_info=*d->info;d->previous_scale=session_output_scale(s);d->owner=c->identity;
                 result=display_change(s,p->width,p->height,p->x,0);
-                if(result==DESK_DISPLAY_OK) {d->trial=1;d->token++;if(!d->token)d->token++;d->deadline=(uint64_t)srv_monotonic_us()+15000000;}
+                if(result==DESK_DISPLAY_OK) {
+                    d->applied_scales|=display_scale_bit(s);
+                    d->trial=1;d->token++;if(!d->token)d->token++;d->deadline=(uint64_t)srv_monotonic_us()+15000000;
+                }
                 else display_cleanup(s);
             }
         }
     } else if(p->value==DESK_DISPLAY_KEEP || p->value==DESK_DISPLAY_REVERT) {
         if(!d->trial || d->owner!=c->identity || p->generation!=d->token)result=DESK_DISPLAY_INVALID;
-        else if(p->value==DESK_DISPLAY_REVERT)result=display_revert(s);
+        else if(p->value==DESK_DISPLAY_REVERT) {
+            unsigned scale_bit=display_scale_bit(s);
+            result=display_revert(s);
+            if(result==DESK_DISPLAY_OK)d->reverted_scales|=scale_bit;
+        }
         else if(!display_ready(s) || d->abort || (uint64_t)srv_monotonic_us()>=d->deadline)result=DESK_DISPLAY_BUSY;
         else {
             struct desk_preferences value=s->preferences.value;
-            value.display_width=d->info->width;value.display_height=d->info->height;value.display_scale=session_scale(s);
+            value.display_width=d->info->width;value.display_height=d->info->height;value.display_scale=session_output_scale(s);
             if(desktop_preferences_set(&s->preferences,&value,DESK_PREF_DISPLAY,srv_ticks())<0)result=DESK_DISPLAY_FAILED;
-            else {d->trial=0;display_cleanup(s);preferences_changed(s);desk_log("deskd: display-kept scale=%u resolution=%llux%llu\n",value.display_scale,(unsigned long long)d->info->width,(unsigned long long)d->info->height);}
+            else {d->kept_scales|=display_scale_bit(s);d->trial=0;display_cleanup(s);preferences_changed(s);desk_log("deskd: display-kept scale=%u resolution=%llux%llu\n",value.display_scale,(unsigned long long)d->info->width,(unsigned long long)d->info->height);}
         }
     } else result=DESK_DISPLAY_INVALID;
     display_reply(s,i,p->serial,result);
@@ -181,20 +204,26 @@ static void display_tick(struct session *s) {
     if(d->trial) {
         if(d->startup && !d->abort && display_ready(s)) {d->trial=0;d->startup=0;display_cleanup(s);display_notify(s,DESK_DISPLAY_OK);return;}
         int owner=d->startup;for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid && session_client(s,i)->identity==d->owner && !session_client(s,i)->closing)owner=1;
-        if(!owner || d->abort || s->exiting || (uint64_t)srv_monotonic_us()>=d->deadline) {
+        int expired=(uint64_t)srv_monotonic_us()>=d->deadline;
+        if(!owner || d->abort || s->exiting || expired) {
+            unsigned timed_out=expired && owner && !d->abort && !s->exiting && !d->startup?display_scale_bit(s):0;
             if(display_revert(s)!=DESK_DISPLAY_OK) {d->trial=0;d->startup=0;d->abort=0;display_cleanup(s);display_notify(s,DESK_DISPLAY_FAILED);snprintf(s->scene.notice,sizeof(s->scene.notice),"Display recovery failed. Current settings were not saved.");}
+            else d->timed_out_scales|=timed_out;
         }
     } else if(!d->restore_done && !s->preferences.loading && display_ready(s)) {
         d->restore_done=1;const struct desk_preferences *p=&s->preferences.value;
+        /* Keep records both dimensions, even at the inherited resolution.
+         * Zero dimensions with the factory 1x value mean no display choice. */
         unsigned pw=p->display_width?p->display_width:d->info->width,ph=p->display_height?p->display_height:d->info->height;
-        unsigned scale=d->explicit_scale?session_scale(s):p->display_scale;
-        if(pw!=d->info->width || ph!=d->info->height || scale!=session_scale(s)) {
+        int inherit_scale=!p->display_width && p->display_scale==1;
+        unsigned scale=d->explicit_scale || inherit_scale ? session_output_scale(s) : p->display_scale;
+        if(pw!=d->info->width || ph!=d->info->height || scale!=session_output_scale(s)) {
             d->window_count=session_capacity(s);d->windows_bytes=(size_t)d->window_count*sizeof(*d->windows);
             d->windows=mmap(NULL,d->windows_bytes,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
             if(d->windows==MAP_FAILED) {d->windows=NULL;return;}
             for(int n=0;n<d->window_count;n++) {const struct desktop_window *w=desktop_window_at(&s->scene,n);
                 d->windows[n]=(struct display_window_backup){session_client(s,n)->identity,w->frame,w->restore,w->maximized};}
-            d->previous_info=*d->info;d->previous_scale=session_scale(s);
+            d->previous_info=*d->info;d->previous_scale=session_output_scale(s);
             unsigned result=display_change(s,pw,ph,scale,0);
             if(result) {display_cleanup(s);desk_log("deskd: saved display unavailable result=%u\n",result);}
             else {d->trial=1;d->startup=1;d->deadline=(uint64_t)srv_monotonic_us()+15000000;}

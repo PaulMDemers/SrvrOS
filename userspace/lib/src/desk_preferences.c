@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include <srvros/desk_preferences.h>
+#include <srvros/desktop_scale.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
@@ -9,7 +10,7 @@ struct desk_preferences desk_preferences_default(void) {
 int desk_preferences_valid(const struct desk_preferences *p) {
     return p && (p->text_size==16 || p->text_size==20) && p->utc_offset_minutes>=-720 &&
         p->utc_offset_minutes<=840 && p->utc_offset_minutes%15==0 &&
-        !(p->clock_flags&~(DESK_CLOCK_24H|DESK_CLOCK_DATE)) && p->wallpaper<3 && p->pointer_speed>=1 && p->pointer_speed<=5 && p->pointer_acceleration<=1 && p->disable_while_typing<=1 && p->tap_to_click<=1 && p->two_finger_tap<=1 && p->theme_accent<=2 && p->glass_level<=2 && p->theme_style<=2 && (p->display_scale==1 || p->display_scale==2) &&
+        !(p->clock_flags&~(DESK_CLOCK_24H|DESK_CLOCK_DATE)) && p->wallpaper<3 && p->pointer_speed>=1 && p->pointer_speed<=5 && p->pointer_acceleration<=1 && p->disable_while_typing<=1 && p->tap_to_click<=1 && p->two_finger_tap<=1 && p->theme_accent<=2 && p->glass_level<=2 && p->theme_style<=2 && desk_scale_valid(p->display_scale) &&
         ((!p->display_width && !p->display_height) || (p->display_width>=640 && p->display_width<=3840 && p->display_height>=480 && p->display_height<=2160));
 }
 int desk_preferences_merge(struct desk_preferences *d,const struct desk_preferences *s,unsigned mask) {

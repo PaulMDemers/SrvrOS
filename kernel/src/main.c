@@ -46,6 +46,7 @@
 #include <srvros/virtio_net.h>
 #include <srvros/virtio_block.h>
 #include <srvros/display_present.h>
+#include <srvros/display_profile.h>
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
 #include <srvros/monitor.h>
@@ -77,6 +78,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 extern volatile struct limine_framebuffer_request framebuffer_request;
 extern volatile struct limine_hhdm_request hhdm_request;
 extern volatile struct limine_memmap_request memmap_request;
+extern volatile struct limine_smbios_request smbios_request;
 extern volatile struct limine_rsdp_request rsdp_request;
 extern volatile struct limine_module_request module_request;
 bool lapic_init(void);
@@ -898,6 +900,38 @@ static void startup_checkpoint(uint32_t phase,uint64_t flags) {
     console_sync();halt_forever();
 }
 
+static void retina_desktop_trial(const char *cmdline) {
+    bool saved = false;
+    console_printf("retina-trial: boot options=%s\n", cmdline);
+    struct console_display_info display;
+    if (console_display_info(&display)) {
+        console_printf("retina-trial: firmware scale=%u\n", (uint64_t)display_profile_scale(display.width, display.height));
+    }
+    /* An untimed trial needs rolling snapshots after the boot log wraps. */
+    if (!workspace_active()) {
+        console_write("retina-trial: workspace unavailable; desktop skipped\n");
+    } else if (!workspace_log_start()) {
+        console_write("retina-trial: logging unavailable; desktop skipped\n");
+    } else {
+        const char *args = cmdline_has_token(cmdline,"srvros.retina-screenshot=1") ?
+            "--retina-screenshot" : "--retina-trial";
+        bool returned = process_run_elf_args("/fat/bin/deskd", args);
+        xhci_print_input_summary();
+        console_printf("retina-trial: desktop returned=%u\n", (uint64_t)returned);
+        saved = workspace_log_stop();
+    }
+    if (!workspace_active() || workspace_unmount()) {
+        console_printf("retina-trial: saved=%u USB unmounted=yes; returning to Ubuntu\n", (uint64_t)saved);
+        console_sync();
+        arch_reboot_unattended();
+    }
+    boot_set_framebuffer_quiet(false);
+    console_write("Retina trial: workspace unmount failed. Restart manually after recording this message.\n");
+    console_sync();
+    __asm__ volatile("cli":::"memory");
+    halt_forever();
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -919,7 +953,8 @@ void kmain(void) {
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *console_fb=framebuffer_request.response->framebuffers[0];
-        bool readable_capture=startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1");
+        bool readable_capture=startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
+            cmdline_has_token(cmdline,"srvros.desktop=retina-trial");
         uint64_t console_scale=readable_capture && console_fb->width>=2880 && console_fb->height>=1440?3:
             readable_capture && console_fb->width>=1920 && console_fb->height>=960?2:1;
         console_init_scaled(console_fb,console_scale);
@@ -963,6 +998,9 @@ void kmain(void) {
 
     block_init();
     arch_init();
+    /* The firmware parser can use SIMD, which arch_init enables. */
+    display_profile_init(smbios_request.response, memmap_request.response,
+        hhdm_request.response ? hhdm_request.response->offset : 0);
     arch_test_breakpoint();
     pmm_init(memmap_request.response,
         hhdm_request.response != NULL ? hhdm_request.response->offset : 0);
@@ -1807,6 +1845,8 @@ void kmain(void) {
             else desktop_battery_session_run();
         }
         else console_write("desktop-session: REFUSED explicit srvros.battery=on required\n");
+    } else if (cmdline_has_token(cmdline, "srvros.desktop=retina-trial")) {
+        retina_desktop_trial(cmdline);
     } else if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
         if (!workspace_active()) {
             console_write("desktop-trial: USB workspace unavailable; trial not started. Photograph this screen.\n");

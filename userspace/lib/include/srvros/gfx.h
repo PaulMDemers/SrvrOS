@@ -43,6 +43,7 @@ struct gfx_info {
     uint32_t green_mask_shift;
     uint32_t blue_mask_size;
     uint32_t blue_mask_shift;
+    /* Suggested default UI scale. The compositor owns the actual session scale. */
     uint64_t scale_num;
     uint64_t scale_den;
     uint64_t accel_backend;

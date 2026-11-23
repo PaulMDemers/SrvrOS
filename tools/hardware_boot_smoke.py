@@ -214,6 +214,8 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
+    parser.add_argument("--retina-fractional", action="store_true", help="Rehearse fractional scaling on the Retina fixed framebuffer")
+    parser.add_argument("--retina-missing-workspace", action="store_true", help="Rehearse Retina trial return without the USB workspace")
     parser.add_argument("--desktop-no-headroom", action="store_true", help="Verify safe desktop refusal at the exFAT file-slot limit")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
@@ -238,10 +240,18 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
+    retina_desktop = bool(desktop and manifest["config_version"].startswith("ram-usb-v1-retina-"))
+    retina_screenshot = retina_desktop and manifest["config_version"].startswith("ram-usb-v1-retina-shot-")
+    if args.retina_fractional and (not retina_desktop or args.retina_missing_workspace or retina_screenshot):
+        parser.error("--retina-fractional requires the Retina desktop trial with a workspace")
+    if args.retina_missing_workspace and (not retina_desktop or args.desktop_no_headroom):
+        parser.error("--retina-missing-workspace requires the Retina desktop trial")
+    if retina_desktop:
+        assert "srvros.desktop-scale=" not in (source / "limine.conf").read_text()
     if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
         parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --air61 --services" if manifest["config_version"].startswith("ram-usb-v71-") else " --services" if manifest["config_version"].startswith("ram-usb-v55-") else " --air61" if manifest["config_version"].startswith("ram-usb-v70-") else ""))
     basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
-    if args.desktop_no_headroom and (not desktop or basic_desktop or args.audio_check):
+    if args.desktop_no_headroom and (not desktop or basic_desktop or retina_desktop or args.audio_check):
         parser.error("--desktop-no-headroom requires an ordinary desktop stage without audio checking")
     session_run="0123456789abcdef"
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
@@ -337,7 +347,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-work-capture" if battery_home_work else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
-    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
+    scaled_desktop=retina_desktop or bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -372,6 +382,8 @@ def main():
         if hfw_capture or hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
+        if retina_desktop:
+            command += ["-smbios", "type=1,manufacturer=Apple Inc.,product=MacBookPro11,,2"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
         device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
         if network_desktop or device_checks or args.probe_network:
@@ -379,7 +391,7 @@ def main():
         if args.audio_check or audio_listen or storage_only_capture:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
-        if workspace and not args.probe_missing_workspace:
+        if workspace and not (args.probe_missing_workspace or args.retina_missing_workspace):
             from exfat_test_image import ExfatFixture, check_clean_image
             volume=temp/"workspace.exfat";stick=temp/"workspace.img"
             with volume.open("wb") as stream: stream.truncate(128*1024*1024)
@@ -387,6 +399,11 @@ def main():
             subprocess.run(["/usr/sbin/tune.exfat","-I","0x"+workspace[1],str(volume)],check=True,stdout=subprocess.DEVNULL)
             fixture=ExfatFixture(volume.read_bytes())
             files={".workspace":f"SRVROS-WORKSPACE-V1 {workspace[1]}\n".encode()}
+            if retina_screenshot:
+                files["desktop.conf"] = (b"srvros-desktop-v7\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\n"
+                    b"wallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=0\n"
+                    b"tap_to_click=1\ntwo_finger_tap=1\ntheme_accent=0\nglass_level=1\ntheme_style=0\n"
+                    b"display_scale=1\ndisplay_width=2880\ndisplay_height=1800\n")
             if battery_filesystem:
                 from battery_filesystem_image import create
                 inner=temp/'inner.exfat';create(inner)
@@ -432,6 +449,49 @@ def main():
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if args.retina_missing_workspace:
+                    marker = "retina-trial: saved=0 USB unmounted=yes; returning to Ubuntu"
+                    text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)
+                    assert "retina-trial: workspace unavailable; desktop skipped" in text
+                    assert "deskd: ready" not in text and process.wait(timeout=30) == 0
+                    result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source/"manifest.json"),
+                                  retina_missing_workspace=True, returned=True)
+                    (logs/"hardware-grub-result.json").write_text(json.dumps(result, indent=2)+"\n")
+                    print(f"retina-desktop-smoke: PASS ({release}); absent workspace returns without opening the desktop")
+                    return
+                if retina_screenshot:
+                    import io
+                    from PIL import Image
+
+                    marker = "retina-trial: saved=1 USB unmounted=yes; returning to Ubuntu"
+                    text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)
+                    assert process.wait(timeout=30) == 0 and not has_fatal_exception(text)
+                    with stick.open("rb") as stream:
+                        stream.seek(2048*512)
+                        volume.write_bytes(stream.read(128*1024*1024))
+                    check_clean_image(volume)
+                    stored = ExfatFixture(volume.read_bytes())
+                    folder = re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
+                    assert release.encode() in stored.read(folder+"/boot.log")
+                    exit_log = stored.read(folder+"/exit.log").decode()
+                    assert "retina-screenshot: result=PASS scale=175 completed=1" in exit_log
+                    assert "physical=2880x1800 logical=1646x1029 scale=175 restore=0" in exit_log
+                    assert "retina-trial: desktop returned=1" in exit_log
+                    shot, = re.findall(r"deskd: screenshot saved status=0 path=/work/([^\s]+)",exit_log)
+                    bitmap = stored.read(shot)
+                    with Image.open(io.BytesIO(bitmap)) as image:
+                        assert image.format=="BMP" and image.size==(1646,1029)
+                        image.load()
+                        assert any(lo<hi for lo,hi in image.convert("RGB").getextrema())
+                    assert stored.read("srvros-work/desktop.conf") == files["desktop.conf"]
+                    (logs/"retina-screenshot.bmp").write_bytes(bitmap)
+                    (logs/"retina-screenshot-exit.log").write_text(exit_log)
+                    result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source/"manifest.json"),
+                                  retina_screenshot=True, scale=175, width=1646, height=1029,
+                                  preferences_unchanged=True, saved=True, unmounted=True, automatic_return=True)
+                    (logs/"hardware-grub-result.json").write_text(json.dumps(result,indent=2)+"\n")
+                    print(f"retina-screenshot-smoke: PASS ({release}); BMP decoded and saved 1x preferences preserved")
+                    return
                 if args.desktop_no_headroom:
                     text=wait_for(serial,lambda s:"desktop-trial: NOT STARTED" in s and "srv> " in s,process,args.boot_wait)
                     assert "workspace-log: REFUSED insufficient file/directory slots" in text
@@ -800,13 +860,18 @@ def main():
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP
-                    wait_for(serial,lambda s:("deskterm: ready" if network_desktop else "deskhelp: page=laptop-trial") in s and "deskd: opened" in s,process,args.boot_wait)
+                    guide = "deskhelp: page=retina-trial" if retina_desktop else "deskhelp: page=laptop-trial"
+                    wait_for(serial,lambda s:("deskterm: ready" if network_desktop else guide) in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
                     def shortcut(keys):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
-                        for c in value: ui.key({">":"dot","$":"4","?":"slash",";":"semicolon"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                        for c in value:
+                            ui.key({">":"dot","$":"4","?":"slash",";":"semicolon"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                            if args.retina_fractional:
+                                # TCG redraws the full Text window after each key at Retina sizes.
+                                time.sleep(.25)
                     if network_desktop:
                         # Each saved phase is displayed by cat before its next gate.
                         def phase_cats(count):
@@ -830,6 +895,62 @@ def main():
                         assert "physical=2880x1800 logical=1440x900 scale=2" in text
                         time.sleep(1)
                         ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
+                        if args.retina_fractional:
+                            logical = (1440, 900)
+                            scales = (1, 125, 150, 175, 2)
+                            pointer = [24, 56]
+
+                            def click(x, y):
+                                ui.mouse(x-pointer[0], y-pointer[1])
+                                pointer[:] = [x, y]
+                                ui.mouse(0, 0, 1)
+                                ui.mouse(0, 0, 0)
+
+                            def display_button(name):
+                                w = min(logical[0]-16, 1442)
+                                h = min(logical[1]-132, 945)
+                                sx = (logical[0]-w)//2
+                                offset = 1912-(h-45-108)
+                                x = {"scale": 208, "apply": 64, "keep": 64, "revert": 160}[name]
+                                y = 72 if name == "scale" else 112
+                                click(sx+1+x, 52+44+64+1610+y+16-offset)
+
+                            def scroll_bottom():
+                                for _ in range(5):
+                                    shortcut("pgdn")
+
+                            def select_scale(current, selected, outcome):
+                                nonlocal logical
+                                scroll_bottom()
+                                offset = len(serial.read_text(errors="replace"))
+                                for _ in range((scales.index(selected)-scales.index(current)) % len(scales)):
+                                    display_button("scale")
+                                display_button("apply")
+                                percent = selected if selected > 2 else selected*100
+                                logical = tuple((size*100+percent-1)//percent for size in (2880,1800))
+                                marker = f"physical=2880x1800 logical={logical[0]}x{logical[1]} scale={selected} restore=0"
+                                observed = wait_for(serial,lambda s:marker in s[offset:],process,35)
+                                if outcome != "timeout":
+                                    offset += observed[offset:].index(marker) + len(marker)
+                                    wait_for(serial,lambda s:f"deskd: commit pid={settings_pid} " in s[offset:],process,12)
+                                    scroll_bottom()
+                                    display_button(outcome)
+                                if outcome == "keep":
+                                    wait_for(serial,lambda s:f"display-kept scale={selected} resolution=2880x1800" in s[offset:],process,18)
+                                else:
+                                    wait_for(serial,lambda s:"deskd: display-reverted" in s[offset:],process,25)
+                                    logical = (1440,900)
+
+                            shortcut("meta_l-spc");type_text("Settings new app");ui.key("ret")
+                            def settings_geometry(s):
+                                return "desktools: starting role=settings" in s and len(re.findall(r"deskd: geometry pid=",s))>=2
+                            text = wait_for(serial,settings_geometry,process,30)
+                            settings_pid = int(re.findall(r"deskd: geometry pid=(\d+)",text)[-1])
+                            shortcut("meta_l-alt-down")
+                            wait_for(serial,lambda s:f"deskd: zoom pid={settings_pid} maximized=1" in s,process,20)
+                            select_scale(2,125,"revert")
+                            select_scale(2,150,"timeout")
+                            select_scale(2,175,"keep")
                         if manifest["config_version"].startswith(("ram-usb-v36-","ram-usb-v37-")):
                             shortcut("meta_l-spc");type_text("System new app");ui.key("ret")
                             wait_for(serial,lambda s:"desktools: system-ready" in s,process,30)
@@ -844,19 +965,47 @@ def main():
                             shortcut("meta_l-w")
                             wait_for(serial,lambda s:"deskterm: exited failure=0" in s,process,30)
                         shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
-                        wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
-                        time.sleep(1);type_text("Pro scaled desktop USB test.");shortcut("ctrl-s")
+                        text = wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
+                        if args.retina_fractional:
+                            opened_text = text.index("desktools: starting role=text")
+                            wait_for(serial,lambda s:"deskd: commit pid=" in s[opened_text:],process,30)
+                        payload = "Retina fractional Aa09" if args.retina_fractional else "Retina 2x Aa09" if retina_desktop else "Pro scaled desktop USB test."
+                        filename = "retina-fractional-proof.txt" if args.retina_fractional else "retina-scaling-proof.txt" if retina_desktop else "Untitled.txt"
+                        time.sleep(1);type_text(payload)
+                        if retina_desktop:
+                            shortcut("ctrl-l");type_text("/work/srvros-work/" + filename)
+                        shortcut("ctrl-s")
                         wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
                         wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                        if retina_desktop:
+                            shortcut("ctrl-o")
+                            wait_for(serial,lambda s:"picker ready mode=1" in s,process,30)
+                            shortcut("tab");type_text(filename);ui.key("ret")
+                            wait_for(serial,lambda s:"file-result role=text op=1 status=0" in s,process,30)
                         shortcut("meta_l-shift-3")
                         text=wait_for(serial,lambda s:"deskd: screenshot saved status=0 path=/work/" in s,process,60)
                         shot=re.search(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",text)[1]
+                        if args.retina_fractional:
+                            offset = len(text)
+                            shortcut("ctrl-w")
+                            wait_for(serial,lambda s:"exited role=text failure=0" in s[offset:],process,30)
+                            wait_for(serial,lambda s:f"deskd: focused pid={settings_pid} " in s[offset:],process,20)
+                            try:
+                                select_scale(175,2,"keep")
+                            except RuntimeError:
+                                ui.call("screendump", {"filename": str(logs/"retina-restore-failure.ppm")})
+                                raise
                         for keys in ("f10","end","ret"): shortcut(keys)
-                        text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
+                        if retina_desktop:
+                            marker = "retina-trial: saved=1 USB unmounted=yes; returning to Ubuntu"
+                            text = wait_for(serial, lambda s: marker in s, process, 60)
+                            assert process.wait(timeout=30) == 0
+                        else:
+                            text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
                         with stick.open("rb") as stream:
                             stream.seek(2048*512);volume.write_bytes(stream.read(128*1024*1024))
                         check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
-                        assert stored.read("srvros-work/Untitled.txt")==b"Pro scaled desktop USB test."
+                        assert stored.read("srvros-work/" + filename)==payload.encode()
                         if network_desktop: assert b"sent=4 received=4 lost=0" in stored.read("srvros-work/network-ping.txt")
                         if network_desktop:
                             assert stored.read('srvros-work/network-trial.txt')==b'started\ncompleted\n'
@@ -867,12 +1016,26 @@ def main():
                                 (logs/('network-auto-'+phase+'.txt')).write_bytes(report)
 
                         bitmap=stored.read(shot.removeprefix("/work/"))
-                        assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==(1440,900)
+                        expected_dimensions = (1646,1029) if args.retina_fractional else (1440,900)
+                        assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==expected_dimensions
                         folder=re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
                         for name in ("boot.log","exit.log"):
-                            data=stored.read(folder+"/"+name);assert release.encode() in data
+                            data=stored.read(folder+"/"+name)
+                            if name == "boot.log" or not args.retina_fractional:
+                                assert release.encode() in data
                             (logs/("scaled-desktop-"+name)).write_bytes(data)
                         assert b"deskd: exited" in stored.read(folder+"/exit.log")
+                        if retina_desktop:
+                            exit_log = stored.read(folder+"/exit.log")
+                            if not args.retina_fractional:
+                                assert b"deskhelp: page=retina-trial" in exit_log
+                                assert b"physical=2880x1800 logical=1440x900 scale=2" in exit_log
+                            for receipt in (b"file-result role=text op=1 status=0", b"retina-desktop: startup_scale=2 final_scale=2",
+                                            b"retina-trial: desktop returned=1"):
+                                assert receipt in exit_log, receipt
+                        if args.retina_fractional:
+                            assert b"retina-scales: applied=30 kept=24 reverted=2 timed_out=4" in exit_log
+                            assert b"display_scale=2\n" in stored.read("srvros-work/desktop.conf")
                         assert not has_fatal_exception(text)
                         tone_result=None
                         if args.audio_check:
@@ -888,7 +1051,9 @@ def main():
                             tone_result=analyze_tones(logs/"hardware-grub-tone.wav",1)
                         (logs/"hardware-grub-result.json").write_text(json.dumps({"status":"PASS","release":release,
                             "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"usb_network":network_desktop,"audio":args.audio_check,"tone":tone_result,
-                            "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"physical_acceptance":"pending"},indent=2)+"\n")
+                            "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"retina_desktop":retina_desktop,
+                            "retina_fractional":args.retina_fractional,
+                            "automatic_return":retina_desktop,"physical_acceptance":"pending"},indent=2)+"\n")
                         print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
                         return
                     time.sleep(.5)

@@ -2438,6 +2438,14 @@ $(USER_DESKSTUDY): $(ZIG) $(USER_CRT0_OBJ) $(DESKSTUDY_OBJ) $(USER_LIB_OBJ) user
 -include $(DESKSTUDY_OBJ:.o=.d)
 
 .PHONY: test-desktop
+test-desktop: test-display-profile
+.PHONY: test-display-profile
+test-display-profile: build/tests/display-profile-host$(HOST_EXE)
+	$<
+build/tests/display-profile-host$(HOST_EXE): tools/test_display_profile.c kernel/src/display_profile.c kernel/include/srvros/display_profile.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $(filter %.c,$^) -o $@
+
 test-core: test-desktop
 test-desktop: build/tests/desktop-host$(HOST_EXE) build/tests/gui-host$(HOST_EXE) build/tests/apple-trackpad-host$(HOST_EXE)
 	build/tests/desktop-host$(HOST_EXE)
@@ -2509,7 +2517,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/operation_trace.h userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/render_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/widgets/render/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/operation_trace.h userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/display_settings.h userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/render_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/widgets/render/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
@@ -5187,7 +5195,7 @@ build/tests/render-widget-theme$(HOST_EXE): tools/render_widget_theme.c $(HOST_D
 test-desktop: test-desktop-presentation
 test-desktop-presentation: build/tests/desktop-presentation-host$(HOST_EXE)
 	./$<
-build/tests/desktop-presentation-host$(HOST_EXE): tools/test_desktop_presentation.c userspace/deskd/presentation.h userspace/widgets/include/srvros/desk_render.h
+build/tests/desktop-presentation-host$(HOST_EXE): tools/test_desktop_presentation.c userspace/deskd/presentation.h shared/include/srvros/desktop_scale.h userspace/widgets/include/srvros/desk_render.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
 
@@ -5312,6 +5320,7 @@ build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnost
 
 # The session fixture includes display transaction implementation directly.
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
+build/tests/desktop-session-host$(HOST_EXE) build/tests/preferences-host$(HOST_EXE) build/tests/settings-host$(HOST_EXE): shared/include/srvros/desktop_scale.h
 
 .PHONY: test-vfs-namespace
 test-vfs-namespace:
