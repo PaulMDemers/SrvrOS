@@ -162,6 +162,7 @@ def main():
         (ROOT / 'tools/glib-srvros-ipv6-tclass.patch', 'glib-ipv6-tclass-patch.log'),
         (ROOT / 'tools/glib-srvros-resolver-address.patch', 'glib-resolver-address-patch.log'),
         (ROOT / 'tools/glib-srvros-socket-probes.patch', 'glib-socket-probes-patch.log'),
+        (ROOT / 'tools/glib-srvros-mounts.patch', 'glib-mounts-patch.log'),
     )
     meson = args.meson.resolve()
     env = {key: value for key, value in os.environ.items()

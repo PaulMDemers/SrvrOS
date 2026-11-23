@@ -174,6 +174,7 @@
 #define SYS_PROCESS_CREDENTIALS 171
 #define SYS_NET_IPV4_TTL 172
 #define SYS_NET_UDP_BROADCAST 173
+#define SYS_MOUNT_SNAPSHOT 174 /* Output pointer and exact v1 byte size. */
 
 /* Device branch Wi-Fi call moved from163;matched image required. */
 #define SYS_WIFI 169

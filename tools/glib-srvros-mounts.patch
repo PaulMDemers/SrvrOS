@@ -1,0 +1,190 @@
+--- gio/gunixmounts.c
++++ gio/gunixmounts.c
+@@ -46,6 +46,9 @@
+ #include <signal.h>
+ #include <gstdio.h>
+ #include <dirent.h>
++#ifdef __SRVROS__
++#include <srvros/sys.h>
++#endif
+
+ #if defined(__ANDROID__) && (__ANDROID_API__ < 26)
+ #include <mntent.h>
+@@ -510,8 +513,66 @@
+   return mount_point;
+ }
+
++/* SrvrOS exposes a bounded live snapshot, not a mount table file. */
++#if defined(__SRVROS__)
++static char *
++get_mtab_monitor_file (void)
++{
++  return NULL;
++}
++
++static GUnixMountEntry **
++_g_unix_mounts_get_from_file (const char *table_path,
++                              uint64_t *time_read_out,
++                              size_t *n_entries_out)
++{
++  (void) table_path;
++  if (time_read_out != NULL) *time_read_out = 0;
++  if (n_entries_out != NULL) *n_entries_out = 0;
++  return NULL;
++}
++
++static GList *
++_g_get_unix_mounts (void)
++{
++  struct srv_mount_snapshot snapshot = { .version = SRV_MOUNT_SNAPSHOT_VERSION };
++  GList *mounts = NULL;
++  if (srv_get_mount_snapshot (&snapshot) < 0 ||
++      snapshot.version != SRV_MOUNT_SNAPSHOT_VERSION || snapshot.count == 0 ||
++      snapshot.count > SRV_MOUNT_SNAPSHOT_MAX)
++    return NULL;
++  for (guint i = 0; i < snapshot.count; ++i)
++    {
++      const struct srv_mount_entry *item = &snapshot.entries[i];
++      const char *type;
++      if (item->filesystem == SRV_MOUNT_VFS) type = "srvros-vfs";
++      else if (item->filesystem == SRV_MOUNT_EXFAT) type = "exfat";
++      else goto invalid;
++      if (!memchr (item->mount_path, 0, sizeof item->mount_path) ||
++          !memchr (item->root_path, 0, sizeof item->root_path) ||
++          !memchr (item->source, 0, sizeof item->source) ||
++          item->mount_path[0] != '/' || item->root_path[0] != '/' ||
++          (item->flags & ~(SRV_MOUNT_READONLY | SRV_MOUNT_PROJECTION)))
++        goto invalid;
++      GUnixMountEntry *entry = g_new0 (GUnixMountEntry, 1);
++      entry->mount_path = g_strdup (item->mount_path);
++      entry->root_path = g_strdup (item->root_path);
++      entry->device_path = g_strdup (item->source);
++      entry->filesystem_type = g_strdup (type);
++      entry->is_read_only = (item->flags & SRV_MOUNT_READONLY) != 0;
++      entry->is_system_internal = item->filesystem == SRV_MOUNT_VFS ||
++                                  (item->flags & SRV_MOUNT_PROJECTION) != 0;
++      entry->options = g_strdup (entry->is_read_only ? "ro" : "rw");
++      mounts = g_list_prepend (mounts, entry);
++    }
++  return g_list_reverse (mounts);
++invalid:
++  g_list_free_full (mounts, (GDestroyNotify) g_unix_mount_entry_free);
++  return NULL;
++}
++
+ /* mntent.h (Linux, GNU, NSS) {{{2 */
+-#ifdef HAVE_MNTENT_H
++#elif defined(HAVE_MNTENT_H)
+
+ #ifdef HAVE_LIBMOUNT
+
+@@ -1121,7 +1182,9 @@
+ static char *
+ get_fstab_file (void)
+ {
+-#ifdef HAVE_LIBMOUNT
++#if defined(__SRVROS__)
++  return NULL;
++#elif defined(HAVE_LIBMOUNT)
+   return (char *) mnt_get_fstab_path ();
+ #else
+ #if defined(HAVE_SYS_MNTCTL_H) && defined(HAVE_SYS_VMOUNT_H) && defined(HAVE_SYS_VFS_H)
+@@ -1137,8 +1200,27 @@
+ #endif
+ }
+
++/* No configured mount table is provided by SrvrOS. */
++#if defined(__SRVROS__)
++static GList *
++_g_get_unix_mount_points (void)
++{
++  return NULL;
++}
++
++static GUnixMountPoint **
++_g_unix_mount_points_get_from_file (const char *table_path,
++                                    uint64_t *time_read_out,
++                                    size_t *n_points_out)
++{
++  (void) table_path;
++  if (time_read_out != NULL) *time_read_out = 0;
++  if (n_points_out != NULL) *n_points_out = 0;
++  return NULL;
++}
++
+ /* mntent.h (Linux, GNU, NSS) {{{2 */
+-#ifdef HAVE_MNTENT_H
++#elif defined(HAVE_MNTENT_H)
+
+ #ifdef HAVE_LIBMOUNT
+
+@@ -2014,6 +2096,37 @@
+
+   g_return_val_if_fail (file_path != NULL, NULL);
+
++#ifdef __SRVROS__
++  {
++    GStatBuf stat_buffer;
++    GList *mounts, *iter;
++    char *canonical;
++    gsize best_length = 0;
++    if (g_stat (file_path, &stat_buffer) != 0)
++      return NULL;
++    canonical = g_canonicalize_filename (file_path, NULL);
++    mounts = g_unix_mount_entries_get (time_read);
++    entry = NULL;
++    for (iter = mounts; iter != NULL; iter = iter->next)
++      {
++        GUnixMountEntry *candidate = iter->data;
++        gsize length = strlen (candidate->mount_path);
++        gboolean match = g_str_has_prefix (canonical, candidate->mount_path) &&
++          (length == 1 || canonical[length] == '\0' || canonical[length] == '/');
++        if (match && length >= best_length)
++          {
++            g_clear_pointer (&entry, g_unix_mount_entry_free);
++            entry = candidate;
++            best_length = length;
++          }
++        else
++          g_unix_mount_entry_free (candidate);
++      }
++    g_list_free (mounts);
++    g_free (canonical);
++    return entry;
++  }
++#else
+   entry = g_unix_mount_entry_at (file_path, time_read);
+   if (entry == NULL)
+     {
+@@ -2028,6 +2141,7 @@
+     }
+
+   return entry;
++#endif
+ }
+
+ static gpointer
+@@ -2369,6 +2483,11 @@
+   gboolean has_changed = FALSE;
+
+   current_mounts = _g_get_unix_mounts ();
++#ifdef __SRVROS__
++  /* A failed snapshot is not a transition to an empty mount set. */
++  if (current_mounts == NULL)
++    return TRUE;
++#endif
+
+   for ( new_it = current_mounts, old_it = mount_poller_mounts;
+         new_it != NULL && old_it != NULL;
+@@ -2393,7 +2512,11 @@
+       mount_poller_time = (guint64) g_get_monotonic_time ();
+       G_UNLOCK (proc_mounts_source);
+
++#ifdef __SRVROS__
++      g_context_specific_group_emit (&mount_monitor_group, signals[MOUNTS_CHANGED]);
++#else
+       g_context_specific_group_emit (&mount_monitor_group, signals[MOUNTPOINTS_CHANGED]);
++#endif
+     }
+
+   return TRUE;
