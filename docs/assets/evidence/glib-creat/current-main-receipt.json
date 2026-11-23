@@ -1,0 +1,120 @@
+{
+  "scope": "Current-main SDK creat() requalification and pinned GLib translation-unit checks",
+  "integration_base": "6f4c8b922060a0c752ffad6ec79c16c6a5cbf164",
+  "tested_source": "dac475281dd9cd88ac8997157c3dda3810f05b41",
+  "source_sha256": {
+    "userspace/lib/include/fcntl.h": "f60df4a0bb08e9438d836b0cb7c0c4c4794c92faa42fdf2b22c71f8783892cf5",
+    "userspace/lib/src/posix_file.c": "30af90f0a6980b28103e434dfda6a2e281bf80e00b58ffe14939475acc7edfce",
+    "tools/posix_file_host_names.h": "70cf85dac7352c1e2e861cb80c6a8dc9f338c2baa4c38eef77d6ed54c72e934d",
+    "tools/test_glib_file_policy_guest.c": "26821d0174ef328d247ec12c96dae9fa433d9c60201e3fc767a0d05c80356041"
+  },
+  "submodule_pins": {
+    "ports": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+    "userspace/apps": "5651aae15c68b2e987e8e79a57a1d625193e30e1",
+    "userspace/widgets": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
+  },
+  "guest_receipt_sha256": "2b1f695c625def7f4b238f467fab826699c9a8a424932b9ce1462018ee979e97",
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites with a disposable exFAT disk",
+    "source": "dac475281dd9cd88ac8997157c3dda3810f05b41",
+    "sdk_headers_sha256": "2074635c3628af676e0915b45b9a29da605bdb6111bd4c8d3e4292c9703337f5",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "10d6aec5e64c61511df955903fdfce9e69833c7c058959ce04f9dd6a660046d7",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "c7afc49c982e0dc0b5e02a72267f0d82a951890e9b9006690d0aa30cb724637e",
+      "build/userspace/init.elf": "bca26c6ac03a8c4abafea16ef5b68aa6914369bc65c6ade18c2a0e1a05b73215",
+      "build/sysroot/srvros/lib/libsrvros.a": "cc473507dd4884ab6378efdf8397a021104b19e21d8fb061fc6fa03727ef3180",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_file_policy_guest.c": "26821d0174ef328d247ec12c96dae9fa433d9c60201e3fc767a0d05c80356041",
+      "tools/mk_exfat_image.py": "ec2d611a7b45e028dfa0e772b9e0e20030d3d2c5cf1072f1d343ce05bc62c3f2",
+      "tools/audio_fixture.py": "e194bb1ee22eddcd6b14ae0edfdb6c752eb44fa8c333ab707dff7d42d1956a92"
+    },
+    "payload_sha256": "636340022eaf408cb01c2676e841483fe261d9daefbc0a01cea3d7758ab33d68",
+    "file_policy_payload_sha256": "06016775d58f9ec050ae471c9994996bfc30996d4ac159f2d199d87301b20c3c",
+    "workspace_before_sha256": "759172eb86c46cbe8d8b8f2279d49e432d18050915efd4fadd040fb23e6cdf7a",
+    "image_sha256": "e7ce63b83c53b7ddf9a7d5bccf406f7b4d38eb5a68f36ac841b2ac3d8b2a1066",
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-file-policy",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-file-policy",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "7a83bb5dfe96f9ee88ad3d435c4370e465a1d247882dda763fe17a87b016c636",
+    "workspace_after_sha256": "fc225fcf58f467844bf7168bb9fde2f6a6db2425c9ad07b9f16abc9a98ef1f59"
+  },
+  "iso_readback": {
+    "kernel_sha256": "c7afc49c982e0dc0b5e02a72267f0d82a951890e9b9006690d0aa30cb724637e",
+    "initramfs_sha256": "6fbcf4901317b9a283707e2573eedd45cc26a3f50cdc060d4820ebbfc54254bd",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "e7d8f2e2079a67dd18cc87c8f288b211091b7d7f4d21511d8c2b1e43c3ceb7a3",
+      "glib-file-policy": "7511958ef44064c1eb6c4af6c6851902faced8b39fe44c4e7e3f50653f6fd25c"
+    },
+    "initramfs_symlink_and_target_match": true,
+    "workspace_probe_entries_absent": true
+  },
+  "host_fd_io_restart": {
+    "exit": 0,
+    "log_sha256": "98f0d708b0e6abab185b256fc2a9b3da9fd0eaf5dc7d9eea51b89369aa7ec8e6",
+    "darwin_linker_flag": "-Wl,-dead_strip"
+  },
+  "glib": {
+    "version": "2.90.1",
+    "archive_sha256": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+    "scope": "Compile two units using the retained Meson configuration and rebuilt SDK",
+    "probes": {
+      "gstdio.c": {
+        "exit": 0,
+        "errors": []
+      },
+      "glib-unix.c": {
+        "exit": 1,
+        "errors": [
+          "../../browser-glib-unix-watch/glib-2.90.1/glib/glib-unix.c:81:18: error: static assertion failed due to requirement 'sizeof(int) == sizeof(long)': Expression evaluates to false",
+          "../../browser-glib-unix-watch/glib-2.90.1/glib/glib-unix.c:82:18: error: static assertion failed due to requirement '_Alignof(int) == _Alignof(long)': Expression evaluates to false",
+          "../../browser-glib-unix-watch/glib-2.90.1/glib/glib-unix.c:1012:4: error: \"g_unix_fd_query_path() not supported on this platform\""
+        ]
+      }
+    },
+    "log_sha256": {
+      "gstdio.c": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "glib-unix.c": "e8d3d352aa7ec831e024dfb88237e743a0bb9d8e442cc72e67ae3e6d04823055"
+    },
+    "gstdio_object_sha256": "2e2127df85b9b70be8fddffb6b61bd9a2b91843d72c246216b4903c3b230fc21"
+  },
+  "storage_minimum_free_bytes": 7096332288,
+  "previous_review_proof_hashes_verified": true
+}

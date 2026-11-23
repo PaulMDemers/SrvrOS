@@ -54,6 +54,7 @@ int fcntl64(int fd, int command, ...);
 int open(const char *path, int flags, ...);
 int open64(const char *path, int flags, ...);
 int openat(int dirfd, const char *path, int flags, ...);
+int creat(const char *path, mode_t mode);
 
 #ifdef __cplusplus
 }

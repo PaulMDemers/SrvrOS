@@ -6,8 +6,9 @@ the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
 proxy-libintl and GIO's `C_IN` and `res_query()` checks. Meson generates
 the static build graph. The GIO resolver and GLib file, hostname, main-loop
-and wakeup objects compile. The first static build failure is the missing
-`creat()` declaration in `glib/gstdio.c`.
+and wakeup objects compile. The SDK's `creat()` passes on private exFAT and
+`glib/gstdio.c` compiles. The first static build failure is now in
+`glib/glib-unix.c`, on `GPid` layout and descriptor-path support.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -280,12 +281,44 @@ The worker reaped the watched PID with exit 17. The earlier unwatched child
 remained independently reapable with exit 42. Both platform probes also
 passed, QEMU stopped, and the window was released.
 
-Fresh configure and the `gmain.c` and `gwakeup.c` objects passed. The static
-build first stops at missing `creat()` in `glib/gstdio.c:1147`. The focused
+Fresh configure and the `gmain.c` and `gwakeup.c` objects passed. That static
+build first stopped at missing `creat()` in `glib/gstdio.c:1147`. The focused
 `glib-unix.c` build also found a `GPid`/`pid_t` ABI mismatch and an absent
 descriptor-path backend. These gates block a guest test linked against
 target GLib's `GChildWatchSource`. See the
 [Unix watch receipt](assets/evidence/glib-unix-watch/receipt.json).
+
+## GLib file creation
+
+The filesystem owner reviewed the SDK `creat()` wrapper. It calls the
+existing `open()` implementation with `O_WRONLY | O_CREAT | O_TRUNC` and
+passes the supported permission bits as an `int`.
+
+Two native runs on a disposable exFAT disk verified mode 0640 for a new
+file requested as 0666 under umask 0027, a write-only descriptor with
+`read()` returning `EBADF`, and no close-on-exec flag. A second `creat()`
+truncated the file to zero bytes and kept mode 0640 despite a different
+requested mode. The probe read back rewritten data, checked `EISDIR` for a
+directory, and compared missing-parent behavior with equivalent `open()`.
+Both platform probes and both file-policy probes exited zero. Boot ISO
+readback matched the kernel and all packed executables, and the guest
+removed its test directory. QEMU stopped and the VM window was released.
+
+Fresh configure, the `gstdio.c` object, and the host FD I/O restart test
+passed. The static GLib/GIO build stopped at `glib-unix.c`: GLib's
+`GPid` (`int`) and the SDK's `pid_t` (`long`) differ in size and
+alignment, and `g_unix_fd_query_path()` has no target backend. The linked
+GLib child-watch test remains pending.
+See the [file creation receipt](assets/evidence/glib-creat/receipt.json).
+
+PR #522 was requalified on main `6f4c8b92` at source `dac47528` with a
+rebuilt SDK, kernel and init. The new private exFAT guest passed both
+file-policy runs and both platform runs. ISO readback matched all boot
+payloads, and a read-only check confirmed the test entries were removed
+from the disposable disk. The host FD I/O restart regression passed.
+Reusing Meson's recorded commands with the rebuilt SDK, `gstdio.c`
+compiled and `glib-unix.c` reproduced the three diagnostics above.
+See the [current-main receipt](assets/evidence/glib-creat/current-main-receipt.json).
 
 ## Verification
 

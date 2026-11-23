@@ -34,6 +34,7 @@
 #define mkostemp audit_mkostemp
 #define mkstemp audit_mkstemp
 #define mkstemp64 audit_mkstemp64
+#define creat audit_creat
 #define open audit_open
 #define open64 audit_open64
 #define pipe audit_pipe

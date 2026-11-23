@@ -24,9 +24,10 @@ guest against a private DNS peer. GIO's resolver and GLib's file-utilities
 objects compile. No-follow file checks passed on initramfs and a private
 exFAT disk. GLib's hostname utilities compile and the native hostname checks
 passed. GLib's main-loop and wakeup objects compile, and native child
-signal wake and targeted-reap checks passed. The static build first stops
-at `creat()` in `gstdio.c`. The linked GLib child-watch test still requires
-the static core and `glib-unix.c`.
+signal wake and targeted-reap checks passed. The SDK's `creat()` passed on
+private exFAT and `gstdio.c` compiles. The static build and linked GLib
+child-watch test are blocked by the `GPid` layout mismatch and missing
+descriptor-path support in `glib-unix.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
