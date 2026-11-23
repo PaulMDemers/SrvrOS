@@ -368,11 +368,11 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
  if(model.mode==63 && stolen.import.samples==1 && offset==0x811000){*out=0x8e202001u;return true;}
  switch(offset) {
  case 0x42014:
-  assert(stolen.import.submission && model.guard_live && model.pinned);
+  assert(stolen.import.selected && model.guard_live && model.pinned);
   *out=model.mode==65 ? 0 : 0x20100042;
   return true;
  case 0x45404: case 0x65020: case 0x65800: {
-  assert(stolen.import.submission && model.pinned && !model.guard_live);
+  assert(stolen.import.selected && model.pinned && !model.guard_live);
   unsigned n=stolen.guard.closed?1:0;
   if(offset==0x45404) {
    *out=0xc0000000;
@@ -388,7 +388,7 @@ static bool intel_stolen_test_read(uint32_t offset,uint32_t *out) {
   return true;
  }
  case 0x6e400: case 0x6e514: case 0x6e520: case 0x6e558:
-  assert(stolen.import.submission && model.pinned && !model.guard_live);
+  assert(stolen.import.selected && model.pinned && !model.guard_live);
   *out=offset==0x6e520?0x10u:0;
   if(model.mode==64 && offset==0x6e558 && stolen.guard.closed)*out=1;
   return true;
@@ -511,11 +511,22 @@ int main(int argc,char **argv) {
   if(fail_tail)model.mode=51;
   return intel_stolen_probe_report(range_command)==fail_tail;
  }
- if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift") || !strcmp(argv[1],"--owned-port-loss") || !strcmp(argv[1],"--owned-reader-change") || !strcmp(argv[1],"--owned-reader-alias"))) {
+ if(argc==2 && (!strncmp(argv[1],"--submission-",13) || !strcmp(argv[1],"--firmware-import") || !strcmp(argv[1],"--firmware-drift") || !strcmp(argv[1],"--owned-page-drift") || !strcmp(argv[1],"--owned-port-loss") || !strcmp(argv[1],"--owned-reader-change") || !strcmp(argv[1],"--owned-reader-alias") || !strncmp(argv[1],"--owned-wireless-",17))) {
   char import_command[512];
   snprintf(import_command,sizeof(import_command),"%s srvros.intel-scanout=%s",command,
     !strncmp(argv[1],"--submission-",13)?"submission-guard":"firmware-import");
   reset();model.report=true;
+  if(!strncmp(argv[1],"--owned-wireless-",17)) {
+   const char *failure=argv[1]+17;
+   if(!strcmp(failure,"capture-drift"))model.mode=64;
+   else if(!strcmp(failure,"video-fuse"))model.mode=65;
+   else if(!strcmp(failure,"audio-on"))model.mode=81;
+   else if(!strcmp(failure,"closing-power"))model.mode=83;
+   else return 2;
+   assert(!intel_stolen_probe_report(import_command) && !model.guard_live && !model.mapped && !model.held);
+   assert(stolen.owned_page.returned==(model.mode==64 || model.mode==83));
+   return 0;
+  }
   if(!strncmp(argv[1],"--owned-reader-",15)) {
    model.mode=!strcmp(argv[1],"--owned-reader-change")?86:87;
    assert(!intel_stolen_probe_report(import_command) && stolen.guard.closed &&

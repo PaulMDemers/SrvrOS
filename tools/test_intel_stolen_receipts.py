@@ -111,7 +111,15 @@ class Receipts(unittest.TestCase):
         self.assertNotEqual(failure['owned_page']['pte0'],failure['owned_page']['pte1'])
         self.assertEqual(page['guard_checks'],3)
         self.assertEqual((page['reader_pages'],page['reader_words']),(2,52))
-        for mode in ('--owned-reader-change','--owned-reader-alias'):
+        self.assertEqual((page['video_samples'],page['audio_samples']),(2,2))
+        for row in ('intel-owned-widi:', 'intel-wireless-audio:'):
+            line1=next(x for x in raw.splitlines() if x.startswith(row) and 'sample=1 ' in x)
+            with self.assertRaises(ValueError):stolen_result(raw.replace(line1,''),required_version=14)
+            field,value=('function','0x80000000') if row=='intel-owned-widi:' else ('codec_before','0')
+            changed_line=re.sub(field+r'=\S+',field+'='+value,line1)
+            with self.assertRaises(ValueError):stolen_result(raw.replace(line1,changed_line),required_version=14)
+        for mode in ('--owned-reader-change','--owned-reader-alias','--owned-wireless-video-fuse',
+                     '--owned-wireless-capture-drift','--owned-wireless-audio-on','--owned-wireless-closing-power'):
             rejected=subprocess.check_output([str(ROOT/'build/tests/intel-stolen-probe'),mode],text=True)
             self.assertFalse(stolen_result(rejected,required_version=14)['complete'])
         for field in ('aperture','table_backing','guard_checks','reader_pages','reader_words'):

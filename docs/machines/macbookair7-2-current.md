@@ -10,6 +10,11 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+The current PR 301 trial brackets the slot 12291 loan with wireless video
+and powered display-audio checks. It uses the same CPU guard as the
+inactive display pipes. The shared traffic verifier will also check each
+GAM client's response against its own request before counting closure.
+
 Release `163e5b4eb7ce6403` (source `2b9d307e`, session
 `session-000660e6539eafa9-00`) qualified CPU-side display-reader exclusion
 on the Air. The VMM held the Pipe B and C programming pages through return

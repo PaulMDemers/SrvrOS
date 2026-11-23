@@ -260,14 +260,14 @@ static bool allowed(uint32_t page) {
  if(stolen.owned_page.reading && stolen.import.selected && !stolen.import.submission &&
     stolen.import.imported && stolen.guard.checked && !stolen.guard.closed &&
     page==((0x800000u+8*OWNED_PAGE_SLOT)&~4095u))return true;
+ if(page==0x42000 && stolen.import.selected && stolen.guard.checked && !stolen.guard.closed)return true;
  if(stolen.import.submission && stolen.guard.checked && !stolen.guard.closed) {
-  if (page == 0x42000) return true;
   for(unsigned i=0;i<3;i++)
    if(page==stolen.import.command_page && page==0x800000u+8*command_slots[i])return true;
  }
  if(stolen.private_range.scanning && stolen.guard.checked && !stolen.guard.closed &&
     page>=0x800000u+8*stolen.private_range.begin && page<0x800000u+8*SCANOUT_SPACE_PAGES)return true;
- if((page==0x6e000 || page==0x65000 || page==0x45000) && stolen.import.submission && stolen.guard.pinned &&
+ if((page==0x6e000 || page==0x65000 || page==0x45000) && stolen.import.selected && stolen.guard.pinned &&
     (!stolen.guard.acquired || stolen.guard.closed))return true;
  if(page==0x100000 && stolen.range.selected && stolen.guard.checked && !stolen.guard.closed)return true;
  if(page==0x108000 || page==0x43000 || page==0x6f000 ||
@@ -1011,8 +1011,7 @@ static bool check_command_lease(void) {
 
 static bool check_video_fuse(unsigned i) {
  uint32_t *strap=&stolen.import.strap[i];
- return tick(stolen.begin[1]) && load(0x42014,strap) && unmap() && *strap!=UINT32_MAX &&
-        (*strap & (1u<<20)) && !(*strap & ((1u<<31)|(1u<<30)|(1u<<26))) &&
+ return tick(stolen.begin[1]) && load(0x42014,strap) && unmap() && intel_bdw_air_wireless_video_disabled(*strap) &&
         (!i || *strap==stolen.import.strap[0]);
 }
 
@@ -1101,7 +1100,7 @@ static bool check_imported_page(struct scanout_transfer_manifest m) {
  for(unsigned i=0;i<2;i++) {
   if(!tick(stolen.begin[1]) || !aperture_guard_held() ||
      !scanout_transfer_reservation_matches(&stolen.import.page,&stolen.import.token,&m) ||
-     (stolen.import.submission && (!check_video_fuse(i) || !check_command_lease())) ||
+     !check_video_fuse(i) || (stolen.import.submission && !check_command_lease()) ||
      !range_pair(0x800000u+m.first*8,&stolen.import.observed[i]))return false;
   ++stolen.import.samples;
   if(stolen.import.observed[i]!=m.original[0] || !unmap())return false;
@@ -1250,7 +1249,7 @@ static bool cpu_guard(void) {
  struct vmm_physical_span pair[2];
  for(unsigned i=0;i<2;i++)pair[i]=(struct vmm_physical_span){stolen.cpu.span[i].physical,stolen.cpu.span[i].pages};
  bool ok=false;
- if(stolen.import.submission && !sample_wireless_capture(0))goto done;
+ if(stolen.import.selected && !sample_wireless_capture(0))goto done;
  if(!tick(stolen.begin[1]) || !cpu_guard_operation(0,pair)){refuse(30);goto done;}
  stolen.guard.acquired=1;
  if(!tick(stolen.begin[1]) || !identity() || !sole_root() || !intel_window_handoff_revalidate(&stolen.source))goto done;
@@ -1264,7 +1263,7 @@ static bool cpu_guard(void) {
     !intel_window_handoff_revalidate(&stolen.source))goto done;
  if(!cpu_guard_operation(2,pair)){refuse(30);goto done;}
  stolen.guard.closed=1;
- ok=observed && (!stolen.import.submission || sample_wireless_capture(1)) &&
+ ok=observed && (!stolen.import.selected || sample_wireless_capture(1)) &&
     (!stolen.owned_page.reader_pages || inactive_pipe_sample());
 done:
  if(stolen.guard.acquired && !stolen.guard.closed)stolen.uncertain=true;
@@ -1434,7 +1433,14 @@ report:
    (uint64_t)stolen.command_tail.conflicts,(uint64_t)stolen.command_tail.returned,(uint64_t)stolen.command_tail.rcs.pointer,
    stolen.command_tail.dma_base,(uint64_t)stolen.command_tail.flush_lines,(uint64_t)stolen.command_tail.dma_freed,stolen.command_tail.pdp0,stolen.command_tail.planned[6].gpu_address,
    (uint64_t)stolen.import.audio_samples,(uint64_t)(stolen.guard.acquired?5:0));
+ }
+ if(stolen.import.selected) {
   for(unsigned n=0;n<2;n++) {
+   if(!stolen.import.submission) {
+    const uint32_t *wd=stolen.import.wd[n];
+    console_printf("intel-owned-widi: v=1 sample=%u surface=%x tail=%x status=%x function=%x strap=%x\n",
+      (uint64_t)n,(uint64_t)wd[0],(uint64_t)wd[1],(uint64_t)wd[2],(uint64_t)wd[3],(uint64_t)stolen.import.strap[n]);
+   }
    const __typeof__(stolen.import.audio[0]) *a=&stolen.import.audio[n];
    console_printf("intel-wireless-audio: v=1 sample=%u well_before=%x codec_before=%x control=%x codec_after=%x well_after=%x\n",
     (uint64_t)n,(uint64_t)a->well_before,(uint64_t)a->codec_before,(uint64_t)a->control,
@@ -1448,7 +1454,8 @@ report:
     stolen.import.observed[0],stolen.import.observed[1],(uint64_t)stolen.import.returned,(uint64_t)stolen.import.blocked);
  if(stolen.import.selected && !stolen.import.submission) {
   const uint64_t *a=stolen.owned_page.entries[0],*b=stolen.owned_page.entries[1];
-  console_printf("intel-owned-page: v=3 reader_pages=%u reader_words=%u aperture=%x table_backing=%x register_page=%x guard_checks=%u slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
+  console_printf("intel-owned-page: v=4 video_samples=%u audio_samples=%u reader_pages=%u reader_words=%u aperture=%x table_backing=%x register_page=%x guard_checks=%u slot=%u samples=%u epoch=%u returned=%u conflicts=%u frame0=%u frame1=%u frame_reads=%u left0=%x pte0=%x right0=%x left1=%x pte1=%x right1=%x writes=0 grants=0\n",
+   (uint64_t)stolen.import.wd_samples,(uint64_t)stolen.import.audio_samples,
    (uint64_t)stolen.owned_page.reader_pages,(uint64_t)stolen.owned_page.reader_words,
    stolen.owned_page.aperture,stolen.owned_page.table_backing,stolen.owned_page.register_page,
    (uint64_t)stolen.owned_page.guard_checks,(uint64_t)OWNED_PAGE_SLOT,(uint64_t)stolen.owned_page.samples,stolen.owned_page.token.epoch,

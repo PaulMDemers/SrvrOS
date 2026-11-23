@@ -258,6 +258,22 @@ def verify_hardware_gate(rows, summary):
     return result
 
 
+def read_wireless_audio(audio_rows,count,video_samples,cpu,complete):
+    from intel_gt_bootstrap import fields
+    if count<cpu['acquired'] or count>min(video_samples,2) or (count==2 and not cpu['closed']) or (complete and count!=2):
+        raise ValueError('wireless audio samples did not bracket the loan')
+    names='well_before codec_before control codec_after well_after'.split()
+    samples=[]
+    for n,line in enumerate(audio_rows):
+        a=fields(line,'intel-wireless-audio:', ['v','sample']+names,names)
+        if a['sample']!=n or any(a[k]>0xffffffff for k in names):
+            raise ValueError('invalid wireless audio register sample')
+        if n<count and (any(a[k]==0xffffffff or not a[k] & (1<<30) for k in ('well_before','well_after')) or
+                        any(a[k]!=0x80862808 for k in ('codec_before','codec_after')) or a['control'] & (1<<30)):
+            raise ValueError('wireless audio power, signature or output enable')
+        samples.append(a)
+    return samples
+
 def stolen_result(text,*,native=False,required_version=None):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
@@ -448,10 +464,15 @@ def stolen_result(text,*,native=False,required_version=None):
     guards=[line for line in text.splitlines() if line.startswith('intel-submission-guard:')]
     if len(guards)!=int(wire==15):
         raise ValueError('missing or unexpected submission guard')
+    owned=[line for line in text.splitlines() if line.startswith('intel-owned-page:')]
+    owned_proxy=bool(owned and owned[0].startswith('intel-owned-page: v=4 '))
+    proxy_rows=[line for line in text.splitlines() if line.startswith('intel-owned-widi:')]
+    if len(proxy_rows)!=(2 if owned_proxy else 0):
+        raise ValueError('missing or unexpected independent page wireless video samples')
     audio_rows=[line for line in text.splitlines() if line.startswith('intel-wireless-audio:')]
     joint_aperture=bool(guards and guards[0].startswith('intel-submission-guard: v=9 '))
     wireless_audio=joint_aperture or bool(guards and guards[0].startswith('intel-submission-guard: v=8 '))
-    if len(audio_rows)!=(2 if wireless_audio else 0):
+    if len(audio_rows)!=(2 if (wireless_audio or owned_proxy) else 0):
         raise ValueError('missing or unexpected wireless audio samples')
     if guards:
         from intel_gt_bootstrap import fields
@@ -533,19 +554,7 @@ def stolen_result(text,*,native=False,required_version=None):
             if joint_aperture and guard['aperture_pages']!=5*rows['guard'][0]['acquired']:
                 raise ValueError('incomplete joint aperture exclusion')
             if wireless_audio:
-                count=guard['audio_samples']
-                if count<rows['guard'][0]['acquired'] or count>min(guard['samples'],2) or (count==2 and not guard['closed']) or (complete and count!=2):
-                    raise ValueError('wireless audio samples did not bracket the loan')
-                names='well_before codec_before control codec_after well_after'.split()
-                result['wireless_audio']=[]
-                for n,line in enumerate(audio_rows):
-                    a=fields(line,'intel-wireless-audio:', ['v','sample']+names,names)
-                    if a['sample']!=n or any(a[k]>0xffffffff for k in names):
-                        raise ValueError('invalid wireless audio register sample')
-                    if n<count and (any(a[k]==0xffffffff or not a[k] & (1<<30) for k in ('well_before','well_after')) or
-                                    any(a[k]!=0x80862808 for k in ('codec_before','codec_after')) or a['control'] & (1<<30)):
-                        raise ValueError('wireless audio power, signature or output enable')
-                    result['wireless_audio'].append(a)
+                result['wireless_audio']=read_wireless_audio(audio_rows,guard['audio_samples'],guard['samples'],rows['guard'][0],complete)
                 if complete:
                     extra_maps+=6
                     extra_aliases+=10
@@ -587,17 +596,37 @@ def stolen_result(text,*,native=False,required_version=None):
             extra_maps+=2
             range_reads+=6
         result['firmware_import']=h
-    owned=[line for line in text.splitlines() if line.startswith('intel-owned-page:')]
     if len(owned)!=int(bool(imports) and result['firmware_import']['v']==2):
         raise ValueError('missing or unexpected one-page reservation')
     if owned:
         words='left0 pte0 right0 left1 pte1 right1'.split()
-        readers=owned[0].startswith('intel-owned-page: v=3 ')
+        readers=owned_proxy or owned[0].startswith('intel-owned-page: v=3 ')
         guarded=readers or owned[0].startswith('intel-owned-page: v=2 ')
         added=['aperture','table_backing','register_page'] if guarded else []
         page=fields(owned[0],'intel-owned-page:',
-                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words+added+(['guard_checks'] if guarded else [])+(['reader_pages','reader_words'] if readers else []),
-                    words+added,versions=(3,) if readers else (2,) if guarded else (1,))
+                    'v slot samples epoch returned conflicts writes grants frame0 frame1 frame_reads'.split()+words+added+(['guard_checks'] if guarded else [])+(['reader_pages','reader_words'] if readers else [])+(['video_samples','audio_samples'] if owned_proxy else []),
+                    words+added,versions=(4,) if owned_proxy else (3,) if readers else (2,) if guarded else (1,))
+        if owned_proxy:
+            cpu=rows['guard'][0]
+            video=page['video_samples']
+            if video>2 or (video==2 and not cpu['closed']) or (complete and video!=2):
+                raise ValueError('wireless video samples did not bracket the independent page')
+            result['wireless_audio']=read_wireless_audio(audio_rows,page['audio_samples'],video,cpu,complete)
+            names='surface tail status function strap'.split()
+            samples=[]
+            for n,line in enumerate(proxy_rows):
+                sample=fields(line,'intel-owned-widi:', ['v','sample']+names,names)
+                if sample['sample']!=n or any(sample[k]>0xffffffff for k in names):
+                    raise ValueError('invalid independent page wireless video sample')
+                if complete and (any(sample[k]==0xffffffff for k in names) or sample['function']&(1<<31) or
+                                 not sample['strap']&(1<<20) or sample['strap']&0xc4000000 or
+                                 (n and any(sample[k]!=samples[0][k] for k in names))):
+                    raise ValueError('wireless video changed or enabled during independent page loan')
+                samples.append(sample)
+            result['wireless_video']=samples
+            if complete:
+                extra_maps+=10
+                extra_aliases+=20
         if readers and (page['reader_pages'] not in (0,2) or page['reader_words']>52 or
                 (page['reader_pages'] and page['reader_words']<26) or
                 (not page['reader_pages'] and page['reader_words']>26) or
@@ -735,7 +764,7 @@ def stolen_result(text,*,native=False,required_version=None):
 def verify_stolen_checkpoint(preflight,final,required_version=None,**_):
     result=stolen_result(final,native=True,required_version=required_version)
     if not result:return False
-    if any(l.startswith(('intel-owned-page:','intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
+    if any(l.startswith(('intel-owned-page:','intel-owned-widi:','intel-wireless-audio:','intel-submission-guard:','intel-firmware-import:','intel-private-range:','intel-stolen-summary:','intel-stolen-range:','intel-stolen-facts:','intel-stolen-run:','intel-stolen-reader:','intel-stolen-policy:','intel-stolen-cpu:','intel-stolen-cpu-span:','intel-stolen-guard:','intel-stolen-guard-walk:','intel-stolen-hardware-gate:','intel-stolen-hardware-config:','intel-stolen-hardware-readers:')) for l in preflight.splitlines()):
         raise ValueError('stolen late prerequisite checkpoint')
     lines=[l for l in preflight.splitlines() if l.startswith('laptop-capture: boot options=')]
     if len(lines)!=1:raise ValueError('stolen preflight recipe')

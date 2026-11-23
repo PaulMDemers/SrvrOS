@@ -26,7 +26,10 @@ static inline bool bdw_traffic_gam(struct bdw_traffic_sample *a, uint32_t allowe
          * invalidates the accumulated evidence, even while others are open. */
         /* Bit 15 requests preparation for a PCI FLR, which this owner has
          * not issued. It cannot belong to the pre-reset traffic block. */
-        if ((request & (a->request_closed | 0x8000u)) || (response & a->response_closed))
+        /* A reply sampled closed while its request was still sampled open
+         * cannot establish a fresh acknowledgement for that client. */
+        if ((request & ~response & BDW_GAM_CLIENTS) ||
+            (request & (a->request_closed | 0x8000u)) || (response & a->response_closed))
             return false;
         a->request_closed |= ~request & BDW_GAM_CLIENTS;
         a->response_closed |= ~response & BDW_GAM_CLIENTS;

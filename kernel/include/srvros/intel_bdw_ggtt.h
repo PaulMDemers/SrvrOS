@@ -7,6 +7,12 @@
 #define BDW_SUBMISSION_PORT_COUNT 8u
 extern const uint32_t intel_bdw_submission_ports[BDW_SUBMISSION_PORT_COUNT];
 
+/* Air7,2 inherits active Pipe A with wireless video fused off. */
+static inline bool intel_bdw_air_wireless_video_disabled(uint32_t strap)
+{
+ return (strap&(1u<<20)) && !(strap&((1u<<31)|(1u<<30)|(1u<<26)));
+}
+
 struct intel_bdw_ggtt_page {
  uint64_t physical,gpu_address,original,replacement;
  uint32_t index,mmio_offset;

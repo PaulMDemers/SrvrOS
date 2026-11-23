@@ -114,8 +114,9 @@ static bool l3_flush_covers_all_lines(struct traffic_check *check)
  * surface. SURF bit 3 records the previous flip source, not an address. */
 static bool original_plane(struct traffic_check *check)
 {
-    uint32_t control, programmed, live, cursor, sprite;
-    if (borrow.firmware && (!read_traffic(check,0x70080,&cursor) || (cursor&63u) ||
+    uint32_t control, programmed, live, cursor, sprite, strap;
+    if (borrow.firmware && (!read_traffic(check,0x42014,&strap) || !intel_bdw_air_wireless_video_disabled(strap) ||
+                            !read_traffic(check,0x70080,&cursor) || (cursor&63u) ||
                             !read_traffic(check,0x70280,&sprite) || (sprite>>31))) return false;
     if (!read_traffic(check,0x70180,&control) || !(control & (1u<<31)) ||
         !read_traffic(check,0x7019c,&programmed) || !read_traffic(check,0x701ac,&live) ||

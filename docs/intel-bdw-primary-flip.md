@@ -261,15 +261,22 @@ port exclusion and reopened WiDi. The guest serial transcript is in
 The native reservation trial on release `ec94f04d158f8a13` held slot 12291
 across two samples while Pipe A advanced. Its original PTE mapped physical
 page `0x8f004000` in graphics-reserved RAM beyond both imported surfaces.
-The Air firmware-import trial emits version 3 of `intel-owned-page`.
+The Air firmware-import trial emits version 4 of `intel-owned-page`.
 It compares all 13 primary, cursor and sprite register words for each of
 Pipes B and C before excluding their two MMIO pages from CPU mappings.
 The display owner stays pinned while the driver reserves and returns slot
 12291, closes the CPU guard, then compares both sets of registers again.
 A complete receipt has `reader_pages=2` and `reader_words=52`. Pipe A’s
 primary stays active, its cursor and sprite stay disabled at both samples,
-and its frame counter must advance. The MMIO writer requires both excluded
-pages on its own guard borrow and samples Pipe A before each PTE exchange.
+and its frame counter must advance. Version 4 also brackets the guard with
+two WiDi register samples and two powered display-audio codec samples.
+The video fuse is read twice during the loan. Both samples must show video
+fused off, wireless audio disabled on the identified codec and the same
+wireless capture state. A stale GAM response sampled closed while its
+matching request still permits traffic disqualifies a later PTE exchange.
+The MMIO writer requires both excluded
+pages on its own guard borrow and rechecks the video fuse alongside Pipe A
+through both PTE exchanges and translation invalidations.
 This trial supplies CPU and display observations. The GPU traffic hold
 remains a separate prerequisite for a native PTE write.
 

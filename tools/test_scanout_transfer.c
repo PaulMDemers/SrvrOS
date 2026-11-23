@@ -447,6 +447,9 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     }
     case 0x9120: *word=(!strcmp(page_failure,"slice-mask")?1u:3u)<<25; break;
+    case 0x42014:
+        *word=(!strcmp(page_failure,"wireless-fuse-lost")) ? 0 : 0x20100042;
+        break;
     case 0x70080: *word=!strcmp(page_failure,"owned-mmio-cursor"); break;
     case 0x70280: *word=!strcmp(page_failure,"owned-mmio-sprite")?1u<<31:0; break;
     case 0x70180:
@@ -490,6 +493,10 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     }
     if (block_active && offset==0x40d0) ++request_reads;
     if (block_active && request_reads==1) {
+        if (!strcmp(page_failure,"owned-mmio-premature-widi-response")) {
+            if(offset==0x40d0)*word|=1u<<6;
+            if(offset==0x8014)*word=0x10;
+        }
         if (!strcmp(page_failure,"l3-before-request")) {
             if (offset==0x40d0 || offset==0x8028) *word=0x5f;
             if (offset>=0x8000 && offset<=0x8014) *word=0x10;
@@ -755,18 +762,20 @@ static void owned_page_case(const char *mode)
     assert(a.range.first == target && a.range.pages == 1);
     if (mmio) {
         if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3") ||
-            !strcmp(mode,"owned-mmio-cursor") || !strcmp(mode,"owned-mmio-sprite")) {
+            !strcmp(mode,"owned-mmio-premature-widi-response") || !strcmp(mode,"owned-mmio-cursor") || !strcmp(mode,"owned-mmio-sprite")) {
             if (!strcmp(mode,"owned-mmio-no-l3")) page_failure="missing-l3";
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
-            assert(block_requests==(!strcmp(mode,"owned-mmio-no-l3") ? 1u : 0u) && !model.releases);
+            assert(block_requests==((!strcmp(mode,"owned-mmio-no-l3") || !strcmp(mode,"owned-mmio-premature-widi-response")) ? 1u : 0u) && !model.releases);
         } else {
             assert(scanout_memory_apply(&a,&at) && model.writes==1 && ggtt_posts==1 && block_active);
             model.pending=true;
             assert(!scanout_memory_close(&a,&at) && block_active && !model.releases && !block_releases);
             model.pending=false;
-            if (!strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss")) {
-                page_failure=!strcmp(mode,"owned-mmio-widi-loss") ? "widi-open" :
-                             !strcmp(mode,"owned-mmio-reader-loss") ? "reader-hold-lost" : "inherited-backing-loss";
+            if (!strcmp(mode,"owned-mmio-widi-loss") || !strcmp(mode,"owned-mmio-rollback-backing") || !strcmp(mode,"owned-mmio-reader-loss") || !strcmp(mode,"owned-mmio-rollback-fuse")) {
+                if (!strcmp(mode,"owned-mmio-rollback-fuse")) page_failure="wireless-fuse-lost";
+                if (!strcmp(mode,"owned-mmio-widi-loss")) page_failure="widi-open";
+                if (!strcmp(mode,"owned-mmio-reader-loss")) page_failure="reader-hold-lost";
+                if (!strcmp(mode,"owned-mmio-rollback-backing")) page_failure="inherited-backing-loss";
                 assert(!scanout_memory_close(&a,&at) && !model.releases && !block_releases && ggtt_posts==1);
                 assert(block_active && table[target]==(a.physical|1) && !scanout_transfer_close(&transfer,&token));
             } else {
