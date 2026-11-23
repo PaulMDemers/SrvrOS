@@ -537,6 +537,8 @@ class Runner:
     def vm(self, directory, state):
         staged_manifest = json.loads((Path(state['stage']) / 'manifest.json').read_text())
         display_args = ['--probe-no-framebuffer'] if staged_manifest['config_version'].startswith(EDP_CONFIGS) else []
+        if 'loader/AIRBOOT.EFI' in staged_manifest['sha256']:
+            display_args += ['--ubuntu-efi', '/boot/efi/EFI/ubuntu']
         for name, extra in (('save-return', []), ('missing-workspace', ['--probe-missing-workspace'])):
             receipt = directory / ('vm-' + name + '.json')
             if receipt.is_file():
@@ -717,6 +719,24 @@ class Runner:
 
     def close(self, run, proof=None, reject=False):
         directory, manifest, state = self.load(run)
+        if reject and state['phase'] == 'BOOT_REQUESTED':
+            if (state.get('status') != 'FAILED_OR_INCOMPLETE' or state.get('intent') != 'collect'
+                    or state.get('host_boot_id') == boot_id()):
+                raise ValueError('Collect the physical return before rejecting an empty boot')
+            before = json.loads((directory / 'before/snapshot.json').read_text())
+            after = json.loads((directory / 'returned/snapshot.json').read_text())
+            offline = json.loads((directory / 'returned/offline.json').read_text())
+            if (offline.get('status') != 'PASS' or offline.get('unmounted') is not True
+                    or before['volume'] != manifest['unit']['volume'] or after['volume'] != before['volume']
+                    or offline['device'] != after['device'] or after['sessions'] != before['sessions']
+                    or after['new_sessions'] != [] or after['raw'] != {}):
+                raise ValueError('Physical return lacks a verified empty session inventory')
+            self.guard(manifest, state, installed=True, armed=False)
+            atomic(directory/'report.json', dict(status='REJECTED_NO_SESSION', source=manifest['source'],
+                   release=state['release'], offline_integrity='PASS', native_acceptance=False,
+                   physical_tearfree=False))
+            self.finish(directory, state, 'REJECTED', status='returned without a new guest session')
+            return
         if state['phase'] != 'COLLECTED':
             raise ValueError('Only a collected run can be closed')
         if reject:

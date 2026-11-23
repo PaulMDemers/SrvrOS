@@ -42,7 +42,7 @@ def jobs(dependencies, *, primary=False, aux=False, flush=False):
     variant = 'flush' if flush else 'aux' if aux else 'primary' if primary else 'range'
     images = (f'build/intel-gt-{variant}/srvros.elf', 'build/initramfs.tar')
     if flush:
-        images += ('build/intel-gt-flush/BOOTX64.EFI',)
+        images += ('build/intel-gt-flush/AIRBOOT.EFI', 'build/limine-binary/BOOTX64.EFI')
     image = dict(name='range-image', argv=['make', *images], inputs=dependencies,
                  outputs=list(images), cache=False, timeout=1800)
     inherited = checks('original-memory', 'test_intel_gt_memory',

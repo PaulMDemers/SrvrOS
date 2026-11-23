@@ -52,7 +52,7 @@ def shared_receipt(text):
         return buffers_view(text)
     return text
 
-def make_disk(path, loader, source, release, extra_files=None):
+def make_disk(path, loader, source, release, extra_files=None, *, ubuntu_grub=None, grub_cfg=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
     first, sectors = 2048, size // 512
@@ -62,10 +62,17 @@ def make_disk(path, loader, source, release, extra_files=None):
     efi = fat.add_dir(fat.root_cluster, "EFI")
     fallback = fat.add_dir(efi, "BOOT")
     fat.add_file(fallback, "BOOTX64.EFI", loader.read_bytes())
+    if ubuntu_grub is not None:
+        fat.add_file(fallback, "grubx64.efi", ubuntu_grub.read_bytes())
+        # The signed Ubuntu image can resolve its prefix relative to shim
+        # or through its vendor directory, depending on its build.
+        ubuntu = fat.add_dir(efi, "ubuntu")
+        for directory in (ubuntu, fallback):
+            fat.add_file(directory, "grub.cfg", grub_cfg.read_bytes())
     srvros = fat.add_dir(efi, "srvros")
     payload = fat.add_dir(srvros, release)
     loader_dir = fat.add_dir(payload, "loader")
-    for name in boot.FILES:
+    for name in json.loads((source / "manifest.json").read_text())["sha256"]:
         parent = loader_dir if name.startswith("loader/") else payload
         fat.add_file(parent, Path(name).name, (source / name).read_bytes())
     for name, data in (extra_files or {}).items():
@@ -205,6 +212,7 @@ def main():
     parser.add_argument("--ap-c3-sim",action="store_true",help="VM-only coordination rehearsal; no C3 or residency MSRs")
     parser.add_argument("--ap-cpus",type=int,choices=(1,2,4,6),default=4)
     parser.add_argument("--ap-inject",choices=("missing","fault","c3-missing","c3-early","c3-fault"))
+    parser.add_argument("--ubuntu-efi", type=Path, help="boot this Ubuntu shimx64.efi and grubx64.efi pair in OVMF")
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--release", help="verify this exact staged release; do not read or change latest")
     parser.add_argument("--output-dir", type=Path, help="empty directory for this VM's evidence (default build/review)")
@@ -308,12 +316,19 @@ def main():
         cfg = temp / "grub.cfg"
         cfg.write_text("serial --unit=0 --speed=115200\nterminal_output console serial\n"
                        "echo SRVROS_GRUB_CHAINLOAD_TEST\nset default=srvros-current\n" +
-                       boot.grub_config("5352-5652", release))
+                       boot.grub_config("5352-5652", release, handoff_releases=(release,) if boot.AIR_HANDOFF in manifest["sha256"] else ()))
         subprocess.run(["grub-script-check", str(cfg)], check=True)
         loader = temp / "BOOTX64.EFI"
-        subprocess.run(["grub-mkstandalone", "-O", "x86_64-efi", "--locales=", "--fonts=",
-                        "--modules=part_gpt fat chain search search_fs_uuid normal serial terminal",
-                        "-o", str(loader), f"boot/grub/grub.cfg={cfg}"], check=True)
+        ubuntu_grub = None
+        if args.ubuntu_efi:
+            loader = args.ubuntu_efi / "shimx64.efi"
+            ubuntu_grub = args.ubuntu_efi / "grubx64.efi"
+            (logs / "ubuntu-efi.json").write_text(json.dumps(
+                {p.name: boot.digest(p) for p in (loader, ubuntu_grub)}, indent=2) + "\n")
+        else:
+            subprocess.run(["grub-mkstandalone", "-O", "x86_64-efi", "--locales=", "--fonts=",
+                            "--modules=part_gpt fat chain search search_fs_uuid normal serial terminal",
+                            "-o", str(loader), f"boot/grub/grub.cfg={cfg}"], check=True)
         disk = temp / "esp.img"
         vm_source=source
         if args.ap_inject or args.ap_c3_sim:
@@ -323,7 +338,7 @@ def main():
                 p=vm_source/name;marker="srvros.ap=c3-test" if coord_capture else "srvros.capture=ap-ownership"
                 extra=(" srvros.ap-protocol=simulate" if args.ap_c3_sim else "")+(f" srvros.ap-inject={args.ap_inject}" if args.ap_inject else "")
                 p.write_text(p.read_text().replace(marker,marker+extra))
-        make_disk(disk, loader, vm_source, release)
+        make_disk(disk, loader, vm_source, release, ubuntu_grub=ubuntu_grub, grub_cfg=cfg)
         qmp_path = temp / "qmp.sock"
         command = [args.qemu, "-M", "q35", "-m", "2G",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",

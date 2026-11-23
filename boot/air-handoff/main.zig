@@ -1,5 +1,4 @@
-// EFI application for the Air blitter trial. Take the snapshot before Limine
-// exits boot services. Child image receives the original boot device path.
+// GRUB starts this probe, then directly chainloads Limine from the same ESP.
 const std = @import("std");
 const efi = std.os.uefi;
 const wire = @cImport(@cInclude("srvros/air_gpu_boot.h"));
@@ -50,9 +49,6 @@ const Pci = extern struct {
         if (p.mem_read(p, 2, 0, offset, 1, &value) != .success or value == 0xffffffff) return error.MmioRead;
         return value;
     }
-};
-const ImagePath = extern struct {
-    pub const guid = efi.protocol.LoadedImage.device_path_guid;
 };
 fn snapshot(p: *Pci, r: *Record) !void {
     const plane = try p.word(0x70180);
@@ -173,12 +169,7 @@ fn capture(bs: *Services, r: *Record) !void {
         return;
     }
 }
-const Publication = struct {
-    acpi: *Acpi,
-    key: usize,
-    pages: []align(4096) efi.Page,
-};
-fn publish(bs: *Services) !Publication {
+fn publish(bs: *Services) !void {
     const acpi = (try bs.locateProtocol(Acpi, null)) orelse return error.NoAcpi;
     var r = std.mem.zeroes(Record);
     r.signature = "OEMG".*;
@@ -206,21 +197,10 @@ fn publish(bs: *Services) !Publication {
     var key: usize = 0;
     const installed = acpi.install(acpi, &r, @sizeOf(Record), &key);
     if (installed != .success) return error.InstallTable;
-    return .{ .acpi = acpi, .key = key, .pages = pages };
 }
 pub fn main() Status {
     const bs = efi.system_table.boot_services orelse return .unsupported;
-    const path = (bs.openProtocol(ImagePath, efi.handle, .{ .get_protocol = .{} }) catch return .not_found) orelse return .not_found;
-    const payload = @embedFile("limine");
-    var child: Handle = undefined;
-    const loaded = bs._loadImage(false, efi.handle, @ptrCast(@alignCast(path)), payload.ptr, payload.len, &child);
-    if (loaded != .success) return loaded;
-    defer _ = bs._unloadImage(child);
-    // Refusals still enter SrvrOS so it can save the reason and return.
-    const table = publish(bs) catch null;
-    const result = bs._startImage(child, null, null);
-    if (table) |t| {
-        if (t.acpi.uninstall(t.acpi, t.key) == .success) bs.freePages(t.pages) catch {};
-    }
-    return result;
+    publish(bs) catch return .device_error;
+    // The ACPI protocol copied the table. Its backing is ACPI NVS until reset.
+    return .success;
 }

@@ -18,6 +18,7 @@ SNIPPET = Path("/etc/grub.d/42_srvros")
 GRUB_CFG = Path("/boot/grub/grub.cfg")
 MARKER = "# Managed by SrvrOS tools/hardware_boot.py"
 FILES = ("loader/BOOTX64.EFI", "srvros.elf", "initramfs.tar", "limine.conf", "loader/limine.conf")
+AIR_HANDOFF = "loader/AIRBOOT.EFI"
 CONFIG_VERSION = "ram-usb-v4-console"
 DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
@@ -371,25 +372,33 @@ def verify(directory, expected_release=None):
         raise ValueError("Boot payload must have a real loader directory")
     # The installer sizes and retires complete releases. An unlisted entry
     # must never be copied to, or pruned from, the EFI partition.
-    expected = {*FILES, "loader", "manifest.json"}
+    manifest_path = directory / "manifest.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ValueError("Boot manifest must be a regular file")
+    manifest = json.loads(manifest_path.read_text())
+    files = FILES
+    if AIR_HANDOFF in manifest["sha256"]:
+        if not manifest.get("config_version", "").startswith("ram-usb-v1-intel-gt-bootstrap-flush-") or manifest.get("source_bound") is not True:
+            raise ValueError("Unexpected EFI handoff helper")
+        files = (*FILES, AIR_HANDOFF)
+    expected = {*files, "loader", "manifest.json"}
     entries = [*directory.iterdir(), *loader.iterdir()]
     if {p.relative_to(directory).as_posix() for p in entries} != expected:
         raise ValueError("Unexpected boot payload contents")
     if any(p.is_symlink() or not p.is_file() for p in entries if p != loader):
         raise ValueError("Boot artifacts must be regular files")
-    manifest = json.loads((directory / "manifest.json").read_text())
     if expected_release is None and RELEASE_RE.fullmatch(directory.name):
         expected_release = directory.name
     if expected_release is not None and manifest["release"] != expected_release:
         raise ValueError("Boot manifest does not match selected release")
     hashes = manifest["sha256"]
-    if set(hashes) != set(FILES):
+    if set(hashes) != set(files):
         raise ValueError("Unexpected files in boot manifest")
-    for name in FILES:
+    for name in files:
         path = directory / name
         if digest(path) != hashes[name]:
             raise ValueError(f"Boot artifact failed verification: {path}")
-    payload = {name: hashes[name] for name in FILES if not name.endswith("limine.conf")}
+    payload = {name: hashes[name] for name in files if not name.endswith("limine.conf")}
     # Older installs have no config_version field. Verify against their original
     # recipe so a config update can retain the working previous release.
     version = manifest.get("config_version")
@@ -753,10 +762,12 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
-        "loader/BOOTX64.EFI": ROOT / ("build/intel-gt-flush/BOOTX64.EFI" if intel_gt_flush else "build/limine-binary/BOOTX64.EFI"),
+        "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
         "srvros.elf": ROOT / ("build/intel-edp-baseline/srvros.elf" if intel_edp_baseline or intel_edp_cycle or intel_edp_flr_preflight or intel_edp_dark_well or intel_edp_pci_hold or intel_edp_dark_pwm or intel_edp_dark_pps else "build/intel-stolen/srvros.elf" if intel_stolen_capture else "build/intel-bcs-context/srvros.elf" if intel_bcs_context else "build/intel-gt-arena/srvros.elf" if intel_gt_arena else "build/intel-gt-flush/srvros.elf" if intel_gt_flush else "build/intel-gt-aux/srvros.elf" if intel_gt_aux else "build/intel-gt-primary/srvros.elf" if intel_gt_primary else "build/intel-gt-range/srvros.elf" if intel_gt_range else "build/intel-gt-memory/srvros.elf" if intel_gt_memory else "build/intel-gt-practical/srvros.elf" if intel_gt_practical else "build/intel-gt-seconds/srvros.elf" if intel_gt_seconds else "build/intel-gt-bootstrap/srvros.elf" if intel_gt_bootstrap else "build/intel-command-ownership/srvros.elf" if intel_command_ownership else "build/intel-command-memory/srvros.elf" if intel_command_memory else "build/intel-ggtt-native/srvros.elf" if intel_ggtt_invalidate else "build/intel-vtd-drain/srvros.elf" if intel_vtd_drain else "build/intel-source-audit/srvros.elf" if intel_source_audit else "build/intel-source-engines/srvros.elf" if intel_source_engines else "build/intel-source-requester/srvros.elf" if intel_source_requester else "build/intel-startup-transfer/srvros.elf" if intel_startup_transfer else "build/intel-startup-buffers/srvros.elf" if intel_startup_buffers else "build/intel-startup-source/srvros.elf" if intel_startup_source else "build/intel-nonzero-source/srvros.elf" if intel_nonzero_source else "build/intel-nonzero-reset/srvros.elf" if intel_nonzero_reset else "build/intel-entry-requester/srvros.elf" if intel_entry_requester else "build/intel-ring-reset/srvros.elf" if intel_ring_reset else "build/intel-ring-entry/srvros.elf" if intel_ring_entry else "build/intel-ring-transition/srvros.elf" if intel_ring_transition else "build/intel-joint-admit/srvros.elf" if intel_joint_admit else "build/intel-hda-shutdown/srvros.elf" if intel_hda_shutdown else "build/intel-memory/srvros.elf" if (intel_memory_capture or intel_memory_fixture) else "build/intel-gpu-hold/srvros.elf" if intel_gpu_hold else "build/intel-joint/srvros.elf" if intel_joint else "build/intel-rehold/srvros.elf" if intel_rehold else "build/intel-held-interval/srvros.elf" if intel_held_interval else "build/intel-held-reset/srvros.elf" if intel_held_reset else "build/intel-held-requester/srvros.elf" if intel_held_requester else "build/intel-requester/srvros.elf" if intel_requester else "build/intel-engine-prepare/srvros.elf" if intel_engine_prepare else "build/intel-takeover/srvros.elf" if intel_takeover_preflight else "build/intel-bcs-shutdown/srvros.elf" if intel_bcs_shutdown_trial else "build/intel-shutdown/srvros.elf" if intel_shutdown_trial else "build/air61-register-sample/srvros.elf" if haswell_register_sample else "build/air61-read-window/srvros.elf" if haswell_read_qualification else "build/intel-bcs-reset/srvros.elf" if intel_bcs_reset_trial else "build/intel-reset-ready/srvros.elf" if intel_reset_ready_trial else "build/intel-completion/srvros.elf" if intel_completion_audit else "build/intel-readers/srvros.elf" if intel_reader_audit else "build/intel-hda-lease/srvros.elf" if intel_hda_lease_trial else "build/intel-hda-owner/srvros.elf" if intel_hda_owner_trial else "build/intel-hda/srvros.elf" if intel_hda_capture else "build/intel-blitter/srvros.elf" if intel_blitter_trial else "build/intel-engines/srvros.elf" if intel_engine_capture else "build/intel-wake/srvros.elf" if intel_wake_trial else "build/ap-probe/srvros.elf" if (haswell_firmware_capture or haswell_backing_capture or ap_ownership_test or ap_coordinated_c3) else "build/acpi-air61-battery/srvros.elf" if battery_air61 else "build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions or battery_home_work) else "build/kernel/srvros.elf"),
         "initramfs.tar": ROOT / "build/initramfs.tar",
     }
+    if intel_gt_flush:
+        sources[AIR_HANDOFF] = ROOT / "build/intel-gt-flush/AIRBOOT.EFI"
     STAGE.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="stage-", dir=STAGE) as tmp:
         target = Path(tmp)
@@ -793,7 +804,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
     return release
 
 
-def grub_config(uuid, current, previous=None):
+def grub_config(uuid, current, previous=None, *, handoff_releases=()):
     if not re.fullmatch(r"[0-9A-Fa-f-]+", uuid):
         raise ValueError("Unexpected EFI filesystem UUID")
     lines = ["set timeout_style=menu", "set timeout=5"]
@@ -804,8 +815,13 @@ def grub_config(uuid, current, previous=None):
             raise ValueError("Invalid release identifier")
         lines += [f"menuentry 'SrvrOS ({role}, RAM filesystem) - {release}' --id srvros-{role} {{",
                   "    insmod part_gpt", "    insmod fat", "    insmod chain",
-                  f"    search --no-floppy --fs-uuid --set=root {uuid}",
-                  f"    chainloader /EFI/srvros/{release}/loader/BOOTX64.EFI", "}"]
+                  f"    search --no-floppy --fs-uuid --set=root {uuid}"]
+        if release in handoff_releases:
+            lines += ["    echo 'SrvrOS: reading the EFI display handoff'",
+                      f"    if chainloader /EFI/srvros/{release}/{AIR_HANDOFF}; then",
+                      "        boot", "    fi",
+                      "    echo 'SrvrOS: starting Limine'"]
+        lines += [f"    chainloader /EFI/srvros/{release}/loader/BOOTX64.EFI", "}"]
     return "\n".join(lines) + "\n"
 
 
@@ -875,17 +891,18 @@ def install(release=None, keep_previous=False):
         previous = old.get("previous")
         if not previous or previous == release:
             raise ValueError("No distinct previous release to preserve")
-    if previous:
-        verify(BASE / previous)
+    handoff_releases = {release} if AIR_HANDOFF in manifest["sha256"] else set()
+    if previous and AIR_HANDOFF in verify(BASE / previous)["sha256"]:
+        handoff_releases.add(previous)
     # Refuse before any installation mutations if the recorded release that
     # would be retired is no longer a verified payload. Recheck before deletion.
     obsolete = old.get("previous")
     if obsolete and obsolete not in (release, previous):
         verify(BASE / obsolete)
-    config = grub_config(uuid, release, previous)
+    config = grub_config(uuid, release, previous, handoff_releases=handoff_releases)
     subprocess.run(["grub-script-check"], input=config, text=True, check=True)
     destination = BASE / release
-    needed = sum((source / name).stat().st_size for name in (*FILES, "manifest.json"))
+    needed = sum((source / name).stat().st_size for name in (*manifest["sha256"], "manifest.json"))
     if not destination.exists() and shutil.disk_usage(ESP).free < needed + 32 * 1024 * 1024:
         raise RuntimeError("EFI partition needs space for a new release plus a 32 MiB margin")
     BASE.mkdir(parents=True, exist_ok=True)
@@ -898,7 +915,7 @@ def install(release=None, keep_previous=False):
         with tempfile.TemporaryDirectory(prefix="upload-", dir=BASE) as tmp:
             payload = Path(tmp) / "payload"
             (payload / "loader").mkdir(parents=True)
-            for name in (*FILES, "manifest.json"):
+            for name in (*manifest["sha256"], "manifest.json"):
                 shutil.copyfile(source / name, payload / name)
             verify(payload, release)
             os.sync()

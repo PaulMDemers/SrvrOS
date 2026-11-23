@@ -7458,6 +7458,6 @@ smoke-intel-bdw-blitter: $(SCANOUT_GUEST_DIR)/blitter $(KERNEL) $(USER_INIT) $(L
 $(LIMINE_DIR)/BOOTX64.EFI: | $(LIMINE_DIR)/.ready
 	@test -f $@
 
-build/intel-gt-flush/BOOTX64.EFI: boot/air-handoff/main.zig kernel/include/srvros/air_gpu_boot.h $(LIMINE_DIR)/BOOTX64.EFI $(ZIG)
+build/intel-gt-flush/AIRBOOT.EFI: boot/air-handoff/main.zig kernel/include/srvros/air_gpu_boot.h $(ZIG)
 	@mkdir -p $(@D)
-	$(ZIG) build-exe -target x86_64-uefi -O ReleaseSmall -Ikernel/include --dep limine -Mroot=$< -Mlimine=$(LIMINE_DIR)/BOOTX64.EFI -femit-bin=$@
+	$(ZIG) build-exe -target x86_64-uefi -O ReleaseSmall -Ikernel/include -Mroot=$< -femit-bin=$@

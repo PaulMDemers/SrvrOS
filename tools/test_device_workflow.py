@@ -538,6 +538,23 @@ class RunnerTests(unittest.TestCase):
         self.runner.close('candidate', reject=True)
         self.assertEqual(self.state()['phase'], 'REJECTED')
 
+    def test_reject_verified_return_without_any_guest_session(self):
+        directory, _, state = self.runner.load('candidate')
+        state.update(phase='BOOT_REQUESTED', status='FAILED_OR_INCOMPLETE', intent='collect',
+                     host_boot_id='old', release='1234567890abcdef')
+        self.runner.save(directory, state)
+        before = dict(volume=self.unit['volume'], sessions=['older'])
+        after = dict(before, device='/dev/test', new_sessions=[], raw={})
+        atomic(directory/'before/snapshot.json', before)
+        atomic(directory/'returned/snapshot.json', after)
+        atomic(directory/'returned/offline.json', dict(status='PASS', unmounted=False, device='/dev/test'))
+        with self.assertRaisesRegex(ValueError, 'verified empty'):
+            self.runner.close('candidate', reject=True)
+        atomic(directory/'returned/offline.json', dict(status='PASS', unmounted=True, device='/dev/test'))
+        self.runner.close('candidate', reject=True)
+        self.assertEqual(self.state()['phase'], 'REJECTED')
+        self.assertFalse(json.loads((directory/'report.json').read_text())['native_acceptance'])
+
     def test_return_without_exit_never_becomes_a_pass(self):
         directory, _, state = self.runner.load('candidate')
         state.update(phase='BOOT_REQUESTED', host_boot_id='old', release='1234567890abcdef')

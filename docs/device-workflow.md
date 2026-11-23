@@ -88,9 +88,11 @@ collector preserves the clock and GO values independently. On this Air the
 clock can be gated while WiDi still has permission to access memory.
 [Command submission and WiDi evidence](intel-bdw-bcs-flush.md#command-submission-while-widi-stays-excluded)
 
-New Air7,2 flush stages package the EFI handoff loader and its embedded Limine
-image as one payload. The exact-stage OVMF boots must recover its 19 reserved
-pages. The collector validates the boot producer, bound driver inventory and
+New Air7,2 flush stages package the EFI handoff probe and Limine as separate
+files in the same verified payload. GRUB runs the probe and then directly
+chainloads Limine. Both exact-stage OVMF boots use copies of the unit's
+installed Ubuntu shim and GRUB. The save-and-return case verifies all 19
+reserved pages. The collector validates the boot producer, bound driver inventory and
 original seven entries in command-slot receipt v2. Earlier v1 receipts retain
 their original interpretation. [EFI handoff](intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 

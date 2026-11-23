@@ -10,6 +10,13 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
+check passed and found zero new sessions. The same release failed to reach
+SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
+GRUB entry runs the EFI probe, then chainloads the same Limine binary used by
+recovery. With the Ubuntu binaries the guest recovered all 19 EFI pages,
+saved the report and restarted. Physical confirmation is pending.
+
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
 transfer, and independent WiDi exclusion when global GO reopens. The native reset

@@ -470,7 +470,7 @@ class FlushAcknowledgements(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             build = root / "build"
-            for name in ("limine-binary/BOOTX64.EFI", "intel-gt-flush/BOOTX64.EFI", "intel-gt-flush/srvros.elf", "initramfs.tar"):
+            for name in ("limine-binary/BOOTX64.EFI", "intel-gt-flush/AIRBOOT.EFI", "intel-gt-flush/srvros.elf", "initramfs.tar"):
                 path = build / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
@@ -479,6 +479,15 @@ class FlushAcknowledgements(unittest.TestCase):
                 release = boot.stage(laptop_probe_volume="12345678", intel_gt_flush=True)
             payload = build / "hardware-boot" / release
             self.assertTrue(boot.verify(payload, release)["source_bound"])
+            self.assertEqual((payload / "loader/BOOTX64.EFI").read_text(), "limine-binary/BOOTX64.EFI")
+            grub = boot.grub_config("1234-5678", release, "e"*16, handoff_releases=(release,))
+            self.assertLess(grub.index("AIRBOOT.EFI"), grub.index("BOOTX64.EFI"))
+            self.assertEqual(grub.count("AIRBOOT.EFI"), 1)
+            helper = payload / boot.AIR_HANDOFF
+            helper.write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "failed verification"):
+                boot.verify(payload, release)
+            helper.write_text("intel-gt-flush/AIRBOOT.EFI")
             self.assertEqual((payload / "srvros.elf").read_text(), "intel-gt-flush/srvros.elf")
             cmdline = next(line.split("cmdline:", 1)[1].strip()
                            for line in (payload / "limine.conf").read_text().splitlines() if "cmdline:" in line)

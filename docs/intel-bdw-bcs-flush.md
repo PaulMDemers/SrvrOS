@@ -492,7 +492,7 @@ the live surface to a GOP framebuffer. It leaves the display mode in place.
 [UEFI graphics output](https://uefi.org/specs/UEFI/2.10/12_Protocols_Console_Support.html)
 
 The loader reserves 19 ACPI NVS pages and seeds each page. It installs the
-checksummed OEMG table with ID `BDWBOOT1` and starts the embedded Limine.
+checksummed OEMG table with ID `BDWBOOT1` and returns control to GRUB. GRUB starts Limine from the release directory.
 SrvrOS verifies the memory map, physical translations and contents before
 using that backing. The kernel compares the panel and command slots with the
 same boot's firmware snapshot across the reset and bus-master transition.
