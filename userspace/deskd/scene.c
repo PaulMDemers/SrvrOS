@@ -328,6 +328,9 @@ struct desk_rect desktop_clock_rect(int width,const char *clock) {
 struct desk_rect desktop_battery_rect(int width,const char *clock) {
     struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-238,0,140,44};
 }
+struct desk_rect desktop_sound_rect(int width,const char *clock) {
+    struct desk_rect r=desktop_battery_rect(width,clock);return (struct desk_rect){r.x-72,0,68,44};
+}
 struct desk_rect desktop_alert_rect(int width,const char *clock) {
     struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-94,0,90,44};
 }
@@ -386,6 +389,10 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
         if(unread) snprintf(label,sizeof(label),"Alerts %u",unread);else strcpy(label,"Alerts");
         desk_label_draw(c,(struct desk_rect){alerts.x+6,12,alerts.w-12,24},&desk_font_16,label,t->text);
         if(s->battery[0]) desk_label_draw(c,(struct desk_rect){alerts.x-144,12,140,24},&desk_font_16,s->battery,t->muted);
+        if(s->sound_visible) {
+            struct desk_rect sound=desktop_sound_rect(c->width,s->clock);
+            desk_label_draw(c,(struct desk_rect){sound.x+6,12,sound.w-12,24},&desk_font_16,"Sound",t->text);
+        }
         int clock_width=desk_text_width(&desk_font_16,s->clock);
         desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x596572);
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x252a30);

@@ -18,6 +18,7 @@
 #define SRV_AUDIO_CAP_JACK_SENSE 2
 /* Dynamic availability bit: file playback owns output/gain until it closes. */
 #define SRV_AUDIO_CAP_PCM_BUSY 4
+#define SRV_AUDIO_CAP_AUTO_ROUTE 8
 struct srv_audio_status {
     uint32_t version, state, capabilities, volume;
     uint32_t output, pending, codec_vendor, codec_subsystem;

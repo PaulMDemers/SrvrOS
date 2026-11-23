@@ -22,6 +22,7 @@ static struct scheduler_wait_queue wake;
 static bool initialized, worker_started;
 static uint64_t pcm_phys, bdl_phys, started_us, next_jack_tick;
 static bool jack_known, jack_present;
+static bool jack_candidate, jack_confirming;
 static int16_t *pcm;
 static unsigned pending_op, pending_value,active_op;
 static uint64_t lock(void) {
@@ -56,12 +57,16 @@ static void relax(void *ctx) {
     if((++polls&1023)==0) scheduler_yield();
     else __asm__ volatile("pause":::"memory");
 }
+static bool automatic_route(void) {
+    return codec.apple && codec.subsystem==0x106b5e00;
+}
 static void publish(void) {
     uint64_t f=lock();
     status.codec_vendor=codec.vendor;status.codec_subsystem=codec.subsystem;
     status.error=controller.error;status.commands=controller.commands;
     status.last_position=controller.last_position;status.output=codec.output;
-    status.capabilities=(codec.apple?SRV_AUDIO_CAP_HEADPHONES:0)|(jack_known?SRV_AUDIO_CAP_JACK_SENSE:0);
+    status.capabilities=(codec.apple?SRV_AUDIO_CAP_HEADPHONES:0)|(jack_known?SRV_AUDIO_CAP_JACK_SENSE:0)|
+        (codec.available && automatic_route()?SRV_AUDIO_CAP_AUTO_ROUTE:0);
     status.headphone_present=jack_present;
     status.pending=pending_op?pending_op:active_op;
     if(controller.error==HDA_UNSUPPORTED_CODEC) status.state=SRV_AUDIO_UNAVAILABLE;
@@ -96,6 +101,31 @@ static bool test_tone(void) {
     started_us=timer_monotonic_us();status.tests_started++;return true;
 }
 static bool jack_due(void) { return codec.apple && codec.available && timer_ticks()>=next_jack_tick; }
+static bool sample_jack(void) {
+    bool present;
+    if(!hda_codec_headphones(&codec,&present))return false;
+    bool changed=!jack_known || present!=jack_present;
+    if(automatic_route() && changed && (!jack_confirming || jack_candidate!=present)) {
+        jack_candidate=present;jack_confirming=true;
+        next_jack_tick=timer_ticks()+10;
+        return true;
+    }
+    jack_confirming=false;next_jack_tick=timer_ticks()+50;
+    jack_known=true;jack_present=present;
+    enum hda_output target=present?HDA_HEADPHONES:HDA_SPEAKERS;
+    if(!changed || !automatic_route() || codec.output==target)return true;
+
+    /* This codec switches only with DMA stopped. Block new leases and silence
+     * an active stream before changing routes, including on jack removal. */
+    uint64_t f=lock();
+    active_op=SRV_AUDIO_OUTPUT;
+    bool revoke=stream_owner!=0;
+    if(revoke)stream_close=true;
+    unlock(f);
+    if(revoke)stream_cancel(false);
+    else if(!stop())return false;
+    return codec.available && hda_codec_route(&codec,target);
+}
 static bool eligible(void *arg) { (void)arg;return pending_op || stream_ready() || (controller.playing && codec.available) || jack_due(); }
 static bool requested(void *arg) { (void)arg;return pending_op!=0; }
 static void service(void) {
@@ -130,9 +160,7 @@ static void service(void) {
             else if(controller.error==HDA_OK) controller.error=HDA_STREAM_TIMEOUT;
         }
     }
-    if(ok && jack_due()) {
-        ok=hda_codec_headphones(&codec,&jack_present);jack_known=ok;next_jack_tick=timer_ticks()+50;
-    }
+    if(ok && jack_due())ok=sample_jack();
     if(!ok) { (void)stop();codec.available=false;jack_known=false; }
     f=lock();active_op=0;publish();unlock(f);
 }
@@ -219,7 +247,8 @@ void audio_print_status(void) {
     console_printf("audio: codec_mask=%x inputs=%u outputs=%u stream=%u dma64=%u command=%x response=%x\n",
         (uint64_t)controller.codecs,(uint64_t)controller.inputs,(uint64_t)controller.outputs,(uint64_t)controller.stream,
         (uint64_t)controller.dma64,(uint64_t)controller.last_command,(uint64_t)controller.last_response);
-    if(s.capabilities&SRV_AUDIO_CAP_JACK_SENSE) console_printf("audio: headphones=%s (manual output selection)\n",s.headphone_present?"connected":"disconnected");
+    if(s.capabilities&SRV_AUDIO_CAP_JACK_SENSE) console_printf("audio: headphones=%s (%s output selection)\n",
+        s.headphone_present?"connected":"disconnected",s.capabilities&SRV_AUDIO_CAP_AUTO_ROUTE?"automatic":"manual");
     if(stream.handle) console_printf("audio-pcm: state=%u owner=%u handle=%u submitted=%u position=%u queued=%u underruns=%u\n",
         (uint64_t)stream.state,stream_owner,stream.handle,stream.submitted_bytes,stream.position_bytes,stream.queued_bytes,stream.underruns);
     console_printf("audio: commands=%u tests_started=%u tests_completed=%u position=%u; physical sound NOT_TESTED\n",

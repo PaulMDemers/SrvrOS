@@ -234,6 +234,7 @@ struct session {
     uint64_t launch_notice_serial,launch_notice_at,last_launch_pid;
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait,exit_started_us,launch_requests,launch_started,launch_refused,last_exec_us;
+    unsigned sound_last_volume;
     int trace,pointer_blocked,overlay_return,overlay_down;
     unsigned launcher_application;
     int switching; /* Launcher storage holds an immutable MRU identity snapshot. */
@@ -537,6 +538,7 @@ static void cache_trim(struct session *s,int i,uint64_t bytes) {
 static int clamp(int64_t v,int lo,int hi) { return v<lo?lo:v>hi?hi:v; }
 static void close_client(struct session *s,int i);
 static void global_menu_rebuild(struct session *s);
+static void sound_open(struct session *s,int keyboard);
 static void launcher_catalog(struct session *s);
 static void launcher_open(struct session *s);
 static void launcher_close(struct session *s);
@@ -980,7 +982,8 @@ static void cycle_windows(struct session *s,int reverse,unsigned application) {
 }
 static void cycle_focus(struct session *s,int reverse) {cycle_windows(s,reverse,0);}
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_CLOSE,GLOBAL_PROFILES,GLOBAL_SWITCH_PROFILE,GLOBAL_CANCEL_END,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_CLOSE,GLOBAL_PROFILES,GLOBAL_SWITCH_PROFILE,GLOBAL_CANCEL_END,
+    GLOBAL_SOUND,GLOBAL_SOUND_LEVEL,GLOBAL_SOUND_SPEAKERS,GLOBAL_SOUND_HEADPHONES,GLOBAL_SOUND_DOWN,GLOBAL_SOUND_UP,GLOBAL_SOUND_MUTE,GLOBAL_WINDOW=65792 };
 static unsigned arrange_shortcut(const struct srv_key_event *key) {
     if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_REPEAT) ||
        !(key->modifiers&SRV_KEY_META) || !(key->modifiers&SRV_KEY_ALT) || (key->modifiers&(SRV_KEY_CTRL|SRV_KEY_SHIFT))) return 0;
@@ -1027,6 +1030,14 @@ static void battery_update(struct session *s,int force) {
         desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
     }
 }
+static int menu_bar_width(const struct session *s) {
+    int width=s->damage.width-(s->damage.width<1000?428:578);
+    if(s->scene.sound_visible) {
+        int edge=desktop_sound_rect(s->damage.width,s->scene.clock).x-10;
+        if(edge<width)width=edge;
+    }
+    return width;
+}
 static void clock_update(struct session *s,int force) {
     if(!s->scene.apps) return;
     uint64_t now=srv_ticks();
@@ -1040,6 +1051,11 @@ static void clock_update(struct session *s,int force) {
     if(strcmp(clock,s->scene.clock)) {
         strcpy(s->scene.clock,clock);
         int reserve=s->damage.width<1000?428:578;
+        if(s->scene.sound_visible) {
+            int sound_x=desktop_sound_rect(s->damage.width,clock).x;
+            if(s->scene.menu.font && menu_bar_width(s)!=s->scene.menu.bar.w)global_menu_rebuild(s);
+            if(s->damage.width-sound_x>reserve)reserve=s->damage.width-sound_x;
+        }
         desk_damage_add(&s->damage,(struct desk_rect){s->damage.width-reserve,0,reserve,44});
     }
 }
@@ -1083,6 +1099,7 @@ static void global_menu_rebuild(struct session *s) {
         {GLOBAL_CALENDAR,launching,"Calendar",""},{GLOBAL_TEXT,launching,"New Text document",""},
         {GLOBAL_TERMINAL,launching,"New Terminal",""},{GLOBAL_HELP,launching,"SrvrOS Help","F1"},
         {GLOBAL_NOTIFICATIONS,launching,"Notifications","Cmd-Shift-N"},
+        {GLOBAL_SOUND,launching,"Sound controls…",""},
         {GLOBAL_CAPTURE,launching | (s->capture.busy || s->capture_pending?DESK_MENU_DISABLED:0),"Save screenshot","Cmd-Shift-3"},
         {0,DESK_MENU_SEPARATOR,"",""},
         {GLOBAL_SWITCH_PROFILE,!s->session_child || s->exiting?DESK_MENU_DISABLED:0,"Switch Profile…",""},
@@ -1092,8 +1109,9 @@ static void global_menu_rebuild(struct session *s) {
     struct desk_menu_item inline_items[DESK_MENU_ITEMS]={0};
     struct desk_menu_item *items=s->menu_build?s->menu_build:inline_items;
     memset(items,0,(s->menu_build?session_capacity(s)+DESK_MENU_ITEMS:DESK_MENU_ITEMS)*sizeof(*items));
-    unsigned count=sizeof(system_items)/sizeof(*system_items);
-    memcpy(items,system_items,sizeof(system_items));
+    unsigned count=0;
+    for(unsigned n=0;n<sizeof(system_items)/sizeof(*system_items);n++)
+        if(system_items[n].id!=GLOBAL_SOUND || s->scene.sound_visible)items[count++]=system_items[n];
     if(s->scene.focus>=0) {
         struct desk_menu_store *m=&session_client(s,s->scene.focus)->menus;
         memcpy(items+count,m->items,m->count*sizeof(items[0]));count+=m->count;
@@ -1123,7 +1141,7 @@ static void global_menu_rebuild(struct session *s) {
     }
     uint64_t owner=s->scene.focus>=0?session_client(s,s->scene.focus)->pid:0;
     uint64_t window=s->scene.focus>=0?session_client(s,s->scene.focus)->window:0;
-    struct desk_rect bar={10,0,s->damage.width-(s->damage.width<1000?428:578),44};
+    struct desk_rect bar={10,0,menu_bar_width(s),44};
     struct desk_rect bounds={0,0,s->damage.width,s->damage.height};
     struct desk_menu *menu=&s->scene.menu;
     if(menu->font && owner==s->menu_owner && window==s->menu_window &&
@@ -1146,6 +1164,33 @@ static void session_end_cancel(struct session *s,const char *reason,uint64_t pid
     global_menu_rebuild(s);
     desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
 }
+static int sound_query(struct srv_audio_status *audio) {
+    return !gui_audio(SRV_AUDIO_QUERY,0,audio) && audio->version==SRV_AUDIO_VERSION &&
+        (audio->state==SRV_AUDIO_READY || audio->state==SRV_AUDIO_PLAYING) && audio->volume<=100;
+}
+static int sound_headphones_available(const struct srv_audio_status *audio) {
+    return (audio->capabilities&SRV_AUDIO_CAP_HEADPHONES) &&
+        (!(audio->capabilities&SRV_AUDIO_CAP_JACK_SENSE) || audio->headphone_present);
+}
+static void sound_action(struct session *s,uint32_t id) {
+    struct srv_audio_status audio={0};
+    if(s->exiting || !sound_query(&audio) || audio.pending || (audio.capabilities&SRV_AUDIO_CAP_PCM_BUSY))return;
+    if(id==GLOBAL_SOUND_SPEAKERS || id==GLOBAL_SOUND_HEADPHONES) {
+        unsigned output=id==GLOBAL_SOUND_HEADPHONES?SRV_AUDIO_HEADPHONES:SRV_AUDIO_SPEAKERS;
+        if(output==SRV_AUDIO_HEADPHONES && !sound_headphones_available(&audio))return;
+        if(output!=audio.output) (void)gui_audio(SRV_AUDIO_OUTPUT,output,&audio);
+        return;
+    }
+    unsigned volume=audio.volume;
+    if(volume)s->sound_last_volume=volume;
+    if(id==GLOBAL_SOUND_DOWN)volume=volume>=10?volume-10:0;
+    else if(id==GLOBAL_SOUND_UP)volume=volume<=90?volume+10:100;
+    else volume=volume?0:(s->sound_last_volume?s->sound_last_volume:25);
+    if(volume!=audio.volume) {
+        int result=gui_audio(SRV_AUDIO_VOLUME,volume,&audio);
+        desk_log("deskd: bar volume=%u result=%d\n",volume,result);
+    }
+}
 static void global_menu_action(struct session *s,uint32_t id) {
     if(!id) return;
     if(id<65536) {
@@ -1156,6 +1201,9 @@ static void global_menu_action(struct session *s,uint32_t id) {
     if(id==GLOBAL_LAUNCHER) launcher_open(s);
     else if(id==GLOBAL_CALENDAR) calendar_open(s);
     else if(id==GLOBAL_NOTIFICATIONS) notifications_open(s);
+    else if(id==GLOBAL_SOUND) sound_open(s,1);
+    else if(id==GLOBAL_SOUND_DOWN || id==GLOBAL_SOUND_UP || id==GLOBAL_SOUND_MUTE ||
+            id==GLOBAL_SOUND_SPEAKERS || id==GLOBAL_SOUND_HEADPHONES) sound_action(s,id);
     else if(id==GLOBAL_CAPTURE) capture_request(s);
     else if(id==GLOBAL_FIND) spawn_app(s,DESK_APP_FIND,"");
     else if(id==GLOBAL_PROFILES) spawn_app(s,DESK_APP_PROFILES,"");
@@ -2183,6 +2231,9 @@ static int dock_activate(struct session *s,unsigned app) {
 }
 static int global_click(struct session *s,int x,int y) {
     if(!s->scene.apps) return 0;
+    if(s->scene.sound_visible && desk_widget_contains(desktop_sound_rect(s->damage.width,s->scene.clock),x,y)) {
+        sound_open(s,0);return 1;
+    }
     if(s->scene.battery[0] && desk_widget_contains(desktop_battery_rect(s->damage.width,s->scene.clock),x,y)) {
         for(int i=0;i<session_capacity(s);i++) if(session_client(s,i)->pid && !session_client(s,i)->closing && desktop_window_at(&s->scene,i)->application==DESK_APP_SYSTEM) {
             focus(s,i);return 1;
@@ -2217,6 +2268,31 @@ static void context_close(struct session *s) {
 static void desktop_context_result(struct session *s,struct desk_menu_result result) {
     if(result.redraw) context_damage(s);
     if(result.action) { if(s->trace) desk_log("deskd: desktop context action=%u\n",result.action);global_menu_action(s,result.action); }
+}
+static void sound_open(struct session *s,int keyboard) {
+    if(s->exiting || !s->scene.sound_visible)return;
+    struct srv_audio_status audio={0};
+    int available=sound_query(&audio);
+    unsigned locked=!available || audio.pending || (audio.capabilities&SRV_AUDIO_CAP_PCM_BUSY)?DESK_MENU_DISABLED:0;
+    struct desk_menu_item items[]={
+        {GLOBAL_SOUND_LEVEL,DESK_MENU_DISABLED,"Sound unavailable",""},
+        {GLOBAL_SOUND_DOWN,locked | (audio.volume==0?DESK_MENU_DISABLED:0),"Volume down",""},
+        {GLOBAL_SOUND_UP,locked | (audio.volume==100?DESK_MENU_DISABLED:0),"Volume up",""},
+        {GLOBAL_SOUND_MUTE,locked,"Mute",""},
+        {0,DESK_MENU_SEPARATOR,"",""},
+        {GLOBAL_SOUND_SPEAKERS,locked | (audio.output==SRV_AUDIO_SPEAKERS?DESK_MENU_CHECKED:0),"Speakers",""},
+        {GLOBAL_SOUND_HEADPHONES,locked | (audio.output==SRV_AUDIO_HEADPHONES?DESK_MENU_CHECKED:0) |
+            (sound_headphones_available(&audio)?0:DESK_MENU_DISABLED),"Headphones",""}
+    };
+    if(available)snprintf(items[0].label,sizeof(items[0].label),"Volume %u%%%s",audio.volume,
+        audio.capabilities&SRV_AUDIO_CAP_PCM_BUSY?" (playback active)":"");
+    if(available && !audio.volume)strcpy(items[3].label,"Unmute");
+    unsigned count=sizeof(items)/sizeof(*items);
+    if(!(audio.capabilities&SRV_AUDIO_CAP_HEADPHONES))count--;
+    struct desk_rect anchor=desktop_sound_rect(s->damage.width,s->scene.clock);
+    context_close(s);pointer_cancel(s);desk_menu_cancel(&s->scene.menu);global_menu_damage(s);
+    if(!desk_popup_open(&s->scene.context,items,count,anchor.x,44,
+        (struct desk_rect){0,44,s->damage.width,s->damage.height-124},&desk_font_16,keyboard))context_damage(s);
 }
 static void desktop_context_open(struct session *s,int x,int y,int keyboard) {
     if(s->exiting) return;
@@ -2451,6 +2527,8 @@ int main(int argc,char **argv) {
     if(audio_io && desk_capture_job_trace(&s.capture,1))return 1;
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
+    struct srv_audio_status bar_audio={0};
+    s.scene.sound_visible=apps && sound_query(&bar_audio);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_GRID,DESK_CONTROL_CALENDAR,&s.scene.calendar,NULL);
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_TODAY,DESK_CONTROL_BUTTON,&s.scene.calendar_today,"Today");

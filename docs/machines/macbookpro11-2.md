@@ -152,8 +152,16 @@ source `c375a7db`, with the runtime from main `6f4c8b92`. HDA, audio
 service, audio stream, Settings and Help host checks passed. Exact-stage
 QEMU release `626968f367beb8de` passed the 2880 × 1800 desktop path,
 including a 500 ms stereo test tone, saved logs and clean USB unmount.
-The native listening check needs wired headphones. Ubuntu observed the
-headphone jack empty during preflight.
+The native run used session `session-000660e7ea1d1124-00`. The user
+confirmed that the headphones worked. Its verified exit snapshot
+records the exact CS4208 identity, headphone output, tone playback
+requests, and speaker output selected again. The workspace check
+matched all 552 existing files.
+
+The automatic routing and Sound menu work starts from main `577ffcd1`.
+It covers the verified Pro CS4208 route, the audio worker's playback
+handoff, and the desktop's Sound controls. Firmware sensing and
+speaker/headphone isolation use the existing tested codec paths.
 
 ### Wi-Fi release qualification
 

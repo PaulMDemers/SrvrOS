@@ -218,6 +218,7 @@ def main():
     parser.add_argument("--retina-missing-workspace", action="store_true", help="Rehearse Retina trial return without the USB workspace")
     parser.add_argument("--desktop-no-headroom", action="store_true", help="Verify safe desktop refusal at the exFAT file-slot limit")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
+    parser.add_argument("--sound-bar-check", action="store_true", help="Exercise top-bar volume and mute on the scaled analog audio desktop")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
     parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
     parser.add_argument("--keyboard-timeout", action="store_true", help="send no keys and verify the guided trial deadline")
@@ -259,6 +260,8 @@ def main():
         parser.error("Automatic laptop probe stages require --probe-check")
     if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-"))):
         parser.error("--audio-check requires an audio-enabled desktop stage")
+    if args.sound_bar_check and (not args.audio_check or not manifest["config_version"].startswith("ram-usb-v31-")):
+        parser.error("--sound-bar-check requires the scaled analog audio stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
@@ -894,6 +897,19 @@ def main():
                         text=serial.read_text(errors="replace")
                         assert "physical=2880x1800 logical=1440x900 scale=2" in text
                         time.sleep(1)
+                        if args.sound_bar_check:
+                            def sound_key(item, volume):
+                                offset=len(serial.read_text(errors="replace"))
+                                # Sound controls is just above Save screenshot in
+                                # the SrvrOS menu. The popup starts on Volume down.
+                                for keys in ("f10","end","up","up","ret",*item,"ret"):
+                                    shortcut(keys)
+                                marker=f"deskd: bar volume={volume} result=0"
+                                wait_for(serial,lambda s:marker in s[offset:],process,10)
+                            sound_key(("down",),35)
+                            sound_key((),25)
+                            sound_key(("down","down"),0)
+                            sound_key(("down",),25)
                         ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
                         if args.retina_fractional:
                             logical = (1440, 900)
@@ -1052,7 +1068,7 @@ def main():
                         (logs/"hardware-grub-result.json").write_text(json.dumps({"status":"PASS","release":release,
                             "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"usb_network":network_desktop,"audio":args.audio_check,"tone":tone_result,
                             "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"retina_desktop":retina_desktop,
-                            "retina_fractional":args.retina_fractional,
+                            "retina_fractional":args.retina_fractional,"sound_bar":args.sound_bar_check,
                             "automatic_return":retina_desktop,"physical_acceptance":"pending"},indent=2)+"\n")
                         print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
                         return

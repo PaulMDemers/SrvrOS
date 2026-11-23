@@ -20,7 +20,7 @@ struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS]; /* Inline compatibility storage. */
     struct desktop_window **records;
     int capacity,*order;
-    int focus,cursor_x,cursor_y,cursor_shape,trackpad_trial,apps;
+    int focus,cursor_x,cursor_y,cursor_shape,trackpad_trial,apps,sound_visible;
     struct desk_menu menu;
     struct desk_popup context;
     struct desktop_notice_view notifications;
@@ -61,6 +61,7 @@ int desktop_drag_restore(int width,int height,struct desk_rect placed,struct des
 int desktop_window_drag(int width,int height,struct desk_rect original,
     int64_t x,int64_t y,struct desk_rect *result);
 struct desk_rect desktop_battery_rect(int width,const char *clock);
+struct desk_rect desktop_sound_rect(int width,const char *clock);
 struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);

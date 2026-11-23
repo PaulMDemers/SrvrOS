@@ -72,8 +72,45 @@ static struct srv_battery_status battery_mock;
 static int battery_mock_error;
 long srv_battery_status(struct srv_battery_status *out) { *out=battery_mock;return battery_mock_error; }
 static unsigned audio_calls;
+static struct srv_audio_status *audio_mock;
 int gui_audio(unsigned op,unsigned value,struct srv_audio_status *out) {
-    (void)value;if(op) audio_calls++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.volume=25};return 0;
+    if(op) audio_calls++;
+    if(audio_mock) {
+        if(op==SRV_AUDIO_VOLUME)audio_mock->volume=value;
+        if(op==SRV_AUDIO_OUTPUT)audio_mock->output=value;
+        *out=*audio_mock;
+    } else *out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.volume=25};
+    return 0;
+}
+static void sound_menu_controls(void) {
+    struct srv_audio_status audio={.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.volume=25,
+        .capabilities=SRV_AUDIO_CAP_HEADPHONES|SRV_AUDIO_CAP_JACK_SENSE};
+    struct session s={.scene={.focus=-1,.apps=1,.sound_visible=1}};
+    audio_mock=&audio;
+    desk_damage_init(&s.damage,640,480);desk_menu_init(&s.scene.menu);desk_popup_init(&s.scene.context);
+    strcpy(s.scene.clock,"8:30 PM UTC");
+    global_menu_rebuild(&s);
+    struct desk_rect sound=desktop_sound_rect(s.damage.width,s.scene.clock);
+    assert(s.scene.menu.bar.x+s.scene.menu.bar.w<=sound.x);
+    assert(global_click(&s,sound.x+5,10) && s.scene.context.opened);
+    assert(!strcmp(s.scene.context.items[0].label,"Volume 25%"));
+    assert(s.scene.context.items[6].flags&DESK_MENU_DISABLED);
+    struct desk_rect row=desk_popup_row(&s.scene.context,2);
+    struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=row.x+8,.y=row.y+8,.down=1,.pressed=1};
+    desktop_context_result(&s,desk_popup_pointer(&s.scene.context,e));
+    e.down=e.pressed=0;
+    desktop_context_result(&s,desk_popup_pointer(&s.scene.context,e));
+    assert(audio.volume==35 && !s.scene.context.opened);
+    global_menu_action(&s,GLOBAL_SOUND_MUTE);assert(audio.volume==0);
+    global_menu_action(&s,GLOBAL_SOUND_MUTE);assert(audio.volume==35);
+    global_menu_action(&s,GLOBAL_SOUND_HEADPHONES);assert(audio.output==SRV_AUDIO_SPEAKERS);
+    audio.headphone_present=1;
+    global_menu_action(&s,GLOBAL_SOUND_HEADPHONES);assert(audio.output==SRV_AUDIO_HEADPHONES);
+    audio.capabilities|=SRV_AUDIO_CAP_PCM_BUSY;
+    global_menu_action(&s,GLOBAL_SOUND_MUTE);assert(audio.volume==35);
+    global_menu_action(&s,GLOBAL_SOUND);assert(s.scene.context.opened && (s.scene.context.items[2].flags&DESK_MENU_DISABLED));
+    audio_mock=NULL;audio_calls=0;
+    puts("desktop-sound: PASS top-bar placement, pointer dispatch, reversible mute and route availability");
 }
 static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
@@ -1694,6 +1731,7 @@ int main(int argc,char **argv) {
     supervised_shutdown_policy();
     dynamic_registry();
     document_routing_failures();
+    sound_menu_controls();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

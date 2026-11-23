@@ -6,7 +6,7 @@
 #include "../kernel/src/drivers/audio.c"
 static uint64_t clock_us;
 static uint32_t dma_position;
-static bool stop_ok=true,start_ok=true,position_ok=true,jack_ok=true;
+static bool stop_ok=true,start_ok=true,position_ok=true,jack_ok=true,jack_mock_present=true;
 static unsigned starts,stops,wakes;
 uint64_t timer_monotonic_us(void) { return clock_us; }
 uint64_t timer_ticks(void) { return clock_us/10000; }
@@ -19,12 +19,14 @@ bool hda_core_start(struct hda_core *h,uint64_t bdl,uint32_t bytes,unsigned entr
 bool hda_core_position(struct hda_core *h,uint32_t *value) { *value=dma_position;h->last_position=*value;if(!position_ok){h->ready=false;h->error=HDA_STREAM_ERROR;}return position_ok; }
 bool hda_codec_mute(struct hda_codec *c,bool mute) { c->muted=mute;return true; }
 bool hda_codec_route(struct hda_codec *c,enum hda_output out) { assert(!controller.playing);c->output=out;return true; }
-bool hda_codec_headphones(struct hda_codec *c,bool *present) { assert(c->apple);*present=true;return jack_ok; }
+bool hda_codec_headphones(struct hda_codec *c,bool *present) { assert(c->apple);*present=jack_mock_present;return jack_ok; }
 static void setup(void) {
     controller=(struct hda_core){.ready=true};codec=(struct hda_codec){.controller=&controller,.available=true,.muted=true};
     status=(struct srv_audio_status){.version=1,.state=SRV_AUDIO_READY,.volume=25};
     pending_op=active_op=0;pending_value=0;worker_started=true;bdl_phys=4096;
     stop_ok=start_ok=position_ok=jack_ok=true;clock_us=1000000;dma_position=0;
+    next_jack_tick=0;jack_known=jack_present=jack_confirming=jack_candidate=false;jack_mock_present=true;
+    stream_owner=0;stream_close=false;
     starts=stops=wakes=0;silence();
 }
 static void silent(void) { for(unsigned i=0;i<PCM_BYTES/2;i++)assert(!pcm[i]); }
@@ -53,6 +55,24 @@ int main(void) {
     setup();codec.apple=true;assert(!audio_request(SRV_AUDIO_OUTPUT,1));service();
     assert(status.output==1 && status.headphone_present && (status.capabilities&SRV_AUDIO_CAP_JACK_SENSE));
     jack_ok=false;clock_us+=500000;service();assert(status.state==SRV_AUDIO_FAULT && !(status.capabilities&SRV_AUDIO_CAP_JACK_SENSE));silent();
+    setup();codec.apple=true;codec.subsystem=0x106b5e00;
+    service();assert(!jack_known && codec.output==HDA_SPEAKERS);
+    jack_mock_present=false;clock_us+=100000;service();assert(!jack_known && codec.output==HDA_SPEAKERS);
+    clock_us+=100000;service();assert(jack_known && !jack_present && codec.output==HDA_SPEAKERS);
+    jack_mock_present=true;clock_us+=500000;service();assert(!jack_present);
+    clock_us+=100000;service();assert(jack_present && codec.output==HDA_HEADPHONES);
+    assert(status.capabilities&SRV_AUDIO_CAP_AUTO_ROUTE);
+    assert(!audio_request(SRV_AUDIO_OUTPUT,HDA_SPEAKERS));
+    clock_us+=500000;service();assert(jack_present && codec.output==HDA_SPEAKERS);
+    assert(!audio_request(SRV_AUDIO_OUTPUT,HDA_HEADPHONES));service();
+    int64_t handle=audio_stream_request(42,SRV_PCM_OPEN,0,NULL,0);assert(handle>0);
+    jack_mock_present=false;clock_us+=500000;service();assert(jack_present && stream_owner==42);
+    controller.playing=true;stream.state=SRV_PCM_PLAYING;stream_end=PCM_PREFILL;
+    stream_last_position=0;stream_poll_us=stream_progress_us=clock_us;
+    clock_us+=100000;dma_position=19200;service();
+    assert(!jack_present && codec.output==HDA_SPEAKERS && !controller.playing && codec.muted);
+    assert(!stream_owner && stream.state==SRV_PCM_CANCELED);
+    assert(audio_stream_request(42,SRV_PCM_FINISH,handle,NULL,0)==-1);silent();
     for(unsigned i=0;i<1000;i++) { setup();assert(!audio_request(SRV_AUDIO_TEST,0));service();assert(!audio_request(SRV_AUDIO_STOP,0));service();silent(); }
     free(pcm);puts("audio-service: PASS queued ownership, Stop priority, ramped stereo/tail, zero gain, DMA progress deadline, failed start/stop/jack and 1000 reuse cycles");
     return 0;
