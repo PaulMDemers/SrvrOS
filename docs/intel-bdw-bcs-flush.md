@@ -501,8 +501,13 @@ On a clean return it reseeds the private backing and retains the NVS reservation
 
 On the reference Air the helper completed the capture but the protocol lookup
 returned `EFI_NOT_FOUND` before page allocation. GRUB continued to Limine,
-and the kernel reported `status=absent catalog=17 oemg=0`. The handoff still
-requires an alternative publication path on this firmware.
+and the kernel reported `status=absent catalog=17 oemg=0`.
+On that lookup result the new helper allocates one additional NVS page to
+hold a copy of the record and installs its address under a private EFI GUID.
+SrvrOS reads the configuration directory via Limine, verifies the memory type
+and translations, requires a unique record adjacent to its 19-page reservation,
+and applies the same checksum, contents and GPU admission checks as the ACPI
+path. A duplicate or malformed record stops the import.
 [Physical run](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
 The physical prerequisite records how far the firmware capture progressed,

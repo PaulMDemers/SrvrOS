@@ -36,6 +36,10 @@ protocol QEMU case reproduced this sequence. The next handoff needs a
 transport available on this firmware, with the same binding and reserved-page
 checks in SrvrOS. The two ESP receipts are diagnostics.
 
+The next one-shot targets EFI configuration-table publication, Limine import,
+and verification of the seven entry words and all 19 reserved pages. Its scope
+is the boot transport and its Q35 qualification.
+
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
 transfer, and independent WiDi exclusion when global GO reopens. The native reset

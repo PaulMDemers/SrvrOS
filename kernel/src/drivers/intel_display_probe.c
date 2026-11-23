@@ -122,6 +122,10 @@ void intel_display_probe_boot(struct limine_framebuffer *fb) {
 #ifdef SRVROS_INTEL_GT_FLUSH
     air_boot_import();
     console_printf("intel-efi-import: status=%s catalog=%u oemg=%u\n",air_import_status,acpi_table_count(),(uint64_t)air_oem_tables);
+    console_printf("intel-efi-transport: via=%s verified_pages=%u\n",air_transport,(uint64_t)(air_boot_buffer?AIR_BOOT_FRAMES:0));
+    if (air_boot_buffer && air_boot.state==AIR_BOOT_CAPTURED)
+        for (unsigned i=0;i<AIR_BOOT_PAGES;i++)
+            console_printf("intel-efi-imported-slot: slot=%u word=%x\n",(uint64_t)air_boot.first+i,air_boot.entries[i]);
     console_printf("intel-efi-boot: imported=%u backing=%u\n",(uint64_t)(air_boot.revision==1),(uint64_t)air_boot_buffer);
 #endif
     console_write("intel-display-observe: beginning exact Air7,2 read-only observation\n");

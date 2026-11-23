@@ -605,6 +605,9 @@ static struct limine_memmap_entry *test_boot_ranges[16];
 static uint64_t test_backing_page[512] __attribute__((aligned(4096)));
 static uint32_t test_command_ram[GT_COMMAND_FRAMES*1024] __attribute__((aligned(4096)));
 static bool test_backing_allocated;
+#define TEST_METADATA_PA (TEST_COMMAND_PA + sizeof(test_command_ram))
+static uint8_t test_metadata[4096] __attribute__((aligned(4096)));
+static uint8_t test_efi_directory[4096] __attribute__((aligned(4096)));
 static void test_prepare_boot(void) {
     test_boot_record=(struct air_gpu_boot){
         .length=sizeof(test_boot_record),.revision=1,.oem_revision=1,.pci_id=0x16268086,.subsystem=0x011b106b,
@@ -650,6 +653,7 @@ uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
  return TEST_BACKING_PA;
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag) {
+ if(pa==TEST_METADATA_PA)return tag==PMM_FRAME_RESERVED;
  if(pa>=TEST_COMMAND_PA && pa<TEST_COMMAND_PA+sizeof(test_command_ram) && !(pa&4095))
   return tag==PMM_FRAME_RESERVED;
  return pa==TEST_BACKING_PA && tag==(test_backing_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);
@@ -661,6 +665,7 @@ void pmm_free_frame(uint64_t pa) {
 #endif
 void *pmm_phys_to_virt(uint64_t p){
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(p==TEST_METADATA_PA)return test_metadata;
  if(p>=TEST_COMMAND_PA && p<TEST_COMMAND_PA+sizeof(test_command_ram)) return (uint8_t *)test_command_ram+(p-TEST_COMMAND_PA);
  if(p==TEST_BACKING_PA){intel_display_test_backing_access();return test_backing_page;}
 #endif
@@ -670,6 +675,8 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(v>=(uintptr_t)test_efi_directory && v-(uintptr_t)test_efi_directory<sizeof(test_efi_directory)){*p=v;return true;}
+ if(v==(uintptr_t)test_metadata){*p=TEST_METADATA_PA;return true;}
  if(v>=(uintptr_t)test_command_ram && v<(uintptr_t)test_command_ram+sizeof(test_command_ram)){*p=TEST_COMMAND_PA+v-(uintptr_t)test_command_ram;return true;}
  if(v==(uintptr_t)test_backing_page){*p=TEST_BACKING_PA;return true;}
 #endif

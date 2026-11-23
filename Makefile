@@ -7461,3 +7461,8 @@ $(LIMINE_DIR)/BOOTX64.EFI: | $(LIMINE_DIR)/.ready
 build/intel-gt-flush/AIRBOOT.EFI: boot/air-handoff/main.zig kernel/include/srvros/air_gpu_boot.h $(ZIG)
 	@mkdir -p $(@D)
 	$(ZIG) build-exe -target x86_64-uefi -O ReleaseSmall -Ikernel/include -Mroot=$< -femit-bin=$@
+
+# Q35-only transport fixture. Never packaged in a native release.
+build/tests/air-efi-vector.efi: tools/fixtures/air-efi/vector.zig boot/air-handoff/main.zig kernel/include/srvros/air_gpu_boot.h $(ZIG)
+	@mkdir -p $(@D)
+	$(ZIG) build-exe -target x86_64-uefi -O ReleaseSmall --dep handoff -Mroot=$< -Ikernel/include -Mhandoff=boot/air-handoff/main.zig -femit-bin=$@

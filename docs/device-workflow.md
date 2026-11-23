@@ -97,8 +97,11 @@ before a one-shot boot. GRUB records the result of loading and starting
 the probe in `AIRBOOT.ENV`. The probe records entry, hardware capture,
 ACPI protocol lookup, page allocation and table installation in `AIRBOOT.LOG`.
 The workflow checks the release and per-install nonce and archives both files
-alongside `efi-returned.json`. The kernel supplies its independent ACPI import
-result in the matching USB boot log. These receipts are diagnostic only.
+alongside `efi-returned.json`. The matching USB boot log records the import
+transport, verified page count and captured slot words. Configuration-table
+releases also boot two disposable Q35 cases with the ACPI protocol unavailable
+to the helper. The first exercises the production probe. The second passes seven
+distinct 64-bit fixture entries through the same publisher and kernel importer. These receipts are diagnostic only.
 The collector validates the boot producer, bound driver inventory and
 original seven entries in command-slot receipt v2. Earlier v1 receipts retain
 their original interpretation. [EFI handoff](intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)

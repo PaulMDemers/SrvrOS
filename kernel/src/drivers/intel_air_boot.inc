@@ -4,20 +4,71 @@ static struct air_gpu_boot air_boot;
 static bool air_boot_buffer;
 static const char *air_import_status;
 static unsigned air_oem_tables;
-static bool air_boot_range(uint64_t base,uint64_t bytes)
+/* Limine base revision 6 supplies the system table as an HHDM pointer.
+ * The pointers stored by firmware inside that table are physical. */
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_efi_system_table_request air_efi_request = {
+    .id=LIMINE_EFI_SYSTEM_TABLE_REQUEST_ID
+};
+struct air_efi_system {
+    uint64_t signature;
+    uint32_t revision,header_size;
+    uint8_t unused[88];
+    uint64_t count,entries;
+};
+struct air_efi_entry { uint64_t guid_lo,guid_hi,address; };
+_Static_assert(__builtin_offsetof(struct air_efi_system,count)==104,"EFI x64 layout");
+
+static bool air_span(uint64_t base,uint64_t bytes,uint64_t type)
 {
     const struct limine_memmap_response *m=memmap_request.response;
-    if (!m || !m->entries || m->entry_count>4096 || base<0x100000 || (base&4095) ||
-        bytes!=AIR_BOOT_FRAMES*4096 || base>0x100000000ull-bytes) return false;
+    if (!bytes || base>UINT64_MAX-bytes || !m || !m->entries || m->entry_count>4096) return false;
     unsigned matches=0;
     for (uint64_t i=0;i<m->entry_count;i++) {
         const struct limine_memmap_entry *e=m->entries[i];
         if (!e || !e->length || e->base>UINT64_MAX-e->length) return false;
         if (base+bytes<=e->base || base>=e->base+e->length) continue;
-        if (e->type!=LIMINE_MEMMAP_ACPI_NVS || e->base>base || e->base+e->length<base+bytes) return false;
+        if (e->type!=type || e->base>base || e->base+e->length<base+bytes) return false;
         ++matches;
     }
     return matches==1;
+}
+static bool air_boot_range(uint64_t base,uint64_t bytes)
+{
+    return base>=0x100000 && !(base&4095) && bytes==AIR_BOOT_FRAMES*4096 &&
+        base<=0x100000000ull-bytes && air_span(base,bytes,LIMINE_MEMMAP_ACPI_NVS);
+}
+static const void *air_read_span(uint64_t pa,uint64_t size,uint64_t type)
+{
+    if (!air_span(pa,size,type)) return NULL;
+    for (uint64_t page=pa&~4095ull;page<=((pa+size-1)&~4095ull);page+=4096) {
+        uint64_t actual;
+        if (!vmm_virt_to_phys((uintptr_t)pmm_phys_to_virt(page),&actual) || actual!=page) return NULL;
+        if (page==((pa+size-1)&~4095ull)) break;
+    }
+    return pmm_phys_to_virt(pa);
+}
+static bool air_config_record(uint64_t *address)
+{
+    const struct limine_efi_system_table_response *efi=air_efi_request.response;
+    if (!efi) return true;
+    uint64_t pa;
+    if (!efi->address || !vmm_virt_to_phys((uintptr_t)efi->address,&pa) ||
+        pmm_phys_to_virt(pa)!=efi->address || (pa&7)) return false;
+    const struct air_efi_system *st=air_read_span(pa,sizeof(*st),LIMINE_MEMMAP_RESERVED_MAPPED);
+    if (!st || st->signature!=0x5453595320494249ull || st->header_size<sizeof(*st) ||
+        st->count>1024) return false;
+    if (!st->count) return true;
+    if (!st->entries || (st->entries&7)) return false;
+    const struct air_efi_entry *entries=air_read_span(st->entries,st->count*sizeof(*entries),
+                                                       LIMINE_MEMMAP_RESERVED_MAPPED);
+    if (!entries) return false;
+    for (uint64_t i=0;i<st->count;i++) {
+        if (entries[i].guid_lo!=AIR_BOOT_GUID_LO || entries[i].guid_hi!=AIR_BOOT_GUID_HI) continue;
+        if (*address || !entries[i].address || (entries[i].address&4095)) return false;
+        *address=entries[i].address;
+    }
+    return true;
 }
 static bool air_boot_reserved(void)
 {
@@ -38,14 +89,38 @@ static bool air_boot_pristine(void)
     }
     return true;
 }
+static bool air_valid_record(const struct air_gpu_boot *r)
+{
+    uint8_t sum=0;
+    for (unsigned j=0;j<sizeof(*r);j++) sum+=((const uint8_t *)r)[j];
+    return !sum && r->length==sizeof(*r) && !__builtin_memcmp(r->signature,"OEMG",4) &&
+        !__builtin_memcmp(r->oem,"SRVROS",6) && !__builtin_memcmp(r->table_id,"BDWBOOT1",8) &&
+        r->step<=6 && (r->state!=AIR_BOOT_CAPTURED || r->step==6) &&
+        r->revision==1 && r->oem_revision==1 && r->state<=AIR_BOOT_CAPTURED &&
+        r->first==AIR_BOOT_SLOT && r->protocols<=32 && r->firmware_files<=4 && r->firmware_files<=r->driver_opens;
+}
+static const char *air_transport;
 static void air_boot_import(void)
 {
     struct air_gpu_boot candidate;
     bool found=false;
     air_oem_tables=0;
+    air_transport="none";
     air_import_status="absent";
     air_boot=(struct air_gpu_boot){0};
     air_boot_buffer=false;
+    uint64_t config=0;
+    if (!air_config_record(&config)) { air_import_status="configuration-directory"; return; }
+    if (config) {
+        air_transport="uefi";
+        air_import_status="configuration-record";
+        const struct air_gpu_boot *record=air_read_span(config,sizeof(candidate),LIMINE_MEMMAP_ACPI_NVS);
+        if (!record || !pmm_frame_has_tag(config,PMM_FRAME_RESERVED)) return;
+        candidate=*record;
+        if (!air_valid_record(&candidate) || config<AIR_BOOT_FRAMES*4096 ||
+            candidate.ram!=config-AIR_BOOT_FRAMES*4096) return;
+        found=true;
+    }
     for (uint64_t i=0;i<acpi_table_count();i++) {
         const struct acpi_table_info *t=acpi_table_at(i);
         if (!t || __builtin_memcmp(t->signature,"OEMG",4)) continue;
@@ -53,14 +128,11 @@ static void air_boot_import(void)
         if (t->length!=sizeof(air_boot)) continue;
         struct air_gpu_boot record;
         __builtin_memcpy(&record,pmm_phys_to_virt(t->physical_address),sizeof(record));
-        const struct air_gpu_boot *r=&record;
-        if (__builtin_memcmp(r->oem,"SRVROS",6) || __builtin_memcmp(r->table_id,"BDWBOOT1",8)) continue;
-        air_import_status=found?"duplicate":"invalid";
-        uint8_t sum=0;
-        for (unsigned j=0;j<sizeof(*r);j++) sum+=((const uint8_t *)r)[j];
-        if (found || sum || r->length!=sizeof(*r) || __builtin_memcmp(r->signature,"OEMG",4) ||
-            r->step>6 || (r->state==AIR_BOOT_CAPTURED && r->step!=6) || r->revision!=1 || r->oem_revision!=1 || r->state>AIR_BOOT_CAPTURED ||
-            r->first!=AIR_BOOT_SLOT || r->protocols>32 || r->firmware_files>4 || r->firmware_files>r->driver_opens) return;
+        if (__builtin_memcmp(record.oem,"SRVROS",6) || __builtin_memcmp(record.table_id,"BDWBOOT1",8)) continue;
+        if (found) { air_import_status="duplicate"; return; }
+        air_transport="acpi";
+        air_import_status="invalid";
+        if (!air_valid_record(&record)) return;
         candidate=record;
         found=true;
     }

@@ -81,7 +81,9 @@ def make_disk(path, loader, source, release, extra_files=None, *, ubuntu_grub=No
             continue
         parent = loader_dir if name.startswith("loader/") else payload
         data = (source / name).read_bytes()
-        if efi_fault == "missing-acpi" and name == boot.AIR_HANDOFF:
+        if efi_fault in ("missing-acpi", "missing-acpi-vector") and name == boot.AIR_HANDOFF:
+            if efi_fault == "missing-acpi-vector":
+                data = (boot.ROOT / "build/tests/air-efi-vector.efi").read_bytes()
             protocol = uuid.UUID("ffe06bdd-6107-46a6-7bb2-5a9c7ec5275c").bytes_le
             if data.count(protocol) != 1:
                 raise ValueError("Cannot uniquely substitute the fixture protocol")
@@ -224,7 +226,7 @@ def main():
     parser.add_argument("--ap-c3-sim",action="store_true",help="VM-only coordination rehearsal; no C3 or residency MSRs")
     parser.add_argument("--ap-cpus",type=int,choices=(1,2,4,6),default=4)
     parser.add_argument("--ap-inject",choices=("missing","fault","c3-missing","c3-early","c3-fault"))
-    parser.add_argument("--efi-probe-fault", choices=("missing-helper", "missing-acpi"), help="inject an EFI probe refusal only in the disposable VM image")
+    parser.add_argument("--efi-probe-fault", choices=("missing-helper", "missing-acpi", "missing-acpi-vector"), help="exercise boot handoff variants only in the disposable VM image")
     parser.add_argument("--ubuntu-efi", type=Path, help="boot this Ubuntu shimx64.efi and grubx64.efi pair in OVMF")
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--release", help="verify this exact staged release; do not read or change latest")
@@ -1443,6 +1445,18 @@ def main():
                     grub_state, checkpoints, kernel = "returned", dict.fromkeys(air_efi_trace.STAGES, 0), "ready"
                     if args.efi_probe_fault == "missing-helper":
                         grub_state, checkpoints, kernel = "load-failed", {}, "absent"
+                    elif args.efi_probe_fault in ("missing-acpi", "missing-acpi-vector") and manifest.get("efi_config_handoff")==1:
+                        checkpoints["locate"] = 0x800000000000000e
+                        output = serial.read_text(errors="replace")
+                        if "intel-efi-transport: via=uefi verified_pages=19" not in output:
+                            raise ValueError("Missing configuration-table or reserved-page proof")
+                        if args.efi_probe_fault == "missing-acpi-vector":
+                            checkpoints["capture"] = (2 << 32) | 6
+                            expected_words = [(11744+i, 0x15a000001+i*0x31000) for i in range(7)]
+                            actual_words = [(int(slot), int(word, 16)) for slot,word in re.findall(
+                                r"^intel-efi-imported-slot: slot=(\d+) word=(0x[0-9a-f]+)\s*$", output, re.M)]
+                            if actual_words != expected_words:
+                                raise ValueError(f"Seven-slot configuration handoff mismatch: {actual_words}")
                     elif args.efi_probe_fault == "missing-acpi":
                         grub_state, kernel = "start-failed", "absent"
                         checkpoints = dict(entered=0, capture=0, locate=0x800000000000000e)

@@ -789,7 +789,9 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         manifest = {"release": release, "sha256": hashes, "config_version": version,
                     "git_head": git_head,
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
-        if intel_gt_flush: manifest["efi_trace_version"] = 1
+        if intel_gt_flush:
+            manifest["efi_trace_version"] = 1
+            manifest["efi_config_handoff"] = 1
         if intel_stolen_capture:manifest['stolen_progress_version']=1
         if bind_source:
             manifest["source_bound"] = True

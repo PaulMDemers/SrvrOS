@@ -18,7 +18,7 @@ from workflow.store import Cache, atomic, encoded, files, sha, fsync_dir
 PHASES = ('NEW', 'VALIDATED', 'STAGED', 'QUALIFIED', 'INSTALLED', 'ARMED', 'BOOT_REQUESTED', 'COLLECTED')
 TERMINAL = ('ACCEPTED', 'REJECTED', 'CANCELLED', 'IMPORTED', 'DIAGNOSED')
 INPUTS = ['Makefile', 'tools/**/*.py', 'tools/**/*.c', 'tools/**/*.h', 'tools/**/*.inc', 'tools/fixtures/**/*.json',
-          'boot/**/*.zig', 'kernel/**/*.c', 'kernel/**/*.h', 'kernel/**/*.inc', 'shared/**/*.h',
+          'boot/**/*.zig', 'tools/fixtures/**/*.zig', 'kernel/**/*.c', 'kernel/**/*.h', 'kernel/**/*.inc', 'shared/**/*.h',
           'kernel/**/*.S', 'kernel/**/*.ld', 'build/limine-protocol/include/*.h']
 # Resolve the actual protocol location below; no reliance on a sibling host layout.
 
@@ -542,7 +542,11 @@ class Runner:
         display_args = ['--probe-no-framebuffer'] if staged_manifest['config_version'].startswith(EDP_CONFIGS) else []
         if 'loader/AIRBOOT.EFI' in staged_manifest['sha256']:
             display_args += ['--ubuntu-efi', '/boot/efi/EFI/ubuntu']
-        for name, extra in (('save-return', []), ('missing-workspace', ['--probe-missing-workspace'])):
+        cases = [('save-return', []), ('missing-workspace', ['--probe-missing-workspace'])]
+        if staged_manifest.get('efi_config_handoff') == 1:
+            for fault in ('missing-acpi', 'missing-acpi-vector'):
+                cases.append((fault, ['--probe-missing-workspace', '--efi-probe-fault', fault]))
+        for name, extra in cases:
             receipt = directory / ('vm-' + name + '.json')
             if receipt.is_file():
                 saved = json.loads(receipt.read_text())
@@ -683,6 +687,10 @@ class Runner:
                 checkpoints = [line for line in lines if line.startswith('intel-efi-import: ')]
                 trace['session'] = session
                 trace['kernel_import'] = checkpoints[0] if len(checkpoints) == 1 else 'unavailable'
+                transport = [line for line in lines if line.startswith('intel-efi-transport: ')]
+                if transport:
+                    trace['kernel_transport'] = transport[0] if len(transport) == 1 else 'ambiguous'
+                    trace['kernel_slots'] = [line for line in lines if line.startswith('intel-efi-imported-slot: ')]
                 atomic(directory/'efi-returned.json', trace)
             expected_raw={'boot.log','session-a.log','exit.log'}
             if manifest.get('stolen_progress_version')==1:expected_raw.add('stolen-progress.log')

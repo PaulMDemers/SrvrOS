@@ -197,7 +197,9 @@ fn mark(file: ?*File, phase: Phase, value: u64) void {
     f.setPosition(@as(u64, @intFromEnum(phase)) * 64) catch return;
     if ((f.write(&block) catch return) == block.len) f.flush() catch {};
 }
-fn publish(bs: *Services, file: ?*File) Status {
+const config_guid: efi.Guid align(8) = @bitCast([2]u64{ wire.AIR_BOOT_GUID_LO, wire.AIR_BOOT_GUID_HI });
+
+fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status {
     var r = std.mem.zeroes(Record);
     r.signature = "OEMG".*;
     r.length = @sizeOf(Record);
@@ -206,7 +208,7 @@ fn publish(bs: *Services, file: ?*File) Status {
     r.table_id = "BDWBOOT1".*;
     r.oem_revision = 1;
     r.first = wire.AIR_BOOT_SLOT;
-    capture(bs, &r) catch {
+    captureRecord(bs, &r) catch {
         r.state = wire.AIR_BOOT_PROBING;
     };
     // Ownership of this firmware-described private buffer crosses ExitBootServices.
@@ -215,10 +217,18 @@ fn publish(bs: *Services, file: ?*File) Status {
     var interface: ?*const anyopaque = null;
     const locate = bs._locateProtocol(&Acpi.guid, null, &interface);
     mark(file, .locate, @intFromEnum(locate));
-    if (locate != .success) return locate;
-    const acpi: *Acpi = @ptrCast(@alignCast(@constCast(interface orelse return .not_found)));
+    if (locate != .success and locate != .not_found) return locate;
+    const use_config = locate == .not_found;
+    const st = efi.system_table;
+    if (st.number_of_table_entries > 1024) return .out_of_resources;
+    for (st.configuration_table[0..st.number_of_table_entries]) |table| {
+        if (config_guid.eql(table.vendor_guid)) return .already_started;
+    }
+    // The fallback record needs its own persistent page. InstallConfigurationTable
+    // retains the pointer, whereas the ACPI protocol copies its input.
+    const count: usize = wire.AIR_BOOT_FRAMES + @as(usize, @intFromBool(use_config));
     var address: [*]align(4096) efi.Page = @ptrFromInt(0xfffff000);
-    const alloc = bs._allocatePages(.max_address, .acpi_memory_nvs, wire.AIR_BOOT_FRAMES, &address);
+    const alloc = bs._allocatePages(.max_address, .acpi_memory_nvs, count, &address);
     mark(file, .allocate, @intFromEnum(alloc));
     if (alloc != .success) return alloc;
     const pages = address[0..wire.AIR_BOOT_FRAMES];
@@ -230,17 +240,30 @@ fn publish(bs: *Services, file: ?*File) Status {
     var sum: u8 = 0;
     for (std.mem.asBytes(&r)) |b| sum +%= b;
     r.checksum = 0 -% sum;
-    var key: usize = 0;
-    const installed = acpi.install(acpi, &r, @sizeOf(Record), &key);
+    const installed = if (use_config) blk: {
+        const metadata = &address[wire.AIR_BOOT_FRAMES];
+        @memset(metadata, 0);
+        metadata[0..@sizeOf(Record)].* = std.mem.asBytes(&r).*;
+        break :blk bs._installConfigurationTable(&config_guid, metadata);
+    } else blk: {
+        const acpi: *Acpi = @ptrCast(@alignCast(@constCast(interface orelse {
+            bs.freePages(address[0..count]) catch {};
+            return .device_error;
+        })));
+        var key: usize = 0;
+        break :blk acpi.install(acpi, &r, @sizeOf(Record), &key);
+    };
     mark(file, .install, @intFromEnum(installed));
-    if (installed != .success) bs.freePages(pages) catch {};
+    if (installed != .success) bs.freePages(address[0..count]) catch {};
     return installed;
 }
-pub fn main() Status {
+pub fn run(comptime captureRecord: anytype) Status {
     const bs = efi.system_table.boot_services orelse return .unsupported;
     const trace = openTrace(bs) catch null;
     defer if (trace) |f| f.close() catch {};
     mark(trace, .entered, 0);
-    // The ACPI protocol copied the table. Its backing is ACPI NVS until reset.
-    return publish(bs, trace);
+    return publish(bs, trace, captureRecord);
+}
+pub fn main() Status {
+    return run(capture);
 }

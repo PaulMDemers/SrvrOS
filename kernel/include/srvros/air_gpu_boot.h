@@ -2,7 +2,12 @@
 #define SRVROS_AIR_GPU_BOOT_H
 #include <stdint.h>
 
-/* Same-boot ACPI OEM table installed before entering Limine. All addresses
+/* Private EFI configuration table GUID d554348c-09d3-4f11-a672-edd76ec85769.
+ * In-memory EFI_GUID as two little-endian words on x86-64. */
+#define AIR_BOOT_GUID_LO 0x4f1109d3d554348cULL
+#define AIR_BOOT_GUID_HI 0x6957c86ed7ed72a6ULL
+
+/* Same-boot record published before entering Limine. All addresses
  * are physical except for the seven GGTT entries, which are raw PTEs. */
 #define AIR_BOOT_SLOT 11744u
 #define AIR_BOOT_PAGES 7u
