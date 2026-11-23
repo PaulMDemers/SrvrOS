@@ -212,6 +212,33 @@ The exact failed image and receipts are under `evidence-fb60c770af22c79b`.
 Firmware startup remains unaccepted. The next diagnostic should capture
 each arm transaction and compare its status transition with Linux.
 
+#### RTL8188CUS download setup comparison
+
+On Ubuntu kernel `7.0.0-43-generic`, rebinding only the idle `rtl8192cu`
+interface kept the hub powered, its three device addresses intact, and the
+Edimax default route online. The usbmon trace has 3,668 target vendor control
+transfers with zero drops or unmatched completions. Its SHA-256 is
+`41bef0afebb6e1f7bf80ede91a0226452efc5afea4c75e2adf41301232154198`.
+The filtered evidence and `linux-summary.json` are under local
+`build/bringup/pro112-rtl8188cu-arm/`.
+
+Linux read `MCUFWDL=0x00030004`, wrote `0x00030005` as a dword, selected
+page 0 with a byte write at `0x82`, then sent the first 64 bytes. It did
+not require an intervening checksum-clear readback. It sent 16,094 bytes
+in 260 writes, then read `0x00030005`, disabled download with dword
+`0x00030004`, and posted host ready with dword `0x00030006`. Readback
+advanced from `0x00030006` to `0x000300c6` without a separate CPU reset.
+This was a software rebind with a full firmware download, whereas the
+SrvrOS `0x05` refusal was seen after a cold boot.
+
+The correction uses the observed dword, page and transfer sequence. It
+records the enable read, write and readback, each page transaction and
+readback, and download close, checksum and ready milestones. Acceptance
+requires exact completion of all 260 transfers, the checksum report after
+upload, download disabled and a new MCU-ready/RAM-selected transition.
+The checksum bit's pre-upload value is logged as an observation. The
+existing exact adapter identity, live hub route and RF/TX gates stay in place.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

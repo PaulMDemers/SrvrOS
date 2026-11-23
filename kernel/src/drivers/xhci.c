@@ -2943,7 +2943,7 @@ bool xhci_rtl8188cu_capture_identity(void) {
 #define RTL8188CU_IMAGE_SIZE 16126u
 #define RTL8188CU_HEADER_SIZE 32u
 #define RTL8188CU_PAGE_SIZE 4096u
-#define RTL8188CU_BLOCK_SIZE 128u
+#define RTL8188CU_BLOCK_SIZE 64u
 #define RTL8188CU_WINDOW 0x1000u
 enum rtl8188cu_firmware_bits {
     RTL8188CU_DL_ENABLE=1u,RTL8188CU_DL_READY=2u,RTL8188CU_CHECKSUM=4u,
@@ -3015,11 +3015,27 @@ static bool rtl8188cu_radio_parked(struct xhci_device *d) {
         !(rf&RTL8188CU_RF_ENABLE) && !(mac&RTL8188CU_TX_ENABLE);
 }
 
-static bool rtl8188cu_reset_cpu(struct xhci_device *d) {
-    return rtl8188cu_update(d,RTL8188CU_REG_CONTROL+1,1,1,0) &&
-        rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,RTL8188CU_CPU_ENABLE,0) &&
-        rtl8188cu_update(d,RTL8188CU_REG_CONTROL+1,1,0,1) &&
-        rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,RTL8188CU_CPU_ENABLE);
+static bool rtl8188cu_setup_read(struct xhci_device *d,const char *step,uint16_t reg,
+                               uint16_t length,uint32_t *value) {
+    bool ok=rtl8188cu_read(d,reg,length,value);
+    console_printf("rtl8188cu-fw-setup: step=%s direction=read reg=%x width=%u ok=%u value=%x\n",
+        step,(uint64_t)reg,(uint64_t)length,(uint64_t)ok,ok?(uint64_t)*value:0);
+    return ok;
+}
+
+static bool rtl8188cu_setup_write(struct xhci_device *d,const char *step,uint16_t reg,
+                                uint16_t length,uint32_t value) {
+    bool ok=rtl8188cu_write_value(d,reg,length,value);
+    console_printf("rtl8188cu-fw-setup: step=%s direction=write reg=%x width=%u ok=%u value=%x\n",
+        step,(uint64_t)reg,(uint64_t)length,(uint64_t)ok,(uint64_t)value);
+    return ok;
+}
+
+static bool rtl8188cu_select_page(struct xhci_device *d,unsigned page) {
+    uint32_t value,check;
+    return rtl8188cu_setup_read(d,"page-before",RTL8188CU_MCU_PAGE,1,&value) &&
+        rtl8188cu_setup_write(d,"page-write",RTL8188CU_MCU_PAGE,1,(value&~7u)|page) &&
+        rtl8188cu_setup_read(d,"page-readback",RTL8188CU_MCU_PAGE,1,&check) && (check&7)==page;
 }
 
 static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hub,
@@ -3035,34 +3051,41 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
     if(!rtl8188cu_digital_power(d))return "power";
     if(!rtl8188cu_radio_parked(d))return "rf-baseline";
     if(!rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,RTL8188CU_CPU_ENABLE))return "cpu-enable";
+    const uint32_t running=RTL8188CU_DL_READY|RTL8188CU_INT_READY|RTL8188CU_RAM_SELECTED;
+    if(!rtl8188cu_setup_read(d,"enable-before",RTL8188CU_MCU_STATUS,4,status) ||
+       (*status&running))return "download-arm";
     *download_touched=true;
-    /* Checksum status is write-one-to-clear. Require the old report to
-     * disappear before any image bytes, even if the cold byte was 0x05. */
-    if(!rtl8188cu_update(d,RTL8188CU_MCU_STATUS,1,0,RTL8188CU_DL_ENABLE|RTL8188CU_CHECKSUM) ||
-       !rtl8188cu_update(d,RTL8188CU_MCU_PAGE,1,0x08,0) ||
-       !rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,status) ||
-       (*status&(RTL8188CU_CHECKSUM|RTL8188CU_DL_ENABLE))!=RTL8188CU_DL_ENABLE)return "download-arm";
+    /* This CU follows the captured Linux dword enable and byte page select.
+     * The pre-upload checksum bit is not a readiness or freshness test. */
+    if(!rtl8188cu_setup_write(d,"enable-write",RTL8188CU_MCU_STATUS,4,*status|RTL8188CU_DL_ENABLE) ||
+       !rtl8188cu_setup_read(d,"enable-readback",RTL8188CU_MCU_STATUS,4,status) ||
+       (*status&(RTL8188CU_DL_ENABLE|running))!=RTL8188CU_DL_ENABLE)return "download-arm";
     console_write("rtl8188cu-firmware-progress: digital ready; loading four MCU pages\n");
     uint64_t start=timer_monotonic_us();
     while(*bytes<body) {
         unsigned offset=*bytes%RTL8188CU_PAGE_SIZE;
         if(!offset && (!rtl8188cu_check_port(d,hub) ||
-           !rtl8188cu_update(d,RTL8188CU_MCU_PAGE,1,7,*bytes/RTL8188CU_PAGE_SIZE)))return "page";
-        unsigned n=body-*bytes;
-        if(n>RTL8188CU_BLOCK_SIZE)n=RTL8188CU_BLOCK_SIZE;
+           !rtl8188cu_select_page(d,*bytes/RTL8188CU_PAGE_SIZE)))return "page";
+        unsigned remaining=body-*bytes;
+        unsigned n=remaining>=RTL8188CU_BLOCK_SIZE?RTL8188CU_BLOCK_SIZE:remaining>=8?8:1;
         if(timer_monotonic_us()-start>=3000000 ||
            !rtl8188cu_write(d,RTL8188CU_WINDOW+offset,image+RTL8188CU_HEADER_SIZE+*bytes,n))return "image-write";
         *bytes+=n;
     }
     if(!rtl8188cu_check_port(d,hub))return "port-before-start";
-    if(!rtl8188cu_update(d,RTL8188CU_MCU_STATUS,1,RTL8188CU_DL_ENABLE|RTL8188CU_CHECKSUM,0))
+    if(!rtl8188cu_setup_read(d,"disable-before",RTL8188CU_MCU_STATUS,4,status) ||
+       !rtl8188cu_setup_write(d,"disable-write",RTL8188CU_MCU_STATUS,4,*status&~RTL8188CU_DL_ENABLE))
         return "download-disable";
-    if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,RTL8188CU_CHECKSUM,RTL8188CU_CHECKSUM,96,status))
+    bool checksum=rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,RTL8188CU_CHECKSUM|RTL8188CU_DL_ENABLE,
+                                RTL8188CU_CHECKSUM,96,status);
+    console_printf("rtl8188cu-fw-setup: step=checksum-after-upload ok=%u value=%x\n",
+        (uint64_t)checksum,(uint64_t)*status);
+    if(!checksum)
         return "checksum";
-    if(!rtl8188cu_write_value(d,RTL8188CU_MCU_STATUS,4,
-        (*status&~(RTL8188CU_INT_READY|RTL8188CU_CHECKSUM))|RTL8188CU_DL_READY) ||
-       !rtl8188cu_reset_cpu(d))return "start";
-    const uint32_t running=RTL8188CU_DL_READY|RTL8188CU_INT_READY|RTL8188CU_RAM_SELECTED;
+    /* The Linux CU path hands execution to the MCU with the ready write
+     * alone. Require a transition from a non-running state after upload. */
+    if((*status&running) || !rtl8188cu_setup_write(d,"ready-write",RTL8188CU_MCU_STATUS,4,
+        *status|RTL8188CU_DL_READY))return "start";
     if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,running|RTL8188CU_DL_ENABLE,running,192,status))return "ready";
     if(!rtl8188cu_check_port(d,hub) || !rtl8188cu_radio_parked(d))return "final-gates";
     return NULL;
@@ -3090,10 +3113,11 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
                 if(failure && touched && !d->ep0_quarantined && !d->control_failed && !d->control_pending &&
                    rtl8188cu_check_port(d,hub)) {
                     uint32_t check;
-                    const uint32_t clear=RTL8188CU_DL_ENABLE|RTL8188CU_DL_READY|RTL8188CU_CHECKSUM;
-                    disabled=rtl8188cu_update(d,RTL8188CU_MCU_STATUS,1,clear,0) &&
-                        rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,&check) &&
-                        !(check&(RTL8188CU_DL_ENABLE|RTL8188CU_DL_READY));
+                    const uint32_t clear=RTL8188CU_DL_ENABLE|RTL8188CU_DL_READY;
+                    disabled=rtl8188cu_setup_read(d,"cleanup-before",RTL8188CU_MCU_STATUS,4,&check) &&
+                        rtl8188cu_setup_write(d,"cleanup-write",RTL8188CU_MCU_STATUS,4,check&~clear) &&
+                        rtl8188cu_setup_read(d,"cleanup-readback",RTL8188CU_MCU_STATUS,4,&check) &&
+                        !(check&clear);
                 }
                 d->rtl8188cu_firmware_active=false;
             }
