@@ -215,7 +215,7 @@ def main():
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
     parser.add_argument("--retina-fractional", action="store_true", help="Rehearse fractional scaling on the Retina fixed framebuffer")
-    parser.add_argument("--retina-missing-workspace", action="store_true", help="Rehearse Retina trial return without the USB workspace")
+    parser.add_argument("--retina-missing-workspace", "--sound-missing-workspace", action="store_true", help="Rehearse attended Retina or Sound trial return without the USB workspace")
     parser.add_argument("--desktop-no-headroom", action="store_true", help="Verify safe desktop refusal at the exFAT file-slot limit")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--sound-bar-check", action="store_true", help="Exercise top-bar volume and mute on the scaled analog audio desktop")
@@ -242,26 +242,30 @@ def main():
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
     retina_desktop = bool(desktop and manifest["config_version"].startswith("ram-usb-v1-retina-"))
+    sound_trial = bool(desktop and manifest["config_version"].startswith("ram-usb-v1-sound-"))
+    desktop_auto_return = retina_desktop or sound_trial
     retina_screenshot = retina_desktop and manifest["config_version"].startswith("ram-usb-v1-retina-shot-")
     if args.retina_fractional and (not retina_desktop or args.retina_missing_workspace or retina_screenshot):
         parser.error("--retina-fractional requires the Retina desktop trial with a workspace")
-    if args.retina_missing_workspace and (not retina_desktop or args.desktop_no_headroom):
-        parser.error("--retina-missing-workspace requires the Retina desktop trial")
+    if args.retina_missing_workspace and (not desktop_auto_return or args.desktop_no_headroom):
+        parser.error("Missing-workspace rehearsal requires the Retina or Sound desktop trial")
     if retina_desktop:
         assert "srvros.desktop-scale=" not in (source / "limine.conf").read_text()
     if manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
         parser.error("Ordinary battery sessions use battery_home_desktop_smoke.py --boot-session --case profile-refusal --stage " + release + (" --air61 --services" if manifest["config_version"].startswith("ram-usb-v71-") else " --services" if manifest["config_version"].startswith("ram-usb-v55-") else " --air61" if manifest["config_version"].startswith("ram-usb-v70-") else ""))
     basic_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v53-"))
-    if args.desktop_no_headroom and (not desktop or basic_desktop or retina_desktop or args.audio_check):
+    if args.desktop_no_headroom and (not desktop or basic_desktop or desktop_auto_return or args.audio_check):
         parser.error("--desktop-no-headroom requires an ordinary desktop stage without audio checking")
     session_run="0123456789abcdef"
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-"))):
+    if args.audio_check and (not desktop or not (sound_trial or manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v58-", "ram-usb-v59-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-", "ram-usb-v57-")))):
         parser.error("--audio-check requires an audio-enabled desktop stage")
-    if args.sound_bar_check and (not args.audio_check or not manifest["config_version"].startswith("ram-usb-v31-")):
+    if args.sound_bar_check and (not args.audio_check or not (sound_trial or manifest["config_version"].startswith("ram-usb-v31-"))):
         parser.error("--sound-bar-check requires the scaled analog audio stage")
+    if sound_trial and not (args.retina_missing_workspace or args.sound_bar_check):
+        parser.error("The Sound trial requires --audio-check --sound-bar-check or --sound-missing-workspace")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
@@ -350,7 +354,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-work-capture" if battery_home_work else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
-    scaled_desktop=retina_desktop or bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
+    scaled_desktop=desktop_auto_return or bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -458,7 +462,7 @@ def main():
                     assert "retina-trial: workspace unavailable; desktop skipped" in text
                     assert "deskd: ready" not in text and process.wait(timeout=30) == 0
                     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source/"manifest.json"),
-                                  retina_missing_workspace=True, returned=True)
+                                  retina_missing_workspace=retina_desktop, sound_missing_workspace=sound_trial, returned=True)
                     (logs/"hardware-grub-result.json").write_text(json.dumps(result, indent=2)+"\n")
                     print(f"retina-desktop-smoke: PASS ({release}); absent workspace returns without opening the desktop")
                     return
@@ -863,7 +867,7 @@ def main():
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP
-                    guide = "deskhelp: page=retina-trial" if retina_desktop else "deskhelp: page=laptop-trial"
+                    guide = "deskhelp: page=" + ("sound-trial" if sound_trial else "retina-trial" if retina_desktop else "laptop-trial")
                     wait_for(serial,lambda s:("deskterm: ready" if network_desktop else guide) in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
                     def shortcut(keys):
@@ -910,6 +914,12 @@ def main():
                             sound_key((),25)
                             sound_key(("down","down"),0)
                             sound_key(("down",),25)
+                        if sound_trial:
+                            shortcut("meta_l-spc");type_text("Terminal new app");ui.key("ret")
+                            wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                            time.sleep(1)
+                            type_text("playwav /fat/share/examples/stereo.wav; exit $?");ui.key("ret")
+                            wait_for(serial,lambda s:"deskterm: shell exited status=0" in s,process,30)
                         ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
                         if args.retina_fractional:
                             logical = (1440, 900)
@@ -1012,7 +1022,7 @@ def main():
                                 ui.call("screendump", {"filename": str(logs/"retina-restore-failure.ppm")})
                                 raise
                         for keys in ("f10","end","ret"): shortcut(keys)
-                        if retina_desktop:
+                        if desktop_auto_return:
                             marker = "retina-trial: saved=1 USB unmounted=yes; returning to Ubuntu"
                             text = wait_for(serial, lambda s: marker in s, process, 60)
                             assert process.wait(timeout=30) == 0
@@ -1041,6 +1051,20 @@ def main():
                                 assert release.encode() in data
                             (logs/("scaled-desktop-"+name)).write_bytes(data)
                         assert b"deskd: exited" in stored.read(folder+"/exit.log")
+                        if sound_trial:
+                            exit_log=stored.read(folder+"/exit.log")
+                            for receipt in (guide.encode(), b"deskterm: shell exited status=0",
+                                            b"deskd: bar volume=0 result=0", b"deskd: bar volume=25 result=0",
+                                            b"retina-trial: desktop returned=1"):
+                                assert receipt in exit_log, receipt
+                            assert re.search(rb"workspace-devices: pcm_state=4 owner=0 handle=[1-9][0-9]* submitted=1152000 position=[0-9]+ queued=0 underruns=0 ",exit_log)
+                            from array import array
+                            import wave
+                            with wave.open(str(logs/"hardware-grub-tone.wav"),"rb") as recording:
+                                assert recording.getnchannels() == 2 and recording.getsampwidth() == 2
+                                assert recording.getframerate() == 48000 and recording.getnframes() >= 5*48000
+                                samples=array("h",recording.readframes(recording.getnframes()))
+                            assert max(samples[::2]) > 100 and max(samples[1::2]) > 100
                         if retina_desktop:
                             exit_log = stored.read(folder+"/exit.log")
                             if not args.retina_fractional:
@@ -1054,7 +1078,7 @@ def main():
                             assert b"display_scale=2\n" in stored.read("srvros-work/desktop.conf")
                         assert not has_fatal_exception(text)
                         tone_result=None
-                        if args.audio_check:
+                        if args.audio_check and not sound_trial:
                             assert b"audio: state=2" in stored.read(folder+"/exit.log")
                             offset=len(text)
                             type_text("audio test");ui.key("ret")
@@ -1069,7 +1093,8 @@ def main():
                             "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"usb_network":network_desktop,"audio":args.audio_check,"tone":tone_result,
                             "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"retina_desktop":retina_desktop,
                             "retina_fractional":args.retina_fractional,"sound_bar":args.sound_bar_check,
-                            "automatic_return":retina_desktop,"physical_acceptance":"pending"},indent=2)+"\n")
+                            "sound_trial":sound_trial,"stereo_wav":sound_trial,
+                            "automatic_return":desktop_auto_return,"physical_acceptance":"pending"},indent=2)+"\n")
                         print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
                         return
                     time.sleep(.5)

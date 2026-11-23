@@ -1178,7 +1178,10 @@ static void sound_action(struct session *s,uint32_t id) {
     if(id==GLOBAL_SOUND_SPEAKERS || id==GLOBAL_SOUND_HEADPHONES) {
         unsigned output=id==GLOBAL_SOUND_HEADPHONES?SRV_AUDIO_HEADPHONES:SRV_AUDIO_SPEAKERS;
         if(output==SRV_AUDIO_HEADPHONES && !sound_headphones_available(&audio))return;
-        if(output!=audio.output) (void)gui_audio(SRV_AUDIO_OUTPUT,output,&audio);
+        if(output!=audio.output) {
+            int result=gui_audio(SRV_AUDIO_OUTPUT,output,&audio);
+            desk_log("deskd: bar output=%u result=%d\n",output,result);
+        }
         return;
     }
     unsigned volume=audio.volume;
@@ -2477,8 +2480,9 @@ int main(int argc,char **argv) {
     int wifi_managed_trial=wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
+    int sound_trial=argc==2 && !strcmp(argv[1],"--sound-trial");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
-    int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
+    int hardware_trial=retina_trial || sound_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
@@ -2568,6 +2572,7 @@ int main(int argc,char **argv) {
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
     else if(retina_screenshot) strcpy(s.scene.notice,"Automatic 1.75x screenshot. Leave the workspace connected. Returning to Ubuntu after save.");
     else if(retina_trial) spawn_app(&s,DESK_APP_HELP,"retina-trial");
+    else if(sound_trial) spawn_app(&s,DESK_APP_HELP,"sound-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");

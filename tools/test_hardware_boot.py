@@ -1937,6 +1937,21 @@ class InstallTests(unittest.TestCase):
             self.assertNotIn(token,cfg)
         with self.assertRaises(ValueError): boot.stage(desktop_audio=True)
 
+    def test_sound_trial_recipe(self):
+        version = "ram-usb-v1-sound-desktop-0e535900"
+        release = self.payload("sound", version)
+        path = self.stage / release / "manifest.json"
+        manifest = json.loads(path.read_text()); manifest["config_version"] = version
+        path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)["config_version"], version)
+        cfg = boot.limine_config(release, version)
+        for token in ("resolution: 2880x1800", "srvros.desktop=retina-trial", "srvros.sound-trial=1",
+                      "srvros.desktop-scale=2", "srvros.audio=hda", "srvros.workspace-volume=0e535900"):
+            self.assertIn(token, cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_sound_trial=True)
+        with self.assertRaises(ValueError):
+            boot.stage(desktop_sound_trial=True, desktop_retina=True, desktop_volume="0e535900")
+
     def test_scaled_brightness_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v30-desktop-37d8c5d0")
         self.assertIn("srvros.desktop-scale=2",cfg)

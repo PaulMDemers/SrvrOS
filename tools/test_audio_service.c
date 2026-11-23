@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,15 @@ static uint64_t clock_us;
 static uint32_t dma_position;
 static bool stop_ok=true,start_ok=true,position_ok=true,jack_ok=true,jack_mock_present=true;
 static unsigned starts,stops,wakes;
+static char jack_receipt[128];
+void console_printf(const char *format,...) {
+    assert(!strncmp(format,"audio-jack: ",12));
+    va_list args;va_start(args,format);
+    unsigned present=va_arg(args,uint64_t),output=va_arg(args,uint64_t);
+    unsigned stopped=va_arg(args,uint64_t),ok=va_arg(args,uint64_t);
+    va_end(args);
+    snprintf(jack_receipt,sizeof(jack_receipt),format,present,output,stopped,ok);
+}
 uint64_t timer_monotonic_us(void) { return clock_us; }
 uint64_t timer_ticks(void) { return clock_us/10000; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==&wake);wakes++; }
@@ -27,7 +37,7 @@ static void setup(void) {
     stop_ok=start_ok=position_ok=jack_ok=true;clock_us=1000000;dma_position=0;
     next_jack_tick=0;jack_known=jack_present=jack_confirming=jack_candidate=false;jack_mock_present=true;
     stream_owner=0;stream_close=false;
-    starts=stops=wakes=0;silence();
+    starts=stops=wakes=0;jack_receipt[0]=0;silence();
 }
 static void silent(void) { for(unsigned i=0;i<PCM_BYTES/2;i++)assert(!pcm[i]); }
 int main(void) {
@@ -61,6 +71,7 @@ int main(void) {
     clock_us+=100000;service();assert(jack_known && !jack_present && codec.output==HDA_SPEAKERS);
     jack_mock_present=true;clock_us+=500000;service();assert(!jack_present);
     clock_us+=100000;service();assert(jack_present && codec.output==HDA_HEADPHONES);
+    assert(!strcmp(jack_receipt,"audio-jack: present=1 output=1 playback_stopped=0 ok=1\n"));
     assert(status.capabilities&SRV_AUDIO_CAP_AUTO_ROUTE);
     assert(!audio_request(SRV_AUDIO_OUTPUT,HDA_SPEAKERS));
     clock_us+=500000;service();assert(jack_present && codec.output==HDA_SPEAKERS);
@@ -72,6 +83,7 @@ int main(void) {
     clock_us+=100000;dma_position=19200;service();
     assert(!jack_present && codec.output==HDA_SPEAKERS && !controller.playing && codec.muted);
     assert(!stream_owner && stream.state==SRV_PCM_CANCELED);
+    assert(!strcmp(jack_receipt,"audio-jack: present=0 output=0 playback_stopped=1 ok=1\n"));
     assert(audio_stream_request(42,SRV_PCM_FINISH,handle,NULL,0)==-1);silent();
     for(unsigned i=0;i<1000;i++) { setup();assert(!audio_request(SRV_AUDIO_TEST,0));service();assert(!audio_request(SRV_AUDIO_STOP,0));service();silent(); }
     free(pcm);puts("audio-service: PASS queued ownership, Stop priority, ramped stereo/tail, zero gain, DMA progress deadline, failed start/stop/jack and 1000 reuse cycles");

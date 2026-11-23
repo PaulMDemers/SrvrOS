@@ -101,6 +101,10 @@ static bool test_tone(void) {
     started_us=timer_monotonic_us();status.tests_started++;return true;
 }
 static bool jack_due(void) { return codec.apple && codec.available && timer_ticks()>=next_jack_tick; }
+static void log_auto_jack(bool present,bool stopped,bool ok) {
+    console_printf("audio-jack: present=%u output=%u playback_stopped=%u ok=%u\n",
+        (uint64_t)present,(uint64_t)codec.output,(uint64_t)stopped,(uint64_t)ok);
+}
 static bool sample_jack(void) {
     bool present;
     if(!hda_codec_headphones(&codec,&present))return false;
@@ -113,18 +117,23 @@ static bool sample_jack(void) {
     jack_confirming=false;next_jack_tick=timer_ticks()+50;
     jack_known=true;jack_present=present;
     enum hda_output target=present?HDA_HEADPHONES:HDA_SPEAKERS;
-    if(!changed || !automatic_route() || codec.output==target)return true;
+    if(!changed || !automatic_route())return true;
+    if(codec.output==target) { log_auto_jack(present,false,true);return true; }
 
     /* This codec switches only with DMA stopped. Block new leases and silence
      * an active stream before changing routes, including on jack removal. */
     uint64_t f=lock();
     active_op=SRV_AUDIO_OUTPUT;
     bool revoke=stream_owner!=0;
+    bool playing=controller.playing;
     if(revoke)stream_close=true;
     unlock(f);
-    if(revoke)stream_cancel(false);
-    else if(!stop())return false;
-    return codec.available && hda_codec_route(&codec,target);
+    bool stopped;
+    if(revoke) { stream_cancel(false);stopped=codec.available; }
+    else stopped=stop();
+    bool ok=stopped && hda_codec_route(&codec,target);
+    log_auto_jack(present,stopped && (playing || revoke),ok);
+    return ok;
 }
 static bool eligible(void *arg) { (void)arg;return pending_op || stream_ready() || (controller.playing && codec.available) || jack_due(); }
 static bool requested(void *arg) { (void)arg;return pending_op!=0; }
