@@ -10,10 +10,17 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
-The current PR 301 trial brackets the slot 12291 loan with wireless video
-and powered display-audio checks. It uses the same CPU guard as the
-inactive display pipes. The shared traffic verifier will also check each
-GAM client's response against its own request before counting closure.
+Release `7f7c88c0fa69ae38` (source `389a992d`, session
+`session-000660e6b02f39c7-00`) completed the read-only slot 12291 trial.
+Both samples showed wireless video fused off and wireless audio disabled
+on the powered codec `0x80862808`. Pipe A kept its primary surface and
+advanced from frame 1085 to 1086. All 52 display register comparisons
+matched. Slot 12291 retained `0x8f004001`, both neighbours were preserved
+and slot 8704 retained `0x8e201001`. All 94 temporary mappings retired.
+The saved USB session passed offline integrity checks. The first unmet
+hardware prerequisite was firmware transfer of ownership. Native replacement
+and rollback still require a driver-held traffic block and fresh engine
+and L3 acknowledgements. This trial made zero GPU page-table writes.
 
 Release `163e5b4eb7ce6403` (source `2b9d307e`, session
 `session-000660e6539eafa9-00`) qualified CPU-side display-reader exclusion
