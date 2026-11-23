@@ -305,19 +305,54 @@ kernel network status ABI by listing interface MAC/IP, DHCP route/DNS
 configuration, protocol counters, worker counters, and the current ARP
 cache. The `/fat/bin/ping` app verifies outbound ICMP echo by resolving a
 dotted IPv4 address or DNS name and issuing kernel-backed echo requests.
-The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
-copy, supports `lua -e <chunk>`, `lua <script.lua>`, stdin-fed chunks, and a
-linenoise-backed interactive REPL when launched from a TTY. It opens the base,
-coroutine, table, math, string, UTF-8, debug, IO, OS, and package libraries. It
-uses Lua's normal double-number profile backed by srvros `math.h`, `float.h`,
-and floating `snprintf` support. `package` is configured for pure Lua modules
-under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
-The `/fat/bin/minizip` and `/fat/bin/miniunz` apps link the zlib contrib
-MiniZip sources to provide zip archive creation, listing, and extraction.
-The `/fat/bin/byacc` app links a pinned Berkeley Yacc snapshot (`t20260126`)
-directly into a srvros executable. It uses the upstream C sources plus a small
-srvros config header, and the ports smoke test verifies that it can generate
-`y.tab.c` and `y.tab.h` from a compact grammar on the exFAT volume.
+### Lua, Berkeley Yacc and MiniZip
+
+These commands ship in `/fat/bin` and the initramfs. Their source pins are
+Lua 5.4.8 (`6e22fedb`), Berkeley Yacc `20260126`, and the MiniZip programs in
+zlib 1.3.2 (`da607da7`).
+
+- `lua` accepts `-e`, a script file with arguments, and a complete finite
+  script on stdin. Terminal uses the linenoise REPL with history. Lua uses
+  double-precision numbers and loads pure Lua modules from `/fat` and
+  `/fat/lib/lua/5.4`. The launcher reports script and stream failures on
+  stderr. The static profile excludes native C module loading.
+- `byacc` generates C parsers and, with `-d`, token headers. The checked
+  profile covers regular grammar files and `-` for stdin, `-b` for a prefix,
+  `-o` for an explicit C output, and `-l` to suppress line directives. The
+  build uses `MAXTABLE=32500` and the vendored parser skeleton. A nonzero
+  result means generated files may be incomplete, including when final writes
+  fail. The configured build omits backtracking.
+- `minizip` creates ordinary stored or deflated ZIP archives. `miniunz -l`
+  lists their entries, and `miniunz archive.zip -d directory` extracts to an
+  existing directory. The checked interchange profile uses flat member
+  names, binary and zero-byte files, and ZIP32. When a timestamp is unavailable,
+  `minizip` records the ZIP epoch of January 1, 1980. Check command status before
+  using an archive or extracted file after I/O failure.
+
+Build a matched image and the disposable Lua I/O probe on Apple Silicon:
+
+```sh
+sh tools/macos/build.sh -j2 all build/userspace/test_earlier_lua_io.elf
+```
+
+Build native references from the same pins. Keep the vendored Berkeley Yacc
+`yaccpar.c` so generated output uses the same skeleton as the target.
+
+```sh
+refs=$(mktemp -d)
+cc -O2 -std=c99 -DLUA_USE_POSIX ports/upstream/lua/onelua.c -lm -o "$refs/lua"
+cp -R ports/upstream/byacc "$refs/byacc"
+(cd "$refs/byacc" && sh ./configure --disable-btyacc --with-max-table-size=32500 && gmake -o yaccpar.c yacc)
+TMPDIR=/private/tmp python3 tools/earlier_ports_smoke.py \
+  --native-lua "$refs/lua" --native-byacc "$refs/byacc/yacc"
+```
+
+The combined check compares Lua output and persisted bytes, compiles and runs
+a guest-generated parser after comparing the generated source with the native
+reference, and verifies ZIP member bytes, methods, and CRCs in both directions.
+The [qualification receipt](assets/evidence/earlier-cli/receipt.json) records
+the exact build, error and interoperability cases, and scope.
+
 The text utilities now share the libc regex engine where useful: `grep` uses
 `regexec` by default while retaining `-F` fixed-string mode and adding
 `-o`/`-l`/`-L`, and `sed` uses regex addresses plus regex substitutions with
