@@ -2,6 +2,8 @@
 #include <srvros/air_gpu_boot.h>
 static struct air_gpu_boot air_boot;
 static bool air_boot_buffer;
+static const char *air_import_status;
+static unsigned air_oem_tables;
 static bool air_boot_range(uint64_t base,uint64_t bytes)
 {
     const struct limine_memmap_response *m=memmap_request.response;
@@ -40,15 +42,20 @@ static void air_boot_import(void)
 {
     struct air_gpu_boot candidate;
     bool found=false;
+    air_oem_tables=0;
+    air_import_status="absent";
     air_boot=(struct air_gpu_boot){0};
     air_boot_buffer=false;
     for (uint64_t i=0;i<acpi_table_count();i++) {
         const struct acpi_table_info *t=acpi_table_at(i);
-        if (!t || __builtin_memcmp(t->signature,"OEMG",4) || t->length!=sizeof(air_boot)) continue;
+        if (!t || __builtin_memcmp(t->signature,"OEMG",4)) continue;
+        ++air_oem_tables;
+        if (t->length!=sizeof(air_boot)) continue;
         struct air_gpu_boot record;
         __builtin_memcpy(&record,pmm_phys_to_virt(t->physical_address),sizeof(record));
         const struct air_gpu_boot *r=&record;
         if (__builtin_memcmp(r->oem,"SRVROS",6) || __builtin_memcmp(r->table_id,"BDWBOOT1",8)) continue;
+        air_import_status=found?"duplicate":"invalid";
         uint8_t sum=0;
         for (unsigned j=0;j<sizeof(*r);j++) sum+=((const uint8_t *)r)[j];
         if (found || sum || r->length!=sizeof(*r) || __builtin_memcmp(r->signature,"OEMG",4) ||
@@ -59,8 +66,10 @@ static void air_boot_import(void)
     }
     if (!found) return;
     air_boot=candidate;
+    air_import_status="reservation";
     if (!air_boot_reserved()) return;
     air_boot_buffer=air_boot_pristine();
+    air_import_status=air_boot_buffer?"ready":"contents";
 }
 static bool air_boot_display(uint64_t mmio,uint64_t aperture)
 {

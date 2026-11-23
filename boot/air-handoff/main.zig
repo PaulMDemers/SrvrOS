@@ -169,8 +169,35 @@ fn capture(bs: *Services, r: *Record) !void {
         return;
     }
 }
-fn publish(bs: *Services) !void {
-    const acpi = (try bs.locateProtocol(Acpi, null)) orelse return error.NoAcpi;
+const File = efi.protocol.File;
+fn openTrace(bs: *Services) !*File {
+    const image = (try bs.openProtocol(efi.protocol.LoadedImage, efi.handle, .{ .get_protocol = .{} })) orelse return error.NoImage;
+    const fs = (try bs.openProtocol(efi.protocol.SimpleFileSystem, image.device_handle orelse return error.NoDevice, .{ .get_protocol = .{} })) orelse return error.NoFs;
+    const root = try fs.openVolume();
+    defer root.close() catch {};
+    const path = std.unicode.utf8ToUtf16LeStringLiteral("\\EFI\\srvros\\AIRBOOT.LOG");
+    const file = try root.open(path, .read_write, .{});
+    errdefer file.close() catch {};
+    var data: [513]u8 = undefined;
+    const prefix = "SRVR-AIR-EFI-V1 ";
+    if (try file.read(&data) != 512 or !std.mem.startsWith(u8, &data, prefix)) return error.InvalidSeed;
+    const id = data[prefix.len..][0..34];
+    if (id[16] != ' ' or id[33] != '\n') return error.InvalidSeed;
+    for (id, 0..) |c, i| {
+        if (i != 16 and i != 33 and !(std.ascii.isDigit(c) or (c >= 'a' and c <= 'f'))) return error.InvalidSeed;
+    }
+    if (!std.mem.allEqual(u8, data[prefix.len + 34 .. 512], 0)) return error.UsedSeed;
+    return file;
+}
+const Phase = enum(u8) { entered = 1, capture, locate, allocate, install };
+fn mark(file: ?*File, phase: Phase, value: u64) void {
+    const f = file orelse return;
+    var block = [_]u8{0} ** 64;
+    _ = std.fmt.bufPrint(&block, "{s} {x:0>16}\n", .{ @tagName(phase), value }) catch return;
+    f.setPosition(@as(u64, @intFromEnum(phase)) * 64) catch return;
+    if ((f.write(&block) catch return) == block.len) f.flush() catch {};
+}
+fn publish(bs: *Services, file: ?*File) Status {
     var r = std.mem.zeroes(Record);
     r.signature = "OEMG".*;
     r.length = @sizeOf(Record);
@@ -184,8 +211,17 @@ fn publish(bs: *Services) !void {
     };
     // Ownership of this firmware-described private buffer crosses ExitBootServices.
     // Its pages stay reserved for this boot even if the GPU declines admission.
-    const pages = try bs.allocatePages(.{ .max_address = @ptrFromInt(0xfffff000) }, .acpi_memory_nvs, wire.AIR_BOOT_FRAMES);
-    errdefer bs.freePages(pages) catch {};
+    mark(file, .capture, (@as(u64, r.state) << 32) | r.step);
+    var interface: ?*const anyopaque = null;
+    const locate = bs._locateProtocol(&Acpi.guid, null, &interface);
+    mark(file, .locate, @intFromEnum(locate));
+    if (locate != .success) return locate;
+    const acpi: *Acpi = @ptrCast(@alignCast(@constCast(interface orelse return .not_found)));
+    var address: [*]align(4096) efi.Page = @ptrFromInt(0xfffff000);
+    const alloc = bs._allocatePages(.max_address, .acpi_memory_nvs, wire.AIR_BOOT_FRAMES, &address);
+    mark(file, .allocate, @intFromEnum(alloc));
+    if (alloc != .success) return alloc;
+    const pages = address[0..wire.AIR_BOOT_FRAMES];
     r.ram = @intFromPtr(pages.ptr);
     for (pages, 0..) |*page, i| {
         @memset(page, 0);
@@ -196,11 +232,15 @@ fn publish(bs: *Services) !void {
     r.checksum = 0 -% sum;
     var key: usize = 0;
     const installed = acpi.install(acpi, &r, @sizeOf(Record), &key);
-    if (installed != .success) return error.InstallTable;
+    mark(file, .install, @intFromEnum(installed));
+    if (installed != .success) bs.freePages(pages) catch {};
+    return installed;
 }
 pub fn main() Status {
     const bs = efi.system_table.boot_services orelse return .unsupported;
-    publish(bs) catch return .device_error;
+    const trace = openTrace(bs) catch null;
+    defer if (trace) |f| f.close() catch {};
+    mark(trace, .entered, 0);
     // The ACPI protocol copied the table. Its backing is ACPI NVS until reset.
-    return .success;
+    return publish(bs, trace);
 }

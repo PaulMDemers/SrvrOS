@@ -102,6 +102,25 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
                 self.assertEqual(result["range"]["slot"]["returned"], 0)
 
+    def test_efi_trace_is_bound_to_this_boot_and_records_partial_failures(self):
+        import air_efi_trace as trace
+        release = '0123456789abcdef'
+        files = trace.seed(release)
+        env = files[trace.GRUB].replace(b'prepared', b'returned')
+        probe = bytearray(files[trace.PROBE])
+        for i, (name, value) in enumerate((('entered', 0), ('capture', 2 << 32 | 6),
+                                           ('locate', 0x800000000000000e)), start=1):
+            row = f'{name} {value:016x}\n'.encode()
+            probe[i*64:i*64+len(row)] = row
+        receipt = trace.decode(env, probe, release)
+        self.assertEqual(receipt['probe']['locate'], 0x800000000000000e)
+        self.assertNotIn('allocate', receipt['probe'])
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            trace.decode(env, probe, release, 'different-boot')
+        probe[128:192] = bytes(64)
+        with self.assertRaisesRegex(ValueError, 'sequence'):
+            trace.decode(env, probe, release)
+
     def test_same_boot_efi_handoff(self):
         subprocess.run([ROOT / TARGET, "efi-import"], check=True, timeout=10)
         text = observe("pass")

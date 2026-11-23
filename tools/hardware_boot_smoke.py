@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise the staged GRUB -> Limine -> kernel path on a disposable QEMU ESP."""
 import argparse
+import air_efi_trace
+import sys
 import shutil
 import json
 import binascii
@@ -52,7 +54,7 @@ def shared_receipt(text):
         return buffers_view(text)
     return text
 
-def make_disk(path, loader, source, release, extra_files=None, *, ubuntu_grub=None, grub_cfg=None):
+def make_disk(path, loader, source, release, extra_files=None, *, ubuntu_grub=None, grub_cfg=None, progress=None, efi_fault=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
     first, sectors = 2048, size // 512
@@ -70,11 +72,21 @@ def make_disk(path, loader, source, release, extra_files=None, *, ubuntu_grub=No
         for directory in (ubuntu, fallback):
             fat.add_file(directory, "grub.cfg", grub_cfg.read_bytes())
     srvros = fat.add_dir(efi, "srvros")
+    for name, data in (progress or {}).items():
+        fat.add_file(srvros, name, data)
     payload = fat.add_dir(srvros, release)
     loader_dir = fat.add_dir(payload, "loader")
     for name in json.loads((source / "manifest.json").read_text())["sha256"]:
+        if efi_fault == "missing-helper" and name == boot.AIR_HANDOFF:
+            continue
         parent = loader_dir if name.startswith("loader/") else payload
-        fat.add_file(parent, Path(name).name, (source / name).read_bytes())
+        data = (source / name).read_bytes()
+        if efi_fault == "missing-acpi" and name == boot.AIR_HANDOFF:
+            protocol = uuid.UUID("ffe06bdd-6107-46a6-7bb2-5a9c7ec5275c").bytes_le
+            if data.count(protocol) != 1:
+                raise ValueError("Cannot uniquely substitute the fixture protocol")
+            data = data.replace(protocol, uuid.UUID("aa15eb00-b616-4f0a-9b41-faffaffac0dd").bytes_le)
+        fat.add_file(parent, Path(name).name, data)
     for name, data in (extra_files or {}).items():
         fat.add_file(fat.root_cluster, name, data)
     entries = bytearray(128 * 128)
@@ -212,6 +224,7 @@ def main():
     parser.add_argument("--ap-c3-sim",action="store_true",help="VM-only coordination rehearsal; no C3 or residency MSRs")
     parser.add_argument("--ap-cpus",type=int,choices=(1,2,4,6),default=4)
     parser.add_argument("--ap-inject",choices=("missing","fault","c3-missing","c3-early","c3-fault"))
+    parser.add_argument("--efi-probe-fault", choices=("missing-helper", "missing-acpi"), help="inject an EFI probe refusal only in the disposable VM image")
     parser.add_argument("--ubuntu-efi", type=Path, help="boot this Ubuntu shimx64.efi and grubx64.efi pair in OVMF")
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--release", help="verify this exact staged release; do not read or change latest")
@@ -313,10 +326,13 @@ def main():
     serial.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp:
         temp = Path(tmp)
+        progress = air_efi_trace.seed(release) if manifest.get("efi_trace_version") == 1 else {}
+        if args.efi_probe_fault and not (progress and args.probe_check and args.probe_missing_workspace):
+            parser.error("--efi-probe-fault requires a traced Air missing-workspace probe")
         cfg = temp / "grub.cfg"
         cfg.write_text("serial --unit=0 --speed=115200\nterminal_output console serial\n"
                        "echo SRVROS_GRUB_CHAINLOAD_TEST\nset default=srvros-current\n" +
-                       boot.grub_config("5352-5652", release, handoff_releases=(release,) if boot.AIR_HANDOFF in manifest["sha256"] else ()))
+                       boot.grub_config("5352-5652", release, handoff_releases=(release,) if boot.AIR_HANDOFF in manifest["sha256"] else (), trace_releases=(release,) if progress else ()))
         subprocess.run(["grub-script-check", str(cfg)], check=True)
         loader = temp / "BOOTX64.EFI"
         ubuntu_grub = None
@@ -338,7 +354,7 @@ def main():
                 p=vm_source/name;marker="srvros.ap=c3-test" if coord_capture else "srvros.capture=ap-ownership"
                 extra=(" srvros.ap-protocol=simulate" if args.ap_c3_sim else "")+(f" srvros.ap-inject={args.ap_inject}" if args.ap_inject else "")
                 p.write_text(p.read_text().replace(marker,marker+extra))
-        make_disk(disk, loader, vm_source, release, ubuntu_grub=ubuntu_grub, grub_cfg=cfg)
+        make_disk(disk, loader, vm_source, release, ubuntu_grub=ubuntu_grub, grub_cfg=cfg, progress=progress, efi_fault=args.efi_probe_fault)
         qmp_path = temp / "qmp.sock"
         command = [args.qemu, "-M", "q35", "-m", "2G",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
@@ -1418,6 +1434,22 @@ def main():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+                if progress and sys.exc_info()[0] is None:
+                    blobs = [subprocess.check_output(["mtype", "-i", f"{disk}@@1048576", f"::/EFI/srvros/{name}"])
+                             for name in (air_efi_trace.GRUB, air_efi_trace.PROBE)]
+                    expected = air_efi_trace.decode(progress[air_efi_trace.GRUB], progress[air_efi_trace.PROBE], release)
+                    trace = air_efi_trace.decode(*blobs, release, expected["nonce"])
+                    (logs/"efi-progress.json").write_text(json.dumps(trace, indent=2)+"\n")
+                    grub_state, checkpoints, kernel = "returned", dict.fromkeys(air_efi_trace.STAGES, 0), "ready"
+                    if args.efi_probe_fault == "missing-helper":
+                        grub_state, checkpoints, kernel = "load-failed", {}, "absent"
+                    elif args.efi_probe_fault == "missing-acpi":
+                        grub_state, kernel = "start-failed", "absent"
+                        checkpoints = dict(entered=0, capture=0, locate=0x800000000000000e)
+                    if trace["grub"] != grub_state or trace["probe"] != checkpoints:
+                        raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
+                    if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):
+                        raise ValueError("Missing kernel import checkpoint")
             if args.audio_check:
                 import wave
                 from array import array

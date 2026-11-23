@@ -92,7 +92,14 @@ New Air7,2 flush stages package the EFI handoff probe and Limine as separate
 files in the same verified payload. GRUB runs the probe and then directly
 chainloads Limine. Both exact-stage OVMF boots use copies of the unit's
 installed Ubuntu shim and GRUB. The save-and-return case verifies all 19
-reserved pages. The collector validates the boot producer, bound driver inventory and
+reserved pages. Traced releases seed two small files on the managed ESP
+before a one-shot boot. GRUB records the result of loading and starting
+the probe in `AIRBOOT.ENV`. The probe records entry, hardware capture,
+ACPI protocol lookup, page allocation and table installation in `AIRBOOT.LOG`.
+The workflow checks the release and per-install nonce and archives both files
+alongside `efi-returned.json`. The kernel supplies its independent ACPI import
+result in the matching USB boot log. These receipts are diagnostic only.
+The collector validates the boot producer, bound driver inventory and
 original seven entries in command-slot receipt v2. Earlier v1 receipts retain
 their original interpretation. [EFI handoff](intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 

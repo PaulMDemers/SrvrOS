@@ -26,7 +26,13 @@ confirms the direct GRUB boot repair. The EFI handoff prerequisite failed.
 
 The saved report cannot distinguish a probe load failure, an allocation or
 ACPI publication failure, or rejection during kernel import. The next trial
-needs separate evidence for each of those boundaries before retrying submission.
+instruments GRUB, the EFI helper and kernel import separately. The two boot-stage
+receipts live on the unit ESP and are diagnostic only. In QEMU the successful
+case records the three EFI service replies and a kernel import of `ready`.
+Removing the helper from the disposable ESP yields GRUB `load-failed`, an
+empty probe record and kernel import `absent`. A separate VM with an
+unavailable ACPI table protocol recorded entry, completed the capture, and
+saved `EFI_NOT_FOUND` at lookup before returning to GRUB.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page

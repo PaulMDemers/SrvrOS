@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Stage a RAM-backed hardware boot, then install it alongside Ubuntu's EFI loader."""
 import argparse
+import air_efi_trace
 import hashlib
 import json
 import os
@@ -788,6 +789,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         manifest = {"release": release, "sha256": hashes, "config_version": version,
                     "git_head": git_head,
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
+        if intel_gt_flush: manifest["efi_trace_version"] = 1
         if intel_stolen_capture:manifest['stolen_progress_version']=1
         if bind_source:
             manifest["source_bound"] = True
@@ -804,10 +806,14 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
     return release
 
 
-def grub_config(uuid, current, previous=None, *, handoff_releases=()):
+def grub_config(uuid, current, previous=None, *, handoff_releases=(), trace_releases=()):
     if not re.fullmatch(r"[0-9A-Fa-f-]+", uuid):
         raise ValueError("Unexpected EFI filesystem UUID")
     lines = ["set timeout_style=menu", "set timeout=5"]
+    if trace_releases:
+        lines += ["function air_mark {", '    if [ "$air_release" = "$air_expected" ]; then',
+                  '        set air_state="$1"', f"        save_env -f /EFI/srvros/{air_efi_trace.GRUB} air_state",
+                  "    fi", "}"]
     for role, release in (("current", current), ("previous", previous)):
         if release is None:
             continue
@@ -817,10 +823,19 @@ def grub_config(uuid, current, previous=None, *, handoff_releases=()):
                   "    insmod part_gpt", "    insmod fat", "    insmod chain",
                   f"    search --no-floppy --fs-uuid --set=root {uuid}"]
         if release in handoff_releases:
-            lines += ["    echo 'SrvrOS: reading the EFI display handoff'",
-                      f"    if chainloader /EFI/srvros/{release}/{AIR_HANDOFF}; then",
-                      "        boot", "    fi",
-                      "    echo 'SrvrOS: starting Limine'"]
+            lines.append("    echo 'SrvrOS: reading the EFI display handoff'")
+            chain = f"chainloader /EFI/srvros/{release}/{AIR_HANDOFF}"
+            if release in trace_releases:
+                trace = "/EFI/srvros/" + air_efi_trace.GRUB
+                lines += ["    insmod loadenv", "    unset air_release",
+                          f"    load_env -f {trace} air_release air_nonce",
+                          f"    set air_expected={release}", "    air_mark selected",
+                          f"    if {chain}; then", "        air_mark loaded",
+                          "        if boot; then air_mark returned; else air_mark start-failed; fi",
+                          "    else", "        air_mark load-failed", "    fi"]
+            else:
+                lines += [f"    if {chain}; then", "        boot", "    fi"]
+            lines.append("    echo 'SrvrOS: starting Limine'")
         lines += [f"    chainloader /EFI/srvros/{release}/loader/BOOTX64.EFI", "}"]
     return "\n".join(lines) + "\n"
 
@@ -892,6 +907,7 @@ def install(release=None, keep_previous=False):
         if not previous or previous == release:
             raise ValueError("No distinct previous release to preserve")
     handoff_releases = {release} if AIR_HANDOFF in manifest["sha256"] else set()
+    trace_releases = {release} if manifest.get("efi_trace_version") == 1 else set()
     if previous and AIR_HANDOFF in verify(BASE / previous)["sha256"]:
         handoff_releases.add(previous)
     # Refuse before any installation mutations if the recorded release that
@@ -899,7 +915,7 @@ def install(release=None, keep_previous=False):
     obsolete = old.get("previous")
     if obsolete and obsolete not in (release, previous):
         verify(BASE / obsolete)
-    config = grub_config(uuid, release, previous, handoff_releases=handoff_releases)
+    config = grub_config(uuid, release, previous, handoff_releases=handoff_releases, trace_releases=trace_releases)
     subprocess.run(["grub-script-check"], input=config, text=True, check=True)
     destination = BASE / release
     needed = sum((source / name).stat().st_size for name in (*manifest["sha256"], "manifest.json"))
@@ -920,6 +936,16 @@ def install(release=None, keep_previous=False):
             verify(payload, release)
             os.sync()
             payload.rename(destination)
+    if release in trace_releases:
+        progress = air_efi_trace.seed(release)
+        for name, data in progress.items():
+            path = BASE / name
+            if path.exists():
+                prefix = b'# GRUB Environment Block\nair_release=' if name == air_efi_trace.GRUB else air_efi_trace.HEADER
+                if path.is_symlink() or path.stat().st_size != len(data) or not path.read_bytes().startswith(prefix):
+                    raise ValueError('Unrecognized EFI diagnostic file: ' + str(path))
+        for name, data in progress.items():
+            atomic_write(BASE/name, data, 0o644)
     # Keep Ubuntu's existing GRUB_DEFAULT and firmware boot order. Only add entries.
     script = "#!/bin/sh\n" + MARKER + "\ncat <<'SRVROS_GRUB'\n" + config + "SRVROS_GRUB\n"
     backups = {path: (path.read_bytes(), path.stat().st_mode & 0o777) if path.exists() else None

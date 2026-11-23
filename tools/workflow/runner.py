@@ -12,6 +12,7 @@ import sys
 from hardware_boot import EDP_CONFIGS, verify, RELEASE_RE
 from hardware_test import check_ubuntu_default
 from intel_source_audit import audit_recipe, native_audit_result, verify_audit_checkpoint
+import air_efi_trace
 from workflow.store import Cache, atomic, encoded, files, sha, fsync_dir
 
 PHASES = ('NEW', 'VALIDATED', 'STAGED', 'QUALIFIED', 'INSTALLED', 'ARMED', 'BOOT_REQUESTED', 'COLLECTED')
@@ -531,6 +532,8 @@ class Runner:
             durable_copy(stage, bank)
         if verify(bank, release) != payload:
             raise ValueError('Payload bank mismatch')
+        if payload.get('efi_trace_version') == 1:
+            state['efi_trace_version'] = 1
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
 
@@ -614,6 +617,12 @@ class Runner:
                         raise ValueError('Host boot changed before reboot request')
                     self.guard(manifest, state, installed=True, armed=True)
                     self.media(directory, manifest)  # fresh offline checks and file/session baseline
+                    if state.get('efi_trace_version') == 1:
+                        trace = air_efi_trace.read(Path('/boot/efi/EFI/srvros'), state['release'])
+                        if trace['probe'] or trace['grub'] != 'prepared':
+                            raise ValueError('EFI progress seed already used')
+                        state['efi_trace_nonce'] = trace['nonce']
+                        atomic(directory/'efi-before.json', trace)
                     self.quiet(state)
                     self.finish(directory, state, 'BOOT_REQUESTED', status='awaiting native return')
                     os.sync()
@@ -640,6 +649,18 @@ class Runner:
             raise ValueError('Collector/source changed; archive raw evidence and review migration')
         self.begin(directory, state, 'collect')
         try:
+            if state.get('efi_trace_nonce'):
+                base = Path('/boot/efi/EFI/srvros')
+                try:
+                    blobs = []
+                    for name in (air_efi_trace.GRUB, air_efi_trace.PROBE):
+                        blob = (base/name).read_bytes()
+                        atomic(directory/name, blob)
+                        blobs.append(blob)
+                    trace = air_efi_trace.decode(*blobs, state['release'], state['efi_trace_nonce'])
+                except (OSError, ValueError) as error:
+                    trace = dict(error=str(error), release=state['release'])
+                atomic(directory/'efi-returned.json', trace)
             after = self.media(directory, manifest, returning=True)
             if len(after['new_sessions']) != 1:
                 raise ValueError('Expected one new session; raw evidence preserved')
@@ -657,6 +678,12 @@ class Runner:
             if row['releases'] != [state['release']] or not row['exit_snapshot_present']:
                 raise ValueError('Missing matching release/exit marker; not a pass')
             logs = directory / 'returned' / ('raw-' + session)
+            if state.get('efi_trace_nonce'):
+                lines = (logs/'boot.log').read_text().splitlines()
+                checkpoints = [line for line in lines if line.startswith('intel-efi-import: ')]
+                trace['session'] = session
+                trace['kernel_import'] = checkpoints[0] if len(checkpoints) == 1 else 'unavailable'
+                atomic(directory/'efi-returned.json', trace)
             expected_raw={'boot.log','session-a.log','exit.log'}
             if manifest.get('stolen_progress_version')==1:expected_raw.add('stolen-progress.log')
             if set(after['raw'][session]) != expected_raw:
