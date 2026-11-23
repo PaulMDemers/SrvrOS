@@ -1,0 +1,271 @@
+{
+  "scope": "GIO IP_TTL declaration and working SrvrOS IPv4 UDP/TCP unicast TTL",
+  "integration_base": "ee3c9db35bb196f1f7e35d0ca81de4e77899c0dc",
+  "tested_source": "12b43e880dab5d111597f88f2dd26f828d271d36",
+  "host_test_source": "a92e1efebe3c6663ef8ae7cb3cb979b0235bffea",
+  "source_sha256": {
+    "kernel/include/srvros/net.h": "8624e03e454a91e9a260a20afa33fcc59d5709ceeffe5a93600ed6b1798702ee",
+    "kernel/src/arch/x86_64/syscall.c": "7c810e662f35472ad2e86f824fc5a29fae006195a2a5305f3eb8436f99c5ae1f",
+    "kernel/src/net.c": "c8d1bf9b3bb45d4e9362af89927c9feb95b5d7b63ab309aa4dd8fc1dc927d01b",
+    "shared/include/srvros/syscall_numbers.h": "0f9f1fa063fa756e1a3c0354d4ea36b28efc938ef0cd992198a58e96c47241b4",
+    "tools/glib_platform_guest.py": "77b10eed3a7be280ed356c39826e0a263aa887ed7a1f4133c7f357631abc8530",
+    "tools/ipv4_ttl_test_peer.py": "82ea37f43299863f3863c929de617bae7d1f9e7f0c61b80f8a47d60f10a9d538",
+    "tools/posix_socket_host_names.h": "c5520b8d90a67e59e3bb57bfb8c32c7c96ecf39f0cb8db06bc7e30e6a930b5a6",
+    "tools/test_glib_ip_ttl_guest.c": "a88739faf9b3e939ea745cf696deea9149f12c0fd22299bf17bece049e83f2c9",
+    "tools/test_signal_experimental_admission.py": "f0f61b65dc6d76f811e75405ddda91863947190a997ed7b49e789660818f6c82",
+    "userspace/lib/include/netinet/in.h": "38ab09fe5c4c809f186b0314bd864ad93963cee79da778c961f5d0522ea1a96b",
+    "userspace/lib/src/posix_socket.c": "e5f78ac43a33b28e84aa12183d25f47ada57bf01022998f5cbd69974c2d8aa5d"
+  },
+  "owner_review": "Integration merged #538, reviewed IPv4 TTL and syscall 172 ownership, and reserved the private guest. Filesystem independently read back the ISO, serial and pcap and verified the socket and packet contract. The guest and peer stopped before the build rerun.",
+  "runtime_scope": {
+    "option": "Native int IP_TTL accepts 1 through 255 with -1 restoring the default 64. UDP and native TCP store TTL on the underlying endpoint. Pending TCP socket preferences are shared across SDK aliases and require a successful protocol availability probe.",
+    "packets": "The private e1000 peer verified two runs, UDP default/changed/isolation/reset/native alias values, TCP initial SYN and retransmission, listener SYN-ACK, inherited data, and subsequent connected/accepted data. It verified 30 guest IPv4 and 18 guest TCP checksums.",
+    "listener": "The existing same-owner legacy listener alias retains the shared TTL. Configured requests for that port return EADDRINUSE on a conflicting TTL. New inbound TCP connections snapshot the listener TTL on SYN.",
+    "boundaries": "IPv4 UDP/TCP unicast only. Existing raw calls retain the original default paths. Unrelated protocol traffic keeps its existing default. Experimental signal admission denies the new network syscall."
+  },
+  "host_checks": [
+    "test-socket-calls",
+    "test-socket-aliases",
+    "test-net-transfer",
+    "test-net-tcp-frontend",
+    "test-net-lifetime",
+    "test-syscall-io",
+    "signal experimental admission strict and ASan/UBSan"
+  ],
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "gresolver_object_exit": 0,
+    "static_gio_exit": 1,
+    "static_gio_errors": [
+      "../glib-2.90.1/gio/gsocket.c:1686:50: error: use of undeclared identifier 'IPV6_UNICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:1729:50: error: use of undeclared identifier 'IPV6_UNICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:1765:49: error: use of undeclared identifier 'SO_BROADCAST'",
+      "../glib-2.90.1/gio/gsocket.c:1797:49: error: use of undeclared identifier 'SO_BROADCAST'",
+      "../glib-2.90.1/gio/gsocket.c:1830:48: error: use of undeclared identifier 'IP_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1835:50: error: use of undeclared identifier 'IPV6_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1875:48: error: use of undeclared identifier 'IP_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1880:48: error: use of undeclared identifier 'IP_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1882:50: error: use of undeclared identifier 'IPV6_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1919:48: error: use of undeclared identifier 'IP_MULTICAST_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1924:50: error: use of undeclared identifier 'IPV6_MULTICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:1961:48: error: use of undeclared identifier 'IP_MULTICAST_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1966:48: error: use of undeclared identifier 'IP_MULTICAST_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1968:50: error: use of undeclared identifier 'IPV6_MULTICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:2495:22: error: variable has incomplete type 'struct ip_mreq'",
+      "../glib-2.90.1/gio/gsocket.c:2549:32: error: use of undeclared identifier 'IP_ADD_MEMBERSHIP'",
+      "../glib-2.90.1/gio/gsocket.c:2549:52: error: use of undeclared identifier 'IP_DROP_MEMBERSHIP'",
+      "../glib-2.90.1/gio/gsocket.c:2555:24: error: variable has incomplete type 'struct ipv6_mreq'",
+      "../glib-2.90.1/gio/gsocket.c:2566:30: error: use of undeclared identifier 'IPV6_JOIN_GROUP'"
+    ],
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+      "tools/glib-srvros-file-monitor.patch": "2d14f424f56755d4912bd235a6f524bde4b350576bb6e063f848dab0db168153",
+      "tools/glib-srvros-ip-tos.patch": "eee66b611927b6ec28b5e48584a51e349e2b9796dcdcf228f8d8f582f54633bb",
+      "tools/glib-srvros-ipv6-tclass.patch": "0661791ee733ae2e689ab42d3f9907d61f0cd501995b572ff282b0579f7e2c30",
+      "tools/glib-srvros-resolver-address.patch": "88f30d0864960c8cf4a023dda6822e32a3e6cecf88933152c03a37a4cd2a4f1a",
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/sysroot/srvros/include/sys/socket.h": "eb8871b8200057398548fb4687ba3719b3356b4e9f73124319943e611a15aacb",
+      "build/sysroot/srvros/include/netinet/in.h": "38ab09fe5c4c809f186b0314bd864ad93963cee79da778c961f5d0522ea1a96b",
+      "build/sysroot/srvros/include/limits.h": "b892cfff849b4e0afd5dbacbcb88fe281bc982760d74280f19a7e2bfada04339",
+      "build/sysroot/srvros/include/srvros/syscall_numbers.h": "0f9f1fa063fa756e1a3c0354d4ea36b28efc938ef0cd992198a58e96c47241b4",
+      "build/browser-gio-ip-ttl/sdk-kernel-build.log": "3ee2f75379ec64aa724ede216a9d91ef872df3b43dbc307b081f3d4eef4f47a0",
+      "build/browser-gio-ip-ttl/configure-gio.sh": "f19d2082b19fd4bbbc4643bfae4a8edefc119f2b2e0c4698e168080e851cb6aa",
+      "build/browser-gio-ip-ttl/configure.log": "4b344206fa9fd722bf9c718854529397c7ca1e18b8d42f643132efe143601099",
+      "build/browser-gio-ip-ttl/configure.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "build/browser-gio-ip-ttl/rerun-static-gio.sh": "813b03c260804a253c5b760b729b5874d786b2080bf14788cc2ccf7cc2e5089c",
+      "build/browser-gio-ip-ttl/static-gio.log": "826971efa36f8dcaf8b7f966b4a2fbe464f178b4bfa24c427793fa01f4fced95",
+      "build/browser-gio-ip-ttl/static-gio.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "build/browser-gio-ip-ttl/host-socket.log": "b412a01d5f67caa6eff1131f07224cc164a13dc2ce3ae3f2c729ec9ac918a52e",
+      "build/browser-gio-ip-ttl/host-network.log": "951b477dbbddee2ff5551a0cb8f221fea6c9c32e28fd300ee2e9eece379ab7dc",
+      "build/browser-gio-ip-ttl/host-signal-admission.log": "1fa36f0795de0abedd537d50703673d16eb2b4910d3011ae69a4286037723eb6",
+      "build/browser-gio-ip-ttl/host-signal/receipt.json": "1ce93618e4844b7f189d4853a94eb62b29eb14fdcec22781e07320e124af82da",
+      "build/browser-gio-ip-ttl/verify-guest.py": "ae3176ff19e6e721d2dd7cb911e45bebf0465255e5f0156624e755461f0fbd7b",
+      "build/browser-gio-ip-ttl/wire-readback.log": "acee26cd2ecba2b2abf2f5ab048701575ebaf9e7ecff5bb1f351aa2449b867a7",
+      "build/browser-gio-ip-ttl/glib-build/build.ninja": "d4a9b79bc9d7aa5208ad954463d8056555b2406cf56ec044dfab35b9b539e4a6",
+      "build/browser-gio-ip-ttl/glib-build/config.h": "ac60f9657dc1dc86f1292a34cfc5af79b703dd16ab843997fe4bc17ce9370f06",
+      "build/browser-gio-ip-ttl/glib-build/compile_commands.json": "046252b2fc1183d2b0b77fd070a4a490eae40771bdc6c7a780102272331c3e7c",
+      "build/browser-gio-ip-ttl/glib-build/meson-logs/meson-log.txt": "1a23c378e7a0a1b8269adc8890edf43157e172bbd9b637477308d1a08861abc9",
+      "build/browser-gio-ip-ttl/glib-build/gio/libgio-2.0.a.p/gresolver.c.o": "f6161b85920bc421413327024ddf1635980aff0a877b9043980b9982119af563",
+      "build/browser-gio-ip-ttl/glib-2.90.1/gio/gsocket.c": "371973b1d3f8a683a617b224bf62d66e84ceb4357bf8a746fbd7dd29a6157cc0",
+      "build/browser-gio-ip-ttl/glib-2.90.1/gio/gresolver.c": "dff0383dbb3f57815eebe648b1c5977e788fc4c8568c9c9b9b3c5c6d1c688fc1"
+    }
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest and a private e1000 IPv4 TTL peer",
+    "source": "12b43e880dab5d111597f88f2dd26f828d271d36",
+    "sdk_headers_sha256": "e914be4517bef880172c300e79b8422bebda89666f1077fd032afdc819cc2fb3",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "77b10eed3a7be280ed356c39826e0a263aa887ed7a1f4133c7f357631abc8530",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "a9dfc153aa329465240aad80b203ecf2b12838eb384f61d23fa4a2116432f965",
+      "build/userspace/init.elf": "ea6d39e85583c13b7f37760ed16a9074fc68cfc4f6b860950cdd2a685d37af42",
+      "build/sysroot/srvros/lib/libsrvros.a": "052cd5ae6f296079480f2b98c57b78a4f801299de2033c18912089d4ac55c490",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_ip_ttl_guest.c": "a88739faf9b3e939ea745cf696deea9149f12c0fd22299bf17bece049e83f2c9",
+      "tools/ipv4_ttl_test_peer.py": "82ea37f43299863f3863c929de617bae7d1f9e7f0c61b80f8a47d60f10a9d538"
+    },
+    "payload_sha256": "11aa019d85cc0d49b2629a7297d2fa61a7ece9636182e9dc37926558b34103c7",
+    "ip_ttl_payload_sha256": "4d42336ab1482ada97d44e0c619e89539daa47ee4f364de4bbebef517af63eca",
+    "image_sha256": "f0f31c2377e151ae843eff0e39d8288a2d96d2e0a9898f32f99b37be5d0e74ef",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-dilazq3b/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:<private-uart>,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-netdev",
+      "socket,id=fixture,fd=4",
+      "-device",
+      "e1000,netdev=fixture",
+      "-object",
+      "filter-dump,id=ttl-capture,netdev=fixture,file=build/browser-glib-prereq/guest-dilazq3b/ipv4-ttl.pcap"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-ip-ttl",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-ip-ttl",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "ipv4_ttl_peer_exit": 0,
+    "ipv4_ttl_peer_sha256": "db44f11f7b30c81a5c5596beacbf2c6acdb0c9d030d6d9ad173319569144e1b1",
+    "ipv4_ttl_capture_sha256": "1bd2267ed96aea1fb5155e5760826a1533a9d47133830f3172d145cbdc543ae6",
+    "ipv4_ttl_wire": {
+      "arp_requests": 1,
+      "checksum_verified_ipv4": 30,
+      "checksum_verified_tcp": 18,
+      "frames": 31,
+      "ignored_frames": 0,
+      "invalid_frames": 0,
+      "result": "passed",
+      "tcp_payloads": {
+        "tcp-accepted": [
+          49,
+          49
+        ],
+        "tcp-inherited": [
+          47,
+          47
+        ],
+        "tcp-out": [
+          43,
+          43
+        ]
+      },
+      "tcp_syn": [
+        41,
+        41
+      ],
+      "tcp_syn_retries": [
+        41,
+        41
+      ],
+      "tcp_synack": [
+        47,
+        47
+      ],
+      "udp": {
+        "tcp-listener-ready": [
+          64,
+          64
+        ],
+        "udp-changed": [
+          37,
+          37
+        ],
+        "udp-default": [
+          64,
+          64
+        ],
+        "udp-isolated": [
+          64,
+          64
+        ],
+        "udp-raw": [
+          53,
+          53
+        ],
+        "udp-reset": [
+          64,
+          64
+        ]
+      }
+    },
+    "serial_sha256": "b8cdb948dd6242aff8c9060ef1c79428fca1e8d782ae08af7c209a3cf031abb1"
+  },
+  "raw_guest_receipt_sha256": "c21735c3850fe281e0104dce206b1d0cfd14b757c1277b31d79a9badf2a3b041",
+  "iso_readback": {
+    "kernel_sha256": "a9dfc153aa329465240aad80b203ecf2b12838eb384f61d23fa4a2116432f965",
+    "initramfs_sha256": "56a1b4e02950f29a07e69ada942e4ccb652b109f2737df3c9c79014f0887dff5",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "98fb9a4a1f68d8c067e4e01353d9389d71812613fedfe3f83d1f91797a19c820",
+      "glib-ip-ttl": "72de67f331511ba42c9f17f2371019d0628dd5721c1dc2993f076fbb77e1802b"
+    },
+    "serial_zero_exits": 4
+  }
+}

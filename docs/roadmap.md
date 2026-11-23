@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated November 22, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 23, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -20,7 +20,7 @@ audit. Runtime and SrvrUI owner reviews are complete with explicit shared-memory
 wait and frame-completion implementation gates. No shared implementation or
 production capability change is in scope.
 
-The November 22 [GLib prerequisite probe](browser-glib-prereq.md) verifies
+The [GLib prerequisite probe](browser-glib-prereq.md) verifies
 native wait primitives and the iconv, PCRE2, libffi, zlib and proxy-libintl
 providers in the normal guest. Host GLib dispatches wakes and timers. Target
 GLib configures through its pinned internal `intl` fallback and the SDK's
@@ -40,7 +40,8 @@ IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
-Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
+IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
+Static GIO next stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c`.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026

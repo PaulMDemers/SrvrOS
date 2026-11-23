@@ -539,6 +539,16 @@ The guest stopped and the VM window was released. Fresh static GIO next
 stops at undeclared `IP_TTL` in `gsocket.c`.
 [Verification receipt](../assets/evidence/gio-somaxconn/receipt.json)
 
+## GIO IPv4 unicast TTL — November 23, 2026
+
+Merged OS #538 at `ee3c9db3` is the baseline. The rebuilt SDK and kernel
+passed both IPv4 TTL and both platform probes on a private diskless guest.
+The e1000 peer captured verified UDP and TCP wire TTL values, including a
+TCP SYN retransmission and listener SYN-ACK. ISO readback matched, the guest
+and peer stopped, and the VM window was released. The fresh standard static
+GIO build stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c:1686`.
+[Verification receipt](../assets/evidence/gio-ip-ttl/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

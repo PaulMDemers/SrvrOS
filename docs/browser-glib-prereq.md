@@ -1,6 +1,6 @@
 # GLib 2.90.1 prerequisites on SrvrOS
 
-November 22, 2026. The original target configure stopped at GLib's
+Updated November 23, 2026. The original target configure stopped at GLib's
 `sys/poll.h` lookup. A diagnostic copy using the SDK's `<poll.h>` reached
 the missing `iconv` dependency. GLib now configures through the SrvrOS
 poll fallback, GNU libiconv, PCRE2 8-bit, bundled GVDB, libffi, zlib,
@@ -14,7 +14,8 @@ Linked guests verified the IPv4 ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
-Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
+IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
+Static GIO next stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -622,6 +623,32 @@ TCP uses a separate shared eight-entry pending pool. Its existing
 `listen()` path ignores the numeric backlog. Fresh static GIO advanced
 past `SOMAXCONN` and stopped at undeclared `IP_TTL` in `gsocket.c:1681`.
 [Verification receipt](assets/evidence/gio-somaxconn/receipt.json)
+
+## IPv4 unicast TTL
+
+After OS #538 landed at `ee3c9db3`, the SDK exported `IP_TTL` through
+`<netinet/in.h>` and added working IPv4 UDP and TCP get/set support. The
+native `int` option accepts 1 through 255, with `-1` restoring the default
+of 64. Native aliases share the endpoint setting. A TCP socket can set
+its TTL before connect or listen. An inbound connection inherits the
+listener's TTL at SYN time. A legacy same-owner alias retains the shared
+listener's setting, and a conflicting configured listen returns `EADDRINUSE`.
+[Upstream GIO unicast TTL contract](https://docs.gtk.org/gio/method.Socket.set_ttl.html)
+
+Two runs in the same private diskless guest verified UDP default, change,
+socket isolation, reset and alias behavior. The private e1000 peer captured
+TCP's first and retransmitted SYN, the listener's SYN-ACK, and data sent
+with inherited and updated TTL values. It verified 30 guest IPv4 header
+checksums and 18 guest TCP checksums. Both platform controls also passed.
+Integration reviewed the shared runtime and coordinated the guest.
+Filesystem independently checked the stopped guest's ISO, serial and capture.
+The guest and peer stopped and the VM window was released.
+
+Host socket and network regressions passed, including the experimental
+signal image's refusal of the new syscall. The option covers IPv4 unicast.
+Fresh pinned GLib configure passed, and the static GIO build advanced past
+`IP_TTL` to undeclared `IPV6_UNICAST_HOPS` at `gio/gsocket.c:1686`.
+[Verification receipt](assets/evidence/gio-ip-ttl/receipt.json)
 
 ## Verification
 

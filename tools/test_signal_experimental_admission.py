@@ -30,8 +30,19 @@ fixture = r'''
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
+#include <srvros/process_credentials.h>
 #include <srvros/syscall_numbers.h>
 struct isr_frame {uint64_t rax,rdi,rsi,rdx,rcx,r8,r9;};
+struct process;
+struct process_credentials {uint32_t uid;};
+/* Model the privileged process for the experimental gate checks. */
+static struct process *process_current(void) {return NULL;}
+static struct process_credentials process_get_credentials(const struct process *p) {
+    assert(!p);return (struct process_credentials){.uid=0};
+}
+static bool process_fd_is_console(struct process *p,uint64_t fd,bool input) {
+    (void)p;(void)fd;(void)input;assert(0);return false;
+}
 static unsigned backends,copies,handles,membership,fd_checks;
 static unsigned irq_saves,irq_restores,io_safety,io_waits,io_begins,io_ends;
 static bool io_admit=true;
@@ -82,11 +93,15 @@ int main(void) {
 #endif
     }
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
-    struct isr_frame f={.rax=SYS_WRITE,.rdi=1};
+    struct isr_frame f={.rax=SYS_NET_IPV4_TTL,.rdi=SRV_NET_TTL_CONNECT};
+    syscall_dispatch(&f);
+    assert((int64_t)f.rax==SRV_ERR_NOTSUP && !backends && !fd_checks);
+    assert(!irq_saves && !irq_restores && !io_safety && !io_waits && !io_begins && !io_ends);
+    f=(struct isr_frame){.rax=SYS_WRITE,.rdi=1};
     assert(signal_experimental_raw_allowed(&f) && fd_checks==1);
     f.rdi=9;assert(!signal_experimental_raw_allowed(&f) && fd_checks==2);
     f.rax=SYS_RANDOM;assert(signal_experimental_raw_allowed(&f));
-    puts("signal-admission: experimental scope/stream denied before effects");
+    puts("signal-admission: experimental scope/stream/IPv4 TTL denied before effects");
 #else
     backends=copies=handles=0;irq_saves=irq_restores=io_safety=io_waits=io_begins=io_ends=0;
     io_admit=false;struct isr_frame f={.rax=SYS_FILE_STREAM,.rdi=1};

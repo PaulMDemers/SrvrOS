@@ -48,6 +48,11 @@ int64_t net_respond_try_checked(uint64_t handle, const char *data, uint64_t leng
     const struct net_transfer *transfer);
 int64_t net_udp_send_checked(uint64_t handle, uint32_t ip, uint16_t port,
     const uint8_t *data, uint64_t length, bool nonblock, const struct net_transfer *transfer);
+/* Option access is serialized with descriptor lookup on CPU0. A stored zero
+ * selects the default TTL. Configured TCP opens apply TTL before sending. */
+int64_t net_ipv4_ttl(uint64_t handle, bool set, uint8_t ttl);
+int64_t net_connect_with_ttl(uint32_t ip, uint16_t port, bool nonblock, uint8_t ttl);
+int64_t net_listen_with_ttl(uint16_t port, uint8_t ttl);
 
 void net_init(void);
 /* Explicit one-shot native probe:register the secured provider first. Refuses

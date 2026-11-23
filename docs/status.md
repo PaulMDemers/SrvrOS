@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-11-22. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-23. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -35,7 +35,8 @@ ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
-Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
+IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
+Static GIO next stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
