@@ -43,7 +43,9 @@ The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
 IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
 The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported.
 IPv4 UDP `SO_BROADCAST` passed guest packet verification.
-Static GIO next stops at undeclared `IP_MULTICAST_LOOP` in `gsocket.c`.
+The SDK declares `IP_MULTICAST_LOOP` for GIO. IPv4 UDP calls for this option
+return `ENOSYS`.
+Static GIO next stops at undeclared `IPV6_MULTICAST_LOOP` in `gsocket.c`.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026

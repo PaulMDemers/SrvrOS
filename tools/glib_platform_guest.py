@@ -42,6 +42,7 @@ SOMAXCONN_MARKER = b'glib-somaxconn: ok'
 IP_TTL_MARKER = b'glib-ip-ttl: ok'
 IPV6_UNICAST_HOPS_MARKER = b'glib-ipv6-unicast-hops: ok'
 SO_BROADCAST_MARKER = b'glib-so-broadcast: ok'
+IP_MULTICAST_LOOP_MARKER = b'glib-ip-multicast-loop: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
@@ -190,6 +191,7 @@ def main():
     parser.add_argument('--ip-ttl', action='store_true', help='test per-socket IPv4 TTL against a private peer')
     parser.add_argument('--ipv6-unicast-hops', action='store_true', help='test IPv6 unicast option refusal without network')
     parser.add_argument('--so-broadcast', action='store_true', help='test IPv4 UDP broadcast against a private peer')
+    parser.add_argument('--ip-multicast-loop', action='store_true', help='test explicit IPv4 multicast loop option refusal')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
@@ -282,7 +284,8 @@ def main():
                       ('somaxconn', args.somaxconn, SOMAXCONN_MARKER),
                       ('ip-ttl', args.ip_ttl, IP_TTL_MARKER),
                       ('ipv6-unicast-hops', args.ipv6_unicast_hops, IPV6_UNICAST_HOPS_MARKER),
-                      ('so-broadcast', args.so_broadcast, SO_BROADCAST_MARKER))
+                      ('so-broadcast', args.so_broadcast, SO_BROADCAST_MARKER),
+                      ('ip-multicast-loop', args.ip_multicast_loop, IP_MULTICAST_LOOP_MARKER))
         for name, enabled, marker in sdk_probes:
             if not enabled:
                 continue
@@ -391,6 +394,7 @@ def main():
         receipt['image_sha256'] = digest(image)
         ttl_peer = ROOT / 'tools/ipv4_ttl_test_peer.py' if args.ip_ttl else None
         broadcast_peer = ROOT / 'tools/ipv4_broadcast_test_peer.py' if args.so_broadcast else None
+        idle_nic = args.gio_ip_tos is not None or args.ip_multicast_loop
         if ttl_peer:
             receipt['inputs_sha256'][str(ttl_peer.relative_to(ROOT))] = digest(ttl_peer)
             receipt['scope'] += ' and a private e1000 IPv4 TTL peer'
@@ -398,11 +402,11 @@ def main():
             for path in (broadcast_peer, ROOT / 'tools/ipv4_ttl_test_peer.py'):
                 receipt['inputs_sha256'][str(path.relative_to(ROOT))] = digest(path)
             receipt['scope'] += ' and a private e1000 IPv4 broadcast peer'
-        elif args.gio_ip_tos and not dns_peer:
+        elif idle_nic and not dns_peer:
             receipt['scope'] += ' and a private e1000 on an idle local socketpair'
         probe_timeouts = {'gio-poll-monitor': 90, 'glib-ip-ttl': 30}
         run_guest(image, output, receipt, probes, dns_peer, workspace,
-                  probe_timeouts, idle_nic=args.gio_ip_tos is not None,
+                  probe_timeouts, idle_nic=idle_nic,
                   ttl_peer=ttl_peer, broadcast_peer=broadcast_peer)
         receipt['result'] = 'passed'
     except Exception as error:
