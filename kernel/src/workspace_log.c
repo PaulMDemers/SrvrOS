@@ -26,7 +26,7 @@ static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
 static uint64_t wifi_replug_saved_prefix;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
-static bool retain_checkpoints,wifi_capture_parked;
+static bool retain_checkpoints,wifi_capture_parked,allow_extended_wrap;
 static bool ecam_saved,window_saved;
 static uint64_t due;
 static struct scheduler_wait_queue wake;
@@ -356,7 +356,7 @@ static bool save_snapshot(const char *name,uint64_t saved_prefix,uint64_t *saved
         }
         bytes+=saved_prefix-(total-count);
         count=total-saved_prefix;
-    } else if(snapshot_limit>BOOTLOG_DEFAULT_CAPACITY && total!=count) {
+    } else if(snapshot_limit>BOOTLOG_DEFAULT_CAPACITY && !allow_extended_wrap && total!=count) {
         console_write("workspace-log: SAVE FAILED extended capture prefix lost\n");
         return false;
     }
@@ -431,13 +431,14 @@ static void worker(void *arg) {
         periodic_attempt();
     }
 }
-static bool start(uint64_t limit,bool retain) {
+static bool start(uint64_t limit,bool retain,bool rolling) {
     if(enabled || busy || wifi_capture_parked || !workspace_active()) return false;
     if(limit>BOOTLOG_DEFAULT_CAPACITY && !bootlog_extend_capture_to(limit)) {
         console_write("workspace-log: REFUSED extended capture prefix lost\n");
         return false;
     }
     snapshot_limit=limit;
+    allow_extended_wrap=rolling;
     wifi_replug_saved_prefix=0;
     (void)scheduler_io_observe_reset();
     uint64_t flags;if(!begin(&flags)) return false;
@@ -472,11 +473,14 @@ static bool start(uint64_t limit,bool retain) {
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }
-bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY,false); }
-bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY,false); }
-bool workspace_log_start_large_capture(void) { return start(BOOTLOG_LARGE_CAPTURE_CAPACITY,false); }
-bool workspace_log_start_full_capture(void) { return start(BOOTLOG_FULL_CAPTURE_CAPACITY,false); }
-bool workspace_log_start_checkpoints(void) { return start(BOOTLOG_DEFAULT_CAPACITY,true); }
+bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY,false,false); }
+bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY,false,false); }
+bool workspace_log_start_large_capture(void) { return start(BOOTLOG_LARGE_CAPTURE_CAPACITY,false,false); }
+bool workspace_log_start_full_capture(void) { return start(BOOTLOG_FULL_CAPTURE_CAPACITY,false,false); }
+/* Sound is untimed. Once the initial snapshot is durable, retain a tail
+ * even past the larger buffer's capacity. */
+bool workspace_log_start_sound_trial(void) { return start(BOOTLOG_FULL_CAPTURE_CAPACITY,false,true); }
+bool workspace_log_start_checkpoints(void) { return start(BOOTLOG_DEFAULT_CAPACITY,true,false); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);
@@ -585,10 +589,10 @@ bool workspace_storage_wait_capture(void) {
     return ok && completed==18 && restored;
 }
 
-bool workspace_log_start_radio_capture(void) { return start(BOOTLOG_RADIO_CAPTURE_CAPACITY,false); }
-bool workspace_log_start_cal5_capture(void) { return start(BOOTLOG_CAL5_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_radio_capture(void) { return start(BOOTLOG_RADIO_CAPTURE_CAPACITY,false,false); }
+bool workspace_log_start_cal5_capture(void) { return start(BOOTLOG_CAL5_CAPTURE_CAPACITY,false,false); }
 
-bool workspace_log_start_extended_capture(void) { return start(BOOTLOG_EXTENDED_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_extended_capture(void) { return start(BOOTLOG_EXTENDED_CAPTURE_CAPACITY,false,false); }
 
 bool workspace_log_begin_wifi_capture(void) {
     if(!enabled || wifi_capture_parked || !healthy ||

@@ -9,6 +9,7 @@ bool workspace_log_start_capture(void);
 bool workspace_log_start_large_capture(void);
 /* Explicit larger RF prerequisite profile only; retain the full startup prefix. */
 bool workspace_log_start_full_capture(void);
+bool workspace_log_start_sound_trial(void);
 bool workspace_log_start_extended_capture(void);
 bool workspace_log_start_radio_capture(void);
 /* Separate fixed capture for all calibration cleanup rounds; ordinary limits unchanged. */

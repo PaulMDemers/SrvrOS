@@ -209,6 +209,18 @@ uses main `50f1978a`; building on newer `4c95594e` hit duplicate `fnmatch`
 symbols in the bundled grep and diff ports. Ubuntu's default and the prior
 automatic-routing payload were verified before arming the one-shot boot.
 
+The follow-up native session `session-000660e887789241-00` saved startup,
+Help launch, and 12 minutes of periodic diagnostics. Its last snapshot
+contained 518185 bytes, just below the 512 KiB limit. There is no `exit.log`
+and the available logs contain zero Settings test tones, Sound menu actions,
+or active PCM streams. The operator reported that sound appeared to work.
+The workspace was clean with all 560 prior files intact. The outstanding
+physical checks remain open. This candidate selected the full-prefix capture
+used by bounded diagnostics, which refuses writes once the ring wraps. Sound
+now uses its own 512 KiB rolling policy. The host regression checks that
+periodic and final saves survive rollover and that full-prefix captures still
+refuse incomplete evidence.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold

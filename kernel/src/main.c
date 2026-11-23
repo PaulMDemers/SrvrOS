@@ -911,7 +911,7 @@ static void retina_desktop_trial(const char *cmdline) {
     /* An untimed trial needs rolling snapshots after the boot log wraps. */
     if (!workspace_active()) {
         console_write("retina-trial: workspace unavailable; desktop skipped\n");
-    } else if (!(sound_trial ? workspace_log_start_full_capture() : workspace_log_start())) {
+    } else if (!(sound_trial ? workspace_log_start_sound_trial() : workspace_log_start())) {
         console_write("retina-trial: logging unavailable; desktop skipped\n");
     } else {
         const char *args = sound_trial ? "--sound-trial --scale=2" :

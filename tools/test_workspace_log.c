@@ -249,7 +249,21 @@ int main(void) {
     snapshot_bytes=BOOTLOG_FULL_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
     assert(!workspace_log_start_full_capture() && writes==old_writes);extend_ok=true;
     assert(workspace_log_start_full_capture() && snapshot_limit==BOOTLOG_FULL_CAPTURE_CAPACITY);
-    assert(workspace_log_stop());snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
+    assert(workspace_log_stop());
+    snapshot_bytes=8;
+    assert(workspace_log_start_sound_trial() && snapshot_limit==BOOTLOG_FULL_CAPTURE_CAPACITY);
+    strcpy(initial_log,path);
+    snapshot_bytes=BOOTLOG_FULL_CAPTURE_CAPACITY+123;total=snapshot_bytes;
+    ticks=due;periodic_attempt();
+    assert(enabled && healthy && find(path)->node.size==BOOTLOG_FULL_CAPTURE_CAPACITY);
+    assert(workspace_log_stop());
+    assert(find(initial_log)->node.size==8 && !memcmp(find(initial_log)->bytes,"test log",8));
+    tail=find(path);
+    assert(tail && tail->node.size==BOOTLOG_FULL_CAPTURE_CAPACITY);
+    for(uint64_t i=0;i<tail->node.size;i++)assert(tail->bytes[i]==(snapshot_bytes-tail->node.size+i)%251);
+    puts("workspace-log: PASS Sound rolling periodic and exit snapshots past 512 KiB, strict capture still protected");
+    snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
     assert(!workspace_log_start_extended_capture() && writes==old_writes);extend_ok=true;
     assert(workspace_log_start_extended_capture() && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
 
