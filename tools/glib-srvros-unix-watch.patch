@@ -1,0 +1,88 @@
+--- glib/gmain.c
++++ glib/gmain.c
+@@ -71,0 +72,5 @@
++#if defined(__SRVROS__) && !defined(NSIG)
++#include <limits.h>
++/* The SDK indexes its signal mask by signum, with slot zero reserved. */
++#define NSIG ((int) (sizeof (sigset_t) * CHAR_BIT))
++#endif
+@@ -5977,2 +5982,5 @@
+-  unix_child_watches = g_slist_remove (unix_child_watches, source);
+-  unref_unix_signal_handler_unlocked (SIGCHLD);
++  if (g_slist_find (unix_child_watches, source))
++    {
++      unix_child_watches = g_slist_remove (unix_child_watches, source);
++      unref_unix_signal_handler_unlocked (SIGCHLD);
++    }
+@@ -6140 +6148 @@
+-static void
++static gboolean
+@@ -6145,2 +6153 @@
+-  unix_signal_refcount[signum]++;
+-  if (unix_signal_refcount[signum] == 1)
++  if (unix_signal_refcount[signum] == 0)
+@@ -6150,0 +6158 @@
++      action.sa_flags = 0;
+@@ -6152,3 +6160 @@
+-      action.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+-#else
+-      action.sa_flags = SA_NOCLDSTOP;
++      action.sa_flags |= SA_RESTART;
+@@ -6155,0 +6162,2 @@
++#ifndef __SRVROS__
++      action.sa_flags |= SA_NOCLDSTOP;
+@@ -6159,2 +6167,6 @@
+-      sigaction (signum, &action, NULL);
+-    }
++#endif
++      if (sigaction (signum, &action, NULL) < 0)
++        return FALSE;
++    }
++  unix_signal_refcount[signum]++;
++  return TRUE;
+@@ -6255 +6267,9 @@
+-  ref_unix_signal_handler_unlocked (signum);
++  if (!ref_unix_signal_handler_unlocked (signum))
++    {
++      const int saved_errno = errno;
++      G_UNLOCK (unix_signal_lock);
++      g_source_unref (source);
++      g_warning ("Cannot install signal handler for %d: %s", signum,
++                 g_strerror (saved_errno));
++      return NULL;
++    }
+@@ -6271,2 +6291,5 @@
+-  unref_unix_signal_handler_unlocked (unix_signal_source->signum);
+-  unix_signal_watches = g_slist_remove (unix_signal_watches, source);
++  if (g_slist_find (unix_signal_watches, source))
++    {
++      unref_unix_signal_handler_unlocked (unix_signal_source->signum);
++      unix_signal_watches = g_slist_remove (unix_signal_watches, source);
++    }
+@@ -6547 +6570,9 @@
+-  ref_unix_signal_handler_unlocked (SIGCHLD);
++  if (!ref_unix_signal_handler_unlocked (SIGCHLD))
++    {
++      const int saved_errno = errno;
++      G_UNLOCK (unix_signal_lock);
++      g_source_unref (source);
++      g_warning ("Cannot install signal handler for %d: %s", SIGCHLD,
++                 g_strerror (saved_errno));
++      return NULL;
++    }
+@@ -6611,0 +6643,2 @@
++  if (source == NULL)
++    return 0;
+--- glib/glib-unix.c
++++ glib/glib-unix.c
+@@ -264,0 +265,2 @@
++  if (source == NULL)
++    return 0;
+--- glib/gwakeup.c
++++ glib/gwakeup.c
+@@ -144,2 +144,3 @@
+-  /* try eventfd first, if we think we can */
+-#if defined (HAVE_EVENTFD)
++  /* SrvrOS eventfd is a libc-managed descriptor with locking. Use the
++   * native pipe path for wakeups written from signal handlers. */
++#if defined (HAVE_EVENTFD) && !defined (__SRVROS__)

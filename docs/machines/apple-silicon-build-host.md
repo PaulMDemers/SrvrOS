@@ -268,6 +268,15 @@ The exact GLib hostname object compiled. The static build stops at
 `NSIG` and `SA_NOCLDSTOP` in `gmain.c`. See the
 [hostname receipt](../assets/evidence/glib-hostname/receipt.json).
 
+## GLib Unix child watches — November 22, 2026
+
+The browser topic starts from main after PR #520. The scope is pinned
+GLib's signal indexing, registration flags and failed watch creation.
+Integration found no active signal-runtime owner or overlapping change.
+The implementation uses the existing SDK signal and wait APIs. The
+checkpoint is a matched guest child-exit probe and the first static
+GLib/GIO build result.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
