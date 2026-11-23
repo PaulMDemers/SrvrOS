@@ -247,6 +247,7 @@ class VM:
     def __init__(self, disk, out, label, args, mode):
         self.disk, self.out, self.label, self.args, self.mode = disk, out, label, args, mode
         self.output = bytearray(); self.cursor = 0
+        self.extra_redactions = []
         self.serial = self.qmp = self.proc = self.log = self.tmp = None
 
     def __enter__(self):
@@ -315,6 +316,19 @@ class VM:
         part = bytes(self.output[self.cursor:pos]); self.cursor = pos
         return part
 
+    def wait_events(self, markers, start, timeout=90):
+        deadline = time.monotonic() + timeout
+        while not all(marker in self.output[start:] for marker in markers):
+            if time.monotonic() > deadline or self.proc.poll() is not None:
+                raise RuntimeError(f'{self.label}: missing background process event')
+            try:
+                chunk = self.serial.recv(16384)
+                if not chunk: raise RuntimeError('serial disconnected')
+                self.output.extend(chunk)
+            except socket.timeout: pass
+        self.cursor = len(self.output)
+        return bytes(self.output[start:])
+
     def send(self, line):
         self.serial.sendall(line + b'\n')
 
@@ -324,6 +338,7 @@ class VM:
         result = re.search(rb'run: pid=\d+ exited status=(\d+)', self.output[start:])
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: command failed: {command}')
+        return bytes(self.output[start:])
 
     def command_refused(self, command):
         start = len(self.output); self.send(('run ' + command).encode('ascii'))
@@ -332,6 +347,27 @@ class VM:
         result = re.search(rb'run: pid=\d+ exited status=(\d+)', segment)
         if not result or int(result.group(1)) == 0 or b'New password: ' in segment:
             raise RuntimeError(f'{self.label}: expected command refusal: {command}')
+        return segment
+
+    def paused_data_hash(self):
+        self.qmp.call('stop')
+        try:
+            if self.qmp.call('query-status').get('status') != 'paused':
+                raise RuntimeError('QEMU did not pause before inspection')
+            _, (offset, size) = proof.partitions(self.disk)
+            return region_hash(self.disk, offset, size)
+        finally:
+            self.qmp.call('cont')
+
+    def paused_account_snapshot(self):
+        self.qmp.call('stop')
+        try:
+            if self.qmp.call('query-status').get('status') != 'paused':
+                raise RuntimeError('QEMU did not pause for account readback')
+            return (account_bytes(self.disk), marker_bytes(self.disk, 'accounts.tmp'),
+                    marker_bytes(self.disk, 'enroll.lock'))
+        finally:
+            self.qmp.call('cont')
 
     def enroll(self, name, uid):
         start = len(self.output)
@@ -486,13 +522,56 @@ class VM:
         # Buffer in memory until here so even a split echoed password never
         # reaches evidence; retain a redacted diagnostic if the test fails.
         safe = bytes(self.output)
-        for secret in SECRETS:
+        for secret in SECRETS + tuple(self.extra_redactions):
             # Also scrub a partially echoed secret if the guest disconnected
             # midway through input; do not retain recognizable prefixes.
             for length in range(len(secret), 2, -1):
                 safe = safe.replace(secret[:length], b'[REDACTED]')
         (self.out / ('serial-' + self.label + '.log')).write_bytes(safe)
         if self.tmp: self.tmp.cleanup()
+
+
+def assert_report_private(segment, rows=None):
+    # The test secrets and the committed cryptographic fields must not appear
+    # in any inspection or cleanup report; never print the fields on failure.
+    sensitive = list(SECRETS)
+    if rows is not None:
+        for fields in rows.values(): sensitive.extend(fields[4:6])
+    if any(value and value in segment for value in sensitive):
+        raise RuntimeError('account recovery report exposed credential material')
+
+
+def inspect_and_clear(vm, committed, staged, lock_present, staged_is_database=True):
+    rows = account_rows(committed)
+    for values in rows.values(): vm.extra_redactions.extend(values[4:6])
+    if staged is not None and staged_is_database:
+        for values in account_rows(staged).values(): vm.extra_redactions.extend(values[4:6])
+    vm.command('/fat/bin/sync')
+    before = vm.paused_data_hash()
+    report = vm.command('/fat/bin/local-enroll recover-store')
+    for name, fields in rows.items():
+        state = b'enabled' if fields[3] == b'1' else b'suspended'
+        if not re.search(rb'(?:^|[\r\n])account ' + re.escape(name) + b' ' + state + rb'(?:[\r\n]|$)', report):
+            raise RuntimeError('recovery inspection omitted expected account state')
+    for name, present in ((b'accounts.tmp', staged is not None), (b'enroll.lock', lock_present)):
+        expected = b'local-enroll: ' + name + (b' present' if present else b' absent')
+        if expected not in report: raise RuntimeError('recovery inspection reported wrong marker state')
+    assert_report_private(report, rows)
+    if staged is not None and staged_is_database: assert_report_private(report, account_rows(staged))
+    vm.command('/fat/bin/sync')
+    after = vm.paused_data_hash()
+    if before != after: raise RuntimeError('read-only recovery inspection changed guest data partition')
+    result = vm.command('/fat/bin/local-enroll recover-store --clear-pending')
+    if b'local-enroll: pending markers cleared' not in result:
+        raise RuntimeError('recovery did not report clearing pending markers')
+    assert_report_private(result, rows)
+    if staged is not None and staged_is_database: assert_report_private(result, account_rows(staged))
+    result = vm.command('/fat/bin/local-enroll recover-store --clear-pending')
+    if b'local-enroll: no pending markers' not in result:
+        raise RuntimeError('repeated recovery did not report clean no-op')
+    assert_report_private(result, rows)
+    if staged is not None and staged_is_database: assert_report_private(result, account_rows(staged))
+    return before
 
 
 def main():
@@ -531,7 +610,7 @@ def main():
         receipt['diagnostic_session_sha256'] = sha(diagnostic)
         reset_tool = runtime_elf((ROOT / 'build/userspace/test_local_auth_reset.elf').read_bytes())
         receipt['diagnostic_reset_sha256'] = sha(reset_tool)
-        fs.add_directory_files('signin-test', {'session': diagnostic, 'reset': reset_tool})
+        fs.add_directory_files('signin-test', {'session': diagnostic, 'reset': reset_tool, 'hold': reset_tool})
         volume = out / 'fixture.exfat'; volume.write_bytes(fs.data)
         plan, ready = prepare_stage(out / 'local', 'local', volume=volume)
         target = out / 'local/image.img'
@@ -559,6 +638,7 @@ def main():
         if region_hash(target, *data) != initial_data_hash: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'enroll', args, 'recovery') as vm:
             vm.command('/fat/bin/chmod 755 /fat/signin-test/reset')
+            vm.command('/fat/bin/chmod 755 /fat/signin-test/hold')
             for name, uid in (('alpha',1001), ('beta',1002), ('disabled',1003)):
                 vm.enroll(name, uid)
             vm.command('/fat/bin/local-enroll disable disabled')
@@ -691,8 +771,7 @@ def main():
             before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
             with VM(target, out, 'reset-' + checkpoint + '-recovery', args, 'recovery') as vm:
-                if staged is not None: vm.command('/fat/bin/rm /fat/etc/local-auth/accounts.tmp')
-                vm.command('/fat/bin/rm /fat/etc/local-auth/enroll.lock')
+                inspection_hash = inspect_and_clear(vm, interrupted, staged, True)
                 vm.finish()
             if (account_bytes(target) != interrupted or marker_bytes(target, 'accounts.tmp') is not None or
                 marker_bytes(target, 'enroll.lock') is not None):
@@ -712,7 +791,8 @@ def main():
             alpha_password = accepted
             original_accounts = account_bytes(target)
             receipt['cases'].append({'reset_interruption': checkpoint, 'real_marker_refusal': 'PASS',
-                'committed_store_preserved_during_recovery': 'PASS', 'expected_credentials': 'PASS',
+                'committed_store_preserved_during_recovery': 'PASS', 'read_only_inspection': 'PASS',
+                'inspection_data_sha256': inspection_hash, 'recovery_noop': 'PASS', 'expected_credentials': 'PASS',
                 'both_users_data_and_permissions': 'PASS', 'committed_sha256': sha(interrupted)})
             save()
         # A disabled account can be reset without becoming enabled.  Stock
@@ -799,8 +879,7 @@ def main():
             before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
             with VM(target, out, 'enable-' + checkpoint + '-recovery', args, 'recovery') as vm:
-                if staged is not None: vm.command('/fat/bin/rm /fat/etc/local-auth/accounts.tmp')
-                vm.command('/fat/bin/rm /fat/etc/local-auth/enroll.lock')
+                inspection_hash = inspect_and_clear(vm, interrupted, staged, True)
                 vm.finish()
             if (account_bytes(target) != interrupted or marker_bytes(target, 'accounts.tmp') is not None or
                 marker_bytes(target, 'enroll.lock') is not None):
@@ -833,9 +912,78 @@ def main():
             verify_persisted_files(target, data)
             original_accounts = account_bytes(target)
             receipt['cases'].append({'enable_interruption': checkpoint, 'real_marker_refusal': 'PASS',
-                'committed_store_preserved_during_recovery': 'PASS', 'expected_enabled_state': 'PASS',
+                'committed_store_preserved_during_recovery': 'PASS', 'read_only_inspection': 'PASS',
+                'inspection_data_sha256': inspection_hash, 'recovery_noop': 'PASS', 'expected_enabled_state': 'PASS',
                 'both_users_data_and_permissions': 'PASS', 'committed_sha256': sha(interrupted)})
             save()
+        # A live, stopped-before-publication writer must keep cleanup from
+        # stealing its lock. The helper is a test-only executable alias with
+        # no arguments, matching the monitor's background-launch interface.
+        enabled = account_bytes(target)
+        before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'live-writer-suspend', args, 'recovery') as vm:
+            vm.command('/fat/bin/local-enroll disable alpha'); vm.finish()
+        live_suspended = account_bytes(target)
+        require_enabled_transition(enabled, live_suspended, 'alpha', b'1', b'0')
+        with VM(target, out, 'live-writer', args, 'recovery') as vm:
+            start = len(vm.output)
+            vm.send(b'bg /fat/signin-test/hold')
+            segment = vm.wait_events((b'bg: started pid=', b'local-enroll: transaction parked'), start)
+            match = re.search(rb'bg: started pid=(\d+) /fat/signin-test/hold', segment)
+            if not match or int(match.group(1)) <= 0:
+                raise RuntimeError('could not identify owned parked fixture process')
+            pid = match.group(1)
+            exit_marker = b'bg: pid=' + pid + b' exited status='
+            if exit_marker in vm.output[start:]: raise RuntimeError('fixture writer exited before contention test')
+            vm.command('/fat/bin/sync'); live_before = vm.paused_data_hash()
+            live_committed, live_staged, live_lock = vm.paused_account_snapshot()
+            if live_committed != live_suspended or live_staged is None or live_lock is None:
+                raise RuntimeError('parked writer did not retain expected store and markers')
+            require_enabled_transition(live_committed, live_staged, 'alpha', b'0', b'1')
+            live_rows = account_rows(live_committed)
+            for rows in (live_rows, account_rows(live_staged)):
+                for fields in rows.values(): vm.extra_redactions.extend(fields[4:6])
+            for command in ('/fat/bin/local-enroll recover-store',
+                            '/fat/bin/local-enroll recover-store --clear-pending'):
+                report = vm.command_refused(command)
+                if b'local-enroll: account update is active' not in report:
+                    raise RuntimeError('live account update was not reported as active')
+                assert_report_private(report, live_rows)
+                assert_report_private(report, account_rows(live_staged))
+            vm.command('/fat/bin/sync')
+            if vm.paused_data_hash() != live_before or exit_marker in vm.output[start:]:
+                raise RuntimeError('live-writer refusal changed data or stopped fixture writer')
+            kill_start = len(vm.output)
+            vm.send(b'kill ' + pid)
+            vm.wait_events((b'kill: requested process stop', exit_marker, b'srv> '), kill_start)
+            # Successful stock inspection/clear proves the exited writer no
+            # longer owns its OS lock, in addition to the observed PID exit.
+            # The paused snapshot is the only safe host read while QEMU runs.
+            committed, staged, lock = vm.paused_account_snapshot()
+            if (committed, staged, lock) != (live_committed, live_staged, live_lock):
+                raise RuntimeError('parked transaction markers or committed store differ')
+            require_enabled_transition(committed, staged, 'alpha', b'0', b'1')
+            inspection_hash = inspect_and_clear(vm, committed, staged, True)
+            vm.enable_account('alpha'); vm.finish()
+        live_enabled = account_bytes(target)
+        require_enabled_transition(live_suspended, live_enabled, 'alpha', b'0', b'1')
+        if marker_bytes(target, 'accounts.tmp') is not None or marker_bytes(target, 'enroll.lock') is not None:
+            raise RuntimeError('live-writer recovery retained transaction markers')
+        before_swap = region_hash(target, *data); local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'live-writer-verified', args, 'local') as vm:
+            vm.attempt('alpha', alpha_password, 1001,
+                       session=lambda v: v.session_files('alpha', 1001, peer='beta'))
+            vm.attempt('beta', PASSWORDS['beta'], 1002,
+                       session=lambda v: v.session_files('beta', 1002, peer='alpha'))
+            vm.finish()
+        verify_persisted_files(target, data)
+        original_accounts = account_bytes(target)
+        receipt['cases'].append({'live_writer_cleanup_refused': 'PASS',
+            'owned_writer_stopped_and_recovered': 'PASS', 'both_users_data_and_permissions': 'PASS',
+            'inspection_data_sha256': inspection_hash})
+        save()
         if args.interactive_only:
             receipt.update(status='PASS', final_disk_sha256=installation.digest(target),
                            limitations=['interactive, reset and enable subset only; full security suite not run',
@@ -853,6 +1001,7 @@ def main():
             with VM(target, out, 'pending-' + name + '-setup', args, 'recovery') as vm:
                 vm.send(('write ' + path + ' pending-fixture').encode('ascii'))
                 vm.wait(b'write: ' + path.encode('ascii') + b' 15 bytes'); vm.wait(b'srv> ')
+                vm.command('/fat/bin/chmod 600 ' + path)
                 vm.finish()
             if account_bytes(target) != original_accounts: raise RuntimeError('pending fixture changed committed accounts')
             before_swap = region_hash(target, *data); local_mode()
@@ -863,13 +1012,17 @@ def main():
             before_swap = region_hash(target, *data); copy_esp(recovery_image, target)
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
             with VM(target, out, 'pending-' + name + '-clear', args, 'recovery') as vm:
-                vm.command('/fat/bin/rm ' + path); vm.finish()
+                inspection_hash = inspect_and_clear(vm, original_accounts,
+                    b'pending-fixture' if name == 'accounts.tmp' else None,
+                    name == 'enroll.lock', staged_is_database=False)
+                vm.finish()
             if account_bytes(target) != original_accounts: raise RuntimeError('cleanup changed committed accounts')
             before_swap = region_hash(target, *data); local_mode()
             if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
             with VM(target, out, 'pending-' + name + '-cleared', args, 'local') as vm:
                 vm.attempt('alpha', alpha_password, 1001); vm.finish()
-            receipt['cases'].append({'pending': name, 'refused': 'PASS', 'cleared_retry': 'PASS'})
+            receipt['cases'].append({'pending': name, 'refused': 'PASS', 'cleared_retry': 'PASS',
+                'read_only_inspection': 'PASS', 'recovery_noop': 'PASS', 'inspection_data_sha256': inspection_hash})
             save()
         # Preserve one exact data snapshot. Mutations are made only offline,
         # on this invocation's target image, then undone after each no-write
@@ -906,11 +1059,41 @@ def main():
             vm.send(('write ' + ACCOUNT_PATH + ' malformed-fixture').encode('ascii'))
             vm.wait(b'write: ' + ACCOUNT_PATH.encode('ascii') + b' 17 bytes')
             vm.wait(b'srv> ')
+            for name in ('accounts.tmp', 'enroll.lock'):
+                path = '/fat/etc/local-auth/' + name
+                vm.send(('write ' + path + ' pending-fixture').encode('ascii'))
+                vm.wait(b'write: ' + path.encode('ascii') + b' 15 bytes'); vm.wait(b'srv> ')
+                vm.command('/fat/bin/chmod 600 ' + path)
+            vm.command('/fat/bin/sync')
+            invalid_before = vm.paused_data_hash()
+            for command in ('/fat/bin/local-enroll recover-store',
+                            '/fat/bin/local-enroll recover-store --clear-pending'):
+                report = vm.command_refused(command)
+                if b'local-enroll: committed account store invalid' not in report:
+                    raise RuntimeError('invalid account store recovery did not refuse')
+                assert_report_private(report)
+            vm.command('/fat/bin/sync')
+            if vm.paused_data_hash() != invalid_before:
+                raise RuntimeError('invalid-store inspection or cleanup changed guest data partition')
             vm.finish()
         damaged = account_bytes(target)
         if damaged != b'malformed-fixture' or damaged == original_accounts:
             raise RuntimeError('controlled account store damage not observed')
+        if any(marker_bytes(target, name) != b'pending-fixture' for name in ('accounts.tmp', 'enroll.lock')):
+            raise RuntimeError('invalid-store recovery modified pending marker bytes')
+        receipt['cases'].append({'invalid_store_recovery_refused': 'PASS',
+                                 'inspection_data_sha256': invalid_before})
         receipt['accounts_damaged_sha256'] = sha(damaged)
+        # Remove only this test's deliberately created markers in explicit
+        # recovery, leaving the malformed committed file for the existing
+        # independent sign-in refusal case.
+        with VM(target, out, 'damage-fixture-clear', args, 'recovery') as vm:
+            vm.command('/fat/bin/rm /fat/etc/local-auth/accounts.tmp')
+            vm.command('/fat/bin/rm /fat/etc/local-auth/enroll.lock')
+            vm.finish()
+        if account_bytes(target) != damaged or any(marker_bytes(target, name) is not None
+                for name in ('accounts.tmp', 'enroll.lock')):
+            raise RuntimeError('invalid fixture marker cleanup changed committed bytes')
         before_swap = region_hash(target, *data)
         local_mode()
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
