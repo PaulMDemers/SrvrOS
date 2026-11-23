@@ -183,6 +183,14 @@ The internal journal retains identity before writes and the firmware result
 on return. The trial is unattended and saves the USB exit snapshot when
 the workspace is admitted.
 
+Source `1fb9bdfc` passed the production EP0 path with the pinned image on
+modeled hardware, including 126 writes across four pages, a fresh checksum,
+MCU readiness, sibling isolation and nine fault cases. The existing routed
+Edimax DHCP, ping, DNS, UDP and retirement regression passed. Exact VM image
+`6b453db0a6222378` passed all four journal and recovery cases plus the GPT
+workspace save. The Realtek was absent from the VM. Native firmware readiness
+is pending. A physical run needs a fresh bound journal and run record.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
