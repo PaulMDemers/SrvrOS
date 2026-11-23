@@ -384,6 +384,22 @@ preserved. The exact payload and results are archived in
 endpoint/dequeue state during the next receive window to determine where
 the first transfer stalls.
 
+The next cold trial adds paired Realtek CR, RCR, RX FIFO pointer, RX packet
+number and RX DMA status reads with xHCI bulk-IN endpoint state, raw dequeue
+and pending TRB pointer. It samples before posting, at the first quarter-
+second if no completion has arrived, and before Stop Endpoint. The
+post-stop controller snapshot adds no USB control request. Phase timestamps
+and completion counts bracket the register reads, since an event may arrive
+during a sample. The live xHCI context is an observation. The stop result
+logs the saved controller cursor. The probe leaves the radio profile,
+filter, one-request receive queue and TX gates unchanged.
+
+The production-path host fixture verifies register and context pairing,
+receive events, pending timeout, and the stop attempt after a fault in a
+pending status read. An unsuccessful USB status read preserves the valid
+prefix and follows the existing endpoint stop and EP0 quarantine rules.
+Real RF behavior requires the cold hardware run.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

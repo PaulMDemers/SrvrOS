@@ -11,14 +11,81 @@
 #define RTL_CU_LLT_BUSY (3u<<30)
 #define RTL_CU_PACKET_BOUNDARY 0xf9u
 
+enum rtl_cu_sample_phase {
+    RTL_CU_ARMED,RTL_CU_PENDING,RTL_CU_BEFORE_STOP,RTL_CU_AFTER_STOP,RTL_CU_SAMPLE_COUNT
+};
+enum rtl_cu_rx_register { RTL_CU_CR,RTL_CU_RCR,RTL_CU_RXFF_PTR,RTL_CU_RXPKT_NUM,RTL_CU_RXDMA_STATUS,RTL_CU_RX_REG_COUNT };
+struct rtl_cu_rx_sample {
+    uint64_t start_us,end_us,dequeue,trb;
+    uint32_t regs[RTL_CU_RX_REG_COUNT];
+    unsigned state,valid,posted,completed_before,completed_after,events;
+    bool present,pending;
+};
+
 static struct {
     struct xhci_device *owner;
     struct xhci_bulk_endpoint ep;
     uint8_t *buffer;
     uint64_t physical,trb,started_us,first_completion_us;
     unsigned posted,completed,actual,beacons,matches,rejected;
+    struct rtl_cu_rx_sample samples[RTL_CU_SAMPLE_COUNT];
+    uint64_t event_trb;
+    unsigned events,event_code,event_residue;
+    bool event_data;
     bool configured,pending,failed;
 } rtl_passive;
+
+static uint64_t rtl_cu_rx_dequeue(const struct xhci_device *d) {
+    return context_read32(d->output_context,RTL_CU_RX_DCI,2) |
+        (uint64_t)context_read32(d->output_context,RTL_CU_RX_DCI,3)<<32;
+}
+
+static void rtl_cu_rx_snapshot(struct xhci_device *d,enum rtl_cu_sample_phase phase,bool read_chip) {
+    /* These USB vendor requests read status only. The endpoint context comes
+     * first, and completions may advance while EP0 reads are in flight. */
+    static const struct { uint16_t address,width; } regs[RTL_CU_RX_REG_COUNT]={
+        [RTL_CU_CR]={RTL8188CU_MAC_CONTROL,2}, [RTL_CU_RCR]={0x608,4},
+        [RTL_CU_RXFF_PTR]={0x11c,4}, [RTL_CU_RXPKT_NUM]={0x284,4}, [RTL_CU_RXDMA_STATUS]={0x288,4},
+    };
+    struct rtl_cu_rx_sample *sample=&rtl_passive.samples[phase];
+    sample->present=true;
+    sample->start_us=timer_monotonic_us();
+    sample->state=context_read32(d->output_context,RTL_CU_RX_DCI,0)&7;
+    sample->dequeue=rtl_cu_rx_dequeue(d);
+    sample->trb=rtl_passive.trb;
+    sample->pending=rtl_passive.pending;
+    sample->posted=rtl_passive.posted;
+    sample->completed_before=rtl_passive.completed;
+    sample->events=rtl_passive.events;
+    if(read_chip && !device_removed(d) && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined) {
+        for(unsigned i=0;i<RTL_CU_RX_REG_COUNT;i++) {
+            if(!rtl8188cu_read(d,regs[i].address,regs[i].width,&sample->regs[i]))break;
+            sample->valid|=1u<<i;
+        }
+    }
+    sample->completed_after=rtl_passive.completed;
+    sample->end_us=timer_monotonic_us();
+}
+
+static void rtl_cu_rx_log(void) {
+    static const char *const phases[]={"armed","pending","before-stop","after-stop"};
+    for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
+        const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
+        if(!s->present)continue;
+        console_printf("rtl8188cu-rx-context: phase=%s start_us=%u end_us=%u state=%u ring=%x dequeue=%x trb=%x pending=%u posted=%u completed_before=%u completed_after=%u events=%u\n",
+            phases[i],s->start_us,s->end_us,(uint64_t)s->state,rtl_passive.ep.ring_phys,s->dequeue,s->trb,
+            (uint64_t)s->pending,(uint64_t)s->posted,(uint64_t)s->completed_before,
+            (uint64_t)s->completed_after,(uint64_t)s->events);
+        if(i!=RTL_CU_AFTER_STOP)
+            console_printf("rtl8188cu-rx-chip: phase=%s valid=%x cr=%x rcr=%x rxff_ptr=%x rxpkt_num=%x rxdma_status=%x\n",
+                phases[i],(uint64_t)s->valid,(uint64_t)s->regs[RTL_CU_CR],(uint64_t)s->regs[RTL_CU_RCR],
+                (uint64_t)s->regs[RTL_CU_RXFF_PTR],(uint64_t)s->regs[RTL_CU_RXPKT_NUM],(uint64_t)s->regs[RTL_CU_RXDMA_STATUS]);
+    }
+    if(rtl_passive.configured)
+        console_printf("rtl8188cu-rx-event: count=%u last_trb=%x code=%u residue=%u event_data=%u\n",
+            (uint64_t)rtl_passive.events,rtl_passive.event_trb,(uint64_t)rtl_passive.event_code,
+            (uint64_t)rtl_passive.event_residue,(uint64_t)rtl_passive.event_data);
+}
 
 static uint32_t rtl_cu_le32(const uint8_t *p) {
     return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;
@@ -154,8 +221,13 @@ static bool rtl_cu_rx_configure(struct xhci_device *d) {
 
 static bool rtl8188cu_passive_event(const struct xhci_device *d,uint8_t dci,uint64_t pointer,
                                     uint8_t completion,uint32_t remaining,bool event_data) {
-    if(!d || d!=rtl_passive.owner || dci!=RTL_CU_RX_DCI ||
-       !rtl_passive.configured || pointer!=rtl_passive.trb)return false;
+    if(!d || d!=rtl_passive.owner || dci!=RTL_CU_RX_DCI || !rtl_passive.configured)return false;
+    rtl_passive.events++;
+    rtl_passive.event_trb=pointer;
+    rtl_passive.event_code=completion;
+    rtl_passive.event_residue=remaining;
+    rtl_passive.event_data=event_data;
+    if(pointer!=rtl_passive.trb)return false;
     if(!rtl_passive.pending)return true;
     if(event_data || (completion!=1 && completion!=13) || remaining>RTL_CU_RX_BYTES) {
         rtl_passive.failed=true;
@@ -199,6 +271,8 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
     if(!rtl_cu_tx_parked(d) || !rtl8188cu_update(d,RTL8188CU_MAC_CONTROL,1,0,RTL_CU_RX_ENABLE) ||
        !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) ||
        (mac&(RTL_CU_RX_ENABLE|RTL8188CU_TX_ENABLE))!=RTL_CU_RX_ENABLE)return false;
+    rtl_cu_rx_snapshot(d,RTL_CU_ARMED,true);
+    if(d->control_failed || d->ep0_quarantined || device_removed(d))return false;
     console_write("rtl8188cu-passive-progress: listening on channel 10; no input required\n");
     uint64_t start=timer_monotonic_us(),last=start,clock=start,stalled=0;
     rtl_passive.started_us=start;
@@ -222,6 +296,10 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
             if(now-last>=250000) {
                 if(!rtl8188cu_check_port(d,hub) || !rtl_cu_tx_parked(d))return false;
                 last=now;
+                if(!rtl_passive.completed && !rtl_passive.samples[RTL_CU_PENDING].present) {
+                    rtl_cu_rx_snapshot(d,RTL_CU_PENDING,true);
+                    if(d->control_failed || d->ep0_quarantined)return false;
+                }
             }
         }
         __asm__ volatile("pause");
@@ -235,8 +313,7 @@ static bool rtl_cu_rx_stop(struct xhci_device *d) {
        ((uint32_t)d->slot_id<<24)|(RTL_CU_RX_DCI<<16),&slot);
     if(slot!=UINT64_MAX && slot!=d->slot_id)xhci.command_failed=true;
     if(!ok || slot!=d->slot_id)return false;
-    uint64_t dequeue=context_read32(d->output_context,RTL_CU_RX_DCI,2) |
-         (uint64_t)context_read32(d->output_context,RTL_CU_RX_DCI,3)<<32;
+    uint64_t dequeue=rtl_cu_rx_dequeue(d);
     uint64_t cursor=dequeue&~15ull;
     bool stopped=(context_read32(d->output_context,RTL_CU_RX_DCI,0)&7)==3 &&
         cursor>=rtl_passive.ep.ring_phys && cursor-rtl_passive.ep.ring_phys<1024 &&
@@ -269,7 +346,10 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
                 result="rx-endpoint";
                 if(rtl_cu_rx_configure(d)) {
                     window=rtl_cu_listen(d,hub);
+                    rtl_cu_rx_snapshot(d,RTL_CU_BEFORE_STOP,window);
+                    window=window && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined;
                     stopped=rtl_cu_rx_stop(d);
+                    rtl_cu_rx_snapshot(d,RTL_CU_AFTER_STOP,false);
                     result=window && !rtl_passive.completed?"rx-timeout":"window";
                 }
             }
@@ -287,6 +367,7 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
         break;
     }
     event_irq_restore(flags);
+    rtl_cu_rx_log();
     if(rtl_passive.owner)
         console_printf("rtl8188cu-packet-buffer: ready=%u linked=%u first_completion_us=%u\n",
             (uint64_t)buffer_ready,(uint64_t)linked,rtl_passive.first_completion_us);

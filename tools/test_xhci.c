@@ -7534,7 +7534,9 @@ static void test_rtl8188cu_firmware(const char *path) {
     puts("rtl8188cu: PASS pinned firmware through native EP0, captured CU download, sticky checksum, MCU ready, sibling isolation and eleven faults");
 }
 
-enum rtl_radio_fault { RTL_RADIO_OK,RTL_RADIO_PROFILE,RTL_RADIO_LLT,RTL_RADIO_CHANNEL,RTL_RADIO_SILENT,RTL_RADIO_STOP };
+enum rtl_radio_fault {
+    RTL_RADIO_OK,RTL_RADIO_PROFILE,RTL_RADIO_LLT,RTL_RADIO_CHANNEL,RTL_RADIO_SILENT,RTL_RADIO_SAMPLE,RTL_RADIO_STOP
+};
 static struct {
     const uint8_t *profile;
     enum rtl_radio_fault fault;
@@ -7574,6 +7576,9 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             assert(context_read32(d->input_context,0,1)==(1u|(1u<<3)));
             assert(context_read32(d->input_context,4,1)==((3u<<1)|(6u<<3)|(512u<<16)));
             assert(context_read32(d->input_context,5,1)==0);
+            context_write32(d->output_context,3,0,1);
+            context_write32(d->output_context,3,2,context_read32(d->input_context,4,2));
+            context_write32(d->output_context,3,3,context_read32(d->input_context,4,3));
         } else {
             assert(rtl_radio_model.commands==1 && type==XHCI_TRB_TYPE_STOP_ENDPOINT);
             assert(((cmd->control>>16)&31)==3);
@@ -7596,8 +7601,12 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
         assert(((uint64_t)trb->parameter_high<<32|trb->parameter_low)==rtl_passive.physical);
         assert(trb->status==RTL_CU_RX_BYTES);
         rtl_radio_model.posts++;
-        if(rtl_radio_model.fault==RTL_RADIO_SILENT)test_time_step=50000;
-        else rtl_radio_beacon(rtl_radio_model.posts);
+        if(rtl_radio_model.fault==RTL_RADIO_SILENT || rtl_radio_model.fault==RTL_RADIO_SAMPLE) {
+            test_time_step=50000;
+            rtl_radio_model.reg[0x11c]=0x40;
+            rtl_radio_model.reg[0x284]=1;
+            rtl_radio_model.reg[0x288]=2;
+        } else rtl_radio_beacon(rtl_radio_model.posts);
         return;
     }
     if(value!=1 || offset<=xhci.db_base || offset>xhci.db_base+16)return;
@@ -7610,6 +7619,11 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
     assert((setup->parameter_high&0xffff)==0 && reg+length<=sizeof rtl_radio_model.reg);
     uint8_t *bytes=rtl_radio_model.reg+reg;
     if(strict_control.data_in) {
+        if(reg==0x288 && rtl_radio_model.fault==RTL_RADIO_SAMPLE && rtl_radio_model.posts) {
+            assert(length==4 && rtl_radio_model.commands==1);
+            rtl_firmware_completion(strict_control.status,slot,6,0);
+            return;
+        }
         if(reg==0x8a0 || reg==0x8b8) {
             uint32_t rf=rtl_radio_model.fault==RTL_RADIO_CHANNEL?0x7409:rtl_radio_model.channel;
             for(unsigned i=0;i<4;i++)bytes[i]=rf>>(8*i);
@@ -7668,16 +7682,44 @@ static void test_rtl8188cu_passive(const char *path) {
             assert(rtl_radio_model.links==256 && rtl_radio_model.profile_writes==495);
         }
         if(fault==RTL_RADIO_CHANNEL)assert(!rtl_radio_model.commands && !rtl_radio_model.posts);
-        if(fault==RTL_RADIO_SILENT)assert(rtl_radio_model.posts==1 && !rtl_passive.pending && !rtl_passive.beacons);
-        if(fault==RTL_RADIO_OK || fault==RTL_RADIO_STOP)
+        if(rtl_radio_model.commands) {
+            const struct rtl_cu_rx_sample *armed=&rtl_passive.samples[RTL_CU_ARMED];
+            const struct rtl_cu_rx_sample *before=&rtl_passive.samples[RTL_CU_BEFORE_STOP];
+            const struct rtl_cu_rx_sample *after=&rtl_passive.samples[RTL_CU_AFTER_STOP];
+            assert(armed->present && armed->state==1 && armed->valid==31 && !armed->posted);
+            assert(armed->dequeue==(rtl_passive.ep.ring_phys|1) && !armed->trb &&
+                armed->regs[RTL_CU_CR]==0x8a && armed->regs[RTL_CU_RCR]==0x2009);
+            assert(before->present && before->state==1 && before->trb==rtl_passive.trb);
+            assert(after->present && !after->valid && after->dequeue==(rtl_passive.trb|1) &&
+                after->state==(fault==RTL_RADIO_STOP?1u:3u));
+            assert(before->end_us>=before->start_us && after->start_us>=before->end_us);
+        }
+        if(fault==RTL_RADIO_SILENT || fault==RTL_RADIO_SAMPLE) {
+            const struct rtl_cu_rx_sample *pending=&rtl_passive.samples[RTL_CU_PENDING];
+            assert(rtl_radio_model.commands==2 && rtl_radio_model.posts==1 &&
+                !rtl_passive.pending && !rtl_passive.beacons && !rtl_passive.events);
+            assert(pending->present && pending->pending && pending->posted==1 && pending->state==1 &&
+                pending->dequeue==(pending->trb|1) && !pending->completed_after &&
+                pending->regs[RTL_CU_RXFF_PTR]==0x40 && pending->regs[RTL_CU_RXPKT_NUM]==1);
+            assert(pending->valid==(fault==RTL_RADIO_SAMPLE?15u:31u));
+            assert(rtl_passive.samples[RTL_CU_BEFORE_STOP].valid==(fault==RTL_RADIO_SAMPLE?0u:31u));
+        }
+        if(fault==RTL_RADIO_OK || fault==RTL_RADIO_STOP) {
             assert(rtl_radio_model.posts==5 && rtl_passive.matches==2 && rtl_passive.beacons==3 && rtl_passive.rejected==1);
-        assert(!(rtl_radio_model.reg[0x100]&0xcf) && !(rtl_radio_model.reg[0x1f]&7));
+            assert(rtl_passive.events==5 && rtl_passive.event_code==13 && rtl_passive.event_trb==rtl_passive.trb &&
+                rtl_passive.samples[RTL_CU_BEFORE_STOP].completed_before==5 &&
+                rtl_passive.samples[RTL_CU_BEFORE_STOP].valid==31);
+        }
+        assert(!(rtl_radio_model.reg[0x100]&RTL8188CU_TX_ENABLE));
+        if(fault!=RTL_RADIO_SAMPLE)
+            assert(!(rtl_radio_model.reg[0x100]&RTL_CU_RX_ENABLE) && !(rtl_radio_model.reg[0x1f]&7));
+        else assert(d->ep0_quarantined && !d->rtl8188cu_firmware_active);
         assert(!xhci.devices[2].control_success && !xhci.devices[3].control_success && !network_count);
     }
     rtl_test_clock=false;test_time_step=1000;
     native_boundary_mmio_hook=NULL;
     memset(&rtl_passive,0,sizeof rtl_passive);
-    puts("rtl8188cu: PASS packet buffer, measured radio profile and native bulk IN beacon path, channel 10, TX closed, DMA stop and five faults");
+    puts("rtl8188cu: PASS native RX snapshots, packet buffer and beacon path, channel 10, TX closed, DMA stop and six faults");
 }
 static struct xhci_device *tt_cleanup_fixture(void) {
     struct xhci_device *d=control_fixture();
