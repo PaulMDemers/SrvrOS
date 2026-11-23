@@ -2,12 +2,28 @@
 
 ## Installed console authentication
 
-`device/apple-silicon/installed-console-auth` starts from `b5847586`.
-The scope is an explicit identity-bound installer mode that generates a
-normal EFI entry for console sign-in, with an administrator-controlled
-recovery configuration for the same root. Qualification uses one
-disposable installation to check the default boot, fail-closed account-store
-admission, administrator recovery and both users' file permissions.
+`device/apple-silicon/installed-console-auth` qualified clean source
+`9ef1de427f0310c5bcf84b7122a9ed5060f89e8c` on main `ddc37b8f`. The
+identity-bound installer generated a normal EFI entry for console sign-in
+and an administrator-controlled recovery configuration for the same root.
+The [installation guide](../disk-installation.md#install-with-console-sign-in)
+describes first enrollment and recovery.
+
+All 34 host installer, inspection, and recovery tests passed, along with
+the macOS cross-build, local-auth crypto test, and docs check. The full
+`tools/local_signin_smoke.py` run passed 21 cases on a single disposable
+QEMU installation. The normal EFI entry reached sign-in after enrollment.
+Missing and malformed stores stopped before the login prompt or privileged
+monitor. Explicit recovery restored the exact committed store. On the next
+normal boot, both users read their original private file bytes with their
+original owners and mode `0600`. Cross-user reads, writes, and metadata
+lookups were denied in both directions. The suite also passed the existing
+interrupted reset, interrupted re-enable, and account-store cleanup cases.
+
+The local evidence is `build/review/local-signin/proof-oxkr51qv/receipt.json`
+(SHA-256 `0af1cd3197bfacac60a52f7fdcbc4b3ed0ed2f6baf73f4e8c5c46e5eee9a6818`).
+The stopped disk and EFI hashes were independently checked. Qualification
+covers the disposable VM and simulated interruption cases.
 
 ## Console account-store recovery
 
