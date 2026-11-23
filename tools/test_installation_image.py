@@ -2,6 +2,9 @@ import json
 import os
 from pathlib import Path
 import struct
+import subprocess
+import sys
+import uuid
 import tempfile
 import unittest
 from unittest import mock
@@ -223,6 +226,59 @@ class InstallationImageTests(unittest.TestCase):
             ready = image.apply(self.target)
         self.assertEqual(ready['selection']['partition_guid'], guid)
         self.assertEqual(ready['selection']['partition_name'], 'srvros-system-v1')
+
+    def test_console_auth_plan_and_validation(self):
+        import installation_inspection as inspection
+        with self.assertRaises(ValueError):
+            image.prepare(self.target, self.kernel, self.boot, self.exfat, self.init, console_auth=True)
+        self.assertFalse(self.target.exists())
+        plan = image.prepare(self.target, self.kernel, self.boot, self.exfat, self.init,
+                             identity_bound=True, console_auth=True)
+        self.assertIs(plan['console_auth'], True)
+        self.assertEqual(plan['config'], image.identity_config(plan['gpt']['exfat_partition_guid'], auth='local').decode())
+        self.assertNotIn('srvros.auth=recovery', plan['config'])
+        self.assertEqual(image.validate_plan(self.target)[0], plan)
+        self.assertEqual(inspection.record_plan(self.target)[0], plan)
+        original = dict(plan)
+        for changed in ({'console_auth': False}, {'console_auth': 1},
+                        {'config': plan['config'].replace('srvros.auth=local', 'srvros.auth=recovery')},
+                        {'selection': None}):
+            bad = dict(original); bad.update(changed)
+            path = self.target / 'plan.json'; path.write_text(json.dumps(bad))
+            (self.target / 'plan.sha256').write_text(image.digest(path) + '\n')
+            with self.assertRaises((ValueError, KeyError)):
+                image.validate_plan(self.target)
+            with self.assertRaises((ValueError, KeyError)):
+                inspection.record_plan(self.target)
+
+    def test_console_auth_prepare_cli(self):
+        command=[sys.executable,str(Path(image.__file__).resolve()),'prepare',str(self.target),
+                 '--kernel',str(self.kernel),'--bootx64',str(self.boot),
+                 '--exfat',str(self.exfat),'--init',str(self.init),'--console-auth']
+        refused=subprocess.run(command,capture_output=True)
+        self.assertNotEqual(refused.returncode,0)
+        self.assertFalse(self.target.exists())
+        accepted=subprocess.run(command+['--identity-bound'],capture_output=True,check=True)
+        plan=json.loads(accepted.stdout)
+        self.assertTrue(plan['console_auth'])
+        self.assertIn('srvros.auth=local',plan['config'])
+
+    def test_recovery_config_cli_canonical_and_read_only(self):
+        guid = str(uuid.uuid4())
+        expected = image.identity_config(guid, auth='recovery')
+        before = sorted(self.root.iterdir())
+        command = [sys.executable, str(Path(image.__file__).resolve()), 'console-recovery-config']
+        proc = subprocess.run(command + [guid], capture_output=True, check=True)
+        self.assertEqual(proc.stdout, expected)
+        self.assertIn(b'srvros.auth=recovery', proc.stdout)
+        self.assertEqual(proc.stdout.count(b'/srvros\n'), 1)
+        self.assertEqual(sorted(self.root.iterdir()), before)
+        for bad in ('00000000-0000-0000-0000-000000000000', guid.upper(), 'not-a-guid'):
+            self.assertNotEqual(subprocess.run(command + [bad], capture_output=True).returncode, 0)
+            with self.assertRaises(ValueError):
+                image.identity_config(bad, auth='recovery')
+        with self.assertRaises(ValueError):
+            image.identity_config(guid, auth='other')
 
     def test_identity_inconsistent_plan_refused_even_with_updated_checksum(self):
         plan = image.prepare(self.target, self.kernel, self.boot, self.exfat, self.init, identity_bound=True)

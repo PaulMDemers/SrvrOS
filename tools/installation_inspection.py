@@ -77,6 +77,7 @@ def record_plan(target):
     require(type(plan) is dict and type(plan.get('version')) is int and plan['version'] in (1, 2), 'invalid plan version')
     keys = {'version','target_uuid','target_directory','target_device','target_inode','sources','layout'}
     if 'selection' in plan: keys |= {'selection','gpt','config'}
+    if 'console_auth' in plan: keys.add('console_auth')
     if plan['version'] == 2: keys.add('profile')
     require(set(plan) == keys and plan['target_directory'] == str(target) and (st.st_dev, st.st_ino) == (plan['target_device'], plan['target_inode']), 'target or plan identity mismatch')
     require(type(plan['target_device']) is int and type(plan['target_inode']) is int and str(uuid.UUID(plan['target_uuid'])) == plan['target_uuid'], 'invalid target identity')
@@ -87,13 +88,7 @@ def record_plan(target):
         require(type(source['path']) is str and os.path.isabs(source['path']) and os.path.normpath(source['path']) == source['path'] and all(type(source[k]) is int and source[k] > 0 for k in ('device','inode','size')) and type(source['sha256']) is str and HASH.fullmatch(source['sha256']), 'invalid source metadata')
     require(sources['exfat']['size'] <= 2*1024*1024*1024, 'exFAT volume exceeds inspection limit')
     require(plan['layout'] == image.layout(sources['exfat']['size']), 'invalid layout')
-    selection = plan.get('selection')
-    if selection is not None:
-        require(selection == {'mode':'identity-bound','format':'exfat-v1','role':'system'}, 'invalid selection')
-        g = plan['gpt']
-        require(type(g) is dict and set(g) == {'disk_guid','esp_partition_guid','exfat_partition_guid','exfat_partition_name'}, 'invalid GPT plan')
-        ids = [g[k] for k in ('disk_guid','esp_partition_guid','exfat_partition_guid')]
-        require(all(type(v) is str and str(uuid.UUID(v)) == v and uuid.UUID(v).int for v in ids) and len(set(ids)) == 3 and g['exfat_partition_name'] == 'srvros-system-v1' and plan['config'] == image.identity_config(g['exfat_partition_guid']).decode('ascii'), 'invalid GPT identity')
+    selection = image.validate_identity_plan(plan)
     profile = plan.get('profile')
     require((plan['version'] == 2) == (profile is not None), 'invalid profile version')
     if profile is not None:
