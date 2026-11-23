@@ -32,13 +32,19 @@ the active framebuffer. Locating the EFI ACPI table protocol then returned
 GRUB recorded `start-failed` and successfully booted SrvrOS. The kernel saw
 17 ACPI tables and zero OEMG records. The original framebuffer was preserved,
 GPU PTE writes remained zero and the offline USB check passed. The missing
-protocol QEMU case reproduced this sequence. The next handoff needs a
-transport available on this firmware, with the same binding and reserved-page
-checks in SrvrOS. The two ESP receipts are diagnostics.
+protocol QEMU case reproduced this sequence.
 
-The next one-shot targets EFI configuration-table publication, Limine import,
-and verification of the seven entry words and all 19 reserved pages. Its scope
-is the boot transport and its Q35 qualification.
+Release `4ee4688f2965deff`, session `session-000660f99ec3d386-00`, physically
+verified the EFI configuration-table handoff. GRUB returned from the helper.
+SrvrOS imported all seven original PTEs at slots 11744–11750 and verified all
+19 reserved pages at `0x8aced000`. One EFI driver had the PCI controller open,
+with firmware file GUID `0cb4e51b-a3ca-4afe-b5b6-cb387ed1aee3`. The three
+command-slot samples agreed across GT reset and PCI reopening. The diagnostic
+retired all seven temporary mappings and returned the backing reservation.
+The original display was preserved, GPU PTE writes and device grants stayed
+at zero, and Ubuntu verified a clean USB volume. Four release-bound Q35
+boots covered save/return, missing workspace, and the configuration-table
+fallback with both the production helper and a seven-word test fixture.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
@@ -61,8 +67,8 @@ before using the reservation. The backing stays reserved across reset and
 PCI reopening and returns to the boot reservation on clean retirement.
 
 The host suite passed all 23 tests. The first OVMF trial recovered all 19 pages.
-The firmware capture completed on the Air. Kernel import of the driver inventory,
-raw translations and backing reservation still needs physical verification.
+The Air now has physical evidence for kernel import of the driver inventory,
+raw translations and backing reservation.
 The first native command still depends on a device-wide drain and
 an independent WiDi hold. [EFI handoff](../intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 

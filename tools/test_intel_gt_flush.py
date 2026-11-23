@@ -287,7 +287,7 @@ class FlushAcknowledgements(unittest.TestCase):
         source = backing_result(historical_view(text, practical=True, memory=True, range_check=True, primary=True,
                                                 aux=True, flush=True))
         protection = parsed["range"]
-        for version in (3, 4, 5, 6):
+        for version in (3, 4, 5, 6, 7, 8):
             with self.subTest(version=version):
                 protection["summary"]["v"] = version
                 entries = list(protection["vectors"][0])

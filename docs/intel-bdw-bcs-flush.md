@@ -510,7 +510,10 @@ and applies the same checksum, contents and GPU admission checks as the ACPI
 path. A duplicate or malformed record stops the import.
 [Physical run](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
-The physical prerequisite records how far the firmware capture progressed,
-which provider was visible and whether the original display and mappings
-survived. Device-wide traffic exclusion, fresh engine and L3 acknowledgements,
-and continuous WiDi exclusion remain prerequisites for native submission.
+Release `4ee4688f2965deff` verified the configuration-table fallback on the
+reference Air. The kernel imported the bound firmware driver identifier,
+all seven original PTEs and the 19-page reservation. The post-reset and
+post-reopen checks matched the original mappings, and the reservation
+returned to its boot owner. Device-wide traffic exclusion, fresh engine and
+L3 acknowledgements, and continuous WiDi exclusion remain prerequisites
+for native submission.
