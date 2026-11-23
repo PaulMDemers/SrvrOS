@@ -400,6 +400,18 @@ pending status read. An unsuccessful USB status read preserves the valid
 prefix and follows the existing endpoint stop and EP0 quarantine rules.
 Real RF behavior requires the cold hardware run.
 
+Cold tracing candidate `fd232be7e62e2b0c` is installed from source
+`470b0738`. The compiled kernel, focused native path, firmware and
+integration lifecycle fixtures passed. The exact-stage GPT boot and four
+journal fallback/recovery checks passed. Recovery release `74da74e0b57afbb8`
+and Ubuntu default verified. The earlier failed passive payload remains
+byte-verified in its recovery archive. The fresh bound journal and the
+clean USB workspace with 578 existing files are recorded in
+`build/bringup/pro112-rtl8188cu-rx-trace/run.json`. Keep all three adapters
+on the hub and the workspace drive connected. Progress, saving and Ubuntu
+return follow the unattended recipe. On return compare chip samples and
+the post-stop dequeue with the posted TRB, timestamps and transfer events.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
