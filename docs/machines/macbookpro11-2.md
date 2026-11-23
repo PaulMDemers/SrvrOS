@@ -47,6 +47,16 @@ trial covers Edimax association, WPA, DHCP, DNS and traffic through the same
 hub port, followed by orderly disconnect. The Realtek devices already have
 enumeration evidence for their separate driver bring-up.
 
+The connected hub trial uses v151 image `5dc51adbf723307d` (`b0c6a039`,
+Apps `a95dbca`). For a routed Edimax desktop session it records an automatic
+DHCP lease, gateway echo and DNS check, and requires a requested Disconnect
+and provider retirement for a passing result. Help opens the single-connection
+checklist. The native-path host fixture passed the routed admission, WPA
+connection, traffic, USB storage overlap and orderly disconnect. The exact
+image passed a GPT workspace VM and four independent startup-journal scenarios.
+The native trial starts with a cold Edimax on hub port 2 and leaves the hub,
+both Realtek devices and the workspace connected throughout the desktop test.
+
 For the Realtek devices, the observed interfaces are both vendor-specific.
 Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
 has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Ubuntu selected
