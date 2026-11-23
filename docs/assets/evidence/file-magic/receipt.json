@@ -14,8 +14,8 @@
   "compatibility": {
     "comparisons": 52,
     "filesystem": "clean",
-    "native_reference_sha256": "c7a6973c228303067db18df0fe0fd8016f9d7a30857d86d4cce44c549eed7205",
-    "receipt_sha256": "4c543413b0021b89d7b89d0a5c6da44f2e410e723ab4d8cc430729ff692372b3",
+    "native_reference_sha256": "e09c8b14ca78bf5762308a16e4e61e499e2e62bb1d7930a3372da3004f7e4818",
+    "receipt_sha256": "8773db076e43f5c1fad45307386712dfb571c565d0fe06e1563075f1a3aac5d4",
     "status": "PASS",
     "stdout_write_failure_status": 2
   },
@@ -25,22 +25,30 @@
     "retry_status": 0,
     "scope": "Direct SIGINT and real Terminal Ctrl-C interrupted repeated genuine softmagic classification using the production checkpoint cadence. Terminal regained its prompt and reported image/png on retry.",
     "screenshots_sha256": {
-      "01-description.png": "4c61ffe8438c7d7701a5f482f28bf4a49ece08ea1b74d8b37304e31820f13b6f",
-      "02-matching.png": "c9b9c2df96b385983a1d6091aa9b7d88a844c6bd1ea0216ffafaca85256fd0ee",
-      "03-recovery.png": "e7def4ff473a0cd87c4c528a5e51ade99fa7edec781d7ef4a7bf2b5be48365c0"
+      "01-description.png": "7666652beb7b362bbe8a1f56439e88d99a59fd54de55a086d4eb3852defad31b",
+      "02-matching.png": "043f9559a4e147cfedfef5eb2cc8e9005934ec38dcc0c76e1f7825e28dac5d37",
+      "03-recovery.png": "e3de8c0f33d7f63e0ebcc6630edce14f4da54863ed02ab57ab1257f50f537e69"
     },
     "signal_exit_status": 130,
     "status": "PASS",
-    "terminal_receipt_sha256": "80dc0ec720a024a54382d75f8859647146ba1afcec33d762508c6c2253f0d894",
+    "terminal_receipt_sha256": "bbba98ed196a4e2d3e3c531ea1390b97bee64d22d78724e5ec3126483baf90bf",
     "visual_check": "The Terminal captures show the PNG description, active-rule marker, Ctrl-C, status 130, and the image/png retry."
   },
+  "dependency_delivery": {
+    "deployed_pro_checkpoint_preserved": true,
+    "durable_ref": "refs/heads/pins/srvros-file-magic",
+    "independent_exact_gitlink_checkout": "PASS",
+    "pin_fetch_log_sha256": "b8cce792376d0c35fcc08793266130725125512a5db1252f7895066bd8ddded3",
+    "srvrports_merge_commit": "4ce3257b2eaea81d611cb0d9539a32f646d8a938",
+    "srvrports_pr": "https://github.com/PaulMDemers/SrvrPorts/pull/18"
+  },
   "matched_build": {
-    "disk_sha256": "6adb479c98a59df99b9e6af68c6fc619dfa2443bbd04dfba752070df482f9a97",
+    "disk_sha256": "69affdd8b02559e634053b57bbd38038c2c27e87e82ecb27000ebf6870884257",
     "host": "Apple Silicon macOS",
-    "initramfs_sha256": "5f4d5280f5c459c29f592f50473e6c644301d56c68271f9e126907422caee2ae",
-    "iso_sha256": "55c7f7b5d0918a6b080e6ab9503a36c3e1473afffe3f4c933257aab497f11b30",
+    "initramfs_sha256": "f773418cb848f540b29239123d2cc4468d75a6e08c7ddfbb1393eda54dcfc64e",
+    "iso_sha256": "db3927ae9cb3f5c687b30b6e8d0b479d652081e03ffbed664607c9edbebd78cc",
     "kernel_sha256": "dfa55a4619235cda6ae69246fa364bff9bb2a54a655cd26742017e9bd200a5fd",
-    "manifest_sha256": "42eea7bd3c6b0382ce41032f40af17cd3e0b5a9c98fb9ff9991ed2acb04e0f2b",
+    "manifest_sha256": "5f3aa1c4339b5af01a4bd18a8658ff846111365f6ff61e6cf2df3e2089cceada",
     "target": "x86-64"
   },
   "memory": {
@@ -54,29 +62,30 @@
     "scope": "Mapped SDK heap arena. The embedded database, input buffer, stack and executable mappings occupy separate storage.",
     "status": "PASS"
   },
-  "os_base": "8c5565d4780413d447b2579eabefa3a3aae84a39",
+  "os_base": "9527111dfc53a73d6928e3aef2a7401c0911f3e1",
   "ports_pin": "5924615de815f5449234ff2ee8f667d0dc65faa7",
   "regressions": {
     "cli": {
       "commands": 498,
       "filesystem": "clean",
-      "log_sha256": "edd962a8e5043da0f85206e5f1b603a79fdd43c467d3508978f83d5b07f1d720",
+      "log_sha256": "8e432e8b0e99fb14219b8b78129c8e9108dde8b29642d40b42745269dd7fce7f",
       "status": "PASS"
     },
     "ports": {
       "filesystem": "clean",
-      "log_sha256": "dc820f5406897ae83f8bb4f5a2469e8e72bddd21a90d4f418b9f01dde08d3e77",
+      "log_sha256": "598e4506282947ded22447b6ae907b28920195bae13f5fe5152af0d85d109400",
       "status": "PASS"
     }
   },
   "reproducibility": {
     "compared_components": 33,
     "manifest_sha256": "2fd3a2bc7bcdf1b2c95f85ff1a018868610b78b91c454b9790105cdc06e1183d",
-    "scope": "Two clean classifier component builds against the same matched SDK.",
+    "matched_component_readback_log_sha256": "95ffc26ced07eecc07a05ff7b40c0d8ffc76beae74343b93cc0f280ef8824996",
+    "scope": "Two clean classifier component builds on OS base 8c5565d4. All 33 hashes matched the fresh build on 9527111d.",
     "status": "PASS"
   },
   "scope": "Bounded C-locale offline classification of one regular file. Guest Q35 evidence.",
-  "source": "84edf9657e5e3065f9b1865c966d56befd4e1d7c",
+  "source": "7dea3ebb082ca89fd443b74e6b78d6c937731923",
   "status": "PASS bounded file-magic qualification and regressions",
   "upstream": {
     "archive_sha256": "ed14656883b23a364b4057c05595d93252da9bc473d30106519519d0da141283",
