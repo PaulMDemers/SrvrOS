@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-22 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-23 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -9,6 +9,21 @@ brightness, sensors, battery and earlier USB Ethernet/audio rounds. Native
 tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
+
+On Ubuntu/i915, four trials on this Air held a blitter request for a private
+GPU address. An independent render request completed, while a competing
+submission for that same address waited inside the kernel. Releasing the
+first request allowed the second binding to complete. Both backing pages
+contained their expected results and the original eDP frame count advanced
+in each run. The address belonged to the process's private page table.
+
+SrvrOS now pins the candidate's published range through the return flip
+and original-image CRC check. The Q35 fixture exercises successful return,
+wrong candidate pixels with clean return, and an uncertain return that keeps
+the mapping pinned. The remaining native dependency is a cold-boot owner
+that can retire inherited accesses and exclude every user of slot 12291,
+including WiDi, through rollback.
+[Mapping lifetime and first native ownership](../intel-bdw-primary-flip.md#mapping-lifetime-and-first-native-ownership)
 
 Release `51a95ee689defdf0` (source `88767a7e`, session
 `session-000660ea03769bd3-00`) found all 53,760 eligible entries in the

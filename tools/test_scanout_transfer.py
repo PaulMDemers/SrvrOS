@@ -13,6 +13,7 @@ OWNED_PAGE_MODES = ("owned-no-grant", "owned-short-import", "owned-vacant", "own
                     "owned-mmio-rollback-early-open", "owned-mmio-parked-queues", "owned-mmio-l3-before-widi",
                     "owned-mmio-l3-across-widi", "owned-mmio-l3-after-widi",
                     "owned-mmio-l3-before-widi-response", "owned-mmio-acquire-reopen")
+OWNED_PAGE_MODES += ("tiled-flip", "tiled-flip-wrong-pixels", "tiled-flip-retained")
 MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close
@@ -20,7 +21,7 @@ clock-close changed-close full-buffers linear-tail partial-write pending-readers
 capacity last-aperture-page one-page one-page-air partial-restore lost-mapped-owner other-pin
 one-page-before-change one-page-apply-change one-page-restore-snapshot one-page-restore-clock
 linear-tail-original-change tiled-tail tiled-tail-partial tiled-tail-no-owner tiled-tail-invalid-original
-tiled-tail-high-ram tiled-flip tiled-flip-wrong-pixels
+tiled-tail-high-ram
 pte-store-late-alias pte-store-restore-late-alias pte-store-deadline pte-store-restore-deadline
 pte-store-late-deadline pte-store-restore-late-deadline pte-store-cache pte-store-alias
 pte-store-foreign pte-store-restore-cache pte-store-restore-alias pte-store-restore-foreign

@@ -5698,8 +5698,8 @@ build/tests/scanout-memory$(HOST_EXE): tools/test_scanout_memory.c kernel/src/sc
 test-core: test-scanout-transfer
 test-scanout-transfer: build/tests/scanout-transfer$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_scanout_transfer.py
-PRIMARY_FLIP_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_flip.c kernel/diagnostics/intel_bdw_flip_trial.c kernel/diagnostics/intel_bdw_edp_baseline.c tools/test_intel_bdw_flip_rollback.c
-SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/diagnostics/intel_bdw_scanout_page_store.c kernel/src/scanout_handoff.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
+PRIMARY_FLIP_HOST_SOURCES := kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/diagnostics/intel_bdw_primary_flip.c kernel/diagnostics/intel_bdw_flip_trial.c kernel/diagnostics/intel_bdw_edp_baseline.c tools/test_intel_bdw_flip_rollback.c
+SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/diagnostics/intel_bdw_scanout_page_store.c kernel/src/scanout_handoff.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/display_access.c
 build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c $(SCANOUT_TRANSFER_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(SCANOUT_TRANSFER_HOST_SOURCES) -o $@

@@ -3,12 +3,14 @@
 #include "intel_bdw_i915_host.h"
 #include <srvros/intel_bdw_bcs_flush.h>
 #include <srvros/intel_bdw_private_vm.h>
+#include <errno.h>
 #include <limits.h>
 #include <linux/sync_file.h>
 #include <poll.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/sysmacros.h>
+#include <sys/syscall.h>
 
 static const struct {
     const char *name;
@@ -42,18 +44,18 @@ static void require(bool condition, const char *message)
     }
 }
 
-static struct submission submit(int fd, uint32_t context, enum bdw_barrier_engine engine,
-                                unsigned sequence, uint64_t seed, int dependency, uint32_t gate_handle)
+static struct submission submit_at(int fd, uint32_t context, enum bdw_barrier_engine engine,
+                                   unsigned sequence, uint64_t seed, int dependency, uint32_t gate_handle,
+                                   uint32_t address, int started, int *refusal)
 {
     uint32_t result = create_page(fd), command = create_page(fd);
-    uint32_t address = 0x4000000 + sequence * 2 * PRIVATE_PAGE_BYTES;
+    uint32_t command_address = 0x4000000 + (sequence * 2 + 1) * PRIVATE_PAGE_BYTES;
     struct submission s = {.result = result, .view = map_result(fd, result),
                            .marker = seed ^ sequence, .data = ~(seed ^ sequence)};
     require(!__atomic_load_n(s.view, __ATOMIC_ACQUIRE) &&
             !__atomic_load_n(&s.view[RESULT_MARKER_OFFSET / 8], __ATOMIC_ACQUIRE),
             "Stale private data or marker before submission");
-    /* Both GPU VAs are private, pinned by execbuf, and disjoint from every
-     * other in-flight batch. No relocation may change the tested packet. */
+    /* Both PPGTT offsets are fixed. Each submission has its own batch address. */
     uint32_t batch[6 + BDW_GATE_WORDS_MAX + 2] = {MI_STORE_QWORD_PPGTT, address, 0, (uint32_t)s.data,
                           (uint32_t)(s.data >> 32), 0};
     unsigned body;
@@ -68,13 +70,13 @@ static struct submission submit(int fd, uint32_t context, enum bdw_barrier_engin
     unsigned end = 6 + body;
     batch[end] = MI_BATCH_BUFFER_END;
     unsigned bytes = (end + 2) * sizeof(uint32_t);
-    struct drm_i915_gem_pwrite write = {.handle = command, .size = bytes,
+    struct drm_i915_gem_pwrite upload = {.handle = command, .size = bytes,
                                         .data_ptr = (uintptr_t)batch};
-    call(fd, DRM_IOCTL_I915_GEM_PWRITE, &write, "upload batch");
+    call(fd, DRM_IOCTL_I915_GEM_PWRITE, &upload, "upload batch");
     struct drm_i915_gem_exec_object2 objects[] = {
         {.handle = gate_handle, .offset = GATE_GPU, .flags = EXEC_OBJECT_PINNED},
         {.handle = result, .offset = address, .flags = EXEC_OBJECT_WRITE | EXEC_OBJECT_PINNED},
-        {.handle = command, .offset = address + PRIVATE_PAGE_BYTES, .flags = EXEC_OBJECT_PINNED},
+        {.handle = command, .offset = command_address, .flags = EXEC_OBJECT_PINNED},
     };
     struct drm_i915_gem_execbuffer2 exec = {.buffers_ptr = (uintptr_t)&objects[gate_handle ? 0 : 1],
         .buffer_count = gate_handle ? 3u : 2u, .batch_len = bytes, .flags = engines[engine].flags | I915_EXEC_FENCE_OUT,
@@ -83,12 +85,28 @@ static struct submission submit(int fd, uint32_t context, enum bdw_barrier_engin
         exec.flags |= I915_EXEC_FENCE_IN;
         exec.rsvd2 = (uint32_t)dependency;
     }
-    call(fd, DRM_IOCTL_I915_GEM_EXECBUFFER2_WR, &exec, "submit private batch");
-    require(objects[1].offset == address && objects[2].offset == address + PRIVATE_PAGE_BYTES &&
+    if (started >= 0)
+        require(write(started, "S", 1) == 1, "Cannot report competing request");
+    if (ioctl(fd, DRM_IOCTL_I915_GEM_EXECBUFFER2_WR, &exec) < 0) {
+        if (refusal && (errno == ENOSPC || errno == EBUSY)) {
+            *refusal = errno;
+            return s;
+        }
+        perror("submit private batch");
+        exit(EXIT_FAILURE);
+    }
+    require(objects[1].offset == address && objects[2].offset == command_address &&
             (!gate_handle || objects[0].offset == GATE_GPU),
             "i915 returned a different private GPU address");
     s.fence = (int)(exec.rsvd2 >> 32);
     return s;
+}
+
+static struct submission submit(int fd, uint32_t context, enum bdw_barrier_engine engine,
+                                unsigned sequence, uint64_t seed, int dependency, uint32_t gate_handle)
+{
+    return submit_at(fd, context, engine, sequence, seed, dependency, gate_handle,
+                     0x4000000 + sequence * 2 * PRIVATE_PAGE_BYTES, -1, NULL);
 }
 
 static int fence_status(int fd)
@@ -459,9 +477,99 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
     printf("private-image eDP CRTC %u frames %llu -> %llu\n",crtc,(unsigned long long)first,(unsigned long long)last);
 }
 
+/* A userspace timeout alone cannot distinguish a blocked execbuf from a
+ * submitter that simply has not been scheduled. Inspect our own child. */
+static bool in_execbuffer(pid_t child, int drm_fd)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%ld/syscall", (long)child);
+    FILE *file = fopen(path, "r");
+    if (!file) return false;
+    long number;
+    unsigned long fd, op;
+    int n = fscanf(file, "%ld %lx %lx", &number, &fd, &op);
+    fclose(file);
+    return n == 3 && number == SYS_ioctl && fd == (unsigned long)drm_fd &&
+           op == DRM_IOCTL_I915_GEM_EXECBUFFER2_WR;
+}
+
+/* Compare a real outstanding reference with an unrelated mapping in the same
+ * i915 VM. Only the result VA collides. Both engines have separate batches,
+ * objects and markers, and the challenger has no input fence. */
+static void active_range(int fd, uint32_t context, int timeline, int card, uint32_t crtc, uint64_t seed)
+{
+    struct sw_fence gate = {.value = 1, .name = "SrvrOS active mapping"};
+    call(timeline, _IOWR('W', 0, struct sw_fence), &gate, "create mapping dependency");
+    uint64_t before = frame(card, crtc);
+    struct submission original = submit(fd, context, BDW_BARRIER_BCS, 0, seed, gate.fence, 0);
+    struct submission control = submit(fd, context, BDW_BARRIER_RCS, 1, seed, -1, 0);
+    verify(fd, &control);
+    require(fence_status(original.fence) == 0, "Original request lost its dependency");
+
+    int events[2];
+    require(pipe(events) == 0, "Cannot create request event pipe");
+    pid_t child = fork();
+    require(child >= 0, "Cannot start competing submitter");
+    if (!child) {
+        close(events[0]);
+        int refusal = 0;
+        struct submission next = submit_at(fd, context, BDW_BARRIER_RCS, 2, seed, -1, 0,
+                                           0x4000000, events[1], &refusal);
+        if (refusal) {
+            require(write(events[1], "R", 1) == 1, "Cannot report refused binding");
+            struct pollfd prior = {.fd = original.fence, .events = POLLIN};
+            require(poll(&prior, 1, 3000) == 1 && fence_status(original.fence) == 1,
+                    "Original request failed before rebind");
+            next = submit_at(fd, context, BDW_BARRIER_RCS, 2, seed, -1, 0, 0x4000000, -1, NULL);
+        }
+        struct pollfd wait = {.fd = next.fence, .events = POLLIN};
+        require(poll(&wait, 1, 3000) == 1, "Competing request never finished");
+        verify(fd, &next);
+        require(write(events[1], "D", 1) == 1, "Cannot report rebind completion");
+        _exit(0);
+    }
+    close(events[1]);
+    char event = 0;
+    bool started = read(events[0], &event, 1) == 1 && event == 'S';
+    struct pollfd watch = {.fd = events[0], .events = POLLIN};
+    int ready = poll(&watch, 1, 50);
+    bool refused = ready == 1 && read(events[0], &event, 1) == 1 && event == 'R';
+    bool blocked = ready == 0 && in_execbuffer(child, fd);
+    bool held = started && (blocked || refused) && fence_status(original.fence) == 0 &&
+                !__atomic_load_n(original.view, __ATOMIC_ACQUIRE);
+    uint32_t increment = 1;
+    call(timeline, _IOW('W', 1, uint32_t), &increment, "release original request");
+    verify(fd, &original);
+    int status = 0;
+    require(waitpid(child, &status, 0) == child && WIFEXITED(status) && !WEXITSTATUS(status),
+            "Competing submitter failed");
+    require(held && read(events[0], &event, 1) == 1, "Range reused early or completion missing");
+    /* A sampled execbuf may subsequently return a refusal before the retry. */
+    if (blocked && event == 'R') {
+        refused = true;
+        require(read(events[0], &event, 1) == 1, "Retried binding completion missing");
+    }
+    require(event == 'D', "Missing final binding completion");
+    close(events[0]);
+    check_result(fd, original.result, original.data, original.marker, "original backing after rebind");
+    uint64_t after = frame(card, crtc);
+    uint64_t start = monotonic_us();
+    while (after == before && monotonic_us() - start < COMPLETION_TIMEOUT_US) {
+        const struct timespec delay = {.tv_nsec = 1000000};
+        nanosleep(&delay, NULL);
+        after = frame(card, crtc);
+    }
+    require(active_edp(card) == crtc && after > before, "Original eDP CRTC did not advance");
+    printf("active-range PASS private_va=0x4000000 independent=complete conflicting=%s "
+           "original=verified replacement=verified edp_frames=%llu..%llu\n",
+           refused ? "refused-then-retried" : "blocked-in-execbuf",
+           (unsigned long long)before, (unsigned long long)after);
+}
+
 int main(int argc, char **argv)
 {
-    require(argc == 2 && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD|--slot-loan|--independent-slot|--competing-context|--private-image|--observe-hold");
+    bool range_trial = argc == 3 && !strcmp(argv[2], "--active-range");
+    require((argc == 2 || range_trial) && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD [--active-range]|--slot-loan|--independent-slot|--competing-context|--private-image|--observe-hold");
     char *end;
     long timeline = strtol(argv[1], &end, 10);
     bool slot_trial = !strcmp(argv[1], "--slot-loan");
@@ -469,7 +577,7 @@ int main(int argc, char **argv)
     bool independent_trial = compete || !strcmp(argv[1], "--independent-slot");
     bool trace = !strcmp(argv[1], "--observe-hold");
     bool image_trial = trace || !strcmp(argv[1], "--private-image");
-    if (!slot_trial && !independent_trial && !image_trial) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
+    if (range_trial || (!slot_trial && !independent_trial && !image_trial)) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
     int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
     require(fd >= 0 && parameter(fd, I915_PARAM_CHIPSET_ID) == 0x1626 &&
             parameter(fd, I915_PARAM_HAS_ALIASING_PPGTT) >= 2 && parameter(fd, I915_PARAM_HAS_LLC) &&
@@ -482,6 +590,10 @@ int main(int argc, char **argv)
     uint64_t seed;
     require(getrandom(&seed, sizeof(seed), 0) == sizeof(seed) && (uint32_t)(seed >> 32) != 0 &&
             (uint32_t)(seed >> 32) != UINT32_MAX, "Cannot obtain fresh markers");
+    if (range_trial) {
+        active_range(fd, context.ctx_id, (int)timeline, card, crtc, seed);
+        return EXIT_SUCCESS;
+    }
     if (image_trial) {
         if (trace) {
             unsigned ready;

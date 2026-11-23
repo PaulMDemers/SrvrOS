@@ -191,6 +191,16 @@ and markers. This exercises private work scheduled by i915. Native
 global admission, a power-manager L3 flush and slot ownership still
 require independent evidence.
 
+Append `--active-range` after the timeline fd (`3`) in the command above
+to compare two requests for the same private GPU address. A software fence
+holds the first blitter job. A render job at an unrelated address must finish.
+A second render job requests the held address with different backing and no
+input fence. The observer checks that the submitter is inside the execbuffer
+ioctl, or that i915 explicitly declined the binding. After release it checks
+both buffers' contents and advancement of the original eDP CRTC. This
+test uses a process-private page table. Native GGTT ownership is a separate
+milestone.
+
 ## Device-side queue hold through slot 8704 rollback
 
 On the Ubuntu Air7,2, build the binary as above and run the observer once.

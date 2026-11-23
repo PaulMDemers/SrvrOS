@@ -17,8 +17,8 @@ static bool fresh_capture(const struct intel_bdw_primary_flip *leg,
     return frames && frames < 0x80000000u;
 }
 
-bool intel_bdw_flip_trial(struct bdw_flip_trial *r, const struct bdw_flip_trial_io *io,
-                          uint32_t expected_candidate_crc)
+static bool run_trial(struct bdw_flip_trial *r, const struct bdw_flip_trial_io *io,
+                      uint32_t expected_candidate_crc, const struct scanout_publication *candidate)
 {
     if (!r || r->stage != BDW_TRIAL_EMPTY || !io || !io->admit || !io->plane.ctx ||
         io->plane.ctx != io->crc.context || io->plane.now != io->crc.now ||
@@ -33,6 +33,10 @@ bool intel_bdw_flip_trial(struct bdw_flip_trial *r, const struct bdw_flip_trial_
 
     r->stage = BDW_TRIAL_FORWARD;
     struct bdw_flip_source *source = io->admit(io->plane.ctx, false);
+    if (candidate && (!source || source->binding.to_mapping != &candidate->range ||
+        source->binding.to_gpu != (uint64_t)candidate->range.first * 4096 ||
+        source->binding.mapped_bytes != (uint64_t)candidate->pages * 4096))
+        return false;
     if (!intel_bdw_primary_flip_begin(&r->forward, source, io->plane) ||
         !await_latch(&r->forward, io))
         return false;
@@ -58,4 +62,31 @@ bool intel_bdw_flip_trial(struct bdw_flip_trial *r, const struct bdw_flip_trial_
                            intel_bdw_edp_baseline_same(&r->original, &r->restored) &&
                            r->original.crc[3] == r->restored.crc[3];
     return r->candidate_matched && r->original_restored;
+}
+
+bool intel_bdw_flip_trial(struct bdw_flip_trial *r, const struct bdw_flip_trial_io *io,
+                          uint32_t expected_candidate_crc)
+{
+    return run_trial(r, io, expected_candidate_crc, 0);
+}
+
+bool intel_bdw_mapped_flip_trial(struct bdw_flip_trial *r, const struct bdw_flip_trial_io *io,
+                                 uint32_t expected_candidate_crc, struct scanout_memory *memory,
+                                 const struct scanout_memory_token *token)
+{
+    if (!r || r->stage != BDW_TRIAL_EMPTY || !memory || memory->object != memory || !token ||
+        token->object != memory || token->epoch != memory->epoch || token->owner != memory->owner ||
+        memory->state != MEM_GPU || memory->closing || memory->busy ||
+        memory->space != memory->publication.space || memory->owner != memory->publication.owner ||
+        memory->backing_pages != memory->publication.pages ||
+        !scanout_publish_pin_reader(&memory->publication, &memory->publication_token, &r->reader))
+        return false;
+
+    bool passed = run_trial(r, io, expected_candidate_crc, &memory->publication);
+    /* A bad candidate image can still return cleanly. An attempted plane
+     * write followed by uncertain scanout leaves the reader registered. */
+    if (!r->forward.p.attempts || r->original_restored) {
+        if (!scanout_publish_unpin_reader(&memory->publication, &r->reader)) return false;
+    }
+    return passed;
 }

@@ -24,6 +24,13 @@ struct scanout_publish_io {
     uint64_t (*now)(void *);
 };
 struct scanout_publish_pool {uint64_t epoch;};
+struct scanout_publish_token {const struct scanout_publication *object;uint64_t epoch,owner;};
+/* CPU0 serialized. The submitter keeps this one-use node alive from before
+ * issuance until its specific reader finishes, including on uncertain issue. */
+struct scanout_reader {
+    struct scanout_publish_token binding;
+    struct scanout_reader *next;
+};
 struct scanout_publication {
     /* Zero-init, original-address sealed. Copies cannot use or restart the
      * admitted transaction, even with a token rebound to the copy. */
@@ -41,9 +48,13 @@ struct scanout_publication {
     bool (*release_hold)(const struct scanout_publication *);
     uint32_t state,error,pages,reads,writes,flushes;
     bool busy,exposed;
+    bool closing;
+    struct scanout_reader *readers;
     uint64_t before[SCANOUT_PUBLISH_PAGES],after[SCANOUT_PUBLISH_PAGES];
 };
-struct scanout_publish_token {const struct scanout_publication *object;uint64_t epoch,owner;};
+bool scanout_publish_pin_reader(struct scanout_publication *,const struct scanout_publish_token *,
+                               struct scanout_reader *);
+bool scanout_publish_unpin_reader(struct scanout_publication *,struct scanout_reader *);
 /* Linear CPU storage calculation only; not display-format or cache admission. */
 bool scanout_linear_storage(uint32_t width,uint32_t height,uint32_t pitch,uint64_t *bytes,uint32_t *pages);
 bool scanout_publish_prepare(struct scanout_publication *,struct scanout_publish_pool *,uint64_t owner,

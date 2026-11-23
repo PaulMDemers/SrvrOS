@@ -1,9 +1,9 @@
 # Broadwell synchronous primary-plane flips
 
 `intel_bdw_primary_flip` implements the primary-A arm and live-surface latch
-sequence for already owned buffers. It is a host-qualified protocol with an
-incremental polling API. There is no native adapter, guest-image caller or new
-hardware acceptance. The ordinary desktop still uses its inherited framebuffer.
+sequence for already owned buffers. Host tests and a Q35 test guest exercise
+the protocol with a modeled display. The ordinary desktop still uses its
+inherited framebuffer.
 This advances presentation in the [tear-free roadmap](intel-tearfree-roadmap.md);
 the [Air current record](machines/macbookair7-2-current.md) owns native acceptance.
 
@@ -385,3 +385,38 @@ For SrvrOS the unresolved step precedes that store. The boot handoff must
 establish who can issue work against this range and retire earlier users
 before the driver's own allocation and fence records can govern reuse.
 [Linux Gen8 GGTT page insertion](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L435-L448)
+
+## Mapping lifetime and first native ownership
+
+The Broadwell register reference identifies the graphics power manager as
+the sender of the GAM GO requests and GAM as the responder. We have found
+no documented interface on this Air for software to sustain that request
+through a PTE replacement and its rollback. An idle sample cannot establish
+who will be allowed to issue the next request.
+[Broadwell PRM volume 2c, printed pages 587–592](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
+The i915 model provides a second path. During probe, it resets engines on
+platforms where the reset preserves the display. It imports the firmware
+plane backing and pins the initial framebuffer. Once it owns the address
+space, each request using a GPU mapping contributes to its activity record.
+Synchronous unbind checks pinning and waits for outstanding use. This
+separates the one-time firmware handoff from the recurring work of reusing
+a driver-owned range.
+[Probe](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_driver.c)
+· [Initial plane](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_plane_initial.c)
+· [VMA activation and unbind](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_vma.c)
+
+The SrvrOS mapped flip registers a reader on the exact published candidate
+before arming Pipe A. A close request seals admission and waits for all
+registered readers. The flip releases its reader after a verified return to
+the original image, or if it failed before attempting the forward write.
+An uncertain latch or return keeps the record and backing alive. The
+publisher still requires independent device-side retirement before its first
+restoration write. Run `make smoke-scanout-owned-page` for the Q35 coverage.
+
+The next native milestone is to import the boot framebuffer and establish
+exclusive use of one candidate range in the same driver epoch. This requires
+accounting for inherited queues, cache and posted traffic, and WiDi across
+both changes of slot 12291. The physical private-address comparison and the
+Q35 flip validate later lifetime rules. The first native GGTT store still
+depends on that handoff.

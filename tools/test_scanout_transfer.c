@@ -648,17 +648,27 @@ static uint32_t image_crc(uint32_t base, bool reference)
 }
 static uint32_t scan_crc(uint32_t base)
 {
-    return base ? image_crc(base,false) : 0x12344321;
+    if (!base) return 0x12344321;
+    /* A close racing active scanout seals the mapping. Even hardware reporting
+     * idle cannot restore it until this registered reader actually returns. */
+    struct scanout_reader late={0};
+    uint32_t writes=a.publication.writes;
+    assert(a.publication.readers);
+    assert(!scanout_memory_close(&a,&at));
+    assert(a.closing && a.publication.closing && !model.releases &&
+           a.publication.writes==writes && a.publication.state==PUB_PUBLISHED);
+    assert(!scanout_publish_pin_reader(&a.publication,&a.publication_token,&late));
+    return image_crc(base,false);
 }
 static bool display_mapping_held(void)
 {
-    return a.state==MEM_GPU && !a.closing && a.publication.state==PUB_PUBLISHED &&
-           model.pending && transfer.state==TRANSFER_ACTIVE && guard(&model);
+    return a.state==MEM_GPU && a.publication.state==PUB_PUBLISHED &&
+           transfer.state==TRANSFER_ACTIVE && guard(&model);
 }
-bool test_flip_on_published_surface(const struct scanout_memory *,bool (*)(void),
+bool test_flip_on_published_surface(struct scanout_memory *,const struct scanout_memory_token *,bool,bool (*)(void),
                                     uint32_t (*)(uint32_t),uint32_t);
 
-static void mapped_flip(bool corrupt)
+static void mapped_flip(bool corrupt,bool uncertain)
 {
     struct scanout_memory_layout layout;
     assert(scanout_memory_layout(1440,900,6144,true,&layout));
@@ -687,8 +697,20 @@ static void mapped_flip(bool corrupt)
     }
     assert(intel_bdw_scanout_prepare(&a,&at,&transfer,&token,&publications,binding().publication));
     assert(scanout_memory_apply(&a,&at));
+    struct scanout_reader other={0};
+    assert(scanout_publish_pin_reader(&a.publication,&a.publication_token,&other));
+    assert(test_flip_on_published_surface(&a,&at,uncertain,display_mapping_held,scan_crc,image_crc(0,true)) == (!corrupt && !uncertain));
+    struct scanout_reader copy=other;
+    assert(!scanout_publish_unpin_reader(&a.publication,&copy));
+    assert(!scanout_memory_close(&a,&at) && !model.releases && model.writes==1484);
+    assert(scanout_publish_unpin_reader(&a.publication,&other));
+    assert(!scanout_publish_unpin_reader(&a.publication,&other));
+    if(uncertain) {
+        assert(!scanout_memory_close(&a,&at) && a.publication.readers && !model.releases && model.writes==1484);
+        return;
+    }
+    assert(!a.publication.readers);
     model.pending=true;
-    assert(test_flip_on_published_surface(&a,display_mapping_held,scan_crc,image_crc(0,true)) == !corrupt);
     assert(!scanout_memory_close(&a,&at) && !model.releases && model.writes==1484);
     expect_conflict(manifest);
     expect_small_conflict();
@@ -902,7 +924,8 @@ int main(int argc,char **argv) {
     bool linear_tail=!strcmp(mode,"linear-tail");
     bool tiled_tail=!strcmp(mode,"tiled-tail") || !strcmp(mode,"tiled-tail-partial") ||
                     !strcmp(mode,"tiled-tail-no-owner") || !strcmp(mode,"tiled-tail-invalid-original") || !strcmp(mode,"tiled-tail-high-ram");
-    bool flip=!strcmp(mode,"tiled-flip") || !strcmp(mode,"tiled-flip-wrong-pixels");
+    bool uncertain_flip=!strcmp(mode,"tiled-flip-retained");
+    bool flip=uncertain_flip || !strcmp(mode,"tiled-flip") || !strcmp(mode,"tiled-flip-wrong-pixels");
     tiled_tail |= flip;
     bool full_tail=linear_tail || tiled_tail;
     bool tail_changed=!strcmp(mode,"linear-tail-original-change");
@@ -1095,8 +1118,9 @@ int main(int argc,char **argv) {
         puts("PASS failed retirement keeps exclusion");return 0;
     }
     if(flip) {
-        mapped_flip(!strcmp(mode,"tiled-flip-wrong-pixels"));close_clean();
-        puts("PASS mapped surface flip, pixel CRC, rollback and reader retirement");return 0;
+        mapped_flip(!strcmp(mode,"tiled-flip-wrong-pixels"),uncertain_flip);
+        if(!uncertain_flip)close_clean();
+        printf("PASS %s\n",mode);return 0;
     }
     if(single_page) {
         assert(prepare_memory(&a,&at,0));assert(a.range.first==8704 && a.range.pages==1);

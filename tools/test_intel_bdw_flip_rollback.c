@@ -279,16 +279,18 @@ void test_flip_rollback(void)
 
 /* Called from the transfer fixture after real memory publication. Model the
  * tap from the emulated GGTT and RAM; the restoration uses the same mapping. */
-bool test_flip_on_published_surface(const struct scanout_memory *memory, bool (*mapping_held)(void),
+bool test_flip_on_published_surface(struct scanout_memory *memory, const struct scanout_memory_token *token,
+                                    bool uncertain_return, bool (*mapping_held)(void),
                                     uint32_t (*scan_crc)(uint32_t), uint32_t expected)
 {
     struct panel p;
     init(&p);
-    struct bdw_flip_trial record = {0};
+    static struct bdw_flip_trial record; /* Survives a retained reader. */
+    p.uncertain_return = uncertain_return;
     p.registered[0] = &record.forward;
     p.registered[1] = &record.back;
     p.alternate = memory->range.first * 4096u;
-    p.mapping[1] = &memory->range;
+    p.mapping[1] = &memory->publication.range;
     p.mapping_held = mapping_held;
     p.scan_crc = scan_crc;
     for (unsigned i = 0; i < 2; ++i) {
@@ -303,7 +305,26 @@ bool test_flip_on_published_surface(const struct scanout_memory *memory, bool (*
         {&p, proof, read_reg, write_reg, now},
         {&p, held, snapshot, read_reg, write_reg, now, delay}, admit
     };
-    bool passed = intel_bdw_flip_trial(&record, &io, expected);
+    struct scanout_memory_token stale = *token;
+    ++stale.epoch;
+    assert(!intel_bdw_mapped_flip_trial(&record, &io, expected, memory, &stale));
+    struct scanout_reader *prior = memory->publication.readers;
+    const struct bdw_flip_binding saved = p.source[0].binding;
+    for (unsigned mismatch = 0; mismatch < 3; ++mismatch) {
+        struct bdw_flip_trial invalid = {0};
+        if (mismatch == 0) p.source[0].binding.to_mapping = &memory->range;
+        if (mismatch == 1) p.source[0].binding.to_gpu += 256u * 1024;
+        if (mismatch == 2) p.source[0].binding.mapped_bytes += 4096;
+        assert(!intel_bdw_mapped_flip_trial(&invalid, &io, expected, memory, token));
+        assert(invalid.stage == BDW_TRIAL_FORWARD && !invalid.forward.object && !p.arms);
+        assert(prior && memory->publication.readers == prior);
+        p.source[0].binding = saved;
+    }
+    bool passed = intel_bdw_mapped_flip_trial(&record, &io, expected, memory, token);
+    if (uncertain_return) {
+        assert(!passed && record.back.retained && memory->publication.readers == &record.reader);
+        return false;
+    }
     assert(record.original_restored && p.arms == 2 && !p.live && !p.queued);
     return passed;
 }
