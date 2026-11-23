@@ -40,6 +40,7 @@ SEQPACKET_MARKER = b'glib-seqpacket: ok'
 EPROTOTYPE_MARKER = b'glib-eprototype: ok'
 SOMAXCONN_MARKER = b'glib-somaxconn: ok'
 IP_TTL_MARKER = b'glib-ip-ttl: ok'
+IPV6_UNICAST_HOPS_MARKER = b'glib-ipv6-unicast-hops: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
@@ -184,6 +185,7 @@ def main():
     parser.add_argument('--eprototype', action='store_true', help='test the protocol/type errno and socket creation flags')
     parser.add_argument('--somaxconn', action='store_true', help='test the Unix listener backlog and its public ceiling')
     parser.add_argument('--ip-ttl', action='store_true', help='test per-socket IPv4 TTL against a private peer')
+    parser.add_argument('--ipv6-unicast-hops', action='store_true', help='test IPv6 unicast option refusal without network')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
@@ -274,7 +276,8 @@ def main():
                       ('seqpacket', args.seqpacket, SEQPACKET_MARKER),
                       ('eprototype', args.eprototype, EPROTOTYPE_MARKER),
                       ('somaxconn', args.somaxconn, SOMAXCONN_MARKER),
-                      ('ip-ttl', args.ip_ttl, IP_TTL_MARKER))
+                      ('ip-ttl', args.ip_ttl, IP_TTL_MARKER),
+                      ('ipv6-unicast-hops', args.ipv6_unicast_hops, IPV6_UNICAST_HOPS_MARKER))
         for name, enabled, marker in sdk_probes:
             if not enabled:
                 continue

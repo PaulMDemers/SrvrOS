@@ -549,6 +549,18 @@ and peer stopped, and the VM window was released. The fresh standard static
 GIO build stops at undeclared `IPV6_UNICAST_HOPS` in `gsocket.c:1686`.
 [Verification receipt](../assets/evidence/gio-ip-ttl/receipt.json)
 
+## GIO IPv6 unicast hop-limit declaration — November 23, 2026
+
+Merged OS #539 at `d0a4ada4` is the baseline. The rebuilt SDK exports
+`IPV6_UNICAST_HOPS` through `<netinet/in.h>`. Both boundary probes and
+both platform controls passed in a private diskless guest with no NIC.
+The probe verified IPv6 socket and option refusal and the working IPv4 TTL
+control. ISO readback matched. Integration coordinated the window, and the
+guest stopped and released it. The previous IPv4 TTL artifacts are preserved.
+Fresh pinned GLib configuration passed. Static GIO next stops at undeclared
+`SO_BROADCAST` in `gsocket.c:1765`.
+[Verification receipt](../assets/evidence/gio-ipv6-unicast-hops/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

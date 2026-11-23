@@ -31,6 +31,8 @@ struct sockaddr_in6 {
 };
 
 #define IP_TTL 2
+/* Source compatibility for callers that handle unsupported IPv6 sockets. */
+#define IPV6_UNICAST_HOPS 16
 
 #define INADDR_ANY 0x00000000u
 #define INADDR_LOOPBACK 0x7f000001u
