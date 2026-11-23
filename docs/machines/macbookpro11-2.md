@@ -191,6 +191,15 @@ Edimax DHCP, ping, DNS, UDP and retirement regression passed. Exact VM image
 workspace save. The Realtek was absent from the VM. Native firmware readiness
 is pending. A physical run needs a fresh bound journal and run record.
 
+The cold firmware image `fb60c770af22c79b` carries the same kernel and
+pinned firmware with a fresh bound journal. It passed the exact GPT and
+all four journal VM checks. Installation verified Ubuntu as the default,
+recovery `74da74e0b57afbb8`, and a clean direct USB workspace with 570
+pre-existing files. Keep the Realtek, Edimax, and Netgear in hub ports 1,
+2, and 4 while cold-resetting the hub. The unattended trial saves the
+firmware receipt before automatic return. The local
+`pro112-rtl8188cu-firmware-cold/run.json` owns boot state and collection.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
