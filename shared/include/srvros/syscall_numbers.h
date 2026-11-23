@@ -172,6 +172,7 @@
 #define SYS_FILE_STREAM 168
 #define SYS_FILE_VERIFY 170 /* 169 is used by the active Wi-Fi device branch. */
 #define SYS_PROCESS_CREDENTIALS 171
+#define SYS_NET_IPV4_TTL 172
 
 /* Device branch Wi-Fi call moved from163;matched image required. */
 #define SYS_WIFI 169
@@ -375,6 +376,7 @@ struct srv_winsize {
 #define SRV_ERR_SPIPE -29
 #define SRV_ERR_OVERFLOW -75
 #define SRV_ERR_MSGSIZE -90
+#define SRV_ERR_ADDRINUSE -98
 
 #define SRV_RIGHTS_MAX 4
 #define SRV_PIPE_MESSAGE_SEND 0u
@@ -430,6 +432,16 @@ struct srv_pipe_message_layout {
 
 #define SRV_NET_ABI_VERSION 1
 #define SRV_NET_UDP_PAYLOAD_MAX 1472
+#define SRV_IPV4_TTL_DEFAULT 64
+
+/* SYS_NET_IPV4_TTL operands after the operation. Unused operands are zero.
+ * GET returns the effective TTL. SET uses 0 to restore the default.
+ * CONNECT and LISTEN take a nonzero TTL for the initial TCP packets. */
+#define SRV_NET_TTL_PROBE 0u    /* No operands. Returns the default TTL. */
+#define SRV_NET_TTL_GET 1u      /* fd */
+#define SRV_NET_TTL_SET 2u      /* fd, ttl */
+#define SRV_NET_TTL_CONNECT 3u  /* IPv4 address, port, nonblocking flag, ttl */
+#define SRV_NET_TTL_LISTEN 4u   /* port, ttl */
 
 struct srv_net_abi_header {
     uint64_t abi_version;

@@ -88,6 +88,7 @@ struct net_listener {
     uint32_t refs;
     struct process *owner;
     uint16_t port;
+    uint8_t ipv4_ttl;
 };
 
 struct tcp_tx_record {
@@ -103,6 +104,7 @@ struct tcp_tx_record {
 
 struct tcp_connection {
     uint8_t state;
+    uint8_t ipv4_ttl;
     bool pending;
     bool accepted;
     bool outbound;
@@ -162,6 +164,7 @@ struct udp_socket {
     uint32_t refs;
     struct process *owner;
     uint16_t local_port;
+    uint8_t ipv4_ttl;
     uint8_t head;
     uint8_t tail;
     uint8_t count;
@@ -566,7 +569,7 @@ static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     uint32_t dst_ip,
     uint8_t protocol,
     const uint8_t *payload,
-    uint16_t payload_length) {
+    uint16_t payload_length, uint8_t ttl) {
     uint8_t frame[1514];
     uint16_t total_length = 20 + payload_length;
 
@@ -584,7 +587,7 @@ static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     write_be16(ip + 2, total_length);
     write_be16(ip + 4, ip_ident++);
     write_be16(ip + 6, 0x4000);
-    ip[8] = 64;
+    ip[8] = ttl ? ttl : SRV_IPV4_TTL_DEFAULT;
     ip[9] = protocol;
     write_be16(ip + 10, 0);
     copy_bytes(ip + 12, src_ip_bytes, 4);
@@ -601,7 +604,7 @@ static bool send_ipv4_packet(const uint8_t *dst_mac,
     uint8_t protocol,
     const uint8_t *payload,
     uint16_t payload_length) {
-    return send_ipv4_packet_from(dst_mac, local_ip_bytes, dst_ip, protocol, payload, payload_length);
+    return send_ipv4_packet_from(dst_mac, local_ip_bytes, dst_ip, protocol, payload, payload_length, 0);
 }
 
 static bool send_udp_packet(const uint8_t *dst_mac,
@@ -610,7 +613,7 @@ static bool send_udp_packet(const uint8_t *dst_mac,
     uint16_t src_port,
     uint16_t dst_port,
     const uint8_t *payload,
-    uint16_t payload_length) {
+    uint16_t payload_length, uint8_t ttl) {
     uint8_t packet[1500];
     uint16_t udp_length = payload_length + 8;
     if ((uint64_t)udp_length > sizeof(packet)) {
@@ -622,7 +625,7 @@ static bool send_udp_packet(const uint8_t *dst_mac,
     write_be16(packet + 4, udp_length);
     write_be16(packet + 6, 0);
     copy_bytes(packet + 8, payload, payload_length);
-    return send_ipv4_packet_from(dst_mac, src_ip_bytes, dst_ip, IP_PROTO_UDP, packet, udp_length);
+    return send_ipv4_packet_from(dst_mac, src_ip_bytes, dst_ip, IP_PROTO_UDP, packet, udp_length, ttl);
 }
 
 static bool rx_signaled(void *arg) { return rx_signal_generation!=*(uint64_t *)arg; }
@@ -755,7 +758,7 @@ static bool send_dns_query(uint32_t server_ip, const uint8_t *server_mac, const 
         DNS_CLIENT_PORT,
         DNS_PORT,
         packet,
-        (uint16_t)offset);
+        (uint16_t)offset, 0);
 }
 
 static void handle_dns_packet(const uint8_t *payload, uint16_t length) {
@@ -823,7 +826,7 @@ static bool send_dhcp_message(uint8_t message_type, const uint8_t *requested_ip,
         DHCP_CLIENT_PORT,
         DHCP_SERVER_PORT,
         packet,
-        sizeof(packet));
+        sizeof(packet), 0);
 }
 
 /* The existing bounded owner scopes this observation. It adds no guard/clock
@@ -1322,6 +1325,7 @@ retry:
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state == TCP_STATE_EMPTY) {
             tcp_connections[i].state = TCP_STATE_SYN_RECEIVED;
+            tcp_connections[i].ipv4_ttl = listener->ipv4_ttl;
             tcp_connections[i].pending = false;
             tcp_connections[i].accepted = false;
             tcp_connections[i].outbound = false;
@@ -1424,6 +1428,7 @@ retry:
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state == TCP_STATE_EMPTY) {
             tcp_connections[i].state = TCP_STATE_SYN_SENT;
+            tcp_connections[i].ipv4_ttl = 0;
             tcp_connections[i].pending = false;
             tcp_connections[i].accepted = true;
             tcp_connections[i].outbound = true;
@@ -1681,7 +1686,8 @@ static bool send_tcp_segment_at(struct tcp_connection *connection,
     }
     write_be16(segment + 16, tcp_checksum(local_ip, connection->remote_ip, segment, tcp_length));
 
-    if (!send_ipv4_packet(connection->remote_mac, connection->remote_ip, IP_PROTO_TCP, segment, tcp_length)) {
+    if (!send_ipv4_packet_from(connection->remote_mac, local_ip_bytes, connection->remote_ip,
+            IP_PROTO_TCP, segment, tcp_length, connection->ipv4_ttl)) {
         return false;
     }
 
@@ -4033,7 +4039,7 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
     return -1;
 }
 
-int64_t net_listen(uint16_t port) {
+int64_t net_listen_with_ttl(uint16_t port, uint8_t ttl) {
     if (!initialized || port == 0) {
         return -1;
     }
@@ -4046,6 +4052,10 @@ int64_t net_listen(uint16_t port) {
     for (uint64_t i = 0; i < NET_LISTENERS; i++) {
         if (listeners[i].used && listeners[i].port == port) {
             if (listeners[i].owner != owner) {
+                return -1;
+            }
+            /* A configured open cannot change an already shared listener. */
+            if (ttl && ttl != (listeners[i].ipv4_ttl ? listeners[i].ipv4_ttl : SRV_IPV4_TTL_DEFAULT)) {
                 return -1;
             }
             if (listeners[i].refs == UINT32_MAX) {
@@ -4063,6 +4073,7 @@ int64_t net_listen(uint16_t port) {
             listeners[i].refs = 1;
             listeners[i].owner = owner;
             listeners[i].port = port;
+            listeners[i].ipv4_ttl = ttl;
             if (next_listener_id == 0) {
                 next_listener_id = 1;
             }
@@ -4071,6 +4082,10 @@ int64_t net_listen(uint16_t port) {
     }
 
     return -1;
+}
+
+int64_t net_listen(uint16_t port) {
+    return net_listen_with_ttl(port, 0);
 }
 
 int64_t net_udp_open(void) {
@@ -4168,7 +4183,7 @@ int64_t net_udp_send_checked(uint64_t socket_id,
         socket->local_port,
         remote_port,
         buffer,
-        (uint16_t)length) ? (int64_t)length : -1;
+        (uint16_t)length, socket->ipv4_ttl) ? (int64_t)length : -1;
 }
 
 int64_t net_udp_sendto_mode(uint64_t handle, uint32_t ip, uint16_t port,
@@ -4357,6 +4372,33 @@ int64_t net_error(uint64_t handle) {
     return SRV_NETERR_NONE;
 }
 
+int64_t net_ipv4_ttl(uint64_t handle, bool set, uint8_t ttl) {
+    uint8_t *value = NULL;
+    switch (handle_type(handle)) {
+    case NET_HANDLE_LISTENER: {
+        struct net_listener *listener = find_listener(handle);
+        if (listener) value = &listener->ipv4_ttl;
+        break;
+    }
+    case NET_HANDLE_CONNECTION: {
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
+        if (connection) value = &connection->ipv4_ttl;
+        break;
+    }
+    case NET_HANDLE_UDP_SOCKET: {
+        struct udp_socket *socket = find_udp_socket(handle);
+        if (socket) value = &socket->ipv4_ttl;
+        break;
+    }
+    }
+    if (!value) return SRV_ERR_BADF;
+    if (set) {
+        *value = ttl;
+        return 0;
+    }
+    return *value ? *value : SRV_IPV4_TTL_DEFAULT;
+}
+
 struct connect_wait_arg {
     struct process *owner;
     uint64_t connection_id;
@@ -4392,7 +4434,7 @@ int64_t net_connect_try(uint32_t remote_ip, uint16_t remote_port) {
     return (int64_t)make_handle(NET_HANDLE_CONNECTION, id);
 }
 
-int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
+int64_t net_connect_with_ttl(uint32_t remote_ip, uint16_t remote_port, bool nonblock, uint8_t ttl) {
     if (!initialized || remote_ip == 0 || remote_port == 0) {
         return -1;
     }
@@ -4406,6 +4448,7 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
     if (connection == 0) {
         return -1;
     }
+    connection->ipv4_ttl = ttl;
     uint64_t connection_id = connection->id;
     struct process *owner = connection->owner;
     if (!send_tcp_segment(connection, connection->local_port, TCP_SYN, 0, 0)) {
@@ -4456,6 +4499,10 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
             return SRV_ERR_INTR;
         }
     }
+}
+
+int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
+    return net_connect_with_ttl(remote_ip, remote_port, nonblock, 0);
 }
 
 struct accept_wait_arg { uint64_t handle; const struct net_transfer *transfer; };

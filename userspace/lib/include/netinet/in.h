@@ -30,6 +30,8 @@ struct sockaddr_in6 {
     uint32_t sin6_scope_id;
 };
 
+#define IP_TTL 2
+
 #define INADDR_ANY 0x00000000u
 #define INADDR_LOOPBACK 0x7f000001u
 #define IN_MULTICAST(address) (((uint32_t)(address) & 0xf0000000u) == 0xe0000000u)

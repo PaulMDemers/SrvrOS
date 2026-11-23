@@ -48,6 +48,7 @@ struct posix_socket {
     int so_sndbuf;
     int so_keepalive;
     int tcp_nodelay;
+    int ipv4_ttl_preference; /* Zero means the kernel default. */
     struct linger so_linger;
     uint64_t fd_flags;
     char unix_path[SRV_UNIX_PATH_MAX];
@@ -228,6 +229,40 @@ static int socket_error_for_fd(int fd) {
 }
 
 int __posix_socket_pending_error(int fd) { return socket_error_for_fd(fd); }
+
+/* A missing syscall must never be represented as a successful option. */
+static int ipv4_ttl_result(long result) {
+    if (result >= 0) return (int)result;
+    errno = (result == -1 || result == -ENOSYS || result == SRV_ERR_NOTSUP) ? ENOPROTOOPT : (int)-result;
+    return -1;
+}
+
+static long ipv4_ttl_call(long op, long a, long b, long c, long d) {
+    return srv_syscall5(SYS_NET_IPV4_TTL, op, a, b, c, d);
+}
+
+static int ipv4_ttl_option(int fd, struct posix_socket *socket, int set, int *value) {
+    if (socket && socket->domain != AF_INET) { errno = ENOPROTOOPT; return -1; }
+    if (set && (*value < -1 || *value == 0 || *value > 255)) { errno = EINVAL; return -1; }
+    if (socket && socket->type == SOCK_STREAM && socket->listener_fd < 0) {
+        if (set && socket->connecting) { errno = EALREADY; return -1; }
+        uint64_t identity = __posix_event_capture_identity(fd);
+        int available = ipv4_ttl_result(ipv4_ttl_call(SRV_NET_TTL_PROBE, 0, 0, 0, 0));
+        if (available < 0) return -1;
+        if (!identity || !__posix_event_identity_current(fd, identity)) { errno = EBADF; return -1; }
+        if (socket->listener_fd >= 0 || (set && socket->connecting)) { errno = EALREADY; return -1; }
+        if (set) socket->ipv4_ttl_preference = *value == -1 ? 0 : *value;
+        else *value = socket->ipv4_ttl_preference ? socket->ipv4_ttl_preference : available;
+        return 0;
+    }
+    int native_fd = socket ? socket->listener_fd : fd;
+    long result = set ? ipv4_ttl_call(SRV_NET_TTL_SET, native_fd, *value == -1 ? 0 : *value, 0, 0)
+                      : ipv4_ttl_call(SRV_NET_TTL_GET, native_fd, 0, 0, 0);
+    int result_value = ipv4_ttl_result(result);
+    if (result_value < 0) return -1;
+    if (!set) *value = result_value;
+    return 0;
+}
 
 static int real_net_fd(int fd) {
     uint32_t ip = 0;
@@ -799,8 +834,18 @@ int listen(int fd, int backlog) {
     if (socket->listener_fd >= 0) {
         return 0;
     }
-    long listener = srv_net_listen(socket->port);
+    if (socket->connecting) { errno = EALREADY; return -1; }
+    uint64_t generation = socket_generations[fd - POSIX_SOCKET_BASE];
+    uint64_t object_generation = socket_object_generations[socket - sockets];
+    socket->connecting = 1;
+    int ttl = socket->ipv4_ttl_preference;
+    long listener = ttl
+        ? ipv4_ttl_call(SRV_NET_TTL_LISTEN, socket->port, ttl, 0, 0)
+        : srv_net_listen(socket->port);
+    if (!socket_connect_completion_current(fd, generation, -1, listener, socket, object_generation)) return -1;
+    socket->connecting = 0;
     if (listener < 0) {
+        if (ttl) return ipv4_ttl_result(listener);
         errno = EADDRINUSE;
         return -1;
     }
@@ -1023,8 +1068,11 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
     long connection;
     socket->connecting = 1;
+    int ttl_preference = socket->ipv4_ttl_preference;
     for (;;) {
-        connection = srv_net_connect(remote_ip, port, connect_flags);
+        connection = ttl_preference
+            ? ipv4_ttl_call(SRV_NET_TTL_CONNECT, remote_ip, port, connect_flags, ttl_preference)
+            : srv_net_connect(remote_ip, port, connect_flags);
         if (!socket_connect_completion_current(fd, generation, native_fd, connection,
                 socket, object_generation)) return -1;
         int retry = (connect_flags & SRV_FD_NONBLOCK) == 0 && interrupted_restartable(connection);
@@ -1048,7 +1096,9 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
     if (connection < 0) {
         (void)__posix_signal_dispatch_pending();
-        errno = errno_from_net_error(-connection);
+        if (ttl_preference && connection == SRV_ERR_MFILE) errno = EMFILE;
+        else if (ttl_preference && (connection == -1 || connection == -ENOSYS)) errno = ENOPROTOOPT;
+        else errno = errno_from_net_error(-connection);
         return -1;
     }
     socket->listener_fd = (int)connection;
@@ -1714,6 +1764,12 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {
     struct posix_socket *socket = socket_at(fd);
+    if (level == IPPROTO_IP && option_name == IP_TTL) {
+        if (!option_value || option_len < sizeof(int)) { errno = EINVAL; return -1; }
+        int value;
+        memcpy(&value, option_value, sizeof(value));
+        return ipv4_ttl_option(fd, socket, 1, &value);
+    }
     int is_real_net = socket == 0 && real_net_fd(fd);
     struct real_socket_options *real = is_real_net ? real_options_for_fd(fd, 1) : 0;
     if ((socket == 0 && !is_real_net) || option_value == 0) {
@@ -1809,6 +1865,14 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
 
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
     struct posix_socket *socket = socket_at(fd);
+    if (level == IPPROTO_IP && option_name == IP_TTL) {
+        if (!option_value || !option_len || *option_len < sizeof(int)) { errno = EINVAL; return -1; }
+        int value;
+        if (ipv4_ttl_option(fd, socket, 0, &value) < 0) return -1;
+        memcpy(option_value, &value, sizeof(value));
+        *option_len = sizeof(value);
+        return 0;
+    }
     if (!socket && level == SOL_SOCKET && (option_name == SO_TYPE || option_name == SO_ERROR) &&
         native_seqpacket(fd)) {
         if (!option_value || !option_len || *option_len < sizeof(int)) { errno = EINVAL; return -1; }

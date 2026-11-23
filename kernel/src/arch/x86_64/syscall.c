@@ -3213,6 +3213,51 @@ static int64_t syscall_net_connect(uint32_t remote_ip, uint16_t remote_port, uin
     return fd;
 }
 
+static int64_t syscall_net_ipv4_ttl(uint64_t op, uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
+    if (op == SRV_NET_TTL_PROBE)
+        return (a || b || c || d) ? SRV_ERR_INVAL : SRV_IPV4_TTL_DEFAULT;
+
+    struct process *process = process_current();
+    if (!process) return SRV_ERR_BADF;
+    if (op == SRV_NET_TTL_GET || op == SRV_NET_TTL_SET) {
+        if (c || d || b > UINT8_MAX || (op == SRV_NET_TTL_GET && b))
+            return SRV_ERR_INVAL;
+        uint64_t irq = irq_save();
+        struct process_file *file = process_file_at(process, a);
+        int64_t result = SRV_ERR_BADF;
+        if (file) {
+            if (file->type == PROCESS_FILE_NET_LISTENER || file->type == PROCESS_FILE_NET_CONNECTION ||
+                file->type == PROCESS_FILE_NET_UDP)
+                result = net_ipv4_ttl(file->handle, op == SRV_NET_TTL_SET, (uint8_t)b);
+            else
+                result = SRV_ERR_NOTSUP;
+        }
+        irq_restore(irq);
+        return result;
+    }
+
+    int64_t handle, fd;
+    if (op == SRV_NET_TTL_LISTEN) {
+        if (!a || a > UINT16_MAX || !b || b > UINT8_MAX || c || d)
+            return SRV_ERR_INVAL;
+        uint64_t irq = irq_save();
+        handle = net_listen_with_ttl((uint16_t)a, (uint8_t)b);
+        fd = handle < 0 ? SRV_ERR_ADDRINUSE :
+            process_handle_alloc(process, PROCESS_FILE_NET_LISTENER, (uint64_t)handle);
+        if (handle >= 0 && fd < 0) net_close((uint64_t)handle);
+        irq_restore(irq);
+        return fd == -1 ? SRV_ERR_MFILE : fd;
+    }
+    if (op != SRV_NET_TTL_CONNECT || !a || a > UINT32_MAX || !b || b > UINT16_MAX ||
+        (c & ~SRV_FD_NONBLOCK) || !d || d > UINT8_MAX)
+        return SRV_ERR_INVAL;
+    handle = net_connect_with_ttl((uint32_t)a, (uint16_t)b, (c & SRV_FD_NONBLOCK) != 0, (uint8_t)d);
+    if (handle < 0) return handle == -1 ? SRV_ERR_IO : handle;
+    fd = process_handle_alloc(process, PROCESS_FILE_NET_CONNECTION, (uint64_t)handle);
+    if (fd < 0) net_close((uint64_t)handle);
+    return fd == -1 ? SRV_ERR_MFILE : fd;
+}
+
 static int64_t syscall_net_dhcp(void) {
     return net_dhcp_request();
 }
@@ -3998,6 +4043,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
     case SYS_NET_ERROR:case SYS_NET_LIST:case SYS_NET_STATUS_INFO:case SYS_NET_ARP_LIST:case SYS_NET_PING:
+    case SYS_NET_IPV4_TTL:
     case SYS_NET_PEEK:case SYS_UNIX_BIND:case SYS_UNIX_LISTEN:case SYS_UNIX_CONNECT:case SYS_UNIX_ACCEPT:
     case SYS_UNIX_UNLINK:case SYS_SOCKET_TRY_IO:return false;
     case SYS_PREAD:case SYS_PWRITE:case SYS_PIPE_MESSAGE:
@@ -4107,6 +4153,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
         return;
     case SYS_NET_CONNECT:
         frame->rax = (uint64_t)syscall_net_connect((uint32_t)frame->rdi, (uint16_t)frame->rsi, frame->rdx);
+        return;
+    case SYS_NET_IPV4_TTL:
+        frame->rax = (uint64_t)syscall_net_ipv4_ttl(frame->rdi, frame->rsi, frame->rdx, frame->rcx, frame->r8);
         return;
     case SYS_NET_DHCP:
         frame->rax = (uint64_t)syscall_net_dhcp();
