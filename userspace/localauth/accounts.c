@@ -148,25 +148,58 @@ static int save(const struct database *db,bool test_checkpoints) {
     /* Preserve a failed temp as an explicit operator-visible recovery gate. */
     return -1;
 }
+/* Advisory locks serialize live administrators; path identity checks reject an
+ * opener whose marker was removed/replaced before the lock was acquired. */
+static bool marker_safe(const struct stat *st) {
+    return S_ISREG(st->st_mode) && st->st_uid==0 && st->st_gid==0 && (st->st_mode&07777)==0600;
+}
+static int marker_stat(const char *path,struct stat *st) {
+    if(lstat(path,st)==0)return marker_safe(st)?1:-1;
+    return errno==ENOENT?0:-1;
+}
+static bool same_marker(const struct stat *a,const struct stat *b) {
+    return marker_safe(a) && marker_safe(b) && a->st_dev==b->st_dev && a->st_ino==b->st_ino;
+}
+static bool marker_current(int fd,const char *path) {
+    struct stat opened,current;
+    return fstat(fd,&opened)==0 && lstat(path,&current)==0 && same_marker(&opened,&current);
+}
+static int marker_lock(int fd) {
+    struct flock lock={.l_type=F_WRLCK,.l_whence=SEEK_SET,.l_start=0,.l_len=0};
+    return fcntl(fd,F_SETLK,&lock);
+}
+static int marker_writer_active(int fd) {
+    struct flock lock={.l_type=F_RDLCK,.l_whence=SEEK_SET,.l_start=0,.l_len=0};
+    if(fcntl(fd,F_GETLK,&lock)<0)return -1;
+    return lock.l_type!=F_UNLCK;
+}
 static int begin(void) {
     if(geteuid()!=0 || !trusted_parent("/fat") || !trusted_parent("/fat/etc") || !trusted_parent("/fat/home"))return -1;
     if(mkdir(AUTH_DIR,0700)<0 && errno!=EEXIST)return -1;
     if(!safe_stat(AUTH_DIR,true,0700))return -1;
-    int lock=open(AUTH_LOCK,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600);
-    if(lock<0)return -1;
-    bool ok=safe_fd(lock);
-    if(close(lock)<0)ok=false;
-    if(!ok)return -1;
+    int fd=open(AUTH_LOCK,O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW,0600);
+    if(fd<0)return -1;
+    if(!safe_fd(fd) || marker_lock(fd)<0 || !marker_current(fd,AUTH_LOCK)) {
+        (void)close(fd);return -1;
+    }
     struct stat st;
-    if(lstat(AUTH_TEMP,&st)==0 || errno!=ENOENT) { (void)unlink(AUTH_LOCK); return -1; }
-    return 0;
+    if(lstat(AUTH_TEMP,&st)==0 || errno!=ENOENT) {
+        if(marker_current(fd,AUTH_LOCK))(void)unlink(AUTH_LOCK);
+        (void)close(fd);return -1;
+    }
+    return fd;
 }
-static int end(int result) { return unlink(AUTH_LOCK)==0?result:-1; }
+static int end(int fd,int result) {
+    bool ok=marker_current(fd,AUTH_LOCK) && unlink(AUTH_LOCK)==0;
+    if(close(fd)<0)ok=false;
+    return ok?result:-1;
+}
 /* A failed replacement can already be visible; keep the admission guard. */
-static int finish_account_update(struct database *db) {
+static int finish_account_update(struct database *db,int fd) {
     int result=save(db,true);
     local_auth_wipe(db,sizeof(*db));
-    return result<0 ? result : end(result);
+    if(result<0) { (void)close(fd);return -1; }
+    return end(fd,result);
 }
 
 static bool random_salt(uint8_t salt[16]) {
@@ -184,7 +217,7 @@ int local_account_add(const char *name,uint32_t uid,uint32_t gid,const char *pas
     if(!valid_name(name) || !uid || uid==UINT32_MAX || !gid || gid==UINT32_MAX || !password)return -1;
     size_t length=strlen(password);
     if(length<LOCAL_AUTH_PASSWORD_MIN || length>LOCAL_AUTH_PASSWORD_MAX)return -1;
-    if(begin()<0)return -1;
+    int lock=begin();if(lock<0)return -1;
     struct database db;int result=-1;
     if(load(&db,true)<0 || db.count==MAX_ACCOUNTS)goto done;
     for(size_t i=0;i<db.count;i++)if(!strcmp(db.accounts[i].name,name) || db.accounts[i].uid==uid || db.accounts[i].gid==gid)goto done;
@@ -195,21 +228,22 @@ int local_account_add(const char *name,uint32_t uid,uint32_t gid,const char *pas
     if(mkdir(a->home,0700)<0 || chown(a->home,uid,gid)<0)goto done;
     struct stat st;if(lstat(a->home,&st)<0 || !S_ISDIR(st.st_mode) || st.st_uid!=uid || st.st_gid!=gid || (st.st_mode&07777)!=0700)goto done;
     db.count++;result=save(&db,false);
-done: return end(result);
+done: return end(lock,result);
 }
 int local_account_disable(const char *name) {
-    if(!valid_name(name) || begin()<0)return -1;
+    if(!valid_name(name))return -1;
+    int lock=begin();if(lock<0)return -1;
     struct database db;int result=-1;
     if(load(&db,false)<0)goto done;
     for(size_t i=0;i<db.count;i++)if(!strcmp(db.accounts[i].name,name)){db.accounts[i].enabled=false;result=save(&db,false);break;}
-done:return end(result);
+done:return end(lock,result);
 }
 
 int local_account_reset_password(const char *name,const char *password) {
     if(!valid_name(name) || !password)return -1;
     size_t length=strlen(password);
     if(length<LOCAL_AUTH_PASSWORD_MIN || length>LOCAL_AUTH_PASSWORD_MAX)return -1;
-    if(begin()<0)return -1;
+    int lock=begin();if(lock<0)return -1;
     struct database db;int result=-1;
     if(load(&db,false)<0)goto done;
     for(size_t i=0;i<db.count;i++) {
@@ -221,15 +255,16 @@ int local_account_reset_password(const char *name,const char *password) {
         memcpy(account->salt,salt,sizeof(salt));
         memcpy(account->verifier,verifier,sizeof(verifier));
         local_auth_wipe(verifier,sizeof(verifier));
-        return finish_account_update(&db);
+        return finish_account_update(&db,lock);
     }
 done:
     local_auth_wipe(&db,sizeof(db));
-    return end(result);
+    return end(lock,result);
 }
 
 int local_account_enable(const char *name) {
-    if(!valid_name(name) || begin()<0)return -1;
+    if(!valid_name(name))return -1;
+    int lock=begin();if(lock<0)return -1;
     struct database db;int result=-1;
     if(load(&db,false)<0)goto done;
     for(size_t i=0;i<db.count;i++) {
@@ -237,9 +272,98 @@ int local_account_enable(const char *name) {
         if(strcmp(account->name,name))continue;
         if(account->enabled) {result=0;goto done;}
         account->enabled=true;
-        return finish_account_update(&db);
+        return finish_account_update(&db,lock);
     }
 done:
     local_auth_wipe(&db,sizeof(db));
-    return end(result);
+    return end(lock,result);
+}
+
+/* Read-only inspection never creates a marker. Cleanup owns the existing
+ * advisory lock, or creates one only for an already validated staged-only
+ * state. All failures leave the committed store untouched. */
+int local_account_recover_store(bool clear) {
+    struct stat lock_stat,temp_stat,after,opened,committed;
+    struct database db;
+    int fd=-1,result=-1;
+    if(geteuid()!=0 || !trusted_parent("/fat") || !trusted_parent("/fat/etc") ||
+       !trusted_parent("/fat/home") || !safe_stat(AUTH_DIR,true,0700)) {
+        puts("local-enroll: committed account store invalid");return -1;
+    }
+    int lock_state=marker_stat(AUTH_LOCK,&lock_stat);
+    int temp_state=marker_stat(AUTH_TEMP,&temp_stat);
+    if(lock_state<0 || temp_state<0) {puts("local-enroll: unsafe transaction marker");return -1;}
+    if(lock_state) {
+        fd=open(AUTH_LOCK,(clear?O_RDWR:O_RDONLY)|O_NOFOLLOW);
+        if(fd<0 || fstat(fd,&opened)<0 || !same_marker(&opened,&lock_stat)) goto unsafe;
+        if(clear && marker_lock(fd)<0) {
+            if(errno==EAGAIN || errno==EACCES)goto busy;
+            goto unsafe;
+        }
+        if(!clear) {
+            int active=marker_writer_active(fd);
+            if(active<0)goto unsafe;
+            if(active)goto busy;
+        }
+        if(!marker_current(fd,AUTH_LOCK))goto unsafe;
+    }
+    if((!clear && lstat(AUTH_DB,&committed)<0) || load(&db,false)<0) {
+        puts("local-enroll: committed account store invalid");goto done;
+    }
+    /* Detect a creator entering while no marker was locked, or a changed
+     * staged marker; do not report or remove an incoherent snapshot. */
+    if(!lock_state) {
+        int now=marker_stat(AUTH_LOCK,&after);
+        if(now<0)goto unsafe;
+        if(now)goto busy;
+    } else if(!marker_current(fd,AUTH_LOCK)) goto unsafe;
+    int current_temp=marker_stat(AUTH_TEMP,&after);
+    if(current_temp<0 || current_temp!=temp_state || (temp_state && !same_marker(&temp_stat,&after)))goto unsafe;
+    if(!clear) {
+        if(lock_state) {
+            int active=marker_writer_active(fd);
+            if(active<0)goto unsafe;
+            if(active)goto busy;
+        }
+        if(lstat(AUTH_DB,&after)<0 || !same_marker(&committed,&after))goto busy;
+        puts("local-enroll: committed account store valid");
+        for(size_t i=0;i<db.count;i++)printf("account %s %s\n",db.accounts[i].name,db.accounts[i].enabled?"enabled":"suspended");
+        printf("local-enroll: accounts.tmp %s\n",temp_state?"present":"absent");
+        printf("local-enroll: enroll.lock %s\n",lock_state?"present":"absent");
+        result=0;goto done;
+    }
+    if(!lock_state && !temp_state) {puts("local-enroll: no pending markers");result=0;goto done;}
+    if(!lock_state) {
+        mode_t old=umask(0);
+        fd=open(AUTH_LOCK,O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW,0600);
+        umask(old);
+        if(fd<0) {
+            if(errno==EEXIST)goto busy;
+            goto unsafe;
+        }
+        if(!safe_fd(fd) || marker_lock(fd)<0 || !marker_current(fd,AUTH_LOCK))goto unsafe;
+        /* Revalidate after acquiring exclusion: no preflight result grants
+         * authority to delete a changed marker or accept a changed database. */
+        if(load(&db,false)<0) {puts("local-enroll: committed account store invalid");goto done;}
+        if(marker_stat(AUTH_TEMP,&after)!=1 || !same_marker(&temp_stat,&after))goto unsafe;
+    }
+    if(temp_state) {
+        if(marker_stat(AUTH_TEMP,&after)!=1 || !same_marker(&temp_stat,&after) ||
+           !marker_current(fd,AUTH_LOCK))goto unsafe;
+        if(unlink(AUTH_TEMP)<0) {puts("local-enroll: recovery failed");goto done;}
+    }
+    if(!marker_current(fd,AUTH_LOCK))goto unsafe;
+    if(unlink(AUTH_LOCK)<0) {puts("local-enroll: recovery failed");goto done;}
+    result=close(fd);
+    fd=-1;
+    puts(result==0?"local-enroll: pending markers cleared":"local-enroll: recovery failed");
+    goto done;
+busy:
+    puts("local-enroll: account update is active");goto done;
+unsafe:
+    puts("local-enroll: unsafe transaction marker");
+done:
+    local_auth_wipe(&db,sizeof(db));
+    if(fd>=0 && close(fd)<0)result=-1;
+    return result;
 }
