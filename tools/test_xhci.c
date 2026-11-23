@@ -7641,9 +7641,8 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
         if(reg==0x100) {
             assert(length==1 && (val==0 || val==0x9a));
             if(rtl_radio_model.fault==RTL_RADIO_PROTOCOL)val&=~(1u<<4);
-        }
-        if(reg==0x522)assert(val==0xff);
-        if(reg==0x01e0) {
+            bytes[0]=(uint8_t)val;
+        } else if(reg==0x01e0) {
             unsigned page=rtl_radio_model.links++;
             unsigned next=page==0xf8?0xff:page==0xff?0xf9:page+1;
             assert(length==4 && page<256 && val==(0x40000000u|(page<<8)|next));
@@ -7651,6 +7650,7 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             if(rtl_radio_model.fault!=RTL_RADIO_LLT || page!=0xf9)val=page<<8;
             for(unsigned i=0;i<4;i++)bytes[i]=val>>(8*i);
         } else {
+            if(reg==0x522)assert(val==0xff);
             memcpy(bytes,d->descriptor_buffer,length);
         }
         if(reg==0x840 && val>>20==0x18)rtl_radio_model.channel=val&0xfffff;
