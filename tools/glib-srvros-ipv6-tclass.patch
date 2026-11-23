@@ -1,0 +1,13 @@
+--- gio/gipv6tclassmessage.c
++++ gio/gipv6tclassmessage.c
+@@ -40,5 +40,9 @@
+ #include <gio/gnetworking.h>
+-
++
++#ifdef __SRVROS__
++#include <netinet/ip6.h>
++#endif
++
+ struct _GIPv6TclassMessage
+ {
+   GSocketControlMessage parent_instance;
