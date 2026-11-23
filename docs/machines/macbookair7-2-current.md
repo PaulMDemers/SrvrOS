@@ -10,11 +10,25 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
-The current Air trial pairs the reservation of slot 12291 with an actual PMM
-DMA page and the blitter submit-port claim. It checks the proposed translation
-and page contents before reset, after translation maintenance, and after PCI
-bus mastering reopens. Slot 8704 and the original panel stay protected. This
-extends the GT reset diagnostic and its collector on PR 301.
+Release `6c37f322e69fefa6` (source `f34f8a09`, session
+`session-000660e88ddc04f8-00`) held a private 4 KiB page and the blitter
+submit port through GT reset and PCI bus-master reopening. All 512 marker
+words in the page at `0xc47000` passed all three checks. The proposed PTE for
+slot 12291 was `0xc47001`. Both 132-entry hardware snapshots retained the
+original `0x8f004001` there and `0x8e201001` at slot 8704. The primary
+display registers matched the original capture. After verified reopening
+the driver released both reservations, the page and the submit port.
+
+The guest made zero PTE writes. All four GPU samples saw the client mask
+at `0x5f`, with zero engine or L3 flush acknowledgements. The next physical
+milestone is to demonstrate the device-side traffic block and fresh flush
+acknowledgements before installing and rolling back the private translation.
+The Ubuntu collector initially rejected the v4 range vector because it
+counted the three independent-slot entries in the primary footprint.
+Collector `a5d0343f` separates those entries and checks the full vector length.
+Replay of the original USB session completed with offline integrity verified.
+Preparation took 239.991 ms within the 250 ms diagnostic budget. Preparation,
+GT and HDA exceeded their original timing targets.
 
 On PR 301 the Broadwell blitter submitter and one-page GGTT writer now share
 a CPU-side claim on the submit port. An incomplete descriptor keeps the port
@@ -28,7 +42,7 @@ receipts preceded the final render flush. Slot 12291 changed and returned to
 its original PTE, slot 8704 stayed protected, and the original panel advanced
 from frame 68718 to 68721. All five engines resumed. An earlier attempt
 refused an overlapping i915 allocation before the held trial. Both attempts
-returned to the original VT. For the next SrvrOS trial the cold-boot driver
+returned to the original VT. For native command submission the cold-boot driver
 still needs GPU-visible private ring, context, status and completion storage
 and an independent device-side drain covering cache and display readers.
 
