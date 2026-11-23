@@ -143,6 +143,18 @@ files matched. The framed `exit.log`, the clean exFAT check and the new
 Ubuntu boot complete the return evidence. The recovery directory holds
 the exact image and `evidence-bb43014ec2e628ef`.
 
+### Headphone isolation preflight
+
+The next analog output check covers headphone jack detection, left and
+right output, speaker isolation, and speaker recovery after unplugging.
+It uses the existing Pro CS4208 route and v31 Settings/Help workflow on
+source `c375a7db`, with the runtime from main `6f4c8b92`. HDA, audio
+service, audio stream, Settings and Help host checks passed. Exact-stage
+QEMU release `626968f367beb8de` passed the 2880 × 1800 desktop path,
+including a 500 ms stereo test tone, saved logs and clean USB unmount.
+The native listening check needs wired headphones. Ubuntu observed the
+headphone jack empty during preflight.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
