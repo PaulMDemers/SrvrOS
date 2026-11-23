@@ -152,6 +152,16 @@ with 568 existing files. All three adapters stay in their original hub
 ports during the cold reset and unattended capture. The local
 `pro112-rtl8188cu-cold/run.json` owns one-shot state and return collection.
 
+Native session `session-000660f5908db8c5-00` identified the RTL8188CUS on hub
+port 1 with the Edimax and Netgear still enumerated on the same hub. The
+cold values were `SYS_CFG=0x04400735`, `9346CR=0x20` and `MCUFWDL=0x05`.
+The identity receipt survived in both `exit.log` and internal journal phase
+2. All seven checkpoints verified, SrvrOS unmounted the USB workspace and
+returned to Ubuntu through GRUB, and all 568 pre-existing workspace files
+matched. The exact image and evidence are under `evidence-571544c294dead1f`.
+This accepts cold USB identity and boot-state capture. Firmware startup,
+RF, Demers2.4 discovery and connectivity are still untested on SrvrOS.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
