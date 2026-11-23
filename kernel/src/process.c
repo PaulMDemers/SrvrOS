@@ -1445,6 +1445,28 @@ int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status
     process_irq_restore(flags);return result;
 }
 
+/* Revoke is deliberately non-terminating. This explicit owner-only operation
+ * requests cancellation; normal scheduler/user teardown and reaping still own
+ * resources until the scope member count reaches zero. */
+int64_t process_scope_terminate(uint64_t token) {
+    uint64_t flags=process_irq_save();
+    struct process *owner=process_current();
+    struct process_lifetime *life=user_scope_owned(token);
+    int64_t result=SRV_ERR_INVAL;
+    if(!life) goto done;
+    if(owner->credentials.uid) {result=SRV_ERR_PERM;goto done;}
+    if(!life->revoked) {result=SRV_ERR_BUSY;goto done;}
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        struct process *p=&processes[i];
+        if(!p->allocated || !p->active || p->lifetime!=token) continue;
+        if(!p->killed) {p->killed=true;p->kill_signal=SRV_SIGNAL_KILL;}
+        process_wake_for_signal(p);
+    }
+    result=0;
+done:
+    process_irq_restore(flags);return result;
+}
+
 uint64_t process_lifetime_create(void) {
     if (process_current()) return 0;
     uint64_t flags=process_irq_save(),token=0;
@@ -3533,7 +3555,8 @@ bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn copy,voi
 }
 static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
-    return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);
+    return process_should_exit_current() || process_signal_pending_current() ||
+        find_reapable_process(request)!=NULL || !has_wait_target(request);
 }
 struct process_event_request {
     struct process_wait_request target;
@@ -3558,6 +3581,7 @@ static int64_t process_wait_request(struct process_wait_request request,uint64_t
     process_wait_copy_fn copy,void *context) {
     for (;;) {
         uint64_t flags=process_irq_save();
+        if(process_should_exit_current()) {process_irq_restore(flags);return SRV_ERR_INTR;}
         struct process *process = find_reapable_process(&request);
         uint64_t encoded=process?(posix_status?
             (process->killed && process->kill_signal ? (process->kill_signal&0x7f):((process->exit_status&0xff)<<8)):
@@ -4274,7 +4298,7 @@ struct process_credentials process_get_credentials(const struct process *process
     return process ? process->credentials : (struct process_credentials){0,0};
 }
 
-int64_t process_drop_credentials(uint64_t uid, uint64_t gid) {
+static int64_t process_drop_credentials_impl(uint64_t uid, uint64_t gid,bool terminal_drop) {
     uint64_t irq=process_irq_save();
     struct process *p=process_current();
     int64_t result=SRV_ERR_PERM;
@@ -4288,7 +4312,29 @@ int64_t process_drop_credentials(uint64_t uid, uint64_t gid) {
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(p->user_threads[i].used) goto done;
     for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++)
         if(p->mmap_regions[i].used && !p->mmap_regions[i].anonymous) goto done;
-    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(p->files[i].used &&
+    if(terminal_drop) {
+        struct process_lifetime *life=lifetime_find(p->lifetime);
+        struct process *owner=life?life->owner:NULL;
+        if(!p->allocated || !p->active || p->exiting || p->killed ||
+           !life || !life->user || life->revoked || !life->members || !owner ||
+           !owner->allocated || !owner->active || owner->exiting || owner->killed ||
+           owner->credentials.uid || owner->owned_user_scope!=life->token ||
+           p->parent_pid!=owner->pid) goto done;
+        uint64_t handle=p->controlling_tty;
+        struct pty_model *tty=handle?pty_state(handle):NULL;
+        if(!tty || tty->master_closed || tty->slave_closed || !p->process_group ||
+           tty->foreground_group!=p->process_group) goto done;
+        bool owner_master=false;
+        for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) {
+            struct process_file *file=&p->files[i];
+            if(i<3) {
+                if(!file->used || file->type!=PROCESS_FILE_PTY_SLAVE || file->handle!=handle) goto done;
+            } else if(file->used) goto done;
+            if(owner->files[i].used && owner->files[i].type==PROCESS_FILE_PTY_MASTER &&
+               owner->files[i].handle==handle) owner_master=true;
+        }
+        if(!owner_master) goto done;
+    } else for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(p->files[i].used &&
         (i>2 || p->files[i].type!=PROCESS_FILE_STDIO || p->files[i].handle!=i)) goto done;
 #if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_STREAM_PROCESS_HOST_TEST)
     if(file_stream_owned(p->stream_instance)) goto done;
@@ -4298,6 +4344,12 @@ int64_t process_drop_credentials(uint64_t uid, uint64_t gid) {
 done:
     process_irq_restore(irq);
     return result;
+}
+int64_t process_drop_credentials(uint64_t uid,uint64_t gid) {
+    return process_drop_credentials_impl(uid,gid,false);
+}
+int64_t process_drop_credentials_terminal(uint64_t uid,uint64_t gid) {
+    return process_drop_credentials_impl(uid,gid,true);
 }
 
 static struct process_user_thread *process_find_user_thread(struct process *process, uint64_t tid) {

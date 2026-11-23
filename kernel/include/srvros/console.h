@@ -29,6 +29,8 @@ struct console_stats {
     uint64_t cells_painted;
     uint64_t framebuffer_bytes_written;
 };
+/* Physical console input routes Ctrl-C as a signal only in ISIG mode. */
+bool console_input_signals_enabled(void);
 void console_write_n(const char *s, size_t length);
 /* Eligibility is checked under the existing short log-record IRQ exclusion,
  * before each irreversible append. Already accepted records finish rendering

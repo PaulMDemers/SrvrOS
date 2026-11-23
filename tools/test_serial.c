@@ -24,7 +24,9 @@ static void outb(uint16_t port, uint8_t c) { assert(port==0x3f8 && !irq_enabled)
 #define SRVROS_SERIAL_HOST_TEST
 #define SERIAL_TX_SPIN_LIMIT 10
 #include "../kernel/src/arch/x86_64/serial.c"
-bool process_interrupt_foreground(uint64_t signal) { (void)signal; return false; }
+static bool console_signals=true,foreground;static unsigned signals;
+bool console_input_signals_enabled(void) {return console_signals;}
+bool process_interrupt_foreground(uint64_t signal) { assert(signal==SRV_SIGNAL_INT);signals++;return foreground; }
 void keyboard_wake_waiters(void) {}
 int main(void) {
     serial_ready=true; ready_after=3;
@@ -46,5 +48,8 @@ int main(void) {
     assert(!irq_enabled); irq_enabled=true;
     for(unsigned i=0;i<3;i++) assert(serial_try_read_char(&c) && c=="irq"[i]);
     irq_enabled=false; assert(!serial_try_read_char(&c) && !irq_enabled);
+    irq_enabled=true;foreground=true;rx_input="\3";rx_offset=0;
+    assert(!serial_try_read_char(&c) && signals==1);
+    console_signals=false;rx_offset=0;assert(serial_try_read_char(&c) && c==3 && signals==1);
     puts("serial-host: PASS (IRQ windows while waiting, atomic TX/RX, FIFO order, CRLF, caller IRQ state, timeout)");
 }

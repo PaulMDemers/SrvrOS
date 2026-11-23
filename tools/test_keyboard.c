@@ -5,7 +5,8 @@
 #define SRVROS_KEYBOARD_HOST_TEST
 #include "../kernel/src/arch/x86_64/keyboard.c"
 static uint64_t now;
-static bool foreground;
+static bool foreground,console_signals=true;
+bool console_input_signals_enabled(void) { return console_signals; }
 static unsigned signals,event_wakes;
 uint64_t timer_monotonic_us(void) { return now; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
@@ -128,7 +129,10 @@ int main(void) {
     tap(&a,1,4); expect("\1");
     foreground=true; report(&a,1,6); expect(""); assert(signals==1);
     keyboard_repeat_hid(&a,5000000); assert(signals==1); expect("");
-    report(&a,0,0); foreground=false; tap(&a,0x10,6); expect("\3");
+    report(&a,0,0); console_signals=false;tap(&a,0x10,6);expect("\3");assert(signals==1);
+    keyboard_decode_scancode(0x1d);keyboard_decode_scancode(0x2e);keyboard_decode_scancode(0xae);keyboard_decode_scancode(0x9d);
+    expect("\3");assert(signals==1);
+    console_signals=true;foreground=false;tap(&a,0x10,6); expect("\3");
     structured();
     normalized();
     puts("keyboard-host: PASS console and structured HID/PS2 events, modifiers, release/repeat, Ctrl-C isolation, overflow/cancel, mode cleanup");

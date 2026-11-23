@@ -33,7 +33,7 @@ static void push_rx_char(char c) {
     if (c == '\r') {
         c = '\n';
     }
-    if (c == 3 && process_interrupt_foreground(SRV_SIGNAL_INT)) {
+    if (c == 3 && console_input_signals_enabled() && process_interrupt_foreground(SRV_SIGNAL_INT)) {
         keyboard_wake_waiters();
         return;
     }

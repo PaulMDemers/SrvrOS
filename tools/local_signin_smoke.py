@@ -283,12 +283,17 @@ class VM:
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: enrollment failed: {name}')
 
-    def attempt(self, name, password, uid=None):
+    def attempt(self, name, password, uid=None, session=None, ending='logout', diagnostic=True,
+                interrupt_retry=False):
         start = len(self.output)
         self.send(name.encode('ascii')); self.wait(b'Password: ')
         sent = time.monotonic()
         self.send(password)
         if uid is None:
+            if interrupt_retry:
+                # The secret reader restores cooked mode before emitting this newline.
+                self.wait(b'\r\n')
+                self.serial.sendall(b'\x03')
             self.wait(b'Sign-in failed.')
             if time.monotonic() - sent < 0.8:
                 raise RuntimeError('failed sign-in returned before its retry delay')
@@ -298,12 +303,56 @@ class VM:
                 raise RuntimeError('failed sign-in unexpectedly started a session')
         else:
             expected = f'Session uid={uid} gid={uid} home=/fat/home/local-{name}'.encode()
-            self.wait(expected); self.wait(b'session-check: PASS'); self.wait(b'Login: ')
+            self.wait(expected)
+            if diagnostic:
+                self.wait(b'session-check: PASS')
+            self.wait(b'session> ')
+            if session is not None: session(self)
+            if ending == 'interrupt':
+                self.serial.sendall(b'\x03')
+            else:
+                self.send(ending.encode('ascii'))
+            self.wait({'interrupt': b'Session interrupted.', 'crash': b'Session crashed.',
+                       'logout': b'Signed out.'}[ending])
+            self.wait(b'Session closed.'); self.wait(b'Login: ')
             segment = bytes(self.output[start:])
             if b'Sign-in failed.' in segment or segment.count(b'Session uid=') != 1:
                 raise RuntimeError('successful sign-in produced inconsistent outcome')
+            if (b'Session crashed.' in segment) != (ending == 'crash'):
+                raise RuntimeError('session exit status did not match requested path')
         if b'srv> ' in segment:
             raise RuntimeError('privileged prompt exposed in local mode')
+
+    def session_command(self, command, expected, paced=False):
+        encoded = command.encode('ascii')
+        if paced:
+            # Type within COM1's RX capacity and verify that each chunk arrived.
+            for start in range(0, len(encoded), 32):
+                chunk = encoded[start:start + 32]
+                self.serial.sendall(chunk)
+                self.wait(chunk)
+            self.serial.sendall(b'\n')
+        else:
+            self.send(encoded)
+        response = self.wait(b'session> ')
+        if expected not in response:
+            raise RuntimeError(f'{self.label}: missing session result for {command!r}')
+        return response
+
+    def session_files(self, name, uid, setup=False, peer=None, hold=False):
+        text = name + '-private-persisted'
+        if setup:
+            self.session_command('write evidence.txt ' + text, b'Written.')
+        self.session_command('read evidence.txt', ('Data: ' + text).encode())
+        self.session_command('stat evidence.txt',
+                             f'Owner: {uid}:{uid} mode=0600 size={len(text)}'.encode())
+        if peer:
+            path = '/fat/home/local-' + peer + '/evidence.txt'
+            self.session_command('read ' + path, b'Error: read: permission denied.')
+            self.session_command('write ' + path + ' intrusion', b'Error: write: permission denied.')
+            self.session_command('stat ' + path, b'Error: stat: permission denied.')
+        if hold:
+            self.session_command('hold', b'session-worker: ready')
 
     def finish(self):
         # Recovery uses the monitor's flush/reboot sequence. Local mode has no
@@ -357,6 +406,8 @@ def main():
     parser.add_argument('--ovmf', default=default_ovmf_path())
     parser.add_argument('--ovmf-vars', required=True)
     parser.add_argument('--boot-wait', type=int, default=120)
+    parser.add_argument('--interactive-only', action='store_true',
+                        help='run enrollment and the two interactive boots only')
     args = parser.parse_args()
     for name in (args.ovmf, args.ovmf_vars):
         if not Path(name).is_file() or ',' in name:
@@ -368,6 +419,7 @@ def main():
     print(f'local-signin: evidence {out}', flush=True)
     receipt = {'status': 'INCOMPLETE', 'build': build, 'cases': [],
                'scope': 'private disposable QEMU image; no physical media',
+               'interactive_only': args.interactive_only,
                'firmware_sha256': installation.digest(Path(args.ovmf)),
                'firmware_vars_sha256': installation.digest(Path(args.ovmf_vars)),
                'qemu_version': subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0]}
@@ -409,8 +461,6 @@ def main():
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != initial_data_hash: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'enroll', args, 'recovery') as vm:
-            vm.command('/fat/bin/cp /fat/signin-test/session /fat/bin/local-session')
-            vm.command('/fat/bin/chmod 755 /fat/bin/local-session')
             for name, uid in (('alpha',1001), ('beta',1002), ('disabled',1003)):
                 vm.enroll(name, uid)
             vm.command('/fat/bin/local-enroll disable disabled')
@@ -421,16 +471,66 @@ def main():
         before_swap = region_hash(target, *data)
         local_mode()
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        def stock_alpha(vm):
+            vm.session_command('help', b'Commands: help, pwd, write PATH TEXT')
+            vm.session_command('pwd', b'/fat/home/local-alpha')
+            vm.session_command('crash', b'Error: unknown command.')
+            vm.session_command('write overlong.txt ' + 'x' * 513,
+                               b'Error: invalid or too-long command.', paced=True)
+            vm.session_command('stat overlong.txt', b'Error: stat: not found.')
+            vm.session_files('alpha', 1001, setup=True)
+
+        with VM(target, out, 'production', args, 'local') as vm:
+            vm.attempt('alpha', PASSWORDS['alpha'], 1001, session=stock_alpha, diagnostic=False)
+            vm.attempt('alpha', PASSWORDS['alpha'], 1001, ending='interrupt', diagnostic=False)
+            vm.attempt('beta', PASSWORDS['beta'], 1002, diagnostic=False,
+                       session=lambda v: v.session_files('beta', 1002, setup=True, peer='alpha'))
+            vm.finish()
+        receipt['cases'].append({'production_both_users': 'PASS', 'bounded_input': 'PASS',
+                                 'interrupt_returns_to_login': 'PASS',
+                                 'fixture_command_unavailable': 'PASS'})
+        save()
+
+        before_swap = region_hash(target, *data)
+        copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'install-diagnostic', args, 'recovery') as vm:
+            vm.command('/fat/bin/cp /fat/signin-test/session /fat/bin/local-session')
+            vm.command('/fat/bin/chmod 755 /fat/bin/local-session')
+            vm.finish()
+        before_swap = region_hash(target, *data)
+        local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
         for number in (1, 2):
             with VM(target, out, f'local-{number}', args, 'local') as vm:
-                vm.attempt('alpha', WRONG)
+                vm.attempt('alpha', WRONG, interrupt_retry=True)
                 vm.attempt('unknown', WRONG)
                 vm.attempt('disabled', PASSWORDS['disabled'])
-                vm.attempt('alpha', PASSWORDS['alpha'], 1001)
-                vm.attempt('beta', PASSWORDS['beta'], 1002)
+                vm.attempt('alpha', PASSWORDS['alpha'], 1001,
+                    session=lambda v: v.session_files('alpha', 1001, hold=True),
+                    ending='crash' if number == 2 else 'logout')
+                vm.attempt('beta', PASSWORDS['beta'], 1002,
+                    session=lambda v: v.session_files('beta', 1002, peer='alpha', hold=True),
+                    ending='crash' if number == 1 else 'logout')
+                vm.attempt('alpha', PASSWORDS['alpha'], 1001,
+                    session=lambda v: v.session_files('alpha', 1001, peer='beta'))
                 vm.finish()
-            receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS', 'alpha': 'PASS', 'beta': 'PASS'})
+            image = ExfatFixture(proof.data_image(target, *data))
+            for name in ('alpha', 'beta'):
+                expected = (name + '-private-persisted').encode()
+                if image.read('home/local-' + name + '/evidence.txt') != expected:
+                    raise RuntimeError(f'{name}: persisted file bytes differ after boot {number}')
+            receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS',
+                'interrupt_during_retry_returns_to_login': 'PASS',
+                'alpha': 'PASS', 'beta': 'PASS', 'file_readback': 'PASS',
+                'cross_user_denial': 'PASS', 'worker_logout_and_crash_retired': 'PASS'})
             save()
+        if args.interactive_only:
+            receipt.update(status='PASS', final_disk_sha256=installation.digest(target),
+                           limitations=['interactive subset only; full security suite not run',
+                                        'disposable QEMU only', 'no physical or power-loss qualification'])
+            print(f'local-signin: interactive subset PASS; evidence {out}', flush=True)
+            return
         # Pending transaction markers must block even a correct committed
         # credential. Clear only the marker this invocation created, and prove
         # that the same committed credential works again afterwards.

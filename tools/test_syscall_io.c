@@ -166,6 +166,10 @@ static void test_pipe_retry_admission(void) {
 /* Exercise the real syscall validation/copy dispatch with a controlled process backend. */
 static bool scope_live,scope_revoked,scope_pending;
 static uint64_t scope_next=100;
+int64_t process_scope_terminate(uint64_t token) {
+    if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;
+    return scope_revoked?0:SRV_ERR_BUSY;
+}
 int64_t process_scope_create(uint64_t *out) {scope_live=true;scope_revoked=false;*out=scope_next++;return 0;}
 int64_t process_scope_reserve(uint64_t token) {if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;scope_pending=true;return 0;}
 void process_scope_cancel_reservation(uint64_t token) {(void)token;scope_pending=false;}
@@ -255,7 +259,10 @@ static void scope_syscall_contract(void) {
     struct syscall_exec_request exec={.flags=SRV_EXEC_BACKGROUND,.path=NULL};
     struct srv_scope_exec req={.version=SRV_SCOPE_VERSION,.size=sizeof(req),.request=(const struct srv_exec_request *)&exec};
     assert(syscall_session_scope(SRV_SCOPE_EXEC,token,&req)==SRV_ERR_FAULT && !scope_pending);
+    assert(syscall_session_scope(SRV_SCOPE_TERMINATE,token,NULL)==SRV_ERR_BUSY);
+    assert(syscall_session_scope(SRV_SCOPE_TERMINATE,token,&st)==SRV_ERR_INVAL);
     assert(!syscall_session_scope(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!syscall_session_scope(SRV_SCOPE_TERMINATE,token,NULL));
     assert(!syscall_session_scope(SRV_SCOPE_RELEASE,token,NULL));
     puts("session-scope-syscall: PASS output fault rollback, validation, stale handle and failed deep copy cleanup");
 }
@@ -357,6 +364,10 @@ static void directory_admission_regression(void) {
 }
 
 int main(void) {
+    uint64_t saved_console_flags=console_termios.lflag;
+    console_termios.lflag|=SRV_TTY_LFLAG_ISIG;assert(console_input_signals_enabled());
+    console_termios.lflag&=~SRV_TTY_LFLAG_ISIG;assert(!console_input_signals_enabled());
+    console_termios.lflag=saved_console_flags;
     directory_admission_regression();
     test_network_snapshot();
     /* Existing independent fixtures start their own gate counters. */
