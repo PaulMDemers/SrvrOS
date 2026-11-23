@@ -934,12 +934,12 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
-static bool rtl8188cu_recipe(const char *cmdline,bool firmware) {
+static bool rtl8188cu_recipe(const char *cmdline,const char *capture) {
     const struct { const char *prefix; unsigned hex_digits; } tokens[] = {
         {"srvros.storage=ram",0},
         {"srvros.workspace-volume=",8},
         {"srvros.desktop-release=",16},
-        {firmware?"srvros.capture=wifi-rtl8188cu-firmware":"srvros.capture=wifi-rtl8188cu",0},
+        {capture,0},
         {"srvros.startup-journal=1",0},
         {"srvros.capture-failure=reboot",0},
     };
@@ -964,9 +964,14 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
-    bool rtl8188cu_firmware=cmdline_has_token(cmdline,"srvros.capture=wifi-rtl8188cu-firmware");
-    bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,"srvros.capture=wifi-rtl8188cu");
-    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_firmware))halt_forever();
+    const char *realtek_passive_token="srvros.capture=wifi-rtl8188cu-passive";
+    const char *realtek_firmware_token="srvros.capture=wifi-rtl8188cu-firmware";
+    const char *realtek_identity_token="srvros.capture=wifi-rtl8188cu";
+    bool rtl8188cu_passive=cmdline_has_token(cmdline,realtek_passive_token);
+    bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
+    bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
+    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_passive?realtek_passive_token:
+        rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
     if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
         (startup_diagnostic && reconnect_journal)))halt_forever();
@@ -1096,6 +1101,8 @@ void kmain(void) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
             boot_status("Demers5 desktop trial: calibrating. The desktop will open Help when ready.\n");
+        else if(rtl8188cu_passive)
+            boot_status("Realtek passive Wi-Fi trial: checking channel 10 for Demers2.4. No input required.\n");
         else if(rtl8188cu_firmware)
             boot_status("Realtek firmware trial: checking USB identity, starting the MCU, and saving results. No input required.\n");
         else if(rtl8188cu_capture)
@@ -1149,6 +1156,10 @@ void kmain(void) {
     if(rtl8188cu_firmware) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
         rtl8188cu_sampled=xhci_rtl8188cu_capture_firmware(image?image->data:NULL,image?image->size:0);
+    }
+    if(rtl8188cu_passive) {
+        const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
+        rtl8188cu_sampled=xhci_rtl8188cu_capture_passive(profile?profile->data:NULL,profile?profile->size:0);
     }
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",

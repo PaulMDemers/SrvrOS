@@ -19,6 +19,7 @@
 #include <srvros/mt76_channel_plan.h>
 #include <srvros/mt76_channel_tune.h>
 #include <srvros/mt76_radio.h>
+#include <srvros/mt76_rx.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -605,6 +606,7 @@ struct xhci_device {
     bool wifi_probe_attempted, wifi_probe_ok;
     bool rtl8188cu_probe_attempted,rtl8188cu_identified;
     bool rtl8188cu_firmware_attempted,rtl8188cu_firmware_active;
+    bool rtl8188cu_firmware_ready;
     struct mt76_identity wifi_identity;
     bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
     uint32_t wifi_efuse_control;
@@ -3120,6 +3122,7 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
                         !(check&clear);
                 }
                 d->rtl8188cu_firmware_active=false;
+                d->rtl8188cu_firmware_ready=!failure;
             }
         }
         event_irq_restore(flags);
@@ -3129,6 +3132,8 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
         (uint64_t)(d && d->ep0_quarantined));
     return !failure;
 }
+
+#include "xhci_rtl8188cu_passive.inc"
 
 static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event) {
     int result=control_event_result(d,event);
@@ -3556,6 +3561,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
+    if(rtl8188cu_passive_event(device,dci,pointer,completion,remaining,(event->control&4)!=0))return;
     if(wifi_stream5_event(device,event)) return;
     if(wifi_nop5_event(device,event)) return;
     if(wifi_wpa5_event(device,event)) return;

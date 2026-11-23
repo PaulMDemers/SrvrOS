@@ -36,6 +36,9 @@ struct mt76_rx_beacon {
 enum mt76_rx_status mt76_rx_beacon(const uint8_t *, size_t,
                                   unsigned tuned_channel,
                                   struct mt76_rx_beacon *);
+/* Decode a beacon MPDU whose transport has validated status and stripped FCS. */
+enum mt76_rx_status wifi_rx_beacon_frame(const uint8_t *,size_t,unsigned,
+                                         struct mt76_rx_beacon *);
 /* Separate offline foundation for the captured 5GHz channel161/20MHz plan.
  * No hardware caller or authority to tune/enable MAC/RX. The transport must
  * supply its verified tuning, never a packet-derived channel. DS Parameter Set

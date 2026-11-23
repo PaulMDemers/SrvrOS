@@ -267,6 +267,33 @@ the workspace and returned to Ubuntu automatically. All 572 pre-existing
 files matched. The exact image and logs are under `evidence-f2f26465b6103e42`.
 The next milestone is radio initialization and passive Demers2.4 discovery.
 
+#### RTL8188CUS passive discovery
+
+Start from firmware acceptance `1b4b83d0`; fetched main is `87503968`. This
+trial extends only the routed RTL8188CUS profile on hub port 1. The Edimax
+and Netgear remain on ports 2 and 4. The scope covers the xHCI bulk IN
+endpoint and stop proof, measured board initialization, and the existing
+beacon parser after stripping the Realtek USB descriptor.
+
+Ubuntu's scan cache on the Realtek shows Demers2.4 at 2457 MHz (channel 10)
+with WPA2. The Linux control capture after a Realtek-only interface rebind
+contains 3,659 correlated target transfers, no dropped events and no pending
+target transfers. Its SHA-256 is
+`5f9db83576eddf05e3c2e3ec3fa127bedfaf1fe0f201a357ef0187198aed7904`.
+The RF path is bounded to the measured single-chain board and a
+fixed 20 MHz channel 10 receive window. The v3 image pins the 495 measured
+baseband/RF writes before IQ calibration. Build the data from the local
+`pro112-rtl8188cu-passive/linux-radio.json` with `tools/rtl8188cu_passive.py`.
+The [Linux USB PHY](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/phy.c)
+and [Linux RX descriptor](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.h)
+identify the control and receive fields used here.
+
+SrvrOS holds MAC transmit and DMA disabled and keeps every TX queue paused.
+The only radio data endpoint configured is bulk IN `0x81`. Two valid
+channel-10 Demers2.4 beacons, a stopped endpoint and parked RF/RX are required
+for acceptance. The trial saves counters and its outcome in the workspace
+and independent journal. It performs no association or data transfer.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

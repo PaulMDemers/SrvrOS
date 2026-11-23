@@ -49,15 +49,13 @@ static bool unicast(const uint8_t *p) {
     return any && !(p[0] & 1);
 }
 
-static enum mt76_rx_status beacon_decode(const uint8_t *p, size_t size,
+static enum mt76_rx_status beacon_view_decode(const struct mt76_rx_view *view,
     unsigned channel, bool high_band, bool *ht_present, struct mt76_rx_beacon *out) {
     if (!out) return MT76_RX_INVALID;
     *out = (struct mt76_rx_beacon){0};
     if (high_band ? channel != 161 : (channel < 1 || channel > 11))
         return MT76_RX_INVALID;
-    struct mt76_rx_view v;
-    enum mt76_rx_status status = mt76_rx_usb_view(p, size, &v);
-    if (status != MT76_RX_OK) return status;
+    struct mt76_rx_view v = *view;
     unsigned subtype = v.frame_control & 0xf0;
     if (subtype != 0x80 && subtype != 0x50) return MT76_RX_UNSUPPORTED;
     if (v.body_size < 12 || !unicast(v.header + 10) || !unicast(v.header + 16))
@@ -119,6 +117,30 @@ static enum mt76_rx_status beacon_decode(const uint8_t *p, size_t size,
     *out = b;
     if (ht_present) *ht_present = ht;
     return MT76_RX_OK;
+}
+
+static enum mt76_rx_status beacon_decode(const uint8_t *p, size_t size,
+    unsigned channel, bool high_band, bool *ht_present, struct mt76_rx_beacon *out) {
+    if (!out) return MT76_RX_INVALID;
+    *out = (struct mt76_rx_beacon){0};
+    if (high_band ? channel != 161 : (channel < 1 || channel > 11))
+        return MT76_RX_INVALID;
+    struct mt76_rx_view view;
+    enum mt76_rx_status status = mt76_rx_usb_view(p, size, &view);
+    if (status != MT76_RX_OK) return status;
+    return beacon_view_decode(&view, channel, high_band, ht_present, out);
+}
+
+enum mt76_rx_status wifi_rx_beacon_frame(const uint8_t *frame, size_t size,
+    unsigned channel, struct mt76_rx_beacon *out) {
+    if (!out) return MT76_RX_INVALID;
+    *out = (struct mt76_rx_beacon){0};
+    if (!frame || size < 24) return MT76_RX_INVALID;
+    uint16_t fc=le16(frame), sequence=le16(frame+22);
+    if ((fc&0xc7ff)!=0x80 || (sequence&15)) return MT76_RX_UNSUPPORTED;
+    const struct mt76_rx_view view={.header=frame,.body=frame+24,.body_size=size-24,
+        .frame_control=fc,.sequence=sequence>>4};
+    return beacon_view_decode(&view,channel,false,NULL,out);
 }
 
 enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,

@@ -7031,3 +7031,6 @@ build/userspace/test_sha256sum_probe.elf: tools/test_sha256sum_probe.c $(USER_CR
 	mkdir -p build/userspace/sha256sum-probe
 	$(CC) $(USER_CFLAGS) -c $< -o build/userspace/sha256sum-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/sha256sum-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+# RTL8188CUS passive receive shares the native xHCI test translation unit.
+build/kernel/src/drivers/xhci.c.o build/tests/xhci-host$(HOST_EXE): kernel/src/drivers/xhci_rtl8188cu_passive.inc
