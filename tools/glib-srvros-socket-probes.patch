@@ -1,0 +1,18 @@
+--- meson.build
++++ meson.build
+@@ -834,6 +834,15 @@
+ endif
+ 
+ foreach f : functions
++  if host_system == 'srvros' and f in ['recvmmsg', 'sendmmsg']
++    # The SDK links private Node shims before exposing the public socket API.
++    # Require the declaration as well as the link before using the fast path.
++    if not cc.has_header_symbol('sys/socket.h', f) or \
++       not cc.has_member('struct mmsghdr', 'msg_hdr', prefix : '#include <sys/socket.h>')
++      set_variable('have_func_' + f, false)
++      continue
++    endif
++  endif
+   if cc.has_function(f)
+     define = 'HAVE_' + f.underscorify().to_upper()
+     glib_conf.set(define, 1)

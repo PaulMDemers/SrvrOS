@@ -329,6 +329,7 @@ struct srv_termios {
 #define SRV_TIOCGPGRP 0x540Fu
 #define SRV_TIOCSPGRP 0x5410u
 #define SRV_TIOCGWINSZ 0x5413u
+#define SRV_FIONREAD 0x541Bu
 #define SRV_TIOCSWINSZ 0x5414u
 
 #define SRV_PROC_GET_PGROUP 1

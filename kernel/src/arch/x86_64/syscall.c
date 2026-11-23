@@ -1083,6 +1083,16 @@ static struct srv_winsize tty_current_winsize(void) {
 }
 
 static int64_t syscall_ioctl(uint64_t fd, uint64_t request, void *argument) {
+    if (request == SRV_FIONREAD) {
+        uint64_t irq = irq_save();
+        int64_t result = process_file_readable_bytes(process_current(), fd);
+        if (result >= 0) {
+            int32_t count = result > INT32_MAX ? INT32_MAX : (int32_t)result;
+            result = copy_to_user(argument, &count, sizeof(count)) ? 0 : SRV_ERR_FAULT;
+        }
+        irq_restore(irq);
+        return result;
+    }
     if (!syscall_tty_fd_ok(fd)) {
         return -1;
     }
@@ -4065,6 +4075,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     case SYS_PREAD:case SYS_PWRITE:case SYS_PIPE_MESSAGE:
     case SYS_PIPE_SEND_RIGHTS:case SYS_PIPE_RECV_RIGHTS:case SYS_PIPE_PAIR:case SYS_PIPE_PAIR_FLAGS:return false;
     case SYS_READ:case SYS_WRITE:case SYS_VECTOR_IO:return process_signal_experimental_fd_allowed(frame->rdi);
+    case SYS_IOCTL:return frame->rsi != SRV_FIONREAD;
     case SYS_FCNTL:return (frame->rsi==SRV_F_GETFD || frame->rsi==SRV_F_GETFL) &&
         process_signal_experimental_fd_allowed(frame->rdi);
     default:return true;
