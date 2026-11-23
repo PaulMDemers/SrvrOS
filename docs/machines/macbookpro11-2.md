@@ -356,6 +356,21 @@ passed. The fixture checks every observed page link, buffer bounds before
 endpoint configuration, refusal on a stuck link operation, and continued
 TX closure. The correction is ready for exact-image qualification.
 
+Cold candidate `52220a9ab4f8f271` uses source `65e845c5`, a fresh bound
+internal journal and the prior image's verified userspace, firmware and
+radio profile. The exact image passed the GPT workspace boot and all four
+journal and recovery VM checks. Preflight verified the clean workspace
+with 576 existing files, all three hub leaves, installed recovery
+`74da74e0b57afbb8`, and Ubuntu as the boot default. A byte-verified archived
+copy of the firmware-only trial was kept off the EFI partition to make room.
+Only regenerable old host-test and VM build outputs were cleared from the
+Ubuntu workspace, reclaiming about 3 GiB.
+The unattended return record is
+`build/bringup/pro112-rtl8188cu-rx-cold/run.json`. Collect the packet-buffer
+receipt and first bulk IN completion timing from both saved log paths.
+Discovery acceptance still requires two validated Demers2.4 beacons on
+channel 10 and verified teardown.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
