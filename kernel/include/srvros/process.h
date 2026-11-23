@@ -136,6 +136,7 @@ int64_t process_scope_create(uint64_t *out);
 int64_t process_scope_reserve(uint64_t token);
 void process_scope_cancel_reservation(uint64_t token);
 int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out);
+int64_t process_scope_terminate(uint64_t token);
 int64_t process_scope_reap(uint64_t token);
 
 /* Kernel-only owner capability; no userspace setter or syscall. One root per

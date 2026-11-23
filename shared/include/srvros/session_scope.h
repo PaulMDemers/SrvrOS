@@ -9,7 +9,9 @@
  * EXEC returns the detached root PID; REAP_RETIRED returns one if it reaps an orphan or
  * zero if none is claimable. Other successful operations return zero.
  * Only the creating process owns the token; a scope member cannot create one.
- * Revoked plus zero members proves retirement, not successful durable saves.
+ * TERMINATE lets the privileged owner request cancellation of active members
+ * after revocation, without reaping them. Revoked plus zero members proves retirement,
+ * not successful durable saves.
  * Nonzero exit count saturates and first_exit_status remains until release. */
 #define SRV_SCOPE_VERSION 1u
 #define SRV_SCOPE_CREATE 1u
@@ -18,6 +20,7 @@
 #define SRV_SCOPE_STATUS 4u
 #define SRV_SCOPE_REAP_RETIRED 5u
 #define SRV_SCOPE_RELEASE 6u
+#define SRV_SCOPE_TERMINATE 7u
 
 struct srv_exec_request;
 struct srv_scope_exec {

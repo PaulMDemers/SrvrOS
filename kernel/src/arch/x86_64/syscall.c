@@ -1587,6 +1587,7 @@ static int64_t syscall_session_scope(uint64_t op,uint64_t token,void *payload) {
     }
     if(payload) return SRV_ERR_INVAL;
     if(op==SRV_SCOPE_REAP_RETIRED) return process_scope_reap(token);
+    if(op==SRV_SCOPE_TERMINATE) return process_scope_terminate(token);
     return process_scope_control(op,token,NULL);
 }
 

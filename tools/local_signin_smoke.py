@@ -283,7 +283,7 @@ class VM:
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: enrollment failed: {name}')
 
-    def attempt(self, name, password, uid=None, session=None, crash=False):
+    def attempt(self, name, password, uid=None, session=None, crash=False, diagnostic=True):
         start = len(self.output)
         self.send(name.encode('ascii')); self.wait(b'Password: ')
         sent = time.monotonic()
@@ -298,7 +298,10 @@ class VM:
                 raise RuntimeError('failed sign-in unexpectedly started a session')
         else:
             expected = f'Session uid={uid} gid={uid} home=/fat/home/local-{name}'.encode()
-            self.wait(expected); self.wait(b'session-check: PASS'); self.wait(b'session> ')
+            self.wait(expected)
+            if diagnostic:
+                self.wait(b'session-check: PASS')
+            self.wait(b'session> ')
             if session is not None: session(self)
             self.send(b'crash' if crash else b'logout')
             if crash: self.wait(b'Session crashed.')
@@ -319,7 +322,7 @@ class VM:
             raise RuntimeError(f'{self.label}: missing session result for {command!r}')
         return response
 
-    def session_files(self, name, uid, setup, peer=None, hold=False):
+    def session_files(self, name, uid, setup=False, peer=None, hold=False):
         text = name + '-private-persisted'
         if setup:
             self.session_command('write evidence.txt ' + text, b'Written.')
@@ -441,8 +444,6 @@ def main():
         copy_esp(recovery_image, target)
         if region_hash(target, *data) != initial_data_hash: raise RuntimeError('ESP swap changed target data')
         with VM(target, out, 'enroll', args, 'recovery') as vm:
-            vm.command('/fat/bin/cp /fat/signin-test/session /fat/bin/local-session')
-            vm.command('/fat/bin/chmod 755 /fat/bin/local-session')
             for name, uid in (('alpha',1001), ('beta',1002), ('disabled',1003)):
                 vm.enroll(name, uid)
             vm.command('/fat/bin/local-enroll disable disabled')
@@ -453,17 +454,45 @@ def main():
         before_swap = region_hash(target, *data)
         local_mode()
         if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        def stock_alpha(vm):
+            vm.session_command('help', b'Commands: help, pwd, write PATH TEXT')
+            vm.session_command('pwd', b'/fat/home/local-alpha')
+            vm.session_command('crash', b'Error: unknown command.')
+            vm.session_command('write overlong.txt ' + 'x' * 513,
+                               b'Error: invalid or too-long command.')
+            vm.session_command('stat overlong.txt', b'Error: stat: not found.')
+            vm.session_files('alpha', 1001, setup=True)
+
+        with VM(target, out, 'production', args, 'local') as vm:
+            vm.attempt('alpha', PASSWORDS['alpha'], 1001, session=stock_alpha, diagnostic=False)
+            vm.attempt('beta', PASSWORDS['beta'], 1002, diagnostic=False,
+                       session=lambda v: v.session_files('beta', 1002, setup=True, peer='alpha'))
+            vm.finish()
+        receipt['cases'].append({'production_both_users': 'PASS', 'bounded_input': 'PASS',
+                                 'fixture_command_unavailable': 'PASS'})
+        save()
+
+        before_swap = region_hash(target, *data)
+        copy_esp(recovery_image, target)
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
+        with VM(target, out, 'install-diagnostic', args, 'recovery') as vm:
+            vm.command('/fat/bin/cp /fat/signin-test/session /fat/bin/local-session')
+            vm.command('/fat/bin/chmod 755 /fat/bin/local-session')
+            vm.finish()
+        before_swap = region_hash(target, *data)
+        local_mode()
+        if region_hash(target, *data) != before_swap: raise RuntimeError('ESP swap changed target data')
         for number in (1, 2):
             with VM(target, out, f'local-{number}', args, 'local') as vm:
                 vm.attempt('alpha', WRONG)
                 vm.attempt('unknown', WRONG)
                 vm.attempt('disabled', PASSWORDS['disabled'])
                 vm.attempt('alpha', PASSWORDS['alpha'], 1001,
-                    session=lambda v: v.session_files('alpha',1001,number==1,hold=True), crash=number==2)
+                    session=lambda v: v.session_files('alpha', 1001, hold=True), crash=number==2)
                 vm.attempt('beta', PASSWORDS['beta'], 1002,
-                    session=lambda v: v.session_files('beta',1002,number==1,peer='alpha',hold=True), crash=number==1)
+                    session=lambda v: v.session_files('beta', 1002, peer='alpha', hold=True), crash=number==1)
                 vm.attempt('alpha', PASSWORDS['alpha'], 1001,
-                    session=lambda v: v.session_files('alpha',1001,False,peer='beta'))
+                    session=lambda v: v.session_files('alpha', 1001, peer='beta'))
                 vm.finish()
             image = ExfatFixture(proof.data_image(target, *data))
             for name in ('alpha', 'beta'):

@@ -56,6 +56,7 @@ static long launch_session(uint64_t scope, int slave, const struct local_account
 
 static bool retire_session(uint64_t scope, long child, bool waited) {
     if (srv_session_scope(SRV_SCOPE_REVOKE, scope, NULL) != 0) return false;
+    if (srv_session_scope(SRV_SCOPE_TERMINATE, scope, NULL) != 0) return false;
     long deadline = srv_monotonic_us() + SESSION_RETIRE_US;
     do {
         if (child > 0 && !waited) {
@@ -145,7 +146,7 @@ static bool relay_session(int master, long child, uint64_t *status, bool *waited
         if (pending) {
             long count = srv_write(master, &byte, 1);
             if (count == 1) pending = false;
-            else if (count != SRV_ERR_AGAIN && count != SRV_ERR_INTR && count != -1)
+            else if (count != SRV_ERR_AGAIN && count != SRV_ERR_INTR && count != SRV_ERR_PERM)
                 return false;
             /* A closing slave can refuse input before wait reports its exit. */
         }

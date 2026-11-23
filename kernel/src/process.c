@@ -1445,6 +1445,28 @@ int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status
     process_irq_restore(flags);return result;
 }
 
+/* Revoke is deliberately non-terminating. This explicit owner-only operation
+ * requests cancellation; normal scheduler/user teardown and reaping still own
+ * resources until the scope member count reaches zero. */
+int64_t process_scope_terminate(uint64_t token) {
+    uint64_t flags=process_irq_save();
+    struct process *owner=process_current();
+    struct process_lifetime *life=user_scope_owned(token);
+    int64_t result=SRV_ERR_INVAL;
+    if(!life) goto done;
+    if(owner->credentials.uid) {result=SRV_ERR_PERM;goto done;}
+    if(!life->revoked) {result=SRV_ERR_BUSY;goto done;}
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        struct process *p=&processes[i];
+        if(!p->allocated || !p->active || p->lifetime!=token) continue;
+        if(!p->killed) {p->killed=true;p->kill_signal=SRV_SIGNAL_KILL;}
+        process_wake_for_signal(p);
+    }
+    result=0;
+done:
+    process_irq_restore(flags);return result;
+}
+
 uint64_t process_lifetime_create(void) {
     if (process_current()) return 0;
     uint64_t flags=process_irq_save(),token=0;
@@ -3533,7 +3555,8 @@ bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn copy,voi
 }
 static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
-    return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);
+    return process_should_exit_current() || process_signal_pending_current() ||
+        find_reapable_process(request)!=NULL || !has_wait_target(request);
 }
 struct process_event_request {
     struct process_wait_request target;
@@ -3558,6 +3581,7 @@ static int64_t process_wait_request(struct process_wait_request request,uint64_t
     process_wait_copy_fn copy,void *context) {
     for (;;) {
         uint64_t flags=process_irq_save();
+        if(process_should_exit_current()) {process_irq_restore(flags);return SRV_ERR_INTR;}
         struct process *process = find_reapable_process(&request);
         uint64_t encoded=process?(posix_status?
             (process->killed && process->kill_signal ? (process->kill_signal&0x7f):((process->exit_status&0xff)<<8)):
