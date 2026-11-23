@@ -1,0 +1,211 @@
+{
+  "status": "qualified-for-review",
+  "scope": "Guest-modified disposable A, read-only v2 export and reconciliation, and fresh B through two EFI boots",
+  "tested_source": "6b0c504e0303b5e425ac85b11f01031c4adccd71",
+  "integrated_main": "e2b463d867a05d0a66421dfa9ed3c38feed5863e",
+  "matched_runtime_hashes": {
+    "build/kernel/srvros.elf": "e21c317fea70e588c6635dec6a3f1e05369fde43266a4524e9b8d2c4754b6504",
+    "build/initramfs.tar": "2e0bfead5277957d87526d4204a2c70c74ed4e5de4a061bce7734d795f99586d",
+    "build/srvros.exfat": "2e6b5d264a3a649c8f8af994ea0fad414b00d03f1af3a6b4104644ecc8515a79"
+  },
+  "matched_runtime_tree_ids": {
+    "Makefile": "7bb90355a54af95a68b13da52cd99a64fed7973f",
+    "kernel": "e4e8e2377cf8d79febd3bfcafccf3701902a4d53",
+    "ports": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+    "shared": "9bbfd0e5e31d1f41f62e430b3a73ca6b9a52fe17",
+    "userspace": "1040369476afa6984809c5b46f37ab8ef226cf2f"
+  },
+  "submodule_pins": {
+    "ports": "f79db5fa2f2744191315f0941e9578e1681b9a49",
+    "ports/upstream/awk": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+    "ports/upstream/cjson": "c859b25da02955fef659d658b8f324b5cde87be3",
+    "ports/upstream/inih": "26254ee9de7681f8825433415443e7116ff24b98",
+    "ports/upstream/libuv": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+    "ports/upstream/linenoise": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+    "ports/upstream/lua": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+    "ports/upstream/node": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+    "ports/upstream/zlib": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+    "userspace/apps": "a61a7c55a300139ab968464837f6abfae5a0e0dc",
+    "userspace/widgets": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
+  },
+  "proof_tools": {
+    "exfat_test_image.py": "43caec710a0076a7d2b0fb2812987bbf0138b188467d8863f6260291cc381359",
+    "installation_export.py": "a20daf60c6a37e17fb1ffb4c1c87f8bf08181d1e1ea412a55edd28adcc35af99",
+    "installation_export_driver.c": "f240f219f8ef08122e4fdb77a4b412b0dd17171768232bf81c4e715e2beb676e",
+    "installation_export_publication.py": "47e5c3082c2bdd6a7fa70aac2373ecc82a84d81526f4d31ab89b42e9465f9edb",
+    "installation_export_recovery_smoke.py": "cb8c77f547c7b1ea788b38b421edf886d02e4a717aeaee3b07734cbd14583813",
+    "installation_image.py": "586e228477a7119c07fe1dd0ce0a23837d813ed67058832f524ceec34f0e1185",
+    "installation_inspection.py": "57de0b498decaa2b94f02ab785cc37026aaacc10f04326f64df5bf5491804524",
+    "installation_stream_export_smoke.py": "932c1dd8550770cbeddf460cc0c5fbc7c02c4b7ead17ab94e0431ddb764c844b",
+    "profile_bundle.py": "2ff2e7367fe5d52c6122a3f68b2aabe3eeaa1f8a831c0f2ffe0dad97152c7cac",
+    "profile_chooser_smoke.py": "145c7bb72fe37db26eee287a9886c5be1f760aea7e5d10a8d0c435e027df1ac0",
+    "profile_create_smoke.py": "e48397b592dd1946f06b9beb4f658dd083435727cbec2d1a44507dc66f106ef2",
+    "profile_desktop_smoke.py": "25dc4619b42edecfd3435747de32ea4093ef5fed055654b87f49594ce51568ed",
+    "profile_guest_smoke.py": "1bb0c8e4a32cac30bdbc3a736b12d7e2bb19614f5c5e6d807c2515fbd1a3ef75",
+    "profile_image.py": "c62e2dd241662b25387203a75beafaa4a9e18f03eb262a6b3e81fbceb6d05a19",
+    "profile_image_driver.c": "2d48c967b28b1b66a7513e08eadd7cfc6ff92d887225369640219b1919f4829f",
+    "profile_stream.py": "8b91eac5ff2c68856e15dae00fc3e662aa4c30d3afca44f3e9327e5742454b38",
+    "profile_transfer_smoke.py": "670a0cdd8f53b443141484487ee5a538742c7ebd8a9525479925e1c01d525d4f"
+  },
+  "payload_sha256": {
+    "base": "2e6b5d264a3a649c8f8af994ea0fad414b00d03f1af3a6b4104644ecc8515a79",
+    "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "export_driver": "ecc782e10102d5dcd8c8d4fb1980cff550940108d540521d4f6d1fc2c83c7430",
+    "fs_driver": "e9577bc46e337261d76c14088cc6c60a33088e85e09c98f969943908f2f5ecee",
+    "init": "98fbd52afec62e71115abe2fc9ad6dae4803fd88cbfd9334a8017517ba529bad",
+    "inspect_driver": "5ff45c28912b818505b7fd5490a868c7714341f72d0782fafadbad911bb686d9",
+    "kernel": "e21c317fea70e588c6635dec6a3f1e05369fde43266a4524e9b8d2c4754b6504",
+    "profile_driver": "08b4cf6a99d651434532574d894da92c8b37841b450d307babf2297c3fc1d73c"
+  },
+  "guest_modified_a": {
+    "preboot_image_sha256": "96a5971ed38bbd806508964147f80bd2e6ef8e53e13404d1e0f0a0c2c679a1c5",
+    "stopped_image_sha256": "5d30946ee5c34723ba5589a406b7a7268423feb77ce523a6b13c79e064e8db44",
+    "retained_profile_baseline_sha256": "ed5d2a758f896e7b2ba715df57f46f13ee190c78cdc5ec083637023c72d1b148",
+    "protected_regions": {
+      "after_data_sha256": "8139076235c3504ee0ab293f10b99844d71e03a9c10dc43fa8e33214fd059e4c",
+      "before_data_sha256": "e3736b7dd4c713a2d2a8dbe3a22af11bdcaa741849d8f864ec9c3dcf56c71260"
+    },
+    "edited_document": "Documents/migration.txt",
+    "seed_sha256": "0bb4ea865cafd90717ab7028e7f0ec711e0e270ba27557bb2a3ec9dbd5790e54",
+    "guest_written_sha256": "7342882b56b104e6243559c7b4c119b846943503b4b035dc53338572ce1e7b48",
+    "guest_cache_sentinel_sha256": "b5e1f07563abac0d6b1f1f0f532281eba96aef3883642e2620f9b3b7e293f80a",
+    "used": true,
+    "consistent": true,
+    "inspection_writes": 0,
+    "inspection_flushes": 0,
+    "sealed_image_and_baseline_preserved": true
+  },
+  "refusals": [
+    {
+      "case": "wrong-uuid",
+      "namespace_unchanged": true,
+      "reason": "selected profile not admitted",
+      "source_unchanged": true
+    },
+    {
+      "case": "missing-document",
+      "namespace_unchanged": true,
+      "reason": "export driver refused filesystem: installation export refused: export-document\n",
+      "source_unchanged": true
+    },
+    {
+      "case": "existing-output",
+      "namespace_unchanged": true,
+      "reason": "output already exists or invalid",
+      "source_unchanged": true
+    },
+    {
+      "case": "locked-used-image",
+      "namespace_unchanged": true,
+      "reason": "[Errno 35] Resource temporarily unavailable",
+      "source_unchanged": true
+    }
+  ],
+  "export": {
+    "schema_version": 2,
+    "sha256": "a3b84566fb3a9c02ed68b232c4ae29f4b7a5da23317be6a59cc9b15661555f0e",
+    "exit": 75,
+    "interruption": "written",
+    "observed_before_reconcile": "prepared",
+    "output_visible_before_reconcile": false,
+    "reconciled": "complete",
+    "documents": [
+      {
+        "path": "Documents/migration.txt",
+        "sha256": "7342882b56b104e6243559c7b4c119b846943503b4b035dc53338572ce1e7b48",
+        "size": 24
+      },
+      {
+        "path": "Documents/binary.profile-import.dat",
+        "sha256": "ed231d85a68b071fe94b60a4b2563217dd131410f8c91a828d31a649efd945d8",
+        "size": 20
+      },
+      {
+        "path": "Documents/large.bin",
+        "sha256": "341aacac661ccb210720bedaa9ead5d668fe5ea41a73532fc147c71e34040df1",
+        "size": 16777216
+      }
+    ]
+  },
+  "fresh_b": {
+    "initial_image_sha256": "72973b188b657be09e7a0de755fc3618112111883d87982f8c08b60d30477087",
+    "boots": [
+      {
+        "label": "b1",
+        "image_sha256": "e0971f010e856f232f3d4a39dd0d11a5e3bed44dce97e13a3c780deeb561d582",
+        "binding": {
+          "alias": "recovered_b",
+          "gid": 3051,
+          "home": "/fat/home/recovered_b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 3050
+        }
+      },
+      {
+        "label": "b2",
+        "image_sha256": "3b1818c8937c799b32900538040396582aa644b90ba40888134aac3a8e99131b",
+        "binding": {
+          "alias": "recovered_b",
+          "gid": 3051,
+          "home": "/fat/home/recovered_b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 3050
+        }
+      }
+    ],
+    "protected_regions": {
+      "after_data_sha256": "5ab8a4c9cc1a2d3c8b90d3615f56aa6a805388d126c1d44221cc45ac507f5d0e",
+      "before_data_sha256": "7f3b071cf6783c4097c5be1ac57a4baa7f73e299cce1fb088eca1955c77ea8e3"
+    },
+    "exact_selected_documents": true,
+    "unselected_document_and_cache_sentinel_omitted": true,
+    "owned_guests_remaining": 0
+  },
+  "snapshot_sha256": {
+    "data-a-before-export.exfat.gz": {
+      "archive": "79598e3dd3fbd5d0a6f5bff2cd5f0d4b11f96563d4436959f42531ab2749bdbc",
+      "raw": "ed5d2a758f896e7b2ba715df57f46f13ee190c78cdc5ec083637023c72d1b148"
+    },
+    "data-a-after-guest.exfat.gz": {
+      "archive": "b208bc3c1ea15d509a6d4b47c4d071d4d82ba04521e934fb053eed3973a6d358",
+      "raw": "9b81da0e87e687569beb6d1a5a28efd22d4df2ce23a70a75685d81049b23b84c"
+    },
+    "data-b-preboot.exfat.gz": {
+      "archive": "ce676373a71303a040805379570f012f8967e15380b658471415023ab8d8ff08",
+      "raw": "7386155b111dbcd0c2f76a890c546bf68271166b9af99dfed2e0a130d36fc18e"
+    },
+    "data-b1.exfat.gz": {
+      "archive": "d56a291d1b1054bb692d9370c85a810a38ed566a94f398a44314d9234c3da0d6",
+      "raw": "96b982d3c50f3b694c4d3b0028aae88d86a5ac858260231fda7964ebd8120367"
+    },
+    "data-b2.exfat.gz": {
+      "archive": "f29eaf681216f1d6978a6684bbab6e74d1feb7f13c598c29b747afedca3e3fe1",
+      "raw": "53e7139062aa37783f0b57724f1333478e98bf08e859f454580c85cbaf3711da"
+    }
+  },
+  "host_checks": {
+    "build": "sh tools/macos/build.sh -j2 all",
+    "native_export_and_publication_tests_passed": 33,
+    "native_suite_source": "6b0c504e0303b5e425ac85b11f01031c4adccd71",
+    "native_suite_log_sha256": "35661f3c08a8fb1dd1aa7caeac71c63f61e3133cc99b501dd602065d1a95ca06",
+    "auxiliary_checks_unavailable": [
+      "The host syscall target uses x86 assembly on an ARM host.",
+      "The auxiliary exFAT range fixture requires Linux /usr/sbin/fsck.exfat."
+    ]
+  },
+  "resources": {
+    "minimum_free_bytes": 7175905280,
+    "evidence_reserve_bytes": 4294967296,
+    "host_tmp_reserve_bytes": 2147483648,
+    "existing_receipts_verified": 3
+  },
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "receipt_sha256": "b7b0a155f2f195f18426f165ec11c35b9570e7d6ea46a18f01fa5e459d9d1e9a",
+  "independent_byte_audit_sha256": "6f8f03723b9fd202dd253ec5749552ca4fc108ddbf89b8ddfdf28a4cc32f5439",
+  "limits": [
+    "no physical media or power-loss claim",
+    "one 16 MiB selected document",
+    "source A is a newly provisioned disposable installation"
+  ],
+  "filesystem_independent_audit_sha256": "a0e8f38e41b9c5b83903ace1faebeb32399ba848d9adff2a0be0de8f792b1323"
+}
