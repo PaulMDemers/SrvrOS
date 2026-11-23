@@ -121,6 +121,26 @@ class FlushAcknowledgements(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     bootstrap_result(text.replace(line, ""))
 
+    def test_readonly_submission_mappings_span_both_queue_checks(self):
+        text = observe("pass")
+        receipt = bootstrap_result(text)["range"]["reopened_pte"]
+        self.assertEqual((receipt["pinned"], receipt["restored"], receipt["ro_mask"]), (5, 5, 0))
+        for mode, positions, commands in (("slot-protect", range(1,6), 1), ("slot-foreign", (1,3,5), 1),
+                                          ("slot-wp", (1,), 1), ("slot-restore", range(1,6), 2)):
+            for position in positions:
+                with self.subTest(mode=mode, position=position):
+                    result = bootstrap_result(observe(mode, position))
+                    self.assertFalse(result["complete"])
+                    self.assertEqual(result["summary"]["commands"], commands)
+                    self.assertEqual(result["range"]["slot_backing"]["held"], 1)
+                    self.assertEqual(result["range"]["independent_slot"]["pte_writes"], 0)
+        for field in ("pinned=5", "restored=5", "ro_mask=0"):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(field, field[:-1] + "4"))
+        old = text.replace("intel-range-summary: v=6 ", "intel-range-summary: v=5 ").replace(
+            "intel-slot-reopened: v=3 pinned=5 restored=5 ro_mask=0", "intel-slot-reopened: v=2")
+        self.assertTrue(bootstrap_result(old)["complete"])
+
     def test_wireless_programming_guard_spans_requester_reopening(self):
         text = observe("pass")
         base = bootstrap_result(text)["range"]
@@ -160,7 +180,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=5 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=6 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -169,7 +189,7 @@ class FlushAcknowledgements(unittest.TestCase):
         source = backing_result(historical_view(text, practical=True, memory=True, range_check=True, primary=True,
                                                 aux=True, flush=True))
         protection = parsed["range"]
-        for version in (3, 4, 5):
+        for version in (3, 4, 5, 6):
             with self.subTest(version=version):
                 protection["summary"]["v"] = version
                 entries = list(protection["vectors"][0])
@@ -281,7 +301,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
-        old_power = old_power.replace("intel-range-summary: v=5 ", "intel-range-summary: v=1 ")
+        old_power = old_power.replace("intel-range-summary: v=6 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
         old_power = old_power.replace("words0=132 words1=132", "words0=129 words1=129")

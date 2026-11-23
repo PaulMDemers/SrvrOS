@@ -201,10 +201,35 @@ static void register_window(void) {
  assert(vmm_unmap_page(va,NULL));
  assert(vmm_reserved_guard_close(&guard,&result,&why));
 }
+static void readonly_registers(void) {
+ const uint64_t reg=0xc0002000, aperture=0xb2200000;
+ const uint64_t flags=VMM_PAGE_PRESENT|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
+ struct vmm_alias_span page={va,reg,1};
+ for(unsigned drift=0;drift<2;drift++) {
+  setup();
+  assert(vmm_reserved_guard_begin_io_page(&guard,root,pair,2,52,&ram[1],1,aperture,&result,&why));
+  t[3][0]=reg|flags|VMM_PAGE_WRITABLE;
+  assert(!vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
+  t[3][0]=t[3][1]=reg|flags;
+  assert(!vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
+  t[3][1]=0;
+  assert(vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
+  assert(!vmm_reserved_guard_hold_readonly_registers(&guard,root,&page,1));
+  assert(!vmm_map_page(va+4096,reg,flags));
+  assert(!vmm_protect_page_in_space(root,va,flags|VMM_PAGE_WRITABLE));
+  assert(!vmm_unmap_page(va,NULL) && !vmm_ensure_page_in_space(root,va,reg+4096,flags));
+  if(drift)t[3][1]=reg|flags;
+  assert(vmm_reserved_guard_close(&guard,&result,&why)==!drift);
+  if(drift){assert(reserved_guard.state==VMM_GUARD_FAULT);reset_fault();}
+  else assert(vmm_protect_page_in_space(root,va,flags|VMM_PAGE_WRITABLE));
+ }
+}
+
 int main(int argc,char **argv) {
  (void)argv;
  assert(!guard_alias_regression());
  for(unsigned i=0;i<260;i++){t[i]=aligned_alloc(4096,4096);assert(t[i]);}
+ readonly_registers();
  setup();assert(begin(&guard) && tags==3072 && result.tables==9 && result.entries==4608);
  if(argc>1){vmm_switch_address_space(root+4096);return 0;}
  for(unsigned page=0;page<3072;page++)for(unsigned route=0;route<3;route++)refused_map(route,pa+page*4096ull,3);

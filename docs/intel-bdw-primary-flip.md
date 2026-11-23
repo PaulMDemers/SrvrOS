@@ -414,6 +414,16 @@ An uncertain latch or return keeps the record and backing alive. The
 publisher still requires independent device-side retirement before its first
 restoration write. Run `make smoke-scanout-owned-page` for the Q35 coverage.
 
+In the slot 12291 diagnostic, SrvrOS changes all five engine submission pages
+to read-only after reset and before reopening PCI bus mastering. The VMM walks
+the CPU root to verify each page has one supervisor-only, uncached, read-only
+mapping. It rejects attempts to change that mapping or create another alias
+until guard close. The driver compares the queue state on both sides of PCI
+reopening and reads back the original PTE before releasing the guard. The
+report records how many pages were pinned and restored, including partial
+progress after a failure. Device-side WiDi and cache completion still require
+their own evidence.
+
 The next native milestone is to import the boot framebuffer and establish
 exclusive use of one candidate range in the same driver epoch. This requires
 accounting for inherited queues, cache and posted traffic, and WiDi across

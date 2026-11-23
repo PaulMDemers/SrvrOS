@@ -147,6 +147,10 @@ bool vmm_reserved_guard_begin_submission_window(struct vmm_reserved_guard *,uint
  const struct vmm_physical_span *,unsigned count,unsigned bits,const struct vmm_alias_ram *,unsigned ram_count,
  uint64_t aperture,uint64_t backing,uint64_t reg,const uint64_t *ports,unsigned port_count,
  struct vmm_alias_inventory *,struct vmm_unmapped_detail *);
+/* Freeze unique, already read-only MMIO leaves until guard close. Public VMM
+ * calls cannot replace a held leaf or create another mapping of its page. */
+bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard *,uint64_t root,
+                                                const struct vmm_alias_span *,unsigned count);
 /* Adopt the only writable MMIO alias. The VMM freezes its VA and rejects
  * other mappings of its PA until this child retires. No device store occurs. */
 bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *,uint64_t root,uint64_t aperture,

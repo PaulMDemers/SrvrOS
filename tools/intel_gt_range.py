@@ -15,7 +15,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",), versions=(1, 2, 3, 4, 5),
+        ("live",), versions=(1, 2, 3, 4, 5, 6),
     )
     dual = summary["v"] >= 3
     batches = 3 if dual else 2
@@ -152,15 +152,27 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
                 or any(max(row["win"], row["reset_flow"]) >= 0xffffffff for row in samples)
                 or (samples and guard["pages"] != 3) or (owner_complete and len(samples) != 4)):
             raise ValueError("Incomplete WiDi device samples")
-        final = fields(reopened[0],"intel-slot-reopened:", "v matched high0 low high1 reads maps retired live".split(),
-                       ("high0","low","high1","live"), versions=(1,2))
+        port_fields = ("pinned", "restored", "ro_mask") if summary["v"] >= 6 else ()
+        final = fields(reopened[0], "intel-slot-reopened:",
+                       ("v", *port_fields, "matched", "high0", "low", "high1", "reads", "maps", "retired", "live"),
+                       ("high0", "low", "high1", "live"), versions=(3,) if port_fields else (1,2))
         if (not 0 <= guard["closed"] <= final["matched"] <= second["reopen_verified"]
                 or not 0 <= final["retired"] <= final["maps"] <= second["reopen_verified"]
                 or (final["maps"] != final["retired"] and not final["live"]) or final["reads"] > final["maps"]*3
                 or (final["matched"] and (final["reads"],final["maps"],final["retired"],final["live"],
                     final["high0"],final["low"],final["high1"]) != (3,1,1,0,0,0x8f004001,0))):
             raise ValueError("Invalid reopened slot observation")
-        if final["v"] == 2:
+        if port_fields:
+            pinned, restored, mask = (final[k] for k in port_fields)
+            # Pages become read-only in engine order and are restored in reverse.
+            if (pinned not in (0,2,4,5) or restored > 5 or mask not in (0,1,3,7,15,31)
+                    or (restored and (not slot["returned"] or not guard["closed"] or pinned != 5))
+                    or (restored and mask != (1 << (5-restored))-1)
+                    or (not restored and not pinned <= mask.bit_count() <= min(5,pinned+2))
+                    or ((queue_rows or parent["commands"] == 2) and pinned != 5)
+                    or (owner_complete and (pinned,restored,mask) != (5,5,0))):
+                raise ValueError("Invalid engine submission page lifetime")
+        if final["v"] >= 2:
             matches = 0
             samples_raw = []
             for n, line in enumerate(queue_rows):

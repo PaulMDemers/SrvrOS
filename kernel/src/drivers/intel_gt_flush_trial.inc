@@ -79,6 +79,41 @@ struct slot_queue_sample {
 static struct slot_queue_sample slot_queues[2];
 static unsigned slot_queue_samples, slot_queue_matches;
 
+/* After the reset, the queue census needs only reads. Keep the sole UC
+ * mapping of each engine page immutable through both queue samples and the
+ * final PTE readback. The parent stays on the boot CPU with IRQs excluded. */
+static unsigned slot_ports_pinned, slot_ports_restored;
+static bool slot_submission_hold(void) {
+    if (gt_bootstrap_native.engine_ro_mask || slot_ports_pinned || !context_wp()) return false;
+    for (unsigned first = 0; first < INTEL_ENGINE_COUNT; first += VMM_ALIAS_SPANS) {
+        struct vmm_alias_span spans[VMM_ALIAS_SPANS];
+        unsigned count = INTEL_ENGINE_COUNT - first;
+        if (count > VMM_ALIAS_SPANS) count = VMM_ALIAS_SPANS;
+        for (unsigned i = 0; i < count; ++i) {
+            unsigned engine = first + i, slot = 3 + engine;
+            if (!bootstrap_guard() || !bootstrap_tick() || !engine_page_protect(gt_bootstrap_native.root,slot, false)) return false;
+            gt_bootstrap_native.engine_ro_mask |= 1u << engine;
+            spans[i] = (struct vmm_alias_span){WAKE_VA + 4096 * slot, result.mmio_base + wake_pages[slot], 1};
+        }
+        if (!vmm_reserved_guard_hold_readonly_registers(&slot_widi.guard, gt_bootstrap_native.root, spans, count))
+            return false;
+        slot_ports_pinned += count;
+    }
+    return context_wp() && bootstrap_guard() && bootstrap_tick();
+}
+
+static bool slot_submission_restore(void) {
+    if (slot_ports_pinned != INTEL_ENGINE_COUNT || gt_bootstrap_native.engine_ro_mask != 31 ||
+        !slot_widi.closed || !independent_returned || !gt_slot_returned) return false;
+    for (unsigned n = INTEL_ENGINE_COUNT; n; --n) {
+        if (!context_wp() || !bootstrap_guard() || !bootstrap_tick() || !engine_page_protect(gt_bootstrap_native.root, n+2, true))
+            return false;
+        gt_bootstrap_native.engine_ro_mask &= ~(1u << (n-1));
+        ++slot_ports_restored;
+    }
+    return bootstrap_guard() && bootstrap_tick();
+}
+
 static bool slot_queue_boundary(unsigned phase) {
     const struct intel_completion_result *post = &gt_bootstrap_native.post;
     if (phase > 1 || slot_queue_matches != phase || slot_queue_samples != phase ||
@@ -88,6 +123,8 @@ static bool slot_queue_boundary(unsigned phase) {
         post->enabled || post->pending || post->flip_wait || post->tlb_pending ||
         !gt_slot_live() || !bootstrap_guard() || !bootstrap_tick()) return false;
 
+    if ((!phase && !slot_submission_hold()) || slot_ports_pinned != INTEL_ENGINE_COUNT ||
+        gt_bootstrap_native.engine_ro_mask != 31 || !context_wp()) return false;
     struct slot_queue_sample *sample = &slot_queues[phase];
     if (!completion_snapshot(gt_bootstrap_native.a, sample->words, sample->context)) return false;
     ++slot_queue_samples;
@@ -275,7 +312,8 @@ static void gt_flush_report(void) {
     for(unsigned n=0;n<gt_widi.samples;n++)
         console_printf("intel-widi-device: v=1 n=%u win=%x reset_flow=%x\n",(uint64_t)n,
             (uint64_t)gt_widi.device[n][0],(uint64_t)gt_widi.device[n][1]);
-    console_printf("intel-slot-reopened: v=2 matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
+    console_printf("intel-slot-reopened: v=3 pinned=%u restored=%u ro_mask=%u matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
+        (uint64_t)slot_ports_pinned,(uint64_t)slot_ports_restored,(uint64_t)gt_bootstrap_native.engine_ro_mask,
         (uint64_t)gt_reopened.matched,(uint64_t)gt_reopened.raw[0],(uint64_t)gt_reopened.raw[1],
         (uint64_t)gt_reopened.raw[2],(uint64_t)gt_reopened.access.reads,(uint64_t)gt_reopened.access.maps,
         (uint64_t)gt_reopened.access.retired,gt_reopened.access.mapped);

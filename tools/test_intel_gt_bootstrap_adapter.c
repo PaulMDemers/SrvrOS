@@ -20,6 +20,9 @@ static void intel_display_test_bootstrap_receipt_boundary(void);
 static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
+static unsigned model_engine_ro;
+static bool intel_display_test_context_wp(void);
+static bool intel_display_test_context_protect(unsigned,bool);
 static void intel_display_test_backing_access(void);
 static void intel_display_test_bootstrap_smi_cpuid(uint32_t,uint32_t *,uint32_t *,uint32_t *,uint32_t *);
 static uint32_t intel_display_test_bootstrap_smi_count(unsigned);
@@ -107,6 +110,32 @@ static bool bf(const char *mode,unsigned n) {
 static const uint64_t host_widi_pages[]={0xc0014000,0xc006e000,0xc0065000};
 static bool host_widi_held;
 static unsigned host_widi_count;
+static unsigned host_port_pins;
+static bool intel_display_test_context_wp(void) {
+ return !bf("slot-wp",1);
+}
+static bool intel_display_test_context_protect(unsigned slot,bool writable) {
+ assert(slot>=3 && slot<8 && wake_irq && gpu_command==(writable?7u:3u));
+ assert(host_widi_held!=writable);
+ unsigned bit=1u<<(slot-3);
+ assert(((model_engine_ro & bit)!=0)==writable);
+ if(bf(writable?"slot-restore":"slot-protect",slot-2))return false;
+ if(writable)model_engine_ro &= ~bit;
+ else model_engine_ro |= bit;
+ return true;
+}
+bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard *g,uint64_t root,
+                                                const struct vmm_alias_span *spans,unsigned count) {
+ assert(g==&slot_widi.guard && g->object==g && host_widi_held && wake_irq && gpu_command==3);
+ assert(root==gt_bootstrap_native.root && count==(host_port_pins==4?1u:2u));
+ for(unsigned i=0;i<count;i++) {
+  unsigned e=host_port_pins+i;
+  assert(e<5 && (model_engine_ro & (1u<<e)) && spans[i].pages==1 &&
+         spans[i].virtual_base==WAKE_VA+4096*(3+e) && spans[i].physical==result.mmio_base+wake_pages[3+e]);
+ }
+ if(bf("slot-foreign",1+host_port_pins))return false;
+ host_port_pins+=count;return true;
+}
 bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root,
  const struct vmm_physical_span *spans,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
  unsigned ranges,uint64_t aperture,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *detail) {
@@ -226,7 +255,7 @@ static bool intel_display_test_bootstrap_alias(unsigned i,uint64_t physical,stru
  if(gt_bootstrap_native.root!=0x1000)return false;
  if(!vmm_virt_to_phys_in_space(0x1000,WAKE_VA+4096*i,&actual) || actual!=physical || bf("walk",balias))return false;
  bool writable=i==0 || (i>=3 && i<=7) || i==9 || i==14;
-#ifdef SRVROS_INTEL_BCS_CONTEXT
+#if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
  if(i>=3 && i<=7 && (model_engine_ro & (1u<<(i-3))))writable=false;
 #endif
  *out=(struct vmm_alias_observation){1,1,2,writable,0,1,1};*range=(struct vmm_range_observation){0};

@@ -10,6 +10,12 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The next trial makes all five CPU submission-register mappings read-only
+before reopening PCI bus mastering. The VMM guard will hold their virtual and
+physical addresses while the driver rechecks the queues and slot 12291. This
+step depends on the existing post-reset epoch, WiDi programming guard, and
+sole CPU page-table root. Engine and L3 device completion remain separate.
+
 Release `3221b5025d194aa1` (source `6782d5c0`, session
 `session-000660ebf03315b7-00`) completed preparation and the final return in
 191.927 ms on the Air, leaving 58.073 ms under the existing 250 ms limit.

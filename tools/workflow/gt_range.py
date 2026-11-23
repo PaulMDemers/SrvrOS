@@ -17,7 +17,8 @@ def jobs(dependencies, *, primary=False, aux=False, flush=False):
     if aux:
         outputs.extend(('build/tests/intel-gt-aux-adapter', 'build/tests/intel-gt-aux-boot'))
     if flush:
-        outputs.extend(('build/tests/intel-gt-flush-adapter', 'build/tests/intel-gt-flush-boot'))
+        outputs.extend(('build/tests/intel-gt-flush-adapter', 'build/tests/intel-gt-flush-boot',
+                        'build/tests/vmm-reserved-guard'))
     fixtures = dict(name='fixtures',
                     argv=[sys.executable, 'tools/fixture_compile.py', '--under-workflow-lock', *outputs],
                     inputs=dependencies, outputs=outputs, cache=False, timeout=1200)
@@ -44,6 +45,7 @@ def jobs(dependencies, *, primary=False, aux=False, flush=False):
     if aux:
         shared.append(checks('auxiliary-readers', 'test_intel_gt_aux'))
     if flush:
-        shared.append(checks('flush-acknowledgements', 'test_intel_gt_flush'))
+        shared.append(checks('flush-acknowledgements', 'test_intel_gt_flush',
+                             'test_vmm_reserved_guard.ReservedGuard.test_actual_guard_mutators_and_legacy_observer'))
     return dict(development=[*shared, image],
                 qualification=[*shared, inherited, image])

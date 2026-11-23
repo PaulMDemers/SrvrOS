@@ -140,6 +140,7 @@ static struct scanout_transfer_manifest gt_slot_source(unsigned sample) {
 static struct scanout_transfer independent_slot;
 static bool slot_widi_preflight(void);
 static bool slot_verify_reopened(void);
+static bool slot_submission_restore(void);
 static struct {
  struct intel_alias_ram_catalog ram;
  struct vmm_reserved_guard guard;
@@ -283,6 +284,7 @@ static bool gt_slot_return(void) {
  if(!scanout_transfer_close(&gt_slot,&gt_slot_token))return false;
  gt_slot_returned=true;
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!slot_submission_restore())return false;
  pmm_free_frame(slot_backing.physical);
  slot_backing.freed=pmm_frame_has_tag(slot_backing.physical,PMM_FRAME_FREE);
  if(!slot_backing.freed || !intel_bdw_bcs_port_release(&slot_backing))return false;
@@ -315,7 +317,7 @@ static bool gt_range_capture(unsigned phase) {
 }
 static void gt_range_report(void) {
 #if defined(SRVROS_INTEL_GT_FLUSH)
- const unsigned version=5;
+ const unsigned version=6;
  console_printf("intel-slot-widi: v=1 acquired=%u pages=%u closed=%u device_grant=0\n",
   (uint64_t)slot_widi.acquired,(uint64_t)slot_widi.pages,(uint64_t)slot_widi.closed);
  console_printf("intel-slot-backing: v=1 physical=%x original=%x planned=%x checks=%u acquired=%u held=%u freed=%u pte_writes=0\n",

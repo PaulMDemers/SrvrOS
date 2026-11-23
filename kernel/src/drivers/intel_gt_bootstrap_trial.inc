@@ -4,6 +4,29 @@
 #include <srvros/intel_bdw_gt_bootstrap.h>
 #include <srvros/intel_pci_requester.h>
 #include <stddef.h>
+#if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
+static bool context_wp(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_context_wp();
+#else
+ uint64_t cr0;
+ __asm__ volatile("mov %%cr0,%0" : "=r"(cr0) : : "memory");
+ return (cr0 & (1ull<<16)) != 0;
+#endif
+}
+
+static bool engine_page_protect(uint64_t root,unsigned slot,bool writable) {
+ if(vmm_current_address_space()!=root)return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  return intel_display_test_context_protect(slot,writable);
+#else
+  uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE;
+  if(writable)flags|=VMM_PAGE_WRITABLE;
+  return vmm_protect_page_in_space(root,WAKE_VA+4096*slot,flags);
+#endif
+}
+#endif
 static struct {
  const void *object;
  struct wake_adapter *a;
@@ -18,7 +41,7 @@ static struct {
  uint64_t maintain_begin,maintain_end,maintain_phase;
  unsigned maintain_before,maintain_after,maintained;
  unsigned closing;
-#ifdef SRVROS_INTEL_BCS_CONTEXT
+#if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
  unsigned engine_ro_mask;
 #endif
  uint32_t state,reason,issued,prepared,prepare_polls[5],prepare_first[5],prepare_final[5];
@@ -234,6 +257,9 @@ static bool bootstrap_guard(void) {
  ++gt_bootstrap_native.cache_checks;
  if(!cache_ok || !x86_cache_equal(&cache,&gt_bootstrap_native.cache))return bootstrap_fail(8);
  if(!bootstrap_cost_end(2))return false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(gt_bootstrap_native.engine_ro_mask && !context_wp())return bootstrap_fail(8);
+#endif
  for(unsigned i=0;i<WAKE_MAPS;i++) {
   unsigned m,p,e;struct vmm_alias_observation alias;struct vmm_range_observation range;
   uint64_t physical=result.mmio_base+wake_pages[i];
@@ -245,7 +271,7 @@ static bool bootstrap_guard(void) {
 #endif
   ++gt_bootstrap_native.alias_checks;
   bool writable=i==0 || (i>=3 && i<=7) || i==9 || i==14;
-#ifdef SRVROS_INTEL_BCS_CONTEXT
+#if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
   if (i>=3 && i<=7 && (gt_bootstrap_native.engine_ro_mask & (1u<<(i-3)))) writable=false;
 #endif
   if(!gt_bootstrap_native.a->mapped[i] || !ok || alias.pages!=1 || alias.leaves!=1 || alias.pat_index!=2 ||

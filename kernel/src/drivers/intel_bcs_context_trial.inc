@@ -93,17 +93,6 @@ static bool bcs_context_initialize(void) {
 /* The five pages contain both the legacy ring controls and execlist ports.
  * This lease covers the diagnostic kernel VAs. It supplies no DMA/cache ACK.
  * CPU0 remains under the parent's interrupt exclusion across both samples. */
-static bool context_wp(void)
-{
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_context_wp();
-#else
- uint64_t cr0;
- __asm__ volatile("mov %%cr0,%0" : "=r"(cr0) : : "memory");
- return (cr0 & (1ull<<16)) != 0;
-#endif
-}
-
 static bool context_register_alias(unsigned slot,bool writable)
 {
  struct vmm_alias_observation alias;
@@ -128,13 +117,7 @@ static bool context_engine_permissions(bool writable)
   unsigned engine=writable?INTEL_ENGINE_COUNT-1-n:n,bit=1u<<engine,slot=3+engine;
   if(!bootstrap_tick() || !command_context_live() || !gt_bootstrap_native.a->mapped[slot] ||
      !context_register_alias(slot,!writable) || !context_wp())return false;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
-  bool ok=intel_display_test_context_protect(slot,writable);
-#else
-  uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE;
-  if(writable)flags|=VMM_PAGE_WRITABLE;
-  bool ok=vmm_protect_page_in_space(gt_bootstrap_native.root,WAKE_VA+4096*slot,flags);
-#endif
+  bool ok=engine_page_protect(gt_bootstrap_native.root,slot,writable);
   if(!ok)return false;
   /* Record each successful change even if later verification fails. */
   if(writable){*mask &= ~bit;++bcs_context_native.reopened;}

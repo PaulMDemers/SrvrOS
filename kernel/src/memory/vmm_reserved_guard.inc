@@ -51,6 +51,13 @@ static bool reserved_guard_observe(struct vmm_alias_inventory *out,struct vmm_un
   if(!vmm_diagnostic_kernel_physical_unmapped(reserved_guard.root,ports,n,reserved_guard.bits,
       reserved_guard.ram,reserved_guard.ram_count,&port_walk,d))return false;
  }
+ for(unsigned i=0;i<reserved_guard.readonly_count;i+=VMM_ALIAS_SPANS) {
+  unsigned count=reserved_guard.readonly_count-i;
+  if(count>VMM_ALIAS_SPANS)count=VMM_ALIAS_SPANS;
+  if(!vmm_diagnostic_readonly_register_aliases(reserved_guard.root,&reserved_guard.readonly[i],count,
+        reserved_guard.bits,reserved_guard.ram,reserved_guard.ram_count))
+   return reserved_guard_fail(d,VMM_ALIAS_FOREIGN);
+ }
  if(reserved_guard.register_alias && !reserved_register_observe(reserved_guard.root,
       reserved_guard.register_page,reserved_guard.register_alias))return reserved_guard_fail(d,VMM_ALIAS_FOREIGN);
  if(!reserved_guard_identity(reserved_guard.owner))return reserved_guard_fail(d,VMM_ALIAS_GUARD);
@@ -106,6 +113,7 @@ static bool reserved_guard_begin(struct vmm_reserved_guard *g,uint64_t root,
  reserved_guard.owner=g;reserved_guard.state=VMM_GUARD_PREPARING;
  reserved_guard.epoch=++reserved_epoch;g->object=g;g->epoch=reserved_guard.epoch;
  reserved_guard.io_page=io_page;
+ reserved_guard.readonly_count=0;
  reserved_guard.port_count=port_count;
  for(unsigned i=0;i<port_count;i++)reserved_guard.ports[i]=ports[i];
  reserved_guard.register_page=reg;reserved_guard.register_backing=backing;reserved_guard.register_alias=0;
@@ -193,6 +201,31 @@ bool vmm_reserved_guard_exclude_io_range(const struct vmm_reserved_guard *g,uint
  if(clear)for(unsigned i=0;i<pages;i++)reserved_guard.ports[reserved_guard.port_count++]=first+4096ull*i;
  reserved_guard.state=VMM_GUARD_ACTIVE;
  return clear;
+}
+bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard *g,uint64_t root,
+                                                const struct vmm_alias_span *spans,unsigned count) {
+ if(!spans || !count || count>VMM_ALIAS_SPANS || count>VMM_GUARD_IO_LIMIT-reserved_guard.readonly_count ||
+    !vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page) || reserved_guard.io_borrower ||
+    __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))return false;
+ struct vmm_alias_span batch[VMM_ALIAS_SPANS];
+ for(unsigned i=0;i<count;i++) {
+  batch[i]=spans[i];
+  if(batch[i].pages!=1 || batch[i].physical==reserved_guard.register_page)return false;
+  for(unsigned j=0;j<reserved_guard.readonly_count;j++)
+   if(batch[i].physical==reserved_guard.readonly[j].physical ||
+      batch[i].virtual_base==reserved_guard.readonly[j].virtual_base)return false;
+ }
+ reserved_guard.state=VMM_GUARD_CHECKING;
+ bool unique=vmm_diagnostic_readonly_register_aliases(root,batch,count,reserved_guard.bits,
+                  reserved_guard.ram,reserved_guard.ram_count);
+ if(!reserved_guard_identity(g) || reserved_guard.state!=VMM_GUARD_CHECKING ||
+    alias_inventory_cr4()!=reserved_guard.cr4 || alias_inventory_efer()!=reserved_guard.efer ||
+    (reserved_guard_flags()&512) || read_cr3()!=root) {
+  reserved_guard.state=VMM_GUARD_FAULT;return false;
+ }
+ if(unique)for(unsigned i=0;i<count;i++)reserved_guard.readonly[reserved_guard.readonly_count++]=batch[i];
+ reserved_guard.state=VMM_GUARD_ACTIVE;
+ return unique;
 }
 bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  if(!child || reserved_guard.io_borrower || !vmm_reserved_guard_io_page_held(g,root,page))return false;
