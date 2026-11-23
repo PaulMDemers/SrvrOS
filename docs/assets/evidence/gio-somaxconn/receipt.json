@@ -1,0 +1,195 @@
+{
+  "scope": "Public SOMAXCONN backed by the existing AF_UNIX listener ceiling",
+  "integration_base": "028404c29fa6df4f5600ad2f1ad628b49878e698",
+  "tested_source": "c7ce645289c093f5d87a76937251309dd2dd0af2",
+  "source_sha256": {
+    "kernel/src/process.c": "9eb3dbb08a49ad90d0f50b0d86bd749a2406bc0b4c463d6a2fbc7c070ff5bca9",
+    "shared/include/srvros/io_limits.h": "9db9469e60fb967efd324d439f4602022fceb67c813cc8105f45a5bce1ea27af",
+    "tools/glib_platform_guest.py": "efc1dc2becd954742c50a1b7bdaa49b3e28bf1e96220154ad0e548185366d12a",
+    "tools/test_glib_somaxconn_guest.c": "5d4bd2f22a431fab5d3516d0edbb9bbc94b4969b44796f913a9fd21db8705a09",
+    "userspace/lib/include/sys/socket.h": "eb8871b8200057398548fb4687ba3719b3356b4e9f73124319943e611a15aacb"
+  },
+  "owner_review": "Integration reviewed and merged #537 and coordinated the guest. Filesystem reviewed the existing backlog contract and preserved prior VM artifacts.",
+  "runtime_scope": {
+    "unix": "Public SOMAXCONN and the native per-listener queue/clamp share SRV_UNIX_LISTEN_BACKLOG_MAX=16. Public listen tested values -1, 0, 3, 10, 16 and 64; effective capacities 1, 1, 3, 10, 16 and 16.",
+    "verification": "Raw Unix clients use kernel descriptors so the test can fill all 16 entries. Public bind/listen/accept, raw overflow, POSIX EAGAIN, one-slot refill and complete data drain passed. The probe checks unique data tags independently of dequeue order.",
+    "tcp": "AF_INET TCP uses a separate shared eight-entry pending pool. The existing TCP listen path ignores the numeric backlog.",
+    "gio": "The pinned GSocket listen-backlog property uses SOMAXCONN as maximum and 10 as default. The full static rerun advances past that declaration."
+  },
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "gresolver_object_exit": 0,
+    "static_gio_exit": 1,
+    "static_gio_errors": [
+      "../glib-2.90.1/gio/gsocket.c:1681:48: error: use of undeclared identifier 'IP_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1686:50: error: use of undeclared identifier 'IPV6_UNICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:1722:48: error: use of undeclared identifier 'IP_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1727:48: error: use of undeclared identifier 'IP_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1729:50: error: use of undeclared identifier 'IPV6_UNICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:1765:49: error: use of undeclared identifier 'SO_BROADCAST'",
+      "../glib-2.90.1/gio/gsocket.c:1797:49: error: use of undeclared identifier 'SO_BROADCAST'",
+      "../glib-2.90.1/gio/gsocket.c:1830:48: error: use of undeclared identifier 'IP_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1835:50: error: use of undeclared identifier 'IPV6_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1875:48: error: use of undeclared identifier 'IP_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1880:48: error: use of undeclared identifier 'IP_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1882:50: error: use of undeclared identifier 'IPV6_MULTICAST_LOOP'",
+      "../glib-2.90.1/gio/gsocket.c:1919:48: error: use of undeclared identifier 'IP_MULTICAST_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1924:50: error: use of undeclared identifier 'IPV6_MULTICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:1961:48: error: use of undeclared identifier 'IP_MULTICAST_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1966:48: error: use of undeclared identifier 'IP_MULTICAST_TTL'",
+      "../glib-2.90.1/gio/gsocket.c:1968:50: error: use of undeclared identifier 'IPV6_MULTICAST_HOPS'",
+      "../glib-2.90.1/gio/gsocket.c:2495:22: error: variable has incomplete type 'struct ip_mreq'",
+      "../glib-2.90.1/gio/gsocket.c:2549:32: error: use of undeclared identifier 'IP_ADD_MEMBERSHIP'"
+    ],
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+      "tools/glib-srvros-file-monitor.patch": "2d14f424f56755d4912bd235a6f524bde4b350576bb6e063f848dab0db168153",
+      "tools/glib-srvros-ip-tos.patch": "eee66b611927b6ec28b5e48584a51e349e2b9796dcdcf228f8d8f582f54633bb",
+      "tools/glib-srvros-ipv6-tclass.patch": "0661791ee733ae2e689ab42d3f9907d61f0cd501995b572ff282b0579f7e2c30",
+      "tools/glib-srvros-resolver-address.patch": "88f30d0864960c8cf4a023dda6822e32a3e6cecf88933152c03a37a4cd2a4f1a",
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/sysroot/srvros/include/sys/socket.h": "eb8871b8200057398548fb4687ba3719b3356b4e9f73124319943e611a15aacb",
+      "build/sysroot/srvros/include/srvros/io_limits.h": "9db9469e60fb967efd324d439f4602022fceb67c813cc8105f45a5bce1ea27af",
+      "build/sysroot/srvros/include/limits.h": "b892cfff849b4e0afd5dbacbcb88fe281bc982760d74280f19a7e2bfada04339",
+      "build/sysroot/srvros/include/srvros/syscall_numbers.h": "8b76ed1086bd9ba96ee8bff06043fb87106000f9232e29b35e930304ba71f766",
+      "build/browser-gio-somaxconn/sdk-kernel-build.log": "8f4bc65ba71b5b80b178839d99e3cd3be3b5c4395a81ee0109208a586ff0c1a3",
+      "build/browser-gio-somaxconn/configure-gio.sh": "a05ac3d93d9a73278f6326590cadfefa1cd768b39fbbc2aef48d0ab519568d39",
+      "build/browser-gio-somaxconn/configure.log": "f8ac9f192f656c030099c4e917dd4b4f28e861b67262a976a208fb8d2cec8adc",
+      "build/browser-gio-somaxconn/configure.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "build/browser-gio-somaxconn/rerun-static-gio.sh": "6e7da658296f7524fd80720ab4f09673eb47fcd6d01fe2cd940b3901fc659fb1",
+      "build/browser-gio-somaxconn/static-gio.log": "a55cb54ea45abc78318b266d7b3a430193a80f1062ab94dcec5e9ea96e836926",
+      "build/browser-gio-somaxconn/static-gio.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "build/browser-gio-somaxconn/glib-build/build.ninja": "d31fe05442e5d560f5696fc12b40fc7533a9100035162624153615054af24d65",
+      "build/browser-gio-somaxconn/glib-build/config.h": "ac60f9657dc1dc86f1292a34cfc5af79b703dd16ab843997fe4bc17ce9370f06",
+      "build/browser-gio-somaxconn/glib-build/compile_commands.json": "1b73d4dd40f62590f778213ad2d8f1bc0b17699918f87c97d670919a7a1ff159",
+      "build/browser-gio-somaxconn/glib-build/meson-logs/meson-log.txt": "c7beaaefb228fadc3b911561de816b1e7b3545dc5591bacfdaf048024b7b6ea7",
+      "build/browser-gio-somaxconn/glib-build/gio/libgio-2.0.a.p/gresolver.c.o": "49d2f65a079242086e2bf940e711728f68aeb0378089df29fa4b55e99c125b92",
+      "build/browser-gio-somaxconn/glib-2.90.1/gio/gsocket.c": "371973b1d3f8a683a617b224bf62d66e84ceb4357bf8a746fbd7dd29a6157cc0",
+      "build/browser-gio-somaxconn/glib-2.90.1/gio/gresolver.c": "dff0383dbb3f57815eebe648b1c5977e788fc4c8568c9c9b9b3c5c6d1c688fc1"
+    }
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest",
+    "source": "c7ce645289c093f5d87a76937251309dd2dd0af2",
+    "sdk_headers_sha256": "2fc5eb9e4e4892bc6563af384e87a0838be169969480d573ad5e72d8512bccf8",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "efc1dc2becd954742c50a1b7bdaa49b3e28bf1e96220154ad0e548185366d12a",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "7e75dd26a2679ac6ebfd9869a9e043887890990be056495249fe95b035eefb7e",
+      "build/userspace/init.elf": "c1f06cc096d97b07ad96ffbc088c9bac18046213fb983aae38526e23d52ab65a",
+      "build/sysroot/srvros/lib/libsrvros.a": "48b9023aaf577ac75e1f05f47e8e1dda7525fffb7c82d2095280eb6c05203fbc",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_seqpacket_guest.c": "acf0a1841f7a166f973ad3443ea7df5b8e0944faa6d75bd7d40d4aae2aed1e0d",
+      "tools/test_glib_somaxconn_guest.c": "5d4bd2f22a431fab5d3516d0edbb9bbc94b4969b44796f913a9fd21db8705a09"
+    },
+    "payload_sha256": "0bf8ed15e2ab160321c43ecd24f3c83aead0074c9b05b647e35930774578e5fe",
+    "seqpacket_payload_sha256": "36f1315423082d32d3d8f042b1d8fb2a9c1212117030d0aa10cbe24258310aca",
+    "somaxconn_payload_sha256": "2226d4bf17110e1c7951352de5cf03c7c6bb73fe7a603408687db70177069113",
+    "image_sha256": "002ebc10e0576aae262c2fca6ef768e31b00f163802f8930035892a06fa16134",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-_aywt_r8/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:<private-uart>,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-nic",
+      "none"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-seqpacket",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-seqpacket",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-somaxconn",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-somaxconn",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "8b6fa67633170f76b007b6a586d18fa26434e914c93e93dc4ba7ed189b4ac334"
+  },
+  "raw_guest_receipt_sha256": "a6698debe2f8c554bfe884b813d5ff2ec52c6abb93855438f5de3afe299b4888",
+  "iso_readback": {
+    "kernel_sha256": "7e75dd26a2679ac6ebfd9869a9e043887890990be056495249fe95b035eefb7e",
+    "initramfs_sha256": "688215c30bd60d3874f9a49d3a220e99a6adfe07e500960f74a38958fe698418",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "e7d8f2e2079a67dd18cc87c8f288b211091b7d7f4d21511d8c2b1e43c3ceb7a3",
+      "glib-seqpacket": "1d119e448c9b85cd18ab4374cb2734e38d392af4cda150f0c7411cbb9c881441",
+      "glib-somaxconn": "815bc1b63751bd8fe4a708844806ec520abbee58dd0dbf8a867388e8efc5eaca"
+    },
+    "serial_zero_exits": 6
+  }
+}

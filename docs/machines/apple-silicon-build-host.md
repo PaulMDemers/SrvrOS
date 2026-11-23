@@ -530,6 +530,15 @@ VM window was released. Fresh static GIO advanced to undeclared
 `SOMAXCONN` in `gsocket.c`.
 [Verification receipt](../assets/evidence/gio-eprototype/receipt.json)
 
+## GIO Unix listener backlog — November 23, 2026
+
+Merged OS #537 at `028404c2` is the baseline. The kernel and SDK share
+the Unix listener ceiling of 16. The matched diskless guest passed both
+backlog, both packet-pair and both platform probes. ISO readback matched.
+The guest stopped and the VM window was released. Fresh static GIO next
+stops at undeclared `IP_TTL` in `gsocket.c`.
+[Verification receipt](../assets/evidence/gio-somaxconn/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

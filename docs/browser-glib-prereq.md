@@ -13,7 +13,8 @@ Guest-verified SDK address declarations let `ginetaddress.c` compile.
 Linked guests verified the IPv4 ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
 packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
-Static GIO next stops at undeclared `SOMAXCONN` in `gsocket.c`.
+The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
+Static GIO next stops at undeclared `IP_TTL` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -600,6 +601,27 @@ four executables. QEMU stopped and the VM window was released.
 Fresh static GIO advanced past the errno check in `gsocket.c`. Its first
 error is now undeclared `SOMAXCONN` at line 1083.
 [Verification receipt](assets/evidence/gio-eprototype/receipt.json)
+
+## Unix listener backlog ceiling
+
+From merged OS #537 at `028404c2`, the SDK exports `SOMAXCONN=16` in
+`<sys/socket.h>`. The SDK declaration, native Unix queue and backlog
+clamp use the same constant. GIO uses this value as the upper bound of
+its `listen-backlog` property, which defaults to 10.
+[Upstream GIO backlog contract](https://docs.gtk.org/gio/method.Socket.set_listen_backlog.html)
+
+Two diskless guest runs requested Unix backlogs of -1, 0, 3, 10, 16
+and 64. The observed capacities were 1, 1, 3, 10, 16 and 16. The probe
+used public bind, listen and accept and native Unix clients to fill all
+16 positions. It verified overflow, POSIX `EAGAIN`, refill after accept
+and complete data drain. Both packet-pair and both platform controls
+passed. The ISO matched the rebuilt kernel and all four executables.
+The guest stopped and the VM window was released.
+
+TCP uses a separate shared eight-entry pending pool. Its existing
+`listen()` path ignores the numeric backlog. Fresh static GIO advanced
+past `SOMAXCONN` and stopped at undeclared `IP_TTL` in `gsocket.c:1681`.
+[Verification receipt](assets/evidence/gio-somaxconn/receipt.json)
 
 ## Verification
 
