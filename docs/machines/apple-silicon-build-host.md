@@ -22,6 +22,16 @@ will stay suspended until the administrator retries enable. If replacement
 completed, clearing the pending markers lets the committed enabled state take
 effect.
 
+Runtime `0e2e377a` passed the matched build, authentication crypto checks and
+all 17 sign-in cases on one disposable installed QEMU disk. Stock enable
+changed only the enabled flag and restored access after reboot with the
+password set while suspended. The diagnostic process stopped on each side
+of account-store replacement. Pending markers blocked both users until
+administrator recovery. The before-replacement case required an explicit
+enable retry. Both users retained exact file bytes, owners and modes after
+reboot, and cross-user access remained denied. The matched receipt and logs
+are under `build/review/local-signin/proof-e3nhqeyz/`.
+
 ## Console password reset
 
 `device/apple-silicon/console-password-reset` starts from `54b1596c`.
