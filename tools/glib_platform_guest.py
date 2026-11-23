@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run native GLib prerequisite probes in a disposable SrvrOS guest."""
+"""Run GLib platform probes in a disposable SrvrOS guest."""
 
 import argparse
 from contextlib import ExitStack
@@ -32,6 +32,7 @@ PROXY_INTL_MARKER = b'glib-proxy-intl: ok'
 RESOLVER_MARKER = b'glib-resolver: ok'
 FILE_POLICY_MARKER = b'glib-file-policy: ok'
 CHILD_WATCH_MARKER = b'glib-child-watch: ok'
+LINKED_CHILD_WATCH_MARKER = b'glib-linked-child-watch: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -148,6 +149,8 @@ def main():
     parser.add_argument('--resolver', action='store_true', help='test the SDK resolver against a private DNS peer')
     parser.add_argument('--file-policy', action='store_true', help='test no-follow opens in initramfs and private exFAT')
     parser.add_argument('--child-watch', action='store_true', help='test native SIGCHLD wake and targeted reaping')
+    parser.add_argument('--linked-child-watch', type=Path, metavar='ELF',
+                        help='boot a previously linked SrvrOS GLib child-watch ELF from this checkout')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -195,6 +198,19 @@ def main():
             payloads['glib-child-watch'] = payload
             probes['glib-child-watch'] = (CHILD_WATCH_MARKER,)
             receipt['child_watch_payload_sha256'] = digest(payload)
+        if args.linked_child_watch:
+            linked = args.linked_child_watch.resolve(strict=True)
+            linked_input = str(linked.relative_to(ROOT))
+            payload = output / 'linked-child-watch.elf'
+            receipt['scope'] += ' with a linked target GLib child-watch probe'
+            receipt['inputs_sha256'][linked_input] = digest(linked)
+            shutil.copyfile(linked, payload)
+            payload_hash = digest(payload)
+            if payload_hash != receipt['inputs_sha256'][linked_input]:
+                raise RuntimeError('linked child-watch payload changed during staging')
+            payloads['glib-linked-child-watch'] = payload
+            probes['glib-linked-child-watch'] = (LINKED_CHILD_WATCH_MARKER,)
+            receipt['linked_child_watch_payload_sha256'] = payload_hash
         if args.resolver:
             dns_peer = ROOT / 'tools/resolver_dns_test_peer.py'
             unit = ROOT / 'tools/test_glib_resolver_guest.c'

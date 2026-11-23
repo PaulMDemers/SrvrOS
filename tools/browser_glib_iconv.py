@@ -153,8 +153,11 @@ def main():
     compiler = ROOT / 'ports/srvros/webkit/cc'
     zig = ROOT / 'build/tooling/zig/zig'
     sdk = ROOT / 'build/sysroot/srvros'
-    patch = ROOT / 'tools/glib-srvros-poll.patch'
-    signal_patch = ROOT / 'tools/glib-srvros-unix-watch.patch'
+    glib_patches = (
+        (ROOT / 'tools/glib-srvros-poll.patch', 'glib-patch.log'),
+        (ROOT / 'tools/glib-srvros-unix-watch.patch', 'glib-unix-watch-patch.log'),
+        (ROOT / 'tools/glib-srvros-unix-abi.patch', 'glib-unix-abi-patch.log'),
+    )
     meson = args.meson.resolve()
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(('PKG_CONFIG', 'MESON', 'ac_cv_', 'gl_cv_', 'ZIG_'))
@@ -169,17 +172,9 @@ def main():
     try:
         receipt['source'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         receipt['inputs_sha256'] = {str(path.relative_to(ROOT)): digest(path) for path in (
-            Path(__file__), compiler, compiler.with_name('compiler.py'), zig, patch, signal_patch,
+            Path(__file__), compiler, compiler.with_name('compiler.py'), zig,
             sdk / 'lib/libsrvros.a', sdk / 'lib/crt0.o', sdk / 'lib/app.ld')}
         receipt['sdk_headers_sha256'] = sdk_headers(sdk)
-        applied_patch = out / patch.name
-        shutil.copyfile(patch, applied_patch)
-        if digest(applied_patch) != receipt['inputs_sha256'][str(patch.relative_to(ROOT))]:
-            raise RuntimeError('GLib patch changed while recording inputs')
-        applied_signal_patch = out / signal_patch.name
-        shutil.copyfile(signal_patch, applied_signal_patch)
-        if digest(applied_signal_patch) != receipt['inputs_sha256'][str(signal_patch.relative_to(ROOT))]:
-            raise RuntimeError('GLib Unix watch patch changed while recording inputs')
         libffi_patch = ROOT / 'tools/libffi-srvros-closures.patch'
         if args.libffi_archive:
             libffi_patch_copy = out / libffi_patch.name
@@ -188,6 +183,12 @@ def main():
         receipt['meson'] = subprocess.check_output([meson, '--version'], env=env, text=True, timeout=15).strip()
         iconv = extract_archive(args.iconv_archive.resolve(), ICONV, out)
         glib = extract_archive(args.glib_archive.resolve(), GLIB, out)
+        for patch, log_name in glib_patches:
+            patch_copy = out / patch.name
+            shutil.copyfile(patch, patch_copy)
+            receipt['inputs_sha256'][str(patch.relative_to(ROOT))] = digest(patch_copy)
+            run_logged(['patch', '--batch', '-p0', '-F0', '-i', patch_copy],
+                       glib, env, out / log_name, 15)
         build = out / 'iconv-build'
         build.mkdir()
         # This is the generic target accepted by GNU config.sub. The compiler
@@ -216,9 +217,6 @@ def main():
         receipt['provider_sha256'] = {str(path.relative_to(out)): digest(path)
                                       for path in sorted(prefix.rglob('*')) if path.is_file()}
 
-        run_logged(['patch', '--batch', '-p0', '-i', applied_patch], glib, env, out / 'glib-patch.log', 15)
-        run_logged(['patch', '--batch', '-p0', '-F0', '-i', applied_signal_patch],
-                   glib, env, out / 'glib-unix-watch-patch.log', 15)
         pc_dirs = []
         if args.pcre2_archive:
             pcre2 = extract_archive(args.pcre2_archive.resolve(), PCRE2, out)

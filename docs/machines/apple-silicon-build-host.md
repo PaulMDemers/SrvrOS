@@ -289,6 +289,14 @@ window. The pinned `gstdio.c` object compiles. The static GLib/GIO build
 stops at the PID layout and descriptor-path gates in `glib-unix.c`.
 See the [file creation receipt](../assets/evidence/glib-creat/receipt.json).
 
+## Linked GLib child watch — November 22, 2026
+
+The browser topic starts from merged PR #522 at `577ffcd1`. The
+filesystem owner reviewed the descriptor-path boundary. Pinned GLib
+will match the existing SDK PID ABI and return a typed unsupported error
+for descriptor paths. Verification uses the rebuilt SDK and a private
+Q35 guest running a test linked against target GLib.
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
