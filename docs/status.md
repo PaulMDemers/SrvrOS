@@ -37,7 +37,8 @@ packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
 IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
 The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported.
-Static GIO next stops at undeclared `SO_BROADCAST` in `gsocket.c`.
+IPv4 UDP `SO_BROADCAST` passed guest packet verification.
+Static GIO next stops at undeclared `IP_MULTICAST_LOOP` in `gsocket.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains

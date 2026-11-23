@@ -16,7 +16,8 @@ packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
 The SDK exposes the verified Unix listener ceiling through `SOMAXCONN`.
 IPv4 UDP and TCP unicast `IP_TTL` passed guest packet verification.
 The SDK declares `IPV6_UNICAST_HOPS` for GIO. IPv6 transport remains unsupported.
-Static GIO next stops at undeclared `SO_BROADCAST` in `gsocket.c`.
+IPv4 UDP `SO_BROADCAST` passed guest packet verification.
+Static GIO next stops at undeclared `IP_MULTICAST_LOOP` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -674,6 +675,32 @@ Fresh pinned GLib configuration passed. Static GIO advanced past both uses
 of `IPV6_UNICAST_HOPS` and stopped at undeclared `SO_BROADCAST` in
 `gio/gsocket.c:1765`.
 [Verification receipt](assets/evidence/gio-ipv6-unicast-hops/receipt.json)
+
+## IPv4 UDP broadcast
+
+After OS #540 landed at `53f18cff`, the SDK exported `SO_BROADCAST=6`
+through `<sys/socket.h>`. The Boolean `SOL_SOCKET` option starts disabled
+and is shared by aliases of the native IPv4 UDP endpoint. It controls sends
+to `255.255.255.255` and the directed broadcast of the local `/24` route.
+Disabled sends return `EACCES` before autobind or ARP. Enabled broadcasts
+go directly to the Ethernet broadcast address. UDP `connect()` records the
+peer, and the permission check runs when a datagram is sent. The IPv4
+receive filter admits local unicast and limited broadcast. DHCP uses its
+internal transmit path. [Linux socket option constants](https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/socket.h)
+
+Both runs in a private diskless guest passed the default, nonzero
+normalization, descriptor alias, reset and fresh endpoint checks. The
+peer captured eight enabled broadcast datagrams and two unicast controls
+from blocking, nonblocking message, connected and native sends. All ten
+IPv4 header checksums verified. The capture contained no denied datagrams
+or broadcast ARP requests. The two platform controls and ISO readback
+passed. Integration reviewed the runtime contract and coordinated the VM.
+The guest and peer stopped and the window was released.
+
+Fresh pinned GLib configuration passed. Static GIO advanced past
+`SO_BROADCAST` and first stopped at undeclared `IP_MULTICAST_LOOP` in
+`gio/gsocket.c:1830`.
+[Verification receipt](assets/evidence/gio-so-broadcast/receipt.json)
 
 ## Verification
 

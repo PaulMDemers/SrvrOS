@@ -561,6 +561,18 @@ Fresh pinned GLib configuration passed. Static GIO next stops at undeclared
 `SO_BROADCAST` in `gsocket.c:1765`.
 [Verification receipt](../assets/evidence/gio-ipv6-unicast-hops/receipt.json)
 
+## GIO IPv4 UDP broadcast — November 23, 2026
+
+Merged OS #540 at `53f18cff` is the baseline. Integration reviewed the UDP
+send-time gate for limited and local `/24` broadcast. The matched SDK and
+kernel passed both broadcast and both platform probes in a private diskless
+guest. ISO readback matched. The Ethernet peer and capture verified eight
+broadcast frames, two unicast controls and no denied traffic or broadcast ARP.
+The guest and peer stopped and the VM window was released. Fresh pinned GLib
+configuration passed. Static GIO first fails at `IP_MULTICAST_LOOP` in
+`gsocket.c:1830`.
+[Verification receipt](../assets/evidence/gio-so-broadcast/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
