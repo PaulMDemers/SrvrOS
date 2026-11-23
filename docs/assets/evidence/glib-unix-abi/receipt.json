@@ -1,0 +1,192 @@
+{
+  "scope": "Pinned target GLib Unix PID ABI, descriptor-path error contract, and linked child watch",
+  "integration_base": "577ffcd12be84e95139e3eff2f7486cb076e9de8",
+  "tested_source": "3c09874af5ad0231ae07fc42792c9c9767a931af",
+  "source_sha256": {
+    "tools/browser_glib_iconv.py": "53929977dd375ec86b36548e2bb6430c2dee69f85ad3eafd655a303cf0fcc977",
+    "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+    "tools/glib_platform_guest.py": "c42dd60cff8fe3c1b385a9033e63d8cfaad78010908346c3bfb0599acf4c766f",
+    "tools/test_glib_linked_child_watch_guest.c": "d761c36ed861297cdcfd4566e989da74e0e372b2a4c9cfe0d487167d960d43b3"
+  },
+  "boot_provenance": "Matched SDK, kernel, init and bootloader verified in PR #522 current-main guest",
+  "wpe_descriptor_path_audit": {
+    "version": "2.54.2",
+    "archive_sha256": "f3284e19e47fcb5ac8c63c2e1c113dbd65b2423eb8a545f5b345707829004f56",
+    "source_tree_files": 33771,
+    "g_unix_fd_query_path_references": 0
+  },
+  "build": {
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "static_glib_exit": 0,
+    "static_gobject_gmodule_exit": 0,
+    "static_glib_gio_exit": 1,
+    "first_gio_error": "gio/xdgmime/xdgmimealias.c:22:10: fatal error: 'fnmatch.h' file not found",
+    "GPid": "gint64 (signed long), G_PID_FORMAT \"li\"",
+    "patch_replay": "All three patches applied with zero fuzz to the pinned source and the affected files matched",
+    "patched_glib_files_sha256": {
+      "meson.build": "8fa140db8c84b61655239689041b97e0d73052fa36a8ddb854692b14022d3122",
+      "glib/gmain.c": "eff8a70b42f9d73ece0656f4d3c1bbdfdb161dc23940b375c1c38e408914b9d8",
+      "glib/gwakeup.c": "b0f639f1b4746c091b37bd165eaa14a10521f902c0b2e1080af465fc160bfa78",
+      "glib/glib-unix.c": "5710b738c18b31708f90500108e60b1209bd88983e1587bf2a35f811eb09b25d",
+      "glib/gspawn-posix.c": "bfae822f43ab531691edbe8aedb0f925e067be9bce66efa1bda847a23ebba2c0",
+      "glib/gtestutils.c": "81ec8e96e1286e0ada39b325823b91e6c07ca63b2c83afee232b8cb5428f2034"
+    },
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "files_sha256": {
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/browser-glib-unix-abi/glib-build/glib/glibconfig.h": "0ae787ecd7774d55a552375db341e802d4292a40fe82f651ed0fa541ac00fa91",
+      "build/browser-glib-unix-abi/glib-build/meson-logs/meson-log.txt": "1e79630fc50cb7c6bfde1b993786afd7bf3e728afc008025dfc8dc10c6d5fe10",
+      "build/browser-glib-unix-abi/glib-build/glib/libglib-2.0.a": "53309014c86d2f72d1415b213c01ef8d5dbabf49418443f5f2bd6f8dfce1b216",
+      "build/browser-glib-unix-abi/glib-build/gobject/libgobject-2.0.a": "534c71428b03276d6e6bc52ba37becc09673474fc627a3a1db4f1fcbe80c46d4",
+      "build/browser-glib-unix-abi/glib-build/gmodule/libgmodule-2.0.a": "8fd1a33c6bcfd77410b1e6534ac7054675156e970faee9ca76b60a9c6bba1d18",
+      "build/browser-glib-unix-abi/glib-build/subprojects/proxy-libintl-0.5/libintl.a": "2052d8751973f39d1504f72754e61057552bd43f0e23d4b825359e48b31fea6a",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "tools/glib-srvros-unix-abi.patch": "44708cfdbeb7306d8fdc6ab56aacb99484929917063c640910c92dfc6aed5f70",
+      "build/browser-glib-unix-abi/configure.log": "1077aeb66b8ffce035b8ab93537befa541fb7e21cfe4e99013b75d3752762bf7",
+      "build/browser-glib-unix-abi/poll-patch.log": "f04feee6fb5e00437a44750ecd530cd845916c8aa6ae9520e2c5cdb9e7e2fd25",
+      "build/browser-glib-unix-abi/unix-watch-patch.log": "ac838a919f7270e088b73871355140b3a13ad7e7165d40a05ca2ff7499ad8348",
+      "build/browser-glib-unix-abi/unix-abi-patch.log": "21b3e6f857b0a20bacbe22a7ea6fbfd76584d12661d59e0635d6e0ef2ff3e8cd",
+      "build/browser-glib-unix-abi/unix-abi-wait-patch.log": "adad1e4305e4876f8a6be41d3bebc9fd3607d1ec6f24392da4a2da76ca4687dd",
+      "build/browser-glib-unix-abi/static-glib-initial.log": "d795341a2a4620568d74f39182fad4b17a1ea0e26e301a0170637c1d4b2de26a",
+      "build/browser-glib-unix-abi/static-glib.log": "82642e0a407ba15515615ed2b66ad967693440c6e2550041351bbf08de173cd9",
+      "build/browser-glib-unix-abi/static-gobject-gmodule.log": "eece78bb75e2bd000bc5f991ba1a38d9e93c83ba11a839483980f25b3b25242b",
+      "build/browser-glib-unix-abi/static-glib-gio.log": "b60423f7cf97eeef2ad2c1bb0843f6604aad272145af2613eb069bc3a000dbd8",
+      "build/browser-glib-unix-abi/probe-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "build/browser-glib-unix-abi/probe-link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "build/browser-glib-unix-abi/probe-symbols.log": "7ddce5d27beaf4d09231ed5055f612b04cb63b8bb2f3bd29ce4b153ee9ac59ff",
+      "build/browser-glib-unix-abi/probe-elf.log": "20299b04608291e99ad7db27df1f9046c46653ccc6b308210c6e4d3c30cf4ee3",
+      "build/browser-glib-unix-abi/linked-child-watch.o": "e08a2de7aaaaaf816bb6981acbd9ef247ead8d9b129f58ba364da1ede0ed99ae",
+      "build/browser-glib-unix-abi/linked-child-watch.elf": "f0b943e9a4f0218473bd405c913804655df93b67c083a866f1d26786b15c1c5a"
+    },
+    "probe_defined_symbols": [
+      "g_child_watch_source_new",
+      "g_main_context_iteration",
+      "g_unix_fd_query_path",
+      "g_wakeup_signal",
+      "posix_spawn",
+      "waitpid"
+    ],
+    "probe_elf": "static x86_64 ET_EXEC, no interpreter or dynamic libraries"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites in a normal diskless guest with a linked target GLib child-watch probe",
+    "source": "3c09874af5ad0231ae07fc42792c9c9767a931af",
+    "sdk_headers_sha256": "2074635c3628af676e0915b45b9a29da605bdb6111bd4c8d3e4292c9703337f5",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "c42dd60cff8fe3c1b385a9033e63d8cfaad78010908346c3bfb0599acf4c766f",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "c7afc49c982e0dc0b5e02a72267f0d82a951890e9b9006690d0aa30cb724637e",
+      "build/userspace/init.elf": "bca26c6ac03a8c4abafea16ef5b68aa6914369bc65c6ade18c2a0e1a05b73215",
+      "build/sysroot/srvros/lib/libsrvros.a": "cc473507dd4884ab6378efdf8397a021104b19e21d8fb061fc6fa03727ef3180",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_child_watch_guest.c": "b2701459336477e8064af4bf04697eb3725f58df6f883f20cbae2a0a983ffac6",
+      "build/browser-glib-unix-abi/linked-child-watch.elf": "f0b943e9a4f0218473bd405c913804655df93b67c083a866f1d26786b15c1c5a"
+    },
+    "payload_sha256": "636340022eaf408cb01c2676e841483fe261d9daefbc0a01cea3d7758ab33d68",
+    "child_watch_payload_sha256": "9e3ba5f3b32f13244ab29913c653eba712c1e1dcf7626b6009874fc07a65ea0e",
+    "linked_child_watch_payload_sha256": "f0b943e9a4f0218473bd405c913804655df93b67c083a866f1d26786b15c1c5a",
+    "image_sha256": "fcdb5ed7d67ec8714249a1eed58cc20a552792a7eb86532c0b65653d91f87b72",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-o08arfg8/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:/tmp/srv-glib-ys7e1b8s/serial,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-nic",
+      "none"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-child-watch",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-child-watch",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-linked-child-watch",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-linked-child-watch",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "4e17dd3fa857ac8622c45f9fd9533c70c64e9ea59b353f6497200431f1f000e8"
+  },
+  "iso_readback": {
+    "kernel_sha256": "c7afc49c982e0dc0b5e02a72267f0d82a951890e9b9006690d0aa30cb724637e",
+    "initramfs_sha256": "5e06e8d4a7b989e5ea713cc90108bcf23f1287204276ba77c234c6747992588f",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "e7d8f2e2079a67dd18cc87c8f288b211091b7d7f4d21511d8c2b1e43c3ceb7a3",
+      "glib-child-watch": "c10e8baf8fa8c28cca89dba9ebe94ec5a68aead9a2de07f243fc890dd3e89f54",
+      "glib-linked-child-watch": "f065b1b9f01a9d3d151e0695abf456c15bde6a37273ed685ab222b3b1640ef0a"
+    },
+    "serial_zero_exits": 6
+  }
+}

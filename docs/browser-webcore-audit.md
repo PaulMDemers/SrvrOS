@@ -7,9 +7,9 @@ November 22 follow-up. The pinned GLib configure now detects the SDK poll
 constants and static GNU libiconv, PCRE2 8-bit, libffi and zlib providers.
 Configure processes bundled GVDB and proxy-libintl, finds `C_IN` in the
 SrvrOS SDK and completes static configuration after linking `res_query()`.
-The GIO resolver and GLib file, hostname, main-loop and wakeup objects
-compile, including `gstdio.c` with SDK `creat()`. The static build stops
-in `glib-unix.c` on PID layout and descriptor-path support. The normal guest
+Static GLib, GObject and GModule archives build, and a target GLib-linked
+child watch passed twice in the guest. Static GIO first stops at the SDK's
+missing `<fnmatch.h>` in the XDG MIME code. The normal guest also
 verified native wait, character conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.
