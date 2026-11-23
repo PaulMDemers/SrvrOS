@@ -1,5 +1,5 @@
-/* Portable profiles operate on offline, provisioner-controlled homes. Binding
- * numbers are metadata, never credentials. Recovery resumes a journal-owned new
+/* Portable profiles operate on provisioner-controlled homes or one slot owned
+ * by the current account. Binding numbers are metadata. Recovery resumes a journal-owned new
  * home and never recursively removes data. Guest exFAT flushes are checked, but
  * this protocol does not claim power-cut atomicity or concurrent-writer safety. */
 #include <stdio.h>
@@ -30,6 +30,15 @@
 #define SCRATCH ".profile-copy-temp"
 static void fail(const char *why){fprintf(stderr,"profile: %s\n",why);exit(1);}
 static void require(int yes,const char *why){if(!yes)fail(why);}
+static struct {
+    char destination[PATH_CAP];
+    char alias[32];
+    unsigned uid,gid;
+} account_import;
+
+static unsigned binding_limit(void) {
+    return account_import.uid ? UINT32_MAX-1u : 2147483647u;
+}
 static void *allocate(size_t n){void *p=malloc(n);require(p!=NULL,"out of memory");return p;}
 static void path_join(char out[PATH_CAP],const char *a,const char *b){int n=snprintf(out,PATH_CAP,"%s/%s",a,b);require(n>=0&&n<160,"expanded path exceeds guest limit");}
 static int exists(const char *path){struct stat st;int r=lstat(path,&st);if(!r)return 1;require(errno==ENOENT,"cannot determine path state");return 0;}
@@ -45,7 +54,9 @@ static void flush_all(void){
 #ifdef SRVROS_PROFILE_HOST_TEST
     /* Individual files/directories are fsynced below on the host. */
 #else
-    require(srv_sync()==0,"filesystem flush failed; retain journal and recover");
+    /* The account transaction uses the file, directory, and exFAT mutation
+     * barriers above each publication step. Global sync remains privileged. */
+    if(!account_import.uid)require(srv_sync()==0,"filesystem flush failed; retain journal and recover");
 #endif
 }
 static void flush_dir(const char *path){int fd=open(path,O_RDONLY|O_DIRECTORY);require(fd>=0,"cannot open directory for flush");int r=fsync(fd),c=close(fd);require(!r&&!c,"directory flush failed");}
@@ -101,18 +112,48 @@ static void addnum(cJSON *j,const char *key,unsigned n){require(cJSON_AddNumberT
 static void attach(cJSON *j,const char *key,cJSON *v){require(v&&cJSON_AddItemToObject(j,key,v),"out of memory");}
 static cJSON *read_json(const char *path,size_t limit){size_t n;unsigned char *p=read_file(path,limit,&n);cJSON *j=parse(p,n);free(p);return j;}
 static void absolute_path(char out[PATH_CAP],const char *input){if(input[0]=='/'){require(strlen(input)<160,"absolute path too long");strcpy(out,input);}else{char cwd[PATH_CAP];require(getcwd(cwd,sizeof(cwd))!=NULL,"cannot resolve current directory");path_join(out,cwd,input);}require(srv_profile_home_valid(out),"path must be canonical absolute ASCII");}
-static void home_valid(const char *home){require(srv_profile_home_valid(home)&&strlen(home)<=95,"invalid profile home");
+static void init_account_import(void) {
+    const char *home=getenv("HOME");
+    require(srv_profile_home_valid(home) && strlen(home)<=95,"invalid account home");
 #ifndef SRVROS_PROFILE_HOST_TEST
-    require(!strncmp(home,"/fat/home/",10)&&!strchr(home+10,'/'),"HOME must be /fat/home/SLOT");
+    require(!strncmp(home,"/fat/home/",10) && !strchr(home+10,'/'),"account home must be on the installed volume");
+    struct stat parent;
+    require(!lstat("/fat/home",&parent) && S_ISDIR(parent.st_mode) && !parent.st_uid &&
+        !(parent.st_mode&0022),"untrusted installed home directory");
+#endif
+    const char *leaf=strrchr(home,'/')+1;
+    require(!strncmp(leaf,"local-",6),"invalid account home name");
+    const char *alias=leaf+6;
+    size_t length=strlen(alias);
+    require(length && length<sizeof(account_import.alias) && *alias>='a' && *alias<='z',"invalid account name");
+    for(size_t i=0;i<length;i++) {
+        char c=alias[i];
+        require((c>='a'&&c<='z') || (c>='0'&&c<='9') || c=='_' || c=='-',"invalid account name");
+    }
+    unsigned uid=getuid(),gid=getgid();
+    struct stat directory;
+    parents(home);
+    require(uid && gid && uid<UINT32_MAX && gid<UINT32_MAX && geteuid()==uid && getegid()==gid &&
+        !lstat(home,&directory) && S_ISDIR(directory.st_mode) && directory.st_uid==uid &&
+        directory.st_gid==gid && (directory.st_mode&07777)==0700,"account home is not private and owned by the current user");
+    path_join(account_import.destination,home,"portable-profile");
+    strcpy(account_import.alias,alias);
+    account_import.uid=uid;
+    account_import.gid=gid;
+}
+static void home_valid(const char *home){require(srv_profile_home_valid(home)&&strlen(home)<=95,"invalid profile home");
+    if(account_import.uid)require(!strcmp(home,account_import.destination),"profile does not belong to the current account");
+#ifndef SRVROS_PROFILE_HOST_TEST
+    else require(!strncmp(home,"/fat/home/",10)&&!strchr(home+10,'/'),"HOME must be /fat/home/SLOT");
 #endif
     const char *leaf=strrchr(home,'/');require(leaf&&leaf[1],"profile home requires a slot");for(leaf++;*leaf;leaf++)require(alnum_ascii(*leaf)||*leaf=='_'||*leaf=='-',"invalid profile slot");parents(home);
 }
-static unsigned binding_number(const char *s){require(s&&*s,"missing binding number");uint64_t n=0;for(;*s;s++){require(*s>='0'&&*s<='9',"invalid binding number");n=n*10+(unsigned)(*s-'0');require(n<=2147483647,"binding number too large");}require(n>0,"binding number must be positive");return(unsigned)n;}
-static void binding_valid(cJSON *j){const char *keys[]={"alias","uid","gid"};fields(j,keys,3);const char *s=str(get(j,"alias"));size_t n=strlen(s);require(n&&n<=32&&s[0]>='a'&&s[0]<='z',"invalid local alias");for(size_t i=0;i<n;i++)require((s[i]>='a'&&s[i]<='z')||(s[i]>='0'&&s[i]<='9')||s[i]=='_'||s[i]=='-',"invalid local alias");require(number(get(j,"uid"),2147483647)>0&&number(get(j,"gid"),2147483647)>0,"invalid local binding");}
+static unsigned binding_number(const char *s){require(s&&*s,"missing binding number");uint64_t n=0;for(;*s;s++){require(*s>='0'&&*s<='9',"invalid binding number");n=n*10+(unsigned)(*s-'0');require(n<=binding_limit(),"binding number too large");}require(n>0,"binding number must be positive");return(unsigned)n;}
+static void binding_valid(cJSON *j){const char *keys[]={"alias","uid","gid"};fields(j,keys,3);const char *s=str(get(j,"alias"));size_t n=strlen(s);require(n&&n<=32&&s[0]>='a'&&s[0]<='z',"invalid local alias");for(size_t i=0;i<n;i++)require((s[i]>='a'&&s[i]<='z')||(s[i]>='0'&&s[i]<='9')||s[i]=='_'||s[i]=='-',"invalid local alias");unsigned uid=number(get(j,"uid"),binding_limit()),gid=number(get(j,"gid"),binding_limit());require(uid&&gid,"invalid local binding");if(account_import.uid)require(uid==account_import.uid&&gid==account_import.gid&&!strcmp(s,account_import.alias),"profile binding does not match the current account");}
 static void marker_read(const char *home,char id[37]){char path[PATH_CAP];path_join(path,home,"profile.id");size_t n;unsigned char *p=read_file(path,80,&n);require(n==55&&!memcmp(p,"srvros-profile-v1\n",18)&&p[54]=='\n',"invalid profile marker");memcpy(id,p+18,36);id[36]=0;free(p);require(srv_profile_session_id_valid(id),"invalid marker UUID");}
 static struct dirent *read_entry(DIR *dir){errno=0;struct dirent *entry=readdir(dir);require(entry!=NULL||errno==0,"directory enumeration failed");return entry;}
 static void journal_fields(cJSON *j){const char *keys[]={"format","home","bundle","sha256","binding","profile_id"};fields(j,keys,6);const char *format=str(get(j,"format"));require((!strcmp(format,"srvros-profile-create-v1")||!strcmp(format,"srvros-profile-import-v2"))&&srv_profile_session_id_valid(str(get(j,"profile_id"))),"invalid journal schema");binding_valid(get(j,"binding"));}
-static void binding_collisions(const char *home,const char *id,cJSON *binding){char parent[PATH_CAP];strcpy(parent,home);char *leaf=strrchr(parent,'/');*leaf=0;const char *slot=strrchr(home,'/')+1;DIR *dir=opendir(parent);require(dir!=NULL,"cannot inspect destination bindings");struct dirent *e;while((e=read_entry(dir))){if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;size_t n=strlen(slot);if(strlen(e->d_name)==n){int same=1;for(size_t i=0;i<n;i++)if(lower_ascii(e->d_name[i])!=lower_ascii(slot[i]))same=0;require(!same||!strcmp(e->d_name,slot),"destination slot case collision");}char other[PATH_CAP],path[PATH_CAP];path_join(other,parent,e->d_name);if(!strcmp(other,home))continue;struct stat st;require(!lstat(other,&st),"cannot inspect sibling");if(!S_ISDIR(st.st_mode)){size_t len=strlen(e->d_name);static const char suffix[]=".profile-import.json";if(len>sizeof(suffix)-1&&!strcmp(e->d_name+len-(sizeof(suffix)-1),suffix)){char own[PATH_CAP];snprintf(own,sizeof(own),"%s.profile-import.json",home);if(strcmp(other,own)){cJSON *pending=read_json(other,4096);journal_fields(pending);cJSON *old=get(pending,"binding");require(strcmp(str(get(pending,"profile_id")),id)!=0,"profile UUID reserved by pending import");require(strcmp(str(get(old,"alias")),str(get(binding,"alias")))!=0,"alias reserved by pending import");require(number(get(old,"uid"),2147483647)!=number(get(binding,"uid"),2147483647),"UID reserved by pending import");cJSON_Delete(pending);}}continue;}
+static void binding_collisions(const char *home,const char *id,cJSON *binding){char parent[PATH_CAP];strcpy(parent,home);char *leaf=strrchr(parent,'/');*leaf=0;const char *slot=strrchr(home,'/')+1;DIR *dir=opendir(parent);require(dir!=NULL,"cannot inspect destination bindings");struct dirent *e;while((e=read_entry(dir))){if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;size_t n=strlen(slot);if(strlen(e->d_name)==n){int same=1;for(size_t i=0;i<n;i++)if(lower_ascii(e->d_name[i])!=lower_ascii(slot[i]))same=0;require(!same||!strcmp(e->d_name,slot),"destination slot case collision");}if(account_import.uid)continue;char other[PATH_CAP],path[PATH_CAP];path_join(other,parent,e->d_name);if(!strcmp(other,home))continue;struct stat st;require(!lstat(other,&st),"cannot inspect sibling");if(!S_ISDIR(st.st_mode)){size_t len=strlen(e->d_name);static const char suffix[]=".profile-import.json";if(len>sizeof(suffix)-1&&!strcmp(e->d_name+len-(sizeof(suffix)-1),suffix)){char own[PATH_CAP];snprintf(own,sizeof(own),"%s.profile-import.json",home);if(strcmp(other,own)){cJSON *pending=read_json(other,4096);journal_fields(pending);cJSON *old=get(pending,"binding");require(strcmp(str(get(pending,"profile_id")),id)!=0,"profile UUID reserved by pending import");require(strcmp(str(get(old,"alias")),str(get(binding,"alias")))!=0,"alias reserved by pending import");require(number(get(old,"uid"),2147483647)!=number(get(binding,"uid"),2147483647),"UID reserved by pending import");cJSON_Delete(pending);}}continue;}
         path_join(path,other,"profile.id");if(exists(path)){char old[37];marker_read(other,old);require(strcmp(old,id)!=0,"profile UUID already exists");}
         path_join(path,other,"profile-local.json");if(exists(path)){cJSON *old=read_json(path,4096);binding_valid(old);require(strcmp(str(get(old,"alias")),str(get(binding,"alias")))!=0,"local alias already exists");require(number(get(old,"uid"),2147483647)!=number(get(binding,"uid"),2147483647),"local UID already exists");cJSON_Delete(old);}
     }require(!closedir(dir),"cannot close directory");}
@@ -234,7 +275,7 @@ static void reserve_numbers(const char *home,unsigned *uid,unsigned *gid,unsigne
 static void review_output(const char *operation,const char *hash,struct bundle *b,const char *home,cJSON *binding){
     cJSON *out=object();addstr(out,"format","srvros-profile-review-v1");addstr(out,"operation",operation);addstr(out,"sha256",hash);attach(out,"profile",cJSON_Duplicate(get(b->json,"profile"),1));attach(out,"preferences",cJSON_Duplicate(get(b->json,"preferences"),1));addnum(out,"bytes",(unsigned)b->total);cJSON *docs=cJSON_CreateArray();attach(out,"documents",docs);
     for(unsigned i=0;i<b->count;i++){cJSON *d=object();addstr(d,"path",b->paths[i]);addnum(d,"size",(unsigned)b->sizes[i]);require(cJSON_AddItemToArray(docs,d),"out of memory");}
-    if(home){cJSON *dest=object();addstr(dest,"home",home);addstr(dest,"alias",str(get(binding,"alias")));addnum(dest,"uid",number(get(binding,"uid"),2147483647));addnum(dest,"gid",number(get(binding,"gid"),2147483647));attach(out,"destination",dest);}puts(json_text(out));
+    if(home){cJSON *dest=object();addstr(dest,"home",home);addstr(dest,"alias",str(get(binding,"alias")));addnum(dest,"uid",number(get(binding,"uid"),binding_limit()));addnum(dest,"gid",number(get(binding,"gid"),binding_limit()));attach(out,"destination",dest);}puts(json_text(out));
 }
 static profile_stream_handle open_document(const char *home,const char *path,struct profile_stream_info *st){char full[PATH_CAP];path_join(full,home,path);parents(full);profile_stream_handle fd=profile_stream_open_read(full);require(fd>=0&&!profile_stream_stat(fd,st)&&stream_info_regular(st)&&st->size<=PROFILE_STREAM_FILE,"invalid document stream");return fd;}
 struct export_source {profile_stream_handle fd;struct profile_stream_info initial;};
@@ -290,7 +331,7 @@ static void stream_export(const char *home,const char *output,int count,char **p
 }
 static void preview_import(const char *source,const char *home,const char *alias){
     struct transaction t={0};transaction_paths(&t,home);char absolute[PATH_CAP];absolute_path(absolute,source);t.bundle=stream_open(absolute,NULL);const char *hash=t.bundle.source_hash;require(!exists(home)&&!exists(t.journal),"destination or pending journal exists; use recover");
-    unsigned uid,gid;reserve_numbers(home,&uid,&gid,0);t.binding=object();addstr(t.binding,"alias",alias);addnum(t.binding,"uid",uid);addnum(t.binding,"gid",gid);binding_valid(t.binding);binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);manifest(&t,object());review_output("import",hash,&t.bundle,home,t.binding);
+    unsigned uid=account_import.uid,gid=account_import.gid;if(!uid)reserve_numbers(home,&uid,&gid,0);t.binding=object();addstr(t.binding,"alias",alias);addnum(t.binding,"uid",uid);addnum(t.binding,"gid",gid);binding_valid(t.binding);binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);manifest(&t,object());review_output("import",hash,&t.bundle,home,t.binding);
 }
 static void reviewed_import(const char *source,const char *home,const char *alias,const char *uid,const char *gid,const char *hash){unsigned u,g;home_valid(home);reserve_numbers(home,&u,&g,binding_number(uid));import_profile(source,home,alias,uid,gid,hash);}
 
@@ -311,7 +352,19 @@ static void activate_profile(const char *home){home_valid(home);char path[PATH_C
 static void memory_at_exit(void){profile_memory_report("exit");}
 int main(int argc,char **argv){
     profile_memory_init();atexit(memory_at_exit);
-    if(argc>=4&&!strcmp(argv[1],"export"))stream_export(argv[2],argv[3],argc-4,argv+4,NULL);
+    if(argc==3&&!strcmp(argv[1],"preview-account-import")) {
+        init_account_import();
+        preview_import(argv[2],account_import.destination,account_import.alias);
+    } else if(argc==4&&!strcmp(argv[1],"account-import-reviewed")) {
+        init_account_import();
+        char uid[16],gid[16];
+        snprintf(uid,sizeof(uid),"%u",account_import.uid);
+        snprintf(gid,sizeof(gid),"%u",account_import.gid);
+        import_profile(argv[2],account_import.destination,account_import.alias,uid,gid,argv[3]);
+    } else if(argc==2&&(!strcmp(argv[1],"account-recover") || !strcmp(argv[1],"check-account-recover"))) {
+        init_account_import();
+        recover_profile(account_import.destination,!strcmp(argv[1],"check-account-recover"));
+    } else if(argc>=4&&!strcmp(argv[1],"export"))stream_export(argv[2],argv[3],argc-4,argv+4,NULL);
     else if(argc>=3&&!strcmp(argv[1],"preview-export"))stream_export(argv[2],NULL,argc-3,argv+3,NULL);
     else if(argc>=5&&!strcmp(argv[1],"export-reviewed"))stream_export(argv[2],argv[3],argc-5,argv+5,argv[4]);
     else if(argc==5&&!strcmp(argv[1],"preview-import"))preview_import(argv[2],argv[3],argv[4]);
@@ -323,6 +376,6 @@ int main(int argc,char **argv){
     else if(argc==3&&!strcmp(argv[1],"recover"))recover_profile(argv[2],0);
     else if(argc==3&&!strcmp(argv[1],"check-recover"))recover_profile(argv[2],1);
     else if(argc==3&&!strcmp(argv[1],"activate"))activate_profile(argv[2]);
-    else fail("usage: profile export HOME OUTPUT [Documents/FILE ...] | inspect BUNDLE | import BUNDLE HOME ALIAS UID GID | recover HOME | activate HOME");
+    else fail("usage: profile export HOME OUTPUT [Documents/FILE ...] | inspect BUNDLE | import BUNDLE HOME ALIAS UID GID | recover HOME | activate HOME | preview-account-import BUNDLE | account-import-reviewed BUNDLE HASH | account-recover | check-account-recover");
     return 0;
 }

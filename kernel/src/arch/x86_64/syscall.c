@@ -1878,6 +1878,15 @@ static int64_t syscall_file_change(const struct srv_file_change *user_request) {
         !copy_from_user(&q,user_request,sizeof(q)) || q.operation<SRV_FILE_RENAME || q.operation>SRV_FILE_DUPLICATE ||
         !q.expected_inode || q.expected_type>VFS_NODE_DIRECTORY || copy_storage_path(q.path,path,sizeof(path),false)) return SRV_FILE_INVALID;
     if(q.operation!=SRV_FILE_DELETE && (copy_storage_path(q.destination,destination,sizeof(destination),false))) return SRV_FILE_INVALID;
+    struct process_credentials credentials=process_get_credentials(process_current());
+    if(credentials.uid) {
+        /* Profile publication compares one verified file before renaming it.
+         * Keep the other native mutations privileged. */
+        if(q.operation!=SRV_FILE_RENAME || q.expected_type!=VFS_NODE_FILE) return SRV_ERR_PERM;
+        int64_t result=vfs_check_parent_access(path,credentials.uid,credentials.gid,3);
+        if(!result)result=vfs_check_parent_access(destination,credentials.uid,credentials.gid,3);
+        if(result<0)return result;
+    }
     if(q.operation==SRV_FILE_COPY && (q.expected_type!=VFS_NODE_FILE || q.length!=q.expected_size || q.length>MAX_SYSCALL_COPY)) return SRV_FILE_LIMIT;
     if(q.operation==SRV_FILE_DUPLICATE) {
         if(q.data || q.length) return SRV_FILE_INVALID;
@@ -4745,8 +4754,10 @@ static bool isolated_syscall_allowed(const struct isr_frame *frame) {
     case SYS_OPEN: case SYS_OPEN_MODE: case SYS_CLOSE: case SYS_FSTAT: case SYS_SEEK:
     case SYS_WRITE: case SYS_PREAD: case SYS_PWRITE: case SYS_FTRUNCATE: case SYS_FSYNC:
     case SYS_MKDIR: case SYS_MKDIR_MODE: case SYS_UNLINK: case SYS_RMDIR: case SYS_RENAME:
-    case SYS_FILE_STREAM: case SYS_MOUNT_SNAPSHOT:
+    case SYS_FILE_STREAM: case SYS_MOUNT_SNAPSHOT: case SYS_FILE_CHANGE:
         return true;
+    case SYS_DIRECTORY:
+        return frame->rdi==SRV_DIRECTORY_READ;
     case SYS_READ:
         return !process_fd_is_console(process_current(),frame->rdi,true);
     case SYS_WAIT:
