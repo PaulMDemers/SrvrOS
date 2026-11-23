@@ -294,6 +294,17 @@ channel-10 Demers2.4 beacons, a stopped endpoint and parked RF/RX are required
 for acceptance. The trial saves counters and its outcome in the workspace
 and independent journal. It performs no association or data transfer.
 
+Source `ebe51dcf` passed the production xHCI receive path on a modeled
+three-adapter hub, starting from the accepted firmware-ready state. The
+model covered the exact board profile, channel and RX-only endpoint,
+unrelated, CRC-failed and wrong-channel frames, two target beacons, and
+stop verification. It also exercised profile, channel, silent endpoint and
+stop faults. The firmware, xHCI lifecycle, and both beacon decoder regression
+suites passed. Exact image `8b413096f6defa45` passed the GPT workspace and four
+journal/recovery VM checks with the Realtek absent. The measured capture and
+profile are preserved under `reference-rtl8188cu-radio-5f9db835`. Physical
+discovery is pending. A cold run needs a fresh bound journal and run record.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
