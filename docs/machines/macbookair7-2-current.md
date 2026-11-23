@@ -10,14 +10,22 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
-Current Air-only objective on PR 301: hold the independent slot 12291 and
-protected slot 8704 across the existing isolated requester inhibit, five-engine
-preparation, GT reset, translation maintenance and verified requester reopening.
-Capture both neighbours and the fresh engine/L3 observations under that same
-reservation. This uses the existing GT flush trial and its deadlines. The
-original display stays active. Hardware acceptance requires the matching USB
-receipt. Device-wide traffic exclusion and a physical PTE replacement remain
-separate milestones.
+Release `418d18e891298e1b` (source `f72b78e2`, session
+`session-000660e7c9767b13-00`) held both GGTT reservations through PCI
+bus-master inhibit, five-engine preparation, GT reset, translation maintenance
+and verified requester reopening. Both reservations returned. The two 132-entry
+samples matched, including slot 8704 (`0x8e201001`) and slots 12290–12292
+(`0x8f003001`, `0x8f004001`, `0x8f005001`). The original primary surface
+passed preservation checks. The run made zero PTE writes and the USB report
+passed offline integrity verification.
+
+In all four samples the GPU reported idle with client mask `0x5f` still
+allowed. The five engine flush acknowledgement bits and the L3 flush
+acknowledgement stayed clear. This closes the reservation-lifetime trial.
+The one-page replacement still needs a native submission owner that can
+block new work and demonstrate completion through rollback. Preparation
+took 240.784 ms under the 250 ms diagnostic budget. The preparation, GT
+and HDA intervals exceeded their original timing budgets.
 
 The shared scanout publisher and Broadwell one-page writer on PR 301 now
 hold the address and backing RAM until the device reopens after rollback.
