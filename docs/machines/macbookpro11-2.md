@@ -35,6 +35,18 @@ absent. Ubuntu's default boot and the installed recovery were checked before
 installing the native topology capture. No Wi-Fi firmware upload or traffic
 is part of this capture.
 
+Native session `session-000660f4750b5542-00` configured the Genesys hub on
+root port 1 and addressed all three dongles on downstream ports 1, 2, and 4.
+The Edimax on slot 3 returned the expected MT7610 identity. Its hub port
+reported powered, enabled, high-speed and connected (`0x0503`), and the new
+route check admitted it. The matching `exit.log` is complete. Ubuntu
+returned with the one-shot entry consumed, a clean exFAT workspace, all 563
+prior workspace files intact, and recovery verified. The exact image and
+evidence are archived under `evidence-e1c95fbc6481a90b`. The next connected
+trial covers Edimax association, WPA, DHCP, DNS and traffic through the same
+hub port, followed by orderly disconnect. The Realtek devices already have
+enumeration evidence for their separate driver bring-up.
+
 For the Realtek devices, the observed interfaces are both vendor-specific.
 Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
 has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Ubuntu selected
