@@ -21,16 +21,17 @@ sign-in. A portable profile's UUID and display name identify the transferred
 data. The v2 manifest also allows portable preferences and selected documents.
 The desktop treats `profile-local.json` as profile bookkeeping.
 
-The first integrated import should stage a fresh profile under the signed-in
-account's private home, bind confirmation to the reviewed v2 bytes, and
-publish after the existing document and preference checks. An interrupted
-import must leave the previous desktop and its files usable. Recover only
-the selected account's pending import. Keep the ordinary v2 migration workflow
-available during this integration.
+From an authenticated console session, review a bundle and confirm its
+SHA-256 with `profile preview BUNDLE` and `profile import BUNDLE SHA256`.
+The first import uses `portable-profile` inside the account's private home.
+The destination account owns the new files. Import requires an empty slot.
 
-The integration checkpoint is a two-account disposable VM. Sign in, import
-and reopen exact document bytes after reboot, exercise interrupted import
-recovery, and check that the other account's files remain inaccessible.
+After interruption, `profile check-recovery` checks the signed-in account's
+pending transaction. `profile recover` resumes it from the same bundle bytes.
+The account's existing files remain usable through import and recovery.
+The two-account console VM proof reopened exact document bytes after reboot
+and verified that each account was denied access to the other's files.
+The graphical Profiles app still needs to call this account-owned path.
 
 ## Existing transfer tools
 
