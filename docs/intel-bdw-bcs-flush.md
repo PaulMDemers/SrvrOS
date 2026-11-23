@@ -299,10 +299,21 @@ account.
 build/tests/intel-bdw-engine-drain-host --private-image
 ```
 
-Each engine gets its own fresh marker and scratch page. After all five drain
-markers arrive, the CPU releases the render-only semaphore and checks the
-final render flush. It then verifies that eDP advances while all five fences
-remain pending, releases the common semaphore and checks every scratch
-word. The watchdog releases both waits if the client fails. This exercises
-the engine commands on silicon. Native page-table installation, WiDi and
+Each engine gets its own fresh marker and scratch page. The multi-engine
+render batch starts at VA `0x1500`. After the CPU sees all five drain markers,
+it opens the render semaphore. RCS then copies both halves of each sibling’s
+64-bit marker into its own scratch page at `0x2100`–`0x211f` and issues its
+final PIPE_CONTROL flush. The host requires the destination to be empty before
+opening the semaphore and to match all four producers after the flush. Both
+source and destination addresses use the private GPU page table.
+[Intel Broadwell instruction reference, pp. 817–818](https://cdrdv2.intel.com/v1/dl/getcontent/690783)
+
+The host also checks that eDP advances while all five fences remain pending,
+then releases the common semaphore and checks every scratch word. The watchdog
+releases both waits if the client fails. The i915 slot-loan comparison runs
+the same render batch in its second context. It rechecks the copied values
+before replacement, after replacement and after restoring slot 12291.
+[Slot-loan procedure](intel-bdw-primary-flip.md#independent-slot-comparison-under-i915)
+
+This exercises the engine commands on silicon. Native page-table installation, WiDi and
 the power manager's L3 acknowledgement require separate physical evidence.

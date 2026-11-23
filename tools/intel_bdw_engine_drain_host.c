@@ -284,6 +284,58 @@ static void lower_holder_priority(int fd, uint32_t context)
     call(fd, DRM_IOCTL_I915_GEM_CONTEXT_SETPARAM, &priority, "lower holder priority");
 }
 
+static uint32_t upload_private_batch(int fd,uint64_t epoch)
+{
+    static _Alignas(4096) struct bdw_private_vm_image image;
+    /* The model bus address is used solely to validate table construction.
+     * None of these page-table words are submitted to i915. */
+    require(intel_bdw_private_vm_build(&image,0x100000,epoch) &&
+            intel_bdw_private_vm_verify(&image,0x100000,epoch),"Invalid private VM image");
+    uint32_t batch=create_page(fd);
+    struct drm_i915_gem_pwrite upload={.handle=batch,.size=sizeof(image.commands),
+                                       .data_ptr=(uintptr_t)image.commands};
+    call(fd,DRM_IOCTL_I915_GEM_PWRITE,&upload,"upload exact native batch page");
+    return batch;
+}
+
+static void submit_private_batch(int fd,uint32_t ctx,unsigned e,uint32_t gate,uint32_t batch,
+                                 struct submission q[BDW_BARRIER_ENGINES])
+{
+    struct drm_i915_gem_exec_object2 obj[BDW_BARRIER_ENGINES+2]={
+        {.handle=gate,.offset=(BDW_PRIVATE_GATE+1)*4096,.flags=EXEC_OBJECT_PINNED},
+        {.handle=q[e].result,.offset=(2+e)*4096,.flags=EXEC_OBJECT_PINNED|EXEC_OBJECT_WRITE}
+    };
+    unsigned count=2;
+    if(e==BDW_BARRIER_RCS) {
+        for(unsigned peer=1;peer<BDW_BARRIER_ENGINES;peer++)
+            obj[count++]=(struct drm_i915_gem_exec_object2){.handle=q[peer].result,
+                .offset=(2+peer)*4096,.flags=EXEC_OBJECT_PINNED|EXEC_OBJECT_ASYNC};
+    }
+    obj[count++]=(struct drm_i915_gem_exec_object2){.handle=batch,.offset=4096,.flags=EXEC_OBJECT_PINNED};
+    struct drm_i915_gem_execbuffer2 request={.buffers_ptr=(uintptr_t)obj,.buffer_count=count,
+        .batch_start_offset=e ? e*BDW_PRIVATE_QUEUE_BYTES : BDW_PRIVATE_GATHER_BATCH,
+        .batch_len=e ? BDW_PRIVATE_QUEUE_BYTES : BDW_PRIVATE_GATHER_BYTES,
+        .rsvd1=ctx,.flags=engines[e].flags|I915_EXEC_FENCE_OUT};
+    call(fd,DRM_IOCTL_I915_GEM_EXECBUFFER2_WR,&request,"execute native queue batch");
+    q[e].fence=(int)(request.rsvd2>>32);
+}
+
+static void check_peer_markers(const struct submission q[],bool ready)
+{
+    const uint64_t *gather=q[BDW_BARRIER_RCS].view+BDW_PRIVATE_GATHER_RESULT/8;
+    for(unsigned i=1;i<BDW_BARRIER_ENGINES;i++)
+        require(__atomic_load_n(gather+i-1,__ATOMIC_ACQUIRE)==(ready ? q[i].marker : 0),
+                ready ? "RCS observed stale sibling data" : "RCS copied before the render gate");
+}
+
+static void report_peer_markers(const struct submission q[])
+{
+    const uint64_t *gather=q[BDW_BARRIER_RCS].view+BDW_PRIVATE_GATHER_RESULT/8;
+    printf("rcs_gather bcs=%016llx vcs0=%016llx vcs1=%016llx vecs=%016llx\n",
+           (unsigned long long)gather[0],(unsigned long long)gather[1],
+           (unsigned long long)gather[2],(unsigned long long)gather[3]);
+}
+
 static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t seed, bool compete)
 {
     if (compete) lower_holder_priority(fd, ctx);
@@ -305,11 +357,16 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(gate != MAP_FAILED, "Cannot map coherent private semaphore");
     __atomic_store_n(gate, 0, __ATOMIC_RELEASE);
     __atomic_store_n(&gate[BDW_GATE_RENDER_START / 4], 0, __ATOMIC_RELEASE);
+    /* Distinguish the second render request from every first-context nonce. */
+    uint64_t render_epoch=((seed>>8) ^ (1ull<<32)) | 1;
+    uint32_t batch=upload_private_batch(fd,render_epoch);
     int signal_fd;
     pid_t watcher=start_watchdog(gate,&signal_fd);
     struct submission work[BDW_BARRIER_ENGINES];
+    /* Distinct high and low halves make crossed DWORD copies detectable. */
     for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i)
-        work[i] = submit(fd, ctx, i, i, seed, -1, i == BDW_BARRIER_RCS ? 0 : gate_handle);
+        work[i] = submit(fd, ctx, i, i, ((seed & ~7ull) ^ ((uint64_t)i << 32)) | 8, -1,
+                         i == BDW_BARRIER_RCS ? 0 : gate_handle);
     for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i)
         observe_marker(work[i].view, work[i].data, work[i].marker);
     /* Finish the first RCS request while the four sibling queues are parked.
@@ -321,12 +378,15 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(second.ctx_id != ctx, "Render context identity did not change");
     if (compete) lower_holder_priority(fd, second.ctx_id);
     struct submission *render = &work[BDW_BARRIER_RCS];
-    *render = submit(fd, second.ctx_id, BDW_BARRIER_RCS, BDW_BARRIER_ENGINES, seed, -1, gate_handle);
+    *render=(struct submission){.result=create_page(fd),.marker=(render_epoch<<8)|1};
+    render->view=map_result(fd,render->result);
+    submit_private_batch(fd,second.ctx_id,BDW_BARRIER_RCS,gate_handle,batch,work);
     observe_marker(render->view, render->data, render->marker);
     assert_waiting(work, gate);
     printf("Ordered render context switch %u -> %u after five engine receipts\n", ctx, second.ctx_id);
     const uint64_t *final_marker = &render->view[BDW_QUEUE_FINAL_FLUSH / 8];
     require(!__atomic_load_n(final_marker, __ATOMIC_ACQUIRE), "Final flush ran before engine drain");
+    check_peer_markers(work,false);
     __atomic_store_n(&gate[BDW_GATE_RENDER_START / 4], 1, __ATOMIC_SEQ_CST);
     uint64_t deadline = monotonic_us() + COMPLETION_TIMEOUT_US;
     while (!__atomic_load_n(final_marker, __ATOMIC_ACQUIRE) && monotonic_us() < deadline) {
@@ -336,6 +396,8 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(__atomic_load_n(final_marker, __ATOMIC_ACQUIRE) == render->marker,
             "Missing fresh render flush after the five engine drains");
     assert_waiting(work, gate);
+    check_peer_markers(work,true);
+    report_peer_markers(work);
     puts("All five drain markers preceded the final render flush");
     struct submission probes[BDW_BARRIER_ENGINES];
     if (compete) {
@@ -365,11 +427,13 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     uint64_t first = frame(card, crtc);
     confirm_mapping(0);
     assert_waiting(work, gate);
+    check_peer_markers(work,true);
     if (compete) check_competing_context(probes, 0);
     set_cache(fd, a.handle, alternate);
     bind_slot(fd, b.handle, 1, seed, bytes);
     confirm_mapping(1);
     assert_waiting(work, gate);
+    check_peer_markers(work,true);
     if (compete) check_competing_context(probes, 1);
     set_cache(fd, b.handle, alternate);
     set_cache(fd, a.handle, cache.caching);
@@ -384,6 +448,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
     require(first < last && active_edp(card) == crtc, "Original panel stopped advancing");
     confirm_mapping(2);
     assert_waiting(work, gate);
+    check_peer_markers(work,true);
     if (compete) check_competing_context(probes, 2);
     close(signal_fd);
     int status;
@@ -391,7 +456,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
             "Watchdog released the gate before rollback finished");
     for (unsigned i = 0; i < BDW_BARRIER_ENGINES; ++i) {
         verify(fd, &work[i]);
-        require(__atomic_load_n(&work[i].view[BDW_QUEUE_RESUMED / 8], __ATOMIC_ACQUIRE) == work[i].data,
+        require(__atomic_load_n(&work[i].view[BDW_QUEUE_RESUMED / 8], __ATOMIC_ACQUIRE) == ~work[i].marker,
                 "Missing post-release marker");
         printf("%s flushed, held and resumed\n", engines[i].name);
         if (compete) verify(fd, &probes[i]);
@@ -405,15 +470,7 @@ static void slot_loan(int fd, int card, uint32_t crtc, uint32_t ctx, uint64_t se
  * own page tables and contexts. Only private, per-process mappings are used. */
 static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t epoch, bool trace)
 {
-    static _Alignas(4096) struct bdw_private_vm_image image;
-    /* The model bus address is used solely to validate table construction.
-     * None of these page-table words are submitted to i915. */
-    require(intel_bdw_private_vm_build(&image,0x100000,epoch) &&
-            intel_bdw_private_vm_verify(&image,0x100000,epoch),"Invalid private VM image");
-    uint32_t batch=create_page(fd), gate=create_page(fd);
-    struct drm_i915_gem_pwrite upload={.handle=batch,.size=sizeof(image.commands),
-                                       .data_ptr=(uintptr_t)image.commands};
-    call(fd,DRM_IOCTL_I915_GEM_PWRITE,&upload,"upload exact native batch page");
+    uint32_t batch=upload_private_batch(fd,epoch), gate=create_page(fd);
     struct drm_i915_gem_mmap_offset off={.handle=gate,.flags=I915_MMAP_OFFSET_WB};
     call(fd,DRM_IOCTL_I915_GEM_MMAP_OFFSET,&off,"map gate");
     uint32_t *cpu=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_SHARED,fd,off.offset);
@@ -428,26 +485,25 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
     int signal_fd;
     pid_t watcher=start_watchdog(cpu,&signal_fd);
     uint64_t submit_at = monotonic_us();
-    for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++) {
-        struct drm_i915_gem_exec_object2 obj[]={
-            {.handle=gate,.offset=(BDW_PRIVATE_GATE+1)*4096,.flags=EXEC_OBJECT_PINNED},
-            {.handle=q[e].result,.offset=(2+e)*4096,.flags=EXEC_OBJECT_PINNED|EXEC_OBJECT_WRITE},
-            {.handle=batch,.offset=4096,.flags=EXEC_OBJECT_PINNED}
-        };
-        struct drm_i915_gem_execbuffer2 request={.buffers_ptr=(uintptr_t)obj,.buffer_count=3,
-            .batch_start_offset=e*256,.batch_len=256,.rsvd1=ctx,.flags=engines[e].flags|I915_EXEC_FENCE_OUT};
-        call(fd,DRM_IOCTL_I915_GEM_EXECBUFFER2_WR,&request,"execute native queue batch");
-        q[e].fence=(int)(request.rsvd2>>32);
+    /* Submit the producers first. RCS explicitly synchronizes its private
+     * reads through RENDER_START after all producer post-sync markers.
+     * An implicit wait on a producer's release fence would deadlock here. */
+    for(unsigned n=1;n<=BDW_BARRIER_ENGINES;n++) {
+        unsigned e=n%BDW_BARRIER_ENGINES;
+        submit_private_batch(fd,ctx,e,gate,batch,q);
     }
     for(unsigned e=0;e<BDW_BARRIER_ENGINES;e++)observe_marker(q[e].view,0,q[e].marker);
     assert_waiting(q,cpu);
     require(!__atomic_load_n(q[0].view+BDW_QUEUE_FINAL_FLUSH/8,__ATOMIC_ACQUIRE),"Early render marker");
+    check_peer_markers(q,false);
     __atomic_store_n(cpu+BDW_GATE_RENDER_START/4,1,__ATOMIC_SEQ_CST);
     uint64_t deadline=monotonic_us()+COMPLETION_TIMEOUT_US;
     while(!__atomic_load_n(q[0].view+BDW_QUEUE_FINAL_FLUSH/8,__ATOMIC_ACQUIRE) && monotonic_us()<deadline) {
         const struct timespec delay={.tv_nsec=50000}; nanosleep(&delay,NULL);
     }
     require(q[0].view[BDW_QUEUE_FINAL_FLUSH/8]==q[0].marker,"Missing final render flush");
+    check_peer_markers(q,true);
+    assert_waiting(q,cpu);
     uint64_t held_at = monotonic_us();
     uint64_t first=frame(card,crtc),last=first;
     deadline=monotonic_us()+COMPLETION_TIMEOUT_US;
@@ -465,11 +521,14 @@ static void private_image(int fd,int card,uint32_t crtc,uint32_t ctx,uint64_t ep
         for(unsigned i=0;i<512;i++) {
             uint64_t expected=i==BDW_QUEUE_RESUMED/8 ? ~q[e].marker :
                 (i==BDW_QUEUE_DRAIN/8 || (!e && i==BDW_QUEUE_FINAL_FLUSH/8)) ? q[e].marker : 0;
+            if(!e && i>=BDW_PRIVATE_GATHER_RESULT/8 && i<BDW_PRIVATE_GATHER_RESULT/8+BDW_BARRIER_ENGINES-1)
+                expected=q[1+i-BDW_PRIVATE_GATHER_RESULT/8].marker;
             require(__atomic_load_n(q[e].view+i,__ATOMIC_ACQUIRE)==expected,"Unexpected scratch contents");
         }
         printf("%s marker=%016llx resumed=%016llx scratch verified\n",engines[e].name,
                (unsigned long long)q[e].marker,(unsigned long long)~q[e].marker);
     }
+    report_peer_markers(q);
     if (trace)
         printf("hold_times %llu %llu %llu %llu\n", (unsigned long long)submit_at,
                (unsigned long long)held_at, (unsigned long long)release_at,

@@ -10,6 +10,25 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The Air executed the new SrvrOS render batch under Ubuntu/i915. RCS copied
+the complete 64-bit post-flush markers from BCS, both video engines and VECS
+before publishing its final PIPE_CONTROL marker. Three consecutive trials
+checked those four values before replacing slot 12291, after replacement and
+after exact rollback. Five competing requests stayed pending at all three
+checkpoints and completed after release. Slot 8704 and the programmed/live
+surface were preserved. The panel advanced and all 1,024 original words
+were verified on each return.
+
+At the held checkpoints GAM request/reply read `0xff/0x7f`, WiDi read `0x1f`,
+and the L3 message read zero. These results establish visibility of the
+sampled cache lines with i915 owning the contexts and mappings. Cold-boot
+device exclusion and native submission still precede the first SrvrOS slot
+write. An initial comparator run rejected the post-release render value
+because it compared against the initial data word. The corrected comparison
+uses the complement of the request’s marker. Raw runs are in
+`build/air-gpu-peer-markers/`.
+[Private command image and hardware comparison](../intel-bdw-bcs-flush.md#private-command-pages-on-broadwell)
+
 The shared Broadwell writer now checks the WiDi reset-flow acknowledgement
 during acquisition, both changes to slot 12291, and release. All 42 Q35
 owned-page cases passed, including six new reset-flow faults. On this Air under

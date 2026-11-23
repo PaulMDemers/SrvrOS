@@ -10,6 +10,11 @@
  * maintenance. Activating the root also requires verification of GPU PAT
  * index 3, the DMA address domain and an exclusively owned GPU context. */
 enum {
+    BDW_PRIVATE_QUEUE_BYTES = 256,
+    /* Alternative RCS entry with all five scratch pages resident in one VM. */
+    BDW_PRIVATE_GATHER_BATCH = BDW_BARRIER_ENGINES * BDW_PRIVATE_QUEUE_BYTES,
+    BDW_PRIVATE_GATHER_BYTES = 512,
+    BDW_PRIVATE_GATHER_RESULT = 256,
     BDW_PRIVATE_GATE = 1 + BDW_BARRIER_ENGINES,
     BDW_PRIVATE_PT, BDW_PRIVATE_PD, BDW_PRIVATE_PAGES=BDW_PRIVATE_PD+4
 };

@@ -234,6 +234,29 @@ static void fixture_private_commands(void) {
   assert(!fixture_walk(batch[wait+2],true));
   assert(batch[wait+10]==0x05000000);
  }
+ /* Decode the alternate RCS entry independently. All eight copies must use
+  * private addresses, after RENDER_START and before the final PIPE_CONTROL. */
+ const uint32_t *gather=&dma_image.vm.commands[0x500/4];
+ assert(fixture_walk(0x1500,false)==base+0x500);
+ assert(!memcmp(gather,dma_image.vm.commands,10*sizeof(*gather)));
+ unsigned index=10;
+ for(unsigned peer=1;peer<5;peer++) {
+  for(unsigned half=0;half<8;half+=4) {
+   const uint32_t *copy=gather+index;
+   assert(copy[0]==0x17000003 && !copy[2] && !copy[4]);
+   assert(fixture_walk(copy[1],true)==base+4096+256+8*(peer-1)+half);
+   assert(fixture_walk(copy[3],false)==base+(1+peer)*4096+64+half);
+   index+=5;
+  }
+ }
+ assert(!memcmp(gather+index,dma_image.vm.commands+10,17*sizeof(*gather)));
+ /* A peer high-half read redirected to its low half must invalidate the image. */
+ uint32_t *source=&dma_image.vm.commands[0x500/4+10+5+3];
+ uint32_t original=*source;
+ *source=original-4;
+ assert(!intel_bdw_private_vm_verify(&dma_image.vm,base,stolen.command_tail.token.epoch));
+ *source=original;
+ assert(intel_bdw_private_vm_verify(&dma_image.vm,base,stolen.command_tail.token.epoch));
 }
 void pmm_free_frame_range(uint64_t physical,uint64_t count) {
  assert(physical==FIXTURE_COMMAND_PA && count==TAIL_DMA_PAGES && dma_live && stolen.command_tail.returned);

@@ -4,7 +4,7 @@
 _Static_assert(sizeof(struct bdw_private_vm_image)==BDW_PRIVATE_PAGES*4096, "PPGTT arena size");
 _Static_assert(offsetof(struct bdw_private_vm_image,tables)==BDW_PRIVATE_PT*4096, "page table offset");
 
-enum { PAGE_BYTES=4096, QUEUE_WORDS=64, BATCH_END=0x05000000 };
+enum { PAGE_BYTES=4096, QUEUE_WORDS=BDW_PRIVATE_QUEUE_BYTES/4, BATCH_END=0x05000000 };
 _Static_assert(BDW_GATE_WORDS_MAX+1<=QUEUE_WORDS && BDW_BARRIER_ENGINES*QUEUE_WORDS<=1024,
                "engine batches must fit in the command page");
 
@@ -38,6 +38,44 @@ static unsigned engine_batch(unsigned engine,uint64_t epoch,uint32_t *packet)
     return words+1;
 }
 
+/* RCS entry for a shared private VM. The CPU opens RENDER_START after
+ * observing all five fresh drain markers. Copy the sibling markers from
+ * their actual GPU addresses before issuing the final post-sync flush. */
+/* Three barriers, two four-word waits, two five-word copies per peer, and END. */
+enum { GATHER_WORDS = 3*BCS_FLUSH_DWORDS + 2*4 + 2*5*(BDW_BARRIER_ENGINES-1) + 1 };
+_Static_assert(GATHER_WORDS*4 <= BDW_PRIVATE_GATHER_BYTES &&
+               BDW_PRIVATE_GATHER_BATCH + BDW_PRIVATE_GATHER_BYTES <= PAGE_BYTES,
+               "gather batch must fit the command page");
+
+static bool render_gather(uint64_t epoch, uint32_t packet[GATHER_WORDS])
+{
+    const uint32_t render = 2*PAGE_BYTES, gate = (BDW_PRIVATE_GATE+1)*PAGE_BYTES;
+    const uint64_t marker = (epoch<<8) | (BDW_BARRIER_RCS+1);
+    if (!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,render+BDW_QUEUE_DRAIN,marker,packet) ||
+        !intel_bdw_ppgtt_wait_equal(gate+BDW_GATE_RENDER_START,1,packet+BCS_FLUSH_DWORDS))
+        return false;
+    unsigned used = BCS_FLUSH_DWORDS + 4;
+    for (unsigned e=1; e<BDW_BARRIER_ENGINES; e++) {
+        uint32_t dst = render+BDW_PRIVATE_GATHER_RESULT+(e-1)*8;
+        uint32_t src = (2+e)*PAGE_BYTES+BDW_QUEUE_DRAIN;
+        for (unsigned offset=0; offset<8; offset+=4) {
+            /* Broadwell PRM 2a pp. 817–818, MI_COPY_MEM_MEM, both addresses PPGTT. */
+            packet[used++] = (0x2eu<<23) | 3u;
+            packet[used++] = dst+offset;
+            packet[used++] = 0;
+            packet[used++] = src+offset;
+            packet[used++] = 0;
+        }
+    }
+    if (!intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,render+BDW_QUEUE_FINAL_FLUSH,marker,packet+used) ||
+        !intel_bdw_ppgtt_wait_equal(gate,1,packet+used+BCS_FLUSH_DWORDS) ||
+        !intel_bdw_ppgtt_barrier(BDW_BARRIER_RCS,render+BDW_QUEUE_RESUMED,~marker,
+                                 packet+used+BCS_FLUSH_DWORDS+4))
+        return false;
+    packet[GATHER_WORDS-1] = BATCH_END;
+    return true;
+}
+
 bool intel_bdw_private_vm_build(volatile struct bdw_private_vm_image *image,uint64_t base,uint64_t epoch)
 {
     if (!valid(image,base,epoch)) return false;
@@ -52,6 +90,9 @@ bool intel_bdw_private_vm_build(volatile struct bdw_private_vm_image *image,uint
         if (!n) return false;
         for (unsigned i=0;i<n;i++) image->commands[e*QUEUE_WORDS+i]=packet[i];
     }
+    uint32_t gather[GATHER_WORDS];
+    if (!render_gather(epoch,gather)) return false;
+    for (unsigned i=0;i<GATHER_WORDS;i++) image->commands[BDW_PRIVATE_GATHER_BATCH/4+i]=gather[i];
     for (unsigned level=0;level<5;level++)
         for (unsigned i=0;i<512;i++) image->tables[level][i]=table_entry(base,level,i);
     return true;
@@ -68,7 +109,10 @@ bool intel_bdw_private_vm_verify(volatile const struct bdw_private_vm_image *ima
             if (image->commands[e*QUEUE_WORDS+i]!=(i<n ? packet[i] : 0)) return false;
         for (unsigned i=0;i<1024;i++) if (image->result[e][i]) return false;
     }
-    for (unsigned i=BDW_BARRIER_ENGINES*QUEUE_WORDS;i<1024;i++) if (image->commands[i]) return false;
+    uint32_t gather[GATHER_WORDS];
+    if (!render_gather(epoch,gather)) return false;
+    for (unsigned i=0;i<1024-BDW_PRIVATE_GATHER_BATCH/4;i++)
+        if (image->commands[BDW_PRIVATE_GATHER_BATCH/4+i] != (i<GATHER_WORDS ? gather[i] : 0)) return false;
     for (unsigned i=0;i<1024;i++) if (image->gate[i]) return false;
     for (unsigned level=0;level<5;level++)
         for (unsigned i=0;i<512;i++) if (image->tables[level][i]!=table_entry(base,level,i)) return false;
