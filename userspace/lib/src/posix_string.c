@@ -293,6 +293,8 @@ char *strerror(int error) {
         return "too many symbolic links";
     case EOVERFLOW:
         return "value too large";
+    case EPROTOTYPE:
+        return "protocol wrong type for socket";
     default:
         return "error";
     }
