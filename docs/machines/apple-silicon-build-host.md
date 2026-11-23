@@ -36,6 +36,14 @@ a writable sign-in executable and a writable executable directory. The host
 Argon2id vector, allocation and wipe checks passed. Serial transcripts
 contained none of the fixture passwords.
 
+The review refresh for [SrvrOS #512](https://github.com/PaulMDemers/SrvrOS/pull/512)
+qualified runtime `7ce2f85d` with current libc and CLI tools. Both users
+passed on consecutive boots. A staged account database or enrollment lock
+blocked valid credentials until cleared in recovery. Missing and incomplete
+exFAT metadata refused installed-root admission without changing the disk.
+Explicit administrator recovery still opened the missing-metadata fixture.
+The damaged store and writable launcher controls also passed.
+
 Build with
 `sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
 Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
