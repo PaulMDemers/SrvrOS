@@ -16,4 +16,12 @@ struct local_account {
 int local_account_lookup(const char *name, struct local_account *out);
 int local_account_add(const char *name, uint32_t uid, uint32_t gid, const char *password);
 int local_account_disable(const char *name);
+int local_account_reset_password(const char *name, const char *password);
+#ifdef LOCAL_AUTH_RESET_VM_TEST
+enum local_auth_reset_phase {
+    LOCAL_AUTH_RESET_BEFORE_RENAME,
+    LOCAL_AUTH_RESET_AFTER_RENAME,
+};
+void local_auth_reset_checkpoint(enum local_auth_reset_phase phase);
+#endif
 #endif
