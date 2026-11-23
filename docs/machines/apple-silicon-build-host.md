@@ -463,6 +463,16 @@ sockets. ISO readback matched and the guest stopped. The standard static
 graph compiled `gipv6tclassmessage.c`. Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
 [Verification receipt](../assets/evidence/gio-ipv6-tclass/receipt.json)
 
+## GIO IPv4 numbers-and-dots parsing — November 22, 2026
+
+The topic starts at merged OS #531 (`0117e6cf`). The SDK archive and
+normal boot inputs were rebuilt for the `inet_aton()` change. The linked
+public GResolver and SDK parser probes each passed twice, along with both
+platform controls. The stopped diskless guest matched ISO readback and
+released its VM window. Static GIO compiled `gresolver.c` and stopped in
+`gsocket.c`, starting at `SOCK_SEQPACKET`.
+[Verification receipt](../assets/evidence/gio-inet-aton/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

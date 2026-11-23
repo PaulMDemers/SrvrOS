@@ -35,9 +35,11 @@ CHILD_WATCH_MARKER = b'glib-child-watch: ok'
 LINKED_CHILD_WATCH_MARKER = b'glib-linked-child-watch: ok'
 FNMATCH_MARKER = b'glib-fnmatch: ok'
 INET_ADDRESS_MARKER = b'glib-inet-address: ok'
+INET_ATON_MARKER = b'glib-inet-aton: ok'
 GIO_POLL_MONITOR_MARKER = b'gio-poll-monitor: ok'
 GIO_IP_TOS_MARKER = b'gio-ip-tos: ok'
 GIO_IPV6_TCLASS_MARKER = b'gio-ipv6-tclass: ok'
+GIO_RESOLVER_ADDRESS_MARKER = b'gio-resolver-address: ok'
 FAULT = re.compile(rb'exception:|kernel panic|page fault|general protection fault', re.I)
 
 
@@ -161,12 +163,15 @@ def main():
                         help='boot a previously linked SrvrOS GLib child-watch ELF from this checkout')
     parser.add_argument('--fnmatch', action='store_true', help='test SDK filename pattern matching')
     parser.add_argument('--inet-address', action='store_true', help='test SDK address classifiers and numeric lookup')
+    parser.add_argument('--inet-aton', action='store_true', help='test SDK IPv4 numbers-and-dots parsing')
     parser.add_argument('--gio-poll-monitor', type=Path, metavar='ELF',
                         help='boot a linked GIO monitor probe with a private exFAT disk')
     parser.add_argument('--gio-ip-tos', type=Path, metavar='ELF',
                         help='boot a linked GIO IPv4 traffic class codec probe')
     parser.add_argument('--gio-ipv6-tclass', type=Path, metavar='ELF',
                         help='boot a linked GIO IPv6 traffic class codec probe')
+    parser.add_argument('--gio-resolver-address', type=Path, metavar='ELF',
+                        help='boot a linked GIO resolver address handling probe')
     args = parser.parse_args()
     base = ROOT / 'build/browser-glib-prereq'
     base.mkdir(parents=True, exist_ok=True)
@@ -223,6 +228,8 @@ def main():
             ('gio-ip-tos', args.gio_ip_tos, GIO_IP_TOS_MARKER, 'gio_ip_tos_payload_sha256'),
             ('gio-ipv6-tclass', args.gio_ipv6_tclass, GIO_IPV6_TCLASS_MARKER,
              'gio_ipv6_tclass_payload_sha256'),
+            ('gio-resolver-address', args.gio_resolver_address, GIO_RESOLVER_ADDRESS_MARKER,
+             'gio_resolver_address_payload_sha256'),
         )
         for program, path, marker, receipt_key in linked_probes:
             if path is None:
@@ -240,7 +247,8 @@ def main():
             probes[program] = (marker,)
             receipt[receipt_key] = payload_hash
         sdk_probes = (('fnmatch', args.fnmatch, FNMATCH_MARKER),
-                      ('inet-address', args.inet_address, INET_ADDRESS_MARKER))
+                      ('inet-address', args.inet_address, INET_ADDRESS_MARKER),
+                      ('inet-aton', args.inet_aton, INET_ATON_MARKER))
         for name, enabled, marker in sdk_probes:
             if not enabled:
                 continue
