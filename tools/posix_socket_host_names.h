@@ -106,4 +106,6 @@ uint16_t htons(uint16_t value);
 uint16_t ntohs(uint16_t value);
 uint32_t htonl(uint32_t value);
 uint32_t ntohl(uint32_t value);
+ssize_t sendmsg(int fd, const struct msghdr *message, int flags);
+ssize_t recvmsg(int fd, struct msghdr *message, int flags);
 #endif

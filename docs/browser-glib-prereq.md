@@ -11,8 +11,9 @@ probe twice on SrvrOS. GIO's XDG MIME objects compile with SDK `fnmatch()`.
 A local-file-only GIO link verified the polling fallback on private exFAT.
 Guest-verified SDK address declarations let `ginetaddress.c` compile.
 Linked guests verified the IPv4 ToS and IPv6 traffic-class codecs.
-The linked resolver passed its IPv4 literal checks. Static GIO next stops
-in `gsocket.c` at `SOCK_SEQPACKET` and other missing socket declarations.
+The linked resolver passed its IPv4 literal checks. Native Unix sequenced
+packet pairs passed guest verification. Static GIO next stops at undeclared
+`EPROTOTYPE` in `gsocket.c`.
 
 The tested SDK and normal kernel came from audit branch `14edc87b` after
 merging OS main `b275e57d`. The matched ports pin was `276eb1b0`, apps
@@ -555,6 +556,33 @@ The production static target compiled `gresolver.c` and next stopped in
 The compiler also reported missing errno, backlog and socket-option
 declarations. [Verification receipt](assets/evidence/gio-inet-aton/receipt.json)
 
+## Native Unix sequenced-packet pairs
+
+From merged OS #534 at `b5187cdd`, the SDK exports `SOCK_SEQPACKET` and
+`socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fds)` creates kernel-owned packet
+endpoints. The native descriptor type survives duplication and transfer.
+The pair supports records up to 4096 bytes and four `SCM_RIGHTS` attachments
+per record. Rights require a nonempty payload. Empty data-only records are
+supported. Standalone `socket()` and half-close remain unsupported for this
+type. [Socket type semantics](https://man.openbsd.org/socket.2)
+
+Two diskless SrvrOS guest runs verified scalar, vector and message I/O,
+ordered record boundaries, short receive with `MSG_TRUNC`, empty records,
+and `MSG_PEEK` preserving records and rights. Full queues and oversized
+writes added no prefix. A failed receive destination check left the record
+available for retry. Transferred descriptors stayed live after sender close,
+`MSG_CMSG_CLOEXEC` set the new descriptor flags, and a transferred packet
+endpoint retained its type. The checks also covered readiness, close/EOF,
+socket metadata, and ordinary stream pairs. Both platform controls passed.
+ISO readback matched the rebuilt kernel and all three executables. QEMU
+stopped and the VM window was released.
+
+Host socket, pipe-message, process-output and syscall I/O regressions passed. The x86
+host fixtures ran under Rosetta. Fresh static GIO reached `gsocket.c`
+and now reports undeclared `EPROTOTYPE` first at line 677, followed by
+other missing socket declarations.
+[Verification receipt](assets/evidence/gio-seqpacket/receipt.json)
+
 ## Verification
 
 - **Original target configure.** Meson used `system='srvros'`, x86_64, Zig 0.15.2, the
@@ -674,13 +702,13 @@ host GLib loop plus the guest's underlying wait primitives. An integrated guest
 test must still measure wake latency, verify actual GLib backend selection,
 exercise mixed interests and show idle progress without a busy loop.
 
-The current WPE IPC gate remains concrete. Its GLib launcher requests
-`SOCK_SEQPACKET`. SrvrOS `socketpair` accepts only AF_UNIX/SOCK_STREAM. Native
-stream descriptor transfer is bounded to four descriptors while WPE's receiver
-allows up to 254 attachments. The runtime owner should establish the actual
-requirements of the first page and its handoffs before defining a transport.
+WPE's GLib launcher requests `SOCK_SEQPACKET`. The guest-verified SrvrOS
+pair now provides records up to 4096 bytes with four descriptor attachments
+per record. WPE's receiver allows up to 254 attachments. The actual Web/UI
+process exchange and its attachment budget still need qualification.
 SrvrOS `mmap` also rejects `MAP_SHARED`. UI frame release versus publication
 continues to require explicit outcome and cancellation design.
+[Pinned GLib launcher](https://github.com/WebKit/WebKit/blob/wpewebkit-2.54.2/Source/WebKit/UIProcess/Launcher/glib/ProcessLauncherGLib.cpp#L112)
 
 ## Reproduction
 

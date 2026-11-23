@@ -686,6 +686,15 @@ int socket(int domain, int type, int protocol) {
     return -1;
 }
 
+/* Native packet identity lives on the kernel descriptor, including after dup,
+ * exec and descriptor passing.  Do not cache it in a libc descriptor slot. */
+static int native_seqpacket(int fd) {
+    int saved_errno = errno;
+    long flags = srv_fcntl(fd, SRV_F_GETFL, 0);
+    errno = saved_errno;
+    return flags >= 0 && ((uint64_t)flags & SRV_FD_SEQPACKET) != 0;
+}
+
 int socketpair(int domain, int type, int protocol, int fds[2]) {
     int flags = type & (SOCK_NONBLOCK | SOCK_CLOEXEC);
     int base_type = type & ~(SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -697,13 +706,18 @@ int socketpair(int domain, int type, int protocol, int fds[2]) {
         errno = EAFNOSUPPORT;
         return -1;
     }
-    if (base_type != SOCK_STREAM || protocol != 0) {
+    if ((base_type != SOCK_STREAM && base_type != SOCK_SEQPACKET) || protocol != 0) {
         errno = EPROTONOSUPPORT;
         return -1;
     }
     uint64_t native_flags=((flags&SOCK_NONBLOCK)?SRV_FD_NONBLOCK:0)|((flags&SOCK_CLOEXEC)?SRV_FD_CLOEXEC:0);
+    if (base_type == SOCK_SEQPACKET) native_flags |= SRV_FD_SEQPACKET;
     long result=srv_pipe_pair_flags(fds,native_flags);
-    if(result<0) { errno=result==-1?EIO:(int)-result;return -1; }
+    if(result<0) {
+        errno = base_type == SOCK_SEQPACKET && (result == SRV_ERR_INVAL || result == -ENOSYS)
+            ? EPROTONOSUPPORT : (result == -1 ? EIO : (int)-result);
+        return -1;
+    }
     return 0;
 }
 
@@ -1085,6 +1099,7 @@ int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
         return fill_sockaddr(ip, port, addr, addrlen);
     }
 
+    if (native_seqpacket(fd)) return fill_sockaddr_un(0, addr, addrlen);
     if (srv_net_sockname(fd, &ip, &port) < 0) {
         errno = EBADF;
         return -1;
@@ -1118,6 +1133,7 @@ int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
         return fill_sockaddr(ip, port, addr, addrlen);
     }
 
+    if (native_seqpacket(fd)) return fill_sockaddr_un(0, addr, addrlen);
     if (srv_net_peername(fd, &ip, &port) < 0) {
         errno = ENOTCONN;
         return -1;
@@ -1155,6 +1171,7 @@ int shutdown(int fd, int how) {
         }
         return 0;
     }
+    if (native_seqpacket(fd)) { errno = EOPNOTSUPP; return -1; }
     if (srv_net_shutdown(fd, how) < 0) {
         errno = EBADF;
         return -1;
@@ -1178,6 +1195,11 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
             return -1;
         }
         return udp_send_sys(socket->listener_fd, socket->peer_ip, socket->peer_port, buffer, length, flags);
+    }
+    if (!socket && native_seqpacket(fd)) {
+        struct iovec iov = { .iov_base = (void *)buffer, .iov_len = length };
+        struct msghdr message = { .msg_iov = &iov, .msg_iovlen = 1 };
+        return sendmsg(fd, &message, flags);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
     int error = 0;
@@ -1208,6 +1230,11 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
         uint16_t remote_port = 0;
         return udp_recvfrom_sys(fd, buffer, length, &remote_ip, &remote_port,
             (flags & MSG_DONTWAIT) != 0);
+    }
+    if (!socket && native_seqpacket(fd)) {
+        struct iovec iov = { .iov_base = buffer, .iov_len = length };
+        struct msghdr message = { .msg_iov = &iov, .msg_iovlen = 1 };
+        return recvmsg(fd, &message, flags);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
     int error = 0;
@@ -1449,11 +1476,13 @@ ssize_t sendmsg(int fd, const struct msghdr *message, int flags) {
         if (socket_at(rights[i])) { errno = EOPNOTSUPP; return -1; }
     }
     struct posix_socket *socket = socket_at(fd);
+    int seqpacket = !socket && native_seqpacket(fd);
     size_t payload_length = 0;
     if (message_iov_length(message, &payload_length) < 0) return -1;
     if (rights_count && !payload_length) { errno = EINVAL; return -1; }
+    if (seqpacket && message->msg_name != 0) { errno = EOPNOTSUPP; return -1; }
     if ((!socket || (socket->domain == AF_UNIX && socket->type == SOCK_STREAM)) &&
-        message->msg_name == 0 && payload_length) {
+        message->msg_name == 0 && (payload_length || seqpacket)) {
         int native_fd = socket ? socket->listener_fd : fd;
         if (socket && (socket->shutdown_write || native_fd < 0)) {
             errno = socket->shutdown_write ? EPIPE : ENOTCONN;
@@ -1478,7 +1507,7 @@ ssize_t sendmsg(int fd, const struct msghdr *message, int flags) {
             return result < 0 ? message_error(result) : result;
         }
     }
-    if (rights_count) { errno = EOPNOTSUPP; return -1; }
+    if (seqpacket || rights_count) { errno = EOPNOTSUPP; return -1; }
     if (message->msg_name != 0 || (socket != 0 && socket->type == SOCK_DGRAM)) {
         uint8_t *buffer = 0;
         size_t length = 0;
@@ -1577,6 +1606,8 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
         return -1;
     }
     struct posix_socket *socket = socket_at(fd);
+    int seqpacket = !socket && native_seqpacket(fd);
+    if (seqpacket && message->msg_name != 0) { errno = EOPNOTSUPP; return -1; }
     if (!socket || (socket->domain == AF_UNIX && socket->type == SOCK_STREAM)) {
         int native_fd = socket ? socket->listener_fd : fd;
         if (native_fd < 0) { errno = ENOTCONN; return -1; }
@@ -1604,13 +1635,15 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
             for (size_t i = 0; i < ancillary.count; i++) rights[i] = ancillary.fds[i];
             message_store_rights(&output, rights, ancillary.count);
             message->msg_controllen = output.msg_controllen;
-            message->msg_flags = (ancillary.flags & SRV_PIPE_MSG_CTRUNC) ? MSG_CTRUNC : 0;
+            message->msg_flags = ((ancillary.flags & SRV_PIPE_MSG_CTRUNC) ? MSG_CTRUNC : 0) |
+                                 ((ancillary.flags & SRV_PIPE_MSG_TRUNC) ? MSG_TRUNC : 0);
             int saved_errno = errno;
             (void)__posix_signal_dispatch_pending();
             errno = saved_errno;
             return result;
         }
     }
+    if (seqpacket) { errno = EOPNOTSUPP; return -1; }
     message->msg_flags = 0;
     message->msg_controllen = 0;
     if (socket != 0 && socket->type == SOCK_DGRAM) {
@@ -1776,6 +1809,13 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
 
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
     struct posix_socket *socket = socket_at(fd);
+    if (!socket && level == SOL_SOCKET && (option_name == SO_TYPE || option_name == SO_ERROR) &&
+        native_seqpacket(fd)) {
+        if (!option_value || !option_len || *option_len < sizeof(int)) { errno = EINVAL; return -1; }
+        *(int *)option_value = option_name == SO_TYPE ? SOCK_SEQPACKET : 0;
+        *option_len = sizeof(int);
+        return 0;
+    }
     int is_real_net = socket == 0 && real_net_fd(fd);
     struct real_socket_options *real = is_real_net ? real_options_for_fd(fd, 1) : 0;
     if ((socket == 0 && !is_real_net) ||

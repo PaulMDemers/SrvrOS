@@ -294,6 +294,7 @@ bool process_tty_set_group(struct process *process,uint64_t fd,uint64_t group);
 void process_tty_hangup(uint64_t handle);
 void process_tty_signal(uint64_t handle,uint64_t signal);
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
+int64_t process_file_seqpacket_pair(struct process *process, uint64_t fds_out[2]);
 /* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
  * broken-pipe signal. Scheduler same-process exclusion still applies. */
 bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
@@ -324,6 +325,8 @@ int64_t process_unix_unlink(const char *path);
 /* The checked receive copies to userspace before committing queue consumption. */
 typedef bool (*process_message_copyout)(void *context, const void *data,
     uint64_t length, const struct srv_pipe_message *message);
+/* Set inside the kernel after validating the user's message flags. */
+#define PROCESS_PIPE_MSG_OVERSIZE 0x80000000u
 int64_t process_file_send_message(struct process *process, uint64_t fd,
     const uint8_t *buffer, uint64_t length, const struct srv_pipe_message *message);
 int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,

@@ -473,6 +473,16 @@ released its VM window. Static GIO compiled `gresolver.c` and stopped in
 `gsocket.c`, starting at `SOCK_SEQPACKET`.
 [Verification receipt](../assets/evidence/gio-inet-aton/receipt.json)
 
+## GIO Unix sequenced-packet pairs — November 22, 2026
+
+The topic starts at merged OS #534 (`b5187cdd`). The matched kernel, init and
+SDK built. The private diskless guest passed both native packet probes and
+both platform controls, with exact ISO readback. The guest stopped and its
+VM window was released. Host stream and rights regressions passed using
+ARM64 or Rosetta as required. Pinned static GIO reached `EPROTOTYPE` in
+`gsocket.c`.
+[Verification receipt](../assets/evidence/gio-seqpacket/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
