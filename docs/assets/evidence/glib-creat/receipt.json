@@ -1,0 +1,169 @@
+{
+  "scope": "SDK creat() on private exFAT and static GLib build progression",
+  "integration_base": "ddbfb6be2a17e6da122a58baddb7110a61a2d62c",
+  "source_sha256": {
+    "userspace/lib/include/fcntl.h": "f60df4a0bb08e9438d836b0cb7c0c4c4794c92faa42fdf2b22c71f8783892cf5",
+    "userspace/lib/src/posix_file.c": "30af90f0a6980b28103e434dfda6a2e281bf80e00b58ffe14939475acc7edfce",
+    "tools/posix_file_host_names.h": "70cf85dac7352c1e2e861cb80c6a8dc9f338c2baa4c38eef77d6ed54c72e934d",
+    "tools/test_glib_file_policy_guest.c": "26821d0174ef328d247ec12c96dae9fa433d9c60201e3fc767a0d05c80356041"
+  },
+  "build": {
+    "source": "aa91fb67db3d8ef1b98b978e376b3d0625b7c09a",
+    "glib_version": "2.90.1",
+    "meson_version": "1.10.2",
+    "configure_exit": 0,
+    "gstdio_object_exit": 0,
+    "static_build_exit": 1,
+    "static_targets": [
+      "glib/libglib-2.0.a",
+      "gobject/libgobject-2.0.a",
+      "gmodule/libgmodule-2.0.a",
+      "gio/libgio-2.0.a"
+    ],
+    "sdk_headers_sha256": "ef93b5eefe1568b7aaa6ae1c5ccf4ae437bee4b38c588724b4ec99fd002c37f2",
+    "files_sha256": {
+      "build/browser-glib-gio-wire/srvros.ini": "41b2937b7f4464f9435fb991bf84056099fcb3a9e338e9c27580c31a8c7a6fe6",
+      "build/browser-glib-gio-wire/glib-2.90.1.tar.xz": "93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396",
+      "build/browser-glib-gio-wire/proxy-libintl-0.5.tar.gz": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "build/browser-glib-unix-watch/glib-2.90.1/glib/gstdio.c": "0575362d95fa96bcdfc8b5180ef37b67dccbb254495c7e22cdd31ad944f4ecd4",
+      "build/sysroot/srvros/include/limits.h": "b892cfff849b4e0afd5dbacbcb88fe281bc982760d74280f19a7e2bfada04339",
+      "build/sysroot/srvros/include/fcntl.h": "f60df4a0bb08e9438d836b0cb7c0c4c4794c92faa42fdf2b22c71f8783892cf5",
+      "build/browser-glib-creat/sdk-build.log": "e38224784064a9972c2cfbd9ef79cad4b1e63a0497beeef4403dc52781f1aab8",
+      "build/browser-glib-creat/sdk-build-main.log": "fef35a8a29896079532f988d5367b01e03d277146479f57a90ce3a7d2cad673d",
+      "build/browser-glib-creat/fd-io-restart.log": "08373a96941b655cd65cbc4d1b4778f07a93242ba78a08fbba03b2ea0bf7528f",
+      "build/browser-glib-creat/configure.log": "58babd4da5697355d411ee3d1c4d52766fe7bcb815f7c2c959d40b46ad7e2025",
+      "build/browser-glib-creat/glib-build/meson-logs/meson-log.txt": "b15671ed670ae510e8fbe2714c9ea78d5e458b0d90395853739d3f997b5ee79b",
+      "build/browser-glib-creat/gstdio-object.log": "8374734f1376452a1b8cf92d7f7dc10e0361ef1324b5004777f796c067afd975",
+      "build/browser-glib-creat/glib-build/glib/libglib-2.0.a.p/gstdio.c.o": "2e2127df85b9b70be8fddffb6b61bd9a2b91843d72c246216b4903c3b230fc21",
+      "build/browser-glib-creat/static-glib-gio.log": "ed70a1ff91c4eed45060e0cc595ec39c0ee8f589448ca6496d81db5c6cac90d3",
+      "tools/browser_glib_iconv.py": "10887545a0a488cf68721ce4b4551e466045b99d0fbc0fcf8758c6cb3bdc1903",
+      "tools/glib-srvros-poll.patch": "feb152850547f363760168747a4fbbb8470699cdad56f1fa0253d2c5d3c6c739",
+      "tools/glib-srvros-unix-watch.patch": "331d952d9f55d130c603cc23361d2db07d4ceb6b49809e1e20cf9729dbff4b10",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "build/sysroot/srvros/lib/libsrvros.a": "74020f4f288f1ab547e65b519173c7ccef995aecbdc57b4f0c3191ed370c012e",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912"
+    },
+    "provider_archives_sha256": {
+      "target-iconv/lib/libiconv.a": "c17462fa21006a99f3c37b3113db64fbea1966cd17e6142bca44d26ddc0414eb",
+      "target-pcre2/lib/libpcre2-8.a": "b6f5caa810ec0bb15fec468dc09f7e462152896b4b1770cf614d273da5cba137",
+      "target-libffi/lib/libffi.a": "e22331882fe6e5fbb73fd8de9ba528a33d46efb2a6a1e7df906eacdaa6e3f0a9",
+      "target-zlib/lib/libz.a": "935cc2105653f6f59c030c13ebdd0c5357272056712da588942f6696fea46411",
+      "target-proxy-intl/lib/libintl.a": "6eb387aeda75a0687b10e591f112dbfcc02a8b8b281a5e436158b622a4b5100a"
+    },
+    "static_errors": [
+      "glib/glib-unix.c:81:18: error: static assertion failed due to requirement 'sizeof(int) == sizeof(long)': Expression evaluates to false",
+      "glib/glib-unix.c:82:18: error: static assertion failed due to requirement '_Alignof(int) == _Alignof(long)': Expression evaluates to false",
+      "glib/glib-unix.c:1012:4: error: \"g_unix_fd_query_path() not supported on this platform\""
+    ],
+    "host_fd_regression": "passed"
+  },
+  "guest": {
+    "result": "passed",
+    "guest_stopped": true,
+    "scope": "native SrvrOS prerequisites with a disposable exFAT disk",
+    "source": "aa91fb67db3d8ef1b98b978e376b3d0625b7c09a",
+    "sdk_headers_sha256": "ef93b5eefe1568b7aaa6ae1c5ccf4ae437bee4b38c588724b4ec99fd002c37f2",
+    "inputs_sha256": {
+      "tools/glib_platform_guest.py": "10d6aec5e64c61511df955903fdfce9e69833c7c058959ce04f9dd6a660046d7",
+      "tools/test_glib_platform_guest.c": "9f60d3876e52aa892920fd86c7264e98c26ae88822207819714e44db947a1329",
+      "userspace/guifail/wait_capture.c": "b2dd98410ded0f1b22f1fbb2db764a7a2d1a8fdcebda086467829179c33556a7",
+      "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "tools/pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+      "tools/browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+      "tools/signal_public_guest.py": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045",
+      "build/tooling/zig/zig": "c65cd34917923f575448cc0603dd7c2326da0af0e5c323043d090662dcdf351c",
+      "build/kernel/srvros.elf": "0a1775311b34fb8b2180261f5fbcdfe9a5d19e1132b0f03e62d1d6dbca063cda",
+      "build/userspace/init.elf": "d0dca317905ca4540bb17b4fa27bb237af00b289c371dc2823f572e6f05cdb2d",
+      "build/sysroot/srvros/lib/libsrvros.a": "74020f4f288f1ab547e65b519173c7ccef995aecbdc57b4f0c3191ed370c012e",
+      "build/sysroot/srvros/lib/crt0.o": "196c37e98602c9c6251683a60497842579ee239db72ce399fbb771516f4c3047",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/limine-binary/limine": "22e06d7db704904f40420baf7d975ce79cfc7777cc92d34bdbda46295ea9c9bd",
+      "build/limine-binary/limine-bios.sys": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2",
+      "build/limine-binary/limine-bios-cd.bin": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2",
+      "tools/test_glib_file_policy_guest.c": "26821d0174ef328d247ec12c96dae9fa433d9c60201e3fc767a0d05c80356041",
+      "tools/mk_exfat_image.py": "ec2d611a7b45e028dfa0e772b9e0e20030d3d2c5cf1072f1d343ce05bc62c3f2",
+      "tools/audio_fixture.py": "e194bb1ee22eddcd6b14ae0edfdb6c752eb44fa8c333ab707dff7d42d1956a92"
+    },
+    "payload_sha256": "636340022eaf408cb01c2676e841483fe261d9daefbc0a01cea3d7758ab33d68",
+    "file_policy_payload_sha256": "06016775d58f9ec050ae471c9994996bfc30996d4ac159f2d199d87301b20c3c",
+    "workspace_before_sha256": "759172eb86c46cbe8d8b8f2279d49e432d18050915efd4fadd040fb23e6cdf7a",
+    "image_sha256": "2d6eee4580019e7140f7c0349988a1ed4b88604b31faf25cc42e4f4fc376c8df",
+    "qemu_argv": [
+      "qemu-system-x86_64",
+      "-name",
+      "SrvrOS GLib prerequisite probe",
+      "-machine",
+      "q35",
+      "-accel",
+      "tcg,thread=single",
+      "-cpu",
+      "qemu64",
+      "-smp",
+      "1",
+      "-m",
+      "512M",
+      "-cdrom",
+      "build/browser-glib-prereq/guest-bhb73o3l/guest.iso",
+      "-boot",
+      "d",
+      "-display",
+      "none",
+      "-serial",
+      "unix:/tmp/srv-glib-bzam4fhf/serial,server=on,wait=off",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-nic",
+      "none",
+      "-drive",
+      "if=none,id=workspace,file=build/browser-glib-prereq/guest-bhb73o3l/workspace.exfat,format=raw",
+      "-device",
+      "ich9-ahci,id=workspace-ahci",
+      "-device",
+      "ide-hd,drive=workspace,bus=workspace-ahci.0"
+    ],
+    "tests": [
+      {
+        "program": "glib-platform",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-platform",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-file-policy",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "glib-file-policy",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "serial_sha256": "6fd4b7330d80ef73b7ded07b2c403ec4cd45201e95c17d0a618f8520a9f25f8d",
+    "workspace_after_sha256": "2c234c080981262558ae7140c723c3a107960a5413fd292ddcb6f9842d3f03f3"
+  },
+  "iso_and_guest_readback": {
+    "kernel_sha256": "0a1775311b34fb8b2180261f5fbcdfe9a5d19e1132b0f03e62d1d6dbca063cda",
+    "initramfs_sha256": "6fbcf4901317b9a283707e2573eedd45cc26a3f50cdc060d4820ebbfc54254bd",
+    "packed_elf_sha256": {
+      "init": "8a7006f19835bfc3d63b90d349c41e0b19dc3b690f58d8bea48e7c249f0f4e36",
+      "glib-platform": "e7d8f2e2079a67dd18cc87c8f288b211091b7d7f4d21511d8c2b1e43c3ceb7a3",
+      "glib-file-policy": "7511958ef44064c1eb6c4af6c6851902faced8b39fe44c4e7e3f50653f6fd25c"
+    },
+    "serial_zero_exits": 4,
+    "exfat_mounted": true,
+    "test_directory_removed": true
+  }
+}

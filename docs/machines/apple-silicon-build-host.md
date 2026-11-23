@@ -276,16 +276,18 @@ Integration found no active signal-runtime owner or overlapping change.
 The implementation uses the existing SDK signal and wait APIs. A matched
 diskless Q35 guest passed both child-watch and both platform runs. The
 browser window returned to integration. The GLib main-loop and wakeup
-objects compile. The static build stops at `creat()`; the independent
+objects compile. That static build stopped at `creat()`. The independent
 `glib-unix.c` PID and descriptor-path gates also block the linked GLib
 watch test. See the [Unix watch receipt](../assets/evidence/glib-unix-watch/receipt.json).
 
 ## GLib file creation — November 22, 2026
 
 The browser topic adds the filesystem owner's reviewed SDK `creat()`
-wrapper. It uses the existing file-open path. The checkpoint is a private
-exFAT proof for creation, truncation, mode and error handling, then a
-`gstdio.c` object build and the first static GLib/GIO build result.
+wrapper to the existing file-open path. A private Q35 exFAT guest passed
+two file-policy and two platform runs, then stopped and released the VM
+window. The pinned `gstdio.c` object compiles. The static GLib/GIO build
+stops at the PID layout and descriptor-path gates in `glib-unix.c`.
+See the [file creation receipt](../assets/evidence/glib-creat/receipt.json).
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 
