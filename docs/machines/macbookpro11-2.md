@@ -91,6 +91,17 @@ USB hold writes the diagnostic tail to the bound internal journal instead.
 The local `pro112-wifi-hub-repair-cold/run.json` owns one-shot state and return
 collection; hardware acceptance is pending.
 
+Native session `session-000660f52dc84830-00` accepted one Demers5 Connect and
+Disconnect through Edimax on hub port 2 with all three dongles present. The
+saved command receipt measured the predicted frontier 51 and verified wrap to
+0 with 16 command positions reserved. The WPA handshake, DHCP lease, gateway
+ping, DNS lookup, key erasure and provider retirement all passed. `exit.log`
+and all seven internal journal checkpoints survived. SrvrOS unmounted the
+workspace and returned to Ubuntu; all 566 pre-existing files were intact and
+the filesystem check was clean. The Text save/reopen check has no receipt in
+this run. The terminal-hold journal path was not exercised. The exact payload
+and return evidence are preserved under `evidence-227874258a004d3d`.
+
 For the Realtek devices, the observed interfaces are both vendor-specific.
 Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
 has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Ubuntu selected
