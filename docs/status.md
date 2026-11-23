@@ -23,11 +23,11 @@ build graph. The native resolver and DNS decoder passed twice in the diskless
 guest against a private DNS peer. GIO's resolver and GLib's file-utilities
 objects compile. No-follow file checks passed on initramfs and a private
 exFAT disk. GLib's hostname utilities compile and the native hostname checks
-passed. GLib's main-loop and wakeup objects compile, and native child
-signal wake and targeted-reap checks passed. The SDK's `creat()` passed on
-private exFAT and `gstdio.c` compiles. The static build and linked GLib
-child-watch test are blocked by the `GPid` layout mismatch and missing
-descriptor-path support in `glib-unix.c`.
+passed. The SDK's `creat()` passed on private exFAT and `gstdio.c` compiles.
+With the corrected `GPid` ABI and an explicit unsupported descriptor-path
+result, a target GLib-linked child-watch test passed twice. Static GLib,
+GObject and GModule archives build. Static GIO next stops at missing
+`<fnmatch.h>` in its XDG MIME code.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains

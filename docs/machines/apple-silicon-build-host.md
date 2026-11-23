@@ -291,11 +291,17 @@ See the [file creation receipt](../assets/evidence/glib-creat/receipt.json).
 
 ## Linked GLib child watch — November 22, 2026
 
-The browser topic starts from merged PR #522 at `577ffcd1`. The
-filesystem owner reviewed the descriptor-path boundary. Pinned GLib
-will match the existing SDK PID ABI and return a typed unsupported error
-for descriptor paths. Verification uses the rebuilt SDK and a private
-Q35 guest running a test linked against target GLib.
+The browser topic starts from merged PR #522 at `577ffcd1` and uses its
+verified SDK and boot inputs. The filesystem owner reviewed the
+descriptor-path boundary. Pinned GLib now matches the existing SDK PID
+ABI and returns `G_FILE_ERROR_NOSYS` for descriptor paths.
+
+The private diskless Q35 guest completed both native platform, both native
+child-watch and both linked GLib child-watch runs, with six zero exits.
+ISO readback matched all packed executables and the kernel. The guest
+stopped and released the VM window. Static GLib, GObject and GModule
+archives built. Static GIO stops at missing `<fnmatch.h>`.
+See the [linked child-watch receipt](../assets/evidence/glib-unix-abi/receipt.json).
 
 ## WebCore dependency and software-backend audit — November 5, 2026
 

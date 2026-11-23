@@ -28,11 +28,10 @@ GLib configures through its pinned internal `intl` fallback and the SDK's
 GIO's resolver object compiles and the target DNS decoder passes in the
 guest. GLib's file-utilities object compiles with the SDK's `ELOOP`
 declaration. The hostname utility object compiles with the SDK limits
-header, and the native hostname calls passed. GLib's main-loop and wakeup
-objects compile and the native child-watch probe passes. The SDK's
-`creat()` passed on private exFAT and `gstdio.c` compiles. Resolving PID
-layout and descriptor-path support in `glib-unix.c` is the next gate for
-the static build and integrated child-watch test.
+header, and the native hostname calls passed. The SDK's `creat()` passed
+on private exFAT and `gstdio.c` compiles. Static GLib, GObject and GModule
+archives build, and two guest runs verified the linked GLib child watch.
+The next static GIO build gate is XDG MIME's `<fnmatch.h>` requirement.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
