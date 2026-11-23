@@ -273,7 +273,7 @@ static bool gt_slot_return(void) {
 #endif
     !bootstrap_guard() || !bootstrap_tick())return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!slot_verify_reopened() || slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
+ if(!slot_queue_boundary(1) || !slot_verify_reopened() || slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
  struct vmm_alias_inventory inventory;
  if(!slot_widi_live() || !vmm_reserved_guard_close(&slot_widi.guard,&inventory,NULL))return false;
  slot_widi.closed=true;

@@ -79,6 +79,9 @@ static uint32_t intel_display_test_bank_read(unsigned);
 static void intel_display_test_bank_write(uint32_t);
 #endif
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+static void test_queue_handoff_word(unsigned, unsigned, uint32_t *);
+#endif
 #include "test_intel_ring_transition_adapter.c"
 static const char *bootstrap_mode="pass";
 static unsigned boundaries,bcache,balias,breads,bwrites,bcommands,bpci,pulses,restore_step,bdisplay;
@@ -668,6 +671,13 @@ static bool intel_display_test_range_unmap(uint64_t *physical) {
 }
 #endif
 #ifdef SRVROS_INTEL_GT_PRIMARY
+#ifdef SRVROS_INTEL_GT_FLUSH
+static void test_queue_handoff_word(unsigned e, unsigned i, uint32_t *word) {
+ if (!gt_bootstrap_native.post_bound || gt_bootstrap_native.pci_samples < 3) return;
+ unsigned phase = gt_bootstrap_native.pci_samples - 3;
+ if (i == 4 && bf(phase ? "queue-after" : "queue-before", e + 1)) *word ^= 1u << 4;
+}
+#endif
 static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH

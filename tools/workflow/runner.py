@@ -386,6 +386,7 @@ class Runner:
             manifest['independent_slot'] = 12291
             manifest['slot_backing_version'] = 1
             manifest['slot_widi_version'] = 1
+            manifest['slot_reopened_version'] = 2
         if trial_profile==FIRMWARE_IMPORT:
             manifest.update(owned_page_slot=12291, owned_page_version=4)
         self.frozen(manifest)
@@ -682,6 +683,8 @@ class Runner:
                 raise ValueError('Missing DMA backing and submission-port receipt')
             if 'slot_widi_version' in manifest and native.get('range',{}).get('widi_guard',{}).get('v') != manifest['slot_widi_version']:
                 raise ValueError('Missing slot WiDi programming guard receipt')
+            if 'slot_reopened_version' in manifest and native.get('range',{}).get('reopened_pte',{}).get('v') != manifest['slot_reopened_version']:
+                raise ValueError('Missing requester queue handoff receipt')
             if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
                 raise ValueError('Missing independent page receipt for this stage')
             if 'owned_page_version' in manifest and native.get('owned_page',{}).get('v') != manifest['owned_page_version']:
@@ -833,6 +836,8 @@ class Runner:
             coverage=native['range']['summary']
             if 'slot_backing' in native['range']:
                 record['slot_backing'] = native['range']['slot_backing']
+            if 'queue_handoff' in native['range']:
+                record['queue_handoff'] = native['range']['queue_handoff']
             if 'widi_guard' in native['range']:
                 for key in ('widi_guard', 'widi_producers', 'widi_messages', 'reopened_pte'):
                     record[key] = native['range'][key]

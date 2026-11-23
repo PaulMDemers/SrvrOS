@@ -64,6 +64,15 @@ compares both halves of the PTE with the original and reports device-side
 acknowledgements independently of the CPU exclusion. The trial keeps the
 original panel active and issues zero PTE writes.
 
+The version 2 reopened-slot receipt includes two 46-word queue snapshots.
+The driver rechecks all five rings, execution lists, flip waits, translation
+invalidation state and six context registers immediately before enabling PCI
+bus mastering and again before returning the slot. It compares each with the
+last observation of the original post-reset owner. A change on the first
+check leaves bus mastering disabled. A change on the second keeps the slot,
+RAM and WiDi exclusion held. The collector independently compares the saved
+words. Earlier slot receipts remain readable.
+
 The version 9 flush diagnostic adds an eight-bank policy capture on the
 Air7,2. It runs once between five-engine preparation and the first reset.
 It saves and restores the full MCR selector, changes only the slice/bank

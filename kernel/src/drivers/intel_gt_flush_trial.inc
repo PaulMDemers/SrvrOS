@@ -69,6 +69,38 @@ static bool slot_verify_reopened(void) {
         entry==gt_range.words[1][GT_RANGE_TAIL+2] && entry==slot_backing.plan.original;
     return gt_reopened.matched;
 }
+/* Compare against the post-reset epoch again at the two PCI boundaries.
+ * Both the slot and WiDi programming exclusion remain held. Queue identity
+ * and parser state alone cannot acknowledge the L3 or pending device DMA. */
+struct slot_queue_sample {
+    uint32_t words[INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS];
+    uint32_t context[INTEL_COMPLETION_CONTEXT];
+};
+static struct slot_queue_sample slot_queues[2];
+static unsigned slot_queue_samples, slot_queue_matches;
+
+static bool slot_queue_boundary(unsigned phase) {
+    const struct intel_completion_result *post = &gt_bootstrap_native.post;
+    if (phase > 1 || slot_queue_matches != phase || slot_queue_samples != phase ||
+        gt_bootstrap_native.command_writes != phase + 1 || gt_bootstrap_native.pci_samples != phase + 3 ||
+        !gt_bootstrap_native.post_bound || !post->complete || !post->stable ||
+        post->engine_epoch != gt_bootstrap_native.g->engine_epoch ||
+        post->enabled || post->pending || post->flip_wait || post->tlb_pending ||
+        !gt_slot_live() || !bootstrap_guard() || !bootstrap_tick()) return false;
+
+    struct slot_queue_sample *sample = &slot_queues[phase];
+    if (!completion_snapshot(gt_bootstrap_native.a, sample->words, sample->context)) return false;
+    ++slot_queue_samples;
+    for (unsigned e = 0; e < INTEL_ENGINE_COUNT; ++e)
+        for (unsigned i = 0; i < INTEL_COMPLETION_WORDS; ++i)
+            if (sample->words[e][i] != post->words[1][e][i]) return false;
+    for (unsigned i = 0; i < INTEL_COMPLETION_CONTEXT; ++i)
+        if (sample->context[i] != post->context[1][i]) return false;
+    if (!gt_slot_live() || !bootstrap_guard() || !bootstrap_tick()) return false;
+    ++slot_queue_matches;
+    return true;
+}
+
 /* Each span contains consecutive observations of one raw request. Split
  * even identical values across a reset pulse, where MMIO coverage pauses. */
 struct gt_request_span {
@@ -219,6 +251,14 @@ static bool gt_flush_sample(unsigned n) {
 }
 
 static void gt_flush_report(void) {
+    for (unsigned n = 0; n < slot_queue_samples; ++n) {
+        const struct slot_queue_sample *sample = &slot_queues[n];
+        char encoded[(sizeof(*sample)+2)/3*4+1];
+        _Static_assert(sizeof(*sample) == 46 * sizeof(uint32_t), "queue receipt word layout");
+        entry_requester_base64((const uint8_t *)sample,sizeof(*sample),encoded);
+        console_printf("intel-slot-queues: v=1 phase=%u matched=%u data=%s\n",
+            (uint64_t)n,(uint64_t)(n<slot_queue_matches),encoded);
+    }
     console_printf("intel-gam-trace: v=1 reads=%u spans=%u omitted=%u max_gap_us=%u\n",
         (uint64_t)gt_request_trace.reads, (uint64_t)gt_request_trace.used,
         (uint64_t)gt_request_trace.omitted, gt_request_trace.max_gap);
@@ -235,7 +275,7 @@ static void gt_flush_report(void) {
     for(unsigned n=0;n<gt_widi.samples;n++)
         console_printf("intel-widi-device: v=1 n=%u win=%x reset_flow=%x\n",(uint64_t)n,
             (uint64_t)gt_widi.device[n][0],(uint64_t)gt_widi.device[n][1]);
-    console_printf("intel-slot-reopened: v=1 matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
+    console_printf("intel-slot-reopened: v=2 matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
         (uint64_t)gt_reopened.matched,(uint64_t)gt_reopened.raw[0],(uint64_t)gt_reopened.raw[1],
         (uint64_t)gt_reopened.raw[2],(uint64_t)gt_reopened.access.reads,(uint64_t)gt_reopened.access.maps,
         (uint64_t)gt_reopened.access.retired,gt_reopened.access.mapped);

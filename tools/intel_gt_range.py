@@ -6,7 +6,7 @@ import struct
 from intel_gt_bootstrap import fields
 
 
-def range_result(text, parent, reset, memory, retire, owner_complete):
+def range_result(text, parent, reset, memory, retire, owner_complete, post):
     rows = [line for line in text.splitlines() if line.startswith("intel-range-")]
     if len(rows) != 3:
         raise ValueError("GGTT range receipt coverage")
@@ -119,6 +119,9 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
     producers = [line for line in text.splitlines() if line.startswith("intel-widi-producers:")]
     messages = [line for line in text.splitlines() if line.startswith("intel-widi-device:")]
     reopened = [line for line in text.splitlines() if line.startswith("intel-slot-reopened:")]
+    queue_rows = [line for line in text.splitlines() if line.startswith("intel-slot-queues:")]
+    if not guard_rows and queue_rows:
+        raise ValueError("Unexpected queue handoff")
     if len(reopened) != len(guard_rows):
         raise ValueError("Missing or duplicate reopened slot observation")
     if len(producers) != len(guard_rows) or (not guard_rows and messages):
@@ -150,13 +153,34 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
                 or (samples and guard["pages"] != 3) or (owner_complete and len(samples) != 4)):
             raise ValueError("Incomplete WiDi device samples")
         final = fields(reopened[0],"intel-slot-reopened:", "v matched high0 low high1 reads maps retired live".split(),
-                       ("high0","low","high1","live"))
+                       ("high0","low","high1","live"), versions=(1,2))
         if (not 0 <= guard["closed"] <= final["matched"] <= second["reopen_verified"]
                 or not 0 <= final["retired"] <= final["maps"] <= second["reopen_verified"]
                 or (final["maps"] != final["retired"] and not final["live"]) or final["reads"] > final["maps"]*3
                 or (final["matched"] and (final["reads"],final["maps"],final["retired"],final["live"],
                     final["high0"],final["low"],final["high1"]) != (3,1,1,0,0,0x8f004001,0))):
             raise ValueError("Invalid reopened slot observation")
+        if final["v"] == 2:
+            matches = 0
+            samples_raw = []
+            for n, line in enumerate(queue_rows):
+                row = re.fullmatch(r"intel-slot-queues: v=1 phase=([01]) matched=([01]) data=([A-Za-z0-9+/]{246}==)", line)
+                if (not row or int(row[1]) != n or matches != n or not post or not post["summary"]["complete"]
+                        or parent["pci_samples"] < 3+n or not b["acquired"]):
+                    raise ValueError("Invalid queue handoff phase")
+                expected = [e[f"w{i}"] for e in post["rows"] if e["sample"] == 1 for i in range(8)]
+                expected += [post["contexts"][1][f"c{i}"] for i in range(6)]
+                words = list(struct.unpack("<46I", base64.b64decode(row[3], validate=True)))
+                matched = int(row[2])
+                if len(expected) != 46 or 0xffffffff in words or (matched and words != expected):
+                    raise ValueError("Changed queue after reset")
+                samples_raw.append(dict(phase=n, matched=matched, words=words))
+                matches += matched
+            if (parent["commands"] == 2 and matches < 1) or (final["matched"] and matches != 2):
+                raise ValueError("Queue comparison missing at requester handoff")
+            result["queue_handoff"] = samples_raw
+        elif queue_rows:
+            raise ValueError("Unexpected queue handoff for old slot receipt")
         result["reopened_pte"] = final
         result["widi_producers"] = prod
         result["widi_messages"] = samples

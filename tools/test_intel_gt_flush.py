@@ -101,6 +101,26 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
                 self.assertEqual(result["range"]["slot"]["returned"], 0)
 
+    def test_queue_changes_hold_the_slot_before_and_after_requester_reopening(self):
+        text = observe("pass")
+        self.assertEqual([row["matched"] for row in bootstrap_result(text)["range"]["queue_handoff"]], [1,1])
+        for phase, mode in enumerate(("queue-before", "queue-after")):
+            for engine in range(5):
+                with self.subTest(phase=phase, engine=engine):
+                    failed = observe(mode, engine + 1)
+                    result = bootstrap_result(failed)
+                    self.assertFalse(result["complete"])
+                    self.assertEqual(result["summary"]["commands"], phase + 1)
+                    self.assertEqual(result["range"]["independent_slot"]["returned"], 0)
+                    self.assertEqual(result["range"]["widi_guard"]["closed"], 0)
+                    self.assertEqual(result["range"]["queue_handoff"][-1]["matched"], 0)
+                    with self.assertRaises(ValueError):
+                        bootstrap_result(failed.replace(f"phase={phase} matched=0", f"phase={phase} matched=1"))
+        for line in text.splitlines():
+            if line.startswith("intel-slot-queues:"):
+                with self.assertRaises(ValueError):
+                    bootstrap_result(text.replace(line, ""))
+
     def test_wireless_programming_guard_spans_requester_reopening(self):
         text = observe("pass")
         base = bootstrap_result(text)["range"]
@@ -140,7 +160,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=5 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=5 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -260,7 +280,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
-        old_power = re.sub(r"^intel-(?:slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
         old_power = old_power.replace("intel-range-summary: v=5 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")

@@ -202,7 +202,11 @@ static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t re
  static const uint32_t base[5]={0x2000,0x12000,0x1a000,0x1c000,0x22000},tlb[5]={0x4260,0x4264,0x4270,0x4268,0x426c},off[7]={0x30,0x34,0x38,0x3c,0x234,0x238,0x2d0};
  assert(reg==(i==7?tlb[e]:base[e]+off[i]));
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
- return intel_display_test_ring_census(e,i,out);
+ bool read_ok = intel_display_test_ring_census(e,i,out);
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if (read_ok) test_queue_handoff_word(e,i,out);
+#endif
+ return read_ok;
 #endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
  census_fault(e,i);

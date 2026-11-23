@@ -10,6 +10,10 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+This round gates PCI bus-master reopening and slot return on fresh five-engine
+queue and context reads against the same post-reset epoch. The scope is the
+Air bootstrap driver, its collector and local qualification on PR 301.
+
 Release `31cf9ad2837cdcb6` (source `b7ce1048`, session
 `session-000660eaf9bfabb7-00`) held all three WiDi programming pages
 and the slot 12291 reservation across GT reset and PCI requester reopening.

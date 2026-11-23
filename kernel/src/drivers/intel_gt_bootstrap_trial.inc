@@ -311,6 +311,7 @@ static bool command_returned(void);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
 static bool gt_slot_live(void);
+static bool slot_queue_boundary(unsigned phase);
 #endif
 static bool bootstrap_command(unsigned value) {
  unsigned issued=gt_bootstrap_native.command_writes;
@@ -326,6 +327,7 @@ static bool bootstrap_command(unsigned value) {
  if(value==7 && !command_returned())return bootstrap_fail(1024);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(value==7 && !slot_queue_boundary(0))return false;
  if(!gt_slot_live() || !bootstrap_smi_check(BOOT_SMI_PCI) || !bootstrap_tick())return false;
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
