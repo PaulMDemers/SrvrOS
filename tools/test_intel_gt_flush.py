@@ -102,6 +102,42 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
                 self.assertEqual(result["range"]["slot"]["returned"], 0)
 
+    def test_command_slots_span_reset_and_reopening(self):
+        good = bootstrap_result(observe("pass"))["range"]["command_slots"]
+        self.assertEqual((good["samples"], good["returned"], good["device_grant"]), (3, 1, 0))
+        for phase in range(3):
+            for page in (0, 6):
+                result = bootstrap_result(observe("command-slot-drift", phase*21+3*page+2))
+                slots = result["range"]["command_slots"]
+                self.assertEqual((slots["samples"], slots["returned"]), (phase, 0))
+                self.assertFalse(result["complete"])
+
+    def test_command_aperture_lifetime_and_drift(self):
+        text = observe("pass")
+        slots = bootstrap_result(text)["range"]["command_slots"]
+        fields = ("mapped", "pinned", "observations", "retired")
+        self.assertEqual(tuple(slots[k] for k in fields), (7, 7, 2, 7))
+        for mode, index, expected in (("command-aperture-map", 7, (6, 0, 0, 0)),
+                                      ("command-aperture-pin", 7, (7, 6, 0, 0)),
+                                      ("command-aperture-drift", 7, (7, 7, 1, 0)),
+                                      ("command-aperture-unmap", 7, (7, 7, 2, 6))):
+            with self.subTest(mode=mode):
+                result = bootstrap_result(observe(mode, index))
+                slots = result["range"]["command_slots"]
+                self.assertFalse(result["complete"])
+                self.assertEqual(tuple(slots[k] for k in fields), expected)
+        for value in ("observations=2", "retired=7", "pinned=7"):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(value, value[:-1] + "0"))
+
+    def test_command_backing_fault_keeps_original_reservation(self):
+        for phase in range(3):
+            result = bootstrap_result(observe("command-ram-alias", phase+1))
+            slots = result["range"]["command_slots"]
+            self.assertEqual((slots["samples"], slots["reserved"], slots["returned"], slots["freed"]),
+                             (phase, 1, 0, 0))
+            self.assertFalse(result["complete"])
+
     def test_queue_changes_hold_the_slot_before_and_after_requester_reopening(self):
         text = observe("pass")
         self.assertEqual([row["matched"] for row in bootstrap_result(text)["range"]["queue_handoff"]], [1,1])
@@ -129,6 +165,7 @@ class FlushAcknowledgements(unittest.TestCase):
             slot_backing_version=observed["slot_backing"]["v"],
             slot_widi_version=observed["widi_guard"]["v"],
             slot_reopened_version=observed["reopened_pte"]["v"],
+            command_slots_version=observed["command_slots"]["v"],
         ))
 
     def test_readonly_submission_mappings_span_both_queue_checks(self):
@@ -136,7 +173,7 @@ class FlushAcknowledgements(unittest.TestCase):
         receipt = bootstrap_result(text)["range"]["reopened_pte"]
         self.assertEqual((receipt["pinned"], receipt["restored"], receipt["ro_mask"]), (5, 5, 0))
         for mode, positions, commands in (("slot-protect", range(1,6), 1), ("slot-foreign", (1,3,5), 1),
-                                          ("slot-wp", (1,), 1), ("slot-restore", range(1,6), 2)):
+                                          ("slot-wp", (1,), 0), ("slot-restore", range(1,6), 2)):
             for position in positions:
                 with self.subTest(mode=mode, position=position):
                     result = bootstrap_result(observe(mode, position))
@@ -147,7 +184,7 @@ class FlushAcknowledgements(unittest.TestCase):
         for field in ("pinned=5", "restored=5", "ro_mask=0"):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(field, field[:-1] + "4"))
-        old = text.replace("intel-range-summary: v=6 ", "intel-range-summary: v=5 ").replace(
+        old = re.sub(r"^intel-command-slots:.*\n", "", text, flags=re.M).replace("intel-range-summary: v=7 ", "intel-range-summary: v=5 ").replace(
             "intel-slot-reopened: v=3 pinned=5 restored=5 ro_mask=0", "intel-slot-reopened: v=2")
         self.assertTrue(bootstrap_result(old)["complete"])
 
@@ -190,7 +227,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=6 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=7 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -310,8 +347,8 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
-        old_power = re.sub(r"^intel-(?:slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
-        old_power = old_power.replace("intel-range-summary: v=6 ", "intel-range-summary: v=1 ")
+        old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
+        old_power = old_power.replace("intel-range-summary: v=7 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
         old_power = old_power.replace("words0=132 words1=132", "words0=129 words1=129")

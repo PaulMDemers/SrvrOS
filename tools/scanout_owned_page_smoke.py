@@ -53,6 +53,9 @@ def main():
              ('cold-init-fault', 'PASS cold initialization retains selected status page'),
              ('cold-rollback-fault', 'PASS cold rollback retains changed reset epoch')] if args.blitter else [
         (mode, f'PASS {mode}') for mode in OWNED_PAGE_MODES]
+    if args.blitter:
+        cases.extend((mode, f'PASS {mode}') for mode in
+                     ('stale-seventh', 'swapped-translations', 'unposted-invalidate', 'stale-restore'))
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)
         iso = make_iso(directory, program)

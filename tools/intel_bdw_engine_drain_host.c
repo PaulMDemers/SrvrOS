@@ -186,6 +186,49 @@ static uint32_t bind_slot(int fd, uint32_t handle, unsigned phase, uint64_t seed
     return offset;
 }
 
+/* Exercise the cold blitter driver's CPU witness on the Air with i915
+ * retaining the PTEs and scanout. Both views reach the same private GEM object. */
+static void command_page_witness(int fd,int card,uint32_t crtc,uint32_t seed)
+{
+    enum { pages=7, words=4096/sizeof(uint32_t), probe=words-1 };
+    struct drm_i915_gem_create obj={.size=pages*4096};
+    call(fd,DRM_IOCTL_I915_GEM_CREATE,&obj,"create seven command pages");
+    struct drm_i915_gem_mmap_offset off={.handle=obj.handle,.flags=I915_MMAP_OFFSET_WB};
+    call(fd,DRM_IOCTL_I915_GEM_MMAP_OFFSET,&off,"get WB view");
+    volatile uint32_t *cpu=mmap(NULL,obj.size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,off.offset);
+    require(cpu!=MAP_FAILED,"Cannot map the WB view");
+    off=(struct drm_i915_gem_mmap_offset){.handle=obj.handle,.flags=I915_MMAP_OFFSET_GTT};
+    call(fd,DRM_IOCTL_I915_GEM_MMAP_OFFSET,&off,"get aperture view");
+    volatile const uint32_t *aperture=mmap(NULL,obj.size,PROT_READ,MAP_SHARED,fd,off.offset);
+    require(aperture!=MAP_FAILED,"Cannot map the aperture");
+    uint64_t before=frame(card,crtc);
+    uint32_t original[pages];
+    for (unsigned i=0;i<pages;i++) {
+        original[i]=cpu[i*words+probe];
+        require(aperture[i*words+probe]==original[i],"Initial aperture mismatch");
+    }
+    /* The created object is zeroed. Each nonzero tag identifies a page. */
+    uint32_t base=(seed & 0x7ffffff0u)|8u;
+    for (unsigned phase=0;phase<2;phase++) {
+        for (unsigned i=0;i<pages;i++) {
+            volatile uint32_t *word=cpu+i*words+probe;
+            *word=phase?original[i]:base+i;
+            __asm__ volatile("clflush (%0)"::"r"(word):"memory");
+        }
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+        for (unsigned i=0;i<pages;i++)
+            require(aperture[i*words+probe]==(phase?original[i]:base+i),"Translated page witness mismatch");
+    }
+    require(!munmap((void *)aperture,obj.size) && !munmap((void *)cpu,obj.size),"Cannot retire private views");
+    struct drm_gem_close close={.handle=obj.handle};
+    call(fd,DRM_IOCTL_GEM_CLOSE,&close,"release command pages");
+    uint64_t after=frame(card,crtc),deadline=monotonic_us()+100000;
+    while (after==before && monotonic_us()<deadline) after=frame(card,crtc);
+    require(after>before && active_edp(card)==crtc,"Original eDP scanout did not advance");
+    printf("PASS i915 private aperture: 7 distinct tags, 7 restored words, eDP %llu -> %llu\n",
+           (unsigned long long)before,(unsigned long long)after);
+}
+
 static void set_cache(int fd, uint32_t handle, unsigned level)
 {
     struct drm_i915_gem_caching c = {.handle = handle, .caching = level};
@@ -700,7 +743,7 @@ static void active_range(int fd, uint32_t context, int timeline, int card, uint3
 int main(int argc, char **argv)
 {
     bool range_trial = argc == 3 && !strcmp(argv[2], "--active-range");
-    require((argc == 2 || range_trial) && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD [--active-range]|--slot-loan|--independent-slot|--competing-context|--private-image|--observe-hold|--first-marker|--marker-dispatch|--marker-csb");
+    require((argc == 2 || range_trial) && geteuid() != 0, "Usage as the render user: intel-bdw-engine-drain-host TIMELINE_FD [--active-range]|--slot-loan|--independent-slot|--competing-context|--private-image|--observe-hold|--first-marker|--marker-dispatch|--marker-csb|--command-page-witness");
     char *end;
     long timeline = strtol(argv[1], &end, 10);
     bool slot_trial = !strcmp(argv[1], "--slot-loan");
@@ -711,7 +754,8 @@ int main(int argc, char **argv)
     bool dispatch_trial = observe_marker_csb || !strcmp(argv[1], "--marker-dispatch");
     bool first_marker_trial = dispatch_trial || !strcmp(argv[1], "--first-marker");
     bool image_trial = trace || !strcmp(argv[1], "--private-image");
-    if (range_trial || (!slot_trial && !independent_trial && !image_trial && !first_marker_trial)) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
+    bool command_pages=!strcmp(argv[1],"--command-page-witness");
+    if (range_trial || (!command_pages && !slot_trial && !independent_trial && !image_trial && !first_marker_trial)) require(end != argv[1] && !*end && timeline >= 3 && timeline <= INT_MAX, "Invalid timeline FD");
     int fd = open("/dev/dri/by-path/pci-0000:00:02.0-render", O_RDWR | O_CLOEXEC);
     require(fd >= 0 && parameter(fd, I915_PARAM_CHIPSET_ID) == 0x1626 &&
             parameter(fd, I915_PARAM_HAS_ALIASING_PPGTT) >= 2 && parameter(fd, I915_PARAM_HAS_LLC) &&
@@ -724,6 +768,10 @@ int main(int argc, char **argv)
     uint64_t seed;
     require(getrandom(&seed, sizeof(seed), 0) == sizeof(seed) && (uint32_t)(seed >> 32) != 0 &&
             (uint32_t)(seed >> 32) != UINT32_MAX, "Cannot obtain fresh markers");
+    if (command_pages) {
+        command_page_witness(fd,card,crtc,(uint32_t)seed);
+        return EXIT_SUCCESS;
+    }
     if (range_trial) {
         active_range(fd, context.ctx_id, (int)timeline, card, crtc, seed);
         return EXIT_SUCCESS;

@@ -48,7 +48,9 @@ static bool gt_held_read(struct gt_display_access *access, uint64_t address, uin
 static bool gt_held_read_alias(struct gt_display_access *access, const uint32_t *offsets,
                                uint32_t *out, unsigned count, bool (*live)(void),
                                bool (*allowed)(uint32_t)) {
-    if (!count || count > 8) return false;
+    /* Batches never cross a register page. The largest caller samples seven
+     * GGTT entries as high/low/high under a single read-only mapping. */
+    if (!count || count > 21) return false;
     uint32_t page = offsets[0] & ~4095u;
     for (unsigned i = 0; i < count; ++i)
         if (!allowed(offsets[i]) || (offsets[i] & ~4095u) != page) return false;

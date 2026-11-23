@@ -5,6 +5,7 @@
 #include <srvros/intel_bdw_gt_bootstrap.h>
 #include <srvros/intel_bdw_bcs_submit.h>
 #include <srvros/intel_bdw_private_vm.h>
+#include <srvros/intel_ggtt_invalidate.h>
 #include <srvros/scanout_publish.h>
 #include <srvros/scanout_transfer.h>
 
@@ -57,14 +58,13 @@ struct bdw_blitter_request {
     uint64_t last;
 };
 
-/* One request per zero-initialized object. Call cold requests via map_and_run
- * so there is a registered port lender and a path to detach the HWSP.
- * Success requires a fresh context
- * completion, queue idle and both result cache lines. Uncertain hardware
- * keeps its registered GPU reader and backing until external device recovery. */
+#ifdef SRVROS_BCS_SUBMIT_HOST_TEST
+/* Isolated port fixture for faults after publication. Production submission
+ * always passes through map_and_run and its seven translation checks. */
 bool intel_bdw_blitter_run(struct bdw_blitter_request *,const struct bdw_blitter_image *,
                           const struct bdw_blitter_device *,struct scanout_publication *,
                           const struct scanout_publish_token *);
+#endif
 
 /* Static storage. Once exposed, the transfer and DMA allocation stay alive
  * until the engine retires and the exact original entries are restored. */
@@ -75,8 +75,16 @@ struct bdw_blitter_window {
     /* Own the exact alias and exclude other CPU/device writers. During GGTT
      * publication/restoration this includes the device-side traffic block. */
     bool (*held)(void *,const struct bdw_blitter_window *,const struct scanout_transfer *);
-    bool (*complete)(void *); /* Posted stores and translation invalidation completed. */
+    /* held() also pins these supervisor UC windows and verifies their physical
+     * identities, the WB private image, and the CPU's CLFLUSH capability. */
+    volatile uint32_t *invalidate_page;
+    volatile const uint32_t *aperture_pages;
+    uint64_t invalidate_physical, aperture_physical, mmio_bytes;
     bool (*readers_retired)(void *);
+    /* Admission only. A reserved transfer stays reserved on missing proof. */
+    const struct scanout_transfer_manifest *handoff;
+    struct scanout_transfer_io provider;
+    struct scanout_space_pool *spaces;
 };
 struct bdw_blitter_mapping {
     struct scanout_publication pages;
@@ -85,6 +93,10 @@ struct bdw_blitter_mapping {
     struct scanout_space_token range;
     struct bdw_blitter_request request;
     struct bdw_blitter_window window;
+    struct intel_ggtt_invalidate invalidation[2];
+    struct intel_ggtt_invalidate_source invalidate_source[2];
+    uint32_t inherited[BDW_BLITTER_GLOBAL_PAGES];
+    unsigned verified_pages[2];
     const struct intel_bdw_gt_bootstrap *detach_reset;
     const struct intel_completion_result *detach_post;
     uint64_t detach_clock;
@@ -93,8 +105,8 @@ struct bdw_blitter_mapping {
     struct scanout_transfer *transfer;
     struct scanout_transfer_token grant;
 };
-/* The transfer owner supplies the pinned register window, synchronous translation
- * completion and device reader drain. A reserved transfer is ineligible. */
+/* An active transfer may be adopted. To promote a cold reservation in place,
+ * supply fresh device assurances from the owner that carried it across reset. */
 bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *,const struct bdw_blitter_image *,
                                   const struct bdw_blitter_device *,struct scanout_transfer *,
                                   const struct scanout_transfer_token *,const struct bdw_blitter_window *);

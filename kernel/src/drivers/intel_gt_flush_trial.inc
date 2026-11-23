@@ -69,6 +69,216 @@ static bool slot_verify_reopened(void) {
         entry==gt_range.words[1][GT_RANGE_TAIL+2] && entry==slot_backing.plan.original;
     return gt_reopened.matched;
 }
+/* Keep the seven source entries under the original reset owner's reservation.
+ * Use the observed Air firmware layout only. A fresh reservation alone carries
+ * none of the DMA or reader assurances needed to replace these entries. */
+static struct gt_display_access command_slot_access;
+static bool sampling_command_slots;
+static bool command_sampling_live(void) {
+    unsigned phase=command_slots.samples;
+    if (!sampling_command_slots || !intel_bdw_bcs_port_held(&slot_backing) ||
+        !slot_widi_live() || (phase && !command_slots_live())) return false;
+    return phase<2 ? gt_range_live(phase) :
+           phase==2 && independent_reopened && gt_bootstrap_native.command_writes==2 &&
+           gt_bootstrap_native.pci_samples==4 && bootstrap_parent() && wake_irq_off() &&
+           vmm_current_address_space()==gt_bootstrap_native.root;
+}
+
+static bool command_pte_register(uint32_t reg) {
+    uint32_t start=0x800000+8*GT_COMMAND_FIRST;
+    return reg>=start && reg<start+8*GT_COMMAND_PAGES && !(reg&3);
+}
+
+static bool command_ram_owned(void)
+{
+    uint64_t base=command_slots.physical;
+    if (!wake_irq_off() || vmm_current_address_space()!=gt_bootstrap_native.root ||
+        !intel_scanout_trial_ram(base,GT_COMMAND_FRAMES) || command_slots.ram_returned) return false;
+    for (unsigned i=0;i<GT_COMMAND_FRAMES;i++)
+        if (!pmm_frame_has_tag(base+i*4096,PMM_FRAME_DMA)) return false;
+    return true;
+}
+
+static bool command_ram_check(bool initialize)
+{
+    if (initialize) {
+        if (command_slots.physical) return false;
+        command_slots.physical=pmm_alloc_frames_tagged(GT_COMMAND_FRAMES,PMM_FRAME_DMA);
+    }
+    if (!command_ram_owned()) return false;
+    uint64_t base=command_slots.physical;
+    volatile uint32_t *ram=pmm_phys_to_virt(base);
+    if (!ram || ((uintptr_t)ram&4095)) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if (!intel_display_test_command_ram(base,ram)) return false;
+#else
+    struct vmm_alias_observation alias;
+    unsigned mtrr,pat,effective,checks;
+    if (!vmm_diagnostic_kernel_alias(gt_bootstrap_native.root,(uintptr_t)ram,base,GT_COMMAND_FRAMES,
+            gt_bootstrap_native.cache.cpu.physical_bits,&alias,NULL) || alias.pages!=GT_COMMAND_FRAMES ||
+        !alias.writable || alias.user || !x86_cache_range(&gt_bootstrap_native.cache,base,GT_COMMAND_FRAMES,
+            alias.pat_index,&mtrr,&pat,&effective,&checks) || mtrr!=6 || pat!=6 || effective!=6) return false;
+#endif
+    struct bdw_blitter_image *image=&command_slots.image;
+    if (initialize) {
+#if defined(__x86_64__) || !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+        uint32_t eax=1,ebx,ecx,edx;
+        __asm__ volatile("cpuid":"+a"(eax),"=b"(ebx),"=c"(ecx),"=d"(edx));
+        if (!(edx&(1u<<19)) || ((ebx>>8)&255u)!=8) return false;
+#endif
+        uint64_t gpu=(uint64_t)GT_COMMAND_FIRST*4096;
+        struct intel_bdw_bcs_context_config config={.ring_gpu=gpu,.context_gpu=gpu+4096,
+            .completion_gpu=gpu+3*4096,.aperture_bytes=window_result.aperture_bytes,
+            .fence_end=window_result.endpoint.fence_end,.nonce=command_slots.token.epoch,.context_id=1,
+            .vendor=0x8086,.device=0x1626};
+        /* This first request uses only BCS. Its extra global scratch pages
+         * and engine status page must be clear before they can be exposed. */
+        for (unsigned i=BDW_BCS_IMAGE_WORDS;i<GT_COMMAND_PAGES*1024;i++) ram[i]=0;
+        if (!intel_bdw_blitter_prepare(image,&config,ram,(volatile struct bdw_private_vm_image *)
+                (ram+GT_COMMAND_PAGES*1024),base,command_slots.token.epoch)) return false;
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#if defined(__x86_64__) || !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+        for (unsigned offset=0;offset<GT_COMMAND_FRAMES*4096;offset+=64)
+            __asm__ volatile("clflush (%0)"::"r"((volatile const char *)ram+offset):"memory");
+#endif
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    }
+    for (unsigned i=BDW_BCS_IMAGE_WORDS;i<GT_COMMAND_PAGES*1024;i++) if (ram[i]) return false;
+    return image->physical==base && image->global==ram && image->epoch==command_slots.token.epoch &&
+           intel_bdw_blitter_verify(image) && bootstrap_tick();
+}
+
+static bool command_ram_release(void)
+{
+    if (!command_slots.returned || !command_ram_owned()) return false;
+    pmm_free_frame_range(command_slots.physical,GT_COMMAND_FRAMES);
+    for (unsigned i=0;i<GT_COMMAND_FRAMES;i++)
+        if (!pmm_frame_has_tag(command_slots.physical+i*4096,PMM_FRAME_FREE)) return false;
+    command_slots.ram_returned=true;
+    return true;
+}
+
+/* These seven supervisor-only UC views share the original display owner's
+ * immutable-leaf guard with the five engine pages. Read the aperture only
+ * while PCI bus mastering is enabled, on either side of the native SA flush. */
+#define COMMAND_APERTURE_VA (GT_RANGE_VA + 16*4096ull)
+
+
+static bool command_aperture_open(void)
+{
+    uint64_t root=gt_bootstrap_native.root;
+    uint64_t physical=window_result.aperture_base+(uint64_t)GT_COMMAND_FIRST*4096;
+    unsigned mtrr,pat,effective,checks;
+    if (command_aperture.mapped || !slot_widi_live() || !context_wp() ||
+        !backing_device_memory(physical,GT_COMMAND_PAGES*4096,true) ||
+        !x86_cache_range(&gt_bootstrap_native.cache,physical,GT_COMMAND_PAGES,2,
+                         &mtrr,&pat,&effective,&checks) || effective) return false;
+    for (unsigned i=0;i<GT_COMMAND_PAGES;i++) {
+        uint64_t va=COMMAND_APERTURE_VA+i*4096,pa=physical+i*4096;
+        if (!bootstrap_tick()) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        if (!intel_display_test_command_aperture_map(i,va,pa)) return false;
+#else
+        uint64_t actual;
+        if (vmm_virt_to_phys_in_space(root,va,&actual) ||
+            !vmm_map_page_in_space(root,va,pa,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) return false;
+#endif
+        ++command_aperture.mapped;
+    }
+    for (unsigned first=0;first<GT_COMMAND_PAGES;first+=VMM_ALIAS_SPANS) {
+        struct vmm_alias_span spans[VMM_ALIAS_SPANS];
+        unsigned count=GT_COMMAND_PAGES-first;
+        if (count>VMM_ALIAS_SPANS) count=VMM_ALIAS_SPANS;
+        for (unsigned i=0;i<count;i++)
+            spans[i]=(struct vmm_alias_span){COMMAND_APERTURE_VA+(first+i)*4096,physical+(first+i)*4096,1};
+        if (!bootstrap_tick() || !vmm_reserved_guard_hold_readonly_registers(&slot_widi.guard,root,spans,count))
+            return false;
+        command_aperture.pinned+=count;
+    }
+    return true;
+}
+
+static bool command_aperture_sample(unsigned phase)
+{
+    if (phase==1) return command_aperture.samples==1;
+    if (command_aperture.samples!=(phase==2) || (phase==0 && !command_aperture_open()) ||
+        command_aperture.pinned!=GT_COMMAND_PAGES || !slot_widi_live() || !context_wp() ||
+        gt_bootstrap_native.command_writes!=phase || !bootstrap_guard()) return false;
+    if (phase==2 && (!command_aperture.baseline_at || !memory_records() ||
+        gt_memory.d.epoch!=gt_bootstrap_native.g->engine_epoch ||
+        gt_memory.ggtt.p.begin<command_aperture.baseline_at ||
+        gt_memory.ggtt.end>gt_bootstrap_native.last)) return false;
+    for (unsigned i=0;i<GT_COMMAND_PAGES;i++) {
+        if (!bootstrap_tick()) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        uint32_t value=intel_display_test_command_aperture_read(i);
+#else
+        uint32_t value=*(volatile const uint32_t *)(COMMAND_APERTURE_VA+i*4096+4092);
+#endif
+        if (!phase) command_aperture.original[i]=value;
+        else if (command_aperture.original[i]!=value) return false;
+    }
+    if (!phase) command_aperture.baseline_at=gt_bootstrap_native.last;
+    ++command_aperture.samples;
+    return bootstrap_guard();
+}
+
+static bool command_aperture_close(void)
+{
+    if (!slot_widi.closed || command_aperture.samples!=2 || !wake_irq_off() ||
+        vmm_current_address_space()!=gt_bootstrap_native.root) return false;
+    while (command_aperture.retired<command_aperture.mapped) {
+        unsigned i=command_aperture.mapped-1-command_aperture.retired;
+        uint64_t va=COMMAND_APERTURE_VA+i*4096;
+        uint64_t expected=window_result.aperture_base+(uint64_t)(GT_COMMAND_FIRST+i)*4096;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        if (!intel_display_test_command_aperture_unmap(i,va,expected)) return false;
+#else
+        uint64_t actual;
+        if (!vmm_virt_to_phys_in_space(gt_bootstrap_native.root,va,&actual) || actual!=expected ||
+            !vmm_unmap_page_in_space(gt_bootstrap_native.root,va,&actual) || actual!=expected ||
+            vmm_virt_to_phys_in_space(gt_bootstrap_native.root,va,&actual)) return false;
+#endif
+        ++command_aperture.retired;
+    }
+    return bootstrap_tick();
+}
+
+static bool command_slots_sample(unsigned phase) {
+    if (phase!=command_slots.samples || sampling_command_slots || phase>2) return false;
+    uint32_t regs[3*GT_COMMAND_PAGES],raw[3*GT_COMMAND_PAGES];
+    uint64_t words[GT_COMMAND_PAGES];
+    for (unsigned i=0;i<GT_COMMAND_PAGES;i++) {
+        uint32_t offset=0x800000+8*(GT_COMMAND_FIRST+i);
+        regs[3*i]=regs[3*i+2]=offset+4;
+        regs[3*i+1]=offset;
+    }
+    sampling_command_slots=true;
+    bool ok=gt_held_read_alias(&command_slot_access,regs,raw,3*GT_COMMAND_PAGES,
+                               command_sampling_live,command_pte_register);
+    sampling_command_slots=false;
+    if (!ok) return false;
+    for (unsigned i=0;i<GT_COMMAND_PAGES;i++) {
+        words[i]=(uint64_t)raw[3*i]<<32 | raw[3*i+1];
+        if (raw[3*i]!=raw[3*i+2] || words[i]!=0x8ede1001ull+i*4096) return false;
+    }
+    struct scanout_transfer_manifest source=command_slots_source(words);
+    if (!phase) {
+        /* Pin the observed firmware entries for the rest of this boot. Return
+         * the child to its lender after the trial, never to the free pool. */
+        if (!scanout_interval_import_firmware(&command_slots.firmware,source.mmio,source.aperture,
+            source.aperture_bytes,source.fence_end,(struct scanout_space_range){source.first,source.pages}) ||
+            !scanout_transfer_reserve_imported(&command_slots.transfer,&gt_slot_pool,
+            &gt_bootstrap_native.g->exclusion,&source,&command_slots.firmware,&command_slots.token)) return false;
+        for (unsigned i=0;i<GT_COMMAND_PAGES;i++) command_slots.original[i]=words[i];
+    }
+    if (!scanout_transfer_reservation_matches(&command_slots.transfer,&command_slots.token,&source) ||
+        !command_ram_check(!phase) || !command_aperture_sample(phase))
+        return false;
+    ++command_slots.samples;
+    return true;
+}
+
 /* Compare against the post-reset epoch again at the two PCI boundaries.
  * Both the slot and WiDi programming exclusion remain held. Queue identity
  * and parser state alone cannot acknowledge the L3 or pending device DMA. */

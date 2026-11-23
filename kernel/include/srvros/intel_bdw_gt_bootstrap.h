@@ -19,12 +19,15 @@ enum bdw_boot_prerequisite {
 };
 #define BDW_BOOT_REQUIRED 255u
 struct intel_bdw_gt_bootstrap;
+struct scanout_transfer;
 struct bdw_boot_binding {
  const void *owner,*provider,*lifetime;
  uint64_t root,mmio,mmio_bytes,aperture_bytes,epoch,sequence;
  uint64_t prepare,gt,hda,outer;
  uint32_t vendor,device,policy;
  uint64_t fences[BDW_BOOT_FENCES];
+ const struct scanout_transfer *command_pages;
+ uint64_t command_pages_epoch;
  const void *blitter_port_owner; /* Optional pre-reset exclusive submission claim. */
 };
 struct bdw_boot_source {

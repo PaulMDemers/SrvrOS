@@ -340,6 +340,7 @@ static bool command_returned(void);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
 static bool gt_slot_live(void);
+static bool bootstrap_command_reservation(const struct bdw_boot_binding *);
 static bool slot_queue_boundary(unsigned phase);
 #endif
 static bool bootstrap_command(unsigned value) {
@@ -452,7 +453,8 @@ static bool bootstrap_proof(void *ctx,const struct bdw_boot_source *source,struc
  if(ctx!=&gt_bootstrap_native || source!=&gt_bootstrap_native.source || !out || !bootstrap_guard() ||
  gt_bootstrap_native.command_writes!=1 || gt_bootstrap_native.prepared!=5 || !bootstrap_core_io())return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!intel_bdw_bcs_port_held(source->binding.blitter_port_owner))return false;
+ if(!intel_bdw_bcs_port_held(source->binding.blitter_port_owner) ||
+    !bootstrap_command_reservation(&source->binding))return false;
 #endif
  *out=(struct bdw_boot_proof){source,gt_bootstrap_native.g,&gt_bootstrap_native,&gt_bootstrap_native.borrow,
   gt_bootstrap_native.root,gt_bootstrap_native.g->engine_epoch,1,gt_bootstrap_native.last,BDW_BOOT_REQUIRED};
@@ -664,6 +666,8 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!slot_backing.port || !intel_bdw_bcs_port_held(&slot_backing))goto fail;
  binding->blitter_port_owner=&slot_backing;
+ binding->command_pages=&command_slots.transfer;
+ binding->command_pages_epoch=command_slots.token.epoch;
 #endif
  for(unsigned i=0;i<32;i++)binding->fences[i]=backing.sample[1].fence[i];
  if(!intel_bdw_gt_bootstrap_run(&gt_bootstrap_native.reset,&gt_bootstrap_native.source,

@@ -10,6 +10,28 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The native reset owner now imports the seven original GGTT entries at slots
+11744–11750. It allocates 19 DMA frames for the command image and its private
+page tables. The firmware reservation, private RAM and submission port span
+the full GT reset and the reopening of PCI bus mastering. The driver compares
+all seven PTEs and rechecks the image at each boundary. Seven pinned,
+read-only aperture views let the reset owner compare the original words
+across its GGTT invalidation. All 21 reset-owner tests passed locally,
+including seventh-page mapping, pinning, content drift and retirement faults.
+The firmware keeps
+the interval after the child returns it.
+
+The blitter can promote that exact reservation when the original owner
+supplies live DMA, cache and reader assurances. It then installs seven PTEs,
+invalidates the GGTT and reads a distinct temporary marker through each
+aperture page before allowing the first submission. On this Air under
+Ubuntu/i915, all seven markers and restored words matched in three runs.
+The original eDP CRTC advanced in each run. SrvrOS still needs the native
+device exclusion and drain required to promote the reservation. The most
+recent physical reset report recorded WiDi at `0x1f` and L3 at zero.
+Hardware acceptance of the new SrvrOS path remains pending.
+[Command-page handoff and qualification](../intel-bdw-bcs-flush.md#seven-page-command-handoff)
+
 The Air driver can now initialize a cold blitter queue under its own full GT
 reset. It takes the original submission port on loan, installs the private
 status page, initializes both completion cursors, and posts the first command.
@@ -26,9 +48,7 @@ Raw results are in `build/air-cold-queue/`.
 The last physical reset capture recorded an idle blitter with MI_MODE
 `0x200`, BLT_MODE zero and execution-list status one on both sides of PCI
 bus-master reopening. The new initialization and rollback still need physical
-qualification. Next, carry a live transfer for the seven command entries
-through the same reset-owner lifetime and prove translation invalidation
-before the first descriptor. The Air6,1 and Pro11,2 paths are independent.
+qualification. The Air6,1 and Pro11,2 paths are independent.
 [Cold queue lifetime](../intel-bdw-bcs-flush.md#cold-entry-after-a-full-gt-reset)
 
 The Broadwell blitter driver now prepares a standalone request for the Air.

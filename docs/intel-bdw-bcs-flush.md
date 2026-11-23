@@ -388,3 +388,52 @@ and BLT_MODE before and after PCI bus mastering reopened. That capture did
 not sample HWSTAM or HWS_PGA. Both registers are checked live at admission.
 Executing this sequence under SrvrOS still depends on the device-wide hold
 that permits publishing the seven command-page translations.
+
+## Seven-page command handoff
+
+The Air7,2 reset owner imports the seven observed firmware PTEs at slots
+11744–11750, outside the boot framebuffer fence. It pins a separate 19-frame
+DMA allocation for the blitter image and private address space. Before
+reset, after memory maintenance, and after bus mastering reopens, it checks
+every original PTE with a high/low/high read and verifies the private image.
+It also pins seven read-only, uncached CPU aperture aliases with the five
+engine-register aliases. With PCI bus mastering enabled, it reads the last
+word of every original page before reset and again after reopening. The
+second sample requires the same reset epoch and the completed native GGTT
+invalidation between the two observations. The receipt counts the aliases
+mapped, pinned and retired and the two completed aperture observations.
+These samples check preservation of the inherited aperture contents. The
+private-frame challenge below checks a replacement translation.
+
+A successful reservation trial returns the child to the firmware lender and
+frees the private allocation. A changed entry or uncertain backing retains
+the resources for recovery. New trials require an `intel-command-slots`
+receipt in the matching session.
+
+The full-reset binding carries the original transfer object and epoch.
+`intel_bdw_blitter_map_and_run` requires that binding, its live GT borrow,
+the same display exclusion and submission owner, and independent transfer
+assurances. The native diagnostic currently supplies the reservation. Device
+exclusion of prior GPU and firmware users and completion of their traffic
+remain prerequisites for promoting it.
+
+On a granted transfer, the driver writes all seven PTEs before issuing a
+single GGTT invalidation at BAR0 offset `0x101008` and a posting read. The
+driver then places a different temporary word in each private CPU frame,
+flushes each cache line and reads the corresponding word through each
+aperture page. It restores the private words and verifies them through the
+aperture before it installs the status page or posts the descriptor. On
+rollback it invalidates again and checks that the original aperture words
+remain visible while the private frames carry different markers. A stale
+translation or failed posting read keeps the publication and RAM pinned.
+The aperture reads verify CPU-visible translations. The submitted blitter's
+completion and scratch values furnish the subsequent engine-side evidence.
+[Linux i915 Gen8 GGTT invalidation](https://code.googlesource.com/linux/torvalds/linux/%2B/f032c53bea6d2057c14553832d846be2f151cfb2/drivers/gpu/drm/i915/gt/intel_ggtt.c#202)
+
+Run `make test-intel-bdw-blitter`, `make smoke-intel-bdw-blitter` and
+`make test-intel-gt-flush` for the host, guest and reset-owner checks.
+On the Air running Ubuntu, build `build/tests/intel-bdw-engine-drain-host`
+and run it as the render user with `--command-page-witness`. It checks
+CPU writeback and seven translated aperture reads on a private GEM object,
+restores the words and verifies that the original eDP CRTC advances. i915
+owns the mappings in this comparison.

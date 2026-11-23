@@ -7,46 +7,6 @@ enum { PAGE = 4096, HWS_PGA = 0x80, ELSP = 0x230, STATUS = 0x234,
        HWSTAM = 0x98, RING_CTL = 0x3c, MI_MODE = 0x9c, STOP_RING = 1u<<8,
        CSB_SLOTS = 6, EXEC_LISTS = 1u<<15, QUEUE_BUSY = (3u<<14)|0x1cu };
 
-static uint64_t vm_base(const struct bdw_blitter_image *image)
-{
-    return image->physical + BDW_BLITTER_GLOBAL_PAGES*PAGE;
-}
-
-static bool layout(const struct bdw_blitter_image *image)
-{
-    const struct intel_bdw_bcs_context_config *c = &image->config;
-    return image->global && !((uintptr_t)image->global & (PAGE-1)) && image->vm &&
-           (uintptr_t)image->global <= UINTPTR_MAX-(BDW_BLITTER_GLOBAL_PAGES+BDW_PRIVATE_PAGES)*PAGE &&
-           (uintptr_t)image->vm == (uintptr_t)image->global+BDW_BLITTER_GLOBAL_PAGES*PAGE &&
-           image->physical >= 0x100000 && !(image->physical & (PAGE-1)) &&
-           image->physical <= (1ull<<32)-(BDW_BLITTER_GLOBAL_PAGES+BDW_PRIVATE_PAGES)*PAGE &&
-           c->ring_gpu <= (1ull<<32)-BDW_BLITTER_GLOBAL_PAGES*PAGE &&
-           c->ring_gpu+BDW_BLITTER_GLOBAL_PAGES*PAGE <= c->aperture_bytes &&
-           (c->ring_gpu>=c->fence_end || c->ring_gpu+BDW_BLITTER_GLOBAL_PAGES*PAGE<=c->fence_begin) &&
-           c->context_gpu == c->ring_gpu+PAGE && c->completion_gpu == c->ring_gpu+3*PAGE &&
-           c->nonce == image->epoch;
-}
-
-bool intel_bdw_blitter_prepare(struct bdw_blitter_image *image,const struct intel_bdw_bcs_context_config *config,
-                              volatile uint32_t *global,volatile struct bdw_private_vm_image *vm,
-                              uint64_t physical,uint64_t epoch)
-{
-    if (!image || !config || image->global) return false;
-    struct bdw_blitter_image next = {.config=*config,.global=global,.vm=vm,.physical=physical,.epoch=epoch};
-    if (!layout(&next) || !intel_bdw_marker_vm_build(vm,vm_base(&next),epoch) ||
-        !intel_bdw_bcs_marker_context_build(config,vm_base(&next)+BDW_PRIVATE_PD*PAGE,global,&next.descriptor))
-        return false;
-    *image=next;
-    return true;
-}
-
-bool intel_bdw_blitter_verify(const struct bdw_blitter_image *image)
-{
-    return image && layout(image) && intel_bdw_marker_vm_verify(image->vm,vm_base(image),image->epoch) &&
-           intel_bdw_bcs_marker_context_verify(&image->config,vm_base(image)+BDW_PRIVATE_PD*PAGE,
-                                               image->global,image->descriptor);
-}
-
 static uint32_t reg(const struct bdw_blitter_request *r,unsigned offset)
 {
     return r->device.registers[offset/4];
@@ -313,12 +273,36 @@ retained:
     return false;
 }
 
+#ifdef SRVROS_BCS_SUBMIT_HOST_TEST
 bool intel_bdw_blitter_run(struct bdw_blitter_request *r,const struct bdw_blitter_image *image,
                           const struct bdw_blitter_device *device,struct scanout_publication *pages,
                           const struct scanout_publish_token *token)
 {
     /* Only the mapping owner can detach a cold engine's status page. */
     return device && !device->reset && !device->post_reset && run_request(r,image,device,pages,token);
+}
+
+#endif
+
+static bool reset_owns_pages(const struct intel_bdw_gt_bootstrap *r,const struct scanout_transfer *t)
+{
+    return r->binding.command_pages==t && r->binding.command_pages_epoch==t->epoch &&
+           r->source->binding.command_pages==t && r->source->binding.command_pages_epoch==t->epoch;
+}
+
+static bool command_transfer_ready(const struct bdw_blitter_device *d,struct scanout_transfer *t,
+                                   const struct scanout_transfer_token *grant,const struct bdw_blitter_window *w)
+{
+    if (d->reset) {
+        if (!reset_owns_pages(d->reset,t) || t->manifest.pages!=BDW_BLITTER_GLOBAL_PAGES ||
+            t->exclusion.owner!=d->post_reset->parent->exclusion.owner ||
+            t->exclusion.epoch!=d->post_reset->parent->exclusion.epoch ||
+            t->manifest.source_epoch!=t->exclusion.epoch) return false;
+        if (t->state==TRANSFER_RESERVED && (w->provider.ctx!=d->owner || w->provider.now!=d->now ||
+            !scanout_transfer_activate(t,grant,w->spaces,w->handoff,w->provider))) return false;
+        if (t->io.ctx!=d->owner || t->io.now!=d->now) return false;
+    }
+    return t->state==TRANSFER_ACTIVE && scanout_transfer_check(t,grant);
 }
 
 /* A cold mapping outlives its first command. During final rollback check the
@@ -328,10 +312,10 @@ static bool mapping_epoch_held(struct bdw_blitter_mapping *m)
 {
     if (!m->device.reset) return true;
     if (!intel_bdw_bcs_port_lent(m->device.port_owner,&m->request.port)) return false;
-    if (!m->detach_reset) return reset_matches(&m->device);
+    if (!m->detach_reset) return reset_matches(&m->device) && reset_owns_pages(m->device.reset,m->transfer);
     const struct bdw_boot_binding *b=&m->detach_reset->binding;
     const struct intel_completion_result *post=m->detach_post;
-    if (!intel_bdw_reset_epoch_live(m->detach_reset,post) || b->blitter_port_owner!=m->device.port_owner ||
+    if (!intel_bdw_reset_epoch_live(m->detach_reset,post) || !reset_owns_pages(m->detach_reset,m->transfer) || b->blitter_port_owner!=m->device.port_owner ||
         !reset_queue_matches(&m->device,post) || reg(&m->request,HWS_PGA) ||
         (reg(&m->request,MODE)&EXEC_LISTS) || (reg(&m->request,RING_CTL)&1) ||
         (reg(&m->request,STATUS)&QUEUE_BUSY) || reg(&m->request,ACTIVE_ID)) return false;
@@ -375,10 +359,104 @@ static bool exchange_entry(void *ctx,uint32_t index,uint64_t value)
     return intel_bdw_ggtt_exchange(&m->window.pte[index&511u],restore?installed:original,value)==GT_WRITE_DONE;
 }
 
+static uint64_t mapping_clock(void *ctx);
+
+static bool invalidate_guard(void *ctx,const struct intel_ggtt_invalidate_source *s)
+{
+    struct bdw_blitter_mapping *m=ctx;
+    unsigned restoring=m->pages.state==PUB_RESTORING;
+    return (restoring || m->pages.state==PUB_WRITING) && s==&m->invalidate_source[restoring] &&
+           m->pages.busy && m->pages.exposed && window_held(m);
+}
+
+static bool invalidate_read(void *ctx,uint32_t offset,uint32_t *value)
+{
+    struct bdw_blitter_mapping *m=ctx;
+    if (offset!=INTEL_GGTT_INVALIDATE_REGISTER || !window_held(m)) return false;
+    *value=m->window.invalidate_page[(offset & (PAGE-1))/4];
+    return true;
+}
+
+static enum intel_gt_write invalidate_write(void *ctx,uint32_t offset,uint32_t value)
+{
+    struct bdw_blitter_mapping *m=ctx;
+    if (offset!=INTEL_GGTT_INVALIDATE_REGISTER || value!=1 || !window_held(m)) return GT_WRITE_NONE;
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    m->window.invalidate_page[(offset & (PAGE-1))/4]=value;
+    return GT_WRITE_DONE;
+}
+
+enum { PAGE_WORDS=PAGE/sizeof(uint32_t), PROBE_WORD=PAGE_WORDS-1 };
+
+static void store_probe_word(volatile uint32_t *word,uint32_t value)
+{
+    *word=value;
+#if defined(__x86_64__) || !defined(SRVROS_BCS_SUBMIT_HOST_TEST)
+    __asm__ volatile("clflush (%0)"::"r"(word):"memory");
+#endif
+}
+
+/* Touch private RAM only. Each tag identifies one frame even if all initial
+ * image words are zero. Two observations distinguish a live translation from a
+ * coincidentally matching frozen word. Keep registers and descriptors intact. */
+static bool verify_translations(struct bdw_blitter_mapping *m,unsigned restoring)
+{
+    uint32_t saved[BDW_BLITTER_GLOBAL_PAGES], tags[BDW_BLITTER_GLOBAL_PAGES];
+    uint32_t next=(uint32_t)m->grant.epoch;
+    for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++) {
+        saved[i]=m->image->global[i*PAGE_WORDS+PROBE_WORD];
+    }
+    for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++) {
+        bool collides;
+        do {
+            ++next;
+            collides=false;
+            for (unsigned j=0;j<BDW_BLITTER_GLOBAL_PAGES;j++)
+                if (next==saved[j] || next==m->inherited[j]) collides=true;
+        } while (collides);
+        tags[i]=next;
+    }
+    if (!window_held(m)) return false;
+    for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++) {
+        volatile uint32_t *word=m->image->global+i*PAGE_WORDS+PROBE_WORD;
+        store_probe_word(word,tags[i]);
+    }
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    bool ok=window_held(m);
+    for (unsigned i=0;ok && i<BDW_BLITTER_GLOBAL_PAGES;i++)
+        ok=m->window.aperture_pages[i*PAGE_WORDS+PROBE_WORD]==(restoring?m->inherited[i]:tags[i]);
+    /* Always undo the challenge in our pinned CPU allocation, including when
+     * a stale translation or a lost device hold stops aperture reads. */
+    for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++) {
+        volatile uint32_t *word=m->image->global+i*PAGE_WORDS+PROBE_WORD;
+        store_probe_word(word,saved[i]);
+    }
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    if (!ok || !window_held(m)) return false;
+    for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++) {
+        if (m->window.aperture_pages[i*PAGE_WORDS+PROBE_WORD]!=(restoring?m->inherited[i]:saved[i]))
+            return false;
+        ++m->verified_pages[restoring];
+    }
+    return window_held(m);
+}
+
 static bool complete_entries(void *ctx)
 {
     struct bdw_blitter_mapping *m=ctx;
-    return window_held(m) && m->window.complete(m->window.owner) && window_held(m);
+    unsigned restoring=m->pages.state==PUB_RESTORING;
+    if (!window_held(m)) return false;
+    struct intel_ggtt_invalidate_source *s=&m->invalidate_source[restoring];
+    const struct bdw_boot_binding *b=m->detach_reset ? &m->detach_reset->binding : 0;
+    s->object=s;
+    s->binding=(struct intel_ggtt_invalidate_binding){
+        .owner=m->device.owner,.provider=m,.lifetime=m->transfer,.root=m->device.root,
+        .epoch=m->grant.epoch,.sequence=1+restoring,.mmio=m->device.mmio,.mmio_bytes=m->window.mmio_bytes,
+        .prepare_begin=b?b->prepare:m->device.prepare,.gt_begin=b?b->gt:m->device.gt,
+        .hda_begin=b?b->hda:m->device.hda,.outer_begin=b?b->outer:m->device.outer,
+        .vendor=m->image->config.vendor,.device=m->image->config.device};
+    struct intel_ggtt_invalidate_io io={m,invalidate_guard,invalidate_read,invalidate_write,mapping_clock};
+    return intel_ggtt_invalidate_run(&m->invalidation[restoring],s,io) && verify_translations(m,restoring);
 }
 
 static bool readers_done(void *ctx)
@@ -407,19 +485,24 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
                                   const struct bdw_blitter_device *device,struct scanout_transfer *t,
                                   const struct scanout_transfer_token *grant,const struct bdw_blitter_window *window)
 {
-    if (!m || m->range.object || m->pages.object || !t || !grant || t->state!=TRANSFER_ACTIVE ||
+    if (!m || m->range.object || m->pages.object || !t || !grant ||
         t->device_publication || !device || !device->held || !image ||
         !window || !window->pte || ((uintptr_t)window->pte&(PAGE-1)) || !window->owner ||
-        !window->held || !window->complete || !window->readers_retired ||
+        !window->held || !window->readers_retired || !window->invalidate_page || !window->aperture_pages ||
+        (((uintptr_t)window->invalidate_page | (uintptr_t)window->aperture_pages) & (PAGE-1)) ||
+        (uintptr_t)window->aperture_pages>UINTPTR_MAX-BDW_BLITTER_GLOBAL_PAGES*PAGE ||
         (t->manifest.first&511u)>512-BDW_BLITTER_GLOBAL_PAGES ||
         image->epoch!=grant->epoch || t->manifest.mmio!=device->mmio || !device_ready(device,image) ||
         (uint64_t)t->manifest.first*PAGE!=image->config.ring_gpu ||
         t->manifest.pages<BDW_BLITTER_GLOBAL_PAGES || t->manifest.aperture_bytes!=image->config.aperture_bytes ||
-        t->manifest.fence_begin!=image->config.fence_begin || t->manifest.fence_end!=image->config.fence_end ||
-        !scanout_transfer_check(t,grant)) return false;
+        t->manifest.fence_begin!=image->config.fence_begin || t->manifest.fence_end!=image->config.fence_end) return false;
     uint64_t offset=0x800000ull+(t->manifest.first/512ull)*PAGE;
-    if (offset>UINT64_MAX-t->manifest.mmio || window->physical!=t->manifest.mmio+offset ||
-        !window->held(window->owner,window,t)) return false;
+    if (window->mmio_bytes<offset+PAGE || device->mmio>UINT64_MAX-window->mmio_bytes ||
+        window->invalidate_physical!=device->mmio+(INTEL_GGTT_INVALIDATE_REGISTER & ~(PAGE-1)) ||
+        t->manifest.aperture>UINT64_MAX-image->config.aperture_bytes ||
+        window->aperture_physical!=t->manifest.aperture+image->config.ring_gpu ||
+        window->physical!=t->manifest.mmio+offset ||
+        !command_transfer_ready(device,t,grant,window) || !window->held(window->owner,window,t)) return false;
     struct scanout_publish_io io={m,window_held,read_entry,exchange_entry,complete_entries,readers_done,mapping_clock};
     uint64_t entries[BDW_BLITTER_GLOBAL_PAGES];
     for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++) entries[i]=(image->physical+i*PAGE)|1;
@@ -428,8 +511,9 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
     for (unsigned i=0;i<t->manifest.pages;i++) {
         uint64_t old;
         if (!scanout_transfer_original(t,grant,t->manifest.first+i,&old)) return false;
+        if (i<BDW_BLITTER_GLOBAL_PAGES && !(old&1)) return false;
         uint64_t frame=old & ((1ull<<39)-PAGE); /* Air7,2 physical address bits 38:12 */
-        if ((old&1) && frame>=image->physical && frame<vm_base(image)+sizeof(*image->vm)) return false;
+        if ((old&1) && frame>=image->physical && frame<image->physical+BDW_BLITTER_GLOBAL_PAGES*PAGE+sizeof(*image->vm)) return false;
     }
     if (!scanout_space_reserve(&t->space,t->owner,t->arena_epoch,BDW_BLITTER_GLOBAL_PAGES,1,&m->range))
         return false;
@@ -444,20 +528,28 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
     /* Keep transfer close from releasing the parent across provider callbacks,
      * including a partially issued PTE store or uncertain context save. */
     m->image=image; m->device=*device; m->window=*window; m->grant=*grant; m->transfer=t;
+    m->window.handoff=0;
+    m->window.spaces=0;
+    m->window.provider=(struct scanout_transfer_io){0};
     t->device_publication=&m->pages;
     if (!scanout_publish_prepare(&m->pages,&m->pool,t->owner,&t->space,&m->range,entries,
                                  BDW_BLITTER_GLOBAL_PAGES,&io,&m->publication) ||
-        !scanout_publish_apply(&m->pages,&m->publication)) {
-        if (!m->pages.exposed && t->device_publication==&m->pages && scanout_transfer_check(t,grant) &&
-            scanout_space_release(&t->space,&m->range)) {
-            if (!device->reset || intel_bdw_bcs_port_return(device->port_owner,&m->request.port))
-                t->device_publication=0;
-        }
-        return false;
-    }
-    if (!scanout_transfer_check(t,grant) ||
+        !window_held(m)) goto publication_failed;
+    for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++)
+        m->inherited[i]=window->aperture_pages[i*PAGE_WORDS+PROBE_WORD];
+    if (!window_held(m) || !scanout_publish_apply(&m->pages,&m->publication)) goto publication_failed;
+    if (m->verified_pages[0]!=BDW_BLITTER_GLOBAL_PAGES || !m->invalidation[0].complete ||
+        !scanout_transfer_check(t,grant) ||
         !run_request(&m->request,image,device,&m->pages,&m->publication)) return false;
     return m->request.state==BDW_BLITTER_STATUS_PINNED || return_mapping(m);
+
+publication_failed:
+    if (!m->pages.exposed && t->device_publication==&m->pages && scanout_transfer_check(t,grant) &&
+        scanout_space_release(&t->space,&m->range)) {
+        if (!device->reset || intel_bdw_bcs_port_return(device->port_owner,&m->request.port))
+            t->device_publication=0;
+    }
+    return false;
 }
 
 bool intel_bdw_blitter_detach(struct bdw_blitter_mapping *m,const struct intel_bdw_gt_bootstrap *reset,
@@ -467,7 +559,7 @@ bool intel_bdw_blitter_detach(struct bdw_blitter_mapping *m,const struct intel_b
         return false;
     struct bdw_blitter_request *r=&m->request;
     const struct intel_bdw_gt_bootstrap *original=r->device.reset;
-    if (!original || original==reset || reset->binding.epoch!=original->binding.epoch+1 ||
+    if (!reset_owns_pages(reset,m->transfer) || !original || original==reset || reset->binding.epoch!=original->binding.epoch+1 ||
         original->binding.owner!=reset->binding.owner || original->binding.provider!=reset->binding.provider ||
         reset->binding.root!=r->device.root || reset->binding.mmio!=r->device.mmio ||
         reset->binding.blitter_port_owner!=r->device.port_owner ||

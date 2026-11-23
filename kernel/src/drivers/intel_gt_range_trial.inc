@@ -135,9 +135,48 @@ static struct scanout_transfer_manifest gt_slot_source(unsigned sample) {
 
 #ifdef SRVROS_INTEL_GT_FLUSH
 #include <srvros/intel_bdw_bcs_port.h>
+#include <srvros/intel_bdw_blitter.h>
 #include <srvros/intel_bdw_ggtt.h>
 #include "intel_alias_ram.inc"
 static struct scanout_transfer independent_slot;
+enum { GT_COMMAND_FIRST = 11744, GT_COMMAND_PAGES = BDW_BLITTER_GLOBAL_PAGES,
+       GT_COMMAND_FRAMES = GT_COMMAND_PAGES+BDW_PRIVATE_PAGES };
+static struct {
+ struct scanout_interval firmware;
+ struct scanout_transfer transfer;
+ struct scanout_transfer_token token;
+ struct bdw_blitter_image image;
+ uint64_t original[GT_COMMAND_PAGES],physical;
+ bool ram_returned;
+ unsigned samples;
+ bool returned;
+} command_slots;
+static struct {
+    uint32_t original[GT_COMMAND_PAGES];
+    uint64_t baseline_at;
+    unsigned mapped,pinned,samples,retired;
+} command_aperture;
+static bool command_slots_sample(unsigned phase);
+static bool command_ram_release(void);
+static bool command_aperture_close(void);
+static struct scanout_transfer_manifest command_slots_source(const uint64_t *original) {
+ struct scanout_transfer_manifest source=gt_slot_source(0);
+ source.first=GT_COMMAND_FIRST;
+ source.pages=GT_COMMAND_PAGES;
+ source.original=original;
+ return source;
+}
+static bool command_slots_live(void) {
+ struct scanout_transfer_manifest source=command_slots_source(command_slots.original);
+ return command_slots.firmware.firmware &&
+        scanout_interval_held(&command_slots.firmware,source.mmio,source.aperture,source.aperture_bytes,
+                              source.fence_end,(struct scanout_space_range){source.first,source.pages}) &&
+        scanout_transfer_reservation_matches(&command_slots.transfer,&command_slots.token,&source);
+}
+static bool bootstrap_command_reservation(const struct bdw_boot_binding *b) {
+ return b->command_pages==&command_slots.transfer &&
+        b->command_pages_epoch==command_slots.token.epoch && command_slots_live();
+}
 static bool slot_widi_preflight(void);
 static bool slot_verify_reopened(void);
 static bool slot_submission_restore(void);
@@ -163,11 +202,13 @@ static bool slot_widi_live(void) {
  * touching the requester. The display HDA owner remains borrowed throughout. */
 static bool slot_widi_begin(uint64_t original) {
  struct vmm_alias_inventory inventory;
- struct vmm_physical_span backing_page={.physical=original&~4095ull,.pages=1};
+ const struct vmm_physical_span backing_pages[]={
+  {original&~4095ull,1},{0x8ede1000ull,GT_COMMAND_PAGES}
+ };
  uint64_t root=gt_bootstrap_native.root;
  if(!wake_irq_off() || !intel_hda_gpu_live(&joint.scope) || original!=0x8f004001ull ||
     !intel_alias_ram_prepare(&slot_widi.ram,memmap_request.response) ||
-    !vmm_reserved_guard_begin_io_page(&slot_widi.guard,root,&backing_page,1,
+    !vmm_reserved_guard_begin_io_page(&slot_widi.guard,root,backing_pages,2,
        gt_bootstrap_native.cache.cpu.physical_bits,slot_widi.ram.ranges,slot_widi.ram.count,
        window_result.aperture_base+(uint64_t)GT_SECOND_SLOT*4096,&inventory,NULL))return false;
  slot_widi.acquired=true;
@@ -231,7 +272,7 @@ static bool independent_matches(unsigned sample) {
 static bool gt_slot_live(void) {
  if(!gt_bootstrap_native.g)return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!slot_widi_live() || !intel_bdw_bcs_port_held(&slot_backing) || !independent_matches(gt_slot_checked?1:0))return false;
+ if(!command_slots_live() || !slot_widi_live() || !intel_bdw_bcs_port_held(&slot_backing) || !independent_matches(gt_slot_checked?1:0))return false;
 #endif
  struct scanout_transfer_manifest source=gt_slot_source(gt_slot_checked?1:0);
  return scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source);
@@ -260,6 +301,7 @@ static bool gt_slot_boundary(unsigned phase) {
  if(!slot_widi_live())return false;
  if(!phase)slot_backing.port=intel_bdw_bcs_port_claim(&slot_backing);
  if(!slot_backing.port || !independent_matches(phase) || !independent_backing(phase,!phase))return false;
+ if(!command_slots_sample(phase))return false;
 #endif
  if(phase)gt_slot_checked=true;
  return true;
@@ -274,11 +316,14 @@ static bool gt_slot_return(void) {
 #endif
     !bootstrap_guard() || !bootstrap_tick())return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!slot_queue_boundary(1) || !slot_verify_reopened() || slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
+ if(!slot_queue_boundary(1) || !command_slots_sample(2) || !slot_verify_reopened() || slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
  struct vmm_alias_inventory inventory;
+ if(!command_slots_live() || !scanout_transfer_close(&command_slots.transfer,&command_slots.token))return false;
+ command_slots.returned=true;
+ if(!command_ram_release())return false;
  if(!slot_widi_live() || !vmm_reserved_guard_close(&slot_widi.guard,&inventory,NULL))return false;
  slot_widi.closed=true;
- if(!bootstrap_tick() || !scanout_transfer_close(&independent_slot,&independent_token))return false;
+ if(!command_aperture_close() || !bootstrap_tick() || !scanout_transfer_close(&independent_slot,&independent_token))return false;
  independent_returned=true;
 #endif
  if(!scanout_transfer_close(&gt_slot,&gt_slot_token))return false;
@@ -317,7 +362,12 @@ static bool gt_range_capture(unsigned phase) {
 }
 static void gt_range_report(void) {
 #if defined(SRVROS_INTEL_GT_FLUSH)
- const unsigned version=6;
+ const unsigned version=7;
+ console_printf("intel-command-slots: v=1 first=%u pages=%u samples=%u reserved=%u returned=%u ram=%x freed=%u mapped=%u pinned=%u observations=%u retired=%u device_grant=0\n",
+  (uint64_t)GT_COMMAND_FIRST,(uint64_t)GT_COMMAND_PAGES,(uint64_t)command_slots.samples,
+  (uint64_t)(command_slots.token.object!=NULL),(uint64_t)command_slots.returned,command_slots.physical,
+  (uint64_t)command_slots.ram_returned,(uint64_t)command_aperture.mapped,(uint64_t)command_aperture.pinned,
+  (uint64_t)command_aperture.samples,(uint64_t)command_aperture.retired);
  console_printf("intel-slot-widi: v=1 acquired=%u pages=%u closed=%u device_grant=0\n",
   (uint64_t)slot_widi.acquired,(uint64_t)slot_widi.pages,(uint64_t)slot_widi.closed);
  console_printf("intel-slot-backing: v=1 physical=%x original=%x planned=%x checks=%u acquired=%u held=%u freed=%u pte_writes=0\n",

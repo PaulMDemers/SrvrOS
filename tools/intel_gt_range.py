@@ -15,7 +15,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",), versions=(1, 2, 3, 4, 5, 6),
+        ("live",), versions=(1, 2, 3, 4, 5, 6, 7),
     )
     dual = summary["v"] >= 3
     batches = 3 if dual else 2
@@ -197,4 +197,29 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
         result["widi_producers"] = prod
         result["widi_messages"] = samples
         result["widi_guard"] = guard
+    commands = [line for line in text.splitlines() if line.startswith("intel-command-slots:")]
+    if len(commands) != int(summary["v"] >= 7):
+        raise ValueError("Command slot reservation receipt coverage")
+    if commands:
+        slots = fields(commands[0], "intel-command-slots:",
+                       "v first pages samples reserved returned ram freed mapped pinned observations retired device_grant".split(), ("ram",))
+        samples = slots["samples"]
+        if ((slots["first"], slots["pages"], slots["device_grant"]) != (11744, 7, 0)
+                or samples > 3 or slots["reserved"] not in (0, 1) or int(samples > 0) > slots["reserved"]
+                or (slots["ram"] and (not slots["reserved"] or slots["ram"] < 0x100000
+                    or slots["ram"] % 4096 or slots["ram"] > (1 << 32) - 19*4096))
+                or (samples and not slots["ram"]) or not 0 <= slots["freed"] <= slots["returned"]
+                or not 0 <= slots["pinned"] <= slots["mapped"] <= 7
+                or not 0 <= slots["retired"] <= slots["mapped"]
+                or (slots["retired"] and not guard["closed"])
+                or not int(samples > 0) + int(samples == 3) <= slots["observations"] <= 2
+                or (slots["observations"] and slots["pinned"] != 7)
+                or (slots["observations"] == 2 and parent["pci_samples"] != 4)
+                or (owner_complete and (not slots["freed"] or slots["retired"] != 7))
+                or not phase <= samples <= phase + 1
+                or (samples == 3 and parent["pci_samples"] != 4)
+                or not 0 <= slots["returned"] <= int(samples == 3)
+                or (owner_complete and not slots["returned"])):
+            raise ValueError("Command slot reservation lifetime")
+        result["command_slots"] = slots
     return result

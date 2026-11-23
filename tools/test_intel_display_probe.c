@@ -600,13 +600,26 @@ const struct acpi_table_info *acpi_table_at(uint64_t i){return i==0?&dsdt:i==1 &
 #ifdef SRVROS_INTEL_GT_FLUSH
 #define TEST_BACKING_PA 0x01000000ull
 static uint64_t test_backing_page[512] __attribute__((aligned(4096)));
-static bool test_backing_allocated;
+static bool test_backing_allocated, test_command_allocated;
+#define TEST_COMMAND_PA 0x01200000ull
+static uint32_t test_command_ram[GT_COMMAND_FRAMES*1024] __attribute__((aligned(4096)));
+uint64_t pmm_alloc_frames_tagged(uint64_t count,enum pmm_frame_tag tag) {
+ assert(count==GT_COMMAND_FRAMES && tag==PMM_FRAME_DMA && !test_command_allocated);
+ test_command_allocated=true;
+ return TEST_COMMAND_PA;
+}
+void pmm_free_frame_range(uint64_t pa,uint64_t count) {
+ assert(pa==TEST_COMMAND_PA && count==GT_COMMAND_FRAMES && test_command_allocated);
+ test_command_allocated=false;
+}
 uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
  assert(tag==PMM_FRAME_DMA && !test_backing_allocated);
  test_backing_allocated=true;
  return TEST_BACKING_PA;
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag) {
+ if(pa>=TEST_COMMAND_PA && pa<TEST_COMMAND_PA+sizeof(test_command_ram) && !(pa&4095))
+  return tag==(test_command_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);
  return pa==TEST_BACKING_PA && tag==(test_backing_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);
 }
 void pmm_free_frame(uint64_t pa) {
@@ -616,6 +629,7 @@ void pmm_free_frame(uint64_t pa) {
 #endif
 void *pmm_phys_to_virt(uint64_t p){
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(p==TEST_COMMAND_PA) return test_command_ram;
  if(p==TEST_BACKING_PA){intel_display_test_backing_access();return test_backing_page;}
 #endif
  return (void *)(uintptr_t)p;}

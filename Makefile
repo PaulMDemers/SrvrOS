@@ -7203,12 +7203,13 @@ build/intel-gt-primary/srvros.elf: $(INTEL_GT_MEMORY_HEAD) build/intel-gt-primar
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
 build/tests/intel-gt-primary-adapter$(HOST_EXE): private GT_DISPLAY_TEST_FLAGS := $(INTEL_GT_PRIMARY_FLAGS)
 build/tests/intel-gt-aux-adapter$(HOST_EXE): private GT_DISPLAY_TEST_FLAGS := $(INTEL_GT_AUX_FLAGS)
-build/tests/intel-gt-flush-adapter$(HOST_EXE): private GT_SLOT_TEST_SOURCES := kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
+BDW_COMMAND_IMAGE_SOURCES := kernel/src/drivers/intel_bdw_blitter_image.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_bcs_context.c
+build/tests/intel-gt-flush-adapter$(HOST_EXE): private GT_SLOT_TEST_SOURCES := $(BDW_COMMAND_IMAGE_SOURCES) kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
 build/tests/intel-gt-flush-adapter$(HOST_EXE): private GT_DISPLAY_TEST_FLAGS := $(INTEL_GT_FLUSH_FLAGS)
 build/tests/intel-gt-primary-adapter$(HOST_EXE) build/tests/intel-gt-aux-adapter$(HOST_EXE) build/tests/intel-gt-flush-adapter$(HOST_EXE): tools/test_intel_gt_bootstrap_adapter.c tools/test_intel_gt_memory_model.inc kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(wildcard tools/test_intel*adapter.c) tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(GT_DISPLAY_TEST_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(GT_SLOT_TEST_SOURCES) kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_ggtt_invalidate.c $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_bdw_gt_bootstrap.c kernel/src/drivers/intel_pci_requester.c kernel/src/x86_cache.c $(PRIMARY_RANGE_HOST_SOURCES) -o $@
-build/tests/intel-gt-flush-adapter$(HOST_EXE): kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
+build/tests/intel-gt-flush-adapter$(HOST_EXE): $(BDW_COMMAND_IMAGE_SOURCES) kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
 build/tests/intel-gt-primary-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(INTEL_GT_PRIMARY_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
@@ -7242,7 +7243,7 @@ build/intel-gt-flush/boot.o: kernel/src/drivers/intel_gt_boot.c $(ZIG) $(KERNEL_
 build/intel-gt-flush/bcs-port.o: kernel/diagnostics/intel_bdw_bcs_port.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_GT_FLUSH_FLAGS) -c $< -o $@
-build/intel-gt-flush/srvros.elf: build/intel-gt-flush/bcs-port.o build/intel-joint/page.o $(INTEL_GT_MEMORY_HEAD) build/intel-gt-flush/probe.o $(INTEL_GT_MEMORY_OWNER) build/intel-gt-flush/boot.o build/intel-gt-primary/range.o $(INTEL_GT_MEMORY_BASE) kernel/linker.ld
+build/intel-gt-flush/srvros.elf: build/intel-stolen/private_vm.o build/intel-stolen/bcs_flush.o build/intel-bcs-context/context.o build/intel-gt-flush/bcs-port.o build/intel-joint/page.o $(INTEL_GT_MEMORY_HEAD) build/intel-gt-flush/probe.o $(INTEL_GT_MEMORY_OWNER) build/intel-gt-flush/boot.o build/intel-gt-primary/range.o $(INTEL_GT_MEMORY_BASE) kernel/linker.ld
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
 build/tests/intel-gt-flush-boot$(HOST_EXE): tools/test_intel_gt_boot.c kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
@@ -7367,7 +7368,7 @@ build/intel-bcs-context/context.o: kernel/diagnostics/intel_bdw_bcs_context.c $(
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_BCS_CONTEXT_FLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-STOLEN_ADAPTER_HOST_SOURCES := kernel/src/drivers/intel_bdw_blitter.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
+STOLEN_ADAPTER_HOST_SOURCES := $(BDW_COMMAND_IMAGE_SOURCES) kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/src/x86_cache.c kernel/src/drivers/intel_reader_audit.c kernel/src/drivers/intel_pci_requester.c
 build/tests/intel-stolen-probe$(HOST_EXE): tools/test_intel_stolen_probe.c kernel/src/drivers/intel_stolen_probe.c $(STOLEN_ADAPTER_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(STOLEN_ADAPTER_HOST_SOURCES) -Wl,--gc-sections -o $@
@@ -7413,7 +7414,7 @@ build/tests/vmm-reserved-guard$(HOST_EXE): tools/test_vmm_reserved_guard.c tools
 # These host fixtures include the actual VMM source; follow its private engine.
 build/tests/vmm-user-range-host$(HOST_EXE) build/tests/vmm-prepare-host$(HOST_EXE) build/tests/vmm-diagnostic-range$(HOST_EXE) build/tests/vmm-kernel-alias$(HOST_EXE) build/tests/vmm-alias-inventory$(HOST_EXE) build/tests/vmm-physical-unmapped$(HOST_EXE): kernel/src/memory/vmm_reserved_guard.inc
 
-BDW_BLITTER_SOURCES := kernel/src/drivers/intel_bdw_blitter.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_bdw_bcs_context.c kernel/diagnostics/intel_bdw_private_vm.c kernel/diagnostics/intel_bdw_bcs_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/display_access.c
+BDW_BLITTER_SOURCES := kernel/diagnostics/intel_ggtt_invalidate.c kernel/src/drivers/intel_bdw_blitter.c $(BDW_COMMAND_IMAGE_SOURCES) kernel/diagnostics/intel_bdw_ggtt.c $(BCS_SUBMIT_HOST_SOURCES) kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/display_access.c
 build/tests/intel-bdw-blitter$(HOST_EXE): tools/test_intel_bdw_blitter.c $(BDW_BLITTER_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -DSRVROS_BCS_SUBMIT_HOST_TEST -Ikernel/include $< $(BDW_BLITTER_SOURCES) -o $@
@@ -7423,6 +7424,10 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< warm-lost-completion
 	$< cold-init-fault
 	$< cold-rollback-fault
+	$< stale-seventh
+	$< swapped-translations
+	$< unposted-invalidate
+	$< stale-restore
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest

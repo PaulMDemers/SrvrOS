@@ -23,6 +23,29 @@ static _Alignas(4096) uint64_t ggtt[512];
 #define entries (&ggtt[FIRST&511u])
 static uint64_t originals[PAGES], clock_us;
 static unsigned posted;
+static _Alignas(4096) uint32_t invalidate_regs[1024], aperture[PAGES*1024];
+static uint64_t translations[PAGES];
+enum translation_fault { NORMAL_TRANSLATION, STALE_SEVENTH, SWAPPED, UNPOSTED, STALE_RESTORE };
+static enum translation_fault translation_fault;
+static unsigned invalidates;
+static void model_aperture(void)
+{
+    if (invalidate_regs[2]==1 && translation_fault!=UNPOSTED) {
+        invalidate_regs[2]=0;
+        ++invalidates;
+        for (unsigned i=0;i<PAGES;i++) {
+            if (translation_fault==STALE_SEVENTH && i==6) continue;
+            if (translation_fault==STALE_RESTORE && invalidates==2 && i==2) continue;
+            unsigned source=(translation_fault==SWAPPED && i<2)?1-i:i;
+            translations[i]=entries[source];
+        }
+    }
+    for (unsigned i=0;i<PAGES;i++) {
+        uint64_t frame=translations[i]&~4095ull;
+        aperture[i*1024+1023]=frame>=BASE && frame<BASE+PAGES*4096 ?
+            ram.global[(frame-BASE)/4+1023] : 0;
+    }
+}
 static struct intel_gt_access gt;
 static bool lose_rollback_epoch;
 static enum fault fault;
@@ -135,6 +158,7 @@ static bool validate_transfer(void *ctx,const struct scanout_transfer_manifest *
 
 static bool window_held(void *ctx,const struct bdw_blitter_window *w,const struct scanout_transfer *t)
 {
+    model_aperture();
     if (lose_rollback_epoch && t->device_publication && t->device_publication->writes>PAGES &&
         entries[0]==originals[0]) {
         ++gt.engine_epoch;
@@ -154,7 +178,7 @@ static struct intel_bdw_gt_bootstrap resets[2];
 static struct intel_completion_result audits[2];
 static char fifo,other_request;
 
-static void reset_epoch(unsigned n,const struct display_access_token *exclusion)
+static void reset_epoch(unsigned n,const struct display_access_token *exclusion,struct scanout_transfer *t)
 {
     struct bdw_boot_source *s=&sources[n];
     struct intel_bdw_gt_bootstrap *r=&resets[n];
@@ -162,7 +186,7 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion)
         .state=GT_ACCESS_AWAKE,.engine_epoch=10+n,.borrows=1,.dependents=&borrow};
     borrow=(struct intel_gt_borrow){.object=&borrow,.parent=&gt,.active=true};
     s->binding=(struct bdw_boot_binding){.owner=&gt,.lifetime=&borrow,.provider=&space,
-        .aperture_bytes=0x10000000,.blitter_port_owner=&fifo,.root=0x9000,.mmio=0xc0000000,.epoch=gt.engine_epoch-1,.vendor=0x8086,.device=0x1626,
+        .aperture_bytes=0x10000000,.blitter_port_owner=&fifo,.command_pages=t,.command_pages_epoch=t->epoch,.root=0x9000,.mmio=0xc0000000,.epoch=gt.engine_epoch-1,.vendor=0x8086,.device=0x1626,
         .outer=1000000,.hda=1000000,.gt=1000000,.prepare=1000000};
     s->object=s;s->consumer=r;
     *r=(struct intel_bdw_gt_bootstrap){.object=r,.source=s,.binding=s->binding,.stage=BDW_BOOT_DONE,
@@ -187,9 +211,17 @@ static void run_transfer(enum mapping_case which)
     memset(regs,0,sizeof(regs));active=&mapping.request;posted=0;clock_us=1000000;fault=which==MAP_MISSING_COMPLETION || which==COLD_LOST_COMPLETION ? NO_COMPLETION : OK;
     intel_bdw_bcs_fixture_new_device();
     for (unsigned i=0;i<PAGES;i++)originals[i]=entries[i]=0x110000001ull+i*4096;
+    memset(invalidate_regs,0,sizeof(invalidate_regs)); invalidates=0;
+    memcpy(translations,originals,sizeof(translations));
     if (which==MAP_PREEXISTING_ALIAS)originals[PAGES-1]=entries[PAGES-1]=(BASE+12*4096)|1u;
     assert(display_access_acquire(7,&exclusion));
-    assert(scanout_transfer_open(&transfer,&transfers,&ranges,&exclusion,&manifest,
+    bool cold=which>=COLD_OK;
+    manifest.source_epoch=exclusion.epoch;
+    if (cold) {
+        struct scanout_transfer_manifest reservation=manifest;
+        reservation.assurances=0;
+        assert(scanout_transfer_reserve(&transfer,&transfers,&exclusion,&reservation,&grant));
+    } else assert(scanout_transfer_open(&transfer,&transfers,&ranges,&exclusion,&manifest,
                                  (struct scanout_transfer_io){&space,validate_transfer,now},&grant));
     struct intel_bdw_bcs_context_config c={.ring_gpu=FIRST*4096,.context_gpu=(FIRST+1)*4096,
         .completion_gpu=(FIRST+3)*4096,.aperture_bytes=0x10000000,.fence_end=manifest.fence_end,
@@ -200,10 +232,9 @@ static void run_transfer(enum mapping_case which)
         .original_hwsp=(FIRST+32)*4096,.csb_head=4};
     regs[0x80/4]=device.original_hwsp;regs[0x29c/4]=1u<<15;regs[0x234/4]=1;regs[0x3a0/4]=0x504;
 
-    bool cold=which>=COLD_OK;
     if (cold) {
         assert(intel_bdw_bcs_port_claim(&fifo));
-        reset_epoch(0,&exclusion);
+        reset_epoch(0,&exclusion,&transfer);
         device.reset=&resets[0];device.post_reset=&audits[0];device.port_owner=&fifo;
         device.original_hwsp=0;device.csb_head=0;
         regs[0x80/4]=0;regs[0x29c/4]=0;regs[0x9c/4]=0x300;regs[0x98/4]=UINT32_MAX;regs[0x3a0/4]=0;
@@ -221,8 +252,34 @@ static void run_transfer(enum mapping_case which)
         if (which==COLD_PORT_BUSY)assert(intel_bdw_bcs_port_lend(&fifo,&other_request));
     }
     struct bdw_blitter_window window={.pte=ggtt,.physical=0xc0800000ull+(FIRST/512)*4096,
-        .owner=&space,.held=window_held,.complete=yes,.readers_retired=readers_retired};
+        .owner=&space,.held=window_held,.readers_retired=readers_retired,
+        .invalidate_page=invalidate_regs,.invalidate_physical=device.mmio+0x101000,.mmio_bytes=0x1000000,
+        .aperture_pages=aperture,.aperture_physical=manifest.aperture+FIRST*4096};
+    if (cold) {
+        window.spaces=&ranges;
+        window.provider=(struct scanout_transfer_io){&space,validate_transfer,now};
+        window.handoff=&manifest;
+        if (which==COLD_OK) {
+            manifest.assurances &= ~HANDOFF_DMA;
+            assert(!intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window));
+            manifest.assurances |= HANDOFF_DMA;
+            resets[0].binding.command_pages_epoch++;
+            assert(!intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window));
+            resets[0].binding.command_pages_epoch--;
+            assert(transfer.state==TRANSFER_RESERVED && !posted && !mapping.pages.writes);
+        }
+    }
     bool done=intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window);
+    if (translation_fault!=NORMAL_TRANSLATION) {
+        bool rollback=translation_fault==STALE_RESTORE;
+        assert(!done && posted==(rollback?4u:0u));
+        assert(mapping.pages.state==PUB_FAULT && mapping.pages.writes==(rollback?2u:1u)*PAGES);
+        assert(transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        if (!rollback) assert(intel_bdw_blitter_verify(&image) && !active->port.p.writes);
+        assert(mapping.invalidation[rollback].complete==(translation_fault!=UNPOSTED));
+        return;
+    }
+    if (posted) assert(mapping.verified_pages[0]==PAGES && mapping.invalidation[0].complete);
     if (cold) {
         if (which==COLD_LOST_INIT) {
             assert(!done && !posted && mapping.request.state==BDW_BLITTER_RETAINED);
@@ -245,7 +302,7 @@ static void run_transfer(enum mapping_case which)
             assert(!intel_bdw_blitter_detach(&mapping,&resets[0],&audits[0]));
             if (which!=COLD_LOST_COMPLETION) {
                 assert(done && mapping.request.state==BDW_BLITTER_STATUS_PINNED && mapping.request.csb_end==1);
-                reset_epoch(1,&exclusion);
+                reset_epoch(1,&exclusion,&transfer);
                 if (which==COLD_STALE_DETACH)--audits[1].engine_epoch;
                 if (which==COLD_UNDRAINED)fault=DETACH_PENDING;
                 if (which!=COLD_ATTACHED_HWSP)regs[0x80/4]=0;
@@ -263,6 +320,7 @@ static void run_transfer(enum mapping_case which)
                     return;
                 }
                 if (detached) {
+                    assert(mapping.verified_pages[1]==PAGES && invalidates==2);
                     assert(!memcmp(entries,originals,sizeof(originals)) && mapping.pages.writes==2*PAGES);
                     assert(!intel_bdw_bcs_port_lent(&fifo,&mapping.request.port));
                 }
@@ -302,6 +360,14 @@ static void run_transfer(enum mapping_case which)
 
 int main(int argc,char **argv)
 {
+    const char *const failures[]={"stale-seventh","swapped-translations","unposted-invalidate","stale-restore"};
+    for (unsigned i=0;argc==2 && i<sizeof(failures)/sizeof(failures[0]);i++) {
+        if (strcmp(argv[1],failures[i])) continue;
+        translation_fault=(enum translation_fault)(i+1);
+        run_transfer(translation_fault==STALE_RESTORE?MAP_OK:COLD_OK);
+        printf("PASS %s\n",failures[i]);
+        return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"warm-lost-completion")) {
         run_transfer(MAP_MISSING_COMPLETION);
         puts("PASS warm mapping retains lost completion");

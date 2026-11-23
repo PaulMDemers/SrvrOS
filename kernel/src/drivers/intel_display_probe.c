@@ -220,15 +220,19 @@ static void admission_report(void) {
 #else
 #define ADMISSION_FAIL(code,detail) false
 #endif
-static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
+static bool backing_device_memory(uint64_t base,uint64_t bytes,bool aperture) {
     const struct limine_memmap_response *m=memmap_request.response;
     if(!base || !bytes || base>UINT64_MAX-bytes || !m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
     for(uint64_t i=0;i<m->entry_count;i++) {
         const struct limine_memmap_entry *e=m->entries[i];
         if(!e || !e->length || e->base>UINT64_MAX-e->length)return false;
-        if(e->base<base+bytes && base<e->base+e->length && e->type!=LIMINE_MEMMAP_RESERVED)return false;
+        if(e->base<base+bytes && base<e->base+e->length && e->type!=LIMINE_MEMMAP_RESERVED &&
+           !(aperture && e->type==LIMINE_MEMMAP_FRAMEBUFFER))return false;
     }
     return true;
+}
+static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
+    return backing_device_memory(base,bytes,false);
 }
 static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
     struct backing_adapter *a=opaque;*e=(struct intel_backing_endpoint){0};

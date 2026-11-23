@@ -68,6 +68,12 @@ static uint64_t intel_display_test_command_dma(void);
 #ifdef SRVROS_INTEL_GT_RANGE
 static bool intel_display_test_range_translate(uint64_t *);
 static bool intel_display_test_range_alias(struct vmm_alias_observation *);
+#ifdef SRVROS_INTEL_GT_FLUSH
+static bool intel_display_test_command_ram(uint64_t,volatile const uint32_t *);
+static bool intel_display_test_command_aperture_map(unsigned,uint64_t,uint64_t);
+static bool intel_display_test_command_aperture_unmap(unsigned,uint64_t,uint64_t);
+static uint32_t intel_display_test_command_aperture_read(unsigned);
+#endif
 static bool intel_display_test_range_map(uint64_t);
 static bool intel_display_test_range_read(uint32_t,uint32_t *);
 static bool intel_display_test_range_unmap(uint64_t *);
@@ -107,9 +113,30 @@ static bool bf(const char *mode,unsigned n) {
  }return yes;
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
+static bool intel_display_test_command_ram(uint64_t base,volatile const uint32_t *ram) {
+ return base==TEST_COMMAND_PA && ram==test_command_ram && test_command_allocated &&
+        !bf("command-ram-alias",command_slots.samples+1);
+}
 static const uint64_t host_widi_pages[]={0xc0014000,0xc006e000,0xc0065000};
 static bool host_widi_held;
 static unsigned host_widi_count;
+static bool host_aperture[GT_COMMAND_PAGES];
+static bool intel_display_test_command_aperture_map(unsigned i,uint64_t va,uint64_t pa) {
+ assert(i<GT_COMMAND_PAGES && !host_aperture[i] && va==COMMAND_APERTURE_VA+i*4096 &&
+        pa==0xb2de0000ull+i*4096 && gpu_command==7 && slot_widi_live());
+ if(bf("command-aperture-map",i+1))return false;
+ return host_aperture[i]=true;
+}
+static bool intel_display_test_command_aperture_unmap(unsigned i,uint64_t va,uint64_t pa) {
+ assert(i<GT_COMMAND_PAGES && host_aperture[i] && va==COMMAND_APERTURE_VA+i*4096 &&
+        pa==0xb2de0000ull+i*4096 && gpu_command==7 && slot_widi.closed);
+ if(bf("command-aperture-unmap",GT_COMMAND_PAGES-i))return false;
+ host_aperture[i]=false;return true;
+}
+static uint32_t intel_display_test_command_aperture_read(unsigned i) {
+ assert(i<GT_COMMAND_PAGES && host_aperture[i] && slot_widi_live() && gpu_command==7);
+ return 0xabcdef00u+i+(command_aperture.samples && bf("command-aperture-drift",i+1));
+}
 static unsigned host_port_pins;
 static bool intel_display_test_context_wp(void) {
  return !bf("slot-wp",1);
@@ -126,6 +153,15 @@ static bool intel_display_test_context_protect(unsigned slot,bool writable) {
 }
 bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard *g,uint64_t root,
                                                 const struct vmm_alias_span *spans,unsigned count) {
+ if(spans[0].virtual_base>=COMMAND_APERTURE_VA && spans[0].virtual_base<COMMAND_APERTURE_VA+GT_COMMAND_PAGES*4096) {
+  assert(g==&slot_widi.guard && host_widi_held && wake_irq && gpu_command==7 && root==gt_bootstrap_native.root);
+  for(unsigned i=0;i<count;i++) {
+   unsigned page=command_aperture.pinned+i;
+   assert(page<GT_COMMAND_PAGES && host_aperture[page] && spans[i].pages==1 &&
+          spans[i].virtual_base==COMMAND_APERTURE_VA+page*4096 && spans[i].physical==0xb2de0000ull+page*4096);
+  }
+  return !bf("command-aperture-pin",1+command_aperture.pinned);
+ }
  assert(g==&slot_widi.guard && g->object==g && host_widi_held && wake_irq && gpu_command==3);
  assert(root==gt_bootstrap_native.root && count==(host_port_pins==4?1u:2u));
  for(unsigned i=0;i<count;i++) {
@@ -141,7 +177,7 @@ bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root
  unsigned ranges,uint64_t aperture,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *detail) {
  (void)detail;
  assert(!host_widi_held && !g->object && root==gt_bootstrap_native.root && wake_irq && gpu_command==7);
- assert(count==1 && spans[0].physical==0x8f004000 && spans[0].pages==1 && bits>=36 &&
+ assert(count==2 && spans[1].physical==0x8ede1000 && spans[1].pages==GT_COMMAND_PAGES && spans[0].physical==0x8f004000 && spans[0].pages==1 && bits>=36 &&
         ranges && ram && out && aperture==0xb3003000);
  if(bf("widi-begin",1))return false;
  g->object=g;g->epoch=1;host_widi_held=true;return true;
@@ -580,7 +616,7 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(gt_reopened.reading || gt_widi.reading || gt_widi.sampling)return true;
+ if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling)return true;
  if(flush_page(range_pa)) {
   if(bf("flush-alias",++flush_aliases))out->writable=1;
   return true;
@@ -603,6 +639,10 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
 }
 static bool intel_display_test_range_map(uint64_t physical) {
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(sampling_command_slots) {
+  assert(command_sampling_live() && physical==0xc0816000 && !range_pa);
+  range_pa=physical;return true;
+ }
  if(gt_reopened.reading) {
   assert(physical==0xc0818000 && !range_pa && gpu_command==7 && slot_reopened_live());
   range_pa=physical;return true;
@@ -683,7 +723,7 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
 static bool intel_display_test_range_unmap(uint64_t *physical) {
  assert(bootstrap_parent() && range_pa);
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(gt_reopened.reading || gt_widi.reading || gt_widi.sampling){*physical=range_pa;range_pa=0;return true;}
+ if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling){*physical=range_pa;range_pa=0;return true;}
  if(flush_page(range_pa)) {
   if(bf("flush-unmap",++flush_unmaps))return false;
   *physical=range_pa;range_pa=0;return true;
@@ -716,6 +756,13 @@ static void test_queue_handoff_word(unsigned e, unsigned i, uint32_t *word) {
 static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(sampling_command_slots) {
+  assert(command_sampling_live() && command_pte_register(offset));
+  unsigned i=(offset-0x800000)/8-GT_COMMAND_FIRST;
+  *out=(offset&4)?0:0x8ede1001+i*4096;
+  if(bf("command-slot-drift",command_slot_access.reads+1))*out^=0x1000;
+  return true;
+ }
  if(gt_reopened.reading) {
   assert(slot_reopened_live() && slot_pte_register(offset) && host_widi_count==3);
   *out=offset==GT_SECOND_PTE_OFFSET ? 0x8f004001 : 0;
@@ -854,6 +901,14 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_GT_RANGE
 #ifdef SRVROS_INTEL_GT_SLOT
   assert(gt_slot_reserved && gt_slot_checked && gt_slot_returned && !gt_slot_live());
+#ifdef SRVROS_INTEL_GT_FLUSH
+  struct scanout_interval competitor={0};
+  assert(command_slots.returned && command_slots.samples==3);
+  for(unsigned i=0;i<GT_COMMAND_PAGES;i++)
+   assert(!scanout_interval_claim(&competitor,result.mmio_base,window_result.aperture_base,
+       window_result.aperture_bytes,window_result.endpoint.fence_end,
+       (struct scanout_space_range){GT_COMMAND_FIRST+i,1}));
+#endif
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
   assert(slot_backing.checks==3 && slot_backing.freed && !test_backing_allocated && !intel_bdw_bcs_port_held(&slot_backing));
