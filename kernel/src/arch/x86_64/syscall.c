@@ -1160,9 +1160,10 @@ static int64_t syscall_process_credentials(uint64_t operation,uint64_t first,uin
         struct srv_process_credentials out={.uid=credentials.uid,.gid=credentials.gid};
         return copy_to_user((void *)(uintptr_t)first,&out,sizeof(out))?0:SRV_ERR_FAULT;
     }
-    if(operation==SRV_PROCESS_CREDENTIALS_DROP) {
+    if(operation==SRV_PROCESS_CREDENTIALS_DROP || operation==SRV_PROCESS_CREDENTIALS_DROP_TERMINAL) {
         if(first>=UINT32_MAX || second>=UINT32_MAX)return SRV_ERR_INVAL;
-        return process_drop_credentials(first,second);
+        return operation==SRV_PROCESS_CREDENTIALS_DROP ? process_drop_credentials(first,second) :
+            process_drop_credentials_terminal(first,second);
     }
     if(operation!=SRV_PROCESS_CREDENTIALS_CHOWN && operation!=SRV_PROCESS_CREDENTIALS_ACCESS)
         return SRV_ERR_INVAL;

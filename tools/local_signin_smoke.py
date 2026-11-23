@@ -283,7 +283,7 @@ class VM:
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: enrollment failed: {name}')
 
-    def attempt(self, name, password, uid=None):
+    def attempt(self, name, password, uid=None, session=None, crash=False):
         start = len(self.output)
         self.send(name.encode('ascii')); self.wait(b'Password: ')
         sent = time.monotonic()
@@ -298,12 +298,41 @@ class VM:
                 raise RuntimeError('failed sign-in unexpectedly started a session')
         else:
             expected = f'Session uid={uid} gid={uid} home=/fat/home/local-{name}'.encode()
-            self.wait(expected); self.wait(b'session-check: PASS'); self.wait(b'Login: ')
+            self.wait(expected); self.wait(b'session-check: PASS'); self.wait(b'session> ')
+            if session is not None: session(self)
+            self.send(b'crash' if crash else b'logout')
+            if crash: self.wait(b'Session crashed.')
+            else: self.wait(b'Signed out.')
+            self.wait(b'Session closed.'); self.wait(b'Login: ')
             segment = bytes(self.output[start:])
             if b'Sign-in failed.' in segment or segment.count(b'Session uid=') != 1:
                 raise RuntimeError('successful sign-in produced inconsistent outcome')
+            if (b'Session crashed.' in segment) != crash:
+                raise RuntimeError('session exit status did not match requested path')
         if b'srv> ' in segment:
             raise RuntimeError('privileged prompt exposed in local mode')
+
+    def session_command(self, command, expected):
+        self.send(command.encode('ascii'))
+        response = self.wait(b'session> ')
+        if expected not in response:
+            raise RuntimeError(f'{self.label}: missing session result for {command!r}')
+        return response
+
+    def session_files(self, name, uid, setup, peer=None, hold=False):
+        text = name + '-private-persisted'
+        if setup:
+            self.session_command('write evidence.txt ' + text, b'Written.')
+        self.session_command('read evidence.txt', ('Data: ' + text).encode())
+        self.session_command('stat evidence.txt',
+                             f'Owner: {uid}:{uid} mode=0600 size={len(text)}'.encode())
+        if peer:
+            path = '/fat/home/local-' + peer + '/evidence.txt'
+            self.session_command('read ' + path, b'Error: read: permission denied.')
+            self.session_command('write ' + path + ' intrusion', b'Error: write: permission denied.')
+            self.session_command('stat ' + path, b'Error: stat: permission denied.')
+        if hold:
+            self.session_command('hold', b'session-worker: ready')
 
     def finish(self):
         # Recovery uses the monitor's flush/reboot sequence. Local mode has no
@@ -357,6 +386,8 @@ def main():
     parser.add_argument('--ovmf', default=default_ovmf_path())
     parser.add_argument('--ovmf-vars', required=True)
     parser.add_argument('--boot-wait', type=int, default=120)
+    parser.add_argument('--interactive-only', action='store_true',
+                        help='run enrollment and the two interactive boots only')
     args = parser.parse_args()
     for name in (args.ovmf, args.ovmf_vars):
         if not Path(name).is_file() or ',' in name:
@@ -368,6 +399,7 @@ def main():
     print(f'local-signin: evidence {out}', flush=True)
     receipt = {'status': 'INCOMPLETE', 'build': build, 'cases': [],
                'scope': 'private disposable QEMU image; no physical media',
+               'interactive_only': args.interactive_only,
                'firmware_sha256': installation.digest(Path(args.ovmf)),
                'firmware_vars_sha256': installation.digest(Path(args.ovmf_vars)),
                'qemu_version': subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0]}
@@ -426,11 +458,28 @@ def main():
                 vm.attempt('alpha', WRONG)
                 vm.attempt('unknown', WRONG)
                 vm.attempt('disabled', PASSWORDS['disabled'])
-                vm.attempt('alpha', PASSWORDS['alpha'], 1001)
-                vm.attempt('beta', PASSWORDS['beta'], 1002)
+                vm.attempt('alpha', PASSWORDS['alpha'], 1001,
+                    session=lambda v: v.session_files('alpha',1001,number==1,hold=True), crash=number==2)
+                vm.attempt('beta', PASSWORDS['beta'], 1002,
+                    session=lambda v: v.session_files('beta',1002,number==1,peer='alpha',hold=True), crash=number==1)
+                vm.attempt('alpha', PASSWORDS['alpha'], 1001,
+                    session=lambda v: v.session_files('alpha',1001,False,peer='beta'))
                 vm.finish()
-            receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS', 'alpha': 'PASS', 'beta': 'PASS'})
+            image = ExfatFixture(proof.data_image(target, *data))
+            for name in ('alpha', 'beta'):
+                expected = (name + '-private-persisted').encode()
+                if image.read('home/local-' + name + '/evidence.txt') != expected:
+                    raise RuntimeError(f'{name}: persisted file bytes differ after boot {number}')
+            receipt['cases'].append({'boot': number, 'wrong_unknown_disabled': 'PASS',
+                'alpha': 'PASS', 'beta': 'PASS', 'file_readback': 'PASS',
+                'cross_user_denial': 'PASS', 'worker_logout_and_crash_retired': 'PASS'})
             save()
+        if args.interactive_only:
+            receipt.update(status='PASS', final_disk_sha256=installation.digest(target),
+                           limitations=['interactive subset only; full security suite not run',
+                                        'disposable QEMU only', 'no physical or power-loss qualification'])
+            print(f'local-signin: interactive subset PASS; evidence {out}', flush=True)
+            return
         # Pending transaction markers must block even a correct committed
         # credential. Clear only the marker this invocation created, and prove
         # that the same committed credential works again afterwards.

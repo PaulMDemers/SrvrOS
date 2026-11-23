@@ -1,5 +1,15 @@
 # Apple Silicon macOS build host
 
+## Interactive isolated console
+
+`device/apple-silicon/interactive-console-session` starts from `4c95594e`.
+The scope covers the local sign-in broker, a scoped private PTY credential
+handoff and a small file console. It depends on the installed-root permissions
+from SrvrOS #509 and local sign-in from #512. The checkpoint is two accounts,
+cross-user refusal, logout and fault recovery with all session processes
+retired, and exact file data and permissions after reboot of one disposable
+QEMU installation. Desktop login and portable profiles are separate.
+
 ## Local console sign-in
 
 `device/apple-silicon/local-console-signin` starts from `b95bc096`, the

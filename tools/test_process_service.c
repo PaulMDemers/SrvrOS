@@ -21,6 +21,8 @@ void net_process_cleanup(struct process *p) {(void)p;assert(0);}
 void net_process_wake(struct process *p) {(void)p;assert(0);}
 void process_context_restore(struct process_context *p,uint64_t v) {(void)p;(void)v;abort();}
 void pty_close(uint64_t p,bool master) {(void)p;(void)master;assert(0);}
+static struct pty_model drop_terminal;
+struct pty_model *pty_state(uint64_t handle) { return handle==123 ? &drop_terminal : NULL; }
 void scheduler_clear_user_context(void) {assert(0);}
 void scheduler_exit_current(void) {abort();}
 void scheduler_kill_user_threads(void *p,void *e) {(void)p;(void)e;assert(0);}
@@ -625,8 +627,37 @@ static void reaper_credential_drop_contract(void) {
     puts("reaper-credentials: PASS drop refusal preserves reaper and ordinary child may drop");
 }
 
+static void terminal_credential_drop_contract(void) {
+    struct process *owner=&processes[0],*child=&processes[1];
+    *owner=(struct process){.allocated=true,.active=true,.pid=42,.owned_user_scope=7};
+    owner->files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_MASTER,.handle=123};
+    *child=(struct process){.allocated=true,.active=true,.pid=43,.parent_pid=42,
+        .lifetime=7,.controlling_tty=123,.process_group=43};
+    process_lifetimes[0]=(struct process_lifetime){.token=7,.members=1,.user=true,.owner=owner};
+    drop_terminal=(struct pty_model){.foreground_group=43};current=child;
+    for(unsigned i=0;i<3;i++)child->files[i]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_SLAVE,.handle=123};
+    assert(process_drop_credentials(1001,1001)==SRV_ERR_BUSY);
+    assert(process_drop_credentials_terminal(0,1001)==SRV_ERR_PERM);
+    process_lifetimes[0].revoked=true;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);process_lifetimes[0].revoked=false;
+    owner->owned_user_scope=0;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);owner->owned_user_scope=7;
+    child->parent_pid=99;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->parent_pid=42;
+    owner->files[3].used=false;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);owner->files[3].used=true;
+    child->files[2].handle=124;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->files[2].handle=123;
+    child->files[3].used=true;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->files[3].used=false;
+    drop_terminal.master_closed=true;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);drop_terminal.master_closed=false;
+    drop_terminal.foreground_group=42;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);drop_terminal.foreground_group=43;
+    child->pending_signals=1;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->pending_signals=0;
+    assert(!child->credentials.uid && !child->credentials.gid);
+    assert(process_drop_credentials_terminal(1001,1001)==0);
+    assert(child->credentials.uid==1001 && child->credentials.gid==1001);
+    assert(process_drop_credentials_terminal(1002,1002)==SRV_ERR_PERM);
+    current=NULL;memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
+    puts("terminal-credentials: PASS scope, PTY, descriptors and shared refusal guards");
+}
+
 int main(void) {
     reaper_credential_drop_contract();
+    terminal_credential_drop_contract();
     image_init_contract();
     free_range_contract();
     protection_contract();
