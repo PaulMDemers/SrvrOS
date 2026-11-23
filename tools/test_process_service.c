@@ -18,9 +18,15 @@ void gui_process_cleanup(uint64_t p) {(void)p;assert(0);}
 void kfree(void *p) {free(p);}
 int64_t net_close(uint64_t p) {(void)p;assert(0);return -1;}
 void net_process_cleanup(struct process *p) {(void)p;assert(0);}
-void net_process_wake(struct process *p) {(void)p;assert(0);}
+static bool termination_check;
+static unsigned termination_network,termination_keyboard,termination_pty,termination_queues;
+void net_process_wake(struct process *p) {assert(termination_check && p && p->killed);termination_network++;}
+void keyboard_wake_waiters(void) {assert(termination_check);termination_keyboard++;}
+void pty_wake(void) {assert(termination_check);termination_pty++;}
 void process_context_restore(struct process_context *p,uint64_t v) {(void)p;(void)v;abort();}
 void pty_close(uint64_t p,bool master) {(void)p;(void)master;assert(0);}
+static struct pty_model drop_terminal;
+struct pty_model *pty_state(uint64_t handle) { return handle==123 ? &drop_terminal : NULL; }
 void scheduler_clear_user_context(void) {assert(0);}
 void scheduler_exit_current(void) {abort();}
 void scheduler_kill_user_threads(void *p,void *e) {(void)p;(void)e;assert(0);}
@@ -70,6 +76,7 @@ static unsigned next_frame=1,wakes;
 static unsigned char backing[1024*4096];
 void console_printf(const char *format,...) {(void)format;console_prints++;}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
+    if(termination_check) {assert(queue);termination_queues++;return;}
     if(check_thread_hook) {assert(current && queue==&current->thread_wait_queue && current->owned_user_scope);longjmp(exit_hook,1);}
     if(queue==&process_wait_queue){wakes++;return;}
     assert(queue==&futexes[0].wait_queue && futexes[0].invalidated && depth);
@@ -607,6 +614,36 @@ static void session_scope_contract(void) {
     puts("session-scope: PASS reservation/revoke, single root, fast reap errors, stale capability and ownerless zero retirement");
 }
 
+static void scope_terminate_contract(void) {
+    memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
+    current=&processes[0];*current=(struct process){.allocated=true,.active=true,.pid=42,.owned_user_scope=9};
+    struct process *child=&processes[1],*descendant=&processes[2],*other=&processes[3],*retired=&processes[4];
+    *child=(struct process){.allocated=true,.active=true,.pid=43,.lifetime=9};
+    *descendant=(struct process){.allocated=true,.active=true,.pid=44,.lifetime=9};
+    *other=(struct process){.allocated=true,.active=true,.pid=45,.lifetime=10};
+    *retired=(struct process){.allocated=true,.reapable=true,.pid=46,.lifetime=9};
+    process_lifetimes[0]=(struct process_lifetime){.token=9,.members=3,.user=true,.owner=current};
+    assert(process_scope_terminate(9)==SRV_ERR_BUSY && !child->killed);
+    assert(process_scope_terminate(10)==SRV_ERR_INVAL && !child->killed);
+    current->credentials.uid=1001;assert(process_scope_terminate(9)==SRV_ERR_PERM);current->credentials.uid=0;
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,9,NULL) && !child->killed && !descendant->killed);
+    termination_network=termination_keyboard=termination_pty=termination_queues=0;termination_check=true;
+    assert(!process_scope_terminate(9));termination_check=false;
+    assert(child->killed && child->kill_signal==SRV_SIGNAL_KILL);
+    assert(descendant->killed && descendant->kill_signal==SRV_SIGNAL_KILL);
+    current=child;
+    struct process_wait_request waiting={.owner=child->pid,.pid=descendant->pid};
+    descendant->parent_pid=child->pid;descendant->detached=true;
+    assert(process_wait_ready(&waiting));
+    assert(process_wait_request(waiting,NULL,false,true,NULL,NULL)==SRV_ERR_INTR);
+    current=&processes[0];
+    assert(!other->killed && !retired->killed && retired->reapable);
+    assert(termination_network==2 && termination_keyboard==2 && termination_pty==2 && termination_queues==12);
+    assert(process_lifetimes[0].members==3 && process_scope_control(SRV_SCOPE_RELEASE,9,NULL)==SRV_ERR_BUSY);
+    current=NULL;memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
+    puts("scope-terminate: PASS root owner, revoked lifetime, targeted kill and waiter wakes without reaping");
+}
+
 static void reaper_credential_drop_contract(void) {
     current=&processes[0];
     *current=(struct process){.allocated=true,.active=true,.pid=42};
@@ -625,8 +662,38 @@ static void reaper_credential_drop_contract(void) {
     puts("reaper-credentials: PASS drop refusal preserves reaper and ordinary child may drop");
 }
 
+static void terminal_credential_drop_contract(void) {
+    struct process *owner=&processes[0],*child=&processes[1];
+    *owner=(struct process){.allocated=true,.active=true,.pid=42,.owned_user_scope=7};
+    owner->files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_MASTER,.handle=123};
+    *child=(struct process){.allocated=true,.active=true,.pid=43,.parent_pid=42,
+        .lifetime=7,.controlling_tty=123,.process_group=43};
+    process_lifetimes[0]=(struct process_lifetime){.token=7,.members=1,.user=true,.owner=owner};
+    drop_terminal=(struct pty_model){.foreground_group=43};current=child;
+    for(unsigned i=0;i<3;i++)child->files[i]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_SLAVE,.handle=123};
+    assert(process_drop_credentials(1001,1001)==SRV_ERR_BUSY);
+    assert(process_drop_credentials_terminal(0,1001)==SRV_ERR_PERM);
+    process_lifetimes[0].revoked=true;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);process_lifetimes[0].revoked=false;
+    owner->owned_user_scope=0;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);owner->owned_user_scope=7;
+    child->parent_pid=99;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->parent_pid=42;
+    owner->files[3].used=false;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);owner->files[3].used=true;
+    child->files[2].handle=124;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->files[2].handle=123;
+    child->files[3].used=true;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->files[3].used=false;
+    drop_terminal.master_closed=true;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);drop_terminal.master_closed=false;
+    drop_terminal.foreground_group=42;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);drop_terminal.foreground_group=43;
+    child->pending_signals=1;assert(process_drop_credentials_terminal(1001,1001)==SRV_ERR_BUSY);child->pending_signals=0;
+    assert(!child->credentials.uid && !child->credentials.gid);
+    assert(process_drop_credentials_terminal(1001,1001)==0);
+    assert(child->credentials.uid==1001 && child->credentials.gid==1001);
+    assert(process_drop_credentials_terminal(1002,1002)==SRV_ERR_PERM);
+    current=NULL;memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
+    puts("terminal-credentials: PASS scope, PTY, descriptors and shared refusal guards");
+}
+
 int main(void) {
+    scope_terminate_contract();
     reaper_credential_drop_contract();
+    terminal_credential_drop_contract();
     image_init_contract();
     free_range_contract();
     protection_contract();

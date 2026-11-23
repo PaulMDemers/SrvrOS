@@ -1,5 +1,41 @@
 # Apple Silicon macOS build host
 
+## Interactive isolated console
+
+`device/apple-silicon/interactive-console-session` started from `4c95594e`
+and qualified on main `5a83f3b0`. It builds on installed-root permissions
+from SrvrOS #509 and local sign-in from #512.
+
+Boot the installed system with `srvros.auth=local` and sign in with an
+enrolled account. The console starts in that account's private home.
+Type `help` for `pwd`, `write PATH TEXT`, `read PATH`, `stat PATH`, and
+`logout`. Writes accept bounded printable text and sync before reporting
+success. Ctrl-C ends the current session. The broker releases the private
+terminal and waits for every process in the session to retire before prompting
+for another login, including after a session fault.
+
+Runtime `859de6e6` passed the full local sign-in suite on one disposable QEMU
+installation. Both users saved files with mode `0600` and distinct owners.
+Two subsequent boots verified the owners and modes in the guest and checked
+the exact bytes from the stopped disk. Both users were refused cross-user
+reads, writes, and metadata access. Each user logged out and recovered from
+a deliberate fault with a live worker, and sign-in resumed after all workers
+retired. The shipped program also passed the Ctrl-C recovery and command
+length checks. Desktop login and profile migration are separate.
+
+Build with
+`sh tools/macos/build.sh -j2 all build/userspace/test_local_signin_session.elf`.
+Run `python3 tools/local_signin_smoke.py --ovmf <code.fd> --ovmf-vars <vars.fd>`
+with the local EFI firmware templates. The matched receipt and redacted
+logs are under `build/review/local-signin/proof-o6gc2m2e/`.
+
+Merge review on main `c853aaf2` retained SrvrOS #527's targeted GNU tool links.
+Runtime `43a05597` passed the matched build, focused host checks, and all 11
+local sign-in cases. The privileged broker now survives Ctrl-C during a
+failed sign-in delay. Each private session still responds to Ctrl-C and the
+broker returns to the login prompt after retirement. The review receipt and
+logs are under `build/review/local-signin/proof-16qea41t/`.
+
 ## Local console sign-in
 
 `device/apple-silicon/local-console-signin` starts from `b95bc096`, the
@@ -21,12 +57,11 @@ the administrator to inspect in recovery. Sign-in refuses an outstanding
 lock or staged store until that inspection is complete.
 
 Use `srvros.auth=local` on the installed EFI entry to reach sign-in. The
-restricted session reports its kernel identity and assigned home, then
-returns to sign-in. The boot mode assumes a trusted EFI configuration and
-administrator control of recovery. It requires complete, preexisting
-exFAT ownership metadata for installed-root admission and a private,
-administrator-provisioned account store. The VM qualification uses synthetic
-credentials, a disposable image, and a diagnostic session executable.
+boot mode assumes a trusted EFI configuration and administrator control of
+recovery. It requires complete, preexisting exFAT ownership metadata for
+installed-root admission and a private, administrator-provisioned account
+store. The original sign-in VM qualification used synthetic credentials,
+a disposable image, and a diagnostic session executable.
 
 Runtime `5e8014a8` passed enrollment, two consecutive sign-in boots on one
 installed data disk, and controlled damage through explicit recovery. Both

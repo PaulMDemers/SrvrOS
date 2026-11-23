@@ -404,7 +404,7 @@ static void keyboard_decode_scancode(uint8_t scancode) {
     if (ctrl_down && (key == 46 || key == 32 || key == 44)) {
         c = key == 46 ? 3 : (key == 32 ? 4 : 26);
     }
-    if (c == 3 && process_interrupt_foreground(SRV_SIGNAL_INT)) {
+    if (c == 3 && console_input_signals_enabled() && process_interrupt_foreground(SRV_SIGNAL_INT)) {
         scheduler_wake_all(&keyboard_wait_queue);
         return;
     }
@@ -466,7 +466,7 @@ static bool emit_hid_usage(uint8_t usage, uint8_t modifiers, bool caps, bool rep
         if (caps) c ^= 0x20;
         if (ctrl) c = (char)(usage - 0x04 + 1);
     }
-    if (c == 3 && process_interrupt_foreground(SRV_SIGNAL_INT)) {
+    if (c == 3 && console_input_signals_enabled() && process_interrupt_foreground(SRV_SIGNAL_INT)) {
         keyboard_wake_waiters();
     } else if (c != 0) {
         keyboard_inject_char(c);
