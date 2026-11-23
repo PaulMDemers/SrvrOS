@@ -158,10 +158,23 @@ records the exact CS4208 identity, headphone output, tone playback
 requests, and speaker output selected again. The workspace check
 matched all 552 existing files.
 
-The automatic routing and Sound menu work starts from main `577ffcd1`.
-It covers the verified Pro CS4208 route, the audio worker's playback
-handoff, and the desktop's Sound controls. Firmware sensing and
-speaker/headphone isolation use the existing tested codec paths.
+The recovery directory holds the manual trial image and collected evidence
+under `evidence-626968f367beb8de`.
+
+### Automatic analog routing and top-bar Sound
+
+The device branch starts from main `577ffcd1`. On the Pro's CS4208,
+confirmed jack edges select headphones on insertion and speakers on removal.
+The audio worker stops playback before switching. Manual output selection
+remains available and takes effect until the next confirmed jack edge. The
+Sound menu shows the selected output and provides volume and mute controls.
+Existing exclusive PCM streams hold their volume until playback ends.
+
+The host audio-service and desktop session tests passed, including debouncing,
+manual selection, active-stream teardown, and reversible mute. Exact-stage
+QEMU release `65f696dade05f148` exercised volume and mute from the desktop at
+2×, verified a stereo test tone after unmuting, and saved logs with a clean
+USB unmount. Physical automatic routing is pending.
 
 ### Wi-Fi release qualification
 
