@@ -23,6 +23,18 @@ pending state in place and resolve the account-store or filesystem problem
 in recovery. Reboot using `srvros.auth=local` to use the committed account
 state.
 
+Runtime `58115385` on main `b5187cdd` passed the matched build,
+authentication crypto checks, and all 19 sign-in cases on one disposable
+installed QEMU disk. The inspection check waited for startup metadata
+activity to settle, then compared the paused data partition and QEMU write
+counters around the command. Inspection reported committed account state and
+marker presence with zero block writes. Explicit cleanup preserved the
+committed bytes before and after replacement for both reset and re-enable.
+Both recovery modes refused a live writer and a malformed committed store
+without writing. After reboot, both users retained exact file contents,
+ownership, modes, and cross-user restrictions. The receipt and logs are
+under `build/review/local-signin/proof-ddwd5970/`.
+
 ## Re-enable suspended console accounts
 
 `device/apple-silicon/console-account-enable` starts from `66fbf299`.
