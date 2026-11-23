@@ -23,6 +23,7 @@ submodule files.
 | Berkeley Yacc | [upstream statement](ports/upstream/byacc/LICENSE) | Parser generator; upstream public-domain statement |
 | stb_image | [provenance and local patch](ports/upstream/stb/README.srvros.md), [license in source](ports/upstream/stb/stb_image.h) | PNG/JPEG/BMP worker; MIT option |
 | DejaVu fonts | [license](userspace/lib/assets/fonts/LICENSE-DejaVu.txt), [font provenance](userspace/lib/assets/fonts/README.md) | Native desktop and terminal fonts |
+| Monocypher 4.0.3 | [BSD-2-Clause and CC0 notices](userspace/localauth/vendor/LICENCE.md), [pinned source](userspace/localauth/vendor/README.md) | Argon2id for local console sign-in |
 | Node.js | [upstream license and bundled notices](ports/upstream/node/LICENSE), [recovery status](docs/development.md#node-port-recovery) | Optional incomplete runtime port, not part of the default build |
 
 Submodule identities are pinned by Git; downloaded boot/build tool identities
