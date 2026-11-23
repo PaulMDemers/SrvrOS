@@ -35,6 +35,12 @@ without writing. After reboot, both users retained exact file contents,
 ownership, modes, and cross-user restrictions. The receipt and logs are
 under `build/review/local-signin/proof-ddwd5970/`.
 
+Merge review integrated #535 and rebuilt runtime `9e313cb3` on main
+`e77f468f`. The process, syscall, crypto, and documentation checks passed.
+All 19 cases passed again on one fresh disposable installation. The
+matching receipt and logs are under
+`build/review/local-signin/proof-15bvpps6/`.
+
 ## Re-enable suspended console accounts
 
 `device/apple-silicon/console-account-enable` starts from `66fbf299`.
