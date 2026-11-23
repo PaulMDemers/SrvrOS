@@ -482,7 +482,7 @@ def main():
                        session=lambda v: v.session_files('beta', 1002, setup=True, peer='alpha'))
             vm.finish()
         receipt['cases'].append({'production_both_users': 'PASS', 'bounded_input': 'PASS',
-                                 'interrupt_remains_in_session': 'PASS',
+                                 'interrupt_returns_to_login': 'PASS',
                                  'fixture_command_unavailable': 'PASS'})
         save()
 
