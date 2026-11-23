@@ -364,6 +364,10 @@ static void directory_admission_regression(void) {
 }
 
 int main(void) {
+    uint64_t saved_console_flags=console_termios.lflag;
+    console_termios.lflag|=SRV_TTY_LFLAG_ISIG;assert(console_input_signals_enabled());
+    console_termios.lflag&=~SRV_TTY_LFLAG_ISIG;assert(!console_input_signals_enabled());
+    console_termios.lflag=saved_console_flags;
     directory_admission_regression();
     test_network_snapshot();
     /* Existing independent fixtures start their own gate counters. */

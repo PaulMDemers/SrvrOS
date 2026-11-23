@@ -4,6 +4,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <signal.h>
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <string.h>
@@ -193,7 +194,8 @@ static enum session_result run_session(const struct local_account *account) {
     if (!retired || !closed_slave || !closed_master || !restored ||
         (configured && (!clean_input || !drained))) return SESSION_UNSAFE;
     if (!relayed || status == 126 || status == 127) return SESSION_UNAVAILABLE;
-    if (status) puts("Session crashed.");
+    if (status == 128 + SIGINT) puts("Session interrupted.");
+    else if (status) puts("Session crashed.");
     puts("Session closed.");
     return SESSION_CLOSED;
 }

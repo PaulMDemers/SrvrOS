@@ -754,6 +754,10 @@ bool syscall_reserved_append_dispatch(struct isr_frame *frame) {
     process_capture_write_record(CAP_WRITE_HANDLER,handler_at);return false;
 }
 
+bool console_input_signals_enabled(void) {
+    return (console_termios.lflag & SRV_TTY_LFLAG_ISIG)!=0;
+}
+
 static char tty_filter_input(char c) {
     if ((console_termios.iflag & SRV_TTY_IFLAG_ICRNL) != 0 && c == '\r') {
         return '\n';

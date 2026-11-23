@@ -283,7 +283,7 @@ class VM:
         if not result or int(result.group(1)):
             raise RuntimeError(f'{self.label}: enrollment failed: {name}')
 
-    def attempt(self, name, password, uid=None, session=None, crash=False, diagnostic=True):
+    def attempt(self, name, password, uid=None, session=None, ending='logout', diagnostic=True):
         start = len(self.output)
         self.send(name.encode('ascii')); self.wait(b'Password: ')
         sent = time.monotonic()
@@ -303,20 +303,32 @@ class VM:
                 self.wait(b'session-check: PASS')
             self.wait(b'session> ')
             if session is not None: session(self)
-            self.send(b'crash' if crash else b'logout')
-            if crash: self.wait(b'Session crashed.')
-            else: self.wait(b'Signed out.')
+            if ending == 'interrupt':
+                self.serial.sendall(b'\x03')
+            else:
+                self.send(ending.encode('ascii'))
+            self.wait({'interrupt': b'Session interrupted.', 'crash': b'Session crashed.',
+                       'logout': b'Signed out.'}[ending])
             self.wait(b'Session closed.'); self.wait(b'Login: ')
             segment = bytes(self.output[start:])
             if b'Sign-in failed.' in segment or segment.count(b'Session uid=') != 1:
                 raise RuntimeError('successful sign-in produced inconsistent outcome')
-            if (b'Session crashed.' in segment) != crash:
+            if (b'Session crashed.' in segment) != (ending == 'crash'):
                 raise RuntimeError('session exit status did not match requested path')
         if b'srv> ' in segment:
             raise RuntimeError('privileged prompt exposed in local mode')
 
-    def session_command(self, command, expected):
-        self.send(command.encode('ascii'))
+    def session_command(self, command, expected, paced=False):
+        encoded = command.encode('ascii')
+        if paced:
+            # Type within COM1's RX capacity and verify that each chunk arrived.
+            for start in range(0, len(encoded), 32):
+                chunk = encoded[start:start + 32]
+                self.serial.sendall(chunk)
+                self.wait(chunk)
+            self.serial.sendall(b'\n')
+        else:
+            self.send(encoded)
         response = self.wait(b'session> ')
         if expected not in response:
             raise RuntimeError(f'{self.label}: missing session result for {command!r}')
@@ -459,16 +471,18 @@ def main():
             vm.session_command('pwd', b'/fat/home/local-alpha')
             vm.session_command('crash', b'Error: unknown command.')
             vm.session_command('write overlong.txt ' + 'x' * 513,
-                               b'Error: invalid or too-long command.')
+                               b'Error: invalid or too-long command.', paced=True)
             vm.session_command('stat overlong.txt', b'Error: stat: not found.')
             vm.session_files('alpha', 1001, setup=True)
 
         with VM(target, out, 'production', args, 'local') as vm:
             vm.attempt('alpha', PASSWORDS['alpha'], 1001, session=stock_alpha, diagnostic=False)
+            vm.attempt('alpha', PASSWORDS['alpha'], 1001, ending='interrupt', diagnostic=False)
             vm.attempt('beta', PASSWORDS['beta'], 1002, diagnostic=False,
                        session=lambda v: v.session_files('beta', 1002, setup=True, peer='alpha'))
             vm.finish()
         receipt['cases'].append({'production_both_users': 'PASS', 'bounded_input': 'PASS',
+                                 'interrupt_remains_in_session': 'PASS',
                                  'fixture_command_unavailable': 'PASS'})
         save()
 
@@ -488,9 +502,11 @@ def main():
                 vm.attempt('unknown', WRONG)
                 vm.attempt('disabled', PASSWORDS['disabled'])
                 vm.attempt('alpha', PASSWORDS['alpha'], 1001,
-                    session=lambda v: v.session_files('alpha', 1001, hold=True), crash=number==2)
+                    session=lambda v: v.session_files('alpha', 1001, hold=True),
+                    ending='crash' if number == 2 else 'logout')
                 vm.attempt('beta', PASSWORDS['beta'], 1002,
-                    session=lambda v: v.session_files('beta', 1002, peer='alpha', hold=True), crash=number==1)
+                    session=lambda v: v.session_files('beta', 1002, peer='alpha', hold=True),
+                    ending='crash' if number == 1 else 'logout')
                 vm.attempt('alpha', PASSWORDS['alpha'], 1001,
                     session=lambda v: v.session_files('alpha', 1001, peer='beta'))
                 vm.finish()
