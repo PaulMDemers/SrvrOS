@@ -55,7 +55,10 @@ def main():
         (mode, f'PASS {mode}') for mode in OWNED_PAGE_MODES]
     if args.blitter:
         cases.extend((mode, f'PASS {mode}') for mode in
-                     ('stale-seventh', 'swapped-translations', 'unposted-invalidate', 'stale-restore'))
+                     ('stale-seventh', 'swapped-translations', 'unposted-invalidate', 'stale-restore',
+                      'missing-engine-ack', 'early-l3', 'missing-l3', 'widi-escapes',
+                      'changed-traffic-epoch', 'moving-scanout', 'missing-rollback-ack',
+                      'air-reset-reasons', 'partial-gam-go', 'unowned-widi-clock', 'wireless-audio-reopens', 'uncertain-release'))
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)
         iso = make_iso(directory, program)

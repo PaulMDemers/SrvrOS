@@ -7414,7 +7414,7 @@ build/tests/vmm-reserved-guard$(HOST_EXE): tools/test_vmm_reserved_guard.c tools
 # These host fixtures include the actual VMM source; follow its private engine.
 build/tests/vmm-user-range-host$(HOST_EXE) build/tests/vmm-prepare-host$(HOST_EXE) build/tests/vmm-diagnostic-range$(HOST_EXE) build/tests/vmm-kernel-alias$(HOST_EXE) build/tests/vmm-alias-inventory$(HOST_EXE) build/tests/vmm-physical-unmapped$(HOST_EXE): kernel/src/memory/vmm_reserved_guard.inc
 
-BDW_BLITTER_SOURCES := kernel/diagnostics/intel_ggtt_invalidate.c kernel/src/drivers/intel_bdw_blitter.c $(BDW_COMMAND_IMAGE_SOURCES) kernel/diagnostics/intel_bdw_ggtt.c $(BCS_SUBMIT_HOST_SOURCES) kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/display_access.c
+BDW_BLITTER_SOURCES := kernel/src/drivers/intel_bdw_command_traffic.c kernel/diagnostics/intel_ggtt_invalidate.c kernel/src/drivers/intel_bdw_blitter.c $(BDW_COMMAND_IMAGE_SOURCES) kernel/diagnostics/intel_bdw_ggtt.c $(BCS_SUBMIT_HOST_SOURCES) kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c kernel/src/display_access.c
 build/tests/intel-bdw-blitter$(HOST_EXE): tools/test_intel_bdw_blitter.c $(BDW_BLITTER_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -DSRVROS_BCS_SUBMIT_HOST_TEST -Ikernel/include $< $(BDW_BLITTER_SOURCES) -o $@
@@ -7428,6 +7428,18 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< swapped-translations
 	$< unposted-invalidate
 	$< stale-restore
+	$< missing-engine-ack
+	$< early-l3
+	$< missing-l3
+	$< widi-escapes
+	$< changed-traffic-epoch
+	$< moving-scanout
+	$< missing-rollback-ack
+	$< air-reset-reasons
+	$< partial-gam-go
+	$< unowned-widi-clock
+	$< wireless-audio-reopens
+	$< uncertain-release
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest

@@ -15,7 +15,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",), versions=(1, 2, 3, 4, 5, 6, 7),
+        ("live",), versions=(1, 2, 3, 4, 5, 6, 7, 8),
     )
     dual = summary["v"] >= 3
     batches = 3 if dual else 2
@@ -146,10 +146,13 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
                     or prod["codec_before"] != 0x80862808 or prod["codec_after"] != 0x80862808
                     or prod["control"] & (1 << 30) or any(prod[k] >= 0xffffffff for k in words)))):
             raise ValueError("Invalid wireless producer preflight")
-        samples = [fields(line, "intel-widi-device:", ("v","n","win","reset_flow"), ("win","reset_flow"))
-                   for line in messages]
+        message_words = ("win", "reset_flow")
+        if summary["v"] >= 8:
+            message_words += ("clock_before", "clock_ack", "clock_after")
+        samples = [fields(line, "intel-widi-device:", ("v", "n", *message_words), message_words,
+                          versions=(2,) if summary["v"] >= 8 else (1,)) for line in messages]
         if (len(samples) > 4 or [row["n"] for row in samples] != list(range(len(samples)))
-                or any(max(row["win"], row["reset_flow"]) >= 0xffffffff for row in samples)
+                or any(row[k] >= 0xffffffff for row in samples for k in message_words)
                 or (samples and guard["pages"] != 3) or (owner_complete and len(samples) != 4)):
             raise ValueError("Incomplete WiDi device samples")
         port_fields = ("pinned", "restored", "ro_mask") if summary["v"] >= 6 else ()

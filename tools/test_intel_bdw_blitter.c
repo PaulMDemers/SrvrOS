@@ -198,6 +198,104 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
     audits[n].words[1][4][4]=1;
     audits[n].context[1][3]=n ? 0x200 : 0x300;
 }
+enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
+                     LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
+                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE };
+static enum traffic_fault traffic_fault;
+static struct {
+    const struct scanout_transfer *transfer;
+    const struct scanout_publication *publication;
+    uint64_t epoch,widi_epoch;
+    uint32_t selector;
+    bool bcs;
+    unsigned drains;
+} controller;
+
+static uint64_t block_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
+{
+    assert(t==controller.transfer && p==controller.publication);
+    return controller.epoch;
+}
+static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32_t *out)
+{
+    assert(t==controller.transfer);
+    bool blocked=controller.epoch!=0, bcs=controller.bcs;
+    uint32_t allowed=blocked && !bcs?0:0x5f;
+    switch (offset) {
+    case 0x40d0: case 0x8028:
+        *out=traffic_fault==AIR_RESET_REASONS && offset==0x40d0 ? 0x7fff :
+            (traffic_fault==PARTIAL_GO && bcs ? 0x10 : allowed);
+        break;
+    case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
+        *out=!blocked || bcs?0x10:0x20;
+        if (traffic_fault==LOST_ENGINE_ACK && offset==0x8008 && blocked) *out=0;
+        break;
+    case 0x8104: case 0x802c: *out=controller.widi_epoch &&
+        !(traffic_fault==WIDI_ESCAPES && bcs && offset==0x802c) ? 0x20 : 0; break;
+    case 0x8014: *out=!blocked || (traffic_fault==EARLY_L3 && blocked) ||
+            (traffic_fault==WIDI_ESCAPES && bcs)?0x1f:0; break;
+    case 0x8038: *out=blocked && !bcs && traffic_fault!=NO_NEW_L3 &&
+            !(traffic_fault==STALE_SECOND_DRAIN && controller.drains==2); break;
+    case 0x8040: *out=1; break;
+    case 0x8108: case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: case 0xb11c: *out=0; break;
+    case 0x9120: *out=3u<<25; break;
+    case 0x138064: *out=3; break;
+    case 0xfdc: *out=controller.selector; break;
+    case 0x70180: *out=1u<<31; break;
+    case 0x7019c: case 0x701ac: *out=traffic_fault==MOVED_PLANE && bcs?4096:0; break;
+    default: assert(0);return false;
+    }
+    return true;
+}
+static enum intel_gt_write select_bank(const struct scanout_transfer *t,uint32_t from,uint32_t to)
+{
+    assert(t==controller.transfer && from==controller.selector);
+    controller.selector=to;return GT_WRITE_DONE;
+}
+static enum intel_gt_write block_request(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t *epoch)
+{
+    assert(!block_epoch(t,p) && controller.selector==0);
+    *epoch=controller.epoch=93;controller.drains=1;
+    return GT_WRITE_DONE;
+}
+static enum intel_gt_write permit_bcs(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch,bool enable)
+{
+    assert(epoch==93 && block_epoch(t,p)==epoch && enable!=controller.bcs);
+    if (enable) assert(invalidates==1 && !posted && p->writes==PAGES);
+    else ++controller.drains;
+    controller.bcs=enable;
+    if (enable && traffic_fault==LOST_BLOCK_EPOCH) ++controller.epoch;
+    return GT_WRITE_DONE;
+}
+static enum intel_gt_write block_release(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch)
+{
+    assert(epoch==block_epoch(t,p) && !controller.bcs && (!p->exposed || invalidates==2));
+    if (traffic_fault==LOST_RELEASE) return GT_WRITE_UNCERTAIN;
+    controller.epoch=controller.widi_epoch=0;return GT_WRITE_DONE;
+}
+static uint64_t widi_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
+{
+    assert(t==controller.transfer && p==controller.publication);
+    return traffic_fault==UNOWNED_CLOCK && controller.bcs ? 0 : controller.widi_epoch;
+}
+static enum intel_gt_write isolate_widi(const struct scanout_transfer *t,const struct scanout_publication *p,
+                                         uint64_t epoch,uint64_t *lease)
+{
+    assert(epoch==block_epoch(t,p) && !widi_epoch(t,p) && !controller.bcs);
+    *lease=controller.widi_epoch=37;
+    return GT_WRITE_DONE;
+}
+static const struct bdw_command_control command_control={
+    .traffic={.held_epoch=block_epoch,.read=traffic_read,.select_l3=select_bank,.request=block_request,.release=block_release},
+    .isolate_widi=isolate_widi,.widi_epoch=widi_epoch,.set_execution=permit_bcs
+};
+static struct vmm_reserved_guard route_guard={&route_guard,1};
+bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t pa)
+{
+    assert(g==&route_guard && root==0x9000);
+    if (pa==0xc0065000) return traffic_fault!=AUDIO_REOPEN || !controller.bcs;
+    return pa==0xc0014000 || pa==0xc006e000;
+}
 static void run_transfer(enum mapping_case which)
 {
     static struct bdw_blitter_mapping mapping;
@@ -255,6 +353,28 @@ static void run_transfer(enum mapping_case which)
         .owner=&space,.held=window_held,.readers_retired=readers_retired,
         .invalidate_page=invalidate_regs,.invalidate_physical=device.mmio+0x101000,.mmio_bytes=0x1000000,
         .aperture_pages=aperture,.aperture_physical=manifest.aperture+FIRST*4096};
+    if (which==MAP_OK) {
+        assert(!intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window));
+        assert(!posted && !mapping.pages.writes && !transfer.command_hold);
+    }
+    memset(&controller,0,sizeof(controller));
+    controller.transfer=&transfer; controller.publication=&mapping.pages;
+    struct bdw_wireless_routes routes={.transfer=&transfer,.guard=&route_guard,.transfer_epoch=grant.epoch,
+        .guard_epoch=route_guard.epoch,.root=device.root,.mmio=device.mmio,.strap=1u<<20,
+        .well_before=1u<<30,.well_after=1u<<30,.codec_before=0x80862808,.codec_after=0x80862808};
+    if (!intel_bdw_command_acquire(&mapping,&transfer,&grant,&routes,command_control,&space,now)) {
+        if (traffic_fault==AIR_RESET_REASONS) {
+            assert(mapping.traffic.phase==BDW_CMD_REFUSED && !controller.epoch && !posted &&
+                   !mapping.pages.writes && !transfer.command_hold && scanout_transfer_close(&transfer,&grant));
+            assert(display_access_release(&exclusion,true));
+            return;
+        }
+        assert(traffic_fault==LOST_ENGINE_ACK || traffic_fault==EARLY_L3 || traffic_fault==NO_NEW_L3);
+        assert(mapping.traffic.phase==BDW_CMD_RETAINED && !posted && !mapping.pages.writes &&
+               !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
+    assert(mapping.traffic.drains==1 && !scanout_transfer_close(&transfer,&grant));
     if (cold) {
         window.spaces=&ranges;
         window.provider=(struct scanout_transfer_io){&space,validate_transfer,now};
@@ -270,6 +390,20 @@ static void run_transfer(enum mapping_case which)
         }
     }
     bool done=intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window);
+    if (traffic_fault==LOST_RELEASE) {
+        assert(!done && posted==4 && invalidates==2 && mapping.verified_pages[1]==PAGES);
+        assert(mapping.pages.writes==2*PAGES && !memcmp(originals,entries,sizeof(originals)));
+        assert(mapping.traffic.phase==BDW_CMD_RETAINED && mapping.range.object &&
+               transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
+    if (traffic_fault!=TRAFFIC_OK) {
+        bool rollback=traffic_fault==STALE_SECOND_DRAIN;
+        assert(!done && mapping.traffic.phase==BDW_CMD_RETAINED && posted==(rollback?4u:0u));
+        assert(mapping.pages.writes==PAGES && invalidates==1 && mapping.traffic.drains==1);
+        assert(!scanout_transfer_close(&transfer,&grant));
+        return;
+    }
     if (translation_fault!=NORMAL_TRANSLATION) {
         bool rollback=translation_fault==STALE_RESTORE;
         assert(!done && posted==(rollback?4u:0u));
@@ -338,11 +472,13 @@ static void run_transfer(enum mapping_case which)
             }
         }
         assert(intel_bdw_bcs_port_release(&fifo));
+        if (transfer.command_hold) assert(intel_bdw_command_release(&mapping));
         assert(scanout_transfer_close(&transfer,&grant) && display_access_release(&exclusion,true));
         return;
     }
     if (which==MAP_PREEXISTING_ALIAS) {
         assert(!done && !posted && !mapping.pages.writes && !mapping.range.object && !transfer.device_publication);
+        if (transfer.command_hold) assert(intel_bdw_command_release(&mapping));
         assert(scanout_transfer_close(&transfer,&grant) && display_access_release(&exclusion,true));
         return;
     }
@@ -350,6 +486,7 @@ static void run_transfer(enum mapping_case which)
     if (done) {
         assert(!memcmp(entries,originals,sizeof(originals)) && regs[0x80/4]==device.original_hwsp);
         assert(mapping.pages.state==PUB_RETIRED && !transfer.device_publication && mapping.pages.writes==2*PAGES);
+        if (transfer.command_hold) assert(intel_bdw_command_release(&mapping));
         assert(scanout_transfer_close(&transfer,&grant) && display_access_release(&exclusion,true));
     } else {
         assert(transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
@@ -360,6 +497,16 @@ static void run_transfer(enum mapping_case which)
 
 int main(int argc,char **argv)
 {
+    const char *const traffic_failures[]={"missing-engine-ack","early-l3","missing-l3","widi-escapes",
+                                         "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
+                                         "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release"};
+    for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
+        if (strcmp(argv[1],traffic_failures[i])) continue;
+        traffic_fault=(enum traffic_fault)(i+1);
+        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==LOST_RELEASE)?MAP_OK:COLD_OK);
+        printf("PASS %s\n",traffic_failures[i]);
+        return 0;
+    }
     const char *const failures[]={"stale-seventh","swapped-translations","unposted-invalidate","stale-restore"};
     for (unsigned i=0;argc==2 && i<sizeof(failures)/sizeof(failures[0]);i++) {
         if (strcmp(argv[1],failures[i])) continue;

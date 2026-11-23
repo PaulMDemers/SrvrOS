@@ -13,7 +13,7 @@ static struct {
     struct gt_display_access access;
     uint32_t strap, function, well_before, codec[3], well_after;
     struct gt_display_access messages;
-    uint32_t device[GT_FLUSH_SAMPLES][2];
+    uint32_t device[GT_FLUSH_SAMPLES][5];
     unsigned samples;
     bool reading, sampling, disabled;
 } gt_widi;
@@ -270,6 +270,13 @@ static bool command_slots_sample(unsigned phase) {
             source.aperture_bytes,source.fence_end,(struct scanout_space_range){source.first,source.pages}) ||
             !scanout_transfer_reserve_imported(&command_slots.transfer,&gt_slot_pool,
             &gt_bootstrap_native.g->exclusion,&source,&command_slots.firmware,&command_slots.token)) return false;
+        command_slots.routes=(struct bdw_wireless_routes){
+            .transfer=&command_slots.transfer,.guard=&slot_widi.guard,.transfer_epoch=command_slots.token.epoch,
+            .guard_epoch=slot_widi.guard.epoch,.root=gt_bootstrap_native.root,.mmio=source.mmio,
+            .strap=gt_widi.strap,.function=gt_widi.function,.well_before=gt_widi.well_before,
+            .codec_before=gt_widi.codec[0],.control=gt_widi.codec[1],.codec_after=gt_widi.codec[2],
+            .well_after=gt_widi.well_after};
+        if (!intel_bdw_routes_held(&command_slots.routes,&command_slots.transfer)) return false;
         for (unsigned i=0;i<GT_COMMAND_PAGES;i++) command_slots.original[i]=words[i];
     }
     if (!scanout_transfer_reservation_matches(&command_slots.transfer,&command_slots.token,&source) ||
@@ -447,13 +454,15 @@ static bool gt_flush_slice_read(unsigned slot, uint32_t offset, uint32_t *value)
 #include "intel_gt_l3_banks.inc"
 
 static bool slot_widi_message(uint32_t offset) {
-    return offset==0x8014 || offset==0x8108;
+    return offset==0x8014 || offset==0x8108 || offset==0x8104 || offset==0x802c;
 }
 static bool slot_widi_sample(unsigned n) {
-    static const uint32_t offsets[]={0x8014,0x8108}; /* MSG_IDLE_WIN, RSTFCTLMSG */
+    /* Bracket the independent clock ACK with the actual WIN clock request.
+     * All five reads use the same guarded message page. */
+    static const uint32_t offsets[]={0x8104,0x8014,0x8108,0x802c,0x8104};
     if(n!=gt_widi.samples || n>=GT_FLUSH_SAMPLES || gt_widi.sampling || !gt_widi.disabled)return false;
     gt_widi.sampling=true;
-    bool ok=gt_held_read_alias(&gt_widi.messages,offsets,gt_widi.device[n],2,gt_flush_live,slot_widi_message);
+    bool ok=gt_held_read_alias(&gt_widi.messages,offsets,gt_widi.device[n],5,gt_flush_live,slot_widi_message);
     gt_widi.sampling=false;
     if(!ok || gt_widi.messages.mapped || gt_widi.messages.retired!=n+1)return false;
     ++gt_widi.samples;
@@ -520,8 +529,9 @@ static void gt_flush_report(void) {
         (uint64_t)gt_widi.codec[0],(uint64_t)gt_widi.codec[1],(uint64_t)gt_widi.codec[2],(uint64_t)gt_widi.well_after,
         (uint64_t)gt_widi.access.maps,(uint64_t)gt_widi.access.retired,gt_widi.access.mapped,(uint64_t)gt_widi.access.reads);
     for(unsigned n=0;n<gt_widi.samples;n++)
-        console_printf("intel-widi-device: v=1 n=%u win=%x reset_flow=%x\n",(uint64_t)n,
-            (uint64_t)gt_widi.device[n][0],(uint64_t)gt_widi.device[n][1]);
+        console_printf("intel-widi-device: v=2 n=%u win=%x reset_flow=%x clock_before=%x clock_ack=%x clock_after=%x\n",(uint64_t)n,
+            (uint64_t)gt_widi.device[n][1],(uint64_t)gt_widi.device[n][2],(uint64_t)gt_widi.device[n][0],
+            (uint64_t)gt_widi.device[n][3],(uint64_t)gt_widi.device[n][4]);
     console_printf("intel-slot-reopened: v=3 pinned=%u restored=%u ro_mask=%u matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
         (uint64_t)slot_ports_pinned,(uint64_t)slot_ports_restored,(uint64_t)gt_bootstrap_native.engine_ro_mask,
         (uint64_t)gt_reopened.matched,(uint64_t)gt_reopened.raw[0],(uint64_t)gt_reopened.raw[1],

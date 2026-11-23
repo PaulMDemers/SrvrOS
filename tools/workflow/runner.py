@@ -681,6 +681,8 @@ class Runner:
                 raise ValueError('Missing DMA backing and submission-port receipt')
             if 'slot_widi_version' in manifest and native.get('range',{}).get('widi_guard',{}).get('v') != manifest['slot_widi_version']:
                 raise ValueError('Missing slot WiDi programming guard receipt')
+            if 'range_version' in manifest and native.get('range',{}).get('summary',{}).get('v') != manifest['range_version']:
+                raise ValueError('Native range and WiDi clock observations differ from frozen profile')
             if 'command_slots_version' in manifest and native.get('range',{}).get('command_slots',{}).get('v') != manifest['command_slots_version']:
                 raise ValueError('Missing command-page reset handoff receipt')
             if 'slot_reopened_version' in manifest and native.get('range',{}).get('reopened_pte',{}).get('v') != manifest['slot_reopened_version']:

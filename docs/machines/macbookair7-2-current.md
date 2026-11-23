@@ -10,6 +10,18 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+Current scope is the Broadwell blitter handoff between GGTT publication and
+first submission. It depends on the original display exclusion, the seven-page
+transfer, and independent WiDi exclusion when global GO reopens. The native reset
+owner binds the captured wireless routes and their VMM guard to these
+seven pages. The command driver now checks distinct engine and L3 flush
+acknowledgements for acquisition and rollback. All 49 driver cases passed on
+the host and in the SrvrOS Q35 guest, including an uncertain release after
+all seven original translations were restored. Three i915 comparisons kept
+Pipe A on its original surface. Each saw a gated WiDi clock and open WiDi GO
+together. The Air still needs a hardware owner for the GPM request and the
+independent WiDi hold. [Register evidence and test](../intel-bdw-bcs-flush.md#command-submission-while-widi-stays-excluded)
+
 The native reset owner now imports the seven original GGTT entries at slots
 11744–11750. It allocates 19 DMA frames for the command image and its private
 page tables. The firmware reservation, private RAM and submission port span

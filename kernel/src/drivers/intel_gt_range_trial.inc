@@ -146,6 +146,7 @@ static struct {
  struct scanout_transfer transfer;
  struct scanout_transfer_token token;
  struct bdw_blitter_image image;
+ struct bdw_wireless_routes routes;
  uint64_t original[GT_COMMAND_PAGES],physical;
  bool ram_returned;
  unsigned samples;
@@ -168,7 +169,7 @@ static struct scanout_transfer_manifest command_slots_source(const uint64_t *ori
 }
 static bool command_slots_live(void) {
  struct scanout_transfer_manifest source=command_slots_source(command_slots.original);
- return command_slots.firmware.firmware &&
+ return intel_bdw_routes_held(&command_slots.routes,&command_slots.transfer) && command_slots.firmware.firmware &&
         scanout_interval_held(&command_slots.firmware,source.mmio,source.aperture,source.aperture_bytes,
                               source.fence_end,(struct scanout_space_range){source.first,source.pages}) &&
         scanout_transfer_reservation_matches(&command_slots.transfer,&command_slots.token,&source);
@@ -362,7 +363,7 @@ static bool gt_range_capture(unsigned phase) {
 }
 static void gt_range_report(void) {
 #if defined(SRVROS_INTEL_GT_FLUSH)
- const unsigned version=7;
+ const unsigned version=8;
  console_printf("intel-command-slots: v=1 first=%u pages=%u samples=%u reserved=%u returned=%u ram=%x freed=%u mapped=%u pinned=%u observations=%u retired=%u device_grant=0\n",
   (uint64_t)GT_COMMAND_FIRST,(uint64_t)GT_COMMAND_PAGES,(uint64_t)command_slots.samples,
   (uint64_t)(command_slots.token.object!=NULL),(uint64_t)command_slots.returned,command_slots.physical,

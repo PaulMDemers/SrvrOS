@@ -99,7 +99,35 @@ def observe_hold(stack, client, console, power, messages, footprint):
         print('  all', *(hex(word) for word in state), f'samples={count}')
 
 
-def observe_marker_csb(binary, user, blitter):
+def command_traffic_reader(mmio_page):
+    # Map just three read-only BAR pages under the existing i915 forcewake.
+    power, messages, plane = (mmio_page(off) for off in (0x4000, 0x8000, 0x70000))
+
+    def sample():
+        def read(page, offset):
+            value, = struct.unpack_from('<I', page, offset)
+            if value == 0xffffffff:
+                raise ValueError(f'Floating command-traffic register at page offset {offset:#x}')
+            return value
+        def panel():
+            control, queued, live = (read(plane, off) for off in (0x180, 0x19c, 0x1ac))
+            if not control & (1 << 31) or queued & ~8 != live or live & 4095:
+                raise ValueError(f'Primary surface unavailable or changed: control={control:#x} queued={queued:#x} live={live:#x}')
+            return control, live
+        original = panel()
+        values = {'gam_req': read(power, 0xd0), 'gam_reply': read(messages, 0x28),
+                  'clk_req': read(messages, 0x104), 'clk_reply': read(messages, 0x2c),
+                  'widi': read(messages, 0x14), 'l3': read(messages, 0x38),
+                  'rcs': read(messages, 0), 'vcs0': read(messages, 4), 'vcs1': read(messages, 8),
+                  'bcs': read(messages, 0xc), 'vecs': read(messages, 0x10),
+                  'widi_reset': read(messages, 0x108)}
+        if original != panel() or values['gam_req'] != read(power, 0xd0) or values['clk_req'] != read(messages, 0x104):
+            raise ValueError('Unstable display or traffic request during checkpoint')
+        return original, read(plane, 0x40), values
+    return sample
+
+
+def observe_marker_csb(binary, user, blitter, traffic=None):
     def snapshot():
         # The registers require separate DWORD loads for status and context ID.
         word = lambda offset: struct.unpack_from('<I', blitter, offset)[0]
@@ -114,11 +142,14 @@ def observe_marker_csb(binary, user, blitter):
                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as client:
         try:
             snapshots = []
+            traffic_samples = []
             for phase in range(2):
                 ready, _, _ = select.select([client.stdout], [], [], 5)
                 if not ready or client.stdout.readline().strip() != f'CHECK {phase}':
                     raise RuntimeError('Missing blitter marker checkpoint')
                 snapshots.append(snapshot())
+                if traffic:
+                    traffic_samples.append(traffic())
                 print(phase, file=client.stdin, flush=True)
             output, _ = client.communicate(timeout=5)
         finally:
@@ -138,8 +169,15 @@ def observe_marker_csb(binary, user, blitter):
     print(output, end='')
     print(f'BCS CSB {before:#x} -> {after:#x}, enter={enter:#x} complete={done:#x} context={context:#x}')
 
+    if traffic:
+        if traffic_samples[0][0] != traffic_samples[1][0]:
+            raise ValueError('Different primary surfaces across the BCS command')
+        for label, (surface, frame, values) in zip(('before', 'after'), traffic_samples):
+            registers = ' '.join(f'{name}={value:#x}' for name, value in values.items())
+            print(f'{label} plane={surface[0]:#x} surface={surface[1]:#x} frame={frame} {registers}')
 
-def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False, observe=False, marker_csb=False):
+
+def trial(binary, user, instance, independent, console, bcs_queue=False, compete=False, observe=False, marker_csb=False, command_traffic=False):
     slot = INDEPENDENT_SLOT if independent or observe else FIRMWARE_SLOT
     panel = PCI / 'drm'
     edp, = panel.glob('card*/card*-eDP-1/enabled')
@@ -168,7 +206,8 @@ def trial(binary, user, instance, independent, console, bcs_queue=False, compete
                                                  prot=mmap.PROT_READ, offset=address & ~4095))
 
         if marker_csb:
-            return observe_marker_csb(binary, user, mmio_page(0x22000))
+            return observe_marker_csb(binary, user, mmio_page(0x22000),
+                                      command_traffic_reader(mmio_page) if command_traffic else None)
 
         ptes = mmio_page(offset)
         protected_offset = 0x800000 + FIRMWARE_SLOT * 8
@@ -421,6 +460,8 @@ if __name__ == '__main__':
     ap.add_argument('--independent-slot', action='store_true', help='Rebind slot 12291 while protecting slot 8704')
     ap.add_argument('--observe-hold', action='store_true',
                     help='Trace acquisition and release of five private queues with both slots left in place')
+    ap.add_argument('--command-traffic', action='store_true',
+                    help='Bracket a blitter request with WIN clocks, GAM, flush and primary-plane samples')
     ap.add_argument('--marker-csb', action='store_true', help='Read fresh blitter status events around one request')
     ap.add_argument('--bcs-queue', action='store_true',
                     help='Verify the active blitter execlist and context across the held checkpoints')
@@ -429,6 +470,7 @@ if __name__ == '__main__':
     ap.add_argument('--console', type=int, choices=range(1, 64), metavar='VT',
                     help='Use a text VT during the independent trial and return to the previous VT')
     args = ap.parse_args()
+    args.marker_csb |= args.command_traffic
     if args.marker_csb and (args.observe_hold or args.independent_slot or args.bcs_queue or args.competing_context or args.console):
         ap.error('--marker-csb runs a standalone request')
     if args.observe_hold and (args.independent_slot or args.competing_context or args.bcs_queue):
@@ -443,7 +485,7 @@ if __name__ == '__main__':
     inst = None if args.observe_hold or args.marker_csb else Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
     try:
         trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console, args.bcs_queue,
-              args.competing_context, args.observe_hold, args.marker_csb)
+              args.competing_context, args.observe_hold, args.marker_csb, args.command_traffic)
     finally:
         if inst is not None:
             (inst / 'tracing_on').write_text('0')

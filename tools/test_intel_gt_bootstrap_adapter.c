@@ -772,6 +772,7 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  if(gt_widi.sampling) {
   assert(host_widi_held && host_widi_count==3 && gt_flush_live() && slot_widi_message(offset));
   *out=offset==0x8014 && (gt_flush.samples!=1 || !strcmp(bootstrap_mode,"flush-quiet")) ? 0x1f : 0;
+  if(offset==0x8104 || offset==0x802c)*out=0x7f;
   return !bf("widi-message",1+gt_widi.messages.reads);
  }
  if(gt_widi.reading) {

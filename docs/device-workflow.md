@@ -73,12 +73,20 @@ check leaves bus mastering disabled. A change on the second keeps the slot,
 RAM and WiDi exclusion held. The collector independently compares the saved
 words. Earlier slot receipts remain readable.
 
-Current `intel-gt-flush-v59` manifests require the version 3 reopened-slot
-receipt in range report v6. It records how many of the five CPU submission
+Range report v6 introduced the version 3 reopened-slot receipt. It records how many of the five CPU submission
 pages were pinned read-only across PCI reopening, how many were restored and
 which remain read-only. The collector checks those counts against both queue
 samples and the slot return. A completed diagnostic requires five pins, five
 restorations and an empty read-only mask.
+
+Current Air7,2 flush manifests require range report v8. It includes all seven
+reserved command slots and records the WiDi clock request before and after
+each WiDi GO, reset and clock acknowledgement sample. The native owner checks
+the sealed wireless register pages on the original page-table root with local
+interrupts masked. Older manifests use the version saved at staging. The
+collector preserves the clock and GO values independently. On this Air the
+clock can be gated while WiDi still has permission to access memory.
+[Command submission and WiDi evidence](intel-bdw-bcs-flush.md#command-submission-while-widi-stays-excluded)
 
 The version 9 flush diagnostic adds an eight-bank policy capture on the
 Air7,2. It runs once between five-engine preparation and the first reset.

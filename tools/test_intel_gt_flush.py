@@ -130,6 +130,21 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(value, value[:-1] + "0"))
 
+    def test_widi_clock_samples_and_historical_receipts(self):
+        text = observe("pass")
+        rows = bootstrap_result(text)["range"]["widi_messages"]
+        self.assertEqual([r["clock_ack"] for r in rows], [0x7f]*4)
+        self.assertEqual(rows[0]["win"], 0x1f)
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace("clock_before=0x7f", "clock_before=0xffffffff"))
+        legacy = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", text)
+        legacy = legacy.replace("intel-widi-device: v=2", "intel-widi-device: v=1")
+        with self.assertRaises(ValueError):
+            bootstrap_result(legacy)
+        old = bootstrap_result(legacy.replace("intel-range-summary: v=8", "intel-range-summary: v=7"))
+        self.assertTrue(old["complete"])
+        self.assertNotIn("clock_ack", old["range"]["widi_messages"][0])
+
     def test_command_backing_fault_keeps_original_reservation(self):
         for phase in range(3):
             result = bootstrap_result(observe("command-ram-alias", phase+1))
@@ -165,7 +180,7 @@ class FlushAcknowledgements(unittest.TestCase):
             slot_backing_version=observed["slot_backing"]["v"],
             slot_widi_version=observed["widi_guard"]["v"],
             slot_reopened_version=observed["reopened_pte"]["v"],
-            command_slots_version=observed["command_slots"]["v"],
+            command_slots_version=observed["command_slots"]["v"], range_version=observed["summary"]["v"],
         ))
 
     def test_readonly_submission_mappings_span_both_queue_checks(self):
@@ -184,8 +199,10 @@ class FlushAcknowledgements(unittest.TestCase):
         for field in ("pinned=5", "restored=5", "ro_mask=0"):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(field, field[:-1] + "4"))
-        old = re.sub(r"^intel-command-slots:.*\n", "", text, flags=re.M).replace("intel-range-summary: v=7 ", "intel-range-summary: v=5 ").replace(
+        old = re.sub(r"^intel-command-slots:.*\n", "", text, flags=re.M).replace("intel-range-summary: v=8 ", "intel-range-summary: v=5 ").replace(
             "intel-slot-reopened: v=3 pinned=5 restored=5 ro_mask=0", "intel-slot-reopened: v=2")
+        old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
+            "intel-widi-device: v=2", "intel-widi-device: v=1")
         self.assertTrue(bootstrap_result(old)["complete"])
 
     def test_wireless_programming_guard_spans_requester_reopening(self):
@@ -227,7 +244,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=7 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -348,7 +365,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
-        old_power = old_power.replace("intel-range-summary: v=7 ", "intel-range-summary: v=1 ")
+        old_power = old_power.replace("intel-range-summary: v=8 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
         old_power = old_power.replace("words0=132 words1=132", "words0=129 words1=129")

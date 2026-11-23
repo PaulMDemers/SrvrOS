@@ -260,6 +260,7 @@ bool scanout_transfer_original(const struct scanout_transfer *t,const struct sca
     *out=t->original[index-t->manifest.first];return true;
 }
 bool scanout_transfer_close(struct scanout_transfer *t,const struct scanout_transfer_token *token) {
+    if(t && t->command_hold)return false;
     if(reserved(t,token)) {
         if(!drop_range(t)){t->error=TRANSFER_EXCLUSION;return fault(t);}
         t->state=TRANSFER_CLOSED;return true;

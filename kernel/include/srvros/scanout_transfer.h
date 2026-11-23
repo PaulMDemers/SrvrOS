@@ -36,6 +36,7 @@ struct scanout_transfer {
     const struct scanout_transfer *object;
     /* Device hold spanning restored translation, reader retirement and unblock. */
     const struct scanout_publication *device_publication;
+    const struct bdw_command_hold *command_hold; /* Pins even a firmware reservation during device acquisition. */
     struct scanout_transfer_manifest reservation; /* Original source geometry for conflict checks. */
     struct scanout_interval interval;
     const struct scanout_transfer_pool *reservation_pool;

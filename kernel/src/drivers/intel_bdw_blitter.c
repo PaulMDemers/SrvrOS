@@ -28,7 +28,7 @@ static bool reset_matches(const struct bdw_blitter_device *device)
 static bool held(const struct bdw_blitter_request *r)
 {
     const struct scanout_publication *p=r->pages;
-    return r->device.held(r->device.owner,r->image) && (!r->device.reset || (reset_matches(&r->device) &&
+    return (!r->traffic || r->traffic->phase==BDW_CMD_EXECUTING) && r->device.held(r->device.owner,r->image) && (!r->device.reset || (reset_matches(&r->device) &&
            intel_bdw_bcs_port_lent(r->device.port_owner,&r->port))) && p->state==PUB_PUBLISHED &&
            p->object==p && !p->busy && p->readers==&r->reader && !r->reader.next &&
            p->epoch==r->reader.binding.epoch && (!p->hold_live || p->hold_live(p)) &&
@@ -332,7 +332,8 @@ static bool window_held(void *ctx)
     struct bdw_blitter_mapping *m=ctx;
     return m->transfer->device_publication==&m->pages &&
            scanout_transfer_check(m->transfer,&m->grant) && m->device.held(m->device.owner,m->image) &&
-           m->window.held(m->window.owner,&m->window,m->transfer) && mapping_epoch_held(m);
+           m->window.held(m->window.owner,&m->window,m->transfer) && mapping_epoch_held(m) &&
+           intel_bdw_command_held(m);
 }
 
 static bool read_entry(void *ctx,uint32_t index,uint64_t *value)
@@ -347,6 +348,7 @@ static bool exchange_entry(void *ctx,uint32_t index,uint64_t value)
 {
     struct bdw_blitter_mapping *m=ctx;
     unsigned page=index-m->range.first;
+    if (m->traffic.phase!=BDW_CMD_BLOCKED) return false;
     if (page>=BDW_BLITTER_GLOBAL_PAGES || !m->pages.busy || !m->pages.exposed ||
         !window_held(m)) return false;
     bool restore=m->pages.state==PUB_RESTORING;
@@ -474,8 +476,9 @@ static uint64_t mapping_clock(void *ctx)
 static bool return_mapping(struct bdw_blitter_mapping *m)
 {
     struct scanout_transfer *t=m->transfer;
-    if (!scanout_transfer_check(t,&m->grant) || !scanout_publish_restore(&m->pages,&m->publication) ||
-        !window_held(m) ||
+    if (m->traffic.phase==BDW_CMD_EXECUTING && !intel_bdw_command_bcs(m,false)) return false;
+    if (m->traffic.phase!=BDW_CMD_BLOCKED || !scanout_transfer_check(t,&m->grant) || !scanout_publish_restore(&m->pages,&m->publication) ||
+        !window_held(m) || !intel_bdw_command_release(m) ||
         !scanout_space_release(&t->space,&m->range)) return false;
     t->device_publication=0;
     return true;
@@ -497,7 +500,11 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
         t->manifest.pages<BDW_BLITTER_GLOBAL_PAGES || t->manifest.aperture_bytes!=image->config.aperture_bytes ||
         t->manifest.fence_begin!=image->config.fence_begin || t->manifest.fence_end!=image->config.fence_end) return false;
     uint64_t offset=0x800000ull+(t->manifest.first/512ull)*PAGE;
-    if (window->mmio_bytes<offset+PAGE || device->mmio>UINT64_MAX-window->mmio_bytes ||
+    if (m->traffic.transfer!=t || m->traffic.phase!=BDW_CMD_BLOCKED ||
+        m->traffic.routes.root!=device->root ||
+        m->traffic.clock_owner!=device->owner || m->traffic.now!=device->now ||
+        m->traffic.grant.epoch!=grant->epoch || !intel_bdw_command_held(m) ||
+        window->mmio_bytes<offset+PAGE || device->mmio>UINT64_MAX-window->mmio_bytes ||
         window->invalidate_physical!=device->mmio+(INTEL_GGTT_INVALIDATE_REGISTER & ~(PAGE-1)) ||
         t->manifest.aperture>UINT64_MAX-image->config.aperture_bytes ||
         window->aperture_physical!=t->manifest.aperture+image->config.ring_gpu ||
@@ -538,8 +545,9 @@ bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bd
     for (unsigned i=0;i<BDW_BLITTER_GLOBAL_PAGES;i++)
         m->inherited[i]=window->aperture_pages[i*PAGE_WORDS+PROBE_WORD];
     if (!window_held(m) || !scanout_publish_apply(&m->pages,&m->publication)) goto publication_failed;
+    m->request.traffic=&m->traffic;
     if (m->verified_pages[0]!=BDW_BLITTER_GLOBAL_PAGES || !m->invalidation[0].complete ||
-        !scanout_transfer_check(t,grant) ||
+        !scanout_transfer_check(t,grant) || !intel_bdw_command_bcs(m,true) ||
         !run_request(&m->request,image,device,&m->pages,&m->publication)) return false;
     return m->request.state==BDW_BLITTER_STATUS_PINNED || return_mapping(m);
 
@@ -570,7 +578,8 @@ bool intel_bdw_blitter_detach(struct bdw_blitter_mapping *m,const struct intel_b
     m->detach_post=post;
     /* The new full reset must have removed both the private HWSP and the
      * active queue. Drain outstanding readers before removing its last pin. */
-    if (!readers_done(m) || !window_held(m) || !scanout_publish_unpin_reader(&m->pages,&r->reader))
+    if (!window_held(m) || (m->traffic.phase==BDW_CMD_EXECUTING && !intel_bdw_command_bcs(m,false)) ||
+        m->traffic.phase!=BDW_CMD_BLOCKED || !readers_done(m) || !window_held(m) || !scanout_publish_unpin_reader(&m->pages,&r->reader))
         return false;
     if (!return_mapping(m) || !intel_bdw_bcs_port_return(r->device.port_owner,&r->port)) {
         r->state=BDW_BLITTER_RETAINED;

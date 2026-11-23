@@ -437,3 +437,46 @@ and run it as the render user with `--command-page-witness`. It checks
 CPU writeback and seven translated aperture reads on a private GEM object,
 restores the words and verifies that the original eDP CRTC advances. i915
 owns the mappings in this comparison.
+
+
+### Command submission while WiDi stays excluded
+
+The reset owner now binds the captured wireless video fuse, video enable,
+audio routing and powered codec identity to the seven-page transfer. Its VMM
+guard excludes CPU mappings of the WiDi tail, video and audio register pages.
+The driver checks that guard on the original root while using the captured
+values. Reading the excluded pages again would violate the exclusion.
+
+The blitter requires a controller lease before it can promote the transfer.
+It checks the enabled primary surface, all eight L3 bank policies, and open
+engine and arbiter replies before requesting a drain. It checks the five
+fresh engine flush acknowledgements and brackets the L3 flush pulse with
+WiDi GO and busy reads. After all seven translations have been installed and
+verified, the owner must independently hold the WiDi device and display
+proxy before reopening global memory traffic. BCS can then fetch its command.
+Rollback requires a second drain and a fresh L3 pulse. A lost lease after a
+store keeps the publication and its backing pinned.
+
+Broadwell's power manager sends the same GO value to all clients. BCS uses
+request bit 4 and message offset `0x800c`. WiDi uses bit 6 and offset
+`0x8014`. CGMSG bit 5 at `0x8104` requests WiDi clock gating and the clocking
+unit reports the result at `0x802c`. The native reset diagnostic records this
+pair with the WiDi GO and reset-flow observations at four boundaries.
+[Register reference, pp. 234–236, 587–592, 805 and 815](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+On the Air under i915, the host observer sampled both clock registers at
+`0x7f` and WiDi at `0x1f` before and after three completed BCS requests. Each
+request preserved the original primary surface. Ordinary idle clock gating
+can therefore coexist with open WiDi GO. The hardware must keep the independent
+WiDi exclusion across global GO reopening. The GPM request, its continuous
+ownership and that independent exclusion still need native implementations.
+The Q35 test supplies a modeled controller. The Air diagnostic only reads
+the clock and acknowledgement registers.
+
+Run the host comparison with the render user's marker binary. The observer
+uses i915 forcewake and read-only BAR mappings. A pending primary flip rejects
+the sample.
+
+```sh
+sudo python3 tools/intel_bdw_slot_loan_host.py build/tests/intel-bdw-engine-drain-host --user "$USER" --command-traffic
+```

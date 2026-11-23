@@ -2,6 +2,7 @@
 #define SRVROS_INTEL_BDW_BLITTER_H
 
 #include <srvros/intel_bdw_bcs_context.h>
+#include <srvros/intel_bdw_command_traffic.h>
 #include <srvros/intel_bdw_gt_bootstrap.h>
 #include <srvros/intel_bdw_bcs_submit.h>
 #include <srvros/intel_bdw_private_vm.h>
@@ -47,6 +48,7 @@ struct bdw_blitter_device {
 enum bdw_blitter_state { BDW_BLITTER_NEW, BDW_BLITTER_PINNED, BDW_BLITTER_ISSUED,
                          BDW_BLITTER_RETIRED, BDW_BLITTER_RETAINED, BDW_BLITTER_STATUS_PINNED };
 struct bdw_blitter_request {
+    const struct bdw_command_hold *traffic;
     struct bcs_submit_source source;
     struct intel_bdw_bcs_submit port;
     struct scanout_reader reader;
@@ -87,6 +89,7 @@ struct bdw_blitter_window {
     struct scanout_space_pool *spaces;
 };
 struct bdw_blitter_mapping {
+    struct bdw_command_hold traffic;
     struct scanout_publication pages;
     struct scanout_publish_pool pool;
     struct scanout_publish_token publication;
