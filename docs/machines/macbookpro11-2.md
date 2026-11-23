@@ -162,6 +162,27 @@ matched. The exact image and evidence are under `evidence-571544c294dead1f`.
 This accepts cold USB identity and boot-state capture. Firmware startup,
 RF, Demers2.4 discovery and connectivity are still untested on SrvrOS.
 
+#### RTL8188CUS firmware startup
+
+Continue from cold identity acceptance `a5df7343` with all three adapters on
+the Genesys hub. Fetched main is `87503968`. The separate v2 trial scopes
+register writes to the identified port 1 Realtek and its digital power and
+MCU download controls. It verifies the RF and transmit gates are off before
+release and after readiness. No PHY tables, bulk endpoints, network provider,
+or credentials are used.
+
+The installed Ubuntu TSMC image matches linux-firmware at tag `20250917`.
+The v2 package pins the firmware and license. The MCU receives the 16,094-byte
+body as four pages of exact vendor control writes. The driver clears the
+cold checksum report, requires a fresh checksum, disables download, then
+checks the MCU ready and RAM-selected bits after the 8051 reset.
+The sequence uses the digital portion of the
+[RTL8192CU power-on reference](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtl8xxxu/8192c.c)
+and the [rtl8xxxu firmware reference](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtl8xxxu/core.c).
+The internal journal retains identity before writes and the firmware result
+on return. The trial is unattended and saves the USB exit snapshot when
+the workspace is admitted.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

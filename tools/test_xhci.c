@@ -169,7 +169,8 @@ static struct xhci_device *recovery_device;
 static unsigned recovery_fault, recovery_calls;
 static bool recovery_integrated, recovery_delay_ok=true;
 static uint64_t rf_wait_expected_delay;
-bool timer_delay_us(uint64_t us) { if(tune_test_device)return tune_test_delay(us);if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
+static bool rtl_test_clock;
+bool timer_delay_us(uint64_t us) { if(rtl_test_clock){assert(us==100 || us==1000);return true;}if(tune_test_device)return tune_test_delay(us);if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
     if(native_boundary_mmio_hook)native_boundary_mmio_hook(offset,value);
@@ -747,7 +748,7 @@ bool scheduler_io_begin(void) {
     return test_io_active=true;
 }
 void scheduler_io_end(void) { assert(test_io_gate_allowed && test_io_active);test_io_active=false; }
-bool timer_reference_ready(void) { return false; }
+bool timer_reference_ready(void) { return rtl_test_clock; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
     scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
@@ -7343,22 +7344,28 @@ static void rtl_probe_model(uint64_t offset,uint32_t value) {
         .parameter_high=status_ptr>>32,.status=1u<<24,.control=control};
 }
 
+static struct xhci_device *rtl_hub_fixture(void) {
+    struct xhci_device *hub=control_fixture();
+    hub->addressed=true;hub->speed=3;hub->hub_ports=4;hub->vendor_id=0x05e3;hub->product_id=0x0608;
+    struct xhci_device *rtl=&xhci.devices[1],*edimax=&xhci.devices[2],*netgear=&xhci.devices[3];
+    *rtl=(struct xhci_device){.present=true,.addressed=true,.slot_id=2,.port_id=1,
+        .speed=3,.parent_slot_id=1,.hub_port_id=1,.route_string=1,.vendor_id=0x0bda,
+        .product_id=0x8176,.device_bcd=0x0200,.configuration_count=1,.ep0_max_packet=64};
+    *edimax=(struct xhci_device){.present=true,.addressed=true,.slot_id=3,.port_id=1,
+        .speed=3,.parent_slot_id=1,.hub_port_id=2,.route_string=2,.vendor_id=0x7392,.product_id=0xa711};
+    *netgear=(struct xhci_device){.present=true,.addressed=true,.slot_id=4,.port_id=1,
+        .speed=3,.parent_slot_id=1,.hub_port_id=4,.route_string=4,.vendor_id=0x0846,.product_id=0x9055};
+    assert(allocate_device_runtime(rtl));
+    return rtl;
+}
+
 static void test_rtl8188cu_probe(void) {
     static const unsigned hub_calls[]={2,0,0,0,0,1,1,1,1,2,1};
     static const unsigned device_calls[]={5,0,0,0,0,0,1,3,3,5,3};
     for(rtl_probe_case=0;rtl_probe_case<sizeof hub_calls/sizeof hub_calls[0];rtl_probe_case++) {
         rtl_probe_hub_requests=rtl_probe_device_requests=0;
-        struct xhci_device *hub=control_fixture();
-        hub->addressed=true;hub->speed=3;hub->hub_ports=4;hub->vendor_id=0x05e3;hub->product_id=0x0608;
-        struct xhci_device *rtl=&xhci.devices[1],*edimax=&xhci.devices[2],*netgear=&xhci.devices[3];
-        *rtl=(struct xhci_device){.present=true,.addressed=true,.slot_id=2,.port_id=1,
-            .speed=3,.parent_slot_id=1,.hub_port_id=1,.route_string=1,.vendor_id=0x0bda,
-            .product_id=0x8176,.device_bcd=0x0200,.configuration_count=1,.ep0_max_packet=64};
-        *edimax=(struct xhci_device){.present=true,.addressed=true,.slot_id=3,.port_id=1,
-            .speed=3,.parent_slot_id=1,.hub_port_id=2,.route_string=2,.vendor_id=0x7392,.product_id=0xa711};
-        *netgear=(struct xhci_device){.present=true,.addressed=true,.slot_id=4,.port_id=1,
-            .speed=3,.parent_slot_id=1,.hub_port_id=4,.route_string=4,.vendor_id=0x0846,.product_id=0x9055};
-        assert(allocate_device_runtime(rtl));
+        struct xhci_device *rtl=rtl_hub_fixture(), *hub=&xhci.devices[0];
+        struct xhci_device *edimax=&xhci.devices[2],*netgear=&xhci.devices[3];
         if(rtl_probe_case==1)rtl->present=false;
         if(rtl_probe_case==2){netgear->vendor_id=0x0bda;netgear->product_id=0x8176;}
         if(rtl_probe_case==3)rtl->device_bcd=0x0100;
@@ -7376,6 +7383,143 @@ static void test_rtl8188cu_probe(void) {
     }
     native_boundary_mmio_hook=NULL;
     puts("rtl8188cu: PASS native hub and EP0 path, three exact reads, sibling isolation and 10 refusal cases");
+}
+
+enum rtl_fw_fault {
+    RTL_FW_NORMAL,RTL_FW_BAD_IMAGE,RTL_FW_WARM,RTL_FW_POWER,RTL_FW_RADIO,
+    RTL_FW_SHORT,RTL_FW_CHECKSUM,RTL_FW_READY,RTL_FW_REPLACED,RTL_FW_CLOCK,
+};
+static struct {
+    const uint8_t *image;
+    enum rtl_fw_fault fault;
+    unsigned bytes,blocks,ports,writes,pages,resets;
+    uint8_t regs[0x101];
+    bool checksum_cleared;
+} rtl_fw_model;
+
+static void rtl_firmware_completion(uint64_t pointer,unsigned slot,unsigned cc,unsigned residue) {
+    xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
+        .parameter_low=(uint32_t)pointer,.parameter_high=pointer>>32,.status=(cc<<24)|residue,
+        .control=(32u<<10)|(slot<<24)|(1u<<16)|(xhci.event_cycle?1u:0u),
+    };
+}
+
+static void rtl_firmware_model(uint64_t offset,uint32_t value) {
+    if(value!=1 || offset<=xhci.db_base || offset>xhci.db_base+4*4)return;
+    unsigned slot=(unsigned)(offset-xhci.db_base)/4;
+    assert(slot==1 || slot==2);
+    struct xhci_device *d=&xhci.devices[slot-1];
+    struct xhci_device *rtl=&xhci.devices[1];
+    assert(rtl->rtl8188cu_firmware_active);
+    if(slot==1) {
+        const struct xhci_trb *setup=(const struct xhci_trb *)(uintptr_t)d->control_td[0];
+        assert(setup->parameter_low==0x000000a3 && setup->parameter_high==0x00040001);
+        rtl_fw_model.ports++;
+        uint32_t status=0x503;
+        if(rtl_fw_model.fault==RTL_FW_REPLACED && rtl_fw_model.ports==3)status|=1u<<16;
+        for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=status>>(8*i);
+        rtl_firmware_completion(d->control_td[d->control_td_count-1],slot,1,0);
+        return;
+    }
+    assert(strict_control.device==d && !d->firmware.active && d->control_pending);
+    const struct xhci_trb *setup=(const struct xhci_trb *)(uintptr_t)strict_control.setup;
+    const struct xhci_trb *data=(const struct xhci_trb *)(uintptr_t)strict_control.data;
+    unsigned reg=setup->parameter_low>>16, length=setup->parameter_high>>16;
+    assert((setup->parameter_low&0xffff)==(strict_control.data_in?0x05c0:0x0540));
+    assert((setup->parameter_high&0xffff)==0 && length==strict_control.length);
+    assert(((uint64_t)data->parameter_high<<32 | data->parameter_low)==d->descriptor_buffer_phys);
+    assert(data->status==length && !!(data->control&XHCI_DATA_DIR_IN)==strict_control.data_in);
+    uint8_t *regs=rtl_fw_model.regs;
+    if(strict_control.data_in) {
+        assert(reg+length<=sizeof rtl_fw_model.regs && (length==1 || length==2 || length==4));
+        memcpy(d->descriptor_buffer,regs+reg,length);
+    } else if(reg>=0x1000) {
+        unsigned bytes=rtl_fw_model.bytes;
+        unsigned expected=RTL8188CU_IMAGE_SIZE-RTL8188CU_HEADER_SIZE-bytes;
+        if(expected>128)expected=128;
+        assert(reg==0x1000+bytes%4096 && length==expected && (regs[0x82]&7)==bytes/4096);
+        assert((regs[0x80]&7)==1 && rtl_fw_model.checksum_cleared);
+        assert(!memcmp(d->descriptor_buffer,rtl_fw_model.image+RTL8188CU_HEADER_SIZE+bytes,length));
+        if(rtl_fw_model.fault==RTL_FW_SHORT && rtl_fw_model.blocks==32) {
+            rtl_firmware_completion(strict_control.data,slot,13,1);
+            return;
+        }
+        rtl_fw_model.bytes+=length;
+        rtl_fw_model.blocks++;
+        if(rtl_fw_model.bytes==RTL8188CU_IMAGE_SIZE-RTL8188CU_HEADER_SIZE &&
+           rtl_fw_model.fault!=RTL_FW_CHECKSUM)regs[0x80]|=4;
+    } else {
+        rtl_fw_model.writes++;
+        const uint8_t *buffer=d->descriptor_buffer;
+        uint8_t old_cpu=regs[3],old_status=regs[0x80];
+        switch(reg) {
+        case 0x00: assert(length==1 && !(buffer[0]&1));break;
+        case 0x02: assert(length==2 && buffer[0]==regs[2] && !((buffer[1]^old_cpu)&~4));break;
+        case 0x04: assert(length==2 && (buffer[1]&1));break;
+        case 0x11: assert(length==1 && buffer[0]==0x2b);break;
+        case 0x1c: assert(length==1 && buffer[0]==0);break;
+        case 0x1d: assert(length==1 && !((buffer[0]^regs[0x1d])&~1));break;
+        case 0x21: assert(length==1 && buffer[0]==(regs[0x21]|1));break;
+        case 0x80: assert(length==1 || length==4);break;
+        case 0x82: assert(length==1);if(rtl_fw_model.ports>=2)rtl_fw_model.pages++;break;
+        default:assert(false); /* No write to RF, MAC TX, baseband or a sibling. */
+        }
+        memcpy(regs+reg,buffer,length);
+        if(reg==0x04)regs[5]&=~1;
+        if(reg==0x80) {
+            regs[0x80]=(regs[0x80]&~4)|(old_status&4&~buffer[0]);
+            if(buffer[0]&4)rtl_fw_model.checksum_cleared=true;
+        }
+        if(reg==0x02 && (old_cpu&4) && !(regs[3]&4))rtl_fw_model.resets++;
+        if(reg==0x02 && !(old_cpu&4) && (regs[3]&4) && (regs[0x80]&2)) {
+            assert(rtl_fw_model.resets==1 && rtl_fw_model.bytes==16094 && !(regs[0x80]&1));
+            if(rtl_fw_model.fault!=RTL_FW_READY)regs[0x80]|=0xc0;
+        }
+    }
+    rtl_firmware_completion(strict_control.status,slot,1,0);
+}
+
+static void test_rtl8188cu_firmware(const char *path) {
+    uint8_t image[RTL8188CU_IMAGE_SIZE];
+    FILE *firmware=fopen(path,"rb");
+    assert(firmware && fread(image,1,sizeof image,firmware)==sizeof image && fgetc(firmware)==EOF);
+    assert(fclose(firmware)==0 && rtl8188cu_image_matches(image,sizeof image));
+    for(enum rtl_fw_fault fault=RTL_FW_NORMAL;fault<=RTL_FW_CLOCK;fault++) {
+        struct xhci_device *rtl=rtl_hub_fixture();
+        test_time_step=1;
+        rtl_probe_case=rtl_probe_hub_requests=rtl_probe_device_requests=0;
+        native_boundary_mmio_hook=rtl_probe_model;
+        assert(xhci_rtl8188cu_capture_identity());
+        memset(&rtl_fw_model,0,sizeof rtl_fw_model);
+        rtl_fw_model.image=image;rtl_fw_model.fault=fault;
+        rtl_fw_model.regs[0]=1;rtl_fw_model.regs[4]=fault==RTL_FW_POWER?0:2;
+        rtl_fw_model.regs[0x0a]=0x20;rtl_fw_model.regs[0x1f]=fault==RTL_FW_RADIO?7:0;
+        rtl_fw_model.regs[0x80]=fault==RTL_FW_WARM?0xc6:5;rtl_fw_model.regs[0x82]=8;
+        rtl_fw_model.regs[0xf0]=0x35;rtl_fw_model.regs[0xf1]=7;
+        rtl_fw_model.regs[0xf2]=0x40;rtl_fw_model.regs[0xf3]=4;
+        rtl_test_clock=fault!=RTL_FW_CLOCK;
+        native_boundary_mmio_hook=rtl_firmware_model;
+        if(fault==RTL_FW_BAD_IMAGE)image[32]^=1;
+        assert(xhci_rtl8188cu_capture_firmware(image,sizeof image)==(fault==RTL_FW_NORMAL));
+        if(fault==RTL_FW_BAD_IMAGE)image[32]^=1;
+        unsigned attempted=rtl_fw_model.writes;
+        assert(!xhci_rtl8188cu_capture_firmware(image,sizeof image) && attempted==rtl_fw_model.writes);
+        assert(!xhci.sync_users && !strict_control.device && !rtl->rtl8188cu_firmware_active && !network_count);
+        assert(!xhci.devices[0].removed && !xhci.devices[2].removed && !xhci.devices[3].removed);
+        assert(!xhci.devices[2].control_success && !xhci.devices[3].control_success);
+        assert(rtl->ep0_quarantined==(fault==RTL_FW_SHORT) && rtl->removed==(fault==RTL_FW_REPLACED));
+        if(fault==RTL_FW_NORMAL) {
+            assert(rtl_fw_model.bytes==16094 && rtl_fw_model.blocks==126 && rtl_fw_model.pages==4);
+            assert((rtl_fw_model.regs[0x80]&0xc7)==0xc6 && rtl_fw_model.resets==1);
+        }
+        if(fault==RTL_FW_CHECKSUM || fault==RTL_FW_READY)assert(!(rtl_fw_model.regs[0x80]&3));
+        if(fault==RTL_FW_BAD_IMAGE || fault==RTL_FW_WARM || fault==RTL_FW_POWER || fault==RTL_FW_CLOCK)
+            assert(!attempted && !rtl_fw_model.bytes);
+        if(fault==RTL_FW_SHORT || fault==RTL_FW_REPLACED)assert(rtl_fw_model.bytes==4096);
+    }
+    rtl_test_clock=false;test_time_step=1000;
+    native_boundary_mmio_hook=NULL;
+    puts("rtl8188cu: PASS pinned firmware through native EP0, four pages, fresh checksum, CPU ready, sibling isolation and nine faults");
 }
 static struct xhci_device *tt_cleanup_fixture(void) {
     struct xhci_device *d=control_fixture();
@@ -8083,6 +8227,7 @@ static void test_repeated_init(void) {
 }
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--rtl8188cu-identity")){test_rtl8188cu_probe();return 0;}
+    if(argc==3 && !strcmp(argv[1],"--rtl8188cu-firmware")){test_rtl8188cu_firmware(argv[2]);return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-root-reattach")){test_wifi_root_reattach();return 0;}
     if(argc==2 && !strcmp(argv[1],"--integration-lifecycle")){
         test_repeated_init();test_failed_init_restart();test_terminal_stop();test_slot_retirement();test_wifi_root_reattach();

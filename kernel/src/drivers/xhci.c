@@ -26,6 +26,7 @@
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/scheduler.h>
+#include <srvros/sha256.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
 #include <srvros/xhci.h>
@@ -602,7 +603,8 @@ struct xhci_device {
     bool present;
     bool ep0_quarantined;
     bool wifi_probe_attempted, wifi_probe_ok;
-    bool rtl8188cu_probe_attempted;
+    bool rtl8188cu_probe_attempted,rtl8188cu_identified;
+    bool rtl8188cu_firmware_attempted,rtl8188cu_firmware_active;
     struct mt76_identity wifi_identity;
     bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
     uint32_t wifi_efuse_control;
@@ -1724,7 +1726,7 @@ static bool dispatch_strict_control(const struct xhci_trb *event) {
 }
 
 static int wait_control_exact(struct xhci_device *device) {
-    bool timed=device->firmware.active;
+    bool timed=device->firmware.active || device->rtl8188cu_firmware_active;
     uint64_t start=timed?timer_monotonic_us():0,clock_at=start,stalled=0;
     for (uint64_t i = 0; timed || i < XHCI_TRANSFER_TIMEOUT; ++i) {
         uint64_t flags = event_irq_save();
@@ -1734,13 +1736,13 @@ static int wait_control_exact(struct xhci_device *device) {
             int actual = strict_control.actual;
             strict_control.device = 0;
             event_irq_restore(flags);
-            if(timed)device->firmware.control_elapsed_us=timer_monotonic_us()-start;
+            if(device->firmware.active)device->firmware.control_elapsed_us=timer_monotonic_us()-start;
             return actual;
         }
         event_irq_restore(flags);
         if(timed && (i&255)==0) {
             uint64_t now=timer_monotonic_us();
-            device->firmware.control_elapsed_us=now-start;
+            if(device->firmware.active)device->firmware.control_elapsed_us=now-start;
             if(now-start>=300000)break;
             stalled=now==clock_at?stalled+256:0;clock_at=now;
             if(stalled>=XHCI_TRANSFER_TIMEOUT)break;
@@ -2848,13 +2850,22 @@ static bool rtl8188cu_config_matches(const uint8_t *actual) {
 }
 
 enum rtl8188cu_register {
+    RTL8188CU_ISOLATION = 0x00,
+    RTL8188CU_SYS_FUNC = 0x02,
+    RTL8188CU_POWER = 0x04,
     RTL8188CU_BOOT_SOURCE = 0x0a,
+    RTL8188CU_SWITCH_REGULATOR = 0x11,
+    RTL8188CU_REG_CONTROL = 0x1c,
+    RTL8188CU_RF_CONTROL = 0x1f,
+    RTL8188CU_LDO = 0x21,
     RTL8188CU_MCU_STATUS = 0x80,
+    RTL8188CU_MCU_PAGE = 0x82,
     RTL8188CU_SYS_CFG = 0xf0,
+    RTL8188CU_MAC_CONTROL = 0x100,
 };
 
-static bool rtl8188cu_read(struct xhci_device *d,enum rtl8188cu_register reg,uint32_t *value) {
-    const uint16_t length=reg==RTL8188CU_SYS_CFG?4:1;
+static bool rtl8188cu_read(struct xhci_device *d,uint16_t reg,uint16_t length,uint32_t *value) {
+    if(length!=1 && length!=2 && length!=4)return false;
     const struct usb_setup_packet setup={.request_type=0xc0,.request=5,.value=reg,.length=length};
     int actual;
     if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,length,true,&actual) ||
@@ -2879,15 +2890,15 @@ static const char *rtl8188cu_probe(struct xhci_device *d,struct xhci_device *hub
     if(!set_configuration(d,1))return "configuration";
 
     uint32_t sys_cfg=0,boot=0,mcu=0;
-    if(!rtl8188cu_read(d,RTL8188CU_SYS_CFG,&sys_cfg))return "sys-cfg";
+    if(!rtl8188cu_read(d,RTL8188CU_SYS_CFG,4,&sys_cfg))return "sys-cfg";
     /* Linux uses these three bits for test silicon, 92C and UMC. This
      * probe only admits the normal TSMC 88C observed in Ubuntu. */
     if(!sys_cfg || (sys_cfg&((1u<<23)|(1u<<27)|(1u<<19)))) {
         console_printf("rtl8188cu-identity: unsupported sys_cfg=%x\n",(uint64_t)sys_cfg);
         return "silicon";
     }
-    if(!rtl8188cu_read(d,RTL8188CU_BOOT_SOURCE,&boot))return "boot-source";
-    if(!rtl8188cu_read(d,RTL8188CU_MCU_STATUS,&mcu))return "mcu-status";
+    if(!rtl8188cu_read(d,RTL8188CU_BOOT_SOURCE,1,&boot))return "boot-source";
+    if(!rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,&mcu))return "mcu-status";
     if(!rtl8188cu_check_port(d,hub))return "port-after";
     console_printf("rtl8188cu-identity: slot=%u parent=%u port=%u sys_cfg=%x boot=%x mcu_status=%x\n",
         (uint64_t)d->slot_id,(uint64_t)hub->slot_id,(uint64_t)d->hub_port_id,
@@ -2920,11 +2931,178 @@ bool xhci_rtl8188cu_capture_identity(void) {
            !xhci.sync_users && wifi_hub_route_present(target)) {
             target->rtl8188cu_probe_attempted=true;
             failure=rtl8188cu_probe(target,hub);
+            target->rtl8188cu_identified=!failure;
         }
         event_irq_restore(flags);
     }
     console_printf("rtl8188cu-probe: result=%s register_writes=0 firmware=0 rf=0\n",
         failure?failure:"identified");
+    return !failure;
+}
+
+#define RTL8188CU_IMAGE_SIZE 16126u
+#define RTL8188CU_HEADER_SIZE 32u
+#define RTL8188CU_PAGE_SIZE 4096u
+#define RTL8188CU_BLOCK_SIZE 128u
+#define RTL8188CU_WINDOW 0x1000u
+enum rtl8188cu_firmware_bits {
+    RTL8188CU_DL_ENABLE=1u,RTL8188CU_DL_READY=2u,RTL8188CU_CHECKSUM=4u,
+    RTL8188CU_INT_READY=0x40u,RTL8188CU_RAM_SELECTED=0x80u,
+    RTL8188CU_CPU_ENABLE=1u<<10,RTL8188CU_AUTOLOAD=1u<<1,RTL8188CU_MAC_ON=1u<<8,
+    RTL8188CU_TX_ENABLE=0x45u,RTL8188CU_RF_ENABLE=7u,
+};
+
+static bool rtl8188cu_image_matches(const uint8_t *image,uint64_t size) {
+    static const uint8_t expected[]={
+        0xc0,0x83,0xf2,0xdb,0x36,0xef,0x33,0xd0,0xff,0xff,0xc9,0x79,0xab,0xa1,0xd4,0x0f,
+        0x55,0xfa,0x9d,0xc3,0x8d,0xce,0x50,0xf2,0x6e,0x01,0x08,0xa2,0x1c,0x08,0x02,0x86,
+    };
+    if(!image || size!=RTL8188CU_IMAGE_SIZE)return false;
+    uint8_t digest[sizeof expected];
+    sha256_digest(image,size,digest);
+    for(unsigned i=0;i<sizeof digest;i++)if(digest[i]!=expected[i])return false;
+    return true;
+}
+
+static bool rtl8188cu_write(struct xhci_device *d,uint16_t reg,const uint8_t *data,uint16_t length) {
+    if(!length || length>RTL8188CU_BLOCK_SIZE || d->control_pending || d->ep0_quarantined)return false;
+    const struct usb_setup_packet setup={.request_type=0x40,.request=5,.value=reg,.length=length};
+    for(unsigned i=0;i<length;i++)d->descriptor_buffer[i]=data[i];
+    int actual;
+    return control_transfer_internal(d,&setup,d->descriptor_buffer_phys,length,false,&actual) && actual==length;
+}
+
+static bool rtl8188cu_write_value(struct xhci_device *d,uint16_t reg,uint16_t length,uint32_t value) {
+    uint8_t data[4];
+    for(unsigned i=0;i<length;i++)data[i]=(uint8_t)(value>>(8*i));
+    return rtl8188cu_write(d,reg,data,length);
+}
+
+static bool rtl8188cu_update(struct xhci_device *d,uint16_t reg,uint16_t length,uint32_t clear,uint32_t set) {
+    uint32_t value;
+    return rtl8188cu_read(d,reg,length,&value) && rtl8188cu_write_value(d,reg,length,(value&~clear)|set);
+}
+
+static bool rtl8188cu_poll(struct xhci_device *d,uint16_t reg,uint16_t length,uint32_t mask,
+                          uint32_t expected,unsigned attempts,uint32_t *last) {
+    const uint64_t start=timer_monotonic_us();
+    for(unsigned i=0;i<attempts;i++) {
+        if(timer_monotonic_us()-start>=500000)return false;
+        if(!rtl8188cu_read(d,reg,length,last))return false;
+        if((*last&mask)==expected)return true;
+        if(!timer_delay_us(1000))return false;
+    }
+    return false;
+}
+
+/* Bring up only digital power. Leave RF isolation, radio, and TX gates off. */
+static bool rtl8188cu_digital_power(struct xhci_device *d) {
+    uint32_t value;
+    if(!rtl8188cu_poll(d,RTL8188CU_POWER,1,RTL8188CU_AUTOLOAD,RTL8188CU_AUTOLOAD,32,&value) ||
+       !rtl8188cu_write_value(d,RTL8188CU_REG_CONTROL,1,0) ||
+       !rtl8188cu_write_value(d,RTL8188CU_SWITCH_REGULATOR,1,0x2b) ||
+       !timer_delay_us(100) || !rtl8188cu_read(d,RTL8188CU_LDO,1,&value))return false;
+    if(!(value&1) && (!rtl8188cu_write_value(d,RTL8188CU_LDO,1,value|1) ||
+       !timer_delay_us(100) || !rtl8188cu_update(d,RTL8188CU_ISOLATION,1,1,0)))return false;
+    return rtl8188cu_update(d,RTL8188CU_POWER,2,0,RTL8188CU_MAC_ON) &&
+        rtl8188cu_poll(d,RTL8188CU_POWER,2,RTL8188CU_MAC_ON,0,64,&value);
+}
+
+static bool rtl8188cu_radio_parked(struct xhci_device *d) {
+    uint32_t rf,mac;
+    return rtl8188cu_read(d,RTL8188CU_RF_CONTROL,1,&rf) &&
+        rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) &&
+        !(rf&RTL8188CU_RF_ENABLE) && !(mac&RTL8188CU_TX_ENABLE);
+}
+
+static bool rtl8188cu_reset_cpu(struct xhci_device *d) {
+    return rtl8188cu_update(d,RTL8188CU_REG_CONTROL+1,1,1,0) &&
+        rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,RTL8188CU_CPU_ENABLE,0) &&
+        rtl8188cu_update(d,RTL8188CU_REG_CONTROL+1,1,0,1) &&
+        rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,RTL8188CU_CPU_ENABLE);
+}
+
+static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hub,
+                                  const uint8_t *image,unsigned *bytes,uint32_t *status,
+                                  bool *download_touched) {
+    const unsigned body=RTL8188CU_IMAGE_SIZE-RTL8188CU_HEADER_SIZE;
+    if(!rtl8188cu_check_port(d,hub))return "port";
+    uint32_t sys_cfg,boot;
+    if(!rtl8188cu_read(d,RTL8188CU_SYS_CFG,4,&sys_cfg) || (sys_cfg&~3u)!=0x04400734 ||
+       !rtl8188cu_read(d,RTL8188CU_BOOT_SOURCE,1,&boot) || (boot&0x30)!=0x20 ||
+       !rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,status) ||
+       (*status&(RTL8188CU_DL_READY|RTL8188CU_INT_READY|RTL8188CU_RAM_SELECTED)))return "cold-state";
+    if(!rtl8188cu_digital_power(d))return "power";
+    if(!rtl8188cu_radio_parked(d))return "rf-baseline";
+    if(!rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,RTL8188CU_CPU_ENABLE))return "cpu-enable";
+    *download_touched=true;
+    /* Checksum status is write-one-to-clear. Require the old report to
+     * disappear before any image bytes, even if the cold byte was 0x05. */
+    if(!rtl8188cu_update(d,RTL8188CU_MCU_STATUS,1,0,RTL8188CU_DL_ENABLE|RTL8188CU_CHECKSUM) ||
+       !rtl8188cu_update(d,RTL8188CU_MCU_PAGE,1,0x08,0) ||
+       !rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,status) ||
+       (*status&(RTL8188CU_CHECKSUM|RTL8188CU_DL_ENABLE))!=RTL8188CU_DL_ENABLE)return "download-arm";
+    console_write("rtl8188cu-firmware-progress: digital ready; loading four MCU pages\n");
+    uint64_t start=timer_monotonic_us();
+    while(*bytes<body) {
+        unsigned offset=*bytes%RTL8188CU_PAGE_SIZE;
+        if(!offset && (!rtl8188cu_check_port(d,hub) ||
+           !rtl8188cu_update(d,RTL8188CU_MCU_PAGE,1,7,*bytes/RTL8188CU_PAGE_SIZE)))return "page";
+        unsigned n=body-*bytes;
+        if(n>RTL8188CU_BLOCK_SIZE)n=RTL8188CU_BLOCK_SIZE;
+        if(timer_monotonic_us()-start>=3000000 ||
+           !rtl8188cu_write(d,RTL8188CU_WINDOW+offset,image+RTL8188CU_HEADER_SIZE+*bytes,n))return "image-write";
+        *bytes+=n;
+    }
+    if(!rtl8188cu_check_port(d,hub))return "port-before-start";
+    if(!rtl8188cu_update(d,RTL8188CU_MCU_STATUS,1,RTL8188CU_DL_ENABLE|RTL8188CU_CHECKSUM,0))
+        return "download-disable";
+    if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,RTL8188CU_CHECKSUM,RTL8188CU_CHECKSUM,96,status))
+        return "checksum";
+    if(!rtl8188cu_write_value(d,RTL8188CU_MCU_STATUS,4,
+        (*status&~(RTL8188CU_INT_READY|RTL8188CU_CHECKSUM))|RTL8188CU_DL_READY) ||
+       !rtl8188cu_reset_cpu(d))return "start";
+    const uint32_t running=RTL8188CU_DL_READY|RTL8188CU_INT_READY|RTL8188CU_RAM_SELECTED;
+    if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,running|RTL8188CU_DL_ENABLE,running,192,status))return "ready";
+    if(!rtl8188cu_check_port(d,hub) || !rtl8188cu_radio_parked(d))return "final-gates";
+    return NULL;
+}
+
+bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
+    struct xhci_device *d=NULL;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
+        if(xhci.devices[i].rtl8188cu_identified){d=&xhci.devices[i];break;}
+    const char *failure="identity";
+    unsigned bytes=0;
+    uint32_t status=0;
+    bool touched=false,disabled=false;
+    if(d) {
+        uint64_t flags=event_irq_save();
+        struct xhci_device *hub=device_by_slot(d->parent_slot_id);
+        failure="admission";
+        if(hub && !hub->control_pending && !d->control_pending && !d->control_failed && !d->ep0_quarantined &&
+           !d->rtl8188cu_firmware_attempted && !xhci.sync_users && wifi_hub_path_present(d) && timer_reference_ready()) {
+            d->rtl8188cu_firmware_attempted=true;
+            failure="image";
+            if(rtl8188cu_image_matches(image,size)) {
+                d->rtl8188cu_firmware_active=true;
+                failure=rtl8188cu_upload(d,hub,image,&bytes,&status,&touched);
+                if(failure && touched && !d->ep0_quarantined && !d->control_failed && !d->control_pending &&
+                   rtl8188cu_check_port(d,hub)) {
+                    uint32_t check;
+                    const uint32_t clear=RTL8188CU_DL_ENABLE|RTL8188CU_DL_READY|RTL8188CU_CHECKSUM;
+                    disabled=rtl8188cu_update(d,RTL8188CU_MCU_STATUS,1,clear,0) &&
+                        rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,&check) &&
+                        !(check&(RTL8188CU_DL_ENABLE|RTL8188CU_DL_READY));
+                }
+                d->rtl8188cu_firmware_active=false;
+            }
+        }
+        event_irq_restore(flags);
+    }
+    console_printf("rtl8188cu-firmware: result=%s bytes=%u status=%x download_touched=%u cleanup_disabled=%u ep0_quarantined=%u\n",
+        failure?failure:"ready",(uint64_t)bytes,(uint64_t)status,(uint64_t)touched,(uint64_t)disabled,
+        (uint64_t)(d && d->ep0_quarantined));
     return !failure;
 }
 

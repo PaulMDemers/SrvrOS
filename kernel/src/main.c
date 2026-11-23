@@ -934,12 +934,12 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
-static bool rtl8188cu_recipe(const char *cmdline) {
-    static const struct { const char *prefix; unsigned hex_digits; } tokens[] = {
+static bool rtl8188cu_recipe(const char *cmdline,bool firmware) {
+    const struct { const char *prefix; unsigned hex_digits; } tokens[] = {
         {"srvros.storage=ram",0},
         {"srvros.workspace-volume=",8},
         {"srvros.desktop-release=",16},
-        {"srvros.capture=wifi-rtl8188cu",0},
+        {firmware?"srvros.capture=wifi-rtl8188cu-firmware":"srvros.capture=wifi-rtl8188cu",0},
         {"srvros.startup-journal=1",0},
         {"srvros.capture-failure=reboot",0},
     };
@@ -964,8 +964,9 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
-    bool rtl8188cu_capture=cmdline_has_token(cmdline,"srvros.capture=wifi-rtl8188cu");
-    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline))halt_forever();
+    bool rtl8188cu_firmware=cmdline_has_token(cmdline,"srvros.capture=wifi-rtl8188cu-firmware");
+    bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,"srvros.capture=wifi-rtl8188cu");
+    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_firmware))halt_forever();
     if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
         (startup_diagnostic && reconnect_journal)))halt_forever();
@@ -1095,6 +1096,8 @@ void kmain(void) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
             boot_status("Demers5 desktop trial: calibrating. The desktop will open Help when ready.\n");
+        else if(rtl8188cu_firmware)
+            boot_status("Realtek firmware trial: checking USB identity, starting the MCU, and saving results. No input required.\n");
         else if(rtl8188cu_capture)
             boot_status("Realtek 2.4 GHz trial: reading USB identity and saving results. No input required.\n");
         else
@@ -1141,8 +1144,12 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.wifi-mac-startup=1"));
     xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
-    bool rtl8188cu_identified=rtl8188cu_capture && xhci_rtl8188cu_capture_identity();
+    bool rtl8188cu_sampled=rtl8188cu_capture && xhci_rtl8188cu_capture_identity();
     if(startup_journal_requested)startup_checkpoint(2,0);
+    if(rtl8188cu_firmware) {
+        const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
+        rtl8188cu_sampled=xhci_rtl8188cu_capture_firmware(image?image->data:NULL,image?image->size:0);
+    }
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
         mouse_ready ? "yes" : "no",
@@ -1787,7 +1794,7 @@ void kmain(void) {
                 after.switches-before.switches,after.preemptions-before.preemptions,sampled?"yes":"NO");
             thermal_print_status();smc_print_status();audio_print_status();
         }
-        if(rtl8188cu_capture)sampled=rtl8188cu_identified;
+        if(rtl8188cu_capture)sampled=rtl8188cu_sampled;
         console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
