@@ -29,8 +29,9 @@ result, a target GLib-linked child-watch test passed twice. Static GLib,
 GObject and GModule archives build. XDG MIME objects compile with the
 SDK's guest-verified C-locale `fnmatch()`. A local-file-only GIO link verified
 the polling fallback on private exFAT, including cancellation and directory
-refusal. Full static GIO next stops in `ginetaddress.c` on `AI_NUMERICHOST`
-and missing IPv6 address declarations.
+refusal. The SDK address declarations and numeric IPv4 lookup passed in
+the guest, and `ginetaddress.c` compiles. Static GIO now stops at
+`IP_TOS` in `giptosmessage.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
