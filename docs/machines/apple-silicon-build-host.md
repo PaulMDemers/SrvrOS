@@ -573,6 +573,18 @@ configuration passed. Static GIO first fails at `IP_MULTICAST_LOOP` in
 `gsocket.c:1830`.
 [Verification receipt](../assets/evidence/gio-so-broadcast/receipt.json)
 
+## GIO IPv4 multicast-loop declaration — November 23, 2026
+
+Merged OS #541 at `4663140d` is the baseline. Integration reviewed the SDK
+declaration and the existing multicast boundary. Both multicast option
+probes and both platform controls passed in a private diskless guest with an
+idle e1000 socketpair. The probe verified UDP `ENOSYS` and the existing IPv4 TTL
+and broadcast settings. ISO readback matched. The guest stopped and released
+the window. The prior broadcast ISO, serial and capture hashes match.
+Fresh pinned GLib configuration passed. Static GIO next stops at
+`IPV6_MULTICAST_LOOP` in `gsocket.c:1835`.
+[Verification receipt](../assets/evidence/gio-ip-multicast-loop/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend
