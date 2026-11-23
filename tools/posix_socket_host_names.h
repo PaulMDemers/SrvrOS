@@ -69,6 +69,9 @@
 #ifndef ntohl
 #define ntohl audit_ntohl
 #endif
+#ifndef inet_aton
+#define inet_aton audit_inet_aton
+#endif
 #ifndef inet_pton
 #define inet_pton audit_inet_pton
 #endif

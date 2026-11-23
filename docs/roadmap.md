@@ -37,7 +37,8 @@ passed two private exFAT guest checks in a local-file-only GIO link.
 Static GIO now compiles `ginetaddress.c` with guest-verified SDK address
 helpers and numeric IPv4 lookup. Linked guests verified the IPv4 ToS and
 IPv6 traffic-class codecs.
-Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
+The linked resolver passed its IPv4 literal checks. Static GIO next stops
+in `gsocket.c` at `SOCK_SEQPACKET` and other missing socket declarations.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
