@@ -521,6 +521,15 @@ ARM64 or Rosetta as required. Pinned static GIO reached `EPROTOTYPE` in
 `gsocket.c`.
 [Verification receipt](../assets/evidence/gio-seqpacket/receipt.json)
 
+## GIO socket protocol/type errno — November 23, 2026
+
+The topic starts from merged OS #535 at `e77f468f`. The rebuilt SDK and
+normal boot inputs passed both errno runs, both packet-pair controls and
+both platform controls. Exact ISO readback matched. QEMU stopped and the
+VM window was released. Fresh static GIO advanced to undeclared
+`SOMAXCONN` in `gsocket.c`.
+[Verification receipt](../assets/evidence/gio-eprototype/receipt.json)
+
 ## WebCore dependency and software-backend audit — November 5, 2026
 
 The user resumed browser work with a source/configuration audit and backend

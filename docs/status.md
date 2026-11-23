@@ -33,8 +33,8 @@ refusal. The SDK address declarations and numeric IPv4 lookup passed in
 the guest, and `ginetaddress.c` compiles. Linked guests verified the IPv4
 ToS and IPv6 traffic-class codecs.
 The linked resolver passed its IPv4 literal checks. Native Unix sequenced
-packet pairs passed guest verification. Static GIO next stops at undeclared
-`EPROTOTYPE` in `gsocket.c`.
+packet pairs passed guest verification. The SDK now exports `EPROTOTYPE`.
+Static GIO next stops at undeclared `SOMAXCONN` in `gsocket.c`.
 See the [GLib probe record](browser-glib-prereq.md).
 
 The Pro Wi-Fi PR #19 merged as `b275e57d`. Native GPU work in PR #301 remains
