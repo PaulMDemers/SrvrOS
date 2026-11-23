@@ -7,8 +7,10 @@
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
+#include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -71,6 +73,18 @@ static int refuse_gui_interest(int fd) {
 
 int main(void) {
     printf("glib-platform: start\n");
+    enum { host_name_max = 63 };
+    CHECK(sysconf(_SC_HOST_NAME_MAX) == host_name_max);
+    struct utsname system_name;
+    char hostname[host_name_max + 1];
+    memset(hostname, 0x5a, sizeof(hostname));
+    CHECK(uname(&system_name) == 0);
+    CHECK(gethostname(hostname, sizeof(hostname)) == 0);
+    CHECK(strcmp(hostname, "srvros") == 0 && strcmp(hostname, system_name.nodename) == 0);
+    char small[] = {'A', 'B', 'C'};
+    CHECK(gethostname(&small[1], 1) == 0 && small[0] == 'A' && small[1] == '\0' && small[2] == 'C');
+    errno = 0;
+    CHECK(gethostname(&small[1], 0) == -1 && errno == EINVAL && small[0] == 'A' && small[1] == '\0' && small[2] == 'C');
     CHECK(pipe2(channel, O_NONBLOCK | O_CLOEXEC) == 0);
     CHECK(pipe2(release_pipe, O_NONBLOCK | O_CLOEXEC) == 0);
     for (int i = 0; i != 2; ++i) {
