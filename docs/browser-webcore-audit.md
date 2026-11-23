@@ -12,8 +12,9 @@ child watch passed twice in the guest. XDG MIME compiles with the SDK's
 guest-verified `fnmatch()`. GIO selects file polling on SrvrOS, verified on
 private exFAT by a local-file-only link. The SDK address declarations
 passed in the guest and `ginetaddress.c` compiles. A linked guest
-verified the IPv4 ToS codec. Static GIO next stops at `IPV6_TCLASS` in
-`gipv6tclassmessage.c`. The normal guest also verified native wait, character
+verified the IPv4 ToS and IPv6 traffic-class codecs.
+Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
+The normal guest also verified native wait, character
 conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
 The host verified GLib wakeup and timer dispatch.

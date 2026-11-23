@@ -35,8 +35,9 @@ All five XDG MIME objects that include `<fnmatch.h>` compile with the
 guest-verified SDK matcher. The selected individual-file polling fallback
 passed two private exFAT guest checks in a local-file-only GIO link.
 Static GIO now compiles `ginetaddress.c` with guest-verified SDK address
-helpers and numeric IPv4 lookup. A linked guest verified the IPv4 ToS codec.
-Static GIO next stops at `IPV6_TCLASS` in `gipv6tclassmessage.c`.
+helpers and numeric IPv4 lookup. Linked guests verified the IPv4 ToS and
+IPv6 traffic-class codecs.
+Static GIO next stops at undeclared `inet_aton()` in `gresolver.c`.
 Shared-memory and IPC design remains with its runtime owner.
 
 ## Final integration and workspace reset — November 4, 2026
