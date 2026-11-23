@@ -24,7 +24,7 @@ long srv_mmap(void *address, size_t length, int protection, int flags,
     (void)address; (void)length; (void)protection; (void)fd; (void)offset;
     ++mmap_calls;
     observed_flags = flags;
-    return -1;
+    return flags == MAP_SHARED ? -EACCES : -1;
 }
 long srv_munmap(void *address, size_t length) {
     (void)address; (void)length; return -1;
@@ -53,6 +53,12 @@ int main(void) {
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0)
         != MAP_FAILED || observed_errno != ENOMEM || mmap_calls != 1 ||
         observed_flags != (MAP_PRIVATE | MAP_ANONYMOUS)) return 5;
-    puts("browser-memory: shared rejected; discard retains bytes; noreserve stripped");
+    if (browser_mmap(0, sizeof(page), PROT_READ, MAP_SHARED, 3, 0) != MAP_FAILED ||
+        observed_errno != EACCES || mmap_calls != 2 || observed_flags != MAP_SHARED)
+        return 6;
+    if (browser_mmap(0, sizeof(page), PROT_READ, MAP_SHARED, 3, 4096) != MAP_FAILED ||
+        observed_errno != EINVAL || mmap_calls != 2)
+        return 7;
+    puts("browser-memory: shared FD forwarded; discard retains bytes; noreserve stripped");
     return 0;
 }

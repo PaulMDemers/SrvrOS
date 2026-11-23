@@ -17,7 +17,8 @@ Mappings are always non-executable. Whole-region `mprotect` can remove access
 and restore it within the original descriptor's ceiling, even after the
 descriptor closes. Whole-region `munmap` and `mprotect` accept the logical
 length or its page-rounded length. Partial or mixed-region requests fail
-before changing pages.
+before changing pages. Other shared mapping flags, including anonymous and
+fixed flags, return `ENOSYS` through the SDK.
 
 Open descriptors, queued rights and mappings hold independent references.
 Closing a descriptor does not invalidate a mapping. Unmapping does not close

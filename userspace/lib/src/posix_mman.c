@@ -11,7 +11,11 @@ void *mmap(void *address, size_t length, int protection, int flags, int fd, off_
         return MAP_FAILED;
     }
     if ((flags & MAP_SHARED) != 0) {
-        if (address != NULL || flags != MAP_SHARED || offset != 0) {
+        if (flags != MAP_SHARED) {
+            errno = ENOSYS;
+            return MAP_FAILED;
+        }
+        if (address != NULL || offset != 0) {
             errno = EINVAL;
             return MAP_FAILED;
         }
