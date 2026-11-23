@@ -1,0 +1,91 @@
+{
+  "artifacts": {
+    "binary_sha256": "04a1d3d6696cf406d40919ed75688f2a8951289050cb115dbe6b85b89a743dff",
+    "diagnostic_sha256": "903794a9d121f14161ff62ee0c900117520aaea5d1e6f8bb5365a0a823a0574d",
+    "probe_sha256": "6547703649f2f898ab06246100384f3eeb9d25b2dcd16002eefe53fe87bc48e1",
+    "staged_sha256": "670b72385cb5b750a6cf94993e366bfecb2453f0d4c3c2fe3c7df3e2ef821ef7"
+  },
+  "checks": {
+    "diagnostic_controls_absent_in_release": true,
+    "docs": "PASS"
+  },
+  "compatibility": {
+    "guest_comparisons": 17,
+    "guest_filesystem": "clean",
+    "host_differential_comparisons": 576,
+    "host_log_sha256": "2e371d7774679d6c1e1b4f939d3b31327a7d251bd809ab4647fd0d8b0869e4ac",
+    "host_seed": 912,
+    "receipt_sha256": "6e7d1a1aa0c7bbe49c2a051ca809d9e6f07bf91e776a23d2ca7d28a10604c2fe",
+    "status": "PASS",
+    "stdout_write_failure_status": 2
+  },
+  "ctrl_c": {
+    "active_sort_signal_status": 130,
+    "guest_filesystem": "clean",
+    "probe_log_sha256": "617ad842cdf64fdebafff57d4a703a864603ee83c7d5cba49b4530bd9e2f96e0",
+    "retry_status": 0,
+    "scopes": [
+      "SIGINT after consuming data from a held-open input pipe",
+      "SIGINT during repeated GNU sorting with the production checkpoint cadence",
+      "Terminal keyboard Ctrl-C in both phases, followed by successful numeric stable field sorting"
+    ],
+    "screenshots_sha256": {
+      "01-stdin-interrupt.png": "e18e69c87b18b17c501b53f79d583525c0f2097e19033618cab3a49f6adbbd44",
+      "02-sorting.png": "c9774f5a0b5ecea411cd74483ff041bdfc4535369f6a24a59e98c6bf72726527",
+      "03-recovery.png": "ccae00fedb8c472169656ec2a874b659e6fb8cbab71ebed5f5c9384bdbfc7373"
+    },
+    "status": "PASS",
+    "stdin_signal_status": 130,
+    "terminal_receipt_sha256": "7dd3f5b7a73cb84b82fc2f8c4759fe6a91411ec1bed8406fc58539c1b421bca4"
+  },
+  "matched_build": {
+    "disk_sha256": "b728b29774703dc56f8546067220ef99f420f5f2adc410d0fd5d2d0828932756",
+    "host": "Apple Silicon macOS",
+    "initramfs_sha256": "16cd1ab093abd37b0eeba50798c00e18cc7a2269df7b0bc5d63438a7a61eadbc",
+    "iso_sha256": "3bf7b59f28027d0357fb4f816829656685bbf7a31074b99f6b5a34d1993d64b8",
+    "kernel_sha256": "28d0504eef1f03bb309b32573a8476c10822389f1750b11ee0430b6f184c85dc",
+    "manifest_sha256": "3d2199be396f06ccc46b15dab264e02501fcce67e9dea12b10d98ab6e00dc2f5",
+    "target": "x86-64"
+  },
+  "memory": {
+    "arena_limit_bytes": 16777216,
+    "forced_refusal_status": 2,
+    "fresh_retry_status": 0,
+    "mapped_high_water_bytes": 528384,
+    "measured_input": {
+      "bytes": 262144,
+      "records": 8192
+    },
+    "scope": "Mapped SDK heap arena. Stack and executable mappings are separate.",
+    "status": "PASS"
+  },
+  "os_base": "e77f468f2341aed2bdd881d81685234eae3e6fb1",
+  "ports_pin": "cde4d9bd2e5e601c2f5cb57338d1d46e1b0bf683",
+  "regressions": {
+    "cli": {
+      "commands": 498,
+      "filesystem": "clean",
+      "log_sha256": "aab220d8c53a6e3b3ed6232da2029011621f49a73e3bfe404cc47215576b4aad",
+      "status": "PASS"
+    },
+    "ports": {
+      "filesystem": "clean",
+      "log_sha256": "3175695f20270e8ad980bc84dc9260ddc767bc6fb10a0eca80bf8bf45c2bcade",
+      "status": "PASS"
+    }
+  },
+  "reproducibility": {
+    "components": 11,
+    "manifest_sha256": "2080ffa49c4b583438ba5e55dfb4422789e47ef29c8f53f2bdd7a38b6513bc5c",
+    "scope": "Two clean sort component builds against the same matched SDK.",
+    "status": "PASS"
+  },
+  "scope": "Bounded C-locale, sequential in-memory ordering of one regular file or finite stdin. Guest Q35 evidence.",
+  "source": "53d042619fff3ed945d6541a52f33b874e2b3ed8",
+  "status": "PASS bounded GNU sort qualification and regressions",
+  "upstream": {
+    "archive_sha256": "a480198559733e9b3da999e90543ac6f888a2caa544d8d664c5a1f17e528e210",
+    "native_sort_sha256": "75529c260a2b062cfa603246f7049e444243a75d9b9c07cb7a7a9c3c607efd39",
+    "version": "GNU Coreutils 9.12"
+  }
+}

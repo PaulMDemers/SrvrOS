@@ -116,7 +116,18 @@ preserves the input order of ties.
 The profile accepts at most 256 KiB, 8,192 records, and 64 KiB per record
 including the newline. It uses the sequential in-memory engine from GNU
 Coreutils 9.12. See the [port contract](../ports/srvros/gnu-sort/PORT.md) for
-limits, status codes, and source provenance.
+limits, status codes, and source provenance. The
+[qualification receipt](assets/evidence/gnu-sort/receipt.json) records the
+native comparisons, memory measurement, and Terminal recovery.
+
+To repeat the focused guest checks on Apple Silicon, build native GNU sort
+9.12 from the pinned archive and pass its executable as `--reference`.
+
+```sh
+sh tools/macos/build.sh -j2 all build/userspace/gsort-diagnostic.elf \
+  build/userspace/test_gsort_probe.elf
+TMPDIR=/private/tmp python3 tools/gsort_smoke.py --reference /path/to/native/sort
+```
 
 ## Foundation Added
 
