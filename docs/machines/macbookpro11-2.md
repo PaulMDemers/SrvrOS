@@ -176,6 +176,17 @@ QEMU release `65f696dade05f148` exercised volume and mute from the desktop at
 2×, verified a stereo test tone after unmuting, and saved logs with a clean
 USB unmount. Physical automatic routing is pending.
 
+The attended `--desktop-sound-trial` image `135f2b31e959ab38` uses source
+`b41867a3`, Apps `ded4bac` and main `50f1978a`. It opens the dedicated Help
+checklist for jack insertion, removal, manual routing, volume and mute.
+Confirmed jack transitions and menu actions are recorded in the normal
+workspace logs. Return to console saves the exit snapshot, unmounts and
+reboots. Exact-image VM runs verified the Help page, Sound controls, stereo
+WAV playback with zero underruns, the saved exit snapshot and automatic
+return. The same image also returned with the workspace absent. The
+installed recovery and exact manual headphone payload were verified before
+the trial; physical listening and jack transitions await this run.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
