@@ -198,6 +198,17 @@ files preserved. Physical top-bar volume, mute and manual selection, and
 unplug during active playback still need coverage. The recovery archive
 holds the trial evidence and exact payload under `evidence-135f2b31e959ab38`.
 
+The follow-up image `ef8b00c5e4eb9e42` (`9673cec3`, Apps `037912b`) opens a
+focused Help checklist for physical volume, mute, manual output selection,
+and unplug during the bundled two-minute WAV. The Sound trial uses the existing
+512 KiB log capture. The jack log marks a playback stop when the DMA engine
+was playing at the confirmed edge. Host tests cover active and buffering
+streams, and exact-image VM checks cover the Sound controls, stereo output,
+saved logs and automatic return with and without the workspace. The follow-up
+uses main `50f1978a`; building on newer `4c95594e` hit duplicate `fnmatch`
+symbols in the bundled grep and diff ports. Ubuntu's default and the prior
+automatic-routing payload were verified before arming the one-shot boot.
+
 ### Wi-Fi release qualification
 
 The release checks for PR #19 cover active USB removal, repeated cold
