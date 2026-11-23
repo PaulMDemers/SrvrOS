@@ -371,6 +371,19 @@ receipt and first bulk IN completion timing from both saved log paths.
 Discovery acceptance still requires two validated Demers2.4 beacons on
 channel 10 and verified teardown.
 
+Cold session `session-000660f8d170afe6-00` verified firmware ready, all three
+hub leaves, all 256 packet-buffer links with the FIFO bounds verified, all
+495 radio settings, and channel 10 readback. Passive discovery still failed
+at the first bulk IN transfer. The four-second window posted one request
+and recorded zero completions or frames, then stopped the endpoint and
+parked RF/RX. The USB workspace and independent journal agree on the
+`rx-timeout` receipt. All seven journal phases completed, the 27,918-byte
+`exit.log` verified, Ubuntu returned, and all 576 prior files were
+preserved. The exact payload and results are archived in
+`evidence-52220a9ab4f8f271`. Compare chip-side RX status and the xHCI
+endpoint/dequeue state during the next receive window to determine where
+the first transfer stalls.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
