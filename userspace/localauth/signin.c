@@ -24,7 +24,7 @@ static bool trusted_directory(const char *path) {
         directory.st_uid == 0 && !(directory.st_mode & 0022);
 }
 
-static bool admissible_session(const struct local_account *account) {
+static bool admissible_session(const struct local_session_identity *account) {
     struct stat home, executable;
     return trusted_directory("/fat/home") && trusted_directory("/fat/bin") &&
         stat(account->home, &home) == 0 && S_ISDIR(home.st_mode) &&
@@ -35,7 +35,7 @@ static bool admissible_session(const struct local_account *account) {
         (executable.st_mode & 07777) == 0755;
 }
 
-static long launch_session(uint64_t scope, int slave, const struct local_account *account) {
+static long launch_session(uint64_t scope, int slave, const struct local_session_identity *account) {
     char home[sizeof("HOME=") + LOCAL_AUTH_HOME_MAX];
     char uid[21], gid[21];
     if (snprintf(home, sizeof(home), "HOME=%s", account->home) >= (int)sizeof(home))
@@ -156,7 +156,7 @@ static bool relay_session(int master, long child, uint64_t *status, bool *waited
     }
 }
 
-static enum session_result run_session(const struct local_account *account) {
+static enum session_result run_session(const struct local_session_identity *account) {
     if (!admissible_session(account)) return SESSION_UNAVAILABLE;
     struct termios saved, terminal;
     if (tcgetattr(STDIN_FILENO, &saved) < 0) return SESSION_UNSAFE;
@@ -220,17 +220,13 @@ int main(void) {
     for (;;) {
         char name[LOCAL_AUTH_NAME_MAX + 1] = {0};
         char password[LOCAL_AUTH_PASSWORD_MAX + 1] = {0};
-        struct local_account account = {0};
-        uint8_t derived[32] = {0};
+        struct local_session_identity account;
         int named = local_auth_read_name("Login: ", name, sizeof(name));
         int entered = local_auth_read_secret("Password: ", password, sizeof(password));
-        int found = named == 0 ? local_account_lookup(name, &account) : 0;
-        bool computed = local_auth_verifier(password, strlen(password), account.salt, derived);
-        bool matches = local_auth_equal(derived, account.verifier);
-        bool authenticated = entered == 0 && found == 1 && account.enabled && computed && matches;
+        bool authenticated = local_account_authenticate(named == 0 ? name : NULL,
+                                                        entered == 0 ? password : NULL,
+                                                        strlen(password), &account);
         local_auth_wipe(password, sizeof(password));
-        local_auth_wipe(derived, sizeof(derived));
-        local_auth_wipe(account.verifier, sizeof(account.verifier));
         if (authenticated) {
             failures = 0;
             enum session_result result = run_session(&account);

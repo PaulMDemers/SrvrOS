@@ -16,6 +16,12 @@
 #define MAX_ACCOUNTS 64
 #define DB_SIZE 16384
 #define HEADER "SRVROS-LOCAL-AUTH-1\n"
+struct local_account {
+    char name[LOCAL_AUTH_NAME_MAX + 1], home[LOCAL_AUTH_HOME_MAX + 1];
+    uint32_t uid, gid;
+    bool enabled;
+    uint8_t salt[16], verifier[32];
+};
 struct database { struct local_account accounts[MAX_ACCOUNTS]; size_t count; };
 static bool valid_name(const char *s) {
     if (!s || !*s) return false;
@@ -122,13 +128,46 @@ static bool no_pending_change(void) {
     if(lstat(AUTH_TEMP,&st)==0 || errno!=ENOENT)return false;
     return true;
 }
-int local_account_lookup(const char *name,struct local_account *out) {
-    if(!valid_name(name) || !out || geteuid()!=0 || !trusted_parent("/fat") ||
-       !trusted_parent("/fat/etc") || !safe_stat(AUTH_DIR,true,0700) || !no_pending_change())return -1;
+static bool lookup_account(const char *name, struct local_account *out) {
+    if (!valid_name(name) || !trusted_parent("/fat") || !trusted_parent("/fat/etc") ||
+        !safe_stat(AUTH_DIR, true, 0700) || !no_pending_change()) return false;
     struct database db;
-    if(load(&db,false)<0 || !no_pending_change())return -1;
-    for(size_t i=0;i<db.count;i++)if(!strcmp(db.accounts[i].name,name)){*out=db.accounts[i];return 1;}
-    return 0;
+    bool found = false;
+    if (load(&db, false) == 0 && no_pending_change()) {
+        for (size_t i = 0; i < db.count; i++) {
+            if (strcmp(db.accounts[i].name, name) != 0) continue;
+            *out = db.accounts[i];
+            found = true;
+            break;
+        }
+    }
+    local_auth_wipe(&db, sizeof(db));
+    return found;
+}
+
+bool local_account_authenticate(const char *name, const char *password, size_t length,
+                                struct local_session_identity *identity) {
+    if (!identity) return false;
+    *identity = (struct local_session_identity){0};
+    if (geteuid() != 0) return false;
+
+    struct local_account account = {0};
+    uint8_t derived[32] = {0};
+    bool found = lookup_account(name, &account);
+    bool input_valid = password && length && length <= LOCAL_AUTH_PASSWORD_MAX;
+    /* Keep the verifier work on denied attempts, including unknown names. */
+    bool computed = local_auth_verifier(input_valid ? password : "", input_valid ? length : 0,
+                                        account.salt, derived);
+    bool matches = local_auth_equal(derived, account.verifier);
+    bool authenticated = input_valid && found && account.enabled && computed && matches;
+    if (authenticated) {
+        strcpy(identity->home, account.home);
+        identity->uid = account.uid;
+        identity->gid = account.gid;
+    }
+    local_auth_wipe(derived, sizeof(derived));
+    local_auth_wipe(&account, sizeof(account));
+    return authenticated;
 }
 static int write_all(int fd,const char *p,size_t n) {
     while(n){ssize_t w=write(fd,p,n);if(w<=0)return -1;p+=w;n-=(size_t)w;}return 0;

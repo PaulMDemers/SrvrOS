@@ -1,5 +1,21 @@
 # Apple Silicon macOS build host
 
+## Authenticated desktop and portable data
+
+`device/apple-silicon/authenticated-desktop-foundation` starts from main
+`87503968`. The local account verifier now returns the authenticated UID,
+GID, and private home without exposing stored password material to the
+session launcher. Console sign-in uses the same verifier and retains its
+session and retry behavior.
+
+The desktop compositor and application launch path still need a scoped
+display and input contract for an unprivileged UID. Keep the sign-in broker
+outside that scope. Before returning to sign-in on logout or crash, retire
+the session and its applications, and release its display and input state.
+The [portable data contract](../portable-profiles.md#using-portable-data-with-a-local-account)
+records how the destination account supplies access and what the first
+integrated migration needs to verify.
+
 ## Installed console authentication
 
 `device/apple-silicon/installed-console-auth` qualified clean source

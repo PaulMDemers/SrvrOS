@@ -1,21 +1,21 @@
 #ifndef LOCAL_AUTH_ACCOUNTS_H
 #define LOCAL_AUTH_ACCOUNTS_H
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #define LOCAL_AUTH_NAME_MAX 31
 #define LOCAL_AUTH_HOME_MAX 80
 #define LOCAL_AUTH_PASSWORD_MAX 128
 #define LOCAL_AUTH_PASSWORD_MIN 15
-struct local_account {
-    char name[LOCAL_AUTH_NAME_MAX+1], home[LOCAL_AUTH_HOME_MAX+1];
-    uint32_t uid,gid;
-    bool enabled;
-    uint8_t salt[16], verifier[32];
+struct local_session_identity {
+    char home[LOCAL_AUTH_HOME_MAX + 1];
+    uint32_t uid, gid;
 };
 /* Read-only committed-store validation; does not resolve pending markers. */
 int local_account_validate_store(void);
-/* 1 found, 0 unknown, -1 invalid or unavailable. Privileged caller only. */
-int local_account_lookup(const char *name, struct local_account *out);
+/* Privileged callers supply NULL for rejected input. Identity is cleared on failure. */
+bool local_account_authenticate(const char *name, const char *password, size_t length,
+                                struct local_session_identity *identity);
 int local_account_add(const char *name, uint32_t uid, uint32_t gid, const char *password);
 int local_account_disable(const char *name);
 int local_account_enable(const char *name);
