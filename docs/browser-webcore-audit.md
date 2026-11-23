@@ -13,8 +13,9 @@ guest-verified `fnmatch()`. GIO selects file polling on SrvrOS, verified on
 private exFAT by a local-file-only link. The SDK address declarations
 passed in the guest and `ginetaddress.c` compiles. A linked guest
 verified the IPv4 ToS and IPv6 traffic-class codecs.
-The linked resolver passed its IPv4 literal checks. Static GIO next stops
-in `gsocket.c` at `SOCK_SEQPACKET` and other missing socket declarations.
+The linked resolver passed its IPv4 literal checks. Native Unix sequenced
+packet pairs passed guest verification. Static GIO next stops at undeclared
+`EPROTOTYPE` in `gsocket.c`.
 The normal guest also verified native wait, character
 conversion, Unicode matching, foreign calls
 and callbacks, gzip streams and message passthrough.
@@ -158,7 +159,7 @@ source lists need SrvrOS-specific review too (`WTF/wtf/PlatformWPE.cmake`).
 | Observed requirement | Current source boundary | Required follow-up before a WPE render |
 | --- | --- | --- |
 | Cross-process shared bitmap | WebCore `SharedMemoryUnix.cpp:122–152` uses shared backing and `MAP_SHARED`; SrvrOS `posix_mman.c:13` rejects `MAP_SHARED` with ENOSYS | OS/runtime owner must design bounded shared-memory object/handle/mapping lifetime, access rights, unmap/exit/cancellation, capacity and negative tests. Copying at the final UI view does not solve the preceding engine IPC transfer. |
-| Web/UI process IPC | WebKit `ConnectionUnix.cpp` uses Unix message sockets/FD attachments; launcher uses GSubprocess and FD inheritance | Validate exact socket type, message limits, descriptor transfer/ownership, launch/reap and shutdown. Do not assume current stream/simple-pipe semantics match SOCK_SEQPACKET. |
+| Web/UI process IPC | WebKit `ConnectionUnix.cpp` uses Unix message sockets and FD attachments. The launcher uses GSubprocess and FD inheritance. | Native sequenced-packet pairs passed with 4096-byte records and four attachments. Qualify the actual attachment budget, launch, reap and shutdown in the Web/UI process exchange. |
 | Experimental signal profile | It explicitly rejects session163, stream168, namespace sockets, message/rights operations and non-simple FDs; normal production signal capabilities are zero | A separately reviewed engine-plus-desktop qualification profile is needed. Do not enable general signals or relax all I/O gates to run WPE. GUI calls themselves are not all categorically denied; their actual admission/session interactions need a matched test. |
 | Main context and timers | GLib uses a different loop from qualified generic WTF; desktop transport has one reader/UI thread | Adapt one owner-driven loop, bounded prepare/query/check/dispatch turns, wakeup and deadline integration. No hidden second GUI consumer or blocking I/O on the UI thread. |
 | Combined GUI/GLib wait | `gui_wait.h` admits only pipe/PTY interests, at most 8 FDs and a deadline at most 1 s ahead. Libc eventfd is synthetic and `posix_poll.c` handles it in 10 ms slices | A general GLib GPollFD set cannot be passed directly to `desk_connection_wait_io`. The pinned GLib probe must prove an admissible bridge or bounded nonblocking/fallback policy, honest socket/eventfd refusal, correct timer/wakeup progress and absence of a busy loop. Do not silently drop interests or broaden GUI wait. |
