@@ -333,6 +333,11 @@ sudo python3 tools/intel_bdw_slot_loan_host.py --user "$USER" --independent-slot
     build/tests/intel-bdw-engine-drain-host
 ```
 
+Add `--bcs-queue` to sample the executing blitter context while the original
+page is bound, the replacement is bound and the original binding is restored.
+The observer reads the status on either side of the context ID, checks the
+executing list is valid and requires the same context at all three points.
+
 i915 rebinds two private 40 MiB objects and chooses their addresses. The
 client checks the single 4 KiB page at slot 12291. Before the trial, the client faults in up to
 sixteen private 4 MiB objects to establish an occupied interval separating

@@ -62,6 +62,25 @@ acknowledgement. A native provider must validate real hardware immediately befor
 an ordered UC DWORD store, after its final clock. Descriptor echoes are not proofs.
 The trusted serialized-kernel contract is not a malicious-memory-write boundary.
 
+The submitter and the one-page GGTT writer share a CPU-side claim on the
+physical blitter submit port. It covers all four DWORDs and the final queue
+sample. A partial descriptor or an uncertain write keeps the port claimed
+even if another caller constructs a fresh source. The GGTT writer takes the
+same claim before pinning its register alias and releases it after restoring
+the mapping, reopening the device and unpinning the alias. A fault during
+reopening retains the claim with the page.
+
+Each proof supplies the lower DWORD of BCS execlist status at `0x22234`.
+For an executing list, the provider brackets the context ID read at `0x22238`
+with matching status reads. The submitter compares the running ID to the
+original descriptor.
+The opening check requires both lists invalid and no active element. During
+the next three checks only the selected list may be valid and both pointers
+must match their opening values. After the fourth write the write pointer
+must have advanced. The list may be pending, executing its first element,
+or retired. Fresh completion evidence is still required before reusing
+the context or its pages. [Broadwell PRM Volume 2c, pp. 435–440](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
 ## Effects, clocks and failure
 
 The four values are0,0,descriptor-high,descriptor-low. Definitely issued DWORDs
@@ -92,6 +111,12 @@ clock/prefix cases under each of three policies,24 compiled weakening controls,
 fatal ASan/UBSan and native compiler2KiB frames/image isolation. Lifetime controls
 must preserve the ordinary positive before the complete fault matrix detects
 the weakened invariant; wrong packet/order controls must fail that positive.
+
+The queue suite adds 49 cases per policy. It covers both hardware queue
+slots, unexpected queue occupancy and replay of the Air's observed executing
+status with matching and foreign context IDs. The one-page Q35 fixture also tries a competing
+claim during the device block and reopening, and starts publication while
+the blitter port is already claimed.
 
 The actual submit and flush cores are also joined in35 cases per policy.
 Publication precedes port access and the original submit-through-completion

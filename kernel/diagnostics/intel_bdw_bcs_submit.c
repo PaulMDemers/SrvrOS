@@ -1,4 +1,15 @@
 #include <srvros/intel_bdw_bcs_submit.h>
+#include <srvros/intel_bdw_bcs_port.h>
+
+/* Stable even if a failed caller loses its descriptor object. */
+static const char poster;
+
+#ifdef SRVROS_BCS_SUBMIT_HOST_TEST
+void intel_bdw_bcs_fixture_new_device(void)
+{
+ (void)intel_bdw_bcs_port_release(&poster);
+}
+#endif
 
 static bool binding_same(const struct bcs_submit_binding *a,const struct bcs_submit_binding *b) {
  return a->owner==b->owner && a->provider==b->provider && a->lifetime==b->lifetime && a->context==b->context &&
@@ -74,7 +85,29 @@ static bool tick(struct intel_bdw_bcs_submit *r) {
  if(why){r->clock_at=at;r->clock_previous=r->p.last;r->clock_reason=why;return fail(r,source,BCS_PORT_CLOCK);}
  r->p.last=at;return true;
 }
-static bool ownership(struct intel_bdw_bcs_submit *r) {
+/* Broadwell PRM 2c pp.435-438. The first DWORD marks the selected list
+ * valid. Only the fourth submits it. After submission the single context
+ * can be waiting, executing in element zero, or already retired. */
+static bool queue_matches(const struct bcs_submit_proof *proof, uint32_t *opening)
+{
+    uint32_t status = proof->queue_status;
+    unsigned prefix = proof->prefix;
+    const uint32_t full = 1u << 2, list1 = 1u << 3, list0 = 1u << 4;
+    unsigned active = (status >> 14) & 3u;
+    if (status == UINT32_MAX || (status & full)) return false;
+    if (prefix == 0) *opening = status & 3u;
+
+    unsigned selected = (*opening >> 1) & 1u;
+    uint32_t valid = status & (list0 | list1);
+    uint32_t expected = selected ? list1 : list0;
+    if (prefix < 4)
+        return !active && (status & 3u) == *opening && valid == (prefix ? expected : 0);
+
+    if (((status >> 1) & 1u) == selected || (valid && valid != expected)) return false;
+    return !active || (active == 1 && valid == expected && (status & 1u) == selected &&
+                       proof->running_context == (uint32_t)(proof->descriptor >> 32));
+}
+static bool ownership(struct intel_bdw_bcs_submit *r,uint32_t *opening) {
  if(!tick(r))return false;
  struct saved s=capture(r);struct bcs_submit_proof p={0};
  bool ok=r->io.ownership(r->io.ctx,r->source,r->p.writes,&p);
@@ -83,13 +116,14 @@ static bool ownership(struct intel_bdw_bcs_submit *r) {
  const struct bcs_submit_binding *b=&r->binding;
  if(!ok || p.source!=r->source || p.owner!=b->owner || p.provider!=b->provider || p.lifetime!=b->lifetime ||
  p.context!=b->context || p.root!=b->root || p.epoch!=b->epoch || p.sequence!=b->sequence || p.descriptor!=b->descriptor ||
- p.requirements!=BCS_SUBMIT_REQUIRED || p.prefix!=r->p.writes || p.checked_at<s.p.last || p.checked_at>r->p.last)
+ p.requirements!=BCS_SUBMIT_REQUIRED || p.prefix!=r->p.writes || p.checked_at<s.p.last || p.checked_at>r->p.last ||
+ !queue_matches(&p,opening))
   return fail(r,r->source,BCS_PORT_OWNERSHIP);
  ++r->p.proofs;return true;
 }
-static bool write_word(struct intel_bdw_bcs_submit *r,unsigned i) {
+static bool write_word(struct intel_bdw_bcs_submit *r,unsigned i,uint32_t *opening) {
  if(i>=4 || r->p.attempts!=i || r->p.writes!=i)return fail(r,r->source,BCS_PORT_RESULT);
- if(!ownership(r))return false;
+ if(!ownership(r,opening))return false;
  ++r->p.attempts;struct saved s=capture(r);
  enum intel_gt_write w=r->io.write(r->io.ctx,BCS_SUBMIT_PORT,r->words[i]);
  bool intact=unchanged(r,&s);r->p=s.p;
@@ -104,17 +138,22 @@ static bool overlap(const void *a,uint64_t an,const void *b,uint64_t bn) {
  return !a || !b || x>UINTPTR_MAX-an || y>UINTPTR_MAX-bn || (x<y+bn && y<x+an);
 }
 bool intel_bdw_bcs_submit_run(struct intel_bdw_bcs_submit *r,struct bcs_submit_source *source,struct bcs_submit_io io) {
+ if(!intel_bdw_bcs_port_claim(&poster))return false;
  if(!r || r->object || r->source || r->busy || r->issued || r->retained || r->reason || r->end || r->p.state ||
  r->p.begin || r->p.last || r->p.proofs || r->p.attempts || r->p.writes || r->p.triggered || r->p.uncertain ||
  r->words[0] || r->words[1] || r->words[2] || r->words[3] ||
  r->clock_at || r->clock_previous || r->clock_reason || !valid(source) || source->consumer ||
- io.ctx!=source->binding.provider || !io.ownership || !io.write || !io.now || overlap(r,sizeof(*r),source,sizeof(*source)))return false;
+ io.ctx!=source->binding.provider || !io.ownership || !io.write || !io.now || overlap(r,sizeof(*r),source,sizeof(*source))) {
+  intel_bdw_bcs_port_release(&poster);
+  return false;
+ }
  *r=(struct intel_bdw_bcs_submit){.object=r,.source=source,.binding=source->binding,.io=io,.original_io=io,
  .p={.begin=source->binding.admitted_at,.last=source->binding.admitted_at,.state=BCS_PORT_WRITING},.busy=true};
  source->consumer=r;
  r->words[0]=r->words[1]=0;r->words[2]=(uint32_t)(r->binding.descriptor>>32);r->words[3]=(uint32_t)r->binding.descriptor;
- for(unsigned i=0;i<4;i++)if(!write_word(r,i))goto done;
- r->p.state=BCS_PORT_VERIFYING;if(!ownership(r))goto done;
+ uint32_t opening=0;
+ for(unsigned i=0;i<4;i++)if(!write_word(r,i,&opening))goto done;
+ r->p.state=BCS_PORT_VERIFYING;if(!ownership(r,&opening))goto done;
  if(r->p.attempts!=4 || r->p.writes!=4 || r->p.triggered!=1 || r->p.proofs!=5 || r->p.uncertain ||
  r->words[0] || r->words[1] || r->words[2]!=(uint32_t)(r->binding.descriptor>>32) || r->words[3]!=(uint32_t)r->binding.descriptor) {
   fail(r,source,BCS_PORT_RESULT);goto done;
@@ -122,5 +161,12 @@ bool intel_bdw_bcs_submit_run(struct intel_bdw_bcs_submit *r,struct bcs_submit_s
  if(r->p.last<=r->p.begin){r->clock_at=r->p.last;r->clock_previous=r->p.last;r->clock_reason=8;fail(r,source,BCS_PORT_CLOCK);goto done;}
  r->p.state=BCS_PORT_ISSUED;r->issued=true;r->end=r->p.last;
 done:
- r->busy=false;return r->issued;
+ r->busy=false;
+ /* A clean four-word issue permits the next provider to check queue capacity.
+  * A known empty prefix is also reusable. Unconfirmed post-trigger state or
+  * a partial descriptor quarantines the FIFO even for a different source. */
+ bool issued=r->issued;
+ if(issued || (!r->p.writes && !r->p.uncertain))
+  intel_bdw_bcs_port_release(&poster);
+ return issued;
 }

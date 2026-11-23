@@ -18,7 +18,7 @@ TRANSITION = re.compile(r'i915_vma_(?:un)?bind: obj=\w+, offset=(0x[\da-f]+) siz
 PCI = Path('/sys/bus/pci/devices/0000:00:02.0')
 
 
-def trial(binary, user, instance, independent, console):
+def trial(binary, user, instance, independent, console, bcs_queue=False):
     slot = INDEPENDENT_SLOT if independent else FIRMWARE_SLOT
     panel = PCI / 'drm'
     edp, = panel.glob('card*/card*-eDP-1/enabled')
@@ -81,6 +81,24 @@ def trial(binary, user, instance, independent, console):
                 if vm == ggtt and 0 <= FIRMWARE_SLOT * 4096 - int(begin, 16) < int(size, 16):
                     raise ValueError('Binding change overlaps the protected slot')
 
+        blitter = mmio_page(0x22234) if bcs_queue else None
+
+        def parked_blitter():
+            # The parked batch has not crossed its release semaphore. Bracket
+            # the separate context ID DWORD with equal status observations.
+            before = struct.unpack_from('<I', blitter, 0x234)[0]
+            context = struct.unpack_from('<I', blitter, 0x238)[0]
+            after = struct.unpack_from('<I', blitter, 0x234)[0]
+            active = (before >> 14) & 3
+            valid = (before >> 3) & 3
+            current = before & 1
+            print(f'bcs_status_before={before:#010x} context={context:#010x} '
+                  f'bcs_status_after={after:#010x} active_element={active} valid_lists={valid:#x}', flush=True)
+            if (before != after or context == 0xffffffff or active not in (1, 2)
+                    or not valid & (1 if current else 2)):
+                raise ValueError('No stable executing blitter list at the held checkpoint')
+            return context
+
         plane = mmio_page(0x70180)
         cache = mmio_page(0xb118)
         render = mmio_page(0x21c4)
@@ -136,6 +154,7 @@ def trial(binary, user, instance, independent, console):
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True))
         entries, bindings = [], []
         indirect_context = None
+        bcs_context = None
         client_ready = False
         checked = 0
         pid = re.compile(r'-' + str(client.pid) + r'\s')
@@ -205,6 +224,11 @@ def trial(binary, user, instance, independent, console):
                             not (indirect & ~63) or
                             (indirect_context is not None and indirect != indirect_context)):
                         raise ValueError('Render indirect context missing or changed under the hold')
+                    if bcs_queue:
+                        context = parked_blitter()
+                        if bcs_context is not None and bcs_context != context:
+                            raise ValueError('Blitter context changed while the queue was parked')
+                        bcs_context = context
                     indirect_context = indirect
                     checked += 1
                     print(f'checked={phase} slot={slot} pte={pte:#018x} '
@@ -259,6 +283,8 @@ if __name__ == '__main__':
     ap.add_argument('binary', type=Path)
     ap.add_argument('--user', required=True)
     ap.add_argument('--independent-slot', action='store_true', help='Rebind slot 12291 while protecting slot 8704')
+    ap.add_argument('--bcs-queue', action='store_true',
+                    help='Verify the active blitter execlist and context across the held checkpoints')
     ap.add_argument('--console', type=int, choices=range(1, 64), metavar='VT',
                     help='Use a text VT during the independent trial and return to the previous VT')
     args = ap.parse_args()
@@ -269,7 +295,7 @@ if __name__ == '__main__':
         ap.error('Use a privileged trace observer and an unprivileged GPU client')
     inst = Path(tempfile.mkdtemp(prefix='srvros-loan-', dir='/sys/kernel/tracing/instances'))
     try:
-        trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console)
+        trial(args.binary.resolve(strict=True), account, inst, args.independent_slot, args.console, args.bcs_queue)
     finally:
         (inst / 'tracing_on').write_text('0')
         inst.rmdir()

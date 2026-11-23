@@ -1,5 +1,6 @@
 #include <srvros/intel_bdw_bcs_submit.h>
 #include <assert.h>
+#include <srvros/intel_bdw_bcs_port.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +13,8 @@ static struct {
  uint64_t time,limit;
  bool hit;
 } m;
+static uint32_t status_samples[5]={1,17,17,17,2};
+static uint32_t running_context=1;
 static struct bcs_submit_io io(void);
 enum fault {NONE,SOURCE_FIELD,RESULT_FIELD,BOTH_FIELD,PROGRESS,PACKET,TERMINAL,REGISTRATION,RESULT_OBJECT,
  SOURCE_OBJECT,SOURCE_POINTER,CALLBACK,ORIGINAL_CALLBACK,BOTH_CALLBACKS,REENTER,
@@ -36,7 +39,13 @@ static void mutate(void *p,struct field f,uint64_t mask) {
 static void hit(void){m.hit=true;m.events_at_fault=m.events;}
 static void hook(void) {
  ++m.events;
- if(m.kind==REENTER) {assert(!intel_bdw_bcs_submit_run(&result,&source,io()));return;}
+ if(m.kind==REENTER) {
+  struct bcs_submit_source contender={.object=&contender,.binding=source.binding};
+  assert(!intel_bdw_bcs_submit_run(&copy,&contender,io()) && !copy.object && !contender.consumer);
+  assert(!intel_bdw_bcs_port_claim(&other) && !intel_bdw_bcs_port_release(&other));
+  assert(!intel_bdw_bcs_submit_run(&result,&source,io()));
+  return;
+ }
  if(m.events!=m.at)return;
  uint64_t mask=m.field==4?8192:m.field==7?2:1; /* Legal changed root/descriptor. */
  switch(m.kind) {
@@ -70,7 +79,7 @@ static uint64_t now(void *ctx) {
 static bool ownership(void *ctx,const struct bcs_submit_source *s,unsigned prefix,struct bcs_submit_proof *p) {
  assert(ctx==&m && s==&source && prefix==m.stores);++m.proofs;hook();
  const struct bcs_submit_binding *b=&source.binding;
- *p=(struct bcs_submit_proof){&source,&owner,&m,&lifetime,&context,0x1000,9,1,b->descriptor,m.time,BCS_SUBMIT_REQUIRED,prefix};
+ *p=(struct bcs_submit_proof){&source,&owner,&m,&lifetime,&context,0x1000,9,1,b->descriptor,m.time,BCS_SUBMIT_REQUIRED,prefix,status_samples[prefix],running_context};
  if(m.proofs==m.at) {
   if(m.kind==PROOF_FALSE){hit();return false;}
   if(m.kind==PROOF_FIELD){mutate(p,proof_fields[m.field],m.field==9?0xfffff:1);hit();}
@@ -89,6 +98,7 @@ static enum intel_gt_write write_word(void *ctx,uint32_t port,uint32_t value) {
 }
 static struct bcs_submit_io io(void){return (struct bcs_submit_io){&m,ownership,write_word,now};}
 static void setup(unsigned kind,unsigned at,unsigned field,unsigned domain) {
+ intel_bdw_bcs_fixture_new_device();
  memset(&result,0,sizeof(result));memset(&copy,0,sizeof(copy));memset(&source,0,sizeof(source));memset(&other_source,0,sizeof(other_source));
  memset(&m,0,sizeof(m));m.kind=kind;m.at=at;m.field=field;m.domain=domain;m.time=2000000;
  source.object=&source;
@@ -118,6 +128,9 @@ static void run(unsigned kind,unsigned at,unsigned field,unsigned domain,bool ex
    } else assert(m.events==m.events_at_fault);
   }
  }
+ bool available=intel_bdw_bcs_port_claim(&other);
+ assert(available==(expected || (!m.stores && !result.p.uncertain)));
+ if(available)assert(intel_bdw_bcs_port_release(&other));
  unsigned events=m.events;assert(!intel_bdw_bcs_submit_run(&copy,&source,io()) && m.events==events && !copy.object);
  assert(!intel_bdw_bcs_submit_run(&result,&source,io()) && m.events==events);
 }
@@ -142,7 +155,48 @@ static void invalid(void) {
  setup(NONE,0,0,4);struct bcs_submit_source old=source;
  assert(!intel_bdw_bcs_submit_run((void *)&source,&source,io()) && !memcmp(&old,&source,sizeof(source)) && !m.events);++cases;
 }
+static void queue_status_cases(void) {
+ /* The default opening matches the physical Air receipt. Exercise the other
+  * queue slot and independently vary the endpoint after the trigger. */
+ for(unsigned slot=0;slot<2;slot++) {
+  const unsigned pointers=slot ? 2 : 1, valid=slot ? 8 : 16, next=slot ? 0 : 2;
+  status_samples[0]=pointers;
+  for(unsigned i=1;i<4;i++)status_samples[i]=pointers|valid;
+  status_samples[4]=next|slot;
+  run(NONE,0,0,4,true);
+  status_samples[4]=next|valid|(slot^1);
+  run(NONE,0,0,4,true);
+  status_samples[4]=next|valid|slot|0x4000;
+  run(NONE,0,0,4,true);
+  for(unsigned i=0;i<5;i++) {
+   uint32_t saved=status_samples[i];
+   const uint32_t faults[]={4u,i==4?2u:(i?valid:8u),0x8000u,UINT32_MAX};
+   for(unsigned j=0;j<4;j++) {
+    status_samples[i]=faults[j]==UINT32_MAX ? UINT32_MAX : saved^faults[j];
+    run(NONE,0,0,4,false);
+    assert(m.stores==i && result.reason==BCS_PORT_OWNERSHIP);
+   }
+   status_samples[i]=saved;
+  }
+ }
+ /* Opening from the cold-boot Air capture, final status from the separate
+  * i915 parked-context trial. Intermediate DWORDs follow the PRM. */
+ const uint32_t air_samples[] = {1, 17, 17, 17, 0x00054032};
+ memcpy(status_samples,air_samples,sizeof(status_samples));
+ run(NONE,0,0,4,true);
+ running_context=0x20; /* Actual i915 context, foreign to the fixture's descriptor. */
+ run(NONE,0,0,4,false);
+ assert(m.stores==4 && result.reason==BCS_PORT_OWNERSHIP);
+ status_samples[0]=air_samples[4];
+ run(NONE,0,0,4,false);
+ assert(!m.stores && result.reason==BCS_PORT_OWNERSHIP);
+}
 int main(int argc,char **argv) {
+ if(argc==2 && !strcmp(argv[1],"--queue")) {
+  queue_status_cases();
+  printf("BCS queue prefix and reopen checks PASS cases=%u\n",cases);
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"--positive")){run(NONE,0,0,4,true);puts("bcs-submit: positive PASS");return 0;}
  assert(argc==1);
  run(NONE,0,0,4,true);unsigned events=m.events,clocks=m.clocks,proofs=m.proofs;

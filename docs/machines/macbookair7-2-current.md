@@ -10,6 +10,22 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+On PR 301 the Broadwell blitter submitter and one-page GGTT writer now share
+a CPU-side claim on the submit port. An incomplete descriptor keeps the port
+claimed. The page writer holds it through rollback and device reopening. The
+host queue tests passed under all three timing policies, and all 25 Q35
+one-page scenarios passed. [Blitter submission protocol](../intel-bdw-bcs-submit.md)
+
+On November 22 the Ubuntu i915 comparison on this Air observed blitter status
+`0x00054032` and context `0x20` at all three held checkpoints. Five engine
+receipts preceded the final render flush. Slot 12291 changed and returned to
+its original PTE, slot 8704 stayed protected, and the original panel advanced
+from frame 68718 to 68721. All five engines resumed. An earlier attempt
+refused an overlapping i915 allocation before the held trial. Both attempts
+returned to the original VT. For the next SrvrOS trial the cold-boot driver
+still needs GPU-visible private ring, context, status and completion storage
+and an independent device-side drain covering cache and display readers.
+
 Release `418d18e891298e1b` (source `f72b78e2`, session
 `session-000660e7c9767b13-00`) held both GGTT reservations through PCI
 bus-master inhibit, five-engine preparation, GT reset, translation maintenance

@@ -5699,7 +5699,7 @@ test-core: test-scanout-transfer
 test-scanout-transfer: build/tests/scanout-transfer$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_scanout_transfer.py
 PRIMARY_FLIP_HOST_SOURCES := kernel/diagnostics/intel_bdw_primary_flip.c kernel/diagnostics/intel_bdw_flip_trial.c kernel/diagnostics/intel_bdw_edp_baseline.c tools/test_intel_bdw_flip_rollback.c
-SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/diagnostics/intel_bdw_scanout_page_store.c kernel/src/scanout_handoff.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
+SCANOUT_TRANSFER_HOST_SOURCES := $(PRIMARY_FLIP_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_port.c kernel/diagnostics/intel_bdw_stolen_scanout.c kernel/diagnostics/intel_bdw_scanout_page_store.c kernel/src/scanout_handoff.c kernel/diagnostics/intel_bdw_scanout_mapping.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_transfer.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/display_access.c
 build/tests/scanout-transfer$(HOST_EXE): tools/test_scanout_transfer.c $(SCANOUT_TRANSFER_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(SCANOUT_TRANSFER_HOST_SOURCES) -o $@
@@ -6767,26 +6767,26 @@ test-intel-bdw-bcs-flush: $(ZIG) build/tests/intel-bdw-bcs-flush$(HOST_EXE) buil
 test-core: test-intel-bdw-bcs-flush
 
 # Trusted-provider BCS submit port; no native adapter, image or implicit owner.
-BCS_SUBMIT_HOST_SOURCES := kernel/diagnostics/intel_bdw_bcs_submit.c
+BCS_SUBMIT_HOST_SOURCES := kernel/diagnostics/intel_bdw_bcs_submit.c kernel/diagnostics/intel_bdw_bcs_port.c
 build/tests/intel-bdw-bcs-submit$(HOST_EXE): tools/test_intel_bdw_bcs_submit.c $(BCS_SUBMIT_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
+	$(HOST_CC) -DSRVROS_BCS_SUBMIT_HOST_TEST -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
 build/tests/intel-bdw-bcs-submit-policy$(HOST_EXE): tools/test_intel_bdw_bcs_submit.c $(BCS_SUBMIT_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
+	$(HOST_CC) -DSRVROS_BCS_SUBMIT_HOST_TEST -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
 build/tests/intel-bdw-bcs-submit-practical$(HOST_EXE): tools/test_intel_bdw_bcs_submit.c $(BCS_SUBMIT_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
+	$(HOST_CC) -DSRVROS_BCS_SUBMIT_HOST_TEST -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) -o $@
 .PHONY: test-intel-bdw-bcs-submit
 build/tests/intel-bdw-bcs-flush-submit$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+	$(HOST_CC) -DSRVROS_BCS_SUBMIT_HOST_TEST -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
 build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+	$(HOST_CC) -DSRVROS_BCS_SUBMIT_HOST_TEST -DSRVROS_INTEL_VTD_DRAIN -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
 build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE): tools/test_intel_bdw_bcs_submit_flush.c $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
+	$(HOST_CC) -DSRVROS_BCS_SUBMIT_HOST_TEST -DSRVROS_INTEL_GT_BOOTSTRAP_NATIVE -DSRVROS_INTEL_GT_PRACTICAL -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BCS_SUBMIT_HOST_SOURCES) kernel/diagnostics/intel_bdw_bcs_flush.c -o $@
 test-intel-bdw-bcs-submit: $(ZIG) build/tests/intel-bdw-bcs-submit$(HOST_EXE) build/tests/intel-bdw-bcs-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-submit-practical$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-policy$(HOST_EXE) build/tests/intel-bdw-bcs-flush-submit-practical$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_bcs_submit
 test-core: test-intel-bdw-bcs-submit

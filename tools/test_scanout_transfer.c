@@ -1,4 +1,5 @@
 #include <srvros/scanout_transfer.h>
+#include <srvros/intel_bdw_bcs_port.h>
 #include <srvros/scanout_memory.h>
 #include <srvros/intel_bdw_scanout_mapping.h>
 #include <srvros/intel_ggtt_invalidate.h>
@@ -351,6 +352,7 @@ static uint64_t held_block(const struct scanout_transfer *t,const struct scanout
     return !strcmp(page_failure,"new-block") ? 2 : 1;
 }
 static enum intel_gt_write request_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t *epoch) {
+    assert(!intel_bdw_bcs_port_claim(&model) && !intel_bdw_bcs_port_release(&model));
     assert(t==&transfer && p==&a.publication && borrower && !block_active && !block_requests);
     assert(table[manifest.first]==input[0] && p->state==PUB_WRITING);
     if (!strcmp(page_failure,"frozen-request")) model.stuck=true;
@@ -360,6 +362,7 @@ static enum intel_gt_write request_block(const struct scanout_transfer *t,const 
     return !strcmp(page_failure,"uncertain-request") ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
 static enum intel_gt_write release_block(const struct scanout_transfer *t,const struct scanout_publication *p,uint64_t epoch) {
+    assert(!intel_bdw_bcs_port_claim(&model) && !intel_bdw_bcs_port_release(&model));
     assert(t==&transfer && p==&a.publication && borrower && block_active && !block_releases);
     assert(epoch==1 && p->state==PUB_RELEASING && p->busy && a.busy && !model.releases);
     assert(p->space->leases[p->range.slot].use==SPACE_EXPOSED);
@@ -773,7 +776,11 @@ static void owned_page_case(const char *mode)
     assert(prepared);
     assert(a.range.first == target && a.range.pages == 1);
     if (mmio) {
-        if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3") ||
+        if (!strcmp(mode,"owned-mmio-bcs-busy")) {
+            assert(intel_bdw_bcs_port_claim(&model));
+            assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && !block_requests);
+            assert(!borrower && intel_bdw_bcs_port_release(&model));
+        } else if (!strcmp(mode,"owned-mmio-wrong-backing") || !strcmp(mode,"owned-mmio-wrong-page") || !strcmp(mode,"owned-mmio-port-loss") || !strcmp(mode,"owned-mmio-no-l3") ||
             !strcmp(mode,"owned-mmio-premature-widi-response") || !strcmp(mode,"owned-mmio-cursor") || !strcmp(mode,"owned-mmio-sprite")) {
             if (!strcmp(mode,"owned-mmio-no-l3")) page_failure="missing-l3";
             assert(!scanout_memory_apply(&a,&at) && !model.writes && !ggtt_posts && table[target]==input[0]);
@@ -796,12 +803,14 @@ static void owned_page_case(const char *mode)
                 assert(!scanout_memory_close(&a,&at) && ggtt_posts==2 && !model.releases);
                 assert(a.state==MEM_FAULT && a.publication.state==PUB_FAULT);
                 assert(a.space->leases[a.range.slot].use==SPACE_QUARANTINED && borrower);
+                assert(!intel_bdw_bcs_port_claim(&model));
                 assert(block_releases==(unsigned)(strcmp(mode,"owned-mmio-retire-pte")!=0));
                 assert(!scanout_transfer_close(&transfer,&token) && !scanout_memory_close(&a,&at));
             } else {
                 assert(scanout_memory_close(&a,&at) && ggtt_posts==2 && table[target]==input[0]);
                 assert(model.releases==1 && !transfer.device_publication);
                 assert(block_requests==1 && block_releases==1 && !block_active && !borrower);
+                assert(intel_bdw_bcs_port_claim(&model) && intel_bdw_bcs_port_release(&model));
                 close_clean();
             }
         }

@@ -9,7 +9,7 @@ OWNED_PAGE_MODES = ("owned-no-grant", "owned-short-import", "owned-vacant", "own
                     "owned-mmio-no-l3", "owned-mmio-widi-loss", "owned-mmio-port-loss", "owned-mmio-wrong-backing", "owned-mmio-rollback-backing",
                     "owned-mmio-reader-loss", "owned-mmio-premature-widi-response", "owned-mmio-rollback-fuse", "owned-mmio-cursor", "owned-mmio-sprite",
                     "owned-mmio-retire-pte", "owned-mmio-reopen-pte", "owned-mmio-release-timeout",
-                    "owned-mmio-reopen-owner")
+                    "owned-mmio-reopen-owner", "owned-mmio-bcs-busy")
 MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close

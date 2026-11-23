@@ -25,7 +25,7 @@ static bool original(void) {
 static bool port_proof(void *ctx,const struct bcs_submit_source *s,unsigned prefix,struct bcs_submit_proof *p) {
  assert(ctx==&m && s==&submission && prefix==m.stores);
  if(!original() || (m.fault==FAIL_PROOF && prefix==m.at))return false;
- *p=(struct bcs_submit_proof){&submission,&owner,&m,&lifetime,&context,0x9000,7,19,0x000000170240201dull,m.time,BCS_SUBMIT_REQUIRED,prefix};
+ *p=(struct bcs_submit_proof){&submission,&owner,&m,&lifetime,&context,0x9000,7,19,0x000000170240201dull,m.time,BCS_SUBMIT_REQUIRED,prefix, prefix==4 ? 2u : prefix ? 17u : 1u,0};
  if(m.fault==LOST_REQUIREMENT)p->requirements^=1u<<m.at;
  return true;
 }
@@ -72,6 +72,7 @@ static enum intel_gt_write submit(void *ctx,const void *c,uint64_t gpu,uint32_t 
 }
 static void pause_once(void *ctx){assert(ctx==&m);++m.time;}
 static void run(enum fault fault,unsigned at,unsigned signal,bool expected) {
+ intel_bdw_bcs_fixture_new_device();
  memset(&flush,0,sizeof(flush));memset(&source,0,sizeof(source));memset(&port,0,sizeof(port));memset(&submission,0,sizeof(submission));
  memset(&m,0,sizeof(m));m.fault=fault;m.at=at;m.signal=signal;m.time=1000000;m.held=true;
  if(fault==AGED)m.time+=220000;

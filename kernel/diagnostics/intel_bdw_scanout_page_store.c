@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <srvros/intel_bdw_bcs_port.h>
 #include <srvros/intel_bdw_ggtt.h>
 #include <srvros/intel_ggtt_window.h>
 #include <srvros/intel_ggtt_invalidate.h>
@@ -26,6 +27,7 @@ static struct page_borrow {
 
 static bool page_pinned(const struct scanout_publication *p)
 {
+    if (!p || !intel_bdw_bcs_port_held(&borrow) || borrow.publication != p) return false;
     if (borrow.firmware) {
         const struct scanout_transfer_manifest *s=&borrow.transfer->manifest;
         const struct bdw_stolen_plan *plan=&borrow.layout->plan;
@@ -45,7 +47,7 @@ static bool page_pinned(const struct scanout_publication *p)
                 return false;
         }
     }
-    return p && borrow.publication == p && borrow.epoch == p->epoch &&
+    return borrow.epoch == p->epoch &&
            borrow.transfer->device_publication == p && borrow.transfer->pinned &&
            borrow.transfer->epoch == borrow.transfer_epoch &&
            display_access_held(&borrow.transfer->exclusion) &&
@@ -178,7 +180,7 @@ static bool release_page_hold(const struct scanout_publication *p)
                 borrow.guard,borrow.root,borrow.aperture,&borrow)) return false;
         borrow.transfer->device_publication=NULL;
         borrow=(struct page_borrow){0};
-        return true;
+        return intel_bdw_bcs_port_release(&borrow);
     }
     return false;
 }
@@ -230,7 +232,11 @@ static bool store_page(struct scanout_memory *m, const struct scanout_memory_tok
             return false;
     } else {
         if (p->hold_live || p->release_hold || borrow.publication || t->device_publication ||
-            !vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) return false;
+            !intel_bdw_bcs_port_claim(&borrow)) return false;
+        if (!vmm_reserved_guard_pin_register(cpu_guard, root, aperture, physical, alias, &borrow)) {
+            intel_bdw_bcs_port_release(&borrow);
+            return false;
+        }
         borrow = (struct page_borrow){.publication=p,.guard=cpu_guard,.epoch=p->epoch,.guard_epoch=cpu_guard->epoch,
             .root=root,.aperture=aperture,.alias=alias,.reg=physical,.entry=reg,.firmware=firmware,.layout=layout,.transfer=t,.traffic=traffic,.transfer_epoch=t->epoch};
         t->device_publication=p;

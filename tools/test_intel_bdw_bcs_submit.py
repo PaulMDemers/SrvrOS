@@ -27,6 +27,12 @@ class Submit(unittest.TestCase):
     p=execute(binary,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'))
     self.assertEqual(p.returncode,0,p.stderr);self.assertIn('PASS cases=35;',p.stdout)
 
+ def test_queue_occupancy_across_the_four_stores(self):
+  for target in TARGETS:
+   result=execute(ROOT/target,'--queue')
+   self.assertEqual(result.returncode,0,result.stderr)
+   self.assertIn('PASS cases=49',result.stdout)
+
  def test_actual_core_prefix_binding_fault_and_clock_matrices(self):
   for target,budget in zip(TARGETS,(100000,150000,250000)):
    p=execute(ROOT/target);self.assertEqual(p.returncode,0,p.stderr)
@@ -42,6 +48,8 @@ class Submit(unittest.TestCase):
     compile_fixture(target,output=binary,declaration=(cc,[*flags,'-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'],sources))
     p=execute(binary,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'))
     self.assertEqual(p.returncode,0,p.stderr);self.assertIn('PASS cases=2519',p.stdout)
+    p=execute(binary,'--queue',env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1'))
+    self.assertEqual(p.returncode,0,p.stderr);self.assertIn('PASS cases=49',p.stdout)
 
  def test_compiled_controls_detect_port_order_and_lifetime_weakening(self):
   original=(ROOT/CORE).read_text()

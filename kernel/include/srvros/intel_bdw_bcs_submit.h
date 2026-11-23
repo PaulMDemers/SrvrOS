@@ -10,6 +10,9 @@ enum bcs_submit_requirement {
  BCS_SUBMIT_MAPPINGS=8,BCS_SUBMIT_VISIBILITY=16
 };
 struct intel_bdw_bcs_submit;
+#ifdef SRVROS_BCS_SUBMIT_HOST_TEST
+void intel_bdw_bcs_fixture_new_device(void);
+#endif
 /* Data bound to an independently owned, initialized private context. This
  * component does not construct/validate all descriptor/context mode fields.
  * The provider must do so before admitting CONTEXT, including page directory,
@@ -33,6 +36,9 @@ struct bcs_submit_proof {
  const void *owner,*provider,*lifetime,*context;
  uint64_t root,epoch,sequence,descriptor,checked_at;
  uint32_t requirements,prefix;
+ /* Fresh BCS EXECLIST_STATUS (0x22234). When an element is executing,
+  * bracket the context ID read at 0x22238 with matching status reads. */
+ uint32_t queue_status, running_context;
 };
 struct bcs_submit_io {
  void *ctx;
