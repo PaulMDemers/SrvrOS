@@ -74,6 +74,12 @@ compact connection state in the bound AHCI journal with scheduler service
 turns disabled, while retaining the xHCI and workspace ownership. The original
 native refusal remains unconfirmed until a connect attempt captures its state.
 
+Repair source `458b8eed` passed the desktop driver regression suite and the
+AHCI and journal writer tests. Exact image `d9006dda99f12b13` passed the GPT
+workspace boot and all four startup-journal VM scenarios. The VM uses an
+emulated USB hub. Physical Demers5 traffic and the held-state journal on
+this Mac still need validation. No one-shot boot was armed for the repair.
+
 For the Realtek devices, the observed interfaces are both vendor-specific.
 Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
 has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Ubuntu selected
