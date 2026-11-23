@@ -111,13 +111,18 @@ The follow-up used the same release in session
 operator then kept 1.75× and restored the workspace's saved 1× setting.
 The final 64 KiB log survived 364,144 bytes of logging. The workspace
 passed its integrity check, with the Text proof updated and all 541
-other files matching. The native 1.75× screenshot remains open. This
-session has its own evidence archive under the recovery directory.
+other files matching. The operator skipped the screenshot in this run.
+This session has its own evidence archive under the recovery directory.
 
-The remaining screenshot check uses an opt-in automatic Retina recipe
-against the PR #501 display, capture owner and USB workspace paths. It
-renders at 1.75× for a single capture, leaves the saved display preference
-intact, and uses the verified automatic Ubuntu return.
+The automatic screenshot recipe on source `3e428c7e` and release
+`82f7537a4191fa5f` passed in native session `session-000660e662fc4553-00`.
+The desktop rendered at 1.75× on the 2880 × 1800 panel and saved one
+decodable 1646 × 1029 BMP through the normal capture owner. It saved
+`exit.log` and returned to Ubuntu. The saved 1× preference and all 546
+existing workspace files matched. The installed image and evidence are
+archived as `82f7537a4191fa5f` and `evidence-82f7537a4191fa5f` in the
+unit's recovery directory. This completes the physical fractional
+scaling checks.
 
 ### Wi-Fi release qualification
 
