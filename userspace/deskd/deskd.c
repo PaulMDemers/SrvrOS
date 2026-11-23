@@ -39,6 +39,7 @@ struct present_frame {
     unsigned scale;
     uint64_t physical_width,physical_height;
     struct loop_render_record *timing;
+    uint32_t *fractional_band;
 };
 static void compose_frame_rect(void *context,struct desk_rect rect) {
     struct present_frame *f=context;
@@ -49,10 +50,18 @@ static void compose_frame_rect(void *context,struct desk_rect rect) {
 static int upload_frame_rect(void *context,struct desk_rect r) {
     struct present_frame *f=context;struct desk_canvas *c=f->canvas;
     uint64_t begin=f->timing?(uint64_t)srv_monotonic_us():0;
-    struct desk_rect p=desk_canvas_physical_rect(c,r);
-    if((uint64_t)p.x+p.w>f->physical_width)p.w=f->physical_width-p.x;
-    if((uint64_t)p.y+p.h>f->physical_height)p.h=f->physical_height-p.y;
-    int result=blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
+    struct desk_rect p=desktop_output_rect(r,f->scale,f->physical_width,f->physical_height);
+    if(!p.w || !p.h)return 0;
+    int result=0;
+    if(desk_scale_fractional(f->scale)) {
+        if(!f->fractional_band)return -1;
+        for(int y=p.y;y<p.y+p.h;y+=DESKTOP_OUTPUT_BAND_ROWS) {
+            struct desk_rect band={p.x,y,p.w,p.y+p.h-y};
+            if(band.h>DESKTOP_OUTPUT_BAND_ROWS)band.h=DESKTOP_OUTPUT_BAND_ROWS;
+            desktop_fractional_band(c,band,f->scale,f->fractional_band);
+            if(blitrect(band.x,band.y,band.w,band.h,f->fractional_band,band.w))result=-1;
+        }
+    } else result=blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
     if(f->timing)render_record_rect(f->timing,1,begin,(uint64_t)srv_monotonic_us(),(uint64_t)p.w*p.h);
     return result;
 }
@@ -176,8 +185,10 @@ struct child_chunk { struct child_chunk *next;size_t bytes;struct child_record r
 struct display_window_backup { uint64_t identity;struct desk_rect frame,restore;int maximized; };
 struct display_runtime {
     struct desk_canvas *canvas,previous_canvas;struct gfx_info *info,previous_info;
+    uint32_t *fractional_band;
     struct display_window_backup *windows;size_t windows_bytes;int window_count;
-    uint64_t token,deadline,owner;unsigned previous_scale;
+    uint64_t token,deadline,owner;unsigned scale,previous_scale;
+    unsigned applied_scales,kept_scales,reverted_scales,timed_out_scales;
     int trial,startup,abort,changed,fatal,restore_done,explicit_scale;
 };
 struct session {
@@ -245,6 +256,7 @@ struct session {
 };
 
 static unsigned session_scale(const struct session *s) {return s->scale?s->scale:1;}
+static unsigned session_output_scale(const struct session *s) {return s->display.scale?s->display.scale:session_scale(s);}
 
 #define session_client(s,i) ((i)<DESKD_WINDOWS?&(s)->clients[(i)]:&(s)->records[(i)]->client)
 #define session_cache(s,i) ((i)<DESKD_WINDOWS?(s)->cache[(i)]:(s)->records[(i)]->cache)
@@ -2352,6 +2364,10 @@ int main(int argc,char **argv) {
     if(profile_transfer_stop && (!ordinary_desktop || !apps_trace)) {
         ui_puts("deskd: profile-transfer test checkpoint requires an ordinary --apps-trace session\n");return 1;
     }
+    if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
+    struct gfx_info info={0};
+    if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
+    if (!explicit_scale && info.scale_num==2 && info.scale_den==1 && info.width>=1280 && info.height>=960) scale=2;
     if(ordinary_desktop && !profile_home) {
         struct desktop_profile_request request={.root="/fat/home",.remember_path="/fat/home/.desktop-profile",.scale=scale,.force=choose_profile,.create_stop=profile_transfer_stop};
         struct desktop_profile_result choice;
@@ -2363,7 +2379,6 @@ int main(int argc,char **argv) {
             selected_profile=choice.profile;strcpy(portable_path,choice.portable_path);profile_home=selected_profile.home;
         }
     }
-    if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
     int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
     int control_manual=control_monitor || (argc==2 && !strcmp(argv[1],"--battery-controls-manual"));
     int control_capture=control_manual || (argc==2 && !strcmp(argv[1],"--battery-controls"));
@@ -2385,7 +2400,9 @@ int main(int argc,char **argv) {
     int wifi_active_remove_trial=argc==2 && !strcmp(argv[1],"--wifi-active-remove-trial");
     int wifi_managed_trial=wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
-    int hardware_trial=wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
+    int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
+    int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
+    int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
@@ -2403,14 +2420,13 @@ int main(int argc,char **argv) {
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
     int tap_typing=argc==2 && strcmp(argv[1],"--tap-typing-test")==0;
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
-    struct gfx_info info={0};
-    if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((wifi_trial || wifi_managed_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((wifi_trial || wifi_managed_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale && scale==1) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { ui_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
     uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
     if (width<640 || height<480) { ui_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
+    const unsigned startup_scale=scale;
     desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
         (unsigned long long)info.width,(unsigned long long)info.height,width,height,scale);
     uint32_t *pixels=desk_pixels_alloc(width*scale,height*scale);
@@ -2421,13 +2437,15 @@ int main(int argc,char **argv) {
     if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.session_child=session_child,.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
+        .trace=retina_trial || wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
     if(profile_home) {
         s.profile=selected_profile;s.home=s.profile.home;
         desk_log("deskd: profile id=%s home=%s credentials=unchanged\n",s.profile.id,s.home);
     } else if(!srv_profile_session_init(&s.profile,s.home,NULL))return 1;
     s.profile_transfer_stop=profile_transfer_stop;
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
+    /* A temporary capture scale does not apply or update the user's saved scale. */
+    s.display.restore_done=retina_screenshot;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     if(audio_io && desk_capture_job_trace(&s.capture,1))return 1;
@@ -2470,6 +2488,8 @@ int main(int argc,char **argv) {
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,wifi_active_remove_trial?"wifi-active-remove-trial":wifi_replug_trial?"wifi-replug-trial":wifi_reattach_trial?"wifi-reattach-trial":wifi_reconnect_trial?"wifi-reconnect-trial":"wifi-managed-trial");
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
+    else if(retina_screenshot) strcpy(s.scene.notice,"Automatic 1.75x screenshot. Leave the workspace connected. Returning to Ubuntu after save.");
+    else if(retina_trial) spawn_app(&s,DESK_APP_HELP,"retina-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");
@@ -2523,6 +2543,7 @@ int main(int argc,char **argv) {
     struct operation_trace failure_operations={0};
     int idle_phase=0;
     unsigned idle_capture_serial=0;
+    int retina_capture_requested=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
     struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
@@ -2798,6 +2819,13 @@ int main(int argc,char **argv) {
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if(apps) {
             display_tick(&s);
+            if(retina_screenshot && session_output_scale(&s)!=DESK_SCALE_175) {
+                if(info.width!=2880 || info.height!=1800 ||
+                   display_change(&s,2880,1800,DESK_SCALE_175,0)!=DESK_DISPLAY_OK) {
+                    desk_log("retina-screenshot: display unavailable\n");failed=1;break;
+                }
+                display_cleanup(&s);
+            }
             if(s.display.changed) {
                 s.display.changed=0;drag=resize=-1;pixels=canvas.pixels;width=canvas.width;height=canvas.height;scale=session_scale(&s);
                 fenced_present=(info.flags&GFX_FLAG_PRESENT_ACTIVE)!=0;
@@ -3224,10 +3252,11 @@ int main(int argc,char **argv) {
          * the registry scratch order for all damage rectangles. */
         int inline_order[DESKD_WINDOWS];int *frame_order=s.scene.order?s.scene.order:inline_order;
         if(s.damage.count) desktop_stack(&s.scene,frame_order);
-        struct present_frame frame={&canvas,&s.scene,frame_order,scale,info.width,info.height,render};
+        unsigned output_scale=session_output_scale(&s);
+        struct present_frame frame={&canvas,&s.scene,frame_order,output_scale,info.width,info.height,render,s.display.fractional_band};
         const struct desktop_present_ops present_ops={compose_frame_rect,upload_frame_rect};
         if(render)render_record_mark(render,1,(uint64_t)srv_monotonic_us());
-        if(desktop_present(&s.damage,scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
+        if(desktop_present(&s.damage,output_scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
         if(render)render_record_mark(render,2,(uint64_t)srv_monotonic_us());
         if(!failed && s.damage.count && fenced_present && gfx_present()!=0) {
             ui_puts("deskd: gfx-present frame failed\n");failed=1;
@@ -3269,6 +3298,13 @@ int main(int argc,char **argv) {
             if(!capture_scheduler)capture->valid=0;
         }
         if(apps && !failed) capture_tick_scaled(&s,&canvas);
+        if(retina_screenshot && !failed) {
+            if(s.capture_finished) { failed=!s.capture_success;quit=1; }
+            else if((uint64_t)srv_ticks()-start>=9000) failed=1;
+            else if(!retina_capture_requested && painted) {
+                capture_request(&s);retina_capture_requested=1;
+            }
+        }
         if(capture) {
             if(capture_scheduler && srv_sched_trace(SRV_SCHED_TRACE_END,&capture->scheduler))capture->valid=0;
             capture->end=(uint64_t)srv_monotonic_us();
@@ -3626,9 +3662,17 @@ int main(int argc,char **argv) {
         (unsigned long long)s.cache_bytes,retained,(unsigned long long)s.cache_reuses);
     if(s.trace)desk_log("deskd: cache peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu windows=%u\n",(unsigned long long)s.cache_peak,(unsigned long long)s.cache_bytes,(unsigned long long)DESKD_CACHE_BUDGET,session_capacity(&s));
     display_cleanup(&s);
+    desk_pixels_free(s.display.fractional_band,DESKTOP_OUTPUT_WIDTH_MAX,DESKTOP_OUTPUT_BAND_ROWS);
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);
     desk_pixels_free(pixels,width*scale,height*scale); gfx_console_mute(0);
+    if(retina_trial) {
+        desk_log("retina-desktop: startup_scale=%u final_scale=%u\n",startup_scale,session_output_scale(&s));
+        desk_log("retina-scales: applied=%u kept=%u reverted=%u timed_out=%u\n",
+            s.display.applied_scales,s.display.kept_scales,s.display.reverted_scales,s.display.timed_out_scales);
+    }
+    if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
+        !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

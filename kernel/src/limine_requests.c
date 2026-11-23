@@ -35,6 +35,12 @@ volatile struct limine_memmap_request memmap_request = {
 };
 
 __attribute__((used, section(".limine_requests")))
+volatile struct limine_smbios_request smbios_request = {
+    .id = LIMINE_SMBIOS_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
 volatile struct limine_rsdp_request rsdp_request = {
     .id = LIMINE_RSDP_REQUEST_ID,
     .revision = 0

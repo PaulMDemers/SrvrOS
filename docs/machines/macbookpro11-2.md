@@ -1,11 +1,138 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-22. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
+Updated: 2026-11-22. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. The Retina desktop selects 2× at 2880 × 1800. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Retina desktop default
+
+Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
+and a native 2880 × 1800 internal panel. Set the 2× desktop default
+through the kernel display hint for the exact firmware model and use
+the existing SrvrUI native-density renderer, compositor input mapping,
+and Settings transaction. Cover ordinary desktop startup, the profile
+chooser, saved scale and explicit overrides. Air7,2 GPU ownership
+in PR #301 is separate.
+
+Source `b2b072b8` suggests 2× for this SMBIOS identity at 2560 × 1600
+or larger. The expected 2880 × 1800 mode was previously recorded on
+this unit. The host tests cover both SMBIOS entry formats, malformed
+and unmapped data, other Mac models, the lower-resolution fallback,
+preference restoration, desktop transactions, and the existing widgets.
+The UEFI VM with the Pro identity started at 1440 × 900 logical without
+a launch override. Pointer actions, window sizing, exact Text data,
+and the saved logical screenshot passed. An explicit 1× override at
+2880 × 1800 also passed. The Air7,2 VM used its 1× default at 1440 × 900.
+
+The attended physical candidate uses the dedicated `--desktop-retina`
+recipe from the PR #501 branch. It opens the complete Retina checklist
+and runs the default without a scale override. The scope includes pointer
+alignment, window layout, a reversible 1× comparison, Text save and
+reopen, and a workspace screenshot. Return to console saves the session
+and returns to Ubuntu after a clean unmount. The captured Wi-Fi release
+and independent known-good recovery remain available.
+
+The first native trial used `f6723ad2`, release `aa8d35a9d6e4e0a3`, and
+session `session-000660e30393bf18-00`. Periodic logs confirm the Retina
+Help topic and the 2880 × 1800 framebuffer at 1×. The operator verified
+changing to 2× and reverting to 1×, then restarted manually. The
+workspace remained clean with the new Text file and saved preferences.
+No final exit snapshot was recorded.
+
+Ubuntu reports both the SMBIOS entry point and the table in ACPI NVS.
+Limine preserves the ACPI memory-map type for tables already in that
+mapped region. The kernel now accepts complete SMBIOS spans in ACPI
+NVS, ACPI reclaimable, or reserved-mapped memory. The exact-model,
+checksum, and range checks still apply. The retry records the firmware
+scale before the desktop starts so it can be compared with the actual
+startup scale and saved Settings state.
+
+The retry used `e6e727d6`, release `fd2656fd31386cc9`, and session
+`session-000660e3527e992f-00`. The native kernel selected 2× from
+firmware before `deskd` read Settings. The desktop opened Help at
+2880 × 1800 physical and 1440 × 900 logical. The workspace retained
+all 527 existing files and contained a new Text file and a valid
+1440 × 900 screenshot. The operator confirmed automatic return to
+Ubuntu. The final log was absent. The last periodic snapshot was
+128,956 bytes into a 128 KiB capture. The attended recipe now uses
+rolling snapshots with a separate boot snapshot. The desktop repeats
+its initial and final scales on exit so the final snapshot records
+both after a long run.
+
+The exact image and hardware evidence are archived under
+`/var/local/srvros-recovery/macbookpro11-2` as `fd2656fd31386cc9` and
+`evidence-fd2656fd31386cc9`. Ubuntu's default and the recovery image
+were verified after collecting the session.
+
+The rolling-logger trial used `f4dd4bd8`, release `5e87320cf984a090`, and
+session `session-000660e389e6bf61-00`. The saved `exit.log` contains
+the newest 65,536 bytes of 101,191 logged bytes. The separate
+boot snapshot records firmware 2× and the exit records startup 2×
+and a confirmed Settings change to 1×. The Text file survived and the
+operator confirmed a clean automatic return to Ubuntu.
+The exact image and checked evidence are archived as `5e87320cf984a090`
+and `evidence-5e87320cf984a090` in the unit's recovery directory.
+
+Fractional scaling extends the desktop output transform, Settings,
+and persisted display preferences with 1.25×, 1.5× and 1.75×. Clients
+continue to use SrvrUI's existing 1× and 2× rasters. The compositor
+resamples fractional output independently of app buffer density.
+The QEMU desktop checks passed at all three fractional scales, including
+Apply, Keep, explicit Revert, timeout, closing Settings during a trial,
+Text save and readback, and restoring the confirmed choice on the next
+desktop launch.
+
+PR #501's attended fractional trial uses the qualified `aa063e68` line,
+the pinned SrvrUI rasterizer and the Retina boot recipe. The trial updates
+the SrvrApps Help checklist and records scale coverage in the final log.
+It checks pointer alignment, readable rendering, live windows, display
+rollback, saved preferences, Text, a screenshot and automatic return on
+this unit. Main's portable-profile update at `288886bd` is separate from
+this fixed-framebuffer trial.
+
+The physical run used source `d808f491`, release `2c50726ff8fd17be`,
+and session `session-000660e48f07b63c-00`. The workspace preference
+selected 1× after the firmware's 2× default. The operator applied and
+kept 1.25×, 1.5×, 1.75× and 2× at 2880 × 1800, then restored 1×.
+The saved Text file reopened successfully. The final 64 KiB snapshot
+survived a wrap after 118,729 bytes of logging, all 537 existing workspace
+files matched, and the operator confirmed automatic return to Ubuntu.
+Explicit Revert, timeout and the 1.75× screenshot have QEMU coverage.
+The installed image and native evidence are archived as
+`2c50726ff8fd17be` and `evidence-2c50726ff8fd17be` in the unit's
+recovery directory.
+
+The follow-up used the same release in session
+`session-000660e4e3033086-00`. Explicit Revert restored 1.25× from a
+1.5× trial, and the countdown restored 1.5× from a 1.75× trial. The
+operator then kept 1.75× and restored the workspace's saved 1× setting.
+The final 64 KiB log survived 364,144 bytes of logging. The workspace
+passed its integrity check, with the Text proof updated and all 541
+other files matching. The operator skipped the screenshot in this run.
+This session has its own evidence archive under the recovery directory.
+
+The automatic screenshot recipe on source `3e428c7e` and release
+`82f7537a4191fa5f` passed in native session `session-000660e662fc4553-00`.
+The desktop rendered at 1.75× on the 2880 × 1800 panel and saved one
+decodable 1646 × 1029 BMP through the normal capture owner. It saved
+`exit.log` and returned to Ubuntu. The saved 1× preference and all 546
+existing workspace files matched. The installed image and evidence are
+archived as `82f7537a4191fa5f` and `evidence-82f7537a4191fa5f` in the
+unit's recovery directory. This completes the physical fractional
+scaling checks.
+
+For PR #501, source `f5030aeb` integrates main `e2b463d8` and
+pins SrvrApps `5651aae`, which retains both the Retina Settings work
+and main's Preview and Profiles changes. The focused host checks passed
+for display identity, presentation, Settings, Help, workspace logging,
+profile streams and the desktop session. Exact-image QEMU checks passed
+with the 2880 × 1800 framebuffer for the attended fractional workflow
+(`8880ceaeaa9117bf`), automatic screenshot, and missing-workspace
+return (`b03534015293d497`). The physical results above apply to the
+archived releases and sessions.
 
 ### Wi-Fi release qualification
 

@@ -1147,6 +1147,9 @@ static void display_transaction_tests(void) {
     c->configure=c->awaiting=0;display_received(&s,0,&p);assert(s.display.trial);
     c->closing=1;display_tick(&s);assert(!s.display.trial && s.scale==2 && !memcmp(&w->frame,&before,sizeof(before)));
     c->closing=0;c->configure=c->awaiting=0;
+    s.preferences.value.display_width=0;s.preferences.value.display_height=0;s.preferences.value.display_scale=1;
+    s.display.restore_done=0;display_tick(&s);
+    assert(s.display.restore_done && !s.display.trial && s.scale==2);
     /* Startup restoration is provisional until clients settle; an allocation
      * failure leaves the old canvas, while a client refusal rolls it back. */
     s.preferences.value.display_width=1600;s.preferences.value.display_height=1200;s.preferences.value.display_scale=1;
@@ -1155,6 +1158,15 @@ static void display_transaction_tests(void) {
     display_tick(&s);assert(!s.display.trial && canvas.pixels==prior && s.scale==2);alloc_fail=0;
     s.display.restore_done=0;display_tick(&s);assert(s.display.trial && s.display.startup && s.scale==1);
     s.display.abort=1;display_tick(&s);assert(!s.display.trial && canvas.pixels==prior && s.scale==2);
+    c->configure=c->awaiting=0;
+    p.value=DESK_DISPLAY_APPLY;p.generation=0;p.width=1600;p.height=1200;p.x=DESK_SCALE_150;p.serial++;
+    display_received(&s,0,&p);
+    assert(s.display.trial && session_output_scale(&s)==DESK_SCALE_150 && s.scale==2);
+    assert(canvas.width==1067 && canvas.height==800 && s.display.fractional_band);
+    p.value=DESK_DISPLAY_REVERT;p.generation=s.display.token;p.serial++;
+    display_received(&s,0,&p);
+    assert(!s.display.trial && session_output_scale(&s)==2 && canvas.pixels==prior);
+    desk_pixels_free(s.display.fractional_band,DESKTOP_OUTPUT_WIDTH_MAX,DESKTOP_OUTPUT_BAND_ROWS);
     display_cleanup(&s);desk_pixels_free(canvas.pixels,desk_canvas_pixel_width(&canvas),desk_canvas_pixel_height(&canvas));
     now=1;
     puts("desktop-display: PASS mode admission, transaction ownership, cancellation, keep, timeout and disconnect rollback");

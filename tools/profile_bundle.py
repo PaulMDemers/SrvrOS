@@ -33,7 +33,7 @@ PREF_RANGES = {'text_size': (16, 20), 'clock_flags': range(4),
 LOCAL_RANGES = {'utc_offset_minutes': range(-720, 841, 15),
                 'pointer_speed': range(1, 6), 'pointer_acceleration': range(2),
                 'disable_while_typing': range(2), 'tap_to_click': range(2),
-                'two_finger_tap': range(2), 'display_scale': (1, 2),
+                'two_finger_tap': range(2), 'display_scale': (1, 2, 125, 150, 175),
                 'display_width': range(0, 3841), 'display_height': range(0, 2161)}
 
 

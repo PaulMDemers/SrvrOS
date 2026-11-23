@@ -1895,6 +1895,40 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(desktop_scale=2)
         with self.assertRaises(ValueError): boot.stage(desktop_scale=3,desktop_volume="37d8c5d0")
 
+    def test_retina_trial_uses_firmware_default(self):
+        version = "ram-usb-v1-retina-desktop-0e535900"
+        release = self.payload("retina", version)
+        path = self.stage / release / "manifest.json"
+        manifest = json.loads(path.read_text()); manifest["config_version"] = version
+        path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)["release"], release)
+        cfg = boot.limine_config(release, version)
+        for token in ("resolution: 2880x1800", "srvros.desktop=retina-trial",
+                      "srvros.workspace-volume=0e535900", f"srvros.desktop-release={release}"):
+            self.assertIn(token, cfg)
+        self.assertNotIn("srvros.desktop-scale=", cfg)
+        self.assertNotIn("srvros.retina-screenshot=", cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_retina=True)
+        for options in ({"desktop_scale": 2}, {"desktop_battery": True}, {"repeat": 2}):
+            with self.assertRaises(ValueError):
+                boot.stage(desktop_retina=True, desktop_volume="0e535900", **options)
+
+    def test_retina_screenshot_recipe(self):
+        version = "ram-usb-v1-retina-shot-desktop-0e535900"
+        release = self.payload("retina", version)
+        path = self.stage / release / "manifest.json"
+        manifest = json.loads(path.read_text())
+        manifest["config_version"] = version
+        path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)["config_version"], version)
+        cfg = boot.limine_config(release, version)
+        for token in ("resolution: 2880x1800", "srvros.desktop=retina-trial",
+                      "srvros.retina-screenshot=1", f"srvros.desktop-release={release}"):
+            self.assertIn(token, cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_retina_screenshot=True)
+        with self.assertRaises(ValueError):
+            boot.stage(desktop_retina=True, desktop_retina_screenshot=True, desktop_volume="0e535900")
+
     def test_scaled_audio_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v31-desktop-37d8c5d0")
         for token in ("srvros.audio=hda","srvros.desktop-scale=2","srvros.laptop-services=brightness","resolution: 2880x1800"):

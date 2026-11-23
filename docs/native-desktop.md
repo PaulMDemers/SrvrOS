@@ -100,15 +100,16 @@ cover both integer scales, cancellation and retained document content.
 
 ## Display scale
 
-Settings → Display selects 1× or 2× scale and, on QEMU's VirtIO GPU, a supported
-resolution. Apply starts a 15-second trial. Keep saves the choice; Revert, timeout,
+Settings → Display offers 1×, 1.25×, 1.5×, 1.75× and 2× and, on QEMU's VirtIO GPU,
+a supported resolution. Apply starts a 15-second trial. Keep saves the choice. Revert, timeout,
 closing Settings or a failed client resize restores the previous display and
 window placement. Settings reports persistence separately, so a session-only
 change is not presented as saved. Confirmed preferences are restored on the next
 desktop launch after the asynchronous preference load completes.
 
-The default is 1× with the inherited boot resolution. An explicit startup override
-remains available:
+The desktop starts at the inherited boot resolution. MacBookPro11,2 firmware
+selects 2× at 2560 × 1600 and larger. The generic default is 1×. For an
+explicit startup override, pass `--scale=1` or `--scale=2`:
 
 ```text
 run /fat/bin/deskd --scale=2
@@ -122,17 +123,19 @@ higher-density raster use integer enlargement. Cache and surface quotas count
 physical bytes, so the same logical window consumes four times the pixel memory
 at 2×. Fenced VirtIO presentation remains active after a successful switch.
 
-A display requires at least 640×480 logical pixels, making 1280×960 the minimum
-physical size for 2×. Fractional scale and automatic DPI inference are not
-implemented. QEMU offers the inherited mode plus bounded presets through
-2880×1800; these are guest-supported modes, not an EDID monitor catalog. Other
-display drivers expose their current resolution and disable resolution changes.
+A display requires at least 640×480 logical pixels. For fractional output,
+the compositor renders with 2× assets and box-filters each damaged region
+to the physical framebuffer. Settings can save a fractional choice using
+the same Keep and Revert workflow. QEMU offers the inherited mode plus bounded
+presets through 2880×1800. Other display drivers expose their current
+resolution and disable resolution changes.
 Scale can still change when the current framebuffer is large enough. See
 [display presentation](display-presentation.md) for the driver recovery contract.
 
-Saved screenshots retain logical dimensions, averaging native 2× pixels so the
-BMP remains within Preview's current 8 MiB file limit. QEMU screendumps preserve
-physical pixels for inspecting font detail. Serial diagnostics record physical
+Saved screenshots use logical dimensions, averaging native 2× pixels. The
+8 MiB BMP limit permits captures at 1.75× and 2× on the 2880×1800 panel.
+QEMU screendumps preserve physical pixels for inspecting font detail.
+Serial diagnostics record physical
 and logical dimensions, scale and confirmed/restored changes. VM evidence does
 not accept modesetting or panel timing on a physical Mac.
 [Acceptance and native-resolution captures](assets/screenshots/hidpi-display-manifest.json)

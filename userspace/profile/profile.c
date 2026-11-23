@@ -272,7 +272,11 @@ static void stream_export(const char *home,const char *output,int count,char **p
     for(int i=0;i<count;i++){unsigned k=b.count++;sources[k].fd=open_document(home,paths[i],&sources[k].initial);b.paths[k]=paths[i];b.sizes[k]=(size_t)sources[k].initial.size;b.total+=b.sizes[k];require(b.total<=PROFILE_STREAM_TOTAL,"aggregate size exceeds limit");require(!profile_stream_hash(sources[k].fd,0,b.sizes[k],b.hashes[k]),"source read failed");stable_document(home,b.paths[k],&sources[k]);cJSON *d=object();addstr(d,"path",paths[i]);addnum(d,"size",(unsigned)b.sizes[k]);addstr(d,"sha256",b.hashes[k]);require(cJSON_AddItemToArray(docs,d),"out of memory");}
     char *metadata=json_text(j),hash[65];stream_export_pass(home,&b,sources,metadata,-1,hash);stream_export_verify(home,&b,sources);
     if(!output){close_sources(sources,b.count);review_output("export",hash,&b,NULL,NULL);return;}
-    if(expected)require(!strcmp(hash,expected),"source changed since review");char absolute[PATH_CAP];absolute_path(absolute,output);parents(absolute);profile_stream_handle fd=profile_stream_open_new(absolute);require(fd>=0,"destination exists or cannot create");
+    if(expected)require(!strcmp(hash,expected),"source changed since review");
+    char absolute[PATH_CAP];
+    absolute_path(absolute,output);parents(absolute);
+    profile_stream_handle fd=profile_stream_open_new(absolute);
+    require(fd>=0,"destination exists or cannot create");
     const char *stop=getenv("SRVROS_PROFILE_STOP_AFTER");
     if(stop&&!strcmp(stop,"export-partial")){unsigned char header[24];struct profile_sha256_ctx ignored;profile_sha256_init(&ignored);stream_export_header(metadata,header);stream_output_bytes(fd,header,24,&ignored);stream_output_bytes(fd,metadata,strlen(metadata),&ignored);require(!profile_stream_sync(fd)&&!profile_stream_close(fd),"export flush failed");close_sources(sources,b.count);char parent[PATH_CAP];strcpy(parent,absolute);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");checkpoint("export-partial");}
 #ifdef SRVROS_PROFILE_HOST_TEST

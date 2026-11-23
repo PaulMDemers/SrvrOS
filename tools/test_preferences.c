@@ -34,6 +34,10 @@ static void model(void) {
     struct desk_preferences display=q;display.display_scale=2;display.display_width=1920;display.display_height=1080;
     assert(!desk_preferences_merge(&q,&display,DESK_PREF_DISPLAY));
     int display_len=desk_preferences_encode(&q,data,sizeof(data));assert(display_len>0 && !desk_preferences_decode(&q,data,display_len) && q.display_scale==2 && q.display_width==1920 && q.display_height==1080);
+    q.display_scale=150;
+    display_len=desk_preferences_encode(&q,data,sizeof(data));
+    assert(display_len>0 && !desk_preferences_decode(&q,data,display_len) && q.display_scale==150);
+    q.display_scale=2;
     display.display_height=0;struct desk_preferences previous=q;
     assert(desk_preferences_merge(&q,&display,DESK_PREF_DISPLAY)<0 && !memcmp(&q,&previous,sizeof(q)));
     const char v4[]="srvros-desktop-v4\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=0\ntap_to_click=1\ntwo_finger_tap=1\n";
