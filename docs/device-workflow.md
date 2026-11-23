@@ -73,6 +73,13 @@ check leaves bus mastering disabled. A change on the second keeps the slot,
 RAM and WiDi exclusion held. The collector independently compares the saved
 words. Earlier slot receipts remain readable.
 
+Current `intel-gt-flush-v59` manifests require the version 3 reopened-slot
+receipt in range report v6. It records how many of the five CPU submission
+pages were pinned read-only across PCI reopening, how many were restored and
+which remain read-only. The collector checks those counts against both queue
+samples and the slot return. A completed diagnostic requires five pins, five
+restorations and an empty read-only mask.
+
 The version 9 flush diagnostic adds an eight-bank policy capture on the
 Air7,2. It runs once between five-engine preparation and the first reset.
 It saves and restores the full MCR selector, changes only the slice/bank

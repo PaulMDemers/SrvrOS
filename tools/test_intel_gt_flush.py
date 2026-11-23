@@ -19,6 +19,7 @@ from intel_gt_flush import MEDIA_WORDS
 from intel_gt_preflight import gt_result
 from test_intel_gt_primary import run
 from test_intel_gt_range import RECIPE, ROOT, TESTS
+from workflow.gt_range import FLUSH_RECEIPTS
 from workflow.runner import trial_parsers
 
 TARGET = "build/tests/intel-gt-flush-adapter"
@@ -120,6 +121,15 @@ class FlushAcknowledgements(unittest.TestCase):
             if line.startswith("intel-slot-queues:"):
                 with self.assertRaises(ValueError):
                     bootstrap_result(text.replace(line, ""))
+
+    def test_profile_receipt_requirements_match_current_adapter(self):
+        observed = bootstrap_result(observe("pass"))["range"]
+        self.assertEqual(FLUSH_RECEIPTS, dict(
+            independent_slot=observed["independent_slot"]["slot"],
+            slot_backing_version=observed["slot_backing"]["v"],
+            slot_widi_version=observed["widi_guard"]["v"],
+            slot_reopened_version=observed["reopened_pte"]["v"],
+        ))
 
     def test_readonly_submission_mappings_span_both_queue_checks(self):
         text = observe("pass")

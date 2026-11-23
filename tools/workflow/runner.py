@@ -383,10 +383,8 @@ class Runner:
                         hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
         if trial_profile in STOLEN_PREINIT:manifest['stolen_progress_version']=1
         if trial_profile=='intel-gt-flush-v59':
-            manifest['independent_slot'] = 12291
-            manifest['slot_backing_version'] = 1
-            manifest['slot_widi_version'] = 1
-            manifest['slot_reopened_version'] = 2
+            from workflow.gt_range import FLUSH_RECEIPTS
+            manifest.update(FLUSH_RECEIPTS)
         if trial_profile==FIRMWARE_IMPORT:
             manifest.update(owned_page_slot=12291, owned_page_version=4)
         self.frozen(manifest)
