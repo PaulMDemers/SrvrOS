@@ -300,6 +300,14 @@ Using that later request as the initial transfer proof would create a
 circular dependency. A hardware trial can exercise acquisition and release
 of the native hold with the PTE untouched before enabling replacement.
 
+The isolated full-GT flush trial takes two read-only GGTT samples of slots
+12290–12292 alongside slot 8704. It reserves both target addresses before
+clearing PCI bus mastering and holds them across five-engine preparation, GT
+reset, and memory maintenance. It returns the reservations after checking all
+nine PCI configuration words on reopening. The USB receipt ties the raw entries,
+engine and L3 samples, and both returns to that owner. PCI bus-master inhibit
+alone leaves on-chip readers unaccounted for.
+
 Release `7b0c251bb4317d66` verified the CPU-side aperture and submission
 exclusions through return of the slot on the Air, with the original panel
 advancing. The cold-boot provider still needs to exclude GPU readers of that address

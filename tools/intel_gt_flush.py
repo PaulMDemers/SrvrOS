@@ -94,7 +94,7 @@ def flush_result(text, parent, reset, translation, primary, retire, memory):
     smi = smi_guard_result(smi_rows, summary["v"], parent, memory, retire,
                            bank["summary"]["writes"] if bank else 0)
     traced = summary["v"] >= 6
-    if (summary["v"] >= 7) != (translation["v"] == 2):
+    if (summary["v"] >= 7) != (translation["v"] >= 2):
         raise ValueError("GT flush and slot reservation receipt versions disagree")
     slots = 4 if traced else 3
     if len(rows) != slots + 1:

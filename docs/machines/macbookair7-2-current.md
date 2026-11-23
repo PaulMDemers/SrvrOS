@@ -10,6 +10,15 @@ tear-free scanout is still pending.
 
 ## Driver-owned one-page trial
 
+Current Air-only objective on PR 301: hold the independent slot 12291 and
+protected slot 8704 across the existing isolated requester inhibit, five-engine
+preparation, GT reset, translation maintenance and verified requester reopening.
+Capture both neighbours and the fresh engine/L3 observations under that same
+reservation. This uses the existing GT flush trial and its deadlines. The
+original display stays active. Hardware acceptance requires the matching USB
+receipt. Device-wide traffic exclusion and a physical PTE replacement remain
+separate milestones.
+
 The shared scanout publisher and Broadwell one-page writer on PR 301 now
 hold the address and backing RAM until the device reopens after rollback.
 The Q35 guest checks slot 12291 changing before release and during reopening,

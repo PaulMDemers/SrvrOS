@@ -373,6 +373,8 @@ class Runner:
                         jobs=jobs, created_utc=now(),
                         hardware_acceptance='Review matching raw native chain, original lifetime retirement and offline integrity; no GPU grant inferred')
         if trial_profile in STOLEN_PREINIT:manifest['stolen_progress_version']=1
+        if trial_profile=='intel-gt-flush-v59':
+            manifest['independent_slot'] = 12291
         if trial_profile==FIRMWARE_IMPORT:
             manifest.update(owned_page_slot=12291, owned_page_version=4)
         self.frozen(manifest)
@@ -663,6 +665,8 @@ class Runner:
             native = native_parser(text)
             if manifest.get('wire_version') is not None and native.get('version') != manifest['wire_version']:
                 raise ValueError('Native receipt differs from frozen wire version')
+            if 'independent_slot' in manifest and native.get('range',{}).get('independent_slot',{}).get('slot') != manifest['independent_slot']:
+                raise ValueError('Missing independent slot requester evidence')
             if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
                 raise ValueError('Missing independent page receipt for this stage')
             if 'owned_page_version' in manifest and native.get('owned_page',{}).get('v') != manifest['owned_page_version']:
@@ -802,6 +806,9 @@ class Runner:
                     native_acceptance=False,original_timing_acceptance=False,physical_tearfree=False,return_integrity='PASS')
         if native.get('diagnostic_range'):
             coverage=native['range']['summary']
+            if 'independent_slot' in native['range']:
+                record['independent_slot'] = native['range']['independent_slot']
+                record['independent_slot_entries'] = [row[129:] for row in native['range']['vectors']]
             record['range_sample_us']=[coverage[f'end{i}']-coverage[f'begin{i}'] for i in range(2)]
         if native.get('diagnostic_primary'):
             observed=native['primary']['summary']

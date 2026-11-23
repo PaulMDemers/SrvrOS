@@ -3,7 +3,12 @@
  * interval ownership or display-reader retirement. */
 #define GT_RANGE_VA (GT_MEMORY_VA + 2 * 4096ull)
 #define GT_RANGE_TAIL 128u
+#ifdef SRVROS_INTEL_GT_FLUSH
+#define GT_SECOND_SLOT 12291u
+#define GT_RANGE_WORDS (GT_RANGE_TAIL + 4)
+#else
 #define GT_RANGE_WORDS (GT_RANGE_TAIL + 1)
+#endif
 #define GT_RANGE_FIRST 1356u
 #define GT_RANGE_CANDIDATE 8704u
 static struct {
@@ -128,8 +133,27 @@ static struct scanout_transfer_manifest gt_slot_source(unsigned sample) {
  };
 }
 
+#ifdef SRVROS_INTEL_GT_FLUSH
+static struct scanout_transfer independent_slot;
+static struct scanout_transfer_token independent_token;
+static bool independent_returned,independent_reopened;
+static struct scanout_transfer_manifest independent_source(unsigned sample) {
+ struct scanout_transfer_manifest m=gt_slot_source(sample);
+ m.first=GT_SECOND_SLOT;
+ m.original=&gt_range.words[sample][GT_RANGE_TAIL+2];
+ return m;
+}
+static bool independent_matches(unsigned sample) {
+ struct scanout_transfer_manifest m=independent_source(sample);
+ return scanout_transfer_reservation_matches(&independent_slot,&independent_token,&m);
+}
+#endif
+
 static bool gt_slot_live(void) {
  if(!gt_bootstrap_native.g)return false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!independent_matches(gt_slot_checked?1:0))return false;
+#endif
  struct scanout_transfer_manifest source=gt_slot_source(gt_slot_checked?1:0);
  return scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source);
 }
@@ -146,13 +170,31 @@ static bool gt_slot_boundary(unsigned phase) {
   gt_slot_reserved=true;
  }
  if(!scanout_transfer_reservation_matches(&gt_slot,&gt_slot_token,&source))return false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ /* Bind this Air trial to the original entries from its independent loan. */
+ const uint64_t *entries=&gt_range.words[phase][GT_RANGE_TAIL+1];
+ if(entries[0]!=0x8f003001ull || entries[1]!=0x8f004001ull || entries[2]!=0x8f005001ull)return false;
+ struct scanout_transfer_manifest second=independent_source(phase);
+ if(!phase && !scanout_transfer_reserve(&independent_slot,&gt_slot_pool,&gt_bootstrap_native.g->exclusion,
+                                        &second,&independent_token))return false;
+ if(!independent_matches(phase))return false;
+#endif
  if(phase)gt_slot_checked=true;
  return true;
 }
 
 static bool gt_slot_return(void) {
- if(!gt_slot_reserved || !gt_slot_checked || gt_slot_returned || !gt_slot_live() || !gt_range_post_memory() ||
+ if(!gt_slot_reserved || !gt_slot_checked || gt_slot_returned || !gt_slot_live() ||
+#ifdef SRVROS_INTEL_GT_FLUSH
+    !independent_reopened || gt_bootstrap_native.command_writes!=2 || gt_bootstrap_native.pci_samples!=4 ||
+#else
+    !gt_range_post_memory() ||
+#endif
     !bootstrap_guard() || !bootstrap_tick())return false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!scanout_transfer_close(&independent_slot,&independent_token))return false;
+ independent_returned=true;
+#endif
  if(!scanout_transfer_close(&gt_slot,&gt_slot_token))return false;
  gt_slot_returned=true;
  return true;
@@ -168,7 +210,11 @@ static bool gt_range_capture(unsigned phase) {
  for(unsigned i=1;i<INTEL_BACKING_FENCES;i++)if(backing.sample[1].fence[i])return false;
  gt_range.begin[phase]=gt_bootstrap_native.last;
  if(!gt_range_batch(phase,GT_RANGE_FIRST,GT_RANGE_TAIL) ||
-  !gt_range_batch(phase,GT_RANGE_CANDIDATE,1) || gt_range.count[phase]!=GT_RANGE_WORDS ||
+  !gt_range_batch(phase,GT_RANGE_CANDIDATE,1) ||
+#ifdef SRVROS_INTEL_GT_FLUSH
+  !gt_range_batch(phase,GT_SECOND_SLOT-1,3) ||
+#endif
+  gt_range.count[phase]!=GT_RANGE_WORDS ||
   gt_bootstrap_native.last<=gt_range.begin[phase])return false;
 #ifdef SRVROS_INTEL_GT_SLOT
  if(!gt_slot_boundary(phase) || !bootstrap_tick())return false;
@@ -178,7 +224,12 @@ static bool gt_range_capture(unsigned phase) {
  return true;
 }
 static void gt_range_report(void) {
-#ifdef SRVROS_INTEL_GT_SLOT
+#if defined(SRVROS_INTEL_GT_FLUSH)
+ const unsigned version=3;
+ console_printf("intel-independent-slot: v=1 slot=%u reserved=%u returned=%u reopen_verified=%u pte_writes=0\n",
+  (uint64_t)GT_SECOND_SLOT,(uint64_t)(independent_token.object!=NULL),(uint64_t)independent_returned,
+  (uint64_t)independent_reopened);
+#elif defined(SRVROS_INTEL_GT_SLOT)
  const unsigned version=2;
 #else
  const unsigned version=1;

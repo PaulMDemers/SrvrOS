@@ -218,6 +218,12 @@ static uint32_t intel_display_test_bootstrap_legacy_config(unsigned off) {
 static bool intel_display_test_bootstrap_command(unsigned value) {
  ++bcommands;assert(bcommands<=2 && value==(bcommands==1?3u:7u));
  assert(bootstrap_parent() && hda_command==2 && wake_irq && !display_access_allowed());
+#ifdef SRVROS_INTEL_GT_FLUSH
+ assert(gt_slot_live() && !independent_returned);
+ struct scanout_interval competing={0};
+ assert(!scanout_interval_claim(&competing,result.mmio_base,window_result.aperture_base,
+   window_result.aperture_bytes,window_result.endpoint.fence_end,(struct scanout_space_range){GT_SECOND_SLOT,1}));
+#endif
  if(value==7)assert(gt_bootstrap_native.reset.complete && gt_bootstrap_native.post_bound && !gt_bootstrap_native.reset.registered);
  if(bf("command-none",bcommands))return false;
  gpu_command=value;
@@ -550,7 +556,11 @@ static bool intel_display_test_range_map(uint64_t physical) {
   return !bf("primary-map-retained",primary_maps);
  }
 #endif
- assert(bootstrap_parent() && !range_pa && wake_irq && (physical==0xc0802000 || physical==0xc0811000));
+ assert(bootstrap_parent() && !range_pa && wake_irq && (physical==0xc0802000 || physical==0xc0811000
+#ifdef SRVROS_INTEL_GT_FLUSH
+  || physical==0xc0818000
+#endif
+  ));
  if(bf("range-map",++range_maps))return false;
  range_pa=physical;return !bf("range-map-retained",range_maps);
 }
@@ -560,7 +570,11 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
  if(bf("range-read",++range_reads))return false;
  if(bf("range-clock",range_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
  unsigned slot=(offset-0x800000)/8;
- assert((slot>=1356 && slot<1484) || slot==8704);
+ assert((slot>=1356 && slot<1484) || slot==8704
+#ifdef SRVROS_INTEL_GT_FLUSH
+  || (slot>=GT_SECOND_SLOT-1 && slot<=GT_SECOND_SLOT+1)
+#endif
+ );
  uint64_t value=0x200000001ull+(uint64_t)slot*4096;
 #ifdef SRVROS_INTEL_GT_PRIMARY
  value=0x8c001001ull+(uint64_t)slot*4096;
@@ -719,8 +733,13 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_GT_SLOT
   assert(gt_slot_reserved && gt_slot_checked && gt_slot_returned && !gt_slot_live());
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+  assert(independent_returned && gt_range.completed==2 && gt_range.maps==6 && gt_range.retired==6 && !gt_range.mapped && !range_pa);
+  assert(gt_range.reads==792 && range_reads==792 && range_maps==6 && range_unmaps==6);
+#else
   assert(gt_range.completed==2 && gt_range.maps==4 && gt_range.retired==4 && !gt_range.mapped && !range_pa);
   assert(gt_range.reads==774 && range_reads==774 && range_maps==4 && range_unmaps==4);
+#endif
   assert(gt_range.begin[0]<gt_range.end[0] && gt_range.end[0]<r->begin &&
    gt_range.begin[1]>=gt_memory.d.end && gt_range.end[1]>gt_range.begin[1]);
   assert(!memcmp(gt_range.words[0],gt_range.words[1],sizeof(gt_range.words[0])));

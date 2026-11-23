@@ -1,5 +1,6 @@
 """Exercise the Broadwell hardware acknowledgement capture and its receipts."""
 
+import base64
 import subprocess
 import re
 import tempfile
@@ -83,6 +84,20 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"scratch=\S+", "scratch=0xffffffff", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
+
+    def test_independent_slot_survives_reopening_and_post_reset_drift(self):
+        healthy = bootstrap_result(observe("pass"))
+        self.assertEqual(healthy["range"]["vectors"][1][-3:], [0x8f003001, 0x8f004001, 0x8f005001])
+        self.assertEqual(healthy["range"]["independent_slot"], dict(
+            v=1, slot=12291, reserved=1, returned=1, reopen_verified=1, pte_writes=0))
+        for mode, position in (("command-unknown", 2), ("range-drift", 785),
+                               ("range-drift", 788), ("range-drift", 791)):
+            with self.subTest(mode=mode, position=position):
+                result = bootstrap_result(observe(mode, position))
+                slot = result["range"]["independent_slot"]
+                self.assertFalse(result["complete"])
+                self.assertEqual((slot["reserved"], slot["returned"], slot["reopen_verified"]), (1, 0, 0))
+                self.assertEqual(result["range"]["slot"]["returned"], 0)
 
     def test_live_slice_power(self):
         text = observe("pass")
@@ -180,7 +195,14 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r" l3_close=.*", "", old_power)
         old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
-        old_power = old_power.replace("intel-range-summary: v=2 ", "intel-range-summary: v=1 ")
+        old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
+        old_power = old_power.replace("intel-range-summary: v=3 ", "intel-range-summary: v=1 ")
+        old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
+                                      "maps=4 retired=4 live=0 reads=774")
+        old_power = old_power.replace("words0=132 words1=132", "words0=129 words1=129")
+        old_power = re.sub(r"(intel-range-vector: v=1 sample=[01]) count=132 data=(\S+)",
+                           lambda m: m[1] + " count=129 data=" +
+                           base64.b64encode(base64.b64decode(m[2])[:129*8]).decode(), old_power)
         old_power = old_power.replace("v=9 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
         self.assertNotIn("request_trace", bootstrap_result(old_power)["flush"])
         media = old_power.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",

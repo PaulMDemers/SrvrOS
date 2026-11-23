@@ -92,6 +92,8 @@ def primary_result(text, parent, protection, retire, display):
 def verify_primary_backing(backing, protection, primary):
     """Cross-check the raw original targets without granting the candidate."""
     retained = protection["vectors"][1]
+    if protection["summary"]["v"] == 3:
+        retained = retained[:129]
     image = backing["ptes"]
     aperture = primary["summary"]
     original = backing["rows"]["summary"][0]

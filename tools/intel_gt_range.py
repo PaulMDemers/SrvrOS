@@ -15,13 +15,16 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
     summary = fields(
         rows[0].removesuffix(" authority=none"), "intel-range-summary:",
         "v complete phase maps retired live reads tail candidate begin0 end0 begin1 end1 words0 words1".split(),
-        ("live",), versions=(1, 2),
+        ("live",), versions=(1, 2, 3),
     )
+    dual = summary["v"] == 3
+    batches = 3 if dual else 2
+    words = 132 if dual else 129
     phase = summary["phase"]
     maps, retired, live = (summary[k] for k in ("maps", "retired", "live"))
     if (phase > 2 or summary["complete"] != int(phase == 2)
             or (summary["tail"], summary["candidate"]) != (128, 8704)
-            or not 2 * phase <= retired <= maps <= min(4, 2 * (phase + 1))
+            or not batches * phase <= retired <= maps <= batches * min(2, phase + 1)
             or not 0 <= maps - retired <= 1 or (maps != retired and not live)):
         raise ValueError("GGTT range receipt state")
     vectors = []
@@ -30,7 +33,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
         if not match or int(match[1]) != n:
             raise ValueError("GGTT range vector index")
         count = int(match[2])
-        if count > 129 or count != summary[f"words{n}"] or len(match[3]) != (count * 8 + 2) // 3 * 4:
+        if count > words or count != summary[f"words{n}"] or len(match[3]) != (count * 8 + 2) // 3 * 4:
             raise ValueError("GGTT range vector count")
         raw = base64.b64decode(match[3], validate=True)
         if len(raw) != count * 8 or base64.b64encode(raw).decode("ascii") != match[3]:
@@ -41,12 +44,14 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
         vectors.append(vector)
         begin, end = (summary[f"{k}{n}"] for k in ("begin", "end"))
         if n < phase:
-            if count != 129 or not parent["begin"] <= begin < end <= parent["last"]:
+            if dual and vector[129:] != (0x8f003001, 0x8f004001, 0x8f005001):
+                raise ValueError("Independent Air slot backing changed")
+            if count != words or not parent["begin"] <= begin < end <= parent["last"]:
                 raise ValueError("GGTT range completed sample")
         elif end or (count and not begin) or (begin and not parent["begin"] <= begin <= parent["last"]):
             raise ValueError("GGTT range partial clock")
     count = sum(map(len, vectors))
-    if not 3 * count <= summary["reads"] <= min(774, 3 * count + 3):
+    if not 3 * count <= summary["reads"] <= min(6 * words, 3 * count + 3):
         raise ValueError("GGTT range read accounting")
     if reset["begin"] and (phase < 1 or summary["end0"] > reset["begin"]):
         raise ValueError("GGTT range pre-reset order")
@@ -58,7 +63,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
     if phase == 1 and any(a != b for a, b in zip(vectors[0], vectors[1][:-1])):
         raise ValueError("GGTT range reads after first mismatch")
     if phase == 2 and (
-        (maps, retired, live, summary["reads"]) != (4, 4, 0, 774)
+        (maps, retired, live, summary["reads"]) != (2 * batches, 2 * batches, 0, 6 * words)
         or vectors[0] != vectors[1]
         or (retire["guard_begin"] and summary["end1"] > retire["guard_begin"])
     ):
@@ -67,7 +72,7 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
         raise ValueError("GGTT range parent returned early")
     result = dict(summary=summary, vectors=[list(vector) for vector in vectors])
     slots = [line for line in text.splitlines() if line.startswith("intel-slot-summary:")]
-    if len(slots) != int(summary["v"] == 2):
+    if len(slots) != int(summary["v"] >= 2):
         raise ValueError("GGTT slot receipt coverage")
     if slots:
         slot = fields(slots[0], "intel-slot-summary:", "v reserved rechecked returned candidate pages pte_writes".split())
@@ -77,4 +82,17 @@ def range_result(text, parent, reset, memory, retire, owner_complete):
                 or (owner_complete and not slot["returned"])):
             raise ValueError("GGTT slot reservation lifetime")
         result["slot"] = slot
+    independent = [line for line in text.splitlines() if line.startswith("intel-independent-slot:")]
+    if len(independent) != int(dual):
+        raise ValueError("Independent slot receipt coverage")
+    if dual:
+        second = fields(independent[0], "intel-independent-slot:",
+                        "v slot reserved returned reopen_verified pte_writes".split())
+        if ((second["slot"], second["pte_writes"]) != (12291, 0)
+                or not slot["returned"] <= second["returned"] <= second["reserved"] <= slot["reserved"]
+                or not 0 <= second["reopen_verified"] <= int(parent["pci_samples"] == 4)
+                or second["returned"] > second["reopen_verified"]
+                or (phase and not second["reserved"]) or (second["returned"] and phase != 2)):
+            raise ValueError("Independent slot requester lifetime")
+        result["independent_slot"] = second
     return result
