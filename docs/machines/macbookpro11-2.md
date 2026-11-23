@@ -26,12 +26,23 @@ with the workspace still on its own root port. DHCP and traffic over the hub
 need an independent connected trial. The device branch carries the qualified
 Wi-Fi and audio base at main `50f1978a`. Fetched main was `ddc37b8f`.
 
+Image `e1c95fbc6481a90b` (`f40186ba`) restores the v39 identity-only staging
+selection. The xHCI host tests pass hub-child admission, sibling isolation,
+and stale child rejection, and the existing desktop Wi-Fi tests pass their
+connect/disconnect and root replug cases. The exact image passed a USB2 hub
+keyboard and separate GPT workspace VM, and returned with the workspace
+absent. Ubuntu's default boot and the installed recovery were checked before
+installing the native topology capture. No Wi-Fi firmware upload or traffic
+is part of this capture.
+
 For the Realtek devices, the observed interfaces are both vendor-specific.
 Linux binds `0bda:8176` through `rtl8192cu` and exposes 2.4 GHz. Its interface
-has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Linux binds
+has two bulk OUT, one bulk IN, and one interrupt IN endpoint. Ubuntu selected
+`rtl8192cufw_TMSC.bin` for the attached chip. Linux binds
 `0846:9055` through `rtw88_8822bu` using `rtw8822b_hw_spec` and exposes 2.4 and
 5 GHz. It presents three bulk OUT, one bulk IN, and one interrupt IN endpoint
-in the captured USB2 configuration. Start with `0bda:8176` for Demers2.4.
+in the captured USB2 configuration, and Ubuntu reported firmware 30.20.0.
+Start with `0bda:8176` for Demers2.4.
 Each chip family needs an exact-identity, read-only probe and its own measured
 firmware, register, RX and TX paths before publishing a Wi-Fi provider. The
 Linux reference entry points are [rtl8192cu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c)
