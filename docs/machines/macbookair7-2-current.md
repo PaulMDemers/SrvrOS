@@ -46,14 +46,21 @@ at zero, and Ubuntu verified a clean USB volume. Four release-bound Q35
 boots covered save/return, missing workspace, and the configuration-table
 fallback with both the production helper and a seven-word test fixture.
 
-The command mapping now owns the blitter register alias at BAR0+0x22000 from
-its first queue read through rollback. A failed closing VMM audit retains the
-device hold and seven pages. The next Air test exercises the CPU mapping loan
-with bus mastering off, captures HWS_PGA and HWSTAM, and returns the loan
-before PCI reopening. The original display and all seven GPU translations stay
-under the existing handoff checks. The 55 host and Q35 blitter cases passed,
-along with 25 native-adapter tests and the VMM guard suite. Physical results
-for the blitter alias loan are pending.
+Release `ec83b32f33ae4388` on source `f633b954`, session
+`session-000660fb262080ec-00`, verified the CPU mapping loan for the blitter
+registers at BAR0+0x22000 on the Air. With PCI bus mastering off and four peer
+ports protected, SrvrOS acquired the loan, read HWS_PGA = 0 and
+HWSTAM = 0xffffffff, and returned it. Both queue samples matched across
+PCI reopening. All five register mappings were restored. SrvrOS verified
+19 reserved EFI pages, retained the seven original translations at slots
+11744–11750, released the temporary mappings and preserved the original
+display. Ubuntu verified the saved session and clean USB return.
+
+The four sampled windows showed idle GPU memory arbitration and empty media
+queues. None showed a device-wide traffic block or a fresh flush acknowledgement.
+The diagnostic issued zero GPU page-table writes and submitted zero commands.
+Preparation took 207 ms and the GT sequence took 344 ms, within the diagnostic
+limits but above the original timing targets.
 
 The Air reset census and command driver now share a VMM check for the four
 non-blitter submission ports. The driver checks their write protection before
@@ -61,7 +68,8 @@ each blitter descriptor store. The host fixture withheld the fourth word when
 a competing port became writable after the third and retained all seven pages.
 All 53 blitter cases passed on the host and in the SrvrOS Q35 guest. The
 native adapter suite also rejected loss of each of the four ports on either
-side of PCI bus-master reopening. The last physical release predates this change.
+side of PCI bus-master reopening. The release above exercised the successful
+protection and restoration path on hardware.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
