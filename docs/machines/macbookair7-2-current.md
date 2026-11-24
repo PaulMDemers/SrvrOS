@@ -145,14 +145,22 @@ command. The next prerequisite is for the traffic owner to withdraw the GO
 requests while preserving this display branch, then verify closure and fresh
 engine and L3 acknowledgements before publishing command pages.
 
-The next Air trial on PR 301 isolates the blitter's contribution. Before
-the existing full GT reset it requests Stop Ring on the idle, disabled BCS,
-verifies that the parser acknowledges the stop and checks it again at the
-first reset store. The diagnostic samples GPM, WiDi and L3 immediately after
-the stop and again after preparing each of the five engines. Only the
-existing reset releases the parser. This work touches the
-Air GT bootstrap adapter, its collector and the per-release trial checks.
-The original panel, command pages and EFI recovery remain with their owners.
+Release `9a95e69f4ea72e97` at `4b385108`, physical session
+`session-000660ffcddd5548-00`, isolated the blitter's contribution. One
+masked Stop Ring write changed BCS_MI_MODE from `0x200` to `0x300` on the
+idle, disabled ring. It still read `0x300` immediately before the first GT
+reset and returned to `0x200` after reset. Immediately after the stop and
+again after each of the five engine preparations, both request reads were
+`0xff`, both arbiter reads were `0x7f`, WiDi was `0x1f` and L3 was zero.
+All six samples lacked a fresh engine or L3 flush acknowledgement.
+
+Pipe A kept its original framebuffer, the seven command-slot translations
+matched and the kernel verified all 19 EFI-reserved pages. The guest completed and
+Ubuntu found zero USB allocation errors. Preparation took 211 ms and GT
+ownership lasted 348 ms, both within this diagnostic's timing limits.
+The driver can now stop the blitter parser. With global GO still asserted,
+the device-wide drain and independent WiDi exclusion remain prerequisites
+for replacing the seven mappings and issuing the first native command.
 
 The Ubuntu installer now recognizes completed EFI traces with appended GOP
 paths. It validates the existing trace before copying the next release. The
