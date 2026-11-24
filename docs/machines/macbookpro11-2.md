@@ -470,6 +470,24 @@ seven journal phases completed, RF/RX parked, Ubuntu returned, and
 all 580 prior workspace files were preserved. The exact payload and
 evidence are archived as `evidence-e474b0e82dd86947`.
 
+The Linux reference read RCR `0xf0002a0e` just before the first bulk
+completion and configured management/control/data maps
+`0xffff/0x0000/0xffff`. SrvrOS previously ran with `0x00002009` and
+`0x0100/0x0000/0x0000`. The new comparison uses the Linux management
+subtype map and destination admission bits, with RCR `0x0000200e` and
+maps `0xffff/0x0000/0x0000`. Data, control and optional receive
+descriptor trailers remain disabled. Software still requires the exact
+Demers2.4 beacon identity on channel 10. The [Linux WMAC setup](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c)
+identifies the management filter separately from the other frame maps.
+
+The same trace and pinned radio table agree on FPGA0 `0x83040000`
+(both CCK and OFDM enabled), FPGA1 `0x00000000` and OFDM TRx path
+`0x03a05611`. The candidate compares all eight receive filter, receive
+descriptor and baseband readbacks before opening bulk IN, while retaining
+the protocol gate, TX closure and prior paired RX snapshots. Changing the
+filter and observing these baseband settings will distinguish setup
+readback failure from another empty receive window.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
