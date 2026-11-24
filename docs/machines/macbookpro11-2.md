@@ -1082,6 +1082,23 @@ leaves, the clean workspace with 604 files and a fresh independent
 journal. The unattended trial saves RF, MAC and USB results before
 returning to Ubuntu.
 
+Cold session `session-0006610cc61bb524-00` verified bit 23 at
+`0x04c`. The word changed from `0x00028282` to `0x00828282` and
+retained the new value after tuning, with the other bits preserved.
+The baseband path words, retained IQ matrix, B68 and RF0 checks also
+passed. The four-second receive window posted one 4,096-byte request.
+PHY parity failures rose from 29 to 3,681, but the sampled good OFDM,
+CCK and HT counts stayed at zero. The stop event left all 4,096 bytes
+outstanding. Demers2.4 discovery remained unresolved with the mux bit
+set.
+
+All three adapters stayed on the hub. SrvrOS stopped the endpoint,
+parked the radio, preserved all 604 prior workspace files and returned
+to Ubuntu. Both saved paths include the mux readback and RX evidence.
+The 31,312-byte exit snapshot and all seven independent journal phases
+verified. The exact image and logs are archived as
+`evidence-fd1b75a1c27f8a60`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
