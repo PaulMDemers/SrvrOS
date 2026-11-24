@@ -455,6 +455,21 @@ one-shot record are in `build/bringup/pro112-rtl8188cu-rx-protocol/run.json`.
 The unattended trial should log the `0x9a` gate, paired RX samples, beacon
 outcome and teardown before returning to Ubuntu.
 
+Cold session `session-000660f9fbf50da2-00` verified the MAC protocol bit
+at all three receive samples. Compared with the previous cold trial,
+the only chip-register difference in the paired samples was CR
+`0x008a` to `0x009a`. The FIFO pointer and RX DMA status remained zero,
+RXPKT_NUM remained `0x00020000`, and the four-second window again had one
+posted bulk IN transfer and zero completions. The sole xHCI transfer
+event was the stop of that same TRB with all 4,096 bytes outstanding.
+Passive discovery still failed. Compare the receive filter and
+baseband receive enable against the working Linux trace next.
+
+Both saved paths agree. The 28,690-byte exit snapshot verified, all
+seven journal phases completed, RF/RX parked, Ubuntu returned, and
+all 580 prior workspace files were preserved. The exact payload and
+evidence are archived as `evidence-e474b0e82dd86947`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
