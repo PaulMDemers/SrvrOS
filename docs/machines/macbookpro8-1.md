@@ -1,7 +1,7 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 24, 2026. State **Linux inventory captured, exact console
-and one-shot return rehearsed in QEMU, first native boot pending.**
+Updated November 24, 2026. State **Native console output and return to Ubuntu
+verified. Keyboard input failed during the first native trial.**
 
 ## Identity and baseline
 
@@ -81,23 +81,30 @@ console, and verified that GRUB cleared `next_entry` on ext4 before
 chainloading. After stopping the guest from the host, the next VM boot
 selected the Ubuntu default fixture without keyboard input.
 
-The installed EFI payload matches the staged manifest. Ubuntu remains the
-verified GRUB default and the firmware entries match the pre-install
-snapshot. The one-shot boot is unarmed. The first native observation will
-use the internal panel and the physical power button as a fallback if no
-keyboard is available. The console-only release uses RAM storage and does
-not select a USB logging volume.
+In the attended native trial, the operator reached the SrvrOS terminal on
+the internal panel. Keyboard input had no effect. This establishes native
+console output and records an input failure for this release. The physical
+framebuffer mode was not measured. The console-only release uses RAM storage
+and left USB workspace persistence untested.
+
+After Ubuntu returned, its boot ID had changed, GRUB's one-shot entry was
+consumed, and the firmware entries matched the pre-install snapshot. The
+installed EFI payload matched the staged manifest and the exFAT volume was
+mounted at the expected location. The method used to return was not reported.
+An independent local archive preserves the payload and return evidence
+outside `build/`.
 
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
-| Native boot and display | Pending | Firmware framebuffer and kernel console on the internal panel |
-| Keyboard and trackpad | Linux inventory | EHCI hub route, keyboard events and verified trackpad reports |
+| Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
+| Keyboard and trackpad | Keyboard failed on first native release | EHCI hub route, keyboard events and verified trackpad reports |
 | USB workspace | Mounted in Ubuntu | Native read, then write/sync/unmount and Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
-The local host checkpoint, exact VM evidence and first console run record
-are in `build/review/`. The next checkpoint is the attended console boot
-and return to Ubuntu. Native console, input and storage acceptance remain
-open.
+The local host checkpoint, exact VM evidence and first console return are in
+`build/review/`. The next checkpoint is EHCI controller discovery and bounded
+ownership/reset in a disposable VM, followed by hub and transfer support.
+Keep the verified console payload available for recovery and retain the
+existing xHCI regression coverage.
