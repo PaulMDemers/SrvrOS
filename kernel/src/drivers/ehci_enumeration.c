@@ -173,9 +173,12 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
     uint8_t configuration;
     if (!read_configuration(bus, &target, hub, &configuration)) return false;
     bus->devices++;
+    uint16_t vendor = read_le16(descriptor + 8);
+    uint16_t product = read_le16(descriptor + 10);
+    if (bus->device_found) bus->device_found(bus->context, &target, vendor, product, parent, port);
     console_printf("ehci: device address=%u parent=%u port=%u vendor=%x product=%x class=%x configuration=%u\n",
-        (uint64_t)address, (uint64_t)parent, (uint64_t)port, (uint64_t)read_le16(descriptor + 8),
-        (uint64_t)read_le16(descriptor + 10), (uint64_t)descriptor[4], (uint64_t)configuration);
+        (uint64_t)address, (uint64_t)parent, (uint64_t)port, (uint64_t)vendor,
+        (uint64_t)product, (uint64_t)descriptor[4], (uint64_t)configuration);
     if (full_speed) {
         bus->split_devices++;
         console_printf("ehci: split address=%u hub=%u port=%u packet=%u\n",

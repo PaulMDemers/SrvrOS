@@ -35,14 +35,14 @@ passed host fixtures and awaits native verification.**
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
 MacBookPro8,1 console, input and USB workspace milestones. The active work
-block adds an opt-in full-speed endpoint-zero route through an EHCI hub
-transaction translator. It touches the EHCI queue head and enumeration path
-and retains the existing DMA retirement checks. The inventory contains no
-xHCI controller on this Mac. Keyboard reports and block I/O belong to later
-milestones.
+block packages the EHCI split diagnostic for a one-shot attended run. It
+touches the boot profile, EHCI result reporting and the QEMU recovery fixture.
+The goal is to check the topcase's descriptor reads and both controllers'
+DMA retirement using the firmware framebuffer and the installed Ubuntu GRUB.
+The inventory contains no xHCI controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `177860b8`, and Apple Silicon runtime, login and export work
+USB Wi-Fi work at `cb0445b9`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
 dependency on those branches. Coordinate shared HID, storage or initialization
 changes if they become necessary. [Device coordination](../agent-coordination.md)
@@ -191,6 +191,30 @@ regressions passed on the same staged kernel.
 The installed console release `c1a8e397a41363dc` matches its recovery archive.
 Ubuntu is the GRUB default and `next_entry` is empty.
 
+## Attended EHCI split trial
+
+The native profile displays the checklist during startup and holds the final
+result for a photo and manual power-button return. It stops before storage,
+ordinary input initialization and userspace. Its empty initramfs fits the
+candidate beside the known-good console release on the internal EFI partition.
+The exact-stage QEMU test uses the high-speed hub fixture, saves a screenshot,
+checks the on-disk GRUB selection was consumed and starts the same virtual disk
+again to check the Ubuntu default entry. A QEMU rehearsal pass yields an
+incomplete guest result because the native topcase and controllers are absent.
+
+```sh
+make -j2 build/kernel/srvros.elf
+python3 tools/hardware_boot.py stage --ehci-split-trial
+python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)"
+```
+
+The native screen must show the expected `05ac:0245` topcase through
+`0424:2513` port 2 with an 8-byte control packet and both Sandy Bridge EHCI
+controllers completing the scan and releasing DMA. Photograph the full screen,
+including the release and result, then use the power button to return to
+Ubuntu. The on-disk run record binds the photo or result lines to the release
+and Ubuntu boot state. A missing completion line leaves the test incomplete.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
@@ -201,7 +225,6 @@ Ubuntu is the GRUB default and `next_entry` is empty.
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
-`build/review/`. The next native checkpoint is to confirm the captured
-`05ac:0245` topcase enumerates through its internal hub. Keyboard reports and
-trackpad input are separate acceptance checks. Keep the verified console
-payload available for recovery and retain the existing xHCI regression coverage.
+`build/review/`. Keyboard reports and trackpad input follow the native
+enumeration checkpoint. Keep the verified console payload available for
+recovery and retain the existing xHCI regression coverage.

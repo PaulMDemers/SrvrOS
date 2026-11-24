@@ -171,7 +171,7 @@ static void test_stalled_halt_and_reset(void) {
 static void test_control_schedule(void) {
     fixture_reset();
     struct ehci_dma dma;
-    struct ehci_control_path path = { op, &dma, 0x9000 };
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000 };
     struct ehci_control_target target = { .address = 3, .packet_size = 64 };
     struct usb_setup_packet get_descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 64 };
     prepare_control(&path, &target, &get_descriptor);
@@ -201,7 +201,7 @@ static void test_control_schedule(void) {
 static void test_split_control_schedule(void) {
     fixture_reset();
     struct ehci_dma dma;
-    struct ehci_control_path path = { op, &dma, 0x9000 };
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000 };
     struct ehci_control_target target = { .packet_size = 8, .tt_hub = 2, .tt_port = 3 };
     struct usb_setup_packet descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 8 };
     prepare_control(&path, &target, &descriptor);
@@ -246,6 +246,41 @@ static void test_dma_retirement(void) {
     assert(!op[EHCI_ASYNCLISTADDR] && !op[EHCI_CONFIGFLAG]);
 }
 
+static void test_native_trial_result(void) {
+    struct pci_device controller = { .vendor_id = 0x8086, .device_id = 0x1c2d, .device = 0x1a, .function = 7 };
+    assert(trial_controller_slot(&controller) == 0);
+    controller.function = 0;
+    assert(trial_controller_slot(&controller) == -1);
+    controller = (struct pci_device) { .vendor_id = 0x8086, .device_id = 0x1c26, .device = 0x1d, .function = 7 };
+    assert(trial_controller_slot(&controller) == 1);
+    controller.device_id = 0x293c;
+    assert(trial_controller_slot(&controller) == -1);
+
+    struct ehci_probe_report clean = {
+        .reset_halted = true, .enumerated = true, .dma_released = true, .access_retired = true,
+    };
+    struct ehci_trial_report trial = { .found = 2, .controllers = { clean, clean } };
+    struct ehci_control_path path = { .report = &trial.controllers[0] };
+    struct ehci_control_target hub = { .address = 1, .packet_size = 64 };
+    struct ehci_control_target topcase = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
+    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    assert(!trial_passed(&trial));
+    track_topcase(&path, &hub, 0x0424, 0x2513, 0, 1);
+    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 3);
+    assert(!trial_passed(&trial));
+    topcase.packet_size = 16;
+    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    assert(!trial_passed(&trial));
+    topcase.packet_size = 8;
+    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    assert(trial_passed(&trial));
+    trial.controllers[1].dma_released = false;
+    assert(!trial_passed(&trial));
+    trial.controllers[1] = clean;
+    trial.controllers[0].access_retired = false;
+    assert(!trial_passed(&trial));
+}
+
 int main(void) {
     test_completed_probe();
     test_firmware_retains_controller();
@@ -254,5 +289,6 @@ int main(void) {
     test_control_schedule();
     test_split_control_schedule();
     test_dma_retirement();
+    test_native_trial_result();
     puts("EHCI host tests passed");
 }

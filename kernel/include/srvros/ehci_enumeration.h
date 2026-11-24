@@ -24,6 +24,8 @@ struct ehci_enumeration {
     bool (*control)(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
         uint8_t *data, unsigned *received);
     void *context;
+    void (*device_found)(void *context, const struct ehci_control_target *target,
+        uint16_t vendor, uint16_t product, uint8_t parent, uint8_t port);
     bool split;
     unsigned devices;
     unsigned split_devices;

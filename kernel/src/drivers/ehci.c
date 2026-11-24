@@ -90,6 +90,18 @@ struct ehci_probe_report {
     uint32_t capabilities;
     bool was_running;
     bool reset_halted;
+    bool enumerated;
+    bool dma_released;
+    bool access_retired;
+    uint8_t trial_hub;
+    uint8_t topcase_address;
+};
+
+struct ehci_trial_report {
+    unsigned found;
+    unsigned scans;
+    unsigned released;
+    struct ehci_probe_report controllers[2];
 };
 
 struct ehci_handoff_result {
@@ -129,6 +141,7 @@ struct ehci_control_path {
     volatile uint32_t *op;
     struct ehci_dma *dma;
     uint32_t physical;
+    struct ehci_probe_report *report;
 };
 
 static bool set_command_bits(const struct pci_device *device, uint16_t mask, uint16_t bits) {
@@ -327,16 +340,30 @@ static bool retire_control_path(const struct pci_device *device, volatile uint32
     return op[EHCI_ASYNCLISTADDR] == 0 && op[EHCI_CONFIGFLAG] == 0;
 }
 
+static void track_topcase(void *context, const struct ehci_control_target *target,
+    uint16_t vendor, uint16_t product, uint8_t parent, uint8_t port) {
+    struct ehci_control_path *path = context;
+    struct ehci_probe_report *report = path->report;
+    if (vendor == 0x0424 && product == 0x2513 && !parent && port == 1 && !target->tt_hub) {
+        report->trial_hub = target->address;
+    }
+    if (vendor == 0x05ac && product == 0x0245 && report->trial_hub && parent == report->trial_hub &&
+        target->tt_hub == parent && port == 2 && target->tt_port == port && target->packet_size == 8) {
+        report->topcase_address = target->address;
+    }
+}
+
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
-    const struct ehci_probe_report *report, bool split) {
+    struct ehci_probe_report *report, bool split, bool track_trial) {
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
         console_write("ehci: enumeration unavailable; no 32-bit DMA page\n");
         return;
     }
-    struct ehci_control_path path = { op, pmm_phys_to_virt(physical), (uint32_t)physical };
-    struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split };
+    struct ehci_control_path path = { op, pmm_phys_to_virt(physical), (uint32_t)physical, report };
+    struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split,
+        .device_found = track_trial ? track_topcase : 0 };
     *path.dma = (struct ehci_dma) { .qh = { .link = EHCI_LINK_END,
         .overlay = { .next = EHCI_LINK_END, .alternate = EHCI_LINK_END } } };
     __asm__ volatile ("mfence" : : : "memory");
@@ -354,6 +381,8 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         }
     }
     bool retired = retire_control_path(device, op);
+    report->enumerated = complete;
+    report->dma_released = retired;
     if (retired) {
         __asm__ volatile ("mfence" : : : "memory");
         pmm_free_frame(physical);
@@ -416,7 +445,7 @@ static const char *probe_registers(const struct pci_device *device, volatile uin
 
 /* Return whether the temporary window is safe to reuse for another controller. */
 static bool probe_controller(const struct pci_device *device, uint64_t root, enum ehci_boot_mode mode,
-    struct ehci_probe_report *report) {
+    struct ehci_probe_report *report, bool track_trial) {
     uint32_t bar = device->bar[0];
     uint64_t base = bar & 0xffffff00u;
     unsigned bar_type = bar & 0xff;
@@ -444,12 +473,13 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(EHCI_MMIO_WINDOW + page_offset);
         report->result = probe_registers(device, caps, mapped_bytes, report);
         if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
-            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT);
+            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT, track_trial);
         }
     } else {
         report->result = "memory-decode-failed";
     }
-    if (!set_command_bits(device, PCI_COMMAND_MEMORY, command & PCI_COMMAND_MEMORY)) {
+    bool memory_restored = set_command_bits(device, PCI_COMMAND_MEMORY, command & PCI_COMMAND_MEMORY);
+    if (!memory_restored) {
         report->result = "memory-restore-failed";
     }
     uint64_t removed;
@@ -458,10 +488,18 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         return false;
     }
     report->mapping = "released";
+    report->access_retired = memory_restored;
     return true;
 }
 
-void ehci_boot_probe(enum ehci_boot_mode mode) {
+static int trial_controller_slot(const struct pci_device *device) {
+    if (device->vendor_id != 0x8086 || device->bus || device->function != 7) return -1;
+    if (device->device_id == 0x1c2d && device->device == 0x1a) return 0;
+    if (device->device_id == 0x1c26 && device->device == 0x1d) return 1;
+    return -1;
+}
+
+static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial) {
     uint64_t root = vmm_kernel_address_space();
     if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) {
         console_write("ehci: probe unavailable before controller access\n");
@@ -474,7 +512,14 @@ void ehci_boot_probe(enum ehci_boot_mode mode) {
             device->subclass != EHCI_PCI_USB_SUBCLASS || device->prog_if != EHCI_PCI_PROG_IF) continue;
         found++;
         struct ehci_probe_report report = { .handoff = "not-attempted", .mapping = "none" };
-        bool reusable = probe_controller(device, root, mode, &report);
+        int slot = trial ? trial_controller_slot(device) : -1;
+        bool reusable = probe_controller(device, root, mode, &report, slot == 0);
+        if (trial) {
+            trial->found++;
+            trial->scans += report.enumerated;
+            trial->released += report.dma_released;
+            if (slot >= 0) trial->controllers[slot] = report;
+        }
         console_printf("ehci: bus=%u dev=%u fn=%u vendor=%x device=%x version=%x ports=%u "
                        "handoff=%s result=%s was_running=%u mapping=%s\n",
             (uint64_t)device->bus, (uint64_t)device->device, (uint64_t)device->function,
@@ -483,4 +528,57 @@ void ehci_boot_probe(enum ehci_boot_mode mode) {
         if (!reusable) break;
     }
     if (!found) console_write("ehci: no controller\n");
+}
+
+void ehci_boot_probe(enum ehci_boot_mode mode) {
+    probe_all(mode, 0);
+}
+
+void ehci_trial_screen(const char *release) {
+    console_set_framebuffer_muted(false);
+    console_clear();
+    console_printf("SrvrOS MacBookPro8,1 EHCI split trial\nRelease %s\n\n", release);
+    console_write("1. Wait for the result. If the screen stops changing for 90 seconds,\n"
+                  "   treat the trial as incomplete. No keyboard input is needed.\n"
+                  "2. Photograph the entire screen, including the release and result.\n"
+                  "3. Hold the power button until the Mac turns off. Press it once\n"
+                  "   to start Ubuntu. Share the photo or exact result lines in Codex.\n\n");
+}
+
+static bool trial_passed(const struct ehci_trial_report *trial) {
+    if (trial->found != 2 || !trial->controllers[0].topcase_address) return false;
+    for (unsigned i = 0; i < 2; i++) {
+        const struct ehci_probe_report *report = &trial->controllers[i];
+        if (!report->reset_halted || !report->enumerated || !report->dma_released || !report->access_retired) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void ehci_boot_trial(const char *release) {
+    struct ehci_trial_report trial = {0};
+    console_set_framebuffer_muted(false);
+    console_write("Scanning EHCI controllers and the internal hub...\n");
+    console_sync();
+    console_set_framebuffer_muted(true);
+    probe_all(EHCI_BOOT_SPLIT, &trial);
+    ehci_trial_screen(release);
+    console_printf("Controllers found %u. Scans complete %u. DMA released %u.\n",
+        (uint64_t)trial.found, (uint64_t)trial.scans, (uint64_t)trial.released);
+    const char *names[] = { "00:1a.7 8086:1c2d", "00:1d.7 8086:1c26" };
+    for (unsigned i = 0; i < 2; i++) {
+        const struct ehci_probe_report *report = &trial.controllers[i];
+        console_printf("%s  %s  scan=%s  DMA=%s\n", names[i],
+            !report->result ? "absent" : report->reset_halted && !report->access_retired ? "access-unverified" : report->result,
+            report->enumerated ? "complete" : "incomplete", report->dma_released ? "released" : "unverified");
+    }
+    const struct ehci_probe_report *input = &trial.controllers[0];
+    console_printf("Topcase 05ac:0245 via hub 0424:2513 port 2, EP0 8: %s\n",
+        input->topcase_address ? "descriptors read" : "unverified");
+    if (input->topcase_address) console_printf("Assigned USB address %u through hub address %u.\n",
+        (uint64_t)input->topcase_address, (uint64_t)input->trial_hub);
+    console_printf("ehci-trial: release=%s result=%s\n", release,
+        trial_passed(&trial) ? "PASS" : "INCOMPLETE");
+    console_write("Screen held for photo. Use the power button to return to Ubuntu.\n");
 }

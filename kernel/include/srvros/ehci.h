@@ -9,5 +9,7 @@ enum ehci_boot_mode {
 
 /* Boot-only diagnostic. Leaves an accepted controller halted. */
 void ehci_boot_probe(enum ehci_boot_mode mode);
+void ehci_trial_screen(const char *release);
+void ehci_boot_trial(const char *release);
 
 #endif

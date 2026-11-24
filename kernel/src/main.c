@@ -933,10 +933,26 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
+static bool ehci_trial_release(const char *cmdline, char release[17]) {
+    const char prefix[] = "srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release=";
+    for (unsigned i = 0; i < sizeof(prefix) - 1; i++) {
+        if (*cmdline++ != prefix[i]) return false;
+    }
+    for (unsigned i = 0; i < 16; i++) {
+        char c = *cmdline++;
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+        release[i] = c;
+    }
+    release[16] = '\0';
+    return !*cmdline;
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
+    bool ehci_trial = cmdline_has_token(cmdline, "srvros.ehci=split-trial");
+    char trial_release[17];
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
@@ -954,10 +970,12 @@ void kmain(void) {
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *console_fb=framebuffer_request.response->framebuffers[0];
-        bool readable_capture=startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
+        bool readable_capture=ehci_trial || startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
             cmdline_has_token(cmdline,"srvros.desktop=retina-trial");
+        uint64_t readable_width = ehci_trial ? 1280 : 1920;
+        uint64_t readable_height = ehci_trial ? 640 : 960;
         uint64_t console_scale=readable_capture && console_fb->width>=2880 && console_fb->height>=1440?3:
-            readable_capture && console_fb->width>=1920 && console_fb->height>=960?2:1;
+            readable_capture && console_fb->width>=readable_width && console_fb->height>=readable_height?2:1;
         console_init_scaled(console_fb,console_scale);
         if(readable_capture)console_printf("diagnostic-console: version=1 scale=%u cell_width=%u cell_height=%u\n",
             console_scale,8*console_scale,16*console_scale);
@@ -965,6 +983,19 @@ void kmain(void) {
         if (!boot_verbose) {
             boot_status("srvros: booting (quiet mode)\n");
         }
+    }
+
+    if (ehci_trial) {
+        bool valid = ehci_trial_release(cmdline, trial_release);
+        ehci_trial_screen(valid ? trial_release : "invalid");
+        if (!valid) {
+            console_write("ehci-trial: invalid boot profile. Photograph the screen and return to Ubuntu.\n");
+            console_sync();
+            halt_forever();
+        }
+        console_write("Preparing the RAM-only EHCI diagnostic...\n");
+        console_sync();
+        boot_set_framebuffer_quiet(true);
     }
 
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
@@ -1065,6 +1096,12 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (ehci_trial) {
+        ehci_boot_trial(trial_release);
+        console_sync();
+        __asm__ volatile("cli" ::: "memory");
+        halt_forever();
+    }
     bool ehci_split = cmdline_has_token(cmdline, "srvros.ehci=split");
     bool ehci_enumerate = cmdline_has_token(cmdline, "srvros.ehci=enumerate");
     bool ehci_probe = cmdline_has_token(cmdline, "srvros.ehci=probe");
