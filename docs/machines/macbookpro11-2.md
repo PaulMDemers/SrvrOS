@@ -1022,6 +1022,18 @@ or calibration tone. Linux issued the same full-word write ahead of
 its calibration passes.
 [Linux IQ setup](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c)
 
+Candidate `71c5791486a3d9b3` from `2c0f176e` passed the native xHCI
+write, readback refusal, fixed-size receive and beacon tests, plus
+firmware and USB lifecycle tests. The collector replayed both B68
+outcomes and the journal tail. The exact GPT workspace and four
+journal/recovery VM cases passed. The installed kernel hash matched
+the fresh build. Ubuntu remains default with recovery
+`74da74e0b57afbb8`. The cold run record
+`build/bringup/pro112-rtl8188cu-b68/run.json` identifies the three hub
+leaves, clean workspace with 602 files and fresh independent journal.
+The unattended run saves the startup and receive evidence before
+returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
