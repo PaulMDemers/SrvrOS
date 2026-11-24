@@ -921,6 +921,23 @@ the original hub ports and the clean workspace with 598 existing files.
 The unattended test saves the IQ readback, good-frame counters, USB
 outcome and teardown before returning to Ubuntu.
 
+Cold session `session-000660ffd1a44739-00` verified that the receive IQ
+word changed from `0x40000100` to the selected Linux `0x400004f7`,
+with the extension at zero. The RF0 and frame-filter checks passed.
+The single 4,096-byte receive request stayed pending for the four-second
+window. PHY parity failures rose from 23 to 3,921, while good OFDM,
+CCK and HT counts and bulk receive completions remained zero. The
+only transfer event stopped the request with all 4,096 bytes
+outstanding. Applying the measured RX correction alone did not
+restore frame delivery or Demers2.4 discovery on this run.
+
+All three adapters stayed on the hub. RF and RX parked, all 598 prior
+workspace files were preserved and the Mac returned to Ubuntu. The
+31,096-byte exit snapshot and all seven journal phases verified. Both
+saved paths contained the correction readback and RX evidence. The
+image, Linux references and native evidence are archived as
+`evidence-1ff3fc700a7466fa`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
