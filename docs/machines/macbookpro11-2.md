@@ -947,6 +947,27 @@ gates closed, and save the remaining startup readbacks. Keep the
 channel, four-second window, single 4,096-byte request and hub topology.
 Keep live IQ calibration triggers out of the receive-only SrvrOS probe.
 
+The target-only Linux rebind and monitor startup trace captured 5,239
+vendor controls with zero usbmon drops or pending controls. The monitor
+startup entered IQ mode twice. It ran two trigger attempts on the first
+pass and one on the second, waiting 1,006–1,023 us before each result
+read. Linux then cleared IQ mode, restored ADDA and MAC setup, wrote the
+retained matrix and triggered LC. All 16 live ADDA readbacks matched the
+pinned SrvrOS profile. Five Linux monitor samples stayed stable at
+channel 10 and 20 MHz while 963 bulk IN completions succeeded. The
+capture and summary are under `build/bringup/pro112-rtl8188cu-iq-startup`.
+The raw capture SHA-256 is
+`d6e0b46fa576fd7a448229edb92173b4b2e5bf39c28e96c3b5741eb976661f4d`.
+
+The candidate verifies the path-A RX words `0xc14/0xca0` and TX matrix
+bits at `0xc80/0xc94/0xc4c` before arming bulk IN. It preserves bits
+outside the Linux correction masks. The monitor matrix includes RX
+`0x400004f7` and TX `0x400b0102`. The six startup observations include
+the previously unmeasured live `0xb68` write retained by Linux at
+`0x00080000` and the IQ control residues `0xe28/0xe48/0xe4c`.
+The SrvrOS trial samples those startup controls and limits its writes
+to applying the retained matrix.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
