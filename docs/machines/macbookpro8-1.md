@@ -46,8 +46,8 @@ The inventory contains no xHCI controller on this Mac.
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `22fdd9fc`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
-dependency on those branches. The Air7,2 branch at `fb582f40` also touches the
-staging tool in its RC6 receipt path, independently of the EHCI profile.
+dependency on those branches. The Air7,2 branch at `b9238469` also touches the
+staging tool for graphics receipts, independently of the EHCI profile.
 Coordinate shared HID, storage or initialization changes if they become
 necessary. [Device coordination](../agent-coordination.md)
 
@@ -258,9 +258,9 @@ Clean source `00211b89` staged as `47632d5174507ea3`. In QEMU, the normal
 fixture completed both scans. The forced stall reported hub 1 port 2 during
 preflight, a qTD error on `GET_STATUS` and `USBSTS=0x8007`. Both rehearsals
 released both DMA pages, showed the result screen and selected the Ubuntu
-default fixture on the next boot. The new release is installed as current,
-with `c1a8e397a41363dc` still installed as the recovery release. The prior
-partial result and its payload remain archived. The retry record and VM
+default fixture on the next boot. That release was installed for the retry
+with `c1a8e397a41363dc` retained for recovery. The prior partial result and
+its payload remain archived. The retry record and VM
 evidence are in `build/review/macbookpro8-1-ehci-trial-47632d5174507ea3/`.
 
 The operator's native result for `47632d5174507ea3` was `INCOMPLETE`. The
@@ -298,6 +298,14 @@ It also reports the active EHCI queue overlay token when a transfer fails.
 Trial acceptance requires both retired controllers, the topcase descriptors,
 an 18-byte flash device descriptor and assigned-address enumeration of the
 expected `13fe:6700` flash drive. The trial stops before storage I/O.
+
+Clean source `88d26f10` staged as `7c634ec7f48273c4`. The host fixture passed
+an 18-byte response after a simulated 120 ms on the selected route, stopped
+at 100 ms on another port and bounded a stalled selected request at 600 ms.
+It verified schedule disable after each case. Both exact-stage QEMU recovery
+rehearsals and the ordinary EHCI hub regression passed. The physical timing
+result is pending. The trial record and VM evidence are in
+`build/review/macbookpro8-1-ehci-trial-7c634ec7f48273c4/`.
 
 ## Capability ledger
 
