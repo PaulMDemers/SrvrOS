@@ -516,6 +516,23 @@ parked, Ubuntu returned, and all 582 prior workspace files survived.
 The exact payload and evidence are archived in
 `evidence-56965a29fdbd3e76`.
 
+The original measured radio capture `5f9db835` shows two long gaps
+discarded by the register-only profile. After the RF path A register
+`0x18` calibration trigger at zero-based row 481, Linux waited 100,028 us
+before writing RF register `0x1f` at row 482 and another 100,013 us before
+the next RF write. Rows 487 through 492 also have gaps of at least 1 ms
+before the next profile write. The [Linux LC calibration code](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/phy.c#L316-L350)
+confirms the RF `0x18` trigger and 100 ms hold.
+
+The timing-only candidate uses the same 495 pinned writes, with minimum
+waits of 100 ms at rows 481 and 482 and 1 ms at rows 487 through 492.
+It records the total elapsed wait and reads RF path A register `0x18`
+before tuning to channel 10. The comparison requires the source-captured
+default channel payload `0x07401` and cleared calibration bit before
+opening bulk IN. The MAC TX and TX DMA gates stay closed and TX queues
+remain paused. The candidate carries over the latest verified filter
+and receive setup.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

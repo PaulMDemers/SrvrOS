@@ -16,6 +16,8 @@
 #define RTL_CU_PACKET_BOUNDARY 0xf9u
 #define RTL_CU_MGMT_RCR 0x200eu
 #define RTL_CU_MGMT_MAP 0xffffu
+#define RTL_CU_RF_DATA_MASK 0xfffffu
+#define RTL_CU_RF_START_CHANNEL 0x7401u
 
 enum rtl_cu_sample_phase {
     RTL_CU_ARMED,RTL_CU_PENDING,RTL_CU_BEFORE_STOP,RTL_CU_AFTER_STOP,RTL_CU_SAMPLE_COUNT
@@ -42,6 +44,10 @@ static struct {
     uint64_t event_trb;
     unsigned events,event_code,event_residue;
     uint32_t rx_cr;
+    uint32_t startup_rf_channel;
+    uint64_t profile_wait_us;
+    unsigned profile_waits;
+    bool startup_rf_valid,profile_started;
     uint32_t admission[RTL_CU_ADMISSION_COUNT];
     unsigned admission_valid;
     bool admission_attempted,admission_ok;
@@ -103,6 +109,10 @@ static void rtl_cu_rx_snapshot(struct xhci_device *d,enum rtl_cu_sample_phase ph
 
 static void rtl_cu_rx_log(void) {
     static const char *const phases[]={"armed","pending","before-stop","after-stop"};
+    if(rtl_passive.profile_started)
+        console_printf("rtl8188cu-rf-settle: waits=%u wait_us=%u read_valid=%u rf_channel=%x\n",
+            (uint64_t)rtl_passive.profile_waits,rtl_passive.profile_wait_us,
+            (uint64_t)rtl_passive.startup_rf_valid,(uint64_t)rtl_passive.startup_rf_channel);
     const uint32_t *r=rtl_passive.admission;
     if(rtl_passive.admission_attempted)
         console_printf("rtl8188cu-rx-setup: ready=%u valid=%x rcr=%x mgt=%x ctl=%x data=%x drvinfo=%x fpga0=%x fpga1=%x ofdm_trx=%x\n",
@@ -199,6 +209,14 @@ static bool rtl_cu_rf_read(struct xhci_device *d,unsigned reg,uint32_t *value) {
     return rtl8188cu_read(d,(mode&(1u<<8))?0x8b8:0x8a0,4,value);
 }
 
+static uint32_t rtl_cu_profile_wait(unsigned row) {
+    /* Zero-based rows in the digest-pinned profile. Hold RF calibration and
+     * the following RF write for 100 ms, then preserve the HSSI edge gaps. */
+    if(row==481 || row==482)return 100000;
+    if(row>=487 && row<=492)return 1000;
+    return 0;
+}
+
 static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
                                  const uint8_t *blob,unsigned *writes,uint32_t *channel) {
     uint32_t state;
@@ -213,6 +231,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl8188cu_update(d,0x87c,4,1u<<31,0) ||
        !rtl8188cu_write_value(d,0x22,1,0x0f) ||
        !rtl8188cu_write_value(d,0x25,1,0x80))return false;
+    rtl_passive.profile_started=true;
     uint64_t start=timer_monotonic_us();
     for(unsigned i=0;i<RTL_CU_PROFILE_WRITES;i++) {
         const uint8_t *row=blob+6*i;
@@ -220,7 +239,18 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
            ((i&63)==0 && !rtl8188cu_check_port(d,hub)) ||
            !rtl8188cu_write_value(d,row[0]|(unsigned)row[1]<<8,4,rtl_cu_le32(row+2)))return false;
         (*writes)++;
+        uint32_t delay=rtl_cu_profile_wait(i);
+        if(delay) {
+            uint64_t before=timer_monotonic_us();
+            if(!timer_delay_us(delay))return false;
+            rtl_passive.profile_wait_us+=timer_monotonic_us()-before;
+            rtl_passive.profile_waits++;
+        }
     }
+    if(!rtl8188cu_check_port(d,hub) ||
+       !rtl_cu_rf_read(d,0x18,&rtl_passive.startup_rf_channel))return false;
+    rtl_passive.startup_rf_valid=true;
+    if((rtl_passive.startup_rf_channel&RTL_CU_RF_DATA_MASK)!=RTL_CU_RF_START_CHANNEL)return false;
     /* Verify the channel through RF path A and keep both aggregation paths
      * off so a single receive buffer describes one frame. */
     if(!rtl8188cu_update(d,0x603,1,0,4) ||
