@@ -33,14 +33,14 @@ reset and high-speed enumeration passed in QEMU.**
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
 MacBookPro8,1 console, input and USB workspace milestones. The active work
-block adds an opt-in EHCI endpoint-zero control schedule, high-speed device
-and hub enumeration, and DMA retirement. It builds on the verified EHCI
-handoff/reset path and shares USB setup packet definitions with xHCI. The
-inventory contains no xHCI controller on this Mac. Full-speed split transfers,
-HID reporting and block I/O belong to later milestones.
+block adds an opt-in full-speed endpoint-zero route through an EHCI hub
+transaction translator. It touches the EHCI queue head and enumeration path
+and retains the existing DMA retirement checks. The inventory contains no
+xHCI controller on this Mac. Keyboard reports and block I/O belong to later
+milestones.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `ad95b6a0`, and Apple Silicon runtime, login and export work
+USB Wi-Fi work at `177860b8`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
 dependency on those branches. Coordinate shared HID, storage or initialization
 changes if they become necessary. [Device coordination](../agent-coordination.md)
@@ -157,6 +157,29 @@ halt. The connected child and slower-port isolation evidence is from the
 host fixture. The reset-only EHCI probe and ordinary xHCI console regressions
 passed on the same staged kernel.
 
+## EHCI full-speed split control
+
+`srvros.ehci=split` enables full-speed endpoint-zero requests on the RAM-only
+diagnostic. For a full-speed child directly behind a high-speed hub, the
+asynchronous queue carries the parent hub address and the one-based port.
+The driver reads the first eight descriptor bytes at address zero, adopts the
+advertised endpoint-zero packet size, then keeps the same hub route through
+`SET_ADDRESS` and the configuration reads. A failed request stops the scan
+before another port can acquire address zero. The diagnostic defers low-speed
+children and leaves any discovered full-speed hub's downstream ports alone.
+[Intel EHCI specification, sections 3.6 and 4.12.1](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
+
+```sh
+make test-ehci hardware-stage
+python3 tools/hardware_boot_smoke.py --ehci-split
+```
+
+The host fixtures model the routed control requests, malformed packet sizes,
+and the schedule's completion and timeout behavior. The VM exercises the
+split boot option with the redirected high-speed hub and a high-speed tablet.
+QEMU's built-in hub is a USB 1.1 model, and the redirected high-speed hub has
+empty ports, so the VM run reports zero split devices. [QEMU USB hub model](https://github.com/qemu/qemu/blob/v11.0.3/hw/usb/dev-hub.c)
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
@@ -167,8 +190,7 @@ passed on the same staged kernel.
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
-`build/review/`. The next checkpoint is full-speed split control transfers
-through a hub transaction translator. Those transfers and the captured
-topcase descriptors precede native keyboard acceptance. Keep the verified
-console payload available for recovery and retain the existing xHCI regression
-coverage.
+`build/review/`. The next native checkpoint is to confirm the captured
+`05ac:0245` topcase enumerates through its internal hub. Keyboard reports and
+trackpad input are separate acceptance checks. Keep the verified console
+payload available for recovery and retain the existing xHCI regression coverage.

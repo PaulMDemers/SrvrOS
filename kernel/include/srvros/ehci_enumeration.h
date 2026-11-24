@@ -7,16 +7,32 @@
 
 #define EHCI_DESCRIPTOR_BYTES 512u
 
+/* A high-speed device has no TT route. A full-speed device uses its
+ * high-speed parent hub's address and one-based downstream port. */
+struct ehci_control_target {
+    uint8_t address;
+    uint8_t packet_size;
+    uint8_t tt_hub;
+    uint8_t tt_port;
+};
+
+static inline bool ehci_full_speed_packet_size(uint8_t size) {
+    return size == 8 || size == 16 || size == 32 || size == 64;
+}
+
 struct ehci_enumeration {
-    bool (*control)(void *context, uint8_t address, const struct usb_setup_packet *setup,
+    bool (*control)(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
         uint8_t *data, unsigned *received);
     void *context;
+    bool split;
     unsigned devices;
+    unsigned split_devices;
     unsigned hubs;
     unsigned deferred;
 };
 
-/* The caller has enabled this high-speed port and isolated address zero. */
-bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t port, unsigned depth);
+/* The caller has enabled the port and isolated address zero. */
+bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t port, unsigned depth,
+    bool full_speed);
 
 #endif

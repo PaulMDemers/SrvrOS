@@ -54,7 +54,10 @@
 #define EHCI_QH_SPEED_HIGH (2u << 12)
 #define EHCI_QH_TOGGLE_FROM_TD (1u << 14)
 #define EHCI_QH_HEAD (1u << 15)
-#define EHCI_QH_PACKET_64 (64u << 16)
+#define EHCI_QH_PACKET_SHIFT 16
+#define EHCI_QH_CONTROL (1u << 27)
+#define EHCI_QH_TT_HUB_SHIFT 16
+#define EHCI_QH_TT_PORT_SHIFT 23
 #define EHCI_QH_MULT_ONE (1u << 30)
 #define EHCI_TD_ACTIVE (1u << 7)
 #define EHCI_TD_ERROR 0x7cu
@@ -208,7 +211,8 @@ static bool wait_control(const struct ehci_control_path *path, bool data_phase) 
     return false;
 }
 
-static void prepare_control(struct ehci_control_path *path, uint8_t address, const struct usb_setup_packet *setup) {
+static void prepare_control(struct ehci_control_path *path, const struct ehci_control_target *target,
+    const struct usb_setup_packet *setup) {
     struct ehci_dma *dma = path->dma;
     uint32_t setup_td = path->physical + offsetof(struct ehci_dma, setup_td);
     uint32_t data_td = path->physical + offsetof(struct ehci_dma, data_td);
@@ -216,8 +220,12 @@ static void prepare_control(struct ehci_control_path *path, uint8_t address, con
     *dma = (struct ehci_dma) {0};
     dma->setup = *setup;
     dma->qh.link = (path->physical + offsetof(struct ehci_dma, qh)) | EHCI_LINK_QH;
-    dma->qh.endpoint = address | EHCI_QH_SPEED_HIGH | EHCI_QH_TOGGLE_FROM_TD | EHCI_QH_HEAD | EHCI_QH_PACKET_64;
-    dma->qh.capabilities = EHCI_QH_MULT_ONE;
+    dma->qh.endpoint = target->address | EHCI_QH_TOGGLE_FROM_TD | EHCI_QH_HEAD |
+        ((uint32_t)target->packet_size << EHCI_QH_PACKET_SHIFT) |
+        (target->tt_hub ? EHCI_QH_CONTROL : EHCI_QH_SPEED_HIGH);
+    /* Asynchronous control splits use zero start and complete masks. */
+    dma->qh.capabilities = EHCI_QH_MULT_ONE | ((uint32_t)target->tt_hub << EHCI_QH_TT_HUB_SHIFT) |
+        ((uint32_t)target->tt_port << EHCI_QH_TT_PORT_SHIFT);
     dma->qh.overlay.next = setup_td;
     dma->qh.overlay.alternate = EHCI_LINK_END;
     dma->setup_td.next = setup->length ? data_td : status_td;
@@ -239,18 +247,22 @@ static void prepare_control(struct ehci_control_path *path, uint8_t address, con
 
 /* Both success and failure must acknowledge schedule disable before the next
  * request can overwrite the shared descriptor page. */
-static bool control_transfer(void *context, uint8_t address, const struct usb_setup_packet *setup,
+static bool control_transfer(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
     uint8_t *data, unsigned *received) {
     struct ehci_control_path *path = context;
     volatile uint32_t *op = path->op;
     *received = 0;
-    if (address > 127 || setup->length > EHCI_DESCRIPTOR_BYTES ||
+    if (target->address > 127 || setup->length > EHCI_DESCRIPTOR_BYTES ||
         (setup->length && (!data || !(setup->request_type & USB_ENDPOINT_IN)))) return false;
+    if (target->tt_hub) {
+        if (target->tt_hub > 127 || target->tt_hub == target->address || !target->tt_port || target->tt_port > 127 ||
+            !ehci_full_speed_packet_size(target->packet_size)) return false;
+    } else if (target->tt_port || target->packet_size != 64) return false;
     uint32_t command = op[EHCI_USBCMD];
     if ((command & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) != EHCI_CMD_RUN ||
         (op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES))) return false;
 
-    prepare_control(path, address, setup);
+    prepare_control(path, target, setup);
     __asm__ volatile ("mfence" : : : "memory");
     op[EHCI_USBCMD] = command | EHCI_CMD_ASYNC;
     bool complete = wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, EHCI_STS_ASYNC, EHCI_HALT_US) &&
@@ -296,7 +308,7 @@ static bool enumerate_root_ports(const struct ehci_probe_report *report, struct 
             console_printf("ehci: root port=%u deferred non-high-speed device\n", (uint64_t)i + 1);
             continue;
         }
-        if (!ehci_enumerate_device(bus, 0, (uint8_t)(i + 1), 0)) return false;
+        if (!ehci_enumerate_device(bus, 0, (uint8_t)(i + 1), 0, false)) return false;
     }
     return true;
 }
@@ -316,7 +328,7 @@ static bool retire_control_path(const struct pci_device *device, volatile uint32
 }
 
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
-    const struct ehci_probe_report *report) {
+    const struct ehci_probe_report *report, bool split) {
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
@@ -324,7 +336,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         return;
     }
     struct ehci_control_path path = { op, pmm_phys_to_virt(physical), (uint32_t)physical };
-    struct ehci_enumeration bus = { .control = control_transfer, .context = &path };
+    struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split };
     *path.dma = (struct ehci_dma) { .qh = { .link = EHCI_LINK_END,
         .overlay = { .next = EHCI_LINK_END, .alternate = EHCI_LINK_END } } };
     __asm__ volatile ("mfence" : : : "memory");
@@ -349,6 +361,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     console_printf("ehci: enumeration complete=%u devices=%u hubs=%u deferred=%u dma=%s\n",
         (uint64_t)(complete && retired), (uint64_t)bus.devices, (uint64_t)bus.hubs, (uint64_t)bus.deferred,
         retired ? "released" : "retained");
+    if (split) console_printf("ehci: split devices=%u\n", (uint64_t)bus.split_devices);
 }
 
 static const char *probe_registers(const struct pci_device *device, volatile uint32_t *caps,
@@ -402,7 +415,7 @@ static const char *probe_registers(const struct pci_device *device, volatile uin
 }
 
 /* Return whether the temporary window is safe to reuse for another controller. */
-static bool probe_controller(const struct pci_device *device, uint64_t root, bool enumerate,
+static bool probe_controller(const struct pci_device *device, uint64_t root, enum ehci_boot_mode mode,
     struct ehci_probe_report *report) {
     uint32_t bar = device->bar[0];
     uint64_t base = bar & 0xffffff00u;
@@ -430,7 +443,9 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, boo
     if (set_command_bits(device, PCI_COMMAND_MEMORY, PCI_COMMAND_MEMORY)) {
         volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(EHCI_MMIO_WINDOW + page_offset);
         report->result = probe_registers(device, caps, mapped_bytes, report);
-        if (enumerate && report->reset_halted) enumerate_controller(device, caps + report->cap_length / 4, report);
+        if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
+            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT);
+        }
     } else {
         report->result = "memory-decode-failed";
     }
@@ -446,7 +461,7 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, boo
     return true;
 }
 
-void ehci_boot_probe(bool enumerate) {
+void ehci_boot_probe(enum ehci_boot_mode mode) {
     uint64_t root = vmm_kernel_address_space();
     if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) {
         console_write("ehci: probe unavailable before controller access\n");
@@ -459,7 +474,7 @@ void ehci_boot_probe(bool enumerate) {
             device->subclass != EHCI_PCI_USB_SUBCLASS || device->prog_if != EHCI_PCI_PROG_IF) continue;
         found++;
         struct ehci_probe_report report = { .handoff = "not-attempted", .mapping = "none" };
-        bool reusable = probe_controller(device, root, enumerate, &report);
+        bool reusable = probe_controller(device, root, mode, &report);
         console_printf("ehci: bus=%u dev=%u fn=%u vendor=%x device=%x version=%x ports=%u "
                        "handoff=%s result=%s was_running=%u mapping=%s\n",
             (uint64_t)device->bus, (uint64_t)device->device, (uint64_t)device->function,

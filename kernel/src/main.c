@@ -1065,10 +1065,19 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    bool ehci_split = cmdline_has_token(cmdline, "srvros.ehci=split");
     bool ehci_enumerate = cmdline_has_token(cmdline, "srvros.ehci=enumerate");
-    if (ehci_enumerate || cmdline_has_token(cmdline, "srvros.ehci=probe")) {
-        if (cmdline_has_token(cmdline, "srvros.storage=ram")) ehci_boot_probe(ehci_enumerate);
-        else console_write("ehci: probe requires RAM-only boot\n");
+    bool ehci_probe = cmdline_has_token(cmdline, "srvros.ehci=probe");
+    if (ehci_split || ehci_enumerate || ehci_probe) {
+        if (!cmdline_has_token(cmdline, "srvros.storage=ram")) {
+            console_write("ehci: probe requires RAM-only boot\n");
+        } else if (ehci_split + ehci_enumerate + ehci_probe > 1) {
+            console_write("ehci: conflicting boot options\n");
+        } else if (ehci_split) {
+            ehci_boot_probe(EHCI_BOOT_SPLIT);
+        } else {
+            ehci_boot_probe(ehci_enumerate ? EHCI_BOOT_ENUMERATE : EHCI_BOOT_PROBE);
+        }
     }
     if(startup_journal_requested) {
         boot_set_framebuffer_quiet(false);

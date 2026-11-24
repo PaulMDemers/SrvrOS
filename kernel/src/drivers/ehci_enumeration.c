@@ -14,26 +14,26 @@ static uint16_t read_le16(const uint8_t *bytes) {
     return bytes[0] | ((uint16_t)bytes[1] << 8);
 }
 
-static bool usb_control(struct ehci_enumeration *bus, uint8_t address, uint8_t type, uint8_t request,
+static bool usb_control(struct ehci_enumeration *bus, const struct ehci_control_target *target, uint8_t type, uint8_t request,
     uint16_t value, uint16_t index, uint16_t length, uint8_t *data, unsigned *received) {
     struct usb_setup_packet setup = { type, request, value, index, length };
-    return bus->control(bus->context, address, &setup, data, received) && *received <= length;
+    return bus->control(bus->context, target, &setup, data, received) && *received <= length;
 }
 
-static bool standard_descriptor(struct ehci_enumeration *bus, uint8_t address, uint16_t type,
+static bool standard_descriptor(struct ehci_enumeration *bus, const struct ehci_control_target *target, uint16_t type,
     uint8_t *data, uint16_t length) {
     unsigned received;
-    return usb_control(bus, address, 0x80, USB_REQ_GET_DESCRIPTOR, type << 8, 0, length, data, &received) &&
+    return usb_control(bus, target, 0x80, USB_REQ_GET_DESCRIPTOR, type << 8, 0, length, data, &received) &&
         received == length;
 }
 
-static bool hub_feature(struct ehci_enumeration *bus, uint8_t hub, uint8_t port, uint8_t request,
+static bool hub_feature(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t port, uint8_t request,
     uint16_t feature) {
     unsigned received;
     return usb_control(bus, hub, 0x23, request, feature, port, 0, 0, &received);
 }
 
-static bool hub_status(struct ehci_enumeration *bus, uint8_t hub, uint8_t port, uint32_t *status) {
+static bool hub_status(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t port, uint32_t *status) {
     uint8_t data[4];
     unsigned received;
     if (!usb_control(bus, hub, 0xa3, USB_REQ_GET_STATUS, 0, port, sizeof(data), data, &received) ||
@@ -42,14 +42,15 @@ static bool hub_status(struct ehci_enumeration *bus, uint8_t hub, uint8_t port, 
     return true;
 }
 
-static bool read_configuration(struct ehci_enumeration *bus, uint8_t address, bool hub, uint8_t *value) {
+static bool read_configuration(struct ehci_enumeration *bus, const struct ehci_control_target *target, bool hub,
+    uint8_t *value) {
     uint8_t data[EHCI_DESCRIPTOR_BYTES];
-    if (!standard_descriptor(bus, address, USB_DESC_CONFIGURATION, data, 9) ||
+    if (!standard_descriptor(bus, target, USB_DESC_CONFIGURATION, data, 9) ||
         data[0] != 9 || data[1] != USB_DESC_CONFIGURATION || !data[4] || !data[5]) return false;
     uint16_t total = read_le16(data + 2);
     uint8_t configuration = data[5];
     if (total < 9 || total > sizeof(data) ||
-        !standard_descriptor(bus, address, USB_DESC_CONFIGURATION, data, total) ||
+        !standard_descriptor(bus, target, USB_DESC_CONFIGURATION, data, total) ||
         data[0] != 9 || data[1] != USB_DESC_CONFIGURATION || read_le16(data + 2) != total ||
         !data[4] || data[5] != configuration) return false;
     bool hub_interface = false;
@@ -67,7 +68,8 @@ static bool read_configuration(struct ehci_enumeration *bus, uint8_t address, bo
     return true;
 }
 
-static bool reset_hub_port(struct ehci_enumeration *bus, uint8_t hub, uint8_t port, uint32_t *status) {
+static bool reset_hub_port(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t port,
+    uint32_t *status) {
     if ((*status & USB_HUB_CHANGE_CONNECTION) &&
         !hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION)) return false;
     if ((*status & USB_HUB_CHANGE_RESET) &&
@@ -88,11 +90,12 @@ static bool reset_hub_port(struct ehci_enumeration *bus, uint8_t hub, uint8_t po
     return false;
 }
 
-static bool enumerate_hub(struct ehci_enumeration *bus, uint8_t address, uint8_t configuration, unsigned depth) {
+static bool enumerate_hub(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t configuration,
+    unsigned depth) {
     unsigned received;
     uint8_t descriptor[64];
-    if (!usb_control(bus, address, 0, USB_REQ_SET_CONFIGURATION, configuration, 0, 0, 0, &received) ||
-        !usb_control(bus, address, 0xa0, USB_REQ_GET_DESCRIPTOR, USB_DESC_HUB << 8, 0,
+    if (!usb_control(bus, hub, 0, USB_REQ_SET_CONFIGURATION, configuration, 0, 0, 0, &received) ||
+        !usb_control(bus, hub, 0xa0, USB_REQ_GET_DESCRIPTOR, USB_DESC_HUB << 8, 0,
             sizeof(descriptor), descriptor, &received) || received < 9 || descriptor[1] != USB_DESC_HUB) {
         return false;
     }
@@ -100,11 +103,11 @@ static bool enumerate_hub(struct ehci_enumeration *bus, uint8_t address, uint8_t
     unsigned minimum = 7 + 2 * ((ports + 8) / 8);
     if (!ports || ports > EHCI_HUB_PORT_LIMIT || descriptor[0] < minimum || descriptor[0] > received) return false;
     bus->hubs++;
-    console_printf("ehci: hub address=%u ports=%u\n", (uint64_t)address, (uint64_t)ports);
+    console_printf("ehci: hub address=%u ports=%u\n", (uint64_t)hub->address, (uint64_t)ports);
 
     if ((descriptor[3] & 3) < 2) {
         for (uint8_t port = 1; port <= ports; port++) {
-            if (!hub_feature(bus, address, port, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_POWER)) return false;
+            if (!hub_feature(bus, hub, port, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_POWER)) return false;
         }
     }
     /* Allow power-good and connection debounce before assigning address zero. */
@@ -112,50 +115,73 @@ static bool enumerate_hub(struct ehci_enumeration *bus, uint8_t address, uint8_t
 
     for (uint8_t port = 1; port <= ports; port++) {
         uint32_t status;
-        if (!hub_status(bus, address, port, &status) || (status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET))) {
+        if (!hub_status(bus, hub, port, &status) || (status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET))) {
             return false;
         }
     }
     for (uint8_t port = 1; port <= ports; port++) {
         uint32_t status;
-        if (!hub_status(bus, address, port, &status) || (status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET))) {
+        if (!hub_status(bus, hub, port, &status) || (status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET))) {
             return false;
         }
         if (!(status & USB_HUB_PORT_CONNECTION)) continue;
         if ((status & (USB_HUB_PORT_POWER | USB_HUB_PORT_OVERCURRENT)) != USB_HUB_PORT_POWER ||
-            !reset_hub_port(bus, address, port, &status)) return false;
-        if ((status & (USB_HUB_PORT_HIGH_SPEED | USB_HUB_PORT_LOW_SPEED)) != USB_HUB_PORT_HIGH_SPEED) {
+            !reset_hub_port(bus, hub, port, &status)) return false;
+        uint32_t speed = status & (USB_HUB_PORT_HIGH_SPEED | USB_HUB_PORT_LOW_SPEED);
+        bool full_speed = bus->split && !speed;
+        if (speed != USB_HUB_PORT_HIGH_SPEED && !full_speed) {
             /* The next reset must have exclusive use of address zero. */
-            if (!hub_feature(bus, address, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_PORT_ENABLE) ||
-                !hub_status(bus, address, port, &status) || (status & USB_HUB_PORT_ENABLE)) return false;
+            if (!hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_PORT_ENABLE) ||
+                !hub_status(bus, hub, port, &status) || (status & USB_HUB_PORT_ENABLE)) return false;
             bus->deferred++;
-            console_printf("ehci: hub address=%u port=%u deferred split transfer\n", (uint64_t)address, (uint64_t)port);
+            console_printf("ehci: hub address=%u port=%u deferred split transfer\n", (uint64_t)hub->address, (uint64_t)port);
             continue;
         }
-        if (!ehci_enumerate_device(bus, address, port, depth + 1)) return false;
+        if (!ehci_enumerate_device(bus, hub->address, port, depth + 1, full_speed)) return false;
     }
     return true;
 }
 
-bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t port, unsigned depth) {
+bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t port, unsigned depth,
+    bool full_speed) {
     if (bus->devices >= EHCI_DEVICE_LIMIT || depth > EHCI_HUB_DEPTH_LIMIT) return false;
+    struct ehci_control_target target = { .packet_size = 64 };
     uint8_t descriptor[64];
+    uint16_t length = sizeof(descriptor);
+    if (full_speed) {
+        if (!bus->split || !parent || !port) return false;
+        target = (struct ehci_control_target) { .packet_size = 8, .tt_hub = parent, .tt_port = port };
+        if (!standard_descriptor(bus, &target, USB_DESC_DEVICE, descriptor, 8) ||
+            descriptor[0] != 18 || descriptor[1] != USB_DESC_DEVICE || !ehci_full_speed_packet_size(descriptor[7])) {
+            return false;
+        }
+        target.packet_size = descriptor[7];
+        length = 18;
+    }
     unsigned received;
-    if (!usb_control(bus, 0, 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0,
-            sizeof(descriptor), descriptor, &received) || received != 18 ||
+    if (!usb_control(bus, &target, 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0,
+            length, descriptor, &received) || received != 18 ||
         descriptor[0] != 18 || descriptor[1] != USB_DESC_DEVICE ||
-        descriptor[7] != 64 || !descriptor[17]) return false;
+        descriptor[7] != target.packet_size || !descriptor[17]) return false;
     bool hub = descriptor[4] == USB_CLASS_HUB;
-    if (hub && (descriptor[6] < 1 || descriptor[6] > 2 || depth == EHCI_HUB_DEPTH_LIMIT)) return false;
+    if (hub && !full_speed && (descriptor[6] < 1 || descriptor[6] > 2 || depth == EHCI_HUB_DEPTH_LIMIT)) return false;
 
     uint8_t address = (uint8_t)(bus->devices + 1);
-    if (!usb_control(bus, 0, 0, USB_REQ_SET_ADDRESS, address, 0, 0, 0, &received) ||
+    if (!usb_control(bus, &target, 0, USB_REQ_SET_ADDRESS, address, 0, 0, 0, &received) ||
         !timer_delay_us(2000)) return false;
+    target.address = address;
     uint8_t configuration;
-    if (!read_configuration(bus, address, hub, &configuration)) return false;
+    if (!read_configuration(bus, &target, hub, &configuration)) return false;
     bus->devices++;
     console_printf("ehci: device address=%u parent=%u port=%u vendor=%x product=%x class=%x configuration=%u\n",
         (uint64_t)address, (uint64_t)parent, (uint64_t)port, (uint64_t)read_le16(descriptor + 8),
         (uint64_t)read_le16(descriptor + 10), (uint64_t)descriptor[4], (uint64_t)configuration);
-    return !hub || enumerate_hub(bus, address, configuration, depth);
+    if (full_speed) {
+        bus->split_devices++;
+        console_printf("ehci: split address=%u hub=%u port=%u packet=%u\n",
+            (uint64_t)address, (uint64_t)target.tt_hub, (uint64_t)target.tt_port, (uint64_t)target.packet_size);
+        if (hub) console_printf("ehci: hub address=%u deferred downstream scan\n", (uint64_t)address);
+        return true;
+    }
+    return !hub || enumerate_hub(bus, &target, configuration, depth);
 }

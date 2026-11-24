@@ -14,6 +14,9 @@ static uint32_t mmio[64];
 static volatile uint32_t *const op = mmio + CAP_LENGTH / 4;
 static unsigned handoff_delays, halt_delays, reset_delays, os_writes, smi_writes, command_writes;
 static bool firmware_stuck, halt_stuck, reset_stuck;
+static struct ehci_dma *split_dma;
+static unsigned split_polls;
+static bool split_stuck;
 static uint64_t now;
 
 uint16_t pci_read_config16(const struct pci_device *p, uint8_t offset) {
@@ -54,6 +57,23 @@ bool timer_delay_us(uint64_t delay) {
         return true;
     }
     assert(delay == EHCI_POLL_US);
+    if (split_dma) {
+        if (op[EHCI_USBCMD] & EHCI_CMD_ASYNC) {
+            op[EHCI_USBSTS] |= EHCI_STS_ASYNC;
+            assert(split_dma->qh.endpoint == 0x0810c005u);
+            assert(split_dma->qh.capabilities == 0x41820000u);
+            assert(!split_dma->qh.overlay.token);
+            if (++split_polls == 2 && !split_stuck) {
+                split_dma->setup_td.token = 0;
+                split_dma->data_td.token = 1u << EHCI_TD_BYTES_SHIFT;
+                split_dma->status_td.token = 0;
+                memset(split_dma->data, 0x5a, 17);
+            }
+        } else {
+            op[EHCI_USBSTS] &= ~EHCI_STS_ASYNC;
+        }
+        return true;
+    }
     if (op[EHCI_USBCMD] & EHCI_CMD_RESET) {
         assert((op[EHCI_USBSTS] & EHCI_STS_HALTED) && op[EHCI_USBINTR] == 0);
         assert(!(pci_config[PCI_COMMAND / 4] & PCI_COMMAND_MASTER));
@@ -88,6 +108,9 @@ static void fixture_reset(void) {
     op[EHCI_CONFIGFLAG] = 1;
     handoff_delays = halt_delays = reset_delays = os_writes = smi_writes = command_writes = 0;
     firmware_stuck = halt_stuck = reset_stuck = false;
+    split_dma = 0;
+    split_polls = 0;
+    split_stuck = false;
     now = 0;
 }
 
@@ -149,9 +172,10 @@ static void test_control_schedule(void) {
     fixture_reset();
     struct ehci_dma dma;
     struct ehci_control_path path = { op, &dma, 0x9000 };
+    struct ehci_control_target target = { .address = 3, .packet_size = 64 };
     struct usb_setup_packet get_descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 64 };
-    prepare_control(&path, 3, &get_descriptor);
-    assert((dma.qh.endpoint & 0x7f) == 3 && (dma.qh.endpoint & EHCI_QH_TOGGLE_FROM_TD));
+    prepare_control(&path, &target, &get_descriptor);
+    assert(dma.qh.endpoint == 0x0040e003u && dma.qh.capabilities == 0x40000000u);
     assert(dma.qh.link == (path.physical | EHCI_LINK_QH));
     assert(dma.qh.overlay.next == path.physical + offsetof(struct ehci_dma, setup_td));
     assert(dma.setup_td.next == path.physical + offsetof(struct ehci_dma, data_td));
@@ -161,16 +185,50 @@ static void test_control_schedule(void) {
     assert(!(dma.status_td.token & EHCI_TD_PID_IN));
 
     struct usb_setup_packet set_address = { 0, USB_REQ_SET_ADDRESS, 1, 0, 0 };
-    prepare_control(&path, 0, &set_address);
+    target.address = 0;
+    prepare_control(&path, &target, &set_address);
     assert(dma.setup_td.next == path.physical + offsetof(struct ehci_dma, status_td));
     assert(dma.status_td.token & EHCI_TD_PID_IN);
 
     op[EHCI_USBCMD] = EHCI_CMD_RUN;
     op[EHCI_USBSTS] = EHCI_STS_ASYNC; /* ASE is off, but the async owner still has the queue. */
     unsigned received = 99;
-    assert(!control_transfer(&path, 0, &set_address, 0, &received));
+    assert(!control_transfer(&path, &target, &set_address, 0, &received));
     assert(!received && dma.setup.request == USB_REQ_SET_ADDRESS && dma.status_td.token & EHCI_TD_ACTIVE);
     assert(op[EHCI_USBCMD] == EHCI_CMD_RUN);
+}
+
+static void test_split_control_schedule(void) {
+    fixture_reset();
+    struct ehci_dma dma;
+    struct ehci_control_path path = { op, &dma, 0x9000 };
+    struct ehci_control_target target = { .packet_size = 8, .tt_hub = 2, .tt_port = 3 };
+    struct usb_setup_packet descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 8 };
+    prepare_control(&path, &target, &descriptor);
+    assert(dma.qh.endpoint == 0x0808c000u && dma.qh.capabilities == 0x41820000u);
+
+    op[EHCI_USBCMD] = EHCI_CMD_RUN;
+    op[EHCI_USBSTS] = 0;
+    split_dma = &dma;
+    unsigned received = 99;
+    uint8_t data[18] = {0};
+    target.tt_port = 0;
+    assert(!control_transfer(&path, &target, &descriptor, data, &received));
+    assert(!received && !split_polls && dma.qh.endpoint == 0x0808c000u);
+
+    target = (struct ehci_control_target) { .address = 5, .packet_size = 16, .tt_hub = 2, .tt_port = 3 };
+    descriptor.length = sizeof(data);
+    assert(control_transfer(&path, &target, &descriptor, data, &received));
+    assert(received == 17 && data[0] == 0x5a && data[16] == 0x5a && !data[17]);
+    assert(split_polls == 2 && op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+
+    split_polls = 0;
+    split_stuck = true;
+    uint64_t start = now;
+    assert(!control_transfer(&path, &target, &descriptor, data, &received));
+    assert(!received && now - start == EHCI_CONTROL_US + 2 * EHCI_POLL_US);
+    assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+    split_dma = 0;
 }
 
 static void test_dma_retirement(void) {
@@ -194,6 +252,7 @@ int main(void) {
     test_malformed_capabilities();
     test_stalled_halt_and_reset();
     test_control_schedule();
+    test_split_control_schedule();
     test_dma_retirement();
     puts("EHCI host tests passed");
 }
