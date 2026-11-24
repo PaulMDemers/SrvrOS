@@ -938,6 +938,15 @@ saved paths contained the correction readback and RX evidence. The
 image, Linux references and native evidence are archived as
 `evidence-1ff3fc700a7466fa`.
 
+The next experiment compares the complete Linux 1T IQ calibration and
+PHY startup with the routed SrvrOS RTL8188CUS probe. Scope is limited to
+the passive xHCI path and fixture. Fetched main `61111819` has no
+overlap since integration baseline `50f1978a`. Capture startup on the
+same adapter, apply its retained path-A correction matrix with the MAC
+gates closed, and save the remaining startup readbacks. Keep the
+channel, four-second window, single 4,096-byte request and hub topology.
+Keep live IQ calibration triggers out of the receive-only SrvrOS probe.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
