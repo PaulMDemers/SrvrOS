@@ -33,11 +33,11 @@ controller probe passed in QEMU.**
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
 MacBookPro8,1 console, input and USB workspace milestones. The active work
-block adds an opt-in EHCI boot probe and VM coverage for PCI discovery,
-firmware handoff, halt and reset. It uses the existing PCI and VMM APIs and
-leaves the xHCI call path in place. Hub enumeration, DMA schedules, HID and
-block I/O belong to later milestones. The inventory contains no xHCI
-controller on this Mac.
+block adds an opt-in EHCI endpoint-zero control schedule, high-speed device
+and hub enumeration, and DMA retirement. It builds on the verified EHCI
+handoff/reset path and shares USB setup packet definitions with xHCI. The
+inventory contains no xHCI controller on this Mac. Full-speed split transfers,
+HID reporting and block I/O belong to later milestones.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `ad95b6a0`, and Apple Silicon runtime, login and export work
@@ -125,6 +125,26 @@ semaphore, malformed capability data, stalled halt and stalled reset.
 The xHCI host suite and staged console regression passed. The latter booted
 the same kernel with USB input and the ordinary command line and produced
 no EHCI probe output. This evidence is from the VM and host fixtures.
+
+## EHCI high-speed enumeration
+
+`srvros.ehci=enumerate` is a second RAM-only diagnostic. After the same
+handoff and reset, it uses a single asynchronous endpoint-zero queue for
+descriptor reads and no-data requests. It assigns addresses to high-speed
+devices, reads their configurations and configures hubs to inspect connected
+ports. A full-speed or low-speed child is disabled before the next address-zero
+transaction. The bounded scan covers up to 16 devices, up to 16 ports per hub
+and four downstream tiers. It disables the schedules and PCI bus mastering
+before releasing the DMA page. An unproved halt retains the page.
+
+The emulated QEMU hub is USB 1.1. The Q35 rehearsal uses its high-speed tablet
+model for real control transactions. A host fixture models a high-speed hub,
+its high-speed child and the full-speed deferral path. [QEMU USB emulation](https://www.qemu.org/docs/master/system/devices/usb.html)
+
+```sh
+make test-ehci hardware-stage
+python3 tools/hardware_boot_smoke.py --ehci-enumerate
+```
 
 ## Capability ledger
 

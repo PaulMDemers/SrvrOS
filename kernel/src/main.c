@@ -1065,8 +1065,9 @@ void kmain(void) {
 #endif
     }
     pci_init();
-    if (cmdline_has_token(cmdline, "srvros.ehci=probe")) {
-        if (cmdline_has_token(cmdline, "srvros.storage=ram")) ehci_boot_probe();
+    bool ehci_enumerate = cmdline_has_token(cmdline, "srvros.ehci=enumerate");
+    if (ehci_enumerate || cmdline_has_token(cmdline, "srvros.ehci=probe")) {
+        if (cmdline_has_token(cmdline, "srvros.storage=ram")) ehci_boot_probe(ehci_enumerate);
         else console_write("ehci: probe requires RAM-only boot\n");
     }
     if(startup_journal_requested) {

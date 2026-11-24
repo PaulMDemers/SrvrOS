@@ -1,0 +1,43 @@
+#ifndef SRVROS_USB_CONTROL_H
+#define SRVROS_USB_CONTROL_H
+
+#include <stdint.h>
+
+#define USB_REQ_GET_STATUS 0
+#define USB_REQ_CLEAR_FEATURE 1
+#define USB_REQ_SET_FEATURE 3
+#define USB_REQ_SET_ADDRESS 5
+#define USB_REQ_GET_DESCRIPTOR 6
+#define USB_REQ_SET_CONFIGURATION 9
+
+#define USB_DESC_DEVICE 1
+#define USB_DESC_CONFIGURATION 2
+#define USB_DESC_INTERFACE 4
+#define USB_DESC_ENDPOINT 5
+#define USB_DESC_HUB 0x29
+#define USB_CLASS_HUB 9
+#define USB_ENDPOINT_IN 0x80
+
+#define USB_FEATURE_PORT_ENABLE 1
+#define USB_FEATURE_PORT_RESET 4
+#define USB_FEATURE_PORT_POWER 8
+#define USB_FEATURE_C_PORT_CONNECTION 16
+#define USB_FEATURE_C_PORT_ENABLE 17
+#define USB_FEATURE_C_PORT_RESET 20
+#define USB_HUB_PORT_CONNECTION 0x0001u
+#define USB_HUB_PORT_ENABLE 0x0002u
+#define USB_HUB_PORT_OVERCURRENT 0x0008u
+#define USB_HUB_PORT_RESET 0x0010u
+#define USB_HUB_PORT_POWER 0x0100u
+#define USB_HUB_PORT_LOW_SPEED 0x0200u
+#define USB_HUB_PORT_HIGH_SPEED 0x0400u
+
+struct usb_setup_packet {
+    uint8_t request_type;
+    uint8_t request;
+    uint16_t value;
+    uint16_t index;
+    uint16_t length;
+} __attribute__((packed));
+
+#endif
