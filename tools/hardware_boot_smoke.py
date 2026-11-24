@@ -1463,8 +1463,18 @@ def main():
                     if manifest.get("efi_eg2_clients"):
                         wanted = (dict(state="observed", entries=1, drivers=1, core_drivers=0, children=0, exclusive=0)
                                   if args.efi_probe_fault == "missing-acpi-vector" else None)
+                        if wanted and manifest.get("efi_eg2_panel"):
+                            wanted.update(entries=3, children=2)
                         if trace.get("eg2_clients") != wanted:
                             raise ValueError(f"Unexpected EFI protocol clients: {trace.get('eg2_clients')}")
+                    if manifest.get("efi_eg2_panel"):
+                        panel = trace.get("eg2_panel")
+                        if args.efi_probe_fault == "missing-acpi-vector":
+                            if (not panel or panel.get("state") != "observed" or panel["active_mask"] not in (1, 2)
+                                    or panel["active_mask"] != panel["gop_mask"] or not panel["path_hash"]):
+                                raise ValueError(f"Missing unique EFI panel child: {panel}")
+                        elif panel is not None:
+                            raise ValueError(f"Unexpected EFI panel on unmatched hardware: {panel}")
                     if trace["grub"] != grub_state or trace["probe"] != checkpoints:
                         raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
                     if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):

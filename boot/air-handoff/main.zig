@@ -118,6 +118,52 @@ pub const Eg2Device = extern struct {
     pub const guid align(8) = makeGuid(0x53cfeb0d, 0x9b9e, 0x4d0a, .{ 0x90, 0xb6, 0x02, 0x4a, 0x79, 0x90, 0x6a, 0x58 });
 };
 const core_eg2 = makeGuid(0x4ddeafa4, 0xf480, 0x4b9d, .{ 0x88, 0x9b, 0x1e, 0x3a, 0xe6, 0x60, 0x5b, 0xd6 });
+// Bit N refers to the Nth BY_CHILD_CONTROLLER record in this boot only.
+const Panel = struct {
+    gops: u16 = 0,
+    matches: u16 = 0,
+    path_hash: u64 = 0,
+    adr: ?u32 = null,
+
+    fn identify(self: *Panel, bs: *Services, child: Handle) !void {
+        var node = (try bs.openProtocol(efi.protocol.DevicePath, child, .{ .get_protocol = .{} })) orelse return;
+        var remaining: usize = 4096;
+        var hash = std.hash.Fnv1a_64.init();
+        while (remaining >= 4) {
+            const length = node.length;
+            if (length < 4 or length > remaining) break;
+            const raw: [*]const u8 = @ptrCast(node);
+            hash.update(raw[0..length]);
+            if (node.type == .acpi and node.subtype == 3 and length >= 8) {
+                self.adr = std.mem.readInt(u32, raw[4..8], .little);
+            }
+            if (node.type == .end and node.subtype == 0xff and length == 4) {
+                self.path_hash = hash.final();
+                return;
+            }
+            remaining -= length;
+            node = @ptrFromInt(@intFromPtr(node) + length);
+        }
+        return error.MalformedChildPath;
+    }
+
+    fn inspect(self: *Panel, bs: *Services, child: Handle, index: usize, base: u64, size: u64) !void {
+        if (index >= 16) return error.TooManyChildren;
+        const gop = (try bs.openProtocol(efi.protocol.GraphicsOutput, child, .{ .get_protocol = .{} })) orelse return;
+        const bit = @as(u16, 1) << @intCast(index);
+        self.gops |= bit;
+        if (size == 0 or gop.mode.info.pixel_format == .blt_only or
+            gop.mode.frame_buffer_base != base or gop.mode.frame_buffer_size != size) return;
+        self.matches |= bit;
+        if (self.matches == bit) {
+            try self.identify(bs, child);
+        } else {
+            self.path_hash = 0;
+            self.adr = null;
+        }
+    }
+};
+
 pub const Eg2Clients = struct {
     state: enum { observed, absent, unavailable } = .observed,
     entries: usize = 0,
@@ -125,8 +171,9 @@ pub const Eg2Clients = struct {
     core_drivers: usize = 0,
     children: usize = 0,
     exclusive: usize = 0,
+    panel: ?Panel = .{},
 };
-pub fn eg2Clients(bs: *Services, handle: Handle) !Eg2Clients {
+pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64) !Eg2Clients {
     const opens = (try bs.openProtocolInformation(handle, Eg2Device)) orelse return error.ProtocolUnavailable;
     defer if (opens.len != 0) bs.freePool(@ptrCast(opens.ptr)) catch {};
     if (opens.len > 0xffff) return error.TooManyClients;
@@ -141,7 +188,16 @@ pub fn eg2Clients(bs: *Services, handle: Handle) !Eg2Clients {
                 }
             }
         }
-        if (bits & 8 != 0) result.children += 1;
+        if (bits & 8 != 0) {
+            if (result.panel) |*panel| {
+                if (op.controller_handle) |child| {
+                    panel.inspect(bs, child, result.children, base, size) catch {
+                        result.panel = null;
+                    };
+                } else result.panel = null;
+            }
+            result.children += 1;
+        }
         if (bits & 32 != 0) result.exclusive += 1;
     }
     return result;
@@ -190,14 +246,14 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
         if (ids.len > r.protocol_ids.len) return error.TooManyProtocols;
         for (ids, 0..) |id, i| r.protocol_ids[i] = @bitCast(id.*);
         r.protocols = @intCast(ids.len);
-        clients.* = .{ .state = .absent };
-        for (ids) |id| {
-            if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle) catch .{ .state = .unavailable };
-        }
         r.step = 3;
         try snapshot(p, r);
         r.step = 4;
         try framebuffer(bs, r);
+        clients.* = .{ .state = .absent };
+        for (ids) |id| {
+            if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle, r.framebuffer, r.framebuffer_bytes) catch .{ .state = .unavailable };
+        }
         try snapshot(p, r);
         r.step = 5;
         if (r.framebuffer < r.aperture or r.framebuffer - r.aperture != r.surface or r.framebuffer_bytes == 0 or
@@ -238,7 +294,7 @@ fn mark(file: ?*File, phase: Phase, value: u64) void {
 }
 const config_guid: efi.Guid align(8) = @bitCast([2]u64{ wire.AIR_BOOT_GUID_LO, wire.AIR_BOOT_GUID_HI });
 
-fn markClients(f: *File, c: Eg2Clients) void {
+fn markClients(f: *File, c: Eg2Clients, captured: bool) void {
     var block = [_]u8{0} ** 64;
     _ = switch (c.state) {
         .observed => std.fmt.bufPrint(&block, "eg2-open {d} {d} {d} {d} {d}\n", .{
@@ -247,6 +303,16 @@ fn markClients(f: *File, c: Eg2Clients) void {
         else => std.fmt.bufPrint(&block, "eg2-{s}\n", .{@tagName(c.state)}),
     } catch return;
     f.setPosition(384) catch return;
+    if ((f.write(&block) catch return) != block.len) return;
+    f.flush() catch return;
+    if (c.state != .observed or !captured) return;
+    @memset(&block, 0);
+    if (c.panel) |p| {
+        _ = std.fmt.bufPrint(&block, "panel {x:0>4} {x:0>4} {x:0>16} {d} {x:0>8}\n", .{ p.gops, p.matches, p.path_hash, @intFromBool(p.adr != null), p.adr orelse 0 }) catch return;
+    } else {
+        @memcpy(block[0.."panel-unavailable\n".len], "panel-unavailable\n");
+    }
+    f.setPosition(448) catch return;
     if ((f.write(&block) catch return) == block.len) f.flush() catch {};
 }
 
@@ -266,7 +332,7 @@ fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status 
     // Ownership of this firmware-described private buffer crosses ExitBootServices.
     // Its pages stay reserved for this boot even if the GPU declines admission.
     mark(file, .capture, (@as(u64, r.state) << 32) | r.step);
-    if (clients) |c| if (file) |f| markClients(f, c);
+    if (clients) |c| if (file) |f| markClients(f, c, r.state == wire.AIR_BOOT_CAPTURED);
     var interface: ?*const anyopaque = null;
     const locate = bs._locateProtocol(&Acpi.guid, null, &interface);
     mark(file, .locate, @intFromEnum(locate));

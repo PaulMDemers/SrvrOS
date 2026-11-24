@@ -15,7 +15,28 @@ fn vector(bs: *efi.tables.BootServices, r: anytype, clients: *?handoff.Eg2Client
         .by_driver = .{ .agent = efi.handle, .controller = handle },
     })) orelse return error.NoTestProtocol;
     defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, handle) catch {};
-    clients.* = try handoff.eg2Clients(bs, handle);
+    const Gop = efi.protocol.GraphicsOutput;
+    const outputs = (try bs.locateHandleBuffer(.{ .by_protocol = &Gop.guid })) orelse return error.NoFixtureDisplay;
+    defer bs.freePool(@ptrCast(outputs.ptr)) catch {};
+    for (outputs) |child| {
+        const gop = (try bs.openProtocol(Gop, child, .{ .get_protocol = .{} })) orelse continue;
+        const mode = gop.mode;
+        if (mode.info.pixel_format == .blt_only or mode.frame_buffer_size == 0 or
+            (try bs.openProtocol(efi.protocol.DevicePath, child, .{ .get_protocol = .{} })) == null) continue;
+        _ = (try bs.openProtocol(handoff.Eg2Device, handle, .{
+            .by_child_controller = .{ .agent = efi.handle, .controller = child },
+        })) orelse return error.NoTestChild;
+        defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, child) catch {};
+        _ = (try bs.openProtocol(handoff.Eg2Device, handle, .{
+            .by_child_controller = .{ .agent = efi.handle, .controller = efi.handle },
+        })) orelse return error.NoSecondChild;
+        defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, efi.handle) catch {};
+        const wrong = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size - 1);
+        if (wrong.panel == null or wrong.panel.?.gops == 0 or wrong.panel.?.matches != 0) return error.FalseMatch;
+        clients.* = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size);
+        break;
+    }
+    if (clients.* == null) return error.NoFixtureDisplay;
     for (&r.entries, 0..) |*word, i|
         word.* = 0x000000015a000001 + 0x31000 * @as(u64, i);
     r.state = 2;

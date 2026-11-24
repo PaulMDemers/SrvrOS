@@ -100,6 +100,12 @@ All four samples still permitted GPU traffic (mask `0x5f`). The driver
 observed zero fresh engine or L3 flush acknowledgements and submitted no
 command. The next handoff check is to identify which child handle exposes
 the GOP for the active panel while that framebuffer is still displayed.
+The EFI probe checks each child record for a directly accessible GOP with
+the active scanout address and byte length. The saved masks distinguish
+zero, one and multiple matches. For one match it records the device-path
+hash and the first address of the last ACPI display-address node when present.
+Child indices refer to the open-record order in that boot. This check uses
+the existing Pipe A and seven-entry snapshots on either side of the query.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page

@@ -536,6 +536,8 @@ class Runner:
             state['efi_trace_version'] = 1
             if payload.get('efi_eg2_clients') == 1:
                 state['efi_eg2_clients'] = True
+            if payload.get('efi_eg2_panel') == 1:
+                state['efi_eg2_panel'] = True
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
 
@@ -737,6 +739,9 @@ class Runner:
             if state.get('efi_eg2_clients'):
                 eg2 = trace.get('eg2_clients', {}) if state.get('efi_trace_nonce') else {}
                 diagnostic_complete = diagnostic_complete and eg2.get('state') == 'observed'
+            if state.get('efi_eg2_panel'):
+                panel = trace.get('eg2_panel', {}) if state.get('efi_trace_nonce') else {}
+                diagnostic_complete = diagnostic_complete and panel.get('state') == 'observed'
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -744,6 +749,8 @@ class Runner:
                           native_acceptance=False, physical_tearfree=False)
             if state.get('efi_eg2_clients'):
                 report['efi_eg2_clients'] = eg2 or dict(state='missing')
+            if state.get('efi_eg2_panel'):
+                report['efi_eg2_panel'] = panel or dict(state='missing')
             atomic(directory / 'report.json', report)
             status='review read-only census; native ownership withheld' if manifest['profile'] in STOLEN_WIRES and diagnostic_complete else 'review wide-policy diagnostic; original timing acceptance withheld' if diagnostic_complete else 'review full retirement and scope before acceptance' if native_complete else 'incomplete native chain; review retained failure'
             if manifest['profile'] in STOLEN_WIRES and not diagnostic_complete:

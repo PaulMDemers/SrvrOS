@@ -19,7 +19,7 @@ def seed(release):
 
 def decode(env, probe, release, nonce=None):
     header = re.match(rb'SRVR-AIR-EFI-V1 ([0-9a-f]{16}) ([0-9a-f]{16})\n', probe)
-    if len(probe) != 512 or not header or any(probe[header.end():64]) or any(probe[448:]):
+    if len(probe) != 512 or not header or any(probe[header.end():64]):
         raise ValueError('Invalid EFI progress file')
     tag, token = (s.decode() for s in header.groups())
     rows = re.fullmatch(rb'# GRUB Environment Block\n((?:air_(?:release|nonce|state)=[a-z0-9-]+\n){3})#+', env)
@@ -46,6 +46,8 @@ def decode(env, probe, release, nonce=None):
         for state in ('absent', 'unavailable'):
             if probe[384:448] == f'eg2-{state}\n'.encode().ljust(64, b'\0'):
                 result['eg2_clients'] = dict(state=state)
+                if any(probe[448:]):
+                    raise ValueError('Unexpected EFI panel receipt')
                 return result
         row = re.fullmatch(rb'eg2-open (\d{1,5}) (\d{1,5}) (\d{1,5}) (\d{1,5}) (\d{1,5})\n\x00*', probe[384:448])
         if not row:
@@ -55,6 +57,25 @@ def decode(env, probe, release, nonce=None):
             raise ValueError('Invalid EFI EG2 open counts')
         result['eg2_clients'] = dict(state='observed', entries=entries, drivers=drivers, core_drivers=core,
                                      children=children, exclusive=exclusive)
+    if any(probe[448:]):
+        clients = result.get('eg2_clients', {})
+        if clients.get('state') != 'observed' or progress.get('capture') != (2 << 32 | 6):
+            raise ValueError('Missing complete EFI capture for panel receipt')
+        block = probe[448:]
+        if block == b'panel-unavailable\n'.ljust(64, b'\0'):
+            result['eg2_panel'] = dict(state='unavailable')
+            return result
+        row = re.fullmatch(rb'panel ([0-9a-f]{4}) ([0-9a-f]{4}) ([0-9a-f]{16}) ([01]) ([0-9a-f]{8})\n\x00*', block)
+        if not row:
+            raise ValueError('Invalid EFI panel receipt')
+        gops, matches, path_hash, has_adr, adr = (int(v, 16) for v in row.groups())
+        unique = matches.bit_count() == 1
+        if (clients['children'] > 16 or gops >> clients['children'] or matches & ~gops
+                or (not unique and (path_hash or has_adr)) or (adr and not has_adr)):
+            raise ValueError('Inconsistent EFI panel child masks or identity')
+        result['eg2_panel'] = dict(state='observed', gop_mask=gops, active_mask=matches,
+                                   path_hash=f'{path_hash:016x}' if path_hash else None,
+                                   acpi_adr=adr if has_adr else None)
     return result
 
 

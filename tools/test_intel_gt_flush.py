@@ -126,6 +126,22 @@ class FlushAcknowledgements(unittest.TestCase):
             probe[384:448] = (row+b'\n').ljust(64, b'\0')
             with self.assertRaisesRegex(ValueError, 'EG2 open'):
                 trace.decode(env, probe, release)
+        probe[384:448] = b'eg2-open 3 1 0 2 0\n'.ljust(64, b'\0')
+        for row, expected in (
+                ('panel 0003 0001 deadbeefcafef00d 1 80010100', (3, 1, 'deadbeefcafef00d', 0x80010100)),
+                ('panel 0003 0003 0000000000000000 0 00000000', (3, 3, None, None)),
+                ('panel 0002 0000 0000000000000000 0 00000000', (2, 0, None, None))):
+            probe[448:] = (row + '\n').encode().ljust(64, b'\0')
+            self.assertEqual(trace.decode(env, probe, release)['eg2_panel'],
+                             dict(state='observed', **dict(zip(('gop_mask', 'active_mask', 'path_hash', 'acpi_adr'), expected))))
+        for row in ('panel 0004 0000 0000000000000000 0 00000000', 'panel 0001 0002 0000000000000000 0 00000000',
+                    'panel 0003 0003 deadbeefcafef00d 0 00000000', 'panel 0001 0001 0000000000000000 0 80010100'):
+            probe[448:] = (row + '\n').encode().ljust(64, b'\0')
+            with self.assertRaisesRegex(ValueError, 'panel'):
+                trace.decode(env, probe, release)
+        probe[448:] = b'panel-unavailable\n'.ljust(64, b'\0')
+        self.assertEqual(trace.decode(env, probe, release)['eg2_panel'], {'state': 'unavailable'})
+        probe[448:] = bytes(64)
         probe[384:448] = bytes(64)
         probe[128:192] = bytes(64)
         with self.assertRaisesRegex(ValueError, 'sequence'):

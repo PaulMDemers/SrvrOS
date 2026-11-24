@@ -793,6 +793,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             manifest["efi_trace_version"] = 1
             manifest["efi_config_handoff"] = 1
             manifest["efi_eg2_clients"] = 1
+            manifest["efi_eg2_panel"] = 1
         if intel_stolen_capture:manifest['stolen_progress_version']=1
         if bind_source:
             manifest["source_bound"] = True
