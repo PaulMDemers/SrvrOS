@@ -10,16 +10,28 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
-On the Air, releasing the display-audio owner and waiting 103 ms produced
-zero additional RC6 residency. The next power-management comparison is the
-per-engine idle configuration and GT idle timers on SrvrOS and Ubuntu/i915.
-With the internal panel active and forcewake held, Ubuntu/i915 returned the
-same configuration in three reads. MAX_IDLE was 10 on RCS, VCS0, VECS, VCS1
-and BCS. Wake-rate limit was 0x280000, evaluation interval 125000, idle
-hysteresis 25 and sleep 0. The live panel surface was stable within each
-read and changed between the first two. The SrvrOS diagnostic samples those
-nine registers through the owner's existing MMIO aliases before and after
-GT reset. Each sample must fit within its existing 10 ms flush observation.
+Physical release `611f57c3cf89ae16` at `b9238469` completed the idle
+configuration comparison in session `session-0006610d19691536-00`.
+The four GT timer registers matched the three Ubuntu/i915 reference samples
+both before and after reset. Wake-rate limit was 0x280000, evaluation interval
+125000, idle hysteresis 25 and sleep 0.
+
+| MAX_IDLE register | Ubuntu/i915 | SrvrOS before reset | SrvrOS after reset |
+| --- | ---: | ---: | ---: |
+| RCS, VCS0, VECS and BCS (each) | 10 | 10 | 64 |
+| VCS1 | 10 | 64 | 64 |
+
+The before- and after-reset register reads took 19 and 26 µs. Across the
+eight panel observations, forcewake ACK was clear, the programmed and live
+surfaces matched EFI, and RC6 residency stayed at 1,553,895 ticks. The last
+idle interval after display-audio release was 102.735 ms. All seven original
+command-slot translations matched, all 19 EFI-reserved pages verified and
+the offline exFAT allocation check found zero errors.
+
+This run identifies a per-engine configuration difference. Its effect on
+RC6 entry still needs a controlled trial that applies the i915 idle limits
+after reset, checks readback, repeats the residency measurement and restores
+the captured values.
 Native command submission still requires a device-wide traffic block and
 fresh engine and L3 acknowledgements.
 
