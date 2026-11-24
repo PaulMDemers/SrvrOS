@@ -770,6 +770,22 @@ fixed radio settings identified in that trace, and save a matched
 pre-receive snapshot so that any remaining calibration differences
 are visible. The TX gates remain closed throughout.
 
+Five Linux monitor samples agreed on all 28 PHY/radio values and
+recorded 858 successful bulk IN completions with zero monitor drops.
+The measured RF path word at `0x878` was `0x2808` versus the pinned
+profile's `0x0808`. The earlier USB trace records Linux writing RF0
+`0x32ed3` twice during calibration cleanup, after the profile's
+`0x30159`. The [Linux 92C implementation](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c#L1301-L1346)
+identifies the path bit and cleanup write. Linux also measured different
+path-A RX and TX IQ values at `0xc14` and `0xc80`. The new diagnostic
+matches only the fixed path bit and RF0 state before LC, verifies their
+readbacks before arming RX, and saves the IQ and gain values without
+running IQ calibration tones or copying coefficients from Linux.
+The single outstanding 4,096-byte bulk IN request, filters and four-second
+receive window carry over from the preceding trial. Local reference
+`build/bringup/pro112-rtl8188cu-phy-radio/linux-phy-radio-channel10.json`
+has SHA-256 `41d38ed53b18c83d4141941629c897b3b35707f99f4be6286793cf5fc457bdc7`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

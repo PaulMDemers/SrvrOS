@@ -20,6 +20,8 @@
 #define RTL_CU_ALL_SUBTYPES 0xffffu
 #define RTL_CU_RF_DATA_MASK 0xfffffu
 #define RTL_CU_RF_START_CHANNEL 0x7401u
+#define RTL_CU_RF_PATH_SELECT 0x878u
+#define RTL_CU_RF0_LINUX 0x32ed3u
 #define RTL_CU_LC_START 0x8000u
 #define RTL_CU_RX_REPORT 0x0664u
 #define RTL_CU_REPORT_SELECTOR_MASK 0xf0000000u
@@ -34,6 +36,16 @@ enum rtl_cu_rx_admission {
     RTL_CU_FILTER_RCR,RTL_CU_FILTER_MGT,RTL_CU_FILTER_CTL,RTL_CU_FILTER_DATA,RTL_CU_DRIVER_INFO,
     RTL_CU_FPGA0_RFMOD,RTL_CU_FPGA1_RFMOD,RTL_CU_OFDM_TRX,RTL_CU_MAR0,RTL_CU_MAR1,RTL_CU_ADMISSION_COUNT
 };
+/* Compare the Linux monitor's RF control, channel width, path routing, gain,
+ * and IQ matrix. These reads require neither an IQK run nor a MAC TX gate. */
+static const struct { uint16_t address,width; } rtl_cu_phy_radio_regs[]={
+    {0x01f,1},{0x603,1},{0x800,4},{0x804,4},{0x860,4},{0x864,4},{0x870,4},
+    {0x874,4},{RTL_CU_RF_PATH_SELECT,4},{0x87c,4},{0x884,4},{0x900,4},
+    {0xa00,4},{0xa04,4},{0xa08,4},{0xa0c,4},{0xc04,4},{0xc08,4},{0xc14,4},
+    {0xc4c,4},{0xc50,4},{0xc58,4},{0xc70,4},{0xc80,4},{0xc94,4},{0xca0,4},
+    {0xd00,4},{0xd04,4},
+};
+#define RTL_CU_PHY_RADIO_COUNT (sizeof rtl_cu_phy_radio_regs/sizeof rtl_cu_phy_radio_regs[0])
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
     uint32_t regs[RTL_CU_RX_REG_COUNT];
@@ -66,6 +78,9 @@ static struct {
     uint32_t admission[RTL_CU_ADMISSION_COUNT];
     unsigned admission_valid;
     bool admission_attempted,admission_ok;
+    uint32_t phy_radio[RTL_CU_PHY_RADIO_COUNT],rf0_before,rf0_after;
+    unsigned phy_radio_reads;
+    bool rf0_before_valid,rf0_after_valid,phy_radio_ready;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -175,6 +190,18 @@ static void rtl_cu_rx_log(void) {
             (uint64_t)r[RTL_CU_FILTER_DATA],(uint64_t)r[RTL_CU_DRIVER_INFO],
             (uint64_t)r[RTL_CU_FPGA0_RFMOD],(uint64_t)r[RTL_CU_FPGA1_RFMOD],(uint64_t)r[RTL_CU_OFDM_TRX],
             (uint64_t)r[RTL_CU_MAR0],(uint64_t)r[RTL_CU_MAR1]);
+    if(rtl_passive.rf0_before_valid)
+        console_printf("rtl8188cu-rf-setup: ready=%u rf0_before=%x rf0_after_valid=%u rf0_after=%x reads=%u\n",
+            (uint64_t)rtl_passive.phy_radio_ready,(uint64_t)rtl_passive.rf0_before,
+            (uint64_t)rtl_passive.rf0_after_valid,(uint64_t)rtl_passive.rf0_after,
+            (uint64_t)rtl_passive.phy_radio_reads);
+    if(rtl_passive.phy_radio_reads) {
+        /* Pack (address << 32) | value to fit the independent journal tail. */
+        console_write("rtl8188cu-phy-radio:");
+        for(unsigned i=0;i<rtl_passive.phy_radio_reads;i++)
+            console_printf(" %x",((uint64_t)rtl_cu_phy_radio_regs[i].address<<32)|rtl_passive.phy_radio[i]);
+        console_write("\n");
+    }
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -273,6 +300,29 @@ static bool rtl_cu_rf_read(struct xhci_device *d,unsigned reg,uint32_t *value) {
     return rtl8188cu_read(d,(mode&(1u<<8))?0x8b8:0x8a0,4,value);
 }
 
+static bool rtl_cu_apply_linux_radio_settings(struct xhci_device *d) {
+    if(!rtl_cu_tx_parked(d) || !rtl_cu_rf_read(d,0,&rtl_passive.rf0_before))return false;
+    rtl_passive.rf0_before_valid=true;
+    /* Match Linux's fixed path selection bit and the RF0 value it leaves
+     * after IQK. Leave the per-run IQ correction and test mode alone. */
+    return rtl8188cu_update(d,RTL_CU_RF_PATH_SELECT,4,0,1u<<13) &&
+           rtl8188cu_write_value(d,0x840,4,RTL_CU_RF0_LINUX);
+}
+
+static bool rtl_cu_capture_phy_radio(struct xhci_device *d) {
+    if(!rtl_cu_rf_read(d,0,&rtl_passive.rf0_after))return false;
+    rtl_passive.rf0_after_valid=true;
+    uint32_t path=0;
+    for(unsigned i=0;i<RTL_CU_PHY_RADIO_COUNT;i++) {
+        uint16_t address=rtl_cu_phy_radio_regs[i].address;
+        if(!rtl8188cu_read(d,address,rtl_cu_phy_radio_regs[i].width,&rtl_passive.phy_radio[i]))return false;
+        rtl_passive.phy_radio_reads++;
+        if(address==RTL_CU_RF_PATH_SELECT)path=rtl_passive.phy_radio[i];
+    }
+    rtl_passive.phy_radio_ready=path==0x2808 && (rtl_passive.rf0_after&RTL_CU_RF_DATA_MASK)==RTL_CU_RF0_LINUX;
+    return rtl_passive.phy_radio_ready;
+}
+
 static uint32_t rtl_cu_profile_wait(unsigned row) {
     /* Zero-based rows in the digest-pinned profile. Hold RF calibration and
      * the following RF write for 100 ms, then preserve the HSSI edge gaps. */
@@ -334,6 +384,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl_cu_rf_read(d,0x18,&rtl_passive.startup_rf_channel))return false;
     rtl_passive.startup_rf_valid=true;
     if((rtl_passive.startup_rf_channel&RTL_CU_RF_DATA_MASK)!=RTL_CU_RF_START_CHANNEL ||
+       !rtl_cu_apply_linux_radio_settings(d) ||
        !rtl_cu_post_profile_lc(d,hub))return false;
     /* Verify the channel through RF path A and keep both aggregation paths
      * off so a single receive buffer describes one frame. */
@@ -508,8 +559,9 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
             result="setup";
             if(rtl_cu_radio_prepare(d,hub,blob,&writes,&channel)) {
                 bool rx_setup=rtl_cu_verify_receive_setup(d);
-                result=rx_setup?"rx-endpoint":"rx-setup";
-                if(rx_setup && rtl_cu_rx_configure(d)) {
+                bool phy_radio=rx_setup && rtl_cu_capture_phy_radio(d);
+                result=phy_radio?"rx-endpoint":rx_setup?"phy-radio":"rx-setup";
+                if(phy_radio && rtl_cu_rx_configure(d)) {
                     window=rtl_cu_listen(d,hub);
                     rtl_cu_rx_snapshot(d,RTL_CU_BEFORE_STOP,window);
                     window=window && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined;
