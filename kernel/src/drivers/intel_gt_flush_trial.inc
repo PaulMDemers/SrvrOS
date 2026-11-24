@@ -652,57 +652,105 @@ static bool bcs_stop_after_reset(void)
     return bcs_stop.verified;
 }
 
-/* Always-on samples use the existing RO aliases while the display is excluded.
+/* Always-on samples use RO aliases while the display is excluded.
  * Reading the engine message page here would require waking the GT. */
 #include <srvros/intel_bdw_pci_hold.h>
 struct air_rc6_point {
     struct bdw_pci_rc6_sample power;
     uint32_t plane, programmed, live;
 };
-static struct air_rc6_point air_rc6_samples[4];
+static struct air_rc6_point air_rc6_samples[8];
 static unsigned air_rc6_count;
+
+static bool air_ack_clear(struct wake_adapter *a, bool (*guard)(void *))
+{
+    uint32_t ack;
+    if (!guard(a)) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if (!intel_display_test_wake_read(INTEL_GT_ACK, &ack)) return false;
+#else
+    ack = *(volatile const uint32_t *)(WAKE_VA + 4096 + (INTEL_GT_ACK & 4095));
+#endif
+    return ack == 0;
+}
+
+static bool air_rc6_sample(struct wake_adapter *a, unsigned n, uint64_t delay, bool (*guard)(void *))
+{
+    struct air_rc6_point sample = {0};
+    struct bdw_pci_rc6_sample *point = &sample.power;
+    if (n != air_rc6_count || n >= 8 || !air_branch_selected() ||
+        !a->mapped[1] || !a->mapped[2] || !a->mapped[10] || wake_pages[10] != 0x70000) return false;
+    point->begin_us = timer_monotonic_us();
+    if (!point->begin_us || !air_ack_clear(a, guard)) return false;
+    if (n) {
+        uint64_t prior = air_rc6_samples[n - 1].power.end_us;
+        if (point->begin_us < prior || (delay && (point->begin_us - prior < delay ||
+            point->begin_us - prior > delay + BDW_BOOT_PHASE_US))) return false;
+    }
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_cold_sample(n, &point->core_status, &point->residency,
+                                   &sample.plane, &sample.programmed, &sample.live);
+#else
+    sample.plane = *(volatile const uint32_t *)(WAKE_VA + 10 * 4096 + 0x180);
+    sample.programmed = *(volatile const uint32_t *)(WAKE_VA + 10 * 4096 + 0x19c);
+    sample.live = *(volatile const uint32_t *)(WAKE_VA + 10 * 4096 + 0x1ac);
+    point->core_status = *(volatile const uint32_t *)(WAKE_VA + 8192 + 0x60);
+    point->residency = *(volatile const uint32_t *)(WAKE_VA + 8192 + 0x108);
+#endif
+    if (sample.plane != air_boot.plane || (sample.programmed & ~8u) != air_boot.surface ||
+        sample.live != air_boot.surface || point->core_status == UINT32_MAX ||
+        point->residency == UINT32_MAX || !air_ack_clear(a, guard)) return false;
+    point->end_us = timer_monotonic_us();
+    if (point->end_us <= point->begin_us || point->end_us - point->begin_us > BDW_BOOT_PHASE_US) return false;
+    air_rc6_samples[air_rc6_count++] = sample;
+    return true;
+}
+
+static bool air_rc6_delayed(struct wake_adapter *a, unsigned n, uint64_t delay, bool (*guard)(void *))
+{
+    return timer_delay_us(delay) && air_rc6_sample(a, n, delay, guard);
+}
 
 static bool air_rc6_pair(struct wake_adapter *a, unsigned first)
 {
-    if (first != air_rc6_count || (first != 0 && first != 2) ||
-        !air_branch_selected() || !a->mapped[1] || !a->mapped[2] || !a->mapped[10] || wake_pages[10] != 0x70000) return false;
-    uint64_t until = 0;
-    for (unsigned i = 0; i < 2; ++i) {
-        struct air_rc6_point sample = {0};
-        struct bdw_pci_rc6_sample *point = &sample.power;
-        if (i && !timer_delay_us(BDW_PCI_RC6_INTERVAL_US)) return false;
-        point->begin_us = timer_monotonic_us();
-        if (!point->begin_us || point->begin_us < until ||
-            (i && point->begin_us - until > BDW_BOOT_PHASE_US) ||
-            !wake_read(a, INTEL_GT_ACK, &point->wake_ack) || point->wake_ack) return false;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
-        intel_display_test_cold_sample(first + i, &point->core_status, &point->residency,
-                                      &sample.plane, &sample.programmed, &sample.live);
-#else
-        sample.plane = *(volatile const uint32_t *)(WAKE_VA + 10 * 4096 + 0x180);
-        sample.programmed = *(volatile const uint32_t *)(WAKE_VA + 10 * 4096 + 0x19c);
-        sample.live = *(volatile const uint32_t *)(WAKE_VA + 10 * 4096 + 0x1ac);
-        point->core_status = *(volatile const uint32_t *)(WAKE_VA + 8192 + 0x60);
-        point->residency = *(volatile const uint32_t *)(WAKE_VA + 8192 + 0x108);
-#endif
-        uint32_t closing_ack;
-        if (sample.plane != air_boot.plane || (sample.programmed & ~8u) != air_boot.surface ||
-            sample.live != air_boot.surface || point->core_status == UINT32_MAX || point->residency == UINT32_MAX ||
-            !wake_read(a, INTEL_GT_ACK, &closing_ack) || closing_ack) return false;
-        point->end_us = timer_monotonic_us();
-        if (point->end_us <= point->begin_us || point->end_us - point->begin_us > BDW_BOOT_PHASE_US ||
-            point->end_us > UINT64_MAX - BDW_PCI_RC6_INTERVAL_US) return false;
-        air_rc6_samples[air_rc6_count++] = sample;
-        until = point->end_us + BDW_PCI_RC6_INTERVAL_US;
+    return air_rc6_sample(a, first, 0, wake_guard) &&
+           air_rc6_delayed(a, first + 1, BDW_PCI_RC6_INTERVAL_US, wake_guard);
+}
+
+static bool air_audio_released(void *context)
+{
+    return !joint_terminal() && joint.scope.state == IHG_CLOSED && joint.scope.hda.complete &&
+           joint.h.initial.command == 6 && hda_basic(&joint.h) && wake_endpoint_guard(context, false);
+}
+
+static void air_rc6_after_audio(struct wake_adapter *owner, uint64_t flags)
+{
+    static struct wake_adapter observer;
+    static const unsigned pages[] = {1, 2, 10};
+    static const uint64_t delays[] = {20000, 80000};
+    observer.fw = owner->fw;
+    for (unsigned i = 0; i < 3; ++i) {
+        if (!air_audio_released(&observer) || !wake_map_admitted(&observer, pages[i])) goto retire;
     }
-    return true;
+    if (!air_rc6_sample(&observer, 5, 0, air_audio_released)) goto retire;
+    for (unsigned i = 0; i < 2; ++i) {
+        /* Only the display exclusion and the three RO aliases span the idle interval. */
+        wake_irq_restore(flags);
+        bool waited = timer_delay_us(delays[i]);
+        (void)wake_irq_save();
+        if (!waited || !air_rc6_sample(&observer, 6 + i, delays[i], air_audio_released)) break;
+    }
+retire:
+    for (unsigned i = 3; i > 0; --i)
+        if (!wake_unmap(&observer, pages[i - 1])) break;
+    if (observer.uncertain || observer.maps != observer.retired) owner->uncertain = true;
 }
 
 static void gt_flush_report(void) {
     for (unsigned i = 0; i < air_rc6_count; ++i) {
         const struct air_rc6_point *sample = &air_rc6_samples[i];
         const struct bdw_pci_rc6_sample *p = &sample->power;
-        console_printf("intel-air-rc6: v=1 n=%u begin=%u end=%u core=%x residency=%x ack=%x plane=%x programmed=%x live=%x\n",
+        console_printf("intel-air-rc6: v=2 n=%u begin=%u end=%u core=%x residency=%x ack=%x plane=%x programmed=%x live=%x\n",
             (uint64_t)i, p->begin_us, p->end_us, (uint64_t)p->core_status,
             (uint64_t)p->residency, (uint64_t)p->wake_ack, (uint64_t)sample->plane,
             (uint64_t)sample->programmed, (uint64_t)sample->live);

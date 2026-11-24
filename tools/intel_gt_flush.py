@@ -89,29 +89,46 @@ def bank_result(text, version, samples, reset_started):
 
 def cold_rc6_result(rows, binding, timing, wake, display):
     points = []
+    delays = (0, 2000, 0, 2000, 18000, 0, 20000, 80000)
     for i, line in enumerate(rows):
         p = fields(line, 'intel-air-rc6:', ('v', 'n', 'begin', 'end', 'core', 'residency', 'ack',
                                              'plane', 'programmed', 'live'),
-                   ('core', 'residency', 'ack', 'plane', 'programmed', 'live'))
+                   ('core', 'residency', 'ack', 'plane', 'programmed', 'live'), versions=(1, 2))
         if (len(display) != 1 or p['plane'] != display[0]['plane'] or
                 p['programmed'] & ~8 != display[0]['surface'] or p['live'] != display[0]['surface']):
             raise ValueError('Active panel RC6 scanout differs from EFI')
-        if (p['n'] != i or i >= 4 or p['ack'] or max(p['core'], p['residency']) >= 0xffffffff
+        if (p['n'] != i or i >= (4 if p['v'] == 1 else 8) or p['ack']
+                or max(p['core'], p['residency']) >= 0xffffffff
                 or not 0 < p['begin'] < p['end'] <= p['begin'] + 10000
-                or (points and p['begin'] < points[-1]['end'])
-                or (i % 2 and not 2000 <= p['begin'] - points[-1]['end'] <= 12000)):
+                or (points and (p['v'] != points[0]['v'] or p['begin'] < points[-1]['end']))):
             raise ValueError('Active panel RC6 sample order, clock or register')
+        if delays[i] and not delays[i] <= p['begin'] - points[-1]['end'] <= delays[i] + 10000:
+            raise ValueError('Active panel RC6 idle interval')
         if (wake and p['begin'] < wake['begin_us']) or (i < 2 and binding['gt'] and p['end'] > binding['gt']):
             raise ValueError('Active panel RC6 sample crosses wake acquisition')
         if i >= 2 and (not timing['gt_end'] or p['begin'] < timing['gt_end']
                        or not wake or not wake['closed'] or p['end'] > wake['end_us']):
             raise ValueError('Active panel RC6 sample crosses wake release')
+        if p['v'] == 2 and 2 <= i <= 4 and timing['hda_end'] and p['end'] > timing['hda_end']:
+            raise ValueError('Active panel RC6 sample crosses audio release')
+        if i >= 5 and (not timing['outer_end'] or not timing['hda_end'] or
+                       p['begin'] < max(timing['outer_end'], timing['hda_end'])):
+            raise ValueError('Active panel RC6 sample precedes audio release')
         points.append(p)
-    if wake and wake['complete'] and len(points) != 4:
+    version = points[0]['v']
+    if wake and wake['complete'] and len(points) != (4 if version == 1 else 8):
         raise ValueError('Active panel RC6 coverage')
-    return dict(samples=points, delta_ticks_mod32=[
-        (b['residency'] - a['residency']) & 0xffffffff
-        for a, b in zip(points[::2], points[1::2])])
+    def delta(start, end):
+        return (points[end]['residency'] - points[start]['residency']) & 0xffffffff
+    result = dict(version=version, samples=points,
+                  delta_ticks_mod32=[delta(i, i+1) for i in (0, 2) if i+1 < len(points)])
+    if version == 2:
+        result['idle_intervals'] = {
+            name: dict(elapsed_us=points[end]['begin'] - points[start]['end'],
+                       residency_delta_mod32=delta(start, end))
+            for name, start, end in [('audio_held_20ms', 2, 4), ('audio_released_20ms', 5, 6),
+                                     ('audio_released_100ms', 5, 7)] if end < len(points)}
+    return result
 
 
 def prepare_messages(text, baseline, following):

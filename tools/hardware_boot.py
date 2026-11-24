@@ -797,7 +797,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             manifest["efi_gop_routes"] = 1
             manifest["efi_display_branch"] = 1
             manifest["bcs_stop_version"] = 1
-            manifest["cold_rc6_version"] = 1
+            manifest["cold_rc6_version"] = 2
         if intel_stolen_capture:manifest['stolen_progress_version']=1
         if bind_source:
             manifest["source_bound"] = True

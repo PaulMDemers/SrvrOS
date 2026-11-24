@@ -119,12 +119,18 @@ static bool bf(const char *mode,unsigned n) {
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
 bool timer_delay_us(uint64_t us) {
-    assert(us == BDW_PCI_RC6_INTERVAL_US && wake_irq);
+    if (us == 20000 || us == 80000) {
+        assert(!wake_irq && joint.scope.state == IHG_CLOSED && !joint_terminal());
+    } else {
+        assert((us == BDW_PCI_RC6_INTERVAL_US || us == 18000) && wake_irq);
+    }
     ticks += us;
     return true;
 }
 static void intel_display_test_cold_sample(unsigned n, uint32_t *core, uint32_t *residency,
                                           uint32_t *plane, uint32_t *programmed, uint32_t *live) {
+    if (n >= 5) assert(joint.scope.state == IHG_CLOSED && joint.h.initial.command == 6 && !joint_terminal());
+    if (n >= 2 && n <= 4) assert(joint.scope.state == IHG_ACTIVE && joint.h.initial.command == 2);
     *plane = 0xd8000400u;
     *programmed = 0;
     *live = bf("cold-surface", n + 1) ? 0x1000 : 0;
@@ -1037,7 +1043,7 @@ int main(int argc,char **argv) {
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!strcmp(bootstrap_mode, "cold-float") || !strcmp(bootstrap_mode, "cold-surface")) {
-  assert(fault_at >= 1 && fault_at <= 4 && hit && air_rc6_count == fault_at - 1);
+  assert(fault_at >= 1 && fault_at <= 8 && hit && air_rc6_count == fault_at - 1);
   assert(pulses == (fault_at <= 2 ? 0u : 2u));
   assert(!wake_ack && !(wake_request & 0xffff) && display_access_allowed() && !joint_terminal());
   return code;

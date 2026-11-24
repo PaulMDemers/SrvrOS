@@ -305,12 +305,15 @@ static void wake_irq_restore(uint64_t flags) {
     if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
 #endif
 }
-static bool wake_guard(void *context) {
-    struct wake_adapter *a=context;struct intel_gt_endpoint e;
+static bool wake_endpoint_guard(struct wake_adapter *a, bool require_joint) {
+    struct intel_gt_endpoint e;
+#ifndef SRVROS_INTEL_HDA_PAIR
+    (void)require_joint;
+#endif
     a->guards++;
     if(a->uncertain || !wake_irq_off() ||
 #ifdef SRVROS_INTEL_HDA_PAIR
-       !joint_fast() ||
+       (require_joint && !joint_fast()) ||
 #endif
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
        !gt_guard_endpoint(&a->fw.gt,&e) ||
@@ -323,9 +326,12 @@ static bool wake_guard(void *context) {
     }
     return true;
 }
-static bool wake_map(struct wake_adapter *a,unsigned i) {
+static bool wake_guard(void *context) {
+    return wake_endpoint_guard(context, true);
+}
+static bool wake_map_admitted(struct wake_adapter *a,unsigned i) {
     uint64_t old,physical=result.mmio_base+wake_pages[i],va=WAKE_VA+4096*i;
-    if(!wake_guard(a) || a->mapped[i] || vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))return false;
+    if(a->mapped[i] || vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))return false;
     a->cache_checks++;
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
     if(i==14) {
@@ -378,6 +384,9 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
         return false;
     }
     a->mapped[i]=true;a->maps++;return true;
+}
+static bool wake_map(struct wake_adapter *a,unsigned i) {
+    return wake_guard(a) && wake_map_admitted(a,i);
 }
 static bool wake_unmap(struct wake_adapter *a,unsigned i) {
     if(!a->mapped[i])return true;
@@ -810,7 +819,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    console_write("intel-power: observing the active panel and GT idle residency before and after forcewake. No input.\n");
+    console_write("intel-power: sampling the active panel and GT residency through 20ms with display audio held and 100ms after release. No input.\n");
     console_write("intel-bcs: stopping the idle blitter, then sampling WiDi, engines and L3 before reset. Original panel active. No input.\n");
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");
     console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the blitter register mapping, original display and slot 12291. No input needed.\n");
@@ -981,7 +990,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
                 if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
 #ifdef SRVROS_INTEL_GT_FLUSH
-                if (closed && gt_bootstrap_native.complete) (void)air_rc6_pair(&a, 2);
+                if (closed && gt_bootstrap_native.complete && air_rc6_pair(&a, 2))
+                    (void)air_rc6_delayed(&a, 4, 18000, wake_guard);
 #endif
             }
         }
@@ -999,11 +1009,19 @@ bool intel_gt_wake_probe_report(void) {
         joint_close(after && fw_after,closed && prepared.action.complete && prepared.reset.complete &&
          prepared.rehold.complete && prepared.claim.state==IIC_CLOSED);
 #endif
-        end=timer_monotonic_us();
         bool clean=!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault && (!before || after);
 #ifdef SRVROS_INTEL_HDA_PAIR
         clean=clean && !joint_terminal();
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+        /* The GT and HDA closing clocks above precede this independent read-only interval. */
+        if (clean && closed && after && air_rc6_count == 5 && joint.scope.state == IHG_CLOSED &&
+            !joint.scope.reason && joint.scope.hda.complete) {
+            air_rc6_after_audio(&a, flags);
+            clean = clean && !a.uncertain;
+        }
+#endif
+        end=timer_monotonic_us();
         if(acquired)released=display_access_release(&a.fw.gt.token,clean);
     }
     wake_irq_restore(flags);
@@ -1033,7 +1051,7 @@ bool intel_gt_wake_probe_report(void) {
     complete=complete && gt_bootstrap_native.complete && !gt_bootstrap_native.failed && !gt_bootstrap_native.borrow.active;
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    complete = complete && air_rc6_count == 4;
+    complete = complete && air_rc6_count == 8;
 #endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL

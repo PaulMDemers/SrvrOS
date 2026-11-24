@@ -205,7 +205,18 @@ class FlushAcknowledgements(unittest.TestCase):
         cold = result['flush']['cold_rc6']
         self.assertEqual(cold['delta_ticks_mod32'], [1256, 1000])
         rows = [line for line in text.splitlines() if line.startswith('intel-air-rc6:')]
-        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(rows), 8)
+        self.assertEqual(set(cold['idle_intervals']), {
+            'audio_held_20ms', 'audio_released_20ms', 'audio_released_100ms'})
+        self.assertGreaterEqual(cold['idle_intervals']['audio_released_100ms']['elapsed_us'], 100000)
+        v1 = text
+        for i, row in enumerate(rows):
+            v1 = v1.replace(row, row.replace('v=2', 'v=1') if i < 4 else '')
+        self.assertEqual(bootstrap_result(v1)['flush']['cold_rc6']['version'], 1)
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace(rows[7], ''))
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace(rows[6], rows[6].replace('v=2', 'v=1')))
         for replacement in ('', rows[2], rows[3].replace('ack=0', 'ack=0x1'),
                             rows[3].replace('core=0x3', 'core=0xffffffff'), rows[3].replace('live=0', 'live=0x1000'),
                             re.sub(r'begin=\d+', f"begin={cold['samples'][2]['end']}", rows[3])):
@@ -222,7 +233,7 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertNotIn('cold_rc6', bootstrap_result(legacy)['flush'])
 
     def test_missing_cold_sample_releases_display(self):
-        for mode, position in [('cold-float', n) for n in range(1, 5)] + [('cold-surface', 4)]:
+        for mode, position in [('cold-float', n) for n in range(1, 9)] + [('cold-surface', 4), ('cold-surface', 7)]:
             with self.subTest(mode=mode, position=position):
                 result = subprocess.run([ROOT / TARGET, mode, str(position)], check=True,
                                         capture_output=True, text=True, timeout=10)

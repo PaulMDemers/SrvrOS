@@ -10,6 +10,11 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
+The current diagnostic compares GT idle residency at 20 ms with display
+audio held and released, then samples at 100 ms after release. It uses
+read-only observations of the EFI-selected panel, forcewake ACK and RC6
+counters. The new observations carry no command submission authority.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
