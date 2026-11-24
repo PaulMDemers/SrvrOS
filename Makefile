@@ -7444,6 +7444,8 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< peer-open
 	$< peer-rollback
 	$< peer-during-submit
+	$< writer-alias
+	$< writer-return
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest

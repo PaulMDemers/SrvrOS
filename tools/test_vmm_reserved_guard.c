@@ -203,6 +203,47 @@ static void register_window(void) {
  assert(vmm_unmap_page(va,NULL));
  assert(vmm_reserved_guard_close(&guard,&result,&why));
 }
+/* Both pinned CPU register pages coexist with the immutable peer. Only the
+ * original writer can return its alias after the closing whole-root walk. */
+static void command_writer(void) {
+ const uint64_t aperture=0xb2200000,backing=0x8b811000,ggtt=0xc0811000,bcs=0xc0022000;
+ const uint64_t ro=VMM_PAGE_PRESENT|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE,rw=ro|VMM_PAGE_WRITABLE;
+ int publication,request;
+ for(unsigned drift=0;drift<2;++drift) {
+  setup();
+  assert(vmm_reserved_guard_begin_register_window(&guard,root,pair,2,52,&ram[1],1,aperture,backing,ggtt,&result,&why));
+  t[3][0]=ggtt|rw;t[3][1]=bcs|ro;t[3][2]=0xc0002000|ro;
+  struct vmm_alias_span peer={va+8192,0xc0002000,1};
+  assert(vmm_reserved_guard_hold_readonly_registers(&guard,root,&peer,1));
+  assert(vmm_reserved_guard_pin_register(&guard,root,aperture,ggtt,va,&publication));
+  uint64_t alias=va+4096;
+  assert(!vmm_reserved_guard_pin_writer(&guard,root,bcs,alias,&request));
+  t[3][1]=t[3][3]=bcs|rw;
+  assert(!vmm_reserved_guard_pin_writer(&guard,root,bcs,alias,&request));
+  t[3][3]=0;
+  assert(!vmm_reserved_guard_pin_writer(&guard,root,bcs,va,&request));
+  assert(!vmm_reserved_guard_pin_writer(&guard,root,ggtt,va,&request));
+  assert(vmm_reserved_guard_pin_writer(&guard,root,bcs,alias,&request));
+  assert(!vmm_reserved_guard_pin_writer(&guard,root,bcs,alias,&publication));
+  assert(!vmm_reserved_guard_writer_held(&guard,root,bcs,alias,&publication));
+  assert(!vmm_reserved_guard_unpin_writer(&guard,root,bcs,alias,&publication));
+  assert(!vmm_map_page_in_space(root,va+12288,bcs,rw) && !vmm_unmap_page(alias,NULL));
+  assert(!vmm_protect_page_in_space(root,alias,ro) && !vmm_map_page_in_space(root,alias,ggtt,rw));
+  assert(vmm_reserved_guard_readonly_registers_held(&guard,root,&peer.physical,1));
+  assert(vmm_reserved_guard_check(&guard,&result,&why));
+  assert(vmm_reserved_guard_unpin_io_page(&guard,root,aperture,&publication));
+  assert(!vmm_reserved_guard_close(&guard,&result,&why));
+  if(drift)t[3][3]=bcs|rw;
+  assert(vmm_reserved_guard_unpin_writer(&guard,root,bcs,alias,&request)==!drift);
+  if(drift) {
+   assert(reserved_guard.writer==&request && !vmm_reserved_guard_close(&guard,&result,&why));
+   reset_fault();
+  } else {
+   assert(!vmm_reserved_guard_writer_held(&guard,root,bcs,alias,&request));
+   assert(vmm_reserved_guard_close(&guard,&result,&why));
+  }
+ }
+}
 static void readonly_registers(void) {
  const uint64_t reg=0xc0002000, aperture=0xb2200000;
  const uint64_t other_reg=reg+4096;
@@ -250,6 +291,7 @@ int main(int argc,char **argv) {
  (void)argv;
  assert(!guard_alias_regression());
  for(unsigned i=0;i<260;i++){t[i]=aligned_alloc(4096,4096);assert(t[i]);}
+ command_writer();
  readonly_registers();
  setup();assert(begin(&guard) && tags==3072 && result.tables==9 && result.entries==4608);
  if(argc>1){vmm_switch_address_space(root+4096);return 0;}

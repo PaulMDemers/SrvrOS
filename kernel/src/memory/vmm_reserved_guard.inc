@@ -58,6 +58,8 @@ static bool reserved_guard_observe(struct vmm_alias_inventory *out,struct vmm_un
         reserved_guard.bits,reserved_guard.ram,reserved_guard.ram_count))
    return reserved_guard_fail(d,VMM_ALIAS_FOREIGN);
  }
+ if(reserved_guard.writer && !reserved_register_observe(reserved_guard.root,
+      reserved_guard.writer_page,reserved_guard.writer_alias))return reserved_guard_fail(d,VMM_ALIAS_FOREIGN);
  if(reserved_guard.register_alias && !reserved_register_observe(reserved_guard.root,
       reserved_guard.register_page,reserved_guard.register_alias))return reserved_guard_fail(d,VMM_ALIAS_FOREIGN);
  if(!reserved_guard_identity(reserved_guard.owner))return reserved_guard_fail(d,VMM_ALIAS_GUARD);
@@ -247,6 +249,48 @@ bool vmm_reserved_guard_readonly_registers_held(const struct vmm_reserved_guard 
  }
  return true;
 }
+/* Protect an existing unique MMIO writer alongside the aperture/GGTT loan.
+ * The initial and closing walks run under the mutator barrier. An uncertain
+ * return keeps both the borrower and the guard alive. */
+bool vmm_reserved_guard_writer_held(const struct vmm_reserved_guard *g,uint64_t root,
+                                    uint64_t page,uint64_t alias,const void *owner) {
+ return owner && reserved_guard.writer==owner && reserved_guard.writer_page==page &&
+        reserved_guard.writer_alias==alias && vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page);
+}
+static bool audit_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias) {
+ reserved_guard.state=VMM_GUARD_CHECKING;
+ bool ok=reserved_register_observe(root,page,alias);
+ if(!reserved_guard_identity(g) || reserved_guard.state!=VMM_GUARD_CHECKING ||
+    alias_inventory_cr4()!=reserved_guard.cr4 || alias_inventory_efer()!=reserved_guard.efer ||
+    (reserved_guard_flags()&512) || read_cr3()!=root || (!ok && reserved_guard.writer)) {
+  reserved_guard.state=VMM_GUARD_FAULT;
+  return false;
+ }
+ reserved_guard.state=VMM_GUARD_ACTIVE;
+ return ok;
+}
+bool vmm_reserved_guard_pin_writer(const struct vmm_reserved_guard *g,uint64_t root,
+                                   uint64_t page,uint64_t alias,const void *owner) {
+ if(!owner || !page || !alias || ((page|alias)&4095) || reserved_guard.writer ||
+    reserved_guard.register_page==page || alias==reserved_guard.register_alias ||
+    __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST) ||
+    !vmm_reserved_guard_io_page_held(g,root,reserved_guard.io_page) ||
+    vmm_reserved_guard_excludes_io_page(g,root,page))return false;
+ if(!audit_writer(g,root,page,alias))return false;
+ reserved_guard.writer_page=page;reserved_guard.writer_alias=alias;reserved_guard.writer=owner;
+ return true;
+}
+bool vmm_reserved_guard_check_writer(const struct vmm_reserved_guard *g,uint64_t root,
+                                     uint64_t page,uint64_t alias,const void *owner) {
+ return vmm_reserved_guard_writer_held(g,root,page,alias,owner) &&
+        !__atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST) && audit_writer(g,root,page,alias);
+}
+bool vmm_reserved_guard_unpin_writer(const struct vmm_reserved_guard *g,uint64_t root,
+                                     uint64_t page,uint64_t alias,const void *owner) {
+ if(!vmm_reserved_guard_check_writer(g,root,page,alias,owner))return false;
+ reserved_guard.writer=NULL;reserved_guard.writer_page=0;reserved_guard.writer_alias=0;
+ return true;
+}
 bool vmm_reserved_guard_pin_io_page(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,const void *child) {
  if(!child || reserved_guard.io_borrower || !vmm_reserved_guard_io_page_held(g,root,page))return false;
  reserved_guard.io_borrower=child;
@@ -315,7 +359,7 @@ static bool reserved_guard_validate(struct vmm_reserved_guard *g,bool close,
   if(g && reserved_guard.owner==g)reserved_guard.state=VMM_GUARD_FAULT;
   return reserved_guard_fail(d,VMM_ALIAS_GUARD);
  }
- if(reserved_guard.state!=VMM_GUARD_ACTIVE || (close && reserved_guard.io_borrower) || __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))
+ if(reserved_guard.state!=VMM_GUARD_ACTIVE || (close && (reserved_guard.io_borrower || reserved_guard.writer)) || __atomic_load_n(&reserved_mutations,__ATOMIC_SEQ_CST))
   return reserved_guard_fail(d,VMM_ALIAS_BUSY);
  reserved_guard.state=VMM_GUARD_CHECKING;
  if(!reserved_guard_observe(out,d)) {reserved_guard.state=VMM_GUARD_FAULT;return false;}

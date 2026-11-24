@@ -217,6 +217,21 @@ class FlushAcknowledgements(unittest.TestCase):
             command_slots_version=observed["command_slots"]["v"], range_version=observed["summary"]["v"],
         ))
 
+    def test_bcs_register_loan_before_requester_reopens(self):
+        text = observe("pass")
+        receipt = bootstrap_result(text)["range"]["reopened_pte"]
+        self.assertEqual((receipt["writer"], receipt["hwsp"], receipt["hwstam"]), (3, 0, 0xffffffff))
+        for mode, stage in (("writer-admit", 0), ("writer-lost", 1), ("writer-return", 2)):
+            with self.subTest(mode=mode):
+                report = bootstrap_result(observe(mode, 1))
+                self.assertFalse(report["complete"])
+                self.assertEqual(report["summary"]["commands"], 1)
+                self.assertEqual(report["range"]["reopened_pte"]["writer"], stage)
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace("writer=3 hwsp=", "writer=2 hwsp="))
+        legacy = re.sub(r"(intel-slot-reopened: )v=4 (.*?) writer=3 hwsp=\S+ hwstam=\S+ ", r"\1v=3 \2 ", text)
+        self.assertNotIn("writer", bootstrap_result(legacy)["range"]["reopened_pte"])
+
     def test_readonly_submission_mappings_span_both_queue_checks(self):
         text = observe("pass")
         receipt = bootstrap_result(text)["range"]["reopened_pte"]
@@ -235,7 +250,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(field, field[:-1] + "4"))
         old = re.sub(r"^intel-command-slots:.*\n", "", text, flags=re.M).replace("intel-range-summary: v=8 ", "intel-range-summary: v=5 ").replace(
-            "intel-slot-reopened: v=3 pinned=5 restored=5 ro_mask=0", "intel-slot-reopened: v=2")
+            "intel-slot-reopened: v=4 pinned=5 restored=5 ro_mask=0 writer=3 hwsp=0 hwstam=0xffffffff", "intel-slot-reopened: v=2")
         old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
             "intel-widi-device: v=2", "intel-widi-device: v=1")
         self.assertTrue(bootstrap_result(old)["complete"])

@@ -196,9 +196,19 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
                 or (samples and guard["pages"] != 3) or (owner_complete and len(samples) != 4)):
             raise ValueError("Incomplete WiDi device samples")
         port_fields = ("pinned", "restored", "ro_mask") if summary["v"] >= 6 else ()
+        writer_fields = ("writer", "hwsp", "hwstam") if reopened[0].startswith("intel-slot-reopened: v=4 ") else ()
         final = fields(reopened[0], "intel-slot-reopened:",
-                       ("v", *port_fields, "matched", "high0", "low", "high1", "reads", "maps", "retired", "live"),
-                       ("high0", "low", "high1", "live"), versions=(3,) if port_fields else (1,2))
+                       ("v", *port_fields, *writer_fields, "matched", "high0", "low", "high1", "reads", "maps", "retired", "live"),
+                       ("high0", "low", "high1", "live", *writer_fields[1:]), versions=(3,4) if port_fields else (1,2))
+        if bool(writer_fields) != (final["v"] == 4):
+            raise ValueError("Missing blitter register loan")
+        if writer_fields:
+            stage = final["writer"]
+            if (stage not in range(4) or (stage and final["pinned"] < 4)
+                    or (stage < 2 and (final["hwsp"] or final["hwstam"]))
+                    or max(final["hwsp"], final["hwstam"]) > 0xffffffff
+                    or (final["ro_mask"] == 31 or final["pinned"] == 5) and stage != 3):
+                raise ValueError("Invalid blitter register loan")
         if (not 0 <= guard["closed"] <= final["matched"] <= second["reopen_verified"]
                 or not 0 <= final["retired"] <= final["maps"] <= second["reopen_verified"]
                 or (final["maps"] != final["retired"] and not final["live"]) or final["reads"] > final["maps"]*3

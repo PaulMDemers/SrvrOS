@@ -200,7 +200,7 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
 }
 enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
                      LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
-                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT };
+                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN };
 static enum traffic_fault traffic_fault;
 static struct {
     const struct scanout_transfer *transfer;
@@ -290,6 +290,30 @@ static const struct bdw_command_control command_control={
     .isolate_widi=isolate_widi,.widi_epoch=widi_epoch,.set_execution=permit_bcs
 };
 static struct vmm_reserved_guard route_guard={&route_guard,1};
+static const void *port_pin;
+bool vmm_reserved_guard_pin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner)
+{
+    assert(g==&route_guard && root==0x9000 && page==0xc0022000 && alias==(uintptr_t)regs);
+    if (!owner || port_pin || traffic_fault==WRITER_ALIAS) return false;
+    port_pin=owner;
+    return true;
+}
+bool vmm_reserved_guard_writer_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner)
+{
+    return owner && owner==port_pin && g==&route_guard && root==0x9000 && page==0xc0022000 && alias==(uintptr_t)regs;
+}
+bool vmm_reserved_guard_check_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner)
+{
+    assert(controller.epoch && !controller.bcs && invalidates==2);
+    return vmm_reserved_guard_writer_held(g,root,page,alias,owner) && traffic_fault!=WRITER_RETURN;
+}
+bool vmm_reserved_guard_unpin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner)
+{
+    assert(vmm_reserved_guard_writer_held(g,root,page,alias,owner));
+    assert(!invalidates || !controller.epoch);
+    port_pin=NULL;
+    return true;
+}
 static bool peer_protected(uint64_t pa)
 {
     switch (pa) {
@@ -412,9 +436,23 @@ static void run_transfer(enum mapping_case which)
         }
     }
     bool done=intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window);
+    if (traffic_fault==WRITER_ALIAS) {
+        assert(!done && !posted && !port_pin && !invalidates && !mapping.pages.writes &&
+               transfer.state==TRANSFER_RESERVED && !transfer.device_publication);
+        assert(intel_bdw_command_release(&mapping) && scanout_transfer_close(&transfer,&grant));
+        assert(display_access_release(&exclusion,true));
+        return;
+    }
+    if (traffic_fault==WRITER_RETURN) {
+        assert(!done && posted==4 && invalidates==2 && port_pin==&mapping && controller.widi_epoch &&
+               controller.epoch && mapping.traffic.phase==BDW_CMD_RETAINED &&
+               !memcmp(originals,entries,sizeof(originals)) && transfer.device_publication==&mapping.pages &&
+               !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
     if (traffic_fault==PEER_DURING_SUBMIT) {
         assert(!done && posted==3 && mapping.request.port.p.writes==3 && !mapping.request.port.p.triggered);
-        assert(mapping.request.state==BDW_BLITTER_RETAINED && mapping.traffic.phase==BDW_CMD_RETAINED);
+        assert(port_pin==&mapping && mapping.request.state==BDW_BLITTER_RETAINED && mapping.traffic.phase==BDW_CMD_RETAINED);
         assert(mapping.pages.writes==PAGES && mapping.pages.readers==&mapping.request.reader &&
                transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
         return;
@@ -483,7 +521,7 @@ static void run_transfer(enum mapping_case which)
                     return;
                 }
                 if (detached) {
-                    assert(mapping.verified_pages[1]==PAGES && invalidates==2);
+                    assert(!port_pin && mapping.verified_pages[1]==PAGES && invalidates==2);
                     assert(!memcmp(entries,originals,sizeof(originals)) && mapping.pages.writes==2*PAGES);
                     assert(!intel_bdw_bcs_port_lent(&fifo,&mapping.request.port));
                 }
@@ -529,11 +567,11 @@ int main(int argc,char **argv)
     const char *const traffic_failures[]={"missing-engine-ack","early-l3","missing-l3","widi-escapes",
                                          "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
                                          "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release",
-                                         "peer-missing","peer-open","peer-rollback","peer-during-submit"};
+                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return"};
     for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
         if (strcmp(argv[1],traffic_failures[i])) continue;
         traffic_fault=(enum traffic_fault)(i+1);
-        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK || traffic_fault==LOST_RELEASE)?MAP_OK:COLD_OK);
+        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK || traffic_fault==LOST_RELEASE || traffic_fault==WRITER_RETURN)?MAP_OK:COLD_OK);
         printf("PASS %s\n",traffic_failures[i]);
         return 0;
     }

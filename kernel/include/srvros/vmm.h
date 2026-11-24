@@ -154,6 +154,12 @@ bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard 
 /* Each page has a unique read-only alias in the same active guard. */
 bool vmm_reserved_guard_readonly_registers_held(const struct vmm_reserved_guard *,uint64_t root,
                                                 const uint64_t *pages,unsigned count);
+/* Pin an independent writer in the same sole CPU address space as the
+ * aperture window. Its existing mapping must be a unique supervisor UC leaf. */
+bool vmm_reserved_guard_pin_writer(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,uint64_t alias,const void *owner);
+bool vmm_reserved_guard_writer_held(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,uint64_t alias,const void *owner);
+bool vmm_reserved_guard_check_writer(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,uint64_t alias,const void *owner);
+bool vmm_reserved_guard_unpin_writer(const struct vmm_reserved_guard *,uint64_t root,uint64_t page,uint64_t alias,const void *owner);
 /* Adopt the only writable MMIO alias. The VMM freezes its VA and rejects
  * other mappings of its PA until this child retires. No device store occurs. */
 bool vmm_reserved_guard_pin_register(const struct vmm_reserved_guard *,uint64_t root,uint64_t aperture,

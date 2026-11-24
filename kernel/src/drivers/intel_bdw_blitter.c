@@ -25,10 +25,16 @@ static bool reset_matches(const struct bdw_blitter_device *device)
            reset->binding.prepare == device->prepare;
 }
 
+static bool command_port_held(const struct bdw_command_hold *h,const struct bdw_blitter_device *d)
+{
+    return vmm_reserved_guard_writer_held(h->routes.guard,d->root,d->mmio+0x22000,
+                                         (uintptr_t)d->registers,h->owner);
+}
+
 static bool held(const struct bdw_blitter_request *r)
 {
     const struct scanout_publication *p=r->pages;
-    return (!r->traffic || r->traffic->phase==BDW_CMD_EXECUTING) && r->device.held(r->device.owner,r->image) && (!r->device.reset || (reset_matches(&r->device) &&
+    return (!r->traffic || (r->traffic->phase==BDW_CMD_EXECUTING && command_port_held(r->traffic,&r->device))) && r->device.held(r->device.owner,r->image) && (!r->device.reset || (reset_matches(&r->device) &&
            intel_bdw_bcs_port_lent(r->device.port_owner,&r->port))) && p->state==PUB_PUBLISHED &&
            p->object==p && !p->busy && p->readers==&r->reader && !r->reader.next &&
            p->epoch==r->reader.binding.epoch && (!p->hold_live || p->hold_live(p)) &&
@@ -147,7 +153,8 @@ static enum intel_gt_write post(void *ctx,uint32_t offset,uint32_t value)
     if (offset!=BCS_SUBMIT_PORT || !held(r) || !owner_clock(r) ||
         r->last<r->port.p.last || r->last-r->port.p.begin>BCS_SUBMIT_US) return GT_WRITE_NONE;
     /* The owner's clock is the last callback before the descriptor store. */
-    if (r->traffic && !intel_bdw_peer_ports_held(&r->traffic->routes)) {
+    if (r->traffic && (!intel_bdw_peer_ports_held(&r->traffic->routes) ||
+                       !command_port_held(r->traffic,&r->device))) {
         r->traffic->phase=BDW_CMD_RETAINED;
         return GT_WRITE_NONE;
     }
@@ -335,7 +342,7 @@ static bool mapping_epoch_held(struct bdw_blitter_mapping *m)
 static bool window_held(void *ctx)
 {
     struct bdw_blitter_mapping *m=ctx;
-    return m->transfer->device_publication==&m->pages &&
+    return m->transfer->device_publication==&m->pages && command_port_held(&m->traffic,&m->device) &&
            scanout_transfer_check(m->transfer,&m->grant) && m->device.held(m->device.owner,m->image) &&
            m->window.held(m->window.owner,&m->window,m->transfer) && mapping_epoch_held(m) &&
            intel_bdw_command_held(m);
@@ -483,13 +490,21 @@ static bool return_mapping(struct bdw_blitter_mapping *m)
     struct scanout_transfer *t=m->transfer;
     if (m->traffic.phase==BDW_CMD_EXECUTING && !intel_bdw_command_bcs(m,false)) return false;
     if (m->traffic.phase!=BDW_CMD_BLOCKED || !scanout_transfer_check(t,&m->grant) || !scanout_publish_restore(&m->pages,&m->publication) ||
-        !window_held(m) || !intel_bdw_command_release(m) ||
+        !window_held(m)) return false;
+    if (!vmm_reserved_guard_check_writer(m->traffic.routes.guard,m->device.root,m->device.mmio+0x22000,
+                                         (uintptr_t)m->device.registers,m)) {
+        m->traffic.phase=BDW_CMD_RETAINED;
+        return false;
+    }
+    if (!intel_bdw_command_release(m) ||
+        !vmm_reserved_guard_unpin_writer(m->traffic.routes.guard,m->device.root,m->device.mmio+0x22000,
+                                         (uintptr_t)m->device.registers,m) ||
         !scanout_space_release(&t->space,&m->range)) return false;
     t->device_publication=0;
     return true;
 }
 
-bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bdw_blitter_image *image,
+static bool map_with_port(struct bdw_blitter_mapping *m,const struct bdw_blitter_image *image,
                                   const struct bdw_blitter_device *device,struct scanout_transfer *t,
                                   const struct scanout_transfer_token *grant,const struct bdw_blitter_window *window)
 {
@@ -563,6 +578,29 @@ publication_failed:
             t->device_publication=0;
     }
     return false;
+}
+
+bool intel_bdw_blitter_map_and_run(struct bdw_blitter_mapping *m,const struct bdw_blitter_image *image,
+                                  const struct bdw_blitter_device *device,struct scanout_transfer *t,
+                                  const struct scanout_transfer_token *grant,const struct bdw_blitter_window *window)
+{
+    if (!m || !t || !grant || !device || !device->registers || m->range.object || m->pages.object ||
+        m->traffic.owner!=m || m->traffic.transfer!=t || t->device_publication ||
+        m->traffic.grant.object!=grant->object || m->traffic.grant.owner!=grant->owner ||
+        m->traffic.grant.epoch!=grant->epoch || !intel_bdw_command_held(m) || m->traffic.phase!=BDW_CMD_BLOCKED)
+        return false;
+    const struct bdw_wireless_routes *routes=&m->traffic.routes;
+    if (routes->root!=device->root || routes->mmio!=device->mmio || device->mmio>UINT64_MAX-0x22000)
+        return false;
+    uint64_t page=device->mmio+0x22000, alias=(uintptr_t)device->registers;
+    if (!vmm_reserved_guard_pin_writer(routes->guard,device->root,page,alias,m)) return false;
+    bool ok=map_with_port(m,image,device,t,grant,window);
+    /* Cold completion and an uncertain operation both leave the publication
+     * attached. A completed rollback has already returned its register pin. */
+    if (!ok && !t->device_publication &&
+        !vmm_reserved_guard_unpin_writer(routes->guard,device->root,page,alias,m))
+        m->traffic.phase=BDW_CMD_RETAINED;
+    return ok;
 }
 
 bool intel_bdw_blitter_detach(struct bdw_blitter_mapping *m,const struct intel_bdw_gt_bootstrap *reset,

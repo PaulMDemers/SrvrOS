@@ -21,6 +21,7 @@ static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
 static unsigned model_engine_ro;
+static void intel_display_test_slot_writer_sample(uint32_t *,uint32_t *);
 static bool intel_display_test_context_wp(void);
 static bool intel_display_test_context_protect(unsigned,bool);
 static void intel_display_test_backing_access(void);
@@ -138,6 +139,27 @@ static uint32_t intel_display_test_command_aperture_read(unsigned i) {
  return 0xabcdef00u+i+(command_aperture.samples && bf("command-aperture-drift",i+1));
 }
 static unsigned host_port_pins;
+static const void *host_bcs_writer;
+bool vmm_reserved_guard_pin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
+ assert(g==&slot_widi.guard && g->object==g && root==gt_bootstrap_native.root && host_widi_held && wake_irq);
+ assert(page==result.mmio_base+0x22000 && alias==WAKE_VA+7*4096 && host_port_pins==4 &&
+        model_engine_ro==15 && gpu_command==3 && owner && !host_bcs_writer);
+ if(bf("writer-admit",1))return false;
+ host_bcs_writer=owner;return true;
+}
+bool vmm_reserved_guard_writer_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
+ return owner && owner==host_bcs_writer && vmm_reserved_guard_io_page_held(g,root,0xb3003000) &&
+        page==result.mmio_base+0x22000 && alias==WAKE_VA+7*4096 && !bf("writer-lost",1);
+}
+static void intel_display_test_slot_writer_sample(uint32_t *hwsp,uint32_t *mask) {
+ assert(host_bcs_writer && gpu_command==3 && model_engine_ro==15);
+ *hwsp=0;*mask=UINT32_MAX;
+}
+bool vmm_reserved_guard_unpin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
+ assert(vmm_reserved_guard_writer_held(g,root,page,alias,owner));
+ if(bf("writer-return",1))return false;
+ host_bcs_writer=NULL;return true;
+}
 static bool intel_display_test_context_wp(void) {
  return !bf("slot-wp",1);
 }

@@ -46,6 +46,15 @@ at zero, and Ubuntu verified a clean USB volume. Four release-bound Q35
 boots covered save/return, missing workspace, and the configuration-table
 fallback with both the production helper and a seven-word test fixture.
 
+The command mapping now owns the blitter register alias at BAR0+0x22000 from
+its first queue read through rollback. A failed closing VMM audit retains the
+device hold and seven pages. The next Air test exercises the CPU mapping loan
+with bus mastering off, captures HWS_PGA and HWSTAM, and returns the loan
+before PCI reopening. The original display and all seven GPU translations stay
+under the existing handoff checks. The 55 host and Q35 blitter cases passed,
+along with 25 native-adapter tests and the VMM guard suite. Physical results
+for the blitter alias loan are pending.
+
 The Air reset census and command driver now share a VMM check for the four
 non-blitter submission ports. The driver checks their write protection before
 each blitter descriptor store. The host fixture withheld the fourth word when

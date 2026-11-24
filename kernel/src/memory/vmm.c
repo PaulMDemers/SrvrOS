@@ -411,6 +411,8 @@ static uint32_t reserved_mutations;
 static struct {
  struct vmm_reserved_guard *owner;
  const void *io_borrower;
+ const void *writer;
+ uint64_t writer_page,writer_alias;
  uint64_t root,epoch,cr4,efer,io_page;
  uint64_t register_page, register_backing, register_alias;
  uint64_t ports[VMM_GUARD_IO_LIMIT];
@@ -429,6 +431,8 @@ static bool reserved_mutation_enter(enum reserved_mutation kind,uint64_t root,ui
     reserved_guard.owner->object!=reserved_guard.owner || reserved_guard.owner->epoch!=reserved_guard.epoch ||
     kind==RESERVED_ROOT || (root && root!=reserved_guard.root) || read_cr3()!=reserved_guard.root)goto refuse;
  if(reserved_guard.register_alias && (va & ~4095ull)==reserved_guard.register_alias)goto refuse;
+ if(reserved_guard.writer && ((va & ~4095ull)==reserved_guard.writer_alias ||
+    (kind==RESERVED_MAP && physical==reserved_guard.writer_page)))goto refuse;
  for(unsigned i=0;i<reserved_guard.readonly_count;i++) {
   const struct vmm_alias_span *reg=&reserved_guard.readonly[i];
   if((va & ~4095ull)==reg->virtual_base || (kind==RESERVED_MAP && physical==reg->physical))goto refuse;

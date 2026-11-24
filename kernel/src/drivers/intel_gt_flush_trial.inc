@@ -304,6 +304,31 @@ static unsigned slot_queue_samples, slot_queue_matches;
  * mapping of each engine page immutable through both queue samples and the
  * final PTE readback. The parent stays on the boot CPU with IRQs excluded. */
 static unsigned slot_ports_pinned, slot_ports_restored;
+/* Exercise the operational BCS alias before sealing the fifth page. The
+ * other four queues are already read-only and PCI bus mastering is off.
+ * This census only reads the engine. A driver submission needs its own pin. */
+static struct {unsigned stage;uint32_t hwsp,hwstam;} slot_writer;
+static bool slot_writer_census(void) {
+    const uint64_t alias=WAKE_VA+7*4096, root=gt_bootstrap_native.root, page=result.mmio_base+0x22000;
+    if (slot_writer.stage || gt_bootstrap_native.engine_ro_mask!=15 || slot_ports_pinned!=4 ||
+        !gt_slot_live() || !bootstrap_guard() || !bootstrap_tick() ||
+        !intel_bdw_peer_ports_held(&command_slots.routes) ||
+        !vmm_reserved_guard_pin_writer(&slot_widi.guard,root,page,alias,&slot_writer)) return false;
+    slot_writer.stage=1;
+    if (!bootstrap_guard() || !bootstrap_tick() ||
+        !vmm_reserved_guard_writer_held(&slot_widi.guard,root,page,alias,&slot_writer)) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_slot_writer_sample(&slot_writer.hwsp,&slot_writer.hwstam);
+#else
+    slot_writer.hwsp=*(volatile const uint32_t *)(alias+0x80);
+    slot_writer.hwstam=*(volatile const uint32_t *)(alias+0x98);
+#endif
+    slot_writer.stage=2;
+    if (!bootstrap_guard() || !bootstrap_tick() || !intel_bdw_peer_ports_held(&command_slots.routes) ||
+        !vmm_reserved_guard_unpin_writer(&slot_widi.guard,root,page,alias,&slot_writer)) return false;
+    slot_writer.stage=3;
+    return true;
+}
 static bool slot_submission_hold(void) {
     if (gt_bootstrap_native.engine_ro_mask || slot_ports_pinned || !context_wp()) return false;
     for (unsigned first = 0; first < INTEL_ENGINE_COUNT; first += VMM_ALIAS_SPANS) {
@@ -312,6 +337,7 @@ static bool slot_submission_hold(void) {
         if (count > VMM_ALIAS_SPANS) count = VMM_ALIAS_SPANS;
         for (unsigned i = 0; i < count; ++i) {
             unsigned engine = first + i, slot = 3 + engine;
+            if (engine==4 && !slot_writer_census()) return false;
             if (!bootstrap_guard() || !bootstrap_tick() || !engine_page_protect(gt_bootstrap_native.root,slot, false)) return false;
             gt_bootstrap_native.engine_ro_mask |= 1u << engine;
             spans[i] = (struct vmm_alias_span){WAKE_VA + 4096 * slot, result.mmio_base + wake_pages[slot], 1};
@@ -536,8 +562,9 @@ static void gt_flush_report(void) {
         console_printf("intel-widi-device: v=2 n=%u win=%x reset_flow=%x clock_before=%x clock_ack=%x clock_after=%x\n",(uint64_t)n,
             (uint64_t)gt_widi.device[n][1],(uint64_t)gt_widi.device[n][2],(uint64_t)gt_widi.device[n][0],
             (uint64_t)gt_widi.device[n][3],(uint64_t)gt_widi.device[n][4]);
-    console_printf("intel-slot-reopened: v=3 pinned=%u restored=%u ro_mask=%u matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
+    console_printf("intel-slot-reopened: v=4 pinned=%u restored=%u ro_mask=%u writer=%u hwsp=%x hwstam=%x matched=%u high0=%x low=%x high1=%x reads=%u maps=%u retired=%u live=%x\n",
         (uint64_t)slot_ports_pinned,(uint64_t)slot_ports_restored,(uint64_t)gt_bootstrap_native.engine_ro_mask,
+        (uint64_t)slot_writer.stage,(uint64_t)slot_writer.hwsp,(uint64_t)slot_writer.hwstam,
         (uint64_t)gt_reopened.matched,(uint64_t)gt_reopened.raw[0],(uint64_t)gt_reopened.raw[1],
         (uint64_t)gt_reopened.raw[2],(uint64_t)gt_reopened.access.reads,(uint64_t)gt_reopened.access.maps,
         (uint64_t)gt_reopened.access.retired,gt_reopened.access.mapped);

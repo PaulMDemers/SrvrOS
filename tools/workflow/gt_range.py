@@ -4,7 +4,7 @@ import sys
 # Frozen into each new full-GT flush manifest. Historical runs use the
 # versions saved in their own manifests.
 FLUSH_RECEIPTS = dict(independent_slot=12291, slot_backing_version=1,
-                      slot_widi_version=1, slot_reopened_version=3, command_slots_version=2,
+                      slot_widi_version=1, slot_reopened_version=4, command_slots_version=2,
                       range_version=8)
 
 

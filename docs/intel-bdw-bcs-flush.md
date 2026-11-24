@@ -457,6 +457,23 @@ before each descriptor store. If protection is lost after any descriptor
 word, the request and its pages stay pinned. Outstanding device accesses
 still require the separate engine and L3 drain below.
 
+For the blitter itself, the driver takes a second CPU mapping loan on the same
+root and VMM guard. It binds the exact virtual register address to
+BAR0+0x22000 before its first queue read. The VMM walks the root to establish
+that this 4 KiB supervisor mapping is the sole writable alias, has NX set and
+uses the register cache policy. Public VMM calls cannot replace it, remove it
+or map another alias while the command owns it. The GGTT register loan can
+remain active independently. The blitter keeps its loan across cold status-page
+detachment, checks it after restoring the translations and returns it after
+the device reopens. A failed closing check retains the restored pages and hold.
+
+Wire v4 of `intel-slot-reopened` exercises this loan with PCI bus mastering
+off, after the other four engine ports have been protected. It records the
+blitter's HWS_PGA and HWSTAM before returning the loan and protecting the fifth
+port. The `writer` field advances from 0 to 1 on acquisition, 2 after both
+reads, and 3 on return. A mask of all ones is a valid HWSTAM observation.
+The later queue samples still require all five ports to be protected.
+
 The blitter requires a controller lease before it can promote the transfer.
 It checks the enabled primary surface, all eight L3 bank policies, and open
 engine and arbiter replies before requesting a drain. It checks the five

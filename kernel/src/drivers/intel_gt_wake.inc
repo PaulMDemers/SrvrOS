@@ -811,7 +811,7 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");
-    console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the original display and slot 12291. No input needed.\n");
+    console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the blitter register mapping, original display and slot 12291. No input needed.\n");
 #endif
     console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");
     console_write("intel-bootstrap: unchanged60s means photograph and restart manually. Safe saved outcomes return to Ubuntu.\n");
