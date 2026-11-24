@@ -177,11 +177,15 @@ int main(void) {
     f = (struct fixture) { .stuck_enable = true };
     assert(!run(&f, &bus));
     assert(f.addresses == 1 && f.default_port == 1 && !f.reset_polls[1]);
+    assert(!strcmp(bus.step.operation, "verify hub port disabled") && bus.step.hub == 1 && bus.step.port == 1);
+    assert(bus.step.port_status_valid && bus.step.port_status & USB_HUB_PORT_ENABLE);
 
     f = (struct fixture) { .stuck_reset = true };
     assert(!run(&f, &bus));
     assert(f.addresses == 1 && f.default_port == 1 && (f.ports[0] & USB_HUB_PORT_RESET));
     assert(now >= 200000 && now < 400000);
+    assert(!strcmp(bus.step.operation, "wait for hub port reset") && bus.step.hub == 1 && bus.step.port == 1);
+    assert(bus.step.port_status_valid && bus.step.port_status & USB_HUB_PORT_RESET);
 
     f = (struct fixture) { .split = true };
     assert(run(&f, &bus));
@@ -199,5 +203,7 @@ int main(void) {
     f = (struct fixture) { .split = true, .split_stuck = true };
     assert(!run(&f, &bus));
     assert(f.split_requests == 2 && f.addresses == 1 && f.default_port == 1 && !f.reset_polls[1]);
+    assert(!strcmp(bus.step.operation, "device descriptor") && bus.step.hub == 1 && bus.step.port == 1);
+    assert(bus.step.port_status_valid && bus.step.port_status & USB_HUB_PORT_ENABLE);
     puts("EHCI hub tests passed");
 }

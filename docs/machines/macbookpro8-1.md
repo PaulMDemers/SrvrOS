@@ -34,13 +34,14 @@ input and native USB workspace access remain pending.**
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
 MacBookPro8,1 console, input and USB workspace milestones. The attended EHCI
-split run verified the topcase descriptor path. The remaining enumeration
-question is where the scan stopped on `00:1d.7`. The next diagnostic needs to
-preserve the failing hub or port and operation on the final screen. The
-inventory contains no xHCI controller on this Mac.
+split run verified the topcase descriptor path. The active work covers EHCI
+scan and control-transfer reporting, the existing QEMU hub fixture and a
+one-shot retry to locate the failure on `00:1d.7`. It uses the existing EHCI
+transport, RAM-only profile and Ubuntu recovery. The inventory contains no
+xHCI controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `cb0445b9`, and Apple Silicon runtime, login and export work
+USB Wi-Fi work at `c45c0984`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
 dependency on those branches. The Air7,2 branch at `fb582f40` also touches the
 staging tool in its RC6 receipt path, independently of the EHCI profile.
@@ -206,6 +207,7 @@ incomplete guest result because the native topcase and controllers are absent.
 make -j2 build/kernel/srvros.elf
 python3 tools/hardware_boot.py stage --ehci-split-trial
 python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)"
+python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)" --stall-hub-status
 ```
 
 Clean source `8a51702a` produced release `91a277b2e434e4b3`. The exact VM
@@ -238,6 +240,16 @@ remains unknown. The new Ubuntu boot ID, cleared `next_entry`, unchanged
 firmware boot order, mounted exFAT workspace and both installed manifests
 were verified. The transcript, verification and exact payload were archived
 locally outside `build/` alongside the known-good console release.
+
+### Scan failure details
+
+The retry profile keeps the first unfinished operation for each controller
+and shows the root port or hub address and port, the controller's `USBSTS`,
+and the last sampled port status. Control-transfer failures also show the
+USB address, request number and queue descriptor status bytes. The QEMU
+stall fixture exercises this screen by returning a USB stall for hub port
+2's status request. The retry preserves the same scan and DMA retirement
+rules as the first run.
 
 ## Capability ledger
 

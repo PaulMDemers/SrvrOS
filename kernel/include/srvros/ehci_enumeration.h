@@ -20,6 +20,14 @@ static inline bool ehci_full_speed_packet_size(uint8_t size) {
     return size == 8 || size == 16 || size == 32 || size == 64;
 }
 
+struct ehci_scan_step {
+    const char *operation;
+    uint32_t port_status;
+    uint8_t hub;
+    uint8_t port;
+    bool port_status_valid;
+};
+
 struct ehci_enumeration {
     bool (*control)(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
         uint8_t *data, unsigned *received);
@@ -31,6 +39,7 @@ struct ehci_enumeration {
     unsigned split_devices;
     unsigned hubs;
     unsigned deferred;
+    struct ehci_scan_step step;
 };
 
 /* The caller has enabled the port and isolated address zero. */

@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import socket
 import subprocess
 import tempfile
@@ -45,6 +46,7 @@ def main():
     parser.add_argument("release", help="exact staged EHCI trial release")
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--ovmf", default=default_ovmf_path())
+    parser.add_argument("--stall-hub-status", action="store_true", help="inject a port 2 GET_STATUS stall")
     args = parser.parse_args()
     if not boot.RELEASE_RE.fullmatch(args.release):
         parser.error("expected a 16-digit release identifier")
@@ -54,6 +56,8 @@ def main():
     if manifest["config_version"] != boot.EHCI_TRIAL_VERSION:
         parser.error("expected an attended EHCI split trial stage")
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
+    if args.stall_hub_status:
+        logs /= "hub-status-stall"
     logs.mkdir(parents=True, exist_ok=True)
     result_file = logs / "vm-result.json"
     result_file.unlink(missing_ok=True)
@@ -108,28 +112,40 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
 
         qmp = temp / "qmp.sock"
         endpoint = temp / "hub.sock"
-        with HubFixture(endpoint) as hub:
+        with HubFixture(endpoint, stall_status_port=2 if args.stall_hub_status else None) as hub:
             trial_command = command + ["-qmp", f"unix:{qmp},server=on,wait=off",
                 "-device", "ich9-usb-ehci1,id=ehci1", "-device", "ich9-usb-ehci2,id=ehci2",
                 "-chardev", f"socket,id=hub,path={endpoint}",
                 "-device", "usb-redir,bus=ehci1.0,port=1,chardev=hub"]
             first = boot_once(trial_command, logs, "trial",
                               lambda s: "Screen held for photo." in s, (qmp, logs / "vm-screen.ppm"))
+        scans = 1 if args.stall_hub_status else 2
         expected = [
             "SRVROS_VM_NEXT_ENTRY_CONSUMED",
             f"cmdline: srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release={release}",
             "1. Wait for the result.", "2. Photograph the entire screen", "3. Hold the power button",
             "Preparing the RAM-only EHCI diagnostic...", "Scanning EHCI controllers",
-            "Controllers found 2. Scans complete 2. DMA released 2.",
+            f"Controllers found 2. Scans complete {scans}. DMA released 2.",
             "Topcase 05ac:0245 via hub 0424:2513 port 2, EP0 8: unverified",
             f"ehci-trial: release={release} result=INCOMPLETE",
         ]
+        if args.stall_hub_status:
+            expected += ["Stop at hub 1 port 2 during hub port preflight", "last port status unavailable",
+                         "Control qTD error at USB address 1, request 0",
+                         "ehci: control failure=qTD error address=1 type=0x00000000000000a3 request=0x0000000000000000 "
+                         "value=0x0000000000000000 index=2 length=4"]
         for marker in expected:
             assert marker in first, marker
         assert not has_fatal_exception(first)
         assert "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED" not in first and "SRVROS_VM_UBUNTU_DEFAULT_SELECTED" not in first
         assert all(marker not in first for marker in ("srv> ", "xhci:", "workspace-log:", "ahci:"))
-        assert hub.powered == hub.status_ports == {1, 2, 3} and hub.hub_descriptors == 1
+        assert hub.powered == {1, 2, 3} and hub.hub_descriptors == 1
+        if args.stall_hub_status:
+            assert hub.status_ports == {1, 2} and hub.stalled_status_requests == 1
+            assert re.search(r"(?m)^  USBSTS=0x[0-9a-f]{16}  last port status unavailable$", first)
+            assert re.search(r"(?m)^  qTD status bytes \(decimal\) setup=\d+ data=\d+ status=\d+$", first)
+        else:
+            assert hub.status_ports == {1, 2, 3} and not hub.stalled_status_requests
 
         saved = temp / "after.grubenv"
         subprocess.run(["debugfs", "-R", f"dump /boot/grub/grubenv {saved}", str(root_disk)], check=True,
@@ -140,6 +156,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
 
     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
                   exact_payload=True, guest_trial_result="INCOMPLETE", topcase="absent in VM",
+                  scans_complete=scans, hub_status_stall=args.stall_hub_status,
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
     result_file.write_text(json.dumps(result, indent=2) + "\n")
     print(f"ehci-trial-smoke: PASS ({release}); {result_file}")

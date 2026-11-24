@@ -201,7 +201,8 @@ static void test_control_schedule(void) {
 static void test_split_control_schedule(void) {
     fixture_reset();
     struct ehci_dma dma;
-    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000 };
+    struct ehci_probe_report report = {0};
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
     struct ehci_control_target target = { .packet_size = 8, .tt_hub = 2, .tt_port = 3 };
     struct usb_setup_packet descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 8 };
     prepare_control(&path, &target, &descriptor);
@@ -221,6 +222,7 @@ static void test_split_control_schedule(void) {
     assert(control_transfer(&path, &target, &descriptor, data, &received));
     assert(received == 17 && data[0] == 0x5a && data[16] == 0x5a && !data[17]);
     assert(split_polls == 2 && op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+    assert(!report.transfer_failure.reason);
 
     split_polls = 0;
     split_stuck = true;
@@ -228,6 +230,12 @@ static void test_split_control_schedule(void) {
     assert(!control_transfer(&path, &target, &descriptor, data, &received));
     assert(!received && now - start == EHCI_CONTROL_US + 2 * EHCI_POLL_US);
     assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+    const struct ehci_transfer_failure *failure = &report.transfer_failure;
+    assert(!strcmp(failure->reason, "completion timeout") && failure->usbsts == EHCI_STS_ASYNC);
+    assert(failure->address == 5 && failure->request.request == USB_REQ_GET_DESCRIPTOR && failure->request.length == 18);
+    assert(failure->setup_token & EHCI_TD_ACTIVE);
+    assert(failure->data_token & EHCI_TD_ACTIVE);
+    assert(failure->status_token & EHCI_TD_ACTIVE);
     split_dma = 0;
 }
 

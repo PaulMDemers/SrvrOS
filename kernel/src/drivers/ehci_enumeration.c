@@ -39,16 +39,20 @@ static bool hub_status(struct ehci_enumeration *bus, const struct ehci_control_t
     if (!usb_control(bus, hub, 0xa3, USB_REQ_GET_STATUS, 0, port, sizeof(data), data, &received) ||
         received != sizeof(data)) return false;
     *status = read_le16(data) | ((uint32_t)read_le16(data + 2) << 16);
+    bus->step.port_status = *status;
+    bus->step.port_status_valid = true;
     return true;
 }
 
 static bool read_configuration(struct ehci_enumeration *bus, const struct ehci_control_target *target, bool hub,
     uint8_t *value) {
     uint8_t data[EHCI_DESCRIPTOR_BYTES];
+    bus->step.operation = "configuration header";
     if (!standard_descriptor(bus, target, USB_DESC_CONFIGURATION, data, 9) ||
         data[0] != 9 || data[1] != USB_DESC_CONFIGURATION || !data[4] || !data[5]) return false;
     uint16_t total = read_le16(data + 2);
     uint8_t configuration = data[5];
+    bus->step.operation = "configuration body";
     if (total < 9 || total > sizeof(data) ||
         !standard_descriptor(bus, target, USB_DESC_CONFIGURATION, data, total) ||
         data[0] != 9 || data[1] != USB_DESC_CONFIGURATION || read_le16(data + 2) != total ||
@@ -70,20 +74,26 @@ static bool read_configuration(struct ehci_enumeration *bus, const struct ehci_c
 
 static bool reset_hub_port(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t port,
     uint32_t *status) {
+    bus->step.operation = "clear hub connection change";
     if ((*status & USB_HUB_CHANGE_CONNECTION) &&
         !hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION)) return false;
+    bus->step.operation = "clear stale hub reset change";
     if ((*status & USB_HUB_CHANGE_RESET) &&
         !hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET)) return false;
+    bus->step.operation = "start hub port reset";
     if (!hub_feature(bus, hub, port, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_RESET)) return false;
 
     uint64_t start = timer_monotonic_us();
+    bus->step.operation = "wait for hub port reset";
     for (unsigned poll = 0; poll <= EHCI_HUB_RESET_US / EHCI_HUB_POLL_US; poll++) {
         if (!hub_status(bus, hub, port, status) || !(*status & USB_HUB_PORT_CONNECTION) ||
             (*status & (USB_HUB_PORT_OVERCURRENT | USB_HUB_CHANGE_CONNECTION))) return false;
         if ((*status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET | USB_HUB_CHANGE_RESET)) ==
             (USB_HUB_PORT_ENABLE | USB_HUB_CHANGE_RESET)) {
-            return hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET) &&
-                timer_delay_us(10000);
+            bus->step.operation = "acknowledge hub port reset";
+            if (!hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET)) return false;
+            bus->step.operation = "hub port reset recovery delay";
+            return timer_delay_us(10000);
         }
         if (timer_monotonic_us() - start >= EHCI_HUB_RESET_US || !timer_delay_us(EHCI_HUB_POLL_US)) break;
     }
@@ -94,8 +104,10 @@ static bool enumerate_hub(struct ehci_enumeration *bus, const struct ehci_contro
     unsigned depth) {
     unsigned received;
     uint8_t descriptor[64];
-    if (!usb_control(bus, hub, 0, USB_REQ_SET_CONFIGURATION, configuration, 0, 0, 0, &received) ||
-        !usb_control(bus, hub, 0xa0, USB_REQ_GET_DESCRIPTOR, USB_DESC_HUB << 8, 0,
+    bus->step.operation = "set hub configuration";
+    if (!usb_control(bus, hub, 0, USB_REQ_SET_CONFIGURATION, configuration, 0, 0, 0, &received)) return false;
+    bus->step.operation = "hub descriptor";
+    if (!usb_control(bus, hub, 0xa0, USB_REQ_GET_DESCRIPTOR, USB_DESC_HUB << 8, 0,
             sizeof(descriptor), descriptor, &received) || received < 9 || descriptor[1] != USB_DESC_HUB) {
         return false;
     }
@@ -107,20 +119,24 @@ static bool enumerate_hub(struct ehci_enumeration *bus, const struct ehci_contro
 
     if ((descriptor[3] & 3) < 2) {
         for (uint8_t port = 1; port <= ports; port++) {
+            bus->step = (struct ehci_scan_step) { .operation = "power hub port", .hub = hub->address, .port = port };
             if (!hub_feature(bus, hub, port, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_POWER)) return false;
         }
     }
     /* Allow power-good and connection debounce before assigning address zero. */
+    bus->step = (struct ehci_scan_step) { .operation = "hub power and debounce", .hub = hub->address };
     if (!timer_delay_us((uint64_t)descriptor[5] * 2000 + 100000)) return false;
 
     for (uint8_t port = 1; port <= ports; port++) {
         uint32_t status;
+        bus->step = (struct ehci_scan_step) { .operation = "hub port preflight", .hub = hub->address, .port = port };
         if (!hub_status(bus, hub, port, &status) || (status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET))) {
             return false;
         }
     }
     for (uint8_t port = 1; port <= ports; port++) {
         uint32_t status;
+        bus->step = (struct ehci_scan_step) { .operation = "hub port status", .hub = hub->address, .port = port };
         if (!hub_status(bus, hub, port, &status) || (status & (USB_HUB_PORT_ENABLE | USB_HUB_PORT_RESET))) {
             return false;
         }
@@ -131,8 +147,10 @@ static bool enumerate_hub(struct ehci_enumeration *bus, const struct ehci_contro
         bool full_speed = bus->split && !speed;
         if (speed != USB_HUB_PORT_HIGH_SPEED && !full_speed) {
             /* The next reset must have exclusive use of address zero. */
-            if (!hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_PORT_ENABLE) ||
-                !hub_status(bus, hub, port, &status) || (status & USB_HUB_PORT_ENABLE)) return false;
+            bus->step.operation = "disable deferred hub port";
+            if (!hub_feature(bus, hub, port, USB_REQ_CLEAR_FEATURE, USB_FEATURE_PORT_ENABLE)) return false;
+            bus->step.operation = "verify hub port disabled";
+            if (!hub_status(bus, hub, port, &status) || (status & USB_HUB_PORT_ENABLE)) return false;
             bus->deferred++;
             console_printf("ehci: hub address=%u port=%u deferred split transfer\n", (uint64_t)hub->address, (uint64_t)port);
             continue;
@@ -144,6 +162,9 @@ static bool enumerate_hub(struct ehci_enumeration *bus, const struct ehci_contro
 
 bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t port, unsigned depth,
     bool full_speed) {
+    bus->step.hub = parent;
+    bus->step.port = port;
+    bus->step.operation = "device admission";
     if (bus->devices >= EHCI_DEVICE_LIMIT || depth > EHCI_HUB_DEPTH_LIMIT) return false;
     struct ehci_control_target target = { .packet_size = 64 };
     uint8_t descriptor[64];
@@ -151,6 +172,7 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
     if (full_speed) {
         if (!bus->split || !parent || !port) return false;
         target = (struct ehci_control_target) { .packet_size = 8, .tt_hub = parent, .tt_port = port };
+        bus->step.operation = "device descriptor prefix";
         if (!standard_descriptor(bus, &target, USB_DESC_DEVICE, descriptor, 8) ||
             descriptor[0] != 18 || descriptor[1] != USB_DESC_DEVICE || !ehci_full_speed_packet_size(descriptor[7])) {
             return false;
@@ -159,6 +181,7 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
         length = 18;
     }
     unsigned received;
+    bus->step.operation = "device descriptor";
     if (!usb_control(bus, &target, 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0,
             length, descriptor, &received) || received != 18 ||
         descriptor[0] != 18 || descriptor[1] != USB_DESC_DEVICE ||
@@ -167,8 +190,10 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
     if (hub && !full_speed && (descriptor[6] < 1 || descriptor[6] > 2 || depth == EHCI_HUB_DEPTH_LIMIT)) return false;
 
     uint8_t address = (uint8_t)(bus->devices + 1);
-    if (!usb_control(bus, &target, 0, USB_REQ_SET_ADDRESS, address, 0, 0, 0, &received) ||
-        !timer_delay_us(2000)) return false;
+    bus->step.operation = "set device address";
+    if (!usb_control(bus, &target, 0, USB_REQ_SET_ADDRESS, address, 0, 0, 0, &received)) return false;
+    bus->step.operation = "device address recovery delay";
+    if (!timer_delay_us(2000)) return false;
     target.address = address;
     uint8_t configuration;
     if (!read_configuration(bus, &target, hub, &configuration)) return false;

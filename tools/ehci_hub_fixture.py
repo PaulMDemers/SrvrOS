@@ -23,7 +23,7 @@ HUB = bytes((9, 0x29, PORTS, 1, 0, 5, 0, 0, 0xff))
 
 
 class HubFixture:
-    def __init__(self, path):
+    def __init__(self, path, *, stall_status_port=None):
         self.listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.listener.bind(str(path))
         self.listener.listen(1)
@@ -34,6 +34,8 @@ class HubFixture:
         self.powered = set()
         self.status_ports = set()
         self.hub_descriptors = 0
+        self.stall_status_port = stall_status_port
+        self.stalled_status_requests = 0
 
     def __enter__(self):
         self.thread.start()
@@ -82,7 +84,11 @@ class HubFixture:
             self.powered.add(index)
         elif key == (0xa3, 0, 0) and self.configured and 1 <= index <= PORTS:
             self.status_ports.add(index)
-            response = struct.pack("<HH", 0x100 if index in self.powered else 0, 0)
+            if index == self.stall_status_port:
+                self.stalled_status_requests += 1
+                status = STALL
+            else:
+                response = struct.pack("<HH", 0x100 if index in self.powered else 0, 0)
         else:
             status = STALL
         response = response[:length]
@@ -108,6 +114,7 @@ class HubFixture:
                         self.powered.clear()
                         self.status_ports.clear()
                         self.hub_descriptors = 0
+                        self.stalled_status_requests = 0
                     elif kind == SET_CONFIGURATION:
                         self.configured = data[0]
                         self.send(connection, CONFIGURATION_STATUS, bytes((SUCCESS, self.configured)), message_id)

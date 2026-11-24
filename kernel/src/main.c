@@ -973,7 +973,7 @@ void kmain(void) {
         bool readable_capture=ehci_trial || startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
             cmdline_has_token(cmdline,"srvros.desktop=retina-trial");
         uint64_t readable_width = ehci_trial ? 1280 : 1920;
-        uint64_t readable_height = ehci_trial ? 640 : 960;
+        uint64_t readable_height = ehci_trial ? 800 : 960;
         uint64_t console_scale=readable_capture && console_fb->width>=2880 && console_fb->height>=1440?3:
             readable_capture && console_fb->width>=readable_width && console_fb->height>=readable_height?2:1;
         console_init_scaled(console_fb,console_scale);

@@ -79,6 +79,17 @@
 #define EHCI_POLL_US 10u
 #define EHCI_CONTROL_US 100000u
 
+struct ehci_transfer_failure {
+    const char *reason;
+    struct usb_setup_packet request;
+    uint32_t usbsts;
+    uint32_t setup_token;
+    uint32_t data_token;
+    uint32_t status_token;
+    uint8_t address;
+    bool qtd_valid;
+};
+
 struct ehci_probe_report {
     const char *result;
     const char *handoff;
@@ -95,6 +106,9 @@ struct ehci_probe_report {
     bool access_retired;
     uint8_t trial_hub;
     uint8_t topcase_address;
+    struct ehci_scan_step stopped;
+    uint32_t stopped_usbsts;
+    struct ehci_transfer_failure transfer_failure;
 };
 
 struct ehci_trial_report {
@@ -102,6 +116,7 @@ struct ehci_trial_report {
     unsigned scans;
     unsigned released;
     struct ehci_probe_report controllers[2];
+    struct ehci_probe_report other_failure;
 };
 
 struct ehci_handoff_result {
@@ -207,21 +222,37 @@ static bool wait_mmio(volatile uint32_t *reg, uint32_t mask, uint32_t expected, 
     return false;
 }
 
-static bool wait_control(const struct ehci_control_path *path, bool data_phase) {
+static const char *wait_control(const struct ehci_control_path *path, bool data_phase) {
     const volatile struct ehci_dma *dma = path->dma;
     uint64_t start = timer_monotonic_us();
     for (unsigned poll = 0; poll <= EHCI_CONTROL_US / EHCI_POLL_US; poll++) {
         uint32_t setup = dma->setup_td.token;
         uint32_t data = data_phase ? dma->data_td.token : 0;
         uint32_t status = dma->status_td.token;
-        if (((setup | data | status) & EHCI_TD_ERROR) ||
-            (path->op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR))) return false;
+        if (path->op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) return "controller error";
+        if ((setup | data | status) & EHCI_TD_ERROR) return "qTD error";
         if (!((setup | data | status) & EHCI_TD_ACTIVE)) {
-            return !((setup | status) & (EHCI_TD_BYTES_MASK << EHCI_TD_BYTES_SHIFT));
+            return (setup | status) & (EHCI_TD_BYTES_MASK << EHCI_TD_BYTES_SHIFT) ? "setup/status residual" : 0;
         }
         if (timer_monotonic_us() - start >= EHCI_CONTROL_US || !timer_delay_us(EHCI_POLL_US)) break;
     }
-    return false;
+    return "completion timeout";
+}
+
+static void record_transfer_failure(struct ehci_control_path *path, uint8_t address,
+    const struct usb_setup_packet *setup, const char *reason, bool prepared) {
+    if (!path->report || path->report->transfer_failure.reason) return;
+    struct ehci_transfer_failure *failure = &path->report->transfer_failure;
+    *failure = (struct ehci_transfer_failure) {
+        .reason = reason, .request = *setup, .address = address, .usbsts = path->op[EHCI_USBSTS],
+        .qtd_valid = prepared,
+    };
+    if (prepared) {
+        const volatile struct ehci_dma *dma = path->dma;
+        failure->setup_token = dma->setup_td.token;
+        failure->data_token = dma->data_td.token;
+        failure->status_token = dma->status_td.token;
+    }
 }
 
 static void prepare_control(struct ehci_control_path *path, const struct ehci_control_target *target,
@@ -273,48 +304,76 @@ static bool control_transfer(void *context, const struct ehci_control_target *ta
     } else if (target->tt_port || target->packet_size != 64) return false;
     uint32_t command = op[EHCI_USBCMD];
     if ((command & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) != EHCI_CMD_RUN ||
-        (op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES))) return false;
+        (op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES))) {
+        record_transfer_failure(path, target->address, setup, "schedule busy or halted", false);
+        return false;
+    }
 
     prepare_control(path, target, setup);
     __asm__ volatile ("mfence" : : : "memory");
     op[EHCI_USBCMD] = command | EHCI_CMD_ASYNC;
-    bool complete = wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, EHCI_STS_ASYNC, EHCI_HALT_US) &&
-        wait_control(path, setup->length != 0);
+    const char *failure = wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, EHCI_STS_ASYNC, EHCI_HALT_US) ?
+        wait_control(path, setup->length != 0) : "schedule enable timeout";
+    if (failure) record_transfer_failure(path, target->address, setup, failure, true);
     op[EHCI_USBCMD] = command;
-    if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, 0, EHCI_HALT_US) || !complete) return false;
+    if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, 0, EHCI_HALT_US)) {
+        record_transfer_failure(path, target->address, setup, "schedule disable timeout", true);
+        return false;
+    }
+    if (failure) return false;
 
     __asm__ volatile ("mfence" : : : "memory");
     if (setup->length) {
         unsigned residual = (path->dma->data_td.token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
-        if (residual > setup->length) return false;
+        if (residual > setup->length) {
+            record_transfer_failure(path, target->address, setup, "invalid data residual", true);
+            return false;
+        }
         *received = setup->length - residual;
         for (unsigned i = 0; i < *received; i++) data[i] = path->dma->data[i];
     }
     return true;
 }
 
+static uint32_t read_root_port(struct ehci_enumeration *bus, volatile uint32_t *port) {
+    uint32_t status = *port;
+    bus->step.port_status = status;
+    bus->step.port_status_valid = true;
+    return status;
+}
+
 static bool enumerate_root_ports(const struct ehci_probe_report *report, struct ehci_control_path *path,
     struct ehci_enumeration *bus) {
     volatile uint32_t *ports = path->op + EHCI_PORTSC;
     for (unsigned i = 0; i < report->ports; i++) {
-        uint32_t status = ports[i];
+        bus->step = (struct ehci_scan_step) { .operation = "root port preflight", .port = (uint8_t)(i + 1) };
+        uint32_t status = read_root_port(bus, &ports[i]);
         if (status == UINT32_MAX || (status & (EHCI_PORT_ENABLE | EHCI_PORT_RESET))) return false;
         if ((report->structural & EHCI_HCS_PORT_POWER) && !(status & EHCI_PORT_POWER)) {
             ports[i] = (status & ~EHCI_PORT_CHANGE) | EHCI_PORT_POWER;
         }
     }
+    bus->step = (struct ehci_scan_step) { .operation = "root port power and debounce" };
     if (!timer_delay_us(100000)) return false;
     for (unsigned i = 0; i < report->ports; i++) {
-        uint32_t status = ports[i];
+        bus->step = (struct ehci_scan_step) { .operation = "root port status", .port = (uint8_t)(i + 1) };
+        uint32_t status = read_root_port(bus, &ports[i]);
         if (status == UINT32_MAX || (status & (EHCI_PORT_ENABLE | EHCI_PORT_RESET | EHCI_PORT_OVERCURRENT))) return false;
         if (!(status & EHCI_PORT_CONNECTED) || (status & EHCI_PORT_OWNER)) continue;
+        bus->step.operation = "hold root port reset";
         ports[i] = (status & ~EHCI_PORT_CHANGE) | EHCI_PORT_RESET;
         if (!timer_delay_us(50000)) return false;
-        status = ports[i];
+        status = read_root_port(bus, &ports[i]);
         if (status == UINT32_MAX) return false;
         ports[i] = status & ~(EHCI_PORT_CHANGE | EHCI_PORT_RESET);
-        if (!wait_mmio(&ports[i], EHCI_PORT_RESET, 0, EHCI_HALT_US) || !timer_delay_us(10000)) return false;
-        status = ports[i];
+        bus->step.operation = "release root port reset";
+        if (!wait_mmio(&ports[i], EHCI_PORT_RESET, 0, EHCI_HALT_US)) {
+            read_root_port(bus, &ports[i]);
+            return false;
+        }
+        bus->step.operation = "root port reset recovery";
+        if (!timer_delay_us(10000)) return false;
+        status = read_root_port(bus, &ports[i]);
         if (status == UINT32_MAX || !(status & EHCI_PORT_CONNECTED) || (status & EHCI_PORT_OVERCURRENT)) return false;
         if (!(status & EHCI_PORT_ENABLE) || (status & EHCI_PORT_OWNER)) {
             bus->deferred++;
@@ -358,12 +417,14 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
+        report->stopped.operation = "allocate control DMA";
+        report->stopped_usbsts = op[EHCI_USBSTS];
         console_write("ehci: enumeration unavailable; no 32-bit DMA page\n");
         return;
     }
     struct ehci_control_path path = { op, pmm_phys_to_virt(physical), (uint32_t)physical, report };
     struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split,
-        .device_found = track_trial ? track_topcase : 0 };
+        .device_found = track_trial ? track_topcase : 0, .step = { .operation = "configure DMA and bus mastering" } };
     *path.dma = (struct ehci_dma) { .qh = { .link = EHCI_LINK_END,
         .overlay = { .next = EHCI_LINK_END, .alternate = EHCI_LINK_END } } };
     __asm__ volatile ("mfence" : : : "memory");
@@ -374,13 +435,23 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     if (op[EHCI_ASYNCLISTADDR] == list &&
         (!(report->capabilities & EHCI_HCC_64BIT) || !op[EHCI_CTRLDSSEGMENT]) &&
         set_command_bits(device, PCI_COMMAND_MASTER, PCI_COMMAND_MASTER)) {
+        bus.step.operation = "start controller";
         op[EHCI_USBCMD] = op[EHCI_USBCMD] | EHCI_CMD_RUN;
         if (wait_mmio(&op[EHCI_USBSTS], EHCI_STS_HALTED, 0, EHCI_HALT_US)) {
+            bus.step.operation = "route root ports to EHCI";
             op[EHCI_CONFIGFLAG] = 1;
             complete = op[EHCI_CONFIGFLAG] == 1 && enumerate_root_ports(report, &path, &bus);
         }
     }
+    if (!complete) {
+        report->stopped = bus.step;
+        report->stopped_usbsts = report->transfer_failure.reason ? report->transfer_failure.usbsts : op[EHCI_USBSTS];
+    }
     bool retired = retire_control_path(device, op);
+    if (complete && !retired) {
+        report->stopped.operation = "retire controller DMA";
+        report->stopped_usbsts = op[EHCI_USBSTS];
+    }
     report->enumerated = complete;
     report->dma_released = retired;
     if (retired) {
@@ -499,6 +570,17 @@ static int trial_controller_slot(const struct pci_device *device) {
     return -1;
 }
 
+static void log_transfer_failure(const struct ehci_transfer_failure *failure) {
+    if (!failure->reason) return;
+    const struct usb_setup_packet *setup = &failure->request;
+    console_printf("ehci: control failure=%s address=%u type=%x request=%x value=%x index=%u length=%u\n",
+        failure->reason, (uint64_t)failure->address, (uint64_t)setup->request_type, (uint64_t)setup->request,
+        (uint64_t)setup->value, (uint64_t)setup->index, (uint64_t)setup->length);
+    console_printf("ehci: control USBSTS=%x setup_qtd=%x data_qtd=%x status_qtd=%x\n",
+        (uint64_t)failure->usbsts, (uint64_t)failure->setup_token, (uint64_t)failure->data_token,
+        (uint64_t)failure->status_token);
+}
+
 static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial) {
     uint64_t root = vmm_kernel_address_space();
     if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) {
@@ -519,12 +601,14 @@ static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial)
             trial->scans += report.enumerated;
             trial->released += report.dma_released;
             if (slot >= 0) trial->controllers[slot] = report;
+            else if (report.stopped.operation && !trial->other_failure.stopped.operation) trial->other_failure = report;
         }
         console_printf("ehci: bus=%u dev=%u fn=%u vendor=%x device=%x version=%x ports=%u "
                        "handoff=%s result=%s was_running=%u mapping=%s\n",
             (uint64_t)device->bus, (uint64_t)device->device, (uint64_t)device->function,
             (uint64_t)device->vendor_id, (uint64_t)device->device_id, (uint64_t)report.version,
             (uint64_t)report.ports, report.handoff, report.result, (uint64_t)report.was_running, report.mapping);
+        log_transfer_failure(&report.transfer_failure);
         if (!reusable) break;
     }
     if (!found) console_write("ehci: no controller\n");
@@ -556,6 +640,34 @@ static bool trial_passed(const struct ehci_trial_report *trial) {
     return true;
 }
 
+static void print_scan_stop(const struct ehci_probe_report *report) {
+    const struct ehci_scan_step *step = &report->stopped;
+    if (!step->operation) return;
+    if (step->hub) {
+        console_printf("  Stop at hub %u port %u during %s\n",
+            (uint64_t)step->hub, (uint64_t)step->port, step->operation);
+    } else if (step->port) {
+        console_printf("  Stop at root port %u during %s\n", (uint64_t)step->port, step->operation);
+    } else {
+        console_printf("  Stop during %s\n", step->operation);
+    }
+    if (step->port_status_valid) {
+        console_printf("  USBSTS=%x  last port status=%x\n", (uint64_t)report->stopped_usbsts, (uint64_t)step->port_status);
+    } else {
+        console_printf("  USBSTS=%x  last port status unavailable\n", (uint64_t)report->stopped_usbsts);
+    }
+    const struct ehci_transfer_failure *failure = &report->transfer_failure;
+    if (failure->reason) {
+        console_printf("  Control %s at USB address %u, request %u\n", failure->reason,
+            (uint64_t)failure->address, (uint64_t)failure->request.request);
+        if (failure->qtd_valid) {
+            console_printf("  qTD status bytes (decimal) setup=%u data=%u status=%u\n",
+                (uint64_t)(uint8_t)failure->setup_token, (uint64_t)(uint8_t)failure->data_token,
+                (uint64_t)(uint8_t)failure->status_token);
+        }
+    }
+}
+
 void ehci_boot_trial(const char *release) {
     struct ehci_trial_report trial = {0};
     console_set_framebuffer_muted(false);
@@ -572,7 +684,9 @@ void ehci_boot_trial(const char *release) {
         console_printf("%s  %s  scan=%s  DMA=%s\n", names[i],
             !report->result ? "absent" : report->reset_halted && !report->access_retired ? "access-unverified" : report->result,
             report->enumerated ? "complete" : "incomplete", report->dma_released ? "released" : "unverified");
+        print_scan_stop(report);
     }
+    if (trial.other_failure.stopped.operation) print_scan_stop(&trial.other_failure);
     const struct ehci_probe_report *input = &trial.controllers[0];
     console_printf("Topcase 05ac:0245 via hub 0424:2513 port 2, EP0 8: %s\n",
         input->topcase_address ? "descriptors read" : "unverified");
