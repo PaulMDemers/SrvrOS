@@ -21,6 +21,8 @@
 #define RTL_CU_RF_DATA_MASK 0xfffffu
 #define RTL_CU_RF_START_CHANNEL 0x7401u
 #define RTL_CU_RF_PATH_SELECT 0x878u
+#define RTL_CU_LED_CONFIG 0x04cu
+#define RTL_CU_RF_PATH_MUX (1u<<23)
 #define RTL_CU_RF0_LINUX_WRITE 0x32ed3u
 /* The working Linux RF0 readback varies below bit 16. */
 #define RTL_CU_RF0_STABLE_MASK 0xf0000u
@@ -59,7 +61,7 @@ static const struct { uint16_t address,width; } rtl_cu_phy_radio_regs[]={
     {0xd00,4},{0xd04,4},
 };
 #define RTL_CU_PHY_RADIO_COUNT (sizeof rtl_cu_phy_radio_regs/sizeof rtl_cu_phy_radio_regs[0])
-static const uint16_t rtl_cu_iq_startup_regs[]={0x04c,0x428,RTL_CU_IQ_STARTUP_B68,0xe28,0xe48,0xe4c};
+static const uint16_t rtl_cu_iq_startup_regs[]={RTL_CU_LED_CONFIG,0x428,RTL_CU_IQ_STARTUP_B68,0xe28,0xe48,0xe4c};
 #define RTL_CU_IQ_STARTUP_COUNT (sizeof rtl_cu_iq_startup_regs/sizeof rtl_cu_iq_startup_regs[0])
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
@@ -96,6 +98,8 @@ static struct {
     uint32_t phy_radio[RTL_CU_PHY_RADIO_COUNT],rf0[RTL_CU_RF0_COUNT];
     unsigned phy_radio_reads,rf0_valid;
     bool rf0_write_ok,phy_radio_ready;
+    uint32_t ledcfg_before,ledcfg_after;
+    unsigned ledcfg_valid;
     uint32_t iq_before[RTL_CU_IQ_FIELDS],iq_after[RTL_CU_IQ_FIELDS],iq_startup[RTL_CU_IQ_STARTUP_COUNT];
     unsigned iq_valid,iq_startup_reads;
     bool iq_attempted,iq_ready;
@@ -211,11 +215,12 @@ static void rtl_cu_rx_log(void) {
             (uint64_t)r[RTL_CU_FPGA0_RFMOD],(uint64_t)r[RTL_CU_FPGA1_RFMOD],(uint64_t)r[RTL_CU_OFDM_TRX],
             (uint64_t)r[RTL_CU_MAR0],(uint64_t)r[RTL_CU_MAR1]);
     if(rtl_passive.startup_rf_valid)
-        console_printf("rtl8188cu-rf-setup: ready=%u valid=%x write_ok=%u before=%x pre_lc=%x post_lc=%x tuned=%x reads=%u\n",
+        console_printf("rtl8188cu-rf-setup: ready=%u valid=%x write_ok=%u before=%x pre_lc=%x post_lc=%x tuned=%x reads=%u mux_valid=%u path_mux=%x\n",
             (uint64_t)rtl_passive.phy_radio_ready,(uint64_t)rtl_passive.rf0_valid,(uint64_t)rtl_passive.rf0_write_ok,
             (uint64_t)rtl_passive.rf0[RTL_CU_RF0_BEFORE_WRITE],(uint64_t)rtl_passive.rf0[RTL_CU_RF0_PRE_LC],
             (uint64_t)rtl_passive.rf0[RTL_CU_RF0_POST_LC],(uint64_t)rtl_passive.rf0[RTL_CU_RF0_TUNED],
-            (uint64_t)rtl_passive.phy_radio_reads);
+            (uint64_t)rtl_passive.phy_radio_reads,(uint64_t)rtl_passive.ledcfg_valid,
+            ((uint64_t)rtl_passive.ledcfg_before<<32)|rtl_passive.ledcfg_after);
     if(rtl_passive.phy_radio_reads) {
         /* Pack (address << 32) | value to fit the independent journal tail. */
         console_write("rtl8188cu-phy-radio:");
@@ -343,8 +348,20 @@ static bool rtl_cu_sample_rf0(struct xhci_device *d,enum rtl_cu_rf0_phase phase)
     return true;
 }
 
+static bool rtl_cu_enable_rf_path_mux(struct xhci_device *d) {
+    /* The 92C Linux single-chain path setup asserts LEDCFG bit 23. */
+    if(!rtl8188cu_read(d,RTL_CU_LED_CONFIG,4,&rtl_passive.ledcfg_before))return false;
+    rtl_passive.ledcfg_valid=1;
+    uint32_t expected=rtl_passive.ledcfg_before|RTL_CU_RF_PATH_MUX;
+    if((expected!=rtl_passive.ledcfg_before && !rtl8188cu_write_value(d,RTL_CU_LED_CONFIG,4,expected)) ||
+       !rtl8188cu_read(d,RTL_CU_LED_CONFIG,4,&rtl_passive.ledcfg_after))return false;
+    rtl_passive.ledcfg_valid=3;
+    return rtl_passive.ledcfg_after==expected;
+}
+
 static bool rtl_cu_apply_linux_radio_settings(struct xhci_device *d) {
     if(!rtl_cu_tx_parked(d) || !rtl_cu_sample_rf0(d,RTL_CU_RF0_BEFORE_WRITE) ||
+       !rtl_cu_enable_rf_path_mux(d) ||
        !rtl8188cu_update(d,RTL_CU_RF_PATH_SELECT,4,0,1u<<13) ||
        !rtl8188cu_write_value(d,0x840,4,RTL_CU_RF0_LINUX_WRITE))return false;
     rtl_passive.rf0_write_ok=true;
@@ -382,6 +399,7 @@ static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
     for(unsigned i=0;i<RTL_CU_IQ_STARTUP_COUNT;i++) {
         if(!rtl8188cu_read(d,rtl_cu_iq_startup_regs[i],4,&rtl_passive.iq_startup[i]))return false;
         rtl_passive.iq_startup_reads++;
+        if(rtl_cu_iq_startup_regs[i]==RTL_CU_LED_CONFIG && !(rtl_passive.iq_startup[i]&RTL_CU_RF_PATH_MUX))return false;
     }
     /* Match the full word retained by the Linux monitor on this board. */
     rtl_passive.b68_attempted=true;

@@ -1059,6 +1059,16 @@ Preserve the other bits in the SrvrOS word and verify the selected
 bit before and after tuning. Keep the retained IQ matrix, B68,
 receive gates, single 4,096-byte request and hub topology.
 
+In both Linux startup sequences, the path-selection routine read
+and wrote `0x00828080` at `0x04c`, then changed `0x878` from
+`0x00000808` to `0x00002808` and retained `0x66f60230` at `0x860`.
+The prior cold SrvrOS startup sampled `0x00028282` at `0x04c`;
+the two baseband path words already matched Linux. This trial
+preserves the other LEDCFG fields and expects `0x00828282` on this
+unit. It records the original value and immediate readback before RF0
+and LC, then checks that bit 23 remains set after the channel tune.
+[Linux path selection](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
