@@ -760,6 +760,16 @@ and all seven independent journal phases verified, all 592 previous
 workspace files were preserved, and the laptop returned to Ubuntu.
 The exact payload and logs are archived as `evidence-f5d06ccb9879d3e1`.
 
+The next RTL8188CUS trial compares the radio and PHY on channel 10 at
+20 MHz after the verified filter trial. Scope is limited to the routed
+passive xHCI path and its native fixture. It keeps the bulk IN request
+and the three-adapter hub topology fixed. The fetched main `61111819`
+has no overlapping changes to this path since integration baseline
+`50f1978a`. Capture the board's working Linux values, test the two
+fixed radio settings identified in that trace, and save a matched
+pre-receive snapshot so that any remaining calibration differences
+are visible. The TX gates remain closed throughout.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
