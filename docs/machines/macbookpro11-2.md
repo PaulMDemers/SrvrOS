@@ -642,6 +642,25 @@ The inactive EFI copy removed for space was verified against its recovery
 archive. The unattended boot saves the paired RX and PHY samples before
 returning to Ubuntu.
 
+Cold session `session-000660fdfabe998e-00` saved all three complete PHY
+samples in both logs. During the SrvrOS window the OFDM parity counter
+rose from 9 to 2,255, illegal rate from 15 to 2,201, CRC8 from 0 to 81,
+MCS from 0 to 75, and sideband search from 2 to 440. The Linux channel-10
+baseline showed comparable activity and 987 successful bulk IN
+completions. SrvrOS again received zero bytes, with an idle RX DMA
+snapshot and a stop event showing the full 4,096 bytes outstanding.
+The PHY observed RF activity. The false-alarm counters do not show
+whether valid frames reached the MAC. A good-frame counter or a
+controlled comparison of the receive delivery settings is needed to
+locate that boundary.
+
+The 29,643-byte exit snapshot and all seven journal phases verified.
+The bounded journal clipped four early firmware setup lines; the full
+workspace log retained all 19. RF/RX parked, Ubuntu returned, all three
+hub leaves were enumerated and all 588 prior workspace files survived.
+The exact payload, SrvrOS receipts and Linux reference are archived as
+`evidence-0b26fd3816a91c84`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
