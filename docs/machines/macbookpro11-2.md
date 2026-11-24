@@ -980,6 +980,31 @@ trace, all three hub leaves and the clean workspace with 600 files.
 The unattended run saves the matrix, PHY startup controls, good-frame
 counts and USB results before returning to Ubuntu.
 
+Cold session `session-00066100289c13d7-00` verified all five retained
+matrix words, including RX `0x400004f7` and TX `0x400b0102`. RX
+admission and RF0 checks passed. The four-second channel-10 test
+posted one 4,096-byte bulk IN request and received no data.
+PHY parity failures rose from 36 to 2,825. Good OFDM, CCK and HT
+counters remained zero, and the stop event reported all 4,096 bytes
+outstanding. The complete retained calibration matrix did not restore
+frame delivery or Demers2.4 discovery in this run.
+
+Of the six new startup readbacks, `0xe28` matched Linux at zero.
+SrvrOS and Linux respectively reported `0x00028282/0x00828080` at
+`0x04c`, `0x07071616/0x30300a10` at `0x428` and
+`0x80000000/0x00080000` at `0xb68`. The registers used in the
+Linux IQ trigger sequence `0xe48` and `0xe4c` also differed
+(`0xfb000000/0xf8000000` and `0x000028d1/0x001028d1`).
+These are measured differences. Their effect on frame delivery
+remains unverified.
+
+All three adapters stayed on the hub. SrvrOS parked the radio,
+stopped the endpoint, preserved the 600 prior workspace files
+and returned to Ubuntu. The 31,219-byte exit log and all seven
+independent journal checkpoints verified. The image and both
+Linux and SrvrOS evidence are archived as
+`evidence-e322a91f597732d0`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
