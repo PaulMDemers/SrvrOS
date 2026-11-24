@@ -686,6 +686,17 @@ every selector write and restores the original selector if EP0 is safe.
 Partial or unrestored samples are recorded as incomplete. This is a
 diagnostic comparison with the same radio, filter and USB receive setup.
 
+Cold candidate `f848af8b989023a6`, source `cc54771a`, passed the compiled
+native fixture, including selector restore, wrong-selector refusal and
+bulk teardown. The firmware and USB lifecycle regressions and the five
+exact-image GPT/journal/recovery VM checks passed. Verified installation
+kept Ubuntu as the default and recovery release `74da74e0b57afbb8`.
+The run record `build/bringup/pro112-rtl8188cu-good-frames/run.json`
+binds the two Linux references, all three hub leaves, the clean workspace
+with 590 existing files, and the fresh journal. The inactive EFI copy
+removed for space was verified against its recovery archive. The cold
+boot saves selector counts, PHY and USB evidence automatically.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
