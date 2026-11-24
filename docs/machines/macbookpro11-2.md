@@ -500,6 +500,22 @@ Collect the receive-setup readbacks and paired RX trace before deciding
 whether the filter changed packet and beacon delivery. Guest progress,
 log saving and Ubuntu return follow the unattended cold recipe.
 
+Cold session `session-000660fd0637c232-00` passed all eight receive-setup
+readbacks before posting. The broadened management map read back
+`0xffff`, RCR read `0x200e` at all three live phases, and the FPGA/OFDM
+values matched the Linux reference. Passive discovery still timed out
+with one bulk IN request posted and no completions. The sampled RX FIFO
+pointer stayed zero, RXPKT_NUM remained `0x00020000`, and the stop event
+reported all 4,096 bytes outstanding. This rules out a missed setup
+write for these registers. Compare RF startup and calibration against
+the working Linux sequence next.
+
+The workspace and independent journal agree, the 28,944-byte exit
+snapshot verified, and all seven journal phases completed. RF/RX
+parked, Ubuntu returned, and all 582 prior workspace files survived.
+The exact payload and evidence are archived in
+`evidence-56965a29fdbd3e76`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
