@@ -111,14 +111,22 @@ Ubuntu identifies the connected eDP panel as `IGPU.DD1F`. On this unit the
 76-byte EFI `ConOut` path passes through PCI device 2, function 0, then two
 vendor messaging nodes. The path has no ACPI display-address node. Its
 FNV-1a 64-bit hash including the end node is `a9167657801a6afb`.
-The next probe can start at the globally matched GOP handle and compare its
-device path with the console path and the six child paths during the same boot.
-The EFI route probe records every global GOP handle matching the original
-scanout, the boot-time `ConOut` variable, the system console handle and
-each EG2 child in open-record order between the two Pipe A snapshots.
-The collector compares complete device-path nodes per instance, retains the
-common prefix and distinguishes a missing path from one that diverges.
-The console path alone does not establish GPU traffic ownership.
+
+Release `f4e57e160cd7022a` at `8ad1c753` traced the console and all six
+EG2 children between two Pipe A snapshots. In physical session
+`session-000660fe2599690c-00`, two GOP handles exposed the active framebuffer.
+One was the system console handle and had no device path. The other's four
+nodes matched the boot-time `ConOut` path byte for byte. Child 0 supplied
+its first three nodes. The active path continued one vendor node beyond it.
+Children 1 through 5 shared the two-node PCI prefix and diverged at the
+third node. Child numbers refer to this boot's open-record order.
+
+The original framebuffer remained active at `0xb0000000`, all seven
+translations matched, all 19 reserved pages verified, and the USB volume
+returned clean. All four samples still allowed GPU traffic and none showed
+a fresh engine or L3 flush acknowledgement. The display handoff can now
+identify the branch to preserve by matching the active GOP and console paths.
+Native command submission still requires independent traffic and flush evidence.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
