@@ -260,7 +260,7 @@ class FlushAcknowledgements(unittest.TestCase):
                          ("backing=1 drivers=", "backing=0 drivers=")):
             with self.subTest(field=old), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(old, new))
-        legacy = re.sub(r"^intel-efi-[^\n]*\n", "", text, flags=re.M)
+        legacy = re.sub(r"^intel-(?:efi-|air-rc6:)[^\n]*\n", "", text, flags=re.M)
         legacy = legacy.replace("intel-command-slots: v=2 ", "intel-command-slots: v=1 ").replace("boot_returned=", "freed=")
         self.assertNotIn("efi_handoff", bootstrap_result(legacy)["range"])
 
@@ -377,7 +377,7 @@ class FlushAcknowledgements(unittest.TestCase):
         for field in ("pinned=5", "restored=5", "ro_mask=0"):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(field, field[:-1] + "4"))
-        old = re.sub(r"^intel-command-slots:.*\n", "", text, flags=re.M).replace("intel-range-summary: v=8 ", "intel-range-summary: v=5 ").replace(
+        old = re.sub(r"^intel-(?:command-slots|air-rc6):.*\n", "", text, flags=re.M).replace("intel-range-summary: v=8 ", "intel-range-summary: v=5 ").replace(
             "intel-slot-reopened: v=4 pinned=5 restored=5 ro_mask=0 writer=3 hwsp=0 hwstam=0xffffffff", "intel-slot-reopened: v=2")
         old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
             "intel-widi-device: v=2", "intel-widi-device: v=1")
@@ -422,7 +422,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -545,7 +545,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
-        old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device):.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6):.*\n", "", old_power, flags=re.M)
         old_power = old_power.replace("intel-range-summary: v=8 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
