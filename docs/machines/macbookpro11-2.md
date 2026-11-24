@@ -907,6 +907,20 @@ captures are `linux-iq-1.json` and `linux-iq-2.json` in
 `build/bringup/pro112-rtl8188cu-rx-iq`. The selected capture SHA-256 is
 `71dd290bb3c85d312711a0cd3f793c725ffd90acc1fdf111e58288bf49a0cf15`.
 
+Candidate `1ff3fc700a7466fa` from `c70eeca7` passed the production
+xHCI fixture for correction, unchanged 4,096-byte receive scheduling,
+corrupted IQ readback, dropped extension update and beacon proof.
+Firmware and USB lifecycle regressions passed. The result decoder
+verified native fixture receipts and fit them within the journal tail.
+The exact image passed the GPT workspace boot and all four
+journal/recovery VM cases. The verified install matches the fresh
+kernel hash and keeps Ubuntu as default with recovery
+`74da74e0b57afbb8`. The run record
+`build/bringup/pro112-rtl8188cu-rx-iq/run.json` binds both Linux captures,
+the original hub ports and the clean workspace with 598 existing files.
+The unattended test saves the IQ readback, good-frame counters, USB
+outcome and teardown before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
