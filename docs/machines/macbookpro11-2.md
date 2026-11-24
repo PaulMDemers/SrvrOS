@@ -716,6 +716,24 @@ contains all 19. RF/RX parked, Ubuntu returned and all 590 prior workspace
 files were preserved. The exact payload and both Linux references are
 archived as `evidence-f848af8b989023a6`.
 
+The next cold trial compares Linux frame admission with SrvrOS receive
+and USB settings held fixed. Five passive `rtl8192cu` samples on this
+Realtek at channel 10 and 20 MHz agreed on RCR `0xf000790f`, multicast
+masks `0xffffffff` in both words, and management/control/data maps
+`0xffff/0x0000/0xffff`. The Linux capture recorded 753 successful bulk
+IN completions and zero usbmon drops. The local reference is
+`build/bringup/pro112-rtl8188cu-linux-filter/linux-filter-channel10.json`,
+SHA-256 `9712a160a2ec022851db931b014d506517793efe6b37e16015ee0cd5efeeccd7`.
+
+SrvrOS uses the measured frame admission bits (`0x0000790f`) and maps,
+and verifies the two multicast masks. It leaves Linux's optional
+descriptor metadata disabled and continues to post one 4,096-byte
+bulk IN request. The software still rejects corrupt frames and
+requires matching Demers2.4 beacons. The compiled native xHCI fixture
+verifies the filter writes, the unchanged USB request size and
+rejection of a data frame before successful beacon proof. Native
+firmware and lifecycle regressions passed.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

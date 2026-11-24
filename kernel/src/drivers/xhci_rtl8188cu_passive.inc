@@ -14,8 +14,10 @@
 #define RTL_CU_LLT_WRITE (1u<<30)
 #define RTL_CU_LLT_BUSY (3u<<30)
 #define RTL_CU_PACKET_BOUNDARY 0xf9u
-#define RTL_CU_MGMT_RCR 0x200eu
-#define RTL_CU_MGMT_MAP 0xffffu
+/* Match the measured Linux monitor admission bits. The high RCR nibble
+ * controls appended receive metadata and stays clear in this comparison. */
+#define RTL_CU_MONITOR_RCR 0x790fu
+#define RTL_CU_ALL_SUBTYPES 0xffffu
 #define RTL_CU_RF_DATA_MASK 0xfffffu
 #define RTL_CU_RF_START_CHANNEL 0x7401u
 #define RTL_CU_LC_START 0x8000u
@@ -30,7 +32,7 @@ enum rtl_cu_phy_register { RTL_CU_OFDM1,RTL_CU_OFDM2,RTL_CU_OFDM3,RTL_CU_SYNC,RT
 enum rtl_cu_report { RTL_CU_OFDM_OK,RTL_CU_CCK_OK,RTL_CU_HT_OK,RTL_CU_FIFO_DROP,RTL_CU_REPORT_COUNT };
 enum rtl_cu_rx_admission {
     RTL_CU_FILTER_RCR,RTL_CU_FILTER_MGT,RTL_CU_FILTER_CTL,RTL_CU_FILTER_DATA,RTL_CU_DRIVER_INFO,
-    RTL_CU_FPGA0_RFMOD,RTL_CU_FPGA1_RFMOD,RTL_CU_OFDM_TRX,RTL_CU_ADMISSION_COUNT
+    RTL_CU_FPGA0_RFMOD,RTL_CU_FPGA1_RFMOD,RTL_CU_OFDM_TRX,RTL_CU_MAR0,RTL_CU_MAR1,RTL_CU_ADMISSION_COUNT
 };
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
@@ -69,13 +71,13 @@ static struct {
 } rtl_passive;
 
 static bool rtl_cu_verify_receive_setup(struct xhci_device *d) {
-    /* Match the measured management filter and the pinned baseband layout.
-     * Leave control/data maps and optional descriptor trailers disabled. */
+    /* Verify the frame filters and pinned baseband layout. */
     static const struct { uint16_t address,width; uint32_t expected; } regs[RTL_CU_ADMISSION_COUNT]={
-        [RTL_CU_FILTER_RCR]={0x608,4,RTL_CU_MGMT_RCR}, [RTL_CU_FILTER_MGT]={0x6a0,2,RTL_CU_MGMT_MAP},
-        [RTL_CU_FILTER_CTL]={0x6a2,2,0}, [RTL_CU_FILTER_DATA]={0x6a4,2,0}, [RTL_CU_DRIVER_INFO]={0x60f,1,0},
+        [RTL_CU_FILTER_RCR]={0x608,4,RTL_CU_MONITOR_RCR}, [RTL_CU_FILTER_MGT]={0x6a0,2,RTL_CU_ALL_SUBTYPES},
+        [RTL_CU_FILTER_CTL]={0x6a2,2,0}, [RTL_CU_FILTER_DATA]={0x6a4,2,RTL_CU_ALL_SUBTYPES}, [RTL_CU_DRIVER_INFO]={0x60f,1,0},
         [RTL_CU_FPGA0_RFMOD]={0x800,4,0x83040000}, [RTL_CU_FPGA1_RFMOD]={0x900,4,0},
         [RTL_CU_OFDM_TRX]={0xc04,4,0x03a05611},
+        [RTL_CU_MAR0]={0x620,4,UINT32_MAX}, [RTL_CU_MAR1]={0x624,4,UINT32_MAX},
     };
     rtl_passive.admission_attempted=true;
     bool match=true;
@@ -167,11 +169,12 @@ static void rtl_cu_rx_log(void) {
             (uint64_t)rtl_passive.gain_valid,(uint64_t)rtl_passive.gain[0],(uint64_t)rtl_passive.gain[1]);
     const uint32_t *r=rtl_passive.admission;
     if(rtl_passive.admission_attempted)
-        console_printf("rtl8188cu-rx-setup: ready=%u valid=%x rcr=%x mgt=%x ctl=%x data=%x drvinfo=%x fpga0=%x fpga1=%x ofdm_trx=%x\n",
+        console_printf("rtl8188cu-rx-setup: ready=%u valid=%x rcr=%x mgt=%x ctl=%x data=%x drvinfo=%x fpga0=%x fpga1=%x ofdm_trx=%x mar0=%x mar1=%x\n",
             (uint64_t)rtl_passive.admission_ok,(uint64_t)rtl_passive.admission_valid,
             (uint64_t)r[RTL_CU_FILTER_RCR],(uint64_t)r[RTL_CU_FILTER_MGT],(uint64_t)r[RTL_CU_FILTER_CTL],
             (uint64_t)r[RTL_CU_FILTER_DATA],(uint64_t)r[RTL_CU_DRIVER_INFO],
-            (uint64_t)r[RTL_CU_FPGA0_RFMOD],(uint64_t)r[RTL_CU_FPGA1_RFMOD],(uint64_t)r[RTL_CU_OFDM_TRX]);
+            (uint64_t)r[RTL_CU_FPGA0_RFMOD],(uint64_t)r[RTL_CU_FPGA1_RFMOD],(uint64_t)r[RTL_CU_OFDM_TRX],
+            (uint64_t)r[RTL_CU_MAR0],(uint64_t)r[RTL_CU_MAR1]);
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -341,9 +344,11 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl_cu_rf_read(d,0x18,channel) || (*channel&0x3ff)!=RTL_CU_CHANNEL ||
        !rtl8188cu_update(d,0x10c,1,4,0) || !rtl8188cu_update(d,0xfe55,1,8,0) ||
        !rtl8188cu_write_value(d,0x60f,1,0) ||
-       !rtl8188cu_write_value(d,0x608,4,RTL_CU_MGMT_RCR) ||
-       !rtl8188cu_write_value(d,0x6a0,2,RTL_CU_MGMT_MAP) ||
-       !rtl8188cu_write_value(d,0x6a2,2,0) || !rtl8188cu_write_value(d,0x6a4,2,0))return false;
+       !rtl8188cu_write_value(d,0x608,4,RTL_CU_MONITOR_RCR) ||
+       !rtl8188cu_write_value(d,0x620,4,UINT32_MAX) || !rtl8188cu_write_value(d,0x624,4,UINT32_MAX) ||
+       !rtl8188cu_write_value(d,0x6a0,2,RTL_CU_ALL_SUBTYPES) ||
+       !rtl8188cu_write_value(d,0x6a2,2,0) ||
+       !rtl8188cu_write_value(d,0x6a4,2,RTL_CU_ALL_SUBTYPES))return false;
     if(!rtl8188cu_read(d,0xc50,4,&rtl_passive.gain[0]))return false;
     rtl_passive.gain_valid=1;
     if(!rtl8188cu_read(d,0xc58,4,&rtl_passive.gain[1]))return false;
