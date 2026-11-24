@@ -697,6 +697,25 @@ with 590 existing files, and the fresh journal. The inactive EFI copy
 removed for space was verified against its recovery archive. The cold
 boot saves selector counts, PHY and USB evidence automatically.
 
+Cold session `session-000660fe554a9599-00` recorded complete good-frame
+samples with verified selector restoration at all three checkpoints.
+Good OFDM, CCK and HT MPDUs and FIFO drops all read zero. The same Linux
+reference reported three good OFDM and four good CCK MPDUs alongside
+629 bulk completions. SrvrOS still observed PHY activity (OFDM parity
+failures rose from 16 to 3,527) but its one bulk IN request ended with
+zero completions and all 4,096 bytes outstanding. There is no positive
+good-frame evidence from this run. The counter's limited coverage in
+the Linux baseline leaves the boundary between decoding, acceptance
+and delivery unresolved. Next compare Linux-equivalent frame admission
+while holding the SrvrOS USB receive request fixed.
+
+Both logs retain the full report and PHY samples, the 30,144-byte exit
+snapshot verified and all seven journal phases completed. The independent
+journal retained 10 of the 19 firmware setup lines; the USB workspace log
+contains all 19. RF/RX parked, Ubuntu returned and all 590 prior workspace
+files were preserved. The exact payload and both Linux references are
+archived as `evidence-f848af8b989023a6`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
