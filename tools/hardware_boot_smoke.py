@@ -1460,6 +1460,11 @@ def main():
                     elif args.efi_probe_fault == "missing-acpi":
                         grub_state, kernel = "start-failed", "absent"
                         checkpoints = dict(entered=0, capture=0, locate=0x800000000000000e)
+                    if manifest.get("efi_eg2_clients"):
+                        wanted = (dict(state="observed", entries=1, drivers=1, core_drivers=0, children=0, exclusive=0)
+                                  if args.efi_probe_fault == "missing-acpi-vector" else None)
+                        if trace.get("eg2_clients") != wanted:
+                            raise ValueError(f"Unexpected EFI protocol clients: {trace.get('eg2_clients')}")
                     if trace["grub"] != grub_state or trace["probe"] != checkpoints:
                         raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
                     if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):

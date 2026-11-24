@@ -111,7 +111,42 @@ fn framebuffer(bs: *Services, r: *Record) !void {
     }
     if (r.framebuffer_bytes == 0) return error.NoGop;
 }
-fn capture(bs: *Services, r: *Record) !void {
+// Query the controller's protocol-open database. Never call the private
+// interface or disconnect a driver from the active display.
+pub const Eg2Device = extern struct {
+    unused: u8,
+    pub const guid align(8) = makeGuid(0x53cfeb0d, 0x9b9e, 0x4d0a, .{ 0x90, 0xb6, 0x02, 0x4a, 0x79, 0x90, 0x6a, 0x58 });
+};
+const core_eg2 = makeGuid(0x4ddeafa4, 0xf480, 0x4b9d, .{ 0x88, 0x9b, 0x1e, 0x3a, 0xe6, 0x60, 0x5b, 0xd6 });
+pub const Eg2Clients = struct {
+    state: enum { observed, absent, unavailable } = .observed,
+    entries: usize = 0,
+    drivers: usize = 0,
+    core_drivers: usize = 0,
+    children: usize = 0,
+    exclusive: usize = 0,
+};
+pub fn eg2Clients(bs: *Services, handle: Handle) !Eg2Clients {
+    const opens = (try bs.openProtocolInformation(handle, Eg2Device)) orelse return error.ProtocolUnavailable;
+    defer if (opens.len != 0) bs.freePool(@ptrCast(opens.ptr)) catch {};
+    if (opens.len > 0xffff) return error.TooManyClients;
+    var result: Eg2Clients = .{ .entries = opens.len };
+    for (opens) |op| {
+        const bits = @intFromEnum(op.attributes);
+        if (bits & 16 != 0) {
+            result.drivers += 1;
+            if (op.agent_handle) |agent| {
+                if (driverFile(bs, agent)) |id| {
+                    if (core_eg2.eql(@bitCast(id))) result.core_drivers += 1;
+                }
+            }
+        }
+        if (bits & 8 != 0) result.children += 1;
+        if (bits & 32 != 0) result.exclusive += 1;
+    }
+    return result;
+}
+fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
     const handles = (try bs.locateHandleBuffer(.{ .by_protocol = &Pci.guid })) orelse return;
     defer bs.freePool(@ptrCast(handles.ptr)) catch {};
     for (handles) |handle| {
@@ -155,6 +190,10 @@ fn capture(bs: *Services, r: *Record) !void {
         if (ids.len > r.protocol_ids.len) return error.TooManyProtocols;
         for (ids, 0..) |id, i| r.protocol_ids[i] = @bitCast(id.*);
         r.protocols = @intCast(ids.len);
+        clients.* = .{ .state = .absent };
+        for (ids) |id| {
+            if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle) catch .{ .state = .unavailable };
+        }
         r.step = 3;
         try snapshot(p, r);
         r.step = 4;
@@ -199,6 +238,18 @@ fn mark(file: ?*File, phase: Phase, value: u64) void {
 }
 const config_guid: efi.Guid align(8) = @bitCast([2]u64{ wire.AIR_BOOT_GUID_LO, wire.AIR_BOOT_GUID_HI });
 
+fn markClients(f: *File, c: Eg2Clients) void {
+    var block = [_]u8{0} ** 64;
+    _ = switch (c.state) {
+        .observed => std.fmt.bufPrint(&block, "eg2-open {d} {d} {d} {d} {d}\n", .{
+            c.entries, c.drivers, c.core_drivers, c.children, c.exclusive,
+        }),
+        else => std.fmt.bufPrint(&block, "eg2-{s}\n", .{@tagName(c.state)}),
+    } catch return;
+    f.setPosition(384) catch return;
+    if ((f.write(&block) catch return) == block.len) f.flush() catch {};
+}
+
 fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status {
     var r = std.mem.zeroes(Record);
     r.signature = "OEMG".*;
@@ -208,12 +259,14 @@ fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status 
     r.table_id = "BDWBOOT1".*;
     r.oem_revision = 1;
     r.first = wire.AIR_BOOT_SLOT;
-    captureRecord(bs, &r) catch {
+    var clients: ?Eg2Clients = null;
+    captureRecord(bs, &r, &clients) catch {
         r.state = wire.AIR_BOOT_PROBING;
     };
     // Ownership of this firmware-described private buffer crosses ExitBootServices.
     // Its pages stay reserved for this boot even if the GPU declines admission.
     mark(file, .capture, (@as(u64, r.state) << 32) | r.step);
+    if (clients) |c| if (file) |f| markClients(f, c);
     var interface: ?*const anyopaque = null;
     const locate = bs._locateProtocol(&Acpi.guid, null, &interface);
     mark(file, .locate, @intFromEnum(locate));

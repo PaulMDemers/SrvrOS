@@ -19,7 +19,7 @@ def seed(release):
 
 def decode(env, probe, release, nonce=None):
     header = re.match(rb'SRVR-AIR-EFI-V1 ([0-9a-f]{16}) ([0-9a-f]{16})\n', probe)
-    if len(probe) != 512 or not header or any(probe[header.end():64]) or any(probe[384:]):
+    if len(probe) != 512 or not header or any(probe[header.end():64]) or any(probe[448:]):
         raise ValueError('Invalid EFI progress file')
     tag, token = (s.decode() for s in header.groups())
     rows = re.fullmatch(rb'# GRUB Environment Block\n((?:air_(?:release|nonce|state)=[a-z0-9-]+\n){3})#+', env)
@@ -39,7 +39,23 @@ def decode(env, probe, release, nonce=None):
             if not row or len(progress) != i-1:
                 raise ValueError('Invalid EFI progress sequence')
             progress[stage] = int(row[1], 16)
-    return dict(release=tag, nonce=token, grub=state, probe=progress)
+    result = dict(release=tag, nonce=token, grub=state, probe=progress)
+    if any(probe[384:448]):
+        if 'capture' not in progress:
+            raise ValueError('Missing EFI capture for EG2 open receipt')
+        for state in ('absent', 'unavailable'):
+            if probe[384:448] == f'eg2-{state}\n'.encode().ljust(64, b'\0'):
+                result['eg2_clients'] = dict(state=state)
+                return result
+        row = re.fullmatch(rb'eg2-open (\d{1,5}) (\d{1,5}) (\d{1,5}) (\d{1,5}) (\d{1,5})\n\x00*', probe[384:448])
+        if not row:
+            raise ValueError('Invalid EFI EG2 open receipt')
+        entries, drivers, core, children, exclusive = map(int, row.groups())
+        if entries > 65535 or core > drivers or drivers + children > entries or exclusive > entries:
+            raise ValueError('Invalid EFI EG2 open counts')
+        result['eg2_clients'] = dict(state='observed', entries=entries, drivers=drivers, core_drivers=core,
+                                     children=children, exclusive=exclusive)
+    return result
 
 
 def read(base, release, nonce=None):

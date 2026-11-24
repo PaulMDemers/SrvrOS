@@ -81,6 +81,17 @@ An earlier attempt stopped at the baseline because the compositor had a pending
 flip. The completed comparisons preserved the active primary surface within
 each run. Raw comparisons and regression logs are in `build/air-trigger-leases/`.
 
+The Air's read-only BIOS MTD identified the PCI-bound firmware file above as
+the **Broadwell EG2 Graphics Driver**. Its PE subsystem is EFI boot-service
+driver (11). The private device protocol GUID on that PCI handle,
+`53cfeb0d-9b9e-4d0a-90b6-024a79906a58`, also occurs in the CoreEG2 image,
+file `4ddeafa4-f480-4b9d-889b-1e3ae6605bd6`. CoreEG2 contains the standard
+GOP GUID as well. The next EFI probe queries the private protocol's open
+records on the matched GPU. It counts BY_DRIVER and BY_CHILD_CONTROLLER
+entries and resolves BY_DRIVER agents to their firmware file GUID to identify
+a live CoreEG2 binding. The collector preserves absent and unreadable results.
+This test keeps the firmware driver attached and the original panel active.
+
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
 transfer, and independent WiDi exclusion when global GO reopens. The native reset

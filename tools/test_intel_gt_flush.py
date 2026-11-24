@@ -117,6 +117,16 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertNotIn('allocate', receipt['probe'])
         with self.assertRaisesRegex(ValueError, 'identity'):
             trace.decode(env, probe, release, 'different-boot')
+        self.assertNotIn('eg2_clients', receipt)
+        for row, state in ((b'eg2-open 0 0 0 0 0', 'observed'), (b'eg2-open 2 1 1 1 0', 'observed'),
+                           (b'eg2-absent', 'absent'), (b'eg2-unavailable', 'unavailable')):
+            probe[384:448] = (row+b'\n').ljust(64, b'\0')
+            self.assertEqual(trace.decode(env, probe, release)['eg2_clients']['state'], state)
+        for row in (b'eg2-open 1 1 2 0 0', b'eg2-open 1 1 0 1 0', b'eg2-open 0 0 0 0 1', b'eg2-open 0'):
+            probe[384:448] = (row+b'\n').ljust(64, b'\0')
+            with self.assertRaisesRegex(ValueError, 'EG2 open'):
+                trace.decode(env, probe, release)
+        probe[384:448] = bytes(64)
         probe[128:192] = bytes(64)
         with self.assertRaisesRegex(ValueError, 'sequence'):
             trace.decode(env, probe, release)

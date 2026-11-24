@@ -534,6 +534,8 @@ class Runner:
             raise ValueError('Payload bank mismatch')
         if payload.get('efi_trace_version') == 1:
             state['efi_trace_version'] = 1
+            if payload.get('efi_eg2_clients') == 1:
+                state['efi_eg2_clients'] = True
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
 
@@ -732,11 +734,16 @@ class Runner:
             diagnostic_complete = bool(((manifest['profile'] in STOLEN_WIRES and native.get('diagnostic_stolen')) or (manifest['profile']=='intel-bcs-context-v46' and native.get('diagnostic_context')) or (manifest['profile']=='intel-gt-arena-v45' and native.get('diagnostic_arena')) or (manifest['profile']=='intel-gt-memory-v44' and native.get('diagnostic_memory')) or (manifest['profile']=='intel-gt-range-v56' and native.get('diagnostic_range')) or (manifest['profile']=='intel-gt-primary-v57' and native.get('diagnostic_primary')) or (manifest['profile']=='intel-gt-aux-v58' and native.get('diagnostic_aux')) or (manifest['profile']=='intel-gt-flush-v59' and native.get('diagnostic_flush')) or (manifest['profile']=='intel-gt-seconds-v42' and native.get('diagnostic_seconds')) or (manifest['profile']=='intel-gt-practical-v43' and native.get('diagnostic_practical'))) and native.get('diagnostic_complete'))
             if manifest['profile'] in (*EDP_PROFILES, PREPARE_GAM):
                 diagnostic_complete = native['diagnostic_complete']
+            if state.get('efi_eg2_clients'):
+                eg2 = trace.get('eg2_clients', {}) if state.get('efi_trace_nonce') else {}
+                diagnostic_complete = diagnostic_complete and eg2.get('state') == 'observed'
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
                           raw_manifest=after['raw'][session], native=native, offline_integrity='PASS',
                           native_acceptance=False, physical_tearfree=False)
+            if state.get('efi_eg2_clients'):
+                report['efi_eg2_clients'] = eg2 or dict(state='missing')
             atomic(directory / 'report.json', report)
             status='review read-only census; native ownership withheld' if manifest['profile'] in STOLEN_WIRES and diagnostic_complete else 'review wide-policy diagnostic; original timing acceptance withheld' if diagnostic_complete else 'review full retirement and scope before acceptance' if native_complete else 'incomplete native chain; review retained failure'
             if manifest['profile'] in STOLEN_WIRES and not diagnostic_complete:
