@@ -10,10 +10,11 @@ tear-free scanout is still pending.
 
 ## Current Air7,2 work on PR 301
 
-The current diagnostic compares GT idle residency at 20 ms with display
-audio held and released, then samples at 100 ms after release. It uses
-read-only observations of the EFI-selected panel, forcewake ACK and RC6
-counters. The new observations carry no command submission authority.
+On the Air, releasing the display-audio owner and waiting 103 ms produced
+zero additional RC6 residency. The next power-management comparison is the
+per-engine idle configuration and GT idle timers on SrvrOS and Ubuntu/i915.
+Native command submission still requires a device-wide traffic block and
+fresh engine and L3 acknowledgements.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
@@ -181,11 +182,28 @@ L3 flush acknowledgement.
 In a separate Ubuntu/i915 comparison on this Air, 14 of 19 trials with
 matching panel surfaces showed RC6 and a clear forcewake acknowledgement
 about 2 ms after release. All 20 acquisitions showed RC0. SrvrOS sampled
-after GT release while the display-audio owner was still held. The next
-comparison should sample again after releasing that owner over a longer
-idle interval before changing either RC6 control register. The Linux
+after GT release while the display-audio owner was still held. The Linux
 manual park sequence disables hardware timers before writing the RC6 target.
 [i915 RC6 park and unpark](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L681-L718)
+
+Release `380e9dc159c30a3d` at `ee3b159b`, session
+`session-000661023c32d543-00`, completed all eight active-panel samples.
+RC6 residency stayed at 1,527,378 ticks. After forcewake release, the
+measured idle interval with display audio held was 22.723 ms. After display
+audio released, the intervals were 20.005 ms and 102.713 ms. Forcewake ACK
+was clear at both ends of each read, and every programmed and live surface
+matched the EFI panel. The blitter stop verified, all seven original
+translations matched and all 19 EFI pages verified. Ubuntu collected the
+completed session and the offline exFAT check found zero allocation errors.
+The engine and L3 flush observations still lacked a fresh acknowledgement.
+
+After return, the Ubuntu i915 residency counter on this Air advanced by
+723, 626 and 779 ms across three successive one-second intervals. For the
+next comparison, the Gen8 i915 initialization supplies concrete reference
+settings for the per-engine idle limit, GT idle hysteresis, evaluation interval,
+wake-rate limit and sleep register. The inherited 625-tick threshold already
+matches that reference.
+[Gen8 RC6 initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L216-L236)
 
 The Ubuntu installer now recognizes completed EFI traces with appended GOP
 paths. It validates the existing trace before copying the next release. The
