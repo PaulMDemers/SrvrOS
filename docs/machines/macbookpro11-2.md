@@ -889,6 +889,24 @@ request, channel, TX gates and three-adapter hub topology fixed. Record
 the correction readbacks alongside the existing good-frame, PHY and
 USB counters, then save and return to Ubuntu automatically.
 
+Two Linux monitor starts on the same board at channel 10 and 20 MHz
+each produced five internally stable samples. The first read
+`0xc14=0x400000f5`, `0xca0=0`, with 709 successful bulk completions.
+The second read `0xc14=0x400004f7`, `0xca0=0`, with 685 completions.
+Neither capture dropped usbmon records. The second working pair is
+the preselected diagnostic comparison. The Linux path-A IQ correction
+routine identifies the receive masks as `0x0000ffff` at `0xc14` and
+`0xf0000000` at `0xca0`.
+[Linux path-A IQ correction](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c#L997-L1005)
+
+The probe applies the two receive fields with the MAC gates closed
+and verifies each full register against the masked update before
+configuring bulk IN. It skips a write when the field already matches.
+The TX matrix and IQ calibration trigger are untouched. The two Linux
+captures are `linux-iq-1.json` and `linux-iq-2.json` in
+`build/bringup/pro112-rtl8188cu-rx-iq`. The selected capture SHA-256 is
+`71dd290bb3c85d312711a0cd3f793c725ffd90acc1fdf111e58288bf49a0cf15`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
