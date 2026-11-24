@@ -863,6 +863,23 @@ the Linux capture, all original hub ports, and the clean workspace with
 the receive outcome to the workspace and independent journal before
 returning to Ubuntu.
 
+Cold session `session-000660ff591e4a6f-00` read RF0 `0x32e15` at
+all four checkpoints. The write control completed, and the stable bits
+matched the live Linux samples. The 28-word snapshot confirmed the
+same two IQ coefficient differences from Linux at `0xc14` and
+`0xc80`. The receiver armed its single 4,096-byte bulk IN request.
+PHY parity failures rose from 37 to 3,173, but all sampled good OFDM,
+CCK and HT counts remained zero. The only transfer event stopped the
+request with all 4,096 bytes outstanding. Passive discovery timed out
+with the RF0 check satisfied. This run confirms the check change
+restored the receive test. The cause of the missing frames is still open.
+
+All three adapters remained on the hub. The endpoint stopped and
+the radio parked. The 30,927-byte exit snapshot and all seven journal
+phases verified, 596 prior workspace files were preserved, and Ubuntu
+returned. The image and evidence are archived as
+`evidence-403644c1cfc2e769`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
