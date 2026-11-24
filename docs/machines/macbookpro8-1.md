@@ -1,7 +1,8 @@
 # MacBookPro8,1 bring-up record
 
 Updated November 24, 2026. State **Native console output and return to Ubuntu
-verified. Keyboard input failed during the first native trial.**
+verified. Keyboard input failed during the first native trial. The EHCI
+controller probe passed in QEMU.**
 
 ## Identity and baseline
 
@@ -116,6 +117,15 @@ python3 tools/hardware_boot_smoke.py --ehci-probe
 python3 tools/hardware_boot_smoke.py --console-check
 ```
 
+Source `e062efae` staged as `321ddfa0f613f514`. With USB input and i8042
+absent, QEMU exposed `8086:293a` and `8086:293c`. Both six-port controllers
+reported OS ownership, halted reset completion and mapping retirement before
+the kernel entered the console. The host fixture also covers a retained BIOS
+semaphore, malformed capability data, stalled halt and stalled reset.
+The xHCI host suite and staged console regression passed. The latter booted
+the same kernel with USB input and the ordinary command line and produced
+no EHCI probe output. This evidence is from the VM and host fixtures.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
@@ -126,7 +136,8 @@ python3 tools/hardware_boot_smoke.py --console-check
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
-`build/review/`. The next checkpoint is EHCI controller discovery and bounded
-ownership/reset in a disposable VM, followed by hub and transfer support.
+`build/review/`. The next checkpoint is an EHCI control-transfer path and
+high-speed hub enumeration in a disposable VM. Full-speed split transactions
+and the captured topcase reports follow before native keyboard acceptance.
 Keep the verified console payload available for recovery and retain the
 existing xHCI regression coverage.

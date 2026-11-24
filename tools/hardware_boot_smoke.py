@@ -481,8 +481,8 @@ def main():
                     controllers = set()
                     for row in rows:
                         match = re.fullmatch(
-                            r"ehci: bus=(\d+) dev=(\d+) fn=(\d+) vendor=8086 device=(293a|293c) "
-                            r"version=100 ports=[1-9]\d? handoff=(?:no-legacy|os-owned) "
+                            r"ehci: bus=(\d+) dev=(\d+) fn=(\d+) vendor=0x0*8086 device=0x0*(293a|293c) "
+                            r"version=0x0*100 ports=[1-9]\d? handoff=(?:no-legacy|os-owned) "
                             r"result=reset-halted was_running=[01] mapping=released", row)
                         assert match, row
                         controllers.add(match[4])
