@@ -588,6 +588,23 @@ EFI copy removed for space was byte-verified against its recovery archive.
 The unattended boot logs the pulse, measured hold, RF readback, gain
 and paired RX snapshots before returning to Ubuntu.
 
+Cold session `session-000660fdd1226b7b-00` verified the second LC pulse,
+a 100,001 us hold, and RF readback `0x107401` with the calibration bit
+clear before tuning to channel 10. Both gain readbacks were
+`0x69543420`, matching the Linux trace before first receive. Passive
+discovery still timed out. The three RX snapshots matched the prior
+trial, and the stop event again returned all 4,096 bytes outstanding.
+The next comparison should measure PHY frame detection against Linux
+to distinguish a silent receiver from a frame delivery problem.
+
+The workspace and independent journal agree on the LC, gain and RX
+results. The journal's fixed-size tail clipped the start of the first
+firmware setup line; the full workspace exit log retains all 19 setup
+lines. The 29,185-byte exit snapshot verified, all seven journal phases
+completed, RF/RX parked, Ubuntu returned and all 586 prior workspace
+files were preserved. The exact payload and evidence are archived in
+`evidence-a493064f0a20ab53`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
