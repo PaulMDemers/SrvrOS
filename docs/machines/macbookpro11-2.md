@@ -661,6 +661,31 @@ hub leaves were enumerated and all 588 prior workspace files survived.
 The exact payload, SrvrOS receipts and Linux reference are archived as
 `evidence-0b26fd3816a91c84`.
 
+The [Realtek 8192C register definitions](https://github.com/pvaret/rtl8192cu-fixes/blob/master/include/rtl8192c_spec.h#L1608-L1625)
+and [vendor counter routine](https://github.com/pvaret/rtl8192cu-fixes/blob/master/core/rtw_mp.c#L1131-L1151)
+identify RXERR_RPT at `0x0664`. Its high nibble selects a report and the
+low 20 bits carry the count. The Linux baseline on the same adapter and
+hub port used selectors 2, 6, 11 and 15 for successful OFDM, CCK and
+HT MPDUs and receive FIFO drops. The readback echoed all four selectors
+and the previous selection restored after each sample.
+
+Over four seconds of 20 MHz passive monitor receive on channel 10, Linux
+reported three good OFDM MPDUs, four good CCK MPDUs, zero good HT MPDUs
+and zero FIFO drops. It independently recorded 629 successful bulk IN
+completions by metadata only with no usbmon drops. This report gives
+positive evidence of good hardware reception, with different coverage
+from a USB completion count. A zero report alone cannot localize the
+failure. The Realtek interface returned to managed/disconnected state.
+The local reference is `linux-good-channel10.json` in
+`build/bringup/pro112-rtl8188cu-good-frames`, SHA-256
+`9834b967df7f2fc343251490ac2377b5c46bafb63e3ce93dc535827626b08e06`.
+
+SrvrOS samples those four values alongside the prior PHY and xHCI
+checkpoints. It verifies each selector echo, clears the reset bit from
+every selector write and restores the original selector if EP0 is safe.
+Partial or unrestored samples are recorded as incomplete. This is a
+diagnostic comparison with the same radio, filter and USB receive setup.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

@@ -19,12 +19,15 @@
 #define RTL_CU_RF_DATA_MASK 0xfffffu
 #define RTL_CU_RF_START_CHANNEL 0x7401u
 #define RTL_CU_LC_START 0x8000u
+#define RTL_CU_RX_REPORT 0x0664u
+#define RTL_CU_REPORT_SELECTOR_MASK 0xf0000000u
 
 enum rtl_cu_sample_phase {
     RTL_CU_ARMED,RTL_CU_PENDING,RTL_CU_BEFORE_STOP,RTL_CU_AFTER_STOP,RTL_CU_SAMPLE_COUNT
 };
 enum rtl_cu_rx_register { RTL_CU_CR,RTL_CU_RCR,RTL_CU_RXFF_PTR,RTL_CU_RXPKT_NUM,RTL_CU_RXDMA_STATUS,RTL_CU_RX_REG_COUNT };
 enum rtl_cu_phy_register { RTL_CU_OFDM1,RTL_CU_OFDM2,RTL_CU_OFDM3,RTL_CU_SYNC,RTL_CU_PHY_COUNT };
+enum rtl_cu_report { RTL_CU_OFDM_OK,RTL_CU_CCK_OK,RTL_CU_HT_OK,RTL_CU_FIFO_DROP,RTL_CU_REPORT_COUNT };
 enum rtl_cu_rx_admission {
     RTL_CU_FILTER_RCR,RTL_CU_FILTER_MGT,RTL_CU_FILTER_CTL,RTL_CU_FILTER_DATA,RTL_CU_DRIVER_INFO,
     RTL_CU_FPGA0_RFMOD,RTL_CU_FPGA1_RFMOD,RTL_CU_OFDM_TRX,RTL_CU_ADMISSION_COUNT
@@ -33,7 +36,10 @@ struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
     uint32_t regs[RTL_CU_RX_REG_COUNT];
     uint32_t phy[RTL_CU_PHY_COUNT];
+    uint32_t report[RTL_CU_REPORT_COUNT];
     unsigned state,valid,phy_valid,posted,completed_before,completed_after,events;
+    unsigned report_valid;
+    bool report_restored;
     bool present,pending;
 };
 
@@ -87,6 +93,27 @@ static uint64_t rtl_cu_rx_dequeue(const struct xhci_device *d) {
         (uint64_t)context_read32(d->output_context,RTL_CU_RX_DCI,3)<<32;
 }
 
+static void rtl_cu_rx_reports(struct xhci_device *d,struct rtl_cu_rx_sample *sample) {
+    /* Select the CU report without writing the counter or the reset bit. */
+    static const unsigned report_selector[RTL_CU_REPORT_COUNT]={
+        [RTL_CU_OFDM_OK]=2, [RTL_CU_CCK_OK]=6, [RTL_CU_HT_OK]=11, [RTL_CU_FIFO_DROP]=15,
+    };
+    uint32_t initial,value;
+    if(!rtl8188cu_read(d,RTL_CU_RX_REPORT,4,&initial))return;
+    initial&=RTL_CU_REPORT_SELECTOR_MASK;
+    for(unsigned i=0;i<RTL_CU_REPORT_COUNT;i++) {
+        uint32_t selector=report_selector[i]<<28;
+        if(!rtl8188cu_write_value(d,RTL_CU_RX_REPORT,4,selector) ||
+           !rtl8188cu_read(d,RTL_CU_RX_REPORT,4,&value) || value>>28!=report_selector[i])break;
+        sample->report[i]=value;
+        sample->report_valid|=1u<<i;
+    }
+    if(!device_removed(d) && !d->control_failed && !d->ep0_quarantined &&
+       rtl8188cu_write_value(d,RTL_CU_RX_REPORT,4,initial) &&
+       rtl8188cu_read(d,RTL_CU_RX_REPORT,4,&value) &&
+       (value&RTL_CU_REPORT_SELECTOR_MASK)==initial)sample->report_restored=true;
+}
+
 static void rtl_cu_rx_snapshot(struct xhci_device *d,enum rtl_cu_sample_phase phase,bool read_chip) {
     /* These USB vendor requests read status only. The endpoint context comes
      * first, and completions may advance while EP0 reads are in flight. */
@@ -120,6 +147,8 @@ static void rtl_cu_rx_snapshot(struct xhci_device *d,enum rtl_cu_sample_phase ph
                 sample->phy_valid|=1u<<i;
             }
         }
+        if(sample->phy_valid==(1u<<RTL_CU_PHY_COUNT)-1 && !rtl_passive.failed)
+            rtl_cu_rx_reports(d,sample);
     }
     sample->completed_after=rtl_passive.completed;
     sample->end_us=timer_monotonic_us();
@@ -158,6 +187,11 @@ static void rtl_cu_rx_log(void) {
             console_printf("rtl8188cu-rx-phy: phase=%s valid=%x ofdm1=%x ofdm2=%x ofdm3=%x sync=%x\n",
                 phases[i],(uint64_t)s->phy_valid,(uint64_t)s->phy[RTL_CU_OFDM1],(uint64_t)s->phy[RTL_CU_OFDM2],
                 (uint64_t)s->phy[RTL_CU_OFDM3],(uint64_t)s->phy[RTL_CU_SYNC]);
+        if(i!=RTL_CU_AFTER_STOP)
+            console_printf("rtl8188cu-rx-good: phase=%s valid=%x restored=%u ofdm=%x cck=%x ht=%x fifo_drop=%x\n",
+                phases[i],(uint64_t)s->report_valid,(uint64_t)s->report_restored,
+                (uint64_t)s->report[RTL_CU_OFDM_OK],(uint64_t)s->report[RTL_CU_CCK_OK],
+                (uint64_t)s->report[RTL_CU_HT_OK],(uint64_t)s->report[RTL_CU_FIFO_DROP]);
     }
     if(rtl_passive.configured) {
         console_printf("rtl8188cu-rx-gate: valid=%u expected=%x observed=%x\n",
