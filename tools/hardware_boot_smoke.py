@@ -226,17 +226,24 @@ def main():
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--probe-network", action="store_true", help="Attach ECM to v26 idle capture and require bounded network-worker activity")
     parser.add_argument("--console-check", action="store_true")
+    parser.add_argument("--ehci-probe", action="store_true", help="Probe two EHCI controllers without USB input or DMA schedules")
     parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
     logs = boot.ROOT / "build/review"
     logs.mkdir(parents=True, exist_ok=True)
-    (logs/"hardware-grub-result.json").unlink(missing_ok=True)
-    (logs/"hardware-grub-pcm.json").unlink(missing_ok=True)
+    if args.ehci_probe:
+        (logs / "hardware-grub-ehci-result.json").unlink(missing_ok=True)
+    else:
+        (logs/"hardware-grub-result.json").unlink(missing_ok=True)
+        (logs/"hardware-grub-pcm.json").unlink(missing_ok=True)
     release = (boot.STAGE / "latest").read_text().strip()
     source = boot.STAGE / release
     manifest=boot.verify(source)
+    if args.ehci_probe and (manifest["config_version"] != boot.CONFIG_VERSION or
+            args.console_check or args.kernel_check or args.responsiveness_check):
+        parser.error("--ehci-probe requires a plain console stage without keyboard checks")
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
@@ -349,7 +356,8 @@ def main():
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     scaled_desktop=retina_desktop or bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
-    serial = logs / "hardware-grub-serial.log"
+    log_prefix = "hardware-grub-ehci" if args.ehci_probe else "hardware-grub"
+    serial = logs / f"{log_prefix}-serial.log"
     serial.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp:
         temp = Path(tmp)
@@ -371,14 +379,27 @@ def main():
                 p=vm_source/name;marker="srvros.ap=c3-test" if coord_capture else "srvros.capture=ap-ownership"
                 extra=(" srvros.ap-protocol=simulate" if args.ap_c3_sim else "")+(f" srvros.ap-inject={args.ap_inject}" if args.ap_inject else "")
                 p.write_text(p.read_text().replace(marker,marker+extra))
+        if args.ehci_probe:
+            vm_source = temp / "ehci-probe-payload"
+            shutil.copytree(source, vm_source)
+            for name in ("limine.conf", "loader/limine.conf"):
+                config = vm_source / name
+                text = config.read_text()
+                marker = "    cmdline: srvros.storage=ram\n"
+                assert text.count(marker) == 1
+                config.write_text(text.replace(marker, "    cmdline: srvros.storage=ram srvros.ehci=probe\n"))
         make_disk(disk, loader, vm_source, release)
         qmp_path = temp / "qmp.sock"
-        command = [args.qemu, "-M", "q35", "-m", "2G",
+        machine = "q35,usb=off,i8042=off" if args.ehci_probe else "q35"
+        command = [args.qemu, "-M", machine, "-m", "2G",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
                    "-drive", f"format=raw,file={disk}",
-                   "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if args.ehci_probe:
+            command += ["-device", "ich9-usb-ehci1", "-device", "ich9-usb-ehci2", "-nic", "none"]
+        else:
+            command += ["-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0"]
         if hfw_capture or hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
@@ -446,9 +467,32 @@ def main():
             else:
                 with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
             command += ["-drive",f"if=none,id=stick,format=raw,file={stick}","-device","usb-storage,drive=stick,bus=xhci.0"]
-        with (logs / "hardware-grub-qemu.log").open("wb") as errors:
+        with (logs / f"{log_prefix}-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if args.ehci_probe:
+                    text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
+                    assert "cmdline: srvros.storage=ram srvros.ehci=probe" in text
+                    assert "storage: RAM-only mode; AHCI disabled" in text and not has_fatal_exception(text)
+                    assert "xhci: no controller" in text
+                    assert "input: ps2_keyboard=no ps2_mouse=no usb_keyboards=0 usb_mice=0 usb_devices=0" in text
+                    rows = [line for line in text.splitlines() if line.startswith("ehci: ")]
+                    assert len(rows) == 2, rows
+                    controllers = set()
+                    for row in rows:
+                        match = re.fullmatch(
+                            r"ehci: bus=(\d+) dev=(\d+) fn=(\d+) vendor=8086 device=(293a|293c) "
+                            r"version=100 ports=[1-9]\d? handoff=(?:no-legacy|os-owned) "
+                            r"result=reset-halted was_running=[01] mapping=released", row)
+                        assert match, row
+                        controllers.add(match[4])
+                    assert controllers == {"293a", "293c"}
+                    result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
+                                  boot_option="srvros.ehci=probe", controllers=rows)
+                    (logs / "hardware-grub-ehci-result.json").write_text(json.dumps(result, indent=2) + "\n")
+                    print(f"ehci-probe-smoke: PASS ({release}); two halted, reset controllers and retired MMIO windows")
+                    print(f"Serial log: {serial}")
+                    return
                 if args.retina_missing_workspace:
                     marker = "retina-trial: saved=0 USB unmounted=yes; returning to Ubuntu"
                     text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)

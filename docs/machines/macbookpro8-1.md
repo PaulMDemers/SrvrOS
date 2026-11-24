@@ -31,11 +31,12 @@ verified. Keyboard input failed during the first native trial.**
 
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
-MacBookPro8,1 console, input and USB workspace milestones. The first work
-block records the plan and verifies the host and volume. Implementation is
-expected to touch USB controller discovery and transport, hub enumeration,
-and the interfaces to HID and block I/O. The current kernel USB path selects
-xHCI, and the inventory contains no xHCI controller on this Mac.
+MacBookPro8,1 console, input and USB workspace milestones. The active work
+block adds an opt-in EHCI boot probe and VM coverage for PCI discovery,
+firmware handoff, halt and reset. It uses the existing PCI and VMM APIs and
+leaves the xHCI call path in place. Hub enumeration, DMA schedules, HID and
+block I/O belong to later milestones. The inventory contains no xHCI
+controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `ad95b6a0`, and Apple Silicon runtime, login and export work
@@ -93,6 +94,27 @@ installed EFI payload matched the staged manifest and the exFAT volume was
 mounted at the expected location. The method used to return was not reported.
 An independent local archive preserves the payload and return evidence
 outside `build/`.
+
+## EHCI controller probe
+
+The kernel runs the probe only with `srvros.ehci=probe` and
+`srvros.storage=ram`. It discovers EHCI PCI functions, validates the BAR and
+capability layout, waits for firmware ownership, and resets each controller
+after verifying it is halted. A successful probe leaves interrupts, bus
+mastering, schedules and the configured flag clear, then releases its
+temporary MMIO mapping. The probe refuses a retained BIOS semaphore. Hub
+enumeration and transfer queues are later milestones. [Intel EHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
+
+Run the host fixture and staged VM rehearsals from the device checkout.
+The EHCI rehearsal attaches two emulated controllers and adds the probe
+option to a disposable copy of the plain console stage.
+
+```sh
+make -j2 test-ehci test-xhci
+make -j2 hardware-stage
+python3 tools/hardware_boot_smoke.py --ehci-probe
+python3 tools/hardware_boot_smoke.py --console-check
+```
 
 ## Capability ledger
 

@@ -1935,6 +1935,15 @@ hardware-smoke: hardware-stage test-core
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_boot.py
 	$(PYTHON) tools/hardware_boot_smoke.py --qemu $(QEMU) --console-check --responsiveness-check
 
+.PHONY: test-ehci
+test-core: test-ehci
+test-ehci: build/tests/ehci-host$(HOST_EXE)
+	$<
+
+build/tests/ehci-host$(HOST_EXE): tools/test_ehci.c kernel/src/drivers/ehci.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include $< -Wl,--gc-sections -o $@
+
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin

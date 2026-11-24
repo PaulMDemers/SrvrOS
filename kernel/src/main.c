@@ -34,6 +34,7 @@
 #include <srvros/bootlog.h>
 #include <srvros/console.h>
 #include <srvros/e1000.h>
+#include <srvros/ehci.h>
 #include <srvros/exfat.h>
 #include <srvros/heap.h>
 #include <srvros/halt.h>
@@ -1064,6 +1065,10 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (cmdline_has_token(cmdline, "srvros.ehci=probe")) {
+        if (cmdline_has_token(cmdline, "srvros.storage=ram")) ehci_boot_probe();
+        else console_write("ehci: probe requires RAM-only boot\n");
+    }
     if(startup_journal_requested) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
