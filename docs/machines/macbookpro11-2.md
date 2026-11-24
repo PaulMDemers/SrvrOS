@@ -968,6 +968,18 @@ the previously unmeasured live `0xb68` write retained by Linux at
 The SrvrOS trial samples those startup controls and limits its writes
 to applying the retained matrix.
 
+Candidate `e322a91f597732d0` from `09f85948` passed the native xHCI
+matrix tests, three readback refusals, 4,096-byte receive and beacon
+proof, firmware and USB lifecycle regressions. The decoder replayed
+both complete and refused matrix records and verified the bounded
+journal. The exact GPT workspace and four journal/recovery VM cases
+passed. The installed kernel hash matched the fresh build and Ubuntu
+remains default with recovery `74da74e0b57afbb8`. The cold run record
+`build/bringup/pro112-rtl8188cu-iq-startup/run.json` binds the Linux
+trace, all three hub leaves and the clean workspace with 600 files.
+The unattended run saves the matrix, PHY startup controls, good-frame
+counts and USB results before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
