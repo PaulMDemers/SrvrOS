@@ -36,8 +36,8 @@ git rev-parse HEAD
 git switch -c device/macbookpro11-2/bringup
 ```
 
-Use `macbookair6-1`, `macbookair7-1`, `macbookpro11-2`, `macbookpro11-3`, `macmini7-1`, or
-`macbookair7-2` as the machine slug. Distinguish multiple physical units with a
+Use the slug in the [machine records](machines/README.md), such as
+`macbookpro8-1` for MacBookPro8,1. Distinguish multiple physical units with a
 local label. Do not run concurrent builds/staging from two agents in one checkout:
 `build/hardware-boot/latest`, generated images and many VM logs are shared paths.
 
