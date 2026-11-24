@@ -1034,6 +1034,22 @@ leaves, clean workspace with 602 files and fresh independent journal.
 The unattended run saves the startup and receive evidence before
 returning to Ubuntu.
 
+Cold session `session-00066101db2fc235-00` read `0x80000000` at
+`0xb68` before the change and verified `0x00080000` before arming
+bulk IN. The IQ matrix, RF0 and receive setup verified again. The
+four-second window posted one 4,096-byte receive request. PHY parity
+failures rose from 32 to 2,995, while the sampled good OFDM, CCK and
+HT frame counters stayed at zero. The only transfer event stopped the
+request with all 4,096 bytes outstanding. Demers2.4 discovery remained
+unresolved with the Linux B68 word in place.
+
+All three adapters stayed on the hub. The endpoint stopped, the radio
+parked and Ubuntu returned. All 602 prior workspace files were
+preserved. Both persistent copies contain the B68 readback and
+receive evidence. The 31,271-byte exit snapshot and all seven journal
+checkpoints verified. The image and evidence are archived as
+`evidence-71c5791486a3d9b3`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
