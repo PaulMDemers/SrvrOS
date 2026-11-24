@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the staged GRUB -> Limine -> kernel path on a disposable QEMU ESP."""
 import argparse
+from contextlib import ExitStack
 import shutil
 import json
 import binascii
@@ -229,14 +230,20 @@ def main():
     ehci_modes = parser.add_mutually_exclusive_group()
     ehci_modes.add_argument("--ehci-probe", action="store_true", help="Probe two EHCI controllers without USB input or DMA schedules")
     ehci_modes.add_argument("--ehci-enumerate", action="store_true", help="Enumerate high-speed devices using the EHCI control schedule")
+    ehci_modes.add_argument("--ehci-hub", action="store_true", help="Enumerate a synthetic high-speed hub over USB redirection")
     parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
     logs = boot.ROOT / "build/review"
     logs.mkdir(parents=True, exist_ok=True)
-    ehci_mode = "enumerate" if args.ehci_enumerate else "probe" if args.ehci_probe else None
-    log_prefix = "hardware-grub-ehci-enumerate" if args.ehci_enumerate else "hardware-grub-ehci" if args.ehci_probe else "hardware-grub"
+    ehci_enumerate = args.ehci_enumerate or args.ehci_hub
+    ehci_mode = "enumerate" if ehci_enumerate else "probe" if args.ehci_probe else None
+    log_prefix = "hardware-grub"
+    if ehci_mode:
+        log_prefix += "-ehci"
+        if ehci_enumerate:
+            log_prefix += "-hub" if args.ehci_hub else "-enumerate"
     if ehci_mode:
         (logs / f"{log_prefix}-result.json").unlink(missing_ok=True)
     else:
@@ -362,7 +369,7 @@ def main():
     workspace=desktop or probe
     serial = logs / f"{log_prefix}-serial.log"
     serial.unlink(missing_ok=True)
-    with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp, ExitStack() as fixtures:
         temp = Path(tmp)
         cfg = temp / "grub.cfg"
         cfg.write_text("serial --unit=0 --speed=115200\nterminal_output console serial\n"
@@ -401,7 +408,15 @@ def main():
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         if ehci_mode:
             command += ["-device", "ich9-usb-ehci1,id=ehci1", "-device", "ich9-usb-ehci2,id=ehci2", "-nic", "none"]
-            if args.ehci_enumerate:
+            if args.ehci_hub:
+                from ehci_hub_fixture import HubFixture
+
+                endpoint = temp / "ehci-hub.sock"
+                hub = fixtures.enter_context(HubFixture(endpoint))
+                command += ["-chardev", f"socket,id=hub,path={endpoint}",
+                            "-device", "usb-redir,bus=ehci1.0,port=1,chardev=hub",
+                            "-device", "usb-tablet,usb_version=2,bus=ehci1.0,port=2"]
+            elif ehci_enumerate:
                 command += ["-device", "usb-tablet,usb_version=2,bus=ehci1.0,port=1",
                             "-device", "usb-tablet,usb_version=2,bus=ehci1.0,port=2"]
         else:
@@ -495,20 +510,27 @@ def main():
                     assert controllers == {"293a", "293c"}
                     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
                                   boot_option=f"srvros.ehci={ehci_mode}", controllers=rows)
-                    if args.ehci_enumerate:
+                    if ehci_enumerate:
                         devices = [line for line in text.splitlines() if line.startswith("ehci: device ")]
                         assert len(devices) == 2, devices
                         for address, line in enumerate(devices, 1):
+                            identity = (r"vendor=0x0*424 product=0x0*2513 class=0x0*9" if args.ehci_hub and address == 1
+                                        else r"vendor=0x0*627 product=0x0*1 class=0x0+")
                             assert re.fullmatch(
-                                rf"ehci: device address={address} parent=0 port={address} "
-                                r"vendor=0x0*627 product=0x0*1 class=0x0+ configuration=1", line), line
+                                rf"ehci: device address={address} parent=0 port={address} {identity} configuration=1", line), line
                         summaries = [line for line in text.splitlines() if line.startswith("ehci: enumeration ")]
+                        hubs = int(args.ehci_hub)
                         assert sorted(summaries) == [
                             "ehci: enumeration complete=1 devices=0 hubs=0 deferred=0 dma=released",
-                            "ehci: enumeration complete=1 devices=2 hubs=0 deferred=0 dma=released"], summaries
+                            f"ehci: enumeration complete=1 devices=2 hubs={hubs} deferred=0 dma=released"], summaries
                         result.update(devices=devices, enumeration=summaries)
+                    if args.ehci_hub:
+                        assert "ehci: hub address=1 ports=3" in text
+                        assert hub.powered == hub.status_ports == {1, 2, 3} and hub.hub_descriptors == 1
+                        result.update(synthetic_hub="USB redirection", hub_ports=sorted(hub.status_ports))
                     (logs / f"{log_prefix}-result.json").write_text(json.dumps(result, indent=2) + "\n")
-                    print(f"ehci-{ehci_mode}-smoke: PASS ({release}); {len(rows)} controllers")
+                    test_mode = "hub" if args.ehci_hub else ehci_mode
+                    print(f"ehci-{test_mode}-smoke: PASS ({release}); {len(rows)} controllers")
                     print(f"Serial log: {serial}")
                     return
                 if args.retina_missing_workspace:

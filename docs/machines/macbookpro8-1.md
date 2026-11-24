@@ -1,8 +1,8 @@
 # MacBookPro8,1 bring-up record
 
 Updated November 24, 2026. State **Native console output and return to Ubuntu
-verified. Keyboard input failed during the first native trial. The EHCI
-controller probe passed in QEMU.**
+verified. Keyboard input failed during the first native trial. EHCI discovery,
+reset and high-speed enumeration passed in QEMU.**
 
 ## Identity and baseline
 
@@ -137,14 +137,25 @@ transaction. The bounded scan covers up to 16 devices, up to 16 ports per hub
 and four downstream tiers. It disables the schedules and PCI bus mastering
 before releasing the DMA page. An unproved halt retains the page.
 
-The emulated QEMU hub is USB 1.1. The Q35 rehearsal uses its high-speed tablet
-model for real control transactions. A host fixture models a high-speed hub,
-its high-speed child and the full-speed deferral path. [QEMU USB emulation](https://www.qemu.org/docs/master/system/devices/usb.html)
+The built-in QEMU hub is USB 1.1. The Q35 rehearsals use its high-speed tablet
+model and a synthetic USB 2.0 hub attached over a local `usb-redir` socket.
+A host fixture models a connected high-speed child, a full-speed child that
+must be disabled, a malformed hub descriptor and a stalled reset. [QEMU USB emulation](https://www.qemu.org/docs/master/system/devices/usb.html) · [USB redirection protocol](https://github.com/SPICEorg/usbredir/blob/master/usb-redirection-protocol.txt)
 
 ```sh
 make test-ehci hardware-stage
 python3 tools/hardware_boot_smoke.py --ehci-enumerate
+python3 tools/hardware_boot_smoke.py --ehci-hub
 ```
+
+Source `b39cc8bc` staged as `12940cc028c792f5`. The tablet run assigned
+addresses 1 and 2 on one controller and safely retired the other controller's
+empty schedule. The redirected-hub run configured a three-port high-speed
+hub, powered and read all three downstream ports, then addressed a second
+root device. Both runs released the DMA pages after verifying controller
+halt. The connected child and slower-port isolation evidence is from the
+host fixture. The reset-only EHCI probe and ordinary xHCI console regressions
+passed on the same staged kernel.
 
 ## Capability ledger
 
@@ -156,8 +167,8 @@ python3 tools/hardware_boot_smoke.py --ehci-enumerate
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
-`build/review/`. The next checkpoint is an EHCI control-transfer path and
-high-speed hub enumeration in a disposable VM. Full-speed split transactions
-and the captured topcase reports follow before native keyboard acceptance.
-Keep the verified console payload available for recovery and retain the
-existing xHCI regression coverage.
+`build/review/`. The next checkpoint is full-speed split control transfers
+through a hub transaction translator. Those transfers and the captured
+topcase descriptors precede native keyboard acceptance. Keep the verified
+console payload available for recovery and retain the existing xHCI regression
+coverage.
