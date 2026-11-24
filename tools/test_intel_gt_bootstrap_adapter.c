@@ -836,6 +836,14 @@ static void test_queue_handoff_word(unsigned e, unsigned i, uint32_t *word) {
 static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH
+ static const unsigned idle_offsets[] = {0xa09c, 0xa0a8, 0xa0ac, 0xa0b0, 0x2054, 0x12054, 0x1a054, 0x1c054, 0x22054};
+ static unsigned idle_reads;
+ if (idle_reads < 18 && offset == idle_offsets[idle_reads % 9]) {
+  assert(!range_pa && gt_flush_live() && gt_flush.samples == 2 * (idle_reads / 9));
+  *out = ++idle_reads;
+  if (bf("idle-float", idle_reads)) *out = UINT32_MAX;
+  return !bf("idle-read", idle_reads);
+ }
  if(sampling_command_slots) {
   assert(command_sampling_live() && command_pte_register(offset));
   unsigned i=(offset-0x800000)/8-GT_COMMAND_FIRST;

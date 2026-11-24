@@ -285,6 +285,20 @@ def flush_result(text, parent, reset, translation, primary, retire, memory, widi
             if any(queues.values()) and (n + 1 != count or later_phase or parent["complete"] or not parent["failed"]):
                 raise ValueError("GT advanced past outstanding media requests")
         result["media_outstanding"] = current
+    idle_rows = [line for line in text.splitlines() if line.startswith('intel-idle-policy:')]
+    if idle_rows:
+        phases = list(range(0, count, 2))
+        if summary['v'] != 9 or len(idle_rows) != len(phases):
+            raise ValueError('Idle policy phase coverage')
+        names = ('wake_rate', 'evaluation', 'hysteresis', 'sleep', *ENGINES)
+        result['idle_policy'] = []
+        for phase, line in zip(phases, idle_rows):
+            p = fields(line, 'intel-idle-policy:', ('v', 'phase', 'begin', 'end', *names), names)
+            sample = samples[phase]
+            if (p['phase'] != phase or p['begin'] != sample['begin'] or
+                    not p['begin'] < p['end'] <= sample['end'] or any(p[k] >= 0xffffffff for k in names)):
+                raise ValueError('Idle policy phase, clock or register')
+            result['idle_policy'].append(p)
     if power:
         result["power_controls"] = [
             dict(hardware_control=bool(row["rc_control"] & (1 << 31)),

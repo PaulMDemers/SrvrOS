@@ -82,7 +82,7 @@ static bool gt_bank_select(uint32_t expected, uint32_t target) {
 
 static bool gt_bank_powered(void) {
     uint32_t value;
-    return gt_flush_slice_read(2, 0x138064, &value) && (value & 7u) == 3;
+    return gt_flush_alias_read(2, 0x138064, &value) && (value & 7u) == 3;
 }
 
 static bool gt_bank_capture(void) {

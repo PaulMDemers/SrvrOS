@@ -467,9 +467,8 @@ static bool gt_flush_live(void) {
         gt_bootstrap_native.prepared == prepared;
 }
 
-/* Use the parent's existing UC aliases for fuse topology and live slice
- * status. Fuses describe availability even when the slices are power gated. */
-static bool gt_flush_slice_read(unsigned slot, uint32_t offset, uint32_t *value) {
+/* Read a non-clearing register through the active parent's checked UC alias. */
+static bool gt_flush_alias_read(unsigned slot, uint32_t offset, uint32_t *value) {
     if (!gt_flush_live() || !bootstrap_tick() ||
         wake_pages[slot] != (offset & ~4095u) || !completion_mapping(gt_bootstrap_native.a, slot))
         return false;
@@ -479,6 +478,31 @@ static bool gt_flush_slice_read(unsigned slot, uint32_t offset, uint32_t *value)
     *value = *(volatile const uint32_t *)(WAKE_VA + slot * 4096 + (offset & 4095));
 #endif
     return *value != UINT32_MAX && gt_flush_live() && bootstrap_tick();
+}
+
+/* Gen8 GT power timers and MAX_IDLE for RCS, VCS0, VECS, VCS1 and BCS. */
+static const struct { unsigned slot; uint32_t reg; } gt_idle_registers[] = {
+    {0, 0xa09c}, {0, 0xa0a8}, {0, 0xa0ac}, {0, 0xa0b0},
+    {3, 0x2054}, {4, 0x12054}, {5, 0x1a054}, {6, 0x1c054}, {7, 0x22054},
+};
+static struct {
+    uint32_t words[sizeof(gt_idle_registers) / sizeof(gt_idle_registers[0])];
+    uint64_t end;
+} gt_idle_samples[2];
+
+static bool gt_idle_sample(unsigned phase)
+{
+    unsigned index = phase / 2;
+    if ((phase != 0 && phase != 2) || phase != gt_flush.samples || gt_idle_samples[index].end)
+        return false;
+    for (unsigned i = 0; i < sizeof(gt_idle_registers) / sizeof(gt_idle_registers[0]); ++i) {
+        if (!gt_flush_alias_read(gt_idle_registers[i].slot, gt_idle_registers[i].reg,
+                                 &gt_idle_samples[index].words[i])) return false;
+    }
+    uint64_t end = gt_bootstrap_native.last;
+    if (end <= gt_flush.begin[phase] || end - gt_flush.begin[phase] > BDW_BOOT_PHASE_US) return false;
+    gt_idle_samples[index].end = end;
+    return true;
 }
 
 #include "intel_gt_l3_banks.inc"
@@ -548,9 +572,10 @@ static bool gt_flush_sample(unsigned n) {
         return false;
     struct gt_display_access *access = &gt_flush.access;
     gt_flush.begin[n] = gt_bootstrap_native.last;
+    if ((n == 0 || n == 2) && !gt_idle_sample(n)) return false;
     uint32_t *slice = gt_flush.slice[n];
-    if (!slot_widi_sample(n) || !gt_flush_slice_read(9, 0x9120, &slice[0]) ||
-        !gt_flush_slice_read(2, 0x138064, &slice[1])) return false;
+    if (!slot_widi_sample(n) || !gt_flush_alias_read(9, 0x9120, &slice[0]) ||
+        !gt_flush_alias_read(2, 0x138064, &slice[1])) return false;
     if (n == 1 && ((slice[1] & 7u) != 3 || !gt_bank_capture())) return false;
     /* One guarded alias per MMIO page, inside the same observation window. */
     static const unsigned group_ends[] = { 1, 9, 11, 13, 16, 24, GT_FLUSH_WORDS };
@@ -568,7 +593,7 @@ static bool gt_flush_sample(unsigned n) {
     if (access->mapped || access->maps != pages * (n + 1) || access->retired != access->maps ||
         access->reads != GT_FLUSH_WORDS * (n + 1))
         return false;
-    if (!gt_flush_slice_read(2, 0x138064, &slice[2]) ||
+    if (!gt_flush_alias_read(2, 0x138064, &slice[2]) ||
         (n == 1 && (slice[2] & 7u) != 3) ||
         ((slice[1] | slice[2]) & 7u & ~(slice[0] >> 25)) ||
         gt_bootstrap_native.last - gt_flush.begin[n] > BDW_BOOT_PHASE_US) return false;
@@ -747,6 +772,13 @@ retire:
 }
 
 static void gt_flush_report(void) {
+    for (unsigned n = 0; n < gt_flush.samples; n += 2) {
+        const uint32_t *w = gt_idle_samples[n / 2].words;
+        console_printf("intel-idle-policy: v=1 phase=%u begin=%u end=%u wake_rate=%x evaluation=%x hysteresis=%x sleep=%x rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x\n",
+            (uint64_t)n, gt_flush.begin[n], gt_idle_samples[n / 2].end, (uint64_t)w[0],
+            (uint64_t)w[1], (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4], (uint64_t)w[5],
+            (uint64_t)w[6], (uint64_t)w[7], (uint64_t)w[8]);
+    }
     for (unsigned i = 0; i < air_rc6_count; ++i) {
         const struct air_rc6_point *sample = &air_rc6_samples[i];
         const struct bdw_pci_rc6_sample *p = &sample->power;

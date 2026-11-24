@@ -199,6 +199,25 @@ class FlushAcknowledgements(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Preparation message'):
             bootstrap_result(text.replace(missing, ""))
 
+    def test_idle_policy_spans_reset(self):
+        text = observe('pass')
+        idle = bootstrap_result(text)['flush']['idle_policy']
+        keys = ('wake_rate', 'evaluation', 'hysteresis', 'sleep', 'rcs', 'vcs0', 'vecs', 'vcs1', 'bcs')
+        self.assertEqual([[p[k] for k in keys] for p in idle],
+                         [list(range(1, 10)), list(range(10, 19))])
+        rows = [line for line in text.splitlines() if line.startswith('intel-idle-policy:')]
+        for replacement in ('', rows[0], rows[1].replace('bcs=0x12', 'bcs=0xffffffff'),
+                            re.sub(r'end=\d+', 'end=1', rows[1])):
+            with self.assertRaisesRegex(ValueError, 'Idle policy'):
+                bootstrap_result(text.replace(rows[1], replacement))
+        legacy = '\n'.join(line for line in text.splitlines() if line not in rows)
+        self.assertNotIn('idle_policy', bootstrap_result(legacy)['flush'])
+        for mode in ('idle-float', 'idle-read'):
+            for pos in range(1, 19):
+                result = bootstrap_result(observe(mode, pos))
+                self.assertFalse(result['complete'])
+                self.assertEqual(len(result['flush'].get('idle_policy', [])), int(pos > 9))
+
     def test_cold_rc6_windows(self):
         text = observe('pass')
         result = bootstrap_result(text)
@@ -545,7 +564,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
-        old_power = re.sub(r"^intel-(?:bcs-stop|air-rc6):.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^intel-(?:bcs-stop|air-rc6|idle-policy):.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"native_writes=(\d+)", lambda m: f"native_writes={int(m[1])-1}",
                            old_power, count=1)
         legacy_smi = row.replace(f"reads={flush['smi_guard']['reads']}",

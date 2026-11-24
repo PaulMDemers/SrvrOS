@@ -13,6 +13,13 @@ tear-free scanout is still pending.
 On the Air, releasing the display-audio owner and waiting 103 ms produced
 zero additional RC6 residency. The next power-management comparison is the
 per-engine idle configuration and GT idle timers on SrvrOS and Ubuntu/i915.
+With the internal panel active and forcewake held, Ubuntu/i915 returned the
+same configuration in three reads. MAX_IDLE was 10 on RCS, VCS0, VECS, VCS1
+and BCS. Wake-rate limit was 0x280000, evaluation interval 125000, idle
+hysteresis 25 and sleep 0. The live panel surface was stable within each
+read and changed between the first two. The SrvrOS diagnostic samples those
+nine registers through the owner's existing MMIO aliases before and after
+GT reset. Each sample must fit within its existing 10 ms flush observation.
 Native command submission still requires a device-wide traffic block and
 fresh engine and L3 acknowledgements.
 
