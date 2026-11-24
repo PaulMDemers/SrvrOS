@@ -195,9 +195,30 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(len(steps[-1]['fresh_engine_ack']), 5)
         quiet = bootstrap_result(observe("flush-quiet"))['flush']['prepare_messages']
         self.assertTrue(all(not s['observed_closed'] and not s['fresh_l3_under_block'] for s in quiet))
-        missing = next(line for line in text.splitlines() if line.startswith('intel-gpm-step: v=1 n=2 '))
+        missing = next(line for line in text.splitlines() if line.startswith('intel-gpm-step: v=2 n=2 '))
         with self.assertRaisesRegex(ValueError, 'Preparation message'):
             bootstrap_result(text.replace(missing, ""))
+
+    def test_stop_blitter_through_prepare_and_reset(self):
+        text = observe('pass')
+        stop = bootstrap_result(text)['flush']['bcs_stop']
+        self.assertEqual(bootstrap_result(text)['flush']['stop_messages']['after_prepare'], 'bcs-stop')
+        self.assertEqual((stop['before'], stop['stopped'], stop['at_reset'], stop['after']),
+                         (0x200, 0x300, 0x300, 0x200))
+        for mode, pos, writes, pulses in (('stop-ring-active',1,0,0), ('stop-parser-busy',1,0,0),
+                ('stop-readback',1,1,0), ('stop-readback',4,1,0), ('stop-lost-at-reset',1,1,0),
+                ('stop-reset-sticky',1,1,2)):
+            with self.subTest(mode=mode, position=pos):
+                result = bootstrap_result(observe(mode,pos))
+                self.assertFalse(result['complete'])
+                self.assertEqual(result['flush']['bcs_stop']['verified'], 0)
+                self.assertEqual(result['flush']['bcs_stop']['writes'], writes)
+                self.assertEqual(result['reset']['reset_writes'], pulses)
+        for field in ('at_reset=0x300','after=0x200','verified=1','ctl=0xf000'):
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                lines = [line.replace(field,field.split('=')[0]+'=0') if line.startswith('intel-bcs-stop:')
+                         else line for line in text.splitlines()]
+                bootstrap_result('\n'.join(lines))
 
     def test_same_boot_efi_handoff(self):
         subprocess.run([ROOT / TARGET, "efi-import"], check=True, timeout=10)
@@ -484,8 +505,11 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
+        old_power = re.sub(r"^intel-bcs-stop:.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"native_writes=(\d+)", lambda m: f"native_writes={int(m[1])-1}",
+                           old_power, count=1)
         legacy_smi = row.replace(f"reads={flush['smi_guard']['reads']}",
-                                 f"reads={flush['smi_guard']['reads'] - flush['l3_banks']['summary']['writes']}")
+                                 f"reads={flush['smi_guard']['reads'] - flush['l3_banks']['summary']['writes'] - 1}")
         old_power = old_power.replace(row, legacy_smi)
         old_power = re.sub(r" l3_close=.*", "", old_power)
         old_power = old_power.replace("v=5 n=3 ", "v=5 n=2 ").replace("intel-flush-sample: v=5", "intel-flush-sample: v=4")

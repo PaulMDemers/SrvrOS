@@ -385,6 +385,9 @@ static bool bootstrap_load(uint32_t offset,uint32_t *value) {
  if(ok)++gt_bootstrap_native.native_reads;
  return ok && bootstrap_guard();
 }
+#ifdef SRVROS_INTEL_GT_FLUSH
+static bool bcs_stop_at_reset(void);
+#endif
 static enum intel_gt_write bootstrap_store(uint32_t offset,uint32_t value,bool preparing) {
  unsigned slot=bootstrap_slot(offset);
  if(slot>=WAKE_MAPS || !bootstrap_guard())return GT_WRITE_NONE;
@@ -396,6 +399,8 @@ static enum intel_gt_write bootstrap_store(uint32_t offset,uint32_t value,bool p
   gt_bootstrap_native.source.consumer!=&gt_bootstrap_native.reset ||
   !gt_bootstrap_native.reset.registered || gt_bootstrap_native.prepared!=5)return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(offset==BDW_BOOT_GDRST && !gt_bootstrap_native.reset.reset_writes && !bcs_stop_at_reset())
+  return GT_WRITE_NONE;
  if(!gt_slot_live() || !bootstrap_smi_check(BOOT_SMI_ENGINE))return GT_WRITE_NONE;
 #endif
  if(!bootstrap_tick() || !bootstrap_parent() || (preparing &&
@@ -430,7 +435,7 @@ static bool bootstrap_prepare(void) {
    wake_pause(gt_bootstrap_native.a);
   }
 #ifdef SRVROS_INTEL_GT_FLUSH
-  if(!gt_prepare_messages(i))return bootstrap_fail(64);
+  if(!gt_prepare_messages(i+1))return bootstrap_fail(64);
 #endif
  }
  return gt_bootstrap_native.prepared==5;
@@ -657,7 +662,7 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #endif
  if(!bootstrap_command(3) || !bootstrap_pci(1))goto fail;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!gt_flush_sample(0))goto fail;
+ if(!gt_flush_sample(0) || !bcs_stop_request() || !gt_prepare_messages(0))goto fail;
 #endif
  if(!bootstrap_prepare())goto fail;
 #ifdef SRVROS_INTEL_GT_FLUSH
@@ -681,7 +686,7 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
    bootstrap_preserved,bootstrap_now,bootstrap_pause}))goto fail;
 #ifdef SRVROS_INTEL_GT_MEMORY_PREPARE
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!gt_flush_sample(2))goto fail;
+ if(!bcs_stop_after_reset() || !gt_flush_sample(2))goto fail;
 #endif
  if(!bootstrap_memory_open())goto fail;
 #endif

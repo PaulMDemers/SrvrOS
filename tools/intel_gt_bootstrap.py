@@ -154,6 +154,20 @@ def bootstrap_result(text,*,native=False):
     post_text='\n'.join(l.replace('intel-bootstrap-post-','intel-completion-',1) for l in view.splitlines() if l.startswith(('intel-bootstrap-post-','intel-wake-summary:','intel-clock:')))
     post=completion_result(post_text,seconds=seconds,practical=practical)
     complete=bool(s['complete'])
+    stop_lines = [line for line in text.splitlines() if line.startswith('intel-bcs-stop:')]
+    stop = None
+    if stop_lines:
+        if not flush or len(stop_lines) != 1:
+            raise ValueError('Unexpected blitter stop receipt')
+        stop = fields(stop_lines[0], 'intel-bcs-stop:', ('v','writes','verified','ctl','before','stopped','at_reset','after'),
+                      ('ctl','before','stopped','at_reset','after'))
+        if (max(stop['writes'],stop['verified']) > 1 or max(stop.values()) > 0xffffffff or
+            (stop['writes'] and (stop['ctl'] & 1 or stop['before'] & 0x300 != 0x200)) or
+            (r['reset_writes'] and (not stop['writes'] or stop['at_reset'] != stop['before'] | 0x100 or
+                                    stop['stopped'] != stop['at_reset'])) or
+            (stop['verified'] and (not r['complete'] or stop['after'] != stop['before'])) or
+            (complete and not stop['verified'])):
+            raise ValueError('Invalid blitter stop or reset readback')
     if complete:
         if maintain is not None and (maintain['complete']!=1 or maintain['end']>r['settle_begin']):raise ValueError('Bootstrap missing safe pre-reset maintenance')
         required=dict(state=2,reason=0,failed=0,blocked=1,returned=1,active=0,epoch_calls=1,prepared=5,issued=5,commands=2,pci_samples=4,pci_reads=36,full_before=1,full_after=1,post_bound=1,clock=0,previous=0)
@@ -163,6 +177,10 @@ def bootstrap_result(text,*,native=False):
         if (b['owner'],b['provider'],b['lifetime'],b['sequence'],b['policy'],b['vendor'],b['device'],b['mmio_bytes'],b['display_samples'],b['display_before'],b['display_after'])!=(1,1,1,1,0x47544231,0x8086,0x1626,0x200000,2,39,39):raise ValueError('Bootstrap source identity')
         if b['root']!=s['root'] or not b['root'] or b['root']&4095 or b['epoch']!=s['epoch_before'] or b['prepare']!=s['begin'] or b['mmio']&0xffffff or not b['mmio'] or not 0<b['aperture_bytes']<=1<<32 or b['aperture_bytes']&4095:raise ValueError('Bootstrap original resource')
         h=entry['owner']['summary'];e=entry['summary'];p=post['summary'];w=entry['wake']['summary']
+        if stop and (any(row['c3'] != stop['before'] for row in entry['post']['contexts']) or
+                     any(row['w3'] != stop['ctl'] for row in entry['post']['rows'] if row['engine'] == 4) or
+                     any(row['c3'] != stop['after'] for row in post['contexts'])):
+            raise ValueError('Blitter stop differs from the independent queue census')
         if diagnostic:
             if not s['end']<=timing['gt_end']<=timing['hda_end']<=timing['outer_end']<=w['end_us'] or any(timing[k+'_end']<b[k] or timing[k+'_end']-b[k]>policy[k] for k in ('gt','hda','outer')):raise ValueError('Bootstrap seconds parent closing clocks')
         if b['outer']!=h['origin'] or b['hda']!=h['hda_begin'] or not b['outer']<=b['hda']<=b['gt']<=e['source_begin']:
@@ -189,7 +207,7 @@ def bootstrap_result(text,*,native=False):
         if admission:
             if s['guards']<r['proofs'] or admission['active'] or admission['rejected'] or admission['stage']!=5 or admission['consumed']!=r['reads'] or admission['issued']!=r['proofs']:raise ValueError('Bootstrap completed admission lifetime')
             if any(q['calls']!=s['guards'] for q in cost) or sum(q['total'] for q in cost)>s['end']-s['begin']:raise ValueError('Bootstrap completed cost accounting')
-        if s['native_reads']!=r['reads']+5+sum(q['prepare_polls'] for q in controls) or s['native_writes']!=r['writes']+5 or s['alias_checks']!=15*s['guards'] or s['cache_checks']!=s['guards'] or r['proofs']<2*(r['reads']+r['writes']):raise ValueError('Bootstrap native adapter counts')
+        if s['native_reads']!=r['reads']+5+sum(q['prepare_polls'] for q in controls) or s['native_writes']!=r['writes']+5+(stop['writes'] if stop else 0) or s['alias_checks']!=15*s['guards'] or s['cache_checks']!=s['guards'] or r['proofs']<2*(r['reads']+r['writes']):raise ValueError('Bootstrap native adapter counts')
         for q in controls:
             if not 1<=q['prepare_polls']<=256 or not 1<=q['cancel_polls']<=256 or q['prepare_final']&65535!=3 or q['before']&65535!=3 or q['after']&65535 or q['cancel_final']&3 or q['prepare_first']&~0xffff0003 or q['cancel_first']&~0xffff0003:
                 raise ValueError('Bootstrap control endpoints')
@@ -253,6 +271,13 @@ def bootstrap_result(text,*,native=False):
     if flush:
         from intel_gt_flush import flush_result
         flush_proof=flush_result(text,s,r,range_proof['summary'],primary_proof['summary'],retire,memory_proof['summary'],range_proof.get('widi_messages'))
+        if stop:
+            if flush_proof['summary']['v'] != 9:
+                raise ValueError('Blitter stop lacks a compatible baseline')
+            if stop['verified'] and (not flush_proof.get('stop_messages') or
+                                     len(flush_proof.get('prepare_messages', [])) != 5):
+                raise ValueError('Missing messages during verified blitter stop')
+            flush_proof['bcs_stop'] = stop
     elif any(l.startswith(('intel-flush-','intel-l3-power:','intel-smi-guard:','intel-widi-','intel-slot-widi:','intel-slot-reopened:','intel-slot-queues:','intel-command-slots:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,

@@ -145,6 +145,15 @@ command. The next prerequisite is for the traffic owner to withdraw the GO
 requests while preserving this display branch, then verify closure and fresh
 engine and L3 acknowledgements before publishing command pages.
 
+The next Air trial on PR 301 isolates the blitter's contribution. Before
+the existing full GT reset it requests Stop Ring on the idle, disabled BCS,
+verifies that the parser acknowledges the stop and checks it again at the
+first reset store. The diagnostic samples GPM, WiDi and L3 immediately after
+the stop and again after preparing each of the five engines. Only the
+existing reset releases the parser. This work touches the
+Air GT bootstrap adapter, its collector and the per-release trial checks.
+The original panel, command pages and EFI recovery remain with their owners.
+
 The Ubuntu installer now recognizes completed EFI traces with appended GOP
 paths. It validates the existing trace before copying the next release. The
 installer suite and a replay of this Air's 1,014-byte trace cover the repair.

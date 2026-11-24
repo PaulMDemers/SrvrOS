@@ -89,17 +89,19 @@ def bank_result(text, version, samples, reset_started):
 
 def prepare_messages(text, baseline, following):
     rows = []
+    phases = ('bcs-stop', *ENGINES) if any(line.startswith('intel-bcs-stop:') for line in text.splitlines()) else ENGINES
+    version = 2 if len(phases) == 6 else 1
     previous = [baseline[k + '_close'] for k in ENGINES]
     last_l3, end = baseline['l3_close'], baseline['end']
     for line in text.splitlines():
         if not line.startswith('intel-gpm-step:'):
             continue
-        m = re.fullmatch(r'intel-gpm-step: v=1 n=(\d+) begin=(\d+) end=(\d+) data=(\S+)', line)
+        m = re.fullmatch(rf'intel-gpm-step: v={version} n=(\d+) begin=(\d+) end=(\d+) data=(\S+)', line)
         if not m:
             raise ValueError('Malformed preparation message')
         n, begin, close = map(int, m.groups()[:3])
         data = base64.b64decode(m[4], validate=True)
-        if len(data) != 44 or n != len(rows) or n >= 5 or not end <= begin < close or close-begin > 10000:
+        if len(data) != 44 or n != len(rows) or n >= len(phases) or not end <= begin < close or close-begin > 10000:
             raise ValueError('Preparation message order or deadline')
         words = struct.unpack('<11I', data)
         if 0xffffffff in words or (following and close > following['begin']):
@@ -109,12 +111,12 @@ def prepare_messages(text, baseline, following):
         fresh = [name for bit, name, old, new in zip((0, 1, 3, 2, 4), ENGINES, previous, engines)
                  if not permitted & (1 << bit) and not old & 32 and new & 0x31 == 0x20]
         blocked = not permitted and not widi & 0x11 and not (req | req_end) & 0xff00
-        rows.append(dict(after_prepare=ENGINES[n], begin=begin, end=close, request=[req, req_end],
+        rows.append(dict(after_prepare=phases[n], begin=begin, end=close, request=[req, req_end],
                          arbiter=[reply, reply_end], engines=engines, widi=widi, l3=l3,
                          fresh_engine_ack=fresh, observed_closed=blocked,
                          fresh_l3_under_block=blocked and last_l3 & 3 == 0 and l3 & 3 == 1))
         previous, last_l3, end = engines, l3, close
-    if rows and following and len(rows) != 5:
+    if rows and following and len(rows) != len(phases):
         raise ValueError('Missing preparation message')
     return rows
 
@@ -256,6 +258,8 @@ def flush_result(text, parent, reset, translation, primary, retire, memory, widi
         if summary["v"] < 9 or not count:
             raise ValueError("Preparation messages lack a compatible baseline")
         result['prepare_messages'] = prepare_messages(text, samples[0], samples[1] if count >= 2 else None)
+        if result['prepare_messages'][0]['after_prepare'] == 'bcs-stop':
+            result['stop_messages'] = result['prepare_messages'].pop(0)
     if gam:
         result["gam"] = gam_state
     trace_rows = [line for line in text.splitlines() if line.startswith("intel-gam-")]

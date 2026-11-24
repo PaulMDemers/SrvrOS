@@ -503,13 +503,13 @@ static bool slot_widi_sample(unsigned n) {
  * Preparing an engine alone confers no ownership of the GPM request. */
 static struct {
     struct gt_display_access access;
-    struct { uint32_t raw[11]; uint64_t begin,end; } stage[GT_FLUSH_ENGINES];
+    struct { uint32_t raw[11]; uint64_t begin,end; } stage[1 + GT_FLUSH_ENGINES];
     unsigned count;
     bool reading;
 } gt_prepare_trace;
 
 static bool gt_prepare_message_live(void) {
-    unsigned stage=gt_prepare_trace.count+1;
+    unsigned stage=gt_prepare_trace.count;
     return gt_prepare_trace.reading && stage<=GT_FLUSH_ENGINES && air_branch_selected() &&
         gt_flush.samples==1 && gt_bootstrap_native.prepared==stage && gt_bootstrap_native.issued==stage &&
         gt_bootstrap_native.command_writes==1 && gt_bootstrap_native.pci_samples==2 &&
@@ -521,11 +521,13 @@ static bool gt_prepare_message_live(void) {
 static bool gt_prepare_message_offset(uint32_t offset) {
     return offset==0x8014 || gt_flush_offset_allowed(offset);
 }
-static bool gt_prepare_messages(unsigned engine) {
+static bool bcs_stop_held(void);
+static bool gt_prepare_messages(unsigned stage) {
     static const uint32_t req[]={0x40d0};
     static const uint32_t msgs[]={0x8028,0x8000,0x8004,0x8010,0x8008,0x800c,0x8014,0x8038,0x8028};
-    if (engine!=gt_prepare_trace.count || engine>=GT_FLUSH_ENGINES || !bootstrap_tick()) return false;
-    uint32_t *raw=gt_prepare_trace.stage[engine].raw;
+    if (stage!=gt_prepare_trace.count || stage>GT_FLUSH_ENGINES || !bootstrap_tick() ||
+        !bcs_stop_held()) return false;
+    uint32_t *raw=gt_prepare_trace.stage[stage].raw;
     struct gt_display_access *a=&gt_prepare_trace.access;
     uint64_t begin=gt_bootstrap_native.last;
     gt_prepare_trace.reading=true;
@@ -533,10 +535,10 @@ static bool gt_prepare_messages(unsigned engine) {
         gt_held_read_alias(a,msgs,raw+1,9,gt_prepare_message_live,gt_prepare_message_offset) &&
         gt_held_read_alias(a,req,raw+10,1,gt_prepare_message_live,gt_flush_offset_allowed);
     gt_prepare_trace.reading=false;
-    if (!ok || a->mapped || a->retired!=3*(engine+1) || !bootstrap_tick() ||
+    if (!ok || a->mapped || a->retired!=3*(stage+1) || !bcs_stop_held() || !bootstrap_tick() ||
         gt_bootstrap_native.last<=begin || gt_bootstrap_native.last-begin>BDW_BOOT_PHASE_US) return false;
-    gt_prepare_trace.stage[engine].begin=begin;
-    gt_prepare_trace.stage[engine].end=gt_bootstrap_native.last;
+    gt_prepare_trace.stage[stage].begin=begin;
+    gt_prepare_trace.stage[stage].end=gt_bootstrap_native.last;
     ++gt_prepare_trace.count;
     return true;
 }
@@ -579,12 +581,87 @@ static bool gt_flush_sample(unsigned n) {
     return true;
 }
 
+/* BDW PRM 2c pp. 161-162. Stop only an already idle, disabled BCS. Keep
+ * STOP asserted until the existing reset; never resume inherited work. */
+static struct {
+    uint32_t control, before, stopped, at_reset, after;
+    unsigned writes;
+    bool verified;
+} bcs_stop;
+
+static uint32_t bcs_stop_read(uint32_t offset)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_bcs_stop_read(offset);
+#else
+    return *(volatile const uint32_t *)(WAKE_VA + 7 * 4096 + offset);
+#endif
+}
+
+static bool bcs_stop_owned(void)
+{
+    return air_branch_selected() && wake_irq_off() && gt_slot_live() &&
+           intel_bdw_bcs_port_held(&slot_backing) && !gt_bootstrap_native.engine_ro_mask &&
+           gt_bootstrap_native.command_writes == 1 && gt_bootstrap_native.pci_samples == 2 &&
+           wake_pages[7] == 0x22000 && bootstrap_parent();
+}
+
+static bool bcs_stop_request(void)
+{
+    const struct intel_completion_result *post = &ring_native.result.post;
+    if (bcs_stop.writes || gt_flush.samples != 1 || gt_bootstrap_native.reset.object ||
+        gt_bootstrap_native.issued || !bcs_stop_owned() || !bootstrap_guard()) return false;
+    bcs_stop.control = bcs_stop_read(0x3c);
+    bcs_stop.before = bcs_stop_read(0x9c);
+    if (!post->stable || post->enabled || post->pending || post->tlb_pending || post->flip_wait ||
+        (bcs_stop.control & 1) || bcs_stop.control != post->words[1][4][3] ||
+        bcs_stop.before != post->context[1][3] || (bcs_stop.before & 0x300) != 0x200 ||
+        !bcs_stop_owned() || !bootstrap_smi_check(BOOT_SMI_ENGINE) || !bootstrap_tick()) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_bcs_stop_write(0x01000100);
+#else
+    *(volatile uint32_t *)(WAKE_VA + 7 * 4096 + 0x9c) = 0x01000100;
+#endif
+    ++bcs_stop.writes;
+    ++gt_bootstrap_native.native_writes;
+    bcs_stop.stopped = bcs_stop_read(0x9c);
+    return bcs_stop.stopped == (bcs_stop.before | 0x100) && bootstrap_guard();
+}
+
+static bool bcs_stop_held(void)
+{
+    return bcs_stop_owned() && bcs_stop.writes == 1 &&
+           bcs_stop_read(0x9c) == bcs_stop.stopped;
+}
+
+static bool bcs_stop_at_reset(void)
+{
+    if (!bcs_stop_owned() || bcs_stop.writes != 1 || gt_prepare_trace.count != 1 + GT_FLUSH_ENGINES ||
+        bcs_stop_read(0x3c) != bcs_stop.control) return false;
+    bcs_stop.at_reset = bcs_stop_read(0x9c);
+    return bcs_stop.at_reset == bcs_stop.stopped;
+}
+
+static bool bcs_stop_after_reset(void)
+{
+    if (!gt_bootstrap_native.reset.complete || gt_bootstrap_native.reset.reset_completed != 2 ||
+        !bcs_stop_owned() || !bootstrap_guard()) return false;
+    bcs_stop.after = bcs_stop_read(0x9c);
+    bcs_stop.verified = bcs_stop.after == bcs_stop.before &&
+                        !(bcs_stop_read(0x3c) & 1) && bootstrap_guard();
+    return bcs_stop.verified;
+}
+
 static void gt_flush_report(void) {
+    console_printf("intel-bcs-stop: v=1 writes=%u verified=%u ctl=%x before=%x stopped=%x at_reset=%x after=%x\n",
+        (uint64_t)bcs_stop.writes, (uint64_t)bcs_stop.verified, (uint64_t)bcs_stop.control,
+        (uint64_t)bcs_stop.before, (uint64_t)bcs_stop.stopped, (uint64_t)bcs_stop.at_reset,
+        (uint64_t)bcs_stop.after);
     for (unsigned i=0;i<gt_prepare_trace.count;i++) {
         const uint32_t *w=gt_prepare_trace.stage[i].raw;
         char encoded[(sizeof(gt_prepare_trace.stage[i].raw)+2)/3*4+1];
         entry_requester_base64((const uint8_t *)w,sizeof(gt_prepare_trace.stage[i].raw),encoded);
-        console_printf("intel-gpm-step: v=1 n=%u begin=%u end=%u data=%s\n",
+        console_printf("intel-gpm-step: v=2 n=%u begin=%u end=%u data=%s\n",
             (uint64_t)i,gt_prepare_trace.stage[i].begin,gt_prepare_trace.stage[i].end,encoded);
     }
     for (unsigned n = 0; n < slot_queue_samples; ++n) {

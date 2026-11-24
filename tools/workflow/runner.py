@@ -542,6 +542,8 @@ class Runner:
                 state['efi_gop_routes'] = True
             if payload.get('efi_display_branch') == 1:
                 state['efi_display_branch'] = True
+            if payload.get('bcs_stop_version') == 1:
+                state['bcs_stop_version'] = 1
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
 
@@ -753,6 +755,9 @@ class Runner:
                 diagnostic_complete = diagnostic_complete and routes is not None
             if state.get('efi_display_branch'):
                 diagnostic_complete = diagnostic_complete and bool(trace.get('display_branch')) and len(native['flush'].get('prepare_messages', [])) == 5
+            if state.get('bcs_stop_version'):
+                stop = native['flush'].get('bcs_stop', {})
+                diagnostic_complete = diagnostic_complete and stop.get('v') == 1 and stop.get('verified') == 1 and bool(native['flush'].get('stop_messages'))
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -958,6 +963,9 @@ class Runner:
                 record['gt_request_trace']=observed['request_trace']
             if 'prepare_messages' in observed:
                 record['prepare_messages']=observed['prepare_messages']
+            if 'bcs_stop' in observed:
+                record['bcs_stop']=observed['bcs_stop']
+                record['stop_messages']=observed['stop_messages']
             if 'media_outstanding' in observed:
                 record['media_outstanding_samples']=observed['media_outstanding']
         if native.get('diagnostic_arena'):

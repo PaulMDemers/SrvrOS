@@ -21,6 +21,8 @@ static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
 static unsigned model_engine_ro;
+static uint32_t intel_display_test_bcs_stop_read(uint32_t);
+static void intel_display_test_bcs_stop_write(uint32_t);
 static void intel_display_test_slot_writer_sample(uint32_t *,uint32_t *);
 static bool intel_display_test_context_wp(void);
 static bool intel_display_test_context_protect(unsigned,bool);
@@ -114,6 +116,22 @@ static bool bf(const char *mode,unsigned n) {
  }return yes;
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
+static bool parser_stopped;
+static uint32_t intel_display_test_bcs_stop_read(uint32_t offset) {
+ assert(gpu_command==3 && bcs_stop_owned());
+ if(offset==0x3c)return ring_ctl | (bf("stop-ring-active",1)?1:0);
+ assert(offset==0x9c);
+ if(!parser_stopped && !pulses && bf("stop-parser-busy",1))return 0;
+ if(parser_stopped && !pulses && gt_bootstrap_native.reset.reset_attempts && bf("stop-lost-at-reset",1))return 0x200;
+ if(parser_stopped && !pulses && bf("stop-readback",gt_bootstrap_native.prepared+1))return 0x200;
+ if(pulses && bf("stop-reset-sticky",1))return 0x300;
+ return parser_stopped && !pulses ? 0x300 : 0x200;
+}
+static void intel_display_test_bcs_stop_write(uint32_t value) {
+ assert(value==0x01000100 && !parser_stopped && !pulses && (ring_ctl&1)==0 &&
+        !gt_bootstrap_native.issued && !display_access_allowed() && bcs_stop_owned());
+ parser_stopped=true;
+}
 static bool intel_display_test_command_ram(uint64_t base,volatile const uint32_t *ram) {
  return base==TEST_COMMAND_PA && ram==test_command_ram && air_boot_buffer &&
         !bf("command-ram-alias",command_slots.samples+1);
@@ -401,6 +419,9 @@ static enum intel_gt_write intel_display_test_bootstrap_write(uint32_t offset,ui
   assert(value==1 && ++pulses<=2 && gt_bootstrap_native.epoch_calls==1);
   assert(gt_bootstrap_native.g->engine_epoch==gt_bootstrap_native.epoch+1);
   if(pulses==1)for(unsigned i=0;i<5;i++)assert(control[i]==3);
+#ifdef SRVROS_INTEL_GT_FLUSH
+  assert(parser_stopped && bcs_stop.at_reset==0x300);
+#endif
   for(unsigned i=0;i<5;i++)control[i]=0;
   ring_ctl=0;
   if(!preserve_fences)for(unsigned i=0;i<32;i++)fences[i]=0;
