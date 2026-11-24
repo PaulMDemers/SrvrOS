@@ -2,8 +2,9 @@
 
 Updated November 24, 2026. State **Native console output, topcase descriptor
 reads through EHCI split control, and return to Ubuntu verified. The second
-EHCI controller scan was incomplete. Both controllers released DMA. Keyboard
-input and native USB workspace access remain pending.**
+EHCI controller timed out on the flash drive's first descriptor read. Both
+controllers released DMA. Keyboard input and native USB workspace access
+remain pending.**
 
 ## Identity and baseline
 
@@ -33,12 +34,12 @@ input and native USB workspace access remain pending.**
 
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
-MacBookPro8,1 console, input and USB workspace milestones. The attended EHCI
-split run verified the topcase descriptor path. The active work covers EHCI
-scan and control-transfer reporting, the existing QEMU hub fixture and a
-one-shot retry to locate the failure on `00:1d.7`. It uses the existing EHCI
-transport, RAM-only profile and Ubuntu recovery. The inventory contains no
-xHCI controller on this Mac.
+MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
+trials verified the topcase descriptor path and isolated the incomplete
+`00:1d.7` scan to the initial high-speed descriptor data stage on hub port 2.
+The remaining USB transport work is to determine why the data stage fails to
+complete and verify a successful address assignment for the flash drive.
+The inventory contains no xHCI controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `c45c0984`, and Apple Silicon runtime, login and export work
@@ -234,9 +235,9 @@ with an 8-byte endpoint-zero packet, assigning address 3 through hub address
 
 `00:1d.7` (`8086:1c26`) stopped before completing its scan. Ubuntu shows a
 low-speed Apple IR receiver `05ac:8242` on port 1 of that controller's hub
-and the high-speed flash drive `13fe:6700` on port 2. The compact native
-screen did not report the last operation, so the failing port or request
-remains unknown. The new Ubuntu boot ID, cleared `next_entry`, unchanged
+and the high-speed flash drive `13fe:6700` on port 2. The first trial screen
+recorded completion per controller, leaving its failing operation unknown.
+The new Ubuntu boot ID, cleared `next_entry`, unchanged
 firmware boot order, mounted exFAT workspace and both installed manifests
 were verified. The transcript, verification and exact payload were archived
 locally outside `build/` alongside the known-good console release.
@@ -260,13 +261,34 @@ with `c1a8e397a41363dc` still installed as the recovery release. The prior
 partial result and its payload remain archived. The retry record and VM
 evidence are in `build/review/macbookpro8-1-ehci-trial-47632d5174507ea3/`.
 
+The operator's native result for `47632d5174507ea3` was `INCOMPLETE`. The
+topcase descriptor reads and address 3 were reproduced on `00:1a.7`, and both
+controllers released their DMA pages. `00:1d.7` reached hub address 1 port 2
+and timed out on the initial `GET_DESCRIPTOR` at USB address 0. The Ubuntu
+sysfs route ties that port to the attached `13fe:6700` workspace drive at
+480 Mb/s.
+
+The sampled hub port status `0x00100503` shows a connected, enabled, powered
+high-speed port and a reset-change indication. `USBSTS=0xa005` shows that the
+asynchronous schedule was active at the stop. The setup qTD completed with
+status 0, while the requested data IN and status qTDs both remained active
+(`0x80`) under the configured 100 ms completion limit. That locates the
+timeout before address assignment. The reason the data phase stayed active
+remains open. [USB hub status bits](https://github.com/torvalds/linux/blob/master/include/uapi/linux/usb/ch11.h) · [Intel EHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
+
+Ubuntu return was verified with a changed boot ID, consumed `next_entry`,
+unchanged firmware boot order and matching manifests for the trial and the
+previous console release. The workspace mounted in Ubuntu. The retry's
+transcript, VM evidence and exact payload were archived outside `build/`
+alongside the earlier trial.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard and trackpad | Native topcase split control and descriptors verified | Keyboard events and verified trackpad reports |
-| USB workspace | Mounted in Ubuntu. Native scan of its controller was incomplete. | Locate the failed operation on `00:1d.7`, then verify native read and write/sync/unmount with Ubuntu readback |
+| USB workspace | Ubuntu mounts it. SrvrOS times out on the initial device-descriptor read on `00:1d.7`. | Complete enumeration and verify native read, then write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
