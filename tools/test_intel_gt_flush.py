@@ -147,6 +147,45 @@ class FlushAcknowledgements(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'sequence'):
             trace.decode(env, probe, release)
 
+    def test_gop_routes_compare_each_console_instance_and_child(self):
+        import air_efi_trace as trace
+        import struct
+        import zlib
+
+        pci = bytes.fromhex('010106000002')
+        vendor = bytes.fromhex('030a1400') + bytes(16)
+        adr = bytes.fromhex('020308001f000000')
+        end = bytes.fromhex('7fff0400')
+        instance = bytes.fromhex('7f010400')
+        active = pci + vendor + end
+
+        def row(handle, path, state=0):
+            return struct.pack('<BBH', handle, state, len(path)) + path
+
+        def packet(rows):
+            body = bytes([1, 6]) + b''.join(rows)
+            return b'GOP1' + struct.pack('<I', zlib.crc32(body)) + body
+
+        rows = [row(0, pci + adr + instance + active), row(1, b'', 1), row(2, active),
+                row(3, pci + end), row(2, active), row(4, pci + adr + end),
+                row(5, pci + vendor + adr + end), row(6, b'', 1), row(7, b'', 2)]
+        report = trace._decode_routes(packet(rows), 6)
+        comparisons = report['comparisons']['gop0']
+        self.assertEqual([r['relation'] for r in comparisons['ConOut']], ['diverged', 'exact'])
+        self.assertEqual([comparisons[f'child{i}'][0]['relation'] for i in range(4)],
+                         ['other-is-ancestor', 'exact', 'diverged', 'gop-is-ancestor'])
+        self.assertEqual(comparisons['child2'][0]['common_nodes'], 1)
+        self.assertEqual(report['paths']['child1']['handle'], report['paths']['gop0']['handle'])
+        self.assertEqual(report['paths']['child4']['state'], 'absent')
+        self.assertEqual(report['paths']['child5']['state'], 'unavailable')
+        for broken in (packet(rows)[:-1], packet(rows[:-1]), packet(rows + rows[:1]),
+                       packet(rows[:4] + [row(2, pci + end)] + rows[5:]),
+                       packet([row(0, pci + instance)] + rows[1:])):
+            with self.assertRaises(ValueError):
+                trace._decode_routes(broken, 6)
+        with self.assertRaises(ValueError):
+            trace._decode_routes(packet(rows), 5)
+
     def test_same_boot_efi_handoff(self):
         subprocess.run([ROOT / TARGET, "efi-import"], check=True, timeout=10)
         text = observe("pass")

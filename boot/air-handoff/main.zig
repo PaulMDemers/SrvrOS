@@ -95,7 +95,17 @@ fn driverFile(bs: *Services, agent: Handle) ?[16]u8 {
 }
 // The console handle may be a console splitter. Match a GOP on the active
 // surface by physical address rather than treating the first GOP as primary.
-fn framebuffer(bs: *Services, r: *Record) !void {
+const Handles = struct {
+    items: [16]?Handle = .{null} ** 16,
+    count: usize = 0,
+
+    fn add(self: *Handles, handle: ?Handle) void {
+        if (self.count < self.items.len) self.items[self.count] = handle;
+        self.count += 1;
+    }
+};
+pub fn framebuffer(bs: *Services, r: *Record) !Handles {
+    var active = Handles{};
     const Gop = efi.protocol.GraphicsOutput;
     const handles = (try bs.locateHandleBuffer(.{ .by_protocol = &Gop.guid })) orelse return error.NoGop;
     defer bs.freePool(@ptrCast(handles.ptr)) catch {};
@@ -106,10 +116,12 @@ fn framebuffer(bs: *Services, r: *Record) !void {
         if (base < r.aperture or base - r.aperture != r.surface or size == 0 or
             g.mode.info.pixel_format == .blt_only) continue;
         if (r.framebuffer_bytes != 0 and r.framebuffer_bytes != size) return error.ConflictingGop;
+        active.add(handle);
         r.framebuffer = base;
         r.framebuffer_bytes = size;
     }
-    if (r.framebuffer_bytes == 0) return error.NoGop;
+    if (active.count == 0) return error.NoGop;
+    return active;
 }
 // Query the controller's protocol-open database. Never call the private
 // interface or disconnect a driver from the active display.
@@ -164,6 +176,76 @@ const Panel = struct {
     }
 };
 
+// Append the paths themselves. The collector can compare complete UEFI nodes,
+// including distinct instances of the firmware ConOut variable.
+const path_limit = 4096;
+const route_header = 10;
+var route_bytes: [route_header + 34 * (4 + path_limit)]u8 = undefined;
+
+fn devicePath(bs: *Services, handle: Handle) !?[]const u8 {
+    const path = (try bs.openProtocol(efi.protocol.DevicePath, handle, .{ .get_protocol = .{} })) orelse return null;
+    const start: [*]const u8 = @ptrCast(path);
+    var pos: usize = 0;
+    while (pos + 4 <= path_limit) {
+        const node = start + pos;
+        const len = std.mem.readInt(u16, node[2..4], .little);
+        if (len < 4 or len > path_limit - pos) break;
+        pos += len;
+        if (node[0] == 0x7f) {
+            if (len != 4) break;
+            if (node[1] == 0xff) return start[0..pos];
+            if (node[1] != 1) break;
+        }
+    }
+    return error.MalformedDevicePath;
+}
+
+const RouteWriter = struct {
+    pos: usize = route_header,
+    // These identifiers compare handle identity only within this receipt.
+    handles: [33]Handle = undefined,
+    used: usize = 0,
+
+    fn row(self: *RouteWriter, id: u8, state: u8, path: []const u8) void {
+        const dst = route_bytes[self.pos..];
+        dst[0] = id;
+        dst[1] = state;
+        std.mem.writeInt(u16, dst[2..4], @intCast(path.len), .little);
+        @memcpy(dst[4..][0..path.len], path);
+        self.pos += 4 + path.len;
+    }
+
+    fn handlePath(self: *RouteWriter, bs: *Services, handle: ?Handle) void {
+        const h = handle orelse return self.row(0, 1, "");
+        const i = std.mem.indexOfScalar(Handle, self.handles[0..self.used], h) orelse index: {
+            self.handles[self.used] = h;
+            self.used += 1;
+            break :index self.used - 1;
+        };
+        const id: u8 = @intCast(i + 1);
+        const path = devicePath(bs, h) catch return self.row(id, 2, "");
+        if (path) |bytes| self.row(id, 0, bytes) else self.row(id, 1, "");
+    }
+};
+
+fn routes(bs: *Services, active: Handles, children: Handles) ?[]const u8 {
+    if (active.count == 0 or active.count > active.items.len or children.count > children.items.len) return null;
+    var writer = RouteWriter{};
+    @memcpy(route_bytes[0..4], "GOP1");
+    route_bytes[8] = @intCast(active.count);
+    route_bytes[9] = @intCast(children.count);
+    var console: [path_limit]u8 = undefined;
+    const result = efi.system_table.runtime_services.getVariable(std.unicode.utf8ToUtf16LeStringLiteral("ConOut"), &efi.tables.global_variable, &console);
+    if (result) |found| {
+        if (found) |value| writer.row(0, 0, value[0]) else writer.row(0, 1, "");
+    } else |_| writer.row(0, 2, "");
+    writer.handlePath(bs, efi.system_table.console_out_handle);
+    for (active.items[0..active.count]) |h| writer.handlePath(bs, h);
+    for (children.items[0..children.count]) |h| writer.handlePath(bs, h);
+    std.mem.writeInt(u32, route_bytes[4..8], std.hash.Crc32.hash(route_bytes[8..writer.pos]), .little);
+    return route_bytes[0..writer.pos];
+}
+
 pub const Eg2Clients = struct {
     state: enum { observed, absent, unavailable } = .observed,
     entries: usize = 0,
@@ -172,8 +254,10 @@ pub const Eg2Clients = struct {
     children: usize = 0,
     exclusive: usize = 0,
     panel: ?Panel = .{},
+    paths: ?[]const u8 = null,
 };
-pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64) !Eg2Clients {
+pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64, active: ?Handles) !Eg2Clients {
+    var children = Handles{};
     const opens = (try bs.openProtocolInformation(handle, Eg2Device)) orelse return error.ProtocolUnavailable;
     defer if (opens.len != 0) bs.freePool(@ptrCast(opens.ptr)) catch {};
     if (opens.len > 0xffff) return error.TooManyClients;
@@ -196,10 +280,12 @@ pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64) !Eg2Clien
                     };
                 } else result.panel = null;
             }
+            children.add(op.controller_handle);
             result.children += 1;
         }
         if (bits & 32 != 0) result.exclusive += 1;
     }
+    if (active) |gops| result.paths = routes(bs, gops, children);
     return result;
 }
 fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
@@ -249,10 +335,10 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
         r.step = 3;
         try snapshot(p, r);
         r.step = 4;
-        try framebuffer(bs, r);
+        const active = try framebuffer(bs, r);
         clients.* = .{ .state = .absent };
         for (ids) |id| {
-            if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle, r.framebuffer, r.framebuffer_bytes) catch .{ .state = .unavailable };
+            if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle, r.framebuffer, r.framebuffer_bytes, active) catch .{ .state = .unavailable };
         }
         try snapshot(p, r);
         r.step = 5;
@@ -313,7 +399,11 @@ fn markClients(f: *File, c: Eg2Clients, captured: bool) void {
         @memcpy(block[0.."panel-unavailable\n".len], "panel-unavailable\n");
     }
     f.setPosition(448) catch return;
-    if ((f.write(&block) catch return) == block.len) f.flush() catch {};
+    if ((f.write(&block) catch return) != block.len) return;
+    if (c.paths) |data| {
+        if ((f.write(data) catch return) != data.len) return;
+    }
+    f.flush() catch {};
 }
 
 fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status {

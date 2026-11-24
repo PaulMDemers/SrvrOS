@@ -31,9 +31,12 @@ fn vector(bs: *efi.tables.BootServices, r: anytype, clients: *?handoff.Eg2Client
             .by_child_controller = .{ .agent = efi.handle, .controller = efi.handle },
         })) orelse return error.NoSecondChild;
         defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, efi.handle) catch {};
-        const wrong = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size - 1);
+        const wrong = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size - 1, null);
         if (wrong.panel == null or wrong.panel.?.gops == 0 or wrong.panel.?.matches != 0) return error.FalseMatch;
-        clients.* = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size);
+        var scanout = r.*;
+        scanout.aperture = mode.frame_buffer_base;
+        const active = try handoff.framebuffer(bs, &scanout);
+        clients.* = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size, active);
         break;
     }
     if (clients.* == null) return error.NoFixtureDisplay;

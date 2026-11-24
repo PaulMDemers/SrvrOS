@@ -1475,6 +1475,18 @@ def main():
                                 raise ValueError(f"Missing unique EFI panel child: {panel}")
                         elif panel is not None:
                             raise ValueError(f"Unexpected EFI panel on unmatched hardware: {panel}")
+                    if manifest.get("efi_gop_routes"):
+                        routes = trace.get("gop_routes")
+                        if args.efi_probe_fault == "missing-acpi-vector":
+                            matched = "child" + str(panel["active_mask"].bit_length() - 1)
+                            if not routes or not any(
+                                    any(row["relation"] == "exact" for row in others[matched])
+                                    and routes["paths"][gop]["handle"] == routes["paths"][matched]["handle"]
+                                    and others["ConOut"]
+                                    for gop, others in routes["comparisons"].items()):
+                                raise ValueError("Missing same-boot GOP, child and console paths")
+                        elif routes is not None:
+                            raise ValueError("Unexpected GOP route capture on unmatched hardware")
                     if trace["grub"] != grub_state or trace["probe"] != checkpoints:
                         raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
                     if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):

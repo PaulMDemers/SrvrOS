@@ -1,6 +1,8 @@
 """Diagnostic receipts outside the immutable release on the unit's ESP."""
 import re
 import secrets
+import struct
+import zlib
 
 GRUB = 'AIRBOOT.ENV'
 PROBE = 'AIRBOOT.LOG'
@@ -18,6 +20,91 @@ def seed(release):
 
 
 def decode(env, probe, release, nonce=None):
+    result = _decode_progress(env, probe[:512], release, nonce)
+    if len(probe) > 512:
+        clients = result.get('eg2_clients', {})
+        if clients.get('state') != 'observed' or result.get('probe', {}).get('capture') != (2 << 32 | 6):
+            raise ValueError('Missing completed capture for EFI GOP routes')
+        result['gop_routes'] = _decode_routes(probe[512:], clients['children'])
+    return result
+
+
+def _instances(data):
+    instances, nodes, pos = [], [], 0
+    while pos + 4 <= len(data):
+        kind, subtype, size = struct.unpack_from('<BBH', data, pos)
+        if size < 4 or pos + size > len(data):
+            break
+        node = data[pos:pos + size]
+        pos += size
+        if kind != 0x7f:
+            nodes.append(node.hex())
+            continue
+        if size != 4 or subtype not in (1, 255):
+            break
+        instances.append(nodes)
+        nodes = []
+        if subtype == 255:
+            if pos == len(data):
+                return instances
+            break
+    raise ValueError('Malformed EFI device path')
+
+
+def _compare(active, other):
+    comparisons = []
+    for i, left in enumerate(active['instances']):
+        for j, right in enumerate(other['instances']):
+            common = 0
+            for a, b in zip(left, right):
+                if a != b:
+                    break
+                common += 1
+            if left == right:
+                relation = 'exact'
+            elif common == len(right):
+                relation = 'other-is-ancestor'
+            elif common == len(left):
+                relation = 'gop-is-ancestor'
+            else:
+                relation = 'diverged'
+            comparisons.append(dict(gop_instance=i, other_instance=j, common_nodes=common, relation=relation))
+    return comparisons
+
+
+def _decode_routes(data, children):
+    if (len(data) < 10 or data[:4] != b'GOP1'
+            or struct.unpack_from('<I', data, 4)[0] != zlib.crc32(data[8:])):
+        raise ValueError('Invalid EFI GOP route checksum or header')
+    active, count = data[8:10]
+    if not 1 <= active <= 16 or count != children or count > 16:
+        raise ValueError('Invalid EFI GOP or child count')
+    roles = ['ConOut', 'console_handle'] + [f'gop{i}' for i in range(active)] + [f'child{i}' for i in range(count)]
+    pos, paths, handles = 10, {}, {}
+    for role in roles:
+        if pos + 4 > len(data):
+            raise ValueError('Missing EFI GOP route')
+        handle, state, size = struct.unpack_from('<BBH', data, pos)
+        pos += 4
+        if (size > 4096 or pos + size > len(data) or state > 2 or (state == 0) != bool(size)
+                or (role == 'ConOut' and handle) or (role != 'ConOut' and state != 1 and not handle)
+                or (role.startswith('gop') and not handle) or handle > len(roles) - 1):
+            raise ValueError('Invalid EFI GOP route')
+        raw = data[pos:pos + size]
+        pos += size
+        if handle and handles.setdefault(handle, (state, raw)) != (state, raw):
+            raise ValueError('Inconsistent path on the same EFI handle')
+        paths[role] = dict(handle=handle or None, state=('observed', 'absent', 'unavailable')[state],
+                           instances=_instances(raw) if size else [])
+    if pos != len(data):
+        raise ValueError('Trailing EFI GOP route data')
+    others = ['ConOut', 'console_handle'] + [f'child{i}' for i in range(count)]
+    comparisons = {gop: {other: _compare(paths[gop], paths[other]) for other in others}
+                   for gop in paths if gop.startswith('gop')}
+    return dict(paths=paths, comparisons=comparisons)
+
+
+def _decode_progress(env, probe, release, nonce):
     header = re.match(rb'SRVR-AIR-EFI-V1 ([0-9a-f]{16}) ([0-9a-f]{16})\n', probe)
     if len(probe) != 512 or not header or any(probe[header.end():64]):
         raise ValueError('Invalid EFI progress file')

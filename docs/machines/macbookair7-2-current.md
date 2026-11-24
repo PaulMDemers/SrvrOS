@@ -113,6 +113,11 @@ vendor messaging nodes. The path has no ACPI display-address node. Its
 FNV-1a 64-bit hash including the end node is `a9167657801a6afb`.
 The next probe can start at the globally matched GOP handle and compare its
 device path with the console path and the six child paths during the same boot.
+The EFI route probe records every global GOP handle matching the original
+scanout, the boot-time `ConOut` variable, the system console handle and
+each EG2 child in open-record order between the two Pipe A snapshots.
+The collector compares complete device-path nodes per instance, retains the
+common prefix and distinguishes a missing path from one that diverges.
 The console path alone does not establish GPU traffic ownership.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
