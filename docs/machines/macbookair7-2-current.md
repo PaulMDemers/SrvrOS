@@ -162,16 +162,24 @@ The driver can now stop the blitter parser. With global GO still asserted,
 the device-wide drain and independent WiDi exclusion remain prerequisites
 for replacing the seven mappings and issuing the first native command.
 
-The next Air diagnostic checks whether firmware's existing RC6 policy
-parks the GT with the original panel active. The GT wake adapter will
-sample always-on core status, residency and forcewake acknowledgement
-twice before taking forcewake and twice after releasing it, with a 2 ms
-interval in each pair. Each sample checks the programmed and live Pipe A
-surface against the selected EFI display. In the previous boot the RC6
-control word was `0x90040000` and the target was `0x40000` at all four
-powered checkpoints. Linux's Broadwell manual park sequence disables the
-hardware timers before writing that same target. The trial first measures
-the inherited policy and leaves both registers untouched.
+Release `77a7fbfaab1db2dd` at `fb582f40`, session
+`session-0006610072e95c7a-00`, sampled the original Pipe A surface and
+always-on GT power registers twice before forcewake acquisition and twice
+after release. Both pairs had a 2 ms gap between read windows. All four
+samples showed RC0 (`0x40800000`), a clear forcewake acknowledgement and
+the same RC6 residency count (1,582,670 ticks). The programmed and live
+surface matched EFI throughout the samples. The blitter stop verified,
+all 19 EFI-reserved pages verified, and the USB allocation check passed.
+All six powered observations still showed GO open and no fresh engine or
+L3 flush acknowledgement.
+
+In a separate Ubuntu/i915 comparison on this Air, 14 of 19 trials with
+matching panel surfaces showed RC6 and a clear forcewake acknowledgement
+about 2 ms after release. All 20 acquisitions showed RC0. SrvrOS sampled
+after GT release while the display-audio owner was still held. The next
+comparison should sample again after releasing that owner over a longer
+idle interval before changing either RC6 control register. The Linux
+manual park sequence disables hardware timers before writing the RC6 target.
 [i915 RC6 park and unpark](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L681-L718)
 
 The Ubuntu installer now recognizes completed EFI traces with appended GOP
