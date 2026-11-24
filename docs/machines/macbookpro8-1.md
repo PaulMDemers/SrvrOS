@@ -44,8 +44,10 @@ The inventory contains no xHCI controller on this Mac.
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `cb0445b9`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
-dependency on those branches. Coordinate shared HID, storage or initialization
-changes if they become necessary. [Device coordination](../agent-coordination.md)
+dependency on those branches. The Air7,2 branch at `fb582f40` also touches the
+staging tool in its RC6 receipt path, independently of the EHCI profile.
+Coordinate shared HID, storage or initialization changes if they become
+necessary. [Device coordination](../agent-coordination.md)
 
 ## Bring-up sequence
 
@@ -207,6 +209,14 @@ make -j2 build/kernel/srvros.elf
 python3 tools/hardware_boot.py stage --ehci-split-trial
 python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)"
 ```
+
+Clean source `8a51702a` produced release `91a277b2e434e4b3`. The exact VM
+rehearsal verified the readable 1280 × 800 result screen, both emulated EHCI
+scans, DMA retirement and the Ubuntu default marker on the second boot.
+The ordinary xHCI console rehearsal passed on the same source. The attended
+release is installed as current with `c1a8e397a41363dc` retained as previous.
+Both installed manifests and unchanged firmware boot order were verified. The
+local handoff is `build/review/macbookpro8-1-ehci-trial-91a277b2e434e4b3/run.json`.
 
 The native screen must show the expected `05ac:0245` topcase through
 `0424:2513` port 2 with an 8-byte control packet and both Sandy Bridge EHCI
