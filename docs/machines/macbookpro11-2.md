@@ -533,6 +533,19 @@ opening bulk IN. The MAC TX and TX DMA gates stay closed and TX queues
 remain paused. The candidate carries over the latest verified filter
 and receive setup.
 
+Cold candidate `96ea7b51cf8e38c1`, source `d310700b`, compiled and
+passed the native RF timing, beacon, firmware and lifecycle fixtures.
+The timing fixture verifies the eight waits in order, refusal after
+a failed wait, and refusal while the calibration bit remains set.
+The exact GPT workspace boot and all four journal/recovery VM cases
+passed. Preflight verified all three hub leaves, a clean workspace
+with 584 existing files, Ubuntu default and recovery `74da74e0b57afbb8`.
+The fresh journal and one-shot boot are recorded in
+`build/bringup/pro112-rtl8188cu-rf-settle/run.json`. The superseded EFI
+copy removed for space was verified against its recovery archive.
+The unattended boot saves the startup RF readback, actual waits and
+receive trace before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
