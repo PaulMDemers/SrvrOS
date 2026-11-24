@@ -1005,6 +1005,15 @@ independent journal checkpoints verified. The image and both
 Linux and SrvrOS evidence are archived as
 `evidence-e322a91f597732d0`.
 
+The next receive-only experiment isolates `0xb68`. The working Linux
+driver writes the full word `0x00080000` before entering IQ mode, and
+the live monitor trace still reads that value. Fetched main `61111819`
+has no overlapping changes to this path since `50f1978a`. The scope
+is the RTL8188CUS passive xHCI path and fixture. Verify the retained
+word with the MAC gates closed and run the same channel-10 test with
+the existing IQ matrix, single 4,096-byte bulk IN request and all three
+hub adapters.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
