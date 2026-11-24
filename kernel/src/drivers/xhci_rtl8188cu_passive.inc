@@ -30,6 +30,8 @@
 #define RTL_CU_REPORT_SELECTOR_MASK 0xf0000000u
 #define RTL_CU_RX_IQ 0xc14u
 #define RTL_CU_RX_IQ_EXT 0xca0u
+#define RTL_CU_IQ_STARTUP_B68 0xb68u
+#define RTL_CU_IQ_STARTUP_B68_LINUX 0x00080000u
 enum rtl_cu_iq_field {
     RTL_CU_IQ_RX,RTL_CU_IQ_RX_EXT,RTL_CU_IQ_TX,RTL_CU_IQ_TX_EXT,RTL_CU_IQ_TX_CCA,RTL_CU_IQ_FIELDS
 };
@@ -57,7 +59,7 @@ static const struct { uint16_t address,width; } rtl_cu_phy_radio_regs[]={
     {0xd00,4},{0xd04,4},
 };
 #define RTL_CU_PHY_RADIO_COUNT (sizeof rtl_cu_phy_radio_regs/sizeof rtl_cu_phy_radio_regs[0])
-static const uint16_t rtl_cu_iq_startup_regs[]={0x04c,0x428,0xb68,0xe28,0xe48,0xe4c};
+static const uint16_t rtl_cu_iq_startup_regs[]={0x04c,0x428,RTL_CU_IQ_STARTUP_B68,0xe28,0xe48,0xe4c};
 #define RTL_CU_IQ_STARTUP_COUNT (sizeof rtl_cu_iq_startup_regs/sizeof rtl_cu_iq_startup_regs[0])
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
@@ -97,6 +99,8 @@ static struct {
     uint32_t iq_before[RTL_CU_IQ_FIELDS],iq_after[RTL_CU_IQ_FIELDS],iq_startup[RTL_CU_IQ_STARTUP_COUNT];
     unsigned iq_valid,iq_startup_reads;
     bool iq_attempted,iq_ready;
+    uint32_t b68_readback;
+    bool b68_attempted,b68_valid;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -232,6 +236,9 @@ static void rtl_cu_rx_log(void) {
             console_printf(" %x",((uint64_t)rtl_cu_iq_startup_regs[i]<<32)|rtl_passive.iq_startup[i]);
         console_write("\n");
     }
+    if(rtl_passive.b68_attempted)
+        console_printf("rtl8188cu-iq-b68: valid=%u value=%x\n",
+            (uint64_t)rtl_passive.b68_valid,(uint64_t)rtl_passive.b68_readback);
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -376,6 +383,11 @@ static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
         if(!rtl8188cu_read(d,rtl_cu_iq_startup_regs[i],4,&rtl_passive.iq_startup[i]))return false;
         rtl_passive.iq_startup_reads++;
     }
+    /* Match the full word retained by the Linux monitor on this board. */
+    rtl_passive.b68_attempted=true;
+    rtl_passive.b68_valid=rtl8188cu_write_value(d,RTL_CU_IQ_STARTUP_B68,4,RTL_CU_IQ_STARTUP_B68_LINUX) &&
+        rtl8188cu_read(d,RTL_CU_IQ_STARTUP_B68,4,&rtl_passive.b68_readback);
+    if(!rtl_passive.b68_valid || rtl_passive.b68_readback!=RTL_CU_IQ_STARTUP_B68_LINUX)return false;
     for(unsigned i=0;i<RTL_CU_IQ_FIELDS;i++) {
         uint32_t before;
         if(!rtl8188cu_read(d,fields[i].address,4,&before))return false;

@@ -1014,6 +1014,14 @@ word with the MAC gates closed and run the same channel-10 test with
 the existing IQ matrix, single 4,096-byte bulk IN request and all three
 hub adapters.
 
+This comparison applies the Linux word after tuning and before the
+retained IQ matrix. The six-word startup snapshot captures the
+original value, and a separate receipt captures the write readback.
+A mismatch refuses endpoint setup. The trial includes no IQ trigger
+or calibration tone. Linux issued the same full-word write ahead of
+its calibration passes.
+[Linux IQ setup](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
