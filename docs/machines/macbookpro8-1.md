@@ -213,10 +213,10 @@ python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)" --stall-hu
 Clean source `8a51702a` produced release `91a277b2e434e4b3`. The exact VM
 rehearsal verified the readable 1280 × 800 result screen, both emulated EHCI
 scans, DMA retirement and the Ubuntu default marker on the second boot.
-The ordinary xHCI console rehearsal passed on the same source. The attended
-release is installed as current with `c1a8e397a41363dc` retained as previous.
-Both installed manifests and unchanged firmware boot order were verified. The
-local handoff is `build/review/macbookpro8-1-ehci-trial-91a277b2e434e4b3/run.json`.
+The ordinary xHCI console rehearsal passed on the same source. For that
+trial, `c1a8e397a41363dc` was retained as the previous release. Both installed
+manifests and the firmware boot order were verified. The local handoff is
+`build/review/macbookpro8-1-ehci-trial-91a277b2e434e4b3/run.json`.
 
 The native screen must show the expected `05ac:0245` topcase through
 `0424:2513` port 2 with an 8-byte control packet and both Sandy Bridge EHCI
@@ -250,6 +250,15 @@ USB address, request number and queue descriptor status bytes. The QEMU
 stall fixture exercises this screen by returning a USB stall for hub port
 2's status request. The retry preserves the same scan and DMA retirement
 rules as the first run.
+
+Clean source `00211b89` staged as `47632d5174507ea3`. In QEMU, the normal
+fixture completed both scans. The forced stall reported hub 1 port 2 during
+preflight, a qTD error on `GET_STATUS` and `USBSTS=0x8007`. Both rehearsals
+released both DMA pages, showed the result screen and selected the Ubuntu
+default fixture on the next boot. The new release is installed as current,
+with `c1a8e397a41363dc` still installed as the recovery release. The prior
+partial result and its payload remain archived. The retry record and VM
+evidence are in `build/review/macbookpro8-1-ehci-trial-47632d5174507ea3/`.
 
 ## Capability ledger
 
