@@ -914,6 +914,8 @@ def install(release=None, keep_previous=False):
             raise ValueError("No distinct previous release to preserve")
     handoff_releases = {release} if AIR_HANDOFF in manifest["sha256"] else set()
     trace_releases = {release} if manifest.get("efi_trace_version") == 1 else set()
+    if release in trace_releases:
+        air_efi_trace.check_reseed(BASE)
     if previous and AIR_HANDOFF in verify(BASE / previous)["sha256"]:
         handoff_releases.add(previous)
     # Refuse before any installation mutations if the recorded release that
@@ -944,14 +946,9 @@ def install(release=None, keep_previous=False):
             payload.rename(destination)
     if release in trace_releases:
         progress = air_efi_trace.seed(release)
-        for name, data in progress.items():
-            path = BASE / name
-            if path.exists():
-                prefix = b'# GRUB Environment Block\nair_release=' if name == air_efi_trace.GRUB else air_efi_trace.HEADER
-                if path.is_symlink() or path.stat().st_size != len(data) or not path.read_bytes().startswith(prefix):
-                    raise ValueError('Unrecognized EFI diagnostic file: ' + str(path))
-        for name, data in progress.items():
-            atomic_write(BASE/name, data, 0o644)
+        # Replace the extended receipt first so an interrupted install can retry.
+        for name in (air_efi_trace.PROBE, air_efi_trace.GRUB):
+            atomic_write(BASE/name, progress[name], 0o644)
     # Keep Ubuntu's existing GRUB_DEFAULT and firmware boot order. Only add entries.
     script = "#!/bin/sh\n" + MARKER + "\ncat <<'SRVROS_GRUB'\n" + config + "SRVROS_GRUB\n"
     backups = {path: (path.read_bytes(), path.stat().st_mode & 0o777) if path.exists() else None

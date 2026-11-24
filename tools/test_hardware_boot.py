@@ -6,8 +6,10 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import unittest
+import zlib
 from unittest.mock import patch
 
 import hardware_boot as boot
@@ -495,6 +497,31 @@ class InstallTests(unittest.TestCase):
         (directory / "manifest.json").write_text(json.dumps({"release": release, "sha256": hashes}))
         (self.stage / "latest").write_text(release)
         return release
+
+    def test_install_reseeds_completed_gop_trace(self):
+        trace = boot.air_efi_trace
+        old, new = self.payload("old"), self.payload("new")
+        for release in (old, new):
+            manifest = self.stage / release / "manifest.json"
+            manifest.write_text(json.dumps(dict(json.loads(manifest.read_text()), efi_trace_version=1)))
+        boot.install(old)
+        path = self.base / trace.PROBE
+        seed = bytearray(path.read_bytes())
+        for n, record in ((1, "entered 0000000000000000"), (2, "capture 0000000200000006"),
+                          (6, "eg2-open 1 0 0 1 0")):
+            seed[n * 64:(n + 1) * 64] = (record + "\n").encode().ljust(64, b"\0")
+        # One pathless GOP on the console handle and one pathless EG2 child.
+        routes = bytes.fromhex("0101 00010000 01010000 01010000 02010000")
+        receipt = seed + b"GOP1" + struct.pack("<I", zlib.crc32(routes)) + routes
+        path.write_bytes(receipt + b"x")
+        with self.assertRaises(ValueError):
+            boot.install(new)
+        self.assertFalse((self.base / new).exists())
+        self.assertEqual(path.read_bytes(), receipt + b"x")
+        path.write_bytes(receipt)
+        boot.install(new)
+        self.assertEqual(trace.read(self.base, new)["grub"], "prepared")
+        self.assertEqual(path.stat().st_size, 512)
 
     def test_install_checks_selected_release_identity(self):
         release = self.payload("requested")

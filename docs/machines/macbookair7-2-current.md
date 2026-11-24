@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-23 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-24 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -126,10 +126,28 @@ translations matched, all 19 reserved pages verified, and the USB volume
 returned clean. All four samples still allowed GPU traffic and none showed
 a fresh engine or L3 flush acknowledgement. The display handoff can now
 identify the branch to preserve by matching the active GOP and console paths.
-Current work binds that same-boot selection to the kernel display guard before
-GT preparation. It also checks the order of the engine and L3 acknowledgements
-under a traffic-block request. Native submission still requires the independent
-traffic owner and a verified drain.
+
+Release `57ccbd10d68e0d48` at `989ebe3f`, session
+`session-000660ff0a10772f-00`, verified that selection on the Air. EFI
+matched the four-node GOP path to the console and selected its unique
+three-node EG2 ancestor out of six children. The kernel admitted GT preparation
+with token `0xf85dfc5100000201`. Ubuntu independently reproduced the token
+from the saved device paths. Pipe A kept its original framebuffer, the seven
+command-slot translations matched across three observations, and all 19
+reserved pages verified. The session returned with zero USB allocation errors.
+
+The five samples taken immediately after each engine prepared all saw the
+same request (`0xff`) and arbiter reply (`0x7f`) at both ends of the sample.
+The permitted-client mask was `0x5f`, WiDi reported `0x1f`, and L3 reported
+zero each time. Engine status changed during preparation, but none of the five
+samples recorded a fresh flush acknowledgement. SrvrOS submitted no blitter
+command. The next prerequisite is for the traffic owner to withdraw the GO
+requests while preserving this display branch, then verify closure and fresh
+engine and L3 acknowledgements before publishing command pages.
+
+The Ubuntu installer now recognizes completed EFI traces with appended GOP
+paths. It validates the existing trace before copying the next release. The
+installer suite and a replay of this Air's 1,014-byte trace cover the repair.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page

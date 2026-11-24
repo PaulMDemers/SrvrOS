@@ -204,3 +204,28 @@ def _decode_progress(env, probe, release, nonce):
 
 def read(base, release, nonce=None):
     return decode((base / GRUB).read_bytes(), (base / PROBE).read_bytes(), release, nonce)
+
+
+def check_reseed(base):
+    """Recognize installer seeds and the extended GOP receipt written during boot."""
+    env = None
+    for name, prefix, minimum, maximum in (
+            (GRUB, b'# GRUB Environment Block\nair_release=', 1024, 1024),
+            (PROBE, HEADER, 512, 512 + 10 + 34 * (4 + 4096))):
+        path = base / name
+        if path.is_symlink():
+            raise ValueError(f'Unrecognized EFI diagnostic file: {path}')
+        if not path.exists():
+            continue
+        if not path.is_file() or not minimum <= path.stat().st_size <= maximum:
+            raise ValueError(f'Unrecognized EFI diagnostic file: {path}')
+        data = path.read_bytes()
+        if not data.startswith(prefix):
+            raise ValueError(f'Unrecognized EFI diagnostic file: {path}')
+        if name == GRUB:
+            env = data
+        elif len(data) > minimum:
+            tag = re.match(HEADER + rb'([0-9a-f]{16}) ', data)
+            if not tag or env is None:
+                raise ValueError('Missing EFI identity for extended GOP receipt')
+            decode(env, data, tag[1].decode('ascii'))
