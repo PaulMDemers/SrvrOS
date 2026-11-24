@@ -488,6 +488,18 @@ the protocol gate, TX closure and prior paired RX snapshots. Changing the
 filter and observing these baseband settings will distinguish setup
 readback failure from another empty receive window.
 
+Cold candidate `56965a29fdbd3e76` is installed from source `65d3dffb`.
+The kernel build, native RX fault fixture, firmware and USB lifecycle
+regressions passed. The exact GPT workspace boot and all four
+journal/recovery VM cases passed. The run record
+`build/bringup/pro112-rtl8188cu-rx-filter/run.json` identifies the fresh
+internal journal, clean workspace with 582 files, all three hub leaves,
+Ubuntu default and recovery release `74da74e0b57afbb8`. The earlier EFI
+copy removed for space is preserved in its verified recovery archive.
+Collect the receive-setup readbacks and paired RX trace before deciding
+whether the filter changed packet and beacon delivery. Guest progress,
+log saving and Ubuntu return follow the unattended cold recipe.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
