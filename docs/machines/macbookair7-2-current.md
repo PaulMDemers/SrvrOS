@@ -98,14 +98,22 @@ the original framebuffer and a clean USB return to Ubuntu.
 
 All four samples still permitted GPU traffic (mask `0x5f`). The driver
 observed zero fresh engine or L3 flush acknowledgements and submitted no
-command. The next handoff check is to identify which child handle exposes
-the GOP for the active panel while that framebuffer is still displayed.
-The EFI probe checks each child record for a directly accessible GOP with
-the active scanout address and byte length. The saved masks distinguish
-zero, one and multiple matches. For one match it records the device-path
-hash and the first address of the last ACPI display-address node when present.
-Child indices refer to the open-record order in that boot. This check uses
-the existing Pipe A and seven-entry snapshots on either side of the query.
+command.
+
+Release `4424637c0edb47cd` at `42a6fd03` completed the direct child check
+on the Air. Session `session-000660fd9968899a-00` found six child records
+and zero child handles exposing the Graphics Output Protocol (GOP). The
+global GOP search still found the active 5,529,600-byte framebuffer at
+`0xb0000000`. Pipe A and all seven translations were preserved across the
+query, all 19 reserved pages verified, and Ubuntu found the USB volume clean.
+
+Ubuntu identifies the connected eDP panel as `IGPU.DD1F`. On this unit the
+76-byte EFI `ConOut` path passes through PCI device 2, function 0, then two
+vendor messaging nodes. The path has no ACPI display-address node. Its
+FNV-1a 64-bit hash including the end node is `a9167657801a6afb`.
+The next probe can start at the globally matched GOP handle and compare its
+device path with the console path and the six child paths during the same boot.
+The console path alone does not establish GPU traffic ownership.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
