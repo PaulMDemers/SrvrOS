@@ -1,7 +1,7 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 24, 2026. State **Linux inventory captured and VM baseline
-verified. First native boot pending.**
+Updated November 24, 2026. State **Linux inventory captured, exact console
+and one-shot return rehearsed in QEMU, first native boot pending.**
 
 ## Identity and baseline
 
@@ -71,6 +71,23 @@ bind the USB UUID and recovery state in an ignored local run record, and
 record the checks and one-shot Ubuntu return. The workspace identifies the
 boot-time logging volume and is not a boot installer. [Ubuntu device-agent guide](../ubuntu-device-agent-setup.md)
 
+## First console checkpoint
+
+Release `c1a8e397a41363dc` was staged from clean source `74f803ff` using
+`ram-usb-v4-console`. The exact EFI payload passed the GRUB and Limine
+chainload, RAM filesystem, USB input and console rendering rehearsal.
+A second Q35 rehearsal disabled USB and i8042, reached the 1280 × 800
+console, and verified that GRUB cleared `next_entry` on ext4 before
+chainloading. After stopping the guest from the host, the next VM boot
+selected the Ubuntu default fixture without keyboard input.
+
+The installed EFI payload matches the staged manifest. Ubuntu remains the
+verified GRUB default and the firmware entries match the pre-install
+snapshot. The one-shot boot is unarmed. The first native observation will
+use the internal panel and the physical power button as a fallback if no
+keyboard is available. The console-only release uses RAM storage and does
+not select a USB logging volume.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
@@ -80,6 +97,7 @@ boot-time logging volume and is not a boot installer. [Ubuntu device-agent guide
 | USB workspace | Mounted in Ubuntu | Native read, then write/sync/unmount and Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
-The local host and USB checkpoint is in `build/review/`. No native run or
-SrvrOS recovery release exists yet. The next checkpoint is the exact-stage
-console VM rehearsal and an input-independent return plan.
+The local host checkpoint, exact VM evidence and first console run record
+are in `build/review/`. The next checkpoint is the attended console boot
+and return to Ubuntu. Native console, input and storage acceptance remain
+open.
