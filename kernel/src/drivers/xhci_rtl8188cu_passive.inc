@@ -24,6 +24,7 @@ enum rtl_cu_sample_phase {
     RTL_CU_ARMED,RTL_CU_PENDING,RTL_CU_BEFORE_STOP,RTL_CU_AFTER_STOP,RTL_CU_SAMPLE_COUNT
 };
 enum rtl_cu_rx_register { RTL_CU_CR,RTL_CU_RCR,RTL_CU_RXFF_PTR,RTL_CU_RXPKT_NUM,RTL_CU_RXDMA_STATUS,RTL_CU_RX_REG_COUNT };
+enum rtl_cu_phy_register { RTL_CU_OFDM1,RTL_CU_OFDM2,RTL_CU_OFDM3,RTL_CU_SYNC,RTL_CU_PHY_COUNT };
 enum rtl_cu_rx_admission {
     RTL_CU_FILTER_RCR,RTL_CU_FILTER_MGT,RTL_CU_FILTER_CTL,RTL_CU_FILTER_DATA,RTL_CU_DRIVER_INFO,
     RTL_CU_FPGA0_RFMOD,RTL_CU_FPGA1_RFMOD,RTL_CU_OFDM_TRX,RTL_CU_ADMISSION_COUNT
@@ -31,7 +32,8 @@ enum rtl_cu_rx_admission {
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
     uint32_t regs[RTL_CU_RX_REG_COUNT];
-    unsigned state,valid,posted,completed_before,completed_after,events;
+    uint32_t phy[RTL_CU_PHY_COUNT];
+    unsigned state,valid,phy_valid,posted,completed_before,completed_after,events;
     bool present,pending;
 };
 
@@ -92,6 +94,11 @@ static void rtl_cu_rx_snapshot(struct xhci_device *d,enum rtl_cu_sample_phase ph
         [RTL_CU_CR]={RTL8188CU_MAC_CONTROL,2}, [RTL_CU_RCR]={0x608,4},
         [RTL_CU_RXFF_PTR]={0x11c,4}, [RTL_CU_RXPKT_NUM]={0x284,4}, [RTL_CU_RXDMA_STATUS]={0x288,4},
     };
+    /* The 92C Linux driver reads these OFDM false-alarm and synchronization
+     * registers before its reset sequence. A diagnostic only reads them. */
+    static const uint16_t phy_regs[RTL_CU_PHY_COUNT]={
+        [RTL_CU_OFDM1]=0xda0, [RTL_CU_OFDM2]=0xda4, [RTL_CU_OFDM3]=0xda8, [RTL_CU_SYNC]=0xcf0,
+    };
     struct rtl_cu_rx_sample *sample=&rtl_passive.samples[phase];
     sample->present=true;
     sample->start_us=timer_monotonic_us();
@@ -106,6 +113,12 @@ static void rtl_cu_rx_snapshot(struct xhci_device *d,enum rtl_cu_sample_phase ph
         for(unsigned i=0;i<RTL_CU_RX_REG_COUNT;i++) {
             if(!rtl8188cu_read(d,regs[i].address,regs[i].width,&sample->regs[i]))break;
             sample->valid|=1u<<i;
+        }
+        if(sample->valid==(1u<<RTL_CU_RX_REG_COUNT)-1 && !rtl_passive.failed) {
+            for(unsigned i=0;i<RTL_CU_PHY_COUNT;i++) {
+                if(!rtl8188cu_read(d,phy_regs[i],4,&sample->phy[i]))break;
+                sample->phy_valid|=1u<<i;
+            }
         }
     }
     sample->completed_after=rtl_passive.completed;
@@ -141,6 +154,10 @@ static void rtl_cu_rx_log(void) {
             console_printf("rtl8188cu-rx-chip: phase=%s valid=%x cr=%x rcr=%x rxff_ptr=%x rxpkt_num=%x rxdma_status=%x\n",
                 phases[i],(uint64_t)s->valid,(uint64_t)s->regs[RTL_CU_CR],(uint64_t)s->regs[RTL_CU_RCR],
                 (uint64_t)s->regs[RTL_CU_RXFF_PTR],(uint64_t)s->regs[RTL_CU_RXPKT_NUM],(uint64_t)s->regs[RTL_CU_RXDMA_STATUS]);
+        if(i!=RTL_CU_AFTER_STOP)
+            console_printf("rtl8188cu-rx-phy: phase=%s valid=%x ofdm1=%x ofdm2=%x ofdm3=%x sync=%x\n",
+                phases[i],(uint64_t)s->phy_valid,(uint64_t)s->phy[RTL_CU_OFDM1],(uint64_t)s->phy[RTL_CU_OFDM2],
+                (uint64_t)s->phy[RTL_CU_OFDM3],(uint64_t)s->phy[RTL_CU_SYNC]);
     }
     if(rtl_passive.configured) {
         console_printf("rtl8188cu-rx-gate: valid=%u expected=%x observed=%x\n",

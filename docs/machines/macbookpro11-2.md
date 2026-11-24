@@ -605,6 +605,31 @@ completed, RF/RX parked, Ubuntu returned and all 586 prior workspace
 files were preserved. The exact payload and evidence are archived in
 `evidence-a493064f0a20ab53`.
 
+On Ubuntu, the same `0bda:8176` revision and hub port ran a four-second
+20 MHz passive monitor window on channel 10. The capture recorded 987
+successful bulk IN completions by metadata only, with zero usbmon drops.
+Five raw OFDM counter samples showed parity failures `39, 179, 838, 1924,
+2229` and sideband search failures `9, 32, 120, 252, 550`. The Linux
+driver issued its normal counter-control writes just after the two-second
+sample. Use the baseline to identify activity and compare value changes
+over similar intervals. Driver resets can affect absolute deltas.
+The adapter returned to managed/disconnected state after the capture.
+The local reference is `linux-phy-channel10.json` in
+`build/bringup/pro112-rtl8188cu-phy-counters`, SHA-256
+`e3b1c514afcf3f7e63bd456d31a7d5ad49dc93349b220a2f4711c2f7d9318741`.
+
+The [Linux 92C false-alarm routine](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/dm_common.c#L191-L237)
+defines the OFDM parity, illegal-rate, CRC8, MCS and frame-sync fields.
+The SrvrOS probe reads the same four baseband registers
+(`0xda0/0xda4/0xda8/0xcf0`) at its paired RX checkpoints without issuing
+the Linux counter reset writes. It records a validity mask so a partial
+status read remains distinguishable from a fully sampled zero value.
+These OFDM counters measure detection errors and synchronization
+attempts. They cannot establish successful frame decoding or CCK
+activity. Bulk IN completions and validated beacons remain the checks
+for successful reception. The previous RF, gain and USB setup carries
+over to the cold comparison.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
