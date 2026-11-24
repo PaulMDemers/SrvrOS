@@ -501,6 +501,9 @@ class FlushAcknowledgements(unittest.TestCase):
                            lambda m: m[1] + " count=129 data=" +
                            base64.b64encode(base64.b64decode(m[2])[:129*8]).decode(), old_power)
         old_power = old_power.replace("v=9 samples=4 reads=100 maps=28 retired=28", "v=5 samples=3 reads=48 maps=15 retired=15")
+        with self.assertRaisesRegex(ValueError, "compatible baseline"):
+            bootstrap_result(old_power)
+        old_power = re.sub(r"^intel-gpm-step:.*\n", "", old_power, flags=re.M)
         self.assertNotIn("request_trace", bootstrap_result(old_power)["flush"])
         media = old_power.replace("intel-flush-summary: v=5 samples=3 reads=48 maps=15 retired=15",
                              "intel-flush-summary: v=4 samples=3 reads=36 maps=9 retired=9")

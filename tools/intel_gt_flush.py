@@ -252,7 +252,9 @@ def flush_result(text, parent, reset, translation, primary, retire, memory, widi
         ]
     if smi is not None:
         result["smi_guard"] = smi
-    if count and "intel-gpm-step:" in text:
+    if any(line.startswith("intel-gpm-step:") for line in text.splitlines()):
+        if summary["v"] < 9 or not count:
+            raise ValueError("Preparation messages lack a compatible baseline")
         result['prepare_messages'] = prepare_messages(text, samples[0], samples[1] if count >= 2 else None)
     if gam:
         result["gam"] = gam_state
