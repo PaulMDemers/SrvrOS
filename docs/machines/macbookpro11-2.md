@@ -848,6 +848,21 @@ existing path, filter and TX-off checks. The rest of RF0 is telemetry.
 The captured Linux variation explains why the previous strict full-word
 check was unsuitable. The receive window still needs native evidence.
 
+Candidate `403644c1cfc2e769` from `79405814` passed the production xHCI
+fixture with the four RF0 checkpoints, changing low bits, rejection of
+a wrong final RF0 mode and refusal after a failed post-LC read. Firmware
+and USB lifecycle tests passed. The saved-result decoder replayed the
+successful and failed native fixture traces within the journal limit.
+The GPT workspace boot and all four exact-image journal/recovery
+checks passed. The staged and installed ELF hash matches the fresh
+kernel build, with the new RF0 and packed PHY receipts verified.
+Ubuntu remains the default, with recovery release `74da74e0b57afbb8`.
+The local run record `build/bringup/pro112-rtl8188cu-rf0/run.json` binds
+the Linux capture, all original hub ports, and the clean workspace with
+596 existing files. The unattended boot saves the RF0 checkpoints and
+the receive outcome to the workspace and independent journal before
+returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
