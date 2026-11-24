@@ -474,6 +474,20 @@ port. The `writer` field advances from 0 to 1 on acquisition, 2 after both
 reads, and 3 on return. A mask of all ones is a valid HWSTAM observation.
 The later queue samples still require all five ports to be protected.
 
+The driver rechecks the controller and WiDi epochs, the wireless routes and
+the CPU register mappings immediately before each queue store. This covers
+status-page setup and the fourth descriptor word, which triggers execution.
+Losing either epoch on the final clock callback leaves a three-word prefix
+in the port and the command pages pinned.
+
+On publication and rollback the driver reads both WiDi translation-valid
+vectors (BWDTLB_VLD_0 and BWDTLB_VLD_1) between two reads of WTCR after
+the GGTT invalidation has posted. A surviving valid entry or an invalidation
+in progress retains the mapping. The driver also checks these registers
+when reopening global traffic under WiDi exclusion. The initial drain
+can start with inherited entries still cached.
+[Intel Broadwell register reference, pp. 1607, 1620 and 1823](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
 The blitter requires a controller lease before it can promote the transfer.
 It checks the enabled primary surface, all eight L3 bank policies, and open
 engine and arbiter replies before requesting a drain. It checks the five

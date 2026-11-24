@@ -120,7 +120,12 @@ def command_traffic_reader(mmio_page):
                   'widi': read(messages, 0x14), 'l3': read(messages, 0x38),
                   'rcs': read(messages, 0), 'vcs0': read(messages, 4), 'vcs1': read(messages, 8),
                   'bcs': read(messages, 0xc), 'vecs': read(messages, 0x10),
-                  'widi_reset': read(messages, 0x108)}
+                  'widi_reset': read(messages, 0x108),
+                  'widi_tlb_ctl_before': read(power, 0x278),
+                  # All ones is a possible fully populated valid vector.
+                  'widi_tlb_valid0': struct.unpack_from('<I', power, 0xdc0)[0],
+                  'widi_tlb_valid1': struct.unpack_from('<I', power, 0xdc4)[0],
+                  'widi_tlb_ctl_after': read(power, 0x278)}
         if original != panel() or values['gam_req'] != read(power, 0xd0) or values['clk_req'] != read(messages, 0x104):
             raise ValueError('Unstable display or traffic request during checkpoint')
         return original, read(plane, 0x40), values

@@ -2,7 +2,8 @@
 #include <srvros/intel_bdw_blitter.h>
 #include <srvros/intel_bdw_traffic.h>
 
-enum { WIN_CLOCK = 1u << 5 };
+enum { WIN_CLOCK = 1u << 5, WTCR = 0x4278,
+       BWDTLB_VLD_0 = 0x4dc0, BWDTLB_VLD_1 = 0x4dc4 };
 
 static bool identity(struct bdw_command_hold *h)
 {
@@ -13,6 +14,13 @@ static bool identity(struct bdw_command_hold *h)
         display_access_held(&t->exclusion) &&
         h->io.traffic.held_epoch(t,&h->owner->pages)==h->epoch &&
         h->io.widi_epoch(t,&h->owner->pages)==h->widi_epoch && intel_bdw_peer_ports_held(&h->routes);
+}
+
+bool intel_bdw_command_submission_owned(struct bdw_command_hold *h)
+{
+    return h && h->phase==BDW_CMD_EXECUTING && h->epoch && h->widi_epoch &&
+        identity(h) && h->transfer->device_publication==&h->owner->pages &&
+        intel_bdw_routes_held(&h->routes,h->transfer);
 }
 
 static bool sample_read(void *ctx,uint32_t offset,uint32_t *word)
@@ -67,6 +75,17 @@ static bool widi_clock_gated(struct bdw_command_hold *h)
         (ack&WIN_CLOCK)==WIN_CLOCK && (closing&WIN_CLOCK)==WIN_CLOCK;
 }
 
+/* Read WTCR on either side of both WiDi valid vectors after a GGTT
+ * invalidation. Existing cached entries before invalidation are permissible. */
+bool intel_bdw_widi_translations_empty(struct bdw_command_hold *h)
+{
+    uint32_t control,low,high;
+    return h && (h->phase==BDW_CMD_BLOCKED || h->phase==BDW_CMD_EXECUTING || h->phase==BDW_CMD_SWITCHING) &&
+        sample_read(h,WTCR,&control) && !control &&
+        sample_read(h,BWDTLB_VLD_0,&low) && !low && sample_read(h,BWDTLB_VLD_1,&high) && !high &&
+        sample_read(h,WTCR,&control) && !control;
+}
+
 static bool executing(struct bdw_command_hold *h)
 {
     /* Broadwell's GPM reopens all clients together. The independent WiDi
@@ -82,7 +101,7 @@ static bool executing(struct bdw_command_hold *h)
         uint32_t word;
         if (!sample_read(h,checks[i].offset,&word) || (word&checks[i].mask)!=checks[i].value) return false;
     }
-    return widi_clock_gated(h) && intel_bdw_routes_held(&h->routes,h->transfer);
+    return intel_bdw_widi_translations_empty(h) && widi_clock_gated(h) && intel_bdw_routes_held(&h->routes,h->transfer);
 }
 
 static bool finish_drain(struct bdw_command_hold *h,uint64_t begin,bool after_execution)
@@ -172,6 +191,7 @@ bool intel_bdw_command_bcs(struct bdw_blitter_mapping *m,bool enable)
             h->io.isolate_widi(h->transfer,&m->pages,h->epoch,&epoch)!=GT_WRITE_DONE || !epoch) goto retained;
         h->widi_epoch=epoch;
         if (!widi_clock_gated(h) || !intel_bdw_traffic_still_blocked(h,sample_read) ||
+            !intel_bdw_widi_translations_empty(h) ||
             !plane_held(h) || !clock_ok(h,begin)) goto retained;
     }
     if (!enable) {

@@ -23,6 +23,10 @@ static _Alignas(4096) uint64_t ggtt[512];
 #define entries (&ggtt[FIRST&511u])
 static uint64_t originals[PAGES], clock_us;
 static unsigned posted;
+/* Count the clocks inside the fourth port-write callback. Replay the same
+ * successful path and revoke one lease on its final clock before the store. */
+static unsigned trigger_clocks, revoke_at;
+static bool revoked;
 static _Alignas(4096) uint32_t invalidate_regs[1024], aperture[PAGES*1024];
 static uint64_t translations[PAGES];
 enum translation_fault { NORMAL_TRANSLATION, STALE_SEVENTH, SWAPPED, UNPOSTED, STALE_RESTORE };
@@ -80,6 +84,8 @@ static bool hardware_held(void *ctx,const struct bdw_blitter_image *p)
 static uint64_t now(void *ctx)
 {
     assert(ctx==&space);
+    if (active->port.p.attempts==4 && active->port.p.writes==3 && ++trigger_clocks==revoke_at)
+        revoked=true;
     if (posted<active->port.p.writes) {
         const uint32_t expected[]={0,0,image.config.context_id,(uint32_t)image.descriptor};
         assert(active->port.p.writes==posted+1 && regs[0x230/4]==expected[posted]);
@@ -200,7 +206,7 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
 }
 enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
                      LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
-                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN };
+                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN, FINAL_DEVICE_LEASE, FINAL_WIDI_LEASE, WIDI_CACHED, WIDI_INVALIDATING, WIDI_CACHED_ROLLBACK };
 static enum traffic_fault traffic_fault;
 static struct {
     const struct scanout_transfer *transfer;
@@ -208,13 +214,13 @@ static struct {
     uint64_t epoch,widi_epoch;
     uint32_t selector;
     bool bcs;
-    unsigned drains;
+    unsigned drains,tlb_controls;
 } controller;
 
 static uint64_t block_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
 {
     assert(t==controller.transfer && p==controller.publication);
-    return controller.epoch;
+    return revoked && traffic_fault==FINAL_DEVICE_LEASE ? 0 : controller.epoch;
 }
 static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32_t *out)
 {
@@ -234,6 +240,11 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
         !(traffic_fault==WIDI_ESCAPES && bcs && offset==0x802c) ? 0x20 : 0; break;
     case 0x8014: *out=!blocked || (traffic_fault==EARLY_L3 && blocked) ||
             (traffic_fault==WIDI_ESCAPES && bcs)?0x1f:0; break;
+    case 0x4278:
+        *out=++controller.tlb_controls==2 && traffic_fault==WIDI_INVALIDATING;
+        break;
+    case 0x4dc0: *out=!invalidates || traffic_fault==WIDI_CACHED ? 0x40000000u : 0; break;
+    case 0x4dc4: *out=traffic_fault==WIDI_CACHED_ROLLBACK && invalidates==2 ? 1 : 0; break;
     case 0x8038: *out=blocked && !bcs && traffic_fault!=NO_NEW_L3 &&
             !(traffic_fault==STALE_SECOND_DRAIN && controller.drains==2); break;
     case 0x8040: *out=1; break;
@@ -276,6 +287,7 @@ static enum intel_gt_write block_release(const struct scanout_transfer *t,const 
 static uint64_t widi_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
 {
     assert(t==controller.transfer && p==controller.publication);
+    if (revoked && traffic_fault==FINAL_WIDI_LEASE) return 0;
     return traffic_fault==UNOWNED_CLOCK && controller.bcs ? 0 : controller.widi_epoch;
 }
 static enum intel_gt_write isolate_widi(const struct scanout_transfer *t,const struct scanout_publication *p,
@@ -450,11 +462,22 @@ static void run_transfer(enum mapping_case which)
                !scanout_transfer_close(&transfer,&grant));
         return;
     }
-    if (traffic_fault==PEER_DURING_SUBMIT) {
+    if (traffic_fault==FINAL_DEVICE_LEASE || traffic_fault==FINAL_WIDI_LEASE) {
+        assert(revoked && mapping.request.port.p.attempts==4);
+    }
+    if (traffic_fault==PEER_DURING_SUBMIT || revoked) {
         assert(!done && posted==3 && mapping.request.port.p.writes==3 && !mapping.request.port.p.triggered);
         assert(port_pin==&mapping && mapping.request.state==BDW_BLITTER_RETAINED && mapping.traffic.phase==BDW_CMD_RETAINED);
         assert(mapping.pages.writes==PAGES && mapping.pages.readers==&mapping.request.reader &&
                transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
+    if (traffic_fault==WIDI_CACHED || traffic_fault==WIDI_INVALIDATING || traffic_fault==WIDI_CACHED_ROLLBACK) {
+        bool rollback=traffic_fault==WIDI_CACHED_ROLLBACK;
+        assert(!done && posted==(rollback ? 4u : 0u) && invalidates==(rollback ? 2u : 1u));
+        assert(mapping.invalidation[rollback].complete && !mapping.verified_pages[rollback]);
+        assert(mapping.pages.state==PUB_FAULT && transfer.device_publication==&mapping.pages &&
+               mapping.pages.writes==invalidates*PAGES && !scanout_transfer_close(&transfer,&grant));
         return;
     }
     if (traffic_fault==LOST_RELEASE) {
@@ -567,11 +590,17 @@ int main(int argc,char **argv)
     const char *const traffic_failures[]={"missing-engine-ack","early-l3","missing-l3","widi-escapes",
                                          "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
                                          "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release",
-                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return"};
+                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return","device-lease-before-trigger","widi-lease-before-trigger","widi-cached","widi-invalidate-race","widi-cached-rollback"};
     for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
         if (strcmp(argv[1],traffic_failures[i])) continue;
+        if (i+1==FINAL_DEVICE_LEASE || i+1==FINAL_WIDI_LEASE) {
+            run_transfer(COLD_OK);
+            revoke_at=trigger_clocks;
+            assert(revoke_at>0);
+            trigger_clocks=0;
+        }
         traffic_fault=(enum traffic_fault)(i+1);
-        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK || traffic_fault==LOST_RELEASE || traffic_fault==WRITER_RETURN)?MAP_OK:COLD_OK);
+        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK || traffic_fault==LOST_RELEASE || traffic_fault==WRITER_RETURN || traffic_fault==WIDI_CACHED_ROLLBACK)?MAP_OK:COLD_OK);
         printf("PASS %s\n",traffic_failures[i]);
         return 0;
     }

@@ -63,6 +63,9 @@ bool intel_bdw_command_acquire(struct bdw_blitter_mapping *,struct scanout_trans
         const struct scanout_transfer_token *,const struct bdw_wireless_routes *,struct bdw_command_control,
         void *clock_owner,uint64_t (*now)(void *));
 bool intel_bdw_command_held(struct bdw_blitter_mapping *);
+/* CPU-side authority check after the final callback before a queue store. */
+bool intel_bdw_command_submission_owned(struct bdw_command_hold *);
+bool intel_bdw_widi_translations_empty(struct bdw_command_hold *);
 bool intel_bdw_command_bcs(struct bdw_blitter_mapping *,bool enable);
 bool intel_bdw_command_release(struct bdw_blitter_mapping *);
 

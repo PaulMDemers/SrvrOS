@@ -80,11 +80,21 @@ static bool owner_clock(struct bdw_blitter_request *r)
     return true;
 }
 
+static bool queue_store(struct bdw_blitter_request *r,unsigned offset,uint32_t value)
+{
+    if (r->traffic && (!intel_bdw_command_submission_owned(r->traffic) ||
+                       !command_port_held(r->traffic,&r->device))) {
+        r->traffic->phase=BDW_CMD_RETAINED;
+        return false;
+    }
+    r->device.registers[offset/4]=value;
+    return true;
+}
+
 static bool switch_hwsp(struct bdw_blitter_request *r,uint32_t from,uint32_t to)
 {
     if (!bound(r,from) || (reg(r,STATUS)&QUEUE_BUSY) || !owner_clock(r)) return false;
-    r->device.registers[HWS_PGA/4]=to;
-    return reg(r,HWS_PGA)==to && held(r);
+    return queue_store(r,HWS_PGA,to) && reg(r,HWS_PGA)==to && held(r);
 }
 
 /* The hardware mask is in the high half of BLT_MODE and MI_MODE. Only
@@ -112,14 +122,14 @@ static bool start_cold_queue(struct bdw_blitter_request *r)
 {
     const uint32_t reset_cursors = (CSB_SLOTS-1)*0x101u;
     if (!cold_queue_idle(r) || !reset_queue_matches(&r->device,r->device.post_reset) || reg(r,HWS_PGA) || (reg(r,MODE)&EXEC_LISTS)) return false;
-    r->device.registers[HWS_PGA/4]=request_hwsp(r);
+    if (!queue_store(r,HWS_PGA,request_hwsp(r))) return false;
     if (reg(r,HWS_PGA)!=request_hwsp(r) || !cold_queue_idle(r)) return false;
-    r->device.registers[CSB_PTR/4]=0xffff0000u | reset_cursors;
+    if (!queue_store(r,CSB_PTR,0xffff0000u | reset_cursors)) return false;
     if ((reg(r,CSB_PTR)&0xffffu)!=reset_cursors || !cold_queue_idle(r)) return false;
-    r->device.registers[MODE/4]=((uint32_t)EXEC_LISTS<<16) | EXEC_LISTS;
+    if (!queue_store(r,MODE,((uint32_t)EXEC_LISTS<<16) | EXEC_LISTS)) return false;
     if (!bound(r,request_hwsp(r)) || !cold_queue_idle(r)) return false;
     if (reg(r,MI_MODE)&STOP_RING) {
-        r->device.registers[MI_MODE/4]=STOP_RING<<16;
+        if (!queue_store(r,MI_MODE,STOP_RING<<16)) return false;
         if ((reg(r,MI_MODE)&STOP_RING) || !cold_queue_idle(r)) return false;
     }
     if ((reg(r,CSB_PTR)&0xffffu)!=reset_cursors || !bound(r,request_hwsp(r))) return false;
@@ -152,13 +162,7 @@ static enum intel_gt_write post(void *ctx,uint32_t offset,uint32_t value)
     struct bdw_blitter_request *r=ctx;
     if (offset!=BCS_SUBMIT_PORT || !held(r) || !owner_clock(r) ||
         r->last<r->port.p.last || r->last-r->port.p.begin>BCS_SUBMIT_US) return GT_WRITE_NONE;
-    /* The owner's clock is the last callback before the descriptor store. */
-    if (r->traffic && (!intel_bdw_peer_ports_held(&r->traffic->routes) ||
-                       !command_port_held(r->traffic,&r->device))) {
-        r->traffic->phase=BDW_CMD_RETAINED;
-        return GT_WRITE_NONE;
-    }
-    r->device.registers[ELSP/4]=value;
+    if (!queue_store(r,ELSP,value)) return GT_WRITE_NONE;
     /* Ordered UC read drains the posted DWORD. Queue acceptance is checked
      * independently by the submit core after the fourth write. */
     return reg(r,STATUS)==UINT32_MAX ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
@@ -470,7 +474,8 @@ static bool complete_entries(void *ctx)
         .hda_begin=b?b->hda:m->device.hda,.outer_begin=b?b->outer:m->device.outer,
         .vendor=m->image->config.vendor,.device=m->image->config.device};
     struct intel_ggtt_invalidate_io io={m,invalidate_guard,invalidate_read,invalidate_write,mapping_clock};
-    return intel_ggtt_invalidate_run(&m->invalidation[restoring],s,io) && verify_translations(m,restoring);
+    return intel_ggtt_invalidate_run(&m->invalidation[restoring],s,io) &&
+        intel_bdw_widi_translations_empty(&m->traffic) && verify_translations(m,restoring);
 }
 
 static bool readers_done(void *ctx)

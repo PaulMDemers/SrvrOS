@@ -59,7 +59,9 @@ def main():
                       'missing-engine-ack', 'early-l3', 'missing-l3', 'widi-escapes',
                       'changed-traffic-epoch', 'moving-scanout', 'missing-rollback-ack',
                       'air-reset-reasons', 'partial-gam-go', 'unowned-widi-clock', 'wireless-audio-reopens', 'uncertain-release',
-                      'peer-missing', 'peer-open', 'peer-rollback', 'peer-during-submit', 'writer-alias', 'writer-return'))
+                      'peer-missing', 'peer-open', 'peer-rollback', 'peer-during-submit', 'writer-alias', 'writer-return',
+                      'device-lease-before-trigger', 'widi-lease-before-trigger',
+                      'widi-cached', 'widi-invalidate-race', 'widi-cached-rollback'))
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)
         iso = make_iso(directory, program)

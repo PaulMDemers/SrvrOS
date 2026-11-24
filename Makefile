@@ -7446,6 +7446,11 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< peer-during-submit
 	$< writer-alias
 	$< writer-return
+	$< device-lease-before-trigger
+	$< widi-lease-before-trigger
+	$< widi-cached
+	$< widi-invalidate-race
+	$< widi-cached-rollback
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest

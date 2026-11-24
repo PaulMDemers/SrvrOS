@@ -71,6 +71,16 @@ native adapter suite also rejected loss of each of the four ports on either
 side of PCI bus-master reopening. The release above exercised the successful
 protection and restoration path on hardware.
 
+The host and Q35 command tests now cover loss of the device or WiDi lease on
+the final clock read before submission. In both cases the driver withheld the
+fourth word and retained the seven command mappings. The driver also checks
+both WiDi translation-valid registers after publication and rollback. On this Air
+under Ubuntu/i915, three blitter requests each verified 4,096 bytes. All six
+boundary samples showed zero valid vectors and zero WTCR with WiDi GO open.
+An earlier attempt stopped at the baseline because the compositor had a pending
+flip. The completed comparisons preserved the active primary surface within
+each run. Raw comparisons and regression logs are in `build/air-trigger-leases/`.
+
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
 transfer, and independent WiDi exclusion when global GO reopens. The native reset
