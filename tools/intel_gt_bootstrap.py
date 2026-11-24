@@ -267,6 +267,9 @@ def bootstrap_result(text,*,native=False):
         from intel_gt_aux import auxiliary_result
         aux_proof=auxiliary_result(text,s,primary_proof['summary'])
     elif any(l.startswith('intel-aux-') for l in text.splitlines()):raise ValueError('Foreign auxiliary display receipt')
+    cold_rows = [line for line in text.splitlines() if line.startswith("intel-air-rc6:")]
+    if cold_rows and not (flush and stop):
+        raise ValueError("Unexpected active panel RC6 observation")
     flush_proof=None
     if flush:
         from intel_gt_flush import flush_result
@@ -278,6 +281,11 @@ def bootstrap_result(text,*,native=False):
                                      len(flush_proof.get('prepare_messages', [])) != 5):
                 raise ValueError('Missing messages during verified blitter stop')
             flush_proof['bcs_stop'] = stop
+        if cold_rows:
+            from intel_gt_flush import cold_rc6_result
+            flush_proof['cold_rc6'] = cold_rc6_result(
+                cold_rows, b, timing, entry['wake']['summary'] if entry else None,
+                range_proof.get('efi_handoff', {}).get('display', []))
     elif any(l.startswith(('intel-flush-','intel-l3-power:','intel-smi-guard:','intel-widi-','intel-slot-widi:','intel-slot-reopened:','intel-slot-queues:','intel-command-slots:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,

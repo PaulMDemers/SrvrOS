@@ -810,6 +810,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
+    console_write("intel-power: observing the active panel and GT idle residency before and after forcewake. No input.\n");
     console_write("intel-bcs: stopping the idle blitter, then sampling WiDi, engines and L3 before reset. Original panel active. No input.\n");
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");
     console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the blitter register mapping, original display and slot 12291. No input needed.\n");
@@ -884,6 +885,9 @@ bool intel_gt_wake_probe_report(void) {
             grants=intel_gt_boot_grants(&f);
             bool mapped=grants!=0;
             for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
+#ifdef SRVROS_INTEL_GT_FLUSH
+            if (mapped) mapped = air_rc6_pair(&a, 0);
+#endif
             if(mapped) {
 #ifdef SRVROS_INTEL_HDA_PAIR
                 mapped=joint_open(&a,&owner,&snapshot,begin,&f);
@@ -976,6 +980,9 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #endif
                 if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
+#ifdef SRVROS_INTEL_GT_FLUSH
+                if (closed && gt_bootstrap_native.complete) (void)air_rc6_pair(&a, 2);
+#endif
             }
         }
         if(!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault) {
@@ -1024,6 +1031,9 @@ bool intel_gt_wake_probe_report(void) {
 
 #ifdef SRVROS_INTEL_GT_BOOTSTRAP_NATIVE
     complete=complete && gt_bootstrap_native.complete && !gt_bootstrap_native.failed && !gt_bootstrap_native.borrow.active;
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+    complete = complete && air_rc6_count == 4;
 #endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL

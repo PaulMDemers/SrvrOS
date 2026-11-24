@@ -87,6 +87,33 @@ def bank_result(text, version, samples, reset_started):
     return dict(summary=s, banks=banks)
 
 
+def cold_rc6_result(rows, binding, timing, wake, display):
+    points = []
+    for i, line in enumerate(rows):
+        p = fields(line, 'intel-air-rc6:', ('v', 'n', 'begin', 'end', 'core', 'residency', 'ack',
+                                             'plane', 'programmed', 'live'),
+                   ('core', 'residency', 'ack', 'plane', 'programmed', 'live'))
+        if (len(display) != 1 or p['plane'] != display[0]['plane'] or
+                p['programmed'] & ~8 != display[0]['surface'] or p['live'] != display[0]['surface']):
+            raise ValueError('Active panel RC6 scanout differs from EFI')
+        if (p['n'] != i or i >= 4 or p['ack'] or max(p['core'], p['residency']) >= 0xffffffff
+                or not 0 < p['begin'] < p['end'] <= p['begin'] + 10000
+                or (points and p['begin'] < points[-1]['end'])
+                or (i % 2 and not 2000 <= p['begin'] - points[-1]['end'] <= 12000)):
+            raise ValueError('Active panel RC6 sample order, clock or register')
+        if (wake and p['begin'] < wake['begin_us']) or (i < 2 and binding['gt'] and p['end'] > binding['gt']):
+            raise ValueError('Active panel RC6 sample crosses wake acquisition')
+        if i >= 2 and (not timing['gt_end'] or p['begin'] < timing['gt_end']
+                       or not wake or not wake['closed'] or p['end'] > wake['end_us']):
+            raise ValueError('Active panel RC6 sample crosses wake release')
+        points.append(p)
+    if wake and wake['complete'] and len(points) != 4:
+        raise ValueError('Active panel RC6 coverage')
+    return dict(samples=points, delta_ticks_mod32=[
+        (b['residency'] - a['residency']) & 0xffffffff
+        for a, b in zip(points[::2], points[1::2])])
+
+
 def prepare_messages(text, baseline, following):
     rows = []
     phases = ('bcs-stop', *ENGINES) if any(line.startswith('intel-bcs-stop:') for line in text.splitlines()) else ENGINES

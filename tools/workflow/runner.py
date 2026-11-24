@@ -544,6 +544,8 @@ class Runner:
                 state['efi_display_branch'] = True
             if payload.get('bcs_stop_version') == 1:
                 state['bcs_stop_version'] = 1
+            if payload.get('cold_rc6_version') == 1:
+                state['cold_rc6_version'] = 1
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
 
@@ -758,6 +760,8 @@ class Runner:
             if state.get('bcs_stop_version'):
                 stop = native['flush'].get('bcs_stop', {})
                 diagnostic_complete = diagnostic_complete and stop.get('v') == 1 and stop.get('verified') == 1 and bool(native['flush'].get('stop_messages'))
+            if state.get('cold_rc6_version'):
+                diagnostic_complete = diagnostic_complete and len(native['flush'].get('cold_rc6', {}).get('samples', [])) == 4
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -963,6 +967,8 @@ class Runner:
                 record['gt_request_trace']=observed['request_trace']
             if 'prepare_messages' in observed:
                 record['prepare_messages']=observed['prepare_messages']
+            if 'cold_rc6' in observed:
+                record['cold_rc6'] = observed['cold_rc6']
             if 'bcs_stop' in observed:
                 record['bcs_stop']=observed['bcs_stop']
                 record['stop_messages']=observed['stop_messages']

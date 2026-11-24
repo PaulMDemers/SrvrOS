@@ -199,6 +199,35 @@ class FlushAcknowledgements(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Preparation message'):
             bootstrap_result(text.replace(missing, ""))
 
+    def test_cold_rc6_windows(self):
+        text = observe('pass')
+        result = bootstrap_result(text)
+        cold = result['flush']['cold_rc6']
+        self.assertEqual(cold['delta_ticks_mod32'], [1256, 1000])
+        rows = [line for line in text.splitlines() if line.startswith('intel-air-rc6:')]
+        self.assertEqual(len(rows), 4)
+        for replacement in ('', rows[2], rows[3].replace('ack=0', 'ack=0x1'),
+                            rows[3].replace('core=0x3', 'core=0xffffffff'), rows[3].replace('live=0', 'live=0x1000'),
+                            re.sub(r'begin=\d+', f"begin={cold['samples'][2]['end']}", rows[3])):
+            with self.subTest(replacement=replacement), self.assertRaises(ValueError):
+                bootstrap_result(text.replace(rows[3], replacement))
+        for at in (0, 2):
+            point = cold['samples'][at]
+            clock = result['binding']['gt'] if at == 0 else result['timing']['gt_end'] - 2
+            forged = rows[at].replace(f"begin={point['begin']} end={point['end']}",
+                                      f"begin={clock} end={clock+1}")
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(rows[at], forged))
+        legacy = '\n'.join(line for line in text.splitlines() if line not in rows)
+        self.assertNotIn('cold_rc6', bootstrap_result(legacy)['flush'])
+
+    def test_missing_cold_sample_releases_display(self):
+        for mode, position in [('cold-float', n) for n in range(1, 5)] + [('cold-surface', 4)]:
+            with self.subTest(mode=mode, position=position):
+                result = subprocess.run([ROOT / TARGET, mode, str(position)], check=True,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.stdout.count('intel-air-rc6:'), position - 1)
+
     def test_stop_blitter_through_prepare_and_reset(self):
         text = observe('pass')
         stop = bootstrap_result(text)['flush']['bcs_stop']
@@ -505,7 +534,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
-        old_power = re.sub(r"^intel-bcs-stop:.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^intel-(?:bcs-stop|air-rc6):.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"native_writes=(\d+)", lambda m: f"native_writes={int(m[1])-1}",
                            old_power, count=1)
         legacy_smi = row.replace(f"reads={flush['smi_guard']['reads']}",

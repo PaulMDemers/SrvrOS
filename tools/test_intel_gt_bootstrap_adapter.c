@@ -21,6 +21,7 @@ static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
 static unsigned model_engine_ro;
+static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 static uint32_t intel_display_test_bcs_stop_read(uint32_t);
 static void intel_display_test_bcs_stop_write(uint32_t);
 static void intel_display_test_slot_writer_sample(uint32_t *,uint32_t *);
@@ -52,6 +53,7 @@ static volatile uint64_t *intel_display_test_command_pointer(void);
 static void intel_display_test_command_preserved(void);
 #ifdef SRVROS_INTEL_BCS_CONTEXT
 static unsigned model_engine_ro;
+static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 struct vmm_alias_span;
 static bool intel_display_test_context_aliases(const struct vmm_alias_span *,unsigned);
 static bool intel_display_test_context_protect(unsigned,bool);
@@ -116,6 +118,20 @@ static bool bf(const char *mode,unsigned n) {
  }return yes;
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
+bool timer_delay_us(uint64_t us) {
+    assert(us == BDW_PCI_RC6_INTERVAL_US && wake_irq);
+    ticks += us;
+    return true;
+}
+static void intel_display_test_cold_sample(unsigned n, uint32_t *core, uint32_t *residency,
+                                          uint32_t *plane, uint32_t *programmed, uint32_t *live) {
+    *plane = 0xd8000400u;
+    *programmed = 0;
+    *live = bf("cold-surface", n + 1) ? 0x1000 : 0;
+    assert(!wake_ack && !(wake_request & 0xffff) && wake_irq && !display_access_allowed());
+    *core = bf("cold-float", n + 1) ? UINT32_MAX : (n == 2 ? 0 : 3);
+    *residency = n == 0 ? 0xffffff00u : 1000 * n;
+}
 static bool parser_stopped;
 static uint32_t intel_display_test_bcs_stop_read(uint32_t offset) {
  assert(gpu_command==3 && bcs_stop_owned());
@@ -1019,6 +1035,14 @@ int main(int argc,char **argv) {
  char *args[]={argv[0],"--wake-engine-report",NULL};
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode, "cold-float") || !strcmp(bootstrap_mode, "cold-surface")) {
+  assert(fault_at >= 1 && fault_at <= 4 && hit && air_rc6_count == fault_at - 1);
+  assert(pulses == (fault_at <= 2 ? 0u : 2u));
+  assert(!wake_ack && !(wake_request & 0xffff) && display_access_allowed() && !joint_terminal());
+  return code;
+ }
+#endif
 #ifdef SRVROS_INTEL_GT_ARENA
  return arena_fixture_verify(code);
 #endif

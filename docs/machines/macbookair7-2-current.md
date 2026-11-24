@@ -162,6 +162,18 @@ The driver can now stop the blitter parser. With global GO still asserted,
 the device-wide drain and independent WiDi exclusion remain prerequisites
 for replacing the seven mappings and issuing the first native command.
 
+The next Air diagnostic checks whether firmware's existing RC6 policy
+parks the GT with the original panel active. The GT wake adapter will
+sample always-on core status, residency and forcewake acknowledgement
+twice before taking forcewake and twice after releasing it, with a 2 ms
+interval in each pair. Each sample checks the programmed and live Pipe A
+surface against the selected EFI display. In the previous boot the RC6
+control word was `0x90040000` and the target was `0x40000` at all four
+powered checkpoints. Linux's Broadwell manual park sequence disables the
+hardware timers before writing that same target. The trial first measures
+the inherited policy and leaves both registers untouched.
+[i915 RC6 park and unpark](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L681-L718)
+
 The Ubuntu installer now recognizes completed EFI traces with appended GOP
 paths. It validates the existing trace before copying the next release. The
 installer suite and a replay of this Air's 1,014-byte trace cover the repair.
