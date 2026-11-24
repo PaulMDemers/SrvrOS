@@ -7669,7 +7669,8 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
         uint32_t val=0;
         for(unsigned i=0;i<length;i++)val|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
         rtl_radio_model.writes++;
-        if((reg==0x800 || rtl_radio_model.profile_writes) && rtl_radio_model.profile_writes<RTL_CU_PROFILE_WRITES) {
+        if(reg>=0x800 && reg<0x1000 &&
+           (reg==0x800 || rtl_radio_model.profile_writes) && rtl_radio_model.profile_writes<RTL_CU_PROFILE_WRITES) {
             unsigned index=rtl_radio_model.profile_writes++;
             const uint8_t *row=rtl_radio_model.profile+6*index;
             assert(length==4 && reg==(row[0]|(unsigned)row[1]<<8) && val==rtl_cu_le32(row+2));
