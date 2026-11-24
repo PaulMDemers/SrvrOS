@@ -630,6 +630,18 @@ activity. Bulk IN completions and validated beacons remain the checks
 for successful reception. The previous RF, gain and USB setup carries
 over to the cold comparison.
 
+Cold candidate `0b26fd3816a91c84` is installed from source `04f328ef`.
+The compiled kernel and native PHY fixture passed, including partial
+counter reads, a stalled PHY read followed by endpoint stop, and
+firmware and USB lifecycle regressions. The exact GPT workspace boot
+and all four journal/recovery VM cases passed. The fresh journal, local
+Linux reference, all three hub leaves, clean workspace with 588 existing
+files, Ubuntu default and verified recovery release `74da74e0b57afbb8`
+are recorded in `build/bringup/pro112-rtl8188cu-phy-counters/run.json`.
+The inactive EFI copy removed for space was verified against its recovery
+archive. The unattended boot saves the paired RX and PHY samples before
+returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
