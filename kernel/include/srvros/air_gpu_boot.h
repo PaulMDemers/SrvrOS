@@ -26,6 +26,9 @@ struct air_gpu_boot {
     uint32_t protocols,firmware_files,step;
     uint8_t driver_file_ids[4][16]; /* Firmware volume file GUIDs of bound EFI drivers. */
     uint8_t protocol_ids[32][16]; /* Raw EFI_GUID representation. */
+    /* OEM revision 2. Route CRC32 in bits 63:32 and one-based GOP and
+     * EG2 child ordinals in bits 15:8 and 7:0. Zero withholds selection. */
+    uint64_t display_branch;
 };
 #define AIR_BOOT_MARKER 0x53525652414d0000ULL
 #endif

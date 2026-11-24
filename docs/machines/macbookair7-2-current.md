@@ -126,7 +126,10 @@ translations matched, all 19 reserved pages verified, and the USB volume
 returned clean. All four samples still allowed GPU traffic and none showed
 a fresh engine or L3 flush acknowledgement. The display handoff can now
 identify the branch to preserve by matching the active GOP and console paths.
-Native command submission still requires independent traffic and flush evidence.
+Current work binds that same-boot selection to the kernel display guard before
+GT preparation. It also checks the order of the engine and L3 acknowledgements
+under a traffic-block request. Native submission still requires the independent
+traffic owner and a verified drain.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page

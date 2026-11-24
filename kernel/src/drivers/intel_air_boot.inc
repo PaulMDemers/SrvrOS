@@ -92,11 +92,14 @@ static bool air_boot_pristine(void)
 static bool air_valid_record(const struct air_gpu_boot *r)
 {
     uint8_t sum=0;
-    for (unsigned j=0;j<sizeof(*r);j++) sum+=((const uint8_t *)r)[j];
-    return !sum && r->length==sizeof(*r) && !__builtin_memcmp(r->signature,"OEMG",4) &&
+    const size_t legacy=__builtin_offsetof(struct air_gpu_boot,display_branch);
+    if (!((r->oem_revision==2 && r->length==sizeof(*r)) ||
+          (r->oem_revision==1 && r->length==legacy))) return false;
+    for (unsigned j=0;j<r->length;j++) sum+=((const uint8_t *)r)[j];
+    return !sum && !__builtin_memcmp(r->signature,"OEMG",4) &&
         !__builtin_memcmp(r->oem,"SRVROS",6) && !__builtin_memcmp(r->table_id,"BDWBOOT1",8) &&
         r->step<=6 && (r->state!=AIR_BOOT_CAPTURED || r->step==6) &&
-        r->revision==1 && r->oem_revision==1 && r->state<=AIR_BOOT_CAPTURED &&
+        r->revision==1 && r->state<=AIR_BOOT_CAPTURED &&
         r->first==AIR_BOOT_SLOT && r->protocols<=32 && r->firmware_files<=4 && r->firmware_files<=r->driver_opens;
 }
 static const char *air_transport;
@@ -125,9 +128,10 @@ static void air_boot_import(void)
         const struct acpi_table_info *t=acpi_table_at(i);
         if (!t || __builtin_memcmp(t->signature,"OEMG",4)) continue;
         ++air_oem_tables;
-        if (t->length!=sizeof(air_boot)) continue;
-        struct air_gpu_boot record;
-        __builtin_memcpy(&record,pmm_phys_to_virt(t->physical_address),sizeof(record));
+        if (t->length!=sizeof(air_boot) && t->length!=__builtin_offsetof(struct air_gpu_boot,display_branch)) continue;
+        struct air_gpu_boot record={0};
+        __builtin_memcpy(&record,pmm_phys_to_virt(t->physical_address),t->length);
+        if (record.length!=t->length) continue;
         if (__builtin_memcmp(record.oem,"SRVROS",6) || __builtin_memcmp(record.table_id,"BDWBOOT1",8)) continue;
         if (found) { air_import_status="duplicate"; return; }
         air_transport="acpi";
@@ -143,9 +147,16 @@ static void air_boot_import(void)
     air_boot_buffer=air_boot_pristine();
     air_import_status=air_boot_buffer?"ready":"contents";
 }
+static bool air_branch_selected(void)
+{
+    uint32_t selected=(uint32_t)air_boot.display_branch;
+    unsigned child=selected&255, gop=selected>>8;
+    return air_boot_buffer && air_boot.oem_revision==2 && air_boot.state==AIR_BOOT_CAPTURED &&
+        child>=1 && child<=16 && gop>=1 && gop<=16;
+}
 static bool air_boot_display(uint64_t mmio,uint64_t aperture)
 {
-    if (!air_boot_buffer || air_boot.state!=AIR_BOOT_CAPTURED || air_boot.pci_id!=result.after.id ||
+    if (!air_branch_selected() || air_boot.pci_id!=result.after.id ||
         air_boot.subsystem!=result.after.subsystem || air_boot.mmio!=mmio || air_boot.aperture!=aperture ||
         air_boot.framebuffer!=result.fb.physical || !result.fb.pitch || !result.fb.height ||
         result.fb.height>air_boot.framebuffer_bytes/result.fb.pitch ||

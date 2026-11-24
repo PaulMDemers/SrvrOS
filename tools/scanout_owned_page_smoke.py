@@ -61,7 +61,8 @@ def main():
                       'air-reset-reasons', 'partial-gam-go', 'unowned-widi-clock', 'wireless-audio-reopens', 'uncertain-release',
                       'peer-missing', 'peer-open', 'peer-rollback', 'peer-during-submit', 'writer-alias', 'writer-return',
                       'device-lease-before-trigger', 'widi-lease-before-trigger',
-                      'widi-cached', 'widi-invalidate-race', 'widi-cached-rollback'))
+                      'widi-cached', 'widi-invalidate-race', 'widi-cached-rollback',
+                      'flush-before-engine-go', 'flush-before-engine-reply'))
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)
         iso = make_iso(directory, program)

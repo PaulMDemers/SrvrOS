@@ -104,6 +104,42 @@ def _decode_routes(data, children):
     return dict(paths=paths, comparisons=comparisons)
 
 
+def selected_branch(routes, raw):
+    """Recompute the EFI selection from the same-boot rows, independent of handle order."""
+    paths = routes['paths']
+    matches = []
+    for gop, others in routes['comparisons'].items():
+        path = paths[gop]
+        if path['state'] == 'absent' and path['handle'] == paths['console_handle']['handle']:
+            continue
+        if path['state'] != 'observed' or len(path['instances']) != 1:
+            return 0
+        if sum(row['relation'] == 'exact' for row in others['ConOut']) == 1:
+            matches.append(gop)
+    if len(matches) != 1:
+        return 0
+    gop = matches[0]
+    branches = []
+    for key, path in paths.items():
+        if not key.startswith('child'):
+            continue
+        if path['state'] != 'observed' or len(path['instances']) != 1 or not path['instances'][0]:
+            return 0
+        if any(row['relation'] in ('exact', 'other-is-ancestor') for row in routes['comparisons'][gop][key]):
+            branches.append(key)
+    if len(branches) != 1:
+        return 0
+    return (zlib.crc32(raw[520:]) << 32) | ((int(gop[3:]) + 1) << 8) | (int(branches[0][5:]) + 1)
+
+
+def verify_branch(routes, raw, log):
+    expected = selected_branch(routes, raw)
+    rows = re.findall(r'^intel-efi-display-branch: selected=([01]) token=(0x[0-9a-fA-F]+)\s*$', log, re.M)
+    if len(rows) != 1 or (int(rows[0][0]), int(rows[0][1], 16)) != (bool(expected), expected):
+        raise ValueError('EFI display branch differs from the kernel handoff')
+    return expected
+
+
 def _decode_progress(env, probe, release, nonce):
     header = re.match(rb'SRVR-AIR-EFI-V1 ([0-9a-f]{16}) ([0-9a-f]{16})\n', probe)
     if len(probe) != 512 or not header or any(probe[header.end():64]):

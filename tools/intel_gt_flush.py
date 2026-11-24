@@ -1,5 +1,9 @@
 """Inspect engine and L3 messages in the original full-GT lifetime."""
 
+import base64
+import re
+import struct
+
 from intel_gt_bootstrap import fields
 
 ENGINES = ("rcs", "vcs0", "vecs", "vcs1", "bcs")
@@ -81,6 +85,38 @@ def bank_result(text, version, samples, reset_started):
     if (samples >= 2 or reset_started) and (count != 8 or not s["restored"] or s["mapped"]):
         raise ValueError("Advanced without full L3 bank coverage and selector return")
     return dict(summary=s, banks=banks)
+
+
+def prepare_messages(text, baseline, following):
+    rows = []
+    previous = [baseline[k + '_close'] for k in ENGINES]
+    last_l3, end = baseline['l3_close'], baseline['end']
+    for line in text.splitlines():
+        if not line.startswith('intel-gpm-step:'):
+            continue
+        m = re.fullmatch(r'intel-gpm-step: v=1 n=(\d+) begin=(\d+) end=(\d+) data=(\S+)', line)
+        if not m:
+            raise ValueError('Malformed preparation message')
+        n, begin, close = map(int, m.groups()[:3])
+        data = base64.b64decode(m[4], validate=True)
+        if len(data) != 44 or n != len(rows) or n >= 5 or not end <= begin < close or close-begin > 10000:
+            raise ValueError('Preparation message order or deadline')
+        words = struct.unpack('<11I', data)
+        if 0xffffffff in words or (following and close > following['begin']):
+            raise ValueError('Invalid preparation sample')
+        req, reply, *engines, widi, l3, reply_end, req_end = words
+        permitted = (req | reply | reply_end | req_end) & GAM_GO_MASK
+        fresh = [name for bit, name, old, new in zip((0, 1, 3, 2, 4), ENGINES, previous, engines)
+                 if not permitted & (1 << bit) and not old & 32 and new & 0x31 == 0x20]
+        blocked = not permitted and not widi & 0x11 and not (req | req_end) & 0xff00
+        rows.append(dict(after_prepare=ENGINES[n], begin=begin, end=close, request=[req, req_end],
+                         arbiter=[reply, reply_end], engines=engines, widi=widi, l3=l3,
+                         fresh_engine_ack=fresh, observed_closed=blocked,
+                         fresh_l3_under_block=blocked and last_l3 & 3 == 0 and l3 & 3 == 1))
+        previous, last_l3, end = engines, l3, close
+    if rows and following and len(rows) != 5:
+        raise ValueError('Missing preparation message')
+    return rows
 
 
 def flush_result(text, parent, reset, translation, primary, retire, memory, widi=None):
@@ -216,6 +252,8 @@ def flush_result(text, parent, reset, translation, primary, retire, memory, widi
         ]
     if smi is not None:
         result["smi_guard"] = smi
+    if count and "intel-gpm-step:" in text:
+        result['prepare_messages'] = prepare_messages(text, samples[0], samples[1] if count >= 2 else None)
     if gam:
         result["gam"] = gam_state
     trace_rows = [line for line in text.splitlines() if line.startswith("intel-gam-")]

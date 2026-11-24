@@ -206,7 +206,7 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
 }
 enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
                      LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
-                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN, FINAL_DEVICE_LEASE, FINAL_WIDI_LEASE, WIDI_CACHED, WIDI_INVALIDATING, WIDI_CACHED_ROLLBACK };
+                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN, FINAL_DEVICE_LEASE, FINAL_WIDI_LEASE, WIDI_CACHED, WIDI_INVALIDATING, WIDI_CACHED_ROLLBACK, EARLY_ENGINE_GO, EARLY_ENGINE_REPLY };
 static enum traffic_fault traffic_fault;
 static struct {
     const struct scanout_transfer *transfer;
@@ -215,6 +215,7 @@ static struct {
     uint32_t selector;
     bool bcs;
     unsigned drains,tlb_controls;
+    bool injected_early;
 } controller;
 
 static uint64_t block_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
@@ -231,9 +232,17 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
     case 0x40d0: case 0x8028:
         *out=traffic_fault==AIR_RESET_REASONS && offset==0x40d0 ? 0x7fff :
             (traffic_fault==PARTIAL_GO && bcs ? 0x10 : allowed);
+        if (traffic_fault==EARLY_ENGINE_REPLY && offset==0x8028 && blocked && !bcs && !controller.injected_early) {
+            *out|=1u<<4;
+            controller.injected_early=true;
+        }
         break;
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
         *out=!blocked || bcs?0x10:0x20;
+        if (traffic_fault==EARLY_ENGINE_GO && offset==0x800c && blocked && !bcs && !controller.injected_early) {
+            *out=0x30;
+            controller.injected_early=true;
+        }
         if (traffic_fault==LOST_ENGINE_ACK && offset==0x8008 && blocked) *out=0;
         break;
     case 0x8104: case 0x802c: *out=controller.widi_epoch &&
@@ -427,7 +436,8 @@ static void run_transfer(enum mapping_case which)
             assert(display_access_release(&exclusion,true));
             return;
         }
-        assert(traffic_fault==LOST_ENGINE_ACK || traffic_fault==EARLY_L3 || traffic_fault==NO_NEW_L3);
+        assert(traffic_fault==LOST_ENGINE_ACK || traffic_fault==EARLY_L3 || traffic_fault==NO_NEW_L3 ||
+               traffic_fault==EARLY_ENGINE_GO || traffic_fault==EARLY_ENGINE_REPLY);
         assert(mapping.traffic.phase==BDW_CMD_RETAINED && !posted && !mapping.pages.writes &&
                !scanout_transfer_close(&transfer,&grant));
         return;
@@ -590,7 +600,7 @@ int main(int argc,char **argv)
     const char *const traffic_failures[]={"missing-engine-ack","early-l3","missing-l3","widi-escapes",
                                          "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
                                          "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release",
-                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return","device-lease-before-trigger","widi-lease-before-trigger","widi-cached","widi-invalidate-race","widi-cached-rollback"};
+                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return","device-lease-before-trigger","widi-lease-before-trigger","widi-cached","widi-invalidate-race","widi-cached-rollback","flush-before-engine-go","flush-before-engine-reply"};
     for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
         if (strcmp(argv[1],traffic_failures[i])) continue;
         if (i+1==FINAL_DEVICE_LEASE || i+1==FINAL_WIDI_LEASE) {

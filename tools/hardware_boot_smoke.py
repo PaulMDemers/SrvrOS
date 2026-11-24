@@ -1487,6 +1487,9 @@ def main():
                                 raise ValueError("Missing same-boot GOP, child and console paths")
                         elif routes is not None:
                             raise ValueError("Unexpected GOP route capture on unmatched hardware")
+                    if manifest.get("efi_display_branch") and args.efi_probe_fault == "missing-acpi-vector":
+                        if not air_efi_trace.verify_branch(routes, blobs[1], serial.read_text(errors="replace")):
+                            raise ValueError("VM did not preserve its selected display branch")
                     if trace["grub"] != grub_state or trace["probe"] != checkpoints:
                         raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
                     if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):

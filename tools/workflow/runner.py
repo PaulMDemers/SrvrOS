@@ -540,6 +540,8 @@ class Runner:
                 state['efi_eg2_panel'] = True
             if payload.get('efi_gop_routes') == 1:
                 state['efi_gop_routes'] = True
+            if payload.get('efi_display_branch') == 1:
+                state['efi_display_branch'] = True
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
 
@@ -697,6 +699,8 @@ class Runner:
                 if transport:
                     trace['kernel_transport'] = transport[0] if len(transport) == 1 else 'ambiguous'
                     trace['kernel_slots'] = [line for line in lines if line.startswith('intel-efi-imported-slot: ')]
+                if state.get('efi_display_branch') and trace.get('gop_routes'):
+                    trace['display_branch'] = air_efi_trace.verify_branch(trace['gop_routes'], blobs[1], '\n'.join(lines))
                 atomic(directory/'efi-returned.json', trace)
             expected_raw={'boot.log','session-a.log','exit.log'}
             if manifest.get('stolen_progress_version')==1:expected_raw.add('stolen-progress.log')
@@ -747,6 +751,8 @@ class Runner:
             if state.get('efi_gop_routes'):
                 routes = trace.get('gop_routes') if state.get('efi_trace_nonce') else None
                 diagnostic_complete = diagnostic_complete and routes is not None
+            if state.get('efi_display_branch'):
+                diagnostic_complete = diagnostic_complete and bool(trace.get('display_branch')) and len(native['flush'].get('prepare_messages', [])) == 5
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -758,6 +764,8 @@ class Runner:
                 report['efi_eg2_panel'] = panel or dict(state='missing')
             if state.get('efi_gop_routes'):
                 report['efi_gop_routes'] = routes or dict(state='missing')
+            if state.get('efi_display_branch'):
+                report['display_branch'] = trace.get('display_branch', 0)
             atomic(directory / 'report.json', report)
             status='review read-only census; native ownership withheld' if manifest['profile'] in STOLEN_WIRES and diagnostic_complete else 'review wide-policy diagnostic; original timing acceptance withheld' if diagnostic_complete else 'review full retirement and scope before acceptance' if native_complete else 'incomplete native chain; review retained failure'
             if manifest['profile'] in STOLEN_WIRES and not diagnostic_complete:
@@ -948,6 +956,8 @@ class Runner:
                 record['gt_power_control_samples']=observed['power_controls']
             if 'request_trace' in observed:
                 record['gt_request_trace']=observed['request_trace']
+            if 'prepare_messages' in observed:
+                record['prepare_messages']=observed['prepare_messages']
             if 'media_outstanding' in observed:
                 record['media_outstanding_samples']=observed['media_outstanding']
         if native.get('diagnostic_arena'):

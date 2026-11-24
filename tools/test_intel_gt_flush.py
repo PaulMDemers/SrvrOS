@@ -186,6 +186,19 @@ class FlushAcknowledgements(unittest.TestCase):
         with self.assertRaises(ValueError):
             trace._decode_routes(packet(rows), 5)
 
+    def test_per_engine_prepare_messages(self):
+        text = observe("pass")
+        steps = bootstrap_result(text)['flush']['prepare_messages']
+        self.assertEqual(len(steps), 5)
+        self.assertTrue(all(not s['observed_closed'] and not s['fresh_engine_ack'] for s in steps[:4]))
+        self.assertTrue(steps[-1]['observed_closed'] and steps[-1]['fresh_l3_under_block'])
+        self.assertEqual(len(steps[-1]['fresh_engine_ack']), 5)
+        quiet = bootstrap_result(observe("flush-quiet"))['flush']['prepare_messages']
+        self.assertTrue(all(not s['observed_closed'] and not s['fresh_l3_under_block'] for s in quiet))
+        missing = next(line for line in text.splitlines() if line.startswith('intel-gpm-step: v=1 n=2 '))
+        with self.assertRaisesRegex(ValueError, 'Preparation message'):
+            bootstrap_result(text.replace(missing, ""))
+
     def test_same_boot_efi_handoff(self):
         subprocess.run([ROOT / TARGET, "efi-import"], check=True, timeout=10)
         text = observe("pass")

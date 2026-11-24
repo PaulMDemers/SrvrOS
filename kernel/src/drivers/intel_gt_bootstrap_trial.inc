@@ -412,6 +412,9 @@ static enum intel_gt_write bootstrap_store(uint32_t offset,uint32_t value,bool p
  if(written!=GT_WRITE_DONE)bootstrap_fail(64);
  return written;
 }
+#ifdef SRVROS_INTEL_GT_FLUSH
+static bool gt_prepare_messages(unsigned engine);
+#endif
 static bool bootstrap_prepare(void) {
  for(unsigned i=0;i<5;i++) {
   uint32_t value;if(!bootstrap_load(bootstrap_controls[i],&value) || value==UINT32_MAX || (value&65535))return bootstrap_fail(64);
@@ -426,6 +429,9 @@ static bool bootstrap_prepare(void) {
    if((value&3)!=1 || n==255)return bootstrap_fail(64);
    wake_pause(gt_bootstrap_native.a);
   }
+#ifdef SRVROS_INTEL_GT_FLUSH
+  if(!gt_prepare_messages(i))return bootstrap_fail(64);
+#endif
  }
  return gt_bootstrap_native.prepared==5;
 }

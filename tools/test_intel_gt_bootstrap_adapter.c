@@ -649,7 +649,7 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling)return true;
+ if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading)return true;
  if(flush_page(range_pa)) {
   if(bf("flush-alias",++flush_aliases))out->writable=1;
   return true;
@@ -696,6 +696,10 @@ static bool intel_display_test_range_map(uint64_t physical) {
   range_pa=physical;return true;
  }
  if(gt_widi.sampling){assert(gt_flush_live() && !range_pa && physical==0xc0008000);range_pa=physical;return true;}
+ if(gt_prepare_trace.reading) {
+  assert(gt_prepare_message_live() && !range_pa && (physical==0xc0004000 || physical==0xc0008000));
+  range_pa=physical;return true;
+ }
  if(flush_page(physical)) {
   assert(gt_flush_live() && !range_pa && wake_irq && gpu_command==3);
   if(bf("flush-map",++flush_maps))return false;
@@ -756,7 +760,7 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
 static bool intel_display_test_range_unmap(uint64_t *physical) {
  assert(bootstrap_parent() && range_pa);
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling){*physical=range_pa;range_pa=0;return true;}
+ if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading){*physical=range_pa;range_pa=0;return true;}
  if(flush_page(range_pa)) {
   if(bf("flush-unmap",++flush_unmaps))return false;
   *physical=range_pa;range_pa=0;return true;
@@ -824,6 +828,16 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
   if(offset==0x138064 && model_bank_maps==3 && gt_banks.captured && bf("bank-power",gt_banks.banks+1)) *out=1;
   static unsigned slice_reads;
   return !bf("slice-read", ++slice_reads);
+ }
+ if(gt_prepare_trace.reading) {
+  assert(gt_prepare_message_live() && range_pa==0xc0000000ull+(offset&~4095u));
+  bool closed=gt_bootstrap_native.prepared==5 && strcmp(bootstrap_mode,"flush-quiet");
+  if(offset==0x40d0)*out=intel_display_test_gam_request();
+  else if(offset==0x8028)*out=closed?0:0x5f;
+  else if(offset==0x8014)*out=closed?0:0x1f;
+  else if(offset==0x8038)*out=closed?1:0;
+  else *out=closed?0x20:0x10;
+  return true;
  }
  if(flush_page(range_pa)) {
   static const uint32_t expected[]={0x40d0,0x8028,0x8000,0x8004,0x8010,0x8008,0x800c,0x8038,0x8040,
@@ -925,6 +939,9 @@ static int test_efi_import(void) {
  result.fb.physical=test_boot_record.framebuffer; result.fb.height=900; result.fb.pitch=6144;
  for(unsigned n=0;n<2;n++) result.sample[n].pipe[0][2]=test_boot_record.plane;
  assert(air_boot_matches(test_boot_record.mmio,test_boot_record.aperture,test_boot_record.entries));
+ air_boot.display_branch=0;
+ assert(!air_boot_display(test_boot_record.mmio,test_boot_record.aperture));
+ air_boot.display_branch=test_boot_record.display_branch;
  test_boot_record.entries[6]^=4096;
  assert(!air_boot_matches(test_boot_record.mmio,test_boot_record.aperture,test_boot_record.entries));
  test_boot_record.entries[6]^=4096;

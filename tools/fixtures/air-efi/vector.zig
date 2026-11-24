@@ -15,6 +15,12 @@ fn vector(bs: *efi.tables.BootServices, r: anytype, clients: *?handoff.Eg2Client
         .by_driver = .{ .agent = efi.handle, .controller = handle },
     })) orelse return error.NoTestProtocol;
     defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, handle) catch {};
+    var other: ?efi.Handle = null;
+    // A second, unrelated device path with no GOP.
+    var unrelated = [_]u8{ 1, 1, 6, 0, 7, 31, 0x7f, 0xff, 4, 0 };
+    if (install(&other, &efi.protocol.DevicePath.guid, 0, &unrelated) != .success) return error.InstallOther;
+    const sibling = other orelse return error.NoSecondChild;
+    defer _ = bs._uninstallProtocolInterface(sibling, &efi.protocol.DevicePath.guid, &unrelated);
     const Gop = efi.protocol.GraphicsOutput;
     const outputs = (try bs.locateHandleBuffer(.{ .by_protocol = &Gop.guid })) orelse return error.NoFixtureDisplay;
     defer bs.freePool(@ptrCast(outputs.ptr)) catch {};
@@ -28,15 +34,16 @@ fn vector(bs: *efi.tables.BootServices, r: anytype, clients: *?handoff.Eg2Client
         })) orelse return error.NoTestChild;
         defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, child) catch {};
         _ = (try bs.openProtocol(handoff.Eg2Device, handle, .{
-            .by_child_controller = .{ .agent = efi.handle, .controller = efi.handle },
+            .by_child_controller = .{ .agent = efi.handle, .controller = sibling },
         })) orelse return error.NoSecondChild;
-        defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, efi.handle) catch {};
+        defer bs.closeProtocol(handle, handoff.Eg2Device, efi.handle, sibling) catch {};
         const wrong = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size - 1, null);
         if (wrong.panel == null or wrong.panel.?.gops == 0 or wrong.panel.?.matches != 0) return error.FalseMatch;
         var scanout = r.*;
         scanout.aperture = mode.frame_buffer_base;
         const active = try handoff.framebuffer(bs, &scanout);
-        clients.* = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size, active);
+        const first = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size, active);
+        clients.* = try handoff.confirmBranch(bs, handle, &scanout, first);
         break;
     }
     if (clients.* == null) return error.NoFixtureDisplay;

@@ -74,7 +74,13 @@ static inline bool bdw_traffic_engines(struct bdw_traffic_sample *a, bool blocke
                 ((a->engine_go_closed & engine) && (word & 0x10u)) ||
                 ((a->engine_blocked & engine) && !ready))
                 return false;
-            if (word & flush) a->engine_ack |= engine;
+            /* A high flush bit sampled while that client's GO remains open
+             * or its arbiter reply is outstanding cannot retire its reader. */
+            if (word & flush) {
+                if ((word & 0x10u) || !(a->response_closed & (1u << clients[i].request_bit)))
+                    return false;
+                a->engine_ack |= engine;
+            }
             if (!(word & 0x10u)) a->engine_go_closed |= engine;
             if (ready) a->engine_blocked |= engine;
         }

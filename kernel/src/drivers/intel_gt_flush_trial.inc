@@ -498,6 +498,49 @@ static bool slot_widi_sample(unsigned n) {
     ++gt_widi.samples;
     return true;
 }
+/* Sample the GPM request around one read-only message-page alias after
+ * each engine finishes preparation, before preparing its peer or resetting.
+ * Preparing an engine alone confers no ownership of the GPM request. */
+static struct {
+    struct gt_display_access access;
+    struct { uint32_t raw[11]; uint64_t begin,end; } stage[GT_FLUSH_ENGINES];
+    unsigned count;
+    bool reading;
+} gt_prepare_trace;
+
+static bool gt_prepare_message_live(void) {
+    unsigned stage=gt_prepare_trace.count+1;
+    return gt_prepare_trace.reading && stage<=GT_FLUSH_ENGINES && air_branch_selected() &&
+        gt_flush.samples==1 && gt_bootstrap_native.prepared==stage && gt_bootstrap_native.issued==stage &&
+        gt_bootstrap_native.command_writes==1 && gt_bootstrap_native.pci_samples==2 &&
+        !gt_bootstrap_native.reset.object && !gt_bootstrap_native.epoch_calls &&
+        gt_range.completed==1 && !gt_range.mapped && bootstrap_parent() && wake_irq_off() &&
+        vmm_current_address_space()==gt_bootstrap_native.root && gt_slot_live();
+}
+
+static bool gt_prepare_message_offset(uint32_t offset) {
+    return offset==0x8014 || gt_flush_offset_allowed(offset);
+}
+static bool gt_prepare_messages(unsigned engine) {
+    static const uint32_t req[]={0x40d0};
+    static const uint32_t msgs[]={0x8028,0x8000,0x8004,0x8010,0x8008,0x800c,0x8014,0x8038,0x8028};
+    if (engine!=gt_prepare_trace.count || engine>=GT_FLUSH_ENGINES || !bootstrap_tick()) return false;
+    uint32_t *raw=gt_prepare_trace.stage[engine].raw;
+    struct gt_display_access *a=&gt_prepare_trace.access;
+    uint64_t begin=gt_bootstrap_native.last;
+    gt_prepare_trace.reading=true;
+    bool ok=gt_held_read_alias(a,req,raw,1,gt_prepare_message_live,gt_flush_offset_allowed) &&
+        gt_held_read_alias(a,msgs,raw+1,9,gt_prepare_message_live,gt_prepare_message_offset) &&
+        gt_held_read_alias(a,req,raw+10,1,gt_prepare_message_live,gt_flush_offset_allowed);
+    gt_prepare_trace.reading=false;
+    if (!ok || a->mapped || a->retired!=3*(engine+1) || !bootstrap_tick() ||
+        gt_bootstrap_native.last<=begin || gt_bootstrap_native.last-begin>BDW_BOOT_PHASE_US) return false;
+    gt_prepare_trace.stage[engine].begin=begin;
+    gt_prepare_trace.stage[engine].end=gt_bootstrap_native.last;
+    ++gt_prepare_trace.count;
+    return true;
+}
+
 static bool gt_flush_sample(unsigned n) {
     if (n >= GT_FLUSH_SAMPLES || n != gt_flush.samples || !gt_flush_live() || !bootstrap_tick())
         return false;
@@ -537,6 +580,13 @@ static bool gt_flush_sample(unsigned n) {
 }
 
 static void gt_flush_report(void) {
+    for (unsigned i=0;i<gt_prepare_trace.count;i++) {
+        const uint32_t *w=gt_prepare_trace.stage[i].raw;
+        char encoded[(sizeof(gt_prepare_trace.stage[i].raw)+2)/3*4+1];
+        entry_requester_base64((const uint8_t *)w,sizeof(gt_prepare_trace.stage[i].raw),encoded);
+        console_printf("intel-gpm-step: v=1 n=%u begin=%u end=%u data=%s\n",
+            (uint64_t)i,gt_prepare_trace.stage[i].begin,gt_prepare_trace.stage[i].end,encoded);
+    }
     for (unsigned n = 0; n < slot_queue_samples; ++n) {
         const struct slot_queue_sample *sample = &slot_queues[n];
         char encoded[(sizeof(*sample)+2)/3*4+1];

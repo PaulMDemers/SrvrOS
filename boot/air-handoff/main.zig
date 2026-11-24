@@ -205,6 +205,8 @@ const RouteWriter = struct {
     // These identifiers compare handle identity only within this receipt.
     handles: [33]Handle = undefined,
     used: usize = 0,
+    rows: [34]struct { id: u8, state: u8, bytes: []const u8 } = undefined,
+    count: usize = 0,
 
     fn row(self: *RouteWriter, id: u8, state: u8, path: []const u8) void {
         const dst = route_bytes[self.pos..];
@@ -212,6 +214,8 @@ const RouteWriter = struct {
         dst[1] = state;
         std.mem.writeInt(u16, dst[2..4], @intCast(path.len), .little);
         @memcpy(dst[4..][0..path.len], path);
+        self.rows[self.count] = .{ .id = id, .state = state, .bytes = dst[4..][0..path.len] };
+        self.count += 1;
         self.pos += 4 + path.len;
     }
 
@@ -228,7 +232,97 @@ const RouteWriter = struct {
     }
 };
 
-fn routes(bs: *Services, active: Handles, children: Handles) ?[]const u8 {
+// ConOut can contain several instances. Compare at node boundaries and
+// consume the entire variable before accepting even the first match.
+fn consoleMatches(console: []const u8, active: []const u8) bool {
+    const end = [_]u8{ 0x7f, 0xff, 4, 0 };
+    if (active.len <= 4 or !std.mem.endsWith(u8, active, &end)) return false;
+    var begin: usize = 0;
+    var pos: usize = 0;
+    var matches: usize = 0;
+    while (pos + 4 <= console.len) {
+        const bytes = console[pos..];
+        const n = std.mem.readInt(u16, bytes[2..4], .little);
+        if (n < 4 or n > bytes.len) return false;
+        if (bytes[0] == 0x7f) {
+            if (n != 4 or pos == begin) return false;
+            if (std.mem.eql(u8, console[begin..pos], active[0 .. active.len - 4])) matches += 1;
+            if (bytes[1] == 0xff) return matches == 1 and pos + n == console.len;
+            if (bytes[1] != 1) return false;
+            begin = pos + n;
+        }
+        pos += n;
+    }
+    return false;
+}
+
+fn singlePath(bytes: []const u8) bool {
+    var pos: usize = 0;
+    while (pos + 4 <= bytes.len) {
+        const node = bytes[pos..];
+        const len = std.mem.readInt(u16, node[2..4], .little);
+        if (len < 4 or len > node.len) return false;
+        if (node[0] == 0x7f) return pos != 0 and node[1] == 0xff and len == 4 and len == node.len;
+        pos += len;
+    }
+    return false;
+}
+
+fn selectBranch(w: *const RouteWriter, gops: usize, children: usize, crc: u32) u64 {
+    const console = w.rows[0];
+    if (console.state != 0) return 0;
+    var selected: usize = 0;
+    for (w.rows[2..][0..gops], 1..) |g, i| {
+        // Console splitters can supply the same framebuffer without a path.
+        if (g.state == 1 and g.id == w.rows[1].id) continue;
+        if (g.state != 0 or !singlePath(g.bytes)) return 0;
+        if (consoleMatches(console.bytes, g.bytes)) {
+            if (selected != 0) return 0;
+            selected = i;
+        }
+    }
+    if (selected == 0) return 0;
+    const active = w.rows[1 + selected].bytes;
+    var child: usize = 0;
+    for (w.rows[2 + gops ..][0..children], 1..) |c, i| {
+        if (c.state != 0 or !singlePath(c.bytes)) return 0;
+        const prefix = c.bytes[0 .. c.bytes.len - 4];
+        if (std.mem.startsWith(u8, active[0 .. active.len - 4], prefix)) {
+            if (child != 0) return 0;
+            child = i;
+        }
+    }
+    return if (child == 0) 0 else (@as(u64, crc) << 32) | (selected << 8) | child;
+}
+
+test "select by console instance and unique child path in this enumeration" {
+    const pci = [_]u8{ 1, 1, 6, 0, 0, 2 };
+    const vendor = [_]u8{ 3, 10, 20, 0 } ++ ([_]u8{0} ** 16);
+    const other = [_]u8{ 1, 1, 6, 0, 0, 3 };
+    const end = [_]u8{ 0x7f, 0xff, 4, 0 };
+    const split = [_]u8{ 0x7f, 1, 4, 0 };
+    const active = pci ++ vendor ++ end;
+    var w = RouteWriter{};
+    w.row(0, 0, &(other ++ split ++ active));
+    w.row(1, 1, "");
+    w.row(1, 1, "");
+    w.row(2, 0, &active);
+    w.row(3, 0, &(other ++ end));
+    w.row(4, 0, &(pci ++ end));
+    try std.testing.expectEqual(@as(u64, 0x5500000202), selectBranch(&w, 2, 2, 0x55));
+    std.mem.swap(@TypeOf(w.rows[4]), &w.rows[4], &w.rows[5]);
+    try std.testing.expectEqual(@as(u64, 0x5500000201), selectBranch(&w, 2, 2, 0x55));
+    w.rows[5] = w.rows[4];
+    try std.testing.expectEqual(@as(u64, 0), selectBranch(&w, 2, 2, 0x55));
+    w.rows[5].state = 1;
+    try std.testing.expectEqual(@as(u64, 0), selectBranch(&w, 2, 2, 0x55));
+    w.rows[5].state = 0;
+    w.rows[5].bytes = &(other ++ end);
+    w.rows[2] = w.rows[3];
+    try std.testing.expectEqual(@as(u64, 0), selectBranch(&w, 2, 2, 0x55));
+}
+
+fn routes(bs: *Services, active: Handles, children: Handles, branch: *u64) ?[]const u8 {
     if (active.count == 0 or active.count > active.items.len or children.count > children.items.len) return null;
     var writer = RouteWriter{};
     @memcpy(route_bytes[0..4], "GOP1");
@@ -242,7 +336,9 @@ fn routes(bs: *Services, active: Handles, children: Handles) ?[]const u8 {
     writer.handlePath(bs, efi.system_table.console_out_handle);
     for (active.items[0..active.count]) |h| writer.handlePath(bs, h);
     for (children.items[0..children.count]) |h| writer.handlePath(bs, h);
-    std.mem.writeInt(u32, route_bytes[4..8], std.hash.Crc32.hash(route_bytes[8..writer.pos]), .little);
+    const crc = std.hash.Crc32.hash(route_bytes[8..writer.pos]);
+    std.mem.writeInt(u32, route_bytes[4..8], crc, .little);
+    branch.* = selectBranch(&writer, active.count, children.count, crc);
     return route_bytes[0..writer.pos];
 }
 
@@ -255,6 +351,9 @@ pub const Eg2Clients = struct {
     exclusive: usize = 0,
     panel: ?Panel = .{},
     paths: ?[]const u8 = null,
+    branch: u64 = 0,
+    selected_gop: ?Handle = null,
+    selected_child: ?Handle = null,
 };
 pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64, active: ?Handles) !Eg2Clients {
     var children = Handles{};
@@ -285,8 +384,27 @@ pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64, active: ?
         }
         if (bits & 32 != 0) result.exclusive += 1;
     }
-    if (active) |gops| result.paths = routes(bs, gops, children);
+    if (active) |gops| {
+        result.paths = routes(bs, gops, children, &result.branch);
+        if (result.branch != 0) {
+            result.selected_gop = gops.items[((result.branch >> 8) & 255) - 1];
+            result.selected_child = children.items[(result.branch & 255) - 1];
+        }
+    }
     return result;
+}
+pub fn confirmBranch(bs: *Services, controller: Handle, r: *Record, first: Eg2Clients) !Eg2Clients {
+    if (first.branch == 0) return first;
+    const original = first.paths orelse return error.NoOriginalRoutes;
+    const saved = try bs.allocatePool(.loader_data, original.len);
+    defer bs.freePool(saved.ptr) catch {};
+    @memcpy(saved, original);
+    const active = try framebuffer(bs, r);
+    const checked = try eg2Clients(bs, controller, r.framebuffer, r.framebuffer_bytes, active);
+    if (checked.branch != first.branch or checked.selected_gop != first.selected_gop or
+        checked.selected_child != first.selected_child or
+        !std.mem.eql(u8, saved, checked.paths orelse return error.NoClosingRoutes)) return error.DisplayBranchChanged;
+    return checked;
 }
 fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
     const handles = (try bs.locateHandleBuffer(.{ .by_protocol = &Pci.guid })) orelse return;
@@ -340,6 +458,7 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
         for (ids) |id| {
             if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle, r.framebuffer, r.framebuffer_bytes, active) catch .{ .state = .unavailable };
         }
+        if (clients.*) |first| clients.* = try confirmBranch(bs, handle, r, first);
         try snapshot(p, r);
         r.step = 5;
         if (r.framebuffer < r.aperture or r.framebuffer - r.aperture != r.surface or r.framebuffer_bytes == 0 or
@@ -413,12 +532,15 @@ fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status 
     r.revision = 1;
     r.oem = "SRVROS".*;
     r.table_id = "BDWBOOT1".*;
-    r.oem_revision = 1;
+    r.oem_revision = 2;
     r.first = wire.AIR_BOOT_SLOT;
     var clients: ?Eg2Clients = null;
     captureRecord(bs, &r, &clients) catch {
         r.state = wire.AIR_BOOT_PROBING;
     };
+    if (clients) |c| {
+        if (r.state == wire.AIR_BOOT_CAPTURED) r.display_branch = c.branch;
+    }
     // Ownership of this firmware-described private buffer crosses ExitBootServices.
     // Its pages stay reserved for this boot even if the GPU declines admission.
     mark(file, .capture, (@as(u64, r.state) << 32) | r.step);

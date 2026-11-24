@@ -7451,6 +7451,8 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< widi-cached
 	$< widi-invalidate-race
 	$< widi-cached-rollback
+	$< flush-before-engine-go
+	$< flush-before-engine-reply
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest
