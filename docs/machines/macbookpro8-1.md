@@ -1,9 +1,9 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 24, 2026. State **Native console output and return to Ubuntu
-verified. Keyboard input failed during the first native trial. EHCI discovery,
-reset and high-speed enumeration passed in QEMU. Full-speed split control
-passed host fixtures and awaits native verification.**
+Updated November 24, 2026. State **Native console output, topcase descriptor
+reads through EHCI split control, and return to Ubuntu verified. The second
+EHCI controller scan was incomplete. Both controllers released DMA. Keyboard
+input and native USB workspace access remain pending.**
 
 ## Identity and baseline
 
@@ -24,8 +24,7 @@ passed host fixtures and awaits native verification.**
   wireless controllers are Broadcom `14e4:16b4` and `14e4:4331` respectively.
 - Ubuntu 26.10 boots via its UEFI entry and is the verified GRUB default.
   Secure Boot is unsupported on this host. The EFI partition is mounted and
-  has space for staging. The first SrvrOS install will have Ubuntu as its
-  recovery OS.
+  has space for staging. Ubuntu is the recovery OS for both installed releases.
 - The privileged Linux inventory has 58 files, including 17 ACPI tables,
   with zero missing or partial reads. Raw evidence is kept locally. The host
   tool check, baseline build and QEMU xHCI UEFI USB smoke passed on `61111819`.
@@ -34,12 +33,11 @@ passed host fixtures and awaits native verification.**
 
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
-MacBookPro8,1 console, input and USB workspace milestones. The active work
-block packages the EHCI split diagnostic for a one-shot attended run. It
-touches the boot profile, EHCI result reporting and the QEMU recovery fixture.
-The goal is to check the topcase's descriptor reads and both controllers'
-DMA retirement using the firmware framebuffer and the installed Ubuntu GRUB.
-The inventory contains no xHCI controller on this Mac.
+MacBookPro8,1 console, input and USB workspace milestones. The attended EHCI
+split run verified the topcase descriptor path. The remaining enumeration
+question is where the scan stopped on `00:1d.7`. The next diagnostic needs to
+preserve the failing hub or port and operation on the final screen. The
+inventory contains no xHCI controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `cb0445b9`, and Apple Silicon runtime, login and export work
@@ -225,13 +223,29 @@ including the release and result, then use the power button to return to
 Ubuntu. The on-disk run record binds the photo or result lines to the release
 and Ubuntu boot state. A missing completion line leaves the test incomplete.
 
+The operator transcribed the native screen from `91a277b2e434e4b3` as
+`INCOMPLETE`. Both controllers reached reset-halted and released their DMA
+pages. `00:1a.7` (`8086:1c2d`) completed its scan. It read the `05ac:0245`
+topcase device and configuration descriptors through hub `0424:2513` port 2
+with an 8-byte endpoint-zero packet, assigning address 3 through hub address
+1. This verifies the split control path for the built-in topcase.
+
+`00:1d.7` (`8086:1c26`) stopped before completing its scan. Ubuntu shows a
+low-speed Apple IR receiver `05ac:8242` on port 1 of that controller's hub
+and the high-speed flash drive `13fe:6700` on port 2. The compact native
+screen did not report the last operation, so the failing port or request
+remains unknown. The new Ubuntu boot ID, cleared `next_entry`, unchanged
+firmware boot order, mounted exFAT workspace and both installed manifests
+were verified. The transcript, verification and exact payload were archived
+locally outside `build/` alongside the known-good console release.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard and trackpad | Keyboard failed on first native release | EHCI hub route, keyboard events and verified trackpad reports |
-| USB workspace | Mounted in Ubuntu | Native read, then write/sync/unmount and Ubuntu readback |
+| Keyboard and trackpad | Native topcase split control and descriptors verified | Keyboard events and verified trackpad reports |
+| USB workspace | Mounted in Ubuntu. Native scan of its controller was incomplete. | Locate the failed operation on `00:1d.7`, then verify native read and write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
