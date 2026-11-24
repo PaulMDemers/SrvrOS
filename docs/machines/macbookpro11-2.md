@@ -560,6 +560,22 @@ all seven journal phases completed. RF/RX parked, Ubuntu returned, and
 all 584 prior workspace files were preserved. The exact payload and
 evidence are archived as `evidence-96ea7b51cf8e38c1`.
 
+The working Linux USB trace `3753a4c3` contains a second LC calibration
+after the table. It read a normal-mode value of zero at `0xd03`, paused
+all queues, read RF path A `0x18` as `0x107401`, and wrote `0x0180f401`
+100,949 us before the first successful bulk IN completion. Linux waited
+100,064 us before its next queue write. The [Linux normal-mode LC code](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/phy.c#L316-L350)
+shows the same trigger and 100 ms delay.
+
+The new comparison adds the second LC pulse on the verified startup
+channel, checks that continuous test mode is clear, waits at least 100 ms
+and verifies that the original channel and cleared calibration bit read
+back before tuning to channel 10. MAC TX, TX DMA and scheduling stay
+disabled and the queues remain paused throughout. The candidate also reads
+`0xc50` and `0xc58` before opening RX. The Linux trace shows these registers
+at `0x69543420` before its first receive and updated to `0x6954341e`
+after it, so the comparison observes them without changing gain.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
