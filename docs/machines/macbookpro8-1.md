@@ -2,7 +2,8 @@
 
 Updated November 24, 2026. State **Native console output and return to Ubuntu
 verified. Keyboard input failed during the first native trial. EHCI discovery,
-reset and high-speed enumeration passed in QEMU.**
+reset and high-speed enumeration passed in QEMU. Full-speed split control
+passed host fixtures and awaits native verification.**
 
 ## Identity and baseline
 
@@ -14,7 +15,8 @@ reset and high-speed enumeration passed in QEMU.**
   on Intel AHCI `8086:1c03`.
 - The 6-series USB controllers are EHCI `8086:1c2d` and `8086:1c26`, with
   UHCI functions `8086:1c2c` and `8086:1c27`. The full-speed Apple ANSI topcase
-  `05ac:0245` sits behind an internal high-speed hub. Linux uses HID for the
+  `05ac:0245` sits on port 2 of internal high-speed hub `0424:2513` and
+  advertises an 8-byte endpoint-zero packet size. Linux uses HID for the
   keyboard interfaces and `bcm5974` for the trackpad. The attached MBR/exFAT
   flash drive takes a high-speed path through the other EHCI controller.
 - Intel HDA `8086:1c20` exposes a Cirrus Logic CS4206 analog codec
@@ -179,6 +181,15 @@ and the schedule's completion and timeout behavior. The VM exercises the
 split boot option with the redirected high-speed hub and a high-speed tablet.
 QEMU's built-in hub is a USB 1.1 model, and the redirected high-speed hub has
 empty ports, so the VM run reports zero split devices. [QEMU USB hub model](https://github.com/qemu/qemu/blob/v11.0.3/hw/usb/dev-hub.c)
+
+Clean source `51d279b4` staged as `0f5d544618bece74`. Split-mode boot reached
+the console, configured the three-port high-speed hub and enumerated the
+tablet. Both controllers released their DMA pages. The manifest, host test
+output and VM logs are in `build/review/macbookpro8-1-ehci-split-0f5d544618bece74/`.
+The reset-only, high-speed tablet, high-speed hub and ordinary xHCI console
+regressions passed on the same staged kernel.
+The installed console release `c1a8e397a41363dc` matches its recovery archive.
+Ubuntu is the GRUB default and `next_entry` is empty.
 
 ## Capability ledger
 
