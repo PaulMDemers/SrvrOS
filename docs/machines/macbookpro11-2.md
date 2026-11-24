@@ -821,6 +821,15 @@ against that format and recovered all 28 values from both persistent
 copies. The packed logging format was tested in the native fixture but
 was absent from the installed image.
 
+The next receive-only trial reads RF0 on this board in Linux monitor
+mode on channel 10 at 20 MHz and traces RF0 around the same SrvrOS
+write, LC wait and channel tune. Scope is limited to the RTL8188CUS
+passive xHCI path and its native fixture. Fetched main remains
+`61111819` with no overlapping changes to that path since
+`50f1978a`. The single outstanding 4,096-byte request, filters,
+TX closure and three-adapter hub topology carry over. Require a
+freshly rebuilt and identified kernel before staging.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
