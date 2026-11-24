@@ -742,7 +742,23 @@ binds the Linux captures, the three adapters on the same hub, the
 clean workspace with 592 existing files, and a fresh independent
 internal-disk journal. The unattended cold boot saves the filter
 readbacks, PHY and MAC counters, USB completions and teardown before
-returning to Ubuntu. Physical results are pending.
+returning to Ubuntu.
+
+Cold session `session-000660feb18f6274-00` verified all ten receive
+setup readbacks, including the Linux-equivalent frame admission
+settings. PHY parity failures rose from 16 to 3,268, while the sampled
+good OFDM, CCK and HT counters and FIFO drops remained zero. The fixed
+4,096-byte bulk IN request recorded zero receive completions. The
+only transfer event reported the request stopped, with all 4,096
+bytes outstanding. This reproduces the preceding receive
+timeout with the admission filters matched and leaves the first
+good-frame or USB-delivery boundary unresolved.
+
+All three devices were on the same hub. The adapter's receive
+endpoint stopped and the radio parked. The 30,195-byte exit snapshot
+and all seven independent journal phases verified, all 592 previous
+workspace files were preserved, and the laptop returned to Ubuntu.
+The exact payload and logs are archived as `evidence-f5d06ccb9879d3e1`.
 
 ### Retina desktop default
 
