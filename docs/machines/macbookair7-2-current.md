@@ -86,11 +86,20 @@ the **Broadwell EG2 Graphics Driver**. Its PE subsystem is EFI boot-service
 driver (11). The private device protocol GUID on that PCI handle,
 `53cfeb0d-9b9e-4d0a-90b6-024a79906a58`, also occurs in the CoreEG2 image,
 file `4ddeafa4-f480-4b9d-889b-1e3ae6605bd6`. CoreEG2 contains the standard
-GOP GUID as well. The next EFI probe queries the private protocol's open
-records on the matched GPU. It counts BY_DRIVER and BY_CHILD_CONTROLLER
-entries and resolves BY_DRIVER agents to their firmware file GUID to identify
-a live CoreEG2 binding. The collector preserves absent and unreadable results.
-This test keeps the firmware driver attached and the original panel active.
+GOP GUID as well.
+
+On the Air, release `0aa8d40a0735e90d` at `3b9095f5` verified that
+**CoreEG2 had the Broadwell driver's private protocol open**. Of eight open
+records, one was BY_DRIVER and resolved to the CoreEG2 firmware file, six
+were BY_CHILD_CONTROLLER, and none requested exclusive access. The probe
+left both drivers attached. Session `session-000660fd04cfe476-00` confirmed
+the seven inherited entries at slots 11744–11750, all 19 reserved pages,
+the original framebuffer and a clean USB return to Ubuntu.
+
+All four samples still permitted GPU traffic (mask `0x5f`). The driver
+observed zero fresh engine or L3 flush acknowledgements and submitted no
+command. The next handoff check is to identify which child handle exposes
+the GOP for the active panel while that framebuffer is still displayed.
 
 Current scope is the Broadwell blitter handoff between GGTT publication and
 first submission. It depends on the original display exclusion, the seven-page
