@@ -1050,6 +1050,15 @@ receive evidence. The 31,271-byte exit snapshot and all seven journal
 checkpoints verified. The image and evidence are archived as
 `evidence-71c5791486a3d9b3`.
 
+The next trial isolates bit 23 in the RF path setup at `0x04c`.
+The Linux trace shows this bit set when Linux applies the path-A
+settings at `0x878` and `0x860`. The cold SrvrOS sample had the bit
+clear. Scope is the RTL8188CUS passive xHCI path and fixture.
+Fetched main `61111819` has no overlap since `50f1978a`.
+Preserve the other bits in the SrvrOS word and verify the selected
+bit before and after tuning. Keep the retained IQ matrix, B68,
+receive gates, single 4,096-byte request and hub topology.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
