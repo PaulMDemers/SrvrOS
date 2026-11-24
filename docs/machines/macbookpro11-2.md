@@ -734,6 +734,16 @@ verifies the filter writes, the unchanged USB request size and
 rejection of a data frame before successful beacon proof. Native
 firmware and lifecycle regressions passed.
 
+Candidate `f5d06ccb9879d3e1` from `26598b65` passed all five exact-image
+GPT workspace and journal/recovery VM checks. The verified install
+kept Ubuntu as the default and recovery release `74da74e0b57afbb8`.
+The local run record at `build/bringup/pro112-rtl8188cu-linux-filter/run.json`
+binds the Linux captures, the three adapters on the same hub, the
+clean workspace with 592 existing files, and a fresh independent
+internal-disk journal. The unattended cold boot saves the filter
+readbacks, PHY and MAC counters, USB completions and teardown before
+returning to Ubuntu. Physical results are pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
