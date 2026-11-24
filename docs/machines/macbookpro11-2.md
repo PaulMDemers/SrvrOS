@@ -546,6 +546,20 @@ copy removed for space was verified against its recovery archive.
 The unattended boot saves the startup RF readback, actual waits and
 receive trace before returning to Ubuntu.
 
+Cold session `session-000660fd50060845-00` completed all eight waits in
+206,010 us and read `0x107401` before tuning to channel 10, confirming
+the expected startup channel and cleared calibration bit. Discovery
+still timed out. The three receive-register snapshots match the prior
+filter trial, and the single bulk IN request again ended with zero
+completions and all 4,096 bytes outstanding at endpoint stop. The next
+comparison is the RF and gain setup between the end of the profile and
+the first successful Linux receive.
+
+The two saved paths agree, the 29,383-byte exit snapshot verified and
+all seven journal phases completed. RF/RX parked, Ubuntu returned, and
+all 584 prior workspace files were preserved. The exact payload and
+evidence are archived as `evidence-96ea7b51cf8e38c1`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
