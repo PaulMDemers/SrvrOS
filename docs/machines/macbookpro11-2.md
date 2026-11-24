@@ -1069,6 +1069,19 @@ unit. It records the original value and immediate readback before RF0
 and LC, then checks that bit 23 remains set after the channel tune.
 [Linux path selection](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c)
 
+Candidate `fd1b75a1c27f8a60` from `e9cff877` passed the native xHCI
+mux write and readbacks, refusal on dropped write and on post-tune
+drift, fixed-size RX and beacon proof. Firmware and USB lifecycle
+tests passed. The saved-results decoder recovered all three outcomes
+and preserved the required bounded journal evidence. The exact image
+passed the GPT workspace and four journal/recovery VM checks.
+The verified install retains Ubuntu as default and recovery
+`74da74e0b57afbb8`. The cold run record
+`build/bringup/pro112-rtl8188cu-rf-mux/run.json` binds all three hub
+leaves, the clean workspace with 604 files and a fresh independent
+journal. The unattended trial saves RF, MAC and USB results before
+returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
