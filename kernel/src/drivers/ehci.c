@@ -78,6 +78,9 @@
 #define EHCI_RESET_US 250000u
 #define EHCI_POLL_US 10u
 #define EHCI_CONTROL_US 100000u
+/* USB 2.0 section 9.2.6.4 allows 500 ms for the first data packet and
+ * another 50 ms for status. This one-packet diagnostic allows host margin. */
+#define EHCI_FLASH_DESCRIPTOR_US 600000u
 
 struct ehci_transfer_failure {
     const char *reason;
@@ -86,6 +89,7 @@ struct ehci_transfer_failure {
     uint32_t setup_token;
     uint32_t data_token;
     uint32_t status_token;
+    uint32_t overlay_token;
     uint8_t address;
     bool qtd_valid;
 };
@@ -106,6 +110,10 @@ struct ehci_probe_report {
     bool access_retired;
     uint8_t trial_hub;
     uint8_t topcase_address;
+    uint8_t flash_address;
+    bool flash_attempted;
+    unsigned flash_received;
+    uint64_t flash_wait_us;
     struct ehci_scan_step stopped;
     uint32_t stopped_usbsts;
     struct ehci_transfer_failure transfer_failure;
@@ -157,6 +165,8 @@ struct ehci_control_path {
     struct ehci_dma *dma;
     uint32_t physical;
     struct ehci_probe_report *report;
+    const struct ehci_scan_step *scan;
+    int trial_slot;
 };
 
 static bool set_command_bits(const struct pci_device *device, uint16_t mask, uint16_t bits) {
@@ -222,10 +232,9 @@ static bool wait_mmio(volatile uint32_t *reg, uint32_t mask, uint32_t expected, 
     return false;
 }
 
-static const char *wait_control(const struct ehci_control_path *path, bool data_phase) {
+static const char *wait_control(const struct ehci_control_path *path, bool data_phase, unsigned limit_us, uint64_t start) {
     const volatile struct ehci_dma *dma = path->dma;
-    uint64_t start = timer_monotonic_us();
-    for (unsigned poll = 0; poll <= EHCI_CONTROL_US / EHCI_POLL_US; poll++) {
+    for (unsigned poll = 0; poll <= limit_us / EHCI_POLL_US; poll++) {
         uint32_t setup = dma->setup_td.token;
         uint32_t data = data_phase ? dma->data_td.token : 0;
         uint32_t status = dma->status_td.token;
@@ -234,7 +243,8 @@ static const char *wait_control(const struct ehci_control_path *path, bool data_
         if (!((setup | data | status) & EHCI_TD_ACTIVE)) {
             return (setup | status) & (EHCI_TD_BYTES_MASK << EHCI_TD_BYTES_SHIFT) ? "setup/status residual" : 0;
         }
-        if (timer_monotonic_us() - start >= EHCI_CONTROL_US || !timer_delay_us(EHCI_POLL_US)) break;
+        if (poll == limit_us / EHCI_POLL_US || timer_monotonic_us() - start >= limit_us) break;
+        if (!timer_delay_us(EHCI_POLL_US)) return "completion timer failure";
     }
     return "completion timeout";
 }
@@ -252,6 +262,7 @@ static void record_transfer_failure(struct ehci_control_path *path, uint8_t addr
         failure->setup_token = dma->setup_td.token;
         failure->data_token = dma->data_td.token;
         failure->status_token = dma->status_td.token;
+        failure->overlay_token = dma->qh.overlay.token;
     }
 }
 
@@ -289,6 +300,15 @@ static void prepare_control(struct ehci_control_path *path, const struct ehci_co
         EHCI_TD_DATA1 | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
 }
 
+static bool flash_descriptor_request(const struct ehci_control_path *path, const struct ehci_control_target *target,
+    const struct usb_setup_packet *setup) {
+    return path->trial_slot == 1 && path->report && path->scan && path->report->trial_hub &&
+        path->scan->hub == path->report->trial_hub &&
+        path->scan->port == 2 && !target->tt_hub && target->packet_size == 64 && !target->address &&
+        setup->request_type == 0x80 && setup->request == USB_REQ_GET_DESCRIPTOR &&
+        setup->value == (USB_DESC_DEVICE << 8) && !setup->index && setup->length == 64;
+}
+
 /* Both success and failure must acknowledge schedule disable before the next
  * request can overwrite the shared descriptor page. */
 static bool control_transfer(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
@@ -312,8 +332,15 @@ static bool control_transfer(void *context, const struct ehci_control_target *ta
     prepare_control(path, target, setup);
     __asm__ volatile ("mfence" : : : "memory");
     op[EHCI_USBCMD] = command | EHCI_CMD_ASYNC;
-    const char *failure = wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, EHCI_STS_ASYNC, EHCI_HALT_US) ?
-        wait_control(path, setup->length != 0) : "schedule enable timeout";
+    bool flash_probe = flash_descriptor_request(path, target, setup);
+    bool enabled = wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, EHCI_STS_ASYNC, EHCI_HALT_US);
+    uint64_t start = timer_monotonic_us();
+    const char *failure = enabled ? wait_control(path, setup->length != 0,
+        flash_probe ? EHCI_FLASH_DESCRIPTOR_US : EHCI_CONTROL_US, start) : "schedule enable timeout";
+    if (flash_probe) {
+        path->report->flash_attempted = true;
+        path->report->flash_wait_us = timer_monotonic_us() - start;
+    }
     if (failure) record_transfer_failure(path, target->address, setup, failure, true);
     op[EHCI_USBCMD] = command;
     if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_ASYNC, 0, EHCI_HALT_US)) {
@@ -330,6 +357,7 @@ static bool control_transfer(void *context, const struct ehci_control_target *ta
             return false;
         }
         *received = setup->length - residual;
+        if (flash_probe) path->report->flash_received = *received;
         for (unsigned i = 0; i < *received; i++) data[i] = path->dma->data[i];
     }
     return true;
@@ -399,21 +427,24 @@ static bool retire_control_path(const struct pci_device *device, volatile uint32
     return op[EHCI_ASYNCLISTADDR] == 0 && op[EHCI_CONFIGFLAG] == 0;
 }
 
-static void track_topcase(void *context, const struct ehci_control_target *target,
+static void track_trial_device(void *context, const struct ehci_control_target *target,
     uint16_t vendor, uint16_t product, uint8_t parent, uint8_t port) {
     struct ehci_control_path *path = context;
     struct ehci_probe_report *report = path->report;
     if (vendor == 0x0424 && product == 0x2513 && !parent && port == 1 && !target->tt_hub) {
         report->trial_hub = target->address;
     }
-    if (vendor == 0x05ac && product == 0x0245 && report->trial_hub && parent == report->trial_hub &&
-        target->tt_hub == parent && port == 2 && target->tt_port == port && target->packet_size == 8) {
+    if (!report->trial_hub || parent != report->trial_hub || port != 2) return;
+    if (path->trial_slot == 0 && vendor == 0x05ac && product == 0x0245 &&
+        target->tt_hub == parent && target->tt_port == port && target->packet_size == 8) {
         report->topcase_address = target->address;
     }
+    if (path->trial_slot == 1 && vendor == 0x13fe && product == 0x6700 &&
+        !target->tt_hub && target->packet_size == 64) report->flash_address = target->address;
 }
 
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
-    struct ehci_probe_report *report, bool split, bool track_trial) {
+    struct ehci_probe_report *report, bool split, int trial_slot) {
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
@@ -422,9 +453,11 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         console_write("ehci: enumeration unavailable; no 32-bit DMA page\n");
         return;
     }
-    struct ehci_control_path path = { op, pmm_phys_to_virt(physical), (uint32_t)physical, report };
+    struct ehci_control_path path = { .op = op, .dma = pmm_phys_to_virt(physical), .physical = (uint32_t)physical,
+        .report = report, .trial_slot = trial_slot };
     struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split,
-        .device_found = track_trial ? track_topcase : 0, .step = { .operation = "configure DMA and bus mastering" } };
+        .device_found = trial_slot >= 0 ? track_trial_device : 0, .step = { .operation = "configure DMA and bus mastering" } };
+    path.scan = &bus.step;
     *path.dma = (struct ehci_dma) { .qh = { .link = EHCI_LINK_END,
         .overlay = { .next = EHCI_LINK_END, .alternate = EHCI_LINK_END } } };
     __asm__ volatile ("mfence" : : : "memory");
@@ -516,7 +549,7 @@ static const char *probe_registers(const struct pci_device *device, volatile uin
 
 /* Return whether the temporary window is safe to reuse for another controller. */
 static bool probe_controller(const struct pci_device *device, uint64_t root, enum ehci_boot_mode mode,
-    struct ehci_probe_report *report, bool track_trial) {
+    struct ehci_probe_report *report, int trial_slot) {
     uint32_t bar = device->bar[0];
     uint64_t base = bar & 0xffffff00u;
     unsigned bar_type = bar & 0xff;
@@ -544,7 +577,7 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(EHCI_MMIO_WINDOW + page_offset);
         report->result = probe_registers(device, caps, mapped_bytes, report);
         if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
-            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT, track_trial);
+            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT, trial_slot);
         }
     } else {
         report->result = "memory-decode-failed";
@@ -595,7 +628,7 @@ static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial)
         found++;
         struct ehci_probe_report report = { .handoff = "not-attempted", .mapping = "none" };
         int slot = trial ? trial_controller_slot(device) : -1;
-        bool reusable = probe_controller(device, root, mode, &report, slot == 0);
+        bool reusable = probe_controller(device, root, mode, &report, slot);
         if (trial) {
             trial->found++;
             trial->scans += report.enumerated;
@@ -621,7 +654,7 @@ void ehci_boot_probe(enum ehci_boot_mode mode) {
 void ehci_trial_screen(const char *release) {
     console_set_framebuffer_muted(false);
     console_clear();
-    console_printf("SrvrOS MacBookPro8,1 EHCI split trial\nRelease %s\n\n", release);
+    console_printf("SrvrOS MacBookPro8,1 EHCI split trial\nRelease %s\n", release);
     console_write("1. Wait for the result. If the screen stops changing for 90 seconds,\n"
                   "   treat the trial as incomplete. No keyboard input is needed.\n"
                   "2. Photograph the entire screen, including the release and result.\n"
@@ -630,7 +663,9 @@ void ehci_trial_screen(const char *release) {
 }
 
 static bool trial_passed(const struct ehci_trial_report *trial) {
-    if (trial->found != 2 || !trial->controllers[0].topcase_address) return false;
+    const struct ehci_probe_report *storage = &trial->controllers[1];
+    if (trial->found != 2 || !trial->controllers[0].topcase_address || !storage->flash_address ||
+        !storage->flash_attempted || storage->flash_received != 18) return false;
     for (unsigned i = 0; i < 2; i++) {
         const struct ehci_probe_report *report = &trial->controllers[i];
         if (!report->reset_halted || !report->enumerated || !report->dma_released || !report->access_retired) {
@@ -664,6 +699,7 @@ static void print_scan_stop(const struct ehci_probe_report *report) {
             console_printf("  qTD status bytes (decimal) setup=%u data=%u status=%u\n",
                 (uint64_t)(uint8_t)failure->setup_token, (uint64_t)(uint8_t)failure->data_token,
                 (uint64_t)(uint8_t)failure->status_token);
+            if (report->flash_attempted) console_printf("  QH overlay token=%x\n", (uint64_t)failure->overlay_token);
         }
     }
 }
@@ -692,6 +728,10 @@ void ehci_boot_trial(const char *release) {
         input->topcase_address ? "descriptors read" : "unverified");
     if (input->topcase_address) console_printf("Assigned USB address %u through hub address %u.\n",
         (uint64_t)input->topcase_address, (uint64_t)input->trial_hub);
+    const struct ehci_probe_report *storage = &trial.controllers[1];
+    if (storage->flash_attempted) console_printf("Flash EP0 wait %u / %u us. Descriptor bytes %u.\n",
+        storage->flash_wait_us, (uint64_t)EHCI_FLASH_DESCRIPTOR_US, (uint64_t)storage->flash_received);
+    console_printf("Flash 13fe:6700 USB address %u (0 means unverified).\n", (uint64_t)storage->flash_address);
     console_printf("ehci-trial: release=%s result=%s\n", release,
         trial_passed(&trial) ? "PASS" : "INCOMPLETE");
     console_write("Screen held for photo. Use the power button to return to Ubuntu.\n");

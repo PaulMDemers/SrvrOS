@@ -37,12 +37,14 @@ remain pending.**
 MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
 trials verified the topcase descriptor path and isolated the incomplete
 `00:1d.7` scan to the initial high-speed descriptor data stage on hub port 2.
-The remaining USB transport work is to determine why the data stage fails to
-complete and verify a successful address assignment for the flash drive.
+The active USB transport work tests whether a standards-sized deadline lets
+that descriptor read complete and verifies the flash drive after address
+assignment. It touches EHCI trial routing and status reporting and uses the
+existing RAM-only profile, Ubuntu recovery and QEMU hub fixtures.
 The inventory contains no xHCI controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `c45c0984`, and Apple Silicon runtime, login and export work
+USB Wi-Fi work at `22fdd9fc`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
 dependency on those branches. The Air7,2 branch at `fb582f40` also touches the
 staging tool in its RC6 receipt path, independently of the EHCI profile.
@@ -281,6 +283,21 @@ unchanged firmware boot order and matching manifests for the trial and the
 previous console release. The workspace mounted in Ubuntu. The retry's
 transcript, VM evidence and exact payload were archived outside `build/`
 alongside the earlier trial.
+
+### Initial flash descriptor timing trial
+
+USB 2.0 allows up to 500 ms for the first data packet of a standard control
+read and another 50 ms for status after the last packet. The trial allows
+600 ms including host margin for the initial one-packet device descriptor
+read at address zero on the captured `00:1d.7` high-speed hub route. The last
+port, hub identity and exact request must match. Other requests use the
+existing 100 ms limit. [USB 2.0 specification, section 9.2.6.4](https://www.usb.org/document-library/usb-20-specification)
+
+The screen prints the measured wait and received byte count for that request.
+It also reports the active EHCI queue overlay token when a transfer fails.
+Trial acceptance requires both retired controllers, the topcase descriptors,
+an 18-byte flash device descriptor and assigned-address enumeration of the
+expected `13fe:6700` flash drive. The trial stops before storage I/O.
 
 ## Capability ledger
 

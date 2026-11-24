@@ -14,9 +14,9 @@ static uint32_t mmio[64];
 static volatile uint32_t *const op = mmio + CAP_LENGTH / 4;
 static unsigned handoff_delays, halt_delays, reset_delays, os_writes, smi_writes, command_writes;
 static bool firmware_stuck, halt_stuck, reset_stuck;
-static struct ehci_dma *split_dma;
-static unsigned split_polls;
-static bool split_stuck;
+static struct ehci_dma *control_dma;
+static unsigned control_polls, control_completes_at;
+static bool mock_flash;
 static uint64_t now;
 
 uint16_t pci_read_config16(const struct pci_device *p, uint8_t offset) {
@@ -57,17 +57,25 @@ bool timer_delay_us(uint64_t delay) {
         return true;
     }
     assert(delay == EHCI_POLL_US);
-    if (split_dma) {
+    if (control_dma) {
         if (op[EHCI_USBCMD] & EHCI_CMD_ASYNC) {
             op[EHCI_USBSTS] |= EHCI_STS_ASYNC;
-            assert(split_dma->qh.endpoint == 0x0810c005u);
-            assert(split_dma->qh.capabilities == 0x41820000u);
-            assert(!split_dma->qh.overlay.token);
-            if (++split_polls == 2 && !split_stuck) {
-                split_dma->setup_td.token = 0;
-                split_dma->data_td.token = 1u << EHCI_TD_BYTES_SHIFT;
-                split_dma->status_td.token = 0;
-                memset(split_dma->data, 0x5a, 17);
+            if (mock_flash) {
+                assert(control_dma->qh.endpoint == 0x0040e000u);
+                assert(control_dma->qh.capabilities == 0x40000000u);
+                control_dma->setup_td.token = 0;
+                control_dma->qh.overlay.token = control_dma->data_td.token;
+            } else {
+                assert(control_dma->qh.endpoint == 0x0810c005u);
+                assert(control_dma->qh.capabilities == 0x41820000u);
+                assert(!control_dma->qh.overlay.token);
+            }
+            if (++control_polls == control_completes_at) {
+                unsigned bytes = mock_flash ? 18 : 17;
+                control_dma->setup_td.token = 0;
+                control_dma->data_td.token = (control_dma->setup.length - bytes) << EHCI_TD_BYTES_SHIFT;
+                control_dma->status_td.token = 0;
+                memset(control_dma->data, 0x5a, bytes);
             }
         } else {
             op[EHCI_USBSTS] &= ~EHCI_STS_ASYNC;
@@ -108,9 +116,10 @@ static void fixture_reset(void) {
     op[EHCI_CONFIGFLAG] = 1;
     handoff_delays = halt_delays = reset_delays = os_writes = smi_writes = command_writes = 0;
     firmware_stuck = halt_stuck = reset_stuck = false;
-    split_dma = 0;
-    split_polls = 0;
-    split_stuck = false;
+    control_dma = 0;
+    control_polls = 0;
+    control_completes_at = 2;
+    mock_flash = false;
     now = 0;
 }
 
@@ -210,22 +219,22 @@ static void test_split_control_schedule(void) {
 
     op[EHCI_USBCMD] = EHCI_CMD_RUN;
     op[EHCI_USBSTS] = 0;
-    split_dma = &dma;
+    control_dma = &dma;
     unsigned received = 99;
     uint8_t data[18] = {0};
     target.tt_port = 0;
     assert(!control_transfer(&path, &target, &descriptor, data, &received));
-    assert(!received && !split_polls && dma.qh.endpoint == 0x0808c000u);
+    assert(!received && !control_polls && dma.qh.endpoint == 0x0808c000u);
 
     target = (struct ehci_control_target) { .address = 5, .packet_size = 16, .tt_hub = 2, .tt_port = 3 };
     descriptor.length = sizeof(data);
     assert(control_transfer(&path, &target, &descriptor, data, &received));
     assert(received == 17 && data[0] == 0x5a && data[16] == 0x5a && !data[17]);
-    assert(split_polls == 2 && op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+    assert(control_polls == 2 && op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
     assert(!report.transfer_failure.reason);
 
-    split_polls = 0;
-    split_stuck = true;
+    control_polls = 0;
+    control_completes_at = 0;
     uint64_t start = now;
     assert(!control_transfer(&path, &target, &descriptor, data, &received));
     assert(!received && now - start == EHCI_CONTROL_US + 2 * EHCI_POLL_US);
@@ -236,7 +245,47 @@ static void test_split_control_schedule(void) {
     assert(failure->setup_token & EHCI_TD_ACTIVE);
     assert(failure->data_token & EHCI_TD_ACTIVE);
     assert(failure->status_token & EHCI_TD_ACTIVE);
-    split_dma = 0;
+    control_dma = 0;
+}
+
+static void test_flash_descriptor_wait(void) {
+    fixture_reset();
+    struct ehci_dma dma;
+    struct ehci_probe_report report = { .trial_hub = 1 };
+    struct ehci_scan_step scan = { .hub = 1, .port = 2 };
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000,
+        .report = &report, .trial_slot = 1, .scan = &scan };
+    struct ehci_control_target target = { .packet_size = 64 };
+    struct usb_setup_packet descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 64 };
+    uint8_t data[64];
+    unsigned received;
+    op[EHCI_USBCMD] = EHCI_CMD_RUN;
+    op[EHCI_USBSTS] = 0;
+    control_dma = &dma;
+    mock_flash = true;
+    control_completes_at = 1 + 120000 / EHCI_POLL_US;
+
+    scan.port = 1;
+    uint64_t start = now;
+    assert(!control_transfer(&path, &target, &descriptor, data, &received));
+    assert(!received && !report.flash_attempted && now - start == EHCI_CONTROL_US + 2 * EHCI_POLL_US);
+    assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+
+    report = (struct ehci_probe_report) { .trial_hub = 1 };
+    control_polls = 0;
+    scan.port = 2;
+    assert(control_transfer(&path, &target, &descriptor, data, &received));
+    assert(received == 18 && report.flash_received == 18 && data[17] == 0x5a);
+    assert(report.flash_attempted && report.flash_wait_us == 120000 && !report.transfer_failure.reason);
+    assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+
+    report = (struct ehci_probe_report) { .trial_hub = 1 };
+    control_polls = control_completes_at = 0;
+    assert(!control_transfer(&path, &target, &descriptor, data, &received));
+    assert(!received && report.flash_attempted && report.flash_wait_us == EHCI_FLASH_DESCRIPTOR_US);
+    assert(report.transfer_failure.overlay_token == dma.data_td.token);
+    assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+    control_dma = 0;
 }
 
 static void test_dma_retirement(void) {
@@ -271,20 +320,31 @@ static void test_native_trial_result(void) {
     struct ehci_control_path path = { .report = &trial.controllers[0] };
     struct ehci_control_target hub = { .address = 1, .packet_size = 64 };
     struct ehci_control_target topcase = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
-    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2);
     assert(!trial_passed(&trial));
-    track_topcase(&path, &hub, 0x0424, 0x2513, 0, 1);
-    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 3);
+    track_trial_device(&path, &hub, 0x0424, 0x2513, 0, 1);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 3);
     assert(!trial_passed(&trial));
     topcase.packet_size = 16;
-    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2);
     assert(!trial_passed(&trial));
     topcase.packet_size = 8;
-    track_topcase(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    assert(!trial_passed(&trial));
+    path.report = &trial.controllers[1];
+    path.trial_slot = 1;
+    track_trial_device(&path, &hub, 0x0424, 0x2513, 0, 1);
+    struct ehci_control_target flash = { .address = 2, .packet_size = 64 };
+    track_trial_device(&path, &flash, 0x13fe, 0x6700, 1, 3);
+    assert(!path.report->flash_address);
+    track_trial_device(&path, &flash, 0x13fe, 0x6700, 1, 2);
+    assert(!trial_passed(&trial));
+    path.report->flash_attempted = true;
+    path.report->flash_received = 18;
     assert(trial_passed(&trial));
     trial.controllers[1].dma_released = false;
     assert(!trial_passed(&trial));
-    trial.controllers[1] = clean;
+    trial.controllers[1].dma_released = true;
     trial.controllers[0].access_retired = false;
     assert(!trial_passed(&trial));
 }
@@ -296,6 +356,7 @@ int main(void) {
     test_stalled_halt_and_reset();
     test_control_schedule();
     test_split_control_schedule();
+    test_flash_descriptor_wait();
     test_dma_retirement();
     test_native_trial_result();
     puts("EHCI host tests passed");

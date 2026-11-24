@@ -127,6 +127,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
             "Preparing the RAM-only EHCI diagnostic...", "Scanning EHCI controllers",
             f"Controllers found 2. Scans complete {scans}. DMA released 2.",
             "Topcase 05ac:0245 via hub 0424:2513 port 2, EP0 8: unverified",
+            "Flash 13fe:6700 USB address 0 (0 means unverified).",
             f"ehci-trial: release={release} result=INCOMPLETE",
         ]
         if args.stall_hub_status:
@@ -139,6 +140,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         assert not has_fatal_exception(first)
         assert "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED" not in first and "SRVROS_VM_UBUNTU_DEFAULT_SELECTED" not in first
         assert all(marker not in first for marker in ("srv> ", "xhci:", "workspace-log:", "ahci:"))
+        assert "Flash EP0 wait" not in first
         assert hub.powered == {1, 2, 3} and hub.hub_descriptors == 1
         if args.stall_hub_status:
             assert hub.status_ports == {1, 2} and hub.stalled_status_requests == 1
