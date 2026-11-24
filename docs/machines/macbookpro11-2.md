@@ -576,6 +576,18 @@ disabled and the queues remain paused throughout. The candidate also reads
 at `0x69543420` before its first receive and updated to `0x6954341e`
 after it, so the comparison observes them without changing gain.
 
+Cold candidate `a493064f0a20ab53`, source `d085b963`, compiled and
+passed the native LC fixture, including test-mode and stuck-calibration
+refusal, along with firmware startup and USB lifecycle regressions.
+The exact GPT workspace boot and all four journal/recovery VM cases
+passed. Preflight verified all three hub leaves, a clean workspace
+with 586 existing files, Ubuntu default and recovery release
+`74da74e0b57afbb8`. The fresh journal and one-shot boot are recorded
+in `build/bringup/pro112-rtl8188cu-post-lc/run.json`. The prior inactive
+EFI copy removed for space was byte-verified against its recovery archive.
+The unattended boot logs the pulse, measured hold, RF readback, gain
+and paired RX snapshots before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
