@@ -830,6 +830,24 @@ passive xHCI path and its native fixture. Fetched main remains
 TX closure and three-adapter hub topology carry over. Require a
 freshly rebuilt and identified kernel before staging.
 
+On the active Linux `rtl8192cu` monitor, five RF0 reads returned
+`0x32e14`, `0x30df4`, `0x30e14`, `0x32e14` and `0x32e14`. Each
+read was bracketed by path-A RF18 reads confirming channel 10. USB
+monitor recorded 841 successful bulk IN completions and zero drops.
+The probe restored its HSSI selector, and usbmon confirmed that the
+read brackets contained just its selector writes. It issued no RF0
+writes. This capture is
+`build/bringup/pro112-rtl8188cu-rf0/linux-rf0-channel10.json` with
+SHA-256 `083bcba5ae9f62f99925e8dfce454622d262fd33e58bfc8a4fdc48d77010530c`.
+
+The SrvrOS trial keeps the original `0x32ed3` write and saves raw RF0
+before the write, immediately after it, after the LC wait and after the
+channel tune. The final admission check compares the bits common to
+every live Linux reading (`0x30000` under `0xf0000`), with the
+existing path, filter and TX-off checks. The rest of RF0 is telemetry.
+The captured Linux variation explains why the previous strict full-word
+check was unsuitable. The receive window still needs native evidence.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
