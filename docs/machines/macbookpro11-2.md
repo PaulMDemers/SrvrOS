@@ -786,6 +786,20 @@ receive window carry over from the preceding trial. Local reference
 `build/bringup/pro112-rtl8188cu-phy-radio/linux-phy-radio-channel10.json`
 has SHA-256 `41d38ed53b18c83d4141941629c897b3b35707f99f4be6286793cf5fc457bdc7`.
 
+Candidate `4a1fa9ad4f9d9829` from `f03c45a5` passes the native xHCI
+fixture, including refusal before bulk IN on either missing radio
+readback, plus the firmware and lifecycle tests. The saved-result
+decoder reads the native accepted and refused snapshots, and a
+bounded-tail replay retains the new and existing receipts. The exact
+image passed the GPT workspace boot and all four journal/recovery VM
+cases. The verified install kept Ubuntu as default and
+`74da74e0b57afbb8` as recovery. The local record
+`build/bringup/pro112-rtl8188cu-phy-radio/run.json` binds the three
+adapters on their original hub ports, clean workspace with 594
+existing files, and fresh independent journal. The cold run saves
+radio, PHY, MAC and USB evidence automatically and returns to Ubuntu.
+Physical discovery remains pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
