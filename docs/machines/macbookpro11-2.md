@@ -798,7 +798,28 @@ cases. The verified install kept Ubuntu as default and
 adapters on their original hub ports, clean workspace with 594
 existing files, and fresh independent journal. The cold run saves
 radio, PHY, MAC and USB evidence automatically and returns to Ubuntu.
-Physical discovery remains pending.
+Physical session `session-000660feee2dc5d6-00` saved all 28 PHY and
+radio readbacks for comparison with the working Linux reference. The RF path
+selection at `0x878` matched `0x2808`. The only differences among
+the 28 sampled MAC/baseband words were the path-A RX and TX IQ values
+at `0xc14` and `0xc80`, which retained their profile defaults. RF0
+read `0x32e15` both before and after the requested `0x32ed3` write
+and subsequent LC/channel setup. The RF0 check refused to arm bulk IN.
+This run did not exercise reception. The readbacks establish a mismatch
+with the Linux write value, while its actual retained RF0 value and the
+effect of the SrvrOS write before LC are still unknown.
+
+All three adapters stayed on the hub. RF/RX parked and Ubuntu returned.
+Both saved paths contain the same radio snapshot, the 29,586-byte exit
+log and all seven journal phases verified, and all 594 previous
+workspace files were preserved. The exact image and logs are archived
+as `evidence-4a1fa9ad4f9d9829`.
+
+The staged kernel was compiled before the final log-format edit and
+emitted individual register lines. The return decoder was replayed
+against that format and recovered all 28 values from both persistent
+copies. The packed logging format was tested in the native fixture but
+was absent from the installed image.
 
 ### Retina desktop default
 
