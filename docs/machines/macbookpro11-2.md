@@ -880,6 +880,15 @@ phases verified, 596 prior workspace files were preserved, and Ubuntu
 returned. The image and evidence are archived as
 `evidence-403644c1cfc2e769`.
 
+The next cold trial compares Linux's path-A receive IQ correction with
+the defaults from the last native RF0 trial. Scope is the routed
+RTL8188CUS passive xHCI path and its fixture. Fetched main `61111819`
+has no overlap on that path since integration baseline `50f1978a`.
+Use a working Linux sample from this board and keep the 4,096-byte
+request, channel, TX gates and three-adapter hub topology fixed. Record
+the correction readbacks alongside the existing good-frame, PHY and
+USB counters, then save and return to Ubuntu automatically.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
