@@ -1403,6 +1403,20 @@ verified clean exFAT, all 616 existing files and Ubuntu's default boot.
 Evidence and the verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-b6ded61e0646f36f`.
 
+#### RTL8188CUS crystal control
+
+Linux's 1T PHY table begins with AFE_XTAL_CTRL `0x0011800f`
+before the baseband register rows. The USB trace has a successful
+four-byte write at that point in both bring-ups. The working Linux
+adapter retained the table value, while the SrvrOS capture retained
+`0x0391800f`. The pinned SrvrOS profile contains the baseband
+rows from `0x800` onward and its preceding setup writes only byte
+`0x025`. Apply the exact Linux crystal-control word before the first
+baseband row. Verify the immediate and armed readbacks with TX still
+parked. Hold the PLL, 4 KiB request and three hub ports constant.
+Fetched main `61111819` and the open reviews have no overlap.
+[Linux RTL8192CU 1T PHY table](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/table.c#L193-L198)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
