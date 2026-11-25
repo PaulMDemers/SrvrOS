@@ -31,6 +31,7 @@
 #define RTL_CU_LC_START 0x8000u
 #define RTL_CU_RX_REPORT 0x0664u
 #define RTL_CU_REPORT_SELECTOR_MASK 0xf0000000u
+#define RTL_CU_REPORT_COUNT_MASK 0xfffffu
 #define RTL_CU_RX_IQ 0xc14u
 #define RTL_CU_RX_IQ_EXT 0xca0u
 #define RTL_CU_IQ_STARTUP_B68 0xb68u
@@ -53,7 +54,13 @@ enum rtl_cu_sample_phase {
 };
 enum rtl_cu_rx_register { RTL_CU_CR,RTL_CU_RCR,RTL_CU_RXFF_PTR,RTL_CU_RXPKT_NUM,RTL_CU_RXDMA_STATUS,RTL_CU_RX_REG_COUNT };
 enum rtl_cu_phy_register { RTL_CU_OFDM1,RTL_CU_OFDM2,RTL_CU_OFDM3,RTL_CU_SYNC,RTL_CU_PHY_COUNT };
-enum rtl_cu_report { RTL_CU_OFDM_OK,RTL_CU_CCK_OK,RTL_CU_HT_OK,RTL_CU_FIFO_DROP,RTL_CU_REPORT_COUNT };
+enum rtl_cu_report {
+    RTL_CU_OFDM_OK,RTL_CU_CCK_OK,RTL_CU_HT_OK,RTL_CU_FIFO_DROP,
+    RTL_CU_OFDM_PPDU,RTL_CU_OFDM_FALSE,RTL_CU_OFDM_FAIL,
+    RTL_CU_CCK_PPDU,RTL_CU_CCK_FALSE,RTL_CU_CCK_FAIL,
+    RTL_CU_HT_PPDU,RTL_CU_HT_FALSE,RTL_CU_HT_TOTAL,RTL_CU_HT_FAIL,
+    RTL_CU_REPORT_COUNT
+};
 enum rtl_cu_rx_admission {
     RTL_CU_FILTER_RCR,RTL_CU_FILTER_MGT,RTL_CU_FILTER_CTL,RTL_CU_FILTER_DATA,RTL_CU_DRIVER_INFO,
     RTL_CU_FPGA0_RFMOD,RTL_CU_FPGA1_RFMOD,RTL_CU_OFDM_TRX,RTL_CU_MAR0,RTL_CU_MAR1,RTL_CU_ADMISSION_COUNT
@@ -162,6 +169,9 @@ static void rtl_cu_rx_reports(struct xhci_device *d,struct rtl_cu_rx_sample *sam
     /* Select the CU report without writing the counter or the reset bit. */
     static const unsigned report_selector[RTL_CU_REPORT_COUNT]={
         [RTL_CU_OFDM_OK]=2, [RTL_CU_CCK_OK]=6, [RTL_CU_HT_OK]=11, [RTL_CU_FIFO_DROP]=15,
+        [RTL_CU_OFDM_PPDU]=0, [RTL_CU_OFDM_FALSE]=1, [RTL_CU_OFDM_FAIL]=3,
+        [RTL_CU_CCK_PPDU]=4, [RTL_CU_CCK_FALSE]=5, [RTL_CU_CCK_FAIL]=7,
+        [RTL_CU_HT_PPDU]=8, [RTL_CU_HT_FALSE]=9, [RTL_CU_HT_TOTAL]=10, [RTL_CU_HT_FAIL]=12,
     };
     uint32_t initial,value;
     if(!rtl8188cu_read(d,RTL_CU_RX_REPORT,4,&initial))return;
@@ -292,11 +302,19 @@ static void rtl_cu_rx_log(void) {
             console_printf("rtl8188cu-rx-phy: phase=%s valid=%x ofdm1=%x ofdm2=%x ofdm3=%x sync=%x\n",
                 phases[i],(uint64_t)s->phy_valid,(uint64_t)s->phy[RTL_CU_OFDM1],(uint64_t)s->phy[RTL_CU_OFDM2],
                 (uint64_t)s->phy[RTL_CU_OFDM3],(uint64_t)s->phy[RTL_CU_SYNC]);
-        if(i!=RTL_CU_AFTER_STOP)
-            console_printf("rtl8188cu-rx-good: phase=%s valid=%x restored=%u ofdm=%x cck=%x ht=%x fifo_drop=%x\n",
-                phases[i],(uint64_t)s->report_valid,(uint64_t)s->report_restored,
-                (uint64_t)s->report[RTL_CU_OFDM_OK],(uint64_t)s->report[RTL_CU_CCK_OK],
-                (uint64_t)s->report[RTL_CU_HT_OK],(uint64_t)s->report[RTL_CU_FIFO_DROP]);
+        if(i!=RTL_CU_AFTER_STOP) {
+            /* Pack three 20-bit counters per word to fit the EFI journal.
+             * The validity mask distinguishes a missing read from zero. */
+            console_printf("rtl8188cu-rx-decode: %s %u %u",phases[i],
+                (uint64_t)s->report_valid,(uint64_t)s->report_restored);
+            for(unsigned j=0;j<RTL_CU_REPORT_COUNT;j+=3) {
+                uint64_t word=0;
+                for(unsigned k=0;k<3 && j+k<RTL_CU_REPORT_COUNT;k++)
+                    word|=(uint64_t)(s->report[j+k]&RTL_CU_REPORT_COUNT_MASK)<<(20*k);
+                console_printf(" %x",word);
+            }
+            console_write("\n");
+        }
     }
     if(rtl_passive.configured) {
         console_printf("rtl8188cu-rx-gate: valid=%u expected=%x observed=%x\n",
