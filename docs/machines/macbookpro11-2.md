@@ -1417,6 +1417,17 @@ parked. Hold the PLL, 4 KiB request and three hub ports constant.
 Fetched main `61111819` and the open reviews have no overlap.
 [Linux RTL8192CU 1T PHY table](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/table.c#L193-L198)
 
+Installed cold candidate `08712adbde733426` from `6745f03e` with
+recovery `74da74e0b57afbb8`, workspace `0E53-5900` and the three hub
+ports verified. The routed Realtek native fixture covered the exact
+write order, failed immediate readback, armed drift, the fixed 4 KiB
+request and validated beacons. Exact-image rehearsals passed GPT
+workspace logging and all four journal availability cases. Both
+bounded EFI checkpoints retained the crystal record and all receive
+counter samples in the decoder check. The source table, captured
+sequence, monitor reference and run record are saved locally under
+`build/bringup/pro112-rtl8188cu-xtal`. Physical receive remains open.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
