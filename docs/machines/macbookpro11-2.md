@@ -1271,7 +1271,28 @@ journal availability cases. Decoder checks recovered the new DMA
 record from both bounded RX checkpoints. The complete firmware setup
 receipt is kept in the workspace log. The run record and qualification
 logs are under `build/bringup/pro112-rtl8188cu-rx-dma`.
-Physical receive and return checks are pending.
+
+Cold session `session-00066110c28ad8cd-00` verified the hub topology
+and all ten RX DMA readbacks. Both masked receive controls were already
+clear. The page, boundary and aggregation threshold values matched the
+working Linux sample. The upper TX queue-map bits remained zero on
+SrvrOS. This run preserved them as designed.
+
+The 4 KiB request stayed pending until Stop Endpoint produced completion
+code 26 with the full 4,096 bytes remaining. PHY detection counters
+advanced, but reported good OFDM, CCK and HT counts stayed zero. The
+RX FIFO pointer remained zero, while working Linux showed five distinct
+pointer values and 1,138 bulk IN completions with the same sampled
+RXPKT_NUM and RXDMA_STATUS values. No Demers2.4 beacon was received.
+This confirms the tested RX DMA controls were already set as intended
+and leaves the lack of valid frames at the MAC unresolved.
+
+The probe stopped and parked receive, saved `exit.log` and all seven
+independent journal checkpoints, unmounted the workspace and requested
+its normal return to Ubuntu. The collector verified the matched exit
+snapshot, clean exFAT, all 612 existing workspace files and Ubuntu's
+default boot. Evidence and the verified payload are archived locally
+under `/var/local/srvros-recovery/macbookpro11-2/evidence-adcc6cf5723a5bbe`.
 
 ### Retina desktop default
 
