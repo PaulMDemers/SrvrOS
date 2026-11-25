@@ -106,9 +106,9 @@ def exercise_trackpad(command, temp, logs, release):
                    f"ehci-trackpad: release={release} result=INCOMPLETE"):
         assert marker in first, marker
     assert not has_fatal_exception(first)
-    assert all(marker not in first for marker in
-               ("Trackpad ready.", "ehci: bus=", "srv> ", "xhci:", "workspace-log:", "ahci:",
-                "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"))
+    for marker in ("Trackpad ready. Start the checklist now.", "ehci: bus=", "srv> ", "xhci:",
+                   "workspace-log:", "ahci:", "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"):
+        assert marker not in first, marker
 
 
 def main():
