@@ -3,7 +3,8 @@
 Updated November 24, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA. Keyboard
-input and native USB workspace access remain pending.**
+interrupt polling timed out with zero reports. Native USB workspace access
+remains pending.**
 
 ## Identity and baseline
 
@@ -37,10 +38,11 @@ MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
 trials established the topcase descriptor path and verified the workspace
 flash drive with a 600 ms bound for its initial device descriptor. The active
 input work uses the captured keyboard interface, EHCI periodic interrupts,
-the existing kernel HID decoder and a RAM-only attended boot profile. Its
-checkpoint is a line typed on the built-in keyboard at the trial prompt,
-followed by controller retirement and Ubuntu return. Native workspace reads
-and writes require a separate mass-storage milestone.
+the existing kernel HID decoder and a RAM-only attended boot profile. The
+first typing trial reached periodic polling and timed out with no completed
+report. The next evidence is frame-index progress and the queue-head overlay
+before schedule stop. Native workspace reads and writes require a separate
+mass-storage milestone.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `841a5543`, and Apple Silicon runtime, login and export work
@@ -354,15 +356,31 @@ Both exact-stage QEMU rehearsals verified the held screen and one-shot
 return with the native topcase absent. The ordinary xHCI console regression
 passed on the same source. The keyboard release is installed as current,
 and previous console release `c1a8e397a41363dc` and Ubuntu recovery were
-verified. Native typing remains pending. The trial record and VM evidence
+verified. The trial record and VM evidence
 are in `build/review/macbookpro8-1-ehci-trial-241ed4d3abb212d7/`.
+
+The native screen for `241ed4d3abb212d7` reported `INCOMPLETE`, with a typing
+timeout, zero completed reports and zero report bytes. In this source the
+timeout follows successful keyboard configuration, selection of boot
+protocol and acknowledgement of the periodic schedule enable. The raw qTD
+transcription is ambiguous. Its likely reading, `0x000a0d80`, matches the
+prepared active 10-byte interrupt IN descriptor. The source qTD is written
+back on retirement, so the receipt leaves queue traversal and the device's
+response unresolved. [Intel EHCI specification, section 4.10](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
+
+Both scans completed and both controllers released DMA. The topcase again
+reached address 3, and the flash drive returned 18 bytes in 493,359 µs and
+reached address 2. Ubuntu returned with a changed boot ID and the GRUB
+one-shot entry consumed. The topcase's Linux route and interface, installed
+manifests, firmware boot order and exFAT mount were rechecked. The transcript
+and exact payload were archived outside `build/`.
 
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard and trackpad | Native topcase split control and descriptors verified | Keyboard events and verified trackpad reports |
+| Keyboard and trackpad | Native topcase descriptors verified. The keyboard trial timed out with zero reports. | Capture periodic schedule progress, complete a keyboard report, then verify typing and trackpad reports |
 | USB workspace | The flash drive enumerates natively on `00:1d.7` and Ubuntu mounts it | Verify native block reads, then write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
