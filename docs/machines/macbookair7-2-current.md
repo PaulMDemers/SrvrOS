@@ -39,12 +39,23 @@ All nine samples showed clear forcewake ACK and the original enabled
 primary plane, programmed surface and live surface. Ubuntu collected the
 matching report and the offline exFAT allocation check found zero errors.
 
-The next Air-only diagnostic issues the Gen8 software park request after the
-five MAX_IDLE readbacks. It samples hardware GO requests/replies, WiDi and
-the engine and L3 flush messages under verified forcewake. It keeps the
-panel active, restores the original power policy and saves the powered
-observations separately from the cold residency interval. The trial grants
-no GPU mappings or command submission.
+Release `5f166567f6a39e43` at `85aeb4ba` saved the software park trial
+in `session-0006611073f4eda2-00`. The open-state guard read
+`GO_GAM_REQ=0x7fff`, `MSG_GO_GAM=0x7f` and `RSTFCTLMSG=0`. The
+reset-reason bits appeared across the first GT reset pulse. They remained
+set at park admission, while GAM still permitted all six clients. The driver
+refused the request before writing either park register. All five MAX_IDLE
+values returned to 64, the temporary alias retired and the guest returned its
+display and forcewake leases. Ubuntu verified the session and offline USB
+integrity. This run closed as rejected. Device-wide traffic blocking and
+fresh engine/L3 acknowledgements remain unverified.
+
+The next park trial belongs before engine preparation and the first GT reset.
+This run's first sample had `GO_GAM_REQ=0x00ff`, all five engine flush bits
+low and L3 low. Establish the live GT and display leases there, recheck the
+open state including WiDi, then request, observe and restore the park policy
+within that ownership interval. Keep the post-reset refusal in the host
+regressions.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

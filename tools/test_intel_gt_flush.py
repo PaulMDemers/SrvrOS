@@ -284,6 +284,16 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(positive.replace(before, after))
 
+    def test_air_post_reset_baseline_refuses_software_park(self):
+        flush = bootstrap_result(observe('park-reset-reasons'))['flush']
+        park = flush['park']
+        self.assertFalse(park['complete'])
+        self.assertFalse(park['powered_block_observed'])
+        self.assertEqual([(f['op'], tuple(f['words'])) for f in park['frames']],
+                         [(0, (0x7fff, 0x7f, 0))])
+        self.assertEqual(park['summary']['attempts'], 0)
+        self.assertEqual(flush['idle_change']['summary']['returned'], 31)
+
     def test_max_idle_rollback(self):
         text = observe('pass')
         change = bootstrap_result(text)['flush']['idle_change']

@@ -138,7 +138,9 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     bool blocked = !strcmp(bootstrap_mode,"park-ack") && park_model[0] == PARK_RC6;
     bool stale = !strcmp(bootstrap_mode,"park-early-l3") && frame->op == PARK_POLL;
     switch (reg) {
-    case 0x40d0: return blocked ? 0 : 0xff;
+    case 0x40d0:
+        if (!strcmp(bootstrap_mode,"park-reset-reasons")) return 0x7fff;
+        return blocked ? 0 : 0xff;
     case 0x8028: return blocked ? 0 : 0x7f;
     case 0x8108: return 0;
     case 0x8014: return blocked ? 0 : 0x1f;
@@ -1108,6 +1110,12 @@ int main(int argc,char **argv) {
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"park-reset-reasons")) {
+  assert(air_park.attempts==0 && air_park.returns==0 && !air_park.sampled && !air_park.held);
+  assert(air_park.mapped && air_park.unmapped && air_park.returned && model_idle_stores==10 &&
+         air_idle.returned==31 && !wake_ack && display_access_allowed());
+  return code;
+ }
  if(!strcmp(bootstrap_mode,"park-early-l3")) {
   assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
          air_park.returns==2 && park_model[0]==PARK_AUTO && !wake_ack && display_access_allowed());
