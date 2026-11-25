@@ -355,9 +355,9 @@ alternating data toggle, 8-byte completion, timeout and DMA retention when
 schedule stop is unproved. The kernel's keyboard decoder suite passed.
 Both exact-stage QEMU rehearsals verified the held screen and one-shot
 return with the native topcase absent. The ordinary xHCI console regression
-passed on the same source. The keyboard release is installed as current,
-and previous console release `c1a8e397a41363dc` and Ubuntu recovery were
-verified. The trial record and VM evidence
+passed on the same source. The keyboard release was installed for the trial,
+with previous console release `c1a8e397a41363dc` and Ubuntu recovery verified.
+The trial record and VM evidence
 are in `build/review/macbookpro8-1-ehci-trial-241ed4d3abb212d7/`.
 
 The native screen for `241ed4d3abb212d7` reported `INCOMPLETE`, with a typing
@@ -392,6 +392,15 @@ tokens. Samples are taken before schedule disable. Frame-index movement
 verifies the controller clock, while the current qTD pointer and overlay
 give separate evidence of traversal. The sampled progress mask can miss
 transient microframes. [Intel EHCI specification, sections 2.3.4 and 4.12.2](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
+
+Clean source `d384a8c2` staged as `0c509b2b181ab24d`. The host fixture
+distinguished a moving frame index with an untouched queue from a loaded
+qTD with observed complete-split progress. It also verified frame-index wrap,
+8-byte report completion and schedule retirement. Both exact-stage QEMU
+rehearsals and the ordinary xHCI console regression passed. Release
+`0c509b2b181ab24d` is installed with `c1a8e397a41363dc` retained for recovery.
+Native evidence is pending. The run record, VM evidence and Ubuntu periodic
+schedule snapshot are in `build/review/macbookpro8-1-ehci-trial-0c509b2b181ab24d/`.
 
 ## Capability ledger
 
