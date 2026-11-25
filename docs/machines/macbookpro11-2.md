@@ -1116,6 +1116,18 @@ and B68 readbacks. Either the wrong SIFS value or a different retry
 limit refuses endpoint setup.
 [Linux 92C register definitions](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h)
 
+Candidate `e838bed24355cc07` from `ebb470ed` passed the native xHCI
+halfword write, retry preservation, two refusal cases and fixed-size
+receive and beacon tests. Firmware and USB lifecycle tests passed.
+The result decoder replayed the complete and failed reads within the
+journal limit. The exact image passed the GPT workspace and four
+journal/recovery VM checks, and the install matched the fresh kernel
+hash. Ubuntu is default with recovery `74da74e0b57afbb8`. The run
+record `build/bringup/pro112-rtl8188cu-sifs/run.json` binds all
+three hub leaves, the clean workspace with 606 files and the new
+independent journal. The unattended trial saves the timing readback,
+MAC and USB results before returning.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
