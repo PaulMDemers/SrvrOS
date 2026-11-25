@@ -1358,6 +1358,26 @@ the remaining state differences without writing those registers.
 Main `61111819` and the open reviews have no overlapping changes.
 [Linux RTL8192CU MAC power sequence](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L390-L465)
 
+The recorded Linux startup repeated this power transition twice and
+accessed no RXERR_RPT selector. In the new working Linux monitor
+capture, all 24 enablement values were stable across five samples,
+including APS `0x0812` and CR `0x02ff`. There were 912 successful
+bulk IN completions and zero usbmon drops. The startup sequence and
+monitor reference are saved under
+`build/bringup/pro112-rtl8188cu-rx-enable`. The probe preserves the
+receive-only CR value `0x009a` and logs the remaining differences for
+comparison with the 14 receive reports.
+
+Installed cold candidate `b6ded61e0646f36f` from `14bbca6e` with
+recovery `74da74e0b57afbb8`, workspace `0E53-5900` and all three
+hub ports verified. The native Realtek fixture passed the ordered
+APS write, already configured path, busy/readback refusal, fixed
+4 KiB request and beacon parsing. Exact-image tests passed the GPT
+workspace rehearsal and the four journal availability cases. The
+decoder retained the new enablement snapshot and all three counter
+samples in both bounded journal checkpoints. Live receive acceptance
+is pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
