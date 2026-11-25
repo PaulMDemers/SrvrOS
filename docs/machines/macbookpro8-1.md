@@ -346,6 +346,17 @@ python3 tools/hardware_boot.py stage --ehci-keyboard-trial
 python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)"
 ```
 
+Clean source `520f663f` staged as `241ed4d3abb212d7`. The host fixtures
+verified the captured interface match, frame list, split queue layout,
+alternating data toggle, 8-byte completion, timeout and DMA retention when
+schedule stop is unproved. The kernel's keyboard decoder suite passed.
+Both exact-stage QEMU rehearsals verified the held screen and one-shot
+return with the native topcase absent. The ordinary xHCI console regression
+passed on the same source. The keyboard release is installed as current,
+and previous console release `c1a8e397a41363dc` and Ubuntu recovery were
+verified. Native typing remains pending. The trial record and VM evidence
+are in `build/review/macbookpro8-1-ehci-trial-241ed4d3abb212d7/`.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
