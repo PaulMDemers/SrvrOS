@@ -1324,7 +1324,25 @@ request, beacon parsing and partial counter reads after a wrong
 selector echo. The exact image passed the GPT workspace rehearsal
 and four journal availability cases. The decoder recovered all
 14 reports at the three receive checkpoints from bounded EFI tails.
-The live receive result is pending.
+
+Cold session `session-0006611161afbb9c-00` verified all three
+hub adapters, firmware startup and 14 valid report reads with selector
+restoration at each of the three sampling points. Every report count
+stayed zero, including PPDUs, false alarms, frame failures and good
+frames. The separate baseband counters did advance: OFDM parity failures
+rose from 30 to 4,016 and illegal-rate detections from 26 to 3,899.
+This localizes the observed gap between baseband detection and the
+hardware receive reports. It does not distinguish a decode problem
+from missing PHY-to-MAC delivery or report enablement. There were no
+beacons, no FIFO movement and no successful completion of the 4 KiB
+request. Stop Endpoint produced code 26 with all 4,096 bytes remaining.
+
+The probe stopped the endpoint, parked the radio, saved `exit.log`
+and all seven EFI checkpoints, unmounted the workspace and requested
+its normal return to Ubuntu. The collector verified the exit snapshot,
+clean exFAT, all 614 existing workspace files and Ubuntu's default
+boot. Evidence and the verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-0b2e4a530fce2b94`.
 
 ### Retina desktop default
 
