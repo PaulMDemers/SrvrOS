@@ -933,10 +933,11 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
-static bool ehci_trial_release(const char *cmdline, char release[17]) {
-    const char prefix[] = "srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release=";
-    for (unsigned i = 0; i < sizeof(prefix) - 1; i++) {
-        if (*cmdline++ != prefix[i]) return false;
+static bool ehci_trial_release(const char *cmdline, char release[17], bool keyboard) {
+    const char *prefix = keyboard ? "srvros.storage=ram srvros.ehci=keyboard-trial srvros.ehci-release=" :
+        "srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release=";
+    for (; *prefix; prefix++) {
+        if (*cmdline++ != *prefix) return false;
     }
     for (unsigned i = 0; i < 16; i++) {
         char c = *cmdline++;
@@ -951,7 +952,8 @@ void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
-    bool ehci_trial = cmdline_has_token(cmdline, "srvros.ehci=split-trial");
+    bool ehci_keyboard_trial = cmdline_has_token(cmdline, "srvros.ehci=keyboard-trial");
+    bool ehci_trial = ehci_keyboard_trial || cmdline_has_token(cmdline, "srvros.ehci=split-trial");
     char trial_release[17];
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
@@ -986,8 +988,8 @@ void kmain(void) {
     }
 
     if (ehci_trial) {
-        bool valid = ehci_trial_release(cmdline, trial_release);
-        ehci_trial_screen(valid ? trial_release : "invalid");
+        bool valid = ehci_trial_release(cmdline, trial_release, ehci_keyboard_trial);
+        ehci_trial_screen(valid ? trial_release : "invalid", ehci_keyboard_trial);
         if (!valid) {
             console_write("ehci-trial: invalid boot profile. Photograph the screen and return to Ubuntu.\n");
             console_sync();
@@ -1053,7 +1055,7 @@ void kmain(void) {
     timer_wall_init();
     lapic_init();
     lapic_timer_init(32, 10000000);
-    bool keyboard_ready = keyboard_init();
+    bool keyboard_ready = !ehci_keyboard_trial && keyboard_init();
     bool mouse_ready = keyboard_ready ? mouse_init() : false;
     ioapic_init();
     if (keyboard_ready) {
@@ -1097,7 +1099,7 @@ void kmain(void) {
     }
     pci_init();
     if (ehci_trial) {
-        ehci_boot_trial(trial_release);
+        ehci_boot_trial(trial_release, ehci_keyboard_trial);
         console_sync();
         __asm__ volatile("cli" ::: "memory");
         halt_forever();

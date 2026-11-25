@@ -17,6 +17,9 @@ static bool firmware_stuck, halt_stuck, reset_stuck;
 static struct ehci_dma *control_dma;
 static unsigned control_polls, control_completes_at;
 static bool mock_flash;
+static struct ehci_dma *keyboard_dma;
+static unsigned keyboard_packet_bytes;
+static bool keyboard_stop_stuck;
 static uint64_t now;
 
 uint16_t pci_read_config16(const struct pci_device *p, uint8_t offset) {
@@ -51,6 +54,19 @@ void pci_write_config32(const struct pci_device *p, uint8_t offset, uint32_t val
 
 bool timer_delay_us(uint64_t delay) {
     now += delay;
+    if (keyboard_dma) {
+        if (op[EHCI_USBCMD] & EHCI_CMD_PERIODIC) {
+            op[EHCI_USBSTS] |= EHCI_STS_PERIODIC;
+            if (delay == EHCI_KEYBOARD_POLL_US && keyboard_packet_bytes) {
+                keyboard_dma->setup_td.token = (EHCI_KEYBOARD_PACKET - keyboard_packet_bytes) << EHCI_TD_BYTES_SHIFT;
+                keyboard_dma->qh.overlay.token ^= EHCI_TD_DATA1;
+                keyboard_dma->data[2] = 4; /* HID usage A. */
+            }
+        } else if (!keyboard_stop_stuck) {
+            op[EHCI_USBSTS] &= ~EHCI_STS_PERIODIC;
+        }
+        return true;
+    }
     if (delay == 1000) {
         handoff_delays++;
         if (!firmware_stuck && handoff_delays == 3) pci_config[LEGACY_OFFSET / 4] &= ~EHCI_LEGACY_BIOS;
@@ -120,6 +136,9 @@ static void fixture_reset(void) {
     control_polls = 0;
     control_completes_at = 2;
     mock_flash = false;
+    keyboard_dma = 0;
+    keyboard_packet_bytes = 0;
+    keyboard_stop_stuck = false;
     now = 0;
 }
 
@@ -291,16 +310,81 @@ static void test_flash_descriptor_wait(void) {
 static void test_dma_retirement(void) {
     fixture_reset();
     op[EHCI_ASYNCLISTADDR] = 0x9000;
+    op[EHCI_PERIODICLISTBASE] = 0xa000;
     op[EHCI_USBCMD] = EHCI_CMD_RUN | EHCI_CMD_ASYNC;
     op[EHCI_USBSTS] = EHCI_STS_ASYNC;
     halt_stuck = true;
-    assert(!retire_control_path(&device, op));
+    assert(!retire_control_path(&device, op, true));
     assert(op[EHCI_ASYNCLISTADDR] == 0x9000 && op[EHCI_CONFIGFLAG] == 1);
+    assert(op[EHCI_PERIODICLISTBASE] == 0xa000);
     assert(!(pci_config[PCI_COMMAND / 4] & PCI_COMMAND_MASTER));
 
     op[EHCI_USBSTS] = EHCI_STS_HALTED;
-    assert(retire_control_path(&device, op));
+    assert(retire_control_path(&device, op, true));
     assert(!op[EHCI_ASYNCLISTADDR] && !op[EHCI_CONFIGFLAG]);
+    assert(!op[EHCI_PERIODICLISTBASE]);
+}
+
+static void test_keyboard_report_schedule(void) {
+    fixture_reset();
+    struct ehci_dma dma;
+    struct ehci_probe_report report = { .keyboard_target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 } };
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
+    uint32_t frames[EHCI_FRAME_ENTRIES];
+    prepare_keyboard_frames(frames, path.physical);
+    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++) {
+        assert(frames[i] == (i % 8 ? EHCI_LINK_END : (0x9000 | EHCI_LINK_QH)));
+    }
+    prepare_keyboard_poll(&path, &report.keyboard_target, EHCI_TD_DATA1);
+    assert(dma.qh.link == EHCI_LINK_END && dma.qh.endpoint == 0x000a0303u);
+    assert(dma.qh.capabilities == 0x41011c01u && dma.qh.overlay.token == EHCI_TD_DATA1);
+    assert(dma.qh.overlay.next == path.physical + offsetof(struct ehci_dma, setup_td));
+    assert(dma.setup_td.next == EHCI_LINK_END && dma.setup_td.alternate == EHCI_LINK_END);
+    assert(dma.setup_td.buffer[0] == path.physical + offsetof(struct ehci_dma, data));
+    assert(dma.setup_td.token == 0x000a0d80u);
+
+    op[EHCI_USBCMD] = EHCI_CMD_RUN;
+    op[EHCI_USBSTS] = 0;
+    keyboard_dma = &dma;
+    keyboard_packet_bytes = 8;
+    uint32_t toggle = 0;
+    uint8_t bytes[8];
+    assert(!keyboard_poll_once(&path, now, &toggle, bytes));
+    assert(toggle == EHCI_TD_DATA1 && bytes[2] == 4 && report.keyboard_reports == 1);
+    assert(!keyboard_poll_once(&path, now, &toggle, bytes));
+    assert(!toggle && report.keyboard_reports == 2);
+    assert(!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC));
+
+    keyboard_packet_bytes = 10;
+    assert(!strcmp(keyboard_poll_once(&path, now, &toggle, bytes), "unexpected boot report length"));
+    assert(report.keyboard_bytes == 10 && report.keyboard_reports == 2);
+    keyboard_packet_bytes = 0;
+    assert(!strcmp(keyboard_poll_once(&path, now - EHCI_KEYBOARD_WAIT_US, &toggle, bytes), "typing timeout"));
+    assert(!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC));
+
+    keyboard_packet_bytes = 8;
+    keyboard_stop_stuck = true;
+    assert(!strcmp(keyboard_poll_once(&path, now, &toggle, bytes), "periodic stop timeout"));
+    uint32_t token = dma.setup_td.token;
+    assert(!strcmp(keyboard_poll_once(&path, now, &toggle, bytes), "periodic schedule busy"));
+    assert(dma.setup_td.token == token && report.keyboard_reports == 2);
+    keyboard_dma = 0;
+}
+
+static void test_captured_keyboard_interface(void) {
+    uint8_t config[] = {
+        9, 2, 34, 0, 1, 1, 0, 0xa0, 0x14,
+        9, 4, 0, 0, 1, 3, 1, 1, 3,
+        9, 0x21, 0x11, 1, 0x21, 1, 0x22, 0x9c, 0,
+        7, 5, 0x83, 3, 10, 0, 8,
+    };
+    assert(captured_keyboard_interface(config, sizeof(config)));
+    assert(!captured_keyboard_interface(config, sizeof(config) - 1));
+    config[29] = 0x81;
+    assert(!captured_keyboard_interface(config, sizeof(config)));
+    config[29] = 0x83;
+    config[12] = 1;
+    assert(!captured_keyboard_interface(config, sizeof(config)));
 }
 
 static void test_native_trial_result(void) {
@@ -320,24 +404,24 @@ static void test_native_trial_result(void) {
     struct ehci_control_path path = { .report = &trial.controllers[0] };
     struct ehci_control_target hub = { .address = 1, .packet_size = 64 };
     struct ehci_control_target topcase = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
-    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2, 0, 0);
     assert(!trial_passed(&trial));
-    track_trial_device(&path, &hub, 0x0424, 0x2513, 0, 1);
-    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 3);
+    track_trial_device(&path, &hub, 0x0424, 0x2513, 0, 1, 0, 0);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 3, 0, 0);
     assert(!trial_passed(&trial));
     topcase.packet_size = 16;
-    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2, 0, 0);
     assert(!trial_passed(&trial));
     topcase.packet_size = 8;
-    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2);
+    track_trial_device(&path, &topcase, 0x05ac, 0x0245, 1, 2, 0, 0);
     assert(!trial_passed(&trial));
     path.report = &trial.controllers[1];
     path.trial_slot = 1;
-    track_trial_device(&path, &hub, 0x0424, 0x2513, 0, 1);
+    track_trial_device(&path, &hub, 0x0424, 0x2513, 0, 1, 0, 0);
     struct ehci_control_target flash = { .address = 2, .packet_size = 64 };
-    track_trial_device(&path, &flash, 0x13fe, 0x6700, 1, 3);
+    track_trial_device(&path, &flash, 0x13fe, 0x6700, 1, 3, 0, 0);
     assert(!path.report->flash_address);
-    track_trial_device(&path, &flash, 0x13fe, 0x6700, 1, 2);
+    track_trial_device(&path, &flash, 0x13fe, 0x6700, 1, 2, 0, 0);
     assert(!trial_passed(&trial));
     path.report->flash_attempted = true;
     path.report->flash_received = 18;
@@ -358,6 +442,8 @@ int main(void) {
     test_split_control_schedule();
     test_flash_descriptor_wait();
     test_dma_retirement();
+    test_keyboard_report_schedule();
+    test_captured_keyboard_interface();
     test_native_trial_result();
     puts("EHCI host tests passed");
 }

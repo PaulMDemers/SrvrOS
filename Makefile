@@ -1941,9 +1941,9 @@ test-ehci: build/tests/ehci-host$(HOST_EXE) build/tests/ehci-enumeration-host$(H
 	$<
 	build/tests/ehci-enumeration-host$(HOST_EXE)
 
-build/tests/ehci-host$(HOST_EXE): tools/test_ehci.c kernel/src/drivers/ehci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/ehci-host$(HOST_EXE): tools/test_ehci.c kernel/src/drivers/ehci.c kernel/src/drivers/ehci_keyboard.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 build/tests/ehci-enumeration-host$(HOST_EXE): tools/test_ehci_enumeration.c kernel/src/drivers/ehci_enumeration.c $(KERNEL_HEADERS)
 	mkdir -p build/tests

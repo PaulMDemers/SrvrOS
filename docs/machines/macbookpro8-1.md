@@ -35,15 +35,17 @@ input and native USB workspace access remain pending.**
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
 MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
 trials established the topcase descriptor path and verified the workspace
-flash drive with a 600 ms bound for its initial device descriptor. The next
-input checkpoint is built-in keyboard interrupt reports through the proven
-full-speed hub route. Native workspace reads and writes require a separate
-mass-storage milestone. The inventory contains no xHCI controller on this Mac.
+flash drive with a 600 ms bound for its initial device descriptor. The active
+input work uses the captured keyboard interface, EHCI periodic interrupts,
+the existing kernel HID decoder and a RAM-only attended boot profile. Its
+checkpoint is a line typed on the built-in keyboard at the trial prompt,
+followed by controller retirement and Ubuntu return. Native workspace reads
+and writes require a separate mass-storage milestone.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `22fdd9fc`, and Apple Silicon runtime, login and export work
+USB Wi-Fi work at `841a5543`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
-dependency on those branches. The Air7,2 branch at `b9238469` also touches the
+dependency on those branches. The Air7,2 branch at `1a0b2213` also touches the
 staging tool for graphics receipts, independently of the EHCI profile.
 Coordinate shared HID, storage or initialization changes if they become
 necessary. [Device coordination](../agent-coordination.md)
@@ -316,6 +318,33 @@ workspace mounted on the same route. Firmware boot order and the installed
 manifests matched preflight, including previous console release
 `c1a8e397a41363dc`. The native transcript, verification and exact payload were
 archived outside `build/`.
+
+## Attended EHCI keyboard trial
+
+The captured `05ac:0245` configuration identifies boot keyboard interface 0,
+interrupt IN endpoint `0x83`, 10-byte maximum packets and an 8 ms interval.
+The RAM-only `--ehci-keyboard-trial` profile verifies the topology and this
+interface before issuing `SET_CONFIGURATION` and `SET_PROTOCOL` for boot
+keyboard mode. It expects the 8-byte boot report. [USB HID specification](https://www.usb.org/document-library/device-class-definition-hid-111)
+
+The periodic queue uses the existing hub and port route, start-split in
+microframe 0 and complete-splits in microframes 2–4. Before reusing the queue
+for another report, the driver verifies that the periodic schedule stopped
+and preserves the endpoint's data toggle. It releases the frame list and
+control page after verifying controller halt and PCI bus-master disable.
+[Intel EHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
+
+At the guided `srv>` prompt, type `echo Ehci-42` on the built-in keyboard
+and press Return. The trial accepts that line through the kernel's HID
+keyboard queue and displays the result for a photo and power-button return.
+The prompt accepts this one test line. The keyboard interval is bounded by
+90 seconds. The trial leaves the trackpad and flash data interfaces idle.
+
+```sh
+make -j2 build/kernel/srvros.elf test-ehci test-keyboard
+python3 tools/hardware_boot.py stage --ehci-keyboard-trial
+python3 tools/ehci_trial_smoke.py "$(cat build/hardware-boot/latest)"
+```
 
 ## Capability ledger
 

@@ -1,6 +1,7 @@
 #include <srvros/ehci.h>
 #include <srvros/console.h>
 #include <srvros/ehci_enumeration.h>
+#include <srvros/keyboard.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/timer.h>
@@ -25,17 +26,21 @@
 #define EHCI_USBSTS (0x04u / 4)
 #define EHCI_USBINTR (0x08u / 4)
 #define EHCI_CTRLDSSEGMENT (0x10u / 4)
+#define EHCI_PERIODICLISTBASE (0x14u / 4)
 #define EHCI_ASYNCLISTADDR (0x18u / 4)
 #define EHCI_CONFIGFLAG (0x40u / 4)
 #define EHCI_PORTSC (0x44u / 4)
 #define EHCI_CMD_RUN (1u << 0)
 #define EHCI_CMD_RESET (1u << 1)
+#define EHCI_CMD_FRAME_SIZE (3u << 2)
+#define EHCI_CMD_PERIODIC (1u << 4)
 #define EHCI_CMD_ASYNC (1u << 5)
 #define EHCI_CMD_SCHEDULES ((1u << 4) | (1u << 5))
 #define EHCI_CMD_ASYNC_ADVANCE (1u << 6)
 #define EHCI_CMD_LIGHT_RESET (1u << 7)
 #define EHCI_STS_HALTED (1u << 12)
 #define EHCI_STS_SCHEDULES ((1u << 14) | (1u << 15))
+#define EHCI_STS_PERIODIC (1u << 14)
 #define EHCI_STS_ASYNC (1u << 15)
 #define EHCI_STS_HOST_ERROR (1u << 4)
 
@@ -114,6 +119,12 @@ struct ehci_probe_report {
     bool flash_attempted;
     unsigned flash_received;
     uint64_t flash_wait_us;
+    struct ehci_control_target keyboard_target;
+    const char *keyboard_result;
+    bool keyboard_passed;
+    unsigned keyboard_reports;
+    unsigned keyboard_bytes;
+    uint32_t keyboard_token;
     struct ehci_scan_step stopped;
     uint32_t stopped_usbsts;
     struct ehci_transfer_failure transfer_failure;
@@ -125,6 +136,7 @@ struct ehci_trial_report {
     unsigned released;
     struct ehci_probe_report controllers[2];
     struct ehci_probe_report other_failure;
+    const char *keyboard_release;
 };
 
 struct ehci_handoff_result {
@@ -363,6 +375,8 @@ static bool control_transfer(void *context, const struct ehci_control_target *ta
     return true;
 }
 
+#include "ehci_keyboard.inc"
+
 static uint32_t read_root_port(struct ehci_enumeration *bus, volatile uint32_t *port) {
     uint32_t status = *port;
     bus->step.port_status = status;
@@ -413,7 +427,7 @@ static bool enumerate_root_ports(const struct ehci_probe_report *report, struct 
     return true;
 }
 
-static bool retire_control_path(const struct pci_device *device, volatile uint32_t *op) {
+static bool retire_control_path(const struct pci_device *device, volatile uint32_t *op, bool periodic) {
     uint32_t command = op[EHCI_USBCMD];
     if (command != UINT32_MAX) {
         op[EHCI_USBCMD] = command & ~(EHCI_CMD_RUN | EHCI_CMD_SCHEDULES | EHCI_CMD_ASYNC_ADVANCE);
@@ -423,12 +437,15 @@ static bool retire_control_path(const struct pci_device *device, volatile uint32
     bool master_off = set_command_bits(device, PCI_COMMAND_MASTER, 0);
     if (!halted || !master_off) return false;
     op[EHCI_ASYNCLISTADDR] = 0;
+    if (periodic) op[EHCI_PERIODICLISTBASE] = 0;
     op[EHCI_CONFIGFLAG] = 0;
-    return op[EHCI_ASYNCLISTADDR] == 0 && op[EHCI_CONFIGFLAG] == 0;
+    return op[EHCI_ASYNCLISTADDR] == 0 && op[EHCI_CONFIGFLAG] == 0 &&
+        (!periodic || op[EHCI_PERIODICLISTBASE] == 0);
 }
 
 static void track_trial_device(void *context, const struct ehci_control_target *target,
-    uint16_t vendor, uint16_t product, uint8_t parent, uint8_t port) {
+    uint16_t vendor, uint16_t product, uint8_t parent, uint8_t port,
+    const uint8_t *configuration, uint16_t length) {
     struct ehci_control_path *path = context;
     struct ehci_probe_report *report = path->report;
     if (vendor == 0x0424 && product == 0x2513 && !parent && port == 1 && !target->tt_hub) {
@@ -438,13 +455,14 @@ static void track_trial_device(void *context, const struct ehci_control_target *
     if (path->trial_slot == 0 && vendor == 0x05ac && product == 0x0245 &&
         target->tt_hub == parent && target->tt_port == port && target->packet_size == 8) {
         report->topcase_address = target->address;
+        if (captured_keyboard_interface(configuration, length)) report->keyboard_target = *target;
     }
     if (path->trial_slot == 1 && vendor == 0x13fe && product == 0x6700 &&
         !target->tt_hub && target->packet_size == 64) report->flash_address = target->address;
 }
 
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
-    struct ehci_probe_report *report, bool split, int trial_slot) {
+    struct ehci_probe_report *report, bool split, int trial_slot, const char *keyboard_release) {
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
@@ -480,7 +498,12 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         report->stopped = bus.step;
         report->stopped_usbsts = report->transfer_failure.reason ? report->transfer_failure.usbsts : op[EHCI_USBSTS];
     }
-    bool retired = retire_control_path(device, op);
+    uint64_t frame_list = 0;
+    if (complete && keyboard_release && trial_slot == 0) {
+        report->keyboard_result = run_keyboard_trial(&path, keyboard_release, &frame_list);
+        console_set_framebuffer_muted(true);
+    }
+    bool retired = retire_control_path(device, op, frame_list != 0);
     if (complete && !retired) {
         report->stopped.operation = "retire controller DMA";
         report->stopped_usbsts = op[EHCI_USBSTS];
@@ -490,6 +513,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     if (retired) {
         __asm__ volatile ("mfence" : : : "memory");
         pmm_free_frame(physical);
+        if (frame_list) pmm_free_frame(frame_list);
     }
     console_printf("ehci: enumeration complete=%u devices=%u hubs=%u deferred=%u dma=%s\n",
         (uint64_t)(complete && retired), (uint64_t)bus.devices, (uint64_t)bus.hubs, (uint64_t)bus.deferred,
@@ -549,7 +573,7 @@ static const char *probe_registers(const struct pci_device *device, volatile uin
 
 /* Return whether the temporary window is safe to reuse for another controller. */
 static bool probe_controller(const struct pci_device *device, uint64_t root, enum ehci_boot_mode mode,
-    struct ehci_probe_report *report, int trial_slot) {
+    struct ehci_probe_report *report, int trial_slot, const char *keyboard_release) {
     uint32_t bar = device->bar[0];
     uint64_t base = bar & 0xffffff00u;
     unsigned bar_type = bar & 0xff;
@@ -577,7 +601,8 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(EHCI_MMIO_WINDOW + page_offset);
         report->result = probe_registers(device, caps, mapped_bytes, report);
         if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
-            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT, trial_slot);
+            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT,
+                trial_slot, keyboard_release);
         }
     } else {
         report->result = "memory-decode-failed";
@@ -628,7 +653,7 @@ static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial)
         found++;
         struct ehci_probe_report report = { .handoff = "not-attempted", .mapping = "none" };
         int slot = trial ? trial_controller_slot(device) : -1;
-        bool reusable = probe_controller(device, root, mode, &report, slot);
+        bool reusable = probe_controller(device, root, mode, &report, slot, trial ? trial->keyboard_release : 0);
         if (trial) {
             trial->found++;
             trial->scans += report.enumerated;
@@ -651,12 +676,15 @@ void ehci_boot_probe(enum ehci_boot_mode mode) {
     probe_all(mode, 0);
 }
 
-void ehci_trial_screen(const char *release) {
+void ehci_trial_screen(const char *release, bool keyboard) {
     console_set_framebuffer_muted(false);
     console_clear();
-    console_printf("SrvrOS MacBookPro8,1 EHCI split trial\nRelease %s\n", release);
-    console_write("1. Wait for the result. If the screen stops changing for 90 seconds,\n"
-                  "   treat the trial as incomplete. No keyboard input is needed.\n"
+    console_printf("SrvrOS MacBookPro8,1 EHCI %s trial\nRelease %s\n", keyboard ? "keyboard" : "split", release);
+    if (keyboard) console_write("1. At srv>, type echo Ehci-42 and press Return within 90 seconds.\n"
+                                "   Use the built-in keyboard. Delete corrects a typo.\n");
+    else console_write("1. Wait for the result. If the screen stops changing for 90 seconds,\n"
+                       "   treat the trial as incomplete. No keyboard input is needed.\n");
+    console_write(
                   "2. Photograph the entire screen, including the release and result.\n"
                   "3. Hold the power button until the Mac turns off. Press it once\n"
                   "   to start Ubuntu. Share the photo or exact result lines in Codex.\n\n");
@@ -704,14 +732,14 @@ static void print_scan_stop(const struct ehci_probe_report *report) {
     }
 }
 
-void ehci_boot_trial(const char *release) {
-    struct ehci_trial_report trial = {0};
+void ehci_boot_trial(const char *release, bool keyboard) {
+    struct ehci_trial_report trial = { .keyboard_release = keyboard ? release : 0 };
     console_set_framebuffer_muted(false);
     console_write("Scanning EHCI controllers and the internal hub...\n");
     console_sync();
     console_set_framebuffer_muted(true);
     probe_all(EHCI_BOOT_SPLIT, &trial);
-    ehci_trial_screen(release);
+    ehci_trial_screen(release, keyboard);
     console_printf("Controllers found %u. Scans complete %u. DMA released %u.\n",
         (uint64_t)trial.found, (uint64_t)trial.scans, (uint64_t)trial.released);
     const char *names[] = { "00:1a.7 8086:1c2d", "00:1d.7 8086:1c26" };
@@ -732,7 +760,15 @@ void ehci_boot_trial(const char *release) {
     if (storage->flash_attempted) console_printf("Flash EP0 wait %u / %u us. Descriptor bytes %u.\n",
         storage->flash_wait_us, (uint64_t)EHCI_FLASH_DESCRIPTOR_US, (uint64_t)storage->flash_received);
     console_printf("Flash 13fe:6700 USB address %u (0 means unverified).\n", (uint64_t)storage->flash_address);
+    bool keyboard_passed = input->keyboard_passed;
+    if (keyboard) {
+        console_printf("Keyboard %s. Reports %u. Last bytes %u.\n",
+            keyboard_passed ? "PASS" : input->keyboard_result ? input->keyboard_result : "unavailable",
+            (uint64_t)input->keyboard_reports, (uint64_t)input->keyboard_bytes);
+        if (keyboard_passed) console_write("srv> echo Ehci-42\nEhci-42\n");
+        else if (input->keyboard_reports || input->keyboard_token) console_printf("Keyboard qTD=%x\n", (uint64_t)input->keyboard_token);
+    }
     console_printf("ehci-trial: release=%s result=%s\n", release,
-        trial_passed(&trial) ? "PASS" : "INCOMPLETE");
+        trial_passed(&trial) && (!keyboard || keyboard_passed) ? "PASS" : "INCOMPLETE");
     console_write("Screen held for photo. Use the power button to return to Ubuntu.\n");
 }

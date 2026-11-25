@@ -1,0 +1,172 @@
+/* Attended boot-keyboard trial for the captured 05ac:0245 interface. */
+#define EHCI_KEYBOARD_ENDPOINT 0x83u
+#define EHCI_KEYBOARD_PACKET 10u
+#define EHCI_KEYBOARD_INTERVAL 8u
+#define EHCI_KEYBOARD_REPORT 8u
+#define EHCI_KEYBOARD_WAIT_US 90000000u
+#define EHCI_KEYBOARD_POLL_US 1000u
+#define EHCI_FRAME_ENTRIES (EHCI_PAGE_BYTES / sizeof(uint32_t))
+
+static bool captured_keyboard_interface(const uint8_t *configuration, uint16_t length) {
+    if (!configuration || length < 9 || configuration[5] != 1) return false;
+    bool keyboard = false;
+    for (unsigned offset = 9; offset + 2 <= length;) {
+        const uint8_t *entry = configuration + offset;
+        unsigned size = entry[0];
+        if (size < 2 || size > length - offset) return false;
+        if (entry[1] == USB_DESC_INTERFACE) {
+            keyboard = size == 9 && !entry[2] && !entry[3] && entry[4] == 1 &&
+                entry[5] == 3 && entry[6] == 1 && entry[7] == 1;
+        } else if (keyboard && entry[1] == USB_DESC_ENDPOINT) {
+            return size == 7 && entry[2] == EHCI_KEYBOARD_ENDPOINT && entry[3] == 3 &&
+                entry[4] == EHCI_KEYBOARD_PACKET && !entry[5] && entry[6] == EHCI_KEYBOARD_INTERVAL;
+        }
+        offset += size;
+    }
+    return false;
+}
+
+static void prepare_keyboard_frames(uint32_t *frames, uint32_t qh_address) {
+    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++) {
+        frames[i] = i % EHCI_KEYBOARD_INTERVAL ? EHCI_LINK_END : qh_address | EHCI_LINK_QH;
+    }
+}
+
+static void prepare_keyboard_poll(struct ehci_control_path *path, const struct ehci_control_target *target,
+    uint32_t toggle) {
+    struct ehci_dma *dma = path->dma;
+    *dma = (struct ehci_dma) {0};
+    dma->qh.link = EHCI_LINK_END;
+    dma->qh.endpoint = target->address | ((EHCI_KEYBOARD_ENDPOINT & 15u) << 8) |
+        (EHCI_KEYBOARD_PACKET << EHCI_QH_PACKET_SHIFT);
+    /* Full speed, one start-split at uframe 0 and complete-splits at 2–4. */
+    dma->qh.capabilities = EHCI_QH_MULT_ONE | ((uint32_t)target->tt_hub << EHCI_QH_TT_HUB_SHIFT) |
+        ((uint32_t)target->tt_port << EHCI_QH_TT_PORT_SHIFT) | 0x1c01u;
+    dma->qh.overlay.next = path->physical + offsetof(struct ehci_dma, setup_td);
+    dma->qh.overlay.alternate = EHCI_LINK_END;
+    dma->qh.overlay.token = toggle;
+    dma->setup_td.next = dma->setup_td.alternate = EHCI_LINK_END;
+    dma->setup_td.token = (EHCI_KEYBOARD_PACKET << EHCI_TD_BYTES_SHIFT) |
+        EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
+    dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
+}
+
+static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t start, uint32_t *toggle,
+    uint8_t received[EHCI_KEYBOARD_REPORT]) {
+    volatile uint32_t *op = path->op;
+    const volatile struct ehci_dma *dma = path->dma;
+    struct ehci_probe_report *report = path->report;
+    uint32_t command = op[EHCI_USBCMD];
+    if ((command & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) != EHCI_CMD_RUN ||
+        (op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES | EHCI_STS_HOST_ERROR))) {
+        return "periodic schedule busy";
+    }
+    prepare_keyboard_poll(path, &report->keyboard_target, *toggle);
+    __asm__ volatile ("mfence" : : : "memory");
+    op[EHCI_USBCMD] = command | EHCI_CMD_PERIODIC;
+    const char *failure = "periodic enable timeout";
+    if (wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, EHCI_STS_PERIODIC, EHCI_HALT_US)) {
+        failure = "typing timeout";
+        for (unsigned poll = 0; poll < EHCI_KEYBOARD_WAIT_US / EHCI_KEYBOARD_POLL_US; poll++) {
+            uint32_t token = dma->setup_td.token;
+            report->keyboard_token = token;
+            if ((op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) || (token & EHCI_TD_ERROR)) {
+                failure = "interrupt transfer error";
+                break;
+            }
+            if (!(token & EHCI_TD_ACTIVE)) {
+                failure = 0;
+                break;
+            }
+            if (timer_monotonic_us() - start >= EHCI_KEYBOARD_WAIT_US) break;
+            if (!timer_delay_us(EHCI_KEYBOARD_POLL_US)) {
+                failure = "keyboard timer failure";
+                break;
+            }
+        }
+    }
+    /* Reuse the qTD and preserve its toggle only after PSS acknowledges stop. */
+    op[EHCI_USBCMD] = command;
+    if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, 0, EHCI_HALT_US)) return "periodic stop timeout";
+    if (failure) return failure;
+
+    __asm__ volatile ("mfence" : : : "memory");
+    *toggle = dma->qh.overlay.token & EHCI_TD_DATA1;
+    unsigned residual = (report->keyboard_token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
+    if (residual > EHCI_KEYBOARD_PACKET) return "invalid interrupt residual";
+    report->keyboard_bytes = EHCI_KEYBOARD_PACKET - residual;
+    if (report->keyboard_bytes != EHCI_KEYBOARD_REPORT) return "unexpected boot report length";
+    for (unsigned i = 0; i < EHCI_KEYBOARD_REPORT; i++) received[i] = dma->data[i];
+    report->keyboard_reports++;
+    return 0;
+}
+
+static bool keyboard_trial_line(char text[32], unsigned *length) {
+    const char expected[] = "echo Ehci-42";
+    char c;
+    while (keyboard_try_read_char(&c)) {
+        if (c == '\n') {
+            console_write("\n");
+            bool matches = *length == sizeof(expected) - 1;
+            for (unsigned i = 0; matches && i < *length; i++) matches = text[i] == expected[i];
+            if (matches) return true;
+            *length = 0;
+            console_write("Try again. Type echo Ehci-42 and press Return.\nsrv> ");
+        } else if (c == '\b' && *length) {
+            (*length)--;
+            console_write("\b \b");
+        } else if (c >= ' ' && c <= '~' && *length < 32) {
+            text[(*length)++] = c;
+            console_putc(c);
+        }
+    }
+    return false;
+}
+
+static const char *run_keyboard_trial(struct ehci_control_path *path, const char *release, uint64_t *frame_list) {
+    struct ehci_probe_report *report = path->report;
+    const struct ehci_control_target *target = &report->keyboard_target;
+    if (!target->address) return "captured interface unavailable";
+    volatile uint32_t *op = path->op;
+    if (op[EHCI_USBCMD] & EHCI_CMD_FRAME_SIZE) return "unsupported frame-list size";
+    const struct usb_setup_packet configuration = { 0, USB_REQ_SET_CONFIGURATION, 1, 0, 0 };
+    const struct usb_setup_packet boot_protocol = { 0x21, 11, 0, 0, 0 };
+    unsigned received;
+    if (!control_transfer(path, target, &configuration, 0, &received)) return "SET_CONFIGURATION failed";
+    if (!control_transfer(path, target, &boot_protocol, 0, &received)) return "SET_PROTOCOL failed";
+
+    uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
+    if (!physical || physical > UINT32_MAX) {
+        if (physical) pmm_free_frame(physical);
+        return "periodic DMA unavailable";
+    }
+    *frame_list = physical;
+    prepare_keyboard_frames(pmm_phys_to_virt(physical), path->physical + offsetof(struct ehci_dma, qh));
+    __asm__ volatile ("mfence" : : : "memory");
+    op[EHCI_PERIODICLISTBASE] = (uint32_t)physical;
+    if (op[EHCI_PERIODICLISTBASE] != physical) return "periodic frame-list readback failed";
+
+    ehci_trial_screen(release, true);
+    console_write("srv> ");
+    console_sync();
+    uint64_t start = timer_monotonic_us();
+    uint64_t dropped = keyboard_dropped_count();
+    struct keyboard_hid_state state = {0};
+    uint32_t toggle = 0;
+    unsigned length = 0;
+    char text[32];
+    for (unsigned poll = 0; poll < EHCI_KEYBOARD_WAIT_US / EHCI_KEYBOARD_POLL_US; poll++) {
+        if (timer_monotonic_us() - start >= EHCI_KEYBOARD_WAIT_US) break;
+        uint8_t bytes[EHCI_KEYBOARD_REPORT];
+        const char *failure = keyboard_poll_once(path, start, &toggle, bytes);
+        if (failure) return failure;
+        keyboard_inject_hid_report(bytes, &state);
+        if (keyboard_dropped_count() != dropped) return "keyboard input dropped";
+        if (keyboard_trial_line(text, &length)) {
+            report->keyboard_passed = true;
+            console_write("Ehci-42\n");
+            return "PASS";
+        }
+    }
+    return "typing timeout";
+}

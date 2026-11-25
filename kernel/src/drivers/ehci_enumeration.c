@@ -44,16 +44,15 @@ static bool hub_status(struct ehci_enumeration *bus, const struct ehci_control_t
     return true;
 }
 
-static bool read_configuration(struct ehci_enumeration *bus, const struct ehci_control_target *target, bool hub,
-    uint8_t *value) {
-    uint8_t data[EHCI_DESCRIPTOR_BYTES];
+static uint16_t read_configuration(struct ehci_enumeration *bus, const struct ehci_control_target *target,
+    bool hub, uint8_t data[EHCI_DESCRIPTOR_BYTES]) {
     bus->step.operation = "configuration header";
     if (!standard_descriptor(bus, target, USB_DESC_CONFIGURATION, data, 9) ||
         data[0] != 9 || data[1] != USB_DESC_CONFIGURATION || !data[4] || !data[5]) return false;
     uint16_t total = read_le16(data + 2);
     uint8_t configuration = data[5];
     bus->step.operation = "configuration body";
-    if (total < 9 || total > sizeof(data) ||
+    if (total < 9 || total > EHCI_DESCRIPTOR_BYTES ||
         !standard_descriptor(bus, target, USB_DESC_CONFIGURATION, data, total) ||
         data[0] != 9 || data[1] != USB_DESC_CONFIGURATION || read_le16(data + 2) != total ||
         !data[4] || data[5] != configuration) return false;
@@ -68,8 +67,7 @@ static bool read_configuration(struct ehci_enumeration *bus, const struct ehci_c
         pos += length;
     }
     if (hub && !hub_interface) return false;
-    *value = configuration;
-    return true;
+    return total;
 }
 
 static bool reset_hub_port(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t port,
@@ -195,15 +193,17 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
     bus->step.operation = "device address recovery delay";
     if (!timer_delay_us(2000)) return false;
     target.address = address;
-    uint8_t configuration;
-    if (!read_configuration(bus, &target, hub, &configuration)) return false;
+    uint8_t configuration[EHCI_DESCRIPTOR_BYTES];
+    uint16_t configuration_length = read_configuration(bus, &target, hub, configuration);
+    if (!configuration_length) return false;
     bus->devices++;
     uint16_t vendor = read_le16(descriptor + 8);
     uint16_t product = read_le16(descriptor + 10);
-    if (bus->device_found) bus->device_found(bus->context, &target, vendor, product, parent, port);
+    if (bus->device_found) bus->device_found(bus->context, &target, vendor, product, parent, port,
+        configuration, configuration_length);
     console_printf("ehci: device address=%u parent=%u port=%u vendor=%x product=%x class=%x configuration=%u\n",
         (uint64_t)address, (uint64_t)parent, (uint64_t)port, (uint64_t)vendor,
-        (uint64_t)product, (uint64_t)descriptor[4], (uint64_t)configuration);
+        (uint64_t)product, (uint64_t)descriptor[4], (uint64_t)configuration[5]);
     if (full_speed) {
         bus->split_devices++;
         console_printf("ehci: split address=%u hub=%u port=%u packet=%u\n",
@@ -211,5 +211,5 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
         if (hub) console_printf("ehci: hub address=%u deferred downstream scan\n", (uint64_t)address);
         return true;
     }
-    return !hub || enumerate_hub(bus, &target, configuration, depth);
+    return !hub || enumerate_hub(bus, &target, configuration[5], depth);
 }

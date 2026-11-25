@@ -938,6 +938,17 @@ class InstallTests(unittest.TestCase):
         self.assertEqual((payload / "initramfs.tar").read_bytes(), bytes(1024))
         with self.assertRaises(ValueError):
             boot.stage(diagnostic=True, ehci_split_trial=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            keyboard = boot.stage(ehci_keyboard_trial=True)
+        keyboard_payload = self.stage / keyboard
+        self.assertNotEqual(release, keyboard)
+        self.assertEqual(boot.verify(keyboard_payload, keyboard)["config_version"], boot.EHCI_KEYBOARD_VERSION)
+        self.assertEqual((keyboard_payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(f"cmdline: srvros.storage=ram srvros.ehci=keyboard-trial srvros.ehci-release={keyboard}\n",
+                      (keyboard_payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_split_trial=True, ehci_keyboard_trial=True)
 
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"

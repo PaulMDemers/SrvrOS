@@ -53,8 +53,10 @@ def main():
     release = args.release
     source = boot.STAGE / release
     manifest = boot.verify(source, release)
-    if manifest["config_version"] != boot.EHCI_TRIAL_VERSION:
-        parser.error("expected an attended EHCI split trial stage")
+    if manifest["config_version"] not in boot.EHCI_TRIAL_VERSIONS:
+        parser.error("expected an attended EHCI trial stage")
+    keyboard_trial = manifest["config_version"] == boot.EHCI_KEYBOARD_VERSION
+    mode = "keyboard-trial" if keyboard_trial else "split-trial"
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.stall_hub_status:
         logs /= "hub-status-stall"
@@ -122,14 +124,18 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         scans = 1 if args.stall_hub_status else 2
         expected = [
             "SRVROS_VM_NEXT_ENTRY_CONSUMED",
-            f"cmdline: srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release={release}",
-            "1. Wait for the result.", "2. Photograph the entire screen", "3. Hold the power button",
+            f"cmdline: srvros.storage=ram srvros.ehci={mode} srvros.ehci-release={release}",
+            "2. Photograph the entire screen", "3. Hold the power button",
             "Preparing the RAM-only EHCI diagnostic...", "Scanning EHCI controllers",
             f"Controllers found 2. Scans complete {scans}. DMA released 2.",
             "Topcase 05ac:0245 via hub 0424:2513 port 2, EP0 8: unverified",
             "Flash 13fe:6700 USB address 0 (0 means unverified).",
             f"ehci-trial: release={release} result=INCOMPLETE",
         ]
+        if keyboard_trial:
+            expected += ["1. At srv>, type echo Ehci-42", "Keyboard unavailable. Reports 0. Last bytes 0."]
+        else:
+            expected.append("1. Wait for the result.")
         if args.stall_hub_status:
             expected += ["Stop at hub 1 port 2 during hub port preflight", "last port status unavailable",
                          "Control qTD error at USB address 1, request 0",
@@ -158,6 +164,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
 
     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
                   exact_payload=True, guest_trial_result="INCOMPLETE", topcase="absent in VM",
+                  keyboard_trial=keyboard_trial,
                   scans_complete=scans, hub_status_stall=args.stall_hub_status,
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
     result_file.write_text(json.dumps(result, indent=2) + "\n")
