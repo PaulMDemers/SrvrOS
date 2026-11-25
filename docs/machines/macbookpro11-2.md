@@ -1235,6 +1235,15 @@ readbacks and RX results. The 31,315-byte exit snapshot and all
 seven independent journal checkpoints verified. The image and
 evidence are archived as `evidence-b0f0990938eb6814`.
 
+The next comparison covers the chip-side RX DMA controls in the
+routed RTL8188CUS passive xHCI path and fixture. Fetched main
+`61111819` has no overlapping changes since `50f1978a`.
+Match the three low receive control bits at `0x10c` and the USB
+aggregation bit at `0xfe55` to the live Linux reference.
+Preserve the queue-map bits, keep one 4,096-byte bulk IN request
+and all three adapters on the same hub, and save the configuration
+alongside the existing FIFO, MAC and endpoint observations.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
