@@ -1261,6 +1261,18 @@ fields are observations. The Linux capture is
 with SHA-256 `50e7e210d9137db44316b55dc07b260e08d87bfb8be1ee5fe901a81ff8fecd9e`.
 [Linux RX DMA and TX queue control definitions](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h)
 
+Installed cold candidate `adcc6cf5723a5bbe` from source `f4d96935`
+with recovery `74da74e0b57afbb8`, workspace `0E53-5900`, and the
+three original hub ports verified. Native xHCI tests covered the
+4 KiB transfer, beacon parsing, queue-map preservation and refusal
+after either control readback mismatch. Exact-image rehearsals passed
+GPT workspace save and automatic return, plus all four independent
+journal availability cases. Decoder checks recovered the new DMA
+record from both bounded RX checkpoints. The complete firmware setup
+receipt is kept in the workspace log. The run record and qualification
+logs are under `build/bringup/pro112-rtl8188cu-rx-dma`.
+Physical receive and return checks are pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
