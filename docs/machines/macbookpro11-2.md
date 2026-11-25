@@ -1109,6 +1109,13 @@ and later writes `0x0a` to `0x429`. The working monitor retained
 then check the full word for preservation of the retry limit. Keep
 the existing radio setup, single 4,096-byte request and hub topology.
 
+The cold comparison uses one 16-bit write of the final monitor value.
+With the prior SrvrOS readback of `0x07071616`, the expected result
+is `0x07070a10`. The packed startup receipt records the SIFS window
+and B68 readbacks. Either the wrong SIFS value or a different retry
+limit refuses endpoint setup.
+[Linux 92C register definitions](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

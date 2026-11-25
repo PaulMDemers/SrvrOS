@@ -34,6 +34,8 @@
 #define RTL_CU_RX_IQ_EXT 0xca0u
 #define RTL_CU_IQ_STARTUP_B68 0xb68u
 #define RTL_CU_IQ_STARTUP_B68_LINUX 0x00080000u
+#define RTL_CU_SPEC_SIFS 0x428u
+#define RTL_CU_SPEC_SIFS_LINUX 0x0a10u
 enum rtl_cu_iq_field {
     RTL_CU_IQ_RX,RTL_CU_IQ_RX_EXT,RTL_CU_IQ_TX,RTL_CU_IQ_TX_EXT,RTL_CU_IQ_TX_CCA,RTL_CU_IQ_FIELDS
 };
@@ -61,7 +63,7 @@ static const struct { uint16_t address,width; } rtl_cu_phy_radio_regs[]={
     {0xd00,4},{0xd04,4},
 };
 #define RTL_CU_PHY_RADIO_COUNT (sizeof rtl_cu_phy_radio_regs/sizeof rtl_cu_phy_radio_regs[0])
-static const uint16_t rtl_cu_iq_startup_regs[]={RTL_CU_LED_CONFIG,0x428,RTL_CU_IQ_STARTUP_B68,0xe28,0xe48,0xe4c};
+static const uint16_t rtl_cu_iq_startup_regs[]={RTL_CU_LED_CONFIG,RTL_CU_SPEC_SIFS,RTL_CU_IQ_STARTUP_B68,0xe28,0xe48,0xe4c};
 #define RTL_CU_IQ_STARTUP_COUNT (sizeof rtl_cu_iq_startup_regs/sizeof rtl_cu_iq_startup_regs[0])
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
@@ -103,8 +105,8 @@ static struct {
     uint32_t iq_before[RTL_CU_IQ_FIELDS],iq_after[RTL_CU_IQ_FIELDS],iq_startup[RTL_CU_IQ_STARTUP_COUNT];
     unsigned iq_valid,iq_startup_reads;
     bool iq_attempted,iq_ready;
-    uint32_t b68_readback;
-    bool b68_attempted,b68_valid;
+    uint32_t b68_readback,sifs_readback;
+    bool b68_attempted,b68_valid,sifs_valid;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -241,9 +243,10 @@ static void rtl_cu_rx_log(void) {
             console_printf(" %x",((uint64_t)rtl_cu_iq_startup_regs[i]<<32)|rtl_passive.iq_startup[i]);
         console_write("\n");
     }
-    if(rtl_passive.b68_attempted)
-        console_printf("rtl8188cu-iq-b68: valid=%u value=%x\n",
-            (uint64_t)rtl_passive.b68_valid,(uint64_t)rtl_passive.b68_readback);
+    if(rtl_passive.iq_startup_reads==RTL_CU_IQ_STARTUP_COUNT)
+        console_printf("rtl8188cu-init-write: valid=%u values=%x\n",
+            (uint64_t)(rtl_passive.sifs_valid|(rtl_passive.b68_valid<<1)),
+            ((uint64_t)rtl_passive.sifs_readback<<32)|rtl_passive.b68_readback);
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -393,14 +396,20 @@ static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
         [RTL_CU_IQ_TX_CCA]={0xc4c,0xa0000000,0},
     };
     rtl_passive.iq_attempted=true;
-    uint32_t mac;
+    uint32_t mac,sifs_before=0;
     if(!rtl_cu_tx_parked(d) || !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) ||
        (mac&RTL_CU_RX_ENABLE))return false;
     for(unsigned i=0;i<RTL_CU_IQ_STARTUP_COUNT;i++) {
         if(!rtl8188cu_read(d,rtl_cu_iq_startup_regs[i],4,&rtl_passive.iq_startup[i]))return false;
         rtl_passive.iq_startup_reads++;
         if(rtl_cu_iq_startup_regs[i]==RTL_CU_LED_CONFIG && !(rtl_passive.iq_startup[i]&RTL_CU_RF_PATH_MUX))return false;
+        if(rtl_cu_iq_startup_regs[i]==RTL_CU_SPEC_SIFS)sifs_before=rtl_passive.iq_startup[i];
     }
+    /* SPEC_SIFS is a halfword. The upper half of this read is REG_RL. */
+    rtl_passive.sifs_valid=rtl8188cu_write_value(d,RTL_CU_SPEC_SIFS,2,RTL_CU_SPEC_SIFS_LINUX) &&
+        rtl8188cu_read(d,RTL_CU_SPEC_SIFS,4,&rtl_passive.sifs_readback);
+    if(!rtl_passive.sifs_valid ||
+       rtl_passive.sifs_readback!=((sifs_before&0xffff0000u)|RTL_CU_SPEC_SIFS_LINUX))return false;
     /* Match the full word retained by the Linux monitor on this board. */
     rtl_passive.b68_attempted=true;
     rtl_passive.b68_valid=rtl8188cu_write_value(d,RTL_CU_IQ_STARTUP_B68,4,RTL_CU_IQ_STARTUP_B68_LINUX) &&
