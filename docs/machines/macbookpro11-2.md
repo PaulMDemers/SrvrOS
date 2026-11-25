@@ -1173,6 +1173,22 @@ three hub leaves, clean workspace with 608 files and fresh independent
 journal. The unattended cold test saves control and receive evidence
 before returning to Ubuntu.
 
+Cold session `session-000661102b8060b9-00` changed `0xe4c` from
+`0x000028d1` to the Linux value `0x001028d1` with IQ mode clear.
+The RF mux, RF0, B68, SIFS and IQ matrix checks passed. The four-second
+receive window posted one 4,096-byte request. PHY parity failures
+rose from 23 to 2,456. The sampled good OFDM, CCK and HT counts stayed
+at zero, and the stop event left all 4,096 bytes outstanding.
+Demers2.4 discovery remained unresolved with the retained E4C control
+matched. The observed `0xe48` value was `0xfb000000`.
+
+All three adapters stayed on the hub. SrvrOS stopped the endpoint,
+parked the radio, preserved all 608 prior workspace files and returned
+to Ubuntu. Both saved paths include the E4C readback and RX evidence.
+The 31,314-byte exit snapshot and all seven independent journal phases
+verified. The exact image and logs are archived as
+`evidence-7cca15833b8598aa`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
