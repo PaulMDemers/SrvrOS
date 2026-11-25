@@ -1207,6 +1207,18 @@ bytes, and a transfer truncated within that prefix. This comparison
 uses PHY status as the only Linux descriptor-format addition.
 [Linux receive descriptor decoder](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.c)
 
+Candidate `b0f0990938eb6814` from `eb387210` passed the native xHCI
+driver-info write/readback, fixed-size RX, longer-prefix beacon,
+truncation and dropped-write tests. Firmware and USB lifecycle
+regressions passed. The collector verified setup receipts and
+bounded-tail replay. The exact image passed the GPT workspace
+and four journal/recovery VM checks. The installed hash matched
+the fresh build, with Ubuntu default and recovery `74da74e0b57afbb8`.
+The cold record `build/bringup/pro112-rtl8188cu-rx-physts/run.json`
+binds all three hub leaves, the clean workspace with 610 files and
+the fresh independent journal. The unattended trial saves the
+receive setup, MAC and USB results before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
