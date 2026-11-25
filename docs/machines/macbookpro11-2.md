@@ -1344,6 +1344,20 @@ clean exFAT, all 614 existing workspace files and Ubuntu's default
 boot. Evidence and the verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-0b2e4a530fce2b94`.
 
+#### RTL8188CUS receive and report enablement
+
+Compare the working Linux power, baseband and WMAC state with the
+armed SrvrOS endpoint. The captured Linux startup completes MAC
+auto-on, writes the APS_FSMCO radio/GPIO/LED enable value `0x0812`,
+then releases RF isolation. SrvrOS previously proceeded from the
+auto-on handshake to RF isolation release without that write. Test
+this one change in the native passive path before releasing RF
+isolation, with verified readback. Retain the fixed 4 KiB request,
+receive-only CR bits, TX pause and all three hub adapters. Record
+the remaining state differences without writing those registers.
+Main `61111819` and the open reviews have no overlapping changes.
+[Linux RTL8192CU MAC power sequence](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L390-L465)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
