@@ -134,6 +134,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         ]
         if keyboard_trial:
             expected += ["1. At srv>, type echo Ehci-42", "Keyboard unavailable. Reports 0. Last bytes 0."]
+            assert "Keyboard idle 32 ms" not in first and "FRINDEX " not in first
         else:
             expected.append("1. Wait for the result.")
         if args.stall_hub_status:

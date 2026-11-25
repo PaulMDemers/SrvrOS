@@ -20,6 +20,7 @@ static bool mock_flash;
 static struct ehci_dma *keyboard_dma;
 static unsigned keyboard_packet_bytes;
 static bool keyboard_stop_stuck;
+static bool keyboard_fetch;
 static uint64_t now;
 
 uint16_t pci_read_config16(const struct pci_device *p, uint8_t offset) {
@@ -57,6 +58,11 @@ bool timer_delay_us(uint64_t delay) {
     if (keyboard_dma) {
         if (op[EHCI_USBCMD] & EHCI_CMD_PERIODIC) {
             op[EHCI_USBSTS] |= EHCI_STS_PERIODIC;
+            op[EHCI_FRINDEX] = (op[EHCI_FRINDEX] + 1) & EHCI_FRINDEX_MASK;
+            if (delay == EHCI_KEYBOARD_POLL_US && keyboard_fetch) {
+                keyboard_dma->qh.current = 0x9000 + offsetof(struct ehci_dma, setup_td);
+                keyboard_dma->qh.overlay.buffer[1] = 0x04;
+            }
             if (delay == EHCI_KEYBOARD_POLL_US && keyboard_packet_bytes) {
                 keyboard_dma->setup_td.token = (EHCI_KEYBOARD_PACKET - keyboard_packet_bytes) << EHCI_TD_BYTES_SHIFT;
                 keyboard_dma->qh.overlay.token ^= EHCI_TD_DATA1;
@@ -139,6 +145,7 @@ static void fixture_reset(void) {
     keyboard_dma = 0;
     keyboard_packet_bytes = 0;
     keyboard_stop_stuck = false;
+    keyboard_fetch = true;
     now = 0;
 }
 
@@ -351,6 +358,10 @@ static void test_keyboard_report_schedule(void) {
     uint8_t bytes[8];
     assert(!keyboard_poll_once(&path, now, &toggle, bytes));
     assert(toggle == EHCI_TD_DATA1 && bytes[2] == 4 && report.keyboard_reports == 1);
+    assert(report.keyboard_first_report_us == EHCI_KEYBOARD_POLL_US + 2 * EHCI_POLL_US);
+    const struct ehci_keyboard_schedule *schedule = &report.keyboard_schedule;
+    assert(schedule->sampled && schedule->qtd_loaded && schedule->frame_index_changes == 2);
+    assert(schedule->c_progress_seen == 0x04 && (schedule->usbsts & EHCI_STS_PERIODIC));
     assert(!keyboard_poll_once(&path, now, &toggle, bytes));
     assert(!toggle && report.keyboard_reports == 2);
     assert(!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC));
@@ -359,7 +370,16 @@ static void test_keyboard_report_schedule(void) {
     assert(!strcmp(keyboard_poll_once(&path, now, &toggle, bytes), "unexpected boot report length"));
     assert(report.keyboard_bytes == 10 && report.keyboard_reports == 2);
     keyboard_packet_bytes = 0;
-    assert(!strcmp(keyboard_poll_once(&path, now - EHCI_KEYBOARD_WAIT_US, &toggle, bytes), "typing timeout"));
+    op[EHCI_FRINDEX] = EHCI_FRINDEX_MASK;
+    uint64_t start = now - (EHCI_KEYBOARD_WAIT_US - 2 * EHCI_KEYBOARD_POLL_US);
+    assert(!strcmp(keyboard_poll_once(&path, start, &toggle, bytes), "typing timeout"));
+    assert(schedule->first_frame_index == EHCI_FRINDEX_MASK && schedule->last_frame_index == 2);
+    assert(schedule->qtd_loaded && schedule->c_progress_seen == 0x04 && (report.keyboard_token & EHCI_TD_ACTIVE));
+    assert(!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC));
+    keyboard_fetch = false;
+    start = now - (EHCI_KEYBOARD_WAIT_US - 2 * EHCI_KEYBOARD_POLL_US);
+    assert(!strcmp(keyboard_poll_once(&path, start, &toggle, bytes), "typing timeout"));
+    assert(schedule->frame_index_changes && !schedule->qtd_loaded && !schedule->c_progress_seen);
     assert(!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC));
 
     keyboard_packet_bytes = 8;

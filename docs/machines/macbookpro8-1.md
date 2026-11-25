@@ -40,14 +40,15 @@ flash drive with a 600 ms bound for its initial device descriptor. The active
 input work uses the captured keyboard interface, EHCI periodic interrupts,
 the existing kernel HID decoder and a RAM-only attended boot profile. The
 first typing trial reached periodic polling and timed out with no completed
-report. The next evidence is frame-index progress and the queue-head overlay
-before schedule stop. Native workspace reads and writes require a separate
-mass-storage milestone.
+report. The active retry adds the HID idle request and records frame-index
+progress and the queue-head overlay before schedule stop. It compares the
+same endpoint with Ubuntu's running EHCI schedule. Native workspace reads
+and writes require a separate mass-storage milestone.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `841a5543`, and Apple Silicon runtime, login and export work
+USB Wi-Fi work at `eb387210`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
-dependency on those branches. The Air7,2 branch at `1a0b2213` also touches the
+dependency on those branches. The Air7,2 branch at `85aeb4ba` also touches the
 staging tool for graphics receipts, independently of the EHCI profile.
 Coordinate shared HID, storage or initialization changes if they become
 necessary. [Device coordination](../agent-coordination.md)
@@ -374,6 +375,23 @@ reached address 2. Ubuntu returned with a changed boot ID and the GRUB
 one-shot entry consumed. The topcase's Linux route and interface, installed
 manifests, firmware boot order and exFAT mount were rechecked. The transcript
 and exact payload were archived outside `build/`.
+
+### Keyboard periodic polling evidence
+
+Ubuntu's running `00:1a.7` schedule shows the same full-speed keyboard
+endpoint 3 IN, 10-byte packet size, 8 ms interval and split mask `0x1c01`.
+The trial keeps those settings and requests a keyboard report every 32 ms
+using report ID zero. The result screen records whether `SET_IDLE` completed,
+and the time to the first 8-byte report if one arrives. Typing still requires
+the expected line from the built-in keyboard. [Linux EHCI schedule format](https://raw.githubusercontent.com/torvalds/linux/master/drivers/usb/host/ehci-dbg.c) · [USB HID specification, section 7.2.4](https://www.usb.org/document-library/device-class-definition-hid-111)
+
+On failure the screen shows frame-index movement, whether the controller's
+current pointer matched the submitted qTD, the observed complete-split
+progress bits, and the last `USBSTS`, source qTD and queue-head overlay
+tokens. Samples are taken before schedule disable. Frame-index movement
+verifies the controller clock, while the current qTD pointer and overlay
+give separate evidence of traversal. The sampled progress mask can miss
+transient microframes. [Intel EHCI specification, sections 2.3.4 and 4.12.2](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/ehci-specification-for-usb.pdf)
 
 ## Capability ledger
 

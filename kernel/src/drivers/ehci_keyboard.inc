@@ -6,6 +6,9 @@
 #define EHCI_KEYBOARD_WAIT_US 90000000u
 #define EHCI_KEYBOARD_POLL_US 1000u
 #define EHCI_FRAME_ENTRIES (EHCI_PAGE_BYTES / sizeof(uint32_t))
+#define EHCI_FRINDEX_MASK 0x3fffu
+#define EHCI_HID_SET_IDLE 10u
+#define EHCI_KEYBOARD_IDLE_4MS 8u
 
 static bool captured_keyboard_interface(const uint8_t *configuration, uint16_t length) {
     if (!configuration || length < 9 || configuration[5] != 1) return false;
@@ -51,6 +54,23 @@ static void prepare_keyboard_poll(struct ehci_control_path *path, const struct e
     dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
 }
 
+static void sample_keyboard_schedule(const struct ehci_control_path *path) {
+    struct ehci_probe_report *report = path->report;
+    struct ehci_keyboard_schedule *schedule = &report->keyboard_schedule;
+    const volatile struct ehci_dma *dma = path->dma;
+    unsigned index = path->op[EHCI_FRINDEX] & EHCI_FRINDEX_MASK;
+    if (!schedule->sampled) schedule->first_frame_index = index;
+    else if (index != schedule->last_frame_index) schedule->frame_index_changes++;
+    schedule->sampled = true;
+    schedule->last_frame_index = index;
+    schedule->usbsts = path->op[EHCI_USBSTS];
+    schedule->overlay_token = dma->qh.overlay.token;
+    schedule->c_progress_seen |= dma->qh.overlay.buffer[1] & 0xffu;
+    uint32_t qtd = path->physical + offsetof(struct ehci_dma, setup_td);
+    schedule->qtd_loaded |= (dma->qh.current & ~31u) == qtd;
+    report->keyboard_token = dma->setup_td.token;
+}
+
 static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t start, uint32_t *toggle,
     uint8_t received[EHCI_KEYBOARD_REPORT]) {
     volatile uint32_t *op = path->op;
@@ -63,14 +83,16 @@ static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t s
     }
     prepare_keyboard_poll(path, &report->keyboard_target, *toggle);
     __asm__ volatile ("mfence" : : : "memory");
+    report->keyboard_schedule = (struct ehci_keyboard_schedule) {0};
+    sample_keyboard_schedule(path);
     op[EHCI_USBCMD] = command | EHCI_CMD_PERIODIC;
     const char *failure = "periodic enable timeout";
     if (wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, EHCI_STS_PERIODIC, EHCI_HALT_US)) {
         failure = "typing timeout";
         for (unsigned poll = 0; poll < EHCI_KEYBOARD_WAIT_US / EHCI_KEYBOARD_POLL_US; poll++) {
-            uint32_t token = dma->setup_td.token;
-            report->keyboard_token = token;
-            if ((op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) || (token & EHCI_TD_ERROR)) {
+            sample_keyboard_schedule(path);
+            uint32_t token = report->keyboard_token;
+            if ((report->keyboard_schedule.usbsts & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) || (token & EHCI_TD_ERROR)) {
                 failure = "interrupt transfer error";
                 break;
             }
@@ -85,6 +107,7 @@ static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t s
             }
         }
     }
+    sample_keyboard_schedule(path);
     /* Reuse the qTD and preserve its toggle only after PSS acknowledges stop. */
     op[EHCI_USBCMD] = command;
     if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, 0, EHCI_HALT_US)) return "periodic stop timeout";
@@ -97,6 +120,7 @@ static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t s
     report->keyboard_bytes = EHCI_KEYBOARD_PACKET - residual;
     if (report->keyboard_bytes != EHCI_KEYBOARD_REPORT) return "unexpected boot report length";
     for (unsigned i = 0; i < EHCI_KEYBOARD_REPORT; i++) received[i] = dma->data[i];
+    if (!report->keyboard_reports) report->keyboard_first_report_us = timer_monotonic_us() - start;
     report->keyboard_reports++;
     return 0;
 }
@@ -134,6 +158,12 @@ static const char *run_keyboard_trial(struct ehci_control_path *path, const char
     unsigned received;
     if (!control_transfer(path, target, &configuration, 0, &received)) return "SET_CONFIGURATION failed";
     if (!control_transfer(path, target, &boot_protocol, 0, &received)) return "SET_PROTOCOL failed";
+    const struct usb_setup_packet idle = { 0x21, EHCI_HID_SET_IDLE, EHCI_KEYBOARD_IDLE_4MS << 8, 0, 0 };
+    report->keyboard_idle = control_transfer(path, target, &idle, 0, &received) ? "accepted" : "refused";
+    if ((op[EHCI_USBCMD] & EHCI_CMD_SCHEDULES) ||
+        (op[EHCI_USBSTS] & (EHCI_STS_SCHEDULES | EHCI_STS_HALTED | EHCI_STS_HOST_ERROR))) {
+        return "idle request schedule unverified";
+    }
 
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {

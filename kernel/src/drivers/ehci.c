@@ -25,6 +25,7 @@
 #define EHCI_USBCMD (0x00u / 4)
 #define EHCI_USBSTS (0x04u / 4)
 #define EHCI_USBINTR (0x08u / 4)
+#define EHCI_FRINDEX (0x0cu / 4)
 #define EHCI_CTRLDSSEGMENT (0x10u / 4)
 #define EHCI_PERIODICLISTBASE (0x14u / 4)
 #define EHCI_ASYNCLISTADDR (0x18u / 4)
@@ -99,6 +100,17 @@ struct ehci_transfer_failure {
     bool qtd_valid;
 };
 
+struct ehci_keyboard_schedule {
+    unsigned first_frame_index;
+    unsigned last_frame_index;
+    unsigned frame_index_changes;
+    uint32_t usbsts;
+    uint32_t overlay_token;
+    uint32_t c_progress_seen;
+    bool sampled;
+    bool qtd_loaded;
+};
+
 struct ehci_probe_report {
     const char *result;
     const char *handoff;
@@ -125,6 +137,9 @@ struct ehci_probe_report {
     unsigned keyboard_reports;
     unsigned keyboard_bytes;
     uint32_t keyboard_token;
+    const char *keyboard_idle;
+    uint64_t keyboard_first_report_us;
+    struct ehci_keyboard_schedule keyboard_schedule;
     struct ehci_scan_step stopped;
     uint32_t stopped_usbsts;
     struct ehci_transfer_failure transfer_failure;
@@ -765,8 +780,21 @@ void ehci_boot_trial(const char *release, bool keyboard) {
         console_printf("Keyboard %s. Reports %u. Last bytes %u.\n",
             keyboard_passed ? "PASS" : input->keyboard_result ? input->keyboard_result : "unavailable",
             (uint64_t)input->keyboard_reports, (uint64_t)input->keyboard_bytes);
+        if (input->keyboard_idle) {
+            if (input->keyboard_reports) console_printf("Keyboard idle 32 ms %s. First report %u us.\n",
+                input->keyboard_idle, input->keyboard_first_report_us);
+            else console_printf("Keyboard idle 32 ms %s.\n", input->keyboard_idle);
+        }
+        const struct ehci_keyboard_schedule *schedule = &input->keyboard_schedule;
+        if (schedule->sampled && !keyboard_passed) {
+            console_printf("FRINDEX %u to %u changes=%u loaded=%u C-progress=%u\n",
+                (uint64_t)schedule->first_frame_index, (uint64_t)schedule->last_frame_index,
+                (uint64_t)schedule->frame_index_changes, (uint64_t)schedule->qtd_loaded,
+                (uint64_t)schedule->c_progress_seen);
+            console_printf("USBSTS=%x qTD=%x QH=%x\n",
+                (uint64_t)schedule->usbsts, (uint64_t)input->keyboard_token, (uint64_t)schedule->overlay_token);
+        }
         if (keyboard_passed) console_write("srv> echo Ehci-42\nEhci-42\n");
-        else if (input->keyboard_reports || input->keyboard_token) console_printf("Keyboard qTD=%x\n", (uint64_t)input->keyboard_token);
     }
     console_printf("ehci-trial: release=%s result=%s\n", release,
         trial_passed(&trial) && (!keyboard || keyboard_passed) ? "PASS" : "INCOMPLETE");
