@@ -313,7 +313,7 @@ class FlushAcknowledgements(unittest.TestCase):
                          ("backing=1 drivers=", "backing=0 drivers=")):
             with self.subTest(field=old), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(old, new))
-        legacy = re.sub(r"^intel-(?:efi-|air-rc6:)[^\n]*\n", "", text, flags=re.M)
+        legacy = re.sub(r"^intel-(?:efi-|air-rc6:|idle-change:|idle-engine:)[^\n]*\n", "", text, flags=re.M)
         legacy = legacy.replace("intel-command-slots: v=2 ", "intel-command-slots: v=1 ").replace("boot_returned=", "freed=")
         self.assertNotIn("efi_handoff", bootstrap_result(legacy)["range"])
 
@@ -430,7 +430,7 @@ class FlushAcknowledgements(unittest.TestCase):
         for field in ("pinned=5", "restored=5", "ro_mask=0"):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(field, field[:-1] + "4"))
-        old = re.sub(r"^intel-(?:command-slots|air-rc6):.*\n", "", text, flags=re.M).replace("intel-range-summary: v=8 ", "intel-range-summary: v=5 ").replace(
+        old = re.sub(r"^intel-(?:command-slots|air-rc6|idle-change|idle-engine):.*\n", "", text, flags=re.M).replace("intel-range-summary: v=8 ", "intel-range-summary: v=5 ").replace(
             "intel-slot-reopened: v=4 pinned=5 restored=5 ro_mask=0 writer=3 hwsp=0 hwstam=0xffffffff", "intel-slot-reopened: v=2")
         old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
             "intel-widi-device: v=2", "intel-widi-device: v=1")
