@@ -1219,6 +1219,22 @@ binds all three hub leaves, the clean workspace with 610 files and
 the fresh independent journal. The unattended trial saves the
 receive setup, MAC and USB results before returning to Ubuntu.
 
+Cold session `session-000661108fb26ed4-00` verified RCR
+`0x1000790f` and four driver-info units. The frame-admission fields
+matched the Linux reference. The four-second channel-10 window
+posted one 4,096-byte receive request. PHY parity failures rose
+from 26 to 3,954, while the good OFDM, CCK and HT counters remained
+zero. The sole transfer event stopped the request with all 4,096
+bytes outstanding. Demers2.4 discovery remained unresolved with
+the Linux PHY status prefix configured.
+
+All three adapters stayed on the hub. SrvrOS stopped the endpoint,
+parked the radio, preserved all 610 prior workspace files and
+returned to Ubuntu. Both persistent copies contain the setup
+readbacks and RX results. The 31,315-byte exit snapshot and all
+seven independent journal checkpoints verified. The image and
+evidence are archived as `evidence-b0f0990938eb6814`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
