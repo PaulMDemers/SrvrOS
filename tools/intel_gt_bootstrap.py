@@ -294,7 +294,7 @@ def bootstrap_result(text,*,native=False):
                 raise ValueError('MAX_IDLE trial sample version')
             flush_proof['idle_change'] = idle_change_result(text, flush_proof.get('idle_policy', []),
                                                            cold, timing, bool(entry and entry['wake']['summary']['complete']))
-        if any(line.startswith(('intel-park:', 'intel-park-frame:')) for line in text.splitlines()):
+        if any(line.startswith(('intel-park:', 'intel-park-')) for line in text.splitlines()):
             from intel_gt_park import park_result
             flush_proof['park'] = park_result(text, cold, flush_proof.get('idle_change', {}), timing,
                                               bool(entry and entry['wake']['summary']['complete']), flush_proof)

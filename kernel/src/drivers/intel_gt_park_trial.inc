@@ -4,7 +4,8 @@
 
 enum { PARK_CTL = 0xa090, PARK_STATE = 0xa094, PARK_RC6 = 4u << 16,
        PARK_AUTO = 0x90040000, PARK_POLLS = 8, PARK_WORDS = 24,
-       PARK_INTERVAL_US = BDW_TRAFFIC_BLOCK_US / PARK_POLLS };
+       PARK_INTERVAL_US = BDW_TRAFFIC_BLOCK_US / PARK_POLLS,
+       PARK_COLD_END_US = 5000, PARK_COLD_FIRST_POLL = 6 };
 enum park_op { PARK_OPEN, PARK_POLL, PARK_HELD, PARK_REOPEN };
 struct park_frame {
     uint64_t begin, end;
@@ -17,12 +18,23 @@ static struct {
     struct park_frame frames[1 + PARK_POLLS + 2 + 1];
     uint32_t original[2], programmed[2], at_return[2], restored[2];
     uint64_t poll_origin_us, returned_us, prepare_us;
+    struct bdw_pci_rc6_sample cold[2];
+    uint64_t rewake_us;
     uint32_t smi_last;
     unsigned smi_checks, panel_checks;
     uint32_t plane, surface, live;
-    unsigned frames_used, attempts, returns, held, mapped, unmapped;
+    unsigned frames_used, attempts, returns, held, mapped, unmapped, cold_count;
     bool active, sampled, returned, reopened;
 } air_park;
+
+static bool park_cold_trial(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_park_cold_trial();
+#else
+    return true;
+#endif
+}
 
 static bool park_owner(struct wake_adapter *a, struct intel_gt_access *g)
 {
@@ -111,6 +123,61 @@ static bool park_panel(void)
     return true;
 }
 
+static bool park_cold_guard(void)
+{
+    struct wake_adapter *a = air_park.adapter;
+    const struct intel_gt_access *g = air_park.owner;
+    if (!bootstrap_tick() || !wake_guard(a) || !g->pinned || g->state != GT_ACCESS_OPENING ||
+        !completion_mapping(a,0) || !completion_mapping(a,1) || !completion_mapping(a,2) ||
+        wake_pages[2] != 0x138000 || !park_panel()) return false;
+    uint32_t command, request, ack;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    command = intel_display_test_bootstrap_config(4);
+#else
+    command = pci_read_config32(a->fw.gt.a.common.gpu,4);
+#endif
+    if ((command & 0xffffu) != 3 || bootstrap_smi_count(BOOT_SMI_PARK) != bootstrap_smi.first) {
+        a->uncertain = true;
+        return false;
+    }
+    return wake_read(a,INTEL_GT_REQUEST,&request) && !(request & 0xffffu) &&
+           wake_read(a,INTEL_GT_ACK,&ack) && !ack;
+}
+
+static bool park_cold_point(void)
+{
+    uint64_t begin = timer_monotonic_us();
+    if (begin < air_park.poll_origin_us ||
+        begin - air_park.poll_origin_us >= BDW_TRAFFIC_BLOCK_US || !park_cold_guard()) return false;
+    struct bdw_pci_rc6_sample sample = {.begin_us=begin};
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_park_cold_read(air_park.cold_count,&sample.core_status,&sample.residency);
+#else
+    sample.core_status = *(volatile const uint32_t *)(WAKE_VA + 8192 + 0x60);
+    sample.residency = *(volatile const uint32_t *)(WAKE_VA + 8192 + 0x108);
+#endif
+    if (sample.core_status == UINT32_MAX || sample.residency == UINT32_MAX || !park_cold_guard()) return false;
+    sample.end_us = timer_monotonic_us();
+    if (sample.end_us <= begin || sample.end_us - air_park.poll_origin_us > BDW_TRAFFIC_BLOCK_US) return false;
+    air_park.cold[air_park.cold_count++] = sample;
+    return true;
+}
+
+static bool park_wait_offset(uint64_t offset, uint64_t previous)
+{
+    uint64_t now = timer_monotonic_us();
+    if (now < previous) return false;
+    uint64_t elapsed = now - air_park.poll_origin_us;
+    return elapsed >= offset || timer_delay_us(offset - elapsed);
+}
+
+static bool park_observe_cold(void *unused)
+{
+    (void)unused;
+    return park_cold_point() && park_wait_offset(PARK_COLD_END_US,air_park.cold[0].end_us) &&
+           park_cold_point();
+}
+
 static bool park_store(unsigned i, uint32_t value, uint32_t *readback)
 {
     unsigned reg = i ? PARK_STATE : PARK_CTL;
@@ -186,7 +253,8 @@ static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *dra
         uint64_t elapsed = f->begin - air_park.poll_origin_us;
         if (elapsed >= BDW_TRAFFIC_BLOCK_US) return false;
         /* The open frame precedes poll zero. Refuse a missed slot. */
-        if (op == PARK_POLL && elapsed / PARK_INTERVAL_US != air_park.frames_used - 2) return false;
+        unsigned slot = air_park.frames_used - 2 + (park_cold_trial() ? PARK_COLD_FIRST_POLL : 0);
+        if (op == PARK_POLL && elapsed / PARK_INTERVAL_US != slot) return false;
     }
     uint32_t ctl = requested ? PARK_RC6 : air_park.original[0];
     struct wake_adapter *a = air_park.adapter;
@@ -229,14 +297,17 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
     uint64_t begin = timer_monotonic_us();
     if (!begin) return false;
     air_park.poll_origin_us = begin;
-    for (unsigned i=0; i<PARK_POLLS; ++i) {
-        if (i) {
-            uint64_t now = timer_monotonic_us();
-            uint64_t offset = i * PARK_INTERVAL_US;
-            if (now < air_park.frames[air_park.frames_used-1].end) return false;
-            uint64_t elapsed = now - begin;
-            if (elapsed < offset && !timer_delay_us(offset - elapsed)) return false;
-        }
+    unsigned first = 0;
+    if (park_cold_trial()) {
+        if (begin > UINT64_MAX - BDW_TRAFFIC_BLOCK_US) return false;
+        bool observed = intel_gt_access_idle_diagnostic(g,&gt_bootstrap_native.borrow,
+                            begin+BDW_TRAFFIC_BLOCK_US,park_observe_cold,NULL);
+        if (g->state == GT_ACCESS_AWAKE && g->idle_writes == 2) air_park.rewake_us = g->last;
+        if (!observed || !park_owner(a,g) || !bootstrap_guard()) return false;
+        first = PARK_COLD_FIRST_POLL;
+    }
+    for (unsigned i=first; i<PARK_POLLS; ++i) {
+        if (i && !park_wait_offset(i * PARK_INTERVAL_US,air_park.frames[air_park.frames_used-1].end)) return false;
         if (!park_sample(&sample,PARK_POLL,&drained)) return false;
         struct park_frame *f = &air_park.frames[air_park.frames_used-1];
         if (f->count != 16) return false;
@@ -305,6 +376,16 @@ static bool park_before_prepare(struct wake_adapter *a, struct intel_gt_access *
 
 static void park_report(void)
 {
+    if (park_cold_trial()) {
+        const struct intel_gt_access *g = air_park.owner;
+        for (unsigned n=0; n<air_park.cold_count; ++n) {
+            const struct bdw_pci_rc6_sample *p = &air_park.cold[n];
+            console_printf("intel-park-rc6: v=1 n=%u begin=%u end=%u core=%x residency=%x\n",
+                (uint64_t)n,p->begin_us,p->end_us,(uint64_t)p->core_status,(uint64_t)p->residency);
+        }
+        console_printf("intel-park-forcewake: v=1 attempted=%u writes=%u rewake_us=%u\n",
+            (uint64_t)(g ? g->idle_attempts : 0),(uint64_t)(g ? g->idle_writes : 0),air_park.rewake_us);
+    }
     for (unsigned i=0; i<air_park.frames_used; ++i) {
         const struct park_frame *f = &air_park.frames[i];
         char encoded[(PARK_WORDS*4+2)/3*4+1];
@@ -312,8 +393,8 @@ static void park_report(void)
         console_printf("intel-park-frame: v=1 n=%u op=%u begin=%u end=%u words=%u data=%s\n",
             (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
     }
-    console_printf("intel-park: v=3 poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
-        air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
+    console_printf("intel-park: v=%u poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
+        (uint64_t)(park_cold_trial() ? 4 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
         (uint64_t)air_park.panel_checks,(uint64_t)air_park.plane,(uint64_t)air_park.surface,(uint64_t)air_park.live,
         (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
         (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,

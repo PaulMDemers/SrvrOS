@@ -28,34 +28,46 @@ static bool read_reg(struct intel_gt_access *g,uint32_t reg,uint32_t *v) {
 static bool read_pair(struct intel_gt_access *g) {
     return read_reg(g,INTEL_GT_REQUEST,&g->requests) && read_reg(g,INTEL_GT_ACK,&g->ack);
 }
-static bool write_reg(struct intel_gt_access *g,uint32_t value) {
+static bool write_request(struct intel_gt_access *g,uint32_t value,bool idle) {
     if(!guarded(g) || !clock_ok(g,g->last))return false;
-    g->write_attempts++;
+    unsigned *attempts = idle ? &g->idle_attempts : &g->write_attempts;
+    unsigned *writes = idle ? &g->idle_writes : &g->writes;
+    ++*attempts;
     enum intel_gt_write result=g->io.write(g->io.context,INTEL_GT_REQUEST,value);
-    if(result==GT_WRITE_DONE){g->writes++;return clock_ok(g,g->last);}
+    if(result==GT_WRITE_DONE){++*writes;return clock_ok(g,g->last);}
     /* Only a definitely unissued FIRST write can drop the pin immediately.
      * After initialization even a later zero-write refusal needs recovery. */
-    if(result==GT_WRITE_NONE && !g->writes && g->write_attempts==1) {
+    if(!idle && result==GT_WRITE_NONE && !g->writes && g->write_attempts==1) {
         if(display_access_unpin(&g->exclusion)){g->pinned=false;g->state=GT_ACCESS_CLOSED;}
     }
     return fail(g,GT_ACCESS_IO);
 }
-static bool wait_state(struct intel_gt_access *g,uint32_t desired,bool c0) {
+static bool write_reg(struct intel_gt_access *g,uint32_t value) {
+    return write_request(g,value,false);
+}
+static bool wait_state_until(struct intel_gt_access *g,uint32_t desired,bool c0,uint64_t deadline) {
     uint64_t phase=g->last;
     for(unsigned i=0;i<GT_ACCESS_POLL_CAP;i++) {
         g->polls++;
-        if(!clock_ok(g,phase) || !read_pair(g))return false;
+        if(!clock_ok(g,phase))return false;
+        if(g->last>=deadline)return fail(g,GT_ACCESS_TIMEOUT);
+        if(!read_pair(g))return false;
         /* All other requesters were retired by the audited caller. Their
          * appearance is ownership loss, never a bit we may clear or borrow. */
         if((g->requests&0xffffu)!=desired || (g->ack&~1u))return fail(g,GT_ACCESS_FOREIGN);
         if(g->ack==desired) {
-            if(!c0)return guarded(g) && clock_ok(g,phase);
+            if(!c0)return guarded(g) && clock_ok(g,phase) &&
+                (g->last<=deadline || fail(g,GT_ACCESS_TIMEOUT));
             if(!read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
-            if(!(g->thread&7))return guarded(g) && clock_ok(g,phase);
+            if(!(g->thread&7))return guarded(g) && clock_ok(g,phase) &&
+                (g->last<=deadline || fail(g,GT_ACCESS_TIMEOUT));
         }
         g->io.pause(g->io.context);
     }
     return fail(g,GT_ACCESS_TIMEOUT);
+}
+static bool wait_state(struct intel_gt_access *g,uint32_t desired,bool c0) {
+    return wait_state_until(g,desired,c0,UINT64_MAX);
 }
 static bool open_access(struct intel_gt_access *g,const struct display_access_token *t,
                         uint32_t grants,struct intel_gt_io io,bool guarded_snapshot) {
@@ -121,6 +133,22 @@ bool intel_gt_access_close(struct intel_gt_access *g) {
     if(g->last==phase)return clock_fail(g,g->last,phase,GT_CLOCK_FROZEN);
     if(!display_access_unpin(&g->exclusion))return fail(g,GT_ACCESS_EXCLUSION);
     g->pinned=false;g->state=GT_ACCESS_CLOSED;return true;
+}
+bool intel_gt_access_idle_diagnostic(struct intel_gt_access *g,const struct intel_gt_borrow *b,
+                                    uint64_t deadline,bool (*observe)(void *),void *context) {
+    if(!g || !b || !observe || g->idle_attempts || g->idle_writes || g->borrows!=1 ||
+       g->dependents!=b || b->object!=b || b->parent!=g || !b->active || b->next ||
+       !intel_gt_access_check(g) || g->last>=deadline)return false;
+    /* The HDA parent accepts OPENING, while all awake access paths refuse it. */
+    g->state=GT_ACCESS_OPENING;
+    if(!write_request(g,0x10000u,true) || !wait_state_until(g,0,false,deadline))return false;
+    bool observed=observe(context);
+    if(!read_pair(g) || (g->requests&0xffffu) || g->ack)return fail(g,GT_ACCESS_FOREIGN);
+    /* Reacquire the original request to permit safe policy rollback even
+     * when the observation itself timed out. Never qualify a late wake. */
+    if(!write_request(g,0x10001u,true) || !wait_state(g,1,true))return false;
+    g->state=GT_ACCESS_AWAKE;
+    return observed && g->last<=deadline;
 }
 bool intel_gt_access_borrow(struct intel_gt_access *g,struct intel_gt_borrow *b) {
     if(!b || b->object)return false;

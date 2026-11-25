@@ -324,6 +324,34 @@ class FlushAcknowledgements(unittest.TestCase):
             self.assertEqual(partial['summary']['reopened'], 1)
             self.assertEqual(partial['summary']['returns'], 2)
 
+    def test_park_forcewake_pause_and_restore(self):
+        text = observe('park-cold')
+        park = bootstrap_result(text)['flush']['park']
+        self.assertTrue(park['complete'])
+        self.assertFalse(park['powered_block_observed'] or park['fresh_l3'])
+        self.assertEqual(park['fresh_engine_mask'], 0)
+        cold = park['cold']
+        self.assertEqual(cold['residency_delta_mod32'], 4000)
+        self.assertEqual(cold['wake']['writes'], 2)
+        self.assertLessEqual(cold['samples'][1]['end'], cold['wake']['rewake_us'])
+        origin = park['summary']['poll_origin_us']
+        self.assertGreaterEqual(cold['samples'][1]['begin'], origin + 5000)
+        polls = [frame for frame in park['frames'] if frame['op'] == 1]
+        self.assertEqual([(frame['begin'] - origin) // 1250 for frame in polls], [6, 7])
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace('attempted=2 writes=2 rewake_us=', 'attempted=2 writes=1 rewake_us='))
+        fault = bootstrap_result(observe('park-cold-float'))['flush']['park']
+        self.assertFalse(fault['complete'])
+        self.assertIsNone(fault['cold']['residency_delta_mod32'])
+        self.assertEqual(fault['cold']['wake']['writes'], 2)
+        self.assertGreater(fault['cold']['wake']['rewake_us'], 0)
+        self.assertEqual(fault['summary']['returns'], 2)
+        retained = bootstrap_result(observe('park-cold-rewake'))
+        park = retained['flush']['park']
+        self.assertFalse(park['complete'])
+        self.assertEqual(park['cold']['wake']['rewake_us'], 0)
+        self.assertEqual(retained['reset']['reset_writes'], 0)
+
     def test_air_post_reset_baseline_refuses_software_park(self):
         flush = bootstrap_result(observe('park-reset-reasons'))['flush']
         park = flush['park']

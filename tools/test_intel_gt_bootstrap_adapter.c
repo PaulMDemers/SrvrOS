@@ -24,6 +24,9 @@ static uint32_t intel_display_test_idle_load(unsigned);
 static void intel_display_test_idle_store(unsigned,uint32_t);
 static uint32_t intel_display_test_park_read(unsigned);
 static void intel_display_test_park_store(unsigned,uint32_t);
+static bool intel_display_test_park_cold_trial(void);
+static bool intel_display_test_park_wake_step(uint32_t);
+static void intel_display_test_park_cold_read(unsigned,uint32_t *,uint32_t *);
 static unsigned model_engine_ro;
 static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 static uint32_t intel_display_test_bcs_stop_read(uint32_t);
@@ -125,6 +128,23 @@ static bool bf(const char *mode,unsigned n) {
 static uint32_t model_max_idle[5]={14,15,16,17,18};
 static unsigned model_idle_stores;
 static uint32_t park_model[2] = {PARK_AUTO,PARK_RC6};
+static bool intel_display_test_park_cold_trial(void) {
+    return !strncmp(bootstrap_mode,"park-cold",9);
+}
+static bool intel_display_test_park_wake_step(uint32_t value) {
+    if (!intel_display_test_park_cold_trial() || !air_park.active || !air_park.owner ||
+        air_park.owner->state!=GT_ACCESS_OPENING) return false;
+    assert(air_park.owner->idle_attempts==1 || air_park.owner->idle_attempts==2);
+    assert(value==(air_park.owner->idle_attempts==1 ? 0x10000u : 0x10001u));
+    if (value==0x10001u && !strcmp(bootstrap_mode,"park-cold-rewake")) wake_no_ack=true;
+    return true;
+}
+static void intel_display_test_park_cold_read(unsigned n,uint32_t *core,uint32_t *residency) {
+    assert(n<2 && !wake_ack && !(wake_request&0xffff) && wake_irq && gpu_command==3 &&
+           !pulses && !bcs_stop.writes && park_model[0]==PARK_RC6 && !display_access_allowed());
+    *core=3;
+    *residency=!strcmp(bootstrap_mode,"park-cold-float") && n ? UINT32_MAX : 0xffffff00u+4000u*n;
+}
 static void intel_display_test_park_store(unsigned reg,uint32_t value) {
     assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active && !model_engine_ro);
     assert(bootstrap_parent() && gpu_command == 3 && !pulses && !bwrites && !bcs_stop.writes);
@@ -133,7 +153,9 @@ static void intel_display_test_park_store(unsigned reg,uint32_t value) {
     park_model[reg == PARK_STATE] = value;
 }
 static uint32_t intel_display_test_park_read(unsigned reg) {
-    assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active);
+    assert(wake_irq && (wake_ack == 1 ||
+           (intel_display_test_park_cold_trial() && reg>=0x70180 && reg<=0x701ac)) &&
+           !display_access_allowed() && air_park.active);
     if (reg == PARK_CTL || reg == PARK_STATE) return park_model[reg == PARK_STATE];
     const struct park_frame *frame = &air_park.frames[air_park.frames_used-1];
     bool late = !strcmp(bootstrap_mode,"park-late-ack");
@@ -174,7 +196,7 @@ static void intel_display_test_idle_store(unsigned i,uint32_t value) {
 }
 bool timer_delay_us(uint64_t us) {
     if (air_park.active) {
-        assert(us && us <= PARK_INTERVAL_US && wake_irq && wake_ack == 1);
+        assert(us && wake_irq && (wake_ack ? us <= PARK_INTERVAL_US : us <= PARK_COLD_END_US));
         assert(park_model[0] == PARK_RC6 && gpu_command == 3 && !pulses && !bcs_stop.writes);
         if (!strcmp(bootstrap_mode,"park-wait-failed")) return false;
         ticks += us + (!strcmp(bootstrap_mode,"park-missed-slot") ? PARK_INTERVAL_US : 0);
@@ -538,7 +560,8 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 }
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") || !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
+ if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
+    !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
     !strcmp(bootstrap_mode,"flush-chatter") || !strcmp(bootstrap_mode,"flush-latched"))return true;
 #endif
 #ifdef SRVROS_INTEL_GT_AUX
@@ -1138,9 +1161,16 @@ int main(int argc,char **argv) {
   return code;
  }
  if(!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-panel-drift") ||
-    !strcmp(bootstrap_mode,"park-missed-slot") || !strcmp(bootstrap_mode,"park-wait-failed")) {
+    !strcmp(bootstrap_mode,"park-missed-slot") || !strcmp(bootstrap_mode,"park-wait-failed") ||
+    !strcmp(bootstrap_mode,"park-cold-float")) {
   assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
          air_park.returns==2 && park_model[0]==PARK_AUTO && !wake_ack && display_access_allowed());
+  return code;
+ }
+ if(!strcmp(bootstrap_mode,"park-cold-rewake")) {
+  assert(air_park.cold_count==2 && air_park.owner->idle_writes==2 && !air_park.rewake_us &&
+         !air_park.returned && !air_park.returns && !pulses && !bcs_stop.writes &&
+         intel_gt_wake_retained() && !display_access_allowed());
   return code;
  }
  if(!strcmp(bootstrap_mode,"idle-drift") || !strcmp(bootstrap_mode,"idle-capture-mismatch") || !strcmp(bootstrap_mode,"idle-apply-mismatch") ||

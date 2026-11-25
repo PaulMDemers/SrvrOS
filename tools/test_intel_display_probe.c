@@ -308,12 +308,19 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 #ifdef SRVROS_INTEL_JOINT
  assert(intel_display_test_joint_inhibited());
 #endif
- assert(wake_irq && !display_access_allowed());wake_writes++;
+ assert(wake_irq && !display_access_allowed());
+ bool idle=false;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ idle=intel_display_test_park_wake_step(v);
+#endif
+ if(!idle) {
+ ++wake_writes;
  unsigned step=wake_writes;
 #ifdef SRVROS_INTEL_GT_FLUSH
  assert(step<=6); step=(step-1)%3+1;
 #endif
  assert((step==1 && v==0xffff0000u) || (step==2 && v==0x10001) || (step==3 && v==0x10000));
+ }
  wake_request=(v&0xffff0000u)|((wake_request&0xffffu)&~(v>>16))|(v&0xffffu);
  if(wake_late_foreign)wake_request|=2;
  if(!wake_no_ack)wake_ack=wake_request&0xffffu;

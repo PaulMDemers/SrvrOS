@@ -59,6 +59,7 @@ struct intel_gt_access {
     uint64_t clock_sample,clock_previous,clock_phase;
     uint32_t clock_cause,snapshots;
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
+    unsigned idle_attempts, idle_writes;
     bool pinned,guarded_snapshot;
     unsigned borrows;
     /* Engine observations cannot cross a possibly issued destructive reset.
@@ -76,6 +77,10 @@ struct intel_gt_borrow {
  * close and requester restoration. Only a clean dependent may return its pin. */
 bool intel_gt_access_borrow(struct intel_gt_access *,struct intel_gt_borrow *);
 bool intel_gt_access_return(struct intel_gt_borrow *);
+/* One diagnostic pause with the sole dependent held. The observer may only
+ * use always-on registers. Its return must leave the owner and pin intact. */
+bool intel_gt_access_idle_diagnostic(struct intel_gt_access *, const struct intel_gt_borrow *,
+                                    uint64_t deadline, bool (*observe)(void *), void *);
 bool intel_gt_access_open(struct intel_gt_access *,const struct display_access_token *,uint32_t grants,struct intel_gt_io);
 /* The snapshot provider must run the full fresh adapter guard immediately
  * before loading the three requester registers. The core checks exclusion

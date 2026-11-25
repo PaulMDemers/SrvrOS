@@ -90,6 +90,13 @@ by 84,605 ticks over 105,435 µs. A follow-up can use a bounded forcewake
 release during the pre-reset park and measure residency across it. That
 measurement alone cannot establish a device-wide traffic block.
 
+The next Air diagnostic pauses the original forcewake request with the
+display and HDA leases pinned and PCI bus mastering inhibited. It samples
+the always-on RC6 counter with request and ACK clear at the start and
+again at 5 ms. It then reacquires the same request before checking
+powered engine and L3 status at 7.5 and 8.75 ms. The park receipt binds
+both samples and reacquisition to the existing 10 ms interval.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
