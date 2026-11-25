@@ -59,7 +59,19 @@ the traffic reads. The version 2 receipt records the park return and the start
 of preparation on the same guest clock. A completed observation can report
 that traffic stayed open. Only new acknowledgements from all five engines, a
 fresh L3 pulse with WiDi closed, and two subsequent held samples establish a
-powered block during this interval. Physical qualification is pending.
+powered block during this interval.
+
+Release `5c3e73bb4e1a2aed` at `6548205e` completed this diagnostic in
+`session-00066110f8945ca4-00`. Both park writes read back as requested.
+All eight polls over 155 µs saw `GO_GAM_REQ=0x00ff` and `MSG_GO_GAM=0x7f`.
+All five engine acknowledgements stayed clear, WiDi continued to permit
+traffic and the L3 flush acknowledgement stayed low. All 20 plane checks
+matched the original enabled scanout. The driver restored both policy
+registers and retired the temporary alias at 6,029,553 µs. Preparation
+started at 6,029,554 µs and the subsequent reset sequence completed.
+Ubuntu verified the matching logs and clean exFAT return. Device-wide
+traffic exclusion and tear-free scanout remain pending. The eight polls
+occupied only 155 µs of the existing 10 ms budget with forcewake held.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

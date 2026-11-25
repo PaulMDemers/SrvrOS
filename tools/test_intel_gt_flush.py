@@ -1,6 +1,7 @@
 """Exercise the Broadwell hardware acknowledgement capture and its receipts."""
 
 import base64
+import json
 import subprocess
 import re
 import tempfile
@@ -263,6 +264,7 @@ class FlushAcknowledgements(unittest.TestCase):
         positive = observe('park-ack')
         for text, expected in ((positive, True), (observe('pass'), False)):
             park = bootstrap_result(text)['flush']['park']
+            self.assertEqual(park, json.loads(json.dumps(park)))
             self.assertTrue(park['complete'])
             self.assertEqual(park['powered_block_observed'], expected)
             self.assertEqual(park['fresh_engine_mask'], 31 if expected else 0)

@@ -56,7 +56,7 @@ def park_result(text, cold, change, timing, wake_complete, flush):
         raw = base64.b64decode(m[6], validate=True)
         require(n == len(frames) < 12 and size <= (15, 16, 20, 15)[op] and len(raw) == size * 4
                 and begin >= previous and (not end or end > begin))
-        frames.append(dict(op=op, begin=begin, end=end, words=struct.unpack(f'<{size}I', raw)))
+        frames.append(dict(op=op, begin=begin, end=end, words=list(struct.unpack(f'<{size}I', raw))))
         previous = max(end, begin)
     result = dict(summary=h, frames=frames, complete=False, powered_block_observed=False,
                   fresh_engine_mask=0, fresh_l3=False, hardware_ownership=False)
