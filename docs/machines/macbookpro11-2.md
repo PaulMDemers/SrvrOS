@@ -1128,6 +1128,22 @@ three hub leaves, the clean workspace with 606 files and the new
 independent journal. The unattended trial saves the timing readback,
 MAC and USB results before returning.
 
+Cold session `session-0006610fd46be243-00` verified the SIFS halfword
+at `0x428`. The full readback changed from `0x07071616` to
+`0x07070a10`, preserving the retry limit. The RF mux, RF0, B68 and
+IQ matrix checks passed. PHY parity failures rose from 26 to 4,272
+during the four-second receive window. Good OFDM, CCK and HT counts
+remained zero. The single 4,096-byte bulk IN request returned no data.
+The stop event reported all 4,096 bytes outstanding.
+Demers2.4 discovery remained unresolved with the Linux SIFS word.
+
+All three adapters stayed on the hub. SrvrOS stopped the endpoint,
+parked the radio, preserved all 606 prior workspace files and returned
+to Ubuntu. Both persistent copies contain the timing and RX results.
+The 31,313-byte exit snapshot and all seven independent journal
+checkpoints verified. The image and evidence are archived as
+`evidence-e838bed24355cc07`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
