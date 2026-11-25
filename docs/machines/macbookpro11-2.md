@@ -1161,6 +1161,18 @@ retained IQ matrix and arming bulk IN. The startup snapshot records
 startup receipt records SIFS, B68 and the new control readback.
 [Linux path-A IQ calibration](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c)
 
+Candidate `7cca15833b8598aa` from `88f18228` passed the native xHCI
+control write and readback, dropped-write and active IQ mode refusals,
+4,096-byte receive and beacon tests. Firmware and USB lifecycle
+regressions passed. The collector decoded all three control outcomes
+and the journal replay. The exact image passed the GPT workspace and
+four journal/recovery VM checks. The install matched the fresh
+kernel hash. Ubuntu remains default with recovery `74da74e0b57afbb8`.
+The run record `build/bringup/pro112-rtl8188cu-e4c/run.json` binds the
+three hub leaves, clean workspace with 608 files and fresh independent
+journal. The unattended cold test saves control and receive evidence
+before returning to Ubuntu.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
