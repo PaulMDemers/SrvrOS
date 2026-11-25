@@ -127,6 +127,7 @@ static unsigned model_idle_stores;
 static uint32_t park_model[2] = {PARK_AUTO,PARK_RC6};
 static void intel_display_test_park_store(unsigned reg,uint32_t value) {
     assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active && !model_engine_ro);
+    assert(bootstrap_parent() && gpu_command == 3 && !pulses && !bwrites && !bcs_stop.writes);
     assert((reg == PARK_CTL && (value == PARK_AUTO || value == PARK_RC6)) ||
            (reg == PARK_STATE && value == PARK_RC6));
     park_model[reg == PARK_STATE] = value;
@@ -138,6 +139,9 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     bool blocked = !strcmp(bootstrap_mode,"park-ack") && park_model[0] == PARK_RC6;
     bool stale = !strcmp(bootstrap_mode,"park-early-l3") && frame->op == PARK_POLL;
     switch (reg) {
+    case 0x70180: return 0xd8000400;
+    case 0x7019c: return 0;
+    case 0x701ac: return !strcmp(bootstrap_mode,"park-panel-drift") && frame->op==PARK_POLL ? 0x1000 : 0;
     case 0x40d0:
         if (!strcmp(bootstrap_mode,"park-reset-reasons")) return 0x7fff;
         return blocked ? 0 : 0xff;
@@ -177,7 +181,7 @@ bool timer_delay_us(uint64_t us) {
 static void intel_display_test_cold_sample(unsigned n, uint32_t *core, uint32_t *residency,
                                           uint32_t *plane, uint32_t *programmed, uint32_t *live) {
     if (n >= 6) assert(joint.scope.state == IHG_CLOSED && joint.h.initial.command == 6 && !joint_terminal());
-    if (n >= 2) assert(park_model[0] == (n <= 5 ? PARK_RC6 : PARK_AUTO));
+    assert(park_model[0] == PARK_AUTO && !air_park.active);
     if (n >= 2 && n <= 5) assert(joint.scope.state == IHG_ACTIVE && joint.h.initial.command == 2);
     for (unsigned i=0; i<5; ++i) assert(model_max_idle[i] == (n>=2 && n<=5 ? 10 : 14+i));
     *plane = 0xd8000400u;
@@ -343,6 +347,8 @@ static void intel_display_test_bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uin
 }
 static uint32_t intel_display_test_bootstrap_smi_count(unsigned point) {
  assert(wake_irq && !display_access_allowed());
+ if(point==BOOT_SMI_PARK)
+  return bootstrap_smi.first + bf("park-smi",air_park.smi_checks);
  assert(point>=BOOT_SMI_START && point<=BOOT_SMI_END);
  unsigned sample=bootstrap_smi.reads+1;
  if(!strcmp(bootstrap_mode,"smi-wrap"))return bf("smi-wrap",sample)?0:UINT32_MAX;
@@ -970,7 +976,7 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
     *out=0x40004321u;
     if(bf("flush-busy",4*n+i-8))*out|=(i-8)<<16;
   } else if(i==13)*out=PARK_AUTO;
-  else if(i==14)*out=n>=2?0x40000:0;
+  else if(i==14)*out=PARK_RC6;
   else *out=625;
   if(bf("flush-float",flush_reads))*out=UINT32_MAX;
   if(bf("flush-clock",flush_reads))ticks=gt_bootstrap_native.begin+INTEL_DIAGNOSTIC_PREPARE_US+1;
@@ -1110,13 +1116,18 @@ int main(int argc,char **argv) {
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"park-smi")) {
+  assert(!gt_bootstrap_native.complete && !pulses && !bcs_stop.writes && !air_park.returned);
+  assert(air_park.smi_checks==fault_at && !air_park.prepare_us);
+  return code;
+ }
  if(!strcmp(bootstrap_mode,"park-reset-reasons")) {
   assert(air_park.attempts==0 && air_park.returns==0 && !air_park.sampled && !air_park.held);
   assert(air_park.mapped && air_park.unmapped && air_park.returned && model_idle_stores==10 &&
          air_idle.returned==31 && !wake_ack && display_access_allowed());
   return code;
  }
- if(!strcmp(bootstrap_mode,"park-early-l3")) {
+ if(!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-panel-drift")) {
   assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
          air_park.returns==2 && park_model[0]==PARK_AUTO && !wake_ack && display_access_allowed());
   return code;

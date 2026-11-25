@@ -51,7 +51,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     self.assertEqual(flush["media_outstanding"], [dict.fromkeys(MEDIA_WORDS, 0)] * 4)
                     power = flush["power_controls"]
                     self.assertEqual([p["requested_clients"] for p in power], [0x5f, 0x5f if mode == "flush-quiet" else 0, 0x5f, 0x5f])
-                    self.assertEqual([p["sw_target"] for p in power], [0, 0, 4, 4])
+                    self.assertEqual([p["sw_target"] for p in power], [4, 4, 4, 4])
                     self.assertEqual([p["rc6_enabled"] for p in power], [True, True, True, True])
                     self.assertTrue(all(p["threshold_ticks"] == 625 for p in power))
                     idle = mode != "flush-quiet"
@@ -268,9 +268,19 @@ class FlushAcknowledgements(unittest.TestCase):
             self.assertEqual(park['fresh_engine_mask'], 31 if expected else 0)
             self.assertEqual(park['fresh_l3'], expected)
             self.assertFalse(park['hardware_ownership'])
-        early = bootstrap_result(observe('park-early-l3'))['flush']['park']
-        self.assertFalse(early['complete'])
-        self.assertEqual(early['summary']['reopened'], 1)
+        for mode in ('park-early-l3', 'park-panel-drift'):
+            early = bootstrap_result(observe(mode))['flush']['park']
+            self.assertFalse(early['complete'])
+            self.assertEqual(early['summary']['reopened'], 1)
+        header = next(l for l in positive.splitlines() if l.startswith('intel-park:'))
+        registered = bootstrap_result(positive)['flush']
+        checked = registered['park']
+        self.assertLessEqual(checked['frames'][-1]['end'], checked['summary']['returned_us'])
+        self.assertLessEqual(checked['summary']['prepare_us'], registered['stop_messages']['begin'])
+        for key, stamp in (('returned_us', checked['frames'][-1]['end'] - 1),
+                           ('prepare_us', registered['stop_messages']['begin'] + 1)):
+            with self.assertRaises(ValueError):
+                bootstrap_result(positive.replace(header, re.sub(key + r'=\d+', f'{key}={stamp}', header)))
         row = next(l for l in positive.splitlines() if l.startswith('intel-park-frame: v=1 n=2 '))
         data = bytearray(base64.b64decode(row.split('data=')[1]))
         for offset, value in ((4, 0), (5, 0x10), (6, 0x10)):
@@ -283,6 +293,14 @@ class FlushAcknowledgements(unittest.TestCase):
                               ('final_ctl=0x40000','final_ctl=0x90040000')):
             with self.assertRaises(ValueError):
                 bootstrap_result(positive.replace(before, after))
+
+    def test_park_firmware_interference_stops_before_preparation(self):
+        for at in range(1, 5):
+            result = bootstrap_result(observe('park-smi', at))
+            self.assertFalse(result['complete'])
+            self.assertFalse(result['flush']['park']['complete'])
+            self.assertEqual(result['reset']['reset_writes'], 0)
+            self.assertEqual(result['flush']['bcs_stop']['writes'], 0)
 
     def test_air_post_reset_baseline_refuses_software_park(self):
         flush = bootstrap_result(observe('park-reset-reasons'))['flush']

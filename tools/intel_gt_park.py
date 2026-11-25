@@ -33,13 +33,16 @@ def held_frame(w):
             and not (w[12] | w[14] | w[16]) & 0x11 and w[13] & 1 and not w[15] & 2)
 
 
-def park_result(text, cold, change, timing, wake_complete):
+def park_result(text, cold, change, timing, wake_complete, flush):
     lines = text.splitlines()
     headers = [l for l in lines if l.startswith('intel-park:')]
     require(len(headers) == 1)
     regs = ('ctl', 'target', 'set_ctl', 'set_target', 'final_ctl', 'final_target', 'restore_ctl', 'restore_target')
     counts = ('attempts', 'returns', 'opened', 'unmapped', 'sampled', 'held', 'reopened', 'returned')
-    h = fields(headers[0], 'intel-park:', ('v', *counts, *regs), regs)
+    pre_reset = headers[0].startswith('intel-park: v=2 ')
+    panel = ('plane', 'surface', 'live') if pre_reset else ()
+    stamps = ('returned_us', 'prepare_us', 'smi_checks', 'smi_last', 'panel_checks') if pre_reset else ()
+    h = fields(headers[0], 'intel-park:', ('v', *stamps, *panel, *counts, *regs), (*regs, *panel), versions=(2,) if pre_reset else (1,))
     require(h['returns'] <= h['attempts'] <= 2 and h['unmapped'] <= h['opened'] <= 1 and
             max(h['sampled'], h['reopened'], h['returned']) <= 1 and h['held'] <= 2)
     frames = []
@@ -57,7 +60,22 @@ def park_result(text, cold, change, timing, wake_complete):
         previous = max(end, begin)
     result = dict(summary=h, frames=frames, complete=False, powered_block_observed=False,
                   fresh_engine_mask=0, fresh_l3=False, hardware_ownership=False)
-    if not (h['sampled'] and h['returned'] and h['reopened'] and len(cold.get('samples', [])) == 9):
+    if pre_reset:
+        baseline = flush.get('samples', [])
+        stop = flush.get('stop_messages')
+        if frames:
+            require(baseline and baseline[0]['end'] <= frames[0]['begin'])
+        if h['returned_us']:
+            require(h['returned'] and h['attempts'] == h['returns'] and h['opened'] == h['unmapped']
+                    and previous <= h['returned_us'])
+        if h['prepare_us']:
+            require(0 < h['returned_us'] <= h['prepare_us'])
+        if stop:
+            require(0 < h['prepare_us'] <= stop['begin'])
+        interval_complete = bool(h['prepare_us'])
+    else:
+        interval_complete = len(cold.get('samples', [])) == 9
+    if not (h['sampled'] and h['returned'] and h['reopened'] and interval_complete):
         require(not wake_complete)
         return result
     require(h['attempts'] == h['returns'] == 2 and h['opened'] == h['unmapped'] == 1 and
@@ -68,10 +86,18 @@ def park_result(text, cold, change, timing, wake_complete):
     for f in frames:
         require(len(f['words']) == (15, 16, 20, 15)[f['op']] and 0xffffffff not in f['words']
                 and 0 < f['end'] - f['begin'] <= 10000)
-    require(open_frame(frames[0]['words']) and open_frame(frames[-1]['words']) and
-            change['summary']['apply_end'] <= frames[0]['begin'] and frames[-2]['end'] <= timing['gt_end']
-            and frames[-2]['end'] - polls[0]['begin'] <= 10000 and
-            cold['samples'][5]['end'] <= frames[-1]['begin'] < frames[-1]['end'] <= change['summary']['restore_begin'])
+    require(open_frame(frames[0]['words']) and open_frame(frames[-1]['words'])
+            and frames[-2]['end'] - polls[0]['begin'] <= 10000)
+    if pre_reset:
+        points = cold.get('samples', [])
+        require(points and h['panel_checks'] == 2 * len(frames) and h['plane'] & (1 << 31)
+                and h['plane'] == points[0]['plane'] and h['surface'] & ~8 == points[0]['programmed'] & ~8
+                and h['live'] == points[0]['live'] == h['surface'] & ~8)
+        require(baseline[0]['rc_control'] == AUTO and baseline[0]['rc_target'] == PARK
+                and h['smi_checks'] == 4 and h['smi_last'] == flush['smi_guard']['first'])
+    else:
+        require(change['summary']['apply_end'] <= frames[0]['begin'] and frames[-2]['end'] <= timing['gt_end']
+                and cold['samples'][5]['end'] <= frames[-1]['begin'] < frames[-1]['end'] <= change['summary']['restore_begin'])
     low = high = fresh = drained = False
     engine_ack = go_closed = request_closed = response_closed = 0
     for f in polls:

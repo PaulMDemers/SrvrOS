@@ -836,8 +836,7 @@ static bool air_idle_restore(struct wake_adapter *a, struct intel_gt_access *g)
 static bool air_idle_trial(struct wake_adapter *a, struct intel_gt_access *g, unsigned grants)
 {
     bool applied = grants == GT_ACCESS_REQUIRED && air_idle_apply(a,g);
-    if (applied) applied = park_start(a,g);
-    if (!applied && (!park_restore(a,g) || (air_idle.attempted && !air_idle_restore(a,g)))) {
+    if (!applied && air_idle.attempted && !air_idle_restore(a,g)) {
         a->uncertain = true;
         return false;
     }
@@ -850,7 +849,7 @@ static bool air_idle_trial(struct wake_adapter *a, struct intel_gt_access *g, un
         (void)air_rc6_delayed(a,5,80000,wake_guard);
     struct intel_gt_access *r = &air_idle.restore_owner;
     if (!intel_gt_access_open_with_guarded_snapshot(r,&a->fw.gt.token,grants,g->io) ||
-        !park_restore(a,r) || !air_idle_restore(a,r) || !intel_gt_access_close(r)) a->uncertain = true;
+        !air_idle_restore(a,r) || !intel_gt_access_close(r)) a->uncertain = true;
     return true; /* The reset owner's own closing receipt is independent. */
 }
 

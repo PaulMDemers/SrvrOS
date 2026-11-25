@@ -819,7 +819,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    console_write("intel-power: requesting software RC6; checking GAM, five engines, WiDi and L3 under forcewake. Original panel active; silent automatic return.\n");
+    console_write("intel-power: pre-reset software RC6 park before blitter stop; checking GAM, five engines, WiDi and L3 under forcewake. Original panel active; silent automatic return.\n");
     console_write("intel-power: saving all five post-reset MAX_IDLE values, setting each to 10 and checking readback. No input.\nintel-power: measuring RC6 for 100ms on the active panel, then restoring each engine and sampling again.\n");
     console_write("intel-bcs: stopping the idle blitter, then sampling WiDi, engines and L3 before reset. Original panel active. No input.\n");
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");

@@ -297,7 +297,7 @@ def bootstrap_result(text,*,native=False):
         if any(line.startswith(('intel-park:', 'intel-park-frame:')) for line in text.splitlines()):
             from intel_gt_park import park_result
             flush_proof['park'] = park_result(text, cold, flush_proof.get('idle_change', {}), timing,
-                                              bool(entry and entry['wake']['summary']['complete']))
+                                              bool(entry and entry['wake']['summary']['complete']), flush_proof)
     elif any(l.startswith(('intel-flush-','intel-l3-power:','intel-smi-guard:','intel-widi-','intel-slot-widi:','intel-slot-reopened:','intel-slot-queues:','intel-command-slots:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,

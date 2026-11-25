@@ -87,7 +87,7 @@ static bool bootstrap_fail(unsigned reason) {
  * access and cannot speak for other logical CPUs or independent requesters. */
 enum bootstrap_smi_point {
  BOOT_SMI_START=1, BOOT_SMI_PCI, BOOT_SMI_ENGINE, BOOT_SMI_TRANSLATION,
- BOOT_SMI_RETURN, BOOT_SMI_END,
+ BOOT_SMI_RETURN, BOOT_SMI_END, BOOT_SMI_PARK,
 };
 enum {BOOT_SMI_UNAVAILABLE=1, BOOT_SMI_CHANGED=2, BOOT_SMI_FAULT=2048};
 static struct {
@@ -108,6 +108,18 @@ static bool bootstrap_smi_supported(void) {
  bootstrap_smi_cpuid(1,&a,&b,&c,&d);
  return a==0x306d4 && (d&(1u<<5)) && !(c&(1u<<31));
 }
+static uint32_t bootstrap_smi_count(enum bootstrap_smi_point point) {
+ uint32_t count;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ count=intel_display_test_bootstrap_smi_count(point);
+#else
+ (void)point;
+ uint32_t reserved;
+ __asm__ volatile("lfence; rdmsr; lfence":"=a"(count),"=d"(reserved):"c"(0x34):"memory");
+ (void)reserved;
+#endif
+ return count;
+}
 static bool bootstrap_smi_check(enum bootstrap_smi_point point) {
  if(bootstrap_smi.fault)return false;
  bootstrap_smi.point=point;
@@ -115,14 +127,7 @@ static bool bootstrap_smi_check(enum bootstrap_smi_point point) {
   bootstrap_smi.fault=BOOT_SMI_UNAVAILABLE;
   return bootstrap_fail(BOOT_SMI_FAULT);
  }
- uint32_t count;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- count=intel_display_test_bootstrap_smi_count(point);
-#else
- uint32_t reserved;
- __asm__ volatile("lfence; rdmsr; lfence":"=a"(count),"=d"(reserved):"c"(0x34):"memory");
- (void)reserved;
-#endif
+ uint32_t count=bootstrap_smi_count(point);
  if(!bootstrap_smi.reads++)bootstrap_smi.first=count;
  bootstrap_smi.last=count;
  if(count==bootstrap_smi.first)return true;
@@ -662,7 +667,9 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
 #endif
  if(!bootstrap_command(3) || !bootstrap_pci(1))goto fail;
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!gt_flush_sample(0) || !bcs_stop_request() || !gt_prepare_messages(0))goto fail;
+ if(!gt_flush_sample(0) || !park_before_prepare(a,g) || !bootstrap_tick())goto fail;
+ air_park.prepare_us=gt_bootstrap_native.last;
+ if(air_park.prepare_us<air_park.returned_us || !bcs_stop_request() || !gt_prepare_messages(0))goto fail;
 #endif
  if(!bootstrap_prepare())goto fail;
 #ifdef SRVROS_INTEL_GT_FLUSH

@@ -50,12 +50,16 @@ display and forcewake leases. Ubuntu verified the session and offline USB
 integrity. This run closed as rejected. Device-wide traffic blocking and
 fresh engine/L3 acknowledgements remain unverified.
 
-The next park trial belongs before engine preparation and the first GT reset.
-This run's first sample had `GO_GAM_REQ=0x00ff`, all five engine flush bits
-low and L3 low. Establish the live GT and display leases there, recheck the
-open state including WiDi, then request, observe and restore the park policy
-within that ownership interval. Keep the post-reset refusal in the host
-regressions.
+The Air7,2 pre-reset park trial runs after the first traffic sample, while the
+display and GT leases are held and PCI bus mastering is inhibited. It restores
+the original park policy and verifies open traffic before the blitter stop,
+five-engine preparation and first GT reset. Each powered sample checks the
+enabled primary plane and its programmed and live surface on both sides of
+the traffic reads. The version 2 receipt records the park return and the start
+of preparation on the same guest clock. A completed observation can report
+that traffic stayed open. Only new acknowledgements from all five engines, a
+fresh L3 pulse with WiDi closed, and two subsequent held samples establish a
+powered block during this interval. Physical qualification is pending.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
