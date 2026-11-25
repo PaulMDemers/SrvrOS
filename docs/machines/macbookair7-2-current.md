@@ -73,11 +73,22 @@ Ubuntu verified the matching logs and clean exFAT return. Device-wide
 traffic exclusion and tear-free scanout remain pending. The eight polls
 occupied only 155 µs of the existing 10 ms budget with forcewake held.
 
-The next Air trial changes the pre-reset park sampler and its receipt.
-It targets one poll at the start of each 1.25 ms interval, with the last
-at 8.75 ms. A fresh drain triggers immediate hold checks within the same
-10 ms deadline. The collector checks each poll against the saved start
-time. The original Pipe A surface stays active throughout the trial.
+Release `0ae4269ba6159861` at `7f276f8c` completed the spaced pre-reset
+park trial in `session-000661117c203eb8-00`. The eight polls started at
+0, 1,251, 2,501, 3,750, 5,001, 6,251, 7,502 and 8,751 µs. The last
+read finished at 8,764 µs within the 10 ms window. Every poll saw
+`GO_GAM_REQ=0x00ff`, `MSG_GO_GAM=0x7f` and WiDi open. None of the
+five engines acknowledged and the L3 flush acknowledgement stayed low.
+All 20 display checks matched the enabled Pipe A plane and original
+programmed and live surface. Both park registers were restored and the
+temporary alias retired before engine preparation. Ubuntu replayed
+the saved session and the offline exFAT check found zero errors.
+
+Forcewake was held throughout park polling. In the separate post-reset
+MAX_IDLE=10 measurement with forcewake released, RC6 residency advanced
+by 84,605 ticks over 105,435 µs. A follow-up can use a bounded forcewake
+release during the pre-reset park and measure residency across it. That
+measurement alone cannot establish a device-wide traffic block.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
