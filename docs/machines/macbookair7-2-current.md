@@ -28,12 +28,17 @@ idle interval after display-audio release was 102.735 ms. All seven original
 command-slot translations matched, all 19 EFI-reserved pages verified and
 the offline exFAT allocation check found zero errors.
 
-PR 301 is qualifying a controlled MAX_IDLE trial in the Air flush diagnostic.
-With display audio held after reset, it saves each engine's live value,
-writes 10 and verifies readback. It releases forcewake for a 100 ms RC6
-measurement, reacquires it to check that each engine still reads 10, then
-restores and verifies each saved value. A second 100 ms interval records
-residency after restoration and audio release. The original panel stays active.
+Release `0de8f1147c7d3102` at `1a0b2213` completed the MAX_IDLE trial
+in session `session-0006610fd7bb5311-00`. All five engines started at 64
+after reset, read back 10 immediately and again after the measurement, and
+read back 64 after restoration. With display audio held and forcewake
+released, RC6 residency advanced by 19,876 ticks over the 22.716 ms window
+and by 84,585 ticks over the full 105.436 ms window. After restoration
+and display-audio release, it advanced by zero ticks over 102.735 ms.
+All nine samples showed clear forcewake ACK and the original enabled
+primary plane, programmed surface and live surface. Ubuntu collected the
+matching report and the offline exFAT allocation check found zero errors.
+
 Native command submission still requires a device-wide traffic block and
 fresh engine and L3 acknowledgements.
 
