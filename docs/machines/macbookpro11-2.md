@@ -1375,8 +1375,33 @@ APS write, already configured path, busy/readback refusal, fixed
 4 KiB request and beacon parsing. Exact-image tests passed the GPT
 workspace rehearsal and the four journal availability cases. The
 decoder retained the new enablement snapshot and all three counter
-samples in both bounded journal checkpoints. Live receive acceptance
-is pending.
+samples in both bounded journal checkpoints.
+
+Cold session `session-00066111d45ec334-00` recorded APS_FSMCO
+`0x0002` before the write and `0x0812` immediately afterward and
+while RX was armed. All 24 enablement reads succeeded and matched
+between the workspace and EFI journal. The three hub adapters were
+present. Baseband parity failures rose from 47 to 1,834 and
+illegal-rate detections from 39 to 1,763. All 14 hardware receive
+reports stayed at zero, with no FIFO movement or Demers2.4 beacons.
+The fixed 4 KiB request timed out. Stop Endpoint produced code 26
+with 4,096 bytes remaining, and the probe parked the radio.
+
+SrvrOS and the working Linux reference agreed on APS, SYS_FUNC_EN,
+SYS_CLKR, APSD_CTRL, WMAC_TRXPTCL_CTL, PHY mode, packet limit and
+driver-info size. The raw remaining differences (SrvrOS / Linux)
+were `0x000 0x80f8/0x8000`, `0x015 0xa9/0xe9`,
+`0x024 0x0391800f/0x0011800f`, `0x100 0x009a/0x02ff`,
+`0x604 0x0000/0x3000`, `0x608 0x1000790f/0xf000790f`,
+`0x692 0x00/0x1f` and `0xfe40–0xfe42 e7/ad/01 versus e0/8d/00`.
+The verified APS change did not restore delivery from the PHY
+through the MAC. The role of the other differences is unresolved.
+
+The probe saved `exit.log` and all seven EFI checkpoints, unmounted
+the workspace and requested the normal Ubuntu return. The collector
+verified clean exFAT, all 616 existing files and Ubuntu's default boot.
+Evidence and the verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-b6ded61e0646f36f`.
 
 ### Retina desktop default
 
