@@ -52,7 +52,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     power = flush["power_controls"]
                     self.assertEqual([p["requested_clients"] for p in power], [0x5f, 0x5f if mode == "flush-quiet" else 0, 0x5f, 0x5f])
                     self.assertEqual([p["sw_target"] for p in power], [0, 0, 4, 4])
-                    self.assertEqual([p["rc6_enabled"] for p in power], [True, True, False, False])
+                    self.assertEqual([p["rc6_enabled"] for p in power], [True, True, True, True])
                     self.assertTrue(all(p["threshold_ticks"] == 625 for p in power))
                     idle = mode != "flush-quiet"
                     self.assertEqual(flush["gam"], [
@@ -229,7 +229,7 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(set(cold['idle_intervals']), {
             'max_idle_10_20ms', 'max_idle_10_100ms', 'restored_audio_released_20ms', 'restored_audio_released_100ms'})
         self.assertGreaterEqual(cold['idle_intervals']['max_idle_10_100ms']['elapsed_us'], 100000)
-        changes = ('intel-idle-change:', 'intel-idle-engine:')
+        changes = ('intel-idle-change:', 'intel-idle-engine:', 'intel-park:', 'intel-park-frame:')
         v1 = '\n'.join(line for line in text.splitlines() if not line.startswith(changes))
         for i, row in enumerate(rows):
             v1 = v1.replace(row, row.replace('v=3', 'v=1') if i < 4 else '')
@@ -258,6 +258,31 @@ class FlushAcknowledgements(unittest.TestCase):
             old = row.replace('v=3', 'v=2').replace(f'n={i} ', f'n={i-1} ') if i > 5 else row.replace('v=3', 'v=2')
             v2 = v2.replace(row, '' if i == 5 else old)
         self.assertEqual(bootstrap_result(v2)['flush']['cold_rc6']['version'], 2)
+
+    def test_software_park_evidence(self):
+        positive = observe('park-ack')
+        for text, expected in ((positive, True), (observe('pass'), False)):
+            park = bootstrap_result(text)['flush']['park']
+            self.assertTrue(park['complete'])
+            self.assertEqual(park['powered_block_observed'], expected)
+            self.assertEqual(park['fresh_engine_mask'], 31 if expected else 0)
+            self.assertEqual(park['fresh_l3'], expected)
+            self.assertFalse(park['hardware_ownership'])
+        early = bootstrap_result(observe('park-early-l3'))['flush']['park']
+        self.assertFalse(early['complete'])
+        self.assertEqual(early['summary']['reopened'], 1)
+        row = next(l for l in positive.splitlines() if l.startswith('intel-park-frame: v=1 n=2 '))
+        data = bytearray(base64.b64decode(row.split('data=')[1]))
+        for offset, value in ((4, 0), (5, 0x10), (6, 0x10)):
+            mutated = data.copy()
+            mutated[offset*4] = value
+            replacement = row.split('data=')[0] + 'data=' + base64.b64encode(mutated).decode()
+            with self.assertRaises(ValueError):
+                bootstrap_result(positive.replace(row, replacement))
+        for before, after in ((row, ''), ('held=2 reopened=1','held=0 reopened=1'),
+                              ('final_ctl=0x40000','final_ctl=0x90040000')):
+            with self.assertRaises(ValueError):
+                bootstrap_result(positive.replace(before, after))
 
     def test_max_idle_rollback(self):
         text = observe('pass')
@@ -313,7 +338,7 @@ class FlushAcknowledgements(unittest.TestCase):
                          ("backing=1 drivers=", "backing=0 drivers=")):
             with self.subTest(field=old), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(old, new))
-        legacy = re.sub(r"^intel-(?:efi-|air-rc6:|idle-change:|idle-engine:)[^\n]*\n", "", text, flags=re.M)
+        legacy = re.sub(r"^intel-(?:efi-|air-rc6:|idle-change:|idle-engine:|park:|park-frame:)[^\n]*\n", "", text, flags=re.M)
         legacy = legacy.replace("intel-command-slots: v=2 ", "intel-command-slots: v=1 ").replace("boot_returned=", "freed=")
         self.assertNotIn("efi_handoff", bootstrap_result(legacy)["range"])
 

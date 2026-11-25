@@ -544,6 +544,8 @@ class Runner:
                 state['efi_display_branch'] = True
             if payload.get('bcs_stop_version') == 1:
                 state['bcs_stop_version'] = 1
+            if payload.get('software_park_version') == 1:
+                state['software_park_version'] = 1
             if payload.get('idle_policy_version') == 1:
                 state['idle_policy_version'] = 1
             if payload.get('cold_rc6_version') in (1, 2, 3):
@@ -762,6 +764,8 @@ class Runner:
             if state.get('bcs_stop_version'):
                 stop = native['flush'].get('bcs_stop', {})
                 diagnostic_complete = diagnostic_complete and stop.get('v') == 1 and stop.get('verified') == 1 and bool(native['flush'].get('stop_messages'))
+            if state.get('software_park_version'):
+                diagnostic_complete = diagnostic_complete and native['flush'].get('park', {}).get('complete', False)
             if state.get('idle_policy_version'):
                 diagnostic_complete = diagnostic_complete and len(native['flush'].get('idle_policy', [])) == 2
             if state.get('cold_rc6_version'):
@@ -976,6 +980,8 @@ class Runner:
                 record['prepare_messages']=observed['prepare_messages']
             if 'idle_policy' in observed:
                 record['idle_policy'] = observed['idle_policy']
+            if 'park' in observed:
+                record['software_park'] = observed['park']
             if 'idle_change' in observed:
                 record['idle_change'] = observed['idle_change']
             if 'cold_rc6' in observed:

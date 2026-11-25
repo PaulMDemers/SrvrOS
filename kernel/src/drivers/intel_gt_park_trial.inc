@@ -1,0 +1,251 @@
+/* Air7,2 post-reset diagnostic. The two Gen8 software park registers are
+ * writable by the GT owner. All message registers are observation-only. */
+#include <srvros/intel_bdw_traffic.h>
+
+enum { PARK_CTL = 0xa090, PARK_STATE = 0xa094, PARK_RC6 = 4u << 16,
+       PARK_AUTO = 0x90040000, PARK_POLLS = 8, PARK_WORDS = 24 };
+enum park_op { PARK_OPEN, PARK_POLL, PARK_HELD, PARK_REOPEN };
+struct park_frame {
+    uint64_t begin, end;
+    uint32_t raw[PARK_WORDS];
+    unsigned op, count;
+};
+static struct {
+    struct wake_adapter *adapter;
+    struct intel_gt_access *owner;
+    struct park_frame frames[1 + PARK_POLLS + 2 + 1];
+    uint32_t original[2], programmed[2], at_return[2], restored[2];
+    unsigned frames_used, attempts, returns, held, mapped, unmapped;
+    bool active, sampled, returned, reopened;
+} air_park;
+
+static bool park_owner(struct wake_adapter *a, struct intel_gt_access *g)
+{
+    return air_idle_owned(a,g) && completion_mapping(a,0) && completion_mapping(a,8) &&
+           wake_pages[0] == 0xa000 && wake_pages[8] == 0x4000;
+}
+
+static bool park_alias(bool create)
+{
+    uint64_t physical = result.mmio_base + 0x8000, actual;
+    if (create) {
+        unsigned mtrr, pat, effective;
+        if (air_park.mapped || gt_range_translation(&actual) || !backing_range_reserved(physical,4096) ||
+            !x86_cache_page(&gt_bootstrap_native.cache,physical,3,&mtrr,&pat,&effective) || effective)
+            return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        bool installed = intel_display_test_range_map(physical);
+#else
+        bool installed = vmm_map_page_in_space(gt_bootstrap_native.root,GT_RANGE_VA,physical,
+                VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE | VMM_PAGE_WRITE_THROUGH);
+#endif
+        if (!installed) {
+            if (gt_range_translation(&actual)) {
+                if (actual == physical) air_park.mapped = 1;
+                else air_park.adapter->uncertain = true;
+            }
+            return false;
+        }
+        air_park.mapped = 1;
+        struct vmm_alias_observation alias;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        bool ok = intel_display_test_range_alias(&alias);
+#else
+        bool ok = vmm_diagnostic_kernel_alias(gt_bootstrap_native.root,GT_RANGE_VA,physical,1,
+            gt_bootstrap_native.cache.cpu.physical_bits,&alias,NULL);
+#endif
+        return ok && gt_range_translation(&actual) && actual == physical && alias.pages == 1 &&
+            alias.leaves == 1 && alias.pat_index == 3 && alias.no_execute == 1 && !alias.writable &&
+            !alias.user && alias.leaf_sizes == 1;
+    }
+    if (!air_park.mapped || air_park.unmapped || !gt_range_translation(&actual) || actual != physical)
+        return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if (!intel_display_test_range_unmap(&actual)) return false;
+#else
+    if (!vmm_unmap_page_in_space(gt_bootstrap_native.root,GT_RANGE_VA,&actual)) return false;
+#endif
+    if (actual != physical || gt_range_translation(&actual)) return false;
+    air_park.unmapped = 1;
+    return true;
+}
+
+static uint32_t park_policy_read(unsigned reg)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_park_read(reg);
+#else
+    return *(volatile const uint32_t *)(WAKE_VA + (reg & 4095));
+#endif
+}
+
+static bool park_store(unsigned i, uint32_t value, uint32_t *readback)
+{
+    unsigned reg = i ? PARK_STATE : PARK_CTL;
+    if (!completion_mapping(air_park.adapter,0) || !engine_requesters(air_park.adapter)) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_park_store(reg,value);
+#else
+    *(volatile uint32_t *)(WAKE_VA + (reg & 4095)) = value;
+#endif
+    *readback = park_policy_read(reg);
+    return *readback == value;
+}
+
+static bool park_read(void *ctx, uint32_t reg, uint32_t *value)
+{
+    struct park_frame *f = ctx;
+    struct wake_adapter *a = air_park.adapter;
+    unsigned slot;
+    uint64_t address, actual;
+    if (f->count >= PARK_WORDS || !air_park.active || !engine_requesters(a) ||
+        air_park.owner->state != GT_ACCESS_AWAKE || !air_park.owner->pinned ||
+        !display_access_held(&air_park.owner->exclusion)) return false;
+    switch (reg & ~4095u) {
+    case 0x8000:
+        if (!gt_range_translation(&actual) || actual != result.mmio_base+0x8000) return false;
+        address = GT_RANGE_VA;
+        break;
+    case 0x4000: slot=8; goto engine;
+    case 0x12000: slot=4; goto engine;
+    case 0x1c000: slot=6;
+    engine:
+        if (!completion_mapping(a,slot)) return false;
+        address = WAKE_VA + slot*4096;
+        break;
+    default: return false;
+    }
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    (void)address;
+    *value = intel_display_test_park_read(reg);
+#else
+    *value = *(volatile const uint32_t *)(address + (reg & 4095));
+#endif
+    f->raw[f->count++] = *value;
+    return *value != UINT32_MAX;
+}
+
+/* Bracket the L3 pulse itself with WiDi, as the command owner does. */
+static bool park_message(void *ctx, uint32_t reg, uint32_t *value)
+{
+    if (reg != 0x8038) return park_read(ctx,reg,value);
+    uint32_t before, after;
+    return park_read(ctx,0x8014,&before) && park_read(ctx,reg,value) && park_read(ctx,0x8014,&after) &&
+           (!(*value & 1) || !((before | after) & 0x11));
+}
+
+static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *drained)
+{
+    if (air_park.frames_used >= sizeof(air_park.frames)/sizeof(air_park.frames[0])) return false;
+    struct park_frame *f = &air_park.frames[air_park.frames_used++];
+    s->ctx = f;
+    f->op = op;
+    f->begin = timer_monotonic_us();
+    bool requested = op == PARK_POLL || op == PARK_HELD;
+    uint32_t ctl = requested ? PARK_RC6 : air_park.original[0];
+    struct wake_adapter *a = air_park.adapter;
+    bool guarded = requested ? !a->uncertain && completion_mapping(a,0) && completion_mapping(a,1) &&
+        completion_mapping(a,2) && engine_requesters(a) && intel_hda_gpu_live(&joint.scope) : engine_guard(a);
+    if (!f->begin || !guarded || park_policy_read(PARK_CTL) != ctl ||
+        park_policy_read(PARK_STATE) != PARK_RC6) return false;
+    bool ok;
+    switch (op) {
+    case PARK_OPEN: case PARK_REOPEN: ok = intel_bdw_traffic_open(s); break;
+    case PARK_POLL: ok = intel_bdw_traffic_poll(s,drained); break;
+    case PARK_HELD: ok = intel_bdw_traffic_still_blocked(f,park_message); break;
+    default: return false;
+    }
+    if (!ok || !engine_requesters(air_park.adapter) || park_policy_read(PARK_CTL) != ctl ||
+        park_policy_read(PARK_STATE) != PARK_RC6) return false;
+    f->end = timer_monotonic_us();
+    return f->begin < f->end && f->end - f->begin <= BDW_TRAFFIC_BLOCK_US;
+}
+
+static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
+{
+    if (air_park.active || !park_owner(a,g)) return false;
+    air_park.adapter = a;
+    air_park.owner = g;
+    air_park.active = true;
+    air_park.original[0] = park_policy_read(PARK_CTL);
+    air_park.original[1] = park_policy_read(PARK_STATE);
+    if (air_park.original[0] != PARK_AUTO || air_park.original[1] != PARK_RC6 ||
+        gt_flush.samples != 4 || gt_flush.raw[3][13] != PARK_AUTO || gt_flush.raw[3][14] != PARK_RC6 ||
+        !park_alias(true)) return false;
+    struct bdw_traffic_sample sample = {.read=park_message};
+    bool drained = false;
+    if (!park_sample(&sample,PARK_OPEN,&drained) || !park_owner(a,g)) return false;
+    for (unsigned i=0; i<2; ++i) {
+        ++air_park.attempts;
+        if (!park_store(i,PARK_RC6,&air_park.programmed[i])) return false;
+    }
+    bool closed_low = false;
+    uint64_t begin = timer_monotonic_us();
+    for (unsigned i=0; i<PARK_POLLS; ++i) {
+        if (!park_sample(&sample,PARK_POLL,&drained)) return false;
+        struct park_frame *f = &air_park.frames[air_park.frames_used-1];
+        if (f->count != 16) return false;
+        if (!closed_low) {
+            /* Require an observed low after all GAM clients and WiDi close. */
+            sample.l3_ack = false;
+            drained = false;
+            closed_low = !((f->raw[0] | f->raw[1] | f->raw[13] | f->raw[14]) & BDW_GAM_CLIENTS) &&
+                         !((f->raw[3] | f->raw[5] | f->raw[11]) & 0x11) && !(f->raw[4] & 3);
+        }
+        uint64_t end = f->end;
+        if (!begin || end < begin || end-begin > BDW_TRAFFIC_BLOCK_US) return false;
+        if (drained) {
+            for (unsigned n=0; n<2; ++n) {
+                if (!park_sample(&sample,PARK_HELD,&drained) ||
+                    air_park.frames[air_park.frames_used-1].end-begin > BDW_TRAFFIC_BLOCK_US) return false;
+                ++air_park.held;
+            }
+            break;
+        }
+    }
+    air_park.sampled = engine_guard(a) && park_owner(a,g);
+    return air_park.sampled;
+}
+
+static bool park_restore(struct wake_adapter *a, struct intel_gt_access *g)
+{
+    if (!air_park.active) return true;
+    air_park.owner = g;
+    if (!park_owner(a,g)) return false;
+    for (unsigned n=air_park.attempts; n; --n) {
+        unsigned i=n-1;
+        air_park.at_return[i] = park_policy_read(i ? PARK_STATE : PARK_CTL);
+        if (air_park.at_return[i] != PARK_RC6 && air_park.at_return[i] != air_park.original[i]) return false;
+        if (!park_store(i,air_park.original[i],&air_park.restored[i])) return false;
+        ++air_park.returns;
+    }
+    if (air_park.attempts) {
+        struct bdw_traffic_sample sample = {.read=park_message};
+        bool unused = false;
+        air_park.reopened = park_sample(&sample,PARK_REOPEN,&unused);
+        if (!air_park.reopened) return false;
+    }
+    if (air_park.mapped && !park_alias(false)) return false;
+    if (!park_owner(a,g)) return false;
+    air_park.active = false;
+    air_park.returned = true;
+    return true;
+}
+
+static void park_report(void)
+{
+    for (unsigned i=0; i<air_park.frames_used; ++i) {
+        const struct park_frame *f = &air_park.frames[i];
+        char encoded[(PARK_WORDS*4+2)/3*4+1];
+        entry_requester_base64((const uint8_t *)f->raw,4*f->count,encoded);
+        console_printf("intel-park-frame: v=1 n=%u op=%u begin=%u end=%u words=%u data=%s\n",
+            (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
+    }
+    console_printf("intel-park: v=1 attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
+        (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
+        (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,
+        (uint64_t)air_park.reopened,(uint64_t)air_park.returned,(uint64_t)air_park.original[0],
+        (uint64_t)air_park.original[1],(uint64_t)air_park.programmed[0],(uint64_t)air_park.programmed[1],
+        (uint64_t)air_park.at_return[0],(uint64_t)air_park.at_return[1],(uint64_t)air_park.restored[0],
+        (uint64_t)air_park.restored[1]);
+}

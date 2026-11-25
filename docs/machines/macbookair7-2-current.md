@@ -39,8 +39,12 @@ All nine samples showed clear forcewake ACK and the original enabled
 primary plane, programmed surface and live surface. Ubuntu collected the
 matching report and the offline exFAT allocation check found zero errors.
 
-Native command submission still requires a device-wide traffic block and
-fresh engine and L3 acknowledgements.
+The next Air-only diagnostic issues the Gen8 software park request after the
+five MAX_IDLE readbacks. It samples hardware GO requests/replies, WiDi and
+the engine and L3 flush messages under verified forcewake. It keeps the
+panel active, restores the original power policy and saves the powered
+observations separately from the cold residency interval. The trial grants
+no GPU mappings or command submission.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

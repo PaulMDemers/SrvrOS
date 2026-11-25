@@ -22,6 +22,8 @@ static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
 static uint32_t intel_display_test_idle_load(unsigned);
 static void intel_display_test_idle_store(unsigned,uint32_t);
+static uint32_t intel_display_test_park_read(unsigned);
+static void intel_display_test_park_store(unsigned,uint32_t);
 static unsigned model_engine_ro;
 static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 static uint32_t intel_display_test_bcs_stop_read(uint32_t);
@@ -122,6 +124,31 @@ static bool bf(const char *mode,unsigned n) {
 #ifdef SRVROS_INTEL_GT_FLUSH
 static uint32_t model_max_idle[5]={14,15,16,17,18};
 static unsigned model_idle_stores;
+static uint32_t park_model[2] = {PARK_AUTO,PARK_RC6};
+static void intel_display_test_park_store(unsigned reg,uint32_t value) {
+    assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active && !model_engine_ro);
+    assert((reg == PARK_CTL && (value == PARK_AUTO || value == PARK_RC6)) ||
+           (reg == PARK_STATE && value == PARK_RC6));
+    park_model[reg == PARK_STATE] = value;
+}
+static uint32_t intel_display_test_park_read(unsigned reg) {
+    assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active);
+    if (reg == PARK_CTL || reg == PARK_STATE) return park_model[reg == PARK_STATE];
+    const struct park_frame *frame = &air_park.frames[air_park.frames_used-1];
+    bool blocked = !strcmp(bootstrap_mode,"park-ack") && park_model[0] == PARK_RC6;
+    bool stale = !strcmp(bootstrap_mode,"park-early-l3") && frame->op == PARK_POLL;
+    switch (reg) {
+    case 0x40d0: return blocked ? 0 : 0xff;
+    case 0x8028: return blocked ? 0 : 0x7f;
+    case 0x8108: return 0;
+    case 0x8014: return blocked ? 0 : 0x1f;
+    case 0x8038: return (blocked && air_park.frames_used >= 3) || stale;
+    case 0x8040: return 1;
+    case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: return 0;
+    case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010: return blocked ? 0x20 : 0x1f;
+    default: assert(0); return UINT32_MAX;
+    }
+}
 static uint32_t intel_display_test_idle_load(unsigned i) {
     assert(i<5 && wake_ack==1 && wake_irq && !display_access_allowed() && !model_engine_ro);
     if (air_idle.restore_owner.state==GT_ACCESS_AWAKE && model_max_idle[i]==10 && bf("idle-drift",i+1)) return 64;
@@ -148,6 +175,7 @@ bool timer_delay_us(uint64_t us) {
 static void intel_display_test_cold_sample(unsigned n, uint32_t *core, uint32_t *residency,
                                           uint32_t *plane, uint32_t *programmed, uint32_t *live) {
     if (n >= 6) assert(joint.scope.state == IHG_CLOSED && joint.h.initial.command == 6 && !joint_terminal());
+    if (n >= 2) assert(park_model[0] == (n <= 5 ? PARK_RC6 : PARK_AUTO));
     if (n >= 2 && n <= 5) assert(joint.scope.state == IHG_ACTIVE && joint.h.initial.command == 2);
     for (unsigned i=0; i<5; ++i) assert(model_max_idle[i] == (n>=2 && n<=5 ? 10 : 14+i));
     *plane = 0xd8000400u;
@@ -492,7 +520,7 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 }
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
+ if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
     !strcmp(bootstrap_mode,"flush-chatter") || !strcmp(bootstrap_mode,"flush-latched"))return true;
 #endif
 #ifdef SRVROS_INTEL_GT_AUX
@@ -708,6 +736,13 @@ static bool intel_display_test_range_translate(uint64_t *physical) {
  *physical=range_pa;return true;
 }
 static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if (air_park.active) {
+  assert(range_pa==0xc0008000 && wake_ack && wake_irq);
+  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
+  return true;
+ }
+#endif
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
 #ifdef SRVROS_INTEL_GT_FLUSH
@@ -734,6 +769,7 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
 }
 static bool intel_display_test_range_map(uint64_t physical) {
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if (air_park.active) { assert(!range_pa && physical==0xc0008000 && wake_ack); range_pa=physical; return true; }
  if(sampling_command_slots) {
   assert(command_sampling_live() && physical==0xc0816000 && !range_pa);
   range_pa=physical;return true;
@@ -820,6 +856,9 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
  return true;
 }
 static bool intel_display_test_range_unmap(uint64_t *physical) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if (air_park.active) { assert(range_pa==0xc0008000 && wake_ack); *physical=range_pa; range_pa=0; return true; }
+#endif
  assert(bootstrap_parent() && range_pa);
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading){*physical=range_pa;range_pa=0;return true;}
@@ -928,7 +967,7 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
   else if(i<=12) {
     *out=0x40004321u;
     if(bf("flush-busy",4*n+i-8))*out|=(i-8)<<16;
-  } else if(i==13)*out=n>=2?0:0x90040000;
+  } else if(i==13)*out=PARK_AUTO;
   else if(i==14)*out=n>=2?0x40000:0;
   else *out=625;
   if(bf("flush-float",flush_reads))*out=UINT32_MAX;
@@ -1069,6 +1108,11 @@ int main(int argc,char **argv) {
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"park-early-l3")) {
+  assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
+         air_park.returns==2 && park_model[0]==PARK_AUTO && !wake_ack && display_access_allowed());
+  return code;
+ }
  if(!strcmp(bootstrap_mode,"idle-drift") || !strcmp(bootstrap_mode,"idle-capture-mismatch") || !strcmp(bootstrap_mode,"idle-apply-mismatch") ||
     !strcmp(bootstrap_mode,"idle-restore-mismatch")) {
   assert(hit && fault_at>=1 && fault_at<=5 && pulses==2 && !wake_irq);
