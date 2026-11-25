@@ -1,10 +1,9 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 24, 2026. State **Native console output, topcase descriptor
-reads through EHCI split control, and return to Ubuntu verified. The second
-EHCI controller timed out on the flash drive's first descriptor read. Both
-controllers released DMA. Keyboard input and native USB workspace access
-remain pending.**
+Updated November 24, 2026. State **Native console output, EHCI enumeration
+of the built-in topcase and workspace flash drive, and return to Ubuntu
+verified. Both controllers completed their scans and released DMA. Keyboard
+input and native USB workspace access remain pending.**
 
 ## Identity and baseline
 
@@ -35,13 +34,11 @@ remain pending.**
 `device/macbookpro8-1/bringup` starts from `origin/main` at
 `61111819eb4d99bc397b0cdb944bd34bfa9813da`. This branch owns the initial
 MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
-trials verified the topcase descriptor path and isolated the incomplete
-`00:1d.7` scan to the initial high-speed descriptor data stage on hub port 2.
-The active USB transport work tests whether a standards-sized deadline lets
-that descriptor read complete and verifies the flash drive after address
-assignment. It touches EHCI trial routing and status reporting and uses the
-existing RAM-only profile, Ubuntu recovery and QEMU hub fixtures.
-The inventory contains no xHCI controller on this Mac.
+trials established the topcase descriptor path and verified the workspace
+flash drive with a 600 ms bound for its initial device descriptor. The next
+input checkpoint is built-in keyboard interrupt reports through the proven
+full-speed hub route. Native workspace reads and writes require a separate
+mass-storage milestone. The inventory contains no xHCI controller on this Mac.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `22fdd9fc`, and Apple Silicon runtime, login and export work
@@ -303,9 +300,22 @@ Clean source `88d26f10` staged as `7c634ec7f48273c4`. The host fixture passed
 an 18-byte response after a simulated 120 ms on the selected route, stopped
 at 100 ms on another port and bounded a stalled selected request at 600 ms.
 It verified schedule disable after each case. Both exact-stage QEMU recovery
-rehearsals and the ordinary EHCI hub regression passed. The physical timing
-result is pending. The trial record and VM evidence are in
+rehearsals and the ordinary EHCI hub regression passed. The trial record and VM
+evidence are in
 `build/review/macbookpro8-1-ehci-trial-7c634ec7f48273c4/`.
+
+The operator's native result for `7c634ec7f48273c4` was `PASS`. The 18-byte
+flash device descriptor completed after 493,456 µs of the 600,000 µs wait.
+The flash drive `13fe:6700` reached USB address 2 on `00:1d.7`. The `05ac:0245`
+topcase again reached address 3 through hub `0424:2513` port 2 with an 8-byte
+endpoint-zero packet on `00:1a.7`. Both controllers completed their scans
+and released DMA. The measured flash wait exceeded the former 100 ms limit.
+
+The Ubuntu boot ID changed, GRUB consumed the one-shot entry, and the flash
+workspace mounted on the same route. Firmware boot order and the installed
+manifests matched preflight, including previous console release
+`c1a8e397a41363dc`. The native transcript, verification and exact payload were
+archived outside `build/`.
 
 ## Capability ledger
 
@@ -313,7 +323,7 @@ result is pending. The trial record and VM evidence are in
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard and trackpad | Native topcase split control and descriptors verified | Keyboard events and verified trackpad reports |
-| USB workspace | Ubuntu mounts it. SrvrOS times out on the initial device-descriptor read on `00:1d.7`. | Complete enumeration and verify native read, then write/sync/unmount with Ubuntu readback |
+| USB workspace | The flash drive enumerates natively on `00:1d.7` and Ubuntu mounts it | Verify native block reads, then write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
