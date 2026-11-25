@@ -1307,6 +1307,25 @@ the RTL8188CUS native passive xHCI path and its fixture. Fetched main
 `61111819` and the open reviews have no overlapping changes.
 [Realtek receive report selector definitions](https://github.com/pvaret/rtl8192cu-fixes/blob/master/include/rtl8192c_spec.h#L1608-L1625)
 
+The working Linux reference on the same adapter and hub recorded
+929 successful bulk IN completions and zero usbmon drops. In four
+seconds the receive reports advanced by 181 OFDM PPDUs, 11 CCK
+PPDUs, 54 OFDM frame failures, three CCK frame failures and three
+good frames in each of OFDM and CCK. These are separate hardware
+reports. Their counts do not map one-to-one to USB completions.
+The saved reference and Linux capture command are under
+`build/bringup/pro112-rtl8188cu-rx-decode`.
+
+Installed cold candidate `0b2e4a530fce2b94` from `d1459735`, with
+recovery `74da74e0b57afbb8`, workspace `0E53-5900` and all three
+hub ports verified. The native xHCI suite and the Realtek receive
+and firmware fixtures passed. Coverage includes the fixed 4 KiB
+request, beacon parsing and partial counter reads after a wrong
+selector echo. The exact image passed the GPT workspace rehearsal
+and four journal availability cases. The decoder recovered all
+14 reports at the three receive checkpoints from bounded EFI tails.
+The live receive result is pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
