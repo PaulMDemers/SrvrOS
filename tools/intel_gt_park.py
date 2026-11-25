@@ -39,10 +39,14 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     require(len(headers) == 1)
     regs = ('ctl', 'target', 'set_ctl', 'set_target', 'final_ctl', 'final_target', 'restore_ctl', 'restore_target')
     counts = ('attempts', 'returns', 'opened', 'unmapped', 'sampled', 'held', 'reopened', 'returned')
-    pre_reset = headers[0].startswith('intel-park: v=2 ')
+    spaced = headers[0].startswith('intel-park: v=3 ')
+    pre_reset = spaced or headers[0].startswith('intel-park: v=2 ')
     panel = ('plane', 'surface', 'live') if pre_reset else ()
     stamps = ('returned_us', 'prepare_us', 'smi_checks', 'smi_last', 'panel_checks') if pre_reset else ()
-    h = fields(headers[0], 'intel-park:', ('v', *stamps, *panel, *counts, *regs), (*regs, *panel), versions=(2,) if pre_reset else (1,))
+    if spaced:
+        stamps = ('poll_origin_us', *stamps)
+    version = 3 if spaced else 2 if pre_reset else 1
+    h = fields(headers[0], 'intel-park:', ('v', *stamps, *panel, *counts, *regs), (*regs, *panel), versions=(version,))
     require(h['returns'] <= h['attempts'] <= 2 and h['unmapped'] <= h['opened'] <= 1 and
             max(h['sampled'], h['reopened'], h['returned']) <= 1 and h['held'] <= 2)
     frames = []
@@ -83,6 +87,10 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     polls = [f for f in frames if f['op'] == 1]
     require(1 <= len(polls) <= 8 and h['held'] in (0, 2) and (h['held'] or len(polls) == 8))
     require([f['op'] for f in frames] == [0] + [1]*len(polls) + [2]*h['held'] + [3])
+    if spaced:
+        origin = h['poll_origin_us']
+        require(frames[0]['end'] <= origin and frames[-2]['end'] <= origin + 10000)
+        require(all((f['begin'] - origin) // 1250 == i for i, f in enumerate(polls)))
     for f in frames:
         require(len(f['words']) == (15, 16, 20, 15)[f['op']] and 0xffffffff not in f['words']
                 and 0 < f['end'] - f['begin'] <= 10000)

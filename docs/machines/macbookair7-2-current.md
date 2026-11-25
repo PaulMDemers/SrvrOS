@@ -73,6 +73,12 @@ Ubuntu verified the matching logs and clean exFAT return. Device-wide
 traffic exclusion and tear-free scanout remain pending. The eight polls
 occupied only 155 µs of the existing 10 ms budget with forcewake held.
 
+The next Air trial changes the pre-reset park sampler and its receipt.
+It targets one poll at the start of each 1.25 ms interval, with the last
+at 8.75 ms. A fresh drain triggers immediate hold checks within the same
+10 ms deadline. The collector checks each poll against the saved start
+time. The original Pipe A surface stays active throughout the trial.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

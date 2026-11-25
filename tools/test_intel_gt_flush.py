@@ -304,6 +304,26 @@ class FlushAcknowledgements(unittest.TestCase):
             self.assertEqual(result['reset']['reset_writes'], 0)
             self.assertEqual(result['flush']['bcs_stop']['writes'], 0)
 
+    def test_park_spaced_poll_window(self):
+        text = observe('park-late-ack')
+        park = bootstrap_result(text)['flush']['park']
+        origin = park['summary']['poll_origin_us']
+        polls = [f for f in park['frames'] if f['op'] == 1]
+        self.assertEqual([(f['begin'] - origin) // 1250 for f in polls], list(range(8)))
+        self.assertEqual(park['fresh_engine_mask'], 31)
+        self.assertTrue(park['fresh_l3'] and park['powered_block_observed'])
+        self.assertEqual(park['summary']['held'], 2)
+        self.assertLessEqual(park['frames'][-2]['end'] - origin, 10000)
+        final_poll = polls[-1]
+        stamp = f"op=1 begin={final_poll['begin']} end={final_poll['end']}"
+        with self.assertRaises(ValueError):
+            bootstrap_result(text.replace(stamp, f"op=1 begin={origin + 8749} end={final_poll['end']}"))
+        for mode in ('park-missed-slot', 'park-wait-failed'):
+            partial = bootstrap_result(observe(mode))['flush']['park']
+            self.assertFalse(partial['complete'] or partial['powered_block_observed'])
+            self.assertEqual(partial['summary']['reopened'], 1)
+            self.assertEqual(partial['summary']['returns'], 2)
+
     def test_air_post_reset_baseline_refuses_software_park(self):
         flush = bootstrap_result(observe('park-reset-reasons'))['flush']
         park = flush['park']

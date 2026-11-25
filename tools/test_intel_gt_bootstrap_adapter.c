@@ -136,7 +136,9 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active);
     if (reg == PARK_CTL || reg == PARK_STATE) return park_model[reg == PARK_STATE];
     const struct park_frame *frame = &air_park.frames[air_park.frames_used-1];
-    bool blocked = !strcmp(bootstrap_mode,"park-ack") && park_model[0] == PARK_RC6;
+    bool late = !strcmp(bootstrap_mode,"park-late-ack");
+    bool blocked = park_model[0] == PARK_RC6 && (!strcmp(bootstrap_mode,"park-ack") ||
+        (late && frame->begin >= air_park.poll_origin_us + 7500));
     bool stale = !strcmp(bootstrap_mode,"park-early-l3") && frame->op == PARK_POLL;
     switch (reg) {
     case 0x70180: return 0xd8000400;
@@ -148,7 +150,8 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     case 0x8028: return blocked ? 0 : 0x7f;
     case 0x8108: return 0;
     case 0x8014: return blocked ? 0 : 0x1f;
-    case 0x8038: return (blocked && air_park.frames_used >= 3) || stale;
+    case 0x8038: return (blocked && (late ? frame->begin >= air_park.poll_origin_us + 8750 :
+                                           air_park.frames_used >= 3)) || stale;
     case 0x8040: return 1;
     case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: return 0;
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010: return blocked ? 0x20 : 0x1f;
@@ -170,6 +173,13 @@ static void intel_display_test_idle_store(unsigned i,uint32_t value) {
     ++model_idle_stores;
 }
 bool timer_delay_us(uint64_t us) {
+    if (air_park.active) {
+        assert(us && us <= PARK_INTERVAL_US && wake_irq && wake_ack == 1);
+        assert(park_model[0] == PARK_RC6 && gpu_command == 3 && !pulses && !bcs_stop.writes);
+        if (!strcmp(bootstrap_mode,"park-wait-failed")) return false;
+        ticks += us + (!strcmp(bootstrap_mode,"park-missed-slot") ? PARK_INTERVAL_US : 0);
+        return true;
+    }
     if (us == 20000 || (us == 80000 && !wake_irq)) {
         assert(!wake_irq && joint.scope.state == IHG_CLOSED && !joint_terminal());
     } else {
@@ -528,7 +538,7 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 }
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
+ if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") || !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
     !strcmp(bootstrap_mode,"flush-chatter") || !strcmp(bootstrap_mode,"flush-latched"))return true;
 #endif
 #ifdef SRVROS_INTEL_GT_AUX
@@ -1127,7 +1137,8 @@ int main(int argc,char **argv) {
          air_idle.returned==31 && !wake_ack && display_access_allowed());
   return code;
  }
- if(!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-panel-drift")) {
+ if(!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-panel-drift") ||
+    !strcmp(bootstrap_mode,"park-missed-slot") || !strcmp(bootstrap_mode,"park-wait-failed")) {
   assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
          air_park.returns==2 && park_model[0]==PARK_AUTO && !wake_ack && display_access_allowed());
   return code;

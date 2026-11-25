@@ -3,7 +3,8 @@
 #include <srvros/intel_bdw_traffic.h>
 
 enum { PARK_CTL = 0xa090, PARK_STATE = 0xa094, PARK_RC6 = 4u << 16,
-       PARK_AUTO = 0x90040000, PARK_POLLS = 8, PARK_WORDS = 24 };
+       PARK_AUTO = 0x90040000, PARK_POLLS = 8, PARK_WORDS = 24,
+       PARK_INTERVAL_US = BDW_TRAFFIC_BLOCK_US / PARK_POLLS };
 enum park_op { PARK_OPEN, PARK_POLL, PARK_HELD, PARK_REOPEN };
 struct park_frame {
     uint64_t begin, end;
@@ -15,7 +16,7 @@ static struct {
     struct intel_gt_access *owner;
     struct park_frame frames[1 + PARK_POLLS + 2 + 1];
     uint32_t original[2], programmed[2], at_return[2], restored[2];
-    uint64_t returned_us, prepare_us;
+    uint64_t poll_origin_us, returned_us, prepare_us;
     uint32_t smi_last;
     unsigned smi_checks, panel_checks;
     uint32_t plane, surface, live;
@@ -180,6 +181,13 @@ static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *dra
     f->op = op;
     f->begin = timer_monotonic_us();
     bool requested = op == PARK_POLL || op == PARK_HELD;
+    if (requested) {
+        if (f->begin < air_park.poll_origin_us) return false;
+        uint64_t elapsed = f->begin - air_park.poll_origin_us;
+        if (elapsed >= BDW_TRAFFIC_BLOCK_US) return false;
+        /* The open frame precedes poll zero. Refuse a missed slot. */
+        if (op == PARK_POLL && elapsed / PARK_INTERVAL_US != air_park.frames_used - 2) return false;
+    }
     uint32_t ctl = requested ? PARK_RC6 : air_park.original[0];
     struct wake_adapter *a = air_park.adapter;
     bool guarded = requested ? !a->uncertain && completion_mapping(a,0) && completion_mapping(a,1) &&
@@ -219,7 +227,16 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
     }
     bool closed_low = false;
     uint64_t begin = timer_monotonic_us();
+    if (!begin) return false;
+    air_park.poll_origin_us = begin;
     for (unsigned i=0; i<PARK_POLLS; ++i) {
+        if (i) {
+            uint64_t now = timer_monotonic_us();
+            uint64_t offset = i * PARK_INTERVAL_US;
+            if (now < air_park.frames[air_park.frames_used-1].end) return false;
+            uint64_t elapsed = now - begin;
+            if (elapsed < offset && !timer_delay_us(offset - elapsed)) return false;
+        }
         if (!park_sample(&sample,PARK_POLL,&drained)) return false;
         struct park_frame *f = &air_park.frames[air_park.frames_used-1];
         if (f->count != 16) return false;
@@ -231,7 +248,7 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
                          !((f->raw[3] | f->raw[5] | f->raw[11]) & 0x11) && !(f->raw[4] & 3);
         }
         uint64_t end = f->end;
-        if (!begin || end < begin || end-begin > BDW_TRAFFIC_BLOCK_US) return false;
+        if (end < begin || end-begin > BDW_TRAFFIC_BLOCK_US) return false;
         if (drained) {
             for (unsigned n=0; n<2; ++n) {
                 if (!park_sample(&sample,PARK_HELD,&drained) ||
@@ -295,8 +312,8 @@ static void park_report(void)
         console_printf("intel-park-frame: v=1 n=%u op=%u begin=%u end=%u words=%u data=%s\n",
             (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
     }
-    console_printf("intel-park: v=2 returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
-        air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
+    console_printf("intel-park: v=3 poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
+        air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
         (uint64_t)air_park.panel_checks,(uint64_t)air_park.plane,(uint64_t)air_park.surface,(uint64_t)air_park.live,
         (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
         (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,
