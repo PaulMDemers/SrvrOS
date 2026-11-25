@@ -1189,6 +1189,16 @@ The 31,314-byte exit snapshot and all seven independent journal phases
 verified. The exact image and logs are archived as
 `evidence-7cca15833b8598aa`.
 
+The next receive comparison enables the Linux PHY status field and
+driver-info size in the routed RTL8188CUS passive xHCI path. Fetched
+main `61111819` has no overlapping changes since `50f1978a`.
+The working Linux monitor reported RCR `0xf000790f` and four
+eight-byte driver-info units. Test RCR bit 28 and the four-unit
+prefix as a pair. Keep the existing frame filters, packet parser,
+single 4,096-byte request, and three-adapter hub topology.
+Exercise the production descriptor decoder with the larger prefix
+and save the channel-10 results on both persistent paths.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
