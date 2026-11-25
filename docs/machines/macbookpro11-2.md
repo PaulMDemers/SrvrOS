@@ -1099,6 +1099,16 @@ The 31,312-byte exit snapshot and all seven independent journal phases
 verified. The exact image and logs are archived as
 `evidence-fd1b75a1c27f8a60`.
 
+The next comparison covers the SIFS word at `0x428` in the routed
+RTL8188CUS passive xHCI path and fixture. Fetched main `61111819`
+has no overlapping changes since integration baseline `50f1978a`.
+The previous dword reads included the adjacent retry limit at
+`0x42a`. The Linux trace writes `0x1010` to `0x428` with width two
+and later writes `0x0a` to `0x429`. The working monitor retained
+`0x0a10` at `0x428`. Apply that halfword with the MAC gates closed,
+then check the full word for preservation of the retry limit. Keep
+the existing radio setup, single 4,096-byte request and hub topology.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
