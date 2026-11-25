@@ -819,7 +819,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    console_write("intel-power: reading GT timers and five engine idle limits before and after reset. No input.\nintel-power: sampling the active panel and GT residency through 20ms with display audio held and 100ms after release. No input.\n");
+    console_write("intel-power: saving all five post-reset MAX_IDLE values, setting each to 10 and checking readback. No input.\nintel-power: measuring RC6 for 100ms on the active panel, then restoring each engine and sampling again.\n");
     console_write("intel-bcs: stopping the idle blitter, then sampling WiDi, engines and L3 before reset. Original panel active. No input.\n");
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");
     console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the blitter register mapping, original display and slot 12291. No input needed.\n");
@@ -988,10 +988,10 @@ bool intel_gt_wake_probe_report(void) {
                 }
 #endif
 #endif
-                if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
 #ifdef SRVROS_INTEL_GT_FLUSH
-                if (closed && gt_bootstrap_native.complete && air_rc6_pair(&a, 2))
-                    (void)air_rc6_delayed(&a, 4, 18000, wake_guard);
+                if (checked && !a.uncertain) closed = air_idle_trial(&a,&owner,grants);
+#else
+                if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
 #endif
             }
         }
@@ -1015,7 +1015,7 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
         /* The GT and HDA closing clocks above precede this independent read-only interval. */
-        if (clean && closed && after && air_rc6_count == 5 && joint.scope.state == IHG_CLOSED &&
+        if (clean && closed && after && air_rc6_count == 6 && air_idle.restore_end && joint.scope.state == IHG_CLOSED &&
             !joint.scope.reason && joint.scope.hda.complete) {
             air_rc6_after_audio(&a, flags);
             clean = clean && !a.uncertain;
@@ -1051,7 +1051,8 @@ bool intel_gt_wake_probe_report(void) {
     complete=complete && gt_bootstrap_native.complete && !gt_bootstrap_native.failed && !gt_bootstrap_native.borrow.active;
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    complete = complete && air_rc6_count == 8;
+    complete = complete && air_rc6_count == 9 && air_idle.verified == 31 &&
+        air_idle.persisted == 31 && air_idle.returned == 31 && air_idle.restore_end;
 #endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL

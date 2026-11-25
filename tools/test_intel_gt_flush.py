@@ -211,7 +211,8 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Idle policy'):
                 bootstrap_result(text.replace(rows[1], replacement))
         legacy = '\n'.join(line for line in text.splitlines() if line not in rows)
-        self.assertNotIn('idle_policy', bootstrap_result(legacy)['flush'])
+        with self.assertRaisesRegex(ValueError, 'MAX_IDLE'):
+            bootstrap_result(legacy)
         for mode in ('idle-float', 'idle-read'):
             for pos in range(1, 19):
                 result = bootstrap_result(observe(mode, pos))
@@ -224,18 +225,19 @@ class FlushAcknowledgements(unittest.TestCase):
         cold = result['flush']['cold_rc6']
         self.assertEqual(cold['delta_ticks_mod32'], [1256, 1000])
         rows = [line for line in text.splitlines() if line.startswith('intel-air-rc6:')]
-        self.assertEqual(len(rows), 8)
+        self.assertEqual(len(rows), 9)
         self.assertEqual(set(cold['idle_intervals']), {
-            'audio_held_20ms', 'audio_released_20ms', 'audio_released_100ms'})
-        self.assertGreaterEqual(cold['idle_intervals']['audio_released_100ms']['elapsed_us'], 100000)
-        v1 = text
+            'max_idle_10_20ms', 'max_idle_10_100ms', 'restored_audio_released_20ms', 'restored_audio_released_100ms'})
+        self.assertGreaterEqual(cold['idle_intervals']['max_idle_10_100ms']['elapsed_us'], 100000)
+        changes = ('intel-idle-change:', 'intel-idle-engine:')
+        v1 = '\n'.join(line for line in text.splitlines() if not line.startswith(changes))
         for i, row in enumerate(rows):
-            v1 = v1.replace(row, row.replace('v=2', 'v=1') if i < 4 else '')
+            v1 = v1.replace(row, row.replace('v=3', 'v=1') if i < 4 else '')
         self.assertEqual(bootstrap_result(v1)['flush']['cold_rc6']['version'], 1)
         with self.assertRaises(ValueError):
             bootstrap_result(text.replace(rows[7], ''))
         with self.assertRaises(ValueError):
-            bootstrap_result(text.replace(rows[6], rows[6].replace('v=2', 'v=1')))
+            bootstrap_result(text.replace(rows[6], rows[6].replace('v=3', 'v=1')))
         for replacement in ('', rows[2], rows[3].replace('ack=0', 'ack=0x1'),
                             rows[3].replace('core=0x3', 'core=0xffffffff'), rows[3].replace('live=0', 'live=0x1000'),
                             re.sub(r'begin=\d+', f"begin={cold['samples'][2]['end']}", rows[3])):
@@ -249,10 +251,31 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(rows[at], forged))
         legacy = '\n'.join(line for line in text.splitlines() if line not in rows)
+        legacy = '\n'.join(line for line in legacy.splitlines() if not line.startswith(changes))
         self.assertNotIn('cold_rc6', bootstrap_result(legacy)['flush'])
+        v2 = '\n'.join(line for line in text.splitlines() if not line.startswith(changes))
+        for i, row in enumerate(rows):
+            old = row.replace('v=3', 'v=2').replace(f'n={i} ', f'n={i-1} ') if i > 5 else row.replace('v=3', 'v=2')
+            v2 = v2.replace(row, '' if i == 5 else old)
+        self.assertEqual(bootstrap_result(v2)['flush']['cold_rc6']['version'], 2)
+
+    def test_max_idle_rollback(self):
+        text = observe('pass')
+        change = bootstrap_result(text)['flush']['idle_change']
+        self.assertEqual([r['saved'] for r in change['engines'].values()], list(range(14, 19)))
+        row = next(line for line in text.splitlines() if line.startswith('intel-idle-engine:'))
+        for replacement in ('', row.replace('applied=0xa', 'applied=0xb'), row.replace('restored=0xe', 'restored=0xa')):
+            with self.assertRaisesRegex(ValueError, 'MAX_IDLE'):
+                bootstrap_result(text.replace(row, replacement))
+        for mode in ('idle-capture-mismatch', 'idle-apply-mismatch', 'idle-restore-mismatch', 'idle-drift'):
+            for pos in range(1, 6):
+                with self.subTest(mode=mode, pos=pos):
+                    raw = observe(mode, pos)
+                    self.assertIn('complete=0 engine_reads=', raw)
+                    self.assertIn('intel-idle-change:', raw)
 
     def test_missing_cold_sample_releases_display(self):
-        for mode, position in [('cold-float', n) for n in range(1, 9)] + [('cold-surface', 4), ('cold-surface', 7)]:
+        for mode, position in [('cold-float', n) for n in range(1, 10)] + [('cold-surface', 4), ('cold-surface', 7)]:
             with self.subTest(mode=mode, position=position):
                 result = subprocess.run([ROOT / TARGET, mode, str(position)], check=True,
                                         capture_output=True, text=True, timeout=10)
@@ -452,7 +475,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -575,7 +598,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
-        old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6):.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine):.*\n", "", old_power, flags=re.M)
         old_power = old_power.replace("intel-range-summary: v=8 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")

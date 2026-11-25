@@ -20,6 +20,8 @@ static void intel_display_test_bootstrap_receipt_boundary(void);
 static void intel_display_test_bootstrap_cost_boundary(unsigned);
 static void intel_display_test_bootstrap_maintain_boundary(unsigned);
 #ifdef SRVROS_INTEL_GT_FLUSH
+static uint32_t intel_display_test_idle_load(unsigned);
+static void intel_display_test_idle_store(unsigned,uint32_t);
 static unsigned model_engine_ro;
 static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 static uint32_t intel_display_test_bcs_stop_read(uint32_t);
@@ -118,19 +120,36 @@ static bool bf(const char *mode,unsigned n) {
  }return yes;
 }
 #ifdef SRVROS_INTEL_GT_FLUSH
+static uint32_t model_max_idle[5]={14,15,16,17,18};
+static unsigned model_idle_stores;
+static uint32_t intel_display_test_idle_load(unsigned i) {
+    assert(i<5 && wake_ack==1 && wake_irq && !display_access_allowed() && !model_engine_ro);
+    if (air_idle.restore_owner.state==GT_ACCESS_AWAKE && model_max_idle[i]==10 && bf("idle-drift",i+1)) return 64;
+    if (!model_idle_stores && bf("idle-capture-mismatch",i+1)) return UINT32_MAX;
+    if (model_idle_stores && model_idle_stores<=5 && bf("idle-apply-mismatch",model_idle_stores)) return 11;
+    if (model_idle_stores>5 && model_max_idle[i]!=10 && bf("idle-restore-mismatch",model_idle_stores-5)) return 11;
+    return model_max_idle[i];
+}
+static void intel_display_test_idle_store(unsigned i,uint32_t value) {
+    assert(i<5 && joint.scope.state==IHG_ACTIVE && wake_irq && wake_ack==1 && !display_access_allowed());
+    assert(value==10 || value==i+14);
+    model_max_idle[i]=value;
+    ++model_idle_stores;
+}
 bool timer_delay_us(uint64_t us) {
-    if (us == 20000 || us == 80000) {
+    if (us == 20000 || (us == 80000 && !wake_irq)) {
         assert(!wake_irq && joint.scope.state == IHG_CLOSED && !joint_terminal());
     } else {
-        assert((us == BDW_PCI_RC6_INTERVAL_US || us == 18000) && wake_irq);
+        assert((us == BDW_PCI_RC6_INTERVAL_US || us == 18000 || us == 80000) && wake_irq);
     }
     ticks += us;
     return true;
 }
 static void intel_display_test_cold_sample(unsigned n, uint32_t *core, uint32_t *residency,
                                           uint32_t *plane, uint32_t *programmed, uint32_t *live) {
-    if (n >= 5) assert(joint.scope.state == IHG_CLOSED && joint.h.initial.command == 6 && !joint_terminal());
-    if (n >= 2 && n <= 4) assert(joint.scope.state == IHG_ACTIVE && joint.h.initial.command == 2);
+    if (n >= 6) assert(joint.scope.state == IHG_CLOSED && joint.h.initial.command == 6 && !joint_terminal());
+    if (n >= 2 && n <= 5) assert(joint.scope.state == IHG_ACTIVE && joint.h.initial.command == 2);
+    for (unsigned i=0; i<5; ++i) assert(model_max_idle[i] == (n>=2 && n<=5 ? 10 : 14+i));
     *plane = 0xd8000400u;
     *programmed = 0;
     *live = bf("cold-surface", n + 1) ? 0x1000 : 0;
@@ -1050,8 +1069,26 @@ int main(int argc,char **argv) {
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"idle-drift") || !strcmp(bootstrap_mode,"idle-capture-mismatch") || !strcmp(bootstrap_mode,"idle-apply-mismatch") ||
+    !strcmp(bootstrap_mode,"idle-restore-mismatch")) {
+  assert(hit && fault_at>=1 && fault_at<=5 && pulses==2 && !wake_irq);
+  if (!strcmp(bootstrap_mode,"idle-drift")) {
+   assert(model_idle_stores==10 && air_idle.returned==31 && air_idle.persisted==(31u ^ (1u<<(fault_at-1))));
+   assert(display_access_allowed() && !wake_ack);
+  } else if (!strcmp(bootstrap_mode,"idle-capture-mismatch")) {
+   assert(!model_idle_stores && !air_idle.attempted && display_access_allowed());
+  } else if (!strcmp(bootstrap_mode,"idle-apply-mismatch")) {
+   assert(model_idle_stores==2*fault_at && air_idle.attempted==(1u<<fault_at)-1);
+   assert(air_idle.returned==air_idle.attempted && display_access_allowed() && !wake_ack);
+  } else {
+   assert(model_idle_stores==10 && air_idle.returned==(31u ^ (1u<<(5-fault_at))));
+   assert(air_idle.restore_owner.pinned && intel_gt_wake_retained() && !display_access_allowed());
+  }
+  for(unsigned i=0;i<5;i++) assert(model_max_idle[i]==14+i);
+  return code;
+ }
  if(!strcmp(bootstrap_mode, "cold-float") || !strcmp(bootstrap_mode, "cold-surface")) {
-  assert(fault_at >= 1 && fault_at <= 8 && hit && air_rc6_count == fault_at - 1);
+  assert(fault_at >= 1 && fault_at <= 9 && hit && air_rc6_count == fault_at - 1);
   assert(pulses == (fault_at <= 2 ? 0u : 2u));
   assert(!wake_ack && !(wake_request & 0xffff) && display_access_allowed() && !joint_terminal());
   return code;

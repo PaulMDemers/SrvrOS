@@ -89,15 +89,17 @@ def bank_result(text, version, samples, reset_started):
 
 def cold_rc6_result(rows, binding, timing, wake, display):
     points = []
-    delays = (0, 2000, 0, 2000, 18000, 0, 20000, 80000)
+    counts = {1: 4, 2: 8, 3: 9}
     for i, line in enumerate(rows):
         p = fields(line, 'intel-air-rc6:', ('v', 'n', 'begin', 'end', 'core', 'residency', 'ack',
                                              'plane', 'programmed', 'live'),
-                   ('core', 'residency', 'ack', 'plane', 'programmed', 'live'), versions=(1, 2))
+                   ('core', 'residency', 'ack', 'plane', 'programmed', 'live'), versions=(1, 2, 3))
+        released = 6 if p['v'] == 3 else 5
+        delays = (0, 2000, 0, 2000, 18000) + ((80000,) if p['v'] == 3 else ()) + (0, 20000, 80000)
         if (len(display) != 1 or p['plane'] != display[0]['plane'] or
                 p['programmed'] & ~8 != display[0]['surface'] or p['live'] != display[0]['surface']):
             raise ValueError('Active panel RC6 scanout differs from EFI')
-        if (p['n'] != i or i >= (4 if p['v'] == 1 else 8) or p['ack']
+        if (p['n'] != i or i >= counts[p['v']] or p['ack']
                 or max(p['core'], p['residency']) >= 0xffffffff
                 or not 0 < p['begin'] < p['end'] <= p['begin'] + 10000
                 or (points and (p['v'] != points[0]['v'] or p['begin'] < points[-1]['end']))):
@@ -109,26 +111,64 @@ def cold_rc6_result(rows, binding, timing, wake, display):
         if i >= 2 and (not timing['gt_end'] or p['begin'] < timing['gt_end']
                        or not wake or not wake['closed'] or p['end'] > wake['end_us']):
             raise ValueError('Active panel RC6 sample crosses wake release')
-        if p['v'] == 2 and 2 <= i <= 4 and timing['hda_end'] and p['end'] > timing['hda_end']:
+        if p['v'] >= 2 and 2 <= i < released and timing['hda_end'] and p['end'] > timing['hda_end']:
             raise ValueError('Active panel RC6 sample crosses audio release')
-        if i >= 5 and (not timing['outer_end'] or not timing['hda_end'] or
+        if i >= released and (not timing['outer_end'] or not timing['hda_end'] or
                        p['begin'] < max(timing['outer_end'], timing['hda_end'])):
             raise ValueError('Active panel RC6 sample precedes audio release')
         points.append(p)
     version = points[0]['v']
-    if wake and wake['complete'] and len(points) != (4 if version == 1 else 8):
+    if wake and wake['complete'] and len(points) != counts[version]:
         raise ValueError('Active panel RC6 coverage')
     def delta(start, end):
         return (points[end]['residency'] - points[start]['residency']) & 0xffffffff
     result = dict(version=version, samples=points,
                   delta_ticks_mod32=[delta(i, i+1) for i in (0, 2) if i+1 < len(points)])
-    if version == 2:
+    if version >= 2:
+        intervals = [('audio_held_20ms', 2, 4), ('audio_released_20ms', 5, 6), ('audio_released_100ms', 5, 7)]
+        if version == 3:
+            intervals = [('max_idle_10_20ms', 2, 4), ('max_idle_10_100ms', 2, 5),
+                         ('restored_audio_released_20ms', 6, 7), ('restored_audio_released_100ms', 6, 8)]
         result['idle_intervals'] = {
             name: dict(elapsed_us=points[end]['begin'] - points[start]['end'],
                        residency_delta_mod32=delta(start, end))
-            for name, start, end in [('audio_held_20ms', 2, 4), ('audio_released_20ms', 5, 6),
-                                     ('audio_released_100ms', 5, 7)] if end < len(points)}
+            for name, start, end in intervals if end < len(points)}
     return result
+
+
+def idle_change_result(text, policy, cold, timing, complete):
+    lines = text.splitlines()
+    headers = [line for line in lines if line.startswith('intel-idle-change:')]
+    engines = [line for line in lines if line.startswith('intel-idle-engine:')]
+    if len(headers) != 1:
+        raise ValueError('MAX_IDLE trial header coverage')
+    h = fields(headers[0], 'intel-idle-change:', ('v', 'captured', 'attempted', 'verified', 'persisted', 'returned',
+                                                  'apply_end', 'restore_begin', 'restore_end', 'closed'))
+    captured, attempted, verified, returned = (h[k] for k in ('captured', 'attempted', 'verified', 'returned'))
+    if (captured > 31 or h['persisted'] & ~verified or attempted & ~captured or verified & ~attempted or returned & ~attempted
+            or captured & (captured + 1) or attempted & (attempted + 1) or verified & (verified + 1)
+            or (attempted and captured != 31) or len(engines) != captured.bit_count() or h['closed'] > 1):
+        raise ValueError('MAX_IDLE register coverage')
+    evidence = {}
+    for i, line in enumerate(engines):
+        row = fields(line, 'intel-idle-engine:', ('v', 'n', 'saved', 'applied', 'at_return', 'restored'),
+                     ('saved', 'applied', 'at_return', 'restored'))
+        name = ENGINES[i]
+        if (row['n'] != i or len(policy) != 2 or row['saved'] != policy[1][name]
+                or (verified & (1 << i) and row['applied'] != 10)
+                or (h['persisted'] & (1 << i) and row['at_return'] != 10)
+                or (returned & (1 << i) and row['restored'] != row['saved'])):
+            raise ValueError('MAX_IDLE per-engine readback')
+        evidence[name] = row
+    points = cold.get('samples', [])
+    if ((h['apply_end'] and (verified != 31 or h['apply_end'] < policy[1]['end']))
+            or (len(points) > 2 and not 0 < h['apply_end'] <= timing['gt_end'] <= points[2]['begin'])
+            or (len(points) > 2 and h['restore_begin'] and points[min(len(points)-1,5)]['end'] > h['restore_begin'])
+            or (h['restore_end'] and (returned != attempted or not 0 < h['restore_begin'] < h['restore_end']))
+            or (len(points) > 6 and not 0 < h['restore_end'] <= timing['hda_end'] <= points[6]['begin'])
+            or (complete and not (len(points) == 9 and returned == verified == h['persisted'] == 31 and h['apply_end'] and h['restore_end'] and h['closed']))):
+        raise ValueError('MAX_IDLE measurement or restoration lifetime')
+    return dict(summary=h, engines=evidence)
 
 
 def prepare_messages(text, baseline, following):

@@ -286,6 +286,14 @@ def bootstrap_result(text,*,native=False):
             flush_proof['cold_rc6'] = cold_rc6_result(
                 cold_rows, b, timing, entry['wake']['summary'] if entry else None,
                 range_proof.get('efi_handoff', {}).get('display', []))
+        cold = flush_proof.get('cold_rc6', {})
+        has_change = any(line.startswith(('intel-idle-change:', 'intel-idle-engine:')) for line in text.splitlines())
+        if has_change or cold.get('version') == 3:
+            from intel_gt_flush import idle_change_result
+            if cold and cold['version'] != 3:
+                raise ValueError('MAX_IDLE trial sample version')
+            flush_proof['idle_change'] = idle_change_result(text, flush_proof.get('idle_policy', []),
+                                                           cold, timing, bool(entry and entry['wake']['summary']['complete']))
     elif any(l.startswith(('intel-flush-','intel-l3-power:','intel-smi-guard:','intel-widi-','intel-slot-widi:','intel-slot-reopened:','intel-slot-queues:','intel-command-slots:')) for l in text.splitlines()):raise ValueError('Foreign GT flush receipt')
     return dict(version=s['v'],diagnostic_seconds=seconds,timing=timing,diagnostic_complete=bool(diagnostic and native and complete and entry['native_complete']),maintain=maintain,admission=admission,cost=cost,owner_complete=owner_complete,complete=complete,native_complete=bool(not diagnostic and native and complete and entry['native_complete']),summary=s,
                 binding=b,reset=r,retire=retire,fences=fences,controls=controls,pulses=pulses,pci=pci,display=display,entry=entry,post=post,

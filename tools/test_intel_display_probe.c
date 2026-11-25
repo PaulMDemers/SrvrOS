@@ -309,7 +309,11 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
  assert(intel_display_test_joint_inhibited());
 #endif
  assert(wake_irq && !display_access_allowed());wake_writes++;
- assert((wake_writes==1 && v==0xffff0000u) || (wake_writes==2 && v==0x10001) || (wake_writes==3 && v==0x10000));
+ unsigned step=wake_writes;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ assert(step<=6); step=(step-1)%3+1;
+#endif
+ assert((step==1 && v==0xffff0000u) || (step==2 && v==0x10001) || (step==3 && v==0x10000));
  wake_request=(v&0xffff0000u)|((wake_request&0xffffu)&~(v>>16))|(v&0xffffu);
  if(wake_late_foreign)wake_request|=2;
  if(!wake_no_ack)wake_ack=wake_request&0xffffu;
@@ -1312,7 +1316,13 @@ shutdown_check_lifetime();
   assert(!display_access_allowed());for(unsigned j=0;j<WAKE_MAPS;j++)assert(pa[INTEL_CAPTURE_PAGES+1+j]);
  }
 #endif
-if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
+if(good){
+#ifdef SRVROS_INTEL_GT_FLUSH
+ assert(wake_writes==6);
+#else
+ assert(wake_writes==3);
+#endif
+ assert( !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
 #else
  if(wake_mode){assert(!intel_gt_wake_probe_report() && !wake_writes && display_access_allowed());}
 #endif

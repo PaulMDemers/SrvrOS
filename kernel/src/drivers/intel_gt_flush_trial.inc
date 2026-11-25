@@ -684,7 +684,7 @@ struct air_rc6_point {
     struct bdw_pci_rc6_sample power;
     uint32_t plane, programmed, live;
 };
-static struct air_rc6_point air_rc6_samples[8];
+static struct air_rc6_point air_rc6_samples[9];
 static unsigned air_rc6_count;
 
 static bool air_ack_clear(struct wake_adapter *a, bool (*guard)(void *))
@@ -703,7 +703,7 @@ static bool air_rc6_sample(struct wake_adapter *a, unsigned n, uint64_t delay, b
 {
     struct air_rc6_point sample = {0};
     struct bdw_pci_rc6_sample *point = &sample.power;
-    if (n != air_rc6_count || n >= 8 || !air_branch_selected() ||
+    if (n != air_rc6_count || n >= 9 || !air_branch_selected() ||
         !a->mapped[1] || !a->mapped[2] || !a->mapped[10] || wake_pages[10] != 0x70000) return false;
     point->begin_us = timer_monotonic_us();
     if (!point->begin_us || !air_ack_clear(a, guard)) return false;
@@ -742,6 +742,115 @@ static bool air_rc6_pair(struct wake_adapter *a, unsigned first)
            air_rc6_delayed(a, first + 1, BDW_PCI_RC6_INTERVAL_US, wake_guard);
 }
 
+/* The original GT owner captures live post-reset MAX_IDLE values. Keep the
+ * display and HDA exclusions across the cold interval. A second forcewake
+ * lease restores the registers without overwriting the reset owner's receipt. */
+static struct {
+    uint32_t saved[5], applied[5], at_return[5], restored[5];
+    unsigned captured, attempted, verified, persisted, returned;
+    uint64_t apply_end, restore_begin, restore_end;
+    struct intel_gt_access restore_owner;
+} air_idle;
+
+static bool air_idle_owned(struct wake_adapter *a, struct intel_gt_access *g)
+{
+    return gt_bootstrap_native.complete && gt_bootstrap_native.returned &&
+        gt_bootstrap_native.post_bound && gt_bootstrap_native.post.complete &&
+        gt_bootstrap_native.a == a && gt_bootstrap_native.g == joint.scope.gpu &&
+        a == joint.wake && joint.scope.state == IHG_ACTIVE && air_branch_selected() &&
+        slot_ports_restored == INTEL_ENGINE_COUNT && !gt_bootstrap_native.engine_ro_mask &&
+        !g->borrows && !g->dependents && intel_gt_access_check(g) &&
+        intel_window_handoff_revalidate(joint.snapshot);
+}
+
+static bool air_idle_port(struct wake_adapter *a, unsigned i)
+{
+    return completion_mapping(a, 3+i) && wake_pages[3+i] == (gt_idle_registers[4+i].reg & ~4095u) &&
+           engine_requesters(a);
+}
+
+static uint32_t air_idle_load(unsigned i)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_idle_load(i);
+#else
+    return *(volatile const uint32_t *)(WAKE_VA + (3+i)*4096 + 0x54);
+#endif
+}
+
+static void air_idle_store(unsigned i, uint32_t value)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    intel_display_test_idle_store(i, value);
+#else
+    *(volatile uint32_t *)(WAKE_VA + (3+i)*4096 + 0x54) = value;
+#endif
+}
+
+static bool air_idle_apply(struct wake_adapter *a, struct intel_gt_access *g)
+{
+    if (air_idle.captured || !gt_idle_samples[1].end || !air_idle_owned(a,g)) return false;
+    for (unsigned i=0; i<INTEL_ENGINE_COUNT; ++i) {
+        if (!air_idle_port(a,i)) return false;
+        uint32_t value = air_idle_load(i);
+        if (value == UINT32_MAX || value != gt_idle_samples[1].words[4+i]) return false;
+        air_idle.saved[i] = value;
+        air_idle.captured |= 1u << i;
+    }
+    for (unsigned i=0; i<INTEL_ENGINE_COUNT; ++i) {
+        if (!air_idle_port(a,i)) return false;
+        air_idle.attempted |= 1u << i;
+        air_idle_store(i,10);
+        air_idle.applied[i] = air_idle_load(i); /* posting read of the exact engine register */
+        if (air_idle.applied[i] != 10) return false;
+        air_idle.verified |= 1u << i;
+    }
+    if (!air_idle_owned(a,g)) return false;
+    air_idle.apply_end = g->last;
+    return true;
+}
+
+static bool air_idle_restore(struct wake_adapter *a, struct intel_gt_access *g)
+{
+    if (!air_idle_owned(a,g)) return false;
+    air_idle.restore_begin = g->last;
+    for (unsigned n=INTEL_ENGINE_COUNT; n; --n) {
+        unsigned i=n-1;
+        if (!(air_idle.attempted & (1u << i))) continue;
+        if (!air_idle_port(a,i)) return false;
+        if (air_idle.apply_end) {
+            air_idle.at_return[i] = air_idle_load(i);
+            if (air_idle.at_return[i] == 10) air_idle.persisted |= 1u << i;
+        }
+        air_idle_store(i,air_idle.saved[i]);
+        air_idle.restored[i] = air_idle_load(i);
+        if (air_idle.restored[i] == air_idle.saved[i]) air_idle.returned |= 1u << i;
+    }
+    if (air_idle.returned != air_idle.attempted || !air_idle_owned(a,g)) return false;
+    air_idle.restore_end = g->last;
+    return true;
+}
+
+static bool air_idle_trial(struct wake_adapter *a, struct intel_gt_access *g, unsigned grants)
+{
+    bool applied = grants == GT_ACCESS_REQUIRED && air_idle_apply(a,g);
+    if (!applied && air_idle.attempted && !air_idle_restore(a,g)) {
+        a->uncertain = true;
+        return false;
+    }
+    if (!intel_gt_access_close(g)) {
+        if (applied) a->uncertain = true;
+        return false;
+    }
+    if (!applied) return true;
+    if (air_rc6_pair(a,2) && air_rc6_delayed(a,4,18000,wake_guard))
+        (void)air_rc6_delayed(a,5,80000,wake_guard);
+    struct intel_gt_access *r = &air_idle.restore_owner;
+    if (!intel_gt_access_open_with_guarded_snapshot(r,&a->fw.gt.token,grants,g->io) ||
+        !air_idle_restore(a,r) || !intel_gt_access_close(r)) a->uncertain = true;
+    return true; /* The reset owner's own closing receipt is independent. */
+}
+
 static bool air_audio_released(void *context)
 {
     return !joint_terminal() && joint.scope.state == IHG_CLOSED && joint.scope.hda.complete &&
@@ -757,13 +866,13 @@ static void air_rc6_after_audio(struct wake_adapter *owner, uint64_t flags)
     for (unsigned i = 0; i < 3; ++i) {
         if (!air_audio_released(&observer) || !wake_map_admitted(&observer, pages[i])) goto retire;
     }
-    if (!air_rc6_sample(&observer, 5, 0, air_audio_released)) goto retire;
+    if (!air_rc6_sample(&observer, 6, 0, air_audio_released)) goto retire;
     for (unsigned i = 0; i < 2; ++i) {
         /* Only the display exclusion and the three RO aliases span the idle interval. */
         wake_irq_restore(flags);
         bool waited = timer_delay_us(delays[i]);
         (void)wake_irq_save();
-        if (!waited || !air_rc6_sample(&observer, 6 + i, delays[i], air_audio_released)) break;
+        if (!waited || !air_rc6_sample(&observer, 7 + i, delays[i], air_audio_released)) break;
     }
 retire:
     for (unsigned i = 3; i > 0; --i)
@@ -779,10 +888,19 @@ static void gt_flush_report(void) {
             (uint64_t)w[1], (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4], (uint64_t)w[5],
             (uint64_t)w[6], (uint64_t)w[7], (uint64_t)w[8]);
     }
+    console_printf("intel-idle-change: v=1 captured=%u attempted=%u verified=%u persisted=%u returned=%u apply_end=%u restore_begin=%u restore_end=%u closed=%u\n",
+        (uint64_t)air_idle.captured,(uint64_t)air_idle.attempted,(uint64_t)air_idle.verified,
+        (uint64_t)air_idle.persisted,(uint64_t)air_idle.returned,air_idle.apply_end,air_idle.restore_begin,air_idle.restore_end,
+        (uint64_t)(air_idle.restore_owner.state == GT_ACCESS_CLOSED && !air_idle.restore_owner.reason));
+    for (unsigned i=0; i<INTEL_ENGINE_COUNT; ++i)
+        if (air_idle.captured & (1u << i))
+            console_printf("intel-idle-engine: v=1 n=%u saved=%x applied=%x at_return=%x restored=%x\n",
+                (uint64_t)i,(uint64_t)air_idle.saved[i],(uint64_t)air_idle.applied[i],
+                (uint64_t)air_idle.at_return[i],(uint64_t)air_idle.restored[i]);
     for (unsigned i = 0; i < air_rc6_count; ++i) {
         const struct air_rc6_point *sample = &air_rc6_samples[i];
         const struct bdw_pci_rc6_sample *p = &sample->power;
-        console_printf("intel-air-rc6: v=2 n=%u begin=%u end=%u core=%x residency=%x ack=%x plane=%x programmed=%x live=%x\n",
+        console_printf("intel-air-rc6: v=3 n=%u begin=%u end=%u core=%x residency=%x ack=%x plane=%x programmed=%x live=%x\n",
             (uint64_t)i, p->begin_us, p->end_us, (uint64_t)p->core_status,
             (uint64_t)p->residency, (uint64_t)p->wake_ack, (uint64_t)sample->plane,
             (uint64_t)sample->programmed, (uint64_t)sample->live);

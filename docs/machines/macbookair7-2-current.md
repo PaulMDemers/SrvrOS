@@ -28,10 +28,12 @@ idle interval after display-audio release was 102.735 ms. All seven original
 command-slot translations matched, all 19 EFI-reserved pages verified and
 the offline exFAT allocation check found zero errors.
 
-This run identifies a per-engine configuration difference. Its effect on
-RC6 entry still needs a controlled trial that applies the i915 idle limits
-after reset, checks readback, repeats the residency measurement and restores
-the captured values.
+PR 301 is qualifying a controlled MAX_IDLE trial in the Air flush diagnostic.
+With display audio held after reset, it saves each engine's live value,
+writes 10 and verifies readback. It releases forcewake for a 100 ms RC6
+measurement, reacquires it to check that each engine still reads 10, then
+restores and verifies each saved value. A second 100 ms interval records
+residency after restoration and audio release. The original panel stays active.
 Native command submission still requires a device-wide traffic block and
 fresh engine and L3 acknowledgements.
 

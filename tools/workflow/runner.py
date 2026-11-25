@@ -546,7 +546,7 @@ class Runner:
                 state['bcs_stop_version'] = 1
             if payload.get('idle_policy_version') == 1:
                 state['idle_policy_version'] = 1
-            if payload.get('cold_rc6_version') in (1, 2):
+            if payload.get('cold_rc6_version') in (1, 2, 3):
                 state['cold_rc6_version'] = payload['cold_rc6_version']
         state.update(release=release, stage=str(stage), manifest_digest=sha(stage / 'manifest.json'), recipe=recipe,
                      payload_bank=str(bank))
@@ -768,7 +768,7 @@ class Runner:
                 cold = native['flush'].get('cold_rc6', {})
                 version = state['cold_rc6_version']
                 diagnostic_complete = (diagnostic_complete and cold.get('version') == version
-                                       and len(cold.get('samples', [])) == {1: 4, 2: 8}[version])
+                                       and len(cold.get('samples', [])) == {1: 4, 2: 8, 3: 9}[version])
             self.guard(manifest, state, installed=True, armed=False)
             report = dict(status='COLLECTED_DIAGNOSTIC_REVIEW_REQUIRED' if diagnostic_complete else 'COLLECTED_REVIEW_REQUIRED' if native_complete else 'COLLECTED_INCOMPLETE_REVIEW_REQUIRED', diagnostic_complete=diagnostic_complete,native_complete=native_complete, source=manifest['source'], release=state['release'],
                           session=session, parser_source=command(['git', 'rev-parse', 'HEAD'], self.repo),
@@ -976,6 +976,8 @@ class Runner:
                 record['prepare_messages']=observed['prepare_messages']
             if 'idle_policy' in observed:
                 record['idle_policy'] = observed['idle_policy']
+            if 'idle_change' in observed:
+                record['idle_change'] = observed['idle_change']
             if 'cold_rc6' in observed:
                 record['cold_rc6'] = observed['cold_rc6']
             if 'bcs_stop' in observed:
