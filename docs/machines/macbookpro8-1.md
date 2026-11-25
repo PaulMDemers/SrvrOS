@@ -3,9 +3,10 @@
 Updated November 24, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
-enumeration trial. The operator reported working built-in keyboard input in
-the attended retry. The retry's final counters, ordinary console input and
-native USB workspace access remain unverified.**
+enumeration trial. The operator verified built-in keyboard input, command
+execution and readable mixed-case text in the regular monitor. Trackpad
+reports, monitor shutdown counters and native USB workspace access remain
+unverified.**
 
 ## Identity and baseline
 
@@ -38,18 +39,16 @@ native USB workspace access remain unverified.**
 MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
 trials established the topcase descriptor path and verified the workspace
 flash drive with a 600 ms bound for its initial device descriptor. The active
-input work uses the captured keyboard interface, EHCI periodic interrupts,
-the existing kernel HID decoder and a RAM-only attended boot profile. The
-first typing trial reached periodic polling and timed out with no completed
-report. The operator reported working input on the retry with HID idle and
-queue diagnostics. The keyboard monitor profile keeps that interface active
-in the regular SrvrOS monitor and retires the EHCI schedules, DMA pages and
-register mapping before the monitor resets the machine. It also exercises the
-shared 5×7 font change for lowercase `p`, `q`, `g` and `y`. Native workspace
-reads and writes require a separate mass-storage milestone.
+input milestone covers the captured keyboard and trackpad through EHCI
+periodic interrupts. The next work block qualifies Wellspring5 type 2
+reports in an attended RAM-only profile. Its implementation scope is the
+EHCI split control and periodic paths, topcase descriptor matching, boot
+staging and their fixtures. It reuses the existing Apple trackpad decoder.
+Pointer mapping and native workspace reads and writes follow as separate
+milestones.
 
-The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
-USB Wi-Fi work at `eb387210`, and Apple Silicon runtime, login and export work
+The scope check found separate Air7,2 Intel display work at `7f276f8c` in
+PR #301, Pro11,2 USB Wi-Fi work at `b52a0974`, and Apple Silicon runtime, login and export work
 in PRs #551, #550 and #510. The initial MacBookPro8,1 scope has no identified
 dependency on those branches. The Air7,2 branch at `85aeb4ba` also touches the
 staging tool for graphics receipts, independently of the EHCI profile.
@@ -429,14 +428,34 @@ If that verification fails, use the power button to return to Ubuntu.
 through serial in Q35, including echo, history editing, ACPI reset and
 consumption of the one-shot entry. The host EHCI fixture checks periodic
 report completion and halt-before-release behavior. The physical keyboard and
-native reset still require a run on this Mac.
+native reset require separate evidence from this Mac.
+
+On release `d7990a68cf4130ff` the operator confirmed the built-in keyboard,
+command execution, and clear case distinctions in the regular monitor.
+Ubuntu returned with a different boot ID and an empty GRUB one-shot entry.
+The installed and recovery manifests, EFI boot order and exFAT mount matched.
+The operator report did not specify history editing, the return method or
+the EHCI release counters. The exact payload and evidence were archived
+outside `build/`.
+
+### Wellspring5 trackpad reference
+
+Ubuntu on this unit binds `bcm5974` to interface 2, while the trackpad data
+arrives on endpoint `0x81` of interface 1. The captured descriptor reports
+64-byte full-speed interrupt packets and a 2 ms interval. Ubuntu's live EHCI
+schedule uses a 1 ms interval and start/complete mask `0x1c01` on that endpoint.
+Wellspring5 reports use a 30-byte type 2 header and 28 bytes per finger slot,
+so a report with two slots spans multiple packets. Mode selection uses an
+eight-byte HID feature read/modify/write with value `0x0300` and index 0.
+[Linux bcm5974 reference](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/input/mouse/bcm5974.c)
 
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard and trackpad | Native topcase descriptors verified. The operator reported working keyboard input in the attended retry. | Verify the regular monitor's keyboard path and shutdown, then qualify trackpad reports |
+| Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
+| Trackpad | Native topcase and Ubuntu endpoint schedule verified | Qualify native type 2 contact reports and click transitions, then map pointer input |
 | USB workspace | The flash drive enumerates natively on `00:1d.7` and Ubuntu mounts it | Verify native block reads, then write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
