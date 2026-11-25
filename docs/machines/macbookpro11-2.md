@@ -1153,6 +1153,14 @@ closed and IQ mode clear. Preserve the single 4,096-byte request,
 channel, hub topology and automatic evidence capture. The separate
 IQ trigger register at `0xe48` stays an observation.
 
+In the captured Linux startup, `0xe4c=0x001028d1` preceded the
+distinct two-write trigger sequence at `0xe48`. This trial sets
+bit 20 at `0xe4c` and checks the full readback before applying the
+retained IQ matrix and arming bulk IN. The startup snapshot records
+`0xe28`, `0xe48` and the original `0xe4c` word. The compact
+startup receipt records SIFS, B68 and the new control readback.
+[Linux path-A IQ calibration](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
