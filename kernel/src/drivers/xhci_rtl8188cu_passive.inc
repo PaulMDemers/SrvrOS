@@ -14,9 +14,10 @@
 #define RTL_CU_LLT_WRITE (1u<<30)
 #define RTL_CU_LLT_BUSY (3u<<30)
 #define RTL_CU_PACKET_BOUNDARY 0xf9u
-/* Match the measured Linux monitor admission bits. The high RCR nibble
- * controls appended receive metadata and stays clear in this comparison. */
+/* Match Linux monitor admission and enable its PHY status prefix. */
 #define RTL_CU_MONITOR_RCR 0x790fu
+#define RTL_CU_RCR_PHY_STATUS (1u<<28)
+#define RTL_CU_RX_DRIVER_INFO_UNITS 4u
 #define RTL_CU_ALL_SUBTYPES 0xffffu
 #define RTL_CU_RF_DATA_MASK 0xfffffu
 #define RTL_CU_RF_START_CHANNEL 0x7401u
@@ -119,8 +120,10 @@ static struct {
 static bool rtl_cu_verify_receive_setup(struct xhci_device *d) {
     /* Verify the frame filters and pinned baseband layout. */
     static const struct { uint16_t address,width; uint32_t expected; } regs[RTL_CU_ADMISSION_COUNT]={
-        [RTL_CU_FILTER_RCR]={0x608,4,RTL_CU_MONITOR_RCR}, [RTL_CU_FILTER_MGT]={0x6a0,2,RTL_CU_ALL_SUBTYPES},
-        [RTL_CU_FILTER_CTL]={0x6a2,2,0}, [RTL_CU_FILTER_DATA]={0x6a4,2,RTL_CU_ALL_SUBTYPES}, [RTL_CU_DRIVER_INFO]={0x60f,1,0},
+        [RTL_CU_FILTER_RCR]={0x608,4,RTL_CU_MONITOR_RCR|RTL_CU_RCR_PHY_STATUS},
+        [RTL_CU_FILTER_MGT]={0x6a0,2,RTL_CU_ALL_SUBTYPES},
+        [RTL_CU_FILTER_CTL]={0x6a2,2,0}, [RTL_CU_FILTER_DATA]={0x6a4,2,RTL_CU_ALL_SUBTYPES},
+        [RTL_CU_DRIVER_INFO]={0x60f,1,RTL_CU_RX_DRIVER_INFO_UNITS},
         [RTL_CU_FPGA0_RFMOD]={0x800,4,0x83040000}, [RTL_CU_FPGA1_RFMOD]={0x900,4,0},
         [RTL_CU_OFDM_TRX]={0xc04,4,0x03a05611},
         [RTL_CU_MAR0]={0x620,4,UINT32_MAX}, [RTL_CU_MAR1]={0x624,4,UINT32_MAX},
@@ -517,8 +520,8 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl8188cu_write_value(d,0x840,4,0x0180740a) ||
        !rtl_cu_rf_read(d,0x18,channel) || (*channel&0x3ff)!=RTL_CU_CHANNEL ||
        !rtl8188cu_update(d,0x10c,1,4,0) || !rtl8188cu_update(d,0xfe55,1,8,0) ||
-       !rtl8188cu_write_value(d,0x60f,1,0) ||
-       !rtl8188cu_write_value(d,0x608,4,RTL_CU_MONITOR_RCR) ||
+       !rtl8188cu_write_value(d,0x60f,1,RTL_CU_RX_DRIVER_INFO_UNITS) ||
+       !rtl8188cu_write_value(d,0x608,4,RTL_CU_MONITOR_RCR|RTL_CU_RCR_PHY_STATUS) ||
        !rtl8188cu_write_value(d,0x620,4,UINT32_MAX) || !rtl8188cu_write_value(d,0x624,4,UINT32_MAX) ||
        !rtl8188cu_write_value(d,0x6a0,2,RTL_CU_ALL_SUBTYPES) ||
        !rtl8188cu_write_value(d,0x6a2,2,0) ||

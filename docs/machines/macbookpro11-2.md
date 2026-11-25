@@ -1199,6 +1199,14 @@ single 4,096-byte request, and three-adapter hub topology.
 Exercise the production descriptor decoder with the larger prefix
 and save the channel-10 results on both persistent paths.
 
+The trial sets RCR `0x1000790f` and `0x60f=4`. The descriptor
+parser already advances by the reported driver-info units and
+alignment shift, and validates the MPDU against the reported USB
+length. The fixture presents a 32-byte status prefix, two alignment
+bytes, and a transfer truncated within that prefix. This comparison
+uses PHY status as the only Linux descriptor-format addition.
+[Linux receive descriptor decoder](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.c)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
