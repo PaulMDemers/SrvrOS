@@ -949,6 +949,17 @@ class InstallTests(unittest.TestCase):
                       (keyboard_payload / "limine.conf").read_text())
         with self.assertRaises(ValueError):
             boot.stage(ehci_split_trial=True, ehci_keyboard_trial=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            trackpad = boot.stage(ehci_trackpad_trial=True)
+        trackpad_payload = self.stage / trackpad
+        self.assertNotIn(trackpad, (release, keyboard))
+        self.assertEqual(boot.verify(trackpad_payload, trackpad)["config_version"], boot.EHCI_TRACKPAD_VERSION)
+        self.assertEqual((trackpad_payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(f"cmdline: srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={trackpad}\n",
+                      (trackpad_payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_keyboard_monitor=True, ehci_trackpad_trial=True)
 
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"

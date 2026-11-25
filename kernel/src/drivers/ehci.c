@@ -1,4 +1,5 @@
 #include <srvros/ehci.h>
+#include <srvros/apple_trackpad.h>
 #include <srvros/console.h>
 #include <srvros/ehci_enumeration.h>
 #include <srvros/keyboard.h>
@@ -112,6 +113,14 @@ struct ehci_keyboard_schedule {
     bool qtd_loaded;
 };
 
+struct ehci_trackpad_capture {
+    unsigned reports, ignored, invalid, bytes, largest, contacts;
+    uint32_t token, overlay, status;
+    int16_t first_x, first_y;
+    bool have_position, moved, pressed, released, mode_restored;
+    const char *result;
+};
+
 struct ehci_probe_report {
     const char *result;
     const char *handoff;
@@ -133,6 +142,8 @@ struct ehci_probe_report {
     unsigned flash_received;
     uint64_t flash_wait_us;
     struct ehci_control_target keyboard_target;
+    struct ehci_control_target trackpad_target;
+    struct ehci_trackpad_capture trackpad;
     const char *keyboard_result;
     bool keyboard_passed;
     unsigned keyboard_reports;
@@ -309,7 +320,7 @@ static void record_transfer_failure(struct ehci_control_path *path, uint8_t addr
 }
 
 static void prepare_control(struct ehci_control_path *path, const struct ehci_control_target *target,
-    const struct usb_setup_packet *setup) {
+    const struct usb_setup_packet *setup, const uint8_t *out_data) {
     struct ehci_dma *dma = path->dma;
     uint32_t setup_td = path->physical + offsetof(struct ehci_dma, setup_td);
     uint32_t data_td = path->physical + offsetof(struct ehci_dma, data_td);
@@ -331,14 +342,17 @@ static void prepare_control(struct ehci_control_path *path, const struct ehci_co
     dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, setup);
     if (setup->length) {
         dma->data_td.next = status_td;
-        dma->data_td.alternate = status_td;
+        dma->data_td.alternate = out_data ? EHCI_LINK_END : status_td;
         dma->data_td.token = ((uint32_t)setup->length << EHCI_TD_BYTES_SHIFT) | EHCI_TD_DATA1 |
-            EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
+            (out_data ? EHCI_TD_PID_OUT : EHCI_TD_PID_IN) | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
         dma->data_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
+        if (out_data) {
+            for (unsigned i = 0; i < setup->length; i++) dma->data[i] = out_data[i];
+        }
     }
     dma->status_td.next = EHCI_LINK_END;
     dma->status_td.alternate = EHCI_LINK_END;
-    dma->status_td.token = (setup->length ? EHCI_TD_PID_OUT : EHCI_TD_PID_IN) |
+    dma->status_td.token = (setup->length && !out_data ? EHCI_TD_PID_OUT : EHCI_TD_PID_IN) |
         EHCI_TD_DATA1 | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
 }
 
@@ -353,13 +367,13 @@ static bool flash_descriptor_request(const struct ehci_control_path *path, const
 
 /* Both success and failure must acknowledge schedule disable before the next
  * request can overwrite the shared descriptor page. */
-static bool control_transfer(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
-    uint8_t *data, unsigned *received) {
-    struct ehci_control_path *path = context;
+static bool control_transfer_payload(struct ehci_control_path *path, const struct ehci_control_target *target,
+    const struct usb_setup_packet *setup, uint8_t *in_data, const uint8_t *out_data, unsigned *received) {
     volatile uint32_t *op = path->op;
     *received = 0;
+    bool in = (setup->request_type & USB_ENDPOINT_IN) != 0;
     if (target->address > 127 || setup->length > EHCI_DESCRIPTOR_BYTES ||
-        (setup->length && (!data || !(setup->request_type & USB_ENDPOINT_IN)))) return false;
+        (setup->length && (in ? !in_data || out_data : !out_data || in_data))) return false;
     if (target->tt_hub) {
         if (target->tt_hub > 127 || target->tt_hub == target->address || !target->tt_port || target->tt_port > 127 ||
             !ehci_full_speed_packet_size(target->packet_size)) return false;
@@ -371,7 +385,7 @@ static bool control_transfer(void *context, const struct ehci_control_target *ta
         return false;
     }
 
-    prepare_control(path, target, setup);
+    prepare_control(path, target, setup, out_data);
     __asm__ volatile ("mfence" : : : "memory");
     op[EHCI_USBCMD] = command | EHCI_CMD_ASYNC;
     bool flash_probe = flash_descriptor_request(path, target, setup);
@@ -394,18 +408,86 @@ static bool control_transfer(void *context, const struct ehci_control_target *ta
     __asm__ volatile ("mfence" : : : "memory");
     if (setup->length) {
         unsigned residual = (path->dma->data_td.token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
-        if (residual > setup->length) {
+        if (residual > setup->length || (out_data && residual)) {
             record_transfer_failure(path, target->address, setup, "invalid data residual", true);
             return false;
         }
         *received = setup->length - residual;
         if (flash_probe) path->report->flash_received = *received;
-        for (unsigned i = 0; i < *received; i++) data[i] = path->dma->data[i];
+        if (in_data) {
+            for (unsigned i = 0; i < *received; i++) in_data[i] = path->dma->data[i];
+        }
     }
     return true;
 }
 
+static bool control_transfer(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
+    uint8_t *data, unsigned *received) {
+    return control_transfer_payload(context, target, setup, data, NULL, received);
+}
+
+struct ehci_periodic_endpoint {
+    unsigned address, packet, interval, length;
+};
+
+#define EHCI_FRAME_ENTRIES (EHCI_PAGE_BYTES / sizeof(uint32_t))
+
+static void prepare_periodic_frames(uint32_t *frames, uint32_t qh, unsigned interval) {
+    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++)
+        frames[i] = i % interval ? EHCI_LINK_END : qh | EHCI_LINK_QH;
+}
+
+static const char *configure_periodic_frames(struct ehci_control_path *path,
+    const struct ehci_periodic_endpoint *endpoint, uint64_t *frame_list) {
+    if (path->op[EHCI_USBCMD] & EHCI_CMD_FRAME_SIZE) return "unsupported frame-list size";
+    uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
+    if (!physical || physical > UINT32_MAX) {
+        if (physical) pmm_free_frame(physical);
+        return "periodic DMA unavailable";
+    }
+    *frame_list = physical;
+    prepare_periodic_frames(pmm_phys_to_virt(physical), path->physical + offsetof(struct ehci_dma, qh),
+        endpoint->interval);
+    __asm__ volatile ("mfence" : : : "memory");
+    path->op[EHCI_PERIODICLISTBASE] = (uint32_t)physical;
+    return path->op[EHCI_PERIODICLISTBASE] == physical ? NULL : "periodic frame-list readback failed";
+}
+
+static void prepare_periodic_transfer(struct ehci_control_path *path, const struct ehci_control_target *target,
+    const struct ehci_periodic_endpoint *endpoint, uint32_t toggle) {
+    struct ehci_dma *dma = path->dma;
+    *dma = (struct ehci_dma) {0};
+    dma->qh.link = EHCI_LINK_END;
+    dma->qh.endpoint = target->address | ((endpoint->address & 15u) << 8) |
+        (endpoint->packet << EHCI_QH_PACKET_SHIFT);
+    /* Full speed, one start-split at uframe 0 and complete-splits at 2–4. */
+    dma->qh.capabilities = EHCI_QH_MULT_ONE | ((uint32_t)target->tt_hub << EHCI_QH_TT_HUB_SHIFT) |
+        ((uint32_t)target->tt_port << EHCI_QH_TT_PORT_SHIFT) | 0x1c01u;
+    dma->qh.overlay.next = path->physical + offsetof(struct ehci_dma, setup_td);
+    dma->qh.overlay.alternate = EHCI_LINK_END;
+    dma->qh.overlay.token = toggle;
+    dma->setup_td.next = dma->setup_td.alternate = EHCI_LINK_END;
+    dma->setup_td.token = (endpoint->length << EHCI_TD_BYTES_SHIFT) | EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
+    dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
+}
+
+static bool periodic_idle(const struct ehci_control_path *path) {
+    return (path->op[EHCI_USBCMD] & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) == EHCI_CMD_RUN &&
+        !(path->op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES | EHCI_STS_HOST_ERROR));
+}
+
+static bool enable_periodic(const struct ehci_control_path *path) {
+    path->op[EHCI_USBCMD] |= EHCI_CMD_PERIODIC;
+    return wait_mmio(&path->op[EHCI_USBSTS], EHCI_STS_PERIODIC, EHCI_STS_PERIODIC, EHCI_HALT_US);
+}
+
+static bool disable_periodic(const struct ehci_control_path *path) {
+    path->op[EHCI_USBCMD] &= ~EHCI_CMD_PERIODIC;
+    return wait_mmio(&path->op[EHCI_USBSTS], EHCI_STS_PERIODIC, 0, EHCI_HALT_US);
+}
+
 #include "ehci_keyboard.inc"
+#include "ehci_trackpad.inc"
 
 static uint32_t read_root_port(struct ehci_enumeration *bus, volatile uint32_t *port) {
     uint32_t status = *port;
@@ -486,14 +568,16 @@ static void track_trial_device(void *context, const struct ehci_control_target *
         target->tt_hub == parent && target->tt_port == port && target->packet_size == 8) {
         report->topcase_address = target->address;
         if (captured_keyboard_interface(configuration, length)) report->keyboard_target = *target;
+        if (captured_trackpad_interfaces(configuration, length)) report->trackpad_target = *target;
     }
     if (path->trial_slot == 1 && vendor == 0x13fe && product == 0x6700 &&
         !target->tt_hub && target->packet_size == 64) report->flash_address = target->address;
 }
 
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
-    struct ehci_probe_report *report, bool split, int trial_slot, const char *keyboard_release,
-    bool keep_keyboard) {
+    struct ehci_probe_report *report, enum ehci_boot_mode mode, int trial_slot, const char *keyboard_release) {
+    bool keep_keyboard = mode == EHCI_BOOT_KEYBOARD_MONITOR;
+    bool split = mode != EHCI_BOOT_ENUMERATE;
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
@@ -539,6 +623,8 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
             monitor_session.frame_list = frame_list;
             return;
         }
+    } else if (complete && mode == EHCI_BOOT_TRACKPAD_TRIAL) {
+        run_trackpad_trial(&path, &frame_list);
     } else if (complete && keyboard_release && trial_slot == 0) {
         report->keyboard_result = run_keyboard_trial(&path, keyboard_release, &frame_list);
         console_set_framebuffer_muted(true);
@@ -643,8 +729,7 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         report->result = probe_registers(device, caps, mapped_bytes, report);
         if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
             bool keep_keyboard = mode == EHCI_BOOT_KEYBOARD_MONITOR;
-            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT || keep_keyboard,
-                trial_slot, keyboard_release, keep_keyboard);
+            enumerate_controller(device, caps + report->cap_length / 4, report, mode, trial_slot, keyboard_release);
             if (keep_keyboard && monitor_session.frame_list) {
                 monitor_session.device = device;
                 monitor_session.root = root;
@@ -675,6 +760,19 @@ static int trial_controller_slot(const struct pci_device *device) {
     if (device->device_id == 0x1c2d && device->device == 0x1a) return 0;
     if (device->device_id == 0x1c26 && device->device == 0x1d) return 1;
     return -1;
+}
+
+static bool ehci_usb_controller(const struct pci_device *device) {
+    return device && device->class_code == EHCI_PCI_USB_CLASS &&
+        device->subclass == EHCI_PCI_USB_SUBCLASS && device->prog_if == EHCI_PCI_PROG_IF;
+}
+
+static const struct pci_device *captured_topcase_controller(void) {
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *device = pci_device_at(i);
+        if (ehci_usb_controller(device) && trial_controller_slot(device) == 0) return device;
+    }
+    return NULL;
 }
 
 static void log_transfer_failure(const struct ehci_transfer_failure *failure) {
@@ -758,10 +856,8 @@ void ehci_monitor_start(void) {
         console_write("ehci-monitor: keyboard unavailable (timer or address space)\n");
         return;
     }
-    for (uint64_t i = 0; i < pci_device_count(); i++) {
-        const struct pci_device *device = pci_device_at(i);
-        if (!device || trial_controller_slot(device) != 0 || device->class_code != EHCI_PCI_USB_CLASS ||
-            device->subclass != EHCI_PCI_USB_SUBCLASS || device->prog_if != EHCI_PCI_PROG_IF) continue;
+    const struct pci_device *device = captured_topcase_controller();
+    if (device) {
         struct ehci_probe_report *report = &monitor_session.report;
         report->mapping = "none";
         bool reusable = probe_controller(device, root, EHCI_BOOT_KEYBOARD_MONITOR, report, 0, NULL);
@@ -816,8 +912,7 @@ static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial)
     unsigned found = 0;
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *device = pci_device_at(i);
-        if (!device || device->class_code != EHCI_PCI_USB_CLASS ||
-            device->subclass != EHCI_PCI_USB_SUBCLASS || device->prog_if != EHCI_PCI_PROG_IF) continue;
+        if (!ehci_usb_controller(device)) continue;
         found++;
         struct ehci_probe_report report = { .handoff = "not-attempted", .mapping = "none" };
         int slot = trial ? trial_controller_slot(device) : -1;
@@ -898,6 +993,46 @@ static void print_scan_stop(const struct ehci_probe_report *report) {
             if (report->flash_attempted) console_printf("  QH overlay token=%x\n", (uint64_t)failure->overlay_token);
         }
     }
+}
+
+void ehci_boot_trackpad_trial(const char *release) {
+    console_set_framebuffer_muted(false);
+    console_clear();
+    console_printf("SrvrOS MacBookPro8,1 trackpad trial\nRelease %s\n\n", release);
+    console_write("Wait for Trackpad ready. Then move one finger across the pad,\n"
+                  "place two fingers on it, and press and release the clickpad.\n"
+                  "Photograph the result. Power off and start again to return to Ubuntu.\n\n"
+                  "Scanning for the built-in trackpad...\n");
+    console_sync();
+    uint64_t root = vmm_kernel_address_space();
+    const struct pci_device *device = captured_topcase_controller();
+    struct ehci_probe_report report = { .handoff = "not-attempted", .mapping = "none" };
+    if (device && timer_reference_ready() && vmm_diagnostic_sole_kernel_root(root)) {
+        console_set_framebuffer_muted(true);
+        probe_controller(device, root, EHCI_BOOT_TRACKPAD_TRIAL, &report, 0, NULL);
+        console_set_framebuffer_muted(false);
+    }
+    struct ehci_trackpad_capture *capture = &report.trackpad;
+    if (!device) console_write("Captured topcase controller absent.\n");
+    else if (!report.result) console_write("Trackpad probe unavailable before register access.\n");
+    else console_printf("00:1a.7 %s. Scan %s. DMA %s. Mapping %s.\n", report.result,
+        report.enumerated ? "complete" : "incomplete", report.dma_released ? "released" : "unverified", report.mapping);
+    print_scan_stop(&report);
+    console_printf("Trackpad %s. Reports %u. Last %u bytes. Largest %u bytes.\n",
+        capture->result ? capture->result : capture->reports ? "captured" : "unavailable",
+        (uint64_t)capture->reports, (uint64_t)capture->bytes, (uint64_t)capture->largest);
+    console_printf("Motion %s. Max contacts %u. Click %s. Mode %s.\n",
+        capture->moved ? "yes" : "unverified", (uint64_t)capture->contacts,
+        capture->released ? "pressed and released" : capture->pressed ? "pressed" : "unverified",
+        capture->mode_restored ? "restored" : "unverified");
+    console_printf("Invalid %u. Ignored %u.\n", (uint64_t)capture->invalid, (uint64_t)capture->ignored);
+    bool passed = !capture->result && !capture->invalid && trackpad_capture_complete(capture) &&
+        capture->mode_restored && report.dma_released && report.access_retired;
+    if (!passed && capture->token) console_printf("USBSTS=%x qTD=%x QH=%x\n",
+        (uint64_t)capture->status, (uint64_t)capture->token, (uint64_t)capture->overlay);
+    if (report.transfer_failure.reason) log_transfer_failure(&report.transfer_failure);
+    console_printf("ehci-trackpad: release=%s result=%s\n", release, passed ? "PASS" : "INCOMPLETE");
+    console_write("Screen held for photo. Use the power button to return to Ubuntu.\n");
 }
 
 void ehci_boot_trial(const char *release, bool keyboard) {

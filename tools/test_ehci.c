@@ -17,12 +17,18 @@ static bool firmware_stuck, halt_stuck, reset_stuck;
 static struct ehci_dma *control_dma;
 static unsigned control_polls, control_completes_at;
 static bool mock_flash;
+static bool mock_feature_write;
+static const uint8_t feature_bytes[] = {1, 7, 6, 5, 4, 3, 2, 1};
 static struct ehci_dma *keyboard_dma;
+static struct ehci_dma *trackpad_dma;
+static unsigned trackpad_reports, trackpad_offset, trackpad_packets;
 static unsigned keyboard_packet_bytes;
 static bool keyboard_stop_stuck;
 static bool keyboard_fetch;
 static uint64_t now;
 static unsigned freed_monitor_frames, unmapped_monitor_windows;
+
+void console_write(const char *message) { assert(message); }
 
 void pmm_free_frame(uint64_t physical) {
     assert(op[EHCI_USBSTS] == EHCI_STS_HALTED);
@@ -72,6 +78,33 @@ void pci_write_config32(const struct pci_device *p, uint8_t offset, uint32_t val
 
 bool timer_delay_us(uint64_t delay) {
     now += delay;
+    if (trackpad_dma) {
+        if (!(op[EHCI_USBCMD] & EHCI_CMD_PERIODIC)) {
+            op[EHCI_USBSTS] &= ~EHCI_STS_PERIODIC;
+            return true;
+        }
+        op[EHCI_USBSTS] |= EHCI_STS_PERIODIC;
+        if (delay != EHCI_TRACKPAD_POLL_US) return true;
+        assert(trackpad_reports < 5 && (trackpad_dma->setup_td.token & EHCI_TD_ACTIVE));
+        uint8_t report[86] = {0};
+        unsigned length = trackpad_reports == 2 ? 86 : 58;
+        report[30 + 2] = trackpad_reports >= 1 ? 64 : 0;
+        report[30 + 16] = 5;
+        if (trackpad_reports == 2) report[58 + 16] = 5;
+        if (trackpad_reports == 3) report[15] = 1;
+        unsigned packet = length - trackpad_offset;
+        if (packet > trackpad_endpoint.packet) packet = trackpad_endpoint.packet;
+        memcpy(trackpad_dma->data + trackpad_offset, report + trackpad_offset, packet);
+        trackpad_offset += packet;
+        trackpad_packets++;
+        trackpad_dma->qh.overlay.token ^= EHCI_TD_DATA1;
+        if (trackpad_offset == length) {
+            trackpad_dma->setup_td.token = (trackpad_endpoint.length - length) << EHCI_TD_BYTES_SHIFT;
+            trackpad_offset = 0;
+            trackpad_reports++;
+        }
+        return true;
+    }
     if (keyboard_dma) {
         if (op[EHCI_USBCMD] & EHCI_CMD_PERIODIC) {
             op[EHCI_USBSTS] |= EHCI_STS_PERIODIC;
@@ -99,6 +132,19 @@ bool timer_delay_us(uint64_t delay) {
     if (control_dma) {
         if (op[EHCI_USBCMD] & EHCI_CMD_ASYNC) {
             op[EHCI_USBSTS] |= EHCI_STS_ASYNC;
+            if (mock_feature_write) {
+                assert(control_dma->qh.endpoint == 0x0808c003u);
+                assert(control_dma->qh.capabilities == 0x41010000u);
+                assert(control_dma->setup.request_type == 0x21 && control_dma->setup.request == 9 &&
+                    control_dma->setup.value == 0x0300 && !control_dma->setup.index);
+                assert(!memcmp(control_dma->data, feature_bytes, sizeof(feature_bytes)));
+                assert(control_dma->data_td.token == (EHCI_TD_DATA1 | (8u << EHCI_TD_BYTES_SHIFT) |
+                    EHCI_TD_PID_OUT | EHCI_TD_RETRIES | EHCI_TD_ACTIVE));
+                assert((control_dma->status_td.token & EHCI_TD_PID_IN) &&
+                    control_dma->data_td.alternate == EHCI_LINK_END);
+                control_dma->setup_td.token = control_dma->data_td.token = control_dma->status_td.token = 0;
+                return true;
+            }
             if (mock_flash) {
                 assert(control_dma->qh.endpoint == 0x0040e000u);
                 assert(control_dma->qh.capabilities == 0x40000000u);
@@ -159,6 +205,9 @@ static void fixture_reset(void) {
     control_polls = 0;
     control_completes_at = 2;
     mock_flash = false;
+    mock_feature_write = false;
+    trackpad_dma = NULL;
+    trackpad_reports = trackpad_offset = trackpad_packets = 0;
     keyboard_dma = 0;
     keyboard_packet_bytes = 0;
     keyboard_stop_stuck = false;
@@ -226,7 +275,7 @@ static void test_control_schedule(void) {
     struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000 };
     struct ehci_control_target target = { .address = 3, .packet_size = 64 };
     struct usb_setup_packet get_descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 64 };
-    prepare_control(&path, &target, &get_descriptor);
+    prepare_control(&path, &target, &get_descriptor, NULL);
     assert(dma.qh.endpoint == 0x0040e003u && dma.qh.capabilities == 0x40000000u);
     assert(dma.qh.link == (path.physical | EHCI_LINK_QH));
     assert(dma.qh.overlay.next == path.physical + offsetof(struct ehci_dma, setup_td));
@@ -238,7 +287,7 @@ static void test_control_schedule(void) {
 
     struct usb_setup_packet set_address = { 0, USB_REQ_SET_ADDRESS, 1, 0, 0 };
     target.address = 0;
-    prepare_control(&path, &target, &set_address);
+    prepare_control(&path, &target, &set_address, NULL);
     assert(dma.setup_td.next == path.physical + offsetof(struct ehci_dma, status_td));
     assert(dma.status_td.token & EHCI_TD_PID_IN);
 
@@ -257,7 +306,7 @@ static void test_split_control_schedule(void) {
     struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
     struct ehci_control_target target = { .packet_size = 8, .tt_hub = 2, .tt_port = 3 };
     struct usb_setup_packet descriptor = { 0x80, USB_REQ_GET_DESCRIPTOR, USB_DESC_DEVICE << 8, 0, 8 };
-    prepare_control(&path, &target, &descriptor);
+    prepare_control(&path, &target, &descriptor, NULL);
     assert(dma.qh.endpoint == 0x0808c000u && dma.qh.capabilities == 0x41820000u);
 
     op[EHCI_USBCMD] = EHCI_CMD_RUN;
@@ -372,11 +421,11 @@ static void test_keyboard_report_schedule(void) {
     struct ehci_probe_report report = { .keyboard_target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 } };
     struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
     uint32_t frames[EHCI_FRAME_ENTRIES];
-    prepare_keyboard_frames(frames, path.physical);
+    prepare_periodic_frames(frames, path.physical, keyboard_endpoint.interval);
     for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++) {
         assert(frames[i] == (i % 8 ? EHCI_LINK_END : (0x9000 | EHCI_LINK_QH)));
     }
-    prepare_keyboard_poll(&path, &report.keyboard_target, EHCI_TD_DATA1);
+    prepare_periodic_transfer(&path, &report.keyboard_target, &keyboard_endpoint, EHCI_TD_DATA1);
     assert(dma.qh.link == EHCI_LINK_END && dma.qh.endpoint == 0x000a0303u);
     assert(dma.qh.capabilities == 0x41011c01u && dma.qh.overlay.token == EHCI_TD_DATA1);
     assert(dma.qh.overlay.next == path.physical + offsetof(struct ehci_dma, setup_td));
@@ -441,6 +490,45 @@ static void test_captured_keyboard_interface(void) {
     assert(!captured_keyboard_interface(config, sizeof(config)));
 }
 
+static void test_trackpad_capture(void) {
+    fixture_reset();
+    uint8_t configuration[] = {
+        9, 2, 59, 0, 2, 1, 0, 0xa0, 0x14,
+        9, 4, 1, 0, 1, 3, 0, 0, 4, 9, 0x21, 0x11, 1, 0, 1, 0x22, 0x1b, 0,
+        7, 5, 0x81, 3, 64, 0, 2,
+        9, 4, 2, 0, 1, 3, 1, 2, 4, 9, 0x21, 0x11, 1, 0, 1, 0x22, 0x34, 0,
+        7, 5, 0x84, 3, 8, 0, 8,
+    };
+    assert(captured_trackpad_interfaces(configuration, sizeof(configuration)));
+    assert(!captured_trackpad_interfaces(configuration, sizeof(configuration) - 1));
+    configuration[32] = 8;
+    assert(!captured_trackpad_interfaces(configuration, sizeof(configuration)));
+
+    struct ehci_dma dma;
+    struct ehci_probe_report report = { .trackpad_target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 } };
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
+    op[EHCI_USBCMD] = EHCI_CMD_RUN;
+    op[EHCI_USBSTS] = 0;
+    control_dma = &dma;
+    mock_feature_write = true;
+    assert(write_trackpad_mode(&path, feature_bytes));
+    assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
+    control_dma = NULL;
+
+    prepare_periodic_transfer(&path, &report.trackpad_target, &trackpad_endpoint, 0);
+    assert(dma.qh.endpoint == 0x00400103u && dma.qh.capabilities == 0x41011c01u);
+    assert(dma.setup_td.token == 0x01de0d80u);
+    uint32_t frames[EHCI_FRAME_ENTRIES];
+    prepare_periodic_frames(frames, path.physical, trackpad_endpoint.interval);
+    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++) assert(frames[i] == (path.physical | EHCI_LINK_QH));
+    trackpad_dma = &dma;
+    assert(!poll_trackpad(&path));
+    assert(trackpad_packets == 6 && report.trackpad.reports == 5);
+    assert(report.trackpad.largest == 86 && report.trackpad.bytes == 58 &&
+        report.trackpad.contacts == 2 && !report.trackpad.invalid);
+    assert(trackpad_capture_complete(&report.trackpad) && !op[EHCI_USBSTS]);
+}
+
 static void test_native_trial_result(void) {
     struct pci_device controller = { .vendor_id = 0x8086, .device_id = 0x1c2d, .device = 0x1a, .function = 7 };
     assert(trial_controller_slot(&controller) == 0);
@@ -499,6 +587,7 @@ int main(void) {
     test_monitor_resource_release();
     test_keyboard_report_schedule();
     test_captured_keyboard_interface();
+    test_trackpad_capture();
     test_native_trial_result();
     puts("EHCI host tests passed");
 }

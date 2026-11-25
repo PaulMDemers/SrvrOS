@@ -428,7 +428,7 @@ If that verification fails, use the power button to return to Ubuntu.
 through serial in Q35, including echo, history editing, ACPI reset and
 consumption of the one-shot entry. The host EHCI fixture checks periodic
 report completion and halt-before-release behavior. The physical keyboard and
-native reset require separate evidence from this Mac.
+native reset are assessed from the installed laptop release.
 
 On release `d7990a68cf4130ff` the operator confirmed the built-in keyboard,
 command execution, and clear case distinctions in the regular monitor.
@@ -448,6 +448,15 @@ Wellspring5 reports use a 30-byte type 2 header and 28 bytes per finger slot,
 so a report with two slots spans multiple packets. Mode selection uses an
 eight-byte HID feature read/modify/write with value `0x0300` and index 0.
 [Linux bcm5974 reference](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/input/mouse/bcm5974.c)
+
+Stage the capture with `python3 tools/hardware_boot.py stage --ehci-trackpad-trial`
+and rehearse it with `python3 tools/ehci_trial_smoke.py <release>`. The attended
+RAM-only profile opens the checklist before polling and holds the result for a
+photo. It requires a change in one-finger coordinates, two simultaneous active
+contacts, and both click transitions within 60 seconds. A pass also requires
+the feature mode to be restored and both the controller DMA and MMIO access
+to be retired. The keyboard monitor payload remains available in the recovery
+archive. Power-cycle the Mac after recording the result to return to Ubuntu.
 
 ## Capability ledger
 

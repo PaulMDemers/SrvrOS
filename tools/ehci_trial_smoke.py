@@ -93,6 +93,24 @@ def exercise_monitor(command, temp, logs, release):
                     vm.wait()
 
 
+def exercise_trackpad(command, temp, logs, release):
+    qmp = temp / "qmp.sock"
+    command = command + ["-qmp", f"unix:{qmp},server=on,wait=off", "-device", "ich9-usb-ehci1"]
+    first = boot_once(command, logs, "trial", lambda s: "Screen held for photo." in s,
+                      (qmp, logs / "vm-screen.ppm"))
+    for marker in ("SRVROS_VM_NEXT_ENTRY_CONSUMED",
+                   f"cmdline: srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={release}",
+                   "move one finger across the pad", "place two fingers on it",
+                   "Captured topcase controller absent.",
+                   "Trackpad unavailable. Reports 0. Last 0 bytes. Largest 0 bytes.",
+                   f"ehci-trackpad: release={release} result=INCOMPLETE"):
+        assert marker in first, marker
+    assert not has_fatal_exception(first)
+    assert all(marker not in first for marker in
+               ("Trackpad ready.", "ehci: bus=", "srv> ", "xhci:", "workspace-log:", "ahci:",
+                "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("release", help="exact staged EHCI trial release")
@@ -109,8 +127,9 @@ def main():
         parser.error("expected an attended EHCI trial stage")
     keyboard_trial = manifest["config_version"] == boot.EHCI_KEYBOARD_VERSION
     keyboard_monitor = manifest["config_version"] == boot.EHCI_MONITOR_VERSION
-    if keyboard_monitor and args.stall_hub_status:
-        parser.error("the emulated hub is for the diagnostic profiles")
+    trackpad_trial = manifest["config_version"] == boot.EHCI_TRACKPAD_VERSION
+    if (keyboard_monitor or trackpad_trial) and args.stall_hub_status:
+        parser.error("the emulated hub is for the split and typing trials")
     mode = boot.EHCI_TRIAL_MODES[manifest["config_version"]]
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.stall_hub_status:
@@ -169,6 +188,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
 
         if keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
+        elif trackpad_trial:
+            exercise_trackpad(command, temp, logs, release)
         else:
             scans = exercise_trial(command, temp, logs, release, mode, keyboard_trial, args.stall_hub_status)
 
@@ -184,6 +205,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
     if keyboard_monitor:
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
+    elif trackpad_trial:
+        result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:
         result.update(guest_trial_result="INCOMPLETE", keyboard_trial=keyboard_trial,
                       scans_complete=scans, hub_status_stall=args.stall_hub_status)

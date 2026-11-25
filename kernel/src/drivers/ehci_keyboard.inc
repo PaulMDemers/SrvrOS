@@ -5,7 +5,6 @@
 #define EHCI_KEYBOARD_REPORT 8u
 #define EHCI_KEYBOARD_WAIT_US 90000000u
 #define EHCI_KEYBOARD_POLL_US 1000u
-#define EHCI_FRAME_ENTRIES (EHCI_PAGE_BYTES / sizeof(uint32_t))
 #define EHCI_FRINDEX_MASK 0x3fffu
 #define EHCI_HID_SET_IDLE 10u
 #define EHCI_KEYBOARD_IDLE_4MS 8u
@@ -29,30 +28,9 @@ static bool captured_keyboard_interface(const uint8_t *configuration, uint16_t l
     return false;
 }
 
-static void prepare_keyboard_frames(uint32_t *frames, uint32_t qh_address) {
-    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++) {
-        frames[i] = i % EHCI_KEYBOARD_INTERVAL ? EHCI_LINK_END : qh_address | EHCI_LINK_QH;
-    }
-}
-
-static void prepare_keyboard_poll(struct ehci_control_path *path, const struct ehci_control_target *target,
-    uint32_t toggle) {
-    struct ehci_dma *dma = path->dma;
-    *dma = (struct ehci_dma) {0};
-    dma->qh.link = EHCI_LINK_END;
-    dma->qh.endpoint = target->address | ((EHCI_KEYBOARD_ENDPOINT & 15u) << 8) |
-        (EHCI_KEYBOARD_PACKET << EHCI_QH_PACKET_SHIFT);
-    /* Full speed, one start-split at uframe 0 and complete-splits at 2–4. */
-    dma->qh.capabilities = EHCI_QH_MULT_ONE | ((uint32_t)target->tt_hub << EHCI_QH_TT_HUB_SHIFT) |
-        ((uint32_t)target->tt_port << EHCI_QH_TT_PORT_SHIFT) | 0x1c01u;
-    dma->qh.overlay.next = path->physical + offsetof(struct ehci_dma, setup_td);
-    dma->qh.overlay.alternate = EHCI_LINK_END;
-    dma->qh.overlay.token = toggle;
-    dma->setup_td.next = dma->setup_td.alternate = EHCI_LINK_END;
-    dma->setup_td.token = (EHCI_KEYBOARD_PACKET << EHCI_TD_BYTES_SHIFT) |
-        EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
-    dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
-}
+static const struct ehci_periodic_endpoint keyboard_endpoint = {
+    EHCI_KEYBOARD_ENDPOINT, EHCI_KEYBOARD_PACKET, EHCI_KEYBOARD_INTERVAL, EHCI_KEYBOARD_PACKET,
+};
 
 static void sample_keyboard_schedule(const struct ehci_control_path *path) {
     struct ehci_probe_report *report = path->report;
@@ -72,31 +50,22 @@ static void sample_keyboard_schedule(const struct ehci_control_path *path) {
 }
 
 static const char *arm_keyboard_poll(struct ehci_control_path *path, uint32_t toggle) {
-    volatile uint32_t *op = path->op;
     struct ehci_probe_report *report = path->report;
-    uint32_t command = op[EHCI_USBCMD];
-    if ((command & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) != EHCI_CMD_RUN ||
-        (op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES | EHCI_STS_HOST_ERROR))) {
-        return "periodic schedule busy";
-    }
-    prepare_keyboard_poll(path, &report->keyboard_target, toggle);
+    if (!periodic_idle(path)) return "periodic schedule busy";
+    prepare_periodic_transfer(path, &report->keyboard_target, &keyboard_endpoint, toggle);
     __asm__ volatile ("mfence" : : : "memory");
     report->keyboard_schedule = (struct ehci_keyboard_schedule) {0};
     sample_keyboard_schedule(path);
-    op[EHCI_USBCMD] = command | EHCI_CMD_PERIODIC;
-    return wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, EHCI_STS_PERIODIC, EHCI_HALT_US)
-        ? 0 : "periodic enable timeout";
+    return enable_periodic(path) ? 0 : "periodic enable timeout";
 }
 
 static const char *finish_keyboard_poll(struct ehci_control_path *path, uint64_t start, uint32_t *toggle,
     uint8_t received[EHCI_KEYBOARD_REPORT], const char *failure) {
-    volatile uint32_t *op = path->op;
     const volatile struct ehci_dma *dma = path->dma;
     struct ehci_probe_report *report = path->report;
     sample_keyboard_schedule(path);
     /* Reuse the qTD and preserve its toggle only after PSS acknowledges stop. */
-    op[EHCI_USBCMD] &= ~EHCI_CMD_PERIODIC;
-    if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, 0, EHCI_HALT_US)) return "periodic stop timeout";
+    if (!disable_periodic(path)) return "periodic stop timeout";
     if (failure) return failure;
 
     __asm__ volatile ("mfence" : : : "memory");
@@ -177,17 +146,7 @@ static const char *configure_keyboard(struct ehci_control_path *path, uint64_t *
         return "idle request schedule unverified";
     }
 
-    uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
-    if (!physical || physical > UINT32_MAX) {
-        if (physical) pmm_free_frame(physical);
-        return "periodic DMA unavailable";
-    }
-    *frame_list = physical;
-    prepare_keyboard_frames(pmm_phys_to_virt(physical), path->physical + offsetof(struct ehci_dma, qh));
-    __asm__ volatile ("mfence" : : : "memory");
-    op[EHCI_PERIODICLISTBASE] = (uint32_t)physical;
-    if (op[EHCI_PERIODICLISTBASE] != physical) return "periodic frame-list readback failed";
-    return 0;
+    return configure_periodic_frames(path, &keyboard_endpoint, frame_list);
 }
 
 static const char *run_keyboard_trial(struct ehci_control_path *path, const char *release, uint64_t *frame_list) {
