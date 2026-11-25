@@ -1144,6 +1144,15 @@ The 31,313-byte exit snapshot and all seven independent journal
 checkpoints verified. The image and evidence are archived as
 `evidence-e838bed24355cc07`.
 
+The next comparison isolates the observed bit-20 difference at
+`0xe4c` in the routed RTL8188CUS passive xHCI path and fixture.
+Fetched main `61111819` has no overlapping changes since
+`50f1978a`. The Linux trace retained `0x001028d1`, and SrvrOS
+read `0x000028d1`. Apply the observed bit with the MAC gates
+closed and IQ mode clear. Preserve the single 4,096-byte request,
+channel, hub topology and automatic evidence capture. The separate
+IQ trigger register at `0xe48` stays an observation.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
