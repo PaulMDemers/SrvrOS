@@ -7538,7 +7538,8 @@ static void test_rtl8188cu_firmware(const char *path) {
 enum rtl_radio_fault {
     RTL_RADIO_OK,RTL_RADIO_PROFILE,RTL_RADIO_LLT,RTL_RADIO_WAIT,RTL_RADIO_CAL_BUSY,
     RTL_RADIO_POST_TEST_MODE,RTL_RADIO_POST_CAL_BUSY,
-    RTL_RADIO_CHANNEL,RTL_RADIO_FILTER,RTL_RADIO_DRIVER_INFO,RTL_RADIO_BASEBAND,RTL_RADIO_RF0,RTL_RADIO_RF0_READ,
+    RTL_RADIO_CHANNEL,RTL_RADIO_DMA_CONTROL,RTL_RADIO_USB_AGG,
+    RTL_RADIO_FILTER,RTL_RADIO_DRIVER_INFO,RTL_RADIO_BASEBAND,RTL_RADIO_RF0,RTL_RADIO_RF0_READ,
     RTL_RADIO_PATH,RTL_RADIO_LED_MUX,RTL_RADIO_LED_MUX_DRIFT,RTL_RADIO_SIFS,RTL_RADIO_SIFS_RETRY,RTL_RADIO_B68,
     RTL_RADIO_E4C,RTL_RADIO_IQ_MODE,RTL_RADIO_RX_IQ,RTL_RADIO_RX_IQ_EXT,RTL_RADIO_TX_IQ,RTL_RADIO_PROTOCOL,
     RTL_RADIO_SILENT,RTL_RADIO_SAMPLE,RTL_RADIO_PHY_SAMPLE,RTL_RADIO_REPORT,RTL_RADIO_STOP
@@ -7548,6 +7549,7 @@ static struct {
     enum rtl_radio_fault fault;
     unsigned writes,links,profile_writes,profile_waits,post_lc_triggers,post_lc_waits,posts,commands;
     unsigned report_selector,report_writes,report_bad_echoes,iq_writes,b68_writes,ledcfg_writes,sifs_writes,e4c_writes;
+    unsigned dma_writes;
     uint32_t channel,rf0,rf_read_address;
     uint8_t reg[65536];
 } rtl_radio_model;
@@ -7624,6 +7626,10 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                 !rtl_passive.admission[RTL_CU_FPGA1_RFMOD] &&
                 rtl_passive.admission[RTL_CU_OFDM_TRX]==0x03a05611 &&
                 rtl_passive.admission[RTL_CU_MAR0]==UINT32_MAX && rtl_passive.admission[RTL_CU_MAR1]==UINT32_MAX);
+            assert(rtl_passive.dma_ready && rtl_passive.dma_reads==10 && rtl_passive.dma_before_valid==3 &&
+                   rtl_passive.trxdma_before==0xabf7 && rtl_passive.dma_regs[RTL_CU_DMA_TRXDMA]==0xabf0 &&
+                   rtl_passive.usb_opt_before==0x28 && rtl_passive.dma_regs[RTL_CU_DMA_USB_OPTION]==0x20 &&
+                   rtl_radio_model.dma_writes==2);
             assert(type==XHCI_TRB_TYPE_CONFIGURE_ENDPOINT);
             assert(rtl_passive.phy_radio_ready && rtl_passive.phy_radio_reads==28 &&
                    rtl_passive.rf0_write_ok && rtl_passive.rf0_valid==15 &&
@@ -7749,6 +7755,7 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
         bool after_profile=rtl_radio_model.profile_writes==RTL_CU_PROFILE_WRITES;
         if(after_profile)
             assert(reg!=0xe28 && reg!=0xe48 && reg!=0x429 && reg!=0x42a && reg!=0x42b);
+        assert(reg!=0x10d);
         if(after_profile && reg==0x824 && !(bytes[3]&0x80) && (val&0x80000000u))
             rtl_radio_model.rf_read_address=(val>>23)&0xff;
         if(reg>=0x800 && reg<0x1000 &&
@@ -7784,6 +7791,17 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             if(after_profile && reg==0x60f) {
                 assert(length==1 && val==4 && !rtl_radio_model.commands && !rtl_radio_model.reg[0x100]);
                 if(rtl_radio_model.fault==RTL_RADIO_DRIVER_INFO)bytes[0]=0;
+            }
+            if(after_profile && (reg==0x10c || reg==0xfe55)) {
+                assert(length==1 && !rtl_radio_model.commands && !rtl_radio_model.reg[0x100]);
+                rtl_radio_model.dma_writes++;
+                if(reg==0x10c) {
+                    assert(val==0xf0 && bytes[1]==0xab);
+                    if(rtl_radio_model.fault==RTL_RADIO_DMA_CONTROL)bytes[0]|=2;
+                } else {
+                    assert(val==0x20);
+                    if(rtl_radio_model.fault==RTL_RADIO_USB_AGG)bytes[0]|=8;
+                }
             }
             if(after_profile && reg==0x878) {
                 assert(length==4 && val==0x2808 && rtl_radio_model.rf0==0x132e15 &&
@@ -7887,6 +7905,9 @@ static void test_rtl8188cu_passive(const char *path) {
         rtl_radio_model.reg[0x429]=0x16;
         rtl_radio_model.reg[0x42a]=0x07;
         rtl_radio_model.reg[0x42b]=0x07;
+        rtl_radio_model.reg[0x10c]=0xf7;
+        rtl_radio_model.reg[0x10d]=0xab;
+        rtl_radio_model.reg[0xfe55]=0x28;
         rtl_radio_model.reg[0xb6b]=0x80;
         rtl_radio_model.report_selector=1;
         rtl_radio_model.fault=fault;rtl_radio_model.profile=blob;
@@ -7918,6 +7939,12 @@ static void test_rtl8188cu_passive(const char *path) {
             assert(rtl_passive.post_lc_triggered && rtl_passive.post_lc_read_valid &&
                 rtl_passive.post_lc_channel==0xf401 && !rtl_radio_model.commands && !rtl_radio_model.posts);
         if(fault==RTL_RADIO_CHANNEL)assert(!rtl_radio_model.commands && !rtl_radio_model.posts);
+        if(fault==RTL_RADIO_DMA_CONTROL || fault==RTL_RADIO_USB_AGG) {
+            assert(!rtl_radio_model.commands && !rtl_radio_model.posts && !rtl_passive.admission_attempted &&
+                   !rtl_passive.dma_ready && rtl_passive.dma_reads==10 && rtl_radio_model.dma_writes==2);
+            if(fault==RTL_RADIO_DMA_CONTROL)assert(rtl_passive.dma_regs[RTL_CU_DMA_TRXDMA]==0xabf2);
+            else assert(rtl_passive.dma_regs[RTL_CU_DMA_USB_OPTION]==0x28);
+        }
         if(fault==RTL_RADIO_FILTER || fault==RTL_RADIO_DRIVER_INFO || fault==RTL_RADIO_BASEBAND) {
             assert(!rtl_radio_model.commands && !rtl_radio_model.posts &&
                 !rtl_passive.admission_ok && rtl_passive.admission_valid==0x3ff);
@@ -8041,7 +8068,7 @@ static void test_rtl8188cu_passive(const char *path) {
     rtl_test_delay=NULL;
     native_boundary_mmio_hook=NULL;
     memset(&rtl_passive,0,sizeof rtl_passive);
-    puts("rtl8188cu: PASS native PHY status prefix and truncation, fixed 4096-byte RX, beacon proof and twenty-nine faults");
+    puts("rtl8188cu: PASS native RX DMA masks and queue preservation, fixed 4096-byte RX, beacon proof and thirty-one faults");
 }
 static struct xhci_device *tt_cleanup_fixture(void) {
     struct xhci_device *d=control_fixture();

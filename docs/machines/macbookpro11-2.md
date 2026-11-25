@@ -1244,6 +1244,23 @@ Preserve the queue-map bits, keep one 4,096-byte bulk IN request
 and all three adapters on the same hub, and save the configuration
 alongside the existing FIFO, MAC and endpoint observations.
 
+Five monitor samples from working Linux on channel 10 at 20 MHz
+recorded 1,138 bulk IN completions and zero usbmon drops. Page size
+`0x11`, bounds `0xf9/0x27ff` and the receive bits in
+`TRXDMA_CTRL=0xfaf0` were stable. The aggregation controls and
+thresholds sampled zero. The RX FIFO pointer varied across all five
+samples while RXPKT_NUM read `0x00020000` and RXDMA_STATUS read zero.
+Linux's active traffic shows that the latter two values can occur
+while receive works.
+
+The probe logs both original words, clears only bits 0–2 at
+`0x10c` and bit 3 at `0xfe55`, and verifies the preserved bits along
+with ten configuration readbacks. The packet page and threshold
+fields are observations. The Linux capture is
+`build/bringup/pro112-rtl8188cu-rx-dma/linux-rx-dma-channel10.json`
+with SHA-256 `50e7e210d9137db44316b55dc07b260e08d87bfb8be1ee5fe901a81ff8fecd9e`.
+[Linux RX DMA and TX queue control definitions](https://raw.githubusercontent.com/torvalds/linux/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

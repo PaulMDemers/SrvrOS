@@ -40,6 +40,10 @@
 #define RTL_CU_IQ_MODE 0xe28u
 #define RTL_CU_IQ_CAL_CONTROL 0xe4cu
 #define RTL_CU_IQ_CAL_CONTROL_LINUX (1u<<20)
+#define RTL_CU_TRXDMA_CONTROL 0x10cu
+#define RTL_CU_TRXDMA_RX_BITS 7u
+#define RTL_CU_USB_OPTION 0xfe55u
+#define RTL_CU_USB_RX_AGG (1u<<3)
 enum rtl_cu_iq_field {
     RTL_CU_IQ_RX,RTL_CU_IQ_RX_EXT,RTL_CU_IQ_TX,RTL_CU_IQ_TX_EXT,RTL_CU_IQ_TX_CCA,RTL_CU_IQ_FIELDS
 };
@@ -71,6 +75,13 @@ static const uint16_t rtl_cu_iq_startup_regs[]={
     RTL_CU_LED_CONFIG,RTL_CU_SPEC_SIFS,RTL_CU_IQ_STARTUP_B68,RTL_CU_IQ_MODE,0xe48,RTL_CU_IQ_CAL_CONTROL
 };
 #define RTL_CU_IQ_STARTUP_COUNT (sizeof rtl_cu_iq_startup_regs/sizeof rtl_cu_iq_startup_regs[0])
+enum rtl_cu_dma_register { RTL_CU_DMA_TRXDMA,RTL_CU_DMA_USB_OPTION };
+static const struct { uint16_t address,width; } rtl_cu_dma_regs[]={
+    [RTL_CU_DMA_TRXDMA]={RTL_CU_TRXDMA_CONTROL,2},
+    [RTL_CU_DMA_USB_OPTION]={RTL_CU_USB_OPTION,1},
+    {0x104,1},{0x114,1},{0x116,2},{0x118,4},{0x280,2},{0xfe5b,1},{0xfe5c,1},{0xfe5d,1},
+};
+#define RTL_CU_DMA_COUNT (sizeof rtl_cu_dma_regs/sizeof rtl_cu_dma_regs[0])
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
     uint32_t regs[RTL_CU_RX_REG_COUNT];
@@ -113,6 +124,9 @@ static struct {
     bool iq_attempted,iq_ready;
     uint32_t b68_readback,sifs_readback,e4c_readback;
     bool b68_attempted,b68_valid,sifs_valid,e4c_valid;
+    uint32_t dma_regs[RTL_CU_DMA_COUNT],trxdma_before,usb_opt_before;
+    unsigned dma_before_valid,dma_reads;
+    bool dma_attempted,dma_ready;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -256,6 +270,13 @@ static void rtl_cu_rx_log(void) {
             (uint64_t)(rtl_passive.sifs_valid|(rtl_passive.b68_valid<<1)|(rtl_passive.e4c_valid<<2)),
             ((uint64_t)rtl_passive.sifs_readback<<32)|rtl_passive.b68_readback,
             (uint64_t)rtl_passive.e4c_readback);
+    if(rtl_passive.dma_attempted) {
+        console_printf("rtl8188cu-rx-dma: %u %u %x",(uint64_t)rtl_passive.dma_ready,
+            (uint64_t)rtl_passive.dma_before_valid,((uint64_t)rtl_passive.trxdma_before<<32)|rtl_passive.usb_opt_before);
+        for(unsigned i=0;i<rtl_passive.dma_reads;i++)
+            console_printf(" %x",((uint64_t)rtl_cu_dma_regs[i].address<<32)|rtl_passive.dma_regs[i]);
+        console_write("\n");
+    }
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -476,6 +497,28 @@ static bool rtl_cu_post_profile_lc(struct xhci_device *d,struct xhci_device *hub
     return (rtl_passive.post_lc_channel&RTL_CU_RF_DATA_MASK)==RTL_CU_RF_START_CHANNEL;
 }
 
+static bool rtl_cu_prepare_rx_dma(struct xhci_device *d) {
+    rtl_passive.dma_attempted=true;
+    if(!rtl8188cu_read(d,RTL_CU_TRXDMA_CONTROL,2,&rtl_passive.trxdma_before))return false;
+    rtl_passive.dma_before_valid=1;
+    if(!rtl8188cu_read(d,RTL_CU_USB_OPTION,1,&rtl_passive.usb_opt_before))return false;
+    rtl_passive.dma_before_valid=3;
+
+    /* Linux's receive bits are clear. The remaining TRXDMA bits include
+     * TX queue routing, so only edit the affected low byte. */
+    uint32_t trxdma=rtl_passive.trxdma_before&~RTL_CU_TRXDMA_RX_BITS;
+    uint32_t usbopt=rtl_passive.usb_opt_before&~RTL_CU_USB_RX_AGG;
+    if((trxdma!=rtl_passive.trxdma_before && !rtl8188cu_write_value(d,RTL_CU_TRXDMA_CONTROL,1,trxdma&0xff)) ||
+       (usbopt!=rtl_passive.usb_opt_before && !rtl8188cu_write_value(d,RTL_CU_USB_OPTION,1,usbopt)))return false;
+    for(unsigned i=0;i<RTL_CU_DMA_COUNT;i++) {
+        if(!rtl8188cu_read(d,rtl_cu_dma_regs[i].address,rtl_cu_dma_regs[i].width,&rtl_passive.dma_regs[i]))return false;
+        rtl_passive.dma_reads++;
+    }
+    rtl_passive.dma_ready=rtl_passive.dma_regs[RTL_CU_DMA_TRXDMA]==trxdma &&
+        rtl_passive.dma_regs[RTL_CU_DMA_USB_OPTION]==usbopt;
+    return rtl_passive.dma_ready;
+}
+
 static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
                                  const uint8_t *blob,unsigned *writes,uint32_t *channel) {
     uint32_t state;
@@ -519,7 +562,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl8188cu_update(d,0x900,4,1,0) ||
        !rtl8188cu_write_value(d,0x840,4,0x0180740a) ||
        !rtl_cu_rf_read(d,0x18,channel) || (*channel&0x3ff)!=RTL_CU_CHANNEL ||
-       !rtl8188cu_update(d,0x10c,1,4,0) || !rtl8188cu_update(d,0xfe55,1,8,0) ||
+       !rtl_cu_prepare_rx_dma(d) ||
        !rtl8188cu_write_value(d,0x60f,1,RTL_CU_RX_DRIVER_INFO_UNITS) ||
        !rtl8188cu_write_value(d,0x608,4,RTL_CU_MONITOR_RCR|RTL_CU_RCR_PHY_STATUS) ||
        !rtl8188cu_write_value(d,0x620,4,UINT32_MAX) || !rtl8188cu_write_value(d,0x624,4,UINT32_MAX) ||
