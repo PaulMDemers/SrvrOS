@@ -933,9 +933,10 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
-static bool ehci_trial_release(const char *cmdline, char release[17], bool keyboard) {
-    const char *prefix = keyboard ? "srvros.storage=ram srvros.ehci=keyboard-trial srvros.ehci-release=" :
-        "srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release=";
+static bool ehci_trial_release(const char *cmdline, char release[17], bool keyboard, bool monitor) {
+    const char *prefix = monitor ? "srvros.storage=ram srvros.ehci=keyboard-monitor srvros.ehci-release=" :
+        (keyboard ? "srvros.storage=ram srvros.ehci=keyboard-trial srvros.ehci-release=" :
+         "srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release=");
     for (; *prefix; prefix++) {
         if (*cmdline++ != *prefix) return false;
     }
@@ -953,7 +954,9 @@ void kmain(void) {
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
     bool ehci_keyboard_trial = cmdline_has_token(cmdline, "srvros.ehci=keyboard-trial");
-    bool ehci_trial = ehci_keyboard_trial || cmdline_has_token(cmdline, "srvros.ehci=split-trial");
+    bool ehci_keyboard_monitor = cmdline_has_token(cmdline, "srvros.ehci=keyboard-monitor");
+    bool ehci_trial = ehci_keyboard_monitor || ehci_keyboard_trial ||
+        cmdline_has_token(cmdline, "srvros.ehci=split-trial");
     char trial_release[17];
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
@@ -988,8 +991,9 @@ void kmain(void) {
     }
 
     if (ehci_trial) {
-        bool valid = ehci_trial_release(cmdline, trial_release, ehci_keyboard_trial);
-        ehci_trial_screen(valid ? trial_release : "invalid", ehci_keyboard_trial);
+        bool valid = ehci_trial_release(cmdline, trial_release, ehci_keyboard_trial, ehci_keyboard_monitor);
+        if (ehci_keyboard_monitor) boot_set_framebuffer_quiet(false);
+        else ehci_trial_screen(valid ? trial_release : "invalid", ehci_keyboard_trial);
         if (!valid) {
             console_write("ehci-trial: invalid boot profile. Photograph the screen and return to Ubuntu.\n");
             console_sync();
@@ -1055,7 +1059,7 @@ void kmain(void) {
     timer_wall_init();
     lapic_init();
     lapic_timer_init(32, 10000000);
-    bool keyboard_ready = !ehci_keyboard_trial && keyboard_init();
+    bool keyboard_ready = !ehci_keyboard_trial && !ehci_keyboard_monitor && keyboard_init();
     bool mouse_ready = keyboard_ready ? mouse_init() : false;
     ioapic_init();
     if (keyboard_ready) {
@@ -1098,6 +1102,29 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (ehci_keyboard_monitor) {
+        boot_set_framebuffer_quiet(false);
+        console_clear();
+        console_printf("SrvrOS MacBookPro8,1 keyboard monitor\nRelease %s\n", trial_release);
+        console_write("1. With the built-in keyboard, type echo p P q Q g G y Y and press Return.\n"
+                      "2. Press Up to recall it. Use Left and Delete to edit, then press Return.\n"
+                      "3. Type reboot to return to Ubuntu. Photograph the EHCI release line.\n"
+                      "   If stuck, photograph the screen and power off to return to Ubuntu.\n\n"
+                      "Scanning for the built-in keyboard...\n");
+        console_sync();
+        arch_enable_interrupts();
+        if (timer_wait_ticks_bounded(5, 100000000)) {
+            scheduler_enable_io_services();
+            /* The EHCI MMIO window requires the sole kernel root with IRQs masked. */
+            __asm__ volatile ("cli" : : : "memory");
+            ehci_monitor_start();
+            __asm__ volatile ("sti" : : : "memory");
+        } else {
+            console_write("ehci-monitor: keyboard unavailable (scheduler timer)\n");
+        }
+        monitor_run();
+        halt_forever();
+    }
     if (ehci_trial) {
         ehci_boot_trial(trial_release, ehci_keyboard_trial);
         console_sync();

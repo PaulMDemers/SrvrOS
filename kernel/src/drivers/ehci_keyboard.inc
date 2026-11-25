@@ -71,45 +71,31 @@ static void sample_keyboard_schedule(const struct ehci_control_path *path) {
     report->keyboard_token = dma->setup_td.token;
 }
 
-static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t start, uint32_t *toggle,
-    uint8_t received[EHCI_KEYBOARD_REPORT]) {
+static const char *arm_keyboard_poll(struct ehci_control_path *path, uint32_t toggle) {
     volatile uint32_t *op = path->op;
-    const volatile struct ehci_dma *dma = path->dma;
     struct ehci_probe_report *report = path->report;
     uint32_t command = op[EHCI_USBCMD];
     if ((command & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) != EHCI_CMD_RUN ||
         (op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES | EHCI_STS_HOST_ERROR))) {
         return "periodic schedule busy";
     }
-    prepare_keyboard_poll(path, &report->keyboard_target, *toggle);
+    prepare_keyboard_poll(path, &report->keyboard_target, toggle);
     __asm__ volatile ("mfence" : : : "memory");
     report->keyboard_schedule = (struct ehci_keyboard_schedule) {0};
     sample_keyboard_schedule(path);
     op[EHCI_USBCMD] = command | EHCI_CMD_PERIODIC;
-    const char *failure = "periodic enable timeout";
-    if (wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, EHCI_STS_PERIODIC, EHCI_HALT_US)) {
-        failure = "typing timeout";
-        for (unsigned poll = 0; poll < EHCI_KEYBOARD_WAIT_US / EHCI_KEYBOARD_POLL_US; poll++) {
-            sample_keyboard_schedule(path);
-            uint32_t token = report->keyboard_token;
-            if ((report->keyboard_schedule.usbsts & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) || (token & EHCI_TD_ERROR)) {
-                failure = "interrupt transfer error";
-                break;
-            }
-            if (!(token & EHCI_TD_ACTIVE)) {
-                failure = 0;
-                break;
-            }
-            if (timer_monotonic_us() - start >= EHCI_KEYBOARD_WAIT_US) break;
-            if (!timer_delay_us(EHCI_KEYBOARD_POLL_US)) {
-                failure = "keyboard timer failure";
-                break;
-            }
-        }
-    }
+    return wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, EHCI_STS_PERIODIC, EHCI_HALT_US)
+        ? 0 : "periodic enable timeout";
+}
+
+static const char *finish_keyboard_poll(struct ehci_control_path *path, uint64_t start, uint32_t *toggle,
+    uint8_t received[EHCI_KEYBOARD_REPORT], const char *failure) {
+    volatile uint32_t *op = path->op;
+    const volatile struct ehci_dma *dma = path->dma;
+    struct ehci_probe_report *report = path->report;
     sample_keyboard_schedule(path);
     /* Reuse the qTD and preserve its toggle only after PSS acknowledges stop. */
-    op[EHCI_USBCMD] = command;
+    op[EHCI_USBCMD] &= ~EHCI_CMD_PERIODIC;
     if (!wait_mmio(&op[EHCI_USBSTS], EHCI_STS_PERIODIC, 0, EHCI_HALT_US)) return "periodic stop timeout";
     if (failure) return failure;
 
@@ -123,6 +109,32 @@ static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t s
     if (!report->keyboard_reports) report->keyboard_first_report_us = timer_monotonic_us() - start;
     report->keyboard_reports++;
     return 0;
+}
+
+static const char *keyboard_poll_once(struct ehci_control_path *path, uint64_t start, uint32_t *toggle,
+    uint8_t received[EHCI_KEYBOARD_REPORT]) {
+    struct ehci_probe_report *report = path->report;
+    const char *failure = arm_keyboard_poll(path, *toggle);
+    if (failure) return failure;
+    failure = "typing timeout";
+    for (unsigned poll = 0; poll < EHCI_KEYBOARD_WAIT_US / EHCI_KEYBOARD_POLL_US; poll++) {
+        sample_keyboard_schedule(path);
+        uint32_t token = report->keyboard_token;
+        if ((report->keyboard_schedule.usbsts & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) || (token & EHCI_TD_ERROR)) {
+            failure = "interrupt transfer error";
+            break;
+        }
+        if (!(token & EHCI_TD_ACTIVE)) {
+            failure = 0;
+            break;
+        }
+        if (timer_monotonic_us() - start >= EHCI_KEYBOARD_WAIT_US) break;
+        if (!timer_delay_us(EHCI_KEYBOARD_POLL_US)) {
+            failure = "keyboard timer failure";
+            break;
+        }
+    }
+    return finish_keyboard_poll(path, start, toggle, received, failure);
 }
 
 static bool keyboard_trial_line(char text[32], unsigned *length) {
@@ -147,7 +159,7 @@ static bool keyboard_trial_line(char text[32], unsigned *length) {
     return false;
 }
 
-static const char *run_keyboard_trial(struct ehci_control_path *path, const char *release, uint64_t *frame_list) {
+static const char *configure_keyboard(struct ehci_control_path *path, uint64_t *frame_list) {
     struct ehci_probe_report *report = path->report;
     const struct ehci_control_target *target = &report->keyboard_target;
     if (!target->address) return "captured interface unavailable";
@@ -175,6 +187,13 @@ static const char *run_keyboard_trial(struct ehci_control_path *path, const char
     __asm__ volatile ("mfence" : : : "memory");
     op[EHCI_PERIODICLISTBASE] = (uint32_t)physical;
     if (op[EHCI_PERIODICLISTBASE] != physical) return "periodic frame-list readback failed";
+    return 0;
+}
+
+static const char *run_keyboard_trial(struct ehci_control_path *path, const char *release, uint64_t *frame_list) {
+    const char *configuration_error = configure_keyboard(path, frame_list);
+    if (configuration_error) return configuration_error;
+    struct ehci_probe_report *report = path->report;
 
     ehci_trial_screen(release, true);
     console_write("srv> ");

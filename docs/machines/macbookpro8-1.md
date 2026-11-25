@@ -42,9 +42,11 @@ input work uses the captured keyboard interface, EHCI periodic interrupts,
 the existing kernel HID decoder and a RAM-only attended boot profile. The
 first typing trial reached periodic polling and timed out with no completed
 report. The operator reported working input on the retry with HID idle and
-queue diagnostics. The next input checkpoint is ongoing keyboard input in
-the regular SrvrOS monitor with verified shutdown. Native workspace reads
-and writes require a separate mass-storage milestone.
+queue diagnostics. The keyboard monitor profile keeps that interface active
+in the regular SrvrOS monitor and retires the EHCI schedules, DMA pages and
+register mapping before the monitor resets the machine. It also exercises the
+shared 5×7 font change for lowercase `p`, `q`, `g` and `y`. Native workspace
+reads and writes require a separate mass-storage milestone.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
 USB Wi-Fi work at `eb387210`, and Apple Silicon runtime, login and export work
@@ -411,6 +413,23 @@ leaves the reason for the earlier timeout unresolved. Ubuntu returned with
 a changed boot ID and consumed `next_entry`. The installed manifests,
 firmware boot order and exFAT mount matched preflight. The exact payload and
 operator observation were archived outside `build/`.
+
+### Resident keyboard in the regular monitor
+
+Stage with `python3 tools/hardware_boot.py stage --ehci-keyboard-monitor`.
+This RAM-only profile claims the captured topcase on `00:1a.7` and enters the
+regular monitor. The periodic worker feeds the existing boot-HID decoder.
+The on-screen checklist exercises mixed-case echo, history recall, cursor
+movement, Delete and `reboot`. Reboot requires halted schedules, bus mastering
+disabled, cleared schedule bases and verified MMIO release. The result line
+shows completed reports and resource retirement for a photo before reset.
+If that verification fails, use the power button to return to Ubuntu.
+
+`tools/ehci_trial_smoke.py <release>` exercises the exact monitor payload
+through serial in Q35, including echo, history editing, ACPI reset and
+consumption of the one-shot entry. The host EHCI fixture checks periodic
+report completion and halt-before-release behavior. The physical keyboard and
+native reset still require a run on this Mac.
 
 ## Capability ledger
 

@@ -4,6 +4,7 @@
 #include <srvros/keyboard.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
+#include <srvros/scheduler.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
 #include <stddef.h>
@@ -195,6 +196,20 @@ struct ehci_control_path {
     const struct ehci_scan_step *scan;
     int trial_slot;
 };
+
+enum ehci_monitor_state {
+    EHCI_MONITOR_UNUSED, EHCI_MONITOR_RUNNING, EHCI_MONITOR_STOPPING,
+    EHCI_MONITOR_RELEASED, EHCI_MONITOR_UNSAFE,
+};
+
+static struct ehci_monitor_session {
+    struct ehci_probe_report report;
+    struct ehci_control_path path;
+    const struct pci_device *device;
+    uint64_t frame_list, root, page;
+    uint16_t memory_command;
+    enum ehci_monitor_state state;
+} monitor_session;
 
 static bool set_command_bits(const struct pci_device *device, uint16_t mask, uint16_t bits) {
     uint16_t command = pci_read_config16(device, PCI_COMMAND);
@@ -477,7 +492,8 @@ static void track_trial_device(void *context, const struct ehci_control_target *
 }
 
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
-    struct ehci_probe_report *report, bool split, int trial_slot, const char *keyboard_release) {
+    struct ehci_probe_report *report, bool split, int trial_slot, const char *keyboard_release,
+    bool keep_keyboard) {
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
@@ -514,7 +530,16 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         report->stopped_usbsts = report->transfer_failure.reason ? report->transfer_failure.usbsts : op[EHCI_USBSTS];
     }
     uint64_t frame_list = 0;
-    if (complete && keyboard_release && trial_slot == 0) {
+    if (complete && keep_keyboard) {
+        report->keyboard_result = configure_keyboard(&path, &frame_list);
+        if (!report->keyboard_result) {
+            report->enumerated = true;
+            path.scan = NULL;
+            monitor_session.path = path;
+            monitor_session.frame_list = frame_list;
+            return;
+        }
+    } else if (complete && keyboard_release && trial_slot == 0) {
         report->keyboard_result = run_keyboard_trial(&path, keyboard_release, &frame_list);
         console_set_framebuffer_muted(true);
     }
@@ -525,6 +550,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     }
     report->enumerated = complete;
     report->dma_released = retired;
+    if (keep_keyboard && !retired) monitor_session.state = EHCI_MONITOR_UNSAFE;
     if (retired) {
         __asm__ volatile ("mfence" : : : "memory");
         pmm_free_frame(physical);
@@ -616,8 +642,16 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(EHCI_MMIO_WINDOW + page_offset);
         report->result = probe_registers(device, caps, mapped_bytes, report);
         if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
-            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT,
-                trial_slot, keyboard_release);
+            bool keep_keyboard = mode == EHCI_BOOT_KEYBOARD_MONITOR;
+            enumerate_controller(device, caps + report->cap_length / 4, report, mode == EHCI_BOOT_SPLIT || keep_keyboard,
+                trial_slot, keyboard_release, keep_keyboard);
+            if (keep_keyboard && monitor_session.frame_list) {
+                monitor_session.device = device;
+                monitor_session.root = root;
+                monitor_session.page = page;
+                monitor_session.memory_command = command & PCI_COMMAND_MEMORY;
+                return false; /* The worker now owns the window. */
+            }
         }
     } else {
         report->result = "memory-decode-failed";
@@ -652,6 +686,125 @@ static void log_transfer_failure(const struct ehci_transfer_failure *failure) {
     console_printf("ehci: control USBSTS=%x setup_qtd=%x data_qtd=%x status_qtd=%x\n",
         (uint64_t)failure->usbsts, (uint64_t)failure->setup_token, (uint64_t)failure->data_token,
         (uint64_t)failure->status_token);
+}
+
+static enum ehci_monitor_state monitor_state(void) {
+    return __atomic_load_n(&monitor_session.state, __ATOMIC_ACQUIRE);
+}
+
+static bool release_monitor_keyboard(void) {
+    struct ehci_monitor_session *session = &monitor_session;
+    if (!retire_control_path(session->device, session->path.op, true)) return false;
+    __asm__ volatile ("mfence" : : : "memory");
+    pmm_free_frame(session->path.physical);
+    pmm_free_frame(session->frame_list);
+    bool restored = set_command_bits(session->device, PCI_COMMAND_MEMORY, session->memory_command);
+    uint64_t removed;
+    bool unmapped = vmm_unmap_page_in_space(session->root, EHCI_MMIO_WINDOW, &removed) && removed == session->page;
+    return restored && unmapped;
+}
+
+static bool monitor_poll_due(void *arg) {
+    return monitor_state() != EHCI_MONITOR_RUNNING || timer_ticks() >= *(uint64_t *)arg;
+}
+
+static bool monitor_worker_eligible(void *arg) {
+    (void)arg;
+    return monitor_state() == EHCI_MONITOR_RUNNING || monitor_state() == EHCI_MONITOR_STOPPING;
+}
+
+static void monitor_keyboard_worker(void *arg) {
+    struct ehci_control_path *path = arg;
+    struct keyboard_hid_state state = {0};
+    struct scheduler_wait_queue wake = {0};
+    uint64_t start = timer_monotonic_us();
+    uint32_t toggle = 0;
+    const char *failure = monitor_state() == EHCI_MONITOR_RUNNING ? arm_keyboard_poll(path, toggle) : NULL;
+    while (!failure && monitor_state() == EHCI_MONITOR_RUNNING) {
+        sample_keyboard_schedule(path);
+        uint32_t token = path->report->keyboard_token;
+        if ((path->report->keyboard_schedule.usbsts & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) ||
+            (token & EHCI_TD_ERROR)) {
+            failure = "interrupt transfer error";
+            break;
+        }
+        uint8_t bytes[EHCI_KEYBOARD_REPORT];
+        bool completed = !(token & EHCI_TD_ACTIVE);
+        if (completed) {
+            failure = finish_keyboard_poll(path, start, &toggle, bytes, NULL);
+            if (failure) break;
+        }
+        uint64_t flags;
+        __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+        if (completed) keyboard_inject_hid_report(bytes, &state);
+        keyboard_repeat_hid(&state, timer_monotonic_us());
+        if (flags & (1u << 9)) __asm__ volatile ("sti" : : : "memory");
+        if (completed && monitor_state() == EHCI_MONITOR_RUNNING) failure = arm_keyboard_poll(path, toggle);
+        if (!failure) {
+            uint64_t due = timer_ticks() + 1;
+            if (!scheduler_wait_timeout(&wake, monitor_poll_due, &due, due)) scheduler_yield();
+        }
+    }
+    bool released = release_monitor_keyboard();
+    if (failure) console_printf("\nehci-monitor: keyboard stopped (%s), resources=%s\n",
+        failure, released ? "released" : "unverified");
+    __atomic_store_n(&monitor_session.state, released ? EHCI_MONITOR_RELEASED : EHCI_MONITOR_UNSAFE,
+        __ATOMIC_RELEASE);
+}
+
+void ehci_monitor_start(void) {
+    uint64_t root = vmm_kernel_address_space();
+    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) {
+        console_write("ehci-monitor: keyboard unavailable (timer or address space)\n");
+        return;
+    }
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *device = pci_device_at(i);
+        if (!device || trial_controller_slot(device) != 0 || device->class_code != EHCI_PCI_USB_CLASS ||
+            device->subclass != EHCI_PCI_USB_SUBCLASS || device->prog_if != EHCI_PCI_PROG_IF) continue;
+        struct ehci_probe_report *report = &monitor_session.report;
+        report->mapping = "none";
+        bool reusable = probe_controller(device, root, EHCI_BOOT_KEYBOARD_MONITOR, report, 0, NULL);
+        if (!monitor_session.frame_list) {
+            if (!reusable || (report->reset_halted && !report->access_retired)) monitor_session.state = EHCI_MONITOR_UNSAFE;
+            const char *reason = report->keyboard_result ? report->keyboard_result :
+                (report->stopped.operation ? report->stopped.operation : report->result);
+            console_printf("ehci-monitor: keyboard unavailable (%s)\n", reason);
+            log_transfer_failure(&report->transfer_failure);
+            return;
+        }
+        monitor_session.state = EHCI_MONITOR_RUNNING;
+        if (!scheduler_spawn_io_service("ehci-keyboard", monitor_keyboard_worker, &monitor_session.path,
+                monitor_worker_eligible)) {
+            monitor_session.state = release_monitor_keyboard() ? EHCI_MONITOR_RELEASED : EHCI_MONITOR_UNSAFE;
+            console_write("ehci-monitor: keyboard service could not start\n");
+            return;
+        }
+        console_printf("ehci-monitor: built-in keyboard at address %u, idle=%s\n",
+            (uint64_t)report->keyboard_target.address, report->keyboard_idle);
+        return;
+    }
+    console_write("ehci-monitor: captured controller absent, serial input available\n");
+}
+
+bool ehci_monitor_stop(void) {
+    if (monitor_state() == EHCI_MONITOR_UNUSED) return true;
+    enum ehci_monitor_state state = EHCI_MONITOR_RUNNING;
+    __atomic_compare_exchange_n(&monitor_session.state, &state, EHCI_MONITOR_STOPPING,
+        false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    uint64_t start = timer_monotonic_us();
+    while ((state = monitor_state()) == EHCI_MONITOR_STOPPING && timer_monotonic_us() - start < 1000000u)
+        scheduler_yield();
+    if (state != EHCI_MONITOR_RELEASED) {
+        console_write("ehci-monitor: release unverified. Photograph this screen and restart manually.\n");
+        return false;
+    }
+    console_printf("ehci-monitor: reports=%u dma=released mapping=released\n",
+        (uint64_t)monitor_session.report.keyboard_reports);
+    console_sync();
+    for (unsigned second = 0; second < 8; second++)
+        if (!timer_delay_us(1000000u)) break;
+    return true;
 }
 
 static void probe_all(enum ehci_boot_mode mode, struct ehci_trial_report *trial) {
