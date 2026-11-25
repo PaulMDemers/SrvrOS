@@ -2,9 +2,10 @@
 
 Updated November 24, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
-verified. Both controllers completed their scans and released DMA. Keyboard
-interrupt polling timed out with zero reports. Native USB workspace access
-remains pending.**
+verified. Both controllers completed their scans and released DMA in the
+enumeration trial. The operator reported working built-in keyboard input in
+the attended retry. The retry's final counters, ordinary console input and
+native USB workspace access remain unverified.**
 
 ## Identity and baseline
 
@@ -40,9 +41,9 @@ flash drive with a 600 ms bound for its initial device descriptor. The active
 input work uses the captured keyboard interface, EHCI periodic interrupts,
 the existing kernel HID decoder and a RAM-only attended boot profile. The
 first typing trial reached periodic polling and timed out with no completed
-report. The active retry adds the HID idle request and records frame-index
-progress and the queue-head overlay before schedule stop. It compares the
-same endpoint with Ubuntu's running EHCI schedule. Native workspace reads
+report. The operator reported working input on the retry with HID idle and
+queue diagnostics. The next input checkpoint is ongoing keyboard input in
+the regular SrvrOS monitor with verified shutdown. Native workspace reads
 and writes require a separate mass-storage milestone.
 
 The scope check found separate Air7,2 Intel display work in PR #301, Pro11,2
@@ -399,15 +400,24 @@ qTD with observed complete-split progress. It also verified frame-index wrap,
 8-byte report completion and schedule retirement. Both exact-stage QEMU
 rehearsals and the ordinary xHCI console regression passed. Release
 `0c509b2b181ab24d` is installed with `c1a8e397a41363dc` retained for recovery.
-Native evidence is pending. The run record, VM evidence and Ubuntu periodic
-schedule snapshot are in `build/review/macbookpro8-1-ehci-trial-0c509b2b181ab24d/`.
+The run record, VM evidence and Ubuntu periodic schedule snapshot are in
+`build/review/macbookpro8-1-ehci-trial-0c509b2b181ab24d/`.
+
+The operator reported that the built-in keyboard worked properly on this
+native retry. This records working input in the attended profile. The final
+screen, exact test line, HID idle acknowledgement, report timing and DMA
+retirement counters remain unverified for this run. The observation alone
+leaves the reason for the earlier timeout unresolved. Ubuntu returned with
+a changed boot ID and consumed `next_entry`. The installed manifests,
+firmware boot order and exFAT mount matched preflight. The exact payload and
+operator observation were archived outside `build/`.
 
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard and trackpad | Native topcase descriptors verified. The keyboard trial timed out with zero reports. | Capture periodic schedule progress, complete a keyboard report, then verify typing and trackpad reports |
+| Keyboard and trackpad | Native topcase descriptors verified. The operator reported working keyboard input in the attended retry. | Verify the regular monitor's keyboard path and shutdown, then qualify trackpad reports |
 | USB workspace | The flash drive enumerates natively on `00:1d.7` and Ubuntu mounts it | Verify native block reads, then write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
