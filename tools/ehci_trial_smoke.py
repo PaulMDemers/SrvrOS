@@ -7,6 +7,8 @@ import re
 import socket
 import subprocess
 import tempfile
+from threading import Thread
+import time
 
 import hardware_boot as boot
 from ehci_hub_fixture import HubFixture
@@ -63,15 +65,26 @@ def exercise_monitor(command, temp, logs, release):
                     assert marker in first, marker
                 assert all(marker not in first for marker in ("xhci:", "workspace-log:", "ahci:", "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"))
                 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as keys:
-                    keys.settimeout(5)
                     keys.connect(str(terminal))
-                    keys.sendall(b"echo p P q Q g G y Y\n")
+                    # Drain serial output so repeated line redraws cannot stall the UART.
+                    def drain():
+                        while keys.recv(4096):
+                            pass
+
+                    reader = Thread(target=drain, daemon=True)
+                    reader.start()
+                    for key in b"echo p P q Q g G y Y\n":
+                        keys.sendall(bytes([key]))
+                        time.sleep(0.03)
                     wait_for(serial, lambda s: "\np P q Q g G y Y\nsrv> " in s, vm, 10)
-                    keys.sendall(b"\x1b[A\x1b[D\x7f\n")
-                    wait_for(serial, lambda s: "\np P q Q g G  Y\nsrv> " in s, vm, 10)
+                    for key in (b"\x1b[A", b"\x1b[D", b"\x7f", b"\n"):
+                        keys.sendall(key)
+                        time.sleep(0.05)
+                    wait_for(serial, lambda s: "\np P q Q g G yY\nsrv> " in s, vm, 10)
                     capture_screen(qmp, logs / "vm-screen.ppm")
                     keys.sendall(b"reboot\n")
                     assert vm.wait(timeout=15) == 0
+                    reader.join(timeout=5)
                 final = serial.read_text(errors="replace")
                 assert "reboot: ACPI reset port=" in final and not has_fatal_exception(final)
             finally:

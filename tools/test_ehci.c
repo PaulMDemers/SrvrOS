@@ -22,6 +22,23 @@ static unsigned keyboard_packet_bytes;
 static bool keyboard_stop_stuck;
 static bool keyboard_fetch;
 static uint64_t now;
+static unsigned freed_monitor_frames, unmapped_monitor_windows;
+
+void pmm_free_frame(uint64_t physical) {
+    assert(op[EHCI_USBSTS] == EHCI_STS_HALTED);
+    assert(!op[EHCI_ASYNCLISTADDR] && !op[EHCI_PERIODICLISTBASE] && !op[EHCI_CONFIGFLAG]);
+    assert(!(pci_config[PCI_COMMAND / 4] & PCI_COMMAND_MASTER));
+    assert(physical == (freed_monitor_frames ? 0xa000u : 0x9000u));
+    freed_monitor_frames++;
+}
+
+bool vmm_unmap_page_in_space(uint64_t root, uint64_t address, uint64_t *physical) {
+    assert(root == 0x1000 && address == EHCI_MMIO_WINDOW);
+    assert(!pci_config[PCI_COMMAND / 4] && freed_monitor_frames == 2);
+    *physical = 0xfed00000;
+    unmapped_monitor_windows++;
+    return true;
+}
 
 uint16_t pci_read_config16(const struct pci_device *p, uint8_t offset) {
     assert(p == &device && offset == PCI_COMMAND);
@@ -332,6 +349,23 @@ static void test_dma_retirement(void) {
     assert(!op[EHCI_PERIODICLISTBASE]);
 }
 
+static void test_monitor_resource_release(void) {
+    fixture_reset();
+    monitor_session = (struct ehci_monitor_session) {
+        .device = &device, .path = {.op = op, .physical = 0x9000},
+        .frame_list = 0xa000, .root = 0x1000, .page = 0xfed00000,
+    };
+    op[EHCI_ASYNCLISTADDR] = 0x9000;
+    op[EHCI_PERIODICLISTBASE] = 0xa000;
+    halt_stuck = true;
+    assert(!release_monitor_keyboard());
+    assert(!freed_monitor_frames && !unmapped_monitor_windows);
+
+    op[EHCI_USBSTS] = EHCI_STS_HALTED;
+    assert(release_monitor_keyboard());
+    assert(freed_monitor_frames == 2 && unmapped_monitor_windows == 1);
+}
+
 static void test_keyboard_report_schedule(void) {
     fixture_reset();
     struct ehci_dma dma;
@@ -462,6 +496,7 @@ int main(void) {
     test_split_control_schedule();
     test_flash_descriptor_wait();
     test_dma_retirement();
+    test_monitor_resource_release();
     test_keyboard_report_schedule();
     test_captured_keyboard_interface();
     test_native_trial_result();
