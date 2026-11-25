@@ -45,6 +45,7 @@
 #define RTL_CU_TRXDMA_RX_BITS 7u
 #define RTL_CU_USB_OPTION 0xfe55u
 #define RTL_CU_USB_RX_AGG (1u<<3)
+#define RTL_CU_APS_RADIO_GPIO_LED 0x0812u
 enum rtl_cu_iq_field {
     RTL_CU_IQ_RX,RTL_CU_IQ_RX_EXT,RTL_CU_IQ_TX,RTL_CU_IQ_TX_EXT,RTL_CU_IQ_TX_CCA,RTL_CU_IQ_FIELDS
 };
@@ -89,6 +90,13 @@ static const struct { uint16_t address,width; } rtl_cu_dma_regs[]={
     {0x104,1},{0x114,1},{0x116,2},{0x118,4},{0x280,2},{0xfe5b,1},{0xfe5c,1},{0xfe5d,1},
 };
 #define RTL_CU_DMA_COUNT (sizeof rtl_cu_dma_regs/sizeof rtl_cu_dma_regs[0])
+static const struct { uint16_t address,width; } rtl_cu_enable_regs[]={
+    {0x000,2},{0x002,2},{RTL8188CU_POWER,2},{0x008,2},{0x010,1},{0x015,1},
+    {0x021,1},{0x024,4},{0x028,4},{RTL8188CU_MAC_CONTROL,4},{0x600,1},{0x604,4},
+    {0x608,4},{0x60c,1},{0x60d,1},{0x60f,1},{0x668,4},{0x692,1},
+    {0x6b4,4},{0x800,4},{0x900,4},{0xfe40,1},{0xfe41,1},{0xfe42,1},
+};
+#define RTL_CU_ENABLE_COUNT (sizeof rtl_cu_enable_regs/sizeof rtl_cu_enable_regs[0])
 struct rtl_cu_rx_sample {
     uint64_t start_us,end_us,dequeue,trb;
     uint32_t regs[RTL_CU_RX_REG_COUNT];
@@ -134,6 +142,9 @@ static struct {
     uint32_t dma_regs[RTL_CU_DMA_COUNT],trxdma_before,usb_opt_before;
     unsigned dma_before_valid,dma_reads;
     bool dma_attempted,dma_ready;
+    uint32_t aps_before,aps_after,enable_regs[RTL_CU_ENABLE_COUNT];
+    unsigned aps_reads,enable_reads;
+    bool aps_attempted,aps_ready;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -285,6 +296,16 @@ static void rtl_cu_rx_log(void) {
             (uint64_t)rtl_passive.dma_before_valid,((uint64_t)rtl_passive.trxdma_before<<32)|rtl_passive.usb_opt_before);
         for(unsigned i=0;i<rtl_passive.dma_reads;i++)
             console_printf(" %x",((uint64_t)rtl_cu_dma_regs[i].address<<32)|rtl_passive.dma_regs[i]);
+        console_write("\n");
+    }
+    if(rtl_passive.aps_attempted) {
+        console_printf("rtl8188cu-rx-enable: %u %u %u %x",(uint64_t)rtl_passive.aps_ready,
+            (uint64_t)rtl_passive.aps_reads,(uint64_t)rtl_passive.enable_reads,
+            ((uint64_t)rtl_passive.aps_before<<32)|rtl_passive.aps_after);
+        for(unsigned i=0;i<rtl_passive.enable_reads;i+=2) {
+            uint32_t next=i+1<rtl_passive.enable_reads?rtl_passive.enable_regs[i+1]:0;
+            console_printf(" %x",((uint64_t)rtl_passive.enable_regs[i]<<32)|next);
+        }
         console_write("\n");
     }
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
@@ -537,10 +558,26 @@ static bool rtl_cu_prepare_rx_dma(struct xhci_device *d) {
     return rtl_passive.dma_ready;
 }
 
+static bool rtl_cu_finish_mac_power(struct xhci_device *d) {
+    /* The CU Linux power-on routine applies this state after MAC auto-on
+     * completes and before clearing RF digital isolation. */
+    rtl_passive.aps_attempted=true;
+    if(!rtl8188cu_read(d,RTL8188CU_POWER,2,&rtl_passive.aps_before))return false;
+    rtl_passive.aps_reads=1;
+    if((rtl_passive.aps_before&(RTL8188CU_AUTOLOAD|RTL8188CU_MAC_ON))!=RTL8188CU_AUTOLOAD ||
+       (rtl_passive.aps_before!=RTL_CU_APS_RADIO_GPIO_LED &&
+        !rtl8188cu_write_value(d,RTL8188CU_POWER,2,RTL_CU_APS_RADIO_GPIO_LED)) ||
+       !rtl8188cu_read(d,RTL8188CU_POWER,2,&rtl_passive.aps_after))return false;
+    rtl_passive.aps_reads=2;
+    rtl_passive.aps_ready=rtl_passive.aps_after==RTL_CU_APS_RADIO_GPIO_LED;
+    return rtl_passive.aps_ready;
+}
+
 static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
                                  const uint8_t *blob,unsigned *writes,uint32_t *channel) {
     uint32_t state;
     if(!rtl_cu_tx_parked(d) ||
+       !rtl_cu_finish_mac_power(d) ||
        !rtl8188cu_update(d,RTL8188CU_ISOLATION,2,1u<<9,0) ||
        !rtl8188cu_update(d,0x600,1,1u<<6,0) ||
        !rtl8188cu_poll(d,0x600,1,1u<<7,0,32,&state) ||
@@ -673,6 +710,11 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
        !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&rtl_passive.rx_cr))return false;
     rtl_passive.rx_cr_valid=true;
     if((rtl_passive.rx_cr&(RTL_CU_RX_ENABLE|RTL_CU_TX_GATES))!=RTL_CU_RX_ENABLE)return false;
+    for(unsigned i=0;i<RTL_CU_ENABLE_COUNT;i++) {
+        if(!rtl8188cu_read(d,rtl_cu_enable_regs[i].address,rtl_cu_enable_regs[i].width,
+                          &rtl_passive.enable_regs[i]))return false;
+        rtl_passive.enable_reads++;
+    }
     rtl_cu_rx_snapshot(d,RTL_CU_ARMED,true);
     if(d->control_failed || d->ep0_quarantined || device_removed(d))return false;
     console_write("rtl8188cu-passive-progress: listening on channel 10; no input required\n");
@@ -760,7 +802,7 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
                     rtl_cu_rx_snapshot(d,RTL_CU_AFTER_STOP,false);
                     result=window && !rtl_passive.completed?"rx-timeout":"window";
                 }
-            }
+            } else if(rtl_passive.aps_attempted && !rtl_passive.aps_ready)result="mac-power";
         }
         if(touched && !d->control_failed && !d->ep0_quarantined && rtl8188cu_check_port(d,hub)) {
             bool rx_off=rtl8188cu_update(d,RTL8188CU_MAC_CONTROL,1,RTL_CU_RX_ENABLE,0);
