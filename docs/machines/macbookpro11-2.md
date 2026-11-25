@@ -1294,6 +1294,19 @@ snapshot, clean exFAT, all 612 existing workspace files and Ubuntu's
 default boot. Evidence and the verified payload are archived locally
 under `/var/local/srvros-recovery/macbookpro11-2/evidence-adcc6cf5723a5bbe`.
 
+#### RTL8188CUS PHY-to-MAC receive reports
+
+Compare the documented receive report selectors for OFDM, CCK and HT
+physical packets, false alarms, MAC frame failures and good frames. The
+existing baseband false-alarm counters only show that the detector runs.
+Use the same channel 10 and 20 MHz Linux monitor reference and retain a
+single 4 KiB request on SrvrOS. The passive profile keeps TX parked,
+preserves the three-adapter hub topology and restores the report
+selector without resetting the counters. The change is confined to
+the RTL8188CUS native passive xHCI path and its fixture. Fetched main
+`61111819` and the open reviews have no overlapping changes.
+[Realtek receive report selector definitions](https://github.com/pvaret/rtl8192cu-fixes/blob/master/include/rtl8192c_spec.h#L1608-L1625)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
