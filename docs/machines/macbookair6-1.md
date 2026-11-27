@@ -15166,3 +15166,11 @@ and after the trial. Retain the complete raw EFI sectors and exact digests,
 including a mounted snapshot for comparison. Scope is Ubuntu reference and
 receipt handling. The existing kernel, reset sequence, and deadlines remain
 the same. Archive the first reset receipt before reusing its USB filename.
+
+The launcher reuses the verified installed image from PR557 and leaves the
+current and recovery entries in place. Host checks cover aligned direct reads,
+exact sector slices, normal restoration, capture failure, unmount refusal and
+unexpected alternate mounts. The same exact-image VM refusal check passed.
+The native rerun is staged and unarmed. Ubuntu will save mounted and unmounted
+sector bytes at both endpoints. The collector requires the clean references to
+match and compares all three native digests against the clean reference.

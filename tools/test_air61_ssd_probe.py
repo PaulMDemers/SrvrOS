@@ -62,10 +62,10 @@ class Probe(unittest.TestCase):
             buffers[0][:] = chunk
             return len(chunk)
 
-        with patch.object(probe.os, "preadv", side_effect=preadv):
+        with patch.object(probe.os, "preadv", side_effect=preadv, create=True):
             offset, length = 8192 + 7 * 512, 2 * 512
             self.assertEqual(probe._direct_read(7, length, offset), chunk[3584:4608])
-        with patch.object(probe.os, "preadv", return_value=511):
+        with patch.object(probe.os, "preadv", return_value=511, create=True):
             with self.assertRaisesRegex(ValueError, "Short direct"):
                 probe._direct_read(7, 512, 0)
 
