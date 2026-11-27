@@ -164,6 +164,14 @@ boots. Bind each startup and final report to its own release and collect
 each pair before arming the next boot. Reassess trackpad initialization if
 the persistent eight-byte response stream recurs.
 
+The desktop saved-file block starts at `c6fbdbc4` on `93e10a44`.
+The integration tip `e1b4ae47` and the open device scopes have no
+overlapping EHCI storage work. Scope is a bounded desktop trial using
+the captured flash controller and the selected exFAT workspace. Text
+will edit and reopen one release-bound document while the keyboard and
+trackpad run. The checkpoint includes startup and final USB reports,
+safe controller retirement and Ubuntu readback of the edited file.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
