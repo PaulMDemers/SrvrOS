@@ -1023,6 +1023,17 @@ metadata update. The offline allocation check passed for 122 files with
 zero writes. Ubuntu consumed the one-shot and the retained payloads
 verified.
 
+Repeat boot 1, `eef462bd3beddb22`, reproduced the unresponsive trackpad
+with the same payload and both USB reports intact. `0x81` completed 537
+requests and returned zero valid pointer reports. The first eight-byte
+`0x02` packet triggered the same mode retry as the passing release. Its
+next completion was another eight-byte `0x02` packet. At the same point,
+the passing release returned a 58-byte `0x74` report. The failure recorded 535 rejected
+packets and 34 valid keyboard reports. The first keyboard completion came
+after the failed mode recovery. The keyboard-only exit, resource retirement,
+and readback of both files verified. The offline allocation check passed
+for 124 files with zero writes.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
