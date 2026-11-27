@@ -15020,3 +15020,20 @@ mounting, and a dual-mount regression. PR550's installed-system/account scope
 uses the existing persistent mount path. The next checkpoint is exact staged
 boot-namespace replay against the recorded USB sidecar and the existing loaded
 and exact-stage VM checks, followed by staging the original 30-minute 1% trial.
+
+Source `94915bf2` allocates boot-archive and read-only fallback image IDs
+separately from ordinary IDs. The dual-mount regression reproduces the old
+refusal and then restores exact metadata with both filesystems mounted. It
+also proves a real outside-ID conflict still refuses, with no USB mutations.
+The exact staged initramfs and embedded `/fat` of release `0e572ed90dbf0f0e`
+now coexist with all 410 live records from the Air6,1 USB sidecar in the host
+replay, with zero collisions and all saved fields exact. The physical USB
+sidecar was read on a read-only Ubuntu mount for this check.
+
+Exact-stage VM profile refusal passed. The 60-second loaded Air6,1 VM passed
+23 app cycles, 128 verified 256 KiB bursts at 1% and zero recorded audio
+underruns. Maximum desktop loop time was 122.742 ms within the existing
+500 ms bound. Directory admission completed 30 calls with 431 entries.
+The original 1800-second workload is staged with the same boot options and
+collector requirements. Ubuntu recovery `c35475f62f154f1e` is verified. The
+native run is pending and no one-shot is armed.
