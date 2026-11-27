@@ -377,6 +377,13 @@ earlier device access to that page has retired. Native PTE and aperture access
 must also remain pinned as the page is bound and restored. No hardware image
 was armed for the modeled result.
 
+The current work starts from `290d84ed` with main `94a65bc9` reviewed. It
+covers the native handoff at the five-engine queue boundary before PCI bus
+mastering reopens, using the existing GT reset, remapper, VMM and display
+guards. The next qualification must distinguish exact-page retirement and
+maintained firmware/proxy exclusion from read-only observations. The
+original active surface stays pinned throughout.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
