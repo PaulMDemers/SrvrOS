@@ -408,12 +408,31 @@ and missing ACPI vector refused the trial. The review image was staged
 locally. Ubuntu and installed recovery `9aa8dbf6fbda8252` were left in place
 with an empty GRUB one-shot entry.
 
-The authorized physical checkpoint uses the same GT flush recipe after
-reviewing main `dc4a48d3`, which changes the separate Air6,1 storage trial.
-It will save the pre-reopen slot 12292 observations to the Air7,2 exFAT
-workspace at the existing 1% host volume. The follow-up will compare the
-saved WiDi, GAM, translation, Pipe A and SMI samples with the held owner
-requirements for a native rollback. This run changes no GGTT entries.
+Physical release `48e671599eb9867e` (source `fd722b07`, session
+`session-000661470813bda0-00`) completed the pre-reopen checkpoint in
+910 µs. All 19 reads and four alias retirements verified. PCI command read
+back `7,3,3,7` across the full trial, and all five engine queues matched on
+both sides of reopening. Slot 12292 stayed at `0x8f005001`. Pipe A stayed
+on the original programmed and live surface, with the frame counter
+advancing from `0x38f` at the checkpoint to `0x390` before reopening. The
+boot CPU's SMI count remained 12. The run issued zero GGTT entry writes.
+
+Both WiDi translation-valid vectors and both `WTCR` reads were zero. The
+WIN clock-gate request and its acknowledgement were set on both sides of
+the sample, even as the raw clock words changed from `0x30` to `0x7f`.
+WiDi `GO` remained open (`0x1f`) and GAM returned `0x7f`, with both GAM
+request samples at `0x7fff`. The GPU engines and L3 had zero fresh flush
+acknowledgements. The completed VT-d drain and System Agent invalidation
+therefore leave the on-chip drain and continuing exclusion unverified.
+The display WD fuse and disabled wireless audio route still cover their
+respective CPU-programmed producers under the same HDA and VMM guards.
+
+The Air returned automatically to Ubuntu at 1% volume. Collection verified
+one new session, all four raw file hashes, clean offline exFAT and recovery
+`9aa8dbf6fbda8252`. This closes the read-only checkpoint as a diagnostic.
+The occupied slot stays outside the writable allocator until its native
+owner can prove the [drain and rollback lifetime](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint).
+Main `dc4a48d3` was reviewed for this trial.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

@@ -120,6 +120,52 @@ proxy exclusion and evidence of retirement for earlier GPU accesses remain
 required before the one-page writer can attach to this checkpoint.
 [Pre-reopen checkpoint](../kernel/src/drivers/intel_gt_boot_page_trial.inc)
 
+## Native rollback admission after the Air checkpoint
+
+The Air's pre-reopen packet shows an occupied slot, empty WiDi translation
+vectors, no WiDi invalidation in progress, a gated WIN clock, and open
+GAM and WiDi permissions in the same guarded interval. The five queues
+matched after reset, and the VT-d drain and System Agent invalidation
+completed. These observations establish the original state from which a
+new drain must start. They leave completion of earlier GT/WiDi traffic and
+the ability to block new traffic unproven. [Native Air checkpoint](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
+1. Acquire a documented request under the existing boot owner, before
+   reopening PCI bus mastering. The request must keep the relevant GT
+   and WiDi clients closed while Pipe A still fetches from the inherited
+   framebuffer. Check the request, matching `GO=0` replies, fresh engine
+   completions, and a fresh L3 acknowledgement in that same held interval.
+   The saved reset or clock-gate state supplies no opening edge. Intel
+   identifies GPM as the sender and the GAM register as the response.
+   The previous RC1e request restored cleanly with traffic still open.
+   A post-reset read of the responder cannot acquire a lease. [Broadwell
+   register reference, pp. 587–592, 815–816, 859](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+2. Preserve both producer yields through the two stores. The display WD
+   fuse prevents enabling the wireless video function. Keep the wireless
+   audio path disabled under the existing display HDA owner and pin the
+   exclusive programming pages. Keep the separate WIN/GAM device hold
+   even with those producers sealed. Bind the firmware side to the exact
+   interval and the completed UEFI handoff. Keep firmware-call paths out of
+   the transaction, retain the SMI change check, and require a platform
+   contract for any runtime producer that can still reach the range.
+   A stable SMI counter is evidence for the observed boot CPU and window.
+   [Broadwell display fuse, pp. 497–498](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+   · [UEFI ExitBootServices](https://uefi.org/specs/UEFI/2.10_A/07_Services_Boot_Services.html#efi-boot-services-exitbootservices)
+3. Exercise that owner in a no-PTE-store trial first. Hold it while checking
+   the original surface and the candidate, then verify clean release with
+   both still intact. For the subsequent one-page bind, keep the same owner
+   through PTE replacement, posted translation invalidation and the private
+   aperture marker, then through restoring the original and observing its
+   marker. `WTCR` is usable after earlier WiDi traffic is drained. Keep the
+   range and its backing pinned if either translation or ownership becomes
+   uncertain. [WiDi TLB control, p. 1823](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+If the occupied interval cannot be transferred, the boot allocator needs
+an interval explicitly yielded before any firmware or device client can
+use it. The existing Air capture identifies preserved mappings and reserved
+RAM. Slot 12292 still requires its own transfer. Use an explicit ownership
+contract to qualify any new candidate.
+
 ## Earlier qualifications
 
 The read-only CPU backing guard has been qualified for two existing 6 MiB
