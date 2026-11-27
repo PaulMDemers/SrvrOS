@@ -1648,6 +1648,29 @@ receive timestamps. The run record is under
 `build/bringup/pro112-rtl8188cu-pre-fw-rx`. Reception on the Mac
 still needs the cold result.
 
+Cold session `session-00066139975cbbd9-00` confirmed the new order.
+CR `0x9a` read back 275 µs before the first LLT command and
+142.290 ms before the first firmware payload write. All 256 LLT
+links completed, the MCU reported ready after 16,094 bytes, and
+the receive-only value still read back at the USB request. This
+matches Linux's ordering with the passive CR value and TX paused.
+The difference in CR values, `0x009a` versus Linux `0x02ff`, remains.
+
+All three hub adapters were present. PHY parity failures rose from
+50 to 4,318 during the receive window, while the 14 receive report
+counters and the RX FIFO pointer stayed at zero. The fixed 4 KiB
+request timed out with no bytes or Demers2.4 beacons. Stop Endpoint
+reported all 4,096 bytes remaining, and the radio was parked. The
+earlier power and receive sequence completed without restoring
+frame reception.
+
+The workspace exit snapshot and all seven EFI journal checkpoints
+saved automatically and agreed on the timing. SrvrOS recorded a
+clean unmount and normal return to Ubuntu. The collector verified
+all 626 prior workspace files and the installed recovery. Evidence
+and the verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-7b559d227649f423`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
