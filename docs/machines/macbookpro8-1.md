@@ -1102,13 +1102,29 @@ Both control exchanges still acquire an idle periodic schedule and keep
 pending descriptors and data toggles intact. Each attempt records normal
 mode completions and the status response alongside the final report.
 
+Source `35572c70`, release `be59d55498834452`, passed the EHCI, keyboard
+and pointer fixtures, both exact-stage VM exits and the native desktop
+checklist. The first eight-byte response started a normal-mode poll.
+The status wait expired at 309,459 µs with zero normal-mode completions.
+After the Wellspring write, the next observed completion was a valid
+58-byte `0x74` report, 8,724 µs after resuming. The desktop verified the
+Find text, both pointer axes, physical clicks and pointer exit. It recorded
+993 valid trackpad reports, zero malformed frames and 22 valid keyboard
+reports. Mode restoration and topcase retirement verified.
+
+The startup and final reports matched their archives after Ubuntu returned
+and the drive was remounted. The offline allocation check passed for 134
+files with zero writes. The revised normal-mode poll has one native pass.
+Its recovery from an already persistent eight-byte stream and its
+repeatability across boots remain open.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Built-in monitor commands and keyboard input verified in all three combined desktop repeats | Retain keyboard coverage during trackpad mode work |
-| Trackpad | Two of three desktop checklists passed. One boot kept returning eight-byte samples after the Wellspring retry and recorded zero motion. | Diagnose the persistent eight-byte response stream after mode recovery |
+| Trackpad | The original recovery exhausted four attempts on `66f988ee64dc5135`. The revised normal-mode poll passed the desktop checklist on `be59d55498834452`. | Repeat the revised recovery across warm boots and capture persistent eight-byte streams if they recur |
 | USB workspace | Both EHCI reports verified after each of three repeat boots, including a keyboard-only exit | Collect startup-only evidence if the desktop cannot exit |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
