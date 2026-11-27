@@ -618,7 +618,8 @@ struct xhci_device {
     bool wifi_probe_attempted, wifi_probe_ok;
     bool rtl8188cu_probe_attempted,rtl8188cu_identified;
     bool rtl8188cu_firmware_attempted,rtl8188cu_firmware_active;
-    bool rtl8822bu_probe_attempted;
+    bool rtl8822bu_probe_attempted,rtl8822bu_identified;
+    bool rtl8822bu_firmware_attempted,rtl8822bu_firmware_active;
     bool rtl8188cu_firmware_ready;
     uint64_t rtl8188cu_download_started_us;
     uint32_t rtl8188cu_power_samples[RTL8188CU_POWER_PHASE_COUNT];
@@ -1744,7 +1745,7 @@ static bool dispatch_strict_control(const struct xhci_trb *event) {
 }
 
 static int wait_control_exact(struct xhci_device *device) {
-    bool timed=device->firmware.active || device->rtl8188cu_firmware_active;
+    bool timed=device->firmware.active || device->rtl8188cu_firmware_active || device->rtl8822bu_firmware_active;
     uint64_t start=timed?timer_monotonic_us():0,clock_at=start,stalled=0;
     for (uint64_t i = 0; timed || i < XHCI_TRANSFER_TIMEOUT; ++i) {
         uint64_t flags = event_irq_save();
@@ -3034,6 +3035,7 @@ bool xhci_rtl8822bu_capture_identity(void) {
            wifi_hub_route_present(target)) {
             target->rtl8822bu_probe_attempted=true;
             failure=rtl8822bu_probe(target,hub);
+            target->rtl8822bu_identified=!failure;
         }
     }
     event_irq_restore(flags);
@@ -3298,6 +3300,7 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
 }
 
 #include "xhci_rtl8188cu_passive.inc"
+#include "xhci_rtl8822bu_firmware.inc"
 
 static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event) {
     if(event->control&4)return;

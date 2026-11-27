@@ -40,6 +40,17 @@ class InstallTests(unittest.TestCase):
     def test_rtl8822bu_identity_stage(self):
         self.verify_usb_wifi_identity_stage("rtl8822bu")
 
+    def test_rtl8822bu_firmware_recipe(self):
+        release = "0123456789abcdef"
+        identity = "ram-usb-rtl8822bu-v1-laptop-probe-12345678-auto-return"
+        firmware = identity.replace("-v1-", "-v2-")
+        self.assertEqual(boot.limine_config(release, firmware), boot.limine_config(release, identity).replace(
+            "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-firmware "))
+        with self.assertRaisesRegex(ValueError, "bound startup journal"):
+            boot.stage(rtl8822bu_firmware=Path("fixture"), laptop_probe_volume="12345678")
+        with self.assertRaisesRegex(ValueError, "Choose one RTL8822BU profile"):
+            boot.stage(rtl8822bu_firmware=Path("fixture"), rtl8822bu_identity=True)
+
     def verify_usb_wifi_identity_stage(self, chipset):
         import struct
         import tarfile

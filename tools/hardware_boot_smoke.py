@@ -276,7 +276,7 @@ def main():
     wifi_5ghz_prereq=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v108-","ram-usb-wifi-fw-v109-","ram-usb-wifi-fw-v110-","ram-usb-wifi-fw-v111-","ram-usb-wifi-fw-v112-","ram-usb-wifi-fw-v113-","ram-usb-wifi-fw-v114-","ram-usb-wifi-fw-v115-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-","ram-usb-wifi-fw-v155-","ram-usb-wifi-fw-v144-","ram-usb-wifi-fw-v145-","ram-usb-wifi-fw-v146-")))
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
-    rtl8822bu = manifest["config_version"].startswith("ram-usb-rtl8822bu-v1-")
+    rtl8822bu = manifest["config_version"].startswith(("ram-usb-rtl8822bu-v1-", "ram-usb-rtl8822bu-v2-"))
     rtl8188cu = manifest["config_version"].startswith(("ram-usb-rtl8188cu-v1-","ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-","ram-usb-rtl8188cu-v5-","ram-usb-rtl8188cu-v6-"))
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     wifi_nop5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v134-"))
@@ -638,6 +638,9 @@ def main():
                     if rtl8822bu:
                         assert b"rtl8822bu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log
                         assert b"rtl8822bu-identity:" not in exit_log
+                        if manifest["config_version"].startswith("ram-usb-rtl8822bu-v2-"):
+                            assert b"rtl8822bu-firmware: result=identity bytes=0 packets=0" in exit_log
+                            assert b"rtl8822bu-firmware-progress:" not in exit_log
                         assert b"laptop-capture: completed=NO" in exit_log
                     if rtl8188cu:
                         assert b"rtl8188cu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log

@@ -11,11 +11,11 @@ FILES = {
 }
 
 
-def _checked(name, stream):
-    length, digest = FILES[name]
+def _checked(name, stream, files):
+    length, digest = files[name]
     data = stream.read(length + 1)
     if len(data) != length or hashlib.sha256(data).hexdigest() != digest:
-        raise ValueError(f"RTL8188CUS firmware package mismatch: {name}")
+        raise ValueError(f"Realtek firmware package mismatch: {name}")
     return data
 
 
@@ -23,11 +23,11 @@ def _firmware_members(archive):
     return [member for member in archive.getmembers() if member.name.lstrip("./").split("/")[0] == "firmware"]
 
 
-def add_to_initramfs(directory, archive):
+def add_to_initramfs(directory, archive, *, files=FILES):
     items = {}
-    for name in FILES:
+    for name in files:
         with (directory / name).open("rb") as stream:
-            items[name] = _checked(name, stream)
+            items[name] = _checked(name, stream, files)
     with tarfile.open(archive, "a", format=tarfile.USTAR_FORMAT) as bundle:
         if _firmware_members(bundle):
             raise ValueError("Initramfs already contains firmware")
@@ -38,14 +38,14 @@ def add_to_initramfs(directory, archive):
             bundle.addfile(info, io.BytesIO(content))
 
 
-def verify_initramfs(archive):
+def verify_initramfs(archive, *, files=FILES):
     with tarfile.open(archive, "r:") as bundle:
         members = _firmware_members(bundle)
-        if sorted(m.name for m in members) != sorted("firmware/" + name for name in FILES):
-            raise ValueError("Unexpected or duplicate RTL8188CUS firmware members")
+        if sorted(m.name for m in members) != sorted("firmware/" + name for name in files):
+            raise ValueError("Unexpected or duplicate Realtek firmware members")
         for member in members:
             name = member.name.removeprefix("firmware/")
-            if not member.isfile() or member.size != FILES[name][0]:
-                raise ValueError(f"Unexpected RTL8188CUS firmware member type or size: {name}")
+            if not member.isfile() or member.size != files[name][0]:
+                raise ValueError(f"Unexpected Realtek firmware member type or size: {name}")
             with bundle.extractfile(member) as stream:
-                _checked(name, stream)
+                _checked(name, stream, files)

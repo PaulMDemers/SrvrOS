@@ -7528,6 +7528,8 @@ static void test_rtl8822bu_probe(void) {
     puts("rtl8822bu: PASS native Netgear USB2 route, one exact read, sibling isolation and eleven refusal cases");
 }
 
+#include "test_xhci_rtl8822bu_firmware.inc"
+
 static void rtl_firmware_model(uint64_t offset,uint32_t value) {
     if(value!=1 || offset<=xhci.db_base || offset>xhci.db_base+4*4)return;
     unsigned slot=(unsigned)(offset-xhci.db_base)/4;
@@ -9584,6 +9586,7 @@ static void test_repeated_init(void) {
     puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
 }
 int main(int argc, char **argv) {
+    if(argc==3 && !strcmp(argv[1],"--rtl8822bu-firmware")){test_rtl8822bu_firmware(argv[2]);return 0;}
     if(argc==2 && !strcmp(argv[1],"--rtl8822bu-identity")){test_rtl8822bu_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--rtl8188cu-identity")){test_rtl8188cu_probe();return 0;}
     if(argc==3 && !strcmp(argv[1],"--rtl8188cu-firmware")){test_rtl8188cu_firmware(argv[2]);return 0;}
