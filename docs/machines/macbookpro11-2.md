@@ -2103,6 +2103,27 @@ image. Restore the accepted passive release and the original EFI
 mount options after retiring the private image. The cold result is
 still pending.
 
+Cold session `session-0006613c3e658b69-00` rediscovered Demers2.4
+on channel 10, with 31 target beacons and 1,063 completed 4 KiB IN
+requests across 16 ring wraps. All three hub adapters were present.
+The active setup passed and the driver posted one Auth request to
+bulk OUT. It recorded zero successful OUT completions and marked
+the transfer uncertain, so there was no association or EAPOL
+exchange. The saved receipt does not distinguish a timeout from a
+rejected OUT event. The next comparison needs the OUT completion
+code, residue, TRB pointer and endpoint state around that request.
+
+The software key state was erased, both endpoints stopped and the
+radio parked. The workspace and independent EFI logs agreed, all
+seven checkpoints survived, and SrvrOS unmounted the workspace and
+returned to Ubuntu. Collection verified all 646 prior files.
+The logs are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-acd08221b588ce4a`.
+After collection, the credential-bearing EFI image was removed,
+the accepted passive release `a662f7851095412c` was restored as
+the SrvrOS entry, and the original Ubuntu EFI mount options were
+restored and verified.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
