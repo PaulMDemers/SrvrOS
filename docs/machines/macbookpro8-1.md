@@ -4,9 +4,9 @@ Updated November 26, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
 enumeration trial. The operator verified built-in keyboard input, command
-execution and readable mixed-case text in the regular monitor. Trackpad
-reports, monitor shutdown counters and native USB workspace access remain
-unverified.**
+execution and readable mixed-case text in the regular monitor. SrvrOS saved a
+release-matched report to the USB workspace and Ubuntu read it back. Trackpad
+gesture reports and monitor shutdown counters remain unverified.**
 
 ## Identity and baseline
 
@@ -481,20 +481,18 @@ volume by UUID and saves one release-named file. Checks cover bulk transfer,
 volume selection, flush, unmount and controller retirement. Trackpad report
 decoding remains open.
 
-Stage the capture with `python3 tools/hardware_boot.py stage --ehci-trackpad-trial`
-and rehearse it with `python3 tools/ehci_trial_smoke.py <release>`. The attended
-RAM-only profile opens the checklist before polling and holds the result for a
-photo. It requires a change in one-finger coordinates, two simultaneous active
-contacts, and both click transitions within 60 seconds. A pass also requires
-the feature mode to be restored and both the controller DMA and MMIO access
-to be retired. The keyboard monitor payload remains available in the recovery
-archive. Power-cycle the Mac after recording the result to return to Ubuntu.
+Prepare the workspace marker in Ubuntu and stage with
+`python3 tools/hardware_boot.py stage --ehci-trackpad-trial --ehci-trackpad-log-volume <exFAT UUID>`.
+Rehearse with `python3 tools/ehci_trial_smoke.py <release>`. The attended trial
+opens the checklist before polling. It requires a change in one-finger
+coordinates, two simultaneous active contacts, and both click transitions
+within 60 seconds. A pass also requires the feature mode to be restored and
+both the controller DMA and MMIO access to be retired. The keyboard monitor
+payload remains available in the recovery archive.
 
-For result logging, add `--ehci-trackpad-log-volume <exFAT UUID>` when staging
-the trackpad trial. Prepare the workspace marker for that volume in Ubuntu.
-The trial saves `srvros-work/ehci-trackpad-<release>.txt` and returns to
-Ubuntu after verified unmount and controller retirement. The result screen
-stays visible on a save or retirement failure.
+The trial saves `srvros-work/ehci-trackpad-<release>.txt` and requests a restart
+after verified unmount and controller retirement. The result screen stays
+visible on a save or retirement failure. A power cycle then returns to Ubuntu.
 
 After the `284f78cff9438b7a` one-shot, Ubuntu returned and mounted the
 expected workspace with its marker intact. The release-named report was
@@ -529,13 +527,25 @@ The saved log ends before the final unmount and reset messages. Ubuntu
 booted with the one-shot entry consumed. The trackpad still timed out with
 zero decoded reports, 242 eight-byte transfers and one ignored response.
 
+Source `09b320bb`, release `1ee4e80c7cbf4111`, selects and verifies hub
+alternate 1 before enumerating the topcase. It arms six interrupt transfers per
+periodic schedule window. Short packets advance to the next report buffer,
+and the next batch keeps the endpoint data toggle after the schedule stops.
+The USB report adds the batch and completion counts and the latest eight-byte
+sample. Local EHCI tests exercise the positive and refusal cases. The exact
+release passed the VM's checklist, absent-controller and one-shot Ubuntu
+default checks. Trackpad gestures require the attended native trial. A clean
+Ubuntu `sync` and unmount cleared the mounted flash drive's dirty flag, and
+the offline writable check passed with 102 files and zero writes or allocation
+errors.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native EHCI polling completed transfers. The first capture decoded zero type 2 frames. | Check feature-mode readback and short packet framing, then qualify motion and clicks |
+| Trackpad | Native captures confirmed the mode switch and completed interrupt transfers with zero decoded type 2 frames | Check multi-TT and batched polling on hardware, then qualify motion and clicks |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
