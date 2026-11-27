@@ -230,6 +230,15 @@ were never reached, and Pipe A continuity has no new evidence.
 Ubuntu returned after the halt. The one-shot was consumed, and the
 installed recovery and offline USB filesystem check verified.
 
+The next native run records each sampler step's start on the halt screen,
+including the census, private frame preparation, and both fresh firmware
+gates. It shows the first failing step, its last accepted clock, a rejected
+clock sample when applicable, and any later cleanup attempt. Census entry
+counts and compact byte counts appear on the same screen. These observations
+reuse the guarded clock samples and leave the successful receipt format
+and all time and access bounds in place. If the sampler halts, photograph
+the complete screen and restart into Ubuntu.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

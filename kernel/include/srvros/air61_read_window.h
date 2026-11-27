@@ -31,6 +31,16 @@ struct air61_read_window_env {
 #endif
 };
 enum air61_read_state {AIR61_READ_NEW,AIR61_READ_RUNNING,AIR61_READ_REFUSED,AIR61_READ_COMPLETE,AIR61_READ_POISONED};
+enum air61_read_step {
+ AIR61_STEP_NONE,AIR61_STEP_GATE0,AIR61_STEP_OUTPUTS,AIR61_STEP_TEXT,AIR61_STEP_CENSUS,
+ AIR61_STEP_BASELINE,AIR61_STEP_FRAMES,AIR61_STEP_PRIVATE_VERIFY,AIR61_STEP_GAP,
+ AIR61_STEP_GATE1,AIR61_STEP_FINAL_VERIFY,AIR61_STEP_LINK,AIR61_STEP_SLOTS,
+ AIR61_STEP_FINAL_CACHE,AIR61_STEP_RETIRE,AIR61_STEP_CLEANUP,AIR61_STEP_COUNT,
+};
+struct air61_read_timing {
+ enum air61_read_step active,failed;
+ uint64_t start[AIR61_STEP_COUNT],fault_at,rejected_clock;
+};
 struct air61_read_pass_result {
  struct air61_window_result window;
  struct hac_result census;
@@ -45,6 +55,7 @@ struct air61_read_pass_result {
  unsigned attempts,reads;
  struct air61_sample_admission admission[AIR61_SAMPLE_ADMISSIONS];
 #endif
+ struct air61_read_timing timing;
 };
 struct air61_read_series_result {
  enum air61_read_state state;

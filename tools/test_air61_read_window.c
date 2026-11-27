@@ -165,6 +165,13 @@ int main(void){
   assert(v->window.state==AIR61_WINDOW_RETIRED && !v->window.claimed && v->slots==12 && v->source_coalescings==1);
   assert(v->window.words<=65536 && v->window.end-v->window.begin<100000 && g->firmware_bytes==3996);
   assert(v->window.frees==2 && g->cache_reads[0]==49 && g->cache_reads[1]==49);
+  const struct air61_read_timing *t=&v->timing;
+  assert(t->active==AIR61_STEP_RETIRE && t->failed==AIR61_STEP_NONE && !t->fault_at && !t->rejected_clock);
+  assert(t->start[AIR61_STEP_GATE0]==v->window.begin && t->start[AIR61_STEP_CENSUS]==v->window.census_begin);
+  uint64_t last=v->window.begin;
+  for(unsigned stage=AIR61_STEP_GATE0;stage<AIR61_STEP_COUNT;stage++)if(t->start[stage]){
+   assert(t->start[stage]>=last && t->start[stage]<=v->window.end);last=t->start[stage];
+  }
   assert(v->evidence.pt[80]==AIR61_READ_LEAF && v->evidence.pd[409]==(v->window.frames[1]|AIR61_READ_PARENT_FLAGS));
   for(unsigned i=0;i<12;i++)assert(v->offsets[i]==rw_offsets[i] && !memcmp(v->before[i],v->after[i],sizeof(v->before[i])));
   printf("read-pass=%u words=%u fw=%u slots=%u elapsed=%llu\n",pass,v->window.words,g->firmware_bytes,v->slots,(unsigned long long)(v->window.end-v->window.begin));
@@ -176,6 +183,16 @@ int main(void){
  uint64_t denied=0;unsigned oldloads=loads;
  assert(!vmm_air61_read_window_copy_ram(0,0x2000000,&denied,8) && loads==oldloads);
  assert(!open_window());
+ /* A deadline at the fresh second gate preserves the fault stage through
+  * the subsequent cleanup attempt and never publishes a target mapping. */
+ rreset();inject_pass=0;inject_phase=1;inject_kind=5;
+ assert(!run_series() && rw.result.state==AIR61_READ_POISONED && rw.result.started==1);
+ const struct air61_read_pass_result *halted=vmm_air61_read_window_pass(0);
+ const struct air61_read_timing *timing=&halted->timing;
+ assert(timing->failed==AIR61_STEP_GATE1 && timing->active==AIR61_STEP_CLEANUP);
+ assert(timing->start[AIR61_STEP_GATE1]<=timing->fault_at && timing->fault_at==timing->start[AIR61_STEP_CLEANUP]);
+ assert(timing->rejected_clock-halted->window.begin>=AIR61_WINDOW_LIMIT_US);
+ assert(halted->census.status==1 && !halted->window.parent_attempts && !halted->slots && !frees);
  for(unsigned pass=0;pass<2;pass++)for(unsigned phase=0;phase<3;phase++)for(unsigned kind=0;kind<11;kind++){
   if(!phase && kind==9)continue; /* A changed initial unrelated entry is a fresh baseline. */
   rreset();inject_pass=(int)pass;inject_phase=(int)phase;inject_kind=kind;

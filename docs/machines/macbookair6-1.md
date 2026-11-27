@@ -88,6 +88,12 @@ raw alias sizes and graph equality could not be independently checked.
 The second sampler pass and slot 4096 probe remain pending. Ubuntu
 returned and both recovery and the offline USB check verified.
 
+The next checkpoint on PR567 adds halt timing to the isolated read-window
+backend and console report. It separates the initial gates, priming, alias
+census, frame preparation, verification, publication and cleanup using
+the existing clock samples. The access list, ownership checks and 100 ms
+limits stay in force. Broadwell PR301 at `26e3f621` remains separate.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

@@ -42,6 +42,33 @@ extern void eg_test_irq_restore(uint64_t);
 static AIR61_SAMPLE_CODE uint64_t eg_test_irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static AIR61_SAMPLE_CODE void eg_test_irq_restore(uint64_t f){if(f&512)__asm__ volatile("sti":::"memory");}
 #endif
+
+static void read_halt_timing(unsigned pass,const struct air61_read_pass_result *result){
+ if(!result->timing.active)return;
+ static const char *const names[AIR61_STEP_COUNT]={
+  [AIR61_STEP_NONE]="none",[AIR61_STEP_GATE0]="gate0",[AIR61_STEP_OUTPUTS]="outputs",[AIR61_STEP_TEXT]="text",
+  [AIR61_STEP_CENSUS]="census",[AIR61_STEP_BASELINE]="baseline",[AIR61_STEP_FRAMES]="frames",
+  [AIR61_STEP_PRIVATE_VERIFY]="private-verify",[AIR61_STEP_GAP]="gap",[AIR61_STEP_GATE1]="gate1",
+  [AIR61_STEP_FINAL_VERIFY]="final-verify",[AIR61_STEP_LINK]="link",[AIR61_STEP_SLOTS]="slots",
+  [AIR61_STEP_FINAL_CACHE]="final-cache",[AIR61_STEP_RETIRE]="retire",[AIR61_STEP_CLEANUP]="cleanup",
+ };
+ const struct air61_read_timing *timing=&result->timing;
+ const uint64_t *s=timing->start;
+ console_printf("read-time: pass=%u failed=%s fault_at_us=%u rejected_us=%u last_step=%s clocks=%u\n",
+  (uint64_t)pass,names[timing->failed],timing->fault_at,timing->rejected_clock,
+  names[timing->active],(uint64_t)result->window.clock_samples);
+ console_printf("read-start-us: gate0=%u outputs=%u text=%u census=%u baseline=%u frames=%u\n",
+  s[AIR61_STEP_GATE0],s[AIR61_STEP_OUTPUTS],s[AIR61_STEP_TEXT],s[AIR61_STEP_CENSUS],s[AIR61_STEP_BASELINE],s[AIR61_STEP_FRAMES]);
+ console_printf("read-start-us: private_verify=%u gap=%u gate1=%u final_verify=%u link=%u\n",
+  s[AIR61_STEP_PRIVATE_VERIFY],s[AIR61_STEP_GAP],s[AIR61_STEP_GATE1],s[AIR61_STEP_FINAL_VERIFY],s[AIR61_STEP_LINK]);
+ console_printf("read-start-us: slots=%u final_cache=%u retire=%u cleanup=%u\n",
+  s[AIR61_STEP_SLOTS],s[AIR61_STEP_FINAL_CACHE],s[AIR61_STEP_RETIRE],s[AIR61_STEP_CLEANUP]);
+ console_printf("read-census: end_us=%u status=%u pages=%u prepare=%u reads=%u,%u bytes=%u,%u\n",
+  result->window.census_end,(uint64_t)result->census.status,(uint64_t)result->census.pages,
+  (uint64_t)result->census.prepare_reads,(uint64_t)result->census.reads[0],(uint64_t)result->census.reads[1],
+  (uint64_t)result->census.bytes[0],(uint64_t)result->census.bytes[1]);
+}
+
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
 AIR61_SAMPLE_CODE bool haswell_air61_register_sample(void){
 #else
@@ -71,6 +98,7 @@ AIR61_SAMPLE_CODE bool haswell_air61_read_qualify(void){
    const struct ecam_boot_gate_result *g=i?air61_read_gate_result1():air61_read_gate_result0();
    const struct ecam_boot_gate_diagnostic *d=i?air61_read_gate_diagnostic1():air61_read_gate_diagnostic0();
    console_printf("read-gate: pass=%u phases=%u firmware_bytes=%u stage=%s index=%u component=%u expected=%x observed=%x\n",(uint64_t)i,(uint64_t)g->phases,(uint64_t)g->firmware_bytes,d->stage?d->stage:"none",(uint64_t)d->index,(uint64_t)d->component,d->expected,d->observed);
+   read_halt_timing(i,p);
   }
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
   for(unsigned p=0;p<2;p++){const struct air61_read_pass_result *v=vmm_air61_read_window_pass(p);

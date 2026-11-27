@@ -45,6 +45,9 @@ class SampleProfile(unittest.TestCase):
                 t=subprocess.check_output([str(EXE),mode],text=True)
                 self.assertIn('expected terminal poison',t)
                 self.assertNotIn('laptop-capture: completed=yes',t)
+                if mode=='deadline':
+                    self.assertRegex(t,r'read-time: pass=0 failed=slots fault_at_us=[1-9]\d* rejected_us=[1-9]\d* last_step=slots clocks=[1-9]\d*')
+                    self.assertRegex(t,r'read-census: end_us=[1-9]\d* status=1 pages=[1-9]\d* prepare=[1-9]\d* reads=[1-9]\d*,[1-9]\d* bytes=[1-9]\d*,[1-9]\d*')
     def test_bounded_encoder_no_retry(self):
         text=subprocess.check_output([str(EXE),'small-wire'],text=True)
         self.assertIn('bounded encoder refuses overflow and retry',text)

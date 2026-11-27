@@ -14,14 +14,29 @@ static struct {
 } rw;
 #define rc (rw.pass[rw.current])
 #define RW_ADDR (((1ull<<39)-1)&~4095ull)
-static AIR61_SAMPLE_CODE bool rw_fault(const char *why){if(!rc.view.window.fault)rc.view.window.fault=why;if(!rw.result.fault)rw.result.fault=why;return false;}
+/* Record progress from the existing guarded clock. A cleanup failure must
+ * leave the original fault stage and its last accepted clock intact. */
+static inline void rw_step(enum air61_read_step step){
+ rc.view.timing.active=step;rc.view.timing.start[step]=rc.last;
+}
+static AIR61_SAMPLE_CODE bool rw_fault(const char *why){
+ if(!rc.view.window.fault){
+  rc.view.window.fault=why;
+  rc.view.timing.failed=rc.view.timing.active;rc.view.timing.fault_at=rc.last;
+ }
+ if(!rw.result.fault)rw.result.fault=why;
+ return false;
+}
 static AIR61_SAMPLE_CODE bool rw_poison(void){rc.view.window.state=AIR61_WINDOW_POISONED;rw.result.state=AIR61_READ_POISONED;return false;}
 static AIR61_SAMPLE_CODE bool rw_guard(void){rc.view.window.guard_checks++;return (rc.view.window.state!=AIR61_WINDOW_POISONED && rc.view.window.token.owner==rw.result.owner && rc.view.window.token.epoch==rw.result.epoch+rw.current && rc.view.window.token.root==rw.result.root && vmm_diagnostic_sole_kernel_root(rc.view.window.token.root)) || rw_fault("root/exclusion");}
 static AIR61_SAMPLE_CODE bool rw_tick(void){
  if(!rw_guard())return false;
  rc.view.window.clock_samples++;uint64_t t=rw.io.now(rw.io.ctx);
  if(rc.view.window.state==AIR61_WINDOW_POISONED)return false;
- if(!t || t<rc.last || t<rc.view.window.begin || t-rc.view.window.begin>=AIR61_WINDOW_LIMIT_US)return rw_fault("clock/deadline");
+ if(!t || t<rc.last || t<rc.view.window.begin || t-rc.view.window.begin>=AIR61_WINDOW_LIMIT_US){
+  if(!rc.view.window.fault)rc.view.timing.rejected_clock=t;
+  return rw_fault("clock/deadline");
+ }
  rc.view.window.end=rc.last=t;return true;
 }
 static AIR61_SAMPLE_CODE bool rw_check(unsigned phase){
@@ -174,7 +189,10 @@ static AIR61_SAMPLE_CODE bool rw_free(unsigned i){
 }
 static AIR61_SAMPLE_CODE bool rw_refuse(void){
  if(rc.view.window.state==AIR61_WINDOW_POISONED || rc.view.window.parent_attempts)return rw_poison();
- if((rc.owned[0] || rc.owned[1]) && (!rw_verify(false,false,false) || !rw_free(1) || !rw_free(0)))return rw_poison();
+ if(rc.owned[0] || rc.owned[1]){
+  rw_step(AIR61_STEP_CLEANUP);
+  if(!rw_verify(false,false,false) || !rw_free(1) || !rw_free(0))return rw_poison();
+ }
  rc.view.window.claimed=false;rc.view.window.state=AIR61_WINDOW_REFUSED;return false;
 }
 static AIR61_SAMPLE_CODE bool rw_reentry(void){rw_fault("reentry");rc.view.window.claimed=true;return rw_poison();}
@@ -271,15 +289,23 @@ static AIR61_SAMPLE_CODE bool rw_prepare(void){
  rc.hhdm=pmm_hhdm_offset();r->hhdm=rc.hhdm;r->clock_samples++;
  r->begin=rc.last=rw.io.now(rw.io.ctx);
  if(!rw.current)rw.result.begin=r->begin;
+ rw_step(AIR61_STEP_GATE0);
  if(!r->begin || r->token.epoch>r->begin){rw_fault("clock/epoch");goto refused;}
- if(!rw_tick() || !rw_check(0) || !rw_tick() || (!rw.current && !rw_touch_outputs()))goto refused;
+ if(!rw_tick() || !rw_check(0) || !rw_tick())goto refused;
+ if(!rw.current){
+  rw_step(AIR61_STEP_OUTPUTS);
+  if(!rw_touch_outputs())goto refused;
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
- if(!rw.current && !rw_touch_text())goto refused;
+  rw_step(AIR61_STEP_TEXT);
+  if(!rw_touch_text())goto refused;
 #endif
+ }
+ rw_step(AIR61_STEP_CENSUS);
  r->gate_end=rc.last;r->census_begin=rc.last;
  const struct hac_io census_io={.read=rw_census_read,.now=rw_census_now};
  rc.in_census=true;bool captured=hac_capture(&rc.view.census,&census_io,r->token.root);rc.in_census=false;rc.census_ticket=false;r->census_end=rc.last;
  if(!captured || rc.view.census.target_leaves || !rw_tick()){rw_fault("alias-census");goto refused;}
+ rw_step(AIR61_STEP_BASELINE);
  uint64_t root_entry;
  if(!rw_word(r->token.root,384,&root_entry) || (root_entry&3)!=3 || !(root_entry&32) || (root_entry&~(RW_ADDR|0x800000000000003bull))){rw_fault("borrowed-path-A");goto refused;}
  r->pdpt=root_entry&RW_ADDR;
@@ -287,6 +313,7 @@ static AIR61_SAMPLE_CODE bool rw_prepare(void){
  for(unsigned i=0;i<512;i++){rc.view.evidence.root_before[i]=rc.root[i];rc.view.evidence.pdpt_before[i]=rc.pdpt[i];}
  rc.snapshot=true;
  if(rc.pdpt[7]){rw_fault("existing-slot");goto refused;}
+ rw_step(AIR61_STEP_FRAMES);
  for(unsigned f=0;f<2;f++){
   if(!rw_tick())goto refused;
   uint64_t pa=pmm_alloc_frames_above_tagged(1,VMM_PAGE_TABLE_MIN_PHYSICAL,PMM_FRAME_PAGE_TABLE);r->frames[f]=pa;
@@ -296,11 +323,18 @@ static AIR61_SAMPLE_CODE bool rw_prepare(void){
   for(unsigned i=0;i<512;i++)if(!rw_store(pa,i,0,0,true))goto refused;
  }
  if(!rw_store(r->frames[1],80,0,AIR61_READ_LEAF,false) || !rw_store(r->frames[0],409,0,r->frames[1]|AIR61_READ_PARENT_FLAGS,false))goto refused;
- if(!rw_verify(false,true,false) || !rw_wait_gap() || !rw_check(1) || !rw_tick())goto refused;
+ rw_step(AIR61_STEP_PRIVATE_VERIFY);
+ if(!rw_verify(false,true,false))goto refused;
+ rw_step(AIR61_STEP_GAP);
+ if(!rw_wait_gap())goto refused;
+ rw_step(AIR61_STEP_GATE1);
+ if(!rw_check(1) || !rw_tick())goto refused;
+ rw_step(AIR61_STEP_FINAL_VERIFY);
  /* Only this immediate verification can consume phase1's full fresh source
   * result. No yield, store, callback or gap lies between issue and consume. */
  rc.source_ticket=r->token;rc.source_ticket_ready=true;
  if(!rw_verify(false,true,true))goto refused;
+ rw_step(AIR61_STEP_LINK);
  uint64_t publish_begin=rc.last;r->parent_attempts++;
  if(!rw_store(r->pdpt,7,0,r->frames[0]|AIR61_READ_PARENT_FLAGS,false) || !rw_parent_value(r->frames[0]|AIR61_READ_PARENT_FLAGS) || !rw_invalidate() || !rw_verify(true,true,false))goto refused;
  if(rc.last<=publish_begin){rw_fault("clock-stalled");goto refused;}
@@ -416,10 +450,13 @@ AIR61_SAMPLE_CODE bool vmm_air61_read_window_qualify(const struct air61_read_win
   rw.result.started++;
   if(!rw_prepare())goto failed;
   if(!rw.current)rw.result.begin=rc.view.window.begin;
+  rw_step(AIR61_STEP_SLOTS);
   if(!rw_slots())goto failed;
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  rw_step(AIR61_STEP_FINAL_CACHE);
   if(!rw_sample_admit(AIR61_READ_SLOTS)){rw_poison();goto failed;}
 #endif
+  rw_step(AIR61_STEP_RETIRE);
   if(!rw_retire())goto failed;
   rw.result.retired++;rw.result.end=rc.view.window.end;
  }
