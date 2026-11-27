@@ -954,6 +954,14 @@ Text, checks typing into Find, and exercises pointer motion, maximize,
 restore and the return menu. The native report counts keyboard edges and
 invalid reports alongside the existing pointer, mode and retirement data.
 
+Source `9020482e`, release `159368a637be087a`, passed the EHCI and pointer
+host fixtures and the exact-stage QEMU checklist with virtual PS/2 input.
+The rehearsal showed `Ehci-42` in Text's Find field, completed both
+window actions, and selected Return to console before restoring the Ubuntu
+default. The stage passed read-only writable admission for all 120 files
+on this unit's flash workspace. The release is installed for a one-shot
+native trial with the working console and standalone keyboard retained.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
