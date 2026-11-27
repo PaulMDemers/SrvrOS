@@ -2184,6 +2184,18 @@ are in `/var/local/srvros-recovery/macbookpro11-2/evidence-172a04f4aebc3243`.
 The private image was retired and the accepted passive boot entry and
 original EFI mount options were restored. Association and WPA2 remain open.
 
+#### RTL8188CUS transmit-queue startup comparison
+
+Start from `b244036c` on the Pro device branch. Integration main
+`54632d47`, Air6,1 AHCI #556 and the Pro8,1 EHCI work in #552
+were inspected. The prior trial stopped bulk OUT with all 62 bytes
+remaining. Compare this unit's working Linux `rtl8192cu` OUT
+completion and TX page reservation against the station-only path.
+The code scope is the Realtek packet-buffer order, pre-Auth
+endpoint and queue receipts, and its native xHCI fixture. Keep all
+three hub leaves, channel 10, the four-second 4 KiB receive path,
+the 250 ms wait, and the existing boot/save/recovery recipe.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
