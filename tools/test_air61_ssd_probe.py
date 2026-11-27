@@ -54,6 +54,21 @@ def reset_trace(release, volume, ready=True):
 
 
 class Probe(unittest.TestCase):
+    def test_direct_read_hashes_only_the_requested_slice(self):
+        chunk = bytes(range(256)) * 32
+
+        def preadv(fd, buffers, offset):
+            self.assertEqual((fd, offset, len(buffers[0])), (7, 8192, len(chunk)))
+            buffers[0][:] = chunk
+            return len(chunk)
+
+        with patch.object(probe.os, "preadv", side_effect=preadv):
+            offset, length = 8192 + 7 * 512, 2 * 512
+            self.assertEqual(probe._direct_read(7, length, offset), chunk[3584:4608])
+        with patch.object(probe.os, "preadv", return_value=511):
+            with self.assertRaisesRegex(ValueError, "Short direct"):
+                probe._direct_read(7, 512, 0)
+
     def test_clean_efi_reference_restores_mount_and_keeps_complete_sector(self):
         disk, partition, target = Path("/dev/test"), Path("/dev/test1"), Path("/boot/efi")
         _, _, clean_sector = fixture()
@@ -85,8 +100,9 @@ class Probe(unittest.TestCase):
                     raise subprocess.CalledProcessError(1, args)
                 attached = args[0] == "mount"
 
-            def capture(actual):
+            def capture(actual, *, direct):
                 self.assertEqual(actual, disk)
+                self.assertTrue(direct)
                 events.append("mounted-read" if attached else "clean-read")
                 if attached:
                     return mounted, bytes(mounted_sector)

@@ -2,6 +2,7 @@
 """Build the read-only Ubuntu reference and compare a native Air6,1 SSD receipt."""
 
 import hashlib
+import mmap
 import os
 from pathlib import Path
 import re
@@ -80,8 +81,21 @@ def verify_gpt(primary, backup):
     return len(partitions)
 
 
-def _read_samples(fd):
-    data = [os.pread(fd, count * SECTOR, start * SECTOR) for start, count in SAMPLES]
+def _direct_read(fd, size, offset):
+    # The SSD has 4 KiB physical sectors. Read aligned windows and retain
+    # exactly the requested slice for the GPT and boot-sector hashes.
+    alignment = 4096
+    start = offset // alignment * alignment
+    skip = offset - start
+    capacity = (skip + size + alignment - 1) // alignment * alignment
+    with mmap.mmap(-1, capacity) as buffer:
+        require(os.preadv(fd, [buffer], start) == capacity, "Short direct SSD read")
+        return buffer[skip:skip + size]
+
+
+def _read_samples(fd, *, direct=False):
+    read = _direct_read if direct else os.pread
+    data = [read(fd, count * SECTOR, start * SECTOR) for start, count in SAMPLES]
     require(all(len(content) == count * SECTOR for (_, count), content in zip(SAMPLES, data)),
             "Short SSD read")
     partitions = verify_gpt(*data[:2])
@@ -100,7 +114,7 @@ def read_samples(fd):
     return report
 
 
-def _ubuntu_capture(disk):
+def _ubuntu_capture(disk, *, direct=False):
     disk = Path(disk).resolve(strict=True)
     model = Path("/sys/class/dmi/id/product_name").read_text().strip()
     require(model == "MacBookAir6,1", "Wrong machine model")
@@ -123,13 +137,16 @@ def _ubuntu_capture(disk):
     require(identify_model == MODEL and int((sysfs / "size").read_text()) == SECTORS and
             int((sysfs / "queue/logical_block_size").read_text()) == SECTOR,
             "SSD model or geometry mismatch")
-    fd = os.open(disk, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+    if direct:
+        flags |= os.O_DIRECT
+    fd = os.open(disk, flags)
     try:
         info = os.fstat(fd)
         require(stat.S_ISBLK(info.st_mode) and
                 f"{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}" == (sysfs / "dev").read_text().strip(),
                 "Opened device does not match sysfs")
-        return _read_samples(fd)
+        return _read_samples(fd, direct=direct)
     finally:
         os.close(fd)
 
@@ -170,12 +187,14 @@ def _efi_mount(disk, mountpoint):
 def clean_ubuntu_reference(disk, mountpoint=Path("/boot/efi")):
     """Capture the whole sector in each mount state and restore Ubuntu's EFI mount."""
     partition, options = _efi_mount(disk, mountpoint)
-    mounted, mounted_sector = _ubuntu_capture(disk)
+    # The raw disk and its mounted partition can have different page-cache
+    # entries. Bypass the raw-device cache on both sides of the clean unmount.
+    mounted, mounted_sector = _ubuntu_capture(disk, direct=True)
     try:
         subprocess.run(("umount", "--", str(mountpoint)), check=True, timeout=20)
         require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(partition)),
                 "EFI partition is still mounted")
-        clean, clean_sector = _ubuntu_capture(disk)
+        clean, clean_sector = _ubuntu_capture(disk, direct=True)
         require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(partition)),
                 "EFI partition was mounted during the clean capture")
         require(clean["samples"][:2] == mounted["samples"][:2], "GPT changed across the EFI unmount")

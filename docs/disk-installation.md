@@ -45,6 +45,7 @@ sector while the partition is unmounted. It saves the raw sectors for byte
 comparison and restores Ubuntu's configured EFI mount, including after a
 failed read. The native hash must match the clean sector exactly. The FAT
 mount-state byte is available for analysis without altering the comparison.
+Aligned direct reads bypass the raw block-device page cache at both endpoints.
 
 ## Install with console sign-in
 
