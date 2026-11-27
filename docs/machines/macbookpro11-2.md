@@ -2371,6 +2371,23 @@ one-shot cold run against a station-filtered capture on the router.
 The capture uses the Demers2.4 interface and LAN bridge. The accepted
 passive payload and Ubuntu remain available for recovery.
 
+Source `6372d271` adds queue, receive, and terminal DHCP counts to the
+Realtek IP receipt. The modeled native xHCI path passed both a full
+DHCP/DNS/HTTP exchange and an Offer-free exchange with a completed
+encrypted Discover, bounded exit and clean USB retirement. Ubuntu on
+the same adapter recorded a matched Discover, Offer, Request and ACK
+on the router's Demers2.4 interface and LAN bridge. The prior trial has
+no matching entries in the regular router log.
+
+Release `a019ab3043fad1b5` passed the exact GPT workspace rehearsal
+and four EFI journal modes. The prior completed EFI journal was
+archived byte-for-byte before rearming its contiguous allocation
+with a fresh nonce. The cold run keeps all three adapters attached
+and pairs the saved guest receipts with the four-hour station-filtered
+router capture. The local run directory is
+`build/bringup/pro112-rtl8188cu-discover-trace`. Physical packet
+arrival and response are pending collection.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
