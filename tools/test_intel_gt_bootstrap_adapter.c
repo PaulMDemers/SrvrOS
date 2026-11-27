@@ -196,7 +196,11 @@ static void intel_display_test_idle_store(unsigned i,uint32_t value) {
 }
 bool timer_delay_us(uint64_t us) {
     if (air_park.active) {
-        assert(us && wake_irq && (wake_ack ? us <= PARK_INTERVAL_US : us <= PARK_COLD_END_US));
+        assert(us && wake_irq);
+        if (wake_ack && air_park.cold_count == 2 && air_park.frames_used == 1)
+            assert(ticks + us == air_park.poll_origin_us + PARK_COLD_FIRST_POLL * PARK_INTERVAL_US);
+        else
+            assert(us <= (wake_ack ? PARK_INTERVAL_US : PARK_COLD_END_US));
         assert(park_model[0] == PARK_RC6 && gpu_command == 3 && !pulses && !bcs_stop.writes);
         if (!strcmp(bootstrap_mode,"park-wait-failed")) return false;
         ticks += us + (!strcmp(bootstrap_mode,"park-missed-slot") ? PARK_INTERVAL_US : 0);
