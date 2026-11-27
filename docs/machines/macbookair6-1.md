@@ -2,6 +2,83 @@
 
 Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
+## Current tear-free display scope (2026-11-27)
+
+Branch `device/macbookair6-1/tearfree` starts at main `dc4a48d3`.
+The live Ubuntu inventory reports Haswell `8086:0a26` revision 09,
+Apple subsystem `106b:011a`, and one connected 1366×768 eDP panel under
+i915. The SrvrOS native backing capture observed a 1,056-page X-tiled
+surface inside a 16 MiB fence.
+
+Air7,2 PR301 at `fd722b07` owns the shared scanout lifetime work and the
+Broadwell hardware provider. This branch starts the Haswell GGTT entry
+planner using the existing read-only backing capture and that unit's exact
+register layout. It can describe a proposed private bind and its exact
+rollback word; a caller still needs a maintained native owner to execute it.
+The next checkpoint is a read-only verification of one candidate slot and
+the paths that can access it. There is no boot armed.
+The [Haswell bring-up guide](../intel-hsw-tearfree.md) records the comparison
+and the checkpoints for native ownership and presentation.
+
+The next diagnostic starts at `cf54fefc` on the same branch. It samples the
+single DWORD at BAR0+`0x204000` outside the protected 16 MiB fence, while
+checking Pipe A's inherited live surface and frame progress. Scope is an
+isolated read-only candidate alias, conventional IGD and display-HDA PCI
+requester status, and sampled display controls. Broadwell PR301 remains
+independent. This records observations and unknowns before an owner can be
+designed for a native bind.
+
+The [native candidate observation](../intel-hsw-tearfree.md#native-candidate-result)
+completed on source `06d711a2`, release `b35c7a643be7458e`. Pipe A advanced
+two frames in 21.059 ms with the inherited surface unchanged. Slot 4096
+was present and pointed into firmware-reserved stolen memory outside the
+sampled image pages. Both GPU and display HDA bus mastering were enabled.
+The temporary alias retired with zero GPU writes. The USB receipt and installed
+recovery verified, and Ubuntu returned with the one-shot consumed. Keep the slot
+protected while investigating its existing mapping and requesters.
+
+The slot-access audit starts at `43863727`. It binds the same boot's pinned
+DMAR declaration to slot 4096's physical address, observes a 16-entry window
+for aliases, and checks Haswell framebuffer compression controls while the
+original Pipe A surface advances. It keeps the original 100 ms candidate bound
+and retires temporary read-only aliases. Live VT-d, command-engine use and
+firmware exclusion remain separate evidence for an eventual owner. PR301 at
+`d588f83a` retains the Broadwell drain-provider scope.
+
+The [native access audit](../intel-hsw-tearfree.md#native-slot-access-result)
+completed on `b1f49e6a` / `d0929a7adbcedf69`. Slot 4096 again mapped
+`0x8ea00000`, at the start of 16 consecutive sampled stolen-memory pages.
+The same-boot DMAR names the GPU as requester for the range. Compression
+was disabled in both samples, the inherited Pipe A surface advanced one
+frame in 20.126 ms, and all three borrowed aliases retired. The receipt,
+recovery and offline USB filesystem check verified on return to Ubuntu.
+Keep slot 4096 protected while live requester ownership remains unresolved.
+
+The live requester audit starts from `89013a5e` on PR567. It reuses the
+isolated graphics DRHD0 read-only sampler with its original ECAM, memory,
+alias and retirement gates. The same boot brackets that sampler with IGD
+PCI requester reads, then repeats the slot 4096 probe and samples the
+already qualified GT core status and RC6 counter while Pipe A advances.
+Shared Broadwell work remains with PR301 at `e83f19e0`. No new VT-d address,
+translation-table walk, forcewake, control write or graphics ownership
+is part of this checkpoint.
+
+The [native requester audit](../intel-hsw-tearfree.md#native-audit-refused-at-the-alias-census)
+refused on `94d2dd92` / `c75c79ae778587e3`. Early ECAM adoption succeeded,
+then the first raw pass of the pre-user RAM alias census ran out of room
+in its 4 KiB receipt. VT-d target reads and writes were zero, and requester,
+GT and slot 4096 sampling did not start. Ubuntu returned with the one-shot
+consumed. The archived snapshots, installed recovery and offline USB
+filesystem check verified. Keep slot 4096 protected and recover a complete
+alias receipt before another requester observation.
+
+The retry keeps the same draft and boot profile. Its scope is the alias
+census encoder and the host decoder shared by the Haswell ECAM, window
+and read-sampler receipts. Both exact passes keep their 4 KiB cap, RAM
+provenance, entry count and deadline. The physical checkpoint is the
+same read-only VT-d and slot 4096 audit on the inherited Pipe A surface.
+Air7,2 PR301 at `9edfbe67` retains its separate GPU ownership scope.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

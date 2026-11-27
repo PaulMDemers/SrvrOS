@@ -10,14 +10,14 @@ from hardware_haswell_alias import alias_result, alias_preinit_result, decode_pa
 from test_hardware_haswell_cache import fixture, mutate
 
 
-def fixture_alias():
+def fixture_alias(compact=False):
     text, pin = fixture()
     # A sparse raw RAM root (one four-entry chain, target on the 4KiB leaf).
     pages = [(0x100000, 0, {256:0x101003}), (0x101000, 1, {3:0x102003}),
              (0x102000, 2, {502:0x103003}), (0x103000, 3, {400:0xfed90013})]
     data = bytearray()
-    for pa, level, nonzero in pages:
-        data += struct.pack('<QB', pa, level)
+    for index, (pa, level, nonzero) in enumerate(pages):
+        data += struct.pack('<QB', pa | (compact and index == 0), level)
         words = [nonzero.get(i, 0) for i in range(512)]
         i = 0
         while i < 512:
@@ -25,7 +25,14 @@ def fixture_alias():
             if i+1 < 512:
                 step = (words[i+1]-words[i]) & ((1<<64)-1);n = 2
                 while i+n < 512 and words[i+n] == (words[i]+step*n) & ((1<<64)-1):n += 1
-            data += struct.pack('<HQQ', n, words[i], step);i += n
+            if compact:
+                first = words[i]
+                widths = [(value.bit_length()+7)//8 for value in (first, step)]
+                data += struct.pack('<H', (widths[0]*9+widths[1])*512+n-1)
+                data += first.to_bytes(widths[0], 'little')+step.to_bytes(widths[1], 'little')
+            else:
+                data += struct.pack('<HQQ', n, words[i], step)
+            i += n
     meta = f'hsw-alias: v=1 status=1 step=6 pages=4 reads=2048,2048 bytes={len(data)},{len(data)} target_leaves=1 root=0x0000000000100000 nx=0x0000000004100000,0x0000000004100000 max=0x0000000080000008,0x0000000080000008 efer=0x0000000000000d00,0x0000000000000d00 irq=0x0000000000000202,0x0000000000000202 begin=5100 end=5900 cursor=0x0000000000103000,511,0x0000000000000000,0x0000000000000000 table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n'
     for phase in (0,1):
         for index, at in enumerate(range(0,len(data),512)):
@@ -34,6 +41,60 @@ def fixture_alias():
 
 
 class AliasTests(unittest.TestCase):
+    def test_compact_receipt_preserves_complete_legacy_proof(self):
+        legacy, pin = fixture_alias()
+        compact, _ = fixture_alias(compact=True)
+        with patch('hardware_haswell_firmware.PIN', pin):
+            old = alias_result(legacy)
+            new = alias_result(compact)
+            self.assertLess(new.pop('raw_encoded_bytes_per_pass'), old.pop('raw_encoded_bytes_per_pass'))
+            self.assertEqual(old, new)
+            chunk = next(line for line in compact.splitlines() if line.startswith('hsw-alias-data: v=1 phase=1'))
+            prefix, raw = chunk.split('data=')
+            data = bytearray(base64.b64decode(raw))
+            data[0] ^= 1
+            changed = prefix+'data='+base64.b64encode(data).decode()
+            self.assertIsNone(alias_result(compact.replace(chunk, changed)))
+
+    def test_large_producer_round_trip_stays_under_original_cap(self):
+        exe = Path('build/tests/hsw-alias-core')
+        if not exe.exists():
+            self.skipTest('build actual encoder target first')
+        both = subprocess.check_output([str(exe), '--dump-large'])
+        size = len(both)//2
+        self.assertLessEqual(size, 4096)
+        self.assertEqual(both[:size], both[size:])
+        expected = [[0]*512 for _ in range(42)]
+        expected[0][0], expected[1][0] = 0x101003, 0x102003
+        for page in range(3, 42):
+            expected[2][page-3] = (0x100000+4096*page)|3
+            base = 0x8000000020000000+page*0x200000
+            for begin, end, flags in ((13, 76, 0x23), (91, 118, 0x63), (126, 502, 0x23)):
+                expected[page][begin:end] = [base+4096*i+flags for i in range(begin, end)]
+            expected[page][509:] = [0xfffffffffffffff0, 0, 0x10]
+        pages = decode_pages(both[:size], 42)
+        self.assertEqual(list(pages), [0x100000+4096*i for i in range(42)])
+        self.assertEqual([page['raw'] for page in pages.values()], expected)
+        self.assertEqual([page['level'] for page in pages.values()], [0, 1, 2]+[3]*39)
+
+    def test_compact_decoder_refuses_malformed_runs(self):
+        header = struct.pack('<QB', 0x100001, 0)
+        zeros = struct.pack('<H', 511)
+        invalid = (
+            header+zeros+b'\0',                         # trailing bytes
+            header+struct.pack('<H', 81*512+511),        # impossible operand width
+            header+struct.pack('<H', 9*512+511),         # missing first operand
+            header+struct.pack('<H', 9*512+511)+b'\0',   # nonminimal first operand
+            header+struct.pack('<H', 512+511)+b'\0',     # nonminimal step
+            header+struct.pack('<H', 512)+b'\x01',        # singleton with step
+            header+b'\x00\x00'+zeros,                  # run crosses page boundary
+            header.replace(b'\x01', b'\x03', 1)+zeros,  # unknown PA tag
+        )
+        for data in invalid:
+            with self.subTest(data=data):
+                self.assertRaises(ValueError, decode_pages, data, 1)
+        self.assertRaises(ValueError, decode_pages, header+zeros+header+zeros, 2)
+
     def test_bounded_preparation_receipt_and_legacy_compatibility(self):
         text,pin=fixture_alias()
         prep='hsw-alias-preparation: v=1 reads=2048 pages=4 begin=5100 end=5200 table_cap=64 entry_cap=32768 limit_us=100000 shared_deadline=1 pte_writes=0 retries=0\n'
