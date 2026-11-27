@@ -80,6 +80,8 @@
 #define EHCI_TD_DATA1 (1u << 31)
 #define EHCI_TD_BYTES_SHIFT 16
 #define EHCI_TD_BYTES_MASK 0x7fffu
+#define EHCI_TD_SPLIT_STATE (1u << 1)
+#define EHCI_TRACKPAD_BATCH_SIZE 6u
 
 #define EHCI_LEGACY_CAP 1u
 #define EHCI_LEGACY_BIOS (1u << 16)
@@ -117,6 +119,13 @@ struct ehci_keyboard_schedule {
     bool qtd_loaded;
 };
 
+struct ehci_trackpad_queue_sample {
+    unsigned polls, first_frame, last_frame;
+    uint32_t td_token, overlay_token, current, next;
+    uint8_t c_progress;
+    bool split_seen;
+};
+
 struct ehci_trackpad_capture {
     unsigned reports, ignored, invalid, bytes, largest, contacts;
     unsigned wire_max, eight_byte_reports, eight_byte_id44;
@@ -129,9 +138,12 @@ struct ehci_trackpad_capture {
     uint8_t first_payload[EHCI_DESCRIPTOR_BYTES];
     uint32_t token, overlay, status;
     int16_t first_x, first_y;
-    uint8_t mode_before, mode_after, last_eight_byte_id;
+    uint8_t feature_before[8], feature_write[8], feature_after[8], feature_restored[8];
+    struct ehci_trackpad_queue_sample first_batch[EHCI_TRACKPAD_BATCH_SIZE];
+    uint32_t qh_endpoint, qh_capabilities, first_td;
+    uint8_t last_eight_byte_id;
     bool hid_replay_started, mode_before_read, mode_after_read;
-    bool arm_requested, arm_acknowledged;
+    bool mode_write_attempted, mode_restore_read, arm_requested, arm_acknowledged;
     bool have_position, moved, pressed, released, mode_restored;
     const char *result;
 };
@@ -1071,6 +1083,22 @@ static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *captur
     }
 }
 
+static void print_trackpad_queue(const struct ehci_trackpad_capture *capture) {
+    if (!capture->arm_requested) return;
+    console_printf("trackpad-qh endpoint=%x capabilities=%x first=%x stride=%u\n", (uint64_t)capture->qh_endpoint,
+        (uint64_t)capture->qh_capabilities, (uint64_t)capture->first_td, (uint64_t)sizeof(struct ehci_trackpad_slot));
+    for (unsigned i = 0; i < EHCI_TRACKPAD_BATCH_SIZE; i++) {
+        const struct ehci_trackpad_queue_sample *sample = &capture->first_batch[i];
+        if (!sample->polls) break;
+        console_printf("trackpad-qh slot=%u polls=%u first-frame=%u last-frame=%u td=%x overlay=%x\n",
+            (uint64_t)i, (uint64_t)sample->polls, (uint64_t)sample->first_frame, (uint64_t)sample->last_frame,
+            (uint64_t)sample->td_token, (uint64_t)sample->overlay_token);
+        console_printf("trackpad-qh slot=%u current=%x next=%x c-progress=%x split-seen=%u\n",
+            (uint64_t)i, (uint64_t)sample->current, (uint64_t)sample->next, (uint64_t)sample->c_progress,
+            (uint64_t)sample->split_seen);
+    }
+}
+
 bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     console_set_framebuffer_muted(false);
     console_clear();
@@ -1115,10 +1143,19 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
         capture->configuration_to_mode_us);
     if (capture->mode_before_read) {
         if (capture->mode_after_read) console_printf("Feature mode before=%u after capture=%u (expected 1).\n",
-            (uint64_t)capture->mode_before, (uint64_t)capture->mode_after);
-        else console_printf("Feature mode before=%u. Post-capture readback unavailable.\n", (uint64_t)capture->mode_before);
+            (uint64_t)capture->feature_before[0], (uint64_t)capture->feature_after[0]);
+        else console_printf("Feature mode before=%u. Post-capture readback unavailable.\n",
+            (uint64_t)capture->feature_before[0]);
+        console_printf("Trackpad feature before payload=%x\n", trackpad_report_word(capture->feature_before));
     }
+    if (capture->mode_write_attempted) console_printf("Trackpad feature write payload=%x completed=%s\n",
+        trackpad_report_word(capture->feature_write), capture->arm_requested ? "yes" : "unverified");
+    if (capture->mode_after_read) console_printf("Trackpad feature after capture payload=%x\n",
+        trackpad_report_word(capture->feature_after));
+    if (capture->mode_restore_read) console_printf("Trackpad feature restore readback payload=%x\n",
+        trackpad_report_word(capture->feature_restored));
     print_trackpad_arm_timing(capture);
+    print_trackpad_queue(capture);
     if (capture->wire_max) console_printf("Wire max=%u. 8-byte=%u. ID 0x44=%u. Last 8-byte ID=%u (decimal).\n",
         (uint64_t)capture->wire_max, (uint64_t)capture->eight_byte_reports,
         (uint64_t)capture->eight_byte_id44, (uint64_t)capture->last_eight_byte_id);

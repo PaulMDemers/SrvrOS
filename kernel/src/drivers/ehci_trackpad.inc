@@ -4,7 +4,6 @@
 #define EHCI_TRACKPAD_WAIT_US 60000000u
 #define EHCI_TRACKPAD_POLL_US 250u
 #define EHCI_TRACKPAD_MOVE_UNITS 32
-#define EHCI_TRACKPAD_BATCH_SIZE 6u
 #define EHCI_TRACKPAD_FEATURE_READ_OFFSET_US 247973u
 
 struct ehci_trackpad_slot {
@@ -110,6 +109,12 @@ static bool trackpad_capture_complete(const struct ehci_trackpad_capture *captur
     return capture->moved && capture->contacts >= 2 && capture->released;
 }
 
+static uint64_t trackpad_report_word(const uint8_t data[8]) {
+    uint64_t sample = 0;
+    for (unsigned i = 0; i < 8; i++) sample = (sample << 8) | data[i];
+    return sample;
+}
+
 static void record_trackpad_frame(struct ehci_trackpad_capture *capture, const uint8_t *data, unsigned length) {
     struct apple_trackpad_frame frame;
     int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
@@ -118,9 +123,7 @@ static void record_trackpad_frame(struct ehci_trackpad_capture *capture, const u
     if (length == 8) {
         capture->eight_byte_reports++;
         capture->last_eight_byte_id = data[0];
-        uint64_t sample = 0;
-        for (unsigned i = 0; i < length; i++) sample = (sample << 8) | data[i];
-        capture->last_eight_byte_sample = sample;
+        capture->last_eight_byte_sample = trackpad_report_word(data);
         /* Interface 1 advertises this HID report ID on the captured topcase. */
         if (data[0] == 0x44) capture->eight_byte_id44++;
     }
@@ -178,6 +181,19 @@ static void prepare_trackpad_batch(struct ehci_trackpad_dma *dma, uint32_t physi
     }
 }
 
+static void sample_trackpad_queue(struct ehci_trackpad_queue_sample *sample, const struct ehci_control_path *path,
+    const volatile struct ehci_qh *qh, uint32_t td_token, uint32_t overlay_token) {
+    unsigned frame = path->op[EHCI_FRINDEX] & EHCI_FRINDEX_MASK;
+    if (!sample->polls++) sample->first_frame = frame;
+    sample->last_frame = frame;
+    sample->td_token = td_token;
+    sample->overlay_token = overlay_token;
+    sample->current = qh->current & ~31u;
+    sample->next = qh->overlay.next;
+    sample->c_progress |= qh->overlay.buffer[1] & 0xffu;
+    sample->split_seen |= (overlay_token & EHCI_TD_SPLIT_STATE) != 0;
+}
+
 /* The first batch and frame list are ready before the mode write. A successful
  * control transfer has acknowledged async stop, so the next action can set PSE. */
 static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_trackpad_dma *dma, uint32_t physical,
@@ -198,6 +214,8 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
                 capture->token = progress->slots[i].td.token;
                 capture->overlay = progress->qh.overlay.token;
                 capture->status = path->op[EHCI_USBSTS];
+                if (capture->batches == 1) sample_trackpad_queue(&capture->first_batch[i], path,
+                    &progress->qh, capture->token, capture->overlay);
                 if ((capture->token & EHCI_TD_ERROR) || (capture->status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR))) {
                     failure = "interrupt transfer error";
                 } else if (!(capture->token & EHCI_TD_ACTIVE)) {
@@ -256,12 +274,10 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     if (capture->result) return;
     capture->result = "HID replay feature-read timer failed";
     if (!wait_trackpad_hid_offset(configured_at, EHCI_TRACKPAD_FEATURE_READ_OFFSET_US)) return;
-    uint8_t original[8];
     capture->result = "feature mode read failed";
     capture->configuration_to_feature_read_us = timer_monotonic_us() - configured_at;
-    if (!read_trackpad_mode(path, original)) return;
+    if (!read_trackpad_mode(path, capture->feature_before)) return;
     capture->mode_before_read = true;
-    capture->mode_before = original[0];
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
@@ -271,6 +287,9 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     *transfer_page = physical;
     struct ehci_trackpad_dma *dma = pmm_phys_to_virt(physical);
     prepare_trackpad_batch(dma, (uint32_t)physical, &report->trackpad_target, 0);
+    capture->qh_endpoint = dma->qh.endpoint;
+    capture->qh_capabilities = dma->qh.capabilities;
+    capture->first_td = dma->qh.overlay.next;
     uint32_t qh = (uint32_t)physical + offsetof(struct ehci_trackpad_dma, qh);
     capture->result = configure_periodic_frames(path, &trackpad_endpoint, qh, frame_list);
     if (capture->result) return;
@@ -278,18 +297,18 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     console_set_framebuffer_muted(false);
     console_write("Trackpad capture starting. Start the checklist now. You have 60 seconds.\n");
     console_sync();
-    uint8_t mode[8];
-    for (unsigned i = 0; i < sizeof(mode); i++) mode[i] = original[i];
-    mode[0] = 1;
+    for (unsigned i = 0; i < sizeof(capture->feature_write); i++) capture->feature_write[i] = capture->feature_before[i];
+    capture->feature_write[0] = 1;
+    capture->mode_write_attempted = true;
     uint64_t mode_completed_us;
-    if (write_trackpad_mode(path, mode, &mode_completed_us)) {
+    if (write_trackpad_mode(path, capture->feature_write, &mode_completed_us)) {
         capture->result = poll_trackpad(path, dma, (uint32_t)physical, mode_completed_us);
         capture->configuration_to_mode_us = mode_completed_us - configured_at;
-        if (schedules_idle(path) && read_trackpad_mode(path, mode)) {
+        if (schedules_idle(path) && read_trackpad_mode(path, capture->feature_after)) {
             capture->mode_after_read = true;
-            capture->mode_after = mode[0];
         } else if (!capture->result) capture->result = "post-capture feature readback failed";
     } else capture->result = "feature mode write failed";
-    capture->mode_restored = write_trackpad_mode(path, original, NULL) &&
-        read_trackpad_mode(path, mode) && mode[0] == original[0];
+    capture->mode_restore_read = write_trackpad_mode(path, capture->feature_before, NULL) &&
+        read_trackpad_mode(path, capture->feature_restored);
+    capture->mode_restored = capture->mode_restore_read && capture->feature_restored[0] == capture->feature_before[0];
 }

@@ -143,6 +143,10 @@ bool timer_delay_us(uint64_t delay) {
         assert(trackpad_reports < EHCI_TRACKPAD_BATCH_SIZE + 5);
         struct ehci_trackpad_slot *slot = &trackpad_dma->slots[trackpad_reports % EHCI_TRACKPAD_BATCH_SIZE];
         assert(slot->td.token & EHCI_TD_ACTIVE);
+        op[EHCI_FRINDEX] += 2;
+        trackpad_dma->qh.current = 0xa000u + (uint32_t)((uint8_t *)slot - (uint8_t *)trackpad_dma);
+        trackpad_dma->qh.overlay.next = slot->td.next;
+        trackpad_dma->qh.overlay.buffer[1] = 4;
         uint8_t report[86] = {0x74, [85] = 0xb7};
         /* A six-report batch with seven packets must preserve DATA1 when rearmed. */
         int gesture = (int)trackpad_reports - (int)EHCI_TRACKPAD_BATCH_SIZE;
@@ -159,9 +163,10 @@ bool timer_delay_us(uint64_t delay) {
         trackpad_dma->qh.overlay.token ^= EHCI_TD_DATA1;
         if (trackpad_offset == length) {
             slot->td.token = (trackpad_endpoint.length - length) << EHCI_TD_BYTES_SHIFT;
+            trackpad_dma->qh.overlay.token &= ~EHCI_TD_SPLIT_STATE;
             trackpad_offset = 0;
             trackpad_reports++;
-        }
+        } else trackpad_dma->qh.overlay.token |= EHCI_TD_SPLIT_STATE;
         return true;
     }
     if (keyboard_dma) {
@@ -634,8 +639,12 @@ static void test_trackpad_capture(void) {
     assert(report.trackpad.hid_replay_started && report.trackpad.hid_replay_completed == 6);
     assert(report.trackpad.configuration_to_feature_read_us == 247973);
     assert(report.trackpad.configuration_to_mode_us > report.trackpad.configuration_to_feature_read_us);
-    assert(report.trackpad.mode_before_read && report.trackpad.mode_before == 8);
-    assert(report.trackpad.mode_after_read && report.trackpad.mode_after == 1 && report.trackpad.mode_restored);
+    assert(report.trackpad.mode_before_read && report.trackpad.mode_write_attempted);
+    assert(report.trackpad.mode_after_read && report.trackpad.mode_restore_read && report.trackpad.mode_restored);
+    assert(trackpad_report_word(report.trackpad.feature_before) == 0x0807060504030201ull);
+    assert(!memcmp(report.trackpad.feature_write, feature_bytes, sizeof(feature_bytes)));
+    assert(!memcmp(report.trackpad.feature_after, feature_bytes, sizeof(feature_bytes)));
+    assert(!memcmp(report.trackpad.feature_restored, report.trackpad.feature_before, sizeof(feature_bytes)));
     assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
     assert(trackpad_packets == 13 && report.trackpad.reports == 6 && report.trackpad.ignored == 5);
     assert(report.trackpad.batches == 2 && report.trackpad.completions == 11);
@@ -645,6 +654,15 @@ static void test_trackpad_capture(void) {
     const uint8_t first_payload[86] = {0x74, [46] = 5, [85] = 0xb7};
     assert(report.trackpad.first_payload_length == sizeof(first_payload));
     assert(!memcmp(report.trackpad.first_payload, first_payload, sizeof(first_payload)));
+    assert(report.trackpad.qh_endpoint == 0x00400103u && report.trackpad.qh_capabilities == 0x41011c01u);
+    assert(report.trackpad.first_td == physical + offsetof(struct ehci_trackpad_dma, slots));
+    const struct ehci_trackpad_queue_sample *first = &report.trackpad.first_batch[0];
+    assert(first->polls == 3 && first->first_frame == 0 && first->last_frame == 4);
+    assert(first->td_token == (478u - 86u) << EHCI_TD_BYTES_SHIFT);
+    assert(first->current == report.trackpad.first_td && first->next == first->current + sizeof(batch.slots[0]));
+    assert(first->c_progress == 4 && first->split_seen);
+    const struct ehci_trackpad_queue_sample *last = &report.trackpad.first_batch[EHCI_TRACKPAD_BATCH_SIZE - 1];
+    assert(last->current == report.trackpad.first_td + 5 * sizeof(batch.slots[0]) && last->next == EHCI_LINK_END);
     assert(report.trackpad.largest == 86 && report.trackpad.bytes == 58 &&
         report.trackpad.contacts == 2 && !report.trackpad.invalid);
     assert(trackpad_capture_complete(&report.trackpad) && !op[EHCI_USBSTS]);
