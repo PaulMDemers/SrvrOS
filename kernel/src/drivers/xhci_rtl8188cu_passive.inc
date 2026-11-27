@@ -3,13 +3,11 @@
 #define RTL_CU_PROFILE_BYTES (RTL_CU_PROFILE_WRITES*6u)
 #define RTL_CU_RX_DCI 3u
 #define RTL_CU_RX_BYTES 4096u
-/* Enable the MAC protocol block during RX with all TX gates closed. */
+/* Enable the scheduler during passive RX with all TX gates closed. */
 #define RTL_CU_PROTOCOL_ENABLE (1u<<4)
 #define RTL_CU_SCHEDULE_ENABLE (1u<<5)
 #define RTL_CU_RX_ENABLE (0x8au|RTL_CU_PROTOCOL_ENABLE)
-#define RTL_CU_SECURITY_ENABLE (1u<<9)
-#define RTL_CU_PASSIVE_CR (RTL_CU_RX_ENABLE|RTL_CU_SECURITY_ENABLE)
-#define RTL_CU_TX_GATES (RTL8188CU_TX_ENABLE|RTL_CU_SCHEDULE_ENABLE)
+#define RTL_CU_PASSIVE_CR (RTL_CU_RX_ENABLE|RTL_CU_SCHEDULE_ENABLE)
 #define RTL_CU_TX_PAUSE 0x0522u
 #define RTL_CU_CHANNEL 10u
 #define RTL_CU_LLT 0x01e0u
@@ -398,7 +396,7 @@ static bool rtl_cu_profile_valid(const uint8_t *blob,uint64_t size) {
 
 static bool rtl_cu_tx_parked(struct xhci_device *d) {
     uint32_t mac,pause;
-    return rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) && !(mac&RTL_CU_TX_GATES) &&
+    return rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) && !(mac&RTL8188CU_TX_ENABLE) &&
         rtl8188cu_read(d,RTL_CU_TX_PAUSE,1,&pause) && pause==0xff;
 }
 
@@ -409,10 +407,8 @@ static bool rtl_cu_open_rx_early(struct xhci_device *d) {
        (rf&RTL8188CU_RF_ENABLE) || !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,2,&rtl_passive.early_rx_before))
         return false;
     rtl_passive.early_rx_reads=1;
-    /* Isolate ENSEC with a separate high-byte write. Keep the original RX write. */
     if(rtl_passive.early_rx_before ||
-       !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL+1,1,RTL_CU_SECURITY_ENABLE>>8) ||
-       !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL,1,RTL_CU_RX_ENABLE) ||
+       !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL,1,RTL_CU_PASSIVE_CR) ||
        !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,2,&rtl_passive.early_rx_after))return false;
     rtl_passive.early_rx_reads=2;
     if(rtl_passive.early_rx_after!=RTL_CU_PASSIVE_CR)return false;
@@ -847,7 +843,7 @@ static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub) {
         rtl8188cu_read(d,RTL_CU_TX_PAUSE,1,&rtl_passive.parked_pause);
     rtl_passive.parked=rx_off && rf_off && rtl_passive.parked_cr_valid &&
         rtl8188cu_read(d,RTL8188CU_RF_CONTROL,1,&rf) &&
-        !(rtl_passive.parked_cr&(RTL_CU_PASSIVE_CR|RTL_CU_TX_GATES)) && rtl_passive.parked_pause==0xff &&
+        !(rtl_passive.parked_cr&(RTL_CU_PASSIVE_CR|RTL8188CU_TX_ENABLE)) && rtl_passive.parked_pause==0xff &&
         !(rf&RTL8188CU_RF_ENABLE);
 }
 
