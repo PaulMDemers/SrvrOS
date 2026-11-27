@@ -988,6 +988,13 @@ separate flash controller before the desktop opens. Exit attempts a new
 flash report after the topcase worker retires. Control+Alt+Escape and the
 90-second deadline both reach cleanup even when the pointer is unusable.
 
+Source `273f99a1`, release `3388f68afd5dc712`, passed the host fixtures
+and two exact-stage QEMU rehearsals. The regular checklist completed in
+one run. The other exercised the keyboard-only exit, reached the final
+save attempt and returned to the Ubuntu default fixture. The VM recorded
+both save attempts with the captured flash controller absent. The exact
+RAM image passed write admission against this unit's 120-file workspace.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
