@@ -1984,6 +1984,19 @@ sinks before the cold run. Local Linux evidence is under
 [Linux CR setup](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L472-L476)
 [Linux gate definitions](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L872-L881)
 
+Release `fc150a451faf921d` (`ea6f625f`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. The native fixture exercises the transition at bulk IN
+admission, refusal on bad readback or lost TX pause, drift while
+receiving, and refusal to accept cleanup if bit 6 stays set. It
+verifies no TX DMA gate opens and that every USB receive is 4 KiB.
+Saved-log replay covered accepted and refused readbacks and
+before-stop drift. The exact image passed the GPT workspace boot
+and four EFI journal modes. The trial record under
+`build/bringup/pro112-rtl8188cu-mac-listen` binds the prior cold
+control and both Linux comparisons. Native reception and Demers2.4
+discovery still need the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
