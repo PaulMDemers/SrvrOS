@@ -1,6 +1,6 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 26, 2026. State **Native console output, EHCI enumeration
+Updated November 27, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
 enumeration trial. The operator verified built-in keyboard input, command
@@ -86,6 +86,16 @@ Compare with Ubuntu USB completions from this unit. Scope is the attended
 EHCI trackpad trial, its queue fixture and existing USB report. The next
 checkpoint is exact-stage VM rehearsal and an attended one-shot with Ubuntu
 recovery.
+
+The Wellspring recovery trial starts from `029910c2` on base `61111819`.
+`origin/main` at `c523e036` and the open device scopes have no overlapping
+EHCI changes. After the first rejected eight-byte response on `0x81`, the
+attended profile will pause at a verified retired request, select normal
+mode, wait at least 1 ms, and retry Wellspring mode once. It will preserve
+the queue head and data toggle, record the before and after results, and
+save the report to the prepared flash drive. Scope is the existing EHCI
+trackpad trial and its fixtures, with an exact-stage VM rehearsal before
+the native one-shot. [Linux mode recovery](https://github.com/torvalds/linux/commit/fc1e8a6f129d87c64ac8e58b50d9dfa66217cfda)
 
 ## Bring-up sequence
 
