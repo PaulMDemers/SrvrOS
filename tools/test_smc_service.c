@@ -128,6 +128,8 @@ int main(void) {
     smc_battery_status(&power);
     assert(power.sample.current_ua==-1808000 && power.sample.generation==3);
     assert(power.flags==(BATTERY_CACHE_VALID|BATTERY_CACHE_FRESH));
+    stopping=true;step();
+    assert(!working && transaction_boundary());
     initialized=stopping=false;devices[1].device_id=0x9c43;smc_battery_init();
     assert(!working && battery.value.state==BATTERY_SERVICE_UNAVAILABLE);
     puts("smc-service: PASS exact-target gate, worker failure, metadata/count checks, cached fan samples, zero RPM and fault invalidation without control writes");
