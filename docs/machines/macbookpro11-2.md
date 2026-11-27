@@ -1845,6 +1845,18 @@ the fixed 4 KiB request and all three hub ports. Exercise the
 native path and both log sinks before the cold run.
 [Linux CU hardware configuration](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L767-L782)
 
+Release `e1c25099a8e3bd3e` (`4e8f7bc7`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. Native xHCI fixtures cover the ordered writes, a bounded
+`0xfe42` settle, the already-set path, an unexpected starting tuple,
+short control transfer, failed readback and drift before RX. The
+exact image passed workspace logging, reset and all four EFI
+journal modes. Decoder replay retained the before/after tuple and
+receive evidence in both journal tails. The run record under
+`build/bringup/pro112-rtl8188cu-usb-interface` binds the `0xe9`
+MAC-loopback control and the Linux timing and readback references.
+Reception still needs the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
