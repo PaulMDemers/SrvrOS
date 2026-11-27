@@ -1671,6 +1671,17 @@ all 626 prior workspace files and the installed recovery. Evidence
 and the verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-7b559d227649f423`.
 
+The next comparison starts at `06a18b9b` (integration base
+`50f1978a`, upstream inspected at `61111819`). The four receive and
+protocol bits are already set in `0x009a`. The Linux mask adds TX
+DMA bits 0 and 2, scheduler bit 5, MAC TX bit 6 and shared security
+bit 9. Test bit 9 alone (`0x029a`) before the existing low-byte
+write. Keep `TXPAUSE=0xff`, the four TX/scheduler bits clear, the
+same passive profile and fixed 4 KiB request, and all three hub
+ports. The opt-in xHCI path will verify the full word through
+receive and cleanup. Check the native fixture and both saved log
+paths before arming. [Linux MAC control bits](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L822-L833)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
