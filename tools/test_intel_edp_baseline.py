@@ -183,18 +183,26 @@ class EdpBaseline(unittest.TestCase):
             for fixture, sources in [
                 ("baseline", ["intel_bdw_edp_baseline", "intel_bdw_edp_platform"]),
                 ("restore", ["intel_bdw_edp_baseline", "intel_bdw_edp", "intel_bdw_edp_source", "intel_bdw_edp_platform",
-                             "intel_bdw_flr", "intel_vtd_drain", "intel_bdw_pci_hold"]),
+                             "intel_bdw_flr", "intel_vtd_drain", "intel_bdw_pci_hold",
+                             "intel_bdw_display_takeover", "intel_bdw_boot_scanout", "intel_bdw_ggtt"]),
             ]:
                 with self.subTest(fixture=fixture):
                     binary = str(Path(tmp) / fixture)
                     test_source = "tools/test_intel_bdw_edp" + ("_baseline" if fixture == "baseline" else "") + ".c"
+                    paths = [f"kernel/diagnostics/{source}.c" for source in sources]
+                    if fixture == "restore":
+                        paths.extend(f"kernel/src/{source}.c" for source in ("scanout_space", "scanout_publish", "display_access"))
                     subprocess.run([os.environ.get("HOST_CC", "cc"), "-std=c11", "-O1", "-g", "-UNDEBUG",
                                     "-Wall", "-Wextra", "-Werror", "-I", "kernel/include",
                                     "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-no-pie",
-                                    test_source, *(f"kernel/diagnostics/{s}.c" for s in sources),
+                                    test_source, *paths,
                                     "-o", binary], cwd=ROOT, check=True, timeout=60)
                     subprocess.run([binary], cwd=ROOT, env={**os.environ, "ASAN_OPTIONS": "halt_on_error=1"},
                                    check=True, timeout=45)
+                    if fixture == "restore":
+                        for mode in ("takeover-roundtrip", "takeover-reset-declined", "takeover-traffic-open", "takeover-stale-rollback"):
+                            subprocess.run([binary, mode], cwd=ROOT, env={**os.environ, "ASAN_OPTIONS": "halt_on_error=1"},
+                                           check=True, timeout=45)
 
     def test_pattern_replay_must_be_fresh_and_match(self):
         text = packet(True, patterned=True)

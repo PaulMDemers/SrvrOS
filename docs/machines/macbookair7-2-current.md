@@ -523,6 +523,17 @@ and the first driver-owned GGTT mapping under one display lease. Work is
 limited to the recovery and page diagnostic cores and their host and Q35
 fixtures. The Haswell observer in PR 567 remains independent.
 
+The joined takeover passed 11 host and Q35 cases and the existing eDP
+recovery and baseline suites. The positive case exercises shutdown, the
+actual reset/drain cores against modeled hardware, fixed-mode recovery
+with both CRCs, and the scratch/private/rollback sequence. It restores the
+original display after a clean reset refusal. Replay of the Air's open
+traffic prevents reset, and an absent or stale post-reset grant prevents
+all GGTT stores. The native diagnostic image still builds for the existing
+eDP profiles. The native takeover needs a real GPM request and a range
+grant from the post-reset owner. The Air stayed in Ubuntu at 1% volume.
+[Full takeover sequence](../intel-bdw-edp-recovery.md#full-takeover-with-a-boot-blank)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

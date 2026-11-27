@@ -617,6 +617,34 @@ cross-checked with i915. [Intel Broadwell Display PRM](https://xorg.freedesktop.
 [i915 CRC sources](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pipe_crc.c) ·
 [i915 CRC-done interrupt setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_irq.c).
 
+### Full takeover with a boot blank
+
+The joined takeover holds the original display exclusion from before
+shutdown through the first GGTT round trip. After Pipe A and the panel
+are dark, it runs the existing PCI AF reset and remapper drain under the
+same owner. It requires the fresh engine and L3 acknowledgements before
+reset. If reset is declined before any possible store, the same cycle
+rebuilds the original panel path and reports refusal. A potentially
+issued request or reset with uncertain completion retains ownership.
+
+After reset and powered-resource recovery, the same boot driver can
+grant a vacant page under the original CPU root and a new ownership
+epoch. Pipe A must then pass both reference CRC windows, restore its
+interrupt mask and light the backlight before the first PTE store. The
+driver publishes scratch, binds the private page and restores scratch.
+Each transition checks its ordered invalidation and aperture marker.
+An absent or stale grant allows recovery of the original display and
+prevents GGTT writes. Any uncertain page rollback retains the range,
+backing and display exclusion. [Takeover core](../kernel/diagnostics/intel_bdw_display_takeover.c)
+
+The `smoke-intel-bdw-display-takeover` target runs this core, the existing
+reset/recovery cores and the page publisher inside SrvrOS on QEMU Q35
+with modeled Broadwell MMIO. Native staging still requires a documented
+request provider that completes the real device drain and a grant under
+the post-reset owner. The Air's saved open-traffic responses refuse the
+reset in the model, and its EFI handoff still reports no GPU range grant.
+[Air status](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
 ### Display owner block lifetime
 
 In PR301 the provider receives the original reset-attempt object when it

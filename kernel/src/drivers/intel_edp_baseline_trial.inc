@@ -1019,7 +1019,7 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
     bool flr = a->flr != NULL;
     bool ready = edp_cycle_platform(a, true) && (!flr || (edp_flr_config(a) && edp_flr_pixels(a)));
     bool ok = ready && intel_bdw_edp_source_cycle(&io, &image, ref,
-                                                  flr ? edp_flr_dark : NULL, &native->report);
+                                                  flr ? edp_flr_dark : NULL, a, &native->report);
     if (ok && flr) {
         bool pixels = edp_flr_pixels(a);
         if (a->flr->pci_samples == 2)

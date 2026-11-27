@@ -45,7 +45,9 @@ def make_iso(directory, program="ownedpage"):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
-    parser.add_argument('--blitter', action='store_true', help='Run the Broadwell command driver fixture')
+    fixture = parser.add_mutually_exclusive_group()
+    fixture.add_argument('--blitter', action='store_true', help='Run the Broadwell command driver fixture')
+    fixture.add_argument('--takeover', nargs='+', metavar='CASE', help='Run the Broadwell display takeover fixture')
     args = parser.parse_args()
     program = 'blitter' if args.blitter else 'ownedpage'
     cases = [('', 'PASS Broadwell blitter driver (30 cases)'),
@@ -63,6 +65,10 @@ def main():
                       'device-lease-before-trigger', 'widi-lease-before-trigger',
                       'widi-cached', 'widi-invalidate-race', 'widi-cached-rollback',
                       'flush-before-engine-go', 'flush-before-engine-reply'))
+    if args.takeover:
+        program = 'edptakeover'
+        cases = [(mode, f'PASS {mode}') for mode in args.takeover]
+    log_name = {'blitter': 'blitter-serial.log', 'edptakeover': 'takeover-serial.log'}.get(program, 'serial.log')
     with tempfile.TemporaryDirectory(prefix='srvros-owned-page-') as temp:
         directory = Path(temp)
         iso = make_iso(directory, program)
@@ -70,7 +76,7 @@ def main():
         cmd = [args.qemu, '-M', 'q35', '-m', '512', '-boot', 'd', '-cdrom', iso,
                '-display', 'none', '-monitor', 'none', '-nic', 'none', '-no-reboot',
                '-serial', f'unix:{serial},server=on,wait=on']
-        with (FIXTURE / ('blitter-serial.log' if args.blitter else 'serial.log')).open('wb') as log, socket.socket(socket.AF_UNIX) as sock:
+        with (FIXTURE / log_name).open('wb') as log, socket.socket(socket.AF_UNIX) as sock:
             proc = subprocess.Popen(cmd)
             try:
                 end = time.monotonic() + 10

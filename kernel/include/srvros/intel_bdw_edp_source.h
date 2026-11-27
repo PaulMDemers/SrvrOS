@@ -88,8 +88,15 @@ struct bdw_edp_panel_off_report {
     uint64_t elapsed_us;
 };
 
+enum bdw_edp_dark_result {
+    BDW_EDP_DARK_REFUSED,
+    BDW_EDP_DARK_UNCHANGED,
+    BDW_EDP_DARK_RESET_RECOVERED,
+};
+
 struct bdw_edp_cycle_report {
     enum bdw_edp_cycle_stage stage;
+    enum bdw_edp_dark_result dark_result;
     struct bdw_edp_source_report shutdown, restore;
     struct bdw_edp_panel_off_report panel_off;
     enum bdw_edp_source_error mask_error;
@@ -98,12 +105,6 @@ struct bdw_edp_cycle_report {
     unsigned mask_writes;
     bool mask_restored;
     bool retained;
-};
-
-enum bdw_edp_dark_result {
-    BDW_EDP_DARK_REFUSED,
-    BDW_EDP_DARK_UNCHANGED,
-    BDW_EDP_DARK_RESET_RECOVERED,
 };
 
 /* Runs under the same display and backing lease after shutdown. A recovered
@@ -127,7 +128,7 @@ typedef enum bdw_edp_dark_result (*bdw_edp_dark_handoff)(
 bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *,
                                 const struct bdw_edp_source_image *,
                                 const struct bdw_edp_baseline_report *,
-                                bdw_edp_dark_handoff,
+                                bdw_edp_dark_handoff, void *handoff_context,
                                 struct bdw_edp_cycle_report *);
 
 #endif

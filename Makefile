@@ -6833,15 +6833,25 @@ test-intel-bdw-primary-flip: build/tests/intel-bdw-primary-flip$(HOST_EXE)
 	PYTHONPATH=tools $(PYTHON) -m unittest -v test_intel_bdw_primary_flip
 test-core: test-intel-bdw-primary-flip
 
-# Fixed Broadwell eDP recovery, exercised without a native MMIO provider.
-BDW_EDP_HOST_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c kernel/diagnostics/intel_bdw_edp_platform.c kernel/diagnostics/intel_bdw_flr.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_bdw_pci_hold.c
+# Fixed Broadwell eDP recovery and joined takeover with modeled MMIO.
+BDW_EDP_RECOVERY_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c kernel/diagnostics/intel_bdw_edp_platform.c kernel/diagnostics/intel_bdw_flr.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_bdw_pci_hold.c
+BDW_EDP_HOST_SOURCES := $(BDW_EDP_RECOVERY_SOURCES) kernel/diagnostics/intel_bdw_display_takeover.c kernel/diagnostics/intel_bdw_boot_scanout.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_publish.c kernel/src/display_access.c
+BDW_EDP_TAKEOVER_CASES := takeover-roundtrip takeover-reset-declined takeover-traffic-open takeover-bad-crc takeover-no-grant takeover-overlap takeover-foreign-lease takeover-epoch-replay takeover-root-drift takeover-stale-epoch takeover-stale-rollback
+BDW_EDP_GUEST_OBJECTS := $(addprefix $(SCANOUT_GUEST_DIR)/,$(patsubst %.c,%.o,tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES)))
 build/tests/intel-bdw-edp$(HOST_EXE): tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -I kernel/include $< $(BDW_EDP_HOST_SOURCES) -o $@
 .PHONY: test-intel-bdw-edp
 test-intel-bdw-edp: build/tests/intel-bdw-edp$(HOST_EXE)
 	$<
+	@for mode in $(BDW_EDP_TAKEOVER_CASES); do $< "$$mode" || exit; done
 test-core: test-intel-bdw-edp
+
+$(SCANOUT_GUEST_DIR)/edptakeover: $(BDW_EDP_GUEST_OBJECTS) $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(BDW_EDP_GUEST_OBJECTS) $(USER_LIB_A) -o $@
+.PHONY: smoke-intel-bdw-display-takeover
+smoke-intel-bdw-display-takeover: $(SCANOUT_GUEST_DIR)/edptakeover $(KERNEL) $(USER_INIT) $(LIMINE_DIR)/.ready
+	$(PYTHON) tools/scanout_owned_page_smoke.py --qemu $(QEMU) --takeover $(BDW_EDP_TAKEOVER_CASES)
 
 INTEL_EDP_BASELINE_FLAGS := -DSRVROS_INTEL_EDP_BASELINE
 INTEL_EDP_BASELINE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/drivers/intel_display_probe.c.o,$(KERNEL_OBJ))

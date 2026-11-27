@@ -2,6 +2,7 @@
 #include <srvros/intel_bdw_edp_source.h>
 #include <srvros/intel_bdw_edp_platform.h>
 #include <srvros/intel_bdw_edp_baseline.h>
+#include <srvros/intel_bdw_display_takeover.h>
 #include <srvros/intel_bdw_flr.h>
 #include <srvros/intel_bdw_pci_hold.h>
 
@@ -111,6 +112,7 @@ struct source_fixture {
     uint64_t flr_issued;
     uint32_t flr_config[64];
     struct bdw_flr_report flr;
+    const struct bdw_flr_report *active_flr;
     struct bdw_flr_drain flr_drain;
     struct intel_vtd_drain drain;
     struct intel_vtd_drain_source drain_source;
@@ -846,7 +848,7 @@ static bool flr_admitted(void *context, const struct bdw_flr_pci_image *image,
 {
     struct source_fixture *s = context;
     assert(image->bar[0] == 0xc0000004 && image->bar[2] == 0xb000000c);
-    return child == &s->flr_drain && child->attempt == &s->flr &&
+    return child == &s->flr_drain && child->attempt == s->active_flr &&
            !s->lost_block_owner && s->flr_fault != 1 && child->result == &s->drain && child->source == &s->drain_source &&
            child->source->binding.lifetime == &s->image && child->source->binding.epoch == s->image.epoch &&
            (s->flr_fault != DRAIN_OWNER_LOST || !s->drain.complete);
@@ -960,9 +962,9 @@ static enum intel_gt_write flr_gt_block(void *context, const struct bdw_flr_repo
 static bool drain_held(void *context, const struct intel_vtd_drain_source *source)
 {
     struct source_fixture *s = context;
-    return flr_block_held(s, &s->flr) && !s->drain_alias_retired && source == &s->drain_source && source->consumer == &s->drain &&
+    return flr_block_held(s, s->active_flr) && !s->drain_alias_retired && source == &s->drain_source && source->consumer == &s->drain &&
            source->binding.lifetime == &s->image && source->binding.epoch == s->image.epoch &&
-           s->flr.traffic_blocked && !s->lost_block_owner && s->decode_closes == 1 &&
+           s->active_flr->traffic_blocked && !s->lost_block_owner && s->decode_closes == 1 &&
            !s->flr_writes && s->flr_config[1] == 0x100400;
 }
 
@@ -1042,7 +1044,7 @@ static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned byt
 {
     struct source_fixture *s = context;
     if (offset == 4 && word == 0x400) {
-        assert(s->flr.traffic_blocked && s->block_calls == 1 && s->media_reads == 4);
+        assert(s->active_flr->traffic_blocked && s->block_calls == 1 && s->media_reads == 4);
         assert(s->flr_config[1] == 0x100403 && bytes == 2 && !s->decode_closes);
         ++s->decode_closes;
         s->flr_config[1] = 0x100400;
@@ -1134,12 +1136,11 @@ static enum intel_gt_write resource_write(void *context, uint32_t offset, uint32
     return GT_WRITE_DONE;
 }
 
-static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp_source_image *image)
+static void setup_reset(struct source_fixture *s, const struct bdw_edp_source_image *image,
+                       const struct bdw_flr_report *report, struct bdw_display_takeover_reset *out)
 {
-    struct source_fixture *s = context;
     assert(image->backing_hash == TEST_BACKING_HASH && s->dark);
-    const struct bdw_edp_pps_image timings = {s->panel.pp_delay[0], s->panel.pp_delay[1], s->panel.pp_delay[2]};
-    const struct bdw_edp_pwm_image pwm = s->live_pwm;
+    s->active_flr = report;
     const struct bdw_flr_pci_image pci = {{0xc0000004, 0, 0xb000000c, 0}, 0x011b106b};
     s->flr_config[0] = 0x16268086;
     s->flr_config[1] = 0x00100403;
@@ -1172,6 +1173,35 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
         .source = &s->drain_source, .result = &s->drain,
         .io = {s, drain_held, drain_read, drain_write, source_now, drain_pause}, .retire_alias = drain_retire_alias
     };
+    *out = (struct bdw_display_takeover_reset){.io=io,.pci=pci,.drain=&s->flr_drain};
+}
+
+static bool recover_reset(struct source_fixture *s, struct bdw_edp_pps_image timings,
+                          struct bdw_edp_pwm_image pwm)
+{
+    s->function_reset = true;
+    s->irq_mask = s->flr_fault == 7 ? 0x7fffffffu : UINT32_MAX;
+    if (s->flr_fault == 15)
+        return true; /* Provider incorrectly claims platform readiness. */
+    const struct bdw_edp_dark_io reopen_io = {s, resources_held, source_read, resource_write, source_now, source_delay};
+    const struct bdw_edp_dark_io pps_io = {s, powered_resources_held, source_read, resource_write, source_now, source_delay};
+    const struct bdw_edp_pwm_io pwm_io = {s, powered_resources_held, source_read, resource_write, source_now};
+    if (!intel_bdw_edp_reopen_resources(&reopen_io, &s->reopen) ||
+        !intel_bdw_edp_pps_restore(&pps_io, timings, false, &s->pps) ||
+        !intel_bdw_edp_pwm_restore(&pwm_io, pwm, false, &s->pwm)) return false;
+    s->panel.aux_setup = 0x24030152u;
+    return true;
+}
+
+static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp_source_image *image)
+{
+    struct source_fixture *s = context;
+    const struct bdw_edp_pps_image timings = {s->panel.pp_delay[0], s->panel.pp_delay[1], s->panel.pp_delay[2]};
+    const struct bdw_edp_pwm_image pwm = s->live_pwm;
+    struct bdw_display_takeover_reset reset;
+    setup_reset(s,image,&s->flr,&reset);
+    const struct bdw_flr_io io = reset.io;
+    const struct bdw_flr_pci_image pci = reset.pci;
     if (!intel_bdw_flr(&io, &pci, &s->flr_drain, &s->flr)) {
         if (s->flr_fault == GT_BLOCK_UNCERTAIN) {
             struct bdw_flr_report second = {0};
@@ -1184,25 +1214,12 @@ static enum bdw_edp_dark_result source_reset(void *context, const struct bdw_edp
         }
         return BDW_EDP_DARK_REFUSED;
     }
-    s->function_reset = true;
-    s->irq_mask = s->flr_fault == 7 ? 0x7fffffffu : UINT32_MAX;
-    if (s->flr_fault == 15)
-        return BDW_EDP_DARK_RESET_RECOVERED; /* Provider incorrectly claims platform readiness. */
-    const struct bdw_edp_dark_io reopen_io = {s, resources_held, source_read, resource_write, source_now, source_delay};
-    const struct bdw_edp_dark_io pps_io = {s, powered_resources_held, source_read, resource_write, source_now, source_delay};
-    const struct bdw_edp_pwm_io pwm_io = {s, powered_resources_held, source_read, resource_write, source_now};
-    if (!intel_bdw_edp_reopen_resources(&reopen_io, &s->reopen) ||
-        !intel_bdw_edp_pps_restore(&pps_io, timings, false, &s->pps) ||
-        !intel_bdw_edp_pwm_restore(&pwm_io, pwm, false, &s->pwm))
-        return BDW_EDP_DARK_REFUSED;
-    s->panel.aux_setup = 0x24030152u;
-    return BDW_EDP_DARK_RESET_RECOVERED;
+    return recover_reset(s,timings,pwm) ? BDW_EDP_DARK_RESET_RECOVERED : BDW_EDP_DARK_REFUSED;
 }
 
-static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *report)
+static struct bdw_edp_baseline_report setup_cycle(struct source_fixture *s)
 {
     const struct bdw_edp_baseline_report reference = setup_source(s);
-    const struct bdw_edp_source_io io = source_io(s);
     s->cycle = true;
     if (!s->panel_off_delay_us)
         s->panel_off_delay_us = 324000u;
@@ -1227,8 +1244,186 @@ static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *rep
     s->transcoder = 0x80000000u;
     s->primary = 0xd8000400u;
     s->stride = 6144;
+    return reference;
+}
+
+static bool run_cycle(struct source_fixture *s, struct bdw_edp_cycle_report *report)
+{
+    const struct bdw_edp_baseline_report reference = setup_cycle(s);
+    const struct bdw_edp_source_io io = source_io(s);
     return intel_bdw_edp_source_cycle(&io, &s->image, &reference,
-                                      s->exercise_flr ? source_reset : NULL, report);
+                                      s->exercise_flr ? source_reset : NULL, s, report);
+}
+
+enum { TAKEOVER_SLOT = 16385, TAKEOVER_PTE = 0x800000 + 8 * TAKEOVER_SLOT };
+static const uint64_t takeover_scratch = 0x2100000, takeover_private = 0x2200000;
+static const uint64_t takeover_mmio = 0xc0000000, takeover_aperture = 0xb0000000;
+static const uint64_t takeover_bytes = 0x10000000, takeover_fence = 0x2200000;
+static const uint64_t takeover_root = 0x1000;
+static const uint64_t scratch_marker[2] = {0x53524348, 0x48161834};
+static const uint64_t private_marker[2] = {0x53525652, 0x37189634};
+static struct bdw_display_takeover takeover;
+
+struct takeover_fixture {
+    struct source_fixture display;
+    struct display_access_token lease;
+    struct scanout_interval range, occupied;
+    struct bdw_edp_pps_image timings;
+    struct bdw_edp_pwm_image pwm;
+    const char *mode;
+    uint64_t epoch, translation;
+    volatile uint64_t pte;
+    unsigned grants, stores, invalidates, apertures;
+};
+
+static bool takeover_is(const struct takeover_fixture *f, const char *mode)
+{
+    return !strcmp(f->mode,mode);
+}
+
+static bool takeover_reset(void *context, const struct bdw_edp_source_image *image,
+                           const struct bdw_flr_report *report, struct bdw_display_takeover_reset *reset)
+{
+    struct takeover_fixture *f = context;
+    assert(!display_access_release(&f->lease,true));
+    if (takeover_is(f,"takeover-reset-declined")) return false;
+    struct source_fixture *s = &f->display;
+    f->timings = (struct bdw_edp_pps_image){s->panel.pp_delay[0],s->panel.pp_delay[1],s->panel.pp_delay[2]};
+    f->pwm = s->live_pwm;
+    setup_reset(s,image,report,reset);
+    return true;
+}
+
+static bool takeover_recover(void *context, const struct bdw_edp_source_image *image,
+                             const struct bdw_flr_report *report)
+{
+    struct takeover_fixture *f = context;
+    assert(f->display.active_flr == report && report->reset_issued && report->traffic_blocked &&
+           report->l3_ack && f->display.drain_alias_retired && display_access_held(&f->lease));
+    assert(image == &f->display.image);
+    return recover_reset(&f->display,f->timings,f->pwm);
+}
+
+static bool takeover_range(void *context, const struct bdw_edp_source_image *image,
+                           struct bdw_display_takeover_range *out)
+{
+    struct takeover_fixture *f = context;
+    assert(f->display.dark && f->display.function_reset && !f->display.panel.backlight &&
+           !f->display.proofs && display_access_held(&f->lease));
+    ++f->grants;
+    if (takeover_is(f,"takeover-no-grant")) return false;
+    struct scanout_space_range range = {TAKEOVER_SLOT - 1, 4};
+    if (takeover_is(f,"takeover-overlap")) range = f->occupied.pages;
+    if (!scanout_interval_claim_driver(&f->range,f,takeover_mmio,takeover_aperture,
+                                        takeover_bytes,takeover_fence,range)) return false;
+    f->epoch = image->epoch + 1;
+    out->seed = (struct bdw_boot_page_source){.object=&out->seed,.driver_range=&f->range,.scratch=takeover_scratch,
+        .binding={.driver=f,.epoch=f->epoch,.root=takeover_root,.mmio=takeover_mmio,.aperture=takeover_aperture,
+            .aperture_bytes=takeover_bytes,.fence_end=takeover_fence,.display=f->lease,
+            .index=TAKEOVER_SLOT,.plane=0x98000400u,.backing=takeover_scratch,
+            .marker={scratch_marker[0],scratch_marker[1]}}};
+    if (takeover_is(f,"takeover-foreign-lease")) ++out->seed.binding.display.epoch;
+    if (takeover_is(f,"takeover-epoch-replay")) out->seed.binding.epoch = image->epoch;
+    if (takeover_is(f,"takeover-root-drift")) out->seed.binding.root += 4096;
+    out->private_backing = takeover_private;
+    out->private_marker[0] = private_marker[0];
+    out->private_marker[1] = private_marker[1];
+    return true;
+}
+
+static uint64_t takeover_now(void *context)
+{
+    struct takeover_fixture *f = context;
+    return ++f->display.panel.time;
+}
+
+static bool takeover_prove(void *context, const struct bdw_boot_page_source *source,
+                           struct bdw_boot_page_proof *proof)
+{
+    struct takeover_fixture *f = context;
+    struct source_fixture *s = &f->display;
+    assert(s->function_reset && s->panel.backlight && s->proofs == 2 && s->panel.scanout &&
+           display_access_held(&f->lease) && !display_access_release(&f->lease,true));
+    uint32_t rights = BDW_PAGE_REQUIRED;
+    if (takeover_is(f,"takeover-stale-epoch") && !f->stores) rights &= ~BDW_PAGE_PRIOR_ACCESS_RETIRED;
+    *proof = (struct bdw_boot_page_proof){.source=source,.driver=f,.driver_range=&f->range,
+        .scratch=takeover_scratch,.epoch=f->epoch,.root=takeover_root,.at=s->panel.time,.index=TAKEOVER_SLOT,
+        .rights=rights,.plane=s->primary,.programmed=0,.live=0};
+    return true;
+}
+
+static bool takeover_read(void *context, uint32_t offset, uint64_t *word)
+{
+    struct takeover_fixture *f = context;
+    assert(offset == TAKEOVER_PTE);
+    *word = f->pte;
+    return true;
+}
+
+static enum intel_gt_write takeover_exchange(void *context, uint32_t offset, uint64_t expected, uint64_t replacement)
+{
+    struct takeover_fixture *f = context;
+    const uint64_t ptes[] = {0,takeover_scratch|1,takeover_private|1,takeover_scratch|1};
+    assert(offset == TAKEOVER_PTE && f->stores < 3 && f->stores == f->invalidates && f->range.sealed);
+    assert(expected == ptes[f->stores] && replacement == ptes[f->stores+1]);
+    ++f->stores;
+    return intel_bdw_ggtt_exchange(&f->pte,expected,replacement);
+}
+
+static bool takeover_invalidate(void *context)
+{
+    struct takeover_fixture *f = context;
+    assert(++f->invalidates == f->stores);
+    if (f->stores != 3 || !takeover_is(f,"takeover-stale-rollback")) f->translation = f->pte;
+    return true;
+}
+
+static bool takeover_aperture_read(void *context, uint64_t address, uint64_t words[2])
+{
+    struct takeover_fixture *f = context;
+    assert(address == takeover_aperture + 4096ull * TAKEOVER_SLOT && f->stores == f->invalidates);
+    const uint64_t *marker = f->translation == (takeover_scratch | 1) ? scratch_marker : private_marker;
+    assert(f->translation == (takeover_scratch | 1) || f->translation == (takeover_private | 1));
+    words[0] = marker[0];
+    words[1] = marker[1];
+    ++f->apertures;
+    return true;
+}
+
+static int test_takeover(const char *mode)
+{
+    struct takeover_fixture f = {.display={.exercise_flr=true},.mode=mode};
+    if (takeover_is(&f,"takeover-traffic-open")) f.display.flr_fault = GT_AIR_MEDIA_TRACE;
+    if (takeover_is(&f,"takeover-bad-crc")) f.display.fault = SOURCE_SECOND_CRC_WRONG;
+    const struct bdw_edp_baseline_report reference = setup_cycle(&f.display);
+    f.display.panel.aux_setup = 0x24030152u;
+    const struct bdw_display_takeover_io io = {.display=source_io(&f.display),.prepare_reset=takeover_reset,
+        .recover=takeover_recover,.range=takeover_range,
+        .page={&f,takeover_prove,takeover_now,takeover_read,takeover_exchange,takeover_invalidate,takeover_aperture_read}};
+    assert(display_access_acquire(42,&f.lease));
+    assert(scanout_interval_protect_boot_framebuffer(takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence));
+    assert(scanout_interval_import_firmware(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,
+                                            (struct scanout_space_range){12292,1}));
+    bool ok = intel_bdw_display_takeover(&takeover,&f.lease,&io,&f.display.image,&reference);
+    assert(!intel_bdw_display_takeover(&takeover,&f.lease,&io,&f.display.image,&reference));
+    bool stale = takeover_is(&f,"takeover-stale-rollback");
+    bool retained = stale || takeover_is(&f,"takeover-traffic-open") || takeover_is(&f,"takeover-bad-crc");
+    assert(ok == takeover_is(&f,"takeover-roundtrip"));
+    assert(takeover.state == (ok ? BDW_TAKEOVER_READY : retained ? BDW_TAKEOVER_RETAINED : BDW_TAKEOVER_REFUSED));
+    assert(display_access_release(&f.lease,true) == !retained);
+    assert(scanout_interval_held(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,f.occupied.pages));
+    assert(takeover.reset.reset_issued == (!takeover_is(&f,"takeover-reset-declined") &&
+                                         !takeover_is(&f,"takeover-traffic-open")));
+    if (ok || stale) {
+        assert(takeover.seed.state == BDW_PAGE_SEEDED && f.grants == 1 && f.range.sealed && f.stores == 3 &&
+               f.invalidates == 3 && f.apertures == 4 && f.pte == (takeover_scratch | 1));
+        assert(f.translation == ((stale ? takeover_private : takeover_scratch) | 1));
+    } else {
+        assert(!f.stores && !f.invalidates && !f.apertures && !f.range.sealed);
+    }
+    assert(f.display.panel.backlight == (stale || !retained));
+    printf("PASS %s\n",mode);
+    return 0;
 }
 
 static unsigned test_cycle(void)
@@ -1593,8 +1788,9 @@ static unsigned test_panel(void)
     return 2 + good.events * 2 + sizeof(expected) / sizeof(expected[0]);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc == 2) return test_takeover(argv[1]);
     struct bdw_edp_report report;
     const uint32_t clocks[] = {337500, 450000, 540000, 675000};
     struct fixture good = {0};
@@ -1666,4 +1862,5 @@ int main(void)
            sizeof(clocks) / sizeof(clocks[0]) + good.events * 5 +
            sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source() + test_cycle() +
            test_pci_hold(), good.events);
+    return 0;
 }

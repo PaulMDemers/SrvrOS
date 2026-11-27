@@ -692,7 +692,7 @@ static bool disable_path(struct source_attempt *a, struct bdw_edp_cycle_report *
 bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
                                 const struct bdw_edp_source_image *image,
                                 const struct bdw_edp_baseline_report *reference,
-                                bdw_edp_dark_handoff handoff,
+                                bdw_edp_dark_handoff handoff, void *handoff_context,
                                 struct bdw_edp_cycle_report *r)
 {
     if (!r)
@@ -716,7 +716,8 @@ bool intel_bdw_edp_source_cycle(const struct bdw_edp_source_io *io,
     bool restored = false;
     if (opened && disable_path(&a, r, primary, buffer, transport)) {
         enum bdw_edp_dark_result state = handoff ?
-            handoff(io->context, image) : BDW_EDP_DARK_UNCHANGED;
+            handoff(handoff_context, image) : BDW_EDP_DARK_UNCHANGED;
+        r->dark_result = state;
         if (state != BDW_EDP_DARK_UNCHANGED && state != BDW_EDP_DARK_RESET_RECOVERED) {
             r->retained = true;
             return false;
