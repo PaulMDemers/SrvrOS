@@ -22,6 +22,8 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
     rows = [line for line in text.splitlines() if line.startswith(prefix)]
     if not rows:
         return None
+    if flush['summary']['v'] != 9 or range_proof['summary']['v'] != 8:
+        raise ValueError('Boot page preflight lacks the current GT flush baseline')
     suffix = ' authority=none'
     if not rows[0].endswith(suffix):
         raise ValueError('Boot page preflight authority')

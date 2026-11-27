@@ -661,6 +661,7 @@ class FlushAcknowledgements(unittest.TestCase):
         legacy = legacy.replace("intel-widi-device: v=2", "intel-widi-device: v=1")
         with self.assertRaises(ValueError):
             bootstrap_result(legacy)
+        legacy = re.sub(r"^intel-boot-page-.*\n", "", legacy, flags=re.M)
         old = bootstrap_result(legacy.replace("intel-range-summary: v=8", "intel-range-summary: v=7"))
         self.assertTrue(old["complete"])
         self.assertNotIn("clock_ack", old["range"]["widi_messages"][0])
@@ -940,6 +941,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
+        old_power = re.sub(r"^intel-boot-page-.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-(?:bcs-stop|air-rc6|idle-policy):.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"native_writes=(\d+)", lambda m: f"native_writes={int(m[1])-1}",
                            old_power, count=1)
