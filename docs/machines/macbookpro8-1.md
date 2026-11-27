@@ -4,9 +4,11 @@ Updated November 27, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
 enumeration trial. The operator verified built-in keyboard input, command
-execution and readable mixed-case text in the regular monitor. SrvrOS saved a
-release-matched report to the USB workspace and Ubuntu read it back. Trackpad
-gesture reports and monitor shutdown counters remain unverified.**
+execution and readable mixed-case text in the regular monitor. The isolated
+trackpad trial verified Wellspring mode recovery, one-finger motion, two
+contacts, and click press and release. Ubuntu verified the release-matched
+USB report. Trackpad pointer integration and monitor shutdown counters remain
+unverified.**
 
 ## Identity and baseline
 
@@ -40,8 +42,8 @@ MacBookPro8,1 console, input and USB workspace milestones. The EHCI split
 trials established the topcase descriptor path and verified the workspace
 flash drive with a 600 ms bound for its initial device descriptor. The active
 input milestone covers the captured keyboard and trackpad through EHCI
-periodic interrupts. The next work block qualifies Wellspring5 type 2
-reports in an attended RAM-only profile. Its implementation scope is the
+periodic interrupts. The attended RAM-only profile verified Wellspring5 Type 2
+reports after mode recovery. Its implementation scope is the
 EHCI split control and periodic paths, topcase descriptor matching, boot
 staging and their fixtures. It reuses the existing Apple trackpad decoder.
 Pointer mapping and native workspace reads and writes follow as separate
@@ -808,13 +810,34 @@ checklist, absent-controller handling, and Ubuntu-default rehearsal. The
 flash report records the trigger, feature writes, wait and resume timing,
 and the first decoded Type 2 frame after the retry if one arrives.
 
+Native `53177189337d3d65` passed. The initial `0x81` queue again completed
+`60 02` followed by an eight-byte `0x02` frame. The diagnostic paused the
+queue and wrote mode 8, recorded a 1,014 µs wait, read back mode 8, and
+wrote mode 1. The two writes completed 1,605 µs apart. The same queue
+resumed 14 µs after the retry, and its first Type 2 frame arrived 5,502 µs
+after the Wellspring write. It was 58 bytes and began with `0x74`, matching
+the Ubuntu reference. The first six transfer lengths were 2, 8, 58, 58, 58
+and 58 bytes with alternating qTDs and data toggles across the retry.
+
+All 224 post-retry completions decoded as Type 2, with a maximum length of
+86 bytes. The trial verified one-finger motion, two contacts, and click press
+and release. Endpoint `0x84` had no completions. The full original feature
+payload and topcase DMA and MMIO release verified. This accepts recovery and
+gesture decoding in the isolated native trial.
+
+Ubuntu returned with the one-shot consumed, EFI entries unchanged, and the
+installed and retained payloads verified. The 7,667-byte native report and
+the recovery comparison matched the archived copies after USB remount. The
+offline allocation check passed for 117 files with zero writes. The saved
+native report ends before flash-controller teardown and reset.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native `0x81` returned `60 02` and then eight-byte frames, while Ubuntu captured only Type 2 frames in its controlled comparison. `0x84` completed no requests in either trace. A failed Wellspring mode transition is the leading explanation. | Verify a bounded normal-to-Wellspring recovery on native hardware |
+| Trackpad | Isolated native recovery passed on `53177189337d3d65`. All 224 post-retry frames decoded. One-finger motion, two contacts, and click press and release verified. | Integrate and verify trackpad pointer input in the regular runtime |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
