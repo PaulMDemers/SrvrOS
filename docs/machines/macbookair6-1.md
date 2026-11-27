@@ -14977,3 +14977,21 @@ record. The existing two retained slots, cache byte budget, retirement accountin
 complete-frame copy checks and deadlines apply. PR301 and PR550 were checked
 for shared compositor scope. The next checkpoint is a matched loaded VM and
 native stage qualification followed by the existing automated 1% workload.
+
+The pre-fix host test reproduces the System cache miss with the allocation
+worker parked. The corrected compositor reserves the same two slots at
+760×500 and preserves those buffers when smaller windows swap fronts.
+Larger frames and memory pressure still use the existing allocation,
+reclamation and retirement paths. The regression confirms distinct front and
+spare buffers and holds the byte reservation until both unmaps retire.
+
+Source `e2d85569` passes the desktop and documentation suites, a matched
+Air6,1 build, the 60-second loaded KVM trial, and exact-stage foreign-profile
+refusal for release `cf6e85df4810c438`. The loaded trial completes 23 app cycles
+and 149 verified 256 KiB bursts at 1% volume with zero audio underruns and a
+162.557 ms maximum desktop loop. The cache records 30 reuses and retires to
+zero bytes. Directory admission remains exercised with 15 calls and 216
+entries. The native 1800-second trial remains pending. The current host shell
+sets `NoNewPrivs`, which prevents privileged EFI installation and one-shot
+boot arming. The staged candidate, read-only USB inventory and matched evidence
+are retained. The installed current release and recovery remain available.
