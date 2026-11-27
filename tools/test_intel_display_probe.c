@@ -898,6 +898,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
         if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:cache_mode?0x021ff02f00000001ull:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)(((window_mode?0x8c001001ull:0x90000001ull)+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
+#ifdef SRVROS_INTEL_GT_FLUSH
+        if(test_park_census_drift && off==0x800000)*value^=4096;
+#endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
         if(((held_reset_boundary==1 && !held_reset_reads && !strcmp(engine_mode,"hreset-entry-backing")) || (held_reset_boundary==2 && !strcmp(engine_mode,"hreset-exit-backing"))) && off>=0x800000 && !(off&7))*value^=4096;
 #endif

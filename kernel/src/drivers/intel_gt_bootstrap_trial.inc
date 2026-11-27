@@ -194,13 +194,13 @@ static bool bootstrap_child_identity(void) {
   r->cancel_final[i]&3 || !r->cancel_polls[i] || r->cancel_polls[i]>256)return false;
  return true;
 }
-static bool bootstrap_owner_identity(void) {
+static bool bootstrap_owner_binding(void) {
  const struct intel_gt_access *g=gt_bootstrap_native.g;
  return gt_bootstrap_native.object==&gt_bootstrap_native && !gt_bootstrap_native.failed &&
  gt_bootstrap_native.state==1 && g && g==joint.scope.gpu && gt_bootstrap_native.a==joint.wake &&
  gt_bootstrap_native.a && !gt_bootstrap_native.a->uncertain && !gt_bootstrap_native.a->fw.uncertain &&
  !gt_bootstrap_native.a->fw.gt.a.mapped &&
- g->object==g && g->pinned && g->state==GT_ACCESS_AWAKE && !g->reason &&
+ g->object==g && g->pinned && !g->reason &&
  g->engine_epoch==gt_bootstrap_native.epoch+gt_bootstrap_native.epoch_calls &&
  gt_bootstrap_native.epoch_calls<=1 && g->io.context==gt_bootstrap_native.a &&
  g->io.guard==wake_guard && g->io.read==wake_read && g->io.write==wake_write &&
@@ -208,11 +208,17 @@ static bool bootstrap_owner_identity(void) {
  display_access_held(&g->exclusion) && display_access_held(&gt_bootstrap_native.a->fw.gt.token) &&
  bootstrap_child_identity();
 }
-static bool bootstrap_parent(void) {
+static bool bootstrap_owner_identity(void) {
+ return bootstrap_owner_binding() && gt_bootstrap_native.g->state==GT_ACCESS_AWAKE;
+}
+static bool bootstrap_borrow_bound(void) {
  const struct intel_gt_borrow *b=&gt_bootstrap_native.borrow;
  const struct intel_gt_access *g=gt_bootstrap_native.g;
- return bootstrap_owner_identity() && b->object==b && b->active && b->parent==g &&
+ return b->object==b && b->active && b->parent==g &&
   !b->next && g->dependents==b && g->borrows==1;
+}
+static bool bootstrap_parent(void) {
+ return bootstrap_owner_identity() && bootstrap_borrow_bound();
 }
 static bool bootstrap_after_return(void) {
  const struct intel_gt_borrow *b=&gt_bootstrap_native.borrow;

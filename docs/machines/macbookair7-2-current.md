@@ -172,6 +172,12 @@ Ubuntu verified all 1,602 bytes of USB `park-timing.log` against the exit log,
 replayed the native checkpoint and passed the offline exFAT checks. The run
 is closed as an incomplete GPU trial.
 
+The next Air trial keeps the full inherited GGTT and fence census at park
+entry and at the independent release and reacquisition checks. Each operation
+inside the timed interval also rechecks the live GPU and HDA endpoints, CPU
+exclusion, aliases, firmware registers, SMI count and original panel. The
+window still starts after the two park policy stores and ends at 10 ms.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

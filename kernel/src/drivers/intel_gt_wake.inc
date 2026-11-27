@@ -284,6 +284,9 @@ struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsi
 #ifdef SRVROS_INTEL_HDA_PAIR
 static bool joint_fast(void);
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+static bool park_interval_guard(struct wake_adapter *);
+#endif
 static bool wake_text(const char *a,const char *b) {
     if(!a)return false;
     for(unsigned i=0;i<32;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;
@@ -309,6 +312,12 @@ static void wake_irq_restore(uint64_t flags) {
     if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
 #endif
 }
+static bool wake_mappings_bound(struct wake_adapter *a) {
+    for(unsigned i=0;i<WAKE_MAPS;i++)if(a->mapped[i]) {
+        uint64_t physical;if(!vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) || physical!=result.mmio_base+wake_pages[i])return false;
+    }
+    return true;
+}
 static bool wake_endpoint_guard(struct wake_adapter *a, bool require_joint) {
     struct intel_gt_endpoint e;
 #ifndef SRVROS_INTEL_HDA_PAIR
@@ -325,12 +334,13 @@ static bool wake_endpoint_guard(struct wake_adapter *a, bool require_joint) {
        !gt_guard(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&e) ||
 #endif
        e.asls!=a->fw.endpoint.asls || e.swsci!=a->fw.endpoint.swsci)return false;
-    for(unsigned i=0;i<WAKE_MAPS;i++)if(a->mapped[i]) {
-        uint64_t physical;if(!vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) || physical!=result.mmio_base+wake_pages[i])return false;
-    }
-    return true;
+    return wake_mappings_bound(a);
 }
 static bool wake_guard(void *context) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+    struct wake_adapter *a=context;
+    if(a->park_releasing)return park_interval_guard(a);
+#endif
     return wake_endpoint_guard(context, true);
 }
 static bool wake_map_admitted(struct wake_adapter *a,unsigned i) {
@@ -413,6 +423,9 @@ static bool wake_read(void *context,uint32_t reg,uint32_t *out) {
 }
 static enum intel_gt_write wake_write(void *context,uint32_t reg,uint32_t value) {
     struct wake_adapter *a=context;
+#ifdef SRVROS_INTEL_GT_FLUSH
+    if(a->park_releasing && value==0xffff0000u)return GT_WRITE_NONE;
+#endif
     if(reg!=INTEL_GT_REQUEST || (value!=0xffff0000u && value!=0x10001 && value!=0x10000) || !a->mapped[0] || !wake_guard(a))return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_HDA_PAIR
     uint64_t at=now(a);

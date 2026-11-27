@@ -137,9 +137,12 @@ profile is silent and saves and returns to Ubuntu on a safe outcome.
 The Air park check uses one fresh adapter admission for each request/ACK
 pair and an independent closing guard before RC6 observation. Reacquisition
 reads the powered thread register only after a fresh, matching request and
-ACK, then runs an independent closing guard. The park window stays at 10 ms.
-The compact USB `park-timing.log` records the release and reacquisition
-clocks and the stage reached by each RC6 sample attempt.
+ACK, then runs an independent closing guard. The full inherited PTE and
+fence census runs at park entry and at both closing guards. Intermediate
+checks verify the live GPU/HDA endpoints, firmware registers, exact aliases,
+exclusion, SMI count and original panel. The park window stays at 10 ms.
+The compact USB `park-timing.log` records the census, release, sample and
+reacquisition timings.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe

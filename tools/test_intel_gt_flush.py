@@ -343,10 +343,13 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual([t['failure'] for t in cold['sample_clocks']], [0, 0])
         self.assertEqual(cold['rewake']['close'], wake['rewake_us'])
         self.assertLessEqual(cold['samples'][1]['end'], cold['rewake']['write_enter'])
-        for row in (l for l in text.splitlines() if l.startswith(('intel-park-rc6-clock:', 'intel-park-rewake:'))):
+        for row in (l for l in text.splitlines()
+                    if l.startswith(('intel-park-rc6-clock:', 'intel-park-rewake:', 'intel-park-guard:'))):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row + '\n', ''))
-        legacy = re.sub(r'^intel-park-(?:rc6-clock|rewake): .*\n', '', text, flags=re.M)
+        v6 = re.sub(r'^intel-park-guard: .*\n', '', text, flags=re.M).replace('intel-park: v=7 ', 'intel-park: v=6 ')
+        self.assertTrue(bootstrap_result(v6)['flush']['park']['complete'])
+        legacy = re.sub(r'^intel-park-(?:rc6-clock|rewake): .*\n', '', v6, flags=re.M)
         old = bootstrap_result(legacy.replace('intel-park: v=6 ', 'intel-park: v=5 '))['flush']['park']
         self.assertTrue(old['complete'])
         origin = park['summary']['poll_origin_us']
@@ -380,6 +383,27 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(park['cold']['deadline_phase'], 'closing_guard')
         self.assertFalse(park['complete'])
         self.assertEqual(late['reset']['reset_writes'], 0)
+
+    def test_park_guards_fit_measured_census_cost_and_reject_drift(self):
+        result = bootstrap_result(observe('park-cold-cost'))
+        park = result['flush']['park']
+        cold = park['cold']
+        origin = park['summary']['poll_origin_us']
+        guards = cold['guard']
+        self.assertTrue(park['complete'])
+        self.assertEqual(len(cold['samples']), 2)
+        self.assertGreaterEqual(guards['entry'] - origin, 1361)
+        self.assertGreaterEqual(guards['release'] - cold['wake']['ack_clear_us'], 1361)
+        self.assertGreaterEqual(guards['rewake'] - cold['rewake']['ack_c0'], 1361)
+        self.assertLessEqual(cold['rewake']['close'] - origin, 7500)
+        self.assertEqual(guards['fallback'], 0)
+        for mode in ('park-cold-window-smi', 'park-cold-exit-pte'):
+            with self.subTest(mode=mode):
+                failed = bootstrap_result(observe(mode))
+                park = failed['flush']['park']
+                self.assertFalse(park['complete'] or park['summary']['returned'])
+                self.assertEqual(failed['reset']['reset_writes'], 0)
+                self.assertEqual(park['cold']['guard']['rewake'], 0)
 
     def test_air_post_reset_baseline_refuses_software_park(self):
         flush = bootstrap_result(observe('park-reset-reasons'))['flush']

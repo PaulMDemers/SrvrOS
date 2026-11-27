@@ -10,15 +10,17 @@ PARK = 4 << 16
 GAM = 0x5f
 TIMING_FILE = 'park-timing.log'
 TIMING_PREFIXES = (b'laptop-capture: boot options=', b'intel-park-forcewake: ', b'intel-park: ',
-                   b'intel-park-rc6: ', b'laptop-capture: completed=', b'intel-park-rc6-clock: ', b'intel-park-rewake: ')
+                   b'intel-park-rc6: ', b'laptop-capture: completed=', b'intel-park-rc6-clock: ',
+                   b'intel-park-rewake: ', b'intel-park-guard: ')
 
 
 def verify_timing_file(timing, exit_log):
     rows = [row for row in exit_log.splitlines(keepends=True) if row.startswith(TIMING_PREFIXES)]
     counts = [sum(row.startswith(prefix) for row in rows) for prefix in TIMING_PREFIXES]
-    current = any(row.startswith(b'intel-park: v=6 ') for row in rows)
+    scoped = any(row.startswith(b'intel-park: v=7 ') for row in rows)
+    detailed = scoped or any(row.startswith(b'intel-park: v=6 ') for row in rows)
     if (not all(counts[i] == 1 for i in (0, 1, 2, 4)) or counts[3] > 2 or
-            counts[5] > (2 if current else 0) or counts[6] != int(current) or
+            counts[5] > (2 if detailed else 0) or counts[6] != int(detailed) or counts[7] != int(scoped) or
             not 0 < len(timing) <= 2048 or timing != b''.join(rows)):
         raise ValueError('Park timing file differs from full exit report')
 
@@ -134,13 +136,37 @@ def cold_park_result(lines, origin, timed, detailed):
     return result
 
 
+def park_guard_result(line, origin, cold):
+    guard = fields(line, 'intel-park-guard:', ('v', 'entry', 'release', 'rewake', 'live', 'fallback'))
+    entry, release, rewake, live, fallback = (guard[k] for k in ('entry', 'release', 'rewake', 'live', 'fallback'))
+    wake = cold['wake']
+    restored = cold['rewake']
+    require((not entry or 0 < origin <= entry) and fallback <= live + 1 and live <= 2 * 4096 + 20)
+    if wake['attempted'] or live or fallback:
+        require(0 < entry < origin + 10000)
+    if wake['write_enter_us']:
+        require(entry <= wake['write_enter_us'])
+    if release:
+        require(0 < entry <= wake['ack_clear_us'] <= release and live >= 1)
+    if wake['guard_exit_us']:
+        require(0 < release <= wake['guard_exit_us'])
+    if rewake:
+        require(0 < release <= restored['ack_c0'] <= rewake and live >= 2)
+    if restored['close']:
+        require(0 < rewake <= restored['close'])
+        if restored['close'] <= origin + 10000:
+            require(not fallback)
+    return guard
+
+
 def park_result(text, cold, change, timing, wake_complete, flush):
     lines = text.splitlines()
     headers = [l for l in lines if l.startswith('intel-park:')]
     require(len(headers) == 1)
     regs = ('ctl', 'target', 'set_ctl', 'set_target', 'final_ctl', 'final_target', 'restore_ctl', 'restore_target')
     counts = ('attempts', 'returns', 'opened', 'unmapped', 'sampled', 'held', 'reopened', 'returned')
-    detailed = headers[0].startswith('intel-park: v=6 ')
+    scoped = headers[0].startswith('intel-park: v=7 ')
+    detailed = scoped or headers[0].startswith('intel-park: v=6 ')
     timed = detailed or headers[0].startswith('intel-park: v=5 ')
     cold_trial = timed or headers[0].startswith('intel-park: v=4 ')
     spaced = cold_trial or headers[0].startswith('intel-park: v=3 ')
@@ -149,7 +175,7 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     stamps = ('returned_us', 'prepare_us', 'smi_checks', 'smi_last', 'panel_checks') if pre_reset else ()
     if spaced:
         stamps = ('poll_origin_us', *stamps)
-    version = 6 if detailed else 5 if timed else 4 if cold_trial else 3 if spaced else 2 if pre_reset else 1
+    version = 7 if scoped else 6 if detailed else 5 if timed else 4 if cold_trial else 3 if spaced else 2 if pre_reset else 1
     h = fields(headers[0], 'intel-park:', ('v', *stamps, *panel, *counts, *regs), (*regs, *panel), versions=(version,))
     require(h['returns'] <= h['attempts'] <= 2 and h['unmapped'] <= h['opened'] <= 1 and
             max(h['sampled'], h['reopened'], h['returned']) <= 1 and h['held'] <= 2)
@@ -174,6 +200,10 @@ def park_result(text, cold, change, timing, wake_complete, flush):
         result['cold'] = cold_park_result(lines, h['poll_origin_us'], timed, detailed)
     else:
         require(not any(l.startswith(('intel-park-rc6:', 'intel-park-forcewake:')) for l in lines))
+    guards = [line for line in lines if line.startswith('intel-park-guard: ')]
+    require(len(guards) == int(scoped))
+    if scoped:
+        result['cold']['guard'] = park_guard_result(guards[0], h['poll_origin_us'], result['cold'])
     if pre_reset:
         baseline = flush.get('samples', [])
         stop = flush.get('stop_messages')

@@ -869,11 +869,16 @@ bool intel_window_handoff_clean(void) {return !trial_mapping_fault;}
 static struct intel_gt_preflight_result gt_saved;
 static bool gt_saved_complete;
 struct gt_observer {struct backing_adapter a;struct display_access_token token;unsigned guards,cache_checks;bool uncertain;};
+static bool gt_binding(struct gt_observer *g) {
+    struct backing_adapter fresh;uint64_t old;
+    return !g->a.mapped && display_access_held(&g->token) && trial_adapter(&fresh) &&
+        fresh.common.gpu==g->a.common.gpu && fresh.common.cr3==g->a.common.cr3 &&
+        fresh.common.pch==g->a.common.pch && fresh.fb==g->a.fb &&
+        !vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old);
+}
 static bool gt_guard(void *context) {
-    struct gt_observer *g=context;struct backing_adapter fresh;uint64_t old;
-    if(g->a.mapped || !display_access_held(&g->token) || !trial_adapter(&fresh) ||
-       fresh.common.gpu!=g->a.common.gpu || fresh.common.cr3!=g->a.common.cr3 ||
-       vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old))return false;
+    struct gt_observer *g=context;
+    if(!gt_binding(g))return false;
     g->guards++;return intel_scanout_trial_revalidate();
 }
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
@@ -882,9 +887,7 @@ static bool gt_guard(void *context) {
  * then read the two firmware request registers without a sixth endpoint walk.
  * This result is local to this guard call, never a retained admission token. */
 static bool gt_guard_endpoint(struct gt_observer *g,struct intel_gt_endpoint *out) {
-    struct backing_adapter fresh;
-    if(!out || !trial_adapter(&fresh) || g->a.common.pch!=fresh.common.pch ||
-       g->a.fb!=fresh.fb || !gt_guard(g))return false;
+    if(!out || !gt_guard(g))return false;
     *out=(struct intel_gt_endpoint){result.mmio_base,
         pci_read_config32(g->a.common.gpu,0xfc),pci_read_config32(g->a.common.gpu,0xe8)};
     return true;

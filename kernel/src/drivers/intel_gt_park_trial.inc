@@ -29,8 +29,9 @@ static struct {
     struct bdw_pci_rc6_sample cold[2];
     struct park_rc6_timing cold_timing[2];
     uint64_t rewake_us;
+    uint64_t guard_entry_us, guard_release_us, guard_rewake_us;
     uint32_t smi_last;
-    unsigned smi_checks, panel_checks;
+    unsigned smi_checks, panel_checks, guard_live, guard_fallback;
     uint32_t plane, surface, live;
     unsigned frames_used, attempts, returns, held, mapped, unmapped, cold_count, cold_attempts;
     bool active, sampled, returned, reopened;
@@ -110,7 +111,7 @@ static uint32_t park_policy_read(unsigned reg)
 #endif
 }
 
-static bool park_panel(void)
+static bool park_panel_bound(void)
 {
     /* Pipe A is the firmware-selected active panel on this exact Air profile. */
     struct wake_adapter *a = air_park.adapter;
@@ -126,10 +127,70 @@ static bool park_panel(void)
     air_park.surface = *(volatile const uint32_t *)(WAKE_VA + 10*4096 + 0x19c);
     air_park.live = *(volatile const uint32_t *)(WAKE_VA + 10*4096 + 0x1ac);
 #endif
-    if (air_park.plane != air_boot.plane || (air_park.surface & ~8u) != air_boot.surface ||
-        air_park.live != air_boot.surface) return false;
+    return air_park.plane == air_boot.plane && (air_park.surface & ~8u) == air_boot.surface &&
+           air_park.live == air_boot.surface;
+}
+
+static bool park_panel(void)
+{
+    if (!park_panel_bound()) return false;
     ++air_park.panel_checks;
     return true;
+}
+
+static bool park_pci_inhibited(struct wake_adapter *a)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    (void)a;
+    return (intel_display_test_bootstrap_config(4) & 0xffffu) == 3;
+#else
+    return (pci_read_config32(a->fw.gt.a.common.gpu,4) & 0xffffu) == 3;
+#endif
+}
+
+/* The full two-pass inherited PTE/fence census brackets this serialized
+ * forcewake operation at entry, release acknowledgement and ACK/C0 on return.
+ * Between censuses the CPU holds the same root and leases, GPU/HDA bus
+ * mastering stays inhibited, and a changed SMI count invalidates the proof.
+ * Each access still verifies the original live endpoint and exact mappings.
+ * Only the two forcewake stores and their read-only observations use this
+ * interval. Preparation, policy restore and other paths use their own guards. */
+static bool park_interval_guard(struct wake_adapter *a)
+{
+    const struct intel_gt_access *g = air_park.owner;
+    struct intel_gt_endpoint endpoint;
+    if (a != air_park.adapter || a != gt_bootstrap_native.a || g != gt_bootstrap_native.g ||
+        !air_park.active || !air_park.guard_entry_us || !bootstrap_owner_binding() ||
+        (g->state != GT_ACCESS_AWAKE && g->state != GT_ACCESS_OPENING) || !bootstrap_borrow_bound() ||
+        gt_bootstrap_native.epoch_calls || gt_bootstrap_native.issued || bcs_stop.writes ||
+        !wake_irq_off() || !bootstrap_tick() || !bootstrap_smi.reads || bootstrap_smi.fault ||
+        bootstrap_smi_count(BOOT_SMI_PARK) != bootstrap_smi.first) goto fault;
+
+    bool release = g->idle_release.ack_us && !g->idle_release.guard_exit_us;
+    bool rewake = g->idle_rewake.ack_us && !g->idle_rewake.guard_exit_us;
+    bool late = gt_bootstrap_native.last - air_park.poll_origin_us >= BDW_TRAFFIC_BLOCK_US;
+    if (release || rewake || late) {
+        if (late) ++air_park.guard_fallback;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        intel_display_test_park_census(release ? 1 : rewake ? 2 : 3);
+#endif
+        if (!wake_endpoint_guard(a,true) || !bootstrap_tick()) goto fault;
+    } else {
+        ++a->guards;
+        if (!joint_fast() || !gt_binding(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&endpoint) ||
+            endpoint.asls != a->fw.endpoint.asls || endpoint.swsci != a->fw.endpoint.swsci ||
+            !wake_mappings_bound(a)) goto fault;
+    }
+    if (!park_pci_inhibited(a) || !park_panel_bound() ||
+        bootstrap_smi_count(BOOT_SMI_PARK) != bootstrap_smi.first)
+        goto fault;
+    ++air_park.guard_live;
+    if (release) air_park.guard_release_us = gt_bootstrap_native.last;
+    if (rewake) air_park.guard_rewake_us = gt_bootstrap_native.last;
+    return true;
+fault:
+    a->uncertain = true;
+    return false;
 }
 
 /* Used only after fresh wake_guard admission with both aliases present. The
@@ -167,13 +228,8 @@ static bool park_cold_guard(void)
     if (!bootstrap_tick() || !wake_guard(a) || !g->pinned || g->state != GT_ACCESS_OPENING ||
         !completion_mapping(a,0) || !completion_mapping(a,1) || !completion_mapping(a,2) ||
         wake_pages[2] != 0x138000 || !park_panel()) return false;
-    uint32_t command, request, ack;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
-    command = intel_display_test_bootstrap_config(4);
-#else
-    command = pci_read_config32(a->fw.gt.a.common.gpu,4);
-#endif
-    if ((command & 0xffffu) != 3 || bootstrap_smi_count(BOOT_SMI_PARK) != bootstrap_smi.first) {
+    uint32_t request, ack;
+    if (!park_pci_inhibited(a) || bootstrap_smi_count(BOOT_SMI_PARK) != bootstrap_smi.first) {
         a->uncertain = true;
         return false;
     }
@@ -354,6 +410,16 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
     unsigned first = 0;
     if (park_cold_trial()) {
         if (begin > UINT64_MAX - BDW_TRAFFIC_BLOCK_US) return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        intel_display_test_park_census(0);
+#endif
+        if (!wake_endpoint_guard(a,true) || !bootstrap_tick()) {
+            a->uncertain = true;
+            return false;
+        }
+        air_park.guard_entry_us = gt_bootstrap_native.last;
+        if (air_park.guard_entry_us < begin ||
+            air_park.guard_entry_us - begin >= BDW_TRAFFIC_BLOCK_US) return false;
         a->park_releasing = true;
         bool observed = intel_gt_access_idle_diagnostic(g,&gt_bootstrap_native.borrow,
                             begin+BDW_TRAFFIC_BLOCK_US,park_wake_sample,park_observe_cold,NULL);
@@ -453,6 +519,9 @@ static void park_report(void)
         struct intel_gt_idle_timing rewake = g ? g->idle_rewake : (struct intel_gt_idle_timing){0};
         console_printf("intel-park-rewake: v=1 write_enter=%u write_exit=%u ack_c0=%u close=%u stop=%u\n",
             rewake.write_enter_us,rewake.write_exit_us,rewake.ack_us,rewake.guard_exit_us,rewake.stop_us);
+        console_printf("intel-park-guard: v=1 entry=%u release=%u rewake=%u live=%u fallback=%u\n",
+            air_park.guard_entry_us,air_park.guard_release_us,air_park.guard_rewake_us,
+            (uint64_t)air_park.guard_live,(uint64_t)air_park.guard_fallback);
     }
     for (unsigned i=0; i<air_park.frames_used; ++i) {
         const struct park_frame *f = &air_park.frames[i];
@@ -462,7 +531,7 @@ static void park_report(void)
             (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
     }
     console_printf("intel-park: v=%u poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
-        (uint64_t)(park_cold_trial() ? 6 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
+        (uint64_t)(park_cold_trial() ? 7 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
         (uint64_t)air_park.panel_checks,(uint64_t)air_park.plane,(uint64_t)air_park.surface,(uint64_t)air_park.live,
         (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
         (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,

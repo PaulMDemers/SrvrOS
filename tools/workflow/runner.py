@@ -544,7 +544,7 @@ class Runner:
                 state['efi_display_branch'] = True
             if payload.get('bcs_stop_version') == 1:
                 state['bcs_stop_version'] = 1
-            if payload.get('software_park_version') in (1, 2, 3, 4, 5, 6):
+            if payload.get('software_park_version') in (1, 2, 3, 4, 5, 6, 7):
                 state['software_park_version'] = payload['software_park_version']
             if payload.get('park_timing_file_version') == 1:
                 state['park_timing_file_version'] = 1

@@ -27,6 +27,8 @@ static void intel_display_test_park_store(unsigned,uint32_t);
 static bool intel_display_test_park_cold_trial(void);
 static bool intel_display_test_park_wake_step(uint32_t);
 static void intel_display_test_park_cold_read(unsigned,uint32_t *,uint32_t *);
+static void intel_display_test_park_census(unsigned);
+static bool test_park_census_drift;
 static unsigned model_engine_ro;
 static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 static uint32_t intel_display_test_bcs_stop_read(uint32_t);
@@ -130,6 +132,11 @@ static unsigned model_idle_stores;
 static uint32_t park_model[2] = {PARK_AUTO,PARK_RC6};
 static bool intel_display_test_park_cold_trial(void) {
     return !strncmp(bootstrap_mode,"park-cold",9);
+}
+static void intel_display_test_park_census(unsigned phase) {
+    assert(phase<4 && air_park.active && wake_irq && gpu_command==3 && hda_command==2);
+    if(!strcmp(bootstrap_mode,"park-cold-cost"))ticks+=1361;
+    if(phase==2 && !strcmp(bootstrap_mode,"park-cold-exit-pte"))test_park_census_drift=true;
 }
 static bool intel_display_test_park_wake_step(uint32_t value) {
     if (!intel_display_test_park_cold_trial() || !air_park.active || !air_park.owner ||
@@ -384,7 +391,8 @@ static void intel_display_test_bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uin
 static uint32_t intel_display_test_bootstrap_smi_count(unsigned point) {
  assert(wake_irq && !display_access_allowed());
  if(point==BOOT_SMI_PARK)
-  return bootstrap_smi.first + bf("park-smi",air_park.smi_checks);
+  return bootstrap_smi.first + (bf("park-smi",air_park.smi_checks) ||
+   (!strcmp(bootstrap_mode,"park-cold-window-smi") && air_park.cold_attempts==2));
  assert(point>=BOOT_SMI_START && point<=BOOT_SMI_END);
  unsigned sample=bootstrap_smi.reads+1;
  if(!strcmp(bootstrap_mode,"smi-wrap"))return bf("smi-wrap",sample)?0:UINT32_MAX;
@@ -565,7 +573,8 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
-    !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
+    !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"park-cold-cost") ||
+    !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
     !strcmp(bootstrap_mode,"flush-chatter") || !strcmp(bootstrap_mode,"flush-latched"))return true;
 #endif
 #ifdef SRVROS_INTEL_GT_AUX
@@ -1195,6 +1204,11 @@ int main(int argc,char **argv) {
   assert(!air_park.cold_count && air_park.owner->idle_writes==1 && !air_park.rewake_us &&
          air_park.owner->reason==GT_ACCESS_TIMEOUT && !air_park.returns && !pulses &&
          !bcs_stop.writes && intel_gt_wake_retained() && !display_access_allowed());
+  return code;
+ }
+ if(!strcmp(bootstrap_mode,"park-cold-exit-pte") || !strcmp(bootstrap_mode,"park-cold-window-smi")) {
+  assert(!air_park.returned && !pulses && !bcs_stop.writes && !air_park.guard_rewake_us &&
+         intel_gt_wake_retained() && !display_access_allowed());
   return code;
  }
  if(!strcmp(bootstrap_mode,"idle-drift") || !strcmp(bootstrap_mode,"idle-capture-mismatch") || !strcmp(bootstrap_mode,"idle-apply-mismatch") ||

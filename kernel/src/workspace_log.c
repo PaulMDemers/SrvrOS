@@ -516,6 +516,7 @@ bool workspace_log_park_timing_snapshot(void) {
     static const char *const prefixes[]={
         "laptop-capture: boot options=", "intel-park-forcewake: ", "intel-park: ",
         "intel-park-rc6: ", "laptop-capture: completed=", "intel-park-rc6-clock: ", "intel-park-rewake: ",
+        "intel-park-guard: ",
     };
     uint64_t total, count=bootlog_snapshot_lines(snapshot,sizeof(snapshot),&total), used=0;
     unsigned seen[sizeof(prefixes)/sizeof(prefixes[0])]={0};
@@ -535,7 +536,7 @@ bool workspace_log_park_timing_snapshot(void) {
         }
         start=end+1;
     }
-    if(seen[0]!=1 || seen[1]!=1 || seen[2]!=1 || seen[3]>2 || seen[4]!=1 || seen[5]>2 || seen[6]>1)
+    if(seen[0]!=1 || seen[1]!=1 || seen[2]!=1 || seen[3]>2 || seen[4]!=1 || seen[5]>2 || seen[6]>1 || seen[7]>1)
         return false;
     uint64_t flags;
     return begin(&flags) && save_small_diagnostic("park-timing.log",timing,used,flags);
