@@ -98,6 +98,41 @@ and the unmounted USB passed the filesystem check. The native result
 accepts the read-only observation. It supplies no exclusive binding or
 requester retirement proof.
 
+### Slot 4096 access audit
+
+The prior target at `0x8ea00000` is inside the firmware-declared IGD RMRR
+`[0x8d800000,0x8fa00000)`. This identifies an explicit firmware DMA
+requirement for `00:02.0`. It does not establish the current VT-d mapping or
+say which GPU engine is using the address. The active primary image pages
+observed so far do not include that address. An address beyond the image can
+still be used for display prefetch, compression, or GT work, and a second
+GGTT entry can point to the same page. The audio PCI observations also leave
+DMA retirement unproved. [Air6,1 DMAR inventory](macbookair6-1-dma-inventory.md#firmware-declaration)
+· [Intel VT-d specification, RMRR](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf)
+
+The new `--haswell-access` option extends the candidate recipe. It captures
+the pinned DMAR and boot memory catalog in the same boot, samples GGTT entries
+4096–4111 twice, and checks Haswell framebuffer compression control, base and
+status before and after the candidate bracket. Only one temporary read-only
+alias is live at a time. It checks the inherited Pipe A route before and
+after the compression samples, requires frame progress and preserves the
+original 100 ms candidate limit. The probe does not dereference any target
+page or change graphics, PCI or VT-d state.
+[i915 compression base programming](https://cos.googlesource.com/third_party/kernel/%2B/3934bbc0446e4cae977a6efe82ce993d37434e53/drivers/gpu/drm/i915/intel_fbc.c)
+· [i915 compression register definitions](https://code.googlesource.com/linux/torvalds/linux/%2B/111d0bda8eeb4b54e0c63897b071effbf9fd9251/drivers/gpu/drm/i915/i915_reg.h)
+
+The decoder compares the physical destination to the sampled primary image
+pages, nearby GGTT entries, the decoded compression-buffer start and the
+DMAR device scopes. A raw FBC base cannot determine the entire buffer
+extent. The same target in a nearby entry is positive alias evidence.
+Absence of a match in these sixteen entries leaves the rest of the table
+unresolved. Live VT-d, command-engine translations, firmware/SMM and
+display-reader retirement still require independent, maintained evidence.
+Keep slot 4096 protected.
+
+Run the same stage command shown above with `--haswell-access` appended.
+Decode the matching `exit.log` with `tools/hardware_haswell_access.py`.
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a

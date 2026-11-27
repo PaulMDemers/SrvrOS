@@ -1,4 +1,4 @@
-/* Exactly one borrowed GGTT DWORD. Configuration and display status reads
+/* Bounded borrowed GGTT window. Configuration and display status reads
  * do not establish requester exclusion or retire outstanding traffic. */
 enum hsw_candidate_word {
     HC_FRAME, HC_PTE, HC_EDP_CONF, HC_EDP_FUNC, HC_DDI_A, HC_PRIMARY,
@@ -20,6 +20,13 @@ static struct {
     uint32_t sample[2][HC_WORDS];
 } hsw_candidate_result;
 
+enum hsw_fbc_word { HF_CTL, HF_BASE, HF_STATUS, HF_WORDS };
+static struct {
+    unsigned fbc_rows, entries, fbc_maps, fbc_retired;
+    uint32_t fbc[2][HF_WORDS];
+    uint32_t neighbors[2][HSW_ACCESS_SLOTS];
+} hsw_access_result;
+
 static bool hsw_candidate_pci(const struct pci_device *dev, uint32_t id, uint32_t *out) {
     struct package_pci_snapshot p;
     package_pci_read(&p, conventional_read, (void *)dev);
@@ -38,6 +45,50 @@ static bool hsw_candidate_display_unchanged(const uint32_t *row) {
     return row[HC_EDP_CONF] == 0xc0000018 && row[HC_EDP_FUNC] == 0x82200000 &&
            row[HC_DDI_A] == 0x80000011 && row[HC_PRIMARY] == 0x98004400 &&
            !row[HC_SURF] && !row[HC_LIVE];
+}
+
+static bool hsw_candidate_route(void) {
+    return resource_read(0x7f008) == 0xc0000018 && resource_read(0x6f400) == 0x82200000 &&
+           resource_read(0x64000) == 0x80000011 && resource_read(0x70180) == 0x98004400 &&
+           !resource_read(0x7019c) && !resource_read(0x701ac);
+}
+
+/* Take the FBC sample before/after the candidate bracket. The only borrowed
+ * alias switches pages after a verified retirement. The register offset is
+ * the compressed-buffer base, never an address to dereference. */
+static bool hsw_fbc_sample(void) {
+    if (!hsw_config_valid() || hsw_access_result.fbc_rows >= 2) return false;
+    uint32_t wells[4];
+    for (unsigned i = 0; i < 4; i++) wells[i] = well_read(0x400 + i * 4);
+    if (!display_resource_well_on(wells) || !hsw_candidate_route() || !hsw_map(NULL, HSW_FBC_PAGE)) return false;
+    hsw_access_result.fbc_maps++;
+
+    uint32_t *row = hsw_access_result.fbc[hsw_access_result.fbc_rows];
+    uint32_t closing_ctl;
+    bool ok = hsw_config_valid() && hsw_read(NULL, HSW_FBC_CTL, &row[HF_CTL]) &&
+              hsw_read(NULL, HSW_FBC_BASE, &row[HF_BASE]) &&
+              hsw_read(NULL, HSW_FBC_STATUS, &row[HF_STATUS]) &&
+              hsw_read(NULL, HSW_FBC_CTL, &closing_ctl) && closing_ctl == row[HF_CTL];
+    for (unsigned i = 0; i < HF_WORDS; i++) if (row[i] == UINT32_MAX) ok = false;
+    for (unsigned i = 0; i < 4; i++) if (wells[i] != well_read(0x400 + i * 4)) ok = false;
+    ok = ok && hsw_candidate_route() && hsw_config_valid();
+    if (!hsw_unmap(NULL)) return false;
+    hsw_access_result.fbc_retired++;
+    if (ok) hsw_access_result.fbc_rows++;
+    return ok;
+}
+
+static bool hsw_access_entries(uint32_t pte) {
+    if (hsw_access_result.entries >= 2) return false;
+    uint32_t *row = hsw_access_result.neighbors[hsw_access_result.entries];
+    row[0] = pte;
+    for (unsigned i = 1; i < HSW_ACCESS_SLOTS; i++)
+        if (!hsw_read(NULL, HSW_CANDIDATE_MMIO + 4 * i, &row[i]) || row[i] == UINT32_MAX)
+            return false;
+    uint32_t closing;
+    if (!hsw_read(NULL, HSW_CANDIDATE_MMIO, &closing) || closing != pte) return false;
+    hsw_access_result.entries++;
+    return true;
 }
 
 static bool hsw_candidate_sample(uint32_t *row) {
@@ -70,14 +121,21 @@ static bool hsw_candidate_sample(uint32_t *row) {
 
     row[HC_FRAME] = resource_read(0x70040);
     if (!hsw_config_valid() || !hsw_read(NULL, HSW_CANDIDATE_MMIO, &row[HC_PTE]) ||
-        row[HC_PTE] == UINT32_MAX) return false;
+        row[HC_PTE] == UINT32_MAX ||
+        (hsw_access_window && !hsw_access_entries(row[HC_PTE]))) return false;
     for (unsigned i = 0; i < 4; i++) if (wells[i] != well_read(0x400 + i * 4)) return false;
     for (unsigned i = HC_EDP_CONF; i <= HC_LIVE; i++)
         if (row[i] != resource_read(hsw_candidate_regs[i - HC_EDP_CONF])) return false;
     return hsw_config_valid();
 }
 
-static bool hsw_candidate_observe(void) {
+static bool hsw_candidate_in_budget(void) {
+    uint64_t now = timer_monotonic_us();
+    return now > hsw_candidate_result.begin &&
+           now - hsw_candidate_result.begin <= HSW_CANDIDATE_LIMIT_US;
+}
+
+static bool hsw_candidate_observe_access(bool access) {
     uint32_t mmio;
     if (!intel_hsw_ggtt_candidate(&hsw_result, HSW_CANDIDATE_GPU, &mmio) ||
         mmio != HSW_CANDIDATE_MMIO) return false;
@@ -86,16 +144,16 @@ static bool hsw_candidate_observe(void) {
     hsw_candidate_result.begin = timer_monotonic_us();
     hsw_candidate_result.status = 2; /* Access or sampling failure. */
     hsw_candidate_window = true;
-    if (hsw_candidate_result.begin && hsw_map(NULL, mmio)) {
+    hsw_access_window = access;
+    if (hsw_candidate_result.begin && (!access || (hsw_fbc_sample() && hsw_candidate_in_budget())) &&
+        hsw_map(NULL, mmio)) {
         hsw_candidate_result.mapped = true;
         uint32_t *before = hsw_candidate_result.sample[0], *after = hsw_candidate_result.sample[1];
         if (hsw_candidate_sample(before)) {
             hsw_candidate_result.rows = 1;
             hsw_candidate_result.status = 4; /* Clock or deadline. */
             bool waited = timer_delay_us(HSW_CANDIDATE_GAP_US);
-            uint64_t now = timer_monotonic_us();
-            if (waited && now > hsw_candidate_result.begin &&
-                now - hsw_candidate_result.begin <= HSW_CANDIDATE_LIMIT_US) {
+            if (waited && hsw_candidate_in_budget()) {
                 hsw_candidate_result.status = 2;
                 if (hsw_candidate_sample(after)) {
                     hsw_candidate_result.rows = 2;
@@ -110,8 +168,19 @@ static bool hsw_candidate_observe(void) {
         }
         hsw_candidate_result.retired = hsw_unmap(NULL);
         if (!hsw_candidate_result.retired) hsw_candidate_result.status = 5;
+        if (access && hsw_candidate_result.status == 1) {
+            if (!hsw_candidate_in_budget()) hsw_candidate_result.status = 4;
+            else if (!hsw_fbc_sample()) hsw_candidate_result.status = 2;
+            else if (hsw_access_result.fbc[0][HF_CTL] != hsw_access_result.fbc[1][HF_CTL] ||
+                     hsw_access_result.fbc[0][HF_BASE] != hsw_access_result.fbc[1][HF_BASE])
+                hsw_candidate_result.status = 3;
+            for (unsigned i = 0; i < HSW_ACCESS_SLOTS; i++)
+                if (hsw_access_result.neighbors[0][i] != hsw_access_result.neighbors[1][i] &&
+                    hsw_candidate_result.status == 1) hsw_candidate_result.status = 3;
+        }
     }
     if (hsw_window_poison) hsw_candidate_result.status = 5;
+    hsw_access_window = false;
     hsw_candidate_window = false;
     hsw_candidate_result.end = timer_monotonic_us();
     if (hsw_candidate_result.status == 1 &&
@@ -134,5 +203,27 @@ static void hsw_candidate_report(void) {
         for (unsigned j = 0; j < HC_WORDS; j++) hda_put(bytes, &n, hsw_candidate_result.sample[i][j], 4);
         hsw_b64(bytes, n, data);
         console_printf("hsw-candidate-row: phase=%u data=%s\n", (uint64_t)i, data);
+    }
+}
+
+static void hsw_access_report(bool observed) {
+    console_printf("hsw-access: v=1 observed=%u fbc_rows=%u entry_rows=%u fbc_maps=%u fbc_retired=%u writes=0 authority=none\n",
+                   (uint64_t)observed, (uint64_t)hsw_access_result.fbc_rows, (uint64_t)hsw_access_result.entries,
+                   (uint64_t)hsw_access_result.fbc_maps, (uint64_t)hsw_access_result.fbc_retired);
+    for (unsigned phase = 0; phase < hsw_access_result.fbc_rows; phase++) {
+        uint8_t raw[HF_WORDS * 4];
+        char data[sizeof(raw) * 4 / 3 + 5];
+        unsigned n = 0;
+        for (unsigned i = 0; i < HF_WORDS; i++) hda_put(raw, &n, hsw_access_result.fbc[phase][i], 4);
+        hsw_b64(raw, n, data);
+        console_printf("hsw-access-fbc: phase=%u data=%s\n", (uint64_t)phase, data);
+    }
+    for (unsigned phase = 0; phase < hsw_access_result.entries; phase++) {
+        uint8_t raw[HSW_ACCESS_SLOTS * 4];
+        char data[sizeof(raw) * 4 / 3 + 5];
+        unsigned n = 0;
+        for (unsigned i = 0; i < HSW_ACCESS_SLOTS; i++) hda_put(raw, &n, hsw_access_result.neighbors[phase][i], 4);
+        hsw_b64(raw, n, data);
+        console_printf("hsw-access-entries: phase=%u data=%s\n", (uint64_t)phase, data);
     }
 }

@@ -12,6 +12,8 @@ static uint64_t occupied;
 static uint32_t well_value;
 static bool test_candidate;
 static unsigned candidate_frames, candidate_ptes;
+static unsigned access_fbc_controls, access_entries;
+static bool access_fbc_drift, access_entry_drift, access_fbc_ones;
 static bool candidate_frozen, candidate_drift, candidate_late, candidate_bad_route;
 static unsigned backing_mode,backing_reads,backing_bad,backing_change,backing_emit;
 static uint32_t backing_values[9]={0x98000000,5632,0,0x100000,0,(1365u<<16)|767,0x100000,0x98000000,0x100000};
@@ -135,6 +137,22 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
+    if(hsw_access_window) {
+        assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+(off&~4095u));
+        if(off==HSW_FBC_CTL) {
+            access_fbc_controls++;
+            return access_fbc_drift && access_fbc_controls>2 ? 0 : 0x80000000;
+        }
+        if(off==HSW_FBC_BASE)return 0x01000000;
+        if(off==HSW_FBC_STATUS)return access_fbc_ones ? UINT32_MAX : access_fbc_controls;
+        if(off>=HSW_CANDIDATE_MMIO && off<HSW_CANDIDATE_MMIO+HSW_ACCESS_SLOTS*4) {
+            access_entries++;
+            if(off==HSW_CANDIDATE_MMIO || off==HSW_CANDIDATE_MMIO+4)
+                return 0x8ea00001;
+            return access_entry_drift && access_entries>17 ? 0x8ea01001 : 0;
+        }
+        assert(!"outside access audit allowlist");
+    }
     if(off==HSW_CANDIDATE_MMIO) {
         assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_CANDIDATE_MMIO);
         return (candidate_ptes++ && candidate_drift) ? 0x1001 : 0;
@@ -147,7 +165,7 @@ uint32_t platform_test_hsw_read(unsigned off) {
 }
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
-    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13)) {
+    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

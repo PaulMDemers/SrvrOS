@@ -5453,6 +5453,8 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) fences32 > build/tests/hsw-backing-producer-v3.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) fences32 max > build/tests/hsw-backing-producer-v3-max.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) candidate > build/tests/hsw-candidate-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) access > build/tests/hsw-access-receipt.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_access.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_candidate.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_tilectl.py

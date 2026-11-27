@@ -37,6 +37,14 @@ The temporary alias retired with zero GPU writes. The USB receipt and installed
 recovery verified, and Ubuntu returned with the one-shot consumed. Keep the slot
 protected while investigating its existing mapping and requesters.
 
+The slot-access audit starts at `43863727`. It binds the same boot's pinned
+DMAR declaration to slot 4096's physical address, observes a 16-entry window
+for aliases, and checks Haswell framebuffer compression controls while the
+original Pipe A surface advances. It keeps the original 100 ms candidate bound
+and retires temporary read-only aliases. Live VT-d, command-engine use and
+firmware exclusion remain separate evidence for an eventual owner. PR301 at
+`d588f83a` retains the Broadwell drain-provider scope.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
