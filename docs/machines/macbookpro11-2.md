@@ -1887,6 +1887,18 @@ Qualify the native path and both log sinks before the cold run.
 [Linux RCR definitions](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L589-L595)
 [Linux CU receive setup](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L659-L678)
 
+Release `9a088d0b7f9867a1` (`24153568`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. Native xHCI fixtures validated the `0xf000790f` write,
+setup and armed refusal, and beacon parsing with a four-byte FCS.
+They also covered short frames and CRC/ICV errors at the fixed
+4 KiB request size. Exact-image checks passed workspace logging,
+automatic reset and all four EFI journal modes. Replay verified
+the armed RCR and receive counters in both bounded EFI checkpoints.
+The run record under `build/bringup/pro112-rtl8188cu-rcr-trailer`
+binds the USB interface control session and Linux reference.
+Reception still needs the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
