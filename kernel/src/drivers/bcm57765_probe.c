@@ -41,11 +41,15 @@ static const struct pci_device *controller(void) {
         const struct pci_device *p = pci_device_at(i);
         if (p->bus == 2 && !p->device && !p->function && p->vendor_id == 0x14e4 &&
             p->device_id == 0x16b4 && p->class_code == 2 && !p->subclass &&
-            !p->prog_if && p->revision == 0x10 && !(p->header_type & 0x7f) &&
-            pci_read_config32(p, PCI_SUBSYSTEM) == 0x16b414e4 &&
-            pci_read_config32(p, PCI_ASIC_REV) == 0x00577851 &&
-            (pci_read_config16(p, PCI_PM_CAP) & 0xff) == 1)
-            return p;
+            !p->prog_if && p->revision == 0x10 && !(p->header_type & 0x7f)) {
+            uint32_t subsystem = pci_read_config32(p, PCI_SUBSYSTEM);
+            uint32_t asic = pci_read_config32(p, PCI_ASIC_REV);
+            uint16_t pm_cap = pci_read_config16(p, PCI_PM_CAP);
+            console_printf("bcm57765: identity subsystem=%x asic_raw=%x pm_cap=%x\n",
+                (uint64_t)subsystem, (uint64_t)asic, (uint64_t)pm_cap);
+            if (subsystem == 0x16b414e4 && asic == 0x57785100 && (pm_cap & 0xff) == 1)
+                return p;
+        }
     }
     return 0;
 }
@@ -130,7 +134,7 @@ enum bcm57765_probe_result bcm57765_probe(void) {
     uint64_t bar2 = ((uint64_t)p->bar[3] << 32) | p->bar[2];
     uint16_t command = pci_read_config16(p, PCI_COMMAND);
     uint16_t pm = pci_read_config16(p, PCI_PM_CONTROL);
-    console_printf("bcm57765: pci=02:00.0 device=14e4:16b4 asic=577851 bar0=%x bar2=%x command=%x pm=%x\n",
+    console_printf("bcm57765: pci=02:00.0 device=14e4:16b4 bar0=%x bar2=%x command=%x pm=%x\n",
         bar, bar2, (uint64_t)command, (uint64_t)pm);
     if ((bar & 0xffff) != 0x000c || !base || base >= 0x100000000ull ||
         bar2 != bar + 0x10000 || command == UINT16_MAX || pm == UINT16_MAX ||

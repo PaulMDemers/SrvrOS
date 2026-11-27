@@ -331,6 +331,12 @@ two release-matched reports after Ubuntu returns. It precedes reset
 ownership, descriptor and DMA setup, and packet exchange. The standard
 network provider selection stays outside this probe.
 
+Release `d6053aaf8786343a` enumerated the controller natively and
+saved both reports. The first ASIC gate compared a truncated value
+against the full register. The native probe refused before MMIO and
+returned to Ubuntu. The privileged Ubuntu PCI read confirms raw ASIC
+revision `0x57785100`. The retry uses that exact value.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
