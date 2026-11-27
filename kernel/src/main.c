@@ -1096,6 +1096,21 @@ void kmain(void) {
         (startup_diagnostic && reconnect_journal)))halt_forever();
     boot_verbose = boot_debug_requested(cmdline);
     bool a1466_capture = boot_a1466_capture_requested(cmdline);
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+    bool live_vtd = cmdline_has_token(cmdline,"srvros.hsw-live-vtd=read-only");
+    bool live_requesters_ready = false;
+    if(live_vtd && (!cmdline_tokens_unique(cmdline) ||
+       !cmdline_has_token(cmdline,"srvros.storage=ram") ||
+       !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") ||
+       !cmdline_has_token(cmdline,"srvros.capture-failure=reboot") ||
+       !cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit") ||
+       !cmdline_has_token(cmdline,"srvros.ecam=air61-2m-test") ||
+       !cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only")))halt_forever();
+#else
+    const bool live_vtd = false;
+    if(cmdline_has_token(cmdline,"srvros.hsw-live-vtd=read-only"))halt_forever();
+#endif
+
 
     if (!LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision)) {
         console_write("limine: requested base revision is unsupported\n");
@@ -1479,7 +1494,10 @@ void kmain(void) {
         if(window_test || read_test){
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
-            if(read_test && aliases_ready)(void)haswell_air61_register_sample();
+            if(read_test && aliases_ready && (!live_vtd || platform_haswell_live_requester())) {
+                bool observed = haswell_air61_register_sample();
+                if(live_vtd && observed)live_requesters_ready=platform_haswell_live_requester();
+            }
 #else
             if(read_test && aliases_ready)(void)haswell_air61_read_qualify();
 #endif
@@ -1496,7 +1514,7 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only") &&
         cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32");
     bool init_ready = false;
-    int64_t init_pid = hsw_candidate ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
+    int64_t init_pid = (hsw_candidate || live_vtd) ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
     if (init_pid >= 0) {
         (void)process_set_reaper((uint64_t)init_pid);
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
@@ -1505,7 +1523,7 @@ void kmain(void) {
         init_ready = ready;
         console_printf("init: readiness=%s elapsed_us=%u\n", ready ? "ready" : (timer_running ? "timeout-or-exit" : "clock-unavailable"),
             timer_monotonic_us() - init_start);
-    } else if (!hsw_candidate) {
+    } else if (!(hsw_candidate || live_vtd)) {
         console_write("init: start failed\n");
     }
     http_child_preflight_enable(http_child_trial && init_ready && timer_running);
@@ -1856,6 +1874,9 @@ void kmain(void) {
                 haswell_ecam_boot_reference(directory,saved);
                 console_printf("laptop-capture: boot options=%s\n",cmdline);
                 sampled=proof && saved && aliases && window_proof && window_saved;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+                if(live_vtd)sampled=platform_haswell_live_slot(sampled && live_requesters_ready);
+#endif
             } else sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit")?haswell_alias_context_report():cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx")?haswell_alias_context_run():cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
 #else
             console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;

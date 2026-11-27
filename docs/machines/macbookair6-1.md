@@ -54,6 +54,15 @@ frame in 20.126 ms, and all three borrowed aliases retired. The receipt,
 recovery and offline USB filesystem check verified on return to Ubuntu.
 Keep slot 4096 protected while live requester ownership remains unresolved.
 
+The live requester audit starts from `89013a5e` on PR567. It reuses the
+isolated graphics DRHD0 read-only sampler with its original ECAM, memory,
+alias and retirement gates. The same boot brackets that sampler with IGD
+PCI requester reads, then repeats the slot 4096 probe and samples the
+already qualified GT core status and RC6 counter while Pipe A advances.
+Shared Broadwell work remains with PR301 at `e83f19e0`. No new VT-d address,
+translation-table walk, forcewake, control write or graphics ownership
+is part of this checkpoint.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

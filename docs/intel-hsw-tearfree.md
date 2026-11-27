@@ -155,6 +155,36 @@ DMA scope. Slot 4096 stays protected. The sampled compression state and
 local alias check leave live VT-d translations, GT requests, firmware/SMM
 access and display-reader retirement unresolved.
 
+### Same-boot VT-d and GPU requester audit
+
+The isolated v9 firmware profile reuses the two-pass Air6,1 graphics
+DRHD0 sampler. It checks ECAM, the pinned firmware data, the managed root
+and the cache/alias gates exactly as the v8 sampler does. It reads only the
+original register list and verifies retirement before later graphics MMIO.
+The graphics-specific unit's Global Status reports whether translation is
+enabled at each sample. The raw root-address register is retained without
+dereferencing it. [Air6,1 VT-d register and caller audit](macbookair6-1-vtd-read-caller-audit.md)
+· [Intel VT-d specification, register descriptions](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf)
+
+The boot records IGD PCI Command, PMCSR and optional PCIe Device Status on
+both sides of the sampler. After the sampler's files are saved, it requires
+the slot 4096 display and alias audit, adds the established read-only GT
+core status and RC6 counter samples, and checks the PCI Command, power state
+and capability position against the earlier bracket. The decoder binds
+`ecam.log`, `window.log` and `exit.log` to the same release and session,
+rechecks their order and reports the gap between the VT-d and slot samples.
+A clear Translation Enable Status describes that sampled remapping unit.
+It cannot prove that the GPU stopped issuing requests. GT power status and
+RC6 residency supply no command-queue drain or firmware exclusion proof.
+[Haswell status/RC6 history](machines/macbookair6-1.md#ubuntu-rc6-baseline-captured-2026-11-01)
+· [Linux i915 GT status reporting](https://gbmc.googlesource.com/linux/%2B/5578b4347bb5d5dfc8eeb8ee2eb8248658707d9b/drivers/gpu/drm/i915/gt/intel_gt_pm_debugfs.c)
+
+The profile uses `--haswell-live-vtd` with the full v8 sampler stage flags.
+Decode the matching session directory with
+`tools/hardware_haswell_live_vtd.py SESSION_DIR --release RELEASE`. It
+preserves the original 100 ms bounds and keeps the inherited framebuffer
+active. It issues no GPU or VT-d writes, forcewake, or root-table reads.
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a

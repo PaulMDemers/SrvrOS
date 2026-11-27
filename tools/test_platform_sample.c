@@ -165,7 +165,7 @@ uint32_t platform_test_hsw_read(unsigned off) {
 }
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
-    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10)) {
+    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) || !strncmp(fmt,"hsw-live",8)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

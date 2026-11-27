@@ -81,6 +81,26 @@ static void access_tests(void) {
  assert(!hsw_candidate_observe_access(true) && hsw_candidate_result.status==4 &&
         hsw_access_result.fbc_retired==1 && hsw_access_result.entries==1 && !hsw_window_live);
 }
+static void live_setup(void) {
+ access_setup();
+ memset(&hsw_live,0,sizeof(hsw_live));
+}
+
+static void live_audit_tests(void) {
+ live_setup();
+ assert(hsw_live_snapshot(gpu));
+ assert(!hsw_live_match());
+ pci_config[1]^=4;
+ assert(!hsw_live_snapshot(gpu));
+ live_setup();pci_config[0x2c/4]^=1;
+ assert(!hsw_live_snapshot(gpu) && !hsw_live.requester_rows);
+ live_setup();
+ assert(hsw_live_snapshot(gpu) && hsw_live_snapshot(gpu) && !hsw_live_snapshot(gpu));
+ hsw_live.slot_probe=true;
+ assert(hsw_candidate_observe_access(true) && hsw_live_match());
+ hsw_candidate_result.sample[1][HC_IGD_CMD]^=4;
+ assert(!hsw_live_match());
+}
 static void candidate_tests(void) {
  candidate_setup();assert(hsw_candidate_observe_access(false) && candidate_ptes==2 && candidate_frames==2 &&
                          hsw_vmm_maps==11 && hsw_vmm_unmaps==11 && !hsw_window_live);
@@ -100,6 +120,18 @@ static void candidate_tests(void) {
 }
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"live")) {
+  live_audit_tests();
+  live_setup();assert(hsw_live_snapshot(gpu));
+  test_ticks+=200000; /* Simulated interval reserved for the separate VT-d sampler. */
+  assert(hsw_live_snapshot(gpu));
+  hsw_live.slot_probe=true;
+  assert(hsw_candidate_observe_access(true) && hsw_live_match());
+  hsw_emit=1;hsw_report();hsw_candidate_report();hsw_access_report(true);hsw_live_report(true);
+  puts("laptop-capture: completed=yes");
+  fprintf(stderr,"hsw-live: PASS PCI brackets, late candidate binding and GT capture\n");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"access")) {
   access_tests();
   access_setup();assert(hsw_candidate_observe_access(true));

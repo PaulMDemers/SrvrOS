@@ -164,7 +164,7 @@ static void hsw_backing_refusal(bool candidate_slot, bool access) {
  if(access)hsw_access_report(false);
 }
 
-bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access) {
+static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
@@ -185,8 +185,23 @@ bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candid
  if(!mapped){hsw_backing_refusal(candidate_slot,access);return false;}
  bool captured=hsw_capture_bound();
  if(!candidate_slot)return captured;
- bool observed=captured && (!access || haswell_firmware_run()) && hsw_candidate_observe_access(access);
+ bool observed=captured && (!access || hsw_live.slot_probe || haswell_firmware_run()) && hsw_candidate_observe_access(access);
  hsw_candidate_report();
  if(access)hsw_access_report(observed);
  return observed;
+}
+
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access) {
+ return hsw_backing_run(cpu_control,linux_fences,candidate_slot,access);
+}
+
+bool platform_haswell_live_slot(bool sampler_saved) {
+ bool ok=false;
+ if(sampler_saved && hsw_live.requester_rows==2) {
+  hsw_live.slot_probe=true;
+  ok=hsw_backing_run(true,true,true,true) && hsw_live_match();
+  hsw_live.slot_probe=false;
+ }
+ hsw_live_report(ok);
+ return ok;
 }

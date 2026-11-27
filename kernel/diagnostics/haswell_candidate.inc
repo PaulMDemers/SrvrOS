@@ -41,6 +41,79 @@ static bool hsw_candidate_pci(const struct pci_device *dev, uint32_t id, uint32_
     return pci_read_config32(dev, 0) == id;
 }
 
+/* requester[] brackets the isolated VT-d sampler. gt[] is captured
+ * much later, in the established candidate bracket. Neither observes a
+ * command engine queue or claims uninterrupted DMA/firmware exclusion. */
+static struct {
+    unsigned requester_rows, gt_rows;
+    struct { uint64_t begin, end; uint32_t words[4]; } requester[2];
+    struct { uint32_t core, rc6; } gt[2];
+    bool slot_probe;
+} hsw_live;
+
+static bool hsw_live_snapshot(const struct pci_device *dev) {
+    unsigned phase = hsw_live.requester_rows;
+    if (!dev || phase >= 2 || dev->bus || dev->device != 2 || dev->function ||
+        pci_read_config32(dev, 8) != 0x03000009 || pci_read_config32(dev, 0x2c) != 0x011a106b)
+        return false;
+    hsw_live.requester[phase].begin = timer_monotonic_us();
+    uint32_t *row = hsw_live.requester[phase].words;
+    if (!hsw_candidate_pci(dev, 0x0a268086, row) || !(row[0] & 2) || (row[1] & 3)) return false;
+    hsw_live.requester[phase].end = timer_monotonic_us();
+    if (!hsw_live.requester[phase].begin ||
+        hsw_live.requester[phase].end < hsw_live.requester[phase].begin) return false;
+    hsw_live.requester_rows++;
+    for (unsigned i = 0; phase && i < 3; i++)
+        if (row[i] != hsw_live.requester[0].words[i]) return false;
+    return true;
+}
+
+bool platform_haswell_live_requester(void) {
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *dev = pci_device_at(i);
+        if (dev && !dev->bus && dev->device == 2 && !dev->function)
+            return hsw_live_snapshot(dev);
+    }
+    return false;
+}
+
+static bool hsw_live_gt(void) {
+    unsigned i = hsw_live.gt_rows;
+    if (i >= 2) return false;
+    uint32_t core = graphics_read(0x60), rc6 = graphics_read(0x108);
+    if (core == UINT32_MAX || rc6 == UINT32_MAX) return false;
+    hsw_live.gt[i].core = core;
+    hsw_live.gt[i].rc6 = rc6;
+    hsw_live.gt_rows++;
+    return true;
+}
+
+static bool hsw_live_match(void) {
+    if (hsw_live.requester_rows != 2 || hsw_live.gt_rows != 2 ||
+        hsw_candidate_result.rows != 2 ||
+        hsw_candidate_result.begin <= hsw_live.requester[1].end) return false;
+
+    for (unsigned phase = 0; phase < 2; phase++)
+        for (unsigned word = 0; word < 3; word++)
+            if (hsw_live.requester[phase].words[word] !=
+                hsw_candidate_result.sample[phase][HC_IGD_CMD + word]) return false;
+    return true;
+}
+
+static void hsw_live_report(bool ok) {
+    console_printf("hsw-live: v=1 observed=%u requester_rows=%u gt_rows=%u writes=0 authority=none\n",
+                   (uint64_t)ok, (uint64_t)hsw_live.requester_rows, (uint64_t)hsw_live.gt_rows);
+    for (unsigned phase = 0; phase < hsw_live.requester_rows; phase++) {
+        const uint32_t *row = hsw_live.requester[phase].words;
+        console_printf("hsw-live-requester: phase=%u begin=%u end=%u cmd=%u pm=%u cap=%u devsta=%u\n",
+                       (uint64_t)phase, hsw_live.requester[phase].begin, hsw_live.requester[phase].end,
+                       (uint64_t)row[0], (uint64_t)row[1], (uint64_t)row[2], (uint64_t)row[3]);
+    }
+    for (unsigned phase = 0; phase < hsw_live.gt_rows; phase++)
+        console_printf("hsw-live-gt: phase=%u core=%u rc6=%u\n", (uint64_t)phase,
+                       (uint64_t)hsw_live.gt[phase].core, (uint64_t)hsw_live.gt[phase].rc6);
+}
+
 static bool hsw_candidate_display_unchanged(const uint32_t *row) {
     return row[HC_EDP_CONF] == 0xc0000018 && row[HC_EDP_FUNC] == 0x82200000 &&
            row[HC_DDI_A] == 0x80000011 && row[HC_PRIMARY] == 0x98004400 &&
@@ -122,7 +195,8 @@ static bool hsw_candidate_sample(uint32_t *row) {
     row[HC_FRAME] = resource_read(0x70040);
     if (!hsw_config_valid() || !hsw_read(NULL, HSW_CANDIDATE_MMIO, &row[HC_PTE]) ||
         row[HC_PTE] == UINT32_MAX ||
-        (hsw_access_window && !hsw_access_entries(row[HC_PTE]))) return false;
+        (hsw_access_window && !hsw_access_entries(row[HC_PTE])) ||
+        (hsw_live.slot_probe && !hsw_live_gt())) return false;
     for (unsigned i = 0; i < 4; i++) if (wells[i] != well_read(0x400 + i * 4)) return false;
     for (unsigned i = HC_EDP_CONF; i <= HC_LIVE; i++)
         if (row[i] != resource_read(hsw_candidate_regs[i - HC_EDP_CONF])) return false;

@@ -90,11 +90,11 @@ class SampleProfile(unittest.TestCase):
                 q._decode(q.pack(d,True),SESSION,True)
     def test_vm_harness_classifies_v8_at_both_levels(self):
         from hardware_boot_smoke import HFW_PROFILES
-        for i in range(1,9):
+        for i in range(1,10):
             text=f'ram-usb-v{i}-hfw-laptop-probe-6ada85bb-auto-return'
             self.assertTrue(text.startswith(HFW_PROFILES))
             self.assertEqual(text.startswith(HFW_PROFILES[1:]),i>=2)
-        self.assertFalse('ram-usb-v9-hfw-laptop-probe-6ada85bb'.startswith(HFW_PROFILES))
+        self.assertFalse('ram-usb-v10-hfw-laptop-probe-6ada85bb'.startswith(HFW_PROFILES))
     def test_persistence_counts_and_session_mutations(self):
         t,a,b,_=self.base
         for prefix in ('hsw-sample:','hsw-sample-data:','hsw-sample-end:','hsw-sample-pass:','hsw-sample-failure:','hsw-sample-counts:'):
