@@ -1,4 +1,5 @@
 #include <srvros/haswell_backing.h>
+#include <srvros/intel_hsw_ggtt.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,6 +8,7 @@ static struct hwb_endpoint base;
 static unsigned maps,unmaps,reads,endpoint_calls,fail_map,fail_read,fail_unmap,change_at;
 static uint64_t ticks=1;static unsigned frozen,rollback,late,change_pte;
 static unsigned tile_reads,tile_change,tile_value,upper_change,upper_ones;
+static uint32_t fence_high;
 static bool live;static uint32_t page;
 static bool endpoint(void *ctx,struct hwb_endpoint *e) {(void)ctx;*e=base;endpoint_calls++;if(change_at==endpoint_calls)e->v[HW_DISPARB]^=1;return true;}
 static bool map(void *ctx,uint32_t off){(void)ctx;assert(!live);maps++;if(maps==fail_map)return false;live=true;page=off;return true;}
@@ -15,7 +17,7 @@ static bool read_word(void *ctx,uint32_t off,uint32_t *out){
  (void)ctx;assert(live && (off&~4095u)==page);reads++;if(reads==fail_read)return false;
  if(off>=0x100080 && off<0x100100){*out=upper_ones?UINT32_MAX:upper_change && tile_reads?1:0;}
  else if(off==0x101000){tile_reads++;*out=tile_value^(tile_change && tile_reads==2?1u:0u);}
- else if(off>=0x100000 && off<0x100080){unsigned index=(off-0x100000)/8;*out=index?0:off&4?0x41f02b:1;}
+ else if(off>=0x100000 && off<0x100080){unsigned index=(off-0x100000)/8;*out=index?0:off&4?fence_high:1;}
  else {assert(off>=0x200000 && off<0x201800 && !(off&3));unsigned i=(off-0x200000)/4;*out=(0x8da00000+4096*i)|0x805;if(change_pte && maps>4 && i==5)*out^=4096;}
  return true;
 }
@@ -33,7 +35,47 @@ static void setup(void){
  v[HW_PAGES]=1056;v[HW_ENTRIES]=44;v[HW_BPP]=32;v[HW_COLOR]=HWB_COLOR;v[HW_CLASS]=1;
  v[HW_CONTIG]=v[HW_MMIO_SAFE]=v[HW_FIRMWARE]=v[HW_STOLEN_RESERVED]=1;
  io.linux_fences=false;io.cpu_control=false;tile_reads=tile_change=upper_change=upper_ones=0;tile_value=8;
+ fence_high=0x41f02b;
  maps=unmaps=reads=endpoint_calls=fail_map=fail_read=fail_unmap=change_at=frozen=rollback=late=change_pte=0;ticks=1;live=false;
+}
+static void test_ggtt_plan(void) {
+ const uint32_t first=0x01000000, last=0x0ffff000, original=0x8da00805;
+ const uint64_t dma=0x10000000;
+ setup();io.cpu_control=io.linux_fences=true;tile_value=0;fence_high=0x00fff02b;
+ assert(hwb_capture(&result,&io));
+ assert(intel_hsw_ggtt_address(0x12345805)==0x12345000);
+ assert(intel_hsw_ggtt_address(0x12345ff1)==0x7f12345000ull);
+ struct intel_hsw_ggtt_page plan;
+ assert(intel_hsw_ggtt_plan_page(&result,first,original,dma,&plan));
+ assert(plan.index==4096 && plan.mmio_offset==0x204000 && plan.original==original &&
+        plan.replacement==0x10000001);
+ assert(intel_hsw_ggtt_plan_page(&result,last,0,dma,&plan));
+ assert(plan.index==65535 && plan.mmio_offset==0x23fffc && !plan.original);
+
+ const struct intel_hsw_ggtt_page previous=plan;
+ const uint32_t offsets[]={0,0x00420000,first-4096,first+1,0x10000000,UINT32_MAX};
+ for(unsigned i=0;i<sizeof(offsets)/sizeof(offsets[0]);i++)
+  assert(!intel_hsw_ggtt_plan_page(&result,offsets[i],original,dma,&plan));
+ const uint64_t targets[]={0,dma+1,0x100000000ull,0x8d800000,0x8d9ff000,0x8da00000,0x8f9ff000};
+ for(unsigned i=0;i<sizeof(targets)/sizeof(targets[0]);i++)
+  assert(!intel_hsw_ggtt_plan_page(&result,first,original,targets[i],&plan));
+ assert(!intel_hsw_ggtt_plan_page(&result,first,UINT32_MAX,dma,&plan));
+ assert(!intel_hsw_ggtt_plan_page(&result,first,0x10000805,dma,&plan));
+ result.sample[1].fence[31]=1;
+ assert(!intel_hsw_ggtt_plan_page(&result,first,original,dma,&plan));
+ result.sample[1].fence[31]=0;
+ result.sample[1].endpoint.v[HW_GPU]=0x16268086;
+ assert(!intel_hsw_ggtt_plan_page(&result,first,original,dma,&plan));
+ result.sample[1].endpoint.v[HW_GPU]=0x0a268086;
+ result.sample[1].endpoint.v[HW_LIVE]=4096;
+ assert(!intel_hsw_ggtt_plan_page(&result,first,original,dma,&plan));
+ result.sample[1].endpoint.v[HW_LIVE]=0;
+ result.retained=1;
+ assert(!intel_hsw_ggtt_plan_page(&result,first,original,dma,&plan));
+ result.retained=0;result.version=2;
+ assert(!intel_hsw_ggtt_plan_page(&result,first,original,dma,&plan));
+ assert(!memcmp(&plan,&previous,sizeof(plan)));
+ puts("hsw-ggtt: PASS DWORD encoding, full fence and aperture bounds, borrowed backing rejection, exact rollback word");
 }
 int main(void){
  setup();assert(hwb_capture(&result,&io));assert(result.status==1 && result.count==1056 && result.maps==8 && maps==unmaps && !live);
@@ -84,4 +126,5 @@ int main(void){
  base.v[HW_SPAN]=base.v[HW_MEM_LEN]=1536*4096;base.v[HW_PAGES]=1536;base.v[HW_SOURCE]=(383u<<16)|4095;
  assert(hwb_capture(&result,&io) && result.sample[1].reads==1729 && maps==10);
  puts("hsw-backing: PASS exact profile/cache bits/full vectors, map/read/retirement faults, endpoint/PTE changes and bounded clocks");
+ test_ggtt_plan();
 }

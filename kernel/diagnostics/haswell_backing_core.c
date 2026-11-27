@@ -1,4 +1,5 @@
 #include <srvros/haswell_backing.h>
+#include <srvros/intel_hsw_ggtt.h>
 #include <stddef.h>
 static bool same(const struct hwb_endpoint *a,const struct hwb_endpoint *b) {
  for(unsigned i=0;i<HWB_WORDS;i++)if(a->v[i]!=b->v[i])return false;
@@ -93,7 +94,7 @@ bool hwb_capture(struct hwb_result *r,const struct hwb_io *io) {
    s->pte[i]=pte;s->count++;
    if(n && pte!=r->sample[0].pte[i]){r->status=7;goto done;}
    for(unsigned b=0;b<4;b++)s->hash=(s->hash^((pte>>(8*b))&255))*1099511628211ull;
-   uint64_t pa=(pte&0xfffff000ull)|((pte&0x7f0ull)<<28); /* HSW cache bit11 is not PA39. */
+   uint64_t pa=intel_hsw_ggtt_address(pte);
    s->present+=!!(pte&1);s->stolen+=!!((pte&1) && pa>=r->stolen_base && pa<r->stolen_end);
    if(!(i&63)) {uint64_t now=io->now(io->ctx);if(now<s->begin || now-s->begin>HWB_LIMIT_US){r->status=5;goto done;}}
   }

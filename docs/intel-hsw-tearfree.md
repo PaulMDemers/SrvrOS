@@ -1,0 +1,65 @@
+# MacBookAir6,1 tear-free display bring-up
+
+## Hardware baseline
+
+Ubuntu i915 reports Haswell ULT GT3 (Intel HD Graphics 5000) at `00:02.0`, PCI ID
+`8086:0a26` revision 09 and Apple subsystem `106b:011a`. The only connected
+output is internal eDP. Its preferred EDID timing is 1366×768 at 60 Hz.
+Ubuntu exposes a 4 MiB MMIO BAR and a 256 MiB CPU graphics aperture.
+The SrvrOS backing capture observed Pipe A scanning an X-tiled surface from
+GGTT address zero, at pitch 5,632 bytes. Its 1,056 image pages sit inside a
+16 MiB inherited fence. The entire fence stays protected.
+[Air6,1 native backing evidence](macbookair6-1-tiled-backing-audit.md#explicit-linux-model-32-fence-observation-version-3-2026-11-04)
+· [Intel i5-4260U specifications](https://www.intel.com/content/www/us/en/products/sku/75030/intel-core-i54260u-processor-3m-cache-up-to-2-70-ghz/specifications.html)
+
+| | Air6,1 Haswell | Air7,2 Broadwell |
+| --- | --- | --- |
+| Internal panel | 1366×768 eDP | 1440×900 eDP |
+| GGTT entry | 32-bit | 64-bit |
+| GGTT offset in MMIO BAR | 2 MiB | 8 MiB |
+| Inherited fence observed | 16 MiB | 34 MiB |
+
+Haswell stores upper address bits in the low part of the entry, alongside
+cache policy. Bit 11 selects cache policy. Graphics address-space and lifetime
+contracts can be shared once available on main. The actual bind, translation
+invalidation, cache visibility and reader retirement need a Haswell provider.
+[Intel Haswell Memory Views, pp. 35–36 and 46](https://kiwitree.net/~lina/intel-gfx-docs/prm/hsw/intel-gfx-prm-osrc-hsw-memory-views.pdf)
+· [Linux i915 Haswell encoder and Gen6/7 GGTT path](https://code.googlesource.com/linux/torvalds/linux/%2B/3ca112b71f35dd5d99fc4571a56b5fc6f0c15814/drivers/gpu/drm/i915/gt/intel_ggtt.c)
+
+## Current driver checkpoint
+
+Air7,2 PR301 at `fd722b07` selected boot-scoped takeover that keeps the
+inherited primary running. Its one-page bind and rollback run against
+modeled hardware. Its native diagnostics separately collect EFI handoff,
+reset, queue and mapping-lifetime evidence. Native GGTT writes and tear-free
+presentation are still pending. This Air6,1 work uses the same ordering of
+milestones and leaves the shared lifetime provider to that PR.
+[Air7,2 driver branch](https://github.com/PaulMDemers/SrvrOS/pull/301)
+· [Air7,2 roadmap at the reviewed revision](https://github.com/PaulMDemers/SrvrOS/blob/fd722b07/docs/intel-tearfree-roadmap.md)
+
+The first Haswell driver component plans one 4 KiB bind from the existing
+two-pass backing capture. It checks the exact inherited primary and both
+fence sets, protects the full 16 MiB fence and retains the candidate's raw
+DWORD for rollback. It computes the DWORD location and the Gen7 no-cache
+encoding for a low-32-bit DMA address. It refuses the observed stolen
+and GGTT backing ranges. The test address class is a restriction of this
+first experiment. A planned entry carries no reservation or hardware
+authority, and the planner performs no I/O. The existing backing capture
+shares its Haswell address decoder.
+[Planner](../kernel/diagnostics/intel_hsw_ggtt.c)
+· [Host capture and planner fixture](../tools/test_hsw_backing.c)
+
+The next checkpoint is to observe one candidate DWORD on the actual machine
+and identify its firmware, display and DMA users while Pipe A stays on.
+A later write trial requires an owner that maintains exclusion from
+admission through a posted DWORD store, Gen7 translation completion and
+exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a
+flush-control write and posting read under the uncore lock. That is a
+reference for ordering; SrvrOS still needs its own native admission and
+completion evidence. [Linux i915 Gen6/7 GGTT invalidation](https://code.googlesource.com/linux/torvalds/linux/%2B/3ca112b71f35dd5d99fc4571a56b5fc6f0c15814/drivers/gpu/drm/i915/gt/intel_ggtt.c#192)
+
+After the private bind, qualify complete pinned scanout buffers, confirm
+synchronous primary-plane latch at vblank and independently retire readers
+before reusing the old front buffer. CPU rendering can supply the first two
+surfaces. Keep the inherited framebuffer as the fallback through physical
+validation.

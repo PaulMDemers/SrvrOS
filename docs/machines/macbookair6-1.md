@@ -17,6 +17,8 @@ register layout. It can describe a proposed private bind and its exact
 rollback word; a caller still needs a maintained native owner to execute it.
 The next checkpoint is a read-only verification of one candidate slot and
 the paths that can access it. There is no boot armed.
+The [Haswell bring-up guide](../intel-hsw-tearfree.md) records the comparison
+and the checkpoints for native ownership and presentation.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,

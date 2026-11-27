@@ -5461,9 +5461,14 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v2-max.log --output build/tests/hsw-backing-tail-v2.json
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v3-max.log --output build/tests/hsw-backing-tail-v3.json
-build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
+build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c kernel/include/srvros/haswell_backing.h kernel/include/srvros/intel_hsw_ggtt.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $(filter %.c,$^) -o $@
+
+build/ap-probe/intel-hsw-ggtt.o: kernel/diagnostics/intel_hsw_ggtt.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
+
 build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c -Wl,--gc-sections -o $@
