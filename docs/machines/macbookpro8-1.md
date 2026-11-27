@@ -355,6 +355,16 @@ network stack's DHCP and local gateway checks. The Linux
 [tg3 register definitions](https://github.com/torvalds/linux/blob/master/drivers/net/ethernet/broadcom/tg3.h)
 provide the PHY status reference.
 
+The packet block continues PR #568 from device source `6606f6e7` and
+integration base `24feebdd`. This unit owns the BCM57765 polling path,
+its early-boot recipe and EHCI reports. The open graphics, desktop login,
+shared memory and installation export PRs have no Ethernet overlap.
+The trial will verify an exact frame through the internal MAC loopback,
+switch to the physical link for DHCP through the existing IPv4 stack,
+then retire the provider and DMA before returning to Ubuntu. It uses a
+single standard receive ring, receive return ring and send ring. The
+startup report is saved before packet DMA is admitted.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
