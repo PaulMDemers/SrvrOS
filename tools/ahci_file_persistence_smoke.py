@@ -41,6 +41,8 @@ def make_disk(out):
     sync = ROOT / "build/userspace/posixutils.elf"
     loader = ROOT / "build/limine-binary/BOOTX64.EFI"
     imports = {str(path.relative_to(ROOT)): digest(path) for path in (kernel, dd, sync, loader)}
+    boot_kernel = out / "srvros.elf"
+    subprocess.run(("objcopy", "--strip-debug", kernel, boot_kernel), check=True)
     seed = hashlib.shake_256(b"SrvrOS file-backed AHCI persistence").hexdigest(2048).encode()
     volume = out / "initial.exfat"
     with volume.open("xb") as stream:
@@ -60,7 +62,7 @@ def make_disk(out):
     initramfs.write_bytes(EMPTY_INITRAMFS)
     disk = out / "ssd.raw"
     build_image(SimpleNamespace(esp_size_mib=272, exfat=volume, bootx64=loader,
-                                bootia32=None, kernel=kernel, initramfs=initramfs,
+                                bootia32=None, kernel=boot_kernel, initramfs=initramfs,
                                 config=config, output=disk))
     return disk, seed, imports
 
@@ -89,7 +91,7 @@ def boot(args, disk, out, phase, seed):
     with tempfile.TemporaryDirectory(prefix="srv-ahci-", dir="/tmp") as tmp:
         qmp_path = Path(tmp) / "qmp"
         port = choose_port(30001, 38000)
-        command = [args.qemu, "-machine", "q35,accel=kvm:tcg", "-m", "1024M", "-smp", "1", "-nic", "none",
+        command = [args.qemu, "-machine", "q35,accel=tcg", "-m", "1024M", "-smp", "1", "-nic", "none",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
                    "-drive", f"if=pflash,format=raw,file={variables}",
                    "-device", "ich9-ahci,id=ahci",
