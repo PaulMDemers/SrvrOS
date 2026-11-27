@@ -1,8 +1,11 @@
 import struct
+import subprocess
 import tempfile
 import unittest
 import uuid
 import zlib
+from pathlib import Path
+from unittest.mock import patch
 
 import air61_ssd_probe as probe
 import hardware_boot as boot
@@ -51,6 +54,61 @@ def reset_trace(release, volume, ready=True):
 
 
 class Probe(unittest.TestCase):
+    def test_clean_efi_reference_restores_mount_and_keeps_complete_sector(self):
+        disk, partition, target = Path("/dev/test"), Path("/dev/test1"), Path("/boot/efi")
+        _, _, clean_sector = fixture()
+        mounted_sector = bytearray(clean_sector)
+        mounted_sector[65] = 1
+        clean = {"samples": ["gpt1", "gpt2", "clean"]}
+        mounted = {"samples": ["gpt1", "gpt2", "mounted"]}
+        options = frozenset(("rw", "relatime"))
+        for mode in ("passed", "read-error", "umount-error", "alias"):
+            attached = True
+            events = []
+
+            def mounted_efi(actual, mount):
+                self.assertEqual((actual, mount), (disk, target))
+                self.assertTrue(attached)
+                return partition, options
+
+            def find(*args):
+                if mode == "alias" and args[0] == "-S" and not attached:
+                    return ["/alternate"]
+                return ["mounted"] if attached else []
+
+            def run(args, *, check, timeout):
+                nonlocal attached
+                self.assertTrue(check)
+                self.assertEqual((args[1:], timeout), (("--", str(target)), 20))
+                events.append(args[0])
+                if mode == "umount-error":
+                    raise subprocess.CalledProcessError(1, args)
+                attached = args[0] == "mount"
+
+            def capture(actual):
+                self.assertEqual(actual, disk)
+                events.append("mounted-read" if attached else "clean-read")
+                if attached:
+                    return mounted, bytes(mounted_sector)
+                if mode == "read-error":
+                    raise OSError("fixture read fault")
+                return clean, clean_sector
+
+            with (patch.object(probe, "_efi_mount", side_effect=mounted_efi),
+                  patch.object(probe, "_find_efi", side_effect=find),
+                  patch.object(probe, "_ubuntu_capture", side_effect=capture),
+                  patch.object(probe.subprocess, "run", side_effect=run)):
+                if mode == "passed":
+                    self.assertEqual(probe.clean_ubuntu_reference(disk), (clean, clean_sector, bytes(mounted_sector)))
+                else:
+                    with self.assertRaises((OSError, subprocess.CalledProcessError, ValueError)):
+                        probe.clean_ubuntu_reference(disk)
+            expected = ["mounted-read", "umount"]
+            if mode in ("passed", "read-error"):
+                expected += ["clean-read", "mount"]
+            self.assertEqual(events, expected)
+            self.assertEqual(attached, mode != "alias")
+
     def test_reset_receipts(self):
         v2 = boot.limine_config(RELEASE, f"ram-usb-v2-air61-ssd-{VOLUME}")
         v3 = boot.limine_config(RELEASE, f"ram-usb-v3-air61-ssd-{VOLUME}")
@@ -105,6 +163,7 @@ class Probe(unittest.TestCase):
                 disk.write(data)
             disk.flush()
             baseline = probe.read_samples(disk.fileno())
+            self.assertEqual(probe._read_samples(disk.fileno()), (baseline, fixture()[2]))
         cmdline = next(line.strip().removeprefix("cmdline: ")
                        for line in boot.limine_config(RELEASE, f"ram-usb-v1-air61-ssd-{VOLUME}").splitlines()
                        if "cmdline:" in line)
