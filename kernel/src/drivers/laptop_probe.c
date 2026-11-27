@@ -28,6 +28,57 @@ static uint32_t pwm_read(void *context,unsigned reg) {
 static void pwm_write(void *context,uint32_t value) {
     *(volatile uint32_t *)((uintptr_t)context+4096+0x254)=value;
 }
+static uint32_t pro81_pwm_read(void *context,unsigned reg) {
+    if(reg==3) return *(volatile uint32_t *)((uintptr_t)context+0x254);
+    return pwm_read(context,reg);
+}
+static void pro81_pwm_write(void *context,uint32_t value) {
+    *(volatile uint32_t *)((uintptr_t)context+0x254)=value;
+}
+void laptop_pro81_brightness_init(void) {
+    const struct pci_device *gpu=NULL,*pch=NULL;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);
+        if(p->bus || p->vendor_id!=0x8086) continue;
+        if(p->device==2 && !p->function && p->class_code==3 && !p->subclass) gpu=p;
+        if(p->device==31 && !p->function && p->class_code==6 && p->subclass==1) pch=p;
+    }
+    size_t n;
+    const uint8_t *d=find("DSDT",&n);
+    if(!gpu || !pch || !laptop_pro81_display_match(gpu->device_id,pch->device_id,d,n) ||
+       gpu->revision!=9 || pci_read_config16(gpu,0x2c)!=0x106b || pci_read_config16(gpu,0x2e)!=0x00db) {
+        console_write("pro81-backlight: provider=unavailable identity mismatch\n");
+        return;
+    }
+    uint64_t bar=gpu->bar[0] | ((uint64_t)gpu->bar[1]<<32),base=bar&~15ull;
+    if((bar&15)!=4 || !base || base>0x000ffffffff00000ull || !(pci_read_config16(gpu,4)&2)) {
+        console_write("pro81-backlight: provider=unavailable MMIO unavailable\n");
+        return;
+    }
+    const uint64_t va=0xffffc001f3100000ull;
+    const uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE;
+    if(!vmm_map_page(va,base+0x48000,flags|VMM_PAGE_WRITABLE)) {
+        console_write("pro81-backlight: provider=unavailable CPU register mapping failed\n");
+        return;
+    }
+    if(!vmm_map_page(va+4096,base+0xc8000,flags)) {
+        vmm_unmap_page(va,NULL);
+        console_write("pro81-backlight: provider=unavailable PCH register mapping failed\n");
+        return;
+    }
+    void *ctx=(void *)(uintptr_t)va;
+    console_printf("pro81-backlight: cpu_ctl=%x cpu_duty=%x pch_ctl=%x pch_period_duty=%x\n",
+        (uint64_t)pro81_pwm_read(ctx,0),(uint64_t)pro81_pwm_read(ctx,3),
+        (uint64_t)pro81_pwm_read(ctx,1),(uint64_t)pro81_pwm_read(ctx,2));
+    bool ready=backlight_bind_profile((struct backlight_io){ctx,pro81_pwm_read,pro81_pwm_write},BACKLIGHT_PRO8_1);
+    if(!ready) {
+        vmm_unmap_page(va+4096,NULL);
+        vmm_unmap_page(va,NULL);
+    }
+    int initial=backlight_percent(0);
+    console_printf("pro81-backlight: provider=%s initial_percent=%u\n",ready?"ready":"unavailable",
+        initial<0?0:(uint64_t)initial);
+}
 static bool pro_display_probe(bool brightness) {
     const struct pci_device *display=NULL;uint16_t pch=0;
     for(uint64_t i=0;i<pci_device_count();i++) {

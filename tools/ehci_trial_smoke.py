@@ -125,6 +125,8 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
 
 def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, keyboard_exit, file_checklist):
     saved_file = mode == "desktop-file"
+    brightness = mode == "desktop-brightness"
+    live_workspace = saved_file or brightness
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -140,8 +142,8 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                                f"srvros.ehci={mode} srvros.ehci-release={release} srvros.ehci-log-volume={log_volume}",
                                "deskd: display physical=1280x800 logical=1280x800 scale=1", "input: ps2_keyboard=yes ps2_mouse=yes"):
                     assert marker in first, marker
-                if mode in ("topcase-desktop", "desktop-file"):
-                    saved = "saved" if saved_file else "unverified"
+                if mode == "topcase-desktop" or live_workspace:
+                    saved = "saved" if live_workspace else "unverified"
                     for marker in (f"ehci-desktop-startup: release={release} phase=startup",
                                    "ehci-desktop-queue: phase=startup endpoint=0x0000000000000081",
                                    "ehci-desktop-queue: phase=startup endpoint=0x0000000000000083",
@@ -198,16 +200,24 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                         wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={seed + 7}" in s, vm, 25)
                         time.sleep(.4)
                         ui.call("screendump", {"filename": str(logs / "vm-reopened-document.ppm")})
+                    if brightness:
+                        click(790, 750)  # Settings in the 1280 × 800 dock.
+                        wait_for(serial, lambda s: "desktools: brightness percent=-1" in s, vm, 20)
                     click(33, 20)  # SrvrOS menu.
                     click(89, 462)  # Return to console.
                     ui_status = "PASS axes=3 checklist-zoom-clicks=2 pointer-exit=1 timeout=0"
                     desktop_status = "passed"
-                completion = "USB report saved. Restarting into Ubuntu." if saved_file else "USB report save could not be verified."
+                completion = "USB report saved. Restarting into Ubuntu." if live_workspace else "USB report save could not be verified."
                 final = wait_for(serial, lambda s: completion in s, vm, 30)
                 for marker in (f"ehci-desktop-ui: result={ui_status}",
                                f"ehci-desktop: release={release} result=INCOMPLETE desktop={desktop_status} retirement=safe"):
                     assert marker in final, marker
-                if saved_file:
+                if brightness:
+                    assert "pro81-backlight: provider=unavailable identity mismatch" in first
+                    assert "pro81-backlight: result=INCOMPLETE initial_duty=0 last_duty=0 writes=0 low=0 high=0 restored=0" in final
+                    assert "ehci-desktop-workspace: backend=usb mounted=1" in final
+                    assert "ehci-desktop-brightness: report=saved flash-retirement=safe" in final
+                elif saved_file:
                     assert "ehci-desktop-workspace: backend=usb mounted=1" in final
                     assert f"ehci-desktop-file: release={release} path=/work/srvros-work/ehci-desktop-{release}.txt seeded=1 exact={int(not keyboard_exit)}" in final
                     assert "ehci-desktop-file: report=saved flash-retirement=safe" in final
@@ -256,12 +266,16 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     check_clean_image(volume)
     image = ExfatFixture(saved)
     assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
-    expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
-    assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
+    if file_checklist is not None:
+        expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
+        assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
     startup = image.read(f"srvros-work/ehci-trackpad-{release}-startup.txt")
     final = image.read(f"srvros-work/ehci-trackpad-{release}.txt")
     assert f"ehci-desktop-startup: release={release} phase=startup".encode() in startup
     assert f"ehci-desktop: release={release} result=INCOMPLETE".encode() in final
+    if file_checklist is None:
+        assert b"pro81-backlight: provider=unavailable identity mismatch" in startup
+        assert b"pro81-backlight: result=INCOMPLETE initial_duty=0 last_duty=0 writes=0" in final
 
 
 def main():
@@ -281,11 +295,12 @@ def main():
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
+    brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
     file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
-    keyboard_checklist = desktop_trace or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
-    if args.keyboard_exit and not (desktop_trace or desktop_file):
-        parser.error("keyboard exit needs a v3 desktop stage")
+    keyboard_checklist = desktop_trace or brightness or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
+    if args.keyboard_exit and not (desktop_trace or desktop_file or brightness):
+        parser.error("keyboard exit needs a v3 or later desktop stage")
     log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
@@ -294,7 +309,7 @@ def main():
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
     if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = "desktop-file" if desktop_file else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
+    mode = "desktop-brightness" if brightness else "desktop-file" if desktop_file else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.keyboard_exit:
         logs /= "keyboard-exit"
@@ -356,13 +371,13 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
             trial_command = command.copy()
-            if desktop_file:
+            if desktop_file or brightness:
                 stick, volume = desktop_workspace_image(temp, log_volume)
                 trial_command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                                   "-device", "usb-storage,drive=stick,bus=xhci.0"]
             exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit, file_checklist)
-            if desktop_file:
-                verify_desktop_workspace(stick, volume, release, args.keyboard_exit, file_checklist)
+            if desktop_file or brightness:
+                verify_desktop_workspace(stick, volume, release, args.keyboard_exit, None if brightness else file_checklist)
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:
@@ -390,6 +405,9 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if desktop_file:
             result.update(startup_checkpoint="verified", final_report="verified", keyboard_exit=args.keyboard_exit,
                           vm_keyboard="PS/2", file_roundtrip="unmodified" if args.keyboard_exit else "verified")
+        if brightness:
+            result.update(startup_checkpoint="verified", final_report="verified", keyboard_exit=args.keyboard_exit,
+                          brightness_provider="refused")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

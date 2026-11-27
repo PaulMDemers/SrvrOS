@@ -19,6 +19,7 @@
 #include <srvros/battery_diagnostic.h>
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
+#include <srvros/backlight.h>
 #include <srvros/audio.h>
 #include <srvros/capture_write_timing.h>
 #include <srvros/audio_abi.h>
@@ -1023,11 +1024,13 @@ static bool ehci_saved_document(const char *path, const uint8_t *seed, uint64_t 
     return exact;
 }
 
-static void ehci_desktop_file_trial(const char *release, const char *volume, bool trackpad_ready, bool timer_running) {
+static void ehci_desktop_workspace_trial(const char *release, const char *volume, bool trackpad_ready,
+    bool timer_running, bool brightness) {
     char args[] = "--ehci-file-trial /work/srvros-work/ehci-desktop-0000000000000000.txt";
     char *path = args + sizeof("--ehci-file-trial ") - 1;
     for (unsigned i = 0; i < 16; i++) path[sizeof("/work/srvros-work/ehci-desktop-") - 1 + i] = release[i];
     boot_set_framebuffer_quiet(false);
+    if (brightness) laptop_pro81_brightness_init();
     ehci_desktop_startup_trace(release, trackpad_ready);
     bool mounted = ehci_desktop_workspace_start(volume);
     bool checkpoint_saved = mounted && ehci_desktop_workspace_report(release, true);
@@ -1035,26 +1038,37 @@ static void ehci_desktop_file_trial(const char *release, const char *volume, boo
     const struct vfs_node *checklist = vfs_lookup("/fat/share/Trackpad trial.txt");
     const uint8_t *seed = NULL;
     uint64_t seed_size = 0;
-    bool seeded = checkpoint_saved && checklist && checklist->size <= 1024 && !vfs_lookup(path) &&
+    bool seeded = !brightness && checkpoint_saved && checklist && checklist->size <= 1024 && !vfs_lookup(path) &&
         vfs_read_all(checklist, &seed, &seed_size) && exfat_write_file(path, seed, seed_size) && workspace_flush_committed();
     __asm__ volatile ("sti" : : : "memory");
     console_printf("ehci-desktop: opening desktop release=%s\n", release);
-    bool desktop_passed = seeded && timer_running && process_run_elf_args("/fat/bin/deskd", args);
+    bool desktop_passed = (brightness || seeded) && timer_running &&
+        process_run_elf_args("/fat/bin/deskd", brightness ? "--ehci-brightness-trial" : args);
     bool retired = ehci_desktop_trackpad_stop();
     __asm__ volatile ("cli" : : : "memory");
-    bool exact = seeded && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
-        ehci_saved_document(path, seed, seed_size);
-    if (seed) vfs_release_data(checklist, seed);
-    console_printf("ehci-desktop-file: release=%s path=%s seeded=%u exact=%u\n", release, path,
-        (uint64_t)seeded, (uint64_t)exact);
-    bool passed = trackpad_ready && desktop_passed && retired && exact && ehci_desktop_trackpad_verified();
+    bool checked;
+    if (brightness) {
+        struct backlight_trial result=backlight_pro81_finish();
+        checked=result.low && result.high && result.restored;
+        console_printf("pro81-backlight: result=%s initial_duty=%u last_duty=%u writes=%u low=%u high=%u restored=%u\n",
+            checked ? "PASS" : "INCOMPLETE", (uint64_t)result.initial_duty, (uint64_t)result.final_duty,
+            (uint64_t)result.writes, (uint64_t)result.low, (uint64_t)result.high, (uint64_t)result.restored);
+    } else {
+        checked = seeded && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
+            ehci_saved_document(path, seed, seed_size);
+        if (seed) vfs_release_data(checklist, seed);
+        console_printf("ehci-desktop-file: release=%s path=%s seeded=%u exact=%u\n", release, path,
+            (uint64_t)seeded, (uint64_t)checked);
+    }
+    bool passed = checkpoint_saved && trackpad_ready && desktop_passed && retired && checked && ehci_desktop_trackpad_verified();
     console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
         passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
     ehci_desktop_trackpad_print_trace("final");
     bool saved = mounted && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
         ehci_desktop_workspace_report(release, false);
     bool flash_retired = ehci_desktop_workspace_stop();
-    console_printf("ehci-desktop-file: report=%s flash-retirement=%s\n", saved ? "saved" : "unverified",
+    console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n", brightness ? "brightness" : "file",
+        saved ? "saved" : "unverified",
         flash_retired ? "safe" : "unverified");
     ehci_desktop_return(saved && retired && flash_retired, checkpoint_saved);
 }
@@ -1067,7 +1081,10 @@ void kmain(void) {
     bool ehci_keyboard_monitor = cmdline_has_token(cmdline, "srvros.ehci=keyboard-monitor");
     bool ehci_trackpad_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-trial");
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
-    bool ehci_desktop_trace = ehci_file_trial || cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
+    bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
+    const char *ehci_workspace_mode = ehci_brightness_trial ? "desktop-brightness" :
+        ehci_file_trial ? "desktop-file" : NULL;
+    bool ehci_desktop_trace = ehci_workspace_mode || cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
     bool ehci_trackpad_desktop_trial = ehci_desktop_trace || cmdline_has_token(cmdline, "srvros.ehci=trackpad-desktop");
     bool ehci_desktop_input = ehci_trackpad_desktop_trial || cmdline_has_token(cmdline, "srvros.ehci=trackpad");
     const char *ehci_trial_mode = ehci_trackpad_trial ? "trackpad-trial" :
@@ -1077,7 +1094,7 @@ void kmain(void) {
     char trial_release[17];
     char ehci_log_volume[9] = {0};
     if (ehci_trackpad_desktop_trial && (!ehci_trial_release(cmdline, trial_release,
-            ehci_file_trial ? "desktop-file" : ehci_desktop_trace ? "topcase-desktop" : "trackpad-desktop", ehci_log_volume) ||
+            ehci_workspace_mode ? ehci_workspace_mode : ehci_desktop_trace ? "topcase-desktop" : "trackpad-desktop", ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-desktop: invalid boot profile\n");
         halt_forever();
@@ -1497,7 +1514,8 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
-    if (ehci_file_trial) ehci_desktop_file_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running);
+    if (ehci_workspace_mode)
+        ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_brightness_trial);
     if (ehci_trackpad_desktop_trial)
         ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);
     if (auth_mode == LOCAL_AUTH_SIGNIN) {
