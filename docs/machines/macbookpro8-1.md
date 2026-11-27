@@ -135,6 +135,14 @@ covers the periodic queues, the desktop checklist and its VM rehearsal.
 Native acceptance requires built-in typing, pointer motion and clicking in
 the compositor, safe retirement and a release-matched flash report.
 
+The combined-input recovery block starts at `90f0d3b3` on `93e10a44`.
+`origin/main` at `54632d47` and open device scopes have no overlapping
+EHCI work. Scope is the captured topcase queue instrumentation, an early
+report on the separate flash controller, and the attended desktop exit
+path. The next trial will bound the observations, count keyboard reports
+without retaining keystrokes, and keep an independent pre-desktop report
+if input failure prevents the final report.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
