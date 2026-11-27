@@ -8414,11 +8414,13 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
             memcpy(credential+14,hs_aa,6);
             memcpy(credential+20,hs_pmk,32);
             bool ip=false;
+            bool expect_success=rtl_station_fixture==RTL_STATION_OK;
 #ifdef SRVROS_RTL8188CU_IP_TEST
             ip=rtl_station_ip_fixture;
+            expect_success=expect_success && !rtl_station_no_offer;
 #endif
             bool ok=rtl_cu_capture_station(image,sizeof image,blob,sizeof blob,credential,sizeof credential,ip);
-            assert(ok==(rtl_station_fixture==RTL_STATION_OK));
+            assert(ok==expect_success);
             if(rtl_station_fixture==RTL_STATION_QUEUE_LOAD || rtl_station_early_dma_failure()) {
                 assert(rtl_passive.parked && !rtl_radio_cr() && rtl_radio_model.reg[0x522]==0xff &&
                        !rtl_radio_model.commands && !rtl_radio_model.posts && !d->rtl8188cu_firmware_ready &&
@@ -8430,7 +8432,7 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
                    !rtl_station.pending && !rtl_passive.pending && rtl_radio_model.commands==3 &&
                    !rtl_radio_cr() && rtl_radio_model.reg[0x522]==0xff && !network_count);
             assert(!xhci.devices[2].control_success && !xhci.devices[3].control_success);
-            if(ok) {
+            if(rtl_station_fixture==RTL_STATION_OK) {
                 assert(rtl_station.auth_ok && rtl_station.assoc_ok && rtl_station.aid==23 && rtl_station.qos &&
                        rtl_station.m1 && rtl_station.m2 && rtl_station.m3 && rtl_station.m4 &&
                        rtl_station.leave && rtl_station.sends==rtl_station.completed);

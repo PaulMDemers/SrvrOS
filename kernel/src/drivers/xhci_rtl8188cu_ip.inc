@@ -152,4 +152,11 @@ static void rtl_cu_ip_log(void) {
         (uint64_t)rtl_ip.opened,(uint64_t)rtl_ip.posted,(uint64_t)rtl_ip.completed,(uint64_t)rtl_ip.protected_rx,
         (uint64_t)rtl_ip.received,(uint64_t)rtl_ip.ignored,(uint64_t)rtl_ip.dhcp,(uint64_t)rtl_ip.dns,
         (uint64_t)rtl_ip.http,(uint64_t)rtl_ip.drained,(uint64_t)rtl_ip.retired);
+    const struct net_dhcp_observation *d=&rtl_ip.probe.dhcp_observation;
+    console_printf("rtl8188cu-dhcp: version=%u started=%u finished=%u end=%u discover=%u queued=%u request=%u request_queued=%u elapsed_us=%u\n",
+        d->version,d->started,d->finished,d->end_reason,d->discovers,d->discover_queued,
+        d->requests,d->request_queued,d->elapsed_us);
+    console_printf("rtl8188cu-dhcp-rx: frames=%u ipv4=%u udp=%u dhcp=%u offer=%u accepted_offer=%u ack=%u accepted_ack=%u nak=%u rejected=%u first=%u last=%u mask=%u\n",
+        d->frames,d->ipv4,d->udp,d->dhcp,d->offers,d->accepted_offer,d->acks,d->accepted_ack,
+        d->naks,d->rejected,d->first_reject,d->last_reject,d->reject_mask);
 }

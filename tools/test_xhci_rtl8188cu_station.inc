@@ -11,6 +11,7 @@ static enum rtl_station_fixture rtl_station_fixture;
 static bool rtl_station_test_m1;
 #ifdef SRVROS_RTL8188CU_IP_TEST
 static bool rtl_station_ip_fixture;
+static bool rtl_station_no_offer;
 static void rtl_test_ap_tx(const uint8_t *,size_t);
 static void rtl_test_ap_rx(unsigned);
 #endif

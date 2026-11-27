@@ -209,6 +209,9 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
   /* A unicast AP echo of client UDP is authenticated, not a server reply. */
   if((ap.case_id==60 || ap.case_id==61) && type==1){memcpy(r,p,n);memcpy(r,hs_spa,6);ap_enqueue(r,n);}
   if((ap.case_id==60 || ap.case_id==61) && type==3){ap.ack_noise=68;if(ap.case_id==60)ap.ack_release=test_time+350000;}
+#ifdef SRVROS_RTL8188CU_IP_TEST
+  if(rtl_station_no_offer && type==1)return;
+#endif
   if((ap.case_id==42 || ap.case_id==61) && type==3)return; /* no ACK, not a parser rejection */
   body=274;ap_ip_header(r,p,17,8+body);memset(v,0,body);v[0]=2;v[1]=1;v[2]=6;memcpy(v+4,u+12,4);ap_p32(v+16,0x0a00020f);memcpy(v+28,hs_spa,6);ap_p32(v+236,0x63825363);unsigned at=240;v[at++]=53;v[at++]=1;v[at++]=type==1?2:5;
   const unsigned kinds[]={54,1,3,6,51};const uint32_t values[]={0x0a000202,0xffffff00,0x0a000202,0x0a000202,3600};for(unsigned i=0;i<5;i++){v[at++]=kinds[i];v[at++]=4;ap_p32(v+at,values[i]);at+=4;}v[at++]=255;assert(at==body);ap_p32(r+30,0xffffffff);ap_p16(r+24,0);ap_p16(r+24,~ap_sum(r+14,20,0));ap_p16(r+34,67);ap_p16(r+36,68);
@@ -1342,10 +1345,24 @@ static void connection_dhcp_receipt(unsigned fault){
 #endif
 int STACK5_TEST_MAIN(int argc,char **argv){
 #ifdef SRVROS_RTL8188CU_IP_TEST
- if(argc==4 && !strcmp(argv[1],"--rtl8188cu-ip")){
+ if(argc==4 && (!strcmp(argv[1],"--rtl8188cu-ip") || !strcmp(argv[1],"--rtl8188cu-no-offer"))){
   rtl_station_ip_fixture=true;
+  rtl_station_no_offer=!strcmp(argv[1],"--rtl8188cu-no-offer");
   assert(stack5_peer_generation(1));
   test_rtl8188cu_passive(argv[2],argv[3]);
+  const struct net_dhcp_observation *dhcp=&rtl_ip.probe.dhcp_observation;
+  assert(rtl_ip.opened && rtl_ip.retired && rtl_ip.drained && dhcp->started && dhcp->finished &&
+         dhcp->discover_queued==dhcp->discovers && dhcp->discover_queued);
+  if(rtl_station_no_offer){
+   assert(!rtl_ip.dhcp && !rtl_ip.dns && !rtl_ip.http && !dhcp->offers &&
+          !dhcp->accepted_offer && !dhcp->requests && !dhcp->accepted_ack && !dhcp->rejected);
+   assert(dhcp->end_reason==NET_DHCP_POLL_LIMIT || dhcp->end_reason==NET_DHCP_TIME_LIMIT);
+   assert(ap.dhcp==dhcp->discover_queued && ap.tx_pn==ap.dhcp && rtl_ip.completed==ap.dhcp);
+   puts("rtl8188cu: PASS native encrypted Discover without Offer and clean USB retirement");
+   return 0;
+  }
+  assert(dhcp->end_reason==NET_DHCP_SUCCESS && dhcp->accepted_offer==1 && dhcp->accepted_ack==1 &&
+         dhcp->requests==1 && dhcp->request_queued==1);
   assert(rtl_ip.retired && rtl_ip.drained && rtl_ip.dhcp && rtl_ip.dns && rtl_ip.http==204 &&
          ap.dhcp==2 && ap.dns==1 && ap.closed && rtl_ip.completed==ap.tx_pn);
   puts("rtl8188cu: PASS native encrypted xHCI, DHCP, DNS and HTTP through production stack and OpenSSL peer");
