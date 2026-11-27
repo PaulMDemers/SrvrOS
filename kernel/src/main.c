@@ -733,7 +733,9 @@ static void mount_exfat_volume(bool diagnostic_ram) {
         console_write("exfat: fallback block registration failed\n");
         return;
     }
-    if (!exfat_mount_block_device("/fat", device)) {
+    bool mounted = diagnostic_ram ? exfat_mount_block_device("/fat", device)
+                                  : exfat_mount_boot_image("/fat", device);
+    if (!mounted) {
         console_write("exfat: fallback block mount failed\n");
     }
 }

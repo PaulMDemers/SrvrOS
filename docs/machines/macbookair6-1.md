@@ -14995,3 +14995,45 @@ entries. The native 1800-second trial remains pending. The current host shell
 sets `NoNewPrivs`, which prevents privileged EFI installation and one-shot
 boot arming. The staged candidate, read-only USB inventory and matched evidence
 are retained. The installed current release and recovery remain available.
+
+Native run `da615f8eaf2f4b42` booted `cf6e85df4810c438` and scanned `/work`,
+then refused writable Home and detached the volume. The stress workload never
+started. The harness reported an unmount failure because it treated an inactive
+workspace as a failed unmount, even though the console had already confirmed
+detachment. Ubuntu returned with its one-shot consumed. Offline fsck and
+allocation checks passed and the same 327 files verified before and after.
+
+An isolated host replay restored all 410 live USB metadata records. The same
+restore with the exact staged initramfs and embedded `/fat` mounted refused
+atomically. Eight USB identities overlapped live `/fat` nodes. The isolated
+offline admission check cannot see those collisions. The photo, replay and
+return evidence are retained locally. Before retrying, qualify existing USB
+sidecar admission with both boot and Home namespaces present while preserving
+the saved identities and the external-collision check.
+
+### Boot-image identity repair
+
+Working from `c523e036`, isolate generated inode numbers for the initramfs and
+read-only fallback `/fat` block mount so the existing Air6,1 USB Home can
+restore its saved inode numbers. Scope is VFS allocation, embedded exFAT boot
+mounting, and a dual-mount regression. PR550's installed-system/account scope
+uses the existing persistent mount path. The next checkpoint is exact staged
+boot-namespace replay against the recorded USB sidecar and the existing loaded
+and exact-stage VM checks, followed by staging the original 30-minute 1% trial.
+
+Source `94915bf2` allocates boot-archive and read-only fallback image IDs
+separately from ordinary IDs. The dual-mount regression reproduces the old
+refusal and then restores exact metadata with both filesystems mounted. It
+also proves a real outside-ID conflict still refuses, with no USB mutations.
+The exact staged initramfs and embedded `/fat` of release `0e572ed90dbf0f0e`
+now coexist with all 410 live records from the Air6,1 USB sidecar in the host
+replay, with zero collisions and all saved fields exact. The physical USB
+sidecar was read on a read-only Ubuntu mount for this check.
+
+Exact-stage VM profile refusal passed. The 60-second loaded Air6,1 VM passed
+23 app cycles, 128 verified 256 KiB bursts at 1% and zero recorded audio
+underruns. Maximum desktop loop time was 122.742 ms within the existing
+500 ms bound. Directory admission completed 30 calls with 431 entries.
+The original 1800-second workload is staged with the same boot options and
+collector requirements. Ubuntu recovery `c35475f62f154f1e` is verified. The
+native run is pending and no one-shot is armed.

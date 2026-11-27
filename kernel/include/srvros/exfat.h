@@ -40,6 +40,8 @@ struct exfat_fsinfo {
 };
 
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size);
+/* Read-only block-backed boot image. New VFS nodes get boot-local IDs. */
+bool exfat_mount_boot_image(const char *mountpoint, struct block_device *device);
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device);
 /* Installed-root admission: no writes or flushes during mount; reject media
  * needing recovery, including any pending metadata temporary sidecar. */
