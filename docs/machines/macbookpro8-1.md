@@ -591,6 +591,23 @@ the normal mode restoration and USB save path. The EHCI host tests verified
 the request order and the retained multi-packet payload. The exact VM payload
 passed the checklist, absent-controller and Ubuntu-default rehearsal.
 
+Native `bc98fee76d0e18c3` completed all six HID requests and retained the
+same complete mode payloads as the previous trial and Ubuntu. The periodic
+queue started once and recorded 384 resubmissions and 384 completions, with
+the final request still pending at the gesture deadline. The first six
+snapshots verified alternating descriptors and data toggles, matching qTD
+and overlay tokens, and C-progress `0x04`. Their transfer lengths were
+again 2, 8, 8, 8, 8 and 8 bytes. The full run logged one ignored response,
+383 rejected eight-byte transfers, and zero decoded gestures. The original
+mode and topcase DMA and MMIO retirement verified.
+
+Ubuntu returned with the one-shot consumed and the EFI entries unchanged.
+The 6,275-byte native USB report matched its archived copy. The read-only
+allocation check passed for all 111 files, and prior file contents were
+preserved with the expected sidecar updates. The exact payload and report
+are archived outside `build/`. The saved report stops before USB teardown
+and reset.
+
 The native `cacf59a022b41970` trial requested periodic enable 13 µs after
 observed completion of the mode write. The controller acknowledged at 15 µs.
 The first interrupt completion arrived at 474,169 µs and carried `60 02`,
@@ -729,7 +746,7 @@ passed the checklist, absent-controller and Ubuntu-default rehearsal.
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Full feature payloads and split queue settings match Ubuntu. Native qTDs retire 2- or 8-byte transfers with zero decoded gestures. | Isolate Linux-style single-request resubmission on the running queue |
+| Trackpad | Feature payloads and split queue settings match Ubuntu. One running schedule sustained 384 native resubmissions and still returned 2- or 8-byte transfers with zero decoded gestures. | Establish the source of the short native payloads |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
