@@ -121,7 +121,7 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
         assert marker not in first, marker
 
 
-def exercise_desktop(command, temp, logs, release, log_volume, keyboard_checklist):
+def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, keyboard_exit):
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -134,9 +134,15 @@ def exercise_desktop(command, temp, logs, release, log_volume, keyboard_checklis
             try:
                 first = wait_for(serial, lambda s: re.search(geometry, s), vm, 90)
                 for marker in ("SRVROS_VM_NEXT_ENTRY_CONSUMED", "ehci-desktop: captured trackpad controller absent",
-                               f"srvros.ehci=trackpad-desktop srvros.ehci-release={release} srvros.ehci-log-volume={log_volume}",
+                               f"srvros.ehci={mode} srvros.ehci-release={release} srvros.ehci-log-volume={log_volume}",
                                "deskd: display physical=1280x800 logical=1280x800 scale=1", "input: ps2_keyboard=yes ps2_mouse=yes"):
                     assert marker in first, marker
+                if mode == "topcase-desktop":
+                    for marker in (f"ehci-desktop-startup: release={release} phase=startup",
+                                   "ehci-desktop-queue: phase=startup endpoint=0x0000000000000081",
+                                   "ehci-desktop-queue: phase=startup endpoint=0x0000000000000083",
+                                   "ehci-desktop-startup: USB checkpoint=unverified"):
+                        assert first.index(marker) < first.index("ehci-desktop: opening desktop"), marker
                 ui = QMP(qmp)
                 time.sleep(1)
                 ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
@@ -149,9 +155,6 @@ def exercise_desktop(command, temp, logs, release, log_volume, keyboard_checklis
 
                 x, y, width, _ = map(int, re.search(geometry, first).groups())
                 if keyboard_checklist:
-                    ui.mouse(50, 40)
-                    pointer[0] += 50
-                    pointer[1] += 40
                     ui.call("human-monitor-command", {"command-line": "sendkey ctrl-f"})
                     time.sleep(.3)
                     ui.key("e", shift=True)
@@ -161,18 +164,31 @@ def exercise_desktop(command, temp, logs, release, log_volume, keyboard_checklis
                     time.sleep(.4)
                     ui.call("screendump", {"filename": str(logs / "vm-typed-checklist.ppm")})
                     ui.key("esc")
-                click(x + width - 56, y + 20)
-                resized = wait_for(serial, lambda s: re.search(zoom, s), vm, 15)
-                x, y, width, _ = map(int, re.search(zoom, resized).groups())
-                click(x + width - 56, y + 20)
-                wait_for(serial, lambda s: "maximized=0 frame=" in s, vm, 15)
-                click(33, 20)  # SrvrOS menu.
-                click(89, 462)  # Return to console, after the separator and disabled profile rows.
+                if keyboard_exit:
+                    ui.call("human-monitor-command", {"command-line": "sendkey ctrl-alt-esc"})
+                    ui_status = "INCOMPLETE axes=0 checklist-zoom-clicks=0 pointer-exit=0 timeout=0"
+                    desktop_status = "unverified"
+                else:
+                    click(x + width - 56, y + 20)
+                    resized = wait_for(serial, lambda s: re.search(zoom, s), vm, 15)
+                    x, y, width, _ = map(int, re.search(zoom, resized).groups())
+                    click(x + width - 56, y + 20)
+                    wait_for(serial, lambda s: "maximized=0 frame=" in s, vm, 15)
+                    click(33, 20)  # SrvrOS menu.
+                    click(89, 462)  # Return to console.
+                    ui_status = "PASS axes=3 checklist-zoom-clicks=2 pointer-exit=1 timeout=0"
+                    desktop_status = "passed"
                 final = wait_for(serial, lambda s: "USB report save could not be verified." in s, vm, 15)
-                for marker in ("ehci-desktop-ui: result=PASS axes=3 checklist-zoom-clicks=2 pointer-exit=1 timeout=0",
-                               f"ehci-desktop: release={release} result=INCOMPLETE desktop=passed retirement=safe",
+                for marker in (f"ehci-desktop-ui: result={ui_status}",
+                               f"ehci-desktop: release={release} result=INCOMPLETE desktop={desktop_status} retirement=safe",
                                "ehci-log: captured flash controller absent"):
                     assert marker in final, marker
+                if mode == "topcase-desktop":
+                    assert "ehci-desktop-queue: phase=final endpoint=0x0000000000000081" in final
+                    assert "ehci-desktop-queue: phase=final endpoint=0x0000000000000083" in final
+                    assert final.count("ehci-log: captured flash controller absent") == 2
+                if keyboard_exit:
+                    assert "ehci-desktop-ui: keyboard-exit=1" in final
                 assert not has_fatal_exception(final)
                 ui.sock.close()
             finally:
@@ -187,6 +203,7 @@ def main():
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     parser.add_argument("--stall-hub-status", action="store_true", help="inject a port 2 GET_STATUS stall")
+    parser.add_argument("--keyboard-exit", action="store_true", help="finish the combined desktop trial without mouse input")
     args = parser.parse_args()
     if not boot.RELEASE_RE.fullmatch(args.release):
         parser.error("expected a 16-digit release identifier")
@@ -196,6 +213,10 @@ def main():
     version = manifest["config_version"]
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
+    desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
+    keyboard_checklist = desktop_trace or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
+    if args.keyboard_exit and not desktop_trace:
+        parser.error("keyboard exit needs a v3 desktop stage")
     log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
@@ -204,8 +225,10 @@ def main():
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
     if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
+    mode = "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
+    if args.keyboard_exit:
+        logs /= "keyboard-exit"
     if args.stall_hub_status:
         logs /= "hub-status-stall"
     logs.mkdir(parents=True, exist_ok=True)
@@ -263,7 +286,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
-            exercise_desktop(command, temp, logs, release, log_volume, version.startswith(boot.EHCI_DESKTOP_VERSION))
+            exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit)
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:
@@ -282,9 +305,12 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
     if keyboard_monitor:
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
     elif desktop_match:
-        result.update(guest_trial_result="INCOMPLETE", desktop_ui="PASS", vm_mouse="PS/2")
-        if version.startswith(boot.EHCI_DESKTOP_VERSION):
+        result.update(guest_trial_result="INCOMPLETE", desktop_ui="INCOMPLETE" if args.keyboard_exit else "PASS",
+                      vm_mouse="unused" if args.keyboard_exit else "PS/2")
+        if keyboard_checklist:
             result.update(vm_keyboard="PS/2", typed_checklist="vm-typed-checklist.ppm")
+        if desktop_trace:
+            result.update(startup_checkpoint="attempted", final_report="attempted", keyboard_exit=args.keyboard_exit)
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

@@ -2419,7 +2419,8 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
-    int ehci_trial=argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial");
+    int ehci_topcase_trial=argc==2 && !strcmp(argv[1],"--ehci-topcase-trial");
+    int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
@@ -2585,8 +2586,10 @@ int main(int argc,char **argv) {
     if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
-        if(ehci_trial && !s.exiting && loop_now>=ehci_deadline) {
+        if(ehci_trial && (!s.exiting || ehci_topcase_trial) && loop_now>=ehci_deadline) {
             ehci_timeout=1;
+            /* Only this RAM trial may force cleanup of an unresponsive checklist. */
+            if(ehci_topcase_trial) { quit=1;break; }
             global_menu_action(&s,GLOBAL_EXIT);
         }
         if(audio_io && (audio_io_pid || audio_io_finished)) {
@@ -2938,6 +2941,7 @@ int main(int argc,char **argv) {
             s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) {
+                if(ehci_topcase_trial) desk_log("ehci-desktop-ui: keyboard-exit=1\n");
                 if(s.session_child)global_menu_action(&s,GLOBAL_EXIT);else quit=1;
                 break;
             }

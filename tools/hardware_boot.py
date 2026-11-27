@@ -27,8 +27,9 @@ EHCI_KEYBOARD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-keyboard"
 EHCI_MONITOR_VERSION = "ram-usb-v1-macbookpro8-1-ehci-monitor"
 EHCI_TRACKPAD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-trackpad"
 EHCI_TRACKPAD_LOG_RE = re.compile(re.escape(EHCI_TRACKPAD_VERSION) + r"-log-([0-9a-f]{8})")
-EHCI_DESKTOP_VERSION = "ram-usb-v2-macbookpro8-1-ehci-desktop"
-EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[12]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})")
+EHCI_DESKTOP_V2_VERSION = "ram-usb-v2-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_VERSION = "ram-usb-v3-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[123]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})")
 EHCI_DESKTOP_FILES = ("fat/bin/deskd", "fat/bin/desktools", "fat/bin/deskclient", "fat/bin/deskfs",
                       "fat/share/Trackpad trial.txt")
 EHCI_DESKTOP_V1_CHECKLIST = b"""Built-in trackpad trial
@@ -44,7 +45,7 @@ Click SrvrOS at the top left and choose Return to console.
 Leave the flash drive connected for the report and restart.
 The trial will end after 90 seconds if you cannot finish.
 """
-EHCI_DESKTOP_CHECKLIST = b"""Built-in keyboard and trackpad trial
+EHCI_DESKTOP_V2_CHECKLIST = b"""Built-in keyboard and trackpad trial
 
 Move the pointer across the window with the built-in trackpad.
 Check that it moves horizontally and vertically.
@@ -59,6 +60,20 @@ Lift your finger, then click again to restore the window.
 Click SrvrOS at the top left and choose Return to console.
 Leave the flash drive connected for the report and restart.
 The trial will end after 90 seconds if you cannot finish.
+"""
+EHCI_DESKTOP_CHECKLIST = b"""Built-in keyboard and trackpad trial
+
+Move the pointer horizontally and vertically with the trackpad.
+
+Press Control+F in Text and type Ehci-42 on the built-in keyboard.
+Check that it appears in Find, then press Escape to close Find.
+
+With the trackpad, click maximize, lift, then click again to restore.
+Click SrvrOS at the top left and choose Return to console.
+
+If the pointer fails, press Control+Alt+Escape to finish the trial.
+If neither input works, wait 90 seconds for the automatic exit.
+Leave the flash drive connected for the reports and restart.
 """
 EHCI_TRIAL_MODES = {
     EHCI_TRIAL_VERSION: "split-trial",
@@ -587,7 +602,8 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
     elif logfile := EHCI_TRACKPAD_LOG_RE.fullmatch(version):
         cmdline = f"srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
     elif logfile := EHCI_DESKTOP_RE.fullmatch(version):
-        cmdline = f"srvros.storage=ram srvros.ehci=trackpad-desktop srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
+        mode = "topcase-desktop" if version.startswith(EHCI_DESKTOP_VERSION) else "trackpad-desktop"
+        cmdline = f"srvros.storage=ram srvros.ehci={mode} srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
     elif version in EHCI_TRIAL_VERSIONS:
         mode = EHCI_TRIAL_MODES[version]
         cmdline = f"srvros.storage=ram srvros.ehci={mode} srvros.ehci-release={release}"
@@ -670,7 +686,12 @@ def verify(directory, expected_release=None):
         with tarfile.open(directory / "initramfs.tar", "r:") as image:
             if tuple(image.getnames()) != EHCI_DESKTOP_FILES or not all(item.isfile() for item in image):
                 raise ValueError("Unexpected EHCI desktop boot files")
-            checklist = EHCI_DESKTOP_CHECKLIST if version.startswith(EHCI_DESKTOP_VERSION) else EHCI_DESKTOP_V1_CHECKLIST
+            if version.startswith(EHCI_DESKTOP_VERSION):
+                checklist = EHCI_DESKTOP_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_V2_VERSION):
+                checklist = EHCI_DESKTOP_V2_CHECKLIST
+            else:
+                checklist = EHCI_DESKTOP_V1_CHECKLIST
             if image.extractfile(EHCI_DESKTOP_FILES[-1]).read() != checklist:
                 raise ValueError("Missing EHCI desktop checklist")
 

@@ -107,17 +107,22 @@ static void run_flash_log(struct ehci_control_path *path, uint64_t *bulk_page) {
     }
     *bulk_page = physical;
     struct ehci_flash_io flash = { .path = path, .physical = (uint32_t)physical, .buffer = pmm_phys_to_virt(physical) };
-    static struct usb_storage storage;
-    if (usb_storage_attach(&storage, &flash, flash_bulk, false) && workspace_mount(report->log_volume)) {
-        char filename[] = "/work/srvros-work/ehci-trackpad-0000000000000000.txt";
+    static struct usb_storage startup_storage, final_storage;
+    struct usb_storage *storage = report->log_startup ? &startup_storage : &final_storage;
+    if (usb_storage_attach(storage, &flash, flash_bulk, false) && workspace_mount(report->log_volume)) {
+        char filename[] = "/work/srvros-work/ehci-trackpad-0000000000000000-startup.txt";
         const unsigned release_offset = sizeof("/work/srvros-work/ehci-trackpad-") - 1;
         for (unsigned i = 0; i < 16; i++) filename[release_offset + i] = report->log_release[i];
+        if (!report->log_startup) {
+            static const char suffix[] = ".txt";
+            for (unsigned i = 0; i < sizeof(suffix); i++) filename[release_offset + 16 + i] = suffix[i];
+        }
         bool written = !vfs_lookup(filename) && bootlog_persist(filename);
         bool unmounted = workspace_unmount();
         report->log_saved = written && unmounted;
         if (report->log_saved) console_printf("ehci-log: saved %s\n", filename);
     }
     if (!report->log_saved) console_write("ehci-log: result file could not be saved and unmounted\n");
-    if (storage.block && storage.failed) usb_storage_print_status(storage.block);
-    if (!usb_storage_retire(&storage)) report->log_saved = false;
+    if (storage->block && storage->failed) usb_storage_print_status(storage->block);
+    if (!usb_storage_retire(storage)) report->log_saved = false;
 }

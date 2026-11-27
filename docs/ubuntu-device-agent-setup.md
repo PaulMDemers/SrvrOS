@@ -864,6 +864,14 @@ USB workspace mounted, collect the evidence into a private directory under
 tools/trial collect "$RUN_DIR" --save
 ```
 
+The MacBookPro8,1 EHCI topcase diagnostic uses release-bound files directly
+under `srvros-work`. It saves `ehci-trackpad-<release>-startup.txt` before
+opening Text and attempts `ehci-trackpad-<release>.txt` on exit. Keep the
+flash drive connected. If the pointer fails, press Control+Alt+Escape or
+allow the 90-second deadline to end the trial. On Ubuntu, verify both files
+against the run record and preserve a startup-only result as incomplete
+evidence. Use the final report to verify desktop input and teardown.
+
 Omit `--save` for a JSON report on stdout. The command reads the recorded
 model and volume UUID, checks the marker, excludes pre-existing sessions,
 and matches the release in boot-option records. An unidentified new session

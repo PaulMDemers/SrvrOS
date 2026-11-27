@@ -979,6 +979,15 @@ entries and retained releases verified. The combined trial is incomplete.
 Trackpad queue progress, topcase retirement and the point at which the
 native save stopped remain unknown.
 
+The v3 topcase diagnostic keeps the failing combined schedule and HID
+sequence for comparison. It logs both periodic queue heads, the last
+observed descriptor state and the first six request lifetimes per endpoint.
+The trackpad samples record the wire report ID. The keyboard samples
+record lengths and queue progress only. The startup snapshot uses the
+separate flash controller before the desktop opens. Exit attempts a new
+flash report after the topcase worker retires. Control+Alt+Escape and the
+90-second deadline both reach cleanup even when the pointer is unusable.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |

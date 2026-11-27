@@ -901,6 +901,8 @@ static void test_desktop_shared_tt_schedule(void) {
 static void test_desktop_trackpad_input(void) {
     fixture_reset();
     desktop_trackpad = (struct ehci_desktop_trackpad){0};
+    desktop_trackpad.trace = true;
+    desktop_trackpad.frame_list = 0xb000;
     struct ehci_probe_report *report = &desktop_trackpad.report;
     struct ehci_control_path path = { .op = op, .report = report };
     const struct ehci_control_target target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
@@ -913,6 +915,8 @@ static void test_desktop_trackpad_input(void) {
     op[EHCI_USBCMD] = EHCI_CMD_RUN | EHCI_CMD_PERIODIC;
     op[EHCI_USBSTS] = EHCI_STS_PERIODIC;
     op[EHCI_PORTSC] = EHCI_PORT_CONNECTED;
+    op[EHCI_PERIODICLISTBASE] = 0xb000;
+    trackpad_frames[0] = 0xa000 | EHCI_LINK_QH;
     assert(!desktop_trackpad_poll(&path, &queue, &pointer, &slot, &last_report));
     assert(slot == 0 && !desktop_trackpad.reports);
 
@@ -927,6 +931,15 @@ static void test_desktop_trackpad_input(void) {
     }
     assert(desktop_trackpad.reports == 4 && desktop_trackpad.motion && injected_trackpad_events >= 3);
     assert(desktop_trackpad.presses == 1 && desktop_trackpad.releases == 1);
+    const struct ehci_desktop_queue_trace *trace = &desktop_trackpad.trackpad_trace;
+    assert(trace->completions == 4 && trace->last.polls == 5);
+    assert(trace->frame_link == (0xa000 | EHCI_LINK_QH) && trace->schedule_base == 0xb000);
+    assert(trace->first[0].completed && trace->first[0].length == 58 && trace->first[0].report_id == 0x74);
+    assert(trace->first[0].queue.polls == 2 && trace->first[0].last_us - trace->first[0].first_us == 8000);
+    observe_desktop_queue(&desktop_trackpad.keyboard_trace, &path, &queue, EHCI_TD_ACTIVE);
+    complete_desktop_queue(&desktop_trackpad.keyboard_trace, 8, 0);
+    assert(desktop_trackpad.keyboard_trace.first[0].completed && desktop_trackpad.keyboard_trace.first[0].length == 8);
+    assert(desktop_trackpad.keyboard_trace.first[0].report_id == 0 && trace->completions == 4);
 
     /* Full-size Type 2 transfer with a negative pressure field. */
     uint8_t malformed[EHCI_TRACKPAD_REPORT_MAX] = {0x74, [47] = 0x80,
@@ -950,6 +963,7 @@ static void test_desktop_trackpad_input(void) {
     assert(desktop_trackpad.malformed_samples[EHCI_DESKTOP_MALFORMED_SAMPLES - 1].completion ==
         4 + EHCI_DESKTOP_MALFORMED_SAMPLES);
     assert(!memcmp(sample->bytes, malformed, sizeof(malformed)));
+    assert(trace->completions == 9 && trace->first[4].length == sizeof(malformed) && trace->first[5].length == 0);
 }
 
 static void test_flash_bulk(void) {

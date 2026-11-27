@@ -60,10 +60,38 @@ static void cancel_desktop_pointer(struct trackpad_pointer *pointer) {
     if (trackpad_pointer_cancel(pointer, &motion)) mouse_cancel_trackpad();
 }
 
+static void observe_desktop_queue(struct ehci_desktop_queue_trace *trace, const struct ehci_control_path *path,
+    const volatile struct ehci_trackpad_dma *dma, uint32_t token) {
+    if (!desktop_trackpad.trace) return;
+    sample_trackpad_queue(&trace->last, path, &dma->qh, token, dma->qh.overlay.token);
+    trace->schedule_base = path->op[EHCI_PERIODICLISTBASE];
+    trace->command = path->op[EHCI_USBCMD];
+    trace->status = path->op[EHCI_USBSTS];
+    const volatile uint32_t *frames = pmm_phys_to_virt(desktop_trackpad.frame_list);
+    trace->frame_link = frames[(trace->last.last_frame >> 3) % EHCI_FRAME_ENTRIES];
+    if (trace->completions < EHCI_TRACKPAD_TRACE_COUNT) {
+        struct ehci_desktop_request_sample *sample = &trace->first[trace->completions];
+        sample->last_us = timer_monotonic_us() - desktop_trackpad.activated_us;
+        if (!sample->queue.polls) sample->first_us = sample->last_us;
+        sample_trackpad_queue(&sample->queue, path, &dma->qh, token, dma->qh.overlay.token);
+    }
+}
+
+static void complete_desktop_queue(struct ehci_desktop_queue_trace *trace, unsigned length, unsigned report_id) {
+    if (!desktop_trackpad.trace) return;
+    unsigned request = trace->completions++;
+    if (request < EHCI_TRACKPAD_TRACE_COUNT) {
+        trace->first[request].length = length;
+        trace->first[request].report_id = report_id;
+        trace->first[request].completed = true;
+    }
+}
+
 static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct ehci_trackpad_dma *dma,
     struct trackpad_pointer *pointer, unsigned *slot, uint64_t *last_report) {
     const volatile struct ehci_trackpad_dma *progress = dma;
     uint32_t token = progress->slots[*slot].td.token;
+    observe_desktop_queue(&desktop_trackpad.trackpad_trace, path, progress, token);
     uint32_t status = path->op[EHCI_USBSTS];
     if ((token & EHCI_TD_ERROR) || (status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) ||
         !(status & EHCI_STS_PERIODIC) || !(path->op[EHCI_PORTSC] & EHCI_PORT_CONNECTED))
@@ -83,6 +111,7 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     uint32_t dummy = capture->first_td + next * sizeof(dma->slots[0]);
     if (!trackpad_queue_parked(progress, next, retired, dummy)) return "queue did not park at the inactive dummy";
     const uint8_t *data = dma->slots[*slot].data;
+    complete_desktop_queue(&desktop_trackpad.trackpad_trace, length, length ? data[0] : 0);
     struct apple_trackpad_frame frame;
     desktop_trackpad.completions++;
     int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
@@ -156,10 +185,11 @@ static void desktop_keyboard_report(const uint8_t *data, unsigned length, struct
     desktop_trackpad.keyboard_releases += was_down && !down;
 }
 
-static const char *desktop_keyboard_poll(struct ehci_trackpad_dma *dma, uint32_t physical,
+static const char *desktop_keyboard_poll(struct ehci_control_path *path, struct ehci_trackpad_dma *dma, uint32_t physical,
     struct keyboard_hid_state *state, unsigned *slot) {
     const volatile struct ehci_trackpad_dma *progress = dma;
     uint32_t token = progress->slots[*slot].td.token;
+    observe_desktop_queue(&desktop_trackpad.keyboard_trace, path, progress, token);
     if (token & EHCI_TD_ERROR) return "keyboard interrupt transfer error";
     if (!(token & EHCI_TD_ACTIVE)) {
         unsigned residual = (token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
@@ -170,7 +200,9 @@ static const char *desktop_keyboard_poll(struct ehci_trackpad_dma *dma, uint32_t
         uint32_t retired = first + *slot * sizeof(dma->slots[0]);
         uint32_t dummy = first + next * sizeof(dma->slots[0]);
         if (!trackpad_queue_parked(progress, next, retired, dummy)) return "keyboard queue did not park";
-        desktop_keyboard_report(dma->slots[*slot].data, keyboard_endpoint.length - residual, state);
+        unsigned length = keyboard_endpoint.length - residual;
+        complete_desktop_queue(&desktop_trackpad.keyboard_trace, length, 0);
+        desktop_keyboard_report(dma->slots[*slot].data, length, state);
         park_trackpad_qtd(&dma->slots[*slot].td);
         publish_trackpad_qtd(&dma->slots[next].td, retired,
             dummy + offsetof(struct ehci_trackpad_slot, data), keyboard_endpoint.length);
@@ -195,7 +227,9 @@ static void desktop_trackpad_worker(void *arg) {
     while (desktop_trackpad_state(NULL) == EHCI_MONITOR_RUNNING) {
         desktop_trackpad.failure = desktop_trackpad_poll(path, dma, &pointer, &slot, &last_report);
         if (!desktop_trackpad.failure)
-            desktop_trackpad.failure = desktop_keyboard_poll(dma + 1, keyboard_queue, &keyboard, &keyboard_slot);
+            desktop_trackpad.failure = desktop_keyboard_poll(path, dma + 1, keyboard_queue, &keyboard, &keyboard_slot);
+        else
+            observe_desktop_queue(&desktop_trackpad.keyboard_trace, path, dma + 1, dma[1].slots[keyboard_slot].td.token);
         if (desktop_trackpad.failure) break;
         uint64_t due = timer_ticks() + 1;
         if (!scheduler_wait_timeout(&wake, desktop_trackpad_due, &due, due)) scheduler_yield();
@@ -211,7 +245,7 @@ static void desktop_trackpad_worker(void *arg) {
         __ATOMIC_RELEASE);
 }
 
-bool ehci_desktop_trackpad_start(void) {
+bool ehci_desktop_trackpad_start(bool trace) {
     uint64_t root = vmm_kernel_address_space();
     if (desktop_trackpad_state(NULL) != EHCI_MONITOR_UNUSED || !timer_reference_ready() ||
         !vmm_diagnostic_sole_kernel_root(root)) return false;
@@ -221,6 +255,7 @@ bool ehci_desktop_trackpad_start(void) {
         return false;
     }
     struct ehci_probe_report *report = &desktop_trackpad.report;
+    desktop_trackpad.trace = trace;
     bool reusable = probe_controller(device, root, EHCI_BOOT_DESKTOP_TRACKPAD, report, 0, NULL);
     if (!desktop_trackpad.frame_list) {
         if (!reusable || (report->reset_halted && !report->access_retired))
@@ -242,6 +277,14 @@ bool ehci_desktop_trackpad_start(void) {
         (uint64_t)report->trackpad_target.address, report->trackpad.mode_to_active_us);
     console_printf("ehci-desktop-keyboard: ready endpoint=0x83 interval-ms=%u shared-tt=1\n",
         (uint64_t)keyboard_endpoint.interval);
+    if (trace) {
+        const struct ehci_trackpad_dma *dma = pmm_phys_to_virt(desktop_trackpad.transfer_page);
+        console_printf("ehci-desktop-schedule: frame-list=%x trackpad=%x keyboard=%x\n", desktop_trackpad.frame_list,
+            desktop_trackpad.transfer_page, desktop_trackpad.transfer_page + sizeof(*dma));
+        console_printf("ehci-desktop-schedule: trackpad-qh=%x trackpad-caps=%x keyboard-qh=%x keyboard-caps=%x\n",
+            (uint64_t)dma[0].qh.endpoint, (uint64_t)dma[0].qh.capabilities,
+            (uint64_t)dma[1].qh.endpoint, (uint64_t)dma[1].qh.capabilities);
+    }
     return true;
 }
 
@@ -271,6 +314,42 @@ static void print_desktop_frame_samples(void) {
                 (uint64_t)sample->completion, (uint64_t)offset, hex);
         }
     }
+}
+
+static void print_desktop_queue(const char *phase, const struct ehci_periodic_endpoint *endpoint,
+    const struct ehci_desktop_queue_trace *trace) {
+    const struct ehci_trackpad_queue_sample *last = &trace->last;
+    console_printf("ehci-desktop-queue: phase=%s endpoint=%x polls=%u completions=%u frindex=%x frame-link=%x list-base=%x\n",
+        phase, (uint64_t)endpoint->address, (uint64_t)last->polls, (uint64_t)trace->completions,
+        (uint64_t)last->last_frame, (uint64_t)trace->frame_link, (uint64_t)trace->schedule_base);
+    console_printf("ehci-desktop-queue: phase=%s endpoint=%x cmd=%x sts=%x td=%x overlay=%x current=%x next=%x c-mask-seen=%x\n",
+        phase, (uint64_t)endpoint->address, (uint64_t)trace->command, (uint64_t)trace->status,
+        (uint64_t)last->td_token, (uint64_t)last->overlay_token, (uint64_t)last->current,
+        (uint64_t)last->next, (uint64_t)last->c_progress);
+    for (unsigned i = 0; i < EHCI_TRACKPAD_TRACE_COUNT && trace->first[i].queue.polls; i++) {
+        const struct ehci_desktop_request_sample *sample = &trace->first[i];
+        const struct ehci_trackpad_queue_sample *q = &sample->queue;
+        console_printf("ehci-desktop-request: phase=%s endpoint=%x request=%u first-us=%u last-us=%u polls=%u complete=%u length=%u id=%x\n",
+            phase, (uint64_t)endpoint->address, (uint64_t)(i + 1), sample->first_us, sample->last_us,
+            (uint64_t)q->polls, (uint64_t)sample->completed, (uint64_t)sample->length, (uint64_t)sample->report_id);
+        console_printf("ehci-desktop-request: phase=%s endpoint=%x request=%u first-frindex=%x last-frindex=%x td=%x overlay=%x current=%x next=%x split=%u c-mask-seen=%x\n",
+            phase, (uint64_t)endpoint->address, (uint64_t)(i + 1), (uint64_t)q->first_frame, (uint64_t)q->last_frame,
+            (uint64_t)q->td_token, (uint64_t)q->overlay_token, (uint64_t)q->current, (uint64_t)q->next,
+            (uint64_t)q->split_seen, (uint64_t)q->c_progress);
+    }
+}
+
+/* Called with interrupts masked so the worker cannot change the snapshot. */
+void ehci_desktop_trackpad_print_trace(const char *phase) {
+    const struct ehci_trackpad_capture *capture = &desktop_trackpad.report.trackpad;
+    console_printf("ehci-desktop-trace: phase=%s worker-state=%u failure=%s reports=%u motion=%u retry=%u resumed=%u mode-before=%x mode-write=%x retry-normal=%x retry-active=%x\n",
+        phase, (uint64_t)desktop_trackpad_state(NULL), desktop_trackpad.failure ? desktop_trackpad.failure : "none",
+        (uint64_t)desktop_trackpad.reports, (uint64_t)desktop_trackpad.motion, (uint64_t)capture->recovery.attempted,
+        (uint64_t)capture->recovery.resumed, trackpad_report_word(capture->feature_before),
+        trackpad_report_word(capture->feature_write), trackpad_report_word(capture->recovery.normal),
+        trackpad_report_word(capture->recovery.wellspring));
+    print_desktop_queue(phase, &trackpad_endpoint, &desktop_trackpad.trackpad_trace);
+    print_desktop_queue(phase, &keyboard_endpoint, &desktop_trackpad.keyboard_trace);
 }
 
 bool ehci_desktop_trackpad_stop(void) {

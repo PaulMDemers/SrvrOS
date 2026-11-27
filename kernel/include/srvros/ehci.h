@@ -18,10 +18,12 @@ void ehci_boot_probe(enum ehci_boot_mode mode);
 void ehci_trial_screen(const char *release, bool keyboard);
 void ehci_boot_trial(const char *release, bool keyboard);
 bool ehci_boot_trackpad_trial(const char *release, const char *log_volume);
-bool ehci_desktop_trackpad_start(void);
+bool ehci_desktop_trackpad_start(bool trace);
 bool ehci_desktop_trackpad_stop(void);
 bool ehci_desktop_trackpad_verified(void);
 bool ehci_desktop_trackpad_save(const char *release, const char *volume);
+void ehci_desktop_trackpad_print_trace(const char *phase);
+bool ehci_desktop_trackpad_checkpoint(const char *release, const char *volume);
 void ehci_monitor_start(void);
 bool ehci_monitor_stop(void);
 

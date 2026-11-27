@@ -26,6 +26,7 @@
 
 #define EHCI_MMIO_WINDOW 0xffffc001f6000000ull
 #define EHCI_PAGE_BYTES 4096u
+#define EHCI_LOG_MMIO_WINDOW (EHCI_MMIO_WINDOW + EHCI_PAGE_BYTES)
 #define EHCI_CAP_BYTES 0x0cu
 #define EHCI_VERSION_1_0 0x0100u
 
@@ -200,7 +201,7 @@ struct ehci_probe_report {
     struct ehci_control_target trackpad_target;
     struct ehci_control_target flash_target;
     const char *log_volume, *log_release;
-    bool log_saved;
+    bool log_saved, log_startup;
     struct ehci_trackpad_capture trackpad;
     const char *keyboard_result;
     bool keyboard_passed;
@@ -288,6 +289,20 @@ struct ehci_desktop_frame_sample {
     uint8_t bytes[EHCI_DESCRIPTOR_BYTES];
 };
 
+struct ehci_desktop_request_sample {
+    struct ehci_trackpad_queue_sample queue;
+    uint64_t first_us, last_us;
+    unsigned length, report_id;
+    bool completed;
+};
+
+struct ehci_desktop_queue_trace {
+    struct ehci_trackpad_queue_sample last;
+    struct ehci_desktop_request_sample first[EHCI_TRACKPAD_TRACE_COUNT];
+    uint32_t frame_link, schedule_base, command, status;
+    unsigned completions;
+};
+
 static struct ehci_desktop_trackpad {
     struct ehci_probe_report report;
     struct ehci_control_path path;
@@ -298,6 +313,8 @@ static struct ehci_desktop_trackpad {
     enum ehci_monitor_state state;
     unsigned completions, reports, ignored, malformed, motion, presses, releases;
     unsigned keyboard_reports, keyboard_invalid, keyboard_presses, keyboard_releases;
+    bool trace;
+    struct ehci_desktop_queue_trace trackpad_trace, keyboard_trace;
     struct ehci_desktop_frame_sample malformed_samples[EHCI_DESKTOP_MALFORMED_SAMPLES];
     const char *failure;
 } desktop_trackpad;
@@ -836,6 +853,7 @@ static const char *probe_registers(const struct pci_device *device, volatile uin
 /* Return whether the temporary window is safe to reuse for another controller. */
 static bool probe_controller(const struct pci_device *device, uint64_t root, enum ehci_boot_mode mode,
     struct ehci_probe_report *report, int trial_slot, const char *keyboard_release) {
+    uint64_t window = report->log_startup ? EHCI_LOG_MMIO_WINDOW : EHCI_MMIO_WINDOW;
     uint32_t bar = device->bar[0];
     uint64_t base = bar & 0xffffff00u;
     unsigned bar_type = bar & 0xff;
@@ -853,14 +871,14 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         return true;
     }
     uint64_t page = base - page_offset;
-    if (!vmm_map_page_in_space(root, EHCI_MMIO_WINDOW, page,
+    if (!vmm_map_page_in_space(root, window, page,
             VMM_PAGE_WRITABLE | VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE)) {
         report->result = "map-failed";
         return false;
     }
 
     if (set_command_bits(device, PCI_COMMAND_MEMORY, PCI_COMMAND_MEMORY)) {
-        volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(EHCI_MMIO_WINDOW + page_offset);
+        volatile uint32_t *caps = (volatile uint32_t *)(uintptr_t)(window + page_offset);
         report->result = probe_registers(device, caps, mapped_bytes, report);
         if (mode != EHCI_BOOT_PROBE && report->reset_halted) {
             bool keep_keyboard = mode == EHCI_BOOT_KEYBOARD_MONITOR;
@@ -888,7 +906,7 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
         report->result = "memory-restore-failed";
     }
     uint64_t removed;
-    if (!vmm_unmap_page_in_space(root, EHCI_MMIO_WINDOW, &removed) || removed != page) {
+    if (!vmm_unmap_page_in_space(root, window, &removed) || removed != page) {
         report->mapping = "retirement-failed";
         return false;
     }
@@ -1139,7 +1157,9 @@ static void print_scan_stop(const struct ehci_probe_report *report) {
     }
 }
 
-static bool save_trackpad_log(uint64_t root, const char *release, const char *volume) {
+static bool desktop_flash_reusable = true;
+
+static bool save_trackpad_log(uint64_t root, const char *release, const char *volume, bool startup) {
     if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) {
         console_write("ehci-log: timer or address-space ownership unavailable\n");
         return false;
@@ -1149,8 +1169,11 @@ static bool save_trackpad_log(uint64_t root, const char *release, const char *vo
         if (!ehci_usb_controller(device) || trial_controller_slot(device) != 1) continue;
         struct ehci_probe_report report = {
             .handoff = "not-attempted", .mapping = "none", .log_volume = volume, .log_release = release,
+            .log_startup = startup,
         };
-        probe_controller(device, root, EHCI_BOOT_USB_LOG, &report, 1, NULL);
+        bool reusable = probe_controller(device, root, EHCI_BOOT_USB_LOG, &report, 1, NULL);
+        if (startup && (!reusable || (report.reset_halted && (!report.dma_released || !report.access_retired)) ||
+            workspace_active())) desktop_flash_reusable = false;
         print_scan_stop(&report);
         return report.log_saved && report.dma_released && report.access_retired;
     }
@@ -1158,10 +1181,20 @@ static bool save_trackpad_log(uint64_t root, const char *release, const char *vo
     return false;
 }
 
+bool ehci_desktop_trackpad_checkpoint(const char *release, const char *volume) {
+    /* The startup report uses a separate MMIO window and flash controller.
+     * No userspace root exists yet and the topcase worker cannot run here. */
+    return save_trackpad_log(vmm_kernel_address_space(), release, volume, true);
+}
+
 bool ehci_desktop_trackpad_save(const char *release, const char *volume) {
     enum ehci_monitor_state state = desktop_trackpad_state(NULL);
     if (state != EHCI_MONITOR_UNUSED && state != EHCI_MONITOR_RELEASED) return false;
-    return save_trackpad_log(vmm_kernel_address_space(), release, volume);
+    if (!desktop_flash_reusable) {
+        console_write("ehci-log: startup flash retirement unverified\n");
+        return false;
+    }
+    return save_trackpad_log(vmm_kernel_address_space(), release, volume, false);
 }
 
 static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *capture) {
@@ -1319,7 +1352,7 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     console_printf("ehci-trackpad: release=%s result=%s\n", release, passed ? "PASS" : "INCOMPLETE");
     if (log_volume && (!device || (report.access_retired && report.dma_released))) {
         console_write("Saving result to the USB workspace...\n");
-        if (save_trackpad_log(root, release, log_volume)) {
+        if (save_trackpad_log(root, release, log_volume, false)) {
             console_write("USB result saved and controller released. Restarting into Ubuntu.\n");
             return true;
         }

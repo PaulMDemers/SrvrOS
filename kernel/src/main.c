@@ -962,11 +962,26 @@ static bool ehci_trial_release(const char *cmdline, char release[17], const char
     return !*cmdline;
 }
 
-static void ehci_desktop_trial(const char *release, const char *volume, bool trackpad_ready, bool timer_running) {
+static void ehci_desktop_trial(const char *release, const char *volume, bool trackpad_ready, bool timer_running,
+    bool trace) {
     boot_set_framebuffer_quiet(false);
+    bool checkpoint_saved = false;
+    if (trace) {
+        console_write("Capturing topcase queues and saving a startup report before opening Text...\n");
+        console_sync();
+        uint64_t start = timer_monotonic_us();
+        while (trackpad_ready && timer_monotonic_us() - start < 1200000u) scheduler_yield();
+        __asm__ volatile ("cli" : : : "memory");
+        console_printf("ehci-desktop-startup: release=%s phase=startup\n", release);
+        ehci_desktop_trackpad_print_trace("startup");
+        checkpoint_saved = ehci_desktop_trackpad_checkpoint(release, volume);
+        __asm__ volatile ("sti" : : : "memory");
+        console_printf("ehci-desktop-startup: USB checkpoint=%s\n", checkpoint_saved ? "saved" : "unverified");
+    }
     console_printf("ehci-desktop: opening desktop release=%s\n", release);
     console_sync();
-    bool desktop_passed = timer_running && process_run_elf_args("/fat/bin/deskd", "--ehci-trackpad-trial");
+    bool desktop_passed = timer_running && process_run_elf_args("/fat/bin/deskd",
+        trace ? "--ehci-topcase-trial" : "--ehci-trackpad-trial");
     bool retired = ehci_desktop_trackpad_stop();
     bool passed = trackpad_ready && desktop_passed && retired && ehci_desktop_trackpad_verified();
     console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
@@ -974,11 +989,13 @@ static void ehci_desktop_trial(const char *release, const char *volume, bool tra
     console_write("Saving desktop trial to the USB workspace...\n");
     console_sync();
     __asm__ volatile ("cli" : : : "memory");
+    if (trace) ehci_desktop_trackpad_print_trace("final");
     if (retired && ehci_desktop_trackpad_save(release, volume)) {
         console_write("USB report saved. Restarting into Ubuntu.\n");
         console_sync();
         arch_reboot_unattended();
     }
+    if (checkpoint_saved) console_write("The startup report is on the flash drive.\n");
     console_write("USB report save could not be verified. Photograph this screen before restarting.\n");
     console_sync();
     halt_forever();
@@ -991,7 +1008,8 @@ void kmain(void) {
     bool ehci_keyboard_trial = cmdline_has_token(cmdline, "srvros.ehci=keyboard-trial");
     bool ehci_keyboard_monitor = cmdline_has_token(cmdline, "srvros.ehci=keyboard-monitor");
     bool ehci_trackpad_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-trial");
-    bool ehci_trackpad_desktop_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-desktop");
+    bool ehci_desktop_trace = cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
+    bool ehci_trackpad_desktop_trial = ehci_desktop_trace || cmdline_has_token(cmdline, "srvros.ehci=trackpad-desktop");
     bool ehci_desktop_input = ehci_trackpad_desktop_trial || cmdline_has_token(cmdline, "srvros.ehci=trackpad");
     const char *ehci_trial_mode = ehci_trackpad_trial ? "trackpad-trial" :
         ehci_keyboard_monitor ? "keyboard-monitor" : ehci_keyboard_trial ? "keyboard-trial" :
@@ -999,7 +1017,8 @@ void kmain(void) {
     bool ehci_trial = ehci_trial_mode != NULL;
     char trial_release[17];
     char ehci_log_volume[9] = {0};
-    if (ehci_trackpad_desktop_trial && (!ehci_trial_release(cmdline, trial_release, "trackpad-desktop", ehci_log_volume) ||
+    if (ehci_trackpad_desktop_trial && (!ehci_trial_release(cmdline, trial_release,
+            ehci_desktop_trace ? "topcase-desktop" : "trackpad-desktop", ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-desktop: invalid boot profile\n");
         halt_forever();
@@ -1391,7 +1410,7 @@ void kmain(void) {
     bool ehci_trackpad_ready = false;
     if (ehci_desktop_input && timer_running) {
         __asm__ volatile ("cli" : : : "memory");
-        ehci_trackpad_ready = ehci_desktop_trackpad_start();
+        ehci_trackpad_ready = ehci_desktop_trackpad_start(ehci_desktop_trace);
         __asm__ volatile ("sti" : : : "memory");
     }
     keyboard_print_status();
@@ -1419,7 +1438,8 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
-    if (ehci_trackpad_desktop_trial) ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running);
+    if (ehci_trackpad_desktop_trial)
+        ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);
     if (auth_mode == LOCAL_AUTH_SIGNIN) {
         boot_set_framebuffer_quiet(false);
         console_clear();
