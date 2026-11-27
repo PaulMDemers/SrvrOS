@@ -1584,6 +1584,19 @@ Ubuntu's default boot. Evidence and the verified payload are
 archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-4754d4d28671317e`.
 
+#### RTL8188CUS MAC receive timing
+
+Cold Linux writes CR `0x02ff` after clearing APSD and before packet
+buffer and firmware setup. SrvrOS previously wrote CR `0x9a` after
+baseband setup, calibration and USB endpoint configuration. Move the
+same receive-only write to the earliest equivalent point in the
+passive stage, immediately after APSD settles and before baseband
+or RF programming. The passive stage still follows firmware and
+packet buffer setup. Keep TX paused, the three hub ports and the
+single 4 KiB USB buffer. Verify early and late CR readbacks, receive
+counters and cleanup. Main `61111819` has no overlapping changes.
+[Linux RTL8192CU power-on and CR order](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L443-L460)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
