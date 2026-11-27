@@ -456,11 +456,18 @@ The recorded restoration, DMA and MMIO release checks passed. A changed
 Ubuntu boot ID and empty GRUB one-shot entry confirmed return. The photo
 and verified payload are archived outside `build/`.
 
-The next trial checks feature-mode readback before polling and records the
-longest completed transfer and the count of eight-byte responses. It also
-counts eight-byte responses starting with report ID `0x44`, which appears in
-this unit's Linux interface 1 HID descriptor. The failure sample had no
-report bytes or activation readback, so its cause remains open.
+Release `a4e7cdb4482bf5c1` read back feature mode 1 after writing it from
+mode 8. The longest completed transfer was eight bytes. All 282 eight-byte
+transfers failed type 2 decoding, and none started with report ID `0x44`.
+The last started with byte 2. The run restored the mode and released DMA and
+MMIO. Ubuntu returned and the result and payload were archived.
+
+The next work block adds result logging to the attached exFAT workspace
+through the captured high-speed EHCI storage route on `00:1d.7`. It reuses
+the shared USB Bulk-Only Transport and workspace code, selects the prepared
+volume by UUID and saves one release-named file. Checks cover bulk transfer,
+volume selection, flush, unmount and controller retirement. Trackpad report
+decoding remains open.
 
 Stage the capture with `python3 tools/hardware_boot.py stage --ehci-trackpad-trial`
 and rehearse it with `python3 tools/ehci_trial_smoke.py <release>`. The attended
