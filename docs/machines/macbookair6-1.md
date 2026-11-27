@@ -15095,3 +15095,11 @@ Only the dedicated Air6,1 probe emits them. The receive buffer is sampled only
 from the driver's own DMA page. No reset, retry, timeout or SSD access change
 is in scope. The next checkpoint is a tested and staged read-only diagnostic
 with a distinct USB receipt, preserving the first failed run.
+
+Source `d98a0619`, release `e6361b7660adbb2e`, passed AHCI/block, SMBIOS,
+GPT/receipt and stage host tests. The exact EFI image refused a foreign VM
+before AHCI access or filesystem mounting. The staged kernel drops only
+debug data and retains the same entry point and loadable segments, so it fits
+alongside the installed release and recovery. The USB copy of the first probe
+receipt still matches the archive. The next native run has its own receipt,
+Ubuntu baseline and return comparison. It is staged and unarmed.
