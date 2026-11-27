@@ -234,6 +234,14 @@ verified both files, retained all pre-existing user files and verified
 accepted brightness profile and known-good recovery payload were
 retained alongside the speaker trials.
 
+The fan and CPU temperature block starts at `ac1971f4` on merge base
+`93e10a44`, with integration tip `dc4a48d3` inspected. Open PRs #567 and
+#301 cover graphics, with no telemetry dependency. Scope is the observed
+Sandy Bridge thermal signature, one SMC exhaust fan, and an automatic
+System Sensors trial with startup and final reports on the EHCI workspace.
+The checkpoint is fresh boot-CPU and package temperatures, an exhaust fan
+RPM reading, increasing sample counts, and normal return to Ubuntu.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
