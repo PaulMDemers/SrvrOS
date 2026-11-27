@@ -2566,11 +2566,18 @@ The native desktop stack reproduced the pre-firmware failure with a
 queued hub status completion. With the fix, the normal xHCI completion
 handler retires the request and both desktop connections pass DHCP,
 gateway ping and DNS, resident UDP traffic and clean retirement.
-Unanswered transfers, wrong completion pointers and Event Data
-completions never free the hub EP0 for reuse. A replacement indication
-retires the old child and keeps the sibling adapters intact. The
-hardware retry records the admission flags so the exact startup state
-can be checked against the reproduced race.
+The guard retains hub EP0 ownership for unanswered transfers, wrong
+completion pointers and Event Data completions. A replacement indication
+retires the old child and keeps the sibling adapters intact. The hardware
+retry records the admission flags for comparison with the reproduced race.
+
+Retry release `1edb2bebd5f7c7ea` on `0cb5cc28` passed the native
+desktop and hub refusal tests, Realtek identity, firmware and IP
+regressions, the Edimax desktop reconnect, and shared xHCI lifecycle
+tests. All 327 boot, journal and trial unit checks and the five
+exact-image VM rehearsals passed. The trial keeps the previous Help
+checklist and saves both workspace and independent EFI evidence. Local
+run record `build/bringup/pro112-rtl8188cu-desktop-retry/run.json`.
 
 ### Retina desktop default
 
