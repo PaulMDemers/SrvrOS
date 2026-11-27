@@ -563,6 +563,13 @@ hold and a driver-owned range after reset remain open. The independent
 Haswell scope in PR 567 is unaffected.
 [Native panel result](../intel-bdw-edp-recovery.md#protected-translation-evidence-across-panel-recovery)
 
+The next takeover checkpoint starts at `555a8de5`; main `24feebdd`
+and the independent Haswell PR 567 were reviewed. This block binds the
+post-reset range to the completed remapper drain and restored PCI BARs,
+and reserves the exact page through native-style panel recovery in the
+Broadwell host and Q35 fixture. Native reset and mapping still require
+the on-device traffic provider and range grant.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
