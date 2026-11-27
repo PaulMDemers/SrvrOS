@@ -642,6 +642,14 @@ queue, gesture checks and USB report path. The open PRs and Pro11,2 branch
 have no overlapping EHCI work. The next checkpoint is the exact VM rehearsal
 and an attended one-shot with the same flash drive and Ubuntu recovery.
 
+Source `7365fd5d`, release `c1a658684ae3c9e1`, is the HID replay candidate.
+It uses the captured submission times as minimum offsets after
+`SET_CONFIGURATION 1`, including the 247,973 µs offset for the feature
+read. The host fixture verified all request fields and both keyboard output
+payloads, and verified that a short HID descriptor response stops the trial
+before the mode switch. The exact VM payload passed the checklist,
+absent-controller and Ubuntu-default rehearsal with the USB report enabled.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
