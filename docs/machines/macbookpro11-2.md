@@ -1804,6 +1804,18 @@ exact guard and readback. Keep CR `0x02ba`, TX paused, the 4 KiB
 request and all three hub ports. Qualify native refusal and both
 log sinks before the cold run. [Linux CU hardware configuration](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L767-L780)
 
+Release `8a47a308e7ec0538` (`d2199675`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. Native xHCI fixtures cover write order, an already-set
+byte, unexpected starting value, failed readback and drift before
+the first 4 KiB request. Exact-image VM rehearsals passed workspace
+logging, automatic reset and all four EFI journal modes. Decoder
+replay retained the before/after byte and receive evidence in both
+journal tails. The run record under
+`build/bringup/pro112-rtl8188cu-mac-loopback` binds the `0x02ba`
+control session and Linux timing reference. Reception still needs
+the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
