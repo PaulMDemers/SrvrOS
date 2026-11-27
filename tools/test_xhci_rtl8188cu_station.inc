@@ -4,10 +4,15 @@ enum rtl_station_fixture {
     RTL_STATION_OFF,RTL_STATION_OK,RTL_STATION_BAD_MIC,RTL_STATION_USB_TIMEOUT,RTL_STATION_USB_SPIN_LIMIT,
     RTL_STATION_USB_LATE,RTL_STATION_USB_BAD_CODE,RTL_STATION_USB_RESIDUE,RTL_STATION_USB_WRONG_TRB,
     RTL_STATION_USB_EVENT_DATA,RTL_STATION_QUEUE_LOAD,RTL_STATION_QUEUE_DRIFT,RTL_STATION_SIE_MAP,
-    RTL_STATION_OUT_HALTED,RTL_STATION_OUT_BAD_CONTEXT,RTL_STATION_NO_SIBLING,
+    RTL_STATION_OUT_HALTED,RTL_STATION_OUT_BAD_CONTEXT,RTL_STATION_DMA_READBACK,RTL_STATION_DMA_PAUSE,
+    RTL_STATION_DMA_FIRMWARE,RTL_STATION_NO_SIBLING,
 };
 static enum rtl_station_fixture rtl_station_fixture;
 static bool rtl_station_test_m1;
+
+static bool rtl_station_early_dma_failure(void) {
+    return rtl_station_fixture>=RTL_STATION_DMA_READBACK && rtl_station_fixture<=RTL_STATION_DMA_FIRMWARE;
+}
 
 static void rtl_radio_out_event(unsigned offset,uint64_t trb,unsigned code,unsigned residue,bool event_data) {
     rtl_radio_transfer_event(offset,trb,code,residue);
@@ -111,10 +116,22 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
 static void rtl_radio_assert_auth_trace(void) {
     const struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
     if(rtl_station_fixture==RTL_STATION_NO_SIBLING) {
-        assert(!rtl_station.queue_attempted && !rtl_station.ready && !rtl_station.sends &&
+        assert(!rtl_station.early_tx_dma && !rtl_station.queue_attempted && !rtl_station.ready && !rtl_station.sends &&
                !rtl_station.enabled && !trace->trb);
         return;
     }
+    assert(rtl_station.early_tx_dma && rtl_station.early_pause_valid && rtl_passive.early_rx_reads==2);
+    if(rtl_station_early_dma_failure()) {
+        bool firmware_drift=rtl_station_fixture==RTL_STATION_DMA_FIRMWARE;
+        assert(!rtl_station.sends && !trace->trb && !rtl_station.ready &&
+               rtl_station.queue_attempted==firmware_drift && rtl_station.queue_ready==firmware_drift);
+        assert(rtl_station.early_pause==(rtl_station_fixture==RTL_STATION_DMA_PAUSE?0x7f:0xff));
+        assert(rtl_passive.early_rx_after==(rtl_station_fixture==RTL_STATION_DMA_READBACK?0x02bb:0x02bf));
+        assert(rtl_passive.linked==(firmware_drift?256u:0u) && rtl_fw_model.arm_writes==(unsigned)firmware_drift);
+        return;
+    }
+    assert(rtl_passive.early_rx_after==0x02bf && rtl_station.early_pause==0xff &&
+           rtl_passive.early_rx_us && rtl_passive.early_rx_us<rtl_passive.llt_started_us);
     if(rtl_station_fixture>=RTL_STATION_QUEUE_LOAD) {
         assert(rtl_station.queue_attempted && !rtl_station.ready && !rtl_station.sends && !trace->trb);
         if(rtl_station_fixture==RTL_STATION_QUEUE_LOAD) {
@@ -123,6 +140,7 @@ static void rtl_radio_assert_auth_trace(void) {
             return;
         }
         assert(rtl_station.queue_ready && rtl_station.early_queue.reads==8 && rtl_station.auth_queue.reads==8);
+        assert(rtl_station.auth_queue.value[RTL_CU_TX_CR_SAMPLE]==0x02ff);
         bool out_checked=rtl_station_fixture==RTL_STATION_OUT_HALTED || rtl_station_fixture==RTL_STATION_OUT_BAD_CONTEXT;
         assert(rtl_station.out_status_valid==out_checked && rtl_radio_model.out_status_reads==(unsigned)out_checked);
         if(rtl_station_fixture==RTL_STATION_QUEUE_DRIFT)

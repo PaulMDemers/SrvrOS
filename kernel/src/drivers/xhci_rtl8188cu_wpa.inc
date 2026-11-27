@@ -54,7 +54,7 @@ static bool rtl_cu_write_address(struct xhci_device *d,uint16_t reg,const uint8_
 
 static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub) {
     if(!rtl_station.peer.rsne_size || !rtl_station.queue_ready || !rtl_cu_station_same_hub(d) ||
-       !rtl8188cu_check_port(d,hub) || !rtl_cu_mac_held(d,RTL_CU_LISTEN_CR))return false;
+       !rtl8188cu_check_port(d,hub) || !rtl_cu_mac_held(d,RTL_CU_STATION_CR))return false;
     static const struct {uint16_t reg,width;uint32_t value;} setup[]={
         {0x42a,2,0x3030},{0x430,4,0x01000000},{0x434,4,0x07060504},
         {0x438,4,0x01000000},{0x43c,4,0x07060504},{0x440,2,0x015d},{0x640,1,0x40},
@@ -75,9 +75,8 @@ static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub
     if(!rtl_cu_tx_allocation_matches(&rtl_station.auth_queue) ||
        v[RTL_CU_TX_SIE_HIGH_NORMAL_SAMPLE]!=0x32 || (v[RTL_CU_TX_SIE_LOW_SAMPLE]&0xf) ||
        v[RTL_CU_TX_MAP_SAMPLE]!=RTL_CU_TX_QUEUE_MAP ||
-       v[RTL_CU_TX_CR_SAMPLE]!=RTL_CU_LISTEN_CR || v[RTL_CU_TX_PAUSE_SAMPLE]!=0xff ||
-       !rtl_cu_station_out_ready(d) || !rtl_cu_mac_held(d,RTL_CU_LISTEN_CR) ||
-       !rtl_cu_write_checked(d,RTL8188CU_MAC_CONTROL,2,RTL_CU_STATION_CR))return false;
+       v[RTL_CU_TX_CR_SAMPLE]!=RTL_CU_STATION_CR || v[RTL_CU_TX_PAUSE_SAMPLE]!=0xff ||
+       !rtl_cu_station_out_ready(d) || !rtl_cu_mac_held(d,RTL_CU_STATION_CR))return false;
     rtl_station.enabled=rtl_cu_write_checked(d,RTL_CU_TX_PAUSE,1,0);
     return rtl_station.enabled;
 }
@@ -370,6 +369,14 @@ static void rtl_cu_station_log(bool complete) {
         (uint64_t)rtl_station.leave,(uint64_t)rtl_station.keys_erased,(uint64_t)rtl_station.tx_stopped,
         (uint64_t)rtl_station.sends,(uint64_t)rtl_station.completed,(uint64_t)rtl_station.last_rx,
         (uint64_t)rtl_station.failed,(uint64_t)complete);
+    if(rtl_station.early_tx_dma) {
+        const struct xhci_device *d=rtl_passive.owner;
+        console_printf("rtl8188cu-tx-dma: cr_valid=%u cr=%x pause_valid=%u pause=%x enable_us=%u llt_us=%u fw_us=%u fw_ready=%u parked=%u\n",
+            (uint64_t)(rtl_passive.early_rx_reads==2),(uint64_t)rtl_passive.early_rx_after,
+            (uint64_t)rtl_station.early_pause_valid,(uint64_t)rtl_station.early_pause,rtl_passive.early_rx_us,
+            rtl_passive.llt_started_us,d->rtl8188cu_download_started_us,
+            (uint64_t)d->rtl8188cu_firmware_ready,(uint64_t)rtl_passive.parked);
+    }
     if(rtl_station.queue_attempted) {
         rtl_cu_tx_log_sample("pre-firmware",&rtl_station.early_queue);
         rtl_cu_tx_log_sample("pre-auth",&rtl_station.auth_queue);

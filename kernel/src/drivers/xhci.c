@@ -2966,7 +2966,8 @@ enum rtl8188cu_firmware_bits {
     RTL8188CU_DL_ENABLE=1u,RTL8188CU_DL_READY=2u,RTL8188CU_CHECKSUM=4u,
     RTL8188CU_INT_READY=0x40u,RTL8188CU_RAM_SELECTED=0x80u,
     RTL8188CU_CPU_ENABLE=1u<<10,RTL8188CU_AUTOLOAD=1u<<1,RTL8188CU_MAC_ON=1u<<8,
-    RTL8188CU_TX_ENABLE=0x45u,RTL8188CU_RF_ENABLE=7u,
+    RTL8188CU_TX_DMA_ENABLE=(1u<<0)|(1u<<2),
+    RTL8188CU_TX_ENABLE=RTL8188CU_TX_DMA_ENABLE|(1u<<6),RTL8188CU_RF_ENABLE=7u,
 };
 
 static bool rtl8188cu_image_matches(const uint8_t *image,uint64_t size) {
@@ -3058,11 +3059,14 @@ static bool rtl8188cu_digital_power(struct xhci_device *d) {
         rtl8188cu_power_sample(d,RTL8188CU_POWER_AFTER_AUTO_ON);
 }
 
+static bool rtl8188cu_rf_off(struct xhci_device *d) {
+    uint32_t rf;
+    return rtl8188cu_read(d,RTL8188CU_RF_CONTROL,1,&rf) && !(rf&RTL8188CU_RF_ENABLE);
+}
+
 static bool rtl8188cu_radio_parked(struct xhci_device *d) {
-    uint32_t rf,mac;
-    return rtl8188cu_read(d,RTL8188CU_RF_CONTROL,1,&rf) &&
-        rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) &&
-        !(rf&RTL8188CU_RF_ENABLE) && !(mac&RTL8188CU_TX_ENABLE);
+    uint32_t mac;
+    return rtl8188cu_rf_off(d) && rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) && !(mac&RTL8188CU_TX_ENABLE);
 }
 
 static bool rtl8188cu_setup_read(struct xhci_device *d,const char *step,uint16_t reg,
@@ -3146,8 +3150,8 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
     if((*status&running) || !rtl8188cu_setup_write(d,"ready-write",RTL8188CU_MCU_STATUS,4,
         *status|RTL8188CU_DL_READY))return "start";
     if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,running|RTL8188CU_DL_ENABLE,running,192,status))return "ready";
-    if(!rtl8188cu_check_port(d,hub) || !rtl8188cu_radio_parked(d) ||
-       (passive && !rtl_cu_rx_held(d)))return "final-gates";
+    if(!rtl8188cu_check_port(d,hub) ||
+       (passive?(!rtl8188cu_rf_off(d) || !rtl_cu_rx_held(d)):!rtl8188cu_radio_parked(d)))return "final-gates";
     if(!rtl8188cu_power_sample(d,RTL8188CU_POWER_FIRMWARE_READY))return "power-sample";
     return NULL;
 }
