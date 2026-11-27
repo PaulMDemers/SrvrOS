@@ -448,6 +448,23 @@ reopen checks passed, all 5,529,600 bytes matched and both restored CRCs
 were `0xc2798333`. USB integrity passed offline. A function reset still
 requires evidence of request exclusion and completed GPU memory traffic.
 
+#### Protected translation evidence across panel recovery
+
+Version 5 of the PCI-hold receipt adds a read-only snapshot of GGTT slot
+12292 and its immediate neighbors. It samples the entries with the original
+panel active, again with the panel dark and PCI Command at `0x0402`, and
+once more after the original framebuffer and both CRC windows verify. The
+dark sample requires AF Transaction Pending to be clear. Each snapshot
+uses one read-only UC alias, checks the PCI and display state on both sides
+of the read, and retires the alias before recording completion.
+
+The combined diagnostic requires all three snapshots to match. A cleanly
+retired incomplete sample still allows the panel to recover and the report
+to be saved. These observations leave the three entries untouched and
+grant no GPU address range. A native traffic hold still requires fresh
+engine and L3 completion acknowledgements before a function reset or a
+new mapping can proceed.
+
 #### Backlight PWM recovery
 
 The `intel-edp-dark-pwm-v1` profile captures the inherited PCH PWM control

@@ -36,6 +36,7 @@ SCHEMAS = {
     "intel-edp-pci-hold": "v complete samples writes polls elapsed_us settle_us first_clear_us cpu_copy digest backing retained",
     "intel-edp-pci-hold-word": "v phase command af",
     "intel-edp-rc6": "v seq begin_us end_us core residency wake_ack",
+    "intel-edp-candidate": "v phase slot complete reads retired begin_us end_us command af left target right",
     "intel-edp-reopen": "v seq check at ok read got want",
     "intel-edp-pwm": "v complete retained writes elapsed_us before_ctl before_data after_ctl after_data",
     "intel-edp-pps": "v complete retained samples writes wait_us program_us initial_status idle_status",
@@ -77,7 +78,7 @@ def rows_of(text):
             if key in row or not re.fullmatch(r"0x[0-9a-fA-F]{1,16}|[0-9]{1,20}", value):
                 raise ValueError("Malformed eDP field")
             row[key] = int(value, 16 if value.startswith("0x") else 10)
-        versions = (1, 2, 3, 4) if name == "intel-edp-pci-hold" else (1,)
+        versions = (1, 2, 3, 4, 5) if name == "intel-edp-pci-hold" else (1,)
         if row.keys() != set(SCHEMAS[name].split()) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
             raise ValueError("Unsupported eDP row")
         rows[name].append(row)
@@ -306,6 +307,35 @@ def dark_rc6_result(points, hold):
     return observation
 
 
+def candidate_result(points, config, hold, display, *, native):
+    if hold["v"] < 5:
+        if points:
+            raise ValueError("Unexpected legacy eDP candidate evidence")
+        return None
+    if (len(points) > 3 or (points and not native) or
+            (len(points) >= 2 and (hold["samples"] < 4 or display["stage"] < 6)) or
+            (len(points) == 3 and not hold["complete"]) or
+            (display["complete"] and len(points) != 3)):
+        raise ValueError("Invalid eDP candidate coverage")
+    words = ("left", "target", "right")
+    original = next((r["word"] for r in config if r["phase"] == 0 and r["index"] == 3), None)
+    for i, point in enumerate(points):
+        reads, command = point["reads"], point["command"]
+        begin, end = point["begin_us"], point["end_us"]
+        expected = (original & 0xffff0000) | (0x402 if i == 1 else 7) if original is not None else None
+        valid_complete = (reads == 3 and point["retired"] == 1 and 0 < begin < end < begin + 100000)
+        if (point["phase"] != i or point["slot"] != 12292 or reads > 3 or point["retired"] > 1 or
+                point["complete"] > 1 or (point["complete"] and not valid_complete) or point["af"] or
+                (reads and not command) or (end and (not begin or end < begin)) or
+                (command and (not begin or command != expected)) or
+                (i and begin and points[i-1]["end_us"] and begin < points[i-1]["end_us"]) or
+                any(point[k] for k in words[reads:]) or any(point[k] == 2**64-1 for k in words[:reads])):
+            raise ValueError("Invalid eDP candidate sample")
+    preserved = len(points) == 3 and all(p["complete"] for p in points) and all(
+        p[k] == points[0][k] for p in points[1:] for k in words)
+    return dict(samples=points, preserved=preserved)
+
+
 def pci_hold_result(rows, *, native, display):
     summaries, samples = (rows[k] for k in HOLD_ROWS)
     if len(summaries) != 1:
@@ -515,10 +545,14 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         hold = pci_hold_result(rows, native=native, display=observed)
         reopen_failure = pci_reopen_result(rows, hold)
         dark_rc6 = dark_rc6_result(rows["intel-edp-rc6"], hold)
+        candidate = candidate_result(rows["intel-edp-candidate"], rows["intel-edp-flr-config"], hold,
+                                     observed, native=native)
         if dark_rc6 is None:
             del rows["intel-edp-rc6"]
+        if candidate is None:
+            del rows["intel-edp-candidate"]
     else:
-        for key in (*HOLD_ROWS, "intel-edp-reopen", "intel-edp-rc6"):
+        for key in (*HOLD_ROWS, "intel-edp-reopen", "intel-edp-rc6", "intel-edp-candidate"):
             if rows.pop(key):
                 raise ValueError("Unexpected PCI decode hold evidence")
     if dark_pwm:
@@ -533,6 +567,7 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
                 raise ValueError("Unexpected eDP panel timing evidence")
     if flr:
         handoff = (not dark_well or bool(well["complete"])) and (not pci_hold or bool(hold["complete"]))
+        handoff = handoff and (not pci_hold or candidate is None or candidate["preserved"])
         handoff = handoff and (not dark_pwm or bool(pwm["complete"])) and (not dark_pps or bool(pps["complete"]))
         flr_preflight = flr_result(rows, native=native, display=observed,
                                    handoff_complete=handoff)
@@ -575,6 +610,8 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         report["pci_hold"] = hold
         if dark_rc6 is not None:
             report["dark_rc6"] = dark_rc6
+        if candidate is not None:
+            report["candidate"] = candidate
         if hold["v"] >= 2:
             report["pci_reopen_failure"] = reopen_failure
         else:

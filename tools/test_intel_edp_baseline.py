@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from hardware_boot import EDP_CONFIGS, limine_config
 from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
-from intel_edp_baseline import PREFIX, checkpoint, dark_rc6_result, pci_reopen_result, recipe, result, rows_of
+from intel_edp_baseline import PREFIX, candidate_result, checkpoint, dark_rc6_result, pci_reopen_result, recipe, result, rows_of
 
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = "1" * 16
@@ -48,6 +48,30 @@ def packet(positive, patterned=False):
 
 
 class EdpBaseline(unittest.TestCase):
+    def test_dark_candidate_coverage_and_recovery(self):
+        hold = dict(v=5, samples=5, complete=1)
+        display = dict(stage=8, complete=1)
+        config = [dict(phase=0, index=3, word=0x100007)]
+        common = dict(v=1, slot=12292, complete=1, reads=3, retired=1, af=0,
+                      left=0x8f004001, target=0x8f005001, right=0x8f006001)
+        points = [dict(common, phase=i, begin_us=100 + 100*i, end_us=150 + 100*i,
+                       command=0x100402 if i == 1 else 0x100007) for i in range(3)]
+        self.assertTrue(candidate_result(points, config, hold, display, native=True)["preserved"])
+        changed = [points[0], dict(points[1], target=0), points[2]]
+        self.assertFalse(candidate_result(changed, config, hold, display, native=True)["preserved"])
+        for bad in (points[:2], [points[0], dict(points[1], command=0x100007), points[2]],
+                    [points[0], dict(points[1], slot=12291), points[2]],
+                    [points[0], dict(points[1], retired=0), points[2]],
+                    [points[0], dict(points[1], af=0x100), points[2]],
+                    [points[0], dict(points[1], begin_us=50), points[2]]):
+            with self.assertRaises(ValueError):
+                candidate_result(bad, config, hold, display, native=True)
+        with self.assertRaises(ValueError):
+            candidate_result(points, config, hold, display, native=False)
+        refused = dict(display, stage=0, complete=0)
+        self.assertIsNone(candidate_result([], [], dict(hold, v=4), refused, native=False))
+        self.assertFalse(candidate_result([], [], dict(hold, samples=0, complete=0), refused, native=False)["preserved"])
+
     def test_dark_rc6_receipt(self):
         hold = dict(v=4, samples=5, writes=4, elapsed_us=204000, settle_us=250)
         first = dict(seq=0, begin_us=260, end_us=270, core=0, residency=0xffffffff, wake_ack=0)

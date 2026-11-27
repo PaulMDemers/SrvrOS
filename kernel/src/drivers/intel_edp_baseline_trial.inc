@@ -25,6 +25,15 @@ struct edp_cycle_observation {
 #define EDP_FRAME_PAGES (EDP_FRAME_BYTES / 4096u)
 #define EDP_FRAME_DEADLINE_US 2000000u
 #define EDP_FLR_PCI_WORDS 16u
+#define EDP_CANDIDATE_SLOT 12292u
+#define EDP_CANDIDATE_OFFSET (0x800000u + 8 * EDP_CANDIDATE_SLOT)
+
+struct edp_candidate_sample {
+    uint64_t begin, end, pte[3];
+    uint32_t command, af;
+    unsigned reads;
+    bool complete, retired;
+};
 
 struct edp_flr_preflight {
     uint64_t copy, pixels[3], elapsed[3];
@@ -38,6 +47,8 @@ struct edp_flr_preflight {
     struct bdw_edp_pps_image pps_image;
     struct bdw_edp_pps_report pps;
     uint64_t ram_digest;
+    struct edp_candidate_sample candidate[3];
+    unsigned candidate_samples;
     struct {
         uint32_t bios, driver, pps;
     } well[3];
@@ -729,6 +740,51 @@ static bool edp_recover_held_well(struct edp_adapter *a)
                              BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON);
 }
 
+static bool edp_candidate_guard(struct edp_adapter *a, unsigned phase, struct bdw_pci_hold_sample *pci)
+{
+    bool dark = phase == 1;
+    const struct edp_flr_preflight *f = a->flr;
+    if (!edp_source_held(a,a->image) || (dark && !edp_recovery_held(a)) ||
+        !edp_pci_hold_sample(a,pci) || pci->af ||
+        pci->command != ((f->pci[0][3] & 0xffff0000u) | (dark ? 0x402u : 7u)) ||
+        !edp_expect(a,0xc7204,UINT32_MAX,dark ? 0u : 7u) ||
+        !edp_expect(a,0xc7200,0xb0000000u,dark ? 0u : 0x80000000u) ||
+        !edp_expect(a,0x70180,1u << 31,dark ? 0u : 1u << 31)) return false;
+    return dark || (edp_expect(a,0x7019c,~8u,0) && edp_expect(a,0x701ac,UINT32_MAX,0));
+}
+
+/* The trial reads a fixed occupied candidate and both neighbors. The raw
+ * PTEs supply no ownership. A clean sample failure must permit recovery. */
+static void edp_candidate_sample(struct edp_adapter *a, unsigned phase)
+{
+    struct edp_flr_preflight *f = a->flr;
+    if (f->candidate_samples != phase || phase >= 3) return;
+    struct edp_candidate_sample *s = &f->candidate[f->candidate_samples++];
+    struct bdw_pci_hold_sample before, after;
+    s->begin = now(a);
+    if (!s->begin || !edp_candidate_guard(a,phase,&before)) return;
+    s->command = before.command;
+    s->af = before.af;
+    if (!edp_map_backing(a,EDP_CANDIDATE_OFFSET & ~4095u)) return;
+    for (unsigned i = 0; i < 3; ++i) {
+        uint64_t word;
+        if (!edp_read_pair(a,EDP_CANDIDATE_OFFSET - 8 + 8 * i,&word) || word == UINT64_MAX) break;
+        s->pte[s->reads++] = word;
+    }
+    s->retired = edp_unmap_backing(a);
+    bool stable = s->retired && edp_candidate_guard(a,phase,&after) && before.command == after.command;
+    s->end = now(a);
+    s->complete = stable && s->reads == 3 && s->end > s->begin && s->end - s->begin < 100000u;
+}
+
+static bool edp_candidate_preserved(const struct edp_flr_preflight *f)
+{
+    return f->candidate_samples == 3 && f->candidate[0].complete && f->candidate[1].complete &&
+           f->candidate[2].complete &&
+           !__builtin_memcmp(f->candidate[0].pte,f->candidate[1].pte,sizeof(f->candidate[0].pte)) &&
+           !__builtin_memcmp(f->candidate[0].pte,f->candidate[2].pte,sizeof(f->candidate[0].pte));
+}
+
 static bool edp_pci_hold_backing(void *context)
 {
     struct edp_adapter *a = context;
@@ -740,7 +796,9 @@ static bool edp_pci_hold_backing(void *context)
     /* The caller has positively read back MEM on with BME still off. */
     a->decode_closed = false;
     a->pci_backing_check = true;
-    bool ok = edp_cycle_platform(a, true) && edp_recover_held_well(a) && edp_flr_pixels(a);
+    bool ok = edp_cycle_platform(a, true) && edp_recover_held_well(a);
+    if (ok) edp_candidate_sample(a,1);
+    ok = ok && !a->map_fault && edp_flr_pixels(a);
     a->pci_backing_check = false;
     a->trace_reopen = false;
     return ok;
@@ -1018,7 +1076,8 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
     };
     bool flr = a->flr != NULL;
     bool ready = edp_cycle_platform(a, true) && (!flr || (edp_flr_config(a) && edp_flr_pixels(a)));
-    bool ok = ready && intel_bdw_edp_source_cycle(&io, &image, ref,
+    if (ready && flr && a->flr->exercise_pci) edp_candidate_sample(a,0);
+    bool ok = ready && !a->map_fault && intel_bdw_edp_source_cycle(&io, &image, ref,
                                                   flr ? edp_flr_dark : NULL, a, &native->report);
     if (ok && flr) {
         bool pixels = edp_flr_pixels(a);
@@ -1026,6 +1085,7 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
             (void)edp_flr_config(a);
         if (!pixels)
             native->report.retained = true;
+        if (pixels && a->flr->exercise_pci) edp_candidate_sample(a,2);
     }
     a->image = NULL;
     if (!native->report.retained && !a->map_fault && !trial_mapping_fault &&
@@ -1237,7 +1297,7 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                         (uint64_t)i, s->begin_us, s->end_us, (uint64_t)s->core_status,
                         (uint64_t)s->residency, (uint64_t)s->wake_ack);
                 }
-                console_printf("intel-edp-pci-hold: v=4 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
+                console_printf("intel-edp-pci-hold: v=5 complete=%u samples=%u writes=%u polls=%u elapsed_us=%u settle_us=%u first_clear_us=%u cpu_copy=%u digest=%x backing=%u retained=%u\n",
                     (uint64_t)p->complete, (uint64_t)p->samples, (uint64_t)p->writes, (uint64_t)p->polls,
                     p->elapsed_us, p->settle_us, p->first_clear_us, (uint64_t)p->cpu_copy, flr.ram_digest,
                     (uint64_t)p->backing, (uint64_t)p->retained);
@@ -1247,7 +1307,14 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                         (uint64_t)i, (uint64_t)e->check, (uint64_t)e->index,
                         (uint64_t)e->ok, (uint64_t)e->sampled, e->observed, e->expected);
                 }
-                ready = ready && p->complete;
+                for (unsigned i = 0; i < flr.candidate_samples; ++i) {
+                    const struct edp_candidate_sample *s = &flr.candidate[i];
+                    console_printf("intel-edp-candidate: v=1 phase=%u slot=%u complete=%u reads=%u retired=%u begin_us=%u end_us=%u command=%x af=%x left=%x target=%x right=%x\n",
+                        (uint64_t)i, (uint64_t)EDP_CANDIDATE_SLOT, (uint64_t)s->complete, (uint64_t)s->reads,
+                        (uint64_t)s->retired, s->begin, s->end, (uint64_t)s->command, (uint64_t)s->af,
+                        s->pte[0], s->pte[1], s->pte[2]);
+                }
+                ready = ready && p->complete && edp_candidate_preserved(&flr);
             }
             if (dark_well) {
                 bool well_complete = flr.well_samples == 3 && flr.well_writes == 2 && flr.well_elapsed;

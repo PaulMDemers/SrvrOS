@@ -405,8 +405,10 @@ the panel is dark and bus mastering is inhibited. It checks the CPU RAM
 copy while decode is closed and compares the live backing with memory
 decode reopened before restoring bus mastering. It then verifies two
 original CRCs and returns after saving a safely retired outcome. The
-profile is silent at 1% host volume. If the screen stays dark for 60
-seconds, restart manually. [PCI decode hold](intel-bdw-edp-recovery.md#pci-decode-hold-and-reset-default-clock).
+report records read-only samples of GGTT slot 12292 and its neighbors
+before, during and after the cycle. The profile is silent at 1% host
+volume. If the screen stays dark for 60 seconds, restart manually.
+[Translation evidence during panel recovery](intel-bdw-edp-recovery.md#protected-translation-evidence-across-panel-recovery).
 
 The explicit `--profile intel-edp-dark-pwm-v1` tests recovery of the
 original backlight PWM with the panel off, then checks the framebuffer and
