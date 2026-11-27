@@ -516,6 +516,13 @@ cases and 99 Q35 cases. The saved Air EFI record still has `grants=0`, and
 the native aperture census supplies no vacant, granted entry. No physical
 trial was installed or scheduled. [Scratch publication and native prerequisite](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
 
+The full display takeover starts from `3e241194` with main `dc4a48d3`
+reviewed. The user approved a brief boot blank. This block joins the
+Broadwell eDP shutdown and recovery, the existing reset completion gate,
+and the first driver-owned GGTT mapping under one display lease. Work is
+limited to the recovery and page diagnostic cores and their host and Q35
+fixtures. The Haswell observer in PR 567 remains independent.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
