@@ -1,3 +1,4 @@
+import hashlib
 import struct
 import subprocess
 import tempfile
@@ -100,9 +101,10 @@ class Probe(unittest.TestCase):
                     raise subprocess.CalledProcessError(1, args)
                 attached = args[0] == "mount"
 
-            def capture(actual, *, direct):
+            def capture(actual, *, direct, partition=False):
                 self.assertEqual(actual, disk)
                 self.assertTrue(direct)
+                self.assertEqual(partition, not attached)
                 events.append("mounted-read" if attached else "clean-read")
                 if attached:
                     return mounted, bytes(mounted_sector)
@@ -115,10 +117,11 @@ class Probe(unittest.TestCase):
                   patch.object(probe, "_ubuntu_capture", side_effect=capture),
                   patch.object(probe.subprocess, "run", side_effect=run)):
                 if mode == "passed":
-                    self.assertEqual(probe.clean_ubuntu_reference(disk), (clean, clean_sector, bytes(mounted_sector)))
+                    self.assertEqual(probe.clean_ubuntu_reference(disk, partition=True),
+                                     (clean, clean_sector, bytes(mounted_sector)))
                 else:
                     with self.assertRaises((OSError, subprocess.CalledProcessError, ValueError)):
-                        probe.clean_ubuntu_reference(disk)
+                        probe.clean_ubuntu_reference(disk, partition=True)
             expected = ["mounted-read", "umount"]
             if mode in ("passed", "read-error"):
                 expected += ["clean-read", "mount"]
@@ -211,3 +214,48 @@ class Probe(unittest.TestCase):
             probe.verify_gpt(primary, backup[:-1])
         with self.assertRaisesRegex(ValueError, "Overlapping"):
             probe.verify_gpt(*fixture(overlap=True)[:2])
+
+    def test_partition_profile_and_exact_receipt(self):
+        v3 = boot.limine_config(RELEASE, f"ram-usb-v3-air61-ssd-{VOLUME}")
+        v4 = boot.limine_config(RELEASE, f"ram-usb-v4-air61-ssd-{VOLUME}")
+        flag = " srvros.ssd-partition-read=1"
+        self.assertEqual(v4.replace(flag, ""), v3)
+        with self.assertRaisesRegex(ValueError, "require the port 0 SATA reset"):
+            boot.stage(air61_ssd_probe_volume=VOLUME, air61_ssd_partition_read=True)
+        with tempfile.TemporaryFile() as disk:
+            disk.truncate(probe.SECTORS * probe.SECTOR)
+            for (lba, _), data in zip(probe.SAMPLES, fixture()):
+                disk.seek(lba * probe.SECTOR)
+                disk.write(data)
+            disk.seek((2048 + 32) * probe.SECTOR)
+            content = b"3" * (16 * probe.SECTOR)
+            disk.write(content)
+            disk.flush()
+            baseline, _ = probe._read_samples(disk.fileno(), partition=True)
+        self.assertEqual(baseline["partition_samples"][1],
+                         dict(offset=32, sectors=16, commands=2, sha256=hashlib.sha256(content).hexdigest()))
+        self.assertEqual(baseline["partition_samples"][-1]["offset"], 6136)
+
+        trace = reset_trace(RELEASE, VOLUME)
+        profile, *port = trace
+        gpt = ["air61-ssd-gpt: lba={lba} sectors={sectors} efi={efi}".format(**p)
+               for p in baseline["partition_layout"]]
+        samples = ["air61-ssd-sample: lba={lba} sectors={sectors} sha256={sha256}".format(**s)
+                   for s in baseline["samples"]]
+        parts = ["air61-ssd-partition: offset={offset} sectors={sectors} commands={commands} sha256={sha256}".format(**s)
+                 for s in baseline["partition_samples"]]
+        rows = [profile + flag, probe.IDENTITY, *samples, *gpt, *parts, *port, probe.PASS]
+        receipt = "\n".join(rows)
+        result = probe.compare_receipt(receipt, RELEASE, VOLUME, baseline, reset=True, partition=True)
+        self.assertEqual(result["partition_read_commands"], 4)
+        mutations = (
+            receipt.replace(gpt[0], gpt[0].replace("2048", "2049")),
+            receipt.replace(parts[1], parts[1].replace("commands=2", "commands=16")),
+            receipt.replace(parts[2], parts[0]),
+            receipt.replace(parts[1], ""),
+            receipt.replace(parts[1], parts[1].replace(hashlib.sha256(content).hexdigest(), "0" * 64)),
+            receipt.replace(port[-1], port[-1].replace("cmd=0x0000000000000000", "cmd=0x0000000000000010")),
+        )
+        for bad in mutations:
+            with self.assertRaises(ValueError):
+                probe.compare_receipt(bad, RELEASE, VOLUME, baseline, reset=True, partition=True)

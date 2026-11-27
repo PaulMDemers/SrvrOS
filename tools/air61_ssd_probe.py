@@ -18,6 +18,7 @@ SAMPLES = ((0, 34), (SECTORS - 33, 33), (2048, 1))
 RECEIPT = "srvros-work/air61-ssd-probe.log"
 PORT_RECEIPT = "srvros-work/air61-ssd-port-state.log"
 RESET_RECEIPT = "srvros-work/air61-ssd-port-reset.log"
+PARTITION_RECEIPT = "srvros-work/air61-ssd-partition-read.log"
 PREVIOUS_RESET_RECEIPT = "srvros-work/air61-ssd-port-reset-mounted-baseline.log"
 PCI = "0000:04:00.0"
 MODEL = "APPLE SSD SD0128F"
@@ -31,7 +32,7 @@ def require(wanted, message):
         raise ValueError(message)
 
 
-def verify_gpt(primary, backup):
+def _gpt_layout(primary, backup):
     require(len(primary) == 34 * SECTOR and len(backup) == 33 * SECTOR, "Short GPT sample")
     require(primary[510:512] == b"\x55\xaa", "Missing protective MBR signature")
     entries = [primary[i:i + 16] for i in range(446, 510, 16)]
@@ -74,11 +75,15 @@ def verify_gpt(primary, backup):
                 "Invalid GPT partition identity or extent")
         guids.add(identity)
         partitions.append((start, end, kind))
-    partitions.sort()
-    require(partitions and partitions[0][::2] == (2048, EFI), "Expected EFI partition at LBA 2048")
-    require(all(left[1] < right[0] for left, right in zip(partitions, partitions[1:])),
+    ordered = sorted(partitions)
+    require(ordered and ordered[0][::2] == (2048, EFI), "Expected EFI partition at LBA 2048")
+    require(all(left[1] < right[0] for left, right in zip(ordered, ordered[1:])),
             "Overlapping GPT partitions")
-    return len(partitions)
+    return partitions
+
+
+def verify_gpt(primary, backup):
+    return len(_gpt_layout(primary, backup))
 
 
 def _direct_read(fd, size, offset):
@@ -93,19 +98,34 @@ def _direct_read(fd, size, offset):
         return buffer[skip:skip + size]
 
 
-def _read_samples(fd, *, direct=False):
+def _read_samples(fd, *, direct=False, partition=False):
     read = _direct_read if direct else os.pread
     data = [read(fd, count * SECTOR, start * SECTOR) for start, count in SAMPLES]
     require(all(len(content) == count * SECTOR for (_, count), content in zip(SAMPLES, data)),
             "Short SSD read")
-    partitions = verify_gpt(*data[:2])
+    layout = _gpt_layout(*data[:2])
     require(data[2][510:512] == b"\x55\xaa", "Missing ESP boot-sector signature")
     report = {
         "gpt": "PASS",
-        "partitions": partitions,
+        "partitions": len(layout),
         "samples": [dict(lba=lba, sectors=count, sha256=hashlib.sha256(content).hexdigest())
                     for (lba, count), content in zip(SAMPLES, data)],
     }
+    if partition:
+        efi = [(start, end - start + 1) for start, end, kind in layout if kind == EFI]
+        require(len(efi) == 1 and efi[0][1] >= 56, "Expected one EFI partition with room for sample ranges")
+        start_lba, sectors = efi[0]
+        report["partition_layout"] = [dict(lba=start, sectors=end - start + 1, efi=int(kind == EFI))
+                                      for start, end, kind in layout]
+        samples = []
+        for offset, count in ((0, 8), (32, 16), (sectors - 8, 8)):
+            content = read(fd, count * SECTOR, (start_lba + offset) * SECTOR)
+            require(len(content) == count * SECTOR, "Short EFI partition read")
+            if offset == 0:
+                require(content[:SECTOR] == data[2], "EFI boot sector changed during capture")
+            samples.append(dict(offset=offset, sectors=count, commands=count // 8,
+                                sha256=hashlib.sha256(content).hexdigest()))
+        report["partition_samples"] = samples
     return report, data[2]
 
 
@@ -114,7 +134,7 @@ def read_samples(fd):
     return report
 
 
-def _ubuntu_capture(disk, *, direct=False):
+def _ubuntu_capture(disk, *, direct=False, partition=False):
     disk = Path(disk).resolve(strict=True)
     model = Path("/sys/class/dmi/id/product_name").read_text().strip()
     require(model == "MacBookAir6,1", "Wrong machine model")
@@ -146,7 +166,7 @@ def _ubuntu_capture(disk, *, direct=False):
         require(stat.S_ISBLK(info.st_mode) and
                 f"{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}" == (sysfs / "dev").read_text().strip(),
                 "Opened device does not match sysfs")
-        return _read_samples(fd, direct=direct)
+        return _read_samples(fd, direct=direct, partition=partition)
     finally:
         os.close(fd)
 
@@ -184,35 +204,37 @@ def _efi_mount(disk, mountpoint):
     return partition, frozenset(fields[2].split(","))
 
 
-def clean_ubuntu_reference(disk, mountpoint=Path("/boot/efi")):
+def clean_ubuntu_reference(disk, mountpoint=Path("/boot/efi"), *, partition=False):
     """Capture the whole sector in each mount state and restore Ubuntu's EFI mount."""
-    partition, options = _efi_mount(disk, mountpoint)
+    efi_partition, options = _efi_mount(disk, mountpoint)
     # The raw disk and its mounted partition can have different page-cache
     # entries. Bypass the raw-device cache on both sides of the clean unmount.
     mounted, mounted_sector = _ubuntu_capture(disk, direct=True)
     try:
         subprocess.run(("umount", "--", str(mountpoint)), check=True, timeout=20)
-        require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(partition)),
+        require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(efi_partition)),
                 "EFI partition is still mounted")
-        clean, clean_sector = _ubuntu_capture(disk, direct=True)
-        require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(partition)),
+        clean, clean_sector = _ubuntu_capture(disk, direct=True, partition=partition)
+        require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(efi_partition)),
                 "EFI partition was mounted during the clean capture")
         require(clean["samples"][:2] == mounted["samples"][:2], "GPT changed across the EFI unmount")
     finally:
         if not _find_efi("-M", str(mountpoint)):
-            require(not _find_efi("-S", str(partition)), "EFI moved to another mount during capture")
+            require(not _find_efi("-S", str(efi_partition)), "EFI moved to another mount during capture")
             subprocess.run(("mount", "--", str(mountpoint)), check=True, timeout=20)
-        require(_efi_mount(disk, mountpoint) == (partition, options), "Ubuntu EFI mount was not restored")
+        require(_efi_mount(disk, mountpoint) == (efi_partition, options), "Ubuntu EFI mount was not restored")
     return clean, clean_sector, mounted_sector
 
 
-def probe_profile(release, volume, port_state, reset=False):
+def probe_profile(release, volume, port_state, reset=False, partition=False):
     profile = ("air61-ssd: profile srvros.storage=ram srvros.capture=air61-ssd-read-only "
                f"srvros.workspace-volume={volume} srvros.ssd-release={release}")
     if port_state or reset:
         profile += " srvros.ssd-port-state=1"
     if reset:
         profile += " srvros.ssd-reset=port0"
+    if partition:
+        profile += " srvros.ssd-partition-read=1"
     return profile
 
 
@@ -254,9 +276,10 @@ def verify_reset_trace(status, snapshots):
             "Missing ready post-reset device status")
 
 
-def read_port_trace(receipt, release, volume, *, reset=False):
+def read_port_trace(receipt, release, volume, *, reset=False, partition=False):
     lines = receipt.splitlines()
-    require(lines.count(probe_profile(release, volume, True, reset)) == 1, "Port trace release or workspace differs")
+    require(lines.count(probe_profile(release, volume, True, reset, partition)) == 1,
+            "Port trace release or workspace differs")
     controllers = [line for line in lines if line.startswith("air61-ssd-controller:")]
     require(len(controllers) == 1, "Missing or duplicate AHCI controller snapshot")
     match = re.fullmatch(r"air61-ssd-controller: firmware_ghc=0x0{8}([0-9a-f]{8}) firmware_port=([01])",
@@ -312,8 +335,8 @@ def read_port_trace(receipt, release, volume, *, reset=False):
     return result
 
 
-def compare_receipt(receipt, release, volume, baseline, *, port_state=False, reset=False):
-    profile = probe_profile(release, volume, port_state, reset)
+def compare_receipt(receipt, release, volume, baseline, *, port_state=False, reset=False, partition=False):
+    profile = probe_profile(release, volume, port_state, reset, partition)
     rows = [line for line in receipt.splitlines()
             if line.startswith(("air61-ssd:", "air61-ssd-device:", "air61-ssd-sample:"))]
     require(baseline["gpt"] == "PASS", "Missing Ubuntu GPT validation")
@@ -328,5 +351,22 @@ def compare_receipt(receipt, release, volume, baseline, *, port_state=False, res
     require(tuple((sample["lba"], sample["sectors"]) for sample in samples) == SAMPLES,
             "Unexpected native sample coverage")
     require(samples == baseline["samples"], "Native sample hashes differ from Ubuntu")
-    return dict(status="PASS", release=release, gpt="primary-and-backup-match-verified-ubuntu",
-                partitions=baseline["partitions"], samples=samples, internal_mounted=False, ata_writes=0)
+    result = dict(status="PASS", release=release, gpt="primary-and-backup-match-verified-ubuntu",
+                  partitions=baseline["partitions"], samples=samples, internal_mounted=False, ata_writes=0)
+    if partition:
+        require(reset, "Partition samples require the reset profile")
+        trace = read_port_trace(receipt, release, volume, reset=True, partition=True)
+        retired = trace["snapshots"][-1]
+        require(trace["reset"]["status"] == "ready" and not retired["cmd"] & 0xc011 and
+                not (retired["ci"] | retired["sact"]), "Unproved AHCI reset or retirement")
+        gpt_rows = [line for line in receipt.splitlines() if line.startswith("air61-ssd-gpt:")]
+        require(gpt_rows == ["air61-ssd-gpt: lba={lba} sectors={sectors} efi={efi}".format(**entry)
+                             for entry in baseline["partition_layout"]], "Native GPT partition layout differs")
+        partition_rows = [line for line in receipt.splitlines() if line.startswith("air61-ssd-partition:")]
+        require(partition_rows == [
+            "air61-ssd-partition: offset={offset} sectors={sectors} commands={commands} sha256={sha256}".format(**sample)
+            for sample in baseline["partition_samples"]
+        ], "Native EFI partition samples or command counts differ")
+        result.update(partition_layout=baseline["partition_layout"], partition_samples=baseline["partition_samples"],
+                      partition_read_commands=sum(sample["commands"] for sample in baseline["partition_samples"]))
+    return result

@@ -20,6 +20,9 @@ static uint64_t failure_ci,failure_is,failure_elapsed;
 static unsigned failure_logs;
 static uint64_t probe_reads[68];
 static unsigned probe_count;
+static uint8_t primary_gpt[34 * AHCI_SECTOR_SIZE];
+static uint64_t batched_lba[128];
+static unsigned batched_sectors[128], batch_count;
 static volatile struct hba_port *reset_port;
 static uint32_t *reset_fis;
 static unsigned reset_pulses;
@@ -27,6 +30,8 @@ enum reset_case { RESET_READY, RESET_NO_STATUS, RESET_FROZEN, RESET_SHORT_PULSE,
 static enum reset_case reset_case;
 void latency_enter(enum latency_site site) { assert(site==LATENCY_AHCI); profile_depth++; }
 void latency_leave(enum latency_site site) { assert(site==LATENCY_AHCI && profile_depth); profile_depth--; }
+uint64_t block_test_irq_save(void) { return 0; }
+void block_test_irq_restore(uint64_t flags) { assert(flags == 0); }
 bool scheduler_io_begin(void) {
     if (!services_enabled || in_service) return false;
     assert(!io_active); io_active=true; return true;
@@ -34,6 +39,7 @@ bool scheduler_io_begin(void) {
 bool scheduler_io_active(void) { return io_active; }
 void scheduler_io_end(void) { assert(io_active && !in_service); io_active=false; }
 bool scheduler_io_yield(void) {
+    if (!io_active) return false;
     assert(io_active && current_space==2 && profile_depth==0 && active_disk->busy);
     yields++;
     in_service=true;
@@ -50,7 +56,6 @@ bool scheduler_io_yield(void) {
     if (behavior==6 || (behavior==16 && yields==AHCI_SERVICE_LIMIT) || (behavior==17 && yields==3)) model.tfd=0;
     return true;
 }
-
 void console_printf(const char *fmt, ...) {
     if (!strstr(fmt,"failed; disk offline phase=")) return;
     va_list args;va_start(args,fmt);
@@ -91,6 +96,23 @@ uint64_t timer_monotonic_us(void) {
     polls++;
     if(behavior==14 && model.tfd && polls==2) { model.tfd=0;now+=AHCI_COMMAND_TIMEOUT_US; }
     if(model.ci) {
+        if (behavior == 20 || behavior == 21) {
+            unsigned count = table.cfis[12];
+            uint64_t lba = (uint64_t)table.cfis[4] | (uint64_t)table.cfis[5] << 8 |
+                (uint64_t)table.cfis[6] << 16 | (uint64_t)table.cfis[8] << 24;
+            assert(table.cfis[2] == ATA_CMD_READ_DMA_EXT && count >= 1 && count <= 8 &&
+                   table.cfis[13] == 0 && !(header.flags & (1u << 6)) && batch_count < 128);
+            assert((table.prdt[0].dbc_i & 0x3fffff) == count * AHCI_SECTOR_SIZE - 1);
+            batched_lba[batch_count] = lba;
+            batched_sectors[batch_count++] = count;
+            for (unsigned i = 0; i < count; i++) {
+                uint8_t *sector = buffer + i * AHCI_SECTOR_SIZE;
+                if (lba + i < 34) memcpy(sector, primary_gpt + (lba + i) * AHCI_SECTOR_SIZE, AHCI_SECTOR_SIZE);
+                else memset(sector, lba + i, AHCI_SECTOR_SIZE);
+            }
+            header.prdbc = count * AHCI_SECTOR_SIZE - (behavior == 21);
+            model.ci = 0;
+        }
         if (behavior == 18 || behavior == 19) {
             assert(table.cfis[2] == ATA_CMD_READ_DMA_EXT && table.cfis[12] == 1 &&
                    !(header.flags & (1u << 6)) && probe_count < 68);
@@ -173,6 +195,80 @@ static void air61_probe_contract(void) {
     probe_count = 0;
     now = AIR61_SSD_PROBE_US;
     assert(!air61_read_samples(&disk, 0) && !probe_count);
+}
+
+static void put_le(uint8_t *out, uint64_t value, unsigned size) {
+    for (unsigned i = 0; i < size; i++) out[i] = value >> (8 * i);
+}
+
+static uint32_t fixture_crc(const uint8_t *bytes, unsigned count) {
+    uint32_t crc = UINT32_MAX;
+    for (unsigned i = 0; i < count; i++) {
+        crc ^= bytes[i];
+        for (unsigned bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
+    }
+    return ~crc;
+}
+
+static void air61_partition_contract(void) {
+    primary_gpt[450] = 0xee;
+    put_le(primary_gpt + 454, 1, 4);
+    put_le(primary_gpt + 458, AIR61_SSD_SECTORS - 1, 4);
+    put_le(primary_gpt + 510, 0xaa55, 2);
+    uint8_t *gpt = primary_gpt + 512;
+    uint8_t *entries = primary_gpt + 1024;
+    memcpy(gpt, "EFI PART", 8);
+    put_le(gpt + 8, 0x10000, 4);
+    put_le(gpt + 12, 92, 4);
+    put_le(gpt + 24, 1, 8);
+    put_le(gpt + 32, AIR61_SSD_SECTORS - 1, 8);
+    put_le(gpt + 40, 34, 8);
+    put_le(gpt + 48, AIR61_SSD_SECTORS - 34, 8);
+    gpt[56] = 1;
+    put_le(gpt + 72, 2, 8);
+    put_le(gpt + 80, 128, 4);
+    put_le(gpt + 84, 128, 4);
+    memcpy(entries, "\x28\x73\x2a\xc1\x1f\xf8\xd2\x11\xba\x4b\x00\xa0\xc9\x3e\xc9\x3b", 16);
+    entries[16] = 1;
+    put_le(entries + 32, 2048, 8);
+    put_le(entries + 40, 4095, 8);
+    put_le(gpt + 88, fixture_crc(entries, 128 * 128), 4);
+    put_le(gpt + 16, fixture_crc(gpt, 92), 4);
+
+    block_init();
+    struct ahci_disk disk = setup(20);
+    disk.probe_partition = true;
+    batch_count = 0;
+    assert(air61_partition_samples(&disk, 0) && batch_count >= 4);
+    const uint64_t want[] = {2048, 2080, 2088, 4088};
+    for (unsigned i = 0; i < 4; i++) {
+        unsigned n = batch_count - 4 + i;
+        assert(batched_lba[n] == want[i] && batched_sectors[n] == 8);
+    }
+    struct block_device *view = block_find("airssdp1");
+    assert(view && block_parent(view) == disk.block && !view->write && !disk.block->write);
+    uint8_t data[4096];
+    assert(block_read(view, 32 * 512, data, sizeof(data)));
+    for (unsigned i = 0; i < sizeof(data); i++) assert(data[i] == (uint8_t)(2080 + i / 512));
+    unsigned before = batch_count;
+    assert(!block_enable_partition_writes(view) && !block_write(view, 0, data, sizeof(data)));
+    assert(!block_read(view, 2047 * 512, data, sizeof(data)) && batch_count == before);
+    assert(!issue_command(&disk, ATA_CMD_FLUSH_CACHE_EXT, 0, 0, false));
+    block_invalidate(disk.block);
+    assert(!block_read(view, 0, data, sizeof(data)) && batch_count == before);
+
+    block_init();
+    disk = setup(21);
+    disk.probe_partition = true;
+    batch_count = 0;
+    assert(!air61_partition_samples(&disk, 0) && batch_count == 1);
+    block_init();
+    disk = setup(20);
+    disk.probe_partition = true;
+    now = AIR61_SSD_PROBE_US;
+    batch_count = 0;
+    assert(!air61_partition_samples(&disk, 0) && batch_count == 0);
+    puts("air61-ahci-partition: PASS GPT views, four 4 KiB reads, deadline, short DMA and write refusal");
 }
 
 static void air61_port_trace_contract(void) {
@@ -265,6 +361,7 @@ static void air61_reset_contract(void) {
 int main(void) {
     allocation_contract();
     air61_probe_contract();
+    air61_partition_contract();
     air61_port_trace_contract();
     air61_reset_contract();
     struct ahci_disk disk=setup(0);
@@ -337,5 +434,3 @@ int main(void) {
     identify[167]=0x10; assert(identify_flush_command(identify)==0);
     puts("ahci-host: PASS (DMA/flush descriptors, stuck busy/CI, errors, quarantine, address-space restore, ownership, service windows)");
 }
-
-void block_invalidate(struct block_device *d) { d->offline=true; }

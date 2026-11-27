@@ -454,6 +454,7 @@ def main():
                     text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)
                     assert "SRVROS_GRUB_CHAINLOAD_TEST" in text and not has_fatal_exception(text)
                     assert not any(s in text for s in ("ahci: abar=", "air61-ssd-sample:", "air61-ssd-controller:",
+                                                       "air61-ssd-gpt:", "air61-ssd-partition:",
                                                        "air61-ssd-port:", "air61-ssd-reset:", "workspace: ready", "init: started",
                                                        "exfat: mounted"))
                     result = dict(status="PASS", release=release,

@@ -15195,3 +15195,13 @@ snapshot reproduces both native EFI hashes. Ubuntu returned with its EFI
 mount restored and recovery release `c35475f62f154f1e` retained. All four
 USB receipts matched the local archives. This accepts the bounded read-only
 probe on this unit.
+
+#### Bounded partition-read scope
+
+From main `917e7c5c` (PR559), use the admitted port 0 reset and IDENTIFY to
+exercise the regular block cache and GPT partition read path in a standalone
+profile. Scope is opt-in AHCI reads, staging, and Ubuntu receipt comparison.
+The SSD remains unmounted, with no write or flush callbacks. The existing
+reset, command, polling, and sample deadlines apply. Capture both GPT regions
+and fixed ranges of the clean EFI partition. PR550's installed-boot path and
+the ordinary AHCI path keep their existing behavior.
